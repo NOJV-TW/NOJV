@@ -2,7 +2,7 @@
 
 ## Users And Outcomes
 
-- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, view editorials after AC, join courses via invite token
+- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, view editorials after AC; course enrollment is teacher-driven (no self-serve join token)
 - **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments and exams (publish / archive / delete-draft lifecycle), duplicate existing courses, monitor student progress matrix, trigger plagiarism detection
 - **Admin**: full platform management, user role assignment (promote/disable), system announcements, all teacher capabilities
 - **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, page lock, submit cooldown
@@ -48,7 +48,7 @@
 ### Courses
 
 - Course creation and management
-- Join tokens for student enrollment
+- Manual, teacher-driven student enrollment (`courseMembership.upsert`; no join-token flow)
 - Course roles: teacher, TA, student
 - Assessment management with open/due/close lifecycle (Temporal-managed)
 - Assessment Settings tab: publish / archive / revert-to-draft / delete-draft with status-aware field locks

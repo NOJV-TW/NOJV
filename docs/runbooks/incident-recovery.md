@@ -47,7 +47,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ### Prevention
 
-- PodDisruptionBudget for worker (already in place — see `infra/k8s/`).
+- PodDisruptionBudget for worker (already in place — see `infra/gcp/gke/worker.pdb.yaml`).
 - GKE worker Deployment uses static replicas sized for peak submission rate (KEDA-based autoscaling removed in commit `c1ed096`; pending workflows queue in Temporal until capacity returns).
 - OOM and CPU throttling alerts on the worker pool.
 - Canary deploys for `apps/worker`; never promote to production without passing `pnpm ci:verify`.

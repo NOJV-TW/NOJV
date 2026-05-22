@@ -4,17 +4,17 @@ How tests are organized in NOJV, where new tests belong, and how to run them.
 
 ## Three Layers
 
-| Layer           | Scope                                                          | Real dependencies?                         | Location                                                                     |
-| --------------- | -------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
-| **Unit**        | One pure function, one Zod schema, one small module            | No — mock or skip                          | Co-located: `packages/{name}/src/__tests__/` or `apps/{name}/src/__tests__/` |
-| **Integration** | Cross-package paths, repository + DB, Redis, Temporal test env | Yes — uses real test DB / Redis / Temporal | `tests/integration/` (repo root)                                             |
-| **E2E**         | Full user journey through SvelteKit + worker + sandbox         | Yes — runs against a booted system         | `tests/e2e/` (Playwright)                                                    |
+| Layer           | Scope                                                          | Real dependencies?                         | Location                         |
+| --------------- | -------------------------------------------------------------- | ------------------------------------------ | -------------------------------- |
+| **Unit**        | One pure function, one Zod schema, one small module            | No — mock or skip                          | `tests/unit/` (repo root)        |
+| **Integration** | Cross-package paths, repository + DB, Redis, Temporal test env | Yes — uses real test DB / Redis / Temporal | `tests/integration/` (repo root) |
+| **E2E**         | Full user journey through SvelteKit + worker + sandbox         | Yes — runs against a booted system         | `tests/e2e/` (Playwright)        |
 
 ## Decision Flow: Where Does My New Test Go?
 
 ```
 Does the code under test live in exactly one package and have no I/O?
-├── Yes → Unit test, co-located in that package's __tests__
+├── Yes → Unit test in tests/unit/
 └── No
     ├── Crosses packages OR needs real DB/Redis/Temporal?
     │   └── Yes → tests/integration/
@@ -25,15 +25,14 @@ Does the code under test live in exactly one package and have no I/O?
 Rules of thumb:
 
 - A repository function that hits Prisma → integration test (real DB).
-- A domain function that does only math / parsing / Zod work → unit test next to the function.
+- A domain function that does only math / parsing / Zod work → unit test in `tests/unit/`.
 - A SvelteKit action or `+page.server.ts` loader → integration test (it touches the auth + DB stack).
 - A new UI flow that the user sees → E2E.
 
 ## File Naming
 
 - Always `.test.ts`. Never `.spec.ts` — the repo has zero `.spec.ts` files and we keep it that way.
-- Place unit tests in `__tests__/` adjacent to the code, not in a sibling `tests/` folder.
-- Integration / E2E tests live only at `tests/integration/` and `tests/e2e/` at the repo root.
+- All tests live under the repo-root `tests/` tree: `tests/unit/`, `tests/integration/`, and `tests/e2e/`. The Vitest projects are wired to those exact globs in `vitest.config.ts`.
 
 ## Commands
 
@@ -50,15 +49,15 @@ Turbo task wiring lives in `turbo.json`. `test:unit` does not depend on `build` 
 
 - **Unit**: none. `pnpm install` is enough.
 - **Integration**: a running PostgreSQL, Redis, and Temporal. Use `docker compose up` from the repo root.
-- **E2E**: same as integration, plus the web dev server. Playwright config lives at `apps/web/playwright.config.ts`.
+- **E2E**: same as integration, plus the web dev server. Playwright config lives at `tests/e2e/playwright.config.ts`.
 
 Global Vitest setup (test users, seeded DB state) is in `tests/setup/`.
 
 ## What NOT to Do
 
 - Don't mock the database for integration tests. Use the real test DB. We've been burned before — see `MEMORY.md` history on mocked-migration drift.
-- Don't put integration tests inside a package's `__tests__/`. Co-located tests run as part of `test:unit` and must stay fast.
-- Don't create a new top-level `tests/<feature>/` folder. Stick to `unit` (co-located), `integration`, and `e2e`.
+- Don't co-locate tests next to the code in a package `__tests__/` folder. Every test lives under the repo-root `tests/` tree; the Vitest globs won't pick up anything outside it.
+- Don't put DB/Redis/Temporal-dependent tests under `tests/unit/`. `test:unit` must stay fast — those belong in `tests/integration/`.
 
 ## Coverage Targets
 

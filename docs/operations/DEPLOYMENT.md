@@ -9,8 +9,8 @@
 | postgres      | postgres:18-alpine             | 5432       | Database (app + Temporal)        |
 | redis         | redis:8-alpine                 | 6379       | Cache, pub/sub, scoreboard       |
 | minio         | minio/minio                    | 9000, 9001 | S3-compatible object storage     |
-| temporal      | temporalio/auto-setup:latest   | 7233       | Workflow engine                  |
-| temporal-ui   | temporalio/ui:latest           | 8080       | Workflow monitoring              |
+| temporal      | temporalio/auto-setup:1.29.1   | 7233       | Workflow engine                  |
+| temporal-ui   | temporalio/ui:2.38.2           | 8080       | Workflow monitoring              |
 | web           | Custom (prod profile)          | 3000       | SvelteKit production build       |
 | worker        | Custom (prod profile)          | 8080       | Temporal worker                  |
 | sandbox-image | Custom (sandbox-build profile) | —          | Build-only: sandbox Docker image |
@@ -420,12 +420,17 @@ Steps (from `package.json`):
 1. `pnpm format` — Prettier formatting check
 2. `pnpm lint:domain-queries` — Guards that no `prisma.*` call leaks outside `packages/db` / `packages/domain`
 3. `pnpm db:generate` — Regenerate Prisma client
-4. `turbo run build typecheck lint test` — Build, typecheck, lint, and test all packages
+4. `turbo run build typecheck lint` — Build, typecheck, and lint all packages
+5. `pnpm test:unit` — Run Vitest unit tests (separate step, not inside the turbo run)
 
-Additional validations:
+Additional checks (in `.github/workflows/ci.yml`):
 
-- Prisma schema validation (`pnpm db:validate`)
-- Docker Compose config validation
+- `pnpm --filter @nojv/storage build` — build the storage package so the seed validator can import it
+- `pnpm db:seed:validate` — dry-run validation of problem seed definitions
+- `pnpm test:integration` — Vitest integration tests
+- `security-audit` job: `pnpm audit --audit-level high` — hard gate, any high/critical advisory fails the build
+
+CodeQL SAST runs in a separate workflow (`.github/workflows/codeql.yml`).
 
 ## GitHub CD Strategy (Single Path)
 

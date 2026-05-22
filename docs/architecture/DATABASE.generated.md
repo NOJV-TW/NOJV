@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_36 models and 37 enums across 9 schema files._
+_39 models and 38 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -75,53 +75,57 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 
 #### `User`
 
-| Field                            | Type                        | Attributes                                   |
-| -------------------------------- | --------------------------- | -------------------------------------------- |
-| `id`                             | `String`                    | `@id @default(cuid())`                       |
-| `email`                          | `String`                    | `@unique`                                    |
-| `username`                       | `String?`                   | `@unique`                                    |
-| `displayUsername`                | `String?`                   | —                                            |
-| `name`                           | `String`                    | —                                            |
-| `emailVerified`                  | `Boolean`                   | `@default(false)`                            |
-| `image`                          | `String?`                   | —                                            |
-| `platformRole`                   | `PlatformRole`              | `@default(student)`                          |
-| `disabled`                       | `Boolean`                   | `@default(false)`                            |
-| `status`                         | `UserStatus`                | `@default(active)`                           |
-| `createdAt`                      | `DateTime`                  | `@default(now())`                            |
-| `updatedAt`                      | `DateTime`                  | `@updatedAt`                                 |
-| `sessions`                       | `Session[]`                 | —                                            |
-| `accounts`                       | `Account[]`                 | —                                            |
-| `schoolVerifications`            | `SchoolVerificationToken[]` | —                                            |
-| `submissions`                    | `Submission[]`              | —                                            |
-| `contestParticipations`          | `ContestParticipation[]`    | —                                            |
-| `examParticipations`             | `ExamParticipation[]`       | `@relation("ExamParticipationUser")`         |
-| `virtualContests`                | `VirtualContest[]`          | —                                            |
-| `authoredProblems`               | `Problem[]`                 | `@relation("ProblemAuthor")`                 |
-| `ownedCourses`                   | `Course[]`                  | `@relation("CourseOwner")`                   |
-| `courseMemberships`              | `CourseMembership[]`        | `@relation("CourseMembershipUser")`          |
-| `createdMemberships`             | `CourseMembership[]`        | `@relation("CourseMembershipCreator")`       |
-| `createdCourseAssessments`       | `CourseAssessment[]`        | `@relation("CourseAssessmentCreator")`       |
-| `createdContests`                | `Contest[]`                 | `@relation("ContestCreator")`                |
-| `createdExams`                   | `Exam[]`                    | `@relation("ExamCreator")`                   |
-| `createdAnnouncements`           | `Announcement[]`            | `@relation("AnnouncementCreator")`           |
-| `triggeredExamPlagiarisms`       | `Exam[]`                    | `@relation("ExamPlagiarismTriggerer")`       |
-| `triggeredContestPlagiarisms`    | `Contest[]`                 | `@relation("ContestPlagiarismTriggerer")`    |
-| `triggeredAssessmentPlagiarisms` | `CourseAssessment[]`        | `@relation("AssessmentPlagiarismTriggerer")` |
-| `editorials`                     | `Editorial[]`               | —                                            |
-| `ipViolationLogs`                | `IpViolationLog[]`          | —                                            |
-| `activeExamSessions`             | `ActiveExamSession[]`       | `@relation("ActiveExamSessionUser")`         |
-| `notifications`                  | `Notification[]`            | —                                            |
-| `triggeredRejudgeLogs`           | `SubmissionRejudgeLog[]`    | —                                            |
-| `asOverrideStudent`              | `ScoreOverride[]`           | `@relation("ScoreOverrideUser")`             |
-| `createdScoreOverrides`          | `ScoreOverride[]`           | `@relation("ScoreOverrideCreator")`          |
-| `editedScoreOverrides`           | `ScoreOverride[]`           | `@relation("ScoreOverrideEditor")`           |
-| `scoreOverrideAuditChanges`      | `ScoreOverrideAuditLog[]`   | `@relation("ScoreOverrideAuditChanger")`     |
-| `clarificationsAsked`            | `Clarification[]`           | `@relation("ClarificationAsker")`            |
-| `plagiarismPairFlags`            | `PlagiarismPairFlag[]`      | `@relation("PlagiarismPairFlagFlagger")`     |
-| `clarificationsAnswered`         | `Clarification[]`           | `@relation("ClarificationAnswerer")`         |
-| `assessmentAuditLogs`            | `AssessmentAuditLog[]`      | `@relation("AssessmentAuditActor")`          |
-| `editorialReportsFiled`          | `EditorialReport[]`         | `@relation("EditorialReportReporter")`       |
-| `editorialReportsResolved`       | `EditorialReport[]`         | `@relation("EditorialReportResolver")`       |
+| Field                            | Type                           | Attributes                                    |
+| -------------------------------- | ------------------------------ | --------------------------------------------- |
+| `id`                             | `String`                       | `@id @default(cuid())`                        |
+| `email`                          | `String`                       | `@unique`                                     |
+| `username`                       | `String?`                      | `@unique`                                     |
+| `displayUsername`                | `String?`                      | —                                             |
+| `name`                           | `String`                       | —                                             |
+| `emailVerified`                  | `Boolean`                      | `@default(false)`                             |
+| `image`                          | `String?`                      | —                                             |
+| `platformRole`                   | `PlatformRole`                 | `@default(student)`                           |
+| `disabled`                       | `Boolean`                      | `@default(false)`                             |
+| `status`                         | `UserStatus`                   | `@default(active)`                            |
+| `createdAt`                      | `DateTime`                     | `@default(now())`                             |
+| `updatedAt`                      | `DateTime`                     | `@updatedAt`                                  |
+| `sessions`                       | `Session[]`                    | —                                             |
+| `accounts`                       | `Account[]`                    | —                                             |
+| `schoolVerifications`            | `SchoolVerificationToken[]`    | —                                             |
+| `submissions`                    | `Submission[]`                 | —                                             |
+| `contestParticipations`          | `ContestParticipation[]`       | —                                             |
+| `examParticipations`             | `ExamParticipation[]`          | `@relation("ExamParticipationUser")`          |
+| `virtualContests`                | `VirtualContest[]`             | —                                             |
+| `authoredProblems`               | `Problem[]`                    | `@relation("ProblemAuthor")`                  |
+| `ownedCourses`                   | `Course[]`                     | `@relation("CourseOwner")`                    |
+| `courseMemberships`              | `CourseMembership[]`           | `@relation("CourseMembershipUser")`           |
+| `createdMemberships`             | `CourseMembership[]`           | `@relation("CourseMembershipCreator")`        |
+| `createdCourseAssessments`       | `CourseAssessment[]`           | `@relation("CourseAssessmentCreator")`        |
+| `createdContests`                | `Contest[]`                    | `@relation("ContestCreator")`                 |
+| `createdExams`                   | `Exam[]`                       | `@relation("ExamCreator")`                    |
+| `createdAnnouncements`           | `Announcement[]`               | `@relation("AnnouncementCreator")`            |
+| `triggeredExamPlagiarisms`       | `Exam[]`                       | `@relation("ExamPlagiarismTriggerer")`        |
+| `triggeredContestPlagiarisms`    | `Contest[]`                    | `@relation("ContestPlagiarismTriggerer")`     |
+| `triggeredAssessmentPlagiarisms` | `CourseAssessment[]`           | `@relation("AssessmentPlagiarismTriggerer")`  |
+| `editorials`                     | `Editorial[]`                  | —                                             |
+| `ipViolationLogs`                | `IpViolationLog[]`             | —                                             |
+| `activeExamSessions`             | `ActiveExamSession[]`          | `@relation("ActiveExamSessionUser")`          |
+| `notifications`                  | `Notification[]`               | —                                             |
+| `triggeredRejudgeLogs`           | `SubmissionRejudgeLog[]`       | —                                             |
+| `asOverrideStudent`              | `ScoreOverride[]`              | `@relation("ScoreOverrideUser")`              |
+| `createdScoreOverrides`          | `ScoreOverride[]`              | `@relation("ScoreOverrideCreator")`           |
+| `editedScoreOverrides`           | `ScoreOverride[]`              | `@relation("ScoreOverrideEditor")`            |
+| `scoreOverrideAuditChanges`      | `ScoreOverrideAuditLog[]`      | `@relation("ScoreOverrideAuditChanger")`      |
+| `clarificationsAsked`            | `Clarification[]`              | `@relation("ClarificationAsker")`             |
+| `plagiarismPairFlags`            | `PlagiarismPairFlag[]`         | `@relation("PlagiarismPairFlagFlagger")`      |
+| `clarificationsAnswered`         | `Clarification[]`              | `@relation("ClarificationAnswerer")`          |
+| `assessmentAuditLogs`            | `AssessmentAuditLog[]`         | `@relation("AssessmentAuditActor")`           |
+| `editorialReportsFiled`          | `EditorialReport[]`            | `@relation("EditorialReportReporter")`        |
+| `editorialReportsResolved`       | `EditorialReport[]`            | `@relation("EditorialReportResolver")`        |
+| `submissionFeedbackReceived`     | `SubmissionFeedback[]`         | `@relation("SubmissionFeedbackStudent")`      |
+| `submissionFeedbackAuthored`     | `SubmissionFeedback[]`         | `@relation("SubmissionFeedbackAuthor")`       |
+| `submissionFeedbackAuditChanges` | `SubmissionFeedbackAuditLog[]` | `@relation("SubmissionFeedbackAuditChanger")` |
+| `triggeredPlagiarismLogs`        | `PlagiarismTriggerLog[]`       | `@relation("PlagiarismTriggerLogTriggerer")`  |
 
 #### `Verification`
 
@@ -365,6 +369,7 @@ Course-embedded exam. Always tied to a course (`courseId` NOT NULL) and carries 
 | `submissions`             | `Submission[]`            | —                                                                                                              |
 | `ipViolationLogs`         | `IpViolationLog[]`        | —                                                                                                              |
 | `activeSessions`          | `ActiveExamSession[]`     | —                                                                                                              |
+| `submissionFeedback`      | `SubmissionFeedback[]`    | —                                                                                                              |
 
 Indexes & constraints: `@@index([courseId, status])`
 
@@ -553,6 +558,7 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `plagiarismTriggeredBy`   | `User?`                     | `@relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
 | `problems`                | `CourseAssessmentProblem[]` | —                                                                                                                    |
 | `submissions`             | `Submission[]`              | —                                                                                                                    |
+| `submissionFeedback`      | `SubmissionFeedback[]`      | —                                                                                                                    |
 
 Indexes & constraints: `@@index([courseId, status])`
 
@@ -692,6 +698,20 @@ Indexes & constraints: `@@unique([announcementId, locale])`
 
 Indexes & constraints: `@@unique([contextType, contextId, pairKey])`, `@@index([contextType, contextId])`
 
+#### `PlagiarismTriggerLog`
+
+| Field               | Type                | Attributes                                                                                                     |
+| ------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `id`                | `String`            | `@id @default(cuid())`                                                                                         |
+| `contextType`       | `PlagiarismContext` | —                                                                                                              |
+| `contextId`         | `String`            | —                                                                                                              |
+| `triggeredByUserId` | `String?`           | —                                                                                                              |
+| `priorPairCount`    | `Int`               | —                                                                                                              |
+| `triggeredAt`       | `DateTime`          | `@default(now())`                                                                                              |
+| `triggeredBy`       | `User?`             | `@relation("PlagiarismTriggerLogTriggerer", fields: [triggeredByUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)])`
+
 ## `problem.prisma`
 
 ### Enums
@@ -761,6 +781,7 @@ Single source of truth for "what kind of problem is this". Replaces the old (sub
 | `editorials`            | `Editorial[]`               | —                                                                                     |
 | `scoreOverrides`        | `ScoreOverride[]`           | `@relation("ScoreOverrideProblem")`                                                   |
 | `clarifications`        | `Clarification[]`           | `@relation("ProblemClarifications")`                                                  |
+| `submissionFeedback`    | `SubmissionFeedback[]`      | `@relation("SubmissionFeedbackProblem")`                                              |
 
 Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([authorId])`, `@@index([difficulty])`, `@@index([tags], type: Gin)`
 
@@ -846,6 +867,10 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 `assignment` · `exam` · `contest`
 
 #### `ScoreOverrideAction`
+
+`create` · `update` · `delete`
+
+#### `SubmissionFeedbackAction`
 
 `create` · `update` · `delete`
 
@@ -982,6 +1007,50 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 | `rejudgeLogs`            | `SubmissionRejudgeLog[]` | —                                                                                  |
 
 Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, courseAssessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`
+
+#### `SubmissionFeedback`
+
+Teacher-authored, student-visible grading comment per (student, problem, assessment-or-exam). Sibling of ScoreOverride; `comment` is feedback prose with no effect on the computed score. Exactly one of `courseAssessmentId` / `examId` is non-null — enforced by the `SubmissionFeedback_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). Contest context is intentionally excluded.
+
+| Field                | Type                           | Attributes                                                                                             |
+| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `id`                 | `String`                       | `@id @default(cuid())`                                                                                 |
+| `studentUserId`      | `String`                       | —                                                                                                      |
+| `problemId`          | `String`                       | —                                                                                                      |
+| `courseAssessmentId` | `String?`                      | —                                                                                                      |
+| `examId`             | `String?`                      | —                                                                                                      |
+| `comment`            | `String`                       | `@db.Text`                                                                                             |
+| `authorUserId`       | `String?`                      | —                                                                                                      |
+| `createdAt`          | `DateTime`                     | `@default(now())`                                                                                      |
+| `updatedAt`          | `DateTime`                     | `@updatedAt`                                                                                           |
+| `student`            | `User`                         | `@relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)` |
+| `problem`            | `Problem`                      | `@relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)`     |
+| `assessment`         | `CourseAssessment?`            | `@relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)`                         |
+| `exam`               | `Exam?`                        | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                                     |
+| `author`             | `User?`                        | `@relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)`   |
+| `auditLogs`          | `SubmissionFeedbackAuditLog[]` | —                                                                                                      |
+
+Indexes & constraints: `@@unique([courseAssessmentId, problemId, studentUserId])`, `@@unique([examId, problemId, studentUserId])`
+
+#### `SubmissionFeedbackAuditLog`
+
+| Field                | Type                       | Attributes                                                                                                    |
+| -------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `id`                 | `String`                   | `@id @default(cuid())`                                                                                        |
+| `feedbackId`         | `String?`                  | —                                                                                                             |
+| `studentUserId`      | `String`                   | —                                                                                                             |
+| `problemId`          | `String`                   | —                                                                                                             |
+| `courseAssessmentId` | `String?`                  | —                                                                                                             |
+| `examId`             | `String?`                  | —                                                                                                             |
+| `action`             | `SubmissionFeedbackAction` | —                                                                                                             |
+| `oldComment`         | `String?`                  | `@db.Text`                                                                                                    |
+| `newComment`         | `String?`                  | `@db.Text`                                                                                                    |
+| `changedByUserId`    | `String?`                  | —                                                                                                             |
+| `createdAt`          | `DateTime`                 | `@default(now())`                                                                                             |
+| `feedback`           | `SubmissionFeedback?`      | `@relation(fields: [feedbackId], references: [id], onDelete: SetNull)`                                        |
+| `changedBy`          | `User?`                    | `@relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@index([courseAssessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`
 
 #### `SubmissionRejudgeLog`
 

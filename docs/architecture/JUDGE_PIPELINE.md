@@ -10,7 +10,7 @@ merge workspace files → compile → execute per testcase → check → score
 
 ### merge workspace files
 
-Before the sandbox starts, the domain layer merges `ProblemWorkspaceFile` rows (editable + readonly + hidden) with the student's submitted files. Readonly and hidden workspace files always win over student paths, so a malicious client cannot overwrite them. Hidden files are never shown in the UI but are present on disk during compile/execute. The merge is implemented in `mergeSandboxSources()` inside `packages/temporal/src/activities/judge.ts`.
+Before the sandbox starts, the domain layer merges `ProblemWorkspaceFile` rows (editable + readonly + hidden) with the student's submitted files. Readonly and hidden workspace files always win over student paths, so a malicious client cannot overwrite them. Hidden files are never shown in the UI but are present on disk during compile/execute. The merge is implemented in `mergeSandboxSources()` inside `apps/worker/src/activities/judge.ts`.
 
 The worker writes the merged source files plus testcase + config payloads to a tempdir that gets mounted into the sandbox. The sandbox runner then re-materialises any `sourceFiles` / `sourceFileMap` entries inside its private `workDir` before compile — see `materializeConfiguredSources()` in `apps/sandbox-runner/src/index.ts`. This second pass is what bridges the two layouts the runner has to accept:
 
@@ -181,7 +181,7 @@ Per-case verdicts (`SandboxVerdict` in `packages/core/src/sandbox.ts`):
 
 ## Activity / workflow boundary
 
-The judge pipeline is driven by `submissionJudgeWorkflow` (`packages/temporal/src/workflows/submission-judge.ts`). It is a thin orchestrator: every effectful step is a Temporal activity, and the workflow itself contains only control flow + the `mode` derivation needed to pick the right finalize path.
+The judge pipeline is driven by `submissionJudgeWorkflow` (`apps/worker/src/workflows/submission-judge.ts`). It is a thin orchestrator: every effectful step is a Temporal activity, and the workflow itself contains only control flow + the `mode` derivation needed to pick the right finalize path.
 
 Timeouts and retry policy applied to the judge activities proxy:
 
@@ -212,8 +212,8 @@ Timeouts and retry policy applied to the judge activities proxy:
 - Compiler dispatch — `apps/sandbox-runner/src/compiler.ts`
 - Standard judge comparator — `apps/sandbox-runner/src/judges/standard.ts`
 - Checker / interactive protocol parser — `apps/sandbox-runner/src/judges/run-process.ts` (`parseJudgeOutput`)
-- Temporal judge workflow — `packages/temporal/src/workflows/submission-judge.ts`
-- Temporal judge activity — `packages/temporal/src/activities/judge.ts`
+- Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
+- Temporal judge activity — `apps/worker/src/activities/judge.ts`
 - Judge context builder — `packages/domain/src/submission/judge-context.ts`
 - Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/domain/src/submission/scoring.ts`
 - Score adjustments — `packages/domain/src/submission/adjustments.ts`

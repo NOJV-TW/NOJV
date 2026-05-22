@@ -14,7 +14,6 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/problems`                                          | Problem listing with filters (difficulty, tags, status)                                                                                         |
 | `/problems/[problemId]`                              | Problem workspace: Monaco editor, testcases, submit/run                                                                                         |
 | `/problems/[problemId]/edit`                         | Problem editor (admin/teacher)                                                                                                                  |
-| `/problems/[problemId]/edit-advanced`                | Advanced-mode editor — TA-supplied judge image + workspace files                                                                                |
 | `/problems/[problemId]/editorials`                   | Editorial list for a problem (AC-gated visibility)                                                                                              |
 | `/submissions`                                       | User submission history                                                                                                                         |
 | `/submissions/[submissionId]`                        | Submission detail — verdict, subtask results, source                                                                                            |
@@ -37,7 +36,6 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/courses/[courseId]/assignments/new`                | Create assignment (teacher/admin)                                                                                                               |
 | `/courses/[courseId]/exams`                          | Course-scoped exam list                                                                                                                         |
 | `/courses/[courseId]/exams/new`                      | Create exam (teacher/admin)                                                                                                                     |
-| `/courses/[courseId]/manage/plagiarism/[slug]`       | Plagiarism dashboard for one assessment (manager only)                                                                                          |
 | `/assignments`                                       | Cross-course assignment list (All / Open / Upcoming / Closed tabs)                                                                              |
 | `/assignments/[assignmentId]`                        | Assignment detail. Manager view exposes sub-tabs: Problems / Submissions / Results / Plagiarism / Audit / Settings / Clarifications             |
 | `/assignments/[assignmentId]/problems/[problemId]`   | Assignment problem workspace (post-close redirects to bare practice)                                                                            |
@@ -46,8 +44,10 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/exams/[examId]/problems/[problemId]`               | In-exam problem workspace (gated by active exam session)                                                                                        |
 | `/plagiarism/pairs/[pairId]`                         | Pair-level Monaco diff for a flagged submission pair (assessment / exam / contest contexts; encoded composite id)                               |
 | `/admin`                                             | Admin dashboard (platform admin only)                                                                                                           |
-| `/admin/announcements`                               | Manage announcements                                                                                                                            |
-| `/admin/users`                                       | User management (role assignment, disable)                                                                                                      |
+| `/admin/content/announcements`                       | Manage announcements                                                                                                                            |
+| `/admin/content/editorial-reports`                   | Review reported editorials                                                                                                                      |
+| `/admin/system`                                      | System settings landing                                                                                                                         |
+| `/admin/system/users`                                | User management (role assignment, disable)                                                                                                      |
 | `/account`                                           | User account settings (display name, locale, avatar)                                                                                            |
 
 ### (auth) — Public Auth Routes
@@ -69,42 +69,43 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 ### API Routes
 
-| Endpoint                                | Methods            | Purpose                                                                                        |
-| --------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
-| `/api/auth/[...path]`                   | GET, POST          | better-auth catch-all (session, OAuth, registration). POST sign-in/email/username rate-limited |
-| `/api/healthz`                          | GET                | Public liveness probe. Returns `{ ok }` with HTTP 200 or 503                                   |
-| `/api/admin/healthz`                    | GET                | Admin-only mirror returning per-subsystem `{ postgres, redis, temporal }` detail               |
-| `/api/submissions`                      | POST               | Create submission, dispatch to Temporal                                                        |
-| `/api/submissions/[id]`                 | GET                | Submission result and verdict                                                                  |
-| `/api/submissions/[id]/source`          | GET                | Submission source code                                                                         |
-| `/api/submissions/[id]/stream`          | GET                | SSE: poll Temporal workflow query for status                                                   |
-| `/api/submissions/[id]/rejudge`         | POST               | Rejudge a single submission (admin/teacher)                                                    |
-| `/api/rejudges`                         | POST               | Batch rejudge by problem/context filters                                                       |
-| `/api/events/stream`                    | GET                | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
-| `/api/contests/[id]/scoreboard`         | GET                | Scoreboard data from Redis (or DB rebuild fallback)                                            |
-| `/api/contests/[id]/scoreboard/chart`   | GET                | Scoreboard chart data                                                                          |
-| `/api/exam-sessions/[examId]/heartbeat` | POST               | Record page-lock heartbeat / visibility events                                                 |
-| `/api/plagiarism/[assignmentId]`        | GET, POST          | Plagiarism reports and trigger detection                                                       |
-| `/api/plagiarism-flags`                 | POST               | Flag a plagiarism pair (admin/teacher)                                                         |
-| `/api/plagiarism-flags/[id]`            | DELETE             | Remove a plagiarism flag                                                                       |
-| `/api/problems`                         | POST               | Create problem (admin/teacher)                                                                 |
-| `/api/problems/[id]/editorials`         | GET, POST          | Problem editorials (AC-gated)                                                                  |
-| `/api/problems/[id]/images`             | POST               | Upload problem image (magic-number validated)                                                  |
-| `/api/problems/[id]/advanced-image`     | POST               | Upload advanced-mode judge image tarball                                                       |
-| `/api/uploads/image`                    | POST               | Generic image upload (announcements, editorials)                                               |
-| `/api/account/avatar`                   | PUT, DELETE        | Replace / remove account avatar                                                                |
-| `/api/notifications`                    | GET, PATCH, DELETE | List + bulk mark-read (`{action:"markAllRead"}`) + bulk clear-read (`?status=read`)            |
-| `/api/notifications/[id]`               | PATCH, DELETE      | Mark one notification read (body: `{read:true}`) / drop one                                    |
-| `/api/notifications/unread-count`       | GET                | Unread notification count                                                                      |
-| `/api/clarifications`                   | GET, POST          | Clarifications list / new                                                                      |
-| `/api/clarifications/[id]`              | PATCH              | Answer or dismiss a clarification                                                              |
-| `/api/clarifications/[id]/replies`      | POST               | Canned-reply / templated answer                                                                |
-| `/api/editorials/[id]`                  | PATCH, DELETE      | Edit / soft-delete editorial                                                                   |
-| `/api/overrides`                        | GET, POST          | List / create score overrides (writes gated post-close, admin bypass)                          |
-| `/api/overrides/[id]`                   | PATCH, DELETE      | Update / remove score override (writes gated post-close, admin bypass)                         |
-| `/api/feedback`                         | GET, PUT           | List / upsert per-cell grading feedback (assignment + exam; writes gated post-close)           |
-| `/api/feedback/[id]`                    | DELETE             | Delete a feedback row (writes gated post-close)                                                |
-| `/api/exams/[examId]/ip-violations`     | GET                | IP violation logs (manager/admin). Surfaced in the Exam → Proctoring sub-tab                   |
+| Endpoint                                                      | Methods            | Purpose                                                                                        |
+| ------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| `/api/auth/[...path]`                                         | GET, POST          | better-auth catch-all (session, OAuth, registration). POST sign-in/email/username rate-limited |
+| `/api/healthz`                                                | GET                | Public liveness probe. Returns `{ ok }` with HTTP 200 or 503                                   |
+| `/api/admin/healthz`                                          | GET                | Admin-only mirror returning per-subsystem `{ postgres, redis, temporal }` detail               |
+| `/api/submissions`                                            | POST               | Create submission, dispatch to Temporal                                                        |
+| `/api/submissions/[id]`                                       | GET                | Submission result and verdict                                                                  |
+| `/api/submissions/[id]/source`                                | GET                | Submission source code                                                                         |
+| `/api/submissions/[id]/stream`                                | GET                | SSE: poll Temporal workflow query for status                                                   |
+| `/api/submissions/[id]/rejudge`                               | POST               | Rejudge a single submission (admin/teacher)                                                    |
+| `/api/rejudges`                                               | POST               | Batch rejudge by problem/context filters                                                       |
+| `/api/events/stream`                                          | GET                | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
+| `/api/contests/[id]/scoreboard`                               | GET                | Scoreboard data from Redis (or DB rebuild fallback)                                            |
+| `/api/contests/[id]/scoreboard/chart`                         | GET                | Scoreboard chart data                                                                          |
+| `/api/exam-sessions/[examId]/heartbeat`                       | POST               | Record page-lock heartbeat / visibility events                                                 |
+| `/api/plagiarism/[assignmentId]/reports`                      | GET, POST          | List plagiarism reports (GET) / trigger detection (POST)                                       |
+| `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]` | GET                | Fetch a participant's submission source for a flagged pair                                     |
+| `/api/plagiarism-flags`                                       | POST               | Flag a plagiarism pair (admin/teacher)                                                         |
+| `/api/plagiarism-flags/[id]`                                  | DELETE             | Remove a plagiarism flag                                                                       |
+| `/api/problems`                                               | POST               | Create problem (admin/teacher)                                                                 |
+| `/api/problems/[id]/editorials`                               | GET, POST          | Problem editorials (AC-gated)                                                                  |
+| `/api/problems/[id]/images`                                   | POST               | Upload problem image (magic-number validated)                                                  |
+| `/api/problems/[id]/advanced-image`                           | POST               | Upload advanced-mode judge image tarball                                                       |
+| `/api/uploads/image`                                          | POST               | Generic image upload (announcements, editorials)                                               |
+| `/api/account/avatar`                                         | PUT, DELETE        | Replace / remove account avatar                                                                |
+| `/api/notifications`                                          | GET, PATCH, DELETE | List + bulk mark-read (`{action:"markAllRead"}`) + bulk clear-read (`?status=read`)            |
+| `/api/notifications/[id]`                                     | PATCH, DELETE      | Mark one notification read (body: `{read:true}`) / drop one                                    |
+| `/api/notifications/unread-count`                             | GET                | Unread notification count                                                                      |
+| `/api/clarifications`                                         | GET, POST          | Clarifications list / new                                                                      |
+| `/api/clarifications/[id]`                                    | PATCH              | Answer or dismiss a clarification                                                              |
+| `/api/clarifications/[id]/replies`                            | POST               | Canned-reply / templated answer                                                                |
+| `/api/editorials/[id]`                                        | PATCH, DELETE      | Edit / soft-delete editorial                                                                   |
+| `/api/overrides`                                              | GET, POST          | List / create score overrides (writes gated post-close, admin bypass)                          |
+| `/api/overrides/[id]`                                         | PATCH, DELETE      | Update / remove score override (writes gated post-close, admin bypass)                         |
+| `/api/feedback`                                               | GET, PUT           | List / upsert per-cell grading feedback (assignment + exam; writes gated post-close)           |
+| `/api/feedback/[id]`                                          | DELETE             | Delete a feedback row (writes gated post-close)                                                |
+| `/api/exams/[examId]/ip-violations`                           | GET                | IP violation logs (manager/admin). Surfaced in the Exam → Proctoring sub-tab                   |
 
 ## Runtime Boundaries
 
@@ -116,13 +117,13 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - **Database**: Repositories exported from `@nojv/db`. Domain layer is the default path; routes that read structural data (e.g. announcement listings, layout loaders) may import repositories directly
 - **Job dispatch**: Temporal via `@nojv/temporal` root entry, typically re-exported through `@nojv/domain` (`dispatchSubmissionJudge`, `dispatchPlagiarismCheck`, etc.). Workflow queries via `querySubmissionStatus` / `queryRejudgeProgress` / `queryPlagiarismStatus`
 - **Redis**: Pub/sub and rate-limiter Redis access via `@nojv/redis` (`getRedis`, `createSubscriber`, key registry)
-- **Rate limits**: `apiHandler` / `writeApiHandler` wrap read / write routes; `consumeFormRateLimit(event)` wraps form actions; `signInRateLimiter` enforced from `hooks.server.ts` on password sign-in routes. All key on `getClientIp(event)` (Cloudflare-aware)
+- **Rate limits**: `apiHandler` / `writeApiHandler` wrap read / write routes; form actions compose through `withRateLimit` in `action-handlers.ts` (which calls the internal `consumeFormRateLimitInternal(event)`); `signInRateLimiter` enforced from `hooks.server.ts` on password sign-in routes. All key on `getClientIp(event)` (Cloudflare-aware)
 - **CSRF**: `hooks.server.ts` rejects `/api/**` non-GET requests without `X-Requested-With: fetch` (better-auth path exempt). Same-origin Origin header also enforced
 
 ### Client-Side (`+page.svelte`)
 
 - **State**: Svelte stores for toast notifications, SSE client
-- **Editor**: Monaco Editor for code submission, MultiFileEditor for advanced-mode workspaces
+- **Editor**: Monaco Editor for code submission (`Editor.svelte` / `MonacoScriptEditor.svelte`); advanced-mode workspaces use `AdvancedModeWorkspace.svelte` plus the `features/problem/workspace/` set
 - **Markdown**: marked + marked-katex-extension for problem statements; rendered through DOMPurify with a KaTeX-aware allowlist
 - **Forms**: sveltekit-superforms + Zod for validated form handling
 - **Image upload**: `ImageDropZone` component — drag-and-drop / paste images into markdown textareas
@@ -131,12 +132,12 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 ## Shared UI Contracts
 
-- `Workspace` owns the problem-solving surface: split-pane layout with problem statement (left) and Monaco code editor (right), resizable divider, submission panel, and testcase results.
+- `ProblemWorkspace.svelte` owns the problem-solving surface: split-pane layout with problem statement (left) and Monaco code editor (right), resizable divider, submission panel, and testcase results.
 - `MarkdownRenderer` renders problem statements, editorials, and input/output format descriptions using `marked` + KaTeX + DOMPurify.
 - `ImageDropZone` wraps textareas with drag-and-drop and paste image upload support. Used in problem editor for statement, inputFormat, and outputFormat fields.
 - `TagInput` provides tag management with add/remove for problem categorization.
-- `MonacoEditor` wraps the Monaco editor instance with language selection, theme support, and template loading.
-- `SubmissionsMatrixView` is shared between contests, assignments, and exams — one component, three contexts, identical cells (`{score, attempts, state}`).
+- `Editor.svelte` / `MonacoScriptEditor.svelte` wrap the Monaco editor instance with language selection, theme support, and template loading.
+- `MatrixView` is shared between contests, assignments, and exams — one component, three contexts, identical cells (`{score, attempts, state}`).
 - `ExamProctoringTab` reads the IP violation log per exam — staff-only.
 - `PlagiarismPairDiff` renders the Monaco diff for a flagged submission pair; the page itself lives at `/plagiarism/pairs/[pairId]`.
 - `ScoreOverrideDrawer` is the manager grading surface on the submissions matrix; hosts `ScoreOverrideList` / `ScoreOverrideForm` plus `FeedbackList` / `FeedbackForm` (feedback section omitted in contest context). Entry button is hidden until the context closes.
@@ -150,7 +151,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 ## Internationalization
 
-- Locales: `en`, `zh-TW` (default)
+- Locales: `en` (`baseLocale`, default), `zh-TW`. Unprefixed routes serve `en`; only `/zh-TW` is URL-prefixed
 - Problem statements: per-locale in `ProblemStatementI18n` table
 - UI strings: Inlang Paraglide JS with message files in `apps/web/messages/{en,zh-TW}.json` (compiled into `apps/web/src/lib/paraglide/`)
 - User locale preference stored in `User.locale`

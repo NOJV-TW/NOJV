@@ -30,9 +30,10 @@ into a fresh one without dragging history along.
 
 ### In scope — what gets copied
 
-- `Course` — new row with `title = \`${source.title} (copy)\``,
-`description = source.description`, `ownerId = actor.userId`,
-`archived = false` (defaults).
+- `Course` — new row with `title = newTitle` (caller-supplied, trimmed,
+  required, ≤120 chars — NOT auto-derived from the source title),
+  `description = source.description`, `academicYear`, `semester`,
+  `ownerId = actor.userId`, `archived = false` (defaults).
 - `CourseMembership` — exactly one row: actor → `teacher`, `status:
 'active'`. No other members copied.
 - `CourseAssessment` rows — every assessment of the source is cloned,
@@ -72,7 +73,8 @@ into a fresh one without dragging history along.
 ### Permission
 
 - GIVEN an actor who is not a `teacher` / `ta` of the source course AND
-  not a platform `admin`, WHEN `copyCourse(actor, sourceId)` is called,
+  not a platform `admin`, WHEN `copyCourse(actor, sourceCourseId, newTitle)`
+  is called,
   THEN `ForbiddenError("You do not have permission to manage this course.")`.
 - GIVEN a platform admin, WHEN copy runs, THEN allowed even without
   course membership.
@@ -88,8 +90,12 @@ into a fresh one without dragging history along.
 ### New course row
 
 - WHEN copy succeeds, THEN a new `Course` row exists with:
-  - `title === \`${source.title} (copy)\``.
+  - `title === newTitle.trim()` (caller-supplied; required and ≤120
+    chars — a blank title throws `ValidationError("New course title is
+required.")`, an over-length title throws `ValidationError("New
+course title must be 120 characters or fewer.")`).
   - `description === source.description`.
+  - `academicYear` / `semester` carried from the source when set.
   - `ownerId === actor.userId`.
   - `archived === false` (default; source `archived` is NOT carried).
 - WHEN copy succeeds, THEN the return value is `{ newCourseId: string }`.
@@ -139,8 +145,8 @@ addedByUserId: actor.userId)`.
 
 - After the Settings-tab `copyCourse` action succeeds, the route
   handler redirects via `303` to `/courses/${newCourseId}/settings`.
-- Rate limiting applies (`consumeFormRateLimit`) — back-to-back calls
-  will return the limiter's `fail(429, ...)` response.
+- Rate limiting applies (the action is wrapped in `withRateLimit`) —
+  back-to-back calls will return the limiter's `fail(429, ...)` response.
 
 ## Edge Cases & Failure Modes
 

@@ -197,8 +197,8 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - GIVEN a non-admin manager actor with `now < closesAt`, WHEN
   `createOverride` / `updateOverride` / `deleteOverride` or
   `upsertFeedback` / `deleteFeedback` is called against the
-  assignment, THEN `ConflictError("Grading is only available after
-the assignment has closed.")` (post-close gate; see
+  assignment, THEN `ConflictError("This context is still open; grading
+is only available after it closes.")` (shared post-close gate; see
   `assertContextClosed`). `platformRole === "admin"` bypasses the
   gate.
 - WHEN `getFeedbackForStudent` is called by a student while the
@@ -269,12 +269,12 @@ the assignment has closed.")` (post-close gate; see
   `createCourseAssessmentRecord` (initial insert; generates slug-style id).
 - `packages/domain/src/course/overview.ts` —
   `listAssignmentOverviewForCourse`, `listAssignmentsForCourse`,
-  `mapAssessmentToOverviewRow`, rank function.
+  `mapAssignmentToOverviewRow` (internal helper), rank function.
 - `packages/domain/src/course/across-courses.ts` —
   `listAssignmentsAcrossCoursesForUser` (dashboard surface).
 - `packages/domain/src/shared/list-aggregations.ts` —
-  `aggregateAssessmentClassStats`, `aggregateAssessmentMyStatus`.
-- `packages/domain/src/problem/helpers.ts` — `assertProblemViewAccess`
+  `aggregateAssignmentClassStats`, `aggregateAssignmentMyStatus`.
+- `packages/domain/src/problem/permissions.ts` — `assertProblemViewAccess`
   (practice-after-close historical-participant gate).
 - `packages/domain/src/feedback/` — `upsertFeedback`,
   `deleteFeedback`, `listFeedbackForContext`,

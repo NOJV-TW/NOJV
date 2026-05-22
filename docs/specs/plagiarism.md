@@ -51,10 +51,11 @@ for staff.
   `diffContext = { type: "contest", id }`.
 - State lifecycle `pending → running → completed | failed`, written by
   the Temporal activity at phase boundaries.
-- POST `/api/plagiarism/[assignmentId]` (optional `?type=exam`)
-  dispatches the workflow and sets status to `pending`.
-- GET `/api/plagiarism/[assignmentId]` returns the latest report; with
-  `?source=true&userId&problemId` returns a single source-code string.
+- POST `/api/plagiarism/[assignmentId]/reports` (optional `?type=exam`)
+  dispatches the workflow, sets status to `pending`, and returns `202`.
+- GET `/api/plagiarism/[assignmentId]/reports` returns the latest report.
+- GET `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]`
+  returns a single source-code string for a flagged pair.
 - Permission gate `canManageCourse` (admin, platform teacher, course
   teacher, course TA) on both trigger and view paths.
 - Per-language native tree-sitter parser via Dolos: every
@@ -69,7 +70,10 @@ for staff.
   `longest` (longest common AST fragment in tokens), and `overlap`
   (total overlapping AST tokens).
 - Workflow id scheme `plagiarism-${targetType}-${targetId}` on
-  `PLATFORM_TASK_QUEUE`; same-id redispatch terminates the prior run.
+  `PLATFORM_TASK_QUEUE`. `dispatchPlagiarismCheck` calls
+  `client.workflow.start()` with no reuse/conflict policy, so a same-id
+  redispatch while a run is in flight errors out (Temporal default) —
+  it does NOT terminate-and-restart the prior run.
 - Retry policy on the activity: `startToCloseTimeout: "10m"`,
   `maximumAttempts: 3`.
 - Detection runs entirely in-process inside the worker container. No
@@ -95,8 +99,8 @@ for staff.
 
 - GIVEN an actor with `canManageCourse === false` (student, non-member
   teacher on a different course, etc.),
-  WHEN they POST `/api/plagiarism/[assignmentId]` for any target,
-  THEN `ForbiddenError("Only course staff can trigger plagiarism checks.")`.
+  WHEN they POST `/api/plagiarism/[assignmentId]/reports` for any target,
+  THEN `ForbiddenError("Only staff can trigger plagiarism checks.")`.
 - GIVEN a platform admin (`platformRole: admin`),
   WHEN they POST for any assessment / exam in any course,
   THEN the trigger succeeds regardless of course membership.
@@ -105,7 +109,7 @@ for staff.
 
 - GIVEN `?type=exam` and an id matching `Exam.id`,
   WHEN the route resolves the target,
-  THEN `resolvePlagiarismTarget` returns `{ target: { type: "exam", id } }`.
+  THEN `getPlagiarismTarget` returns `{ target: { type: "exam", id } }`.
 - GIVEN `?type=exam` with an unknown id,
   WHEN the route resolves,
   THEN it throws 404 `Exam not found.`.
@@ -131,8 +135,10 @@ for staff.
   `plagiarismTriggeredAt` + `plagiarismTriggeredById` are recorded.
 - GIVEN a second POST for the same target while a run is in flight,
   WHEN `dispatchPlagiarismCheck` fires with the same workflow id,
-  THEN Temporal's reuse policy terminates the prior run and the new one
-  starts clean. The prior result JSON was already wiped at pre-trigger.
+  THEN — because `client.workflow.start()` is called with no
+  reuse/conflict policy — Temporal rejects the duplicate start (the
+  in-flight run keeps going). The prior result JSON was already wiped at
+  pre-trigger; a fresh run is possible once the prior one finishes.
 - GIVEN the activity begins,
   WHEN `updateReportStatus(target, "running")` writes,
   THEN subsequent GETs return `status: "running"`.
@@ -169,18 +175,21 @@ for staff.
 ### Results retrieval
 
 - GIVEN a staff actor,
-  WHEN they GET `/api/plagiarism/[assignmentId]`,
+  WHEN they GET `/api/plagiarism/[assignmentId]/reports`,
   THEN the response is `{ reports: [PlagiarismReportSummary | null] }`
   (array wrapper preserved for UI compatibility).
-- GIVEN a staff actor with `?source=true&userId=X&problemId=Y`,
-  WHEN the lookup hits,
+- GIVEN a staff actor,
+  WHEN they GET `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]`,
   THEN the response is `{ sourceCode }`.
-- GIVEN `?source=true` without both `userId` and `problemId`,
+- GIVEN a request to the sources path missing any of `assignmentId`,
+  `userId`, or `problemId`,
   WHEN the route validates,
-  THEN a 400-class validation error is returned.
-- GIVEN a student directly GETs the endpoint,
+  THEN a 400-class error (`{ message: "Missing assignmentId, userId, or problemId." }`)
+  is returned.
+- GIVEN a student directly GETs the reports endpoint,
   WHEN the permission check runs,
-  THEN `ForbiddenError("Only course staff can view plagiarism reports.")`.
+  THEN `ForbiddenError("Only staff can view plagiarism reports.")` (the
+  sources path uses `"Only staff can view plagiarism source code."`).
 
 ### UI surface
 
@@ -190,7 +199,7 @@ for staff.
   THEN pairs are bucketed into High (similarity ≥ 70), Medium
   (50 ≤ sim < 70), and Low (< 50), rendered as histogram + table. The
   per-pair action opens a side-by-side source-code dialog fed by the
-  `?source=true` GET endpoint.
+  `.../sources/[userId]/[problemId]` GET endpoint.
 - GIVEN `report === null` (never triggered),
   WHEN the tab renders,
   THEN a "Run plagiarism check" CTA is shown.
@@ -218,7 +227,7 @@ for staff.
   workflow fails with an unrecoverable error, and there is nothing left
   in the UI to show.
 - **Zero accepted submissions in the target**:
-  `fetchSubmissionsForCheck` returns `[]`, the activity iterates no
+  `listSubmissionsForCheck` returns `[]`, the activity iterates no
   groups, persists `{ pairs: [] }` with `status = completed`. UI shows
   "no similarity found".
 - **Source-code lookup for a deleted user**:
@@ -239,11 +248,11 @@ for staff.
 ### Domain
 
 - `packages/domain/src/plagiarism/index.ts` — exports
-  `resolvePlagiarismTarget`, `createPlagiarismReport`,
-  `fetchSubmissionsForCheck`, `findPlagiarismReport`,
+  `getPlagiarismTarget`, `createPlagiarismReport`,
+  `listSubmissionsForCheck`, `findPlagiarismReport`,
   `updateReportStatus`, `saveResults`, `markReportFailed`,
-  `getPlagiarismSourceCode`, `listAssessmentPlagiarismReports`,
-  `getAssessmentProblemMap`.
+  `getPlagiarismSourceCode`, `listAssignmentPlagiarismReports`,
+  `getAssignmentProblemMap`.
 - `packages/domain/src/plagiarism/flags.ts` — `buildPairKey`,
   `flagPair`, `unflagPair`, `listFlagsForContext`. Pair-key shape:
   `[userA, userB].sort()` joined by `|` then `|problemId`. Unique on
@@ -276,12 +285,12 @@ for staff.
 
 ### Temporal
 
-- `packages/temporal/src/workflows/plagiarism-check.ts` — workflow +
+- `apps/worker/src/workflows/plagiarism-check.ts` — workflow +
   `getPlagiarismStatusQuery`.
-- `packages/temporal/src/activities/plagiarism.ts` —
+- `apps/worker/src/activities/plagiarism.ts` —
   `runPlagiarismCheck`, Dolos analyze loop, language grouping. Depends
   on `@dodona/dolos-lib` and `@dodona/dolos-core`.
-- `packages/temporal/src/workflows/activity-options.ts` —
+- `apps/worker/src/workflows/activity-options.ts` —
   `PLAGIARISM_ACTIVITY` sets `startToCloseTimeout: "10m"`,
   `maximumAttempts: 3`.
 - `packages/temporal/src/dispatch.ts` —
@@ -289,8 +298,10 @@ for staff.
 
 ### Routes / API
 
-- `apps/web/src/routes/api/plagiarism/[assignmentId]/+server.ts` — POST
-  trigger + GET report + GET source code.
+- `apps/web/src/routes/api/plagiarism/[assignmentId]/reports/+server.ts`
+  — POST trigger (returns `202`) + GET latest report.
+- `apps/web/src/routes/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]/+server.ts`
+  — GET source code for a flagged pair.
 - `apps/web/src/routes/api/plagiarism-flags/+server.ts` — POST flag a
   pair as false-positive.
 - `apps/web/src/routes/api/plagiarism-flags/[id]/+server.ts` — DELETE
@@ -309,7 +320,7 @@ for staff.
 ### Tests
 
 - `tests/unit/domain/plagiarism-queries.test.ts` — covers
-  `resolvePlagiarismTarget` (exam / courseAssessment / legacy-contest
+  `getPlagiarismTarget` (exam / courseAssessment / legacy-contest
   remap / not-found paths) and `createPlagiarismReport` (pre-wipe
   contract + persistence-failure throw).
 - `tests/unit/temporal/plagiarism-activity.test.ts` — real-Dolos

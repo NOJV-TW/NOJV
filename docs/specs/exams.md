@@ -4,9 +4,10 @@ Acceptance spec for course-embedded exams (`Exam` /
 `/exams/[examId]/...`). Exams are proctored in-class assessments: students
 must start a session, are locked to the exam routes until release, and may
 be IP-bound or IP-whitelisted. When the window ends, a Temporal workflow
-auto-closes every active session; post-close students rely on the
-practice-after-close route through `/problems/[id]` (the exam detail page
-itself is staff-only once `endsAt < now`).
+auto-closes every active session; after the exam ends students can view a
+post-exam review page (per-problem state + total score) on
+`/exams/[examId]`, and can also keep practicing through the
+practice-after-close route at `/problems/[id]`.
 
 ## User Stories
 
@@ -58,7 +59,9 @@ itself is staff-only once `endsAt < now`).
 - Violation modes: `block` rejects the submission / gate; `notify` logs
   an `IpViolationLog` row but allows the request.
 - Scoreboard live/frozen via `@nojv/redis` `scoreboard` module
-  (zset-backed, 90-day TTL refreshed on writes).
+  (zset-backed; TTL = `scoreboardTtlForEndsAt(exam.endsAt)` = `endsAt` +
+  7-day grace, floored at 1h, refreshed on writes; the 90-day constant is
+  only the no-end-time fallback).
 - Submissions matrix (`getExamSubmissionsMatrix`) — manager-only view.
 - Proctoring sub-tab — manager-only `IpViolationLog` viewer wired into
   the exam detail page via `ExamProctoringTab.svelte`.
@@ -69,10 +72,12 @@ itself is staff-only once `endsAt < now`).
 - Audit sub-tab — staff-only merged feed of score override + rejudge
   events (`listAuditTimelineForContext({ type: "exam", id })`).
   Exams have no lifecycle audit log.
-- Post-close student review block: ended exams (`endsAt < now`) hide the
-  detail page from students (`getExamDetailPage` returns null for
-  non-managers). Practice-after-close still allows accessing the
-  problems via `/problems/[id]` (no context).
+- Post-close student review page: for ended exams (`endsAt < now`),
+  `getExamDetailPage` builds a student-facing review page enriched with
+  per-problem state (`ac | partial | zero | empty`) + total score
+  (`viewerState`/`viewerScore`). `getExamDetailPage` returns null for
+  non-managers only on DRAFT exams. Practice-after-close additionally
+  allows accessing the problems via `/problems/[id]` (no context).
 - `scoringMode: problem_count` (ICPC-style solved count + penalty) and
   `point_sum` (IOI-style weighted total).
 - `scoreboardMode: hidden | live | frozen`.
@@ -164,7 +169,8 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 
 ### Session — instructor release
 
-- GIVEN a course staff actor (owner or active teacher/TA of the course),
+- GIVEN a course staff actor (active `teacher` or `ta` membership on the
+  course),
   WHEN `releaseSessionAsInstructor({ examId, targetUserId })` is called,
   THEN the target student's session `endedAt` is set, `releaseReason =
 'released_by_instructor'`, and an event is recorded with
@@ -232,14 +238,14 @@ examId })` is called, THEN every currently-active session for the exam
 - GIVEN a non-admin manager actor with `now < endsAt`, WHEN
   `createOverride` / `updateOverride` / `deleteOverride` or
   `upsertFeedback` / `deleteFeedback` is called against the exam,
-  THEN `ConflictError("Grading is only available after the exam has
-ended.")` (post-close gate via `assertContextClosed`).
-  `platformRole === "admin"` bypasses the gate.
+  THEN `ConflictError("This context is still open; grading is only
+available after it closes.")` (shared post-close gate via
+  `assertContextClosed`). `platformRole === "admin"` bypasses the gate.
 - WHEN `getFeedbackForStudent` is called by a student while the exam
   is still running, THEN it returns nothing; once `endsAt < now`, the
-  per-problem comment is surfaced on the submission detail page (the
-  exam detail page itself is staff-only post-close, so the
-  assignment-style detail surface is not available).
+  per-problem comment is surfaced on the submission detail page. The
+  post-exam review page on `/exams/[examId]` surfaces per-problem state
+  - total score, but not the feedback comment.
 
 ### Audit timeline
 
@@ -262,13 +268,18 @@ ended.")` (post-close gate via `assertContextClosed`).
   on the same problem, THEN the submission is accepted as practice (no
   scoreboard write, no matrix contribution, no participation update).
 
-### Post-close review block
+### Post-close review page
 
 - GIVEN a student on `/exams/[examId]` for an exam with `endsAt < now`,
   WHEN `getExamDetailPage` is called with `isManager: false`, THEN it
-  returns `null` and the loader 404s.
-- The workaround for students is the practice-after-close route through
-  `/problems/[id]` (no detail page needed).
+  returns a review page enriched with per-problem `viewerState`
+  (`ac | partial | zero | empty`) and a `viewerTotalScore`.
+- GIVEN a student on `/exams/[examId]` for a DRAFT exam,
+  WHEN `getExamDetailPage` is called with `isManager: false`, THEN it
+  returns `null` and the loader 404s — null/404 only applies to drafts
+  for non-managers.
+- Students may additionally use the practice-after-close route through
+  `/problems/[id]` (no context) to re-attempt the problems.
 
 ## Edge Cases & Failure Modes
 
@@ -339,9 +350,9 @@ ended.")` (post-close gate via `assertContextClosed`).
 
 ### Temporal
 
-- `packages/temporal/src/workflows/exam-auto-close.ts` —
+- `apps/worker/src/workflows/exam-auto-close.ts` —
   `examAutoCloseWorkflow`.
-- `packages/temporal/src/activities/exam-session.ts` —
+- `apps/worker/src/activities/lifecycle.ts` —
   `closeActiveSessionsForExam`.
 - `packages/temporal/src/dispatch.ts` — `dispatchExamAutoClose`.
 
