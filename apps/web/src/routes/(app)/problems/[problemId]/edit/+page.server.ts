@@ -21,6 +21,7 @@ import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
+import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 import { problemDomain } from "@nojv/domain";
 
 const {
@@ -132,6 +133,7 @@ export const load: PageServerLoad = handleLoad(
             memoryLimitMb: problem.memoryLimitMb,
           }
         : null,
+      advancedModeSupported: isAdvancedModeSupported(),
     };
   },
 );
@@ -260,6 +262,11 @@ export const actions: Actions = {
   // The same /edit route renders the advanced layout when problem.type
   // becomes "special_env", so we just reload the same URL after converting.
   convertToAdvanced: problemEditAction(async ({ actor, problemId, event }) => {
+    if (!isAdvancedModeSupported()) {
+      return fail(400, {
+        message: "Advanced-mode problems require the Docker execution backend.",
+      });
+    }
     const formData = await event.request.formData();
     if (formData.get("confirm") !== "yes") {
       return fail(400, { message: "Conversion not confirmed" });

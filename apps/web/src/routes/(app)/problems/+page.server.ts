@@ -1,5 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { problemDomain } from "@nojv/domain";
+import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 
 const { listEditableProblems, listProblemCards } = problemDomain;
 
@@ -27,5 +28,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     editableProblems,
     publicResult,
     canCreate,
+    advancedModeSupported: isAdvancedModeSupported(),
   };
 };

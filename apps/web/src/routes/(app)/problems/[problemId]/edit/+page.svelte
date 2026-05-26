@@ -48,16 +48,20 @@
     untrack(() => data.problem.advancedRequiredPaths ?? [])
   );
 
-  // Publish requires: at least one testcase set
-  let canPublish = $derived(
-    data.problem.status === "draft" && data.testcaseSets.length > 0
-  );
-
   let isBasicInfoComplete = $derived(
     data.problem.title !== "Untitled Problem" &&
     data.problem.statement !== "" &&
     data.problem.inputFormat !== "" &&
     data.problem.outputFormat !== ""
+  );
+
+  // Publish gate: standard problems need at least one testcase set; advanced
+  // problems have none, so they need basic info complete + a judge image set.
+  let canPublish = $derived(
+    data.problem.status === "draft" &&
+    (isAdvanced
+      ? isBasicInfoComplete && (data.imageConfig?.ref ?? "") !== ""
+      : data.testcaseSets.length > 0)
   );
 
   // Build WorkspaceSection initial payload from loaded problem + files.
@@ -127,7 +131,7 @@
     imageSource: ProblemImageSource;
     timeLimitMs: number;
     memoryLimitMb: number;
-  }) {
+  }): Promise<{ ok: boolean }> {
     const fd = new FormData();
     fd.append(
       "data",
@@ -139,10 +143,11 @@
       })
     );
     const res = await fetch("?/updateImage", { method: "POST", body: fd });
-    toasts.add({
-      message: res.ok ? m.admin_imageConfigSaved() : m.admin_imageConfigFailed(),
-      type: res.ok ? "success" : "error"
-    });
+    // Success surfaces as a toast; failures render inline inside ImageSection.
+    if (res.ok) {
+      toasts.add({ message: m.admin_imageConfigSaved(), type: "success" });
+    }
+    return { ok: res.ok };
   }
 
   async function saveRequiredPaths() {
@@ -199,6 +204,16 @@
           {isDeleting ? m.common_deleting() : m.common_delete()}
         </Button>
       {/if}
+      {#if isAdvanced && data.problem.status === "draft"}
+        <Button
+          size="sm"
+          disabled={!canPublish || isPublishing}
+          title={canPublish ? undefined : m.admin_advancedPublishHint()}
+          onclick={handlePublishClick}
+        >
+          {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
+        </Button>
+      {/if}
     </div>
   </div>
 
@@ -234,7 +249,7 @@
       bind:activeSection
       problemType={data.problem.type}
       showPublish={data.problem.status === "draft"}
-      showConvertToAdvanced
+      showConvertToAdvanced={data.advancedModeSupported}
       {canPublish}
       {isPublishing}
       {isBasicInfoComplete}

@@ -3,7 +3,13 @@ import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { canEditProblem, problemDomain } from "@nojv/domain";
-import { uploadAdvancedImageTarball } from "$lib/server/storage/advanced-image";
+import { createLogger } from "$lib/server/logger";
+import {
+  deleteAdvancedImageTarball,
+  uploadAdvancedImageTarball,
+} from "$lib/server/storage/advanced-image";
+
+const logger = createLogger("advanced-image-upload");
 
 const { updateProblemRecord } = problemDomain;
 
@@ -51,6 +57,12 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "File does not look like a tar archive");
   }
 
+  // Capture the prior tarball key (if any) so we can drop it after the
+  // record points at the new upload — each upload gets a fresh UUID key.
+  const existing = await problemDomain.getProblemRowById(problemId);
+  const previousKey =
+    existing?.advancedImageSource === "tarball" ? existing.advancedImageRef : null;
+
   const key = await uploadAdvancedImageTarball(problemId, buffer);
 
   await updateProblemRecord(
@@ -61,6 +73,18 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
       advancedImageRef: key,
     },
   );
+
+  if (previousKey && previousKey !== key) {
+    try {
+      await deleteAdvancedImageTarball(previousKey);
+    } catch (err) {
+      logger.warn("Failed to delete superseded advanced-image tarball", {
+        problemId,
+        previousKey,
+        err,
+      });
+    }
+  }
 
   return json({ key });
 });

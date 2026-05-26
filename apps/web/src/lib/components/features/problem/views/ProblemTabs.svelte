@@ -16,9 +16,16 @@
     editableProblems: EditableProblemCard[] | null;
     publicResult: ProblemListResult;
     showCreate?: boolean;
+    /** False when the deployment's execution backend can't judge advanced problems. */
+    advancedModeSupported?: boolean;
   }
 
-  let { editableProblems, publicResult, showCreate }: Props = $props();
+  let {
+    editableProblems,
+    publicResult,
+    showCreate,
+    advancedModeSupported = true,
+  }: Props = $props();
 
   let creating = $state(false);
   let showCreateMenu = $state(false);
@@ -126,16 +133,18 @@
                 {m.problems_createStandardDescription()}
               </span>
             </button>
-            <button
-              class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
-              onclick={() => void handleCreate("advanced")}
-              type="button"
-            >
-              <span class="font-semibold">{m.problems_createAdvancedTitle()}</span>
-              <span class="text-caption text-muted-foreground">
-                {m.problems_createAdvancedDescription()}
-              </span>
-            </button>
+            {#if advancedModeSupported}
+              <button
+                class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
+                onclick={() => void handleCreate("advanced")}
+                type="button"
+              >
+                <span class="font-semibold">{m.problems_createAdvancedTitle()}</span>
+                <span class="text-caption text-muted-foreground">
+                  {m.problems_createAdvancedDescription()}
+                </span>
+              </button>
+            {/if}
           </div>
         {/if}
       </div>
