@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { editorialUpdateSchema, type Language } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
@@ -9,7 +10,7 @@ import { editorialDomain } from "@nojv/domain";
 
 const { updateEditorial, softDeleteEditorial } = editorialDomain;
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Editorial id is required.", 400);
   return id;

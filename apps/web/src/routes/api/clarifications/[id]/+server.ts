@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
@@ -33,7 +34,7 @@ function parseBody(raw: unknown): z.infer<typeof patchSchema> {
   return patchSchema.parse(raw);
 }
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Clarification id is required.", 400);
   return id;
