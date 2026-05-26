@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { json } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
@@ -13,7 +14,7 @@ const editorialReportSchema = z.object({
   reason: z.string().min(1).max(1000),
 });
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Editorial id is required.", 400);
   return id;

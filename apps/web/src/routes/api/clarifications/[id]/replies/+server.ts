@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
@@ -26,7 +27,7 @@ const cannedSchema = z.object({
   templateKey: z.enum(["noComment", "readProblem", "yes", "no"]),
 });
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Clarification id is required.", 400);
   return id;
