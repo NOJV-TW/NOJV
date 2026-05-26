@@ -1,10 +1,12 @@
+import type { RequestEvent } from "@sveltejs/kit";
+
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { feedbackDomain } from "@nojv/domain";
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Feedback id is required.", 400);
   return id;
