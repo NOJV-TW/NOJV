@@ -32,7 +32,7 @@
       <span
         class="absolute -top-1 -right-1 inline-grid place-items-center size-3.5 rounded-full text-[8px] font-bold"
         style="background: #d4a054; color: white;"
-        title="First Blood"
+        title={m.contestDetail_firstBlood()}
       >
         ★
       </span>

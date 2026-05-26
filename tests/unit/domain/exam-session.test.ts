@@ -33,6 +33,7 @@ vi.mock("@nojv/db", () => {
     examSessionRepo: {
       findActiveForUser: sessionFindActiveForUser,
       withTx: () => ({
+        findActiveForUser: sessionFindActiveForUser,
         findByUserAndExam: sessionFindByUserAndExam,
         create: sessionCreate,
         update: sessionUpdate,
@@ -45,8 +46,12 @@ vi.mock("@nojv/db", () => {
     // assertEnrolledInExamCourse now reads `tx.course` directly to check
     // course.archived alongside membership; provide a tx mock that exposes it.
     runTransaction: async <T>(
-      fn: (tx: { course: { findUnique: typeof txCourseFindUnique } }) => Promise<T>,
-    ): Promise<T> => fn({ course: { findUnique: txCourseFindUnique } }),
+      fn: (tx: {
+        course: { findUnique: typeof txCourseFindUnique };
+        $executeRaw: (...args: unknown[]) => Promise<number>;
+      }) => Promise<T>,
+    ): Promise<T> =>
+      fn({ course: { findUnique: txCourseFindUnique }, $executeRaw: async () => 0 }),
   };
 });
 

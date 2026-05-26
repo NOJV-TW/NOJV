@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
@@ -21,7 +21,7 @@
     return m.admin_tabAnnouncements();
   }
 
-  let currentPath = $derived($page.url.pathname);
+  let currentPath = $derived(page.url.pathname);
 </script>
 
 <PageContainer>

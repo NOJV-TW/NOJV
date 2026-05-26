@@ -347,7 +347,7 @@
                 </p>
                 <pre
                   class="mt-1 max-h-48 overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.stdout ||
-                    "(empty)"}</pre>
+                    m.common_emptyOutput()}</pre>
               </div>
               {#if expandedCase.stderr}
                 <div>

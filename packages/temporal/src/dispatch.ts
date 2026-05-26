@@ -52,6 +52,7 @@ export async function dispatchContestLifecycle(input: ContestLifecycleInput): Pr
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `contest-lifecycle-${input.contestId}`,
+    workflowIdConflictPolicy: "TERMINATE_EXISTING",
     args: [input],
   });
 }
@@ -74,6 +75,7 @@ export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Prom
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: plagiarismWorkflowId(input.targetType, input.targetId),
+    workflowIdConflictPolicy: "TERMINATE_EXISTING",
     args: [input],
   });
 }
