@@ -22,6 +22,7 @@ const {
   submissionFindMostRecent,
   submissionCreate,
   examSessionFindActiveForUser,
+  examFindById,
   txContestProblemFindFirst,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
@@ -34,6 +35,7 @@ const {
   submissionFindMostRecent: vi.fn(),
   submissionCreate: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
+  examFindById: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
 }));
 
@@ -61,6 +63,9 @@ vi.mock("@nojv/db", () => ({
   },
   examSessionRepo: {
     withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
+  },
+  examRepo: {
+    withTx: () => ({ findById: examFindById }),
   },
   problemWorkspaceFileRepo: {
     findByProblemId: workspaceFindByProblemId,
@@ -120,6 +125,14 @@ function setupCommonProblemDefaults() {
   userUpdate.mockResolvedValue(user);
   userCreate.mockResolvedValue(user);
   workspaceFindByProblemId.mockResolvedValue([]);
+  // Active-exam tests run with the clock pinned to 2026-04-14; a far-future
+  // endsAt keeps the exam "running" so the new time-window check is a no-op
+  // here (window enforcement is covered in submission-mutations.test.ts).
+  examFindById.mockResolvedValue({
+    id: "exam_default",
+    startsAt: new Date("2026-01-01T00:00:00.000Z"),
+    endsAt: new Date("2026-12-31T23:59:59.000Z"),
+  });
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
