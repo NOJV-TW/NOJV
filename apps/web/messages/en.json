@@ -1423,6 +1423,7 @@
   "examRow_scoringPointSum": "Point sum",
   "examRow_scoringProblemCount": "Problem count",
   "examShell_breadcrumb": "All exams",
+  "examShell_examUnavailable": "This exam is no longer available to you.",
   "examShell_ipBlocked": "Your network is not permitted for this exam.",
   "examShell_ipGateUnavailable": "Exam access check is temporarily unavailable. Please try again shortly.",
   "examStartModal_agree": "I have read and accept the exam rules",

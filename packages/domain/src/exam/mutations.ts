@@ -214,7 +214,7 @@ export async function updateExamRecord(
   payload: ExamUpdate,
   options: UpdateExamOptions = {},
 ) {
-  return runTransaction(async (tx) => {
+  const result = await runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
 
     // Permission check — owner-of-course or contest creator
@@ -263,8 +263,29 @@ export async function updateExamRecord(
       );
     }
 
-    return { id: exam.id };
+    return {
+      id: exam.id,
+      status: exam.status,
+      windowChanged: payload.startsAt !== undefined || payload.endsAt !== undefined,
+      startsAt: payload.startsAt !== undefined ? new Date(payload.startsAt) : exam.startsAt,
+      endsAt: payload.endsAt !== undefined ? new Date(payload.endsAt) : exam.endsAt,
+    };
   });
+
+  // Re-arm the auto-close timer after commit when a published exam's window
+  // moved. Without this the workflow still fires at the pre-edit endsAt — so
+  // extending a deadline would auto-close sessions early. Keyed on examId with
+  // TERMINATE_EXISTING, so this replaces the stale timer. Drafts have no timer
+  // yet (publish dispatches it); window-untouched edits leave it alone.
+  if (result.status === "published" && result.windowChanged) {
+    await dispatchExamAutoClose({
+      examId: result.id,
+      startsAt: result.startsAt.toISOString(),
+      endsAt: result.endsAt.toISOString(),
+    });
+  }
+
+  return { id: result.id };
 }
 
 export interface ExamLifecycleSnapshot {
