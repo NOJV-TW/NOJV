@@ -25,16 +25,20 @@ export const openApiDocument = {
       description: "Health and platform metadata.",
     },
     {
+      name: "Problems",
+      description: "Problem discovery and problem detail endpoints.",
+    },
+    {
       name: "Submissions",
       description: "Submission creation, status, verdicts, and source access.",
     },
   ],
   paths: {
-    "/api/healthz": {
+    "/api/v1/healthz": {
       get: {
         tags: ["System"],
         summary: "Check service health",
-        operationId: "getHealth",
+        operationId: "getPublicApiHealth",
         responses: {
           "200": {
             description: "Service is healthy",
@@ -42,6 +46,9 @@ export const openApiDocument = {
               "application/json": {
                 schema: {
                   $ref: "#/components/schemas/HealthResponse",
+                },
+                example: {
+                  ok: true,
                 },
               },
             },
@@ -52,6 +59,9 @@ export const openApiDocument = {
               "application/json": {
                 schema: {
                   $ref: "#/components/schemas/HealthResponse",
+                },
+                example: {
+                  ok: false,
                 },
               },
             },
@@ -78,13 +88,147 @@ export const openApiDocument = {
         },
       },
     },
-    "/api/submissions": {
+    "/api/v1/problems": {
+      get: {
+        tags: ["Problems"],
+        summary: "List public problems",
+        operationId: "listProblems",
+        description:
+          "Lists published public problems. This endpoint is read-only and does not require authentication in the initial public API version.",
+        parameters: [
+          {
+            name: "q",
+            in: "query",
+            required: false,
+            description: "Search query.",
+            schema: {
+              type: "string",
+            },
+          },
+          {
+            name: "difficulty",
+            in: "query",
+            required: false,
+            description: "Difficulty filter.",
+            schema: {
+              type: "string",
+              enum: ["all", "easy", "medium", "hard"],
+            },
+          },
+          {
+            name: "tags",
+            in: "query",
+            required: false,
+            description: "Comma-separated tag list. All listed tags must match.",
+            schema: {
+              type: "string",
+            },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              default: 1,
+            },
+          },
+          {
+            name: "sort",
+            in: "query",
+            required: false,
+            description: "Sort by problem display order.",
+            schema: {
+              type: "string",
+              enum: ["asc", "desc"],
+              default: "asc",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Public problem list",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ProblemListResponse",
+                },
+              },
+            },
+          },
+          "429": {
+            description: "Rate limit exceeded",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/problems/{problemId}": {
+      get: {
+        tags: ["Problems"],
+        summary: "Get public problem detail",
+        operationId: "getProblem",
+        description:
+          "Returns public problem detail, samples, starter code, and testcase set summaries. Hidden testcase input/output and private judge assets are never included.",
+        parameters: [
+          {
+            name: "problemId",
+            in: "path",
+            required: true,
+            description: "Problem ID.",
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Public problem detail",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ProblemDetailResponse",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Problem not found or not public",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+          "429": {
+            description: "Rate limit exceeded",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/submissions": {
       post: {
         tags: ["Submissions"],
         summary: "Create a submission",
         operationId: "createSubmission",
         description:
-          "Creates a queued submission and dispatches it to the judge. This endpoint currently requires a logged-in browser session and the X-Requested-With: fetch header. Bearer token auth will be added in the API token phase.",
+          "Creates a queued submission and dispatches it to the judge. This v1 endpoint currently uses the same logged-in browser session gate as the web app. Bearer token auth and scopes will replace this before external token access is enabled.",
         requestBody: {
           required: true,
           content: {
@@ -174,7 +318,7 @@ export const openApiDocument = {
         },
       },
     },
-    "/api/submissions/{id}": {
+    "/api/v1/submissions/{id}": {
       get: {
         tags: ["Submissions"],
         summary: "Get submission status and result",
@@ -246,7 +390,7 @@ export const openApiDocument = {
         },
       },
     },
-    "/api/submissions/{id}/source": {
+    "/api/v1/submissions/{id}/source": {
       get: {
         tags: ["Submissions"],
         summary: "Get submission source code",
@@ -321,11 +465,7 @@ export const openApiDocument = {
   },
   components: {
     securitySchemes: {
-      ApiToken: {
-        type: "http",
-        scheme: "bearer",
-        bearerFormat: "NOJV API token",
-      },
+      ApiToken: [],
     },
     schemas: {
       HealthResponse: {
@@ -340,6 +480,180 @@ export const openApiDocument = {
       SupportedLanguage: {
         type: "string",
         enum: ["c", "cpp", "go", "java", "javascript", "python", "rust", "typescript"],
+      },
+      ProblemDifficulty: {
+        type: "string",
+        enum: ["easy", "medium", "hard"],
+      },
+      ProblemType: {
+        type: "string",
+        enum: ["full_source", "multi_file", "special_env"],
+      },
+      ProblemUserStatus: {
+        oneOf: [{ type: "string", enum: ["ac", "attempted"] }, { type: "null" }],
+      },
+      ProblemCard: {
+        type: "object",
+        properties: {
+          acceptanceRate: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+          },
+          difficulty: {
+            $ref: "#/components/schemas/ProblemDifficulty",
+          },
+          displayId: {
+            type: "integer",
+          },
+          id: {
+            type: "string",
+          },
+          judgeType: {
+            type: "string",
+          },
+          type: {
+            $ref: "#/components/schemas/ProblemType",
+          },
+          status: {
+            $ref: "#/components/schemas/ProblemUserStatus",
+          },
+          tags: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          title: {
+            type: "string",
+          },
+          totalSubmissions: {
+            type: "integer",
+            minimum: 0,
+          },
+        },
+        required: [
+          "acceptanceRate",
+          "difficulty",
+          "displayId",
+          "id",
+          "judgeType",
+          "type",
+          "status",
+          "tags",
+          "title",
+          "totalSubmissions",
+        ],
+      },
+      ProblemListResponse: {
+        type: "object",
+        properties: {
+          page: {
+            type: "integer",
+            minimum: 1,
+          },
+          pageSize: {
+            type: "integer",
+            minimum: 1,
+            maximum: 100,
+          },
+          problems: {
+            type: "array",
+            items: {
+              $ref: "#/components/schemas/ProblemCard",
+            },
+          },
+          totalCount: {
+            type: "integer",
+            minimum: 0,
+          },
+        },
+        required: ["page", "pageSize", "problems", "totalCount"],
+      },
+      ProblemSample: {
+        type: "object",
+        properties: {
+          input: { type: "string" },
+          output: { type: "string" },
+        },
+        required: ["input", "output"],
+      },
+      TestcaseSetSummary: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          weight: { type: "integer", minimum: 1 },
+          ordinal: { type: "integer" },
+          caseCount: { type: "integer", minimum: 0 },
+        },
+        required: ["id", "name", "description", "weight", "ordinal", "caseCount"],
+      },
+      ProblemDetail: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          displayId: { type: "integer" },
+          title: { type: "string" },
+          statement: { type: "string" },
+          inputFormat: { type: "string" },
+          outputFormat: { type: "string" },
+          difficulty: { $ref: "#/components/schemas/ProblemDifficulty" },
+          tags: { type: "array", items: { type: "string" } },
+          type: { $ref: "#/components/schemas/ProblemType" },
+          judgeType: { type: "string" },
+          timeLimitMs: { type: "integer", minimum: 1 },
+          memoryLimitMb: { type: "integer", minimum: 1 },
+          samples: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ProblemSample" },
+          },
+          starterByLanguage: {
+            type: "object",
+            additionalProperties: { type: "string" },
+          },
+          acceptanceRate: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+          },
+          totalSubmissions: {
+            type: "integer",
+            minimum: 0,
+          },
+        },
+        required: [
+          "id",
+          "displayId",
+          "title",
+          "statement",
+          "inputFormat",
+          "outputFormat",
+          "difficulty",
+          "tags",
+          "type",
+          "judgeType",
+          "timeLimitMs",
+          "memoryLimitMb",
+          "samples",
+          "starterByLanguage",
+          "acceptanceRate",
+          "totalSubmissions",
+        ],
+      },
+      ProblemDetailResponse: {
+        type: "object",
+        properties: {
+          problem: {
+            $ref: "#/components/schemas/ProblemDetail",
+          },
+          testcaseSets: {
+            type: "array",
+            items: { $ref: "#/components/schemas/TestcaseSetSummary" },
+          },
+        },
+        required: ["problem", "testcaseSets"],
       },
       RunCase: {
         type: "object",
@@ -434,7 +748,7 @@ export const openApiDocument = {
         properties: {
           pollUrl: {
             type: "string",
-            example: "/api/submissions/clx123",
+            example: "/api/v1/submissions/clx123",
           },
           status: {
             $ref: "#/components/schemas/SubmissionStatus",
