@@ -1,15 +1,17 @@
 import {
+  Prisma,
+  problemBookmarkRepo,
   problemRepo,
   problemStatementRepo,
   problemWorkspaceFileRepo,
   submissionRepo,
   testcaseSetRepo,
-  type Prisma,
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
   LANGUAGE_TEMPLATES,
   judgeConfigSchema,
+  judgeTypes,
   problemDifficultySchema,
   type JudgeConfig,
   type JudgeType,
@@ -203,6 +205,8 @@ async function mapPersistedProblemDetail(
   };
 }
 
+export type ProblemStatusFilter = "solved" | "attempted" | "untried" | "bookmarked";
+
 export interface ProblemListParams {
   difficulty?: string | undefined;
   page?: number | undefined;
@@ -210,6 +214,9 @@ export interface ProblemListParams {
   q?: string | undefined;
   sort?: "asc" | "desc" | undefined;
   tags?: string[] | undefined;
+  types?: ProblemType[] | undefined;
+  judgeMethods?: JudgeType[] | undefined;
+  status?: ProblemStatusFilter | undefined;
   userId?: string | null | undefined;
 }
 
@@ -217,6 +224,7 @@ export type ProblemUserStatus = "ac" | "attempted" | null;
 
 export interface ProblemCardWithStatus {
   acceptanceRate: number;
+  bookmarked: boolean;
   difficulty: ProblemDifficulty;
   displayId: number;
   id: string;
@@ -228,11 +236,21 @@ export interface ProblemCardWithStatus {
   totalSubmissions: number;
 }
 
+/** Library-wide counts per status — only computed for authenticated users. */
+export interface ProblemStatusCounts {
+  all: number;
+  solved: number;
+  attempted: number;
+  untried: number;
+  bookmarked: number;
+}
+
 export interface ProblemListResult {
   page: number;
   pageSize: number;
   problems: ProblemCardWithStatus[];
   totalCount: number;
+  statusCounts: ProblemStatusCounts | null;
 }
 
 export async function listProblemCards(
@@ -265,7 +283,52 @@ export async function listProblemCards(
     where.tags = { hasEvery: params.tags };
   }
 
-  const [totalCount, persistedProblems] = await Promise.all([
+  const and: Prisma.ProblemWhereInput[] = [];
+
+  if (params.types && params.types.length > 0) {
+    where.type = { in: params.types };
+  }
+
+  // Judge method lives inside the judgeConfig JSON (a null config means
+  // "standard"). special_env problems have no judge method, so any
+  // judge-method filter excludes them. Skip when all three are selected
+  // (no-op) or none.
+  if (
+    params.judgeMethods &&
+    params.judgeMethods.length > 0 &&
+    params.judgeMethods.length < judgeTypes.length
+  ) {
+    const or: Prisma.ProblemWhereInput[] = [];
+    for (const jm of params.judgeMethods) {
+      if (jm === "standard") {
+        or.push({ judgeConfig: { equals: Prisma.DbNull } });
+        or.push({ judgeConfig: { path: ["type"], equals: "standard" } });
+      } else {
+        or.push({ judgeConfig: { path: ["type"], equals: jm } });
+      }
+    }
+    and.push({ type: { not: "special_env" } });
+    and.push({ OR: or });
+  }
+
+  // Per-user status filter. Requires a userId; ignored for anonymous viewers.
+  if (params.userId && params.status) {
+    const uid = params.userId;
+    if (params.status === "solved") {
+      and.push({ submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } } });
+    } else if (params.status === "attempted") {
+      and.push({ submissions: { some: { userId: uid, sampleOnly: false } } });
+      and.push({ submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } } });
+    } else if (params.status === "untried") {
+      and.push({ submissions: { none: { userId: uid, sampleOnly: false } } });
+    } else {
+      and.push({ bookmarks: { some: { userId: uid } } });
+    }
+  }
+
+  if (and.length > 0) where.AND = and;
+
+  const [totalCount, persistedProblems, statusCounts] = await Promise.all([
     problemRepo.count(where),
     problemRepo.listWithCounts({
       where,
@@ -273,18 +336,22 @@ export async function listProblemCards(
       take: pageSize,
       sort: params.sort,
     }),
+    computeStatusCounts(params.userId),
   ]);
 
   const problemIds = persistedProblems.map((p) => p.id);
 
-  // Batch-fetch user-based stats + per-user status in parallel. AC rate is
-  // people-based (distinct solvers / distinct attempters) so a single
+  // Batch-fetch user-based stats + per-user status + bookmarks in parallel. AC
+  // rate is people-based (distinct solvers / distinct attempters) so a single
   // student spamming the same problem can't tilt it.
-  const [userStats, userSubmissions] = await Promise.all([
+  const [userStats, userSubmissions, bookmarkedIds] = await Promise.all([
     submissionRepo.countUserStatsByProblem(problemIds),
     params.userId && problemIds.length > 0
       ? submissionRepo.groupByProblemAndStatus(params.userId, problemIds)
       : [],
+    params.userId
+      ? problemBookmarkRepo.listBookmarkedIds(params.userId, problemIds)
+      : new Set<string>(),
   ]);
 
   const statsByProblemId = new Map(
@@ -310,6 +377,7 @@ export async function listProblemCards(
     };
     return {
       acceptanceRate: attempters > 0 ? solvers / attempters : 0,
+      bookmarked: bookmarkedIds.has(problem.id),
       difficulty: problem.difficulty,
       displayId: problem.displayId,
       id: problem.id,
@@ -322,7 +390,36 @@ export async function listProblemCards(
     };
   });
 
-  return { page, pageSize, problems, totalCount };
+  return { page, pageSize, problems, totalCount, statusCounts };
+}
+
+/**
+ * Library-wide status counts shown next to the sidebar status filter. Computed
+ * over the public+published base set only — independent of the other active
+ * filters — so the numbers partition cleanly (solved + attempted + untried =
+ * all). Returns null for anonymous viewers (no per-user status to count).
+ */
+async function computeStatusCounts(
+  userId: string | null | undefined,
+): Promise<ProblemStatusCounts | null> {
+  if (!userId) return null;
+  const base: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
+  const [all, solved, attempted, bookmarked] = await Promise.all([
+    problemRepo.count(base),
+    problemRepo.count({
+      ...base,
+      submissions: { some: { userId, sampleOnly: false, status: "accepted" } },
+    }),
+    problemRepo.count({
+      ...base,
+      AND: [
+        { submissions: { some: { userId, sampleOnly: false } } },
+        { submissions: { none: { userId, sampleOnly: false, status: "accepted" } } },
+      ],
+    }),
+    problemRepo.count({ ...base, bookmarks: { some: { userId } } }),
+  ]);
+  return { all, solved, attempted, untried: all - solved - attempted, bookmarked };
 }
 
 export async function listEditableProblems(userId: string, sort: "asc" | "desc" = "asc") {

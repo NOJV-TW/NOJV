@@ -23,6 +23,7 @@ const TABLES = [
   "TestcaseSet",
   "ProblemStatementI18n",
   "ProblemWorkspaceFile",
+  "ProblemBookmark",
   "Problem",
   "Announcement",
   "Verification",
