@@ -1,9 +1,8 @@
-import { courseMembershipRepo, examRepo, ipViolationLogRepo, runTransaction } from "@nojv/db";
+import { courseMembershipRepo, examRepo, ipViolationLogRepo } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
-import { checkIpLock, type IpCheckResult } from "../shared/ip";
 import { aggregateExamClassStats, aggregateExamMyStatus } from "../shared/list-aggregations";
 import { canManageExam } from "./permissions";
 
@@ -361,23 +360,6 @@ export async function getExamDetail(
  */
 export async function getExamById(id: string) {
   return examRepo.findById(id);
-}
-
-export async function checkExamIpAccess(
-  config: {
-    ipWhitelistEnabled: boolean;
-    ipBindingEnabled: boolean;
-    ipWhitelist: string[];
-    ipViolationMode: string;
-  },
-  clientIp: string,
-  examId: string,
-  userId: string,
-  participation: { id: string; ipPin: string | null } | null,
-): Promise<IpCheckResult> {
-  return runTransaction(async (tx) => {
-    return checkIpLock(tx, config, clientIp, participation, { userId, examId });
-  });
 }
 
 export function listExamIpViolations(opts: { examId: string; take?: number }) {

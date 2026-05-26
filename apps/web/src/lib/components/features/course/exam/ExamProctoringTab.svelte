@@ -77,12 +77,20 @@
                 {formatDateTime(s.startedAt)}
               </td>
               <td class="py-2 text-right">
-                <form method="POST" action="?/releaseStudentSession" use:enhance>
-                  <input type="hidden" name="targetUserId" value={s.userId} />
-                  <Button type="submit" variant="outline" size="sm">
-                    {m.examProctoring_release()}
-                  </Button>
-                </form>
+                <div class="flex justify-end gap-2">
+                  <form method="POST" action="?/resetStudentIpBinding" use:enhance>
+                    <input type="hidden" name="targetUserId" value={s.userId} />
+                    <Button type="submit" variant="outline" size="sm">
+                      {m.examProctoring_resetIpBinding()}
+                    </Button>
+                  </form>
+                  <form method="POST" action="?/releaseStudentSession" use:enhance>
+                    <input type="hidden" name="targetUserId" value={s.userId} />
+                    <Button type="submit" variant="outline" size="sm">
+                      {m.examProctoring_release()}
+                    </Button>
+                  </form>
+                </div>
               </td>
             </tr>
           {/each}

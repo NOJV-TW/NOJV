@@ -259,6 +259,27 @@ export const actions = {
     return { success: true };
   }),
 
+  resetStudentIpBinding: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
+    const formData = await event.request.formData();
+    const targetUserId = formData.get("targetUserId");
+    if (typeof targetUserId !== "string" || targetUserId.length === 0) {
+      return fail(400, { error: "Missing target user." });
+    }
+    try {
+      await examDomain.session.resetStudentIpBinding(actor, {
+        examId: event.params.examId,
+        targetUserId,
+      });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return fail(err.status, { error: err.message });
+      }
+      throw err;
+    }
+    return { success: true };
+  }),
+
   updateSettings: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ExamSettingsForm, FormMessage>(

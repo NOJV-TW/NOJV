@@ -64,10 +64,10 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
           throw new ForbiddenError("This course has been archived.");
         case "ip_whitelist":
         case "ip_binding":
-          // No dedicated IP error page yet — surface as 403 with a
-          // localised message. The hooks-based exam lock is the primary
-          // enforcement path; this branch only fires when a student
-          // navigates in directly.
+          // Pre-session IP gate for the exam overview (before a session
+          // exists). Once a session is live, `hooks.server.ts` re-checks IP
+          // on every request — pages and `/api` alike — so this layout is the
+          // pre-session / defence-in-depth path, not the only one.
           error(403, m.examShell_ipBlocked());
           break;
         case "not_started":

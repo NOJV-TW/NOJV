@@ -1,27 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted mock for ipViolationLogRepo so we can assert it isn't called on the
-// fail-closed path and is called once on the notify path.
-const { violationLogCreate } = vi.hoisted(() => ({
+// Hoisted mocks for the repos `checkIpLock` orchestrates. `findLastViolationAt`
+// drives the log throttle (null = nothing logged recently = log is due).
+const { violationLogCreate, findLastViolationAt, updateIpPin } = vi.hoisted(() => ({
   violationLogCreate: vi.fn(),
+  findLastViolationAt: vi.fn(),
+  updateIpPin: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   ipViolationLogRepo: {
-    withTx: () => ({ create: violationLogCreate }),
+    withTx: () => ({ create: violationLogCreate, findLastViolationAt }),
   },
   examParticipationIpRepo: {
-    withTx: () => ({ updateIpPin: vi.fn() }),
+    withTx: () => ({ updateIpPin }),
   },
 }));
 
 import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/domain";
 
 const fakeTx = {} as never;
-const fakeContext = {
-  userId: "usr_test",
-  scope: { kind: "exam" as const, examId: "exm_test" },
-};
+const fakeContext = { userId: "usr_test", examId: "exm_test" };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  findLastViolationAt.mockResolvedValue(null);
+});
 
 describe("isIpInCidr", () => {
   it("matches an IP inside a /24 range", () => {
@@ -81,39 +85,32 @@ describe("isIpInWhitelist", () => {
   });
 });
 
+const whitelistBlock = {
+  ipWhitelistEnabled: true,
+  ipBindingEnabled: false,
+  ipWhitelist: ["10.0.0.0/8"],
+  ipViolationMode: "block",
+};
+
 describe("checkIpLock — whitelist", () => {
-  it("regression: enabled + empty whitelist denies (fail-closed)", async () => {
-    // Round 2 bug: prior code skipped the whitelist check entirely when the
-    // list was empty, silently allowing every IP. The fix removes the
-    // `&& length > 0` guard so an empty list always fails the membership
-    // test and either blocks or notify-logs.
-    violationLogCreate.mockClear();
-    const result = await checkIpLock(
-      fakeTx,
-      {
-        ipWhitelistEnabled: true,
-        ipBindingEnabled: false,
-        ipWhitelist: [],
-        ipViolationMode: "block",
-      },
-      "1.2.3.4",
-      null,
-      fakeContext,
-    );
-    expect(result).toEqual({ allowed: false, violationType: "whitelist" });
+  it("matching whitelist allows without logging", async () => {
+    const result = await checkIpLock(fakeTx, whitelistBlock, "10.1.2.3", null, fakeContext);
+    expect(result).toEqual({ allowed: true });
     expect(violationLogCreate).not.toHaveBeenCalled();
   });
 
-  it("enabled + empty whitelist in notify mode logs and allows", async () => {
-    violationLogCreate.mockClear();
+  it("block mode denies AND records the violation (audit trail)", async () => {
+    // Fix: previously block mode returned without ever writing IpViolationLog,
+    // so a teacher using block mode got zero audit trail.
+    const result = await checkIpLock(fakeTx, whitelistBlock, "1.2.3.4", null, fakeContext);
+    expect(result).toEqual({ allowed: false, violationType: "whitelist" });
+    expect(violationLogCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("notify mode logs and allows", async () => {
     const result = await checkIpLock(
       fakeTx,
-      {
-        ipWhitelistEnabled: true,
-        ipBindingEnabled: false,
-        ipWhitelist: [],
-        ipViolationMode: "notify",
-      },
+      { ...whitelistBlock, ipViolationMode: "notify" },
       "1.2.3.4",
       null,
       fakeContext,
@@ -122,57 +119,60 @@ describe("checkIpLock — whitelist", () => {
     expect(violationLogCreate).toHaveBeenCalledTimes(1);
   });
 
-  it("matching whitelist allows without logging", async () => {
-    violationLogCreate.mockClear();
-    const result = await checkIpLock(
-      fakeTx,
-      {
-        ipWhitelistEnabled: true,
-        ipBindingEnabled: false,
-        ipWhitelist: ["10.0.0.0/8"],
-        ipViolationMode: "block",
-      },
-      "10.1.2.3",
-      null,
-      fakeContext,
-    );
-    expect(result).toEqual({ allowed: true });
-    expect(violationLogCreate).not.toHaveBeenCalled();
-  });
-
-  it("non-matching whitelist in block mode denies", async () => {
-    violationLogCreate.mockClear();
-    const result = await checkIpLock(
-      fakeTx,
-      {
-        ipWhitelistEnabled: true,
-        ipBindingEnabled: false,
-        ipWhitelist: ["10.0.0.0/8"],
-        ipViolationMode: "block",
-      },
-      "1.2.3.4",
-      null,
-      fakeContext,
-    );
+  it("suppresses the log when a recent identical violation exists (throttle)", async () => {
+    findLastViolationAt.mockResolvedValue(new Date());
+    const result = await checkIpLock(fakeTx, whitelistBlock, "1.2.3.4", null, fakeContext);
     expect(result).toEqual({ allowed: false, violationType: "whitelist" });
     expect(violationLogCreate).not.toHaveBeenCalled();
   });
+});
 
-  it("disabled whitelist allows any IP", async () => {
-    violationLogCreate.mockClear();
+const bindingBlock = {
+  ipWhitelistEnabled: false,
+  ipBindingEnabled: true,
+  ipWhitelist: [] as string[],
+  ipViolationMode: "block",
+};
+
+describe("checkIpLock — binding", () => {
+  it("pins the IP on first contact and allows", async () => {
     const result = await checkIpLock(
       fakeTx,
-      {
-        ipWhitelistEnabled: false,
-        ipBindingEnabled: false,
-        ipWhitelist: [],
-        ipViolationMode: "block",
-      },
+      bindingBlock,
       "1.2.3.4",
-      null,
+      { id: "part_1", ipPin: null },
       fakeContext,
     );
     expect(result).toEqual({ allowed: true });
+    expect(updateIpPin).toHaveBeenCalledWith("part_1", "1.2.3.4");
+    expect(violationLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("block mode denies a mismatched pin and records it", async () => {
+    const result = await checkIpLock(
+      fakeTx,
+      bindingBlock,
+      "9.9.9.9",
+      { id: "part_1", ipPin: "1.2.3.4" },
+      fakeContext,
+    );
+    expect(result).toEqual({ allowed: false, violationType: "binding" });
+    expect(violationLogCreate).toHaveBeenCalledTimes(1);
+    expect(updateIpPin).not.toHaveBeenCalled();
+  });
+
+  it("skips the gate during a teacher grace window but still re-pins", async () => {
+    const now = new Date("2026-05-26T10:00:00Z");
+    const result = await checkIpLock(
+      fakeTx,
+      bindingBlock,
+      "9.9.9.9",
+      { id: "part_1", ipPin: null, ipGateExemptUntil: new Date("2026-05-26T10:05:00Z") },
+      fakeContext,
+      now,
+    );
+    expect(result).toEqual({ allowed: true });
+    expect(updateIpPin).toHaveBeenCalledWith("part_1", "9.9.9.9");
     expect(violationLogCreate).not.toHaveBeenCalled();
   });
 });

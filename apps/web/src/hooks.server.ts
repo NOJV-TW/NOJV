@@ -1,11 +1,23 @@
 import "$lib/server/otel"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
 
-import { isHttpError, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
+import {
+  error,
+  isHttpError,
+  redirect,
+  type Handle,
+  type HandleServerError,
+} from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
-import { examDomain, getPageLockedContext, type PageLockedContext } from "@nojv/domain";
+import {
+  examDomain,
+  getPageLockedContext,
+  proctoringDomain,
+  type PageLockedContext,
+} from "@nojv/domain";
 
 import { getAuth } from "$lib/auth.server";
 import { createLogger } from "$lib/server/logger";
+import { m } from "$lib/paraglide/messages.js";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import {
   getActiveExamContext,
@@ -117,8 +129,31 @@ function setSecurityHeaders(response: Response): void {
 
 function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boolean {
   // Exam solves live under the top-level `/exams/[examId]/...` tree. Contests
-  // are public and never page-locked.
-  return pathname.includes(`/exams/${ctx.examId}`);
+  // are public and never page-locked. Strict prefix (not `includes`) so a
+  // crafted path like `/x/exams/<id>` can't slip through.
+  const prefix = `/exams/${ctx.examId}`;
+  return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
+/**
+ * Block a mid-exam request that failed the IP gate. Pages render the error
+ * page (a redirect would loop — the exam root fails the same gate); `/api`
+ * calls get a JSON body so client fetches can surface it.
+ */
+function denyExamGate(opts: {
+  cleanPath: string;
+  requestId: string;
+  status: number;
+  message: string;
+  code: string;
+}): Response {
+  if (opts.cleanPath.startsWith("/api/")) {
+    return new Response(JSON.stringify({ message: opts.message, code: opts.code }), {
+      status: opts.status,
+      headers: { "content-type": "application/json", "x-request-id": opts.requestId },
+    });
+  }
+  error(opts.status, opts.message);
 }
 
 function pageLockRedirectTarget(ctx: PageLockedContext): string {
@@ -287,6 +322,49 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
         userId: sessionUser.id,
         err: err instanceof Error ? err.message : String(err),
       });
+    }
+
+    // IP gate — enforced on EVERY request (pages + all `/api`) while a session
+    // is live. SvelteKit `/api` routes never trigger the exam layout, so this
+    // is the only place that re-checks IP whitelist / binding for submissions,
+    // verdict polls, SSE and clarifications. Fails closed: we know the student
+    // is mid-exam, so a gate error must not open access.
+    if (examCtx) {
+      const ip = getClientIp(event); // prod: throws 403 if the request bypassed Cloudflare
+      let ipVerdict;
+      try {
+        ipVerdict = await proctoringDomain.checkProctoringGate({
+          entityKind: "exam",
+          entityId: examCtx.exam.id,
+          userId: sessionUser.id,
+          ip,
+        });
+      } catch (err) {
+        examLockLogger.error("exam IP gate failed — failing closed", {
+          userId: sessionUser.id,
+          examId: examCtx.exam.id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return denyExamGate({
+          cleanPath,
+          requestId: event.locals.requestId,
+          status: 503,
+          message: m.examShell_ipGateUnavailable(),
+          code: "exam_ip_gate_unavailable",
+        });
+      }
+      if (
+        !ipVerdict.ok &&
+        (ipVerdict.reason === "ip_whitelist" || ipVerdict.reason === "ip_binding")
+      ) {
+        return denyExamGate({
+          cleanPath,
+          requestId: event.locals.requestId,
+          status: 403,
+          message: m.examShell_ipBlocked(),
+          code: "exam_ip_blocked",
+        });
+      }
     }
 
     if (examCtx && !isAllowedPathForExam(cleanPath, examCtx)) {
