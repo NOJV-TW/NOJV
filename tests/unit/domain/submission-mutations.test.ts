@@ -14,6 +14,7 @@ const {
   submissionCountForUserAndAssessmentSince,
   submissionCreate,
   examSessionFindActiveForUser,
+  examFindById,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
 } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ const {
   submissionCountForUserAndAssessmentSince: vi.fn(),
   submissionCreate: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
+  examFindById: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
 }));
@@ -58,6 +60,9 @@ vi.mock("@nojv/db", () => {
     },
     examSessionRepo: {
       withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
+    },
+    examRepo: {
+      withTx: () => ({ findById: examFindById }),
     },
     problemWorkspaceFileRepo: {
       findByProblemId: workspaceFindByProblemId,
@@ -384,5 +389,79 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
       ),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(submissionCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("createQueuedSubmissionRecord — exam time window", () => {
+  // Exam-tagged drafts carry no assessment/contest context — the active
+  // session is the source of truth (see the lockout in the mutation).
+  const examDraft = {
+    problemId: fakeProblem.id,
+    language: "python" as const,
+    sourceCode: "print('hi')",
+    sampleOnly: false,
+  };
+
+  function setupExamSubmitDefaults(endsAt: Date) {
+    const user = {
+      id: fakeActor.userId,
+      name: fakeActor.displayName,
+      email: fakeActor.email,
+      username: fakeActor.username,
+      platformRole: fakeActor.platformRole,
+    };
+    problemFindById.mockResolvedValue({ ...fakeProblem, visibility: "public" });
+    userFindById.mockResolvedValue(user);
+    userUpdate.mockResolvedValue(user);
+    userCreate.mockResolvedValue(user);
+    workspaceFindByProblemId.mockResolvedValue([]);
+    // Student is mid-exam: an active (unended) session row exists.
+    examSessionFindActiveForUser.mockResolvedValue({
+      id: "es_1",
+      examId: "exam_window",
+      userId: fakeActor.userId,
+      endedAt: null,
+    });
+    examFindById.mockResolvedValue({
+      id: "exam_window",
+      startsAt: new Date("2026-04-14T09:00:00.000Z"),
+      endsAt,
+    });
+    submissionCreate.mockImplementation(async (data: unknown) => ({
+      id: "sub_exam",
+      ...(data as object),
+    }));
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("rejects a submission once the exam has ended even while the session row is still active", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    // One second past endsAt: the auto-close workflow has not run yet.
+    vi.setSystemTime(new Date("2026-04-14T10:00:01.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a submission while the exam is still running and tags it from the session", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
+    const arg = submissionCreate.mock.calls[0][0] as { examId: string | null };
+    expect(arg.examId).toBe("exam_window");
   });
 });

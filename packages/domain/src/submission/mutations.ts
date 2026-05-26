@@ -1,5 +1,6 @@
 import {
   courseMembershipRepo,
+  examRepo,
   examSessionRepo,
   problemWorkspaceFileRepo,
   runTransaction,
@@ -52,6 +53,16 @@ export async function createQueuedSubmissionRecord(
         throw new ForbiddenError(
           "You are in an active exam — submissions cannot carry an external assignment or contest context.",
         );
+      }
+
+      // Time-window enforcement. The session row stays active until the
+      // auto-close workflow ends it, so without this an active session
+      // would let a student keep submitting after `endsAt` (mirrors the
+      // assignment `closesAt` check below). Authoritative — read fresh, so
+      // it holds even if the auto-close timer is late or was never re-armed.
+      const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
+      if (exam && new Date() >= exam.endsAt) {
+        throw new ForbiddenError("Exam has ended.");
       }
     }
 
