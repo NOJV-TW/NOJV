@@ -10,9 +10,11 @@ import {
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
-import { forceRemoveContainer, sanitizeId } from "./docker-process";
+import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
+
+const MAX_OUTER_TIMEOUT_MS = 540_000;
 
 export interface StandardModeConfig {
   cpuLimit: string;
@@ -130,16 +132,8 @@ async function runContainer(
     "--name",
     containerName,
     ...networkArgs,
-    // Mirror the K8s `securityContext` (runAsUser=10001, runAsNonRoot,
-    // seccompProfile: RuntimeDefault). The Dockerfile already declares
-    // `USER sandbox` (UID 10001) and Docker applies a default seccomp
-    // profile, but pinning both explicitly is defense in depth — it stops
-    // an accidental Dockerfile edit or `--user 0` overlay from regressing
-    // the standard-mode isolation.
     "--user",
     "10001:10001",
-    "--security-opt",
-    "seccomp=default",
     "--cap-drop",
     "ALL",
     "--security-opt",
@@ -165,7 +159,12 @@ async function runContainer(
   ];
 
   // Outer timeout: container timeout + 30s grace for Docker overhead
-  const outerTimeoutMs = request.limits.timeoutMs * request.testcases.length + 30_000;
+  const outerTimeoutMs = Math.min(
+    request.limits.timeoutMs * request.testcases.length + 30_000,
+    MAX_OUTER_TIMEOUT_MS,
+  );
+
+  forceRemoveContainerSync(containerName);
 
   return await new Promise<SandboxResult>((resolve) => {
     const child = spawn("docker", args, { env: process.env, stdio: "pipe" });

@@ -4,8 +4,6 @@ export {
   freezeScoreboard,
   finalizeContest,
   updateContestScores,
-  getAssessmentInfo,
-  activateAssessment,
   closeActiveSessionsForExam,
   publishVerdict,
   publishContestEvent,

@@ -59,7 +59,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     plagiarism,
     plagiarismFlags,
     ipViolations,
-    activeSessionCount,
+    activeSessions,
     feedback,
     auditEvents,
   ] = await Promise.all([
@@ -77,7 +77,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? plagiarismDomain.listFlagsForContext("exam", examId).catch(() => [])
       : Promise.resolve([]),
     isManager ? listExamIpViolations({ examId }).catch(() => []) : Promise.resolve([]),
-    isManager ? examDomain.session.countActiveSessions(examId) : Promise.resolve(0),
+    isManager ? examDomain.session.listActiveSessions(examId) : Promise.resolve([]),
     // Student-facing grading feedback — close-gated inside the domain, so
     // it yields [] until the exam ends. Managers don't render it here.
     isManager
@@ -148,7 +148,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     detail,
     matrix,
     isManager,
-    activeSessionCount,
+    activeSessions,
+    activeSessionCount: activeSessions.length,
     canSetOverride,
     courseId: examHeader.courseId,
     settingsForm,
@@ -227,6 +228,48 @@ export const actions = {
     try {
       await examDomain.session.releaseAllSessionsAsInstructor(actor, {
         examId: event.params.examId,
+      });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return fail(err.status, { error: err.message });
+      }
+      throw err;
+    }
+    return { success: true };
+  }),
+
+  releaseStudentSession: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
+    const formData = await event.request.formData();
+    const targetUserId = formData.get("targetUserId");
+    if (typeof targetUserId !== "string" || targetUserId.length === 0) {
+      return fail(400, { error: "Missing target user." });
+    }
+    try {
+      await examDomain.session.releaseSessionAsInstructor(actor, {
+        examId: event.params.examId,
+        targetUserId,
+      });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return fail(err.status, { error: err.message });
+      }
+      throw err;
+    }
+    return { success: true };
+  }),
+
+  resetStudentIpBinding: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
+    const formData = await event.request.formData();
+    const targetUserId = formData.get("targetUserId");
+    if (typeof targetUserId !== "string" || targetUserId.length === 0) {
+      return fail(400, { error: "Missing target user." });
+    }
+    try {
+      await examDomain.session.resetStudentIpBinding(actor, {
+        examId: event.params.examId,
+        targetUserId,
       });
     } catch (err) {
       if (err instanceof HttpError) {

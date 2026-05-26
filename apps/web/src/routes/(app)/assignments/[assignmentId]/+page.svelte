@@ -179,7 +179,7 @@
           class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
         >
           <TypeIcon kind="assignment" size={14} />
-          <span>Assignment · {data.course.title}</span>
+          <span>{m.assignmentDetail_typeLabel()} · {data.course.title}</span>
         </div>
         <div class="mt-3 flex items-baseline gap-3 flex-wrap">
           <StatusPill {status} type="assignment" />

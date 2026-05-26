@@ -12,7 +12,7 @@ import {
 import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
-import { forceRemoveContainer, sanitizeId } from "./docker-process";
+import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { sandboxSystemError } from "./sandbox-plan";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
 
@@ -152,6 +152,8 @@ export class AdvancedModeExecutor {
       ];
 
       const outerTimeoutMs = advanced.totalTimeMs + 30_000;
+
+      forceRemoveContainerSync(containerName);
 
       return new Promise((resolve) => {
         const child = spawn("docker", args, { env: process.env, stdio: "pipe" });

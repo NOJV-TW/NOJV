@@ -48,7 +48,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
@@ -63,7 +63,7 @@
   const chart = $derived(data.chart);
   // Route params for `[contestId]` are always defined when this route renders,
   // but svelte-kit types them as `string | undefined`. Coerce for downstream use.
-  const contestId = $derived($page.params.contestId ?? "");
+  const contestId = $derived(page.params.contestId ?? "");
 
   const isSolveCount = $derived(scoreboard.scoringMode === "problem_count");
 
@@ -99,7 +99,7 @@
   }
 
   // Identify the viewer's row to highlight + drive the KPI strip.
-  const myUsername = $derived($page.data.user?.username ?? null);
+  const myUsername = $derived(page.data.user?.username ?? null);
   const myRow = $derived(
     myUsername == null
       ? null
@@ -165,7 +165,7 @@
             class="size-1.5 rounded-full live-dot"
             style="background: oklch(0.55 0.2 27);"
           ></span>
-          <span>FROZEN</span>
+          <span>{m.contestDetail_frozen().toUpperCase()}</span>
         </div>
         <div class="mt-1 font-mono text-caption text-muted-foreground">
           {m.contestScoreboard_frozenNote()}

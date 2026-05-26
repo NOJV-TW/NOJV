@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth.client";
   import UserIcon from "@lucide/svelte/icons/user";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
 
-  let user = $derived($page.data.user);
-  let session = $derived($page.data.session);
+  let user = $derived(page.data.user);
+  let session = $derived(page.data.session);
 
   let open = $state(false);
   let btnEl: HTMLButtonElement | undefined = $state();

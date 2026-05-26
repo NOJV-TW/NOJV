@@ -1,5 +1,6 @@
 import {
   courseMembershipRepo,
+  examParticipationIpRepo,
   examRepo,
   examSessionRepo,
   runTransaction,
@@ -68,7 +69,14 @@ async function assertEnrolledInExamCourse(
 // Idempotent: if the actor already has an unended session for this exam, returns it without a new enter event.
 export async function startSession(actor: ActorContext, { examId }: { examId: string }) {
   return runTransaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`exam-session:${actor.userId}`}, 0))`;
+
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
+
+    const activeElsewhere = await examSessionRepo.withTx(tx).findActiveForUser(actor.userId);
+    if (activeElsewhere && activeElsewhere.examId !== examId) {
+      throw new ConflictError("You already have an active session on a different exam.");
+    }
 
     const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
 
@@ -176,12 +184,21 @@ export async function heartbeat(userId: string, examId: string) {
 
 // Idempotent: re-running on an exam with no active sessions is a no-op.
 export async function autoCloseForExam(examId: string): Promise<{ closed: number }> {
-  const active = await examSessionRepo.findAllActiveForExam(examId);
-  for (const session of active) {
-    await examSessionRepo.endSession({ sessionId: session.id, reason: "time_up" });
-    await examSessionRepo.recordEvent({ sessionId: session.id, eventType: "auto_close" });
-  }
-  return { closed: active.length };
+  return runTransaction(async (tx) => {
+    const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
+    const now = new Date();
+    for (const session of active) {
+      await examSessionRepo.withTx(tx).update(session.id, {
+        endedAt: now,
+        releaseReason: "time_up",
+      });
+      await examSessionRepo.withTx(tx).recordEvent({
+        sessionId: session.id,
+        eventType: "auto_close",
+      });
+    }
+    return { closed: active.length };
+  });
 }
 
 export async function getActiveSessionContext(
@@ -333,10 +350,62 @@ export async function releaseSessionAsInstructor(
   });
 }
 
+// Grace window a teacher's "reset IP binding" opens so a student can move to a
+// new machine and re-pin without tripping the IP gate.
+const IP_BINDING_RESET_GRACE_MINUTES = 10;
+
+// Teacher action for the machine-swap case: clear the student's pinned IP and
+// grant a short exemption. Same staff-only authority as releasing a session.
+export async function resetStudentIpBinding(
+  actor: ActorContext,
+  { examId, targetUserId }: { examId: string; targetUserId: string },
+  now: Date = new Date(),
+): Promise<{ exemptUntil: Date }> {
+  return runTransaction(async (tx) => {
+    const exam = await examRepo.withTx(tx).findById(examId);
+    if (!exam) {
+      throw new NotFoundError(`Exam not found: ${examId}`);
+    }
+
+    const callerMembership = await courseMembershipRepo
+      .withTx(tx)
+      .findByComposite(exam.courseId, actor.userId);
+    const isStaff =
+      callerMembership?.status === "active" &&
+      (callerMembership.role === "teacher" || callerMembership.role === "ta");
+    if (!isStaff) {
+      throw new ForbiddenError("Only course staff can reset a student's IP binding.");
+    }
+
+    const exemptUntil = new Date(now.getTime() + IP_BINDING_RESET_GRACE_MINUTES * 60_000);
+    await examParticipationIpRepo
+      .withTx(tx)
+      .clearPinAndExempt(examId, targetUserId, exemptUntil);
+    return { exemptUntil };
+  });
+}
+
 // Active-session count for an exam — drives the proctoring tab badge.
 export async function countActiveSessions(examId: string): Promise<number> {
   const active = await examSessionRepo.findAllActiveForExam(examId);
   return active.length;
+}
+
+export interface ActiveSessionRow {
+  userId: string;
+  displayName: string;
+  handle: string;
+  startedAt: string;
+}
+
+export async function listActiveSessions(examId: string): Promise<ActiveSessionRow[]> {
+  const rows = await examSessionRepo.findAllActiveForExamWithUser(examId);
+  return rows.map((r) => ({
+    userId: r.userId,
+    displayName: r.user.name,
+    handle: r.user.displayUsername ?? r.user.email,
+    startedAt: r.startedAt.toISOString(),
+  }));
 }
 
 // Bulk counterpart of `releaseSessionAsInstructor`: ends every active
