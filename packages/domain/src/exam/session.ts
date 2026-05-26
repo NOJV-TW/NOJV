@@ -1,5 +1,6 @@
 import {
   courseMembershipRepo,
+  examParticipationIpRepo,
   examRepo,
   examSessionRepo,
   runTransaction,
@@ -346,6 +347,41 @@ export async function releaseSessionAsInstructor(
     });
 
     return updated;
+  });
+}
+
+// Grace window a teacher's "reset IP binding" opens so a student can move to a
+// new machine and re-pin without tripping the IP gate.
+const IP_BINDING_RESET_GRACE_MINUTES = 10;
+
+// Teacher action for the machine-swap case: clear the student's pinned IP and
+// grant a short exemption. Same staff-only authority as releasing a session.
+export async function resetStudentIpBinding(
+  actor: ActorContext,
+  { examId, targetUserId }: { examId: string; targetUserId: string },
+  now: Date = new Date(),
+): Promise<{ exemptUntil: Date }> {
+  return runTransaction(async (tx) => {
+    const exam = await examRepo.withTx(tx).findById(examId);
+    if (!exam) {
+      throw new NotFoundError(`Exam not found: ${examId}`);
+    }
+
+    const callerMembership = await courseMembershipRepo
+      .withTx(tx)
+      .findByComposite(exam.courseId, actor.userId);
+    const isStaff =
+      callerMembership?.status === "active" &&
+      (callerMembership.role === "teacher" || callerMembership.role === "ta");
+    if (!isStaff) {
+      throw new ForbiddenError("Only course staff can reset a student's IP binding.");
+    }
+
+    const exemptUntil = new Date(now.getTime() + IP_BINDING_RESET_GRACE_MINUTES * 60_000);
+    await examParticipationIpRepo
+      .withTx(tx)
+      .clearPinAndExempt(examId, targetUserId, exemptUntil);
+    return { exemptUntil };
   });
 }
 
