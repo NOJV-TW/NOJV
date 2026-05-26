@@ -16,6 +16,7 @@
     editableProblems: EditableProblemCard[] | null;
     publicResult: ProblemListResult;
     showCreate?: boolean;
+    loggedIn?: boolean;
     /** False when the deployment's execution backend can't judge advanced problems. */
     advancedModeSupported?: boolean;
   }
@@ -24,6 +25,7 @@
     editableProblems,
     publicResult,
     showCreate,
+    loggedIn = false,
     advancedModeSupported = true,
   }: Props = $props();
 
@@ -152,7 +154,7 @@
   </div>
 
   {#if tab === "public"}
-    <PublicProblemsTab {publicResult} />
+    <PublicProblemsTab {publicResult} {loggedIn} />
   {:else if tab === "mine" && showCreate}
     <MyProblemsTab
       editableProblems={editableProblems ?? []}

@@ -25,6 +25,7 @@
 ### Task 1: Add `ProblemBookmark` model + migration
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/problem.prisma` (add model + relation on `Problem`)
 - Modify: `packages/db/prisma/schema/auth.prisma` (add reverse relation on `User`)
 - Create: `packages/db/prisma/migrations/20260527000000_add_problem_bookmark/migration.sql`
@@ -73,6 +74,7 @@ ALTER TABLE "ProblemBookmark" ADD CONSTRAINT "ProblemBookmark_problemId_fkey" FO
 ### Task 2: Bookmark repository
 
 **Files:**
+
 - Create: `packages/db/src/repositories/problem-bookmark.ts`
 - Modify: `packages/db/src/repositories/index.ts` (export)
 
@@ -118,6 +120,7 @@ Add `export { problemBookmarkRepo } from "./problem-bookmark";` to `index.ts`.
 ### Task 3: `toggleBookmark` domain mutation
 
 **Files:**
+
 - Create or extend: `packages/domain/src/problem/bookmarks.ts`
 - Modify: `packages/domain/src/problem/index.ts` (re-export under `problemDomain`)
 - Test: `tests/integration/domain/problem-bookmark.test.ts`
@@ -157,10 +160,12 @@ export async function toggleBookmark(
 ### Task 4: Extend `listProblemCards` with status/type/judge filters + statusCounts + per-card `bookmarked`
 
 **Files:**
+
 - Modify: `packages/domain/src/problem/queries.ts:206-326`
 - Test: `tests/integration/domain/problem-list-filters.test.ts`
 
 **Step 1: Write failing integration tests** covering:
+
 - `types: ["multi_file"]` returns only multi_file problems.
 - `judgeMethods: ["checker"]` returns only checker problems; a problem with `judgeConfig = null` counts as `standard` (matched by `judgeMethods: ["standard"]`, excluded by `["checker"]`).
 - `judgeMethods` filter excludes `special_env` problems.
@@ -222,7 +227,8 @@ if (params.userId && params.status) {
   const noneAccepted = { none: { userId: uid, sampleOnly: false, status: "accepted" } };
   const untried = { none: { userId: uid, sampleOnly: false } };
   if (params.status === "solved") and.push({ submissions: accepted });
-  else if (params.status === "attempted") and.push({ submissions: tried }, { submissions: noneAccepted });
+  else if (params.status === "attempted")
+    and.push({ submissions: tried }, { submissions: noneAccepted });
   else if (params.status === "untried") and.push({ submissions: untried });
   else if (params.status === "bookmarked") and.push({ bookmarks: { some: { userId: uid } } });
 }
@@ -241,8 +247,17 @@ if (params.userId) {
   const uid = params.userId;
   const [all, solved, attempted, bookmarked] = await Promise.all([
     problemRepo.count(baseWhere),
-    problemRepo.count({ ...baseWhere, submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } } }),
-    problemRepo.count({ ...baseWhere, AND: [{ submissions: { some: { userId: uid, sampleOnly: false } } }, { submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } } }] }),
+    problemRepo.count({
+      ...baseWhere,
+      submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } },
+    }),
+    problemRepo.count({
+      ...baseWhere,
+      AND: [
+        { submissions: { some: { userId: uid, sampleOnly: false } } },
+        { submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } } },
+      ],
+    }),
     problemRepo.count({ ...baseWhere, bookmarks: { some: { userId: uid } } }),
   ]);
   statusCounts = { all, solved, attempted, untried: all - solved - attempted, bookmarked };
@@ -250,22 +265,32 @@ if (params.userId) {
 ```
 
 Add to result type:
+
 ```ts
 export interface ProblemStatusCounts {
-  all: number; solved: number; attempted: number; untried: number; bookmarked: number;
+  all: number;
+  solved: number;
+  attempted: number;
+  untried: number;
+  bookmarked: number;
 }
 export interface ProblemListResult {
-  page: number; pageSize: number; problems: ProblemCardWithStatus[];
-  totalCount: number; statusCounts: ProblemStatusCounts | null;
+  page: number;
+  pageSize: number;
+  problems: ProblemCardWithStatus[];
+  totalCount: number;
+  statusCounts: ProblemStatusCounts | null;
 }
 ```
 
 **Step 5: per-card `bookmarked`** — after `problemIds` is known, add to the existing `Promise.all` (alongside userStats/userSubmissions):
+
 ```ts
 params.userId && problemIds.length > 0
   ? problemBookmarkRepo.listBookmarkedIds(params.userId, problemIds)
   : new Set<string>(),
 ```
+
 Add `bookmarked: bookmarkedIds.has(problem.id)` to each mapped card, and `bookmarked: boolean` to `ProblemCardWithStatus`. Return `statusCounts` in the result.
 
 **Step 6:** Run integration tests → PASS. **Step 7: Commit** — `feat(domain): status/type/judge filters + bookmark status + statusCounts`
@@ -277,6 +302,7 @@ Add `bookmarked: bookmarkedIds.has(problem.id)` to each mapped card, and `bookma
 ### Task 5: Bookmark toggle endpoint
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/problems/[id]/bookmark/+server.ts`
 - Test: `tests/integration/web/problem-bookmark-api.test.ts` (if route-level harness exists; else cover via domain test only)
 
@@ -292,6 +318,7 @@ export const POST = writeApiHandler(async (event) => {
   return result; // { bookmarked }
 });
 ```
+
 Confirm exact helper names/signatures from a sibling route (e.g. `api/problems/[id]/editorials/+server.ts`).
 
 **Commit** — `feat(web): bookmark toggle API`
@@ -301,6 +328,7 @@ Confirm exact helper names/signatures from a sibling route (e.g. `api/problems/[
 ### Task 6: Wire new params into `/problems` loader
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/problems/+page.server.ts`
 
 Parse `types`, `judgeMethods` (CSV → filtered enum arrays via `problemTypeSchema`/`judgeTypeSchema` safeParse), and `status` (validate against the 4 values). Pass to `listProblemCards`. `publicResult` now carries `statusCounts` + per-card `bookmarked` automatically.
@@ -314,9 +342,11 @@ Parse `types`, `judgeMethods` (CSV → filtered enum arrays via `problemTypeSche
 ### Task 7: `ProblemFilterSidebar.svelte`
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/features/problem/listings/ProblemFilterSidebar.svelte`
 
 Props: `publicResult` (for `statusCounts` + tag derivation), `loggedIn: boolean`. Reads/writes URL via the same `updateUrl` pattern currently in `PublicProblemsTab` (move that helper in, or duplicate minimally). Sections in order:
+
 - **Search** — debounced input (`q`), 300ms (existing logic).
 - **STATUS** — render with `FilterChips` (single-select) using `statusCounts`; only when `loggedIn`. Options: all / solved / attempted / untried / bookmarked.
 - **DIFFICULTY** — `FilterChips` single-select (all/easy/medium/hard).
@@ -336,6 +366,7 @@ Checkbox row markup: a `<button role="checkbox" aria-checked>` with a square ind
 ### Task 8: Two-column layout + mobile drawer in `PublicProblemsTab`
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/features/problem/listings/PublicProblemsTab.svelte`
 
 - Wrap content in `lg:grid lg:grid-cols-[280px_1fr] lg:gap-8`.
@@ -353,6 +384,7 @@ Keep the public/mine tab toggle + create button where they are in `ProblemTabs.s
 ### Task 9: Bookmark button on list cards
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/features/problem/listings/PublicProblemsTab.svelte` (card grid)
 - Possibly create: `apps/web/src/lib/components/features/problem/listings/BookmarkButton.svelte` (shared by card + detail page)
 
@@ -367,6 +399,7 @@ Add it to each card; ensure click doesn't navigate (the card is wrapped in `<a>`
 ### Task 10: Bookmark button on problem detail page
 
 **Files:**
+
 - Modify: `apps/web/src/lib/types.ts` (add `bookmarked?: boolean` to `ProblemDetail`)
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/+page.server.ts` (compute `bookmarked` from `locals.user` + `problemBookmarkRepo`/domain, attach to returned problem)
 - Modify: `apps/web/src/lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte:18-43` (render `BookmarkButton` in the title flex row, only when logged in)
@@ -380,10 +413,12 @@ The `problem` object already threads down to `ProblemDescriptionPanel`, so no ex
 ### Task 11: i18n keys
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`, `apps/web/messages/zh-TW.json`
 - Run: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (per MEMORY lesson)
 
 New keys (en / zh-TW):
+
 - `problems_filterStatus` ("Status" / "狀態"), `problems_statusAll` ("All"/"全部"), `problems_statusSolved` ("Solved"/"已解"), `problems_statusAttemptedFilter` ("Attempted"/"嘗試過"), `problems_statusUntried` ("Untried"/"未嘗試"), `problems_statusBookmarked` ("Bookmarked"/"已收藏")
 - `problems_filterProblemType` ("Problem type"/"題型"), `problems_filterJudgeMethod` ("Judge method"/"評測方式")
 - `problems_filterTags` ("Tags"/"標籤"), `problems_filterReset` ("Reset"/"重設"), `problems_openFilters` ("Filters"/"篩選")
@@ -400,6 +435,7 @@ Reuse `common_difficulty`, existing `problems_filterByDifficulty/Tag`, sort keys
 ### Task 12: Full verification
 
 Run, in order, and confirm each is green before claiming done (superpowers:verification-before-completion):
+
 - `pnpm db:generate`
 - `pnpm -w typecheck`
 - `pnpm lint`

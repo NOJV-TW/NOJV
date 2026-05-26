@@ -315,10 +315,14 @@ export async function listProblemCards(
   if (params.userId && params.status) {
     const uid = params.userId;
     if (params.status === "solved") {
-      and.push({ submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } } });
+      and.push({
+        submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } },
+      });
     } else if (params.status === "attempted") {
       and.push({ submissions: { some: { userId: uid, sampleOnly: false } } });
-      and.push({ submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } } });
+      and.push({
+        submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } },
+      });
     } else if (params.status === "untried") {
       and.push({ submissions: { none: { userId: uid, sampleOnly: false } } });
     } else {

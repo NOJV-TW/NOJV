@@ -20,7 +20,11 @@ describe("listProblemCards — type filter", () => {
   it("returns only the selected problem types", async () => {
     const full = await createTestProblem({ type: "full_source" });
     const multi = await createTestProblem({ type: "multi_file" });
-    await createTestProblem({ type: "special_env", advancedImageRef: "img", advancedImageSource: "registry" });
+    await createTestProblem({
+      type: "special_env",
+      advancedImageRef: "img",
+      advancedImageSource: "registry",
+    });
 
     const result = await problemDomain.listProblemCards({ types: ["multi_file"] });
     expect(idsOf(result)).toEqual(new Set([multi.id]));
@@ -70,19 +74,32 @@ describe("listProblemCards — status filter + counts", () => {
     const untried = await createTestProblem();
 
     await createTestSubmission({ userId: user.id, problemId: solved.id, status: "accepted" });
-    await createTestSubmission({ userId: user.id, problemId: attempted.id, status: "wrong_answer" });
+    await createTestSubmission({
+      userId: user.id,
+      problemId: attempted.id,
+      status: "wrong_answer",
+    });
     await problemDomain.toggleBookmark(user.id, untried.id);
 
     const solvedR = await problemDomain.listProblemCards({ userId: user.id, status: "solved" });
     expect(idsOf(solvedR)).toEqual(new Set([solved.id]));
 
-    const attemptedR = await problemDomain.listProblemCards({ userId: user.id, status: "attempted" });
+    const attemptedR = await problemDomain.listProblemCards({
+      userId: user.id,
+      status: "attempted",
+    });
     expect(idsOf(attemptedR)).toEqual(new Set([attempted.id]));
 
-    const untriedR = await problemDomain.listProblemCards({ userId: user.id, status: "untried" });
+    const untriedR = await problemDomain.listProblemCards({
+      userId: user.id,
+      status: "untried",
+    });
     expect(idsOf(untriedR)).toEqual(new Set([untried.id]));
 
-    const bookmarkedR = await problemDomain.listProblemCards({ userId: user.id, status: "bookmarked" });
+    const bookmarkedR = await problemDomain.listProblemCards({
+      userId: user.id,
+      status: "bookmarked",
+    });
     expect(idsOf(bookmarkedR)).toEqual(new Set([untried.id]));
 
     expect(solvedR.statusCounts).toEqual({

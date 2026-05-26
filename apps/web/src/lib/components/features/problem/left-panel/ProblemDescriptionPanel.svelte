@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import BookmarkButton from "../listings/BookmarkButton.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
 
   interface Props {
@@ -20,6 +21,14 @@
     <h1 class="text-body-lg font-semibold leading-snug">
       {formatProblemDisplayName(problem)}
     </h1>
+    {#if problem.bookmarked !== undefined}
+      <BookmarkButton
+        class="ml-auto"
+        problemId={problem.id}
+        bookmarked={problem.bookmarked}
+        size="md"
+      />
+    {/if}
     {#if dailyAttempts}
       {@const remaining =
         dailyAttempts.max == null
