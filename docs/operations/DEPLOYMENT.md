@@ -85,6 +85,11 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `WORKER_CONCURRENCY` | `4`                  | Activity concurrency per task queue               |
 | `WORKER_MODE`        | `all`                | Task queues: `all`, `judge`, `platform`           |
 
+> Advanced-mode (`special_env`) judging runs only on the Docker backend. When
+> `EXECUTION_BACKEND=kubernetes`, also set the same value on the **web** service
+> so it hides advanced-problem creation/conversion (the guard defaults to
+> "supported" when unset, leaving Docker deployments unaffected).
+
 ### Object Storage (S3-Compatible)
 
 | Variable        | Default                 | Purpose                              |
