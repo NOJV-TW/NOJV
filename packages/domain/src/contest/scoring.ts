@@ -54,6 +54,8 @@ const SCORE_UPDATE_MAX_ATTEMPTS = 3;
  * take over.
  */
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
+  let overrideRows: Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>> | undefined;
+
   for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
     const participation =
       await contestParticipationRepo.findByIdWithContest(contestParticipationId);
@@ -118,7 +120,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
         // Overlay any per-problem overrides for this participant — overrides
         // win over the best-submission aggregate, even for problems they
         // never submitted to.
-        const overrideRows = await scoreOverrideRepo.findAllByContext("contest", contest.id);
+        overrideRows ??= await scoreOverrideRepo.findAllByContext("contest", contest.id);
         for (const row of overrideRows) {
           if (row.userId !== participation.userId) continue;
           if (!contestProblems.has(row.problemId)) continue;

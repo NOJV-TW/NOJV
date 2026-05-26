@@ -14,10 +14,10 @@ const judge = proxyActivities<typeof judgeActivities>({
 
 // `executeSandbox` is the long-running step (compile + run every testcase in a
 // sandbox subprocess). It heartbeats on a 15s interval, so a `heartbeatTimeout`
-// lets Temporal detect a wedged sandbox well before the 5m `startToCloseTimeout`;
+// lets Temporal detect a wedged sandbox well before the 10m `startToCloseTimeout`;
 // 60s tolerates a few missed beats from GC / slow ticks before failing the attempt.
 const judgeSandbox = proxyActivities<typeof judgeActivities>({
-  startToCloseTimeout: "5m",
+  startToCloseTimeout: "10m",
   heartbeatTimeout: "60s",
   retry: { maximumAttempts: 3 },
 });

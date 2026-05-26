@@ -125,10 +125,6 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   `revert_to_draft`, `delete_draft`), WHEN the mutation transaction
   commits, THEN an append-only `AssessmentAuditLog` row is written in the
   same transaction: `{ assessmentId, courseId, actorUserId, action }`.
-- GIVEN the Temporal lifecycle workflow auto-publishes an assignment at
-  its scheduled `opensAt`, WHEN `markAssignmentPublished` runs, THEN it
-  writes an audit row with `action: 'publish'` and `actorUserId: null`
-  (null = system transition, no human actor).
 - GIVEN a `delete_draft`, THEN the audit row is written BEFORE the
   `CourseAssessment` row is removed; `assessmentId` is stored as a plain
   string (not an FK) so the entry survives the deletion.
@@ -260,8 +256,7 @@ is only available after it closes.")` (shared post-close gate; see
 
 - `packages/domain/src/assignment/mutations.ts` —
   `updateAssignmentRecord`, `publishAssignment`, `deleteAssignmentDraft`,
-  `revertAssignmentToDraft`, `markAssignmentPublished` (Temporal
-  auto-publish; writes a system audit row), `assertFieldsAllowedForStatus`
+  `revertAssignmentToDraft`, `assertFieldsAllowedForStatus`
   (status-aware lock), `deriveLiveStatus`.
 - `packages/db/src/repositories/assessment-audit.ts` —
   `assessmentAuditLogRepo` (`withTx().create`, `listByAssessment`).
@@ -314,8 +309,7 @@ is only available after it closes.")` (shared post-close gate; see
 ### Tests
 
 - `tests/unit/domain/assignment-mutations.test.ts` — publish / delete /
-  revert-to-draft / status-aware field locks + audit-row writes,
-  including the `markAssignmentPublished` system path.
+  revert-to-draft / status-aware field locks + audit-row writes.
 - `tests/unit/domain/list-aggregations.test.ts` — class stats + my status
   aggregations.
 - `tests/unit/domain/problem-access.test.ts` — practice-after-close gate.

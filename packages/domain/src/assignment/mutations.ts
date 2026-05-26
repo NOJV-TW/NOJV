@@ -302,23 +302,3 @@ export async function revertAssignmentToDraft(
     });
   });
 }
-
-/**
- * Status write called by the Temporal lifecycle workflow when the scheduled
- * opens-at boundary is reached. No permission / state checks — the workflow
- * is the source of truth for the transition. Distinct from the user-driven
- * `publishAssignment` (draft → published, with validation).
- */
-export async function markAssignmentPublished(assignmentId: string): Promise<void> {
-  await runTransaction(async (tx) => {
-    const assignment = await requireAssignment(tx, assignmentId);
-    await assessmentRepo.withTx(tx).update(assignmentId, { status: "published" });
-    // actorUserId: null — the scheduled workflow is the actor, not a human.
-    await assessmentAuditLogRepo.withTx(tx).create({
-      assessmentId: assignment.id,
-      courseId: assignment.courseId,
-      actorUserId: null,
-      action: "publish",
-    });
-  });
-}

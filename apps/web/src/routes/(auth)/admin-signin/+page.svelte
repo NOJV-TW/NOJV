@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth.client";
   import { Badge } from "$lib/components/primitives/ui/badge";
@@ -12,7 +12,7 @@
   let loading = $state(false);
 
   $effect(() => {
-    const incomingError = $page.url.searchParams.get("error");
+    const incomingError = page.url.searchParams.get("error");
     if (incomingError === "account-disabled") {
       error = m.auth_accountDisabled();
     }

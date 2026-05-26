@@ -22,6 +22,7 @@ import {
 import { z } from "zod";
 
 import { scoreboard } from "@nojv/redis";
+import { dispatchContestLifecycle } from "@nojv/temporal";
 
 // Standalone contests only: no courseId, no proctoring, no attempt caps / adjustment rules.
 export const contestFormSchema = z.object({
@@ -47,6 +48,7 @@ import {
   ValidationError,
 } from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
+import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
 
@@ -163,7 +165,11 @@ export async function checkSubmitCooldown(
 }
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {
-  return runTransaction(async (tx) => {
+  if (!canEditProblem(actor.platformRole)) {
+    throw new ForbiddenError("Only teachers and admins can create contests.");
+  }
+
+  const contest = await runTransaction(async (tx) => {
     const existing = await contestRepo.withTx(tx).findById(payload.id);
 
     if (existing) {
@@ -201,6 +207,9 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     return contest;
   });
+
+  await dispatchContestLifecycle({ contestId: contest.id });
+  return contest;
 }
 
 export async function updateContestRecord(
@@ -309,6 +318,8 @@ export async function publishContest(actor: ActorContext, contestId: string): Pr
 
     await contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
   });
+
+  await dispatchContestLifecycle({ contestId });
 }
 
 export async function deleteContestDraft(

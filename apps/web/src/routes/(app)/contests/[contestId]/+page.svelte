@@ -111,7 +111,7 @@
       : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
   >
     <Marquee
-      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} PARTICIPANTS"
+      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} {m.contestDetail_participantsLabel().toUpperCase()}"
     />
 
     <div class="relative px-7 py-9 lg:p-10">
@@ -121,7 +121,7 @@
             class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
           >
             <TypeIcon kind="contest" size={14} />
-            <span>Contest · {scoringLabel}</span>
+            <span>{m.contestDetail_typeLabel()} · {scoringLabel}</span>
           </div>
           <div class="mt-3">
             <StatusPill {status} type="contest" />

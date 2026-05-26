@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { goto, invalidateAll } from "$app/navigation";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { ChevronDown, Plus } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -23,7 +23,7 @@
   let creating = $state(false);
   let showCreateMenu = $state(false);
 
-  let currentUrl = $derived($page.url);
+  let currentUrl = $derived(page.url);
   let tab = $derived<"public" | "mine">(
     showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public"
   );
