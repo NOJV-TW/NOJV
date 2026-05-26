@@ -69,19 +69,19 @@
         await Promise.all(promises);
 
         if (entries.length === 0) {
-          return { ok: false, error: "ZIP contains no readable files." };
+          return { ok: false, error: messages.advancedMode_zipNoFiles() };
         }
         if (entries.length > MAX_FILES) {
           return {
             ok: false,
-            error: `ZIP contains ${String(entries.length)} files (max ${String(MAX_FILES)}).`
+            error: messages.advancedMode_zipTooManyFiles({ count: entries.length, max: MAX_FILES })
           };
         }
         const totalBytes = entries.reduce((sum, e) => sum + e.content.length, 0);
         if (totalBytes > MAX_TOTAL_BYTES) {
           return {
             ok: false,
-            error: `ZIP content exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`
+            error: messages.advancedMode_zipTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) })
           };
         }
         if (entries.every((e) => e.content.trim().length === 0)) {
@@ -107,7 +107,7 @@
         if (content.length > MAX_TOTAL_BYTES) {
           return {
             ok: false,
-            error: `File exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`
+            error: messages.advancedMode_fileTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) })
           };
         }
         if (content.trim().length === 0) {
@@ -133,12 +133,12 @@
 
       return {
         ok: false,
-        error: "Unsupported file type. Upload a .zip archive or a single source file."
+        error: messages.advancedMode_unsupportedType()
       };
     } catch (err) {
       return {
         ok: false,
-        error: err instanceof Error ? err.message : "Failed to read file."
+        error: err instanceof Error ? err.message : messages.advancedMode_readFailed()
       };
     }
   }

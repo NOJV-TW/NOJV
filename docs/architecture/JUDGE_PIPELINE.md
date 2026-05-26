@@ -104,12 +104,14 @@ Validated against `advancedResultSchema` in `packages/core/src/schemas/advanced-
     // optional, up to 1000
     { "index": 0, "verdict": "AC", "runtimeMs": 120, "feedback": "..." },
   ],
-  "subtasks": [
-    // optional, up to 100
-    { "name": "sample", "score": 100, "passed": true },
-  ],
 }
 ```
+
+The TA image owns grading: `score` (0–100) is authoritative and overrides any
+platform-side subtask weighting. Per-case detail flows through `testcases[]`;
+there is no separate subtask channel (advanced problems have no platform
+testcase sets). A `compile_error` verdict is surfaced as a compile failure
+(verdict `compile_error`, score 0), matching standard mode.
 
 A missing, unreadable, or malformed `result.json` collapses every testcase into `SE` via `advancedFallbackResult()` in the executor.
 
@@ -125,7 +127,8 @@ For `tarball` sources, the worker streams the tarball out of object storage and 
 Resource limits come from `Problem.timeLimitMs` / `Problem.memoryLimitMb`:
 
 - `timeLimitMs` — 1 s to 300 s wall clock for the entire container
-- `memoryLimitMb` — 16 MB to 1024 MB cgroup limit
+- `memoryLimitMb` — 16 MB to 4096 MB cgroup limit (advanced judge images may
+  need more headroom than standard mode's 1024 MB ceiling)
 
 Advanced Mode containers always run with `--network none`. Any packages or test data the TA image needs must be baked into the image at build time — runtime fetches are not allowed. Advanced Mode also always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
 
