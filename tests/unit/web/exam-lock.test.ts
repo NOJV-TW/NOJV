@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isAllowedPathForExam, type ActiveExamContext } from "$lib/server/exam-lock";
+import {
+  isAllowedPathForExam,
+  resolveExamGateDenial,
+  type ActiveExamContext,
+} from "$lib/server/exam-lock";
 
 function makeCtx(overrides: Partial<ActiveExamContext> = {}): ActiveExamContext {
   return {
@@ -81,5 +85,50 @@ describe("isAllowedPathForExam", () => {
     it("denies /signup — only /signin is an escape hatch", () => {
       expect(isAllowedPathForExam("/signup", ctx)).toBe(false);
     });
+  });
+});
+
+describe("resolveExamGateDenial", () => {
+  it("allows when the verdict is ok", () => {
+    expect(resolveExamGateDenial({ ok: true }, "/api/submissions")).toBeNull();
+    expect(resolveExamGateDenial({ ok: true }, "/exams/exam-1")).toBeNull();
+  });
+
+  it("blocks IP failures on every surface (page + api)", () => {
+    for (const reason of ["ip_whitelist", "ip_binding"] as const) {
+      expect(resolveExamGateDenial({ ok: false, reason }, "/api/submissions")).toEqual({
+        scope: "all",
+        status: 403,
+        code: "exam_ip_blocked",
+      });
+      expect(resolveExamGateDenial({ ok: false, reason }, "/exams/exam-1")).toEqual({
+        scope: "all",
+        status: 403,
+        code: "exam_ip_blocked",
+      });
+    }
+  });
+
+  it("blocks authorization failures on /api only, leaving pages to the exam shell", () => {
+    for (const reason of [
+      "not_enrolled",
+      "course_archived",
+      "not_published",
+      "not_found",
+    ] as const) {
+      expect(resolveExamGateDenial({ ok: false, reason }, "/api/clarifications")).toEqual({
+        scope: "api",
+        status: 403,
+        code: `exam_${reason}`,
+      });
+      expect(resolveExamGateDenial({ ok: false, reason }, "/exams/exam-1")).toBeNull();
+    }
+  });
+
+  it("does NOT block ended / not_started (auto-close + submit gate own those)", () => {
+    for (const reason of ["ended", "not_started"] as const) {
+      expect(resolveExamGateDenial({ ok: false, reason }, "/api/submissions")).toBeNull();
+      expect(resolveExamGateDenial({ ok: false, reason }, "/exams/exam-1")).toBeNull();
+    }
   });
 });

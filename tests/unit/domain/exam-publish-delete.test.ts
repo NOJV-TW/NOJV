@@ -68,7 +68,7 @@ vi.mock("@nojv/temporal", () => {
 
 import { examDomain, ForbiddenError, ValidationError } from "@nojv/domain";
 
-const { publishExam, deleteExamDraft } = examDomain;
+const { publishExam, deleteExamDraft, updateExamRecord } = examDomain;
 
 const fakeActor = {
   userId: "usr_teacher",
@@ -219,5 +219,44 @@ describe("deleteExamDraft", () => {
       ForbiddenError,
     );
     expect(examDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateExamRecord — auto-close re-arming", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    examUpdate.mockResolvedValue({});
+  });
+
+  it("re-arms auto-close with the new window when a published exam's endsAt changes", async () => {
+    const newEndsAt = new Date(Date.now() + 999 * 60_000);
+    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
+
+    await updateExamRecord(fakeActor, "exam_1", { endsAt: newEndsAt.toISOString() });
+
+    expect(dispatchExamAutoClose).toHaveBeenCalledTimes(1);
+    const [payload] = dispatchExamAutoClose.mock.calls[0] as [
+      { examId: string; startsAt: string; endsAt: string },
+    ];
+    expect(payload.examId).toBe("exam_1");
+    expect(payload.endsAt).toBe(newEndsAt.toISOString());
+  });
+
+  it("does not dispatch when the exam is still a draft", async () => {
+    examFindById.mockResolvedValue(publishableExam({ status: "draft" }));
+
+    await updateExamRecord(fakeActor, "exam_1", {
+      endsAt: new Date(Date.now() + 999 * 60_000).toISOString(),
+    });
+
+    expect(dispatchExamAutoClose).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch when a published exam changes only non-time fields", async () => {
+    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
+
+    await updateExamRecord(fakeActor, "exam_1", { title: "Renamed" });
+
+    expect(dispatchExamAutoClose).not.toHaveBeenCalled();
   });
 });
