@@ -44,6 +44,15 @@ export const ipViolationLogRepo = {
     });
   },
 
+  // Most-recent matching row's timestamp — drives violation-log throttling.
+  findLastViolationAt(opts: {
+    examId: string;
+    userId: string;
+    violationType: "whitelist" | "binding";
+  }): Promise<Date | null> {
+    return findLastViolationAt(prisma, opts);
+  },
+
   withTx(tx: TxClient) {
     return {
       async create(data: Prisma.IpViolationLogUncheckedCreateInput) {
@@ -51,9 +60,28 @@ export const ipViolationLogRepo = {
         await capExamViolations(tx, data.examId);
         return row;
       },
+      findLastViolationAt(opts: {
+        examId: string;
+        userId: string;
+        violationType: "whitelist" | "binding";
+      }) {
+        return findLastViolationAt(tx, opts);
+      },
     };
   },
 };
+
+async function findLastViolationAt(
+  client: typeof prisma | TxClient,
+  opts: { examId: string; userId: string; violationType: "whitelist" | "binding" },
+): Promise<Date | null> {
+  const row = await client.ipViolationLog.findFirst({
+    where: { examId: opts.examId, userId: opts.userId, violationType: opts.violationType },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  return row?.createdAt ?? null;
+}
 
 export const examParticipationIpRepo = {
   withTx(tx: TxClient) {
@@ -62,6 +90,14 @@ export const examParticipationIpRepo = {
         return tx.examParticipation.update({
           where: { id },
           data: { ipPin: ip },
+        });
+      },
+      // Teacher "reset IP binding": drop the pin and open a short grace window so
+      // a student who swapped machines can re-pin without tripping the gate.
+      clearPinAndExempt(examId: string, userId: string, exemptUntil: Date) {
+        return tx.examParticipation.update({
+          where: { examId_userId: { examId, userId } },
+          data: { ipPin: null, ipGateExemptUntil: exemptUntil },
         });
       },
     };

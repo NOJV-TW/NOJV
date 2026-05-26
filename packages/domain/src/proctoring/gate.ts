@@ -128,7 +128,7 @@ async function checkExamGate(
 
   if (input.ip) {
     const participation = await tx.examParticipation.findUnique({
-      select: { id: true, ipPin: true },
+      select: { id: true, ipPin: true, ipGateExemptUntil: true },
       where: { examId_userId: { examId: input.entityId, userId: input.userId } },
     });
 
@@ -143,6 +143,7 @@ async function checkExamGate(
       input.ip,
       participation,
       { userId: input.userId, examId: input.entityId },
+      now,
     );
 
     if (!ipResult.allowed) {
