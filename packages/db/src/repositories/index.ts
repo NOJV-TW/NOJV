@@ -49,6 +49,7 @@ export {
   testcaseSetRepo,
   testcaseRepo,
 } from "./problem";
+export { problemBookmarkRepo } from "./problem-bookmark";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export {
   scoreOverrideRepo,

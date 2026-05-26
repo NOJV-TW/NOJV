@@ -70,7 +70,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   // synthetic submission shape (id/userId are irrelevant to the check).
   // `editorialAccess` grandfathers editorial authors whose AC was later
   // overturned by a rejudge — the client `hasAc` derive alone cannot.
-  const [canRejudge, editorialAccess] = await Promise.all([
+  const [canRejudge, editorialAccess, bookmarked] = await Promise.all([
     canOperateOnSubmission(actorContext, {
       id: "",
       userId,
@@ -80,6 +80,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       examId: null,
     }),
     canViewEditorials(userId, problemId),
+    problemDomain.isBookmarked(userId, problemId),
   ]);
 
   return {
@@ -89,7 +90,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     canRejudge,
     canViewEditorials: editorialAccess,
     contestId: undefined,
-    problem,
+    problem: { ...problem, bookmarked },
     submissions,
     testcaseSets: testcaseSetSummaries,
   };
