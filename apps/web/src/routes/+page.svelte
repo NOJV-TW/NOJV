@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { Megaphone, Calendar, Pin } from "@lucide/svelte";
   import Header from "$lib/components/features/layout/Header.svelte";
   import Footer from "$lib/components/primitives/layout/Footer.svelte";
@@ -14,7 +14,7 @@
 
   let { data } = $props();
 
-  let user = $derived($page.data.user);
+  let user = $derived(page.data.user);
 
   type AnnouncementRow = (typeof data.announcements)[number];
 
@@ -56,18 +56,10 @@
       {:else}
         <div class="mt-6 space-y-3">
           {#each data.announcements as announcement (announcement.id)}
-            <div
-              class="cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+            <button
+              type="button"
+              class="w-full cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 text-left backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
               onclick={() => openView(announcement)}
-              onkeydown={(e) => {
-                if (e.currentTarget !== e.target) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openView(announcement);
-                }
-              }}
-              role="button"
-              tabindex="0"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
@@ -91,7 +83,7 @@
                   {formatDate(announcement.createdAt)}
                 </time>
               </div>
-            </div>
+            </button>
           {/each}
         </div>
       {/if}

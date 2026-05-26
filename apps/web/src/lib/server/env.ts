@@ -1,7 +1,9 @@
+import { randomBytes } from "node:crypto";
+
 import { env } from "$env/dynamic/private";
 import { z } from "zod";
 
-const DEV_AUTH_SECRET = "dev-secret-do-not-use-in-production";
+const devAuthSecret = (): string => randomBytes(32).toString("base64");
 
 const webEnvSchema = z
   .object({
@@ -25,7 +27,7 @@ const webEnvSchema = z
   .transform((val) => ({
     ...val,
     BETTER_AUTH_SECRET:
-      val.BETTER_AUTH_SECRET ?? (val.NODE_ENV === "production" ? undefined : DEV_AUTH_SECRET),
+      val.BETTER_AUTH_SECRET ?? (val.NODE_ENV === "production" ? undefined : devAuthSecret()),
   }))
   .refine(
     (val) => typeof val.BETTER_AUTH_SECRET === "string" && val.BETTER_AUTH_SECRET.length > 0,

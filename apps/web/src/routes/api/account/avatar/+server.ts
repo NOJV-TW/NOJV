@@ -19,6 +19,10 @@ export const PUT: RequestHandler = writeApiHandler(async (event) => {
     error(400, "No file provided");
   }
 
+  if (file.type !== "image/webp") {
+    error(400, "Invalid file type. Avatars must be webp.");
+  }
+
   if (file.size > MAX_AVATAR_BYTES) {
     error(400, "File too large");
   }

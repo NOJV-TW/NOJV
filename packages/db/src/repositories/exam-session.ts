@@ -18,6 +18,18 @@ export const examSessionRepo = {
     });
   },
 
+  findAllActiveForExamWithUser(examId: string) {
+    return prisma.activeExamSession.findMany({
+      where: { examId, endedAt: null },
+      select: {
+        userId: true,
+        startedAt: true,
+        user: { select: { name: true, displayUsername: true, email: true } },
+      },
+      orderBy: { startedAt: "asc" },
+    });
+  },
+
   // Idempotent: an unended row is returned untouched; an ended row is reopened by clearing `endedAt`.
   async startSession({ userId, examId }: { userId: string; examId: string }) {
     const existing = await prisma.activeExamSession.findUnique({

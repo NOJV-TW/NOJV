@@ -711,7 +711,7 @@
       <GlassPanel class="p-5">
         <ExamProctoringTab
           violations={data.ipViolations ?? []}
-          activeSessionCount={data.activeSessionCount ?? 0}
+          activeSessions={data.activeSessions ?? []}
         />
       </GlassPanel>
     {:else if activeSubTabKey === "settings" && data.settingsForm}

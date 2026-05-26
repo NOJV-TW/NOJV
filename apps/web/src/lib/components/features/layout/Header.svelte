@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import {
     ClipboardList,
@@ -20,8 +20,8 @@
   import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
 
   let currentLocale = $derived(getLocale());
-  let user = $derived($page.data.user);
-  let currentPath = $derived($page.url.pathname);
+  let user = $derived(page.data.user);
+  let currentPath = $derived(page.url.pathname);
 
   type NavItem = { href: string; label: string; icon: Component };
 

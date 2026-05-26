@@ -75,13 +75,10 @@
         {m.contestsList_create()}
       </Button>
     {/if}
-    {#if actionData?.codeError}
-      <p class="text-body-sm text-destructive">{actionData.codeError}</p>
-    {/if}
   </div>
 
   {#if live.length > 0}
-    <ContestSection title="LIVE" subtitle={m.contestsList_sectionLiveSubtitle()} badge={m.contestsList_sectionLiveBadge()}>
+    <ContestSection title={m.contestsList_sectionLiveTitle().toUpperCase()} subtitle={m.contestsList_sectionLiveSubtitle()} badge={m.contestsList_sectionLiveBadge()}>
       <div class="grid gap-4">
         {#each live as c, i (c.raw.id)}
           <ContestPoster
@@ -102,7 +99,7 @@
     </ContestSection>
   {/if}
 
-  <ContestSection title="UPCOMING" subtitle={m.contestsList_sectionUpcomingSubtitle()}>
+  <ContestSection title={m.contestsList_sectionUpcomingTitle().toUpperCase()} subtitle={m.contestsList_sectionUpcomingSubtitle()}>
     {#if upcoming.length === 0}
       <div
         class="glass rounded-xl px-6 py-10 text-center text-body-sm text-muted-foreground"
@@ -131,7 +128,7 @@
   </ContestSection>
 
   {#if past.length > 0}
-    <ContestSection title="HISTORY" subtitle={m.contestsList_sectionHistorySubtitle()}>
+    <ContestSection title={m.contestsList_sectionHistoryTitle().toUpperCase()} subtitle={m.contestsList_sectionHistorySubtitle()}>
       <div class="grid gap-3">
         {#each past as c, i (c.raw.id)}
           <ContestRowPast
@@ -156,6 +153,9 @@
       <form class="flex flex-col gap-4" method="POST" action="?/joinByCode" use:enhance>
         <!-- svelte-ignore a11y_autofocus -->
         <Input name="code" placeholder="spring-2026-final" autofocus />
+        {#if actionData?.codeError}
+          <p class="text-body-sm text-destructive">{actionData.codeError}</p>
+        {/if}
         <div class="flex justify-end">
           <Button type="submit">{m.contestsList_joinSubmit()}</Button>
         </div>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { ArrowDownNarrowWide, ArrowUpNarrowWide, CheckCircle2, FileCode, Search, Tags, XCircle } from "@lucide/svelte";
   import * as Card from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
@@ -23,7 +23,7 @@
 
   let { publicResult }: Props = $props();
 
-  let currentUrl = $derived($page.url);
+  let currentUrl = $derived(page.url);
   let publicSearch = $derived(currentUrl.searchParams.get("q") ?? "");
   let publicDifficulty = $derived<Difficulty>(
     (currentUrl.searchParams.get("difficulty") as Difficulty) || "all"

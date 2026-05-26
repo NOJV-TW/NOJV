@@ -264,11 +264,11 @@
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">{m.editor_outputLabel()}</p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || m.common_emptyOutput()}</pre>
                   </div>
                   {#if caseData.stderr}
                     <div>
-                      <p class="text-caption font-medium text-destructive">Stderr</p>
+                      <p class="text-caption font-medium text-destructive">{m.submissionDetail_stderr()}</p>
                       <pre
                         class="mt-1 overflow-x-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{caseData.stderr}</pre>
                     </div>

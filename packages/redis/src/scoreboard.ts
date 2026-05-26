@@ -96,19 +96,8 @@ export async function freezeScoreboard(
   const key = keys.scoreboard(contestId);
   const frozenKey = keys.scoreboardFrozen(contestId);
 
-  // ZRANGE + ZADD instead of ZRANGESTORE to avoid depending on Redis 6.2+.
-  await redis.del(frozenKey);
-  const entries = parseZsetWithScores(await redis.zrange(key, 0, -1, "WITHSCORES"));
-  if (entries.length === 0) return;
-
-  // ZADD takes score-then-member; flatten back from parsed entries.
-  const zaddArgs = entries.flatMap((e) => [e.score.toString(), e.participationId]);
-  await execPipeline(
-    redis
-      .pipeline()
-      .zadd(frozenKey, ...zaddArgs)
-      .expire(frozenKey, ttlSeconds),
-  );
+  await redis.zrangestore(frozenKey, key, 0, -1);
+  await redis.expire(frozenKey, ttlSeconds);
 }
 
 export async function unfreezeScoreboard(contestId: string): Promise<void> {
