@@ -55,7 +55,6 @@ Example first public endpoints:
 | Endpoint | Method | Scope | Purpose |
 | --- | --- | --- | --- |
 | /api/v1/healthz | GET | none | Public health check |
-| /api/v1/me | GET | profile:read | Return current API token user |
 | /api/v1/problems | GET | problems:read | List public problems |
 | /api/v1/problems/{id} | GET | problems:read | Get problem detail |
 | /api/v1/submissions | POST | submissions:write | Create a submission |
@@ -75,17 +74,19 @@ Existing internal routes like `/api/submissions` may continue to exist for the w
 
 Add:
 
-text
+```text
 apps/web/src/lib/server/openapi/document.ts
 apps/web/src/routes/api/openapi.json/+server.ts
 apps/web/src/routes/api/docs/+server.ts
+```
 
 Routes:
-text
+
+```text
 GET /api/openapi.json
 GET /api/docs
 Recommended tooling:
-
+```
 Scalar for rendered docs.
 OpenAPI 3.1 as the document format.
 Optional later: generate schemas from Zod using @asteasolutions/zod-to-openapi.
@@ -93,27 +94,30 @@ Initial implementation should hand-write a small OpenAPI document first. Once th
 
 ## OpenAPI Security Scheme
 The OpenAPI document should include a placeholder before token auth ships:
-yaml
+```yaml
 components:
   securitySchemes:
     ApiToken:
       type: http
       scheme: bearer
       bearerFormat: NOJV API token
+```
 Token-authenticated endpoints should use:
-yaml
+```yaml
 security:
   - ApiToken: []
+```
 Endpoint descriptions should explicitly state required scopes.
 
 ## API Token Model
 Add a new Prisma model:
-prisma
+```prisma
 enum ApiTokenStatus {
   active
   revoked
 }
-
+```
+```
 model ApiToken {
   id          String         @id @default(cuid())
   userId      String
@@ -138,13 +142,16 @@ model ApiToken {
   @@index([status])
   @@index([expiresAt])
 }
+```
 Add relation to User:
+```
 apiTokens ApiToken[]
+```
 ## Token Format
 Use an opaque token format:
-nojv_live_<prefix>.<secret>
+`nojv_live_<prefix>.<secret>`
 Example:
-nojv_live_8F3K2M9Q.nZb6...
+`nojv_live_8F3K2M9Q.nZb6...`
 The plaintext token is shown only once after creation or rotation.
 
 Store:
