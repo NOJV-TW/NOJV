@@ -1423,6 +1423,7 @@
   "examRow_scoringPointSum": "分數加總",
   "examRow_scoringProblemCount": "題數加總",
   "examShell_breadcrumb": "所有考試",
+  "examShell_examUnavailable": "此考試目前已不開放給您作答。",
   "examShell_ipBlocked": "您的網路不允許參加此考試。",
   "examShell_ipGateUnavailable": "考試存取檢查暫時無法使用，請稍後再試。",
   "examStartModal_agree": "我已閱讀並同意應考規則",
