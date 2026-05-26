@@ -38,6 +38,8 @@ export interface ProblemTestcaseSetSummary {
 
 export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
+  /** Practice page only — undefined elsewhere (contest/exam/assignment). */
+  bookmarked?: boolean;
   inputFormat: string;
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;

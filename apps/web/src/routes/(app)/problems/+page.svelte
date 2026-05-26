@@ -23,6 +23,7 @@
     editableProblems={data.editableProblems}
     publicResult={data.publicResult}
     showCreate={data.canCreate}
+    loggedIn={data.loggedIn}
     advancedModeSupported={data.advancedModeSupported}
   />
 </PageContainer>

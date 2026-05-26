@@ -97,11 +97,27 @@ model Problem {
   scoreOverrides  ScoreOverride[]           @relation("ScoreOverrideProblem")
   clarifications  Clarification[]           @relation("ProblemClarifications")
   submissionFeedback SubmissionFeedback[]   @relation("SubmissionFeedbackProblem")
+  bookmarks       ProblemBookmark[]
 
   @@index([status, visibility, createdAt])
   @@index([authorId])
   @@index([difficulty])
   @@index([tags], type: Gin)
+}
+
+/// Per-user bookmark/favourite of a problem. Powers the "Bookmarked" filter
+/// on the public library. Plain join row — no extra metadata.
+model ProblemBookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  problemId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, problemId])
+  @@index([userId, createdAt])
 }
 
 model ProblemStatementI18n {

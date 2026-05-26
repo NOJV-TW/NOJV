@@ -87,6 +87,7 @@ model User {
   submissionFeedbackAuthored     SubmissionFeedback[]      @relation("SubmissionFeedbackAuthor")
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")
   triggeredPlagiarismLogs        PlagiarismTriggerLog[]    @relation("PlagiarismTriggerLogTriggerer")
+  problemBookmarks               ProblemBookmark[]
 }
 
 model Session {
