@@ -25,6 +25,13 @@
      * rejudge needs this flag to keep editorial access.
      */
     canViewEditorials?: boolean;
+    /**
+     * Whether the Editorials tab is rendered at all. Only practice enables it;
+     * assignment/contest/exam workspaces omit it to avoid an editorial spoiler
+     * mid-event. Distinct from `canViewEditorials`, which gates content once the
+     * tab is shown.
+     */
+    editorialsEnabled?: boolean;
     /** Assignment-only daily submission quota shown in the SpecialLabels strip.
      *  `max: null` means unlimited — the badge renders `{used} / ∞`. */
     dailyAttempts?: { used: number; max: number | null } | undefined;
@@ -50,6 +57,7 @@
     backLink,
     canRejudge = false,
     canViewEditorials = false,
+    editorialsEnabled = false,
     dailyAttempts,
     submissions = $bindable([]),
     leftTab: initialLeftTab = "description",
@@ -125,15 +133,17 @@
       </span>
     {/if}
   </button>
-  <button
-    class="px-3 py-1.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'editorials'
-      ? 'border-b-2 border-primary text-foreground'
-      : 'text-muted-foreground hover:text-foreground'}"
-    onclick={() => (leftTab = "editorials")}
-    type="button"
-  >
-    {m.editorials_title()}
-  </button>
+  {#if editorialsEnabled}
+    <button
+      class="px-3 py-1.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'editorials'
+        ? 'border-b-2 border-primary text-foreground'
+        : 'text-muted-foreground hover:text-foreground'}"
+      onclick={() => (leftTab = "editorials")}
+      type="button"
+    >
+      {m.editorials_title()}
+    </button>
+  {/if}
 </div>
 
 <div class="flex-1 overflow-y-auto">
@@ -141,7 +151,7 @@
     <ProblemDescriptionPanel {problem} {testcaseSets} {dailyAttempts} />
   {:else if leftTab === "submissions"}
     <SubmissionHistoryPanel bind:submissions bind:viewingIndex {canRejudge} />
-  {:else if leftTab === "editorials"}
+  {:else if editorialsEnabled && leftTab === "editorials"}
     <EditorialListPanel
       problemId={problem.id}
       {hasAc}

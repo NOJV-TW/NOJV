@@ -143,6 +143,7 @@ export const submissionRepo = {
     problemId: string;
     userId: string;
     statusIn: SubmissionStatus[];
+    contestId?: string;
     courseAssessmentId?: string;
     virtualContestId?: string;
     take?: number;
@@ -153,6 +154,7 @@ export const submissionRepo = {
         userId: opts.userId,
         sampleOnly: false,
         status: { in: opts.statusIn },
+        ...(opts.contestId ? { contestId: opts.contestId } : {}),
         ...(opts.courseAssessmentId ? { courseAssessmentId: opts.courseAssessmentId } : {}),
         ...(opts.virtualContestId ? { virtualContestId: opts.virtualContestId } : {}),
       },
@@ -165,6 +167,9 @@ export const submissionRepo = {
         status: true,
         runtimeMs: true,
         verdictDetail: true,
+        contestId: true,
+        courseAssessmentId: true,
+        examId: true,
       },
       take: opts.take ?? 50,
     });
@@ -184,6 +189,10 @@ export const submissionRepo = {
         score: true,
         status: true,
         runtimeMs: true,
+        memoryKb: true,
+        contestId: true,
+        courseAssessmentId: true,
+        examId: true,
         problem: { select: problemMiniSelect },
       },
       take: opts.take ?? 50,

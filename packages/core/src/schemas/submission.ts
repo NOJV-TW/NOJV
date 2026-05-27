@@ -80,26 +80,19 @@ const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
 const MAX_SUBTASK_LABEL_LEN = 200;
 const MAX_FEEDBACK_LEN = 10_000;
 
-export const testcaseResultItemSchema = z.object({
+export const caseResultSchema = z.object({
   index: z.number().int().nonnegative(),
-  passed: z.boolean(),
-  stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
-  stdout: z.string().max(MAX_CASE_STDOUT_BYTES),
+  // Sandbox short code (AC/WA/TLE/MLE/RE/CE/SE); passed = verdict === "AC".
+  verdict: z.string().max(16),
   timeMs: z.number().int().nonnegative(),
   memoryKb: z.number().int().nonnegative().optional(),
-});
-
-export const subtaskCaseResultSchema = z.object({
-  memoryKb: z.number().int().nonnegative().optional(),
-  ordinal: z.number().int(),
-  runtimeMs: z.number().int().nonnegative(),
-  testcaseId: z.string(),
-  // Sandbox verdict string ("AC"/"WA"/...); mapped to DB enum in judge activity.
-  verdict: z.string().max(16),
+  stdout: z.string().max(MAX_CASE_STDOUT_BYTES).optional(),
+  stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
+  testcaseId: z.string().optional(),
 });
 
 export const subtaskResultItemSchema = z.object({
-  cases: z.array(subtaskCaseResultSchema).max(10_000),
+  cases: z.array(caseResultSchema).max(10_000),
   label: z.string().max(MAX_SUBTASK_LABEL_LEN),
   passed: z.boolean(),
   testcaseSetId: z.string(),
@@ -108,7 +101,7 @@ export const subtaskResultItemSchema = z.object({
 
 export const submissionResultSchema = z.object({
   accepted: z.boolean(),
-  caseResults: z.array(testcaseResultItemSchema).max(10_000).optional(),
+  caseResults: z.array(caseResultSchema).max(10_000).optional(),
   feedback: z.string().min(1).max(MAX_FEEDBACK_LEN),
   runtimeMs: z.number().int().nonnegative(),
   memoryKb: z.number().int().nonnegative().optional(),
@@ -129,7 +122,7 @@ export const submissionOperationSchema = z.object({
   submissionId: z.string().min(1),
 });
 
-export type SubtaskCaseResult = z.infer<typeof subtaskCaseResultSchema>;
+export type CaseResult = z.infer<typeof caseResultSchema>;
 export type SubtaskResultItem = z.infer<typeof subtaskResultItemSchema>;
 export type SubmissionDraft = z.infer<typeof submissionDraftSchema>;
 export type SubmissionResult = z.infer<typeof submissionResultSchema>;

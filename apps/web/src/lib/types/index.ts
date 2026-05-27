@@ -17,6 +17,8 @@ export interface ProblemSubmissionEntry {
   result: SubmissionResult;
   sourceCode?: string;
   submittedAt: string;
+  /** Source context of this submission; absent on optimistic entries that predate a context inference. */
+  context?: "practice" | "assignment" | "contest" | "exam";
 }
 
 export interface ProblemEditorialEntry {
