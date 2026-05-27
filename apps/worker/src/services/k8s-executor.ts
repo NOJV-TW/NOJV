@@ -30,6 +30,25 @@ const JOB_DEADLINE_SECONDS = 120;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
 
+/**
+ * Build the flat testcase ConfigMap keys. Standard mode compares output
+ * worker-side, so the expected answer must never reach the sandbox pod;
+ * checker/interactive still need it in-pod until Phase 2.
+ */
+export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {
+  const data: Record<string, string> = {};
+  const shipExpected = request.judgeType !== "standard";
+
+  for (const tc of request.testcases) {
+    data[`testcase-${String(tc.index)}-input.txt`] = tc.input;
+    if (shipExpected && tc.output != null) {
+      data[`testcase-${String(tc.index)}-expected.txt`] = tc.output;
+    }
+  }
+
+  return data;
+}
+
 export class K8sExecutor implements SandboxExecutor {
   private coreApi: k8s.CoreV1Api;
   private batchApi: k8s.BatchV1Api;
@@ -125,12 +144,7 @@ export class K8sExecutor implements SandboxExecutor {
       data[`interactor.${ext}`] = request.judgeConfig.interactorScript;
     }
 
-    for (const tc of request.testcases) {
-      data[`testcase-${String(tc.index)}-input.txt`] = tc.input;
-      if (tc.output != null) {
-        data[`testcase-${String(tc.index)}-expected.txt`] = tc.output;
-      }
-    }
+    Object.assign(data, buildTestcaseConfigMapData(request));
 
     await this.coreApi.createNamespacedConfigMap({
       namespace,

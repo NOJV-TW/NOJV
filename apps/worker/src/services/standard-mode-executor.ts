@@ -32,7 +32,10 @@ export async function runStandardMode(
   return await runContainer(tempDir, request, config);
 }
 
-async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): Promise<void> {
+export async function writeSubmissionFiles(
+  tempDir: string,
+  request: SandboxRequest,
+): Promise<void> {
   const fileWrites: Promise<void>[] = [];
   const sourceFileMap: { path: string; key: string }[] = [];
 
@@ -94,13 +97,19 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
   const testcasesDir = join(tempDir, "testcases");
   await mkdir(testcasesDir, { recursive: true });
 
+  // Standard mode runs the solution in this container but compares output
+  // in the worker — the expected answer must never be readable from inside
+  // the sandbox (a student program could otherwise just echo it back).
+  // Checker/interactive still need it in-container until Phase 2.
+  const shipExpected = request.judgeType !== "standard";
+
   await Promise.all(
     request.testcases.map(async (tc) => {
       const tcDir = join(testcasesDir, String(tc.index));
       await mkdir(tcDir, { recursive: true });
       await writeFile(join(tcDir, "input.txt"), tc.input, "utf8");
 
-      if (tc.output !== undefined) {
+      if (shipExpected && tc.output !== undefined) {
         await writeFile(join(tcDir, "expected.txt"), tc.output, "utf8");
       }
     }),
