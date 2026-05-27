@@ -171,6 +171,9 @@ export async function executeSandbox(
     limits: {
       timeoutMs: judgeContext.runtime.timeLimitMs,
       memoryMb: judgeContext.runtime.memoryLimitMb,
+      ...(judgeContext.runtime.env && Object.keys(judgeContext.runtime.env).length > 0
+        ? { env: judgeContext.runtime.env }
+        : {}),
     },
     ...(advancedPayload ? { advanced: advancedPayload } : {}),
   };
