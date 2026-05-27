@@ -19,7 +19,7 @@ function makeRequest(judgeType: SandboxRequest["judgeType"]): SandboxRequest {
     submissionId: "sub-1",
     sourceCode: "print(1)",
     language: "python",
-    problemType: "standard",
+    problemType: "full_source",
     testcases: [
       { index: 0, input: "1 2\n", output: "3\n", weight: 1, isSample: false },
       { index: 1, input: "4 5\n", output: "9\n", weight: 1, isSample: false },

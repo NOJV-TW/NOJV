@@ -8,7 +8,7 @@ function makeRequest(env?: Record<string, string>): SandboxRequest {
     submissionId: "sub-1",
     sourceCode: "print(1)",
     language: "python",
-    problemType: "standard",
+    problemType: "full_source",
     testcases: [],
     judgeType: "standard",
     judgeConfig: {},
