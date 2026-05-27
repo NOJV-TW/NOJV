@@ -62,9 +62,9 @@ export function resolveSandboxResult(
   parsed: SandboxResult,
   testcases: SandboxTestcase[],
 ): SandboxResult {
-  if (parsed.rawRuns) {
-    const { rawRuns: _rawRuns, ...rest } = parsed;
-    return { ...rest, testcaseResults: resolveStandardResults(parsed.rawRuns, testcases) };
+  if (!parsed.rawRuns) {
+    return parsed;
   }
-  return parsed;
+  const { rawRuns, ...rest } = parsed;
+  return { ...rest, testcaseResults: resolveStandardResults(rawRuns, testcases) };
 }
