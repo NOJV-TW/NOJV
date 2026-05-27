@@ -109,9 +109,9 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
 
 export type SubmissionContextKind = "exam" | "contest" | "assignment" | "practice";
 
-// Derive a submission's context kind from its FK columns. Priority matches
-// `buildSubmissionContext`: exam → contest → assignment → practice. A row that
-// only carries `virtualContestId` counts as practice (it has none of these FKs).
+// Derive a submission's context kind from its FK columns. A DB XOR constraint
+// guarantees at most one of these context FKs is set, so the check order is
+// immaterial; a row that only carries `virtualContestId` counts as practice.
 export function deriveSubmissionContextKind(fks: {
   contestId: string | null;
   courseAssessmentId: string | null;
