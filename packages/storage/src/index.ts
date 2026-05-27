@@ -13,6 +13,8 @@ export {
   testcaseOutputKey,
   testcaseInputFileKey,
   workspaceFileKey,
+  checkerKey,
+  interactorKey,
   problemPrefix,
 } from "./keys";
 export { putText, getText, deleteBlob, deleteBlobsByPrefix } from "./blobs";
