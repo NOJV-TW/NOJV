@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { SubtaskResultItem } from "@nojv/core";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { verdictBadgeVariant } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
@@ -12,19 +14,6 @@
 
   const totalWeight = $derived(subtaskResults.reduce((sum, s) => sum + s.weight, 0));
   const passedWeight = $derived(subtaskResults.reduce((sum, s) => sum + (s.passed ? s.weight : 0), 0));
-
-  const verdictBadgeColor: Record<string, string> = {
-    AC: "bg-success/15 text-success",
-    WA: "bg-destructive/15 text-destructive",
-    TLE: "bg-warning/15 text-warning",
-    MLE: "bg-warning/15 text-warning",
-    RE: "bg-destructive/15 text-destructive",
-    CE: "bg-muted text-muted-foreground"
-  };
-
-  function badgeColor(verdict: string): string {
-    return verdictBadgeColor[verdict] ?? "bg-muted text-muted-foreground";
-  }
 
   function formatMemory(kb: number): string {
     if (kb >= 1024) {
@@ -60,7 +49,7 @@
         onclick={() => (expanded[index] = !isExpanded)}
         type="button"
       >
-        <span class="text-caption text-muted-foreground">{isExpanded ? "\u25BC" : "\u25B6"}</span>
+        <span class="text-caption text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
         <span class="font-semibold {subtask.passed ? 'text-success' : 'text-destructive'}">
           {subtask.label}
         </span>
@@ -77,18 +66,14 @@
       {#if isExpanded && subtask.cases.length > 0}
         <div class="border-t {subtask.passed ? 'border-success/30' : 'border-destructive/30'} px-3 py-2">
           <div class="space-y-1">
-            {#each subtask.cases as caseResult, ci (`case-${caseResult.testcaseId}`)}
+            {#each subtask.cases as caseResult, ci (`case-${ci}-${caseResult.testcaseId ?? caseResult.index}`)}
               {@const isLast = ci === subtask.cases.length - 1}
               <div class="flex items-center gap-2 text-caption">
                 <span class="text-muted-foreground">{isLast ? "└─" : "├─"}</span>
-                <span class="w-12 tabular-nums text-muted-foreground">{m.subtask_caseLabel({ ordinal: caseResult.ordinal })}</span>
-                <span
-                  class="rounded px-1.5 py-0.5 font-medium {badgeColor(caseResult.verdict)}"
-                >
-                  {caseResult.verdict}
-                </span>
+                <span class="w-12 tabular-nums text-muted-foreground">{m.subtask_caseLabel({ ordinal: caseResult.index })}</span>
+                <Badge variant={verdictBadgeVariant(caseResult.verdict)} size="xs">{caseResult.verdict}</Badge>
                 <span class="tabular-nums text-muted-foreground">
-                  {String(caseResult.runtimeMs)}ms
+                  {String(caseResult.timeMs)}ms
                 </span>
                 {#if caseResult.memoryKb != null}
                   <span class="tabular-nums text-muted-foreground">

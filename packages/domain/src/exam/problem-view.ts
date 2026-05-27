@@ -34,6 +34,7 @@ export interface ExamProblemViewSubmission {
   language: Language;
   result: SubmissionResult;
   submittedAt: string;
+  context: "exam";
 }
 
 export interface ExamProblemViewExam {
@@ -114,6 +115,7 @@ export async function getExamProblemView(options: {
       language,
       result,
       submittedAt: s.createdAt.toISOString(),
+      context: "exam" as const,
     };
   });
 
@@ -216,6 +218,7 @@ export async function getExamProblemViewByProblemId(options: {
       language,
       result,
       submittedAt: s.createdAt.toISOString(),
+      context: "exam" as const,
     };
   });
 

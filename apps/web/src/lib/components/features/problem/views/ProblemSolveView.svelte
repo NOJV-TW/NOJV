@@ -57,6 +57,12 @@
      * that overturns AC, which the client-side `hasAc` derive cannot.
      */
     canViewEditorials?: boolean;
+    /**
+     * Whether the Editorials tab is rendered in the left panel. Only the
+     * practice route passes true; assignment/contest/exam omit it so an AC
+     * mid-event cannot unlock community editorials.
+     */
+    editorialsEnabled?: boolean;
     contestId?: string | undefined;
     /** Virtual-contest re-run id — tags submissions for the personal scoreboard. */
     virtualContestId?: string | undefined;
@@ -79,6 +85,7 @@
     backLink,
     canRejudge = false,
     canViewEditorials = false,
+    editorialsEnabled = false,
     contestId,
     virtualContestId,
     dailyAttempts,
@@ -136,6 +143,7 @@
           {backLink}
           {canRejudge}
           {canViewEditorials}
+          {editorialsEnabled}
           {contestId}
           {virtualContestId}
           {dailyAttempts}
@@ -151,6 +159,7 @@
           {backLink}
           {canRejudge}
           {canViewEditorials}
+          {editorialsEnabled}
           {contestId}
           {virtualContestId}
           {dailyAttempts}
