@@ -36,6 +36,16 @@ export function canManageCourse(effectiveRole: EffectiveCourseRole | null): bool
 }
 
 /**
+ * Check whether an effective course role may manage the member roster
+ * (change roles / remove members). Narrower than `canManageCourse`: TAs are
+ * excluded because role changes are a privilege-escalation surface — a TA must
+ * never be able to promote anyone (including themselves) or demote/remove a teacher.
+ */
+export function canManageMembers(effectiveRole: EffectiveCourseRole | null): boolean {
+  return effectiveRole === "admin" || effectiveRole === "teacher";
+}
+
+/**
  * Check whether a platform role grants problem editing privileges.
  */
 export function canEditProblem(platformRole: PlatformRole): boolean {
