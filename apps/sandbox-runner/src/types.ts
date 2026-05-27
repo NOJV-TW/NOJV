@@ -74,3 +74,39 @@ export type { SandboxTestcaseResult as TestcaseResult } from "@nojv/core";
 
 // Re-export for index.ts which constructs SandboxOutput
 export type { SandboxResult as SandboxOutput } from "@nojv/core";
+
+const sandboxVerdictSchema = z.enum(["AC", "WA", "TLE", "MLE", "RE", "SE"]);
+
+const sandboxTestcaseResultSchema = z.object({
+  index: z.number(),
+  verdict: sandboxVerdictSchema,
+  stdout: z.string(),
+  stderr: z.string(),
+  exitCode: z.number(),
+  timeMs: z.number(),
+  memoryKb: z.number().optional(),
+  score: z.number().optional(),
+  feedback: z.string().optional(),
+});
+
+// Raw per-case run for worker-side checking (standard mode). `errorVerdict`
+// is only ever a run-failure code; AC/WA is decided by the worker.
+const rawCaseRunSchema = z.object({
+  index: z.number(),
+  stdout: z.string(),
+  stderr: z.string(),
+  exitCode: z.number(),
+  timeMs: z.number(),
+  memoryKb: z.number().optional(),
+  errorVerdict: z.enum(["TLE", "MLE", "RE", "SE"]).optional(),
+});
+
+// Shape the runner emits on stdout. Mirrors @nojv/core `SandboxResult`.
+export const SandboxOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  pipelineError: z.string().optional(),
+  testcaseResults: z.array(sandboxTestcaseResultSchema).optional(),
+  rawRuns: z.array(rawCaseRunSchema).optional(),
+  customScore: z.number().optional(),
+  scoringFeedback: z.string().optional(),
+});
