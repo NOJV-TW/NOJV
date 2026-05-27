@@ -1,8 +1,31 @@
-import { courseMembershipAdminRepo, runTransaction, type TransactionClient } from "@nojv/db";
-import type { CourseRole } from "@nojv/core";
+import {
+  courseMembershipAdminRepo,
+  courseMembershipRepo,
+  runTransaction,
+  type TransactionClient,
+} from "@nojv/db";
+import type { CourseRole, EffectiveCourseRole } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
+import { ForbiddenError } from "../shared/errors";
+import { resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
+
+/** Effective course role of the actor (platform admin overrides to "admin"). */
+async function resolveActorCourseRole(
+  actor: ActorContext,
+  courseId: string,
+): Promise<EffectiveCourseRole | null> {
+  const membership = await courseMembershipRepo.findByComposite(courseId, actor.userId);
+  const courseRole = membership?.status === "active" ? membership.role : null;
+  return resolveEffectiveCourseRole(actor.platformRole, courseRole);
+}
+
+/** Current active role of the target member, or null if not an active member. */
+async function activeMemberRole(courseId: string, userId: string): Promise<CourseRole | null> {
+  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
+  return membership?.status === "active" ? membership.role : null;
+}
 
 // Email is always present here — the route strips it for non-manager viewers.
 export interface CourseMemberRow {
@@ -60,6 +83,15 @@ export async function bulkAddByHandle(
   courseId: string,
   payload: { handles: string[]; role: CourseRole },
 ): Promise<BulkAddResult> {
+  // Granting TA (staff) status is an elevation — restrict it to teachers/admins.
+  // Adding plain students stays open to any course manager.
+  if (payload.role === "ta") {
+    const actorRole = await resolveActorCourseRole(actor, courseId);
+    if (actorRole !== "admin" && actorRole !== "teacher") {
+      throw new ForbiddenError("Only teachers or admins can add teaching assistants.");
+    }
+  }
+
   const uniqueHandles = Array.from(
     new Set(payload.handles.map((h) => h.trim().toLowerCase())),
   ).filter((h) => h.length > 0);
@@ -124,15 +156,42 @@ export async function bulkAddByHandle(
 }
 
 export async function changeMemberRole(
-  _actor: ActorContext,
+  actor: ActorContext,
   courseId: string,
   userId: string,
   role: CourseRole,
 ) {
+  const actorRole = await resolveActorCourseRole(actor, courseId);
+  if (actorRole !== "admin" && actorRole !== "teacher") {
+    throw new ForbiddenError("Only teachers or admins can change member roles.");
+  }
+  if (actorRole === "teacher") {
+    if (userId === actor.userId) {
+      throw new ForbiddenError("You cannot change your own role.");
+    }
+    if (role === "teacher") {
+      throw new ForbiddenError("Only an admin can promote a member to teacher.");
+    }
+    if ((await activeMemberRole(courseId, userId)) === "teacher") {
+      throw new ForbiddenError("Teachers cannot change another teacher's role.");
+    }
+  }
   return courseMembershipAdminRepo.updateRole(courseId, userId, role);
 }
 
-export async function removeMember(_actor: ActorContext, courseId: string, userId: string) {
+export async function removeMember(actor: ActorContext, courseId: string, userId: string) {
+  const actorRole = await resolveActorCourseRole(actor, courseId);
+  if (actorRole !== "admin" && actorRole !== "teacher") {
+    throw new ForbiddenError("Only teachers or admins can remove members.");
+  }
+  if (actorRole === "teacher") {
+    if (userId === actor.userId) {
+      throw new ForbiddenError("You cannot remove yourself.");
+    }
+    if ((await activeMemberRole(courseId, userId)) === "teacher") {
+      throw new ForbiddenError("Teachers cannot remove another teacher.");
+    }
+  }
   return courseMembershipAdminRepo.removeFromCourse(courseId, userId);
 }
 

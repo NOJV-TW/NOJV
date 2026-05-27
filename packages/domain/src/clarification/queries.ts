@@ -1,7 +1,7 @@
 import { clarificationRepo, type ClarificationRow } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
-import { canSeeAuthor } from "./permissions";
+import { assertCanViewClarifications, canSeeAuthor } from "./permissions";
 import { toContextDbFields, type ClarificationContext } from "./types";
 
 export interface ProjectedClarification extends Omit<
@@ -41,6 +41,7 @@ export async function listForViewer(
   context: ClarificationContext,
   since?: Date,
 ): Promise<ProjectedClarification[]> {
+  await assertCanViewClarifications(viewer, context);
   const db = toContextDbFields(context);
   const rows = await clarificationRepo.listForContext(db.contextType, db.contextId, since);
   const isStaff = await canSeeAuthor(viewer, context);

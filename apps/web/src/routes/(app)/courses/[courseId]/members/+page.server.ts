@@ -2,7 +2,7 @@ import { fail } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
-import { canManageCourse, courseDomain } from "@nojv/domain";
+import { canManageCourse, canManageMembers, courseDomain } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
@@ -110,7 +110,7 @@ export const actions = {
   changeRole: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const role = await getCoursePermissionRole(event.params.courseId, actor);
-    if (!canManageCourse(role)) {
+    if (!canManageMembers(role)) {
       return fail(403, { error: "Forbidden" });
     }
 
@@ -140,7 +140,7 @@ export const actions = {
   remove: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const role = await getCoursePermissionRole(event.params.courseId, actor);
-    if (!canManageCourse(role)) {
+    if (!canManageMembers(role)) {
       return fail(403, { error: "Forbidden" });
     }
 
