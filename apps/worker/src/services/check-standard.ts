@@ -4,6 +4,7 @@ import {
   type SandboxResult,
   type SandboxTestcase,
   type SandboxTestcaseResult,
+  type ValidatorOutcome,
 } from "@nojv/core";
 
 /**
@@ -49,6 +50,54 @@ export function resolveStandardResults(
 
     const accepted = compareStandard(run.stdout, expected);
     return { ...base, verdict: accepted ? "AC" : "WA", score: accepted ? 100 : 0 };
+  });
+}
+
+/**
+ * Decide each checker case by merging the run-phase raw output with the
+ * isolated validator's per-case outcome. A failed run (TLE/MLE/RE/SE) passes
+ * through unchanged — the validator never ran for it. A clean run takes the
+ * validator's verdict/score; the validator's `teamMessage` becomes the
+ * student-facing `feedback`. `judgeMessage` is deliberately DROPPED here — it
+ * is a staff-only channel added in a later phase and must not leak to students.
+ * A clean run with no validator outcome is an SE (the validator failed to
+ * report on that case).
+ */
+export function mergeCheckerResults(
+  rawRuns: RawCaseRun[],
+  outcomes: Map<number, ValidatorOutcome>,
+): SandboxTestcaseResult[] {
+  return rawRuns.map((run) => {
+    const base = {
+      index: run.index,
+      stdout: run.stdout,
+      stderr: run.stderr,
+      exitCode: run.exitCode,
+      timeMs: run.timeMs,
+      ...(run.memoryKb !== undefined ? { memoryKb: run.memoryKb } : {}),
+    };
+
+    if (run.errorVerdict) {
+      return { ...base, verdict: run.errorVerdict, score: 0 };
+    }
+
+    const outcome = outcomes.get(run.index);
+    if (outcome === undefined || outcome.verdict === "SE") {
+      return {
+        ...base,
+        verdict: "SE",
+        score: 0,
+        feedback: "Validator did not report a verdict for this case.",
+      };
+    }
+
+    const score = outcome.score ?? (outcome.verdict === "AC" ? 100 : 0);
+    return {
+      ...base,
+      verdict: outcome.verdict,
+      score,
+      ...(outcome.teamMessage !== undefined ? { feedback: outcome.teamMessage } : {}),
+    };
   });
 }
 

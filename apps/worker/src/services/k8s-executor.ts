@@ -77,6 +77,19 @@ export class K8sExecutor implements SandboxExecutor {
       );
     }
 
+    // Checker mode now grades via an isolated validator container (Phase 2B),
+    // which only the Docker backend implements. The K8s path would otherwise
+    // grade the raw run as standard — fail fast instead of returning a wrong
+    // verdict. Operator-facing detail goes to the worker log.
+    if (request.judgeType === "checker") {
+      logger.error("K8s executor refused checker submission — switch to Docker backend", {
+        submissionId: request.submissionId,
+      });
+      return sandboxSystemError(
+        "Sandbox configuration error. Please contact your administrator.",
+      );
+    }
+
     const jobName = `judge-${request.submissionId}`;
     const ns = this.config.namespace;
 

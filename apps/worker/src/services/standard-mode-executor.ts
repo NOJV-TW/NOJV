@@ -1,19 +1,22 @@
 import { spawn } from "node:child_process";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
   normalizeRelativePath,
   sourceFileNames,
+  type RawCaseRun,
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
-import { resolveSandboxResult } from "./check-standard";
+import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
+import { runValidator, type ValidatorCase } from "./validator-executor";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 
@@ -30,7 +33,81 @@ export async function runStandardMode(
   config: StandardModeConfig,
 ): Promise<SandboxResult> {
   await writeSubmissionFiles(tempDir, request);
-  return await runContainer(tempDir, request, config);
+  const runResult = await runContainer(tempDir, request, config);
+
+  // Checker mode: the run container only produced raw output. Run the
+  // DOMjudge validator in a SECOND isolated container, then merge.
+  if (request.judgeType === "checker" && runResult.rawRuns) {
+    return await resolveCheckerResult(request, config, runResult.rawRuns);
+  }
+
+  // Standard mode emits rawRuns → worker compares; checker/interactive that
+  // reached here without rawRuns already carry testcaseResults.
+  return resolveSandboxResult(runResult, request.testcases);
+}
+
+async function resolveCheckerResult(
+  request: SandboxRequest,
+  config: StandardModeConfig,
+  rawRuns: RawCaseRun[],
+): Promise<SandboxResult> {
+  const validatorScript = request.judgeConfig.checkerScript;
+  if (!validatorScript) {
+    return sandboxSystemError("Checker judge is missing its validator script.");
+  }
+
+  const validatorLanguage = request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
+
+  const testcaseByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
+
+  // Only clean runs go to the validator; failed runs (TLE/MLE/RE/SE) pass
+  // through. A clean run whose testcase has no expected answer is a
+  // misconfiguration → its outcome is left absent so the merge marks it SE.
+  const cases: ValidatorCase[] = [];
+  for (const run of rawRuns) {
+    if (run.errorVerdict) continue;
+    const tc = testcaseByIndex.get(run.index);
+    if (tc?.output === undefined) continue;
+    cases.push({
+      index: run.index,
+      input: tc.input,
+      answer: tc.output,
+      teamOutput: run.stdout,
+    });
+  }
+
+  const outcomes =
+    cases.length > 0
+      ? await runValidatorInTempDir(request, config, {
+          submissionId: request.submissionId,
+          validatorScript,
+          validatorLanguage,
+          cases,
+          limits: { timeoutMs: request.limits.timeoutMs, memoryMb: request.limits.memoryMb },
+        })
+      : new Map();
+
+  return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
+}
+
+async function runValidatorInTempDir(
+  request: SandboxRequest,
+  config: StandardModeConfig,
+  params: Parameters<typeof runValidator>[1],
+): ReturnType<typeof runValidator> {
+  const validateTempDir = await mkdtemp(
+    join(tmpdir(), `nojv-validate-${sanitizeId(request.submissionId)}-`),
+  );
+  try {
+    return await runValidator(validateTempDir, params, {
+      cpuLimit: config.cpuLimit,
+      image: config.image,
+      memoryMb: config.memoryMb,
+      pidsLimit: config.pidsLimit,
+    });
+  } finally {
+    await rm(validateTempDir, { force: true, recursive: true });
+  }
 }
 
 export async function writeSubmissionFiles(
@@ -75,12 +152,9 @@ export async function writeSubmissionFiles(
     ),
   );
 
-  if (request.judgeConfig.checkerScript) {
-    const ext = sourceExtension(request.judgeConfig.checkerLanguage);
-    fileWrites.push(
-      writeFile(join(tempDir, `checker.${ext}`), request.judgeConfig.checkerScript, "utf8"),
-    );
-  }
+  // Checker mode no longer runs an in-container checker: the validator runs
+  // in a SECOND isolated container (see runValidator). The checker script must
+  // never enter the run container alongside student code.
 
   if (request.judgeConfig.interactorScript) {
     const ext = sourceExtension(request.judgeConfig.interactorLanguage);
@@ -98,11 +172,12 @@ export async function writeSubmissionFiles(
   const testcasesDir = join(tempDir, "testcases");
   await mkdir(testcasesDir, { recursive: true });
 
-  // Standard mode runs the solution in this container but compares output
-  // in the worker — the expected answer must never be readable from inside
-  // the sandbox (a student program could otherwise just echo it back).
-  // Checker/interactive still need it in-container until Phase 2.
-  const shipExpected = request.judgeType !== "standard";
+  // Standard and checker modes run the solution in this container but decide
+  // the verdict elsewhere (worker comparison / isolated validator container).
+  // The expected answer must never be readable from inside the run container —
+  // a student program could otherwise just echo it back. Interactive keeps its
+  // existing in-container layout unchanged (it ignores expected.txt anyway).
+  const shipExpected = request.judgeType !== "standard" && request.judgeType !== "checker";
 
   await Promise.all(
     request.testcases.map(async (tc) => {
@@ -234,7 +309,7 @@ async function runContainer(
         const parsed = parseSandboxResult(JSON.parse(stdout));
         settle(
           parsed.success
-            ? resolveSandboxResult(parsed.data, request.testcases)
+            ? parsed.data
             : sandboxSystemError(
                 `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`,
               ),

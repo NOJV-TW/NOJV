@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, access } from "node:fs/promises";
+import { mkdtemp, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,7 +25,8 @@ function makeRequest(judgeType: SandboxRequest["judgeType"]): SandboxRequest {
       { index: 1, input: "4 5\n", output: "9\n", weight: 1, isSample: false },
     ],
     judgeType,
-    judgeConfig: {},
+    judgeConfig:
+      judgeType === "checker" ? { checkerScript: "accept()\n", checkerLanguage: "python" } : {},
     limits: { timeoutMs: 1_000, memoryMb: 256 },
   };
 }
@@ -50,10 +51,11 @@ describe("writeSubmissionFiles expected-output gating", () => {
     expect(await exists(join(tempDir, "testcases", "1", "expected.txt"))).toBe(false);
   });
 
-  it("still writes expected.txt for checker mode", async () => {
+  it("ships neither expected.txt nor the checker script into the run container (checker mode)", async () => {
     await writeSubmissionFiles(tempDir, makeRequest("checker"));
 
-    expect(await exists(join(tempDir, "testcases", "0", "expected.txt"))).toBe(true);
-    expect(await readFile(join(tempDir, "testcases", "0", "expected.txt"), "utf8")).toBe("3\n");
+    expect(await exists(join(tempDir, "testcases", "0", "input.txt"))).toBe(true);
+    expect(await exists(join(tempDir, "testcases", "0", "expected.txt"))).toBe(false);
+    expect(await exists(join(tempDir, "checker.py"))).toBe(false);
   });
 });
