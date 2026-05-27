@@ -131,9 +131,8 @@ export async function loadProblemSolveData(
 
   const contestId = context.kind === "contest" ? context.contestId : undefined;
 
-  // Submissions are always scoped to the shell's context so that
-  // a student's assignment submissions don't leak into a contest view
-  // (and vice-versa).
+  // Submissions are scoped to the assignment/exam shell so a student's
+  // assignment submissions don't leak into a sibling context.
   // Submissions listed here all share the same context, so the rejudge
   // authz decision is homogeneous — compute once. The synthetic submission
   // only needs the context fields; id/userId do not affect the check.

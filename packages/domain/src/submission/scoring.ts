@@ -4,7 +4,13 @@ import { applyAdjustmentRules } from "./adjustments";
 import type { SubmissionJudgeContext, TestcaseSetGroup, SubtaskStrategyMap } from "./types";
 
 export interface SubtaskResultItem {
-  cases: { index: number; verdict: string; timeMs: number; testcaseId: string; memoryKb?: number }[];
+  cases: {
+    index: number;
+    verdict: string;
+    timeMs: number;
+    testcaseId: string;
+    memoryKb?: number;
+  }[];
   label: string;
   passed: boolean;
   rawScore: number;

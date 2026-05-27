@@ -107,6 +107,22 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   };
 }
 
+export type SubmissionContextKind = "exam" | "contest" | "assignment" | "practice";
+
+// Derive a submission's context kind from its FK columns. Priority matches
+// `buildSubmissionContext`: exam → contest → assignment → practice. A row that
+// only carries `virtualContestId` counts as practice (it has none of these FKs).
+export function deriveSubmissionContextKind(fks: {
+  contestId: string | null;
+  courseAssessmentId: string | null;
+  examId: string | null;
+}): SubmissionContextKind {
+  if (fks.examId) return "exam";
+  if (fks.contestId) return "contest";
+  if (fks.courseAssessmentId) return "assignment";
+  return "practice";
+}
+
 function buildSubmissionContext(submission: {
   contestId: string | null;
   contest: { id: string; title: string } | null;
@@ -166,8 +182,10 @@ export async function listUserSubmissions(userId: string) {
       problemId: s.problem.id,
       problemTitle: s.problem.title,
       runtimeMs: s.runtimeMs,
+      memoryKb: s.memoryKb,
       score: s.score,
       status: s.status,
+      context: deriveSubmissionContextKind(s),
     };
   });
 }
@@ -192,26 +210,31 @@ export async function countAssignmentSubmissionsToday(
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,
-  assignmentFilter?: { assignmentId: string; courseId: string },
+  context?: { assignmentId: string; courseId: string } | { contestId: string },
 ) {
+  const isAssignmentFilter = context !== undefined && "assignmentId" in context;
+
   const problemP = problemRepo.findById(problemId);
 
-  const assignmentP = assignmentFilter
-    ? assessmentRepo.findByCourseAndId(assignmentFilter.courseId, assignmentFilter.assignmentId)
+  const assignmentP = isAssignmentFilter
+    ? assessmentRepo.findByCourseAndId(context.courseId, context.assignmentId)
     : null;
 
   const [problem, assignment] = await Promise.all([problemP, assignmentP]);
 
   if (!problem) return [];
-  if (assignmentFilter && !assignment) return [];
+  if (isAssignmentFilter && !assignment) return [];
 
   const courseAssessmentId = assignment?.id;
+  const contestId =
+    context !== undefined && "contestId" in context ? context.contestId : undefined;
 
   const submissions = await submissionRepo.listByUserAndProblem({
     problemId: problem.id,
     userId,
     statusIn: [...submissionVerdicts],
     ...(courseAssessmentId ? { courseAssessmentId } : {}),
+    ...(contestId ? { contestId } : {}),
   });
 
   return submissions.map((s) => {
@@ -225,6 +248,7 @@ export async function listProblemSubmissions(
       language,
       result,
       submittedAt: s.createdAt.toISOString(),
+      context: deriveSubmissionContextKind(s),
     };
   });
 }

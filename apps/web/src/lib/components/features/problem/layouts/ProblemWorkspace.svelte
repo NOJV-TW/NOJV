@@ -57,7 +57,8 @@
         language,
         result,
         sourceCode,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        context: draftContext.kind
       },
       ...submissions
     ].slice(0, 50);

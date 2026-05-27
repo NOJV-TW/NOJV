@@ -11,7 +11,7 @@ and a few context rules are wrong:
 1. **Two divergent per-case result shapes.** `testcaseResultItemSchema` (flat
    `caseResults`: `{ index, passed, stdout, stderr?, timeMs, memoryKb? }`) and
    `subtaskCaseResultSchema` (subtask `cases`: `{ ordinal, runtimeMs, testcaseId,
-   verdict, memoryKb? }`). Both are projections of the same sandbox output built
+verdict, memoryKb? }`). Both are projections of the same sandbox output built
    in `scoring.ts` `mapResult()`, but with different field names and outcome
    representations (`passed` boolean vs `verdict` short code). The flat one is
    lossy (no verdict string).
@@ -65,8 +65,8 @@ and a few context rules are wrong:
    assignment/contest/exam — no work.
 8. **Unify the per-case result schema** into one `caseResultSchema`. The system
    is **not yet in production**, so this is a clean cutover — **no backward-compat
-   layer, no data migration**; the dev DB is re-seeded. Unify the per-case *type*
-   only; the two *containers* (flat `caseResults` for sample/non-subtask, grouped
+   layer, no data migration**; the dev DB is re-seeded. Unify the per-case _type_
+   only; the two _containers_ (flat `caseResults` for sample/non-subtask, grouped
    `subtaskResults` for graded) stay because sample runs have no subtasks
    (container dedup is out of scope — over-engineering).
 
@@ -79,13 +79,13 @@ Replace `testcaseResultItemSchema` + `subtaskCaseResultSchema` with one schema i
 
 ```ts
 export const caseResultSchema = z.object({
-  index: z.number().int().nonnegative(),     // position within its list
-  verdict: z.string().max(16),               // sandbox short code; passed = verdict === "AC"
+  index: z.number().int().nonnegative(), // position within its list
+  verdict: z.string().max(16), // sandbox short code; passed = verdict === "AC"
   timeMs: z.number().int().nonnegative(),
   memoryKb: z.number().int().nonnegative().optional(),
   stdout: z.string().max(MAX_CASE_STDOUT_BYTES).optional(), // flat/sample; omitted on graded subtask cases
   stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
-  testcaseId: z.string().optional(),         // graded cases; absent for sample runs
+  testcaseId: z.string().optional(), // graded cases; absent for sample runs
 });
 ```
 
@@ -95,6 +95,7 @@ export const caseResultSchema = z.object({
   (→ `timeMs`). One outcome representation (`verdict`), one timing field (`timeMs`).
 
 Producer — `packages/domain/src/submission/scoring.ts`:
+
 - `mapResult` flat `caseResults`: emit `verdict: t.verdict` (was `passed: t.verdict === "AC"`).
 - `buildSubtaskResults` cases: `{ index, verdict, timeMs, testcaseId, memoryKb? }`
   (was `{ ordinal, runtimeMs, testcaseId, verdict }`). Update the local
@@ -117,7 +118,7 @@ Seed + fixtures: re-run `pnpm db:seed`; update `tests/unit/worker/sandbox-result
 - Migrate callers: `/submissions` list, `/submissions/[id]` (hero = `verdictTone`,
   rest pills), `SubmissionHistoryPanel`, dashboard recent submissions,
   `EditorBottomPanel` (verdict colour only — its run-result view pairs judged
-  output with the student's *editable* `runCases` I/O, a different data model;
+  output with the student's _editable_ `runCases` I/O, a different data model;
   stays bespoke). Update `tests/unit/web/verdict-colors.test.ts`.
 
 ### Phase 2 — Shared result components
@@ -169,7 +170,7 @@ Seed + fixtures: re-run `pnpm db:seed`; update `tests/unit/worker/sandbox-result
 ## Out of scope
 
 - **Container dedup (U1).** Cases stay listed in both `caseResults` and
-  `subtaskResults` for graded subtask submissions — only the per-case *type* is
+  `subtaskResults` for graded subtask submissions — only the per-case _type_ is
   unified. Removing the double-storage is a separate optimisation, not worth the
   producer/consumer churn at this scale.
 - `/api/submissions/[id]/*` active-exam context hardening (pre-existing proctoring

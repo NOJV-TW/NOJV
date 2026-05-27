@@ -5,9 +5,25 @@
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
   import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
+  import { Badge } from "$lib/components/primitives/ui/badge";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
   import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
   import { toasts } from "$lib/stores/toast";
+
+  function contextLabel(kind: ProblemSubmissionEntry["context"]): string | null {
+    switch (kind) {
+      case "practice":
+        return m.submissions_kind_practice();
+      case "assignment":
+        return m.submissions_kind_assignment();
+      case "contest":
+        return m.submissions_kind_contest();
+      case "exam":
+        return m.submissions_kind_exam();
+      default:
+        return null;
+    }
+  }
 
   interface Props {
     /**
@@ -188,6 +204,9 @@
             </span>
           </div>
           <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
+            {#if contextLabel(entry.context)}
+              <Badge variant="outline" size="xs">{contextLabel(entry.context)}</Badge>
+            {/if}
             <span>{entry.language}</span>
             {#if entry.result.runtimeMs > 0}
               <span class="tabular-nums">{String(entry.result.runtimeMs)} ms</span>

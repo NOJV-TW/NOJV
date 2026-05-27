@@ -21,7 +21,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       platformRole: actor.platformRole,
     }),
     getProblemPageData(problemId),
-    listProblemSubmissions(actor.userId, problemId),
+    listProblemSubmissions(actor.userId, problemId, { contestId }),
   ]);
 
   // A manager may preview any problem in the contest even before start.

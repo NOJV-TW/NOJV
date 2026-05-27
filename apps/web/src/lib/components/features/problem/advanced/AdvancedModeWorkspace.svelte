@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
+  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
+  import { inferDraftContext } from "$lib/stores/code-draft";
   import {
     apiErrorSchema,
     submissionDispatchResponseSchema,
@@ -59,6 +61,8 @@
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
 
+  let draftContext = $derived(inferDraftContext(page.route.id, page.params));
+
   function handleSubmissionComplete(
     result: SubmissionResult,
     language: string,
@@ -69,7 +73,8 @@
         language,
         result,
         sourceCode,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        context: draftContext.kind
       },
       ...submissions
     ].slice(0, 50);
