@@ -278,6 +278,7 @@
       {#snippet judge()}
         <JudgeTab
           problem={data.problem}
+          validatorScripts={data.validatorScripts}
           ondirtychange={(d) => isDirty = d}
         />
       {/snippet}

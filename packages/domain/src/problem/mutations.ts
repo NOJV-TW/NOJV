@@ -8,6 +8,7 @@ import {
   type TransactionClient,
 } from "@nojv/db";
 import type {
+  JudgeConfig,
   ProblemCreate,
   ProblemImageSource,
   ProblemStatus,
@@ -22,7 +23,14 @@ import { ConflictError, NotFoundError, ValidationError } from "../shared/errors"
 import { requireProblem } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 
-import { bestEffortDeleteProblemBlobs, bestEffortDeleteProblemStandardBlobs } from "./blobs";
+import {
+  bestEffortDeleteCheckerScriptBlob,
+  bestEffortDeleteInteractorScriptBlob,
+  bestEffortDeleteProblemBlobs,
+  bestEffortDeleteProblemStandardBlobs,
+  writeCheckerScriptBlob,
+  writeInteractorScriptBlob,
+} from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -204,6 +212,58 @@ export async function updateProblemRecord(
 
     return { id: problem.id };
   });
+}
+
+export interface SaveJudgeConfigInput {
+  /** Parsed judgeConfig from the editor — carries type + *Language, never the script body. */
+  judgeConfig: JudgeConfig;
+  /** Raw checker script body (only meaningful when type === "checker"). */
+  checkerScript?: string | undefined;
+  /** Raw interactor script body (only meaningful when type === "interactive"). */
+  interactorScript?: string | undefined;
+}
+
+/**
+ * Persist a problem's judge config, moving the checker/interactor script
+ * bodies to object storage. The JSON column keeps only the storage key.
+ *
+ * S3 first, then the DB write — a failed upload short-circuits before any
+ * column change. Stale blobs for the now-unused judge type are swept
+ * best-effort after the DB commits.
+ */
+export async function saveProblemJudgeConfig(
+  actor: ProblemActorContext,
+  problemId: string,
+  input: SaveJudgeConfigInput,
+): Promise<{ id: string }> {
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  assertProblemOwnership(problem, actor);
+
+  const { type } = input.judgeConfig;
+  const checkerBody = type === "checker" ? (input.checkerScript ?? "").trim() : "";
+  const interactorBody = type === "interactive" ? (input.interactorScript ?? "").trim() : "";
+
+  const checkerKey = checkerBody ? await writeCheckerScriptBlob(problemId, checkerBody) : null;
+  const interactorKey = interactorBody
+    ? await writeInteractorScriptBlob(problemId, interactorBody)
+    : null;
+
+  const judgeConfig: JudgeConfig = {
+    type,
+    ...(checkerKey ? { checkerKey, checkerLanguage: input.judgeConfig.checkerLanguage } : {}),
+    ...(interactorKey
+      ? { interactorKey, interactorLanguage: input.judgeConfig.interactorLanguage }
+      : {}),
+    ...(input.judgeConfig.runtime ? { runtime: input.judgeConfig.runtime } : {}),
+  };
+
+  const result = await updateProblemRecord(actor, problemId, { judgeConfig });
+
+  if (!checkerKey) await bestEffortDeleteCheckerScriptBlob(problemId);
+  if (!interactorKey) await bestEffortDeleteInteractorScriptBlob(problemId);
+
+  return result;
 }
 
 /**

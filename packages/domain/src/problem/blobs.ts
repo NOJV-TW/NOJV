@@ -232,6 +232,22 @@ export async function bestEffortDeleteInteractorScriptBlob(problemId: string): P
   }
 }
 
+// Edit-page hydration: fetch the checker/interactor script bodies from
+// storage given the keys persisted on judgeConfig. Caller MUST gate on
+// problem-edit access first — script bodies are author/admin-only and must
+// never leave the server for a student-facing flow.
+export async function hydrateValidatorScripts(keys: {
+  checkerKey?: string | null | undefined;
+  interactorKey?: string | null | undefined;
+}): Promise<{ checkerScript: string; interactorScript: string }> {
+  const client = getClient();
+  const [checkerScript, interactorScript] = await Promise.all([
+    keys.checkerKey ? getText(client, keys.checkerKey) : Promise.resolve(""),
+    keys.interactorKey ? getText(client, keys.interactorKey) : Promise.resolve(""),
+  ]);
+  return { checkerScript, interactorScript };
+}
+
 // --- Edit-page hydration helpers -----------------------------------------
 //
 // The /problems/[id]/edit loader needs each testcase's input/output text
