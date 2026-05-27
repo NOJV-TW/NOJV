@@ -98,12 +98,15 @@ OUTPUT.write_text(json.dumps({
       <pre
         class="mt-3 overflow-x-auto rounded-md bg-muted p-3 font-mono text-caption leading-5 text-foreground">{`{
   "score": 85,               // 0 ~ 100
-  "verdict": "wrong_answer", // accepted | wrong_answer | tle | mle | re | ce
+  "verdict": "wrong_answer", // accepted | wrong_answer | time_limit_exceeded | memory_limit_exceeded | runtime_error | compile_error
   "feedback": "5/6 passed",  // optional
   "testcases": [             // optional per-case detail
     { "index": 0, "verdict": "AC", "runtimeMs": 23 }
   ]
 }`}</pre>
+      <p class="mt-3 text-caption text-muted-foreground">
+        {m.admin_verdictNamingNote()}
+      </p>
       <p class="mt-3 text-caption text-muted-foreground">
         {@html m.admin_exitCodeWarning({ file: '<code>result.json</code>' })}
       </p>

@@ -176,6 +176,7 @@
   "admin_metaJson": "submissionId / language",
   "admin_mustOutput": "You must output",
   "admin_noNetwork": "Container runs with {flag}, no network access.",
+  "admin_verdictNamingNote": "The top-level verdict uses long names; per-case verdict uses short codes (AC|WA|TLE|MLE|RE|SE).",
   "admin_noSamplesYet": "No samples yet. Add one to show students an example I/O pair.",
   "admin_outputFormat": "Output format",
   "admin_outputFormatTooltip": "Describe the output format. Supports Markdown.",

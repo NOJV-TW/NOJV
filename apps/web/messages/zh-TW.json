@@ -176,6 +176,7 @@
   "admin_metaJson": "submissionId / language",
   "admin_mustOutput": "你必須輸出",
   "admin_noNetwork": "容器以 {flag} 執行，無網路存取。",
+  "admin_verdictNamingNote": "頂層 verdict 使用長名稱；每筆測資 verdict 使用短碼（AC|WA|TLE|MLE|RE|SE）。",
   "admin_noSamplesYet": "尚無範例，新增一組讓學生參考。",
   "admin_outputFormat": "輸出格式",
   "admin_outputFormatTooltip": "描述輸出資料的格式，支援 Markdown。",
