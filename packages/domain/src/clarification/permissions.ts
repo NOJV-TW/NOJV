@@ -148,3 +148,12 @@ export async function assertCanAnswerInContext(
     throw new ForbiddenError("Not permitted to answer clarifications in this context.");
   }
 }
+
+export async function assertCanViewClarifications(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<void> {
+  if (!(await canViewClarifications(actor, context))) {
+    throw new ForbiddenError("Not permitted to view clarifications in this context.");
+  }
+}
