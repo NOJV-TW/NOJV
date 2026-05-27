@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SandboxResult } from "@nojv/core";
+import type { SandboxResult, ValidatorOutcome } from "@nojv/core";
 
 const sandboxTestcaseResultSchema = z.object({
   index: z.number(),
@@ -48,4 +48,33 @@ export function parseSandboxResult(
   // `exactOptionalPropertyTypes: true` doesn't unify with `prop?: T`.
   // The shape is structurally identical — assert through unknown.
   return { success: true, data: result.data as unknown as SandboxResult };
+}
+
+// Per-case outcome emitted by the isolated validate container.
+const validatorCaseOutcomeSchema = z.object({
+  index: z.number(),
+  verdict: z.enum(["AC", "WA", "SE"]),
+  score: z.number().optional(),
+  teamMessage: z.string().optional(),
+  judgeMessage: z.string().optional(),
+});
+
+const validateOutputSchema = z
+  .object({
+    compilationError: z.string().optional(),
+    validatorOutcomes: z.array(validatorCaseOutcomeSchema).optional(),
+  })
+  .refine((v) => v.compilationError !== undefined || v.validatorOutcomes !== undefined);
+
+export type ValidateOutput = {
+  compilationError?: string;
+  validatorOutcomes?: (ValidatorOutcome & { index: number })[];
+};
+
+export function parseValidateOutput(
+  data: unknown,
+): { success: true; data: ValidateOutput } | { success: false } {
+  const result = validateOutputSchema.safeParse(data);
+  if (!result.success) return { success: false };
+  return { success: true, data: result.data as unknown as ValidateOutput };
 }
