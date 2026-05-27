@@ -130,25 +130,3 @@ export function classifySolutionVerdict(
   if (result.exitCode !== 0) return { ...base, verdict: "RE" };
   return null;
 }
-
-// Protocol: exit code 0 = accepted; scoreText is an integer 0-100 (defaults to
-// 100 on accept, 0 on reject); feedbackText is a human-readable string.
-export function parseJudgeOutput(
-  exitCode: number,
-  scoreText: string,
-  feedbackText: string,
-): { accepted: boolean; score: number; feedback: string } {
-  const accepted = exitCode === 0;
-  const feedback = feedbackText.trim();
-
-  const trimmed = scoreText.trim();
-  let score: number;
-  if (trimmed.length > 0) {
-    const parsed = parseInt(trimmed, 10);
-    score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : accepted ? 100 : 0;
-  } else {
-    score = accepted ? 100 : 0;
-  }
-
-  return { accepted, score, feedback };
-}

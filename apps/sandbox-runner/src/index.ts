@@ -8,20 +8,17 @@ import {
   type SandboxOutput,
   type TestcaseFiles,
   type TestcaseMeta,
-  type TestcaseResult,
   type ValidateOutput,
   type ValidatorCaseOutcome,
 } from "./types.js";
 import {
   compile,
-  compileChecker,
   compileInteractor,
   compileValidator,
   sourceFileName,
 } from "./compiler.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
-import { judgeInteractive } from "./judges/interactive.js";
 import {
   runInteractiveSolution,
   runInteractiveValidator,
@@ -354,6 +351,14 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   );
 }
 
+/**
+ * Standard / checker judging: run the solution over each case and report raw
+ * output. Interactive is dispatched to `runInteractive` before this point (the
+ * config carries an `interactive` block), so it never reaches here. The
+ * expected answer and the checker/validator script never enter this container —
+ * the worker decides AC/WA (standard) or runs the validator in a separate
+ * isolated container (checker) against the answer it holds.
+ */
 async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   const compileResult = await compileSubmission(workDir, config);
 
@@ -362,76 +367,25 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     return;
   }
 
-  let interactorCommand: string[] | undefined;
-
-  if (config.judgeType === "interactive") {
-    const interactorPath = await findScript("interactor");
-    if (!interactorPath) {
-      emit({
-        compilationError: "Interactive judge requires an interactor script in /submission/.",
-      });
-      return;
-    }
-
-    const interactorLang = config.interactorLanguage ?? config.checkerLanguage ?? "python";
-    const interactorResult = await compileChecker(
-      interactorPath,
-      interactorLang,
-      workDir,
-      "interactor",
-    );
-    if (!interactorResult.success) {
-      emit({
-        compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,
-      });
-      return;
-    }
-    interactorCommand = interactorResult.runCommand;
-  }
-
   log("Loading testcases...");
   const testcases = await loadTestcases();
   log(`Found ${String(testcases.length)} testcase(s).`);
 
-  // Standard and checker modes only run the solution here and report raw
-  // output. The expected answer and the checker/validator script never enter
-  // this container — the worker decides AC/WA (standard) or runs the validator
-  // in a separate isolated container (checker) against the answer it holds.
-  if (config.judgeType === "standard" || config.judgeType === "checker") {
-    const rawRuns: RawCaseRun[] = [];
-    for (const testcase of testcases) {
-      log(`Running testcase ${String(testcase.index)}...`);
-      const run = await runSolution(
-        compileResult.runCommand,
-        testcase,
-        config.limits.timeoutMs,
-        config.limits.env,
-      );
-      rawRuns.push(run);
-      log(
-        `Testcase ${String(testcase.index)}: ${run.errorVerdict ?? "ran"} (${String(run.timeMs)}ms)`,
-      );
-    }
-    emit({ rawRuns });
-    return;
-  }
-
-  // Only interactive reaches here — standard/checker returned above via rawRuns.
-  const results: TestcaseResult[] = [];
-
+  const rawRuns: RawCaseRun[] = [];
   for (const testcase of testcases) {
-    log(`Judging testcase ${String(testcase.index)}...`);
-    const result = await judgeInteractive(
+    log(`Running testcase ${String(testcase.index)}...`);
+    const run = await runSolution(
       compileResult.runCommand,
       testcase,
-      interactorCommand!,
       config.limits.timeoutMs,
+      config.limits.env,
     );
-    results.push(result);
-    log(`Testcase ${String(testcase.index)}: ${result.verdict} (${String(result.timeMs)}ms)`);
+    rawRuns.push(run);
+    log(
+      `Testcase ${String(testcase.index)}: ${run.errorVerdict ?? "ran"} (${String(run.timeMs)}ms)`,
+    );
   }
-
-  emit({ testcaseResults: results });
+  emit({ rawRuns });
 }
 
 async function main(): Promise<void> {
