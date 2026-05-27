@@ -12,10 +12,10 @@ import {
 } from "./types.js";
 import { compile, compileChecker, sourceFileName } from "./compiler.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
-import { judgeStandard } from "./judges/standard.js";
+import { runSolution } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
-import { normalizeRelativePath } from "@nojv/core";
+import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
 const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
@@ -281,6 +281,28 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   const testcases = await loadTestcases();
   log(`Found ${String(testcases.length)} testcase(s).`);
 
+  // Standard mode: the runner only runs the solution and reports raw output.
+  // The expected answer never enters this container — the worker decides
+  // AC/WA from `rawRuns` against the answer it already holds.
+  if (config.judgeType === "standard") {
+    const rawRuns: RawCaseRun[] = [];
+    for (const testcase of testcases) {
+      log(`Running testcase ${String(testcase.index)}...`);
+      const run = await runSolution(
+        compileResult.runCommand,
+        testcase,
+        config.limits.timeoutMs,
+        config.limits.env,
+      );
+      rawRuns.push(run);
+      log(
+        `Testcase ${String(testcase.index)}: ${run.errorVerdict ?? "ran"} (${String(run.timeMs)}ms)`,
+      );
+    }
+    emit({ rawRuns });
+    return;
+  }
+
   const results: TestcaseResult[] = [];
 
   for (const testcase of testcases) {
@@ -289,14 +311,6 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     let result: TestcaseResult;
 
     switch (config.judgeType) {
-      case "standard":
-        result = await judgeStandard(
-          compileResult.runCommand,
-          testcase,
-          config.limits.timeoutMs,
-        );
-        break;
-
       case "checker":
         result = await judgeChecker(
           compileResult.runCommand,

@@ -19,7 +19,7 @@ export interface RunProcessResult {
  */
 export function runProcess(
   command: string[],
-  options: { stdin?: string; timeoutMs: number },
+  options: { stdin?: string; timeoutMs: number; env?: Record<string, string> },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -45,6 +45,7 @@ export function runProcess(
     const proc = spawn(wrappedCmd!, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
       timeout: options.timeoutMs,
+      ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
     });
 
     const stdoutBuf = createBoundedBuffer();

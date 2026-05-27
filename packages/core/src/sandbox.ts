@@ -45,6 +45,9 @@ export interface SandboxRequest {
   limits: {
     timeoutMs: number;
     memoryMb: number;
+    // Per-problem environment variables, teacher-controlled and persisted on
+    // the problem. Injected into the judged SOLUTION process only.
+    env?: Record<string, string>;
   };
   advanced?: SandboxAdvancedRequest;
 }

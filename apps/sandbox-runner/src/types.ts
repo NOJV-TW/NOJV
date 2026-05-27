@@ -43,6 +43,7 @@ export const SandboxInputSchema = z.object({
   limits: z.object({
     timeoutMs: z.number(),
     memoryMb: z.number(),
+    env: z.record(z.string(), z.string()).optional(),
   }),
   checkerLanguage: judgeScriptLanguageSchema.optional(),
   interactorLanguage: judgeScriptLanguageSchema.optional(),

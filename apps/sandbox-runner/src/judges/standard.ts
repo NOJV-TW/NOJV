@@ -1,10 +1,57 @@
-import { compareStandard } from "@nojv/core";
+import { compareStandard, type RawCaseRun } from "@nojv/core";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
-import { runProcess, classifySolutionVerdict } from "./run-process.js";
+import { runProcess, classifySolutionVerdict, type RunProcessResult } from "./run-process.js";
 
 /**
- * Standard judge: run the program with testcase input as stdin, compare
- * normalized stdout with expected output.
+ * Build a raw (undecided) run from a completed process result. Sets
+ * `errorVerdict` only when the run failed (TLE/MLE/RE/SE) — AC/WA is decided
+ * by the worker, which holds the expected answer. Kept pure so the
+ * classification mapping is unit-testable without spawning a process.
+ */
+export function toRawCaseRun(result: RunProcessResult, index: number): RawCaseRun {
+  // `classifySolutionVerdict` only ever returns a failure code (SE/TLE/MLE/RE)
+  // or null on success — never AC/WA — so this narrowing is sound.
+  const errorVerdict = classifySolutionVerdict(result, index)?.verdict as
+    | "TLE"
+    | "MLE"
+    | "RE"
+    | "SE"
+    | undefined;
+  return {
+    index,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    timeMs: result.timeMs,
+    ...(result.memoryKb > 0 ? { memoryKb: result.memoryKb } : {}),
+    ...(errorVerdict ? { errorVerdict } : {}),
+  };
+}
+
+/**
+ * Standard mode: run the solution with testcase input as stdin and emit the
+ * raw output for worker-side comparison. The expected answer is never shipped
+ * into the run container, so the runner cannot (and must not) decide AC/WA.
+ */
+export async function runSolution(
+  runCommand: string[],
+  testcase: TestcaseFiles,
+  timeoutMs: number,
+  env?: Record<string, string>,
+): Promise<RawCaseRun> {
+  const result = await runProcess(runCommand, {
+    stdin: testcase.input,
+    timeoutMs,
+    ...(env ? { env } : {}),
+  });
+  return toRawCaseRun(result, testcase.index);
+}
+
+/**
+ * Standard judge (host-side comparison): run the program with testcase input
+ * as stdin, compare normalized stdout with expected output. Used by the
+ * sandbox-runner integration tests, which run the solution and the comparison
+ * in the same process.
  */
 export async function judgeStandard(
   runCommand: string[],
