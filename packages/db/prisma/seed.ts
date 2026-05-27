@@ -1,3 +1,4 @@
+import { getRedis } from "@nojv/redis";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma/client";
@@ -90,6 +91,9 @@ main()
     console.error("Seed failed:", error);
     process.exit(1);
   })
-  .finally(() => {
-    void prisma.$disconnect();
+  .finally(async () => {
+    // The scoreboard seed opens an ioredis connection (lazy singleton in
+    // @nojv/redis); close it or the process never exits.
+    await prisma.$disconnect();
+    await getRedis().quit();
   });
