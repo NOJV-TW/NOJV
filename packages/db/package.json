@@ -28,6 +28,8 @@
     "seed": "node --env-file=../../.env --import tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@nojv/core": "workspace:*",
+    "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",

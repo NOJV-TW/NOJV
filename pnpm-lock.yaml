@@ -380,6 +380,12 @@ importers:
 
   packages/db:
     dependencies:
+      '@nojv/core':
+        specifier: workspace:*
+        version: link:../core
+      '@nojv/redis':
+        specifier: workspace:*
+        version: link:../redis
       '@nojv/storage':
         specifier: workspace:*
         version: link:../storage
