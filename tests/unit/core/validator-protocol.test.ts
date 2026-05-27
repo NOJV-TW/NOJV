@@ -1,4 +1,7 @@
 import {
+  INTERACTIVE_RUN_MARKER,
+  INTERACTIVE_VALIDATE_MARKER,
+  parseMarkedLine,
   parseValidatorFeedback,
   VALIDATOR_EXIT_ACCEPT,
   VALIDATOR_EXIT_WRONG,
@@ -74,5 +77,32 @@ describe("validator feedback messages", () => {
     const outcome = parseValidatorFeedback(43, { teamMessage: "nice try" });
     expect(outcome.teamMessage).toBe("nice try");
     expect(outcome.judgeMessage).toBeUndefined();
+  });
+});
+
+describe("parseMarkedLine (interactive run/validate markers)", () => {
+  it("extracts the JSON payload following a marker", () => {
+    const stderr = `some logging\n${INTERACTIVE_RUN_MARKER}{"exitCode":0,"timeMs":12}\n`;
+    expect(parseMarkedLine(stderr, INTERACTIVE_RUN_MARKER)).toEqual({
+      exitCode: 0,
+      timeMs: 12,
+    });
+  });
+
+  it("uses the LAST occurrence of the marker", () => {
+    const stderr = `${INTERACTIVE_VALIDATE_MARKER}{"verdict":"WA"}\n${INTERACTIVE_VALIDATE_MARKER}{"verdict":"AC"}`;
+    expect(parseMarkedLine(stderr, INTERACTIVE_VALIDATE_MARKER)).toEqual({ verdict: "AC" });
+  });
+
+  it("returns null when the marker is absent", () => {
+    expect(parseMarkedLine("no markers here", INTERACTIVE_RUN_MARKER)).toBeNull();
+  });
+
+  it("returns null when the payload is not valid JSON", () => {
+    expect(parseMarkedLine(`${INTERACTIVE_RUN_MARKER}not json`, INTERACTIVE_RUN_MARKER)).toBeNull();
+  });
+
+  it("returns null on an empty payload", () => {
+    expect(parseMarkedLine(`${INTERACTIVE_RUN_MARKER}\n`, INTERACTIVE_RUN_MARKER)).toBeNull();
   });
 });

@@ -57,6 +57,20 @@ export const SandboxInputSchema = z.object({
       cases: z.array(z.object({ index: z.number() })).max(2000),
     })
     .optional(),
+  // When present the runner participates in a TWO-container interactive run
+  // coordinated by the worker (see apps/worker/src/services/interactive-executor.ts).
+  // `solution` runs the compiled student program with its stdio wired straight
+  // to the container's stdio (the worker proxies bytes to the interactor
+  // container). `validator` runs the DOMjudge interactor against ONE case; the
+  // secret input/answer is mounted ONLY into the validator container. Each side
+  // writes a single marked JSON line to its own stderr for the worker to parse.
+  interactive: z
+    .object({
+      role: z.enum(["solution", "validator"]),
+      language: judgeScriptLanguageSchema.optional(),
+      index: z.number().optional(),
+    })
+    .optional(),
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
