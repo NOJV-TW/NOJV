@@ -48,24 +48,30 @@ All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--sec
 
 ### check
 
-Per-testcase verdict. The strategy is chosen by `judgeConfig.type`:
+Per-testcase verdict. The strategy is chosen by `judgeConfig.type`. The crucial
+fairness invariant for the non-standard strategies is **run/check separation**:
+the container that runs untrusted student code never mounts the expected answers
+or the validator source. Only the worker (or a second isolated container that
+holds no student code) makes the AC/WA decision.
 
 - **`standard`** — stdout vs expected text comparison. `judgeConfig` has no `compare` block; the sandbox runner applies a single fixed canonical normalisation on both sides and tests exact equality. From `apps/sandbox-runner/src/judges/standard.ts`:
   1. `\r\n` → `\n`
   2. strip per-line trailing whitespace (spaces and tabs)
   3. strip trailing blank lines
 
-  Float tolerance, case-insensitive matching, regex line filters, and any other custom comparison semantics must be implemented as a **checker**.
+  The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds. Float tolerance, case-insensitive matching, regex line filters, and any other custom comparison semantics must be implemented as a **checker**.
 
-- **`checker`** — a teacher-provided script (`python` / `cpp`) receives `(input, expected, actual)` file paths. The script's **exit code** decides accepted vs not (0 = accepted, non-zero = rejected). On top of that, the protocol carries a 0–100 integer score and a feedback string — see `parseJudgeOutput()` in `apps/sandbox-runner/src/judges/run-process.ts`. If the score field is empty, it defaults to 100 on accept and 0 on reject; otherwise the parsed integer is clamped to `[0, 100]`. The score flows into the per-case `score` field that `PROPORTIONAL` subtask scoring averages over (see [score](#score)).
-- **`interactive`** — a teacher-provided interactor communicates with the submission over stdin/stdout pipes and decides the verdict itself. Compiled the same way as a checker.
+- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`). The run container produces `rawRuns` (no answer present); the worker then launches a **second isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) per clean case. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Partial credit and feedback travel through files in `feedback_dir`: `score.txt` (0–100 integer) and `teammessage.txt` (shown to the student); an optional `judgemessage.txt` is operator-only. Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `set_score()` / `judge_log()` (`assets/wrappers/python-validator.py`); C++ TAs implement the bare interface. The parsed score flows into the per-case `score` field that `PROPORTIONAL` subtask scoring averages over (see [score](#score)).
+- **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`assets/wrappers/python-interactor-domjudge.py`).
+
+Both `checker` and `interactive` are **Docker-backend-only** (like Advanced Mode): the second-container and live-pipe topologies are not expressible through the K8s Job API, so `K8sExecutor.execute()` fail-fasts them with a system error. See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
 
 ### score
 
 Per-case results are aggregated into a 0–100 raw score using `TestcaseSet.scoringStrategy` (Prisma enum column on each subtask row, see `packages/db/prisma/schema/problem.prisma`). The domain layer reads `scoringStrategy` off each subtask into a `Record<testcaseSetId, strategy>` map in `packages/domain/src/submission/judge-context.ts`; there is no `scoring` block on `judgeConfig`. The strategies are:
 
 - `ALL_OR_NOTHING` — set weight if every case in the subtask is AC, else 0. Default.
-- `PROPORTIONAL` — `weight * (Σ caseScore) / (total * 100)`. Each `caseScore` is the per-case 0–100 score from the runner: 100 for AC and 0 for any other verdict under `standard`/`interactive`, or the checker's parsed score under `checker` (so partial credit on a single case flows through).
+- `PROPORTIONAL` — `weight * (Σ caseScore) / (total * 100)`. Each `caseScore` is the per-case 0–100 score: 100 for AC and 0 for any other verdict under `standard`, or the validator/interactor `score.txt` value under `checker`/`interactive` (so partial credit on a single case flows through).
 - `MINIMUM` — accepted by the schema but behaves identically to `ALL_OR_NOTHING` today. The runner has no separate signal to take a minimum over after the per-case score is already produced, so `buildSubtaskResults()` collapses it to the binary case.
 
 The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/domain/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
@@ -206,15 +212,20 @@ Timeouts and retry policy applied to the judge activities proxy:
 
 - Worker entrypoint — `apps/worker/src/index.ts`
 - Standard Mode executor (Docker) — `apps/worker/src/services/standard-mode-executor.ts`
+- Isolated checker validator executor (Docker) — `apps/worker/src/services/validator-executor.ts`
+- Isolated interactive two-container executor (Docker) — `apps/worker/src/services/interactive-executor.ts`
 - Advanced Mode executor (Docker only) — `apps/worker/src/services/advanced-mode-executor.ts`
-- Kubernetes executor (Standard only; rejects Advanced) — `apps/worker/src/services/k8s-executor.ts`
+- Kubernetes executor (Standard only; rejects Advanced, checker, interactive) — `apps/worker/src/services/k8s-executor.ts`
 - Sandbox plan / config builder — `apps/worker/src/services/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/services/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`
 - Sandbox runner bounded buffer + memory poller — `apps/sandbox-runner/src/utils.ts`
 - Compiler dispatch — `apps/sandbox-runner/src/compiler.ts`
 - Standard judge comparator — `apps/sandbox-runner/src/judges/standard.ts`
-- Checker / interactive protocol parser — `apps/sandbox-runner/src/judges/run-process.ts` (`parseJudgeOutput`)
+- DOMjudge validator runner (in-container) — `apps/sandbox-runner/src/judges/validate.ts`
+- DOMjudge interactor runner (in-container) — `apps/sandbox-runner/src/judges/interactive-isolated.ts`
+- Per-case run-process helper / verdict classifier — `apps/sandbox-runner/src/judges/run-process.ts`
+- DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
 - Temporal judge activity — `apps/worker/src/activities/judge.ts`
 - Judge context builder — `packages/domain/src/submission/judge-context.ts`
