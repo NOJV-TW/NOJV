@@ -97,23 +97,20 @@ Then fix the UI `<pre>` to show the canonical long names and add a one-line note
 
 **Step 5 — commit:** `fix(judge): accept short verdict codes + correct advanced result.json example`
 
-### Task 0.3: Remove dead `runtime.env`
+### Task 0.3: Wire `runtime.env` through to the judged process (CORRECTED 2026-05-28)
 
-`judgeConfigSchema.runtime.env` is editable in the schema but never reaches the sandbox (`SandboxRequest.limits` / `SandboxInput.limits` only carry `timeoutMs`/`memoryMb`; no UI editor exists — verified). Remove it; keep the rest of `runtime`.
+**Correction:** the original premise ("no UI editor exists, remove it") was WRONG. `runtime.env` is a live, wired, user-facing feature: `apps/web/src/lib/components/features/problem/workspace/WorkspaceRuntimeSection.svelte` renders a key/value env editor, `WorkspaceSection.svelte` reads/writes it, and `updateProblemWorkspace` persists it to `judgeConfig.runtime.env`. It is "persisted-but-ignored" — collected and stored but never reaches the sandbox (`SandboxRequest.limits` only carries `timeoutMs`/`memoryMb`). Product decision (2026-05-28): **wire it through** (honors "流程完全接通"), do NOT delete the feature.
 
-**Files:**
-- Modify: `packages/core/src/schemas/judge-config.ts:10-14` — delete the `env` field from `runtimeSchema`
-- Modify: `packages/domain/src/submission/queries.ts:355` — the `runtime` fallback object (drop `env` if present)
-- Modify: `docs/architecture/JUDGE_PIPELINE.md` §execute — remove the "`env` — extra environment variables injected into the process" bullet
-- Test: existing judge-config tests (update any that reference `env`)
+**This is folded into Phase 1** because Phase 1 already restructures the limits plumbing and the solution-run path. Implement it there (see Phase 1 Task 1.4a). Env is teacher-controlled and runs inside the hardened sandbox → safe.
 
-**Step 1 — failing test:** add an assertion that `runtimeSchema` has no `env` key (`expect("env" in runtimeSchema.shape).toBe(false)`); update any test fixture that set `env`.
+**Files (done in Phase 1):**
+- `packages/core/src/sandbox.ts` — add `env?: Record<string, string>` to `SandboxRequest.limits`.
+- `apps/worker/src/activities/judge.ts:171-174` — set `limits.env` from `judgeContext.runtime.env`.
+- `apps/sandbox-runner/src/types.ts` — add `env` to `SandboxInputSchema.limits`.
+- The solution-run spawn (`run-process.ts` / the new `runSolution`) — pass `env: { ...process.env, ...(limits.env ?? {}) }` for the **solution only** (NOT the validator or compiler).
+- `docs/architecture/JUDGE_PIPELINE.md` §execute — keep the `env` bullet but mark it now-functional.
 
-**Steps 2-4:** delete the field, fix fallthrough, run unit tests green.
-
-**Step 5 — commit:** `chore(judge): remove dead runtime.env config (never reached the sandbox)`
-
-**Phase 0 acceptance:** `pnpm typecheck && pnpm lint && pnpm test:unit` green.
+**Phase 0 acceptance:** Tasks 0.1 + 0.2 done; `pnpm typecheck && pnpm lint && pnpm test:unit` green (865 tests). Task 0.3 reclassified into Phase 1.
 
 ---
 
@@ -196,7 +193,18 @@ The runner must be able to return "the program ran, here is stdout/exit/time/mem
 
 **Step 5 — commit:** `feat(judge): runner emits raw runs for standard mode (no in-container verdict)`
 
-### Task 1.5: Stop writing expected answers into the run mount/ConfigMap
+### Task 1.4a: Wire `runtime.env` through to the judged process (from corrected Phase 0.3)
+
+Make the existing (persisted-but-ignored) per-problem env editor actually inject env into the student program.
+
+**Files:**
+- Modify: `packages/core/src/sandbox.ts` — add `env?: Record<string, string>` to `SandboxRequest.limits`.
+- Modify: `apps/worker/src/activities/judge.ts` — in the `request.limits` literal (around lines 171-174), add `...(judgeContext.runtime.env && Object.keys(judgeContext.runtime.env).length > 0 ? { env: judgeContext.runtime.env } : {})`.
+- Modify: `apps/sandbox-runner/src/types.ts` — add `env: z.record(z.string(), z.string()).optional()` to `SandboxInputSchema.limits`.
+- Modify: the **solution** spawn only — extend `runProcess`/`runSolution` (`apps/sandbox-runner/src/judges/run-process.ts`) to accept an `env` option and pass `env: { ...process.env, ...(opts.env ?? {}) }` to `spawn`. Thread `config.limits.env` into the solution run in `index.ts`. Do NOT pass it to the validator or compiler spawns.
+- Test: unit test that `runProcess` forwards env; a worker test that `limits.env` flows into config.json.
+
+**Step — commit:** `feat(judge): inject per-problem runtime.env into the judged process`
 
 **Files:**
 - Modify: `apps/worker/src/services/standard-mode-executor.ts:97-107` — write only `input.txt`, never `expected.txt`.
