@@ -25,10 +25,10 @@ export interface AdvancedModeConfig {
 // buggy run could fill the worker disk. result.json + artifacts must fit under
 // this. `--storage-opt size=` only works on devicemapper/btrfs, not overlay2,
 // so we poll the dir size instead and force-kill on exceed.
-const ADVANCED_WORKSPACE_MAX_BYTES = 1024 * 1024 * 1024;
+export const ADVANCED_WORKSPACE_MAX_BYTES = 1024 * 1024 * 1024;
 const WORKSPACE_POLL_INTERVAL_MS = 2_000;
 
-async function dirSizeBytes(dir: string): Promise<number> {
+export async function dirSizeBytes(dir: string): Promise<number> {
   let total = 0;
   let entries;
   try {
@@ -249,7 +249,7 @@ export class AdvancedModeExecutor {
         // Disk-cap watchdog: overlay2 ignores `--storage-opt size=`, so poll the
         // bind-mounted host dir and force-kill if the image writes past the cap.
         const sizePoll = setInterval(() => {
-          if (sizeCheckInFlight) return;
+          if (sizeExceeded || sizeCheckInFlight) return;
           sizeCheckInFlight = true;
           void dirSizeBytes(workspaceDir)
             .then((bytes) => {

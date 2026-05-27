@@ -28,4 +28,16 @@ describe("runProcess env forwarding", () => {
     });
     expect(result.spawnError).toBe(true);
   });
+
+  it("keeps a genuine RE when a program spoofs the exec-failure stderr but exits non-126/127", async () => {
+    // Adversarial student: print bash's exec-failure phrase and exit 1. The
+    // exit code is not 126/127, so the reclassification gate must NOT fire —
+    // this stays a runtime error, not a downgraded SE.
+    const result = await runProcess(
+      ["node", "-e", "process.stderr.write('exec: foo: cannot execute\\n'); process.exit(1)"],
+      { timeoutMs: 5_000, cpuSeconds: 3 },
+    );
+    expect(result.spawnError).toBe(false);
+    expect(result.exitCode).toBe(1);
+  });
 });

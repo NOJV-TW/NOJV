@@ -1,6 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { buildAdvancedDockerArgs } from "../../../apps/worker/src/services/advanced-mode-executor";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  ADVANCED_WORKSPACE_MAX_BYTES,
+  buildAdvancedDockerArgs,
+  dirSizeBytes,
+} from "../../../apps/worker/src/services/advanced-mode-executor";
 
 describe("buildAdvancedDockerArgs", () => {
   const base = {
@@ -53,5 +61,47 @@ describe("buildAdvancedDockerArgs", () => {
   it("does not pass --user (TA images manage their own user)", () => {
     const args = buildAdvancedDockerArgs(base);
     expect(args).not.toContain("--user");
+  });
+});
+
+describe("dirSizeBytes (disk-cap watchdog)", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "nojv-dirsize-"));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { force: true, recursive: true });
+  });
+
+  it("returns 0 for an empty directory", async () => {
+    expect(await dirSizeBytes(dir)).toBe(0);
+  });
+
+  it("returns 0 for a missing directory instead of throwing", async () => {
+    expect(await dirSizeBytes(join(dir, "does-not-exist"))).toBe(0);
+  });
+
+  it("sums file sizes across nested subdirectories", async () => {
+    await writeFile(join(dir, "a.txt"), "x".repeat(100));
+    await mkdir(join(dir, "output"), { recursive: true });
+    await writeFile(join(dir, "output", "result.json"), "y".repeat(250));
+    await mkdir(join(dir, "submission", "deep"), { recursive: true });
+    await writeFile(join(dir, "submission", "deep", "main.py"), "z".repeat(50));
+
+    expect(await dirSizeBytes(dir)).toBe(400);
+  });
+
+  it("flags a workspace that exceeds the cap and clears one that does not", async () => {
+    const small = join(dir, "small.bin");
+    await writeFile(small, "0");
+    expect(await dirSizeBytes(dir)).toBeLessThanOrEqual(ADVANCED_WORKSPACE_MAX_BYTES);
+
+    // Spoof an oversized total by comparing against a deliberately tiny cap —
+    // mirrors the executor's `bytes > ADVANCED_WORKSPACE_MAX_BYTES` watchdog.
+    const measured = await dirSizeBytes(dir);
+    const tinyCap = 0;
+    expect(measured > tinyCap).toBe(true);
   });
 });

@@ -95,7 +95,13 @@ export function runProcess(
       const elapsedMs = performance.now() - startTime;
       const memoryKb = memoryPoller?.stop() ?? 0;
       const rawStderr = stderrBuf.toString();
-      const execFailed = isWrapped && /exec: .*: cannot execute/.test(rawStderr);
+      // Bash's `exec` failure is exit 126 (not executable) / 127 (not found)
+      // AND its distinctive stderr. Gate on both so an adversarial student
+      // program that exits non-zero and prints the same phrase keeps its RE.
+      const execFailed =
+        isWrapped &&
+        (code === 126 || code === 127) &&
+        /exec: .*: cannot execute/.test(rawStderr);
       const stderr = execFailed ? `Failed to spawn process: ${rawStderr}` : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
