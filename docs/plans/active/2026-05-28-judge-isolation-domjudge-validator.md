@@ -10,6 +10,19 @@
 
 ---
 
+## PROGRESS (branch `feat/judge-isolation-domjudge`, updated 2026-05-28)
+
+- ✅ **Phase 0** — done & reviewed (commits `f98c68e1`, `3fcce079`). env injection + verdict enum alias. (0.3 reclassified → Phase 1 Task 1.4a as a wire-through, not a deletion.)
+- ✅ **Phase 1** — done & reviewed; **security invariant verified by a real-Docker exploit test** (`a281f8d1`…`efcd258b`). Standard-mode answers no longer reach the student container; AC/WA computed worker-side; `runtime.env` wired through.
+- ✅ **Infra fix** (`6ed3a95b`) — `corepack enable` → `pnpm install` across all 4 Dockerfiles (node:26 dropped corepack; was blocking `pnpm sandbox:build`).
+- ✅ **Task 2.1** — done (`5e13a6ea`). DOMjudge validator protocol primitives in `@nojv/core`.
+- ⬜ **Phase 2 remainder** (2.2–2.9) — checker/interactive isolation, validator container, message split, remove testlib, K8s parity, migration. **Large atomic unit — NOT yet started.** Checker/interactive currently still run in-container on the OLD protocol (still expose answers — known, tracked here).
+- ⬜ **Phases 3, 4, 5** — not started.
+
+**Recommended next:** merge the verified Phase 0+1+infra increment independently (urgent security fix should not wait behind the larger rework), then execute Phase 2 as a focused effort with real-Docker iteration. Branch is green: `pnpm typecheck`/`pnpm lint` pass, 919 unit tests pass.
+
+---
+
 ## Reading order before starting
 
 1. `docs/architecture/JUDGE_PIPELINE.md` — current pipeline (will be updated by this plan).
