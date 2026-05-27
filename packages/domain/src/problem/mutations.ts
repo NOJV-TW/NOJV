@@ -241,13 +241,19 @@ export async function saveProblemJudgeConfig(
   assertProblemOwnership(problem, actor);
 
   const { type } = input.judgeConfig;
-  const checkerBody = type === "checker" ? (input.checkerScript ?? "").trim() : "";
-  const interactorBody = type === "interactive" ? (input.interactorScript ?? "").trim() : "";
+  // .trim() decides upload-vs-clear; the stored body keeps its original
+  // bytes (a script's trailing newline is meaningful).
+  const checkerBody =
+    type === "checker" && (input.checkerScript ?? "").trim() ? input.checkerScript : null;
+  const interactorBody =
+    type === "interactive" && (input.interactorScript ?? "").trim()
+      ? input.interactorScript
+      : null;
 
-  const checkerKey = checkerBody ? await writeCheckerScriptBlob(problemId, checkerBody) : null;
-  const interactorKey = interactorBody
-    ? await writeInteractorScriptBlob(problemId, interactorBody)
-    : null;
+  const checkerKey =
+    checkerBody != null ? await writeCheckerScriptBlob(problemId, checkerBody) : null;
+  const interactorKey =
+    interactorBody != null ? await writeInteractorScriptBlob(problemId, interactorBody) : null;
 
   const judgeConfig: JudgeConfig = {
     type,
