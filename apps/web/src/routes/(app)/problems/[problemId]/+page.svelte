@@ -4,9 +4,10 @@
 
   let { data } = $props();
 
-  let endedKind = $derived(
-    page.url.searchParams.get("ended") === "exam" ? ("exam" as const) : undefined
-  );
+  let endedKind = $derived.by(() => {
+    const e = page.url.searchParams.get("ended");
+    return e === "exam" ? ("exam" as const) : e === "assignment" ? ("assignment" as const) : undefined;
+  });
 </script>
 
 <ProblemSolveView
@@ -17,6 +18,7 @@
   backLink={data.backLink}
   canRejudge={data.canRejudge}
   canViewEditorials={data.canViewEditorials}
+  editorialsEnabled={true}
   contestId={data.contestId}
   problem={data.problem}
   submissions={data.submissions}

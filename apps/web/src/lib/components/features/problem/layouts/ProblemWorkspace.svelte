@@ -18,6 +18,8 @@
     canRejudge?: boolean;
     /** Server-computed editorial visibility (AC or authored an editorial). */
     canViewEditorials?: boolean;
+    /** Whether the Editorials tab is rendered (practice only). */
+    editorialsEnabled?: boolean;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null } | undefined;
@@ -32,6 +34,7 @@
     backLink,
     canRejudge = false,
     canViewEditorials = false,
+    editorialsEnabled = false,
     contestId,
     virtualContestId,
     dailyAttempts,
@@ -100,6 +103,7 @@
     {backLink}
     {canRejudge}
     {canViewEditorials}
+    {editorialsEnabled}
     {dailyAttempts}
     bind:submissions
     {problem}

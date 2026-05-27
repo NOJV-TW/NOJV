@@ -9,7 +9,6 @@
   mode="practice"
   allowedLanguages={data.solveProps.allowedLanguages}
   assessment={data.solveProps.assignmentProp}
-  endedKind={data.isEnded ? "assignment" : undefined}
   backLink={data.solveProps.backLink}
   canRejudge={data.solveProps.canRejudge}
   contestId={data.solveProps.contestId}
