@@ -17,7 +17,7 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-import { readTestcaseBlobs, readWorkspaceFileBlob } from "../problem/blobs";
+import { readTestcaseBlobs, readValidatorScriptBlob, readWorkspaceFileBlob } from "../problem/blobs";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError } from "../shared/errors";
 import { canOperateOnSubmission } from "./permissions";
@@ -399,10 +399,17 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
         }
       : null;
 
+  const [checkerScript, interactorScript] = await Promise.all([
+    judgeConfig.checkerKey ? readValidatorScriptBlob(judgeConfig.checkerKey) : Promise.resolve(null),
+    judgeConfig.interactorKey
+      ? readValidatorScriptBlob(judgeConfig.interactorKey)
+      : Promise.resolve(null),
+  ]);
+
   return {
     adjustment,
-    checkerScript: judgeConfig.checkerScript ?? null,
-    interactorScript: judgeConfig.interactorScript ?? null,
+    checkerScript,
+    interactorScript,
     judgeType: judgeConfig.type,
     runtime,
     samples,
