@@ -21,6 +21,47 @@ export interface AdvancedModeConfig {
   pidsLimit: number;
 }
 
+export interface AdvancedDockerArgsParams {
+  containerName: string;
+  networkArgs: string[];
+  workspaceDir: string;
+  cpuLimit: string;
+  memoryMb: number;
+  pidsLimit: number;
+  imageRef: string;
+  submissionId: string;
+  language: string;
+}
+
+export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): string[] {
+  return [
+    "run",
+    "--rm",
+    "--name",
+    params.containerName,
+    ...params.networkArgs,
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "-v",
+    `${params.workspaceDir}:/workspace`,
+    "--cpus",
+    params.cpuLimit,
+    "--memory",
+    `${String(params.memoryMb)}m`,
+    "--pids-limit",
+    String(params.pidsLimit),
+    "--env",
+    `SUBMISSION_ID=${params.submissionId}`,
+    "--env",
+    `LANGUAGE=${params.language}`,
+    "--workdir",
+    "/workspace",
+    params.imageRef,
+  ];
+}
+
 export class AdvancedModeExecutor {
   // Cached per-storage-key: once an image is loaded for a given key,
   // subsequent calls reuse the cached ref without re-downloading or
@@ -128,28 +169,17 @@ export class AdvancedModeExecutor {
       // build time — runtime fetches are not allowed.
       const networkArgs = ["--network", "none"];
 
-      const args = [
-        "run",
-        "--rm",
-        "--name",
+      const args = buildAdvancedDockerArgs({
         containerName,
-        ...networkArgs,
-        "--cap-drop",
-        "ALL",
-        "--security-opt",
-        "no-new-privileges",
-        "-v",
-        `${workspaceDir}:/workspace`,
-        "--cpus",
-        config.cpuLimit,
-        "--memory",
-        `${String(advanced.memoryMb)}m`,
-        "--pids-limit",
-        String(config.pidsLimit),
-        "--workdir",
-        "/workspace",
+        networkArgs,
+        workspaceDir,
+        cpuLimit: config.cpuLimit,
+        memoryMb: advanced.memoryMb,
+        pidsLimit: config.pidsLimit,
         imageRef,
-      ];
+        submissionId: request.submissionId,
+        language: request.language,
+      });
 
       const outerTimeoutMs = advanced.totalTimeMs + 30_000;
 
