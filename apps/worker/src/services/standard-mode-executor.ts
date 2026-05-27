@@ -10,6 +10,7 @@ import {
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
+import { resolveSandboxResult } from "./check-standard";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
@@ -233,7 +234,7 @@ async function runContainer(
         const parsed = parseSandboxResult(JSON.parse(stdout));
         settle(
           parsed.success
-            ? parsed.data
+            ? resolveSandboxResult(parsed.data, request.testcases)
             : sandboxSystemError(
                 `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`,
               ),

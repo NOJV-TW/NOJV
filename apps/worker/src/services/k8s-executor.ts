@@ -12,6 +12,7 @@ import {
   type SandboxResult,
 } from "@nojv/core";
 import { createLogger } from "../logger.js";
+import { resolveSandboxResult } from "./check-standard";
 import { parseSandboxResult } from "./sandbox-schema";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 
@@ -89,7 +90,7 @@ export class K8sExecutor implements SandboxExecutor {
       }
 
       const logs = await this.getPodLogs(jobName, ns);
-      return this.parseRunnerOutput(logs);
+      return this.parseRunnerOutput(logs, request);
     } finally {
       await this.cleanup(jobName, ns);
     }
@@ -290,7 +291,7 @@ export class K8sExecutor implements SandboxExecutor {
     });
   }
 
-  private parseRunnerOutput(logs: string): SandboxResult {
+  private parseRunnerOutput(logs: string, request: SandboxRequest): SandboxResult {
     // The sandbox runner writes a single JSON object to stdout as its
     // last output. Find the last line that looks like JSON.
     const lines = logs.trim().split("\n");
@@ -305,7 +306,7 @@ export class K8sExecutor implements SandboxExecutor {
       if (trimmed.startsWith("{")) {
         try {
           const parsed = parseSandboxResult(JSON.parse(trimmed));
-          if (parsed.success) return parsed.data;
+          if (parsed.success) return resolveSandboxResult(parsed.data, request.testcases);
         } catch {
           // Not valid JSON, keep searching
         }
