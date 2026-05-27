@@ -12,10 +12,20 @@ import {
   type ValidateOutput,
   type ValidatorCaseOutcome,
 } from "./types.js";
-import { compile, compileChecker, compileValidator, sourceFileName } from "./compiler.js";
+import {
+  compile,
+  compileChecker,
+  compileInteractor,
+  compileValidator,
+  sourceFileName,
+} from "./compiler.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import { judgeInteractive } from "./judges/interactive.js";
+import {
+  runInteractiveSolution,
+  runInteractiveValidator,
+} from "./judges/interactive-isolated.js";
 import { validateCase, validatorTimeoutMs } from "./judges/validate.js";
 import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
@@ -268,7 +278,11 @@ async function runValidate(workDir: string, config: SandboxInput): Promise<void>
   emitValidate({ validatorOutcomes });
 }
 
-async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
+/** Materialize the student source into `workDir` and compile it. */
+async function compileSubmission(
+  workDir: string,
+  config: SandboxInput,
+): Promise<ReturnType<typeof compile>> {
   await materializeConfiguredSources(config, workDir);
 
   const defaultEntry = sourceFileName(config.language);
@@ -283,7 +297,65 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   }
 
   log("Compiling...");
-  const compileResult = await compile(config, srcFile, workDir);
+  return compile(config, srcFile, workDir);
+}
+
+/**
+ * Interactive phase: one of two isolated containers in a worker-coordinated
+ * two-container run (see apps/worker/src/services/interactive-executor.ts).
+ * `solution` compiles + runs the student program with its stdio = container
+ * stdio (the live pipe). `validator` compiles the DOMjudge interactor and runs
+ * it over the one mounted case; the secret input/answer lives only here. Each
+ * side reports via a marked stderr line — NEVER stdout, which is the pipe.
+ */
+async function runInteractive(workDir: string, config: SandboxInput): Promise<void> {
+  const interactive = config.interactive!;
+
+  if (interactive.role === "solution") {
+    const compileResult = await compileSubmission(workDir, config);
+    if (!compileResult.success) {
+      emit({ compilationError: compileResult.error });
+      return;
+    }
+    await runInteractiveSolution(
+      compileResult.runCommand,
+      config.limits.timeoutMs,
+      config.limits.env,
+    );
+    return;
+  }
+
+  // role === "validator": compile the interactor and run it over the one case.
+  const interactorPath = await findScript("interactor");
+  if (!interactorPath) {
+    emit({ compilationError: "Interactive validator requires an interactor script." });
+    return;
+  }
+
+  const interactorLang = interactive.language ?? config.interactorLanguage ?? "python";
+  log("Compiling interactor...");
+  const compiled = await compileInteractor(interactorPath, interactorLang, workDir);
+  if (!compiled.success) {
+    emit({ compilationError: `Interactor compilation failed: ${compiled.error}` });
+    return;
+  }
+
+  const index = interactive.index ?? 0;
+  const caseDir = path.join(SUBMISSION_DIR, "cases", String(index));
+  const inputFile = path.join(caseDir, "input.txt");
+  const answerFile = path.join(caseDir, "answer.txt");
+  const feedbackDir = await fs.mkdtemp(path.join(workDir, "fb-"));
+
+  log(`Running interactor for case ${String(index)}...`);
+  await runInteractiveValidator(
+    compiled.runCommand,
+    { inputFile, answerFile, feedbackDir },
+    validatorTimeoutMs(config.limits.timeoutMs),
+  );
+}
+
+async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
+  const compileResult = await compileSubmission(workDir, config);
 
   if (!compileResult.success) {
     emit({ compilationError: compileResult.error });
@@ -371,7 +443,9 @@ async function main(): Promise<void> {
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   try {
-    if (config.validate) {
+    if (config.interactive) {
+      await runInteractive(workDir, config);
+    } else if (config.validate) {
       await runValidate(workDir, config);
     } else {
       await runJudge(workDir, config);
