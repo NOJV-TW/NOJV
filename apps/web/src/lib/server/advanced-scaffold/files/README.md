@@ -42,6 +42,17 @@ Anything you need at runtime (pip packages, testcases) must be baked into the
 image at build time; nothing can be fetched while judging. Don't rely on the
 process exit code to signal a verdict — only `result.json` is read.
 
+**Protecting your answers** — the student program runs _inside this same
+image_, as the same user. There is no strong filesystem isolation between your
+grader and the submission: a malicious program can read any world-readable
+path, including the baked-in `testcases/`. `run_submission` runs the student
+from a clean temp working dir, but that only avoids relative-path collisions —
+it is **not** a security boundary. The safe pattern (used by `grader.py`) is to
+feed each case's input on **stdin** and compare the student's **stdout** to the
+expected answer _inside the grader_, so the student never needs the answer.
+Never hand the student program a path to the expected output, and don't bake
+secrets at guessable readable paths if you run untrusted code.
+
 ## result.json shape
 
 `nojv_grader.write_result(...)` produces this for you:

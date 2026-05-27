@@ -30,6 +30,10 @@ def main():
 
     for i, case_file in enumerate(cases):
         case = json.loads(case_file.read_text())
+        # The student gets the INPUT on stdin only; we read the expected answer
+        # here and compare against the student's stdout. The student program
+        # runs in this same container and could read any readable path, so
+        # never hand it (or write out) the expected answer.
         run = nojv.run_submission(
             RUN_CMD, stdin=case["stdin"], timeout=PER_CASE_TIMEOUT_S
         )

@@ -67,9 +67,19 @@ def run_submission(cmd, stdin="", timeout=None, cwd=None):
     """Run the student program and capture stdout/stderr/exit/timed_out.
 
     The student files are copied into a fresh temp dir under /tmp and the
-    command runs THERE — never from /grader. This is deliberate: /grader holds
-    the baked-in testcases/, and running the student program from a directory
-    that exposes those files would let a submission read the expected answers.
+    command runs THERE with that dir as its cwd. This only keeps the student's
+    RELATIVE file I/O from colliding with /grader's files — it is NOT a
+    security boundary.
+
+    WARNING: the student program runs in the SAME container, as the SAME user,
+    in the SAME mount namespace as this grader (advanced containers run
+    --cap-drop ALL + --read-only with no --user, so there is no UID to drop to
+    and the baked-in files can't be hidden or removed). A malicious submission
+    can read ANY world-readable absolute path, including
+    /grader/testcases/. Do NOT rely on filesystem hiding to protect answers.
+    The safe pattern — which grader.py uses — is to feed the input on stdin and
+    compare the student's stdout to the expected answer HERE in the grader, so
+    the student never receives (and must never be handed) the expected output.
 
     `cmd` is a list like ["python", "main.py"]; relative paths resolve against
     the copied submission. Returns an object with .stdout/.stderr/.returncode
