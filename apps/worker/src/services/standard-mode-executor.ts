@@ -16,7 +16,7 @@ import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { runInteractiveMode } from "./interactive-executor";
-import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
+import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
 import { runValidator, type ValidatorCase } from "./validator-executor";
 
@@ -163,41 +163,25 @@ export async function writeSubmissionFiles(
   );
 
   // Checker mode no longer runs an in-container checker: the validator runs
-  // in a SECOND isolated container (see runValidator). The checker script must
-  // never enter the run container alongside student code.
-
-  if (request.judgeConfig.interactorScript) {
-    const ext = sourceExtension(request.judgeConfig.interactorLanguage);
-    fileWrites.push(
-      writeFile(
-        join(tempDir, `interactor.${ext}`),
-        request.judgeConfig.interactorScript,
-        "utf8",
-      ),
-    );
-  }
+  // in a SECOND isolated container (see runValidator), and interactive runs in
+  // its own two-container path. Neither the checker/validator script nor the
+  // interactor ever enters the run container alongside student code.
 
   await Promise.all(fileWrites);
 
   const testcasesDir = join(tempDir, "testcases");
   await mkdir(testcasesDir, { recursive: true });
 
-  // Standard and checker modes run the solution in this container but decide
-  // the verdict elsewhere (worker comparison / isolated validator container).
-  // The expected answer must never be readable from inside the run container —
-  // a student program could otherwise just echo it back. Interactive keeps its
-  // existing in-container layout unchanged (it ignores expected.txt anyway).
-  const shipExpected = request.judgeType !== "standard" && request.judgeType !== "checker";
-
+  // This path serves only standard and checker modes (interactive returns
+  // early in runStandardMode). Both decide the verdict elsewhere — worker
+  // comparison or an isolated validator container — so the expected answer
+  // must never be readable from inside the run container: a student program
+  // could otherwise just echo it back.
   await Promise.all(
     request.testcases.map(async (tc) => {
       const tcDir = join(testcasesDir, String(tc.index));
       await mkdir(tcDir, { recursive: true });
       await writeFile(join(tcDir, "input.txt"), tc.input, "utf8");
-
-      if (shipExpected && tc.output !== undefined) {
-        await writeFile(join(tcDir, "expected.txt"), tc.output, "utf8");
-      }
     }),
   );
 

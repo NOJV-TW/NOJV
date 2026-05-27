@@ -33,8 +33,9 @@ const TTL_AFTER_FINISHED_SECONDS = 60;
 
 /**
  * Build the flat testcase ConfigMap keys. Standard mode compares output
- * worker-side, so the expected answer must never reach the sandbox pod;
- * checker/interactive still need it in-pod until Phase 2.
+ * worker-side, so the expected answer must never reach the sandbox pod.
+ * Checker and interactive are refused on K8s (see execute), so only standard
+ * reaches here in practice; the guard is kept defensive.
  */
 export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {
   const data: Record<string, string> = {};
@@ -164,11 +165,6 @@ export class K8sExecutor implements SandboxExecutor {
     if (request.judgeConfig.checkerScript) {
       const ext = sourceExtension(request.judgeConfig.checkerLanguage);
       data[`checker.${ext}`] = request.judgeConfig.checkerScript;
-    }
-
-    if (request.judgeConfig.interactorScript) {
-      const ext = sourceExtension(request.judgeConfig.interactorLanguage);
-      data[`interactor.${ext}`] = request.judgeConfig.interactorScript;
     }
 
     Object.assign(data, buildTestcaseConfigMapData(request));
