@@ -13,7 +13,6 @@ import {
 import { compile, compileChecker, sourceFileName } from "./compiler.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
-import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
 import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
@@ -229,28 +228,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     return;
   }
 
-  let checkerCommand: string[] | undefined;
   let interactorCommand: string[] | undefined;
-
-  if (config.judgeType === "checker") {
-    const checkerPath = await findScript("checker");
-    if (!checkerPath) {
-      emit({
-        compilationError: "Checker judge requires a checker script in /submission/.",
-      });
-      return;
-    }
-
-    const checkerLang = config.checkerLanguage ?? "python";
-    const checkerResult = await compileChecker(checkerPath, checkerLang, workDir, "checker");
-    if (!checkerResult.success) {
-      emit({
-        compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`,
-      });
-      return;
-    }
-    checkerCommand = checkerResult.runCommand;
-  }
 
   if (config.judgeType === "interactive") {
     const interactorPath = await findScript("interactor");
@@ -281,10 +259,11 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   const testcases = await loadTestcases();
   log(`Found ${String(testcases.length)} testcase(s).`);
 
-  // Standard mode: the runner only runs the solution and reports raw output.
-  // The expected answer never enters this container — the worker decides
-  // AC/WA from `rawRuns` against the answer it already holds.
-  if (config.judgeType === "standard") {
+  // Standard and checker modes only run the solution here and report raw
+  // output. The expected answer and the checker/validator script never enter
+  // this container — the worker decides AC/WA (standard) or runs the validator
+  // in a separate isolated container (checker) against the answer it holds.
+  if (config.judgeType === "standard" || config.judgeType === "checker") {
     const rawRuns: RawCaseRun[] = [];
     for (const testcase of testcases) {
       log(`Running testcase ${String(testcase.index)}...`);
@@ -303,33 +282,17 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     return;
   }
 
+  // Only interactive reaches here — standard/checker returned above via rawRuns.
   const results: TestcaseResult[] = [];
 
   for (const testcase of testcases) {
     log(`Judging testcase ${String(testcase.index)}...`);
-
-    let result: TestcaseResult;
-
-    switch (config.judgeType) {
-      case "checker":
-        result = await judgeChecker(
-          compileResult.runCommand,
-          testcase,
-          checkerCommand!,
-          config.limits.timeoutMs,
-        );
-        break;
-
-      case "interactive":
-        result = await judgeInteractive(
-          compileResult.runCommand,
-          testcase,
-          interactorCommand!,
-          config.limits.timeoutMs,
-        );
-        break;
-    }
-
+    const result = await judgeInteractive(
+      compileResult.runCommand,
+      testcase,
+      interactorCommand!,
+      config.limits.timeoutMs,
+    );
     results.push(result);
     log(`Testcase ${String(testcase.index)}: ${result.verdict} (${String(result.timeMs)}ms)`);
   }
