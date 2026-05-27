@@ -643,16 +643,16 @@ if __name__ == "__main__":
       statements: {
         "zh-TW": {
           title: "Stateful DHCP Option Parser",
-          body: '這是一題多檔函式實作題。你要在 `main.py` 裡實作 `parse_dhcp_options(hex_payload)`，輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `["ERROR"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。',
+          body: '這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀資料、對每行 payload 呼叫 `parse_dhcp_options(hex_payload)`，並印出結果。輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_payloads()` 解析 stdin）；你只需在 `main.py` 裡實作 `parse_dhcp_options`。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `["ERROR"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。',
           inputFormat:
-            "評測 driver 會先讀入整數 $Q$，接著有 $Q$ 行 hex payload。每行都會呼叫一次 `parse_dhcp_options`。",
+            "第一行一個整數 $Q$，接著有 $Q$ 行 hex payload。每行都會呼叫一次 `parse_dhcp_options`。",
           outputFormat: "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。",
         },
         en: {
           title: "Stateful DHCP Option Parser",
-          body: 'In this problem, implement `parse_dhcp_options(hex_payload)` in `main.py`; the judge driver calls it with each payload. The input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `["ERROR"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.',
+          body: 'A multi-file problem. The runnable entry point is `main.py`: it reads stdin, calls `parse_dhcp_options(hex_payload)` once per payload line, and prints the result. The input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\n`main.py` imports the read-only `iolib.py` (which provides `read_payloads()` to parse stdin); you only implement `parse_dhcp_options` in `main.py`.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `["ERROR"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.',
           inputFormat:
-            "The judge driver reads an integer $Q$, followed by $Q$ payload lines. Each line is passed once to `parse_dhcp_options`.",
+            "The first line contains an integer $Q$, followed by $Q$ payload lines. Each line is passed once to `parse_dhcp_options`.",
           outputFormat:
             "Print one line per payload. A returned list `[a, b, c]` must be printed as `a|b|c`.",
         },
@@ -669,87 +669,64 @@ if __name__ == "__main__":
           path: "main.py",
           content: `from typing import List
 
+from iolib import read_payloads
+
 
 def parse_dhcp_options(hex_payload: str) -> List[str]:
-    """Parse a DHCP option TLV stream.
+    """Parse a DHCP option TLV stream into CODE:LEN:VALUE entries.
 
     Rules:
       - Code 0 is padding (skip).
       - Code 255 is End (stop).
       - On malformed input return ["ERROR"].
-      - Return each entry formatted as CODE:LEN:VALUE.
       - Codes 1/3/6 -> IPv4 dotted groups joined by commas.
       - Other codes -> uppercase contiguous hex.
     """
-    # write your code here
-    return []
+    # implement parse_dhcp_options here
+    return ["ERROR"]
+
+
+def main() -> None:
+    for payload in read_payloads():
+        print("|".join(parse_dhcp_options(payload)))
+
+
+if __name__ == "__main__":
+    main()
 `,
           visibility: "editable",
           description:
-            "Implement parse_dhcp_options here. This is the file you edit; the driver and hidden smoke check import from `main`.",
+            "The runnable entry. main() reads payloads via iolib.read_payloads and prints each parse_dhcp_options result with '|' separators. Implement parse_dhcp_options here.",
           orderIndex: 0,
         },
         {
           language: "python",
-          path: "driver.py",
-          content: `"""Read-only judge driver.
+          path: "iolib.py",
+          content: `"""Read-only I/O helper for the DHCP option parser.
 
-Do NOT modify. The grader reads Q payload lines and calls
-parse_dhcp_options once per line, printing results with '|' separators.
+Do NOT modify. main.py imports read_payloads to turn the stdin stream
+into the list of hex payload strings to parse.
 """
 
 import sys
+from typing import List
 
-from main import parse_dhcp_options
 
-
-def main_driver() -> None:
+def read_payloads() -> List[str]:
+    """Return the Q payload lines from stdin (empty list on bad count)."""
     data = sys.stdin.read().splitlines()
     if not data:
-        return
+        return []
     try:
         q = int(data[0])
     except ValueError:
-        print("ERROR")
-        return
-    for line in data[1 : 1 + q]:
-        result = parse_dhcp_options(line.strip())
-        print("|".join(result))
-
-
-if __name__ == "__main__":
-    main_driver()
+        return []
+    return [line.strip() for line in data[1 : 1 + q]]
 `,
           visibility: "readonly",
           description:
-            "Judge driver — reads Q hex payloads from stdin and prints the return of parse_dhcp_options for each. You don't need to touch this file.",
+            "Read-only stdin helper. Provides read_payloads(), which main.py imports to get the list of hex payloads. You don't need to touch this file.",
           orderIndex: 1,
-        },
-        {
-          language: "python",
-          path: "_hidden_smoke.py",
-          content: `"""Hidden pre-flight sanity checks (not shipped to the browser).
-
-The worker runs this before grading to weed out obvious breakage like
-missing imports or return-type mistakes.
-"""
-
-from main import parse_dhcp_options
-
-
-def _smoke() -> None:
-    out = parse_dhcp_options("FF")
-    assert isinstance(out, list), "parse_dhcp_options must return a list"
-    assert all(isinstance(entry, str) for entry in out), "entries must be str"
-
-
-if __name__ == "__main__":
-    _smoke()
-`,
-          visibility: "hidden",
-          description:
-            "Hidden pre-flight sanity check run by the judge before grading. Ensures parse_dhcp_options at least returns a list of strings so a crash here fails fast with a clear signal.",
-          orderIndex: 2,
         },
       ],
       testcases: {
@@ -789,16 +766,14 @@ if __name__ == "__main__":
       statements: {
         "zh-TW": {
           title: "Memory Leak Forensics",
-          body: "這是一題多檔函式實作題。你要在 `main.py` 裡實作 `analyze_trace(events)`，每個事件格式為：\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n同一 `id` 重複 ALLOC 視為先前未釋放（覆蓋前請先計入洩漏），FREE 不存在的 `id` 視為 invalid free。\n\n回傳 `(peak_bytes, leaked_blocks, invalid_free_count)`。",
-          inputFormat:
-            "評測 driver 會先讀入整數 $N$，再讀 $N$ 行事件，最後呼叫 `analyze_trace`。",
+          body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀事件、呼叫 `analyze_trace(events)`，並印出三個整數。每個事件格式為：\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_events()` 解析 stdin）；你只需在 `main.py` 裡實作 `analyze_trace`。\n\n同一 `id` 重複 ALLOC 視為先前未釋放（覆蓋前請先計入洩漏），FREE 不存在的 `id` 視為 invalid free。\n\n回傳 `(peak_bytes, leaked_blocks, invalid_free_count)`。",
+          inputFormat: "第一行一個整數 $N$，再讀 $N$ 行事件。",
           outputFormat: "輸出三個整數：`peak_bytes leaked_blocks invalid_free_count`。",
         },
         en: {
           title: "Memory Leak Forensics",
-          body: "In this problem, implement `analyze_trace(events)` in `main.py`; the judge driver calls it with the parsed event list. Each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
-          inputFormat:
-            "The judge driver reads an integer $N$, then $N$ event lines, and calls `analyze_trace`.",
+          body: "A multi-file problem. The runnable entry point is `main.py`: it reads stdin, calls `analyze_trace(events)`, and prints three integers. Each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n`main.py` imports the read-only `iolib.py` (which provides `read_events()` to parse stdin); you only implement `analyze_trace` in `main.py`.\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
+          inputFormat: "The first line contains an integer $N$, then $N$ event lines follow.",
           outputFormat: "Print three integers: `peak_bytes leaked_blocks invalid_free_count`.",
         },
       },
@@ -818,6 +793,8 @@ if __name__ == "__main__":
           path: "main.py",
           content: `from typing import Iterable, Tuple
 
+from iolib import read_events
+
 
 def analyze_trace(events: Iterable[str]) -> Tuple[int, int, int]:
     """Return (peak_bytes, leaked_blocks, invalid_free_count).
@@ -826,45 +803,50 @@ def analyze_trace(events: Iterable[str]) -> Tuple[int, int, int]:
     Re-allocating a live id leaks the prior block. Freeing an unknown
     id counts as an invalid free and does not crash.
     """
-    # write your code here
+    # implement analyze_trace here
     return (0, 0, 0)
-`,
-          visibility: "editable",
-          description:
-            "Implement analyze_trace here. The driver imports it from `main` and feeds it parsed event lines.",
-          orderIndex: 0,
-        },
-        {
-          language: "python",
-          path: "driver.py",
-          content: `"""Read-only judge driver.
-
-Reads N followed by N event lines from stdin and prints the three
-integers returned by analyze_trace, space-separated.
-"""
-
-import sys
-
-from main import analyze_trace
 
 
-def main_driver() -> None:
-    data = sys.stdin.read().splitlines()
-    if not data:
-        print("0 0 0")
-        return
-    n = int(data[0])
-    events = data[1 : 1 + n]
-    peak, leaked, invalid = analyze_trace(events)
+def main() -> None:
+    peak, leaked, invalid = analyze_trace(read_events())
     print(f"{peak} {leaked} {invalid}")
 
 
 if __name__ == "__main__":
-    main_driver()
+    main()
+`,
+          visibility: "editable",
+          description:
+            "The runnable entry. main() reads the event lines via iolib.read_events and prints the three integers analyze_trace returns. Implement analyze_trace here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "iolib.py",
+          content: `"""Read-only I/O helper for Memory Leak Forensics.
+
+Do NOT modify. main.py imports read_events to turn the stdin trace into
+the list of N event lines analyze_trace expects.
+"""
+
+import sys
+from typing import List
+
+
+def read_events() -> List[str]:
+    """Return the N event lines from stdin (empty list on bad count)."""
+    data = sys.stdin.read().splitlines()
+    if not data:
+        return []
+    try:
+        n = int(data[0])
+    except ValueError:
+        return []
+    return data[1 : 1 + n]
 `,
           visibility: "readonly",
           description:
-            "Judge driver — parses the stdin event stream and prints the three integers your analyze_trace returns. Read-only.",
+            "Read-only stdin helper. Provides read_events(), which main.py imports to get the event lines. You don't need to touch this file.",
           orderIndex: 1,
         },
       ],
@@ -894,6 +876,282 @@ if __name__ == "__main__":
               input: "4\nFREE z\nALLOC z 1\nALLOC z 2\nALLOC z 3\n",
               output: "3 2 1",
             },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      title: "Multi-File Mean (Checker)",
+      tags: ["medium"],
+      type: "multi_file" as const,
+      id: "problem_multi-checker-stats",
+      memoryLimitMb: 256,
+      judgeConfig: {
+        type: "checker",
+        checkerLanguage: "python",
+        checkerScript: `import sys
+
+
+def main():
+    _input_path, expected_path, user_path = sys.argv[1], sys.argv[2], sys.argv[3]
+    with open(expected_path) as f:
+        expected = float(f.read().strip())
+    with open(user_path) as f:
+        actual = float(f.read().strip())
+    if abs(expected - actual) < 1e-6:
+        print("100")
+        sys.exit(0)
+    print(f"Expected {expected}, got {actual}", file=sys.stderr)
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+`,
+      },
+      timeLimitMs: 1000,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "Multi-File Mean (Checker)",
+          body: "這是一題「多檔 × 自訂 checker」示範題。可執行的進入點是 `main.py`：它讀入 $N$ 與 $N$ 個整數，`import` 唯讀的 `stats.py`（提供 `mean(values)`），並以 6 位小數印出平均值。\n\n判題使用自訂 checker：只要你的答案與標準答案的絕對誤差小於 $10^{-6}$ 即視為正確。你只需在 `main.py` 裡完成讀檔與輸出。",
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），接著有 $N$ 個整數（可跨多行，以空白分隔）。",
+          outputFormat: "一行，輸出這 $N$ 個整數的平均值。與標準答案絕對誤差須小於 $10^{-6}$。",
+        },
+        en: {
+          title: "Multi-File Mean (Checker)",
+          body: "A multi_file × custom-checker demo problem. The runnable entry point is `main.py`: it reads $N$ and $N$ integers, imports the read-only `stats.py` (which provides `mean(values)`), and prints the mean to 6 decimal places.\n\nGrading uses a custom checker: any answer within $10^{-6}$ absolute error of the reference is accepted. You only complete the read + print logic in `main.py`.",
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), followed by $N$ integers (whitespace-separated, possibly across multiple lines).",
+          outputFormat:
+            "A single line containing the mean of the $N$ integers. Must be within $10^{-6}$ absolute error of the reference.",
+        },
+      },
+      samples: [
+        { input: "5\n1 2 3 4 5\n", output: "3.000000" },
+        { input: "3\n1 2 4\n", output: "2.333333" },
+      ],
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content: `import sys
+from typing import List
+
+from stats import mean
+
+
+def read_numbers() -> List[float]:
+    """Read N then N integers from stdin and return them as floats."""
+    # implement reading: first token is the count N, then N integers
+    tokens = sys.stdin.read().split()
+    if not tokens:
+        return []
+    n = int(tokens[0])
+    return [float(t) for t in tokens[1 : 1 + n]]
+
+
+def main() -> None:
+    numbers = read_numbers()
+    print(f"{mean(numbers):.6f}")
+
+
+if __name__ == "__main__":
+    main()
+`,
+          visibility: "editable",
+          description:
+            "The runnable entry. main() reads the numbers, averages them via stats.mean, and prints the mean to 6 dp. Implement read_numbers here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "stats.py",
+          content: `"""Read-only statistics helper.
+
+Do NOT modify. main.py imports mean to average the parsed numbers.
+"""
+
+from typing import Sequence
+
+
+def mean(values: Sequence[float]) -> float:
+    """Return the arithmetic mean of values (0.0 for an empty input)."""
+    if not values:
+        return 0.0
+    return sum(values) / len(values)
+`,
+          visibility: "readonly",
+          description:
+            "Read-only helper. Provides mean(values), which main.py imports. You don't need to touch this file.",
+          orderIndex: 1,
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases for the float-mean checker.",
+          cases: [
+            { input: "5\n1 2 3 4 5\n", output: "3.000000" },
+            { input: "3\n1 2 4\n", output: "2.333333" },
+          ],
+        },
+        hidden: {
+          description: "Hidden cases graded by the abs-diff < 1e-6 checker.",
+          cases: [
+            { input: "1\n7\n", output: "7.000000" },
+            { input: "4\n-2 -1 1 2\n", output: "0.000000" },
+            { input: "6\n10 20 30 40 50 65\n", output: "35.833333" },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      title: "Multi-File Bisect (Interactive)",
+      tags: ["medium"],
+      type: "multi_file" as const,
+      id: "problem_multi-interactive-bisect",
+      memoryLimitMb: 256,
+      judgeConfig: {
+        type: "interactive",
+        interactorLanguage: "python",
+        interactorScript: `import sys
+
+
+def main():
+    input_path = sys.argv[1]
+    with open(input_path) as f:
+        secret = int(f.read().strip())
+
+    lo, hi = 1, 1_000_000
+    print(f"{lo} {hi}", flush=True)
+
+    for _ in range(40):  # log2(10^6) ~ 20 guesses suffice
+        line = input().strip()
+        guess = int(line)
+        if guess == secret:
+            print("correct", flush=True)
+            sys.exit(0)
+        elif guess < secret:
+            print("higher", flush=True)
+        else:
+            print("lower", flush=True)
+
+    print(f"Failed to find {secret} within the turn budget", file=sys.stderr)
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+`,
+      },
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "Multi-File Bisect (Interactive)",
+          body: "這是一題「多檔 × 互動」示範題。可執行的進入點是 `main.py`：它先讀互動器輸出的第一行 `lo hi`，`import` 唯讀的 `proto.py`（提供 `read_range()` / `send_guess(g)` / `read_verdict()` 三個協定函式），再用二分搜尋找出秘密數字。\n\n互動器每回合回應 `higher`（太小）、`lower`（太大）或 `correct`（猜中）。你只需在 `main.py` 裡完成二分搜尋邏輯。",
+          inputFormat: "互動器第一行輸出 `lo hi`（$1 \\le lo \\le hi \\le 10^6$）。",
+          outputFormat: "每回合輸出一個整數猜測並立即 flush。",
+        },
+        en: {
+          title: "Multi-File Bisect (Interactive)",
+          body: "A multi_file × interactive demo problem. The runnable entry point is `main.py`: it reads the interactor's opening `lo hi` line, imports the read-only `proto.py` (which provides `read_range()` / `send_guess(g)` / `read_verdict()`), and binary-searches for the secret.\n\nEach turn the interactor replies `higher` (too low), `lower` (too high), or `correct`. You only complete the binary-search loop in `main.py`.",
+          inputFormat: "The interactor first prints `lo hi` ($1 \\le lo \\le hi \\le 10^6$).",
+          outputFormat: "Print one integer guess per turn and flush immediately.",
+        },
+      },
+      samples: [
+        {
+          input: "1 1000000\nlower\nhigher\ncorrect",
+          output: "500000\n250000\n375000",
+        },
+      ],
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content: `from proto import read_range, read_verdict, send_guess
+
+
+def main() -> None:
+    lo, hi = read_range()
+    # implement the binary search here: narrow [lo, hi] using the
+    # interactor's "higher"/"lower" replies until it answers "correct".
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        send_guess(mid)
+        verdict = read_verdict()
+        if verdict == "correct":
+            return
+        if verdict == "higher":
+            lo = mid + 1
+        elif verdict == "lower":
+            hi = mid - 1
+        else:
+            return
+
+
+if __name__ == "__main__":
+    main()
+`,
+          visibility: "editable",
+          description:
+            "The runnable entry. main() reads the range via proto.read_range, then binary-searches using send_guess/read_verdict. Implement the search loop here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "proto.py",
+          content: `"""Read-only interaction protocol helper for the bisect game.
+
+Do NOT modify. main.py uses these helpers to talk to the judge:
+  - read_range()   parses the interactor's opening "lo hi" line.
+  - send_guess(g)  prints a guess and flushes so the judge sees it.
+  - read_verdict() reads the judge's "higher"/"lower"/"correct" reply.
+"""
+
+import sys
+from typing import Tuple
+
+
+def read_range() -> Tuple[int, int]:
+    """Read the opening 'lo hi' line from the interactor."""
+    lo, hi = sys.stdin.readline().split()
+    return int(lo), int(hi)
+
+
+def send_guess(guess: int) -> None:
+    """Print one integer guess and flush immediately."""
+    print(guess, flush=True)
+
+
+def read_verdict() -> str:
+    """Read one verdict line: 'higher', 'lower', or 'correct'."""
+    return sys.stdin.readline().strip()
+`,
+          visibility: "readonly",
+          description:
+            "Read-only interaction helper. Provides read_range/send_guess/read_verdict, which main.py imports. You don't need to touch this file.",
+          orderIndex: 1,
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample secrets exercised by the interactor.",
+          cases: [
+            { input: "42", output: "" },
+            { input: "500000", output: "" },
+          ],
+        },
+        hidden: {
+          description: "Boundary secrets including 1 and 10^6.",
+          cases: [
+            { input: "1", output: "" },
+            { input: "1000000", output: "" },
+            { input: "314159", output: "" },
           ],
         },
       },
@@ -995,19 +1253,19 @@ if __name__ == "__main__":
       timeLimitMs: 30_000,
       visibility: "public" as const,
       advancedImageSource: "registry" as const,
-      advancedImageRef: "ghcr.io/nojv/demo-judge-shell:latest",
+      advancedImageRef: "nojv-demo-judge-shell:local",
       statements: {
         "zh-TW": {
           title: "Shell Scripting Lab",
-          body: "這是一道 Advanced Mode 題目。請上傳 shell 腳本 (例如 `main.sh`)，系統會把檔案放到 `/workspace/submission/`。\n\n判題容器已由助教事先打包，內部 bundle 所有測資與評分腳本，跑完後把分數寫到 `/workspace/output/result.json`。",
-          inputFormat: "（由助教的判題映像檔自行定義。）",
-          outputFormat: "（由助教的判題映像檔自行定義。）",
+          body: '這是一道 Advanced Mode 題目。請上傳一個名為 `main.sh` 的 shell 腳本，系統會把檔案放到 `/workspace/submission/`。\n\n判題容器（demo image `nojv-demo-judge-shell:local`，請先 `pnpm demo-judge:build` 建好）會執行你的 `main.sh`：只要它成功跑完、且標準輸出中包含字串 `hello` 即判定 AC，否則 WA；找不到 `main.sh` 則為 RE。\n\n範例 `main.sh`：\n\n```bash\n#!/bin/bash\necho "hello from $(whoami)"\n```',
+          inputFormat: "（無 stdin；判題映像檔執行你上傳的 `main.sh`。）",
+          outputFormat: "（你的 `main.sh` 標準輸出需包含 `hello`。）",
         },
         en: {
           title: "Shell Scripting Lab",
-          body: "Advanced Mode demo problem. Upload a shell script (e.g. `main.sh`); the system mounts it under `/workspace/submission/`.\n\nThe TA-provided judge image bundles its own testcases, runs the script internally, and writes the final score to `/workspace/output/result.json`.",
-          inputFormat: "(Defined inside the TA's judge image.)",
-          outputFormat: "(Defined inside the TA's judge image.)",
+          body: 'Advanced Mode demo problem. Upload a shell script named `main.sh`; the system mounts it under `/workspace/submission/`.\n\nThe judge container (demo image `nojv-demo-judge-shell:local`, build it first with `pnpm demo-judge:build`) runs your `main.sh`: if it finishes successfully and its stdout contains the token `hello`, the verdict is AC; otherwise WA. A missing `main.sh` is RE.\n\nExample `main.sh`:\n\n```bash\n#!/bin/bash\necho "hello from $(whoami)"\n```',
+          inputFormat: "(No stdin; the judge image runs your uploaded `main.sh`.)",
+          outputFormat: "(Your `main.sh` stdout must contain the token `hello`.)",
         },
       },
     },
