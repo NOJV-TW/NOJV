@@ -19,12 +19,16 @@
 - ✅ **Phase 2B** (checker isolation + validator container) — done & reviewed; **real-Docker verified** (`8404c1b7`…`95c640b0`). Checker runs isolated; validator runs in a separate hardened container; exploit reading validator/answer does NOT get AC.
 - ✅ **Phase 2C** (interactive isolation, two containers + worker byte proxy) — done & reviewed; **real-Docker verified** (`878c39e5`…`c7ce5faf`). Secret mounted only into the interactor container; guessing-game AC/WA + exploit verified.
 - ✅ **Phase 2D** (remove testlib + legacy code + DOMjudge examples/i18n/docs) — done (`94268172`…`17833458`). testlib gone from image; TA examples + JUDGE_PIPELINE rewritten for DOMjudge.
-- ⬜ **Task 2.7** (staff/student message split — surface validator `judgeMessage` to staff) — DEFERRED as a UX follow-up. Currently `teamMessage`→student `feedback`; `judgeMessage` is dropped (never leaks to students). Not blocking.
-- ⬜ **Task 2.8** (full K8s parity for checker/interactive) — DEFERRED. Interim: K8s `execute` fail-fasts (SE + operator log) for checker/interactive, like advanced mode. **Checker + interactive + advanced are Docker-backend-only** until K8s parity (tracked with Phase 5b).
-- ⬜ **Task 2.9** (re-author demo seed checker/interactive to DOMjudge + re-seed) — pending. Existing seed scripts use the OLD protocol and will fail-closed to SE until re-authored.
-- ⬜ **Phases 3, 4, 5** — not started.
+- ✅ **Task 2.9** (re-author demo seed checker/interactive to DOMjudge + re-seed) — done & **real-Docker verified** (`6c26a58a`; storage upload `fe966056`). 5 seed problems re-authored; judged AC/WA correctly on the live stack.
+- ✅ **Phase 3** (judge scripts → MinIO) — done & reviewed; **live-stack verified** (`688a174c`…`56f9afea`). `checkerKey`/`interactorKey` in `judgeConfig`, bodies in MinIO; edit-page hydration gated on edit access; judge-time storage failure fails closed. **Q6 complete — no judge script body remains in Postgres.**
+- ✅ **Phase 5a** (advanced disk cap + read-only rootfs + standard CPU rlimit) — done & reviewed; **real-Docker verified** (`93a344ad`, `2cab5cda`, fixes `d03941c9`). du-poll 1 GiB cap, `--read-only` + `/tmp` tmpfs, `ulimit -t` on solution; SE-reclassification tightened to exit 126/127.
+- ✅ **Phase 4** (downloadable advanced-judge scaffold + `nojv_grader` helper + tutorial) — done & reviewed; **real-Docker verified** (`89828f91`, `a4d3776d`; doc-claim fix follow-up). Self-contained zip (`FROM python:3.12-slim`, no registry dep); scaffold builds + produces schema-valid result.json.
+- ⬜ **Task 2.7** (staff/student message split — surface validator `judgeMessage` to staff) — DEFERRED as a UX follow-up. `teamMessage`→student `feedback`; `judgeMessage` dropped (never leaks). Not blocking.
+- ⬜ **Task 2.8 / 5b** (full K8s parity for checker/interactive/advanced) — DEFERRED. Interim: K8s `execute` fail-fasts (SE + operator log) for all three; **checker + interactive + advanced are Docker-backend-only**. Safe (no mis-grade / no leak).
 
-**Status:** Phases 0, 1, 2 (core) + infra fix complete and verified (real-Docker for the security-critical parts). Branch green. Remaining: 2.9 re-seed, Phase 3 (scripts→MinIO), Phase 4 (TA base image + zip), Phase 5a (advanced hardening). Deferred (documented): 2.7 message split, 2.8/5b full K8s parity for checker/interactive/advanced.
+**Status: ALL implementation phases complete and verified (real-Docker / live-stack for every security-critical part).** Branch green (`typecheck`/`lint`/984 unit). Final holistic review: ✅ ready to merge for the core security goal. Deferred (documented, non-blocking): 2.7 message split, 2.8/5b full K8s parity (Docker-only interim is safe).
+
+**Known pre-existing issue (NOT this branch):** `infra/docker/worker.Dockerfile` + `web.Dockerfile` reference the removed `packages/job-dispatch` (merged into `@nojv/temporal` in the architecture redesign) — will break those two image builds. This branch only changed their `corepack→pnpm install` line. Needs a separate maintainer fix.
 
 ---
 
