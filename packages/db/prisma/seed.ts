@@ -3,7 +3,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
 import { seedContests } from "./seeds/contests";
 import { seedCourses } from "./seeds/courses";
+import { seedDemoStudents } from "./seeds/demo-students";
+import { seedEngagement } from "./seeds/engagement";
 import { seedProblems } from "./seeds/problems";
+import { seedSubmissions } from "./seeds/submissions";
 import { seedUsers } from "./seeds/users";
 
 const adapter = new PrismaPg({
@@ -18,6 +21,9 @@ async function main() {
   await seedProblems(prisma, teacher.id);
   await seedContests(prisma);
   await seedCourses(prisma, { teacher, taStudent, student });
+  const demoStudents = await seedDemoStudents(prisma, teacher);
+  await seedSubmissions(prisma, { student, demoStudents });
+  await seedEngagement(prisma, { teacher, student, demoStudents });
 
   // Seed announcements. Title/content now live on AnnouncementTranslation;
   // the parent row carries lifecycle (status/audience/publishedAt).

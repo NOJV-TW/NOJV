@@ -1,0 +1,275 @@
+import type { CaseResult, SubmissionResult, SubtaskResultItem } from "@nojv/core";
+
+import type { PrismaClient } from "../../generated/prisma/client";
+
+export const HOUR = 3600 * 1000;
+export const DAY = 24 * HOUR;
+
+/**
+ * Long-form verdict strings shared by `Submission.status` (SubmissionStatus
+ * enum) and the top-level `verdictDetail.verdict` (submissionVerdictSchema).
+ */
+export type LongVerdict =
+  | "accepted"
+  | "wrong_answer"
+  | "compile_error"
+  | "runtime_error"
+  | "time_limit_exceeded"
+  | "memory_limit_exceeded";
+
+/** Per-case short code used inside caseResults / subtaskResults[].cases. */
+export type ShortVerdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "CE" | "SE";
+
+const LONG_TO_SHORT: Record<Exclude<LongVerdict, "accepted">, ShortVerdict> = {
+  wrong_answer: "WA",
+  compile_error: "CE",
+  runtime_error: "RE",
+  time_limit_exceeded: "TLE",
+  memory_limit_exceeded: "MLE",
+};
+
+export type SeedLanguage = "c" | "cpp" | "python";
+
+/**
+ * Deterministic 32-bit LCG so reseeds produce identical spreads. Math.random
+ * would make every reseed look different, which is bad for a demo fixture we
+ * want to be reproducible.
+ */
+export class SeededRng {
+  private state: number;
+
+  constructor(seed: number) {
+    // Force into a non-zero 32-bit space.
+    this.state = seed >>> 0 || 0x9e3779b9;
+  }
+
+  /** Next float in [0, 1). */
+  next(): number {
+    // Numerical Recipes LCG constants.
+    this.state = (Math.imul(this.state, 1664525) + 1013904223) >>> 0;
+    return this.state / 0x100000000;
+  }
+
+  /** Integer in [min, max] inclusive. */
+  int(min: number, max: number): number {
+    return min + Math.floor(this.next() * (max - min + 1));
+  }
+
+  /** True with probability `p`. */
+  chance(p: number): boolean {
+    return this.next() < p;
+  }
+
+  pick<T>(items: readonly T[]): T {
+    return items[this.int(0, items.length - 1)]!;
+  }
+}
+
+/** Short, realistic source-code stubs per language for demo submissions. */
+export function sampleSource(language: SeedLanguage, verdict: LongVerdict): string {
+  if (language === "python") {
+    if (verdict === "compile_error") {
+      return "import sys\ndef main(\n    a, b = map(int, input().split())\n    print(a + b)\n";
+    }
+    return 'import sys\n\n\ndef main():\n    a, b = map(int, sys.stdin.read().split())\n    print(a + b)\n\n\nif __name__ == "__main__":\n    main()\n';
+  }
+  if (language === "c") {
+    if (verdict === "compile_error") {
+      return '#include <stdio.h>\nint main(void) {\n    int a, b\n    scanf("%d %d", &a, &b);\n    printf("%d\\n", a + b);\n    return 0;\n}\n';
+    }
+    return '#include <stdio.h>\n\nint main(void) {\n    long long a, b;\n    scanf("%lld %lld", &a, &b);\n    printf("%lld\\n", a + b);\n    return 0;\n}\n';
+  }
+  // cpp
+  if (verdict === "compile_error") {
+    return "#include <iostream>\nint main() {\n    long long a, b\n    std::cin >> a >> b;\n    std::cout << a + b << '\\n';\n}\n";
+  }
+  return "#include <iostream>\n\nint main() {\n    long long a, b;\n    std::cin >> a >> b;\n    std::cout << a + b << '\\n';\n    return 0;\n}\n";
+}
+
+const FEEDBACK: Record<LongVerdict, string> = {
+  accepted: "All testcases passed.",
+  wrong_answer: "Output did not match the expected answer on at least one testcase.",
+  compile_error: "",
+  runtime_error: "The program crashed with a non-zero exit code during execution.",
+  time_limit_exceeded: "Execution exceeded the time limit on at least one testcase.",
+  memory_limit_exceeded: "Execution exceeded the memory limit on at least one testcase.",
+};
+
+const COMPILER_OUTPUT: Record<SeedLanguage, string> = {
+  python:
+    "  File \"main.py\", line 2\n    def main(\n            ^\nSyntaxError: '(' was never closed",
+  c: "main.c: In function 'main':\nmain.c:3:18: error: expected ';' before 'scanf'\n    3 |     int a, b\n      |                  ^",
+  cpp: "main.cpp: In function 'int main()':\nmain.cpp:3:20: error: expected ';' before 'std'\n    3 |     long long a, b\n      |                    ^",
+};
+
+/** Real testcase ids for one problem, grouped by testcase set (subtask). */
+export type ProblemTestcases = {
+  /** Subtask sets in ordinal order; each carries its real id + case ids. */
+  sets: Array<{
+    testcaseSetId: string;
+    name: string;
+    weight: number;
+    testcaseIds: string[];
+  }>;
+  /** Flat list of every testcase id (used for non-subtask flat caseResults). */
+  flatTestcaseIds: string[];
+};
+
+/**
+ * Load the real TestcaseSet + Testcase ids for a problem so verdictDetail can
+ * reference persisted ids rather than fabricated ones. Returns sets in ordinal
+ * order.
+ */
+export async function loadProblemTestcases(
+  prisma: PrismaClient,
+  problemId: string,
+): Promise<ProblemTestcases> {
+  const sets = await prisma.testcaseSet.findMany({
+    where: { problemId },
+    orderBy: { ordinal: "asc" },
+    include: { testcases: { orderBy: { ordinal: "asc" } } },
+  });
+
+  const mappedSets = sets.map((set) => ({
+    testcaseSetId: set.id,
+    name: set.name,
+    weight: set.weight,
+    testcaseIds: set.testcases.map((tc) => tc.id),
+  }));
+
+  return {
+    sets: mappedSets,
+    flatTestcaseIds: mappedSets.flatMap((s) => s.testcaseIds),
+  };
+}
+
+function caseResult(
+  index: number,
+  verdict: ShortVerdict,
+  rng: SeededRng,
+  testcaseId?: string,
+): CaseResult {
+  const base: CaseResult = {
+    index,
+    verdict,
+    timeMs: verdict === "TLE" ? rng.int(2000, 3000) : rng.int(4, 180),
+    memoryKb: verdict === "MLE" ? rng.int(260_000, 520_000) : rng.int(2_000, 48_000),
+  };
+  return testcaseId ? { ...base, testcaseId } : base;
+}
+
+/**
+ * Build a full verdictDetail JSON blob matching `submissionResultSchema`.
+ *
+ * - For subtask problems (>1 testcase set), emits `subtaskResults` with real
+ *   set + case ids and a weighted score.
+ * - For simple problems, emits flat `caseResults`.
+ * - `compile_error` short-circuits to an empty caseResults blob with the
+ *   compiler text as feedback.
+ */
+export function buildVerdictDetail(args: {
+  verdict: LongVerdict;
+  language: SeedLanguage;
+  testcases: ProblemTestcases;
+  rng: SeededRng;
+}): { detail: SubmissionResult; score: number; runtimeMs: number; memoryKb: number } {
+  const { verdict, language, testcases, rng } = args;
+
+  if (verdict === "compile_error") {
+    const detail: SubmissionResult = {
+      accepted: false,
+      caseResults: [],
+      feedback: COMPILER_OUTPUT[language],
+      runtimeMs: 0,
+      score: 0,
+      verdict: "compile_error",
+    };
+    return { detail, score: 0, runtimeMs: 0, memoryKb: 0 };
+  }
+
+  const shortFail = verdict === "accepted" ? "AC" : LONG_TO_SHORT[verdict];
+  const useSubtasks = testcases.sets.length > 1;
+
+  if (useSubtasks) {
+    // Decide how many leading subtasks pass. AC => all pass; otherwise pass a
+    // deterministic prefix so partial credit is exercised.
+    const totalSets = testcases.sets.length;
+    const passingSets =
+      verdict === "accepted" ? totalSets : rng.int(0, Math.max(0, totalSets - 1));
+
+    const totalWeight = testcases.sets.reduce((sum, s) => sum + s.weight, 0) || 1;
+    let earnedWeight = 0;
+    let maxRuntime = 0;
+    let maxMemory = 0;
+
+    const subtaskResults: SubtaskResultItem[] = testcases.sets.map((set, setIndex) => {
+      const passed = setIndex < passingSets;
+      if (passed) earnedWeight += set.weight;
+
+      // Within a failing subtask, fail exactly one case with the verdict's
+      // short code; the rest are AC so the demo shows a precise failure point.
+      const failCaseIndex = passed ? -1 : rng.int(0, Math.max(0, set.testcaseIds.length - 1));
+      const cases: CaseResult[] = set.testcaseIds.map((tcId, i) => {
+        const cv: ShortVerdict = i === failCaseIndex ? shortFail : "AC";
+        const cr = caseResult(i, cv, rng, tcId);
+        maxRuntime = Math.max(maxRuntime, cr.timeMs);
+        if (cr.memoryKb !== undefined) maxMemory = Math.max(maxMemory, cr.memoryKb);
+        return cr;
+      });
+
+      return {
+        cases,
+        label: set.name,
+        passed,
+        testcaseSetId: set.testcaseSetId,
+        weight: set.weight,
+      };
+    });
+
+    const score = verdict === "accepted" ? 100 : Math.round((earnedWeight / totalWeight) * 100);
+    const accepted = verdict === "accepted";
+
+    const detail: SubmissionResult = {
+      accepted,
+      feedback: accepted ? FEEDBACK.accepted : FEEDBACK[verdict],
+      runtimeMs: maxRuntime,
+      memoryKb: maxMemory,
+      score,
+      subtaskResults,
+      verdict,
+    };
+    return { detail, score, runtimeMs: maxRuntime, memoryKb: maxMemory };
+  }
+
+  // Flat (non-subtask) problem: one caseResult per known testcase id, or a
+  // small fabricated count when no testcases were loaded.
+  const ids =
+    testcases.flatTestcaseIds.length > 0
+      ? testcases.flatTestcaseIds
+      : Array.from({ length: 4 }, () => undefined);
+  const failIndex = verdict === "accepted" ? -1 : rng.int(0, ids.length - 1);
+
+  let maxRuntime = 0;
+  let maxMemory = 0;
+  const caseResults: CaseResult[] = ids.map((tcId, i) => {
+    const cv: ShortVerdict = i === failIndex ? shortFail : "AC";
+    const cr = caseResult(i, cv, rng, tcId);
+    maxRuntime = Math.max(maxRuntime, cr.timeMs);
+    if (cr.memoryKb !== undefined) maxMemory = Math.max(maxMemory, cr.memoryKb);
+    return cr;
+  });
+
+  const accepted = verdict === "accepted";
+  const score = accepted ? 100 : 0;
+
+  const detail: SubmissionResult = {
+    accepted,
+    caseResults,
+    feedback: accepted ? FEEDBACK.accepted : FEEDBACK[verdict],
+    runtimeMs: maxRuntime,
+    memoryKb: maxMemory,
+    score,
+    verdict,
+  };
+  return { detail, score, runtimeMs: maxRuntime, memoryKb: maxMemory };
+}
