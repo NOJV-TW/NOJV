@@ -1,6 +1,6 @@
 FROM node:26-alpine AS builder
 
-RUN corepack enable
+RUN npm install -g pnpm@10.33.0
 
 WORKDIR /build
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
