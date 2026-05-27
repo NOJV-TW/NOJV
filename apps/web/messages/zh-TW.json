@@ -139,6 +139,8 @@
   "admin_envNone": "尚未設定。",
   "admin_envRemove": "移除環境變數",
   "admin_envVars": "環境變數",
+  "admin_downloadStarter": "下載範本專案",
+  "admin_downloadStarterHint": "可直接建置的 zip:改 grader.py、執行 docker build,然後上傳即可。",
   "admin_exampleDockerfile": "範例 Dockerfile",
   "admin_exampleGrader": "範例 grader.py",
   "admin_exitCodeWarning": "Exit code 非 0 → runtime_error；缺少 {file} 或格式錯誤 → SE。",

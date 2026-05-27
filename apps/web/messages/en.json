@@ -139,6 +139,8 @@
   "admin_envNone": "None configured.",
   "admin_envRemove": "Remove env var",
   "admin_envVars": "Environment variables",
+  "admin_downloadStarter": "Download starter project",
+  "admin_downloadStarterHint": "A ready-to-build zip: edit grader.py, run docker build, then upload.",
   "admin_exampleDockerfile": "Example Dockerfile",
   "admin_exampleGrader": "Example grader.py",
   "admin_exitCodeWarning": "Non-zero exit code → runtime_error; missing {file} or invalid format → SE.",

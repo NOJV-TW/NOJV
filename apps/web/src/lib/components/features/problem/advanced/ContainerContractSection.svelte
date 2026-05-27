@@ -61,11 +61,21 @@ OUTPUT.write_text(json.dumps({
 </script>
 
 <section class="space-y-4">
-  <header class="space-y-1">
-    <h3 class="text-body-lg font-semibold">{m.admin_containerContract()}</h3>
-    <p class="text-body-sm text-muted-foreground">
-      {m.admin_containerContractHint()}
-    </p>
+  <header class="flex items-start justify-between gap-4">
+    <div class="space-y-1">
+      <h3 class="text-body-lg font-semibold">{m.admin_containerContract()}</h3>
+      <p class="text-body-sm text-muted-foreground">
+        {m.admin_containerContractHint()}
+      </p>
+    </div>
+    <a
+      href="/api/problems/advanced-scaffold"
+      download
+      class="shrink-0 rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
+      title={m.admin_downloadStarterHint()}
+    >
+      {m.admin_downloadStarter()}
+    </a>
   </header>
 
   <div class="grid gap-4 md:grid-cols-2">

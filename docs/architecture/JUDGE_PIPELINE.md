@@ -140,6 +140,17 @@ Advanced Mode containers run with `--network none`, `--cap-drop ALL`, `--securit
 
 **Only the Docker executor runs advanced containers.** Advanced dispatch lives in `apps/worker/src/services/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`). The Kubernetes executor explicitly rejects advanced-mode requests: `K8sExecutor.execute` in `apps/worker/src/services/k8s-executor.ts` short-circuits with an `SE` verdict — the learner sees a neutral _"Sandbox configuration error. Please contact your administrator."_ while the operator-facing reason ("switch to Docker backend") is logged at `error` level. Operators running advanced-mode problems must run the Docker backend.
 
+### Authoring an advanced judge image
+
+TAs don't hand-write the boilerplate. The problem edit page (Advanced settings → Container contract) has a **Download starter project** button that streams a self-contained zip; the route is `GET /api/problems/advanced-scaffold` (auth-gated, zips `apps/web/src/lib/server/advanced-scaffold/files/` on the fly with JSZip). The scaffold contains:
+
+- `Dockerfile` — `FROM python:3.12-slim`, bakes in `testcases/` + the grader code. There is no custom NOJV base image; the scaffold is fully self-contained (a published base image is a possible future ops follow-up).
+- `nojv_grader.py` — a stdlib-only helper the TA does **not** edit. It loads `meta.json`, exposes `submission_files()` / `submission_path(rel)`, runs the student program via `run_submission(cmd, stdin, timeout)` (which copies the submission into a `/tmp` dir and runs it there so the program can't read the baked-in `testcases/`), and `write_result(score, verdict, feedback, testcases)` which validates/normalizes verdicts and writes `output/result.json` in the canonical shape.
+- `grader.py` — the worked example the TA edits: read `testcases/case-*.json`, run each case, decide a per-case verdict, compute a 0–100 score, call `write_result(...)`.
+- `testcases/case-*.json`, `README.md`.
+
+Workflow: **download the scaffold → edit `grader.py` (and `testcases/`) → `docker build -t my-judge .` → upload** (either `docker save | gzip` a tarball and upload it as image source `tarball`, or push to a registry and paste the reference). Because the container runs with `--network none` and a read-only rootfs, every dependency and all test data must be baked into the image at build time — write only to `/workspace` and `/tmp`, and don't rely on the process exit code (only `result.json` is read). The canonical `result.json` verdicts are the long forms (`accepted`, `wrong_answer`, `time_limit_exceeded`, `memory_limit_exceeded`, `runtime_error`, `compile_error`) at the top level and the short codes (`AC`, `WA`, `TLE`, `MLE`, `RE`, `SE`) per testcase — `write_result` accepts either and normalizes.
+
 ## Problem types
 
 `Problem.type` drives the shape of the submission and how the judge pipeline assembles it:
