@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { ProblemSubmissionEntry } from "$lib/types";
   import { formatTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
   import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
-  import SubtaskResults from "./SubtaskResults.svelte";
+  import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
+  import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
   import { toasts } from "$lib/stores/toast";
 
   interface Props {
@@ -116,10 +117,7 @@
       </button>
 
       <div class="flex items-baseline gap-3">
-        <span
-          class="text-body-lg font-semibold {verdictColor[entry.result.verdict] ??
-            'text-foreground'}"
-        >
+        <span class="text-body-lg font-semibold {verdictTone(entry.result.verdict)}">
           {label}
         </span>
         {#if entry.result.runtimeMs > 0}
@@ -147,19 +145,11 @@
 
       {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
         <div class="mt-4">
-          <SubtaskResults subtaskResults={entry.result.subtaskResults} />
+          <SubtaskResultTree subtaskResults={entry.result.subtaskResults} />
         </div>
       {:else if entry.result.caseResults && entry.result.caseResults.length > 0}
-        <div class="mt-4 flex flex-wrap items-center gap-1">
-          {#each entry.result.caseResults as cr, i (`cr-${i}`)}
-            <span
-              class="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-caption font-medium {cr.passed
-                ? 'bg-success/15 text-success'
-                : 'bg-destructive/15 text-destructive'}"
-            >
-              {cr.passed ? "✔" : "✘"} Case {i + 1}
-            </span>
-          {/each}
+        <div class="mt-4">
+          <CaseResultGrid cases={entry.result.caseResults} />
         </div>
       {:else if entry.result.feedback}
         <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
@@ -190,10 +180,7 @@
           type="button"
         >
           <div class="flex items-baseline justify-between gap-3">
-            <span
-              class="text-body-sm font-semibold {verdictColor[entry.result.verdict] ??
-                'text-foreground'}"
-            >
+            <span class="text-body-sm font-semibold {verdictTone(entry.result.verdict)}">
               {label}
             </span>
             <span class="text-caption text-muted-foreground tabular-nums">

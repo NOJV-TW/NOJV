@@ -3,7 +3,7 @@
   import { Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
 
   interface RunCase {
     input: string;
@@ -218,10 +218,7 @@
         {#if runResult}
           <div>
             <div class="flex items-baseline gap-3">
-              <span
-                class="text-body-lg font-semibold {verdictColor[runResult.verdict] ??
-                  'text-foreground'}"
-              >
+              <span class="text-body-lg font-semibold {verdictTone(runResult.verdict)}">
                 {runVerdictLabel}
               </span>
               {#if runResult.runtimeMs > 0}
@@ -242,8 +239,8 @@
                     onclick={() => (selectedResultCase = index)}
                     type="button"
                   >
-                    <span class={cr.passed ? "text-success" : "text-destructive"}>
-                      {cr.passed ? "\u2714" : "\u2718"}
+                    <span class={cr.verdict === "AC" ? "text-success" : "text-destructive"}>
+                      {cr.verdict === "AC" ? "\u2714" : "\u2718"}
                     </span>
                     {m.editor_case({ index: index + 1 })}
                   </button>

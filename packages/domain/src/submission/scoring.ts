@@ -4,7 +4,7 @@ import { applyAdjustmentRules } from "./adjustments";
 import type { SubmissionJudgeContext, TestcaseSetGroup, SubtaskStrategyMap } from "./types";
 
 export interface SubtaskResultItem {
-  cases: { ordinal: number; runtimeMs: number; testcaseId: string; verdict: string }[];
+  cases: { index: number; verdict: string; timeMs: number; testcaseId: string; memoryKb?: number }[];
   label: string;
   passed: boolean;
   rawScore: number;
@@ -42,10 +42,13 @@ export function buildSubtaskResults(
       const sandboxCase = result.testcaseResults[flatIndex++];
       const verdict = sandboxCase?.verdict ?? "SE";
       cases.push({
-        ordinal,
-        runtimeMs: sandboxCase?.timeMs ?? 0,
-        testcaseId: ts.testcases[ordinal]?.id ?? "",
+        index: ordinal,
         verdict,
+        timeMs: sandboxCase?.timeMs ?? 0,
+        testcaseId: ts.testcases[ordinal]?.id ?? "",
+        ...(sandboxCase?.memoryKb !== undefined && sandboxCase.memoryKb > 0
+          ? { memoryKb: sandboxCase.memoryKb }
+          : {}),
       });
       caseScores.push(sandboxCase?.score ?? (verdict === "AC" ? 100 : 0));
     }
@@ -89,7 +92,7 @@ export function mapResult(
 ): SubmissionResult {
   const caseResults = result.testcaseResults.map((t) => ({
     index: t.index,
-    passed: t.verdict === "AC",
+    verdict: t.verdict,
     ...(t.stderr ? { stderr: t.stderr } : {}),
     stdout: t.stdout,
     timeMs: t.timeMs,

@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { ArrowLeft, Check, Copy, Download, X } from "@lucide/svelte";
+  import { ArrowLeft, Check, Copy, Download } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
+  import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
 
   let { data } = $props();
 
@@ -11,7 +13,7 @@
   const result = $derived(submission.result);
   const verdict = $derived(result?.verdict ?? submission.status);
   const verdictLabel = $derived(formatVerdictLabel(verdict));
-  const verdictClass = $derived(verdictColor[verdict] ?? "text-foreground");
+  const verdictClass = $derived(verdictTone(verdict));
   const isPending = $derived(
     verdict === "queued" || verdict === "compiling" || verdict === "running",
   );
@@ -22,14 +24,6 @@
 
   const caseResults = $derived(result?.caseResults ?? []);
   const subtaskResults = $derived(result?.subtaskResults ?? []);
-
-  // Per the redesign decision: stdout is only revealed on sample-only runs.
-  // Graded submissions show case pills as a verdict overview only.
-  const allowCaseExpand = $derived(submission.sampleOnly === true);
-  let expandedCaseIndex = $state<number | null>(null);
-  const expandedCase = $derived(
-    expandedCaseIndex !== null ? caseResults[expandedCaseIndex] : null,
-  );
 
   const backTarget = $derived.by(() => {
     const ctx = submission.context;
@@ -102,12 +96,6 @@
   function formatMemory(kb: number): string {
     if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
     return `${String(kb)} KB`;
-  }
-
-  function casePillClass(passed: boolean): string {
-    return passed
-      ? "border-success/40 bg-success/10 text-success"
-      : "border-destructive/40 bg-destructive/10 text-destructive";
   }
 </script>
 
@@ -265,33 +253,7 @@
           <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_subtasks()}
           </h2>
-          <div class="flex flex-col gap-1.5">
-            {#each subtaskResults as st, idx (`st-${idx}-${st.testcaseSetId}`)}
-              <div
-                class="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2"
-              >
-                <div class="flex min-w-0 items-center gap-2">
-                  <span
-                    class="flex size-5 shrink-0 items-center justify-center rounded-full {st.passed
-                      ? 'bg-success/15 text-success'
-                      : 'bg-destructive/15 text-destructive'}"
-                  >
-                    {#if st.passed}
-                      <Check class="size-3" />
-                    {:else}
-                      <X class="size-3" />
-                    {/if}
-                  </span>
-                  <span class="truncate text-body-sm font-medium text-foreground"
-                    >{st.label}</span
-                  >
-                </div>
-                <span class="shrink-0 text-caption text-muted-foreground tabular-nums">
-                  {m.submissionDetail_subtaskWeight({ weight: st.weight })} · {st.cases.length}
-                </span>
-              </div>
-            {/each}
-          </div>
+          <SubtaskResultTree {subtaskResults} />
         </div>
       {/if}
 
@@ -301,65 +263,7 @@
           <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_perCaseBreakdown()}
           </h2>
-          <div class="flex flex-wrap gap-1.5">
-            {#each caseResults as cr, idx (`cr-${idx}`)}
-              {@const cls = casePillClass(cr.passed)}
-              {@const interactive = allowCaseExpand && cr.stdout.length > 0}
-              {#if interactive}
-                <button
-                  class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums transition-[background-color] duration-fast {cls} {expandedCaseIndex ===
-                  idx
-                    ? 'ring-1 ring-foreground/30'
-                    : 'hover:brightness-110'}"
-                  onclick={() =>
-                    (expandedCaseIndex = expandedCaseIndex === idx ? null : idx)}
-                  type="button"
-                >
-                  #{idx + 1}
-                  <span class="text-muted-foreground">·</span>
-                  {cr.timeMs}ms
-                  {#if cr.memoryKb && cr.memoryKb > 0}
-                    <span class="text-muted-foreground">·</span>
-                    {formatMemory(cr.memoryKb)}
-                  {/if}
-                </button>
-              {:else}
-                <span
-                  class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums {cls}"
-                >
-                  #{idx + 1}
-                  <span class="text-muted-foreground">·</span>
-                  {cr.timeMs}ms
-                  {#if cr.memoryKb && cr.memoryKb > 0}
-                    <span class="text-muted-foreground">·</span>
-                    {formatMemory(cr.memoryKb)}
-                  {/if}
-                </span>
-              {/if}
-            {/each}
-          </div>
-
-          {#if allowCaseExpand && expandedCase}
-            <div class="mt-2 flex flex-col gap-2">
-              <div>
-                <p class="text-caption font-medium text-muted-foreground">
-                  {m.submissionDetail_caseStdout()}
-                </p>
-                <pre
-                  class="mt-1 max-h-48 overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.stdout ||
-                    m.common_emptyOutput()}</pre>
-              </div>
-              {#if expandedCase.stderr}
-                <div>
-                  <p class="text-caption font-medium text-destructive">
-                    {m.submissionDetail_stderr()}
-                  </p>
-                  <pre
-                    class="mt-1 max-h-48 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{expandedCase.stderr}</pre>
-                </div>
-              {/if}
-            </div>
-          {/if}
+          <CaseResultGrid cases={caseResults} allowExpand={submission.sampleOnly} />
         </div>
       {:else if result && !isPending}
         <p

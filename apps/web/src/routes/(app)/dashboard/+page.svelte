@@ -4,7 +4,7 @@
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
-  import { Badge } from "$lib/components/primitives/ui/badge";
+  import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
@@ -16,7 +16,6 @@
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { buildActivityModel } from "$lib/utils/activity";
-  import type { BadgeVariant } from "$lib/components/primitives/ui/badge";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
@@ -217,29 +216,6 @@
       }
     ]
   });
-
-  function verdictToBadgeVariant(status: string): BadgeVariant {
-    switch (status) {
-      case "accepted":
-        return "verdict-ac";
-      case "wrong_answer":
-        return "verdict-wa";
-      case "time_limit_exceeded":
-        return "verdict-tle";
-      case "memory_limit_exceeded":
-        return "verdict-mle";
-      case "runtime_error":
-        return "verdict-re";
-      case "compile_error":
-        return "verdict-ce";
-      case "queued":
-      case "compiling":
-      case "running":
-        return "verdict-pending";
-      default:
-        return "muted";
-    }
-  }
 
   function timeAgo(date: Date | string): string {
     const now = Date.now();
@@ -464,9 +440,7 @@
             >
               {timeAgo(sub.createdAt)}
             </time>
-            <Badge variant={verdictToBadgeVariant(sub.status)} size="sm">
-              {formatVerdictLabel(sub.status)}
-            </Badge>
+            <VerdictBadge verdict={sub.status} />
             <a
               href="/problems/{sub.problem.id}"
               class="truncate hover:underline"

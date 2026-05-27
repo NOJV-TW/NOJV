@@ -4,7 +4,7 @@
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { formatDateTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
+  import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
 
   let { data } = $props();
 </script>
@@ -32,7 +32,6 @@
   {:else}
     <div class="grid gap-2">
       {#each data.submissions as sub (sub.id)}
-        {@const label = formatVerdictLabel(sub.status)}
         <a
           class="rounded-md border border-border-subtle px-4 py-3 transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-rest"
           href="/problems/{sub.problemId}"
@@ -46,9 +45,7 @@
             </span>
           </div>
           <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
-            <span class={verdictColor[sub.status] ?? "text-foreground"}>
-              {label}
-            </span>
+            <VerdictBadge verdict={sub.status} />
             <span>{sub.language}</span>
             <span class="tabular-nums">{sub.score}/100</span>
             {#if sub.runtimeMs && sub.runtimeMs > 0}
