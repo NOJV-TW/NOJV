@@ -9,11 +9,14 @@ import {
   type TestcaseFiles,
   type TestcaseMeta,
   type TestcaseResult,
+  type ValidateOutput,
+  type ValidatorCaseOutcome,
 } from "./types.js";
-import { compile, compileChecker, sourceFileName } from "./compiler.js";
+import { compile, compileChecker, compileValidator, sourceFileName } from "./compiler.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import { judgeInteractive } from "./judges/interactive.js";
+import { validateCase, validatorTimeoutMs } from "./judges/validate.js";
 import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
@@ -206,6 +209,65 @@ function emit(overrides: Partial<SandboxOutput>): void {
   process.stdout.write(JSON.stringify(output));
 }
 
+/** Write a ValidateOutput to stdout. */
+function emitValidate(output: ValidateOutput): void {
+  process.stdout.write(JSON.stringify(output));
+}
+
+/**
+ * Validate phase: run an isolated DOMjudge output validator over each case's
+ * captured solution output. No student code is present in this container — only
+ * the validator source and the per-case input/answer/team files written by the
+ * worker under /submission/cases/{index}/.
+ */
+async function runValidate(workDir: string, config: SandboxInput): Promise<void> {
+  const validate = config.validate;
+  if (!validate) {
+    emitValidate({ compilationError: "Validate phase invoked without a validate block." });
+    return;
+  }
+
+  const validatorPath = await findScript("validator");
+  if (!validatorPath) {
+    emitValidate({ compilationError: "Validate phase requires a validator script." });
+    return;
+  }
+
+  log("Compiling validator...");
+  const compiled = await compileValidator(validatorPath, validate.language, workDir);
+  if (!compiled.success) {
+    emitValidate({ compilationError: `Validator compilation failed: ${compiled.error}` });
+    return;
+  }
+
+  const casesDir = path.join(SUBMISSION_DIR, "cases");
+  const timeoutMs = validatorTimeoutMs(config.limits.timeoutMs);
+  const validatorOutcomes: ValidatorCaseOutcome[] = [];
+
+  for (const { index } of validate.cases) {
+    const caseDir = path.join(casesDir, String(index));
+    const inputFile = path.join(caseDir, "input.txt");
+    const answerFile = path.join(caseDir, "answer.txt");
+    const teamOutput = await fs
+      .readFile(path.join(caseDir, "team.txt"), "utf-8")
+      .catch(() => "");
+
+    const feedbackDir = await fs.mkdtemp(path.join(workDir, `fb-${String(index)}-`));
+    log(`Validating case ${String(index)}...`);
+    const outcome = await validateCase(
+      compiled.runCommand,
+      { inputFile, answerFile, teamOutput },
+      feedbackDir,
+      index,
+      timeoutMs,
+    );
+    validatorOutcomes.push(outcome);
+    log(`Case ${String(index)}: ${outcome.verdict}`);
+  }
+
+  emitValidate({ validatorOutcomes });
+}
+
 async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   await materializeConfiguredSources(config, workDir);
 
@@ -309,7 +371,11 @@ async function main(): Promise<void> {
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   try {
-    await runJudge(workDir, config);
+    if (config.validate) {
+      await runValidate(workDir, config);
+    } else {
+      await runJudge(workDir, config);
+    }
   } finally {
     await cleanupTempDir(workDir);
   }

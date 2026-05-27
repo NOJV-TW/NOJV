@@ -47,6 +47,16 @@ export const SandboxInputSchema = z.object({
   }),
   checkerLanguage: judgeScriptLanguageSchema.optional(),
   interactorLanguage: judgeScriptLanguageSchema.optional(),
+  // When present the runner skips the run phase entirely and instead runs an
+  // isolated DOMjudge output validator over the solution's already-captured
+  // output. The validator container has NO student code — only the validator
+  // source and the per-case input/answer/team files under /submission/cases/.
+  validate: z
+    .object({
+      language: judgeScriptLanguageSchema,
+      cases: z.array(z.object({ index: z.number() })).max(2000),
+    })
+    .optional(),
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
@@ -111,3 +121,24 @@ export const SandboxOutputSchema = z.object({
   customScore: z.number().optional(),
   scoringFeedback: z.string().optional(),
 });
+
+// Per-case outcome emitted by the isolated validate container. Carries the
+// DOMjudge verdict + optional score/messages from `parseValidatorFeedback`.
+const validatorCaseOutcomeSchema = z.object({
+  index: z.number(),
+  verdict: z.enum(["AC", "WA", "SE"]),
+  score: z.number().optional(),
+  teamMessage: z.string().optional(),
+  judgeMessage: z.string().optional(),
+});
+
+export type ValidatorCaseOutcome = z.infer<typeof validatorCaseOutcomeSchema>;
+
+// Shape the validate container emits on stdout. A `compilationError` is set
+// when the validator itself fails to compile/prepare.
+export const ValidateOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  validatorOutcomes: z.array(validatorCaseOutcomeSchema).optional(),
+});
+
+export type ValidateOutput = z.infer<typeof ValidateOutputSchema>;
