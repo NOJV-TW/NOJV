@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  checkerKey,
   createStorageClient,
+  interactorKey,
   putText,
   testcaseInputKey,
   testcaseOutputKey,
@@ -166,6 +168,31 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
 // Shape of the S3 client subset used by `putText`. Allowing injection lets
 // the dry-run validator stub S3 without requiring real S3 env vars.
 export type SeedStorageClient = { send: (command: unknown) => Promise<unknown> };
+
+// Move checker/interactor script bodies to object storage and return the
+// judgeConfig to persist — type + *Language + the storage key, never the
+// body. Mirrors saveProblemJudgeConfig in the production domain layer.
+async function persistJudgeConfig(
+  storage: SeedStorageClient,
+  problemId: string,
+  judgeConfig: Record<string, unknown> | undefined,
+): Promise<Record<string, unknown> | undefined> {
+  if (!judgeConfig) return undefined;
+  const client = storage as ReturnType<typeof createStorageClient>;
+  const { checkerScript, interactorScript, ...rest } = judgeConfig;
+
+  if (rest.type === "checker" && typeof checkerScript === "string") {
+    const key = checkerKey(problemId);
+    await putText(client, key, checkerScript);
+    return { ...rest, checkerKey: key };
+  }
+  if (rest.type === "interactive" && typeof interactorScript === "string") {
+    const key = interactorKey(problemId);
+    await putText(client, key, interactorScript);
+    return { ...rest, interactorKey: key };
+  }
+  return rest;
+}
 
 export async function seedProblems(
   prisma: PrismaClient,
@@ -1211,12 +1238,17 @@ wrong(f"failed to find {secret} in {max_turns} turns")
   validateProblemDefinitions(problemDefs);
 
   for (const def of problemDefs) {
+    // Validator script bodies move to object storage; the persisted
+    // judgeConfig keeps only the storage key. Upload first (S3 before DB),
+    // same flow as the production save path.
+    const judgeConfig = await persistJudgeConfig(storage, def.id, def.judgeConfig);
+
     const sharedFields = {
       title: def.title,
       difficulty: pickSeedDifficulty(def.tags),
       tags: stripDifficultyTags(def.tags),
       type: def.type,
-      judgeConfig: def.judgeConfig ?? undefined,
+      judgeConfig,
       status: def.status ?? "published",
       samples: toSamplesJson(def.samples),
       advancedImageRef: def.advancedImageRef ?? null,
