@@ -2,6 +2,13 @@ import { compareStandard, type RawCaseRun } from "@nojv/core";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
 import { runProcess, classifySolutionVerdict, type RunProcessResult } from "./run-process.js";
 
+// CPU-time rlimit headroom over the wall-clock limit: a solution that legitimately
+// uses every millisecond of wall time should not be CPU-killed first. The rlimit is
+// belt-and-braces against a process that escapes the wall-clock SIGKILL.
+function solutionCpuSeconds(timeoutMs: number): number {
+  return Math.ceil(timeoutMs / 1000) + 1;
+}
+
 /**
  * Build a raw (undecided) run from a completed process result. Sets
  * `errorVerdict` only when the run failed (TLE/MLE/RE/SE) — AC/WA is decided
@@ -42,6 +49,7 @@ export async function runSolution(
   const result = await runProcess(runCommand, {
     stdin: testcase.input,
     timeoutMs,
+    cpuSeconds: solutionCpuSeconds(timeoutMs),
     ...(env ? { env } : {}),
   });
   return toRawCaseRun(result, testcase.index);
@@ -58,7 +66,11 @@ export async function judgeStandard(
   testcase: TestcaseFiles,
   timeoutMs: number,
 ): Promise<TestcaseResult> {
-  const result = await runProcess(runCommand, { stdin: testcase.input, timeoutMs });
+  const result = await runProcess(runCommand, {
+    stdin: testcase.input,
+    timeoutMs,
+    cpuSeconds: solutionCpuSeconds(timeoutMs),
+  });
 
   const errorVerdict = classifySolutionVerdict(result, testcase.index);
   if (errorVerdict) return errorVerdict;

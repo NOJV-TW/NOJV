@@ -19,7 +19,12 @@ export interface RunProcessResult {
  */
 export function runProcess(
   command: string[],
-  options: { stdin?: string; timeoutMs: number; env?: Record<string, string> },
+  options: {
+    stdin?: string;
+    timeoutMs: number;
+    env?: Record<string, string>;
+    cpuSeconds?: number;
+  },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -41,7 +46,16 @@ export function runProcess(
 
     const useStdin = options.stdin !== undefined;
 
-    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const wrapped = withProcessLimit(
+      [cmd, ...args],
+      options.cpuSeconds !== undefined ? { cpuSeconds: options.cpuSeconds } : undefined,
+    );
+    // When the command is bash-wrapped (ulimit), a missing/non-executable
+    // target fails inside the wrapper instead of at spawn() — bash prints
+    // `exec: …: cannot execute` and exits 126/127. Treat that as a launch
+    // failure (SE), not a student RE; the signature is unique to the wrapper.
+    const isWrapped = wrapped[0] === "bash";
+    const [wrappedCmd, ...wrappedArgs] = wrapped;
     const proc = spawn(wrappedCmd!, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
       timeout: options.timeoutMs,
@@ -80,16 +94,19 @@ export function runProcess(
       // and the SIGKILL fallback are the authoritative cut-offs.
       const elapsedMs = performance.now() - startTime;
       const memoryKb = memoryPoller?.stop() ?? 0;
+      const rawStderr = stderrBuf.toString();
+      const execFailed = isWrapped && /exec: .*: cannot execute/.test(rawStderr);
+      const stderr = execFailed ? `Failed to spawn process: ${rawStderr}` : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
-        stderr: stderrBuf.toString(),
+        stderr,
         exitCode: code ?? -1,
         timeMs: Math.round(elapsedMs),
         memoryKb,
         timedOut:
           forceKilledViaFallbackTimer || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
         signal,
-        spawnError: false,
+        spawnError: execFailed,
       });
     });
 

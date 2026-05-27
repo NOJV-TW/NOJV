@@ -18,4 +18,14 @@ describe("runProcess env forwarding", () => {
     );
     expect(result.stdout).toBe("unset");
   });
+
+  it("reports a launch failure (spawnError) when a bash-wrapped command cannot exec", async () => {
+    // cpuSeconds forces the bash ulimit wrapper; a missing binary fails inside
+    // it (exit 126/127) rather than at spawn(). Must still surface as SE-able.
+    const result = await runProcess(["/nonexistent/binary"], {
+      timeoutMs: 5_000,
+      cpuSeconds: 3,
+    });
+    expect(result.spawnError).toBe(true);
+  });
 });
