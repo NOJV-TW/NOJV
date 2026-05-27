@@ -16,10 +16,15 @@
 - ✅ **Phase 1** — done & reviewed; **security invariant verified by a real-Docker exploit test** (`a281f8d1`…`efcd258b`). Standard-mode answers no longer reach the student container; AC/WA computed worker-side; `runtime.env` wired through.
 - ✅ **Infra fix** (`6ed3a95b`) — `corepack enable` → `pnpm install` across all 4 Dockerfiles (node:26 dropped corepack; was blocking `pnpm sandbox:build`).
 - ✅ **Task 2.1** — done (`5e13a6ea`). DOMjudge validator protocol primitives in `@nojv/core`.
-- ⬜ **Phase 2 remainder** (2.2–2.9) — checker/interactive isolation, validator container, message split, remove testlib, K8s parity, migration. **Large atomic unit — NOT yet started.** Checker/interactive currently still run in-container on the OLD protocol (still expose answers — known, tracked here).
+- ✅ **Phase 2B** (checker isolation + validator container) — done & reviewed; **real-Docker verified** (`8404c1b7`…`95c640b0`). Checker runs isolated; validator runs in a separate hardened container; exploit reading validator/answer does NOT get AC.
+- ✅ **Phase 2C** (interactive isolation, two containers + worker byte proxy) — done & reviewed; **real-Docker verified** (`878c39e5`…`c7ce5faf`). Secret mounted only into the interactor container; guessing-game AC/WA + exploit verified.
+- ✅ **Phase 2D** (remove testlib + legacy code + DOMjudge examples/i18n/docs) — done (`94268172`…`17833458`). testlib gone from image; TA examples + JUDGE_PIPELINE rewritten for DOMjudge.
+- ⬜ **Task 2.7** (staff/student message split — surface validator `judgeMessage` to staff) — DEFERRED as a UX follow-up. Currently `teamMessage`→student `feedback`; `judgeMessage` is dropped (never leaks to students). Not blocking.
+- ⬜ **Task 2.8** (full K8s parity for checker/interactive) — DEFERRED. Interim: K8s `execute` fail-fasts (SE + operator log) for checker/interactive, like advanced mode. **Checker + interactive + advanced are Docker-backend-only** until K8s parity (tracked with Phase 5b).
+- ⬜ **Task 2.9** (re-author demo seed checker/interactive to DOMjudge + re-seed) — pending. Existing seed scripts use the OLD protocol and will fail-closed to SE until re-authored.
 - ⬜ **Phases 3, 4, 5** — not started.
 
-**Recommended next:** merge the verified Phase 0+1+infra increment independently (urgent security fix should not wait behind the larger rework), then execute Phase 2 as a focused effort with real-Docker iteration. Branch is green: `pnpm typecheck`/`pnpm lint` pass, 919 unit tests pass.
+**Status:** Phases 0, 1, 2 (core) + infra fix complete and verified (real-Docker for the security-critical parts). Branch green. Remaining: 2.9 re-seed, Phase 3 (scripts→MinIO), Phase 4 (TA base image + zip), Phase 5a (advanced hardening). Deferred (documented): 2.7 message split, 2.8/5b full K8s parity for checker/interactive/advanced.
 
 ---
 
