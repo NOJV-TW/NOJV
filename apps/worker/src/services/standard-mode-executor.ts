@@ -9,6 +9,7 @@ import {
   type RawCaseRun,
   type SandboxRequest,
   type SandboxResult,
+  type ValidatorOutcome,
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
@@ -85,7 +86,7 @@ async function resolveCheckerResult(
           cases,
           limits: { timeoutMs: request.limits.timeoutMs, memoryMb: request.limits.memoryMb },
         })
-      : new Map();
+      : new Map<number, ValidatorOutcome>();
 
   return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
 }

@@ -66,10 +66,10 @@ const validateOutputSchema = z
   })
   .refine((v) => v.compilationError !== undefined || v.validatorOutcomes !== undefined);
 
-export type ValidateOutput = {
+export interface ValidateOutput {
   compilationError?: string;
   validatorOutcomes?: (ValidatorOutcome & { index: number })[];
-};
+}
 
 export function parseValidateOutput(
   data: unknown,

@@ -208,7 +208,7 @@ export async function runValidator(
   });
 
   const seForAll = (): Map<number, ValidatorOutcome> =>
-    new Map(params.cases.map((c) => [c.index, { verdict: "SE" } as ValidatorOutcome]));
+    new Map(params.cases.map((c): [number, ValidatorOutcome] => [c.index, { verdict: "SE" }]));
 
   if (result.timedOut || result.exitCode !== 0) return seForAll();
 
