@@ -20,6 +20,7 @@
     "test:all": "pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "typecheck": "turbo typecheck",
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
+    "demo-judge:build": "docker build -t nojv-demo-judge-shell:local infra/docker/demo-judge-shell",
     "grafana:provision": "node --env-file=.env --import tsx infra/grafana/provision.ts",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
