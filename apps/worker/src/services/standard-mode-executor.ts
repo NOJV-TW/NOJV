@@ -15,6 +15,7 @@ import {
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
 import { runValidator, type ValidatorCase } from "./validator-executor";
@@ -33,6 +34,14 @@ export async function runStandardMode(
   request: SandboxRequest,
   config: StandardModeConfig,
 ): Promise<SandboxResult> {
+  // Interactive mode runs the solution and the DOMjudge interactor in two
+  // SEPARATE isolated containers wired by a worker byte proxy — the secret
+  // input/answer is mounted only into the interactor container. It has its own
+  // launch path (per-case container pairs) and does not use the run container.
+  if (request.judgeType === "interactive") {
+    return await runInteractiveMode(request, config);
+  }
+
   await writeSubmissionFiles(tempDir, request);
   const runResult = await runContainer(tempDir, request, config);
 

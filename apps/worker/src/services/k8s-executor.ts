@@ -90,6 +90,19 @@ export class K8sExecutor implements SandboxExecutor {
       );
     }
 
+    // Interactive mode requires a live cross-container stdio pipe between the
+    // solution and interactor containers (Phase 2C), proxied by the worker.
+    // That is not feasible through the K8s Job API — fail fast instead of
+    // grading incorrectly. Operator-facing detail goes to the worker log.
+    if (request.judgeType === "interactive") {
+      logger.error("K8s executor refused interactive submission — switch to Docker backend", {
+        submissionId: request.submissionId,
+      });
+      return sandboxSystemError(
+        "Sandbox configuration error. Please contact your administrator.",
+      );
+    }
+
     const jobName = `judge-${request.submissionId}`;
     const ns = this.config.namespace;
 
