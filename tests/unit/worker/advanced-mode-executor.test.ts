@@ -41,4 +41,17 @@ describe("buildAdvancedDockerArgs", () => {
     expect(args).toContain("/tmp/job/workspace:/workspace");
     expect(args[args.length - 1]).toBe("ta-image:latest");
   });
+
+  it("mounts the rootfs read-only with a writable /tmp tmpfs", () => {
+    const args = buildAdvancedDockerArgs(base);
+    expect(args).toContain("--read-only");
+    const i = args.indexOf("/tmp:rw,exec,nosuid,nodev,size=64m");
+    expect(i).toBeGreaterThan(0);
+    expect(args[i - 1]).toBe("--tmpfs");
+  });
+
+  it("does not pass --user (TA images manage their own user)", () => {
+    const args = buildAdvancedDockerArgs(base);
+    expect(args).not.toContain("--user");
+  });
 });
