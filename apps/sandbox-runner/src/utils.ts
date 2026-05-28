@@ -90,13 +90,28 @@ export interface BoundedBuffer {
  * Uses `bash -c 'ulimit -u N; exec "$@"' --` rather than `prlimit(1)` to
  * avoid pulling util-linux into the Alpine image; bash is already present
  * for shell-invoked toolchains.
+ *
+ * `opts.cpuSeconds` additionally sets `ulimit -t` (RLIMIT_CPU) as a CPU-time
+ * cap on the solution run — defence-in-depth alongside the wall-clock timeout.
+ * Unlike the nproc cap this is not env-gated: it bounds the spawned process
+ * tree's CPU usage, not a per-UID system-wide limit, so it is safe on dev/CI.
  */
-export function withProcessLimit(command: string[]): string[] {
-  const raw = process.env.SANDBOX_NPROC_LIMIT;
-  if (!raw) return command;
-  const nproc = Number(raw);
-  if (!Number.isFinite(nproc) || nproc <= 0) return command;
-  return ["bash", "-c", `ulimit -u ${String(nproc)}; exec "$@"`, "--", ...command];
+export function withProcessLimit(command: string[], opts?: { cpuSeconds?: number }): string[] {
+  const limits: string[] = [];
+
+  const rawNproc = process.env.SANDBOX_NPROC_LIMIT;
+  if (rawNproc) {
+    const nproc = Number(rawNproc);
+    if (Number.isFinite(nproc) && nproc > 0) limits.push(`ulimit -u ${String(nproc)}`);
+  }
+
+  const cpuSeconds = opts?.cpuSeconds;
+  if (cpuSeconds !== undefined && Number.isFinite(cpuSeconds) && cpuSeconds > 0) {
+    limits.push(`ulimit -t ${String(Math.ceil(cpuSeconds))}`);
+  }
+
+  if (limits.length === 0) return command;
+  return ["bash", "-c", `${limits.join("; ")}; exec "$@"`, "--", ...command];
 }
 
 export function createBoundedBuffer(capBytes = DEFAULT_OUTPUT_CAP_BYTES): BoundedBuffer {

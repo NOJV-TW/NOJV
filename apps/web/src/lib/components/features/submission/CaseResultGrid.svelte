@@ -4,11 +4,15 @@
 
   interface Props {
     cases: CaseResult[];
-    /** When true, cases with stdout expand to reveal stdout (+ stderr). */
+    /** When true, cases with stdout/staffFeedback expand to reveal them (+ stderr). */
     allowExpand?: boolean;
   }
 
   let { cases, allowExpand = false }: Props = $props();
+
+  function hasExpandableContent(cr: CaseResult): boolean {
+    return (cr.stdout?.length ?? 0) > 0 || (cr.staffFeedback?.length ?? 0) > 0;
+  }
 
   let expandedIndex = $state<number | null>(null);
   const expandedCase = $derived(expandedIndex !== null ? cases[expandedIndex] : null);
@@ -28,7 +32,7 @@
 <div class="flex flex-wrap gap-1.5">
   {#each cases as cr, idx (`cr-${idx}`)}
     {@const cls = casePillClass(cr.verdict === "AC")}
-    {@const interactive = allowExpand && (cr.stdout?.length ?? 0) > 0}
+    {@const interactive = allowExpand && hasExpandableContent(cr)}
     {#if interactive}
       <button
         class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums transition-[background-color] duration-fast {cls} {expandedIndex ===
@@ -64,14 +68,16 @@
 
 {#if allowExpand && expandedCase}
   <div class="mt-2 flex flex-col gap-2">
-    <div>
-      <p class="text-caption font-medium text-muted-foreground">
-        {m.submissionDetail_caseStdout()}
-      </p>
-      <pre
-        class="mt-1 max-h-48 overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.stdout ||
-          m.common_emptyOutput()}</pre>
-    </div>
+    {#if (expandedCase.stdout?.length ?? 0) > 0}
+      <div>
+        <p class="text-caption font-medium text-muted-foreground">
+          {m.submissionDetail_caseStdout()}
+        </p>
+        <pre
+          class="mt-1 max-h-48 overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.stdout ||
+            m.common_emptyOutput()}</pre>
+      </div>
+    {/if}
     {#if expandedCase.stderr}
       <div>
         <p class="text-caption font-medium text-destructive">
@@ -79,6 +85,15 @@
         </p>
         <pre
           class="mt-1 max-h-48 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{expandedCase.stderr}</pre>
+      </div>
+    {/if}
+    {#if expandedCase.staffFeedback}
+      <div>
+        <p class="text-caption font-medium text-info">
+          {m.submissionDetail_staffFeedback()}
+        </p>
+        <pre
+          class="mt-1 max-h-48 overflow-auto rounded-md border border-info/30 bg-info/5 px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.staffFeedback}</pre>
       </div>
     {/if}
   </div>

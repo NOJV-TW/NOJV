@@ -9,6 +9,7 @@ import {
 
 import { problemLetter } from "../shared/problem-letter";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { stripStaffFeedback } from "../submission/scoring";
 import {
   buildScoreboard,
   type ParticipantRow,
@@ -315,7 +316,8 @@ export async function listVirtualContestProblemSubmissions(
 
   return submissions.map((s) => {
     submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+    // Personal virtual run — viewer is always the submitter, never a staff viewer.
+    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,

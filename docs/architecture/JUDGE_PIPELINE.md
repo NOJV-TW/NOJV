@@ -48,24 +48,30 @@ All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--sec
 
 ### check
 
-Per-testcase verdict. The strategy is chosen by `judgeConfig.type`:
+Per-testcase verdict. The strategy is chosen by `judgeConfig.type`. The crucial
+fairness invariant for the non-standard strategies is **run/check separation**:
+the container that runs untrusted student code never mounts the expected answers
+or the validator source. Only the worker (or a second isolated container that
+holds no student code) makes the AC/WA decision.
 
 - **`standard`** — stdout vs expected text comparison. `judgeConfig` has no `compare` block; the sandbox runner applies a single fixed canonical normalisation on both sides and tests exact equality. From `apps/sandbox-runner/src/judges/standard.ts`:
   1. `\r\n` → `\n`
   2. strip per-line trailing whitespace (spaces and tabs)
   3. strip trailing blank lines
 
-  Float tolerance, case-insensitive matching, regex line filters, and any other custom comparison semantics must be implemented as a **checker**.
+  The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds. Float tolerance, case-insensitive matching, regex line filters, and any other custom comparison semantics must be implemented as a **checker**.
 
-- **`checker`** — a teacher-provided script (`python` / `cpp`) receives `(input, expected, actual)` file paths. The script's **exit code** decides accepted vs not (0 = accepted, non-zero = rejected). On top of that, the protocol carries a 0–100 integer score and a feedback string — see `parseJudgeOutput()` in `apps/sandbox-runner/src/judges/run-process.ts`. If the score field is empty, it defaults to 100 on accept and 0 on reject; otherwise the parsed integer is clamped to `[0, 100]`. The score flows into the per-case `score` field that `PROPORTIONAL` subtask scoring averages over (see [score](#score)).
-- **`interactive`** — a teacher-provided interactor communicates with the submission over stdin/stdout pipes and decides the verdict itself. Compiled the same way as a checker.
+- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`). The run container produces `rawRuns` (no answer present); the worker then launches a **second isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) per clean case. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Partial credit and feedback travel through files in `feedback_dir`: `score.txt` (0–100 integer) and `teammessage.txt` (shown to the student); an optional `judgemessage.txt` is operator-only. Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `set_score()` / `judge_log()` (`assets/wrappers/python-validator.py`); C++ TAs implement the bare interface. The parsed score flows into the per-case `score` field that `PROPORTIONAL` subtask scoring averages over (see [score](#score)).
+- **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`assets/wrappers/python-interactor-domjudge.py`).
+
+On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` and `advanced` remain **Docker-backend-only** — their live-pipe / TA-tarball topologies are not expressible through the K8s Job API, so `K8sExecutor.execute()` fail-fasts them with a system error. See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
 
 ### score
 
 Per-case results are aggregated into a 0–100 raw score using `TestcaseSet.scoringStrategy` (Prisma enum column on each subtask row, see `packages/db/prisma/schema/problem.prisma`). The domain layer reads `scoringStrategy` off each subtask into a `Record<testcaseSetId, strategy>` map in `packages/domain/src/submission/judge-context.ts`; there is no `scoring` block on `judgeConfig`. The strategies are:
 
 - `ALL_OR_NOTHING` — set weight if every case in the subtask is AC, else 0. Default.
-- `PROPORTIONAL` — `weight * (Σ caseScore) / (total * 100)`. Each `caseScore` is the per-case 0–100 score from the runner: 100 for AC and 0 for any other verdict under `standard`/`interactive`, or the checker's parsed score under `checker` (so partial credit on a single case flows through).
+- `PROPORTIONAL` — `weight * (Σ caseScore) / (total * 100)`. Each `caseScore` is the per-case 0–100 score: 100 for AC and 0 for any other verdict under `standard`, or the validator/interactor `score.txt` value under `checker`/`interactive` (so partial credit on a single case flows through).
 - `MINIMUM` — accepted by the schema but behaves identically to `ALL_OR_NOTHING` today. The runner has no separate signal to take a minimum over after the per-case score is already produced, so `buildSubtaskResults()` collapses it to the binary case.
 
 The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/domain/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
@@ -130,9 +136,22 @@ Resource limits come from `Problem.timeLimitMs` / `Problem.memoryLimitMb`:
 - `memoryLimitMb` — 16 MB to 4096 MB cgroup limit (advanced judge images may
   need more headroom than standard mode's 1024 MB ceiling)
 
-Advanced Mode containers always run with `--network none`. Any packages or test data the TA image needs must be baked into the image at build time — runtime fetches are not allowed. Advanced Mode also always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
+Advanced Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs (`--read-only`), and the same `--memory` / `--cpus` / `--pids-limit` bounds as standard mode. Writes are permitted only to two places: `/tmp` (a 64m `tmpfs`, for scratch the TA image needs) and `/workspace` (the host bind mount where the TA image writes `output/result.json`). The `/workspace` mount has no `tmpfs` size cap — the host disk is instead protected by a watchdog that polls the directory size every 2 s and force-removes the container if it exceeds **1 GiB**, failing the submission with a System Error (`advancedFallbackResult`). Unlike standard mode, advanced containers do **not** run with `--user`: the TA image is trusted and manages its own user. Any packages or test data the TA image needs must be baked into the image at build time — runtime fetches are not allowed. Advanced Mode also always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
 
 **Only the Docker executor runs advanced containers.** Advanced dispatch lives in `apps/worker/src/services/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`). The Kubernetes executor explicitly rejects advanced-mode requests: `K8sExecutor.execute` in `apps/worker/src/services/k8s-executor.ts` short-circuits with an `SE` verdict — the learner sees a neutral _"Sandbox configuration error. Please contact your administrator."_ while the operator-facing reason ("switch to Docker backend") is logged at `error` level. Operators running advanced-mode problems must run the Docker backend.
+
+### Authoring an advanced judge image
+
+TAs don't hand-write the boilerplate. The problem edit page (Advanced settings → Container contract) has a **Download starter project** button that streams a self-contained zip; the route is `GET /api/problems/advanced-scaffold` (auth-gated, zips `apps/web/src/lib/server/advanced-scaffold/files/` on the fly with JSZip). The scaffold contains:
+
+- `Dockerfile` — `FROM python:3.12-slim`, bakes in `testcases/` + the grader code. There is no custom NOJV base image; the scaffold is fully self-contained (a published base image is a possible future ops follow-up).
+- `nojv_grader.py` — a stdlib-only helper the TA does **not** edit. It loads `meta.json`, exposes `submission_files()` / `submission_path(rel)`, runs the student program via `run_submission(cmd, stdin, timeout)` (which copies the submission into a `/tmp` dir and runs it from there so the student's relative file I/O doesn't collide with grader files — this is **not** a security boundary, see below), and `write_result(score, verdict, feedback, testcases)` which validates/normalizes verdicts and writes `output/result.json` in the canonical shape.
+- `grader.py` — the worked example the TA edits: read `testcases/case-*.json`, run each case, decide a per-case verdict, compute a 0–100 score, call `write_result(...)`.
+- `testcases/case-*.json`, `README.md`.
+
+Workflow: **download the scaffold → edit `grader.py` (and `testcases/`) → `docker build -t my-judge .` → upload** (either `docker save | gzip` a tarball and upload it as image source `tarball`, or push to a registry and paste the reference). Because the container runs with `--network none` and a read-only rootfs, every dependency and all test data must be baked into the image at build time — write only to `/workspace` and `/tmp`, and don't rely on the process exit code (only `result.json` is read). The canonical `result.json` verdicts are the long forms (`accepted`, `wrong_answer`, `time_limit_exceeded`, `memory_limit_exceeded`, `runtime_error`, `compile_error`) at the top level and the short codes (`AC`, `WA`, `TLE`, `MLE`, `RE`, `SE`) per testcase — `write_result` accepts either and normalizes.
+
+**Protecting answers is the TA's responsibility.** Advanced mode runs the student's code _inside the TA image_, in the same container and as the same user as the grader. With `--cap-drop ALL` + `--read-only` and no `--user`, the grader cannot setuid-drop the submission to another UID and cannot hide or delete the baked-in files — so a malicious submission can read any world-readable path, including `/grader/testcases/`. The `run_submission` cwd-copy only isolates relative path collisions; it is **not** an isolation boundary. The safe pattern (used by the scaffold's `grader.py`) is to feed each case's input on **stdin** and compare the student's **stdout** to the expected answer inside the grader, so the student never needs the answer. Never hand the student a path to the expected output, and don't bake secrets at guessable readable paths when running untrusted code with broad filesystem access.
 
 ## Problem types
 
@@ -206,15 +225,20 @@ Timeouts and retry policy applied to the judge activities proxy:
 
 - Worker entrypoint — `apps/worker/src/index.ts`
 - Standard Mode executor (Docker) — `apps/worker/src/services/standard-mode-executor.ts`
+- Isolated checker validator executor (Docker) — `apps/worker/src/services/validator-executor.ts`
+- Isolated interactive two-container executor (Docker) — `apps/worker/src/services/interactive-executor.ts`
 - Advanced Mode executor (Docker only) — `apps/worker/src/services/advanced-mode-executor.ts`
-- Kubernetes executor (Standard only; rejects Advanced) — `apps/worker/src/services/k8s-executor.ts`
+- Kubernetes executor (Standard + checker via a two-Job pipeline; rejects Advanced and interactive) — `apps/worker/src/services/k8s-executor.ts`
 - Sandbox plan / config builder — `apps/worker/src/services/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/services/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`
 - Sandbox runner bounded buffer + memory poller — `apps/sandbox-runner/src/utils.ts`
 - Compiler dispatch — `apps/sandbox-runner/src/compiler.ts`
 - Standard judge comparator — `apps/sandbox-runner/src/judges/standard.ts`
-- Checker / interactive protocol parser — `apps/sandbox-runner/src/judges/run-process.ts` (`parseJudgeOutput`)
+- DOMjudge validator runner (in-container) — `apps/sandbox-runner/src/judges/validate.ts`
+- DOMjudge interactor runner (in-container) — `apps/sandbox-runner/src/judges/interactive-isolated.ts`
+- Per-case run-process helper / verdict classifier — `apps/sandbox-runner/src/judges/run-process.ts`
+- DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
 - Temporal judge activity — `apps/worker/src/activities/judge.ts`
 - Judge context builder — `packages/domain/src/submission/judge-context.ts`

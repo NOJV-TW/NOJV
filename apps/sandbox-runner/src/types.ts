@@ -43,9 +43,34 @@ export const SandboxInputSchema = z.object({
   limits: z.object({
     timeoutMs: z.number(),
     memoryMb: z.number(),
+    env: z.record(z.string(), z.string()).optional(),
   }),
   checkerLanguage: judgeScriptLanguageSchema.optional(),
   interactorLanguage: judgeScriptLanguageSchema.optional(),
+  // When present the runner skips the run phase entirely and instead runs an
+  // isolated DOMjudge output validator over the solution's already-captured
+  // output. The validator container has NO student code — only the validator
+  // source and the per-case input/answer/team files under /submission/cases/.
+  validate: z
+    .object({
+      language: judgeScriptLanguageSchema,
+      cases: z.array(z.object({ index: z.number() })).max(2000),
+    })
+    .optional(),
+  // When present the runner participates in a TWO-container interactive run
+  // coordinated by the worker (see apps/worker/src/services/interactive-executor.ts).
+  // `solution` runs the compiled student program with its stdio wired straight
+  // to the container's stdio (the worker proxies bytes to the interactor
+  // container). `validator` runs the DOMjudge interactor against ONE case; the
+  // secret input/answer is mounted ONLY into the validator container. Each side
+  // writes a single marked JSON line to its own stderr for the worker to parse.
+  interactive: z
+    .object({
+      role: z.enum(["solution", "validator"]),
+      language: judgeScriptLanguageSchema.optional(),
+      index: z.number().optional(),
+    })
+    .optional(),
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
@@ -74,3 +99,60 @@ export type { SandboxTestcaseResult as TestcaseResult } from "@nojv/core";
 
 // Re-export for index.ts which constructs SandboxOutput
 export type { SandboxResult as SandboxOutput } from "@nojv/core";
+
+const sandboxVerdictSchema = z.enum(["AC", "WA", "TLE", "MLE", "RE", "SE"]);
+
+const sandboxTestcaseResultSchema = z.object({
+  index: z.number(),
+  verdict: sandboxVerdictSchema,
+  stdout: z.string(),
+  stderr: z.string(),
+  exitCode: z.number(),
+  timeMs: z.number(),
+  memoryKb: z.number().optional(),
+  score: z.number().optional(),
+  feedback: z.string().optional(),
+});
+
+// Raw per-case run for worker-side checking (standard mode). `errorVerdict`
+// is only ever a run-failure code; AC/WA is decided by the worker.
+const rawCaseRunSchema = z.object({
+  index: z.number(),
+  stdout: z.string(),
+  stderr: z.string(),
+  exitCode: z.number(),
+  timeMs: z.number(),
+  memoryKb: z.number().optional(),
+  errorVerdict: z.enum(["TLE", "MLE", "RE", "SE"]).optional(),
+});
+
+// Shape the runner emits on stdout. Mirrors @nojv/core `SandboxResult`.
+export const SandboxOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  pipelineError: z.string().optional(),
+  testcaseResults: z.array(sandboxTestcaseResultSchema).optional(),
+  rawRuns: z.array(rawCaseRunSchema).optional(),
+  customScore: z.number().optional(),
+  scoringFeedback: z.string().optional(),
+});
+
+// Per-case outcome emitted by the isolated validate container. Carries the
+// DOMjudge verdict + optional score/messages from `parseValidatorFeedback`.
+const validatorCaseOutcomeSchema = z.object({
+  index: z.number(),
+  verdict: z.enum(["AC", "WA", "SE"]),
+  score: z.number().optional(),
+  teamMessage: z.string().optional(),
+  judgeMessage: z.string().optional(),
+});
+
+export type ValidatorCaseOutcome = z.infer<typeof validatorCaseOutcomeSchema>;
+
+// Shape the validate container emits on stdout. A `compilationError` is set
+// when the validator itself fails to compile/prepare.
+export const ValidateOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  validatorOutcomes: z.array(validatorCaseOutcomeSchema).optional(),
+});
+
+export type ValidateOutput = z.infer<typeof ValidateOutputSchema>;

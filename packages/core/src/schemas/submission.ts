@@ -89,6 +89,11 @@ export const caseResultSchema = z.object({
   stdout: z.string().max(MAX_CASE_STDOUT_BYTES).optional(),
   stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
   testcaseId: z.string().optional(),
+  // Operator/staff-only feedback (DOMjudge `judgemessage.txt`); stripped on the
+  // server before the payload reaches a non-staff viewer. Same cap as the
+  // top-level submission feedback (10 KB) — judgemessage.txt is operator-side
+  // text, not arbitrary data.
+  staffFeedback: z.string().max(MAX_FEEDBACK_LEN).optional(),
 });
 
 export const subtaskResultItemSchema = z.object({

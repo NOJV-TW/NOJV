@@ -1,6 +1,6 @@
 FROM node:26-alpine AS builder
 
-RUN corepack enable
+RUN npm install -g pnpm@10.33.0
 
 WORKDIR /build
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
@@ -17,7 +17,7 @@ RUN pnpm --filter @nojv/sandbox-runner build
 
 FROM node:26-alpine
 
-RUN apk add --no-cache bash build-base cargo go openjdk21-jdk python3 rust \
+RUN apk add --no-cache bash build-base cargo go openjdk21-jdk python3 rust socat \
   && addgroup -S sandbox -g 10001 \
   && adduser -S -D -h /home/sandbox -u 10001 -G sandbox sandbox \
   && mkdir -p /runner /workspace /tmp \
@@ -29,12 +29,6 @@ COPY --from=builder /build/apps/sandbox-runner/dist/ /runner/
 # compiler.js at /runner/compiler.js the wrappers must live at
 # /assets/wrappers/.
 COPY apps/sandbox-runner/assets/wrappers/ /assets/wrappers/
-# Vendored Codeforces testlib.h — installed globally so g++ can resolve
-# `#include "testlib.h"` from any working directory. MIT requires the
-# permission notice to travel with every copy, so ship the LICENSE at
-# the Debian-conventional /usr/share/licenses/ path alongside it.
-COPY apps/sandbox-runner/assets/testlib/testlib.h /usr/include/testlib.h
-COPY apps/sandbox-runner/assets/testlib/LICENSE /usr/share/licenses/testlib/LICENSE
 
 ENV HOME="/tmp"
 # Fork-bomb defence: cap the sandbox UID to 64 live processes. Gated by env

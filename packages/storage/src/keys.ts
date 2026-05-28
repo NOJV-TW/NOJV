@@ -24,4 +24,10 @@ export const testcaseInputFileKey = (
 export const workspaceFileKey = (problemId: string, fileId: string): string =>
   `problems/${problemId}/workspace/${fileId}`;
 
+export const checkerKey = (problemId: string): string =>
+  `problems/${problemId}/validator/checker`;
+
+export const interactorKey = (problemId: string): string =>
+  `problems/${problemId}/validator/interactor`;
+
 export const problemPrefix = (problemId: string): string => `problems/${problemId}/`;

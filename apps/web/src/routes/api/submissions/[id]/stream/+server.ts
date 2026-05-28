@@ -4,8 +4,15 @@ import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
 import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { submissionDomain } from "@nojv/domain";
+import { submissionResultSchema } from "@nojv/core";
 
-const { getSubmissionForUser, querySubmissionStatus } = submissionDomain;
+const { getSubmissionForUser, querySubmissionStatus, stripStaffFeedback } = submissionDomain;
+
+function sanitizeVerdictDetail(raw: unknown): unknown {
+  if (raw === null || raw === undefined) return raw;
+  const parsed = submissionResultSchema.safeParse(raw);
+  return parsed.success ? stripStaffFeedback(parsed.data) : raw;
+}
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
@@ -73,7 +80,7 @@ export const GET: RequestHandler = async (event) => {
             if (TERMINAL_STATUSES.has(status)) {
               const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
               send({
-                result: submission.verdictDetail,
+                result: sanitizeVerdictDetail(submission.verdictDetail),
                 status: submission.status,
                 submissionId: submission.id,
               });
@@ -83,7 +90,7 @@ export const GET: RequestHandler = async (event) => {
             // Workflow might have already completed - fall back to DB
             const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
             send({
-              result: submission.verdictDetail,
+              result: sanitizeVerdictDetail(submission.verdictDetail),
               status: submission.status,
               submissionId: submission.id,
             });

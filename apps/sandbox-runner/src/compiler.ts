@@ -22,10 +22,8 @@ function loadWrapper(file: string): string {
 }
 
 // Cached at module load — wrapper content is static and small.
-const PYTHON_CHECKER_WRAPPER = loadWrapper("python-checker.py");
-const PYTHON_INTERACTOR_WRAPPER = loadWrapper("python-interactor.py");
-
-export type ScriptMode = "checker" | "interactor";
+const PYTHON_VALIDATOR_WRAPPER = loadWrapper("python-validator.py");
+const PYTHON_INTERACTOR_DOMJUDGE_WRAPPER = loadWrapper("python-interactor-domjudge.py");
 
 export type CompileResult =
   | { success: true; runCommand: string[] }
@@ -105,35 +103,64 @@ export async function compile(
 }
 
 /**
- * Compile (or prepare) a checker / interactor script. Only Python and C++
- * are supported — the schema enforces this at the edge.
+ * Compile (or prepare) a DOMjudge output validator. Invoked as
+ * `validator <input_file> <judge_answer_file> <feedback_dir>` with the team
+ * output on stdin; exit 42 = accept, 43 = wrong, else = validator/system error.
  *
- * Python: the user-supplied source is concatenated after a fixed wrapper
- * that exposes `judge_input`, `judge_output`, `process_output` (checker)
- * or `judge_input`, `read`, `write` (interactor) plus `accept` / `reject`
- * / `partial` helpers. The wrapped file is written next to the original
- * and run via `python3`.
+ * Python: the TA source is concatenated after a fixed wrapper that exposes
+ * `judge_input`, `judge_answer`, `feedback_dir`, `team_output` plus
+ * `accept` / `wrong` / `set_score` / `judge_log` helpers.
  *
- * C++: compiled with `g++ -O2 -std=c++20`. `testlib.h` is installed
- * globally in the sandbox image (`/usr/include/testlib.h`) so user code
- * can `#include "testlib.h"` directly without extra include paths.
+ * C++: compiled with `g++ -O2 -std=c++20`. The DOMjudge interface is plain
+ * argv/stdin/feedback-files, so no judge header is required.
  */
-export async function compileChecker(
+export async function compileValidator(
   scriptPath: string,
   language: JudgeScriptLanguage,
   workDir: string,
-  mode: ScriptMode,
 ): Promise<CompileResult> {
   if (language === "python") {
     const userSource = await fs.readFile(scriptPath, "utf-8");
-    const wrapper = mode === "checker" ? PYTHON_CHECKER_WRAPPER : PYTHON_INTERACTOR_WRAPPER;
-    const wrappedPath = path.join(workDir, `${mode}.py`);
-    await fs.writeFile(wrappedPath, `${wrapper}${userSource}`, "utf-8");
+    const wrappedPath = path.join(workDir, "validator.py");
+    await fs.writeFile(wrappedPath, `${PYTHON_VALIDATOR_WRAPPER}${userSource}`, "utf-8");
     return { success: true, runCommand: ["python3", wrappedPath] };
   }
 
   // language === "cpp"
-  const outPath = path.join(workDir, mode);
+  const outPath = path.join(workDir, "validator");
+  return compileWithCommand(
+    ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
+    [outPath],
+    workDir,
+  );
+}
+
+/**
+ * Compile (or prepare) a DOMjudge interactive validator (interactor). Same
+ * DOMjudge interface as `compileValidator` — `interactor <input_file>
+ * <answer_file> <feedback_dir>`, exit 42/43, feedback files — but the Python
+ * wrapper differs: `read()`/`write()` talk to the SOLUTION live over
+ * stdin/stdout (the worker proxies bytes between containers) rather than
+ * reading a fixed team-output blob from stdin.
+ */
+export async function compileInteractor(
+  scriptPath: string,
+  language: JudgeScriptLanguage,
+  workDir: string,
+): Promise<CompileResult> {
+  if (language === "python") {
+    const userSource = await fs.readFile(scriptPath, "utf-8");
+    const wrappedPath = path.join(workDir, "interactor.py");
+    await fs.writeFile(
+      wrappedPath,
+      `${PYTHON_INTERACTOR_DOMJUDGE_WRAPPER}${userSource}`,
+      "utf-8",
+    );
+    return { success: true, runCommand: ["python3", wrappedPath] };
+  }
+
+  // language === "cpp"
+  const outPath = path.join(workDir, "interactor");
   return compileWithCommand(
     ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
     [outPath],

@@ -14,5 +14,7 @@ export * from "./schemas/required-paths";
 export * from "./validation/required-paths";
 export * from "./queue";
 export * from "./sandbox";
+export * from "./judge/compare";
+export * from "./judge/validator";
 export * from "./reserved-username";
 export * from "./language-templates";

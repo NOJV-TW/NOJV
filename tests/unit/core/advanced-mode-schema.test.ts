@@ -26,6 +26,31 @@ describe("advancedResultSchema", () => {
     expect(parsed.success && "subtasks" in parsed.data).toBe(false);
   });
 
+  it("normalizes short verdict codes to long form", () => {
+    expect(advancedResultSchema.parse({ score: 0, verdict: "tle" }).verdict).toBe(
+      "time_limit_exceeded",
+    );
+    expect(advancedResultSchema.parse({ score: 0, verdict: "AC" }).verdict).toBe("accepted");
+    expect(advancedResultSchema.parse({ score: 0, verdict: "wa" }).verdict).toBe(
+      "wrong_answer",
+    );
+    expect(advancedResultSchema.parse({ score: 0, verdict: "mle" }).verdict).toBe(
+      "memory_limit_exceeded",
+    );
+    expect(advancedResultSchema.parse({ score: 0, verdict: "re" }).verdict).toBe(
+      "runtime_error",
+    );
+    expect(advancedResultSchema.parse({ score: 0, verdict: "ce" }).verdict).toBe(
+      "compile_error",
+    );
+  });
+
+  it("still accepts canonical long verdict forms", () => {
+    expect(
+      advancedResultSchema.parse({ score: 0, verdict: "time_limit_exceeded" }).verdict,
+    ).toBe("time_limit_exceeded");
+  });
+
   it("rejects an unknown verdict", () => {
     const parsed = advancedResultSchema.safeParse({ score: 100, verdict: "almost" });
     expect(parsed.success).toBe(false);

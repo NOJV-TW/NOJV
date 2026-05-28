@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -19,6 +19,80 @@ import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapp
 export interface AdvancedModeConfig {
   cpuLimit: string;
   pidsLimit: number;
+}
+
+// Cap on the host-bind-mounted /workspace dir. The TA image is trusted, but a
+// buggy run could fill the worker disk. result.json + artifacts must fit under
+// this. `--storage-opt size=` only works on devicemapper/btrfs, not overlay2,
+// so we poll the dir size instead and force-kill on exceed.
+export const ADVANCED_WORKSPACE_MAX_BYTES = 1024 * 1024 * 1024;
+const WORKSPACE_POLL_INTERVAL_MS = 2_000;
+
+export async function dirSizeBytes(dir: string): Promise<number> {
+  let total = 0;
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return total;
+  }
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    try {
+      if (entry.isDirectory()) {
+        total += await dirSizeBytes(full);
+      } else if (entry.isFile()) {
+        total += (await stat(full)).size;
+      }
+    } catch {
+      // Entry vanished mid-walk (container churning files) — skip it.
+    }
+  }
+  return total;
+}
+
+export interface AdvancedDockerArgsParams {
+  containerName: string;
+  networkArgs: string[];
+  workspaceDir: string;
+  cpuLimit: string;
+  memoryMb: number;
+  pidsLimit: number;
+  imageRef: string;
+  submissionId: string;
+  language: string;
+}
+
+export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): string[] {
+  return [
+    "run",
+    "--rm",
+    "--name",
+    params.containerName,
+    ...params.networkArgs,
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "--read-only",
+    "--tmpfs",
+    "/tmp:rw,exec,nosuid,nodev,size=64m",
+    "-v",
+    `${params.workspaceDir}:/workspace`,
+    "--cpus",
+    params.cpuLimit,
+    "--memory",
+    `${String(params.memoryMb)}m`,
+    "--pids-limit",
+    String(params.pidsLimit),
+    "--env",
+    `SUBMISSION_ID=${params.submissionId}`,
+    "--env",
+    `LANGUAGE=${params.language}`,
+    "--workdir",
+    "/workspace",
+    params.imageRef,
+  ];
 }
 
 export class AdvancedModeExecutor {
@@ -121,6 +195,7 @@ export class AdvancedModeExecutor {
       exitCode: number | null;
       stderr: string;
       timedOut: boolean;
+      sizeExceeded: boolean;
     }> => {
       const containerName = `nojv-advanced-${sanitizeId(request.submissionId).slice(0, 40)}`;
       // Advanced Mode containers are fully network-isolated. Any packages
@@ -128,28 +203,17 @@ export class AdvancedModeExecutor {
       // build time — runtime fetches are not allowed.
       const networkArgs = ["--network", "none"];
 
-      const args = [
-        "run",
-        "--rm",
-        "--name",
+      const args = buildAdvancedDockerArgs({
         containerName,
-        ...networkArgs,
-        "--cap-drop",
-        "ALL",
-        "--security-opt",
-        "no-new-privileges",
-        "-v",
-        `${workspaceDir}:/workspace`,
-        "--cpus",
-        config.cpuLimit,
-        "--memory",
-        `${String(advanced.memoryMb)}m`,
-        "--pids-limit",
-        String(config.pidsLimit),
-        "--workdir",
-        "/workspace",
+        networkArgs,
+        workspaceDir,
+        cpuLimit: config.cpuLimit,
+        memoryMb: advanced.memoryMb,
+        pidsLimit: config.pidsLimit,
         imageRef,
-      ];
+        submissionId: request.submissionId,
+        language: request.language,
+      });
 
       const outerTimeoutMs = advanced.totalTimeMs + 30_000;
 
@@ -159,15 +223,20 @@ export class AdvancedModeExecutor {
         const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
         const stderrBuf = createBoundedStringBuffer();
         let timedOut = false;
+        let sizeExceeded = false;
         let settled = false;
+        let sizeCheckInFlight = false;
 
         const settle = (value: {
           exitCode: number | null;
           stderr: string;
           timedOut: boolean;
+          sizeExceeded: boolean;
         }) => {
           if (settled) return;
           settled = true;
+          clearTimeout(timer);
+          clearInterval(sizePoll);
           resolve(value);
         };
 
@@ -177,6 +246,24 @@ export class AdvancedModeExecutor {
           child.kill("SIGKILL");
         }, outerTimeoutMs);
 
+        // Disk-cap watchdog: overlay2 ignores `--storage-opt size=`, so poll the
+        // bind-mounted host dir and force-kill if the image writes past the cap.
+        const sizePoll = setInterval(() => {
+          if (sizeExceeded || sizeCheckInFlight) return;
+          sizeCheckInFlight = true;
+          void dirSizeBytes(workspaceDir)
+            .then((bytes) => {
+              if (bytes > ADVANCED_WORKSPACE_MAX_BYTES) {
+                sizeExceeded = true;
+                forceRemoveContainer(containerName);
+                child.kill("SIGKILL");
+              }
+            })
+            .finally(() => {
+              sizeCheckInFlight = false;
+            });
+        }, WORKSPACE_POLL_INTERVAL_MS);
+
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
         child.stderr.on("data", (chunk: string) => {
@@ -184,13 +271,16 @@ export class AdvancedModeExecutor {
         });
 
         child.on("error", (err: Error) => {
-          clearTimeout(timer);
-          settle({ exitCode: null, stderr: `spawn failed: ${err.message}`, timedOut: false });
+          settle({
+            exitCode: null,
+            stderr: `spawn failed: ${err.message}`,
+            timedOut: false,
+            sizeExceeded: false,
+          });
         });
 
         child.on("close", (code: number | null) => {
-          clearTimeout(timer);
-          settle({ exitCode: code, stderr: stderrBuf.toString(), timedOut });
+          settle({ exitCode: code, stderr: stderrBuf.toString(), timedOut, sizeExceeded });
         });
 
         child.stdin.end();
@@ -199,6 +289,13 @@ export class AdvancedModeExecutor {
 
     await prepareWorkspace();
     const dockerOutcome = await spawnContainer();
+
+    if (dockerOutcome.sizeExceeded) {
+      return advancedFallbackResult(
+        request,
+        "Advanced judge image exceeded the output size limit.",
+      );
+    }
 
     if (dockerOutcome.timedOut) {
       return advancedFallbackResult(request, "Advanced judge image timed out.");
