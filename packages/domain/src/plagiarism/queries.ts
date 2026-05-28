@@ -17,12 +17,10 @@ import { toJsonValue } from "../shared/to-json-value";
 import { getSubmissionSources } from "../submission/queries";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
-// `sourceCode` is the hydrated, ready-to-tokenize blob. For multi-file
-// submissions we concatenate per-file contents in sorted-path order with
-// `// === path ===` boundary markers — every Dolos-supported language treats
-// `//` as a line comment, so the markers are dropped by the tokenizer and
-// don't pollute similarity. The old single-string `JSON.stringify({path: …})`
-// shape masked semantic similarity behind JSON syntax tokens.
+export function boundaryMarkerFor(language: string): string {
+  return language === "python" ? "#" : "//";
+}
+
 export interface PlagiarismSubmission {
   id: string;
   language: string;
@@ -42,10 +40,11 @@ export async function listSubmissionsForCheck(
   return Promise.all(
     rows.map(async (row): Promise<PlagiarismSubmission> => {
       const sources = await getSubmissionSources(row.id);
+      const marker = boundaryMarkerFor(row.language);
       const merged = sources
         .slice()
         .sort((a, b) => a.path.localeCompare(b.path))
-        .map((s) => `// === ${s.path} ===\n${s.content}`)
+        .map((s) => `${marker} === ${s.path} ===\n${s.content}`)
         .join("\n");
       return {
         id: row.id,
