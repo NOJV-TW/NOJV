@@ -44,6 +44,10 @@ describe("submission storage key builders", () => {
     expect(() => submissionSourceKey("sub_abc", "bad\0name")).toThrow();
   });
 
+  it("submissionSourceKey rejects control characters (e.g. newline)", () => {
+    expect(() => submissionSourceKey("sub_abc", "main.py\nfoo")).toThrow();
+  });
+
   it("submissionVerdictDetailKey returns the canonical path", () => {
     expect(submissionVerdictDetailKey("sub_abc")).toBe(
       "submissions/sub_abc/verdict-detail.json",

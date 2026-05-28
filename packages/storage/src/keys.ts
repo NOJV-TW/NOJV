@@ -57,6 +57,10 @@ export const submissionSourceKey = (submissionId: string, path: string): string 
   if (path.includes("\0")) {
     throw new Error("submissionSourceKey: path must not contain NUL");
   }
+  // eslint-disable-next-line no-control-regex -- control chars are exactly what we're rejecting
+  if (/[\x01-\x1f\x7f]/.test(path)) {
+    throw new Error("submissionSourceKey: path must not contain control characters");
+  }
   const segments = path.split("/");
   if (segments.some((segment) => segment === "..")) {
     throw new Error("submissionSourceKey: path must not contain parent traversal");

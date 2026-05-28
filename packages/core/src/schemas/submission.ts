@@ -9,14 +9,10 @@ import {
   submissionVerdictSchema,
 } from "../types";
 import { assessmentContextSchema } from "./course";
+import { safeRelativePath } from "./path";
 
 const sourceFileSchema = z.object({
-  path: z
-    .string()
-    .trim()
-    .min(1)
-    .max(300)
-    .refine((value) => !value.includes("\0"), "File path must not contain NUL bytes."),
+  path: safeRelativePath,
   content: z.string().max(500_000),
 });
 
