@@ -36,7 +36,7 @@ describe("mergeCheckerResults", () => {
     expect(result!.score).toBe(50);
   });
 
-  it("surfaces teamMessage as feedback but DROPS judgeMessage", () => {
+  it("surfaces teamMessage as student feedback and judgeMessage as staffFeedback", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0 })],
       new Map<number, ValidatorOutcome>([
@@ -44,8 +44,18 @@ describe("mergeCheckerResults", () => {
       ]),
     );
     expect(result!.feedback).toBe("off by one");
-    expect(JSON.stringify(result)).not.toContain("secret answer");
+    expect(result!.staffFeedback).toBe("secret answer was 42");
+    // The raw key name from the validator outcome must not leak through.
     expect(JSON.stringify(result)).not.toContain("judgeMessage");
+  });
+
+  it("omits staffFeedback when the validator did not emit judgeMessage", () => {
+    const [result] = mergeCheckerResults(
+      [rawRun({ index: 0 })],
+      new Map<number, ValidatorOutcome>([[0, { verdict: "AC", teamMessage: "ok" }]]),
+    );
+    expect(result!.feedback).toBe("ok");
+    expect(result).not.toHaveProperty("staffFeedback");
   });
 
   it.each(["TLE", "MLE", "RE", "SE"] as const)(

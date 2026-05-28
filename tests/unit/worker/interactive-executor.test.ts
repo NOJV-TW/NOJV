@@ -75,13 +75,33 @@ describe("mergeInteractiveCase", () => {
     expect(result.score).toBe(0);
   });
 
-  it("drops the interactor judgeMessage (never leaked to the student)", () => {
+  it("surfaces the interactor judgeMessage as staffFeedback (not the student feedback)", () => {
     const result = mergeInteractiveCase(
       TESTCASE,
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
-      { ...ok, stderr: intStderr({ verdict: "WA", judgeMessage: "secret answer was 7" }) },
+      {
+        ...ok,
+        stderr: intStderr({
+          verdict: "WA",
+          teamMessage: "wrong guess",
+          judgeMessage: "secret answer was 7",
+        }),
+      },
     );
-    expect(JSON.stringify(result)).not.toContain("secret answer");
+    expect(result.feedback).toBe("wrong guess");
+    expect(result.staffFeedback).toBe("secret answer was 7");
+    // The raw key name from the validator outcome must not leak through.
+    expect(JSON.stringify(result)).not.toContain("judgeMessage");
+  });
+
+  it("omits staffFeedback when the interactor did not emit judgeMessage", () => {
+    const result = mergeInteractiveCase(
+      TESTCASE,
+      { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
+      { ...ok, stderr: intStderr({ verdict: "AC", teamMessage: "good" }) },
+    );
+    expect(result.feedback).toBe("good");
+    expect(result).not.toHaveProperty("staffFeedback");
   });
 
   it("a missing run marker → SE", () => {

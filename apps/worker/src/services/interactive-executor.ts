@@ -302,8 +302,9 @@ async function runCase(
  * Merge one case's two-container outcome into a single result. A solution-side
  * run failure (TLE/MLE/RE/SE) wins with score 0; otherwise the interactor's
  * `ValidatorOutcome` decides verdict/score. `teamMessage` becomes the student
- * `feedback`; `judgeMessage` is deliberately dropped. A missing/unparseable
- * marker on either side, or a container timeout, is SE for the case.
+ * `feedback`; `judgeMessage` becomes the staff-only `staffFeedback` (gated
+ * downstream so it never reaches the student). A missing/unparseable marker on
+ * either side, or a container timeout, is SE for the case.
  */
 export function mergeInteractiveCase(
   testcase: SandboxTestcase,
@@ -353,6 +354,7 @@ export function mergeInteractiveCase(
     verdict: outcome.verdict,
     score,
     ...(outcome.teamMessage !== undefined ? { feedback: outcome.teamMessage } : {}),
+    ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
   };
 }
 

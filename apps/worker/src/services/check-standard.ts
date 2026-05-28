@@ -58,10 +58,10 @@ export function resolveStandardResults(
  * isolated validator's per-case outcome. A failed run (TLE/MLE/RE/SE) passes
  * through unchanged — the validator never ran for it. A clean run takes the
  * validator's verdict/score; the validator's `teamMessage` becomes the
- * student-facing `feedback`. `judgeMessage` is deliberately DROPPED here — it
- * is a staff-only channel added in a later phase and must not leak to students.
- * A clean run with no validator outcome is an SE (the validator failed to
- * report on that case).
+ * student-facing `feedback` and `judgeMessage` becomes the staff-only
+ * `staffFeedback` (gated downstream so it never reaches the student). A clean
+ * run with no validator outcome is an SE (the validator failed to report on
+ * that case).
  */
 export function mergeCheckerResults(
   rawRuns: RawCaseRun[],
@@ -97,6 +97,7 @@ export function mergeCheckerResults(
       verdict: outcome.verdict,
       score,
       ...(outcome.teamMessage !== undefined ? { feedback: outcome.teamMessage } : {}),
+      ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
     };
   });
 }
