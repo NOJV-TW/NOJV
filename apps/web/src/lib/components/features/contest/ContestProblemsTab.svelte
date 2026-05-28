@@ -23,10 +23,10 @@
 
   let { problems, problemsHidden, contestId, isLive, isPast, isManager }: Props = $props();
 
-  function difficultyOf(p: { points: number }): "Easy" | "Medium" | "Hard" {
-    if (p.points >= 800) return "Hard";
-    if (p.points >= 400) return "Medium";
-    return "Easy";
+  function difficultyOf(p: { points: number }): "easy" | "medium" | "hard" {
+    if (p.points >= 800) return "hard";
+    if (p.points >= 400) return "medium";
+    return "easy";
   }
 </script>
 
@@ -62,7 +62,7 @@
           <div>
             <div class="font-medium text-muted-foreground">———————</div>
             <div class="mt-1 flex items-center gap-3">
-              <DifficultyTick level="Medium" />
+              <DifficultyTick level="medium" />
             </div>
           </div>
           <span

@@ -309,7 +309,7 @@
                         class="text-micro font-mono uppercase tracking-wider"
                         style="color: var(--primary);"
                       >
-                        YOU
+                        {m.results_youBadge()}
                       </span>
                     {/if}
                   </div>
@@ -392,7 +392,7 @@
                         class="text-micro font-mono uppercase tracking-wider"
                         style="color: var(--primary);"
                       >
-                        YOU
+                        {m.results_youBadge()}
                       </span>
                     {/if}
                   </div>

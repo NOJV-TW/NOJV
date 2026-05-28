@@ -1,6 +1,7 @@
 import {
   courseMembershipRepo,
   examParticipationIpRepo,
+  examParticipationRepo,
   examRepo,
   examSessionRepo,
   runTransaction,
@@ -77,6 +78,18 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
     if (activeElsewhere && activeElsewhere.examId !== examId) {
       throw new ConflictError("You already have an active session on a different exam.");
     }
+
+    // Entering the exam is the moment a participant becomes real. The IP gate
+    // pins `ipPin` onto this row on first contact and the scoreboard lists it;
+    // without creating it here both silently no-op (no row to pin, empty board).
+    await examParticipationRepo
+      .withTx(tx)
+      .upsert(
+        examId,
+        actor.userId,
+        { examId, startedAt: new Date(), status: "active", userId: actor.userId },
+        { status: "active" },
+      );
 
     const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
 

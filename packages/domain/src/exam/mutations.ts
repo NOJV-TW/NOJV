@@ -1,6 +1,5 @@
 import {
   courseMembershipRepo,
-  examParticipationRepo,
   examProblemRepo,
   examRepo,
   problemRepo,
@@ -67,49 +66,6 @@ async function requireExam(tx: TransactionClient, examId: string) {
     throw new NotFoundError(`Exam not found: ${examId}`);
   }
   return exam;
-}
-
-export async function ensureExamParticipation(
-  tx: TransactionClient,
-  userId: string,
-  examId: string,
-) {
-  const exam = await requireExam(tx, examId);
-
-  if (exam.status !== "published") {
-    throw new NotFoundError(`Exam not found: ${examId}`);
-  }
-
-  const now = new Date();
-  if (now < exam.startsAt) {
-    throw new ForbiddenError("Exam has not started yet.");
-  }
-  if (now > exam.endsAt) {
-    throw new ForbiddenError("Exam has ended.");
-  }
-
-  const membership = await courseMembershipRepo
-    .withTx(tx)
-    .findByComposite(exam.courseId, userId);
-  if (membership?.status !== "active") {
-    throw new ForbiddenError("You must be enrolled in the course to take this exam.");
-  }
-
-  const participation = await examParticipationRepo.withTx(tx).upsert(
-    exam.id,
-    userId,
-    {
-      examId: exam.id,
-      startedAt: new Date(),
-      status: "active",
-      userId,
-    },
-    {
-      status: "active",
-    },
-  );
-
-  return { exam, participation };
 }
 
 export async function checkExamSubmitCooldown(

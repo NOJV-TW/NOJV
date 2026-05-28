@@ -8,7 +8,6 @@ export {
   boundaryMarkerFor,
   createPlagiarismReport,
   findPlagiarismReport,
-  getAssignmentProblemMap,
   getPlagiarismSourceCode,
   getPlagiarismTarget,
   listAssignmentPlagiarismReports,
