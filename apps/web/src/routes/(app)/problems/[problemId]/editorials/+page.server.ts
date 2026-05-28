@@ -23,7 +23,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   // 403 ForbiddenError on the AC gate.
   const [problem, canView] = await Promise.all([
     getProblemRowById(problemId),
-    canViewEditorials(actor.userId, problemId),
+    canViewEditorials(actor.userId, problemId, { kind: "practice" }),
   ]);
 
   if (!problem) {

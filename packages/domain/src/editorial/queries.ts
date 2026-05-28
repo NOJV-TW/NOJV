@@ -1,4 +1,4 @@
-import { editorialRepo, submissionRepo } from "@nojv/db";
+import { assessmentRepo, contestRepo, editorialRepo, examRepo, submissionRepo } from "@nojv/db";
 
 export async function hasUserAcProblem(userId: string, problemId: string): Promise<boolean> {
   const count = await submissionRepo.count({
@@ -10,19 +10,59 @@ export async function hasUserAcProblem(userId: string, problemId: string): Promi
   return count > 0;
 }
 
+export type EditorialViewContext =
+  | { kind: "practice" }
+  | { kind: "contest"; contestId: string; now: Date }
+  | { kind: "assignment"; assignmentId: string; now: Date }
+  | { kind: "exam"; examId: string; now: Date };
+
+// Defensive: if the active event row can't be resolved (deleted, stale link, race),
+// don't lock the student out — fall through to the AC-only check.
+async function contextGateOpen(context: EditorialViewContext): Promise<boolean> {
+  switch (context.kind) {
+    case "practice":
+      return true;
+    case "contest": {
+      const contest = await contestRepo.findById(context.contestId);
+      if (!contest) return true;
+      return context.now.getTime() >= contest.endsAt.getTime();
+    }
+    case "assignment": {
+      try {
+        const assessment = await assessmentRepo.findInfoById(context.assignmentId);
+        return context.now.getTime() >= assessment.closesAt.getTime();
+      } catch {
+        return true;
+      }
+    }
+    case "exam": {
+      const exam = await examRepo.findById(context.examId);
+      if (!exam) return true;
+      return context.now.getTime() >= exam.endsAt.getTime();
+    }
+  }
+}
+
 /**
- * Editorial visibility gate. A user may view editorials if they currently
- * have an accepted submission OR they have already authored an editorial
- * for the problem. The second clause grandfathers authors past a rejudge
- * that overturns their AC — losing access to your own editorial would be
- * surprising and breaks the edit flow.
+ * Editorial visibility gate. Authors of any editorial for the problem
+ * always see it (grandfather rule — a rejudge overturning their AC must
+ * not lock them out of their own writing). Otherwise the user must have
+ * an accepted submission AND the contextual event (contest/assignment/exam)
+ * must have already ended — past-practice AC alone is not enough to read
+ * editorials during an active contest reuse of the same problem.
  */
-export async function canViewEditorials(userId: string, problemId: string): Promise<boolean> {
-  const [ac, authored] = await Promise.all([
-    hasUserAcProblem(userId, problemId),
-    editorialRepo.existsForUserProblem(userId, problemId),
-  ]);
-  return ac || authored;
+export async function canViewEditorials(
+  userId: string,
+  problemId: string,
+  context: EditorialViewContext = { kind: "practice" },
+): Promise<boolean> {
+  const authored = await editorialRepo.existsForUserProblem(userId, problemId);
+  if (authored) return true;
+
+  const ac = await hasUserAcProblem(userId, problemId);
+  if (!ac) return false;
+
+  return contextGateOpen(context);
 }
 
 export async function listProblemEditorials(problemId: string) {

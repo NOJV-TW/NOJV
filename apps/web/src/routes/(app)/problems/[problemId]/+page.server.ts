@@ -79,7 +79,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       courseAssessmentId: null,
       examId: null,
     }),
-    canViewEditorials(userId, problemId),
+    canViewEditorials(userId, problemId, { kind: "practice" }),
     problemDomain.isBookmarked(userId, problemId),
   ]);
 
