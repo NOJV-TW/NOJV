@@ -117,6 +117,25 @@ export async function executeSandbox(
   // the same bytes; the draft's source fields are advisory and ignored.
   const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
+  // Storage returned no files — this happens when a system_error row (where
+  // the original put failed and the blobs were swept) gets rejudged. Bail
+  // with a system_error tag rather than feeding an empty sourceCode to the
+  // sandbox, which would compile/run nothing and surface as wrong_answer.
+  if (studentSources.length === 0) {
+    await submissionDomain.updateSubmissionStatus(submissionId, "system_error");
+    // `system_error` is not a valid SubmissionResult.verdict (that schema is
+    // limited to graded verdicts); fall back to `runtime_error` for the
+    // result blob — the row status above is the authoritative signal.
+    return {
+      accepted: false,
+      verdict: "runtime_error",
+      score: 0,
+      runtimeMs: 0,
+      caseResults: [],
+      feedback: "Submission sources missing from storage; marked as system_error.",
+    };
+  }
+
   const useSamples = draft.sampleOnly === true;
   const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";
   const runCases = useSamples && !useAdvanced ? draft.runCases : undefined;

@@ -17,6 +17,7 @@ import {
   type VerdictSummary,
 } from "@nojv/core";
 import {
+  deleteSubmissionStorage,
   getVerdictDetail as storageGetVerdictDetail,
   putSubmissionSources,
   putVerdictDetail,
@@ -271,17 +272,26 @@ export async function createQueuedSubmissionRecord(
   });
 
   // Sources are written post-commit so a long S3 round-trip doesn't hold the
-  // tx open. If storage fails after the row commits, mark the submission
-  // `system_error` so the worker doesn't try to judge a row with no sources;
-  // an out-of-band sweep (future ops task) reconciles orphans either way.
+  // tx open. If storage fails after the row commits, best-effort wipe any
+  // partially-uploaded blobs under this submission's prefix, then mark the
+  // row `system_error` so the worker doesn't try to judge a row with no
+  // (or partial) sources.
   try {
     await putSubmissionSources(storage(), submissionId, sources);
   } catch (err) {
+    // Best-effort orphan cleanup. Swallow delete failure — surfacing the
+    // original storage error to the caller is more useful than masking it
+    // with a cleanup error.
+    try {
+      await deleteSubmissionStorage(storage(), submissionId);
+    } catch {
+      // Swallowed; orphan blobs at worst stay in the bucket until a sweep.
+    }
     try {
       await submissionRepo.updateStatus(submissionId, "system_error");
     } catch {
       // Swallowed: prefer surfacing the original storage failure to the
-      // caller. The row stays in `queued` and a later sweep will reconcile.
+      // caller. The row stays in `queued`; the blobs are already wiped.
     }
     throw err;
   }

@@ -288,6 +288,93 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
     expect(submissionUpdateStatus).toHaveBeenCalledWith(createdId, "system_error");
   });
 
+  it("on partial-put failure, partially-uploaded blobs are wiped BEFORE the system_error status update", async () => {
+    setupPracticeDefaults("multi_file");
+
+    const inMem = storageRef.client as unknown as {
+      failOnPut: (n: number) => void;
+      store: Map<string, string>;
+      send: ReturnType<typeof vi.fn>;
+    };
+    // First Put succeeds (orphan blob written), second blows up.
+    inMem.failOnPut(1);
+
+    // Track the order between the orphan-cleanup Delete call and the
+    // submissionRepo.updateStatus call so we can assert cleanup runs first.
+    let deleteCalledAt: number | null = null;
+    let statusUpdatedAt: number | null = null;
+    let tick = 0;
+    const origSend = inMem.send;
+    inMem.send = vi.fn(async (cmd: { constructor: { name: string }; input: unknown }) => {
+      if (
+        cmd.constructor.name === "DeleteObjectsCommand" ||
+        cmd.constructor.name === "DeleteObjectCommand"
+      ) {
+        tick += 1;
+        deleteCalledAt = tick;
+      }
+      return origSend(cmd);
+    }) as typeof origSend;
+    submissionUpdateStatus.mockImplementation(async () => {
+      tick += 1;
+      statusUpdatedAt = tick;
+      return {};
+    });
+
+    await expect(
+      createQueuedSubmissionRecord(
+        {
+          ...baseDraft,
+          sourceFiles: [
+            { path: "main.py", content: "ok" },
+            { path: "util.py", content: "boom" },
+          ],
+        },
+        fakeActor,
+        "127.0.0.1",
+      ),
+    ).rejects.toThrow(/Simulated storage failure/);
+
+    // Orphan blob from the first put is now gone.
+    expect(inMem.store.size).toBe(0);
+    // Cleanup ran AND ran before the status update.
+    expect(deleteCalledAt).not.toBeNull();
+    expect(statusUpdatedAt).not.toBeNull();
+    expect(deleteCalledAt!).toBeLessThan(statusUpdatedAt!);
+  });
+
+  it("if orphan cleanup ALSO fails, the original storage error still propagates and status update still attempted", async () => {
+    setupPracticeDefaults("multi_file");
+
+    const inMem = storageRef.client as unknown as {
+      failOnPut: (n: number) => void;
+      failNext: (pred: (commandName: string) => boolean) => void;
+    };
+    // Fail second put → triggers orphan cleanup.
+    inMem.failOnPut(1);
+    // Then fail the cleanup itself (ListObjectsV2 underpins deleteBlobsByPrefix).
+    inMem.failNext((name) => name === "ListObjectsV2Command");
+
+    await expect(
+      createQueuedSubmissionRecord(
+        {
+          ...baseDraft,
+          sourceFiles: [
+            { path: "main.py", content: "ok" },
+            { path: "util.py", content: "boom" },
+          ],
+        },
+        fakeActor,
+        "127.0.0.1",
+      ),
+    ).rejects.toThrow(/Simulated storage failure on PutObjectCommand/);
+
+    // Status update still attempted even when cleanup throws.
+    expect(submissionUpdateStatus).toHaveBeenCalledTimes(1);
+    const createdId = (submissionCreate.mock.calls[0]![0] as { id: string }).id;
+    expect(submissionUpdateStatus).toHaveBeenCalledWith(createdId, "system_error");
+  });
+
   it("if the system_error fallback ALSO fails, the original storage error still propagates", async () => {
     setupPracticeDefaults("full_source");
 
