@@ -338,6 +338,25 @@ export const examProblemRepo = {
       .then((row) => row !== null);
   },
 
+  // Currently-active exams that include this problem and that the user
+  // is a registered participant of. Used by the editorial context
+  // resolver to deny editorial reads while the exam is still running.
+  findActiveExamsForUser(problemId: string, userId: string, now: Date) {
+    return prisma.examProblem.findMany({
+      where: {
+        problemId,
+        exam: {
+          status: "published",
+          endsAt: { gt: now },
+          participations: { some: { userId } },
+        },
+      },
+      select: {
+        exam: { select: { id: true, endsAt: true } },
+      },
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.ExamProblemUncheckedCreateInput) {

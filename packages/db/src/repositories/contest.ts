@@ -209,6 +209,25 @@ export const contestProblemRepo = {
       .then((row) => row !== null);
   },
 
+  // Currently-active contests that include this problem and that the user
+  // is participating in. Used by the editorial context resolver to deny
+  // editorial reads while the live event is still running.
+  findActiveContestsForUser(problemId: string, userId: string, now: Date) {
+    return prisma.contestProblem.findMany({
+      where: {
+        problemId,
+        contest: {
+          visibility: "published",
+          endsAt: { gt: now },
+          participations: { some: { userId } },
+        },
+      },
+      select: {
+        contest: { select: { id: true, endsAt: true } },
+      },
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.ContestProblemUncheckedCreateInput) {

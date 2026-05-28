@@ -1,4 +1,13 @@
-import { assessmentRepo, contestRepo, editorialRepo, examRepo, submissionRepo } from "@nojv/db";
+import {
+  assessmentProblemRepo,
+  assessmentRepo,
+  contestProblemRepo,
+  contestRepo,
+  editorialRepo,
+  examProblemRepo,
+  examRepo,
+  submissionRepo,
+} from "@nojv/db";
 
 export async function hasUserAcProblem(userId: string, problemId: string): Promise<boolean> {
   const count = await submissionRepo.count({
@@ -63,6 +72,58 @@ export async function canViewEditorials(
   if (!ac) return false;
 
   return contextGateOpen(context);
+}
+
+/**
+ * Resolve the editorial view context for `(userId, problemId)` server-side.
+ *
+ * The client must NOT be allowed to declare its own context — that lets a
+ * student in a live event spoof `practice` (or point at some unrelated
+ * already-ended contest) and bypass the gate. Instead we look at every
+ * currently-running (now < endsAt/closesAt) contest / assignment / exam
+ * that contains the problem AND which the user is enrolled in or
+ * participating in, and pick the one with the latest deadline — the
+ * strictest gate. If nothing matches, fall back to practice context.
+ */
+export async function resolveActiveContextForUser(
+  userId: string,
+  problemId: string,
+  now: Date,
+): Promise<EditorialViewContext> {
+  const [contests, assignments, exams] = await Promise.all([
+    contestProblemRepo.findActiveContestsForUser(problemId, userId, now),
+    assessmentProblemRepo.findActiveAssessmentsForUser(problemId, userId, now),
+    examProblemRepo.findActiveExamsForUser(problemId, userId, now),
+  ]);
+
+  const candidates: { context: EditorialViewContext; deadline: number }[] = [];
+  for (const row of contests) {
+    candidates.push({
+      context: { kind: "contest", contestId: row.contest.id, now },
+      deadline: row.contest.endsAt.getTime(),
+    });
+  }
+  for (const row of assignments) {
+    candidates.push({
+      context: { kind: "assignment", assignmentId: row.assessment.id, now },
+      deadline: row.assessment.closesAt.getTime(),
+    });
+  }
+  for (const row of exams) {
+    candidates.push({
+      context: { kind: "exam", examId: row.exam.id, now },
+      deadline: row.exam.endsAt.getTime(),
+    });
+  }
+
+  // Strictest gate = latest-ending event (waits longest before it opens).
+  let strictest: { context: EditorialViewContext; deadline: number } | undefined;
+  for (const candidate of candidates) {
+    if (!strictest || candidate.deadline > strictest.deadline) {
+      strictest = candidate;
+    }
+  }
+  return strictest ? strictest.context : { kind: "practice" };
 }
 
 export async function listProblemEditorials(problemId: string) {
