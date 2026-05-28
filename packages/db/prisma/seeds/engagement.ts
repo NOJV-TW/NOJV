@@ -1,7 +1,19 @@
+import { randomUUID } from "node:crypto";
+
+import { entryFileNameFor } from "@nojv/core";
+import {
+  createStorageClient,
+  putSubmissionSources,
+  putVerdictDetail,
+  submissionSourcePrefix,
+  submissionVerdictDetailKey,
+} from "@nojv/storage";
+
 import type { Prisma, PrismaClient, User } from "../../generated/prisma/client";
 import {
   buildVerdictDetail,
   DAY,
+  deriveSeedVerdictSummary,
   HOUR,
   loadProblemTestcases,
   sampleSource,
@@ -15,9 +27,11 @@ const LIVE_CONTEST_ID = "contest_demo_live";
 /**
  * Ensure `author` has a non-sample accepted submission on `problemId` so the
  * editorial AC-gate is satisfied. Creates a practice AC if none exists.
+ * Writes source + verdict-detail blobs to S3 alongside the DB row.
  */
 async function ensureAcceptedPractice(
   prisma: PrismaClient,
+  storage: ReturnType<typeof createStorageClient>,
   author: User,
   problemId: string,
   rng: SeededRng,
@@ -36,21 +50,29 @@ async function ensureAcceptedPractice(
     rng,
   });
 
+  const id = randomUUID();
   await prisma.submission.create({
     data: {
+      id,
       userId: author.id,
       problemId,
       language: "cpp",
-      sourceCode: sampleSource("cpp", "accepted"),
+      sourceStoragePrefix: submissionSourcePrefix(id),
       status: "accepted",
       score,
       runtimeMs,
       memoryKb,
-      verdictDetail: detail as unknown as Prisma.InputJsonValue,
+      verdictSummary: deriveSeedVerdictSummary(detail) as unknown as Prisma.InputJsonValue,
+      verdictDetailStorageKey: submissionVerdictDetailKey(id),
       sampleOnly: false,
       createdAt: when,
     },
   });
+
+  await putSubmissionSources(storage, id, [
+    { path: entryFileNameFor("cpp"), content: sampleSource("cpp", "accepted") },
+  ]);
+  await putVerdictDetail(storage, id, detail);
 }
 
 /**
@@ -65,6 +87,7 @@ export async function seedEngagement(
   const now = Date.now();
   const { teacher, student, demoStudents } = refs;
   const rng = new SeededRng(0x5eed_9000);
+  const storage = createStorageClient();
 
   // ── Idempotency: drop rows owned by this module ──
   await prisma.editorialReport.deleteMany({});
@@ -87,14 +110,23 @@ export async function seedEngagement(
 
   await ensureAcceptedPractice(
     prisma,
+    storage,
     student,
     "problem_warmup-sum",
     rng,
     new Date(now - 20 * DAY),
   );
-  await ensureAcceptedPractice(prisma, s1, "problem_warmup-sum", rng, new Date(now - 18 * DAY));
   await ensureAcceptedPractice(
     prisma,
+    storage,
+    s1,
+    "problem_warmup-sum",
+    rng,
+    new Date(now - 18 * DAY),
+  );
+  await ensureAcceptedPractice(
+    prisma,
+    storage,
     s2,
     "problem_add-two-numbers",
     rng,

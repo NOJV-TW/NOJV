@@ -353,6 +353,28 @@ export const assessmentProblemRepo = {
       .then((row) => row !== null);
   },
 
+  // Currently-active assignments that include this problem and that the
+  // user is enrolled in (active course membership). Used by the editorial
+  // context resolver to deny editorial reads while the assignment is
+  // still open.
+  findActiveAssessmentsForUser(problemId: string, userId: string, now: Date) {
+    return prisma.courseAssessmentProblem.findMany({
+      where: {
+        problemId,
+        assessment: {
+          status: "published",
+          closesAt: { gt: now },
+          course: {
+            memberships: { some: { userId, status: "active" } },
+          },
+        },
+      },
+      select: {
+        assessment: { select: { id: true, closesAt: true } },
+      },
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.CourseAssessmentProblemUncheckedCreateInput) {

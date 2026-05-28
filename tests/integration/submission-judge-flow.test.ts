@@ -75,15 +75,19 @@ async function createQueuedContestSubmission(opts: {
   contestParticipationId: string;
   language?: string;
 }) {
+  const id = `sub_${Math.random().toString(36).slice(2, 10)}`;
   return testPrisma.submission.create({
     data: {
-      id: `sub_${Math.random().toString(36).slice(2, 10)}`,
+      id,
       userId: opts.userId,
       problemId: opts.problemId,
       contestId: opts.contestId,
       contestParticipationId: opts.contestParticipationId,
       language: opts.language ?? "python",
-      sourceCode: "print('hi')",
+      // Source bytes live in object storage now; the row only carries the prefix.
+      // This factory is for scoreboard tests that don't read source back, so we
+      // skip the put-to-storage round trip entirely.
+      sourceStoragePrefix: `submissions/${id}/sources/`,
       status: "queued",
       sampleOnly: false,
     },

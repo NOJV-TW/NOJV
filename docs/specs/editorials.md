@@ -28,9 +28,13 @@ answer." Content is markdown, rendered through the shared
 - `Editorial` model with unique constraint
   `(userId, problemId, language)`.
 - GET `/api/problems/[id]/editorials` — lists all editorials for a
-  problem when the viewer has AC; otherwise 403.
+  problem when the viewer has AC AND the viewer is not currently inside
+  a live event re-using the problem; otherwise 403. The event context
+  is resolved server-side (`resolveActiveContextForUser`) — the client
+  cannot supply or override it.
 - POST `/api/problems/[id]/editorials` — upserts by
-  `(userId, problemId, language)` when the poster has AC; otherwise 403.
+  `(userId, problemId, language)` when the poster passes the same
+  AC + context gate; otherwise 403.
 - PATCH `/api/editorials/[id]` — author or admin only; updates content /
   language. Same length + enum validation as POST.
 - DELETE `/api/editorials/[id]` — author or admin only; soft-delete
@@ -92,6 +96,34 @@ answer." Content is markdown, rendered through the shared
   fires. The shared `requireProblemWithAc` helper takes an optional
   error-message override so the GET and POST paths can report
   action-appropriate copy while reusing the same gate.
+
+### Context gate — live event re-using the problem
+
+- GIVEN a student who AC'd problem P during past practice,
+  AND a live contest C is currently running with `now < C.endsAt`,
+  AND C contains P,
+  AND the student is enrolled in C,
+  WHEN they GET `/api/problems/[id]/editorials`,
+  THEN the response is 403 (or empty list at the domain layer) — even
+  though the URL pattern does not mention the contest. The context is
+  resolved server-side via `resolveActiveContextForUser`; the client
+  cannot bypass it by omitting or spoofing a `context` parameter.
+- GIVEN the same student after `now >= C.endsAt`,
+  WHEN they GET the endpoint,
+  THEN the response is `{ editorials: Editorial[] }` — the contest gate
+  has closed.
+- GIVEN two overlapping live events for P (e.g. a contest ending at T1
+  and an assignment closing at T2 > T1) where the student is enrolled
+  in both,
+  WHEN they GET the endpoint at `now < T1`,
+  THEN the gate stays closed until **the latest-ending event** clears
+  (`now >= T2`) — `resolveActiveContextForUser` picks the strictest
+  gate.
+- GIVEN a student who has already authored an editorial on P,
+  WHEN they GET the endpoint during a live event re-using P,
+  THEN the response succeeds — the author grandfather clause overrides
+  the context gate (and the AC gate) so an author can always see their
+  own writing.
 
 ### Payload validation
 
@@ -205,8 +237,12 @@ answer." Content is markdown, rendered through the shared
 ### Domain
 
 - `packages/domain/src/editorial/queries.ts` — `hasUserAcProblem`,
-  `canViewEditorials` (AC OR authored-editorial gate),
-  `listProblemEditorials`, `listEditorialsPage`, `getEditorialById`.
+  `canViewEditorials` (author grandfather OR AC + context-gate-open),
+  `resolveActiveContextForUser` (server-side resolution of the
+  strictest active event for the viewer; the client cannot supply a
+  context), `listProblemEditorials`, `listEditorialsPage`,
+  `getEditorialById`. `EditorialViewContext` is the discriminated union
+  shared across the gate API.
 - `packages/domain/src/editorial/mutations.ts` — `upsertEditorial`,
   `updateEditorial`, `softDeleteEditorial`.
 - `packages/domain/src/editorial/reports.ts` — `reportEditorial`,

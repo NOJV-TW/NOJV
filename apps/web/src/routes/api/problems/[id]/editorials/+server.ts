@@ -8,20 +8,26 @@ import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { editorialDomain, problemDomain } from "@nojv/domain";
 
 const { getProblemRowById } = problemDomain;
-const { canViewEditorials, listProblemEditorials, upsertEditorial } = editorialDomain;
+const {
+  canViewEditorials,
+  listProblemEditorials,
+  resolveActiveContextForUser,
+  upsertEditorial,
+} = editorialDomain;
+type EditorialViewContext = editorialDomain.EditorialViewContext;
 
-// problemRepo.findById and canViewEditorials are independent — both accept
-// the same problemId, and canViewEditorials is a count query that safely
-// returns false for an unknown problem. Fire them in parallel; the
-// NotFoundError still takes precedence over the ForbiddenError.
+// problemRepo.findById, resolveActiveContextForUser and canViewEditorials are
+// independent reads. NotFoundError on the problem still takes precedence over
+// ForbiddenError from the gate.
 async function requireProblemWithAc(
   userId: string,
   problemId: string,
+  context: EditorialViewContext,
   acError = "Solve this problem first to view editorials.",
 ) {
   const [problem, canView] = await Promise.all([
     getProblemRowById(problemId),
-    canViewEditorials(userId, problemId),
+    canViewEditorials(userId, problemId, context),
   ]);
 
   if (!problem) throw new NotFoundError("Problem not found.");
@@ -35,11 +41,14 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
 
-  // editorialRepo.listByProblemId also only needs `id` and is safe to run
-  // alongside the auth gate — on the rare error path the wasted query has
-  // no side effects, and on the common happy path we save another round-trip.
+  // Context is resolved server-side from (userId, problemId, now). Clients
+  // MUST NOT be allowed to declare their own context — that lets a student
+  // in a live event pick a lenient gate (e.g. practice or some unrelated
+  // already-ended event) and bypass the editorial visibility rule.
+  const context = await resolveActiveContextForUser(actor.userId, id, new Date());
+
   const [, editorials] = await Promise.all([
-    requireProblemWithAc(actor.userId, id),
+    requireProblemWithAc(actor.userId, id, context),
     listProblemEditorials(id),
   ]);
 
@@ -52,9 +61,12 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
 
+  const context = await resolveActiveContextForUser(actor.userId, id, new Date());
+
   const problem = await requireProblemWithAc(
     actor.userId,
     id,
+    context,
     "Solve this problem first to post an editorial.",
   );
   const payload = editorialSubmitSchema.parse(await event.request.json());

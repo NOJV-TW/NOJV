@@ -74,6 +74,10 @@ COPY --from=builder --chown=appuser:nodejs /build/apps/web/node_modules/ ./apps/
 WORKDIR /app/apps/web
 
 ENV NODE_ENV=production
+# Raise SvelteKit adapter-node body-size cap from the 512K default so the
+# 60 MB POST cap on bundle/workspace/checker/interactor upload routes is the
+# effective ceiling. Overridable at runtime.
+ENV BODY_SIZE_LIMIT=67108864
 EXPOSE 3000
 
 USER appuser

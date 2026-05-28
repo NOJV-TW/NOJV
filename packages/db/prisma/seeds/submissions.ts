@@ -1,10 +1,23 @@
+import { randomUUID } from "node:crypto";
+
+import { entryFileNameFor } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
+import {
+  createStorageClient,
+  putSubmissionSources,
+  putVerdictDetail,
+  submissionSourcePrefix,
+  submissionVerdictDetailKey,
+  type SubmissionSource,
+} from "@nojv/storage";
+import type { S3Client } from "@aws-sdk/client-s3";
 
 import type { Prisma, PrismaClient, User } from "../../generated/prisma/client";
 import type { SubmissionStatus } from "../../generated/prisma/enums";
 import {
   buildVerdictDetail,
   DAY,
+  deriveSeedVerdictSummary,
   HOUR,
   loadProblemTestcases,
   sampleSource,
@@ -13,6 +26,7 @@ import {
   type ProblemTestcases,
   type SeedLanguage,
 } from "./demo-helpers";
+import type { SubmissionResult } from "@nojv/core";
 
 const COURSE_ID = "course_os-lab-spring-2026";
 
@@ -47,6 +61,14 @@ const LANGS: SeedLanguage[] = ["c", "cpp", "python"];
 
 type SubmissionRow = Prisma.SubmissionCreateManyInput;
 
+/** Full submission seed unit: DB row + S3 source blobs + verdict detail blob. */
+type SeedSubmission = {
+  id: string;
+  row: SubmissionRow;
+  sources: SubmissionSource[];
+  detail: SubmissionResult;
+};
+
 /** Convert a SubmissionResult verdict into the SubmissionStatus enum value. */
 function statusFor(verdict: LongVerdict): SubmissionStatus {
   return verdict;
@@ -66,7 +88,7 @@ function makeSubmission(args: {
     | { kind: "assignment"; courseAssessmentId: string }
     | { kind: "exam"; examId: string }
     | { kind: "contest"; contestId: string; contestParticipationId: string };
-}): SubmissionRow {
+}): SeedSubmission {
   const { rng, userId, problemId, testcases, verdict, createdAt } = args;
   const language = args.language ?? rng.pick(LANGS);
   const { detail, score, runtimeMs, memoryKb } = buildVerdictDetail({
@@ -76,16 +98,23 @@ function makeSubmission(args: {
     rng,
   });
 
+  const id = randomUUID();
+  const sources: SubmissionSource[] = [
+    { path: entryFileNameFor(language), content: sampleSource(language, verdict) },
+  ];
+
   const row: SubmissionRow = {
+    id,
     userId,
     problemId,
     language,
-    sourceCode: sampleSource(language, verdict),
+    sourceStoragePrefix: submissionSourcePrefix(id),
     status: statusFor(verdict),
     score,
     runtimeMs,
     memoryKb,
-    verdictDetail: detail as unknown as Prisma.InputJsonValue,
+    verdictSummary: deriveSeedVerdictSummary(detail) as unknown as Prisma.InputJsonValue,
+    verdictDetailStorageKey: submissionVerdictDetailKey(id),
     sampleOnly: args.sampleOnly ?? false,
     createdAt,
   };
@@ -102,7 +131,25 @@ function makeSubmission(args: {
     row.contestParticipationId = ctx.contestParticipationId;
   }
 
-  return row;
+  return { id, row, sources, detail };
+}
+
+/**
+ * Persist a batch of seed submissions: bulk-insert the DB rows, then write
+ * source + verdict-detail blobs to S3. Storage writes are fire-and-loop —
+ * any failure surfaces with the offending submission id.
+ */
+async function persistSeedSubmissions(
+  prisma: PrismaClient,
+  storage: S3Client,
+  subs: SeedSubmission[],
+): Promise<void> {
+  if (subs.length === 0) return;
+  await prisma.submission.createMany({ data: subs.map((s) => s.row) });
+  for (const s of subs) {
+    await putSubmissionSources(storage, s.id, s.sources);
+    await putVerdictDetail(storage, s.id, s.detail);
+  }
 }
 
 /**
@@ -116,6 +163,9 @@ export async function seedSubmissions(
 ): Promise<void> {
   const now = Date.now();
   const { student, demoStudents } = refs;
+  // Source + verdict-detail blobs go to S3 (MinIO locally). Requires
+  // S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY in the env that runs the seed.
+  const storage = createStorageClient();
 
   // ── Idempotency: drop rows owned by this module ──
   await prisma.submission.deleteMany({});
@@ -134,7 +184,7 @@ export async function seedSubmissions(
   const tc = (pid: string): ProblemTestcases =>
     testcasesById.get(pid) ?? { sets: [], flatTestcaseIds: [] };
 
-  const rows: SubmissionRow[] = [];
+  const subs: SeedSubmission[] = [];
 
   // ─────────────────────────────────────────────────────────────
   // A. Practice — dense ~90-day activity for the main student plus
@@ -157,7 +207,7 @@ export async function seedSubmissions(
         dayOffset === 0
           ? now - mainRng.int(5, 55) * 60 * 1000
           : now - dayOffset * DAY + mainRng.int(8, 22) * HOUR + mainRng.int(0, 59) * 60 * 1000;
-      rows.push(
+      subs.push(
         makeSubmission({
           rng: mainRng,
           userId: student.id,
@@ -173,7 +223,7 @@ export async function seedSubmissions(
   // A few sampleOnly (Run) submissions for the main student in the last week.
   for (let i = 0; i < 4; i++) {
     const problemId = mainRng.pick(PUBLIC_PRACTICE_PROBLEMS);
-    rows.push(
+    subs.push(
       makeSubmission({
         rng: mainRng,
         userId: student.id,
@@ -194,7 +244,7 @@ export async function seedSubmissions(
       const problemId = rng.pick(PUBLIC_PRACTICE_PROBLEMS);
       const verdict = rng.pick(PRACTICE_VERDICTS);
       const when = now - dayOffset * DAY + rng.int(9, 21) * HOUR;
-      rows.push(
+      subs.push(
         makeSubmission({
           rng,
           userId: s.id,
@@ -242,7 +292,7 @@ export async function seedSubmissions(
         const when = late
           ? HW1_DUE + rng.int(1, Math.floor((HW1_CLOSE - HW1_DUE) / HOUR)) * HOUR
           : HW1_OPEN + rng.int(1, Math.floor((HW1_DUE - HW1_OPEN) / HOUR)) * HOUR;
-        rows.push(
+        subs.push(
           makeSubmission({
             rng,
             userId: s.id,
@@ -262,7 +312,7 @@ export async function seedSubmissions(
       const verdict =
         a === hw2Attempts - 1 ? pickAssignmentFinal(rng) : pickAssignmentEarly(rng);
       const when = HW2_OPEN + rng.int(1, Math.floor((HW2_CLOSE - HW2_OPEN) / HOUR)) * HOUR;
-      rows.push(
+      subs.push(
         makeSubmission({
           rng,
           userId: s.id,
@@ -306,7 +356,7 @@ export async function seedSubmissions(
         const when =
           EXAM_START +
           rng.int(2, Math.floor((EXAM_END - EXAM_START) / (60 * 1000)) - 2) * 60 * 1000;
-        rows.push(
+        subs.push(
           makeSubmission({
             rng,
             userId: s.id,
@@ -322,15 +372,16 @@ export async function seedSubmissions(
     }
   });
 
-  // Persist all non-contest submissions in one batch.
-  await prisma.submission.createMany({ data: rows });
+  // Persist all non-contest submissions (DB rows + S3 source / verdict-detail
+  // blobs) in one batch.
+  await persistSeedSubmissions(prisma, storage, subs);
 
   // ─────────────────────────────────────────────────────────────
   // D. Contests — spring-qualifier (past, frozen board) and the live
   //    round. ContestParticipation per student; submissions linked via
   //    contestParticipationId. Redis scoreboard populated per participant.
   // ─────────────────────────────────────────────────────────────
-  await seedContestSubmissions(prisma, {
+  await seedContestSubmissions(prisma, storage, {
     contestId: "spring-qualifier-2026",
     problems: ["problem_warmup-sum", "problem_graph-docking"],
     students: [student, ...demoStudents.slice(0, 8)],
@@ -346,7 +397,7 @@ export async function seedSubmissions(
     tc,
   });
 
-  await seedContestSubmissions(prisma, {
+  await seedContestSubmissions(prisma, storage, {
     contestId: "contest_demo_live",
     problems: ["problem_warmup-sum", "problem_add-two-numbers"],
     students: [student, ...demoStudents.slice(0, 6)],
@@ -359,7 +410,7 @@ export async function seedSubmissions(
   });
 
   console.log(
-    `  Submissions: ${rows.length} practice/assignment/exam rows + contest rows for 2 contests`,
+    `  Submissions: ${subs.length} practice/assignment/exam rows + contest rows for 2 contests`,
   );
 }
 
@@ -388,6 +439,7 @@ function pickAssignmentFinal(rng: SeededRng): LongVerdict {
  */
 async function seedContestSubmissions(
   prisma: PrismaClient,
+  storage: S3Client,
   args: {
     contestId: string;
     problems: string[];
@@ -416,7 +468,7 @@ async function seedContestSubmissions(
       },
     });
 
-    const rows: Prisma.SubmissionCreateManyInput[] = [];
+    const contestSubs: SeedSubmission[] = [];
     let solvedCount = 0;
     let totalPenalty = 0;
 
@@ -431,7 +483,7 @@ async function seedContestSubmissions(
           "runtime_error",
           "time_limit_exceeded",
         ]);
-        rows.push(
+        contestSubs.push(
           makeSubmission({
             rng,
             userId: s.id,
@@ -446,7 +498,7 @@ async function seedContestSubmissions(
 
       if (willSolve) {
         const acTime = submissionTimeFor(rng);
-        rows.push(
+        contestSubs.push(
           makeSubmission({
             rng,
             userId: s.id,
@@ -467,9 +519,7 @@ async function seedContestSubmissions(
       }
     }
 
-    if (rows.length > 0) {
-      await prisma.submission.createMany({ data: rows });
-    }
+    await persistSeedSubmissions(prisma, storage, contestSubs);
 
     // Persist the participation aggregate (ICPC: score = solved count).
     await prisma.contestParticipation.update({

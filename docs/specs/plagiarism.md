@@ -180,7 +180,9 @@ for staff.
   (array wrapper preserved for UI compatibility).
 - GIVEN a staff actor,
   WHEN they GET `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]`,
-  THEN the response is `{ sourceCode }`.
+  THEN the response is `{ files: SubmissionSource[] }` — one entry per
+  file under the submission's S3 prefix. Multi-file submissions surface
+  every path; single-file submissions return one entry.
 - GIVEN a request to the sources path missing any of `assignmentId`,
   `userId`, or `problemId`,
   WHEN the route validates,

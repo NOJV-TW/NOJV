@@ -10,6 +10,7 @@ import {
 } from "../types";
 
 import { judgeConfigSchema } from "./judge-config";
+import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
 
 // 16 MB cap on blob-backed fields: API payload safety, not a storage bound.
@@ -35,13 +36,7 @@ export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySche
 
 export const problemWorkspaceFileSchema = z.object({
   language: languageSchema,
-  path: z
-    .string()
-    .min(1)
-    .max(500)
-    .refine((p) => !p.startsWith("/") && !p.includes(".."), {
-      message: "path must be relative and must not contain ..",
-    }),
+  path: safeRelativePath,
   content: z.string().max(BLOB_FIELD_MAX_BYTES),
   visibility: workspaceFileVisibilitySchema,
   description: z.string().max(5_000).default(""),

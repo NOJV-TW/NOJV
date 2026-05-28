@@ -225,15 +225,18 @@ describe("contest queries (real DB)", () => {
         },
       });
 
-      // Create an accepted submission
+      // Create an accepted submission. Sources live in object storage but the
+      // scoreboard test doesn't read them — just stamp a prefix.
+      const subId = "sub_problem_count_sb_1";
       await testPrisma.submission.create({
         data: {
+          id: subId,
           contestId: contest.id,
           contestParticipationId: participation.id,
           language: "python",
           problemId: problem.id,
           sampleOnly: false,
-          sourceCode: "print(1)",
+          sourceStoragePrefix: `submissions/${subId}/sources/`,
           status: "accepted",
           userId: user.id,
           createdAt: new Date("2026-01-01T01:00:00Z"),

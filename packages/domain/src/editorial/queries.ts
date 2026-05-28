@@ -1,4 +1,13 @@
-import { editorialRepo, submissionRepo } from "@nojv/db";
+import {
+  assessmentProblemRepo,
+  assessmentRepo,
+  contestProblemRepo,
+  contestRepo,
+  editorialRepo,
+  examProblemRepo,
+  examRepo,
+  submissionRepo,
+} from "@nojv/db";
 
 export async function hasUserAcProblem(userId: string, problemId: string): Promise<boolean> {
   const count = await submissionRepo.count({
@@ -10,19 +19,111 @@ export async function hasUserAcProblem(userId: string, problemId: string): Promi
   return count > 0;
 }
 
+export type EditorialViewContext =
+  | { kind: "practice" }
+  | { kind: "contest"; contestId: string; now: Date }
+  | { kind: "assignment"; assignmentId: string; now: Date }
+  | { kind: "exam"; examId: string; now: Date };
+
+// Fail-closed: if the active event row can't be resolved (Prisma flap,
+// deleted row, stale link), deny editorial access. A transient lookup
+// failure during a live event must not leak editorials to participants.
+async function contextGateOpen(context: EditorialViewContext): Promise<boolean> {
+  switch (context.kind) {
+    case "practice":
+      return true;
+    case "contest": {
+      const contest = await contestRepo.findById(context.contestId).catch(() => null);
+      if (!contest) return false;
+      return context.now.getTime() >= contest.endsAt.getTime();
+    }
+    case "assignment": {
+      const assessment = await assessmentRepo
+        .findInfoById(context.assignmentId)
+        .catch(() => null);
+      if (!assessment) return false;
+      return context.now.getTime() >= assessment.closesAt.getTime();
+    }
+    case "exam": {
+      const exam = await examRepo.findById(context.examId).catch(() => null);
+      if (!exam) return false;
+      return context.now.getTime() >= exam.endsAt.getTime();
+    }
+  }
+}
+
 /**
- * Editorial visibility gate. A user may view editorials if they currently
- * have an accepted submission OR they have already authored an editorial
- * for the problem. The second clause grandfathers authors past a rejudge
- * that overturns their AC — losing access to your own editorial would be
- * surprising and breaks the edit flow.
+ * Editorial visibility gate. Authors of any editorial for the problem
+ * always see it (grandfather rule — a rejudge overturning their AC must
+ * not lock them out of their own writing). Otherwise the user must have
+ * an accepted submission AND the contextual event (contest/assignment/exam)
+ * must have already ended — past-practice AC alone is not enough to read
+ * editorials during an active contest reuse of the same problem.
  */
-export async function canViewEditorials(userId: string, problemId: string): Promise<boolean> {
-  const [ac, authored] = await Promise.all([
-    hasUserAcProblem(userId, problemId),
-    editorialRepo.existsForUserProblem(userId, problemId),
+export async function canViewEditorials(
+  userId: string,
+  problemId: string,
+  context: EditorialViewContext = { kind: "practice" },
+): Promise<boolean> {
+  const authored = await editorialRepo.existsForUserProblem(userId, problemId);
+  if (authored) return true;
+
+  const ac = await hasUserAcProblem(userId, problemId);
+  if (!ac) return false;
+
+  return contextGateOpen(context);
+}
+
+/**
+ * Resolve the editorial view context for `(userId, problemId)` server-side.
+ *
+ * The client must NOT be allowed to declare its own context — that lets a
+ * student in a live event spoof `practice` (or point at some unrelated
+ * already-ended contest) and bypass the gate. Instead we look at every
+ * currently-running (now < endsAt/closesAt) contest / assignment / exam
+ * that contains the problem AND which the user is enrolled in or
+ * participating in, and pick the one with the latest deadline — the
+ * strictest gate. If nothing matches, fall back to practice context.
+ */
+export async function resolveActiveContextForUser(
+  userId: string,
+  problemId: string,
+  now: Date,
+): Promise<EditorialViewContext> {
+  const [contests, assignments, exams] = await Promise.all([
+    contestProblemRepo.findActiveContestsForUser(problemId, userId, now),
+    assessmentProblemRepo.findActiveAssessmentsForUser(problemId, userId, now),
+    examProblemRepo.findActiveExamsForUser(problemId, userId, now),
   ]);
-  return ac || authored;
+
+  const candidates: { context: EditorialViewContext; deadline: number }[] = [];
+  for (const row of contests) {
+    candidates.push({
+      context: { kind: "contest", contestId: row.contest.id, now },
+      deadline: row.contest.endsAt.getTime(),
+    });
+  }
+  for (const row of assignments) {
+    candidates.push({
+      context: { kind: "assignment", assignmentId: row.assessment.id, now },
+      deadline: row.assessment.closesAt.getTime(),
+    });
+  }
+  for (const row of exams) {
+    candidates.push({
+      context: { kind: "exam", examId: row.exam.id, now },
+      deadline: row.exam.endsAt.getTime(),
+    });
+  }
+
+  // Strictest gate = latest-ending event (waits longest before it opens).
+  let strictest: { context: EditorialViewContext; deadline: number } | undefined;
+  for (const candidate of candidates) {
+    if (!strictest || candidate.deadline > strictest.deadline) {
+      strictest = candidate;
+    }
+  }
+  return strictest ? strictest.context : { kind: "practice" };
 }
 
 export async function listProblemEditorials(problemId: string) {

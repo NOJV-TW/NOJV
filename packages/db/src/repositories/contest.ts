@@ -209,6 +209,37 @@ export const contestProblemRepo = {
       .then((row) => row !== null);
   },
 
+  // Currently-active contests that include this problem and that the
+  // user is eligible to enter. Used by the editorial context resolver
+  // to deny editorial reads while the live event is still running.
+  //
+  // ContestParticipation rows are created lazily on first submission
+  // (see `ensureContestParticipation`), so filtering by participation
+  // alone misses a user who hasn't yet submitted but is fully eligible
+  // to join. That gap lets a past-AC student read editorials via the
+  // practice fallback while a live contest is reusing the problem.
+  // Contests have no `courseId` and visibility is `draft | published`
+  // only — published = open to any logged-in user — so the right key
+  // is "the contest is published and live". The `userId` parameter is
+  // accepted for signature parity with the assessment/exam helpers
+  // but does not narrow the result; eligibility is contest-wide.
+  findActiveContestsForUser(problemId: string, userId: string, now: Date) {
+    void userId;
+    return prisma.contestProblem.findMany({
+      where: {
+        problemId,
+        contest: {
+          visibility: "published",
+          endsAt: { gt: now },
+          startsAt: { lte: now },
+        },
+      },
+      select: {
+        contest: { select: { id: true, endsAt: true } },
+      },
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.ContestProblemUncheckedCreateInput) {

@@ -6,12 +6,22 @@ import { getClientIp } from "$lib/server/shared/client-ip";
 import { submissionDomain } from "@nojv/domain";
 import { submissionResultSchema } from "@nojv/core";
 
-const { getSubmissionForUser, querySubmissionStatus, stripStaffFeedback } = submissionDomain;
+const { getSubmissionForUser, getVerdictDetail, querySubmissionStatus, stripStaffFeedback } =
+  submissionDomain;
 
 function sanitizeVerdictDetail(raw: unknown): unknown {
   if (raw === null || raw === undefined) return raw;
   const parsed = submissionResultSchema.safeParse(raw);
   return parsed.success ? stripStaffFeedback(parsed.data) : raw;
+}
+
+async function loadDetail(
+  submission: Awaited<ReturnType<typeof getSubmissionForUser>>,
+): Promise<unknown> {
+  // Verdict detail is keyed off `verdictDetailStorageKey`; pre-terminal rows
+  // have no key, so don't waste a storage round-trip on them.
+  if (!submission.verdictDetailStorageKey) return null;
+  return getVerdictDetail(submission.id);
 }
 
 const POLL_INTERVAL_MS = 1000;
@@ -79,8 +89,9 @@ export const GET: RequestHandler = async (event) => {
 
             if (TERMINAL_STATUSES.has(status)) {
               const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
+              const detail = await loadDetail(submission);
               send({
-                result: sanitizeVerdictDetail(submission.verdictDetail),
+                result: sanitizeVerdictDetail(detail),
                 status: submission.status,
                 submissionId: submission.id,
               });
@@ -89,8 +100,9 @@ export const GET: RequestHandler = async (event) => {
           } catch {
             // Workflow might have already completed - fall back to DB
             const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
+            const detail = await loadDetail(submission);
             send({
-              result: sanitizeVerdictDetail(submission.verdictDetail),
+              result: sanitizeVerdictDetail(detail),
               status: submission.status,
               submissionId: submission.id,
             });

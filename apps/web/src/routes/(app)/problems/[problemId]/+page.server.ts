@@ -10,7 +10,7 @@ const {
   getProblemTestcaseSets,
 } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
-const { canViewEditorials } = editorialDomain;
+const { canViewEditorials, resolveActiveContextForUser } = editorialDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
@@ -70,6 +70,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   // synthetic submission shape (id/userId are irrelevant to the check).
   // `editorialAccess` grandfathers editorial authors whose AC was later
   // overturned by a rejudge — the client `hasAc` derive alone cannot.
+  // The editorial context is resolved server-side from the user's active
+  // events so a student looking at the practice page during a live contest
+  // that reuses this problem still sees the strict (live-event) gate.
+  const editorialContext = await resolveActiveContextForUser(userId, problemId, new Date());
   const [canRejudge, editorialAccess, bookmarked] = await Promise.all([
     canOperateOnSubmission(actorContext, {
       id: "",
@@ -79,7 +83,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       courseAssessmentId: null,
       examId: null,
     }),
-    canViewEditorials(userId, problemId),
+    canViewEditorials(userId, problemId, editorialContext),
     problemDomain.isBookmarked(userId, problemId),
   ]);
 

@@ -1,10 +1,14 @@
 // tests/fixtures/factories.ts
 import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { submissionVerdicts } from "@nojv/core";
+import { entryFileNameFor, submissionVerdicts, type Language } from "@nojv/core";
 import {
   createStorageClient,
   putText,
+  putSubmissionSources,
+  putVerdictDetail,
+  submissionSourcePrefix,
+  submissionVerdictDetailKey,
   testcaseInputKey,
   testcaseOutputKey,
   workspaceFileKey,
@@ -229,10 +233,19 @@ export async function createTestCourse(
   });
 }
 
+// Test factory accepts the legacy `sourceCode` / `verdictDetail` convenience
+// overrides; these are NOT real columns post-W1 — the factory writes the
+// bytes to object storage and persists the storage prefix / key on the row.
+type CreateTestSubmissionInput = Omit<
+  Partial<Prisma.SubmissionUncheckedCreateInput>,
+  "sourceCode" | "verdictDetail"
+> & {
+  sourceCode?: string;
+  verdictDetail?: Prisma.InputJsonValue;
+};
+
 // --- Submission ---
-export async function createTestSubmission(
-  overrides: Partial<Prisma.SubmissionUncheckedCreateInput> = {},
-) {
+export async function createTestSubmission(overrides: CreateTestSubmissionInput = {}) {
   const id = uid();
   let userId = overrides.userId;
   if (!userId) {
@@ -246,21 +259,74 @@ export async function createTestSubmission(
   }
 
   const status = overrides.status ?? "accepted";
-  // `listProblemSubmissions` `.parse()`s verdictDetail — fill it for terminal statuses so tests don't blow up.
-  const defaultVerdictDetail = isTerminalVerdict(status)
-    ? buildDefaultVerdictDetail(status)
-    : undefined;
+  // Tests that don't pass an explicit verdictDetail still need the read path
+  // to parse a sensible SubmissionResult for terminal statuses. Default to a
+  // generated shape so list views don't blow up.
+  const verdictDetail: Prisma.InputJsonValue | undefined =
+    overrides.verdictDetail ??
+    (isTerminalVerdict(status) ? buildDefaultVerdictDetail(status) : undefined);
 
-  return testPrisma.submission.create({
+  const sourceCode = overrides.sourceCode ?? 'print("hello")';
+  const sourcePrefix = submissionSourcePrefix(id);
+
+  const { sourceCode: _sc, verdictDetail: _vd, userId: _u, problemId: _p, ...rest } = overrides;
+  void _sc;
+  void _vd;
+  void _u;
+  void _p;
+
+  const row = await testPrisma.submission.create({
     data: {
       id,
       language: overrides.language ?? "python",
-      sourceCode: overrides.sourceCode ?? 'print("hello")',
+      sourceStoragePrefix: sourcePrefix,
       status,
-      ...(defaultVerdictDetail !== undefined ? { verdictDetail: defaultVerdictDetail } : {}),
-      ...overrides,
+      ...(verdictDetail !== undefined
+        ? {
+            verdictSummary: deriveSummaryForFactory(verdictDetail),
+            verdictDetailStorageKey: submissionVerdictDetailKey(id),
+          }
+        : {}),
+      ...rest,
       userId,
       problemId,
     },
   });
+
+  // Mirror production write order: sources first, then verdict-detail. Tests
+  // expect both to be available immediately after the factory resolves.
+  await putSubmissionSources(storage(), id, [
+    { path: entryFileNameFor(row.language as Language), content: sourceCode },
+  ]);
+  if (verdictDetail !== undefined) {
+    await putVerdictDetail(storage(), id, verdictDetail);
+  }
+
+  return row;
+}
+
+function deriveSummaryForFactory(detail: Prisma.InputJsonValue): Prisma.InputJsonValue {
+  // Pull a minimal summary out of the SubmissionResult-shaped detail blob
+  // without pulling @nojv/domain into the factory (which would eagerly drag
+  // in @nojv/redis and force factory consumers to mock it). Mirrors the
+  // tally rule in `deriveVerdictSummary` for the AC/WA/TLE/MLE/RE/other
+  // bucket; everything else falls back to a zeroed summary.
+  const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
+  if (
+    detail &&
+    typeof detail === "object" &&
+    !Array.isArray(detail) &&
+    Array.isArray((detail as { caseResults?: unknown }).caseResults)
+  ) {
+    for (const c of (detail as { caseResults: { verdict?: string }[] }).caseResults) {
+      const v = String(c.verdict ?? "").toUpperCase();
+      if (v === "AC") caseSummary.ac += 1;
+      else if (v === "WA") caseSummary.wa += 1;
+      else if (v === "TLE") caseSummary.tle += 1;
+      else if (v === "MLE") caseSummary.mle += 1;
+      else if (v === "RE") caseSummary.re += 1;
+      else caseSummary.other += 1;
+    }
+  }
+  return { caseSummary };
 }
