@@ -40,16 +40,19 @@ async function dockerImageAvailable(): Promise<boolean> {
 
 // DOMjudge validator (TA code appended after the python-validator wrapper).
 // Whitespace-insensitive equality; awards a partial 50 when the team output is
-// a non-empty prefix of the answer.
+// a non-empty prefix of the answer. The wrong path emits BOTH a student-facing
+// `wrong(...)` message and an operator-only `judge_log(...)` diagnostic so the
+// merge tests can assert the two channels stay separate.
 const VALIDATOR_SCRIPT = `team = team_output.split()
 ans = judge_answer.split()
 if team == ans:
     accept("exact match")
 elif team and team == ans[:len(team)]:
     set_score(50)
+    judge_log("STAFF_DIAG partial prefix len=" + str(len(team)))
     wrong("partial prefix")
 else:
-    judge_log("expected " + judge_answer)
+    judge_log("STAFF_DIAG expected " + judge_answer)
     wrong("wrong answer")
 `;
 
@@ -140,6 +143,34 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
       expect(tc.score).toBe(50);
     }
   });
+
+  it(
+    "splits validator messages: teammessage → student feedback, judgemessage → staffFeedback",
+    { timeout: 180_000 },
+    async (ctx) => {
+      if (!(await dockerImageAvailable())) return ctx.skip();
+
+      // Wrong solution exercises the validator's `wrong(...)` + `judge_log(...)`
+      // path. The merged result must carry the student message in `feedback` and
+      // the operator diagnostic in `staffFeedback` — never the other way round.
+      const result = await makeExecutor().execute(
+        checkerRequest({
+          submissionId: "checker-channels",
+          sourceCode: "print('totally wrong')\n",
+        }),
+      );
+
+      expect(result.compilationError).toBeUndefined();
+      expect(result.testcaseResults.length).toBe(2);
+      for (const tc of result.testcaseResults) {
+        expect(tc.verdict).toBe("WA");
+        expect(tc.feedback).toBe("wrong answer");
+        expect(tc.staffFeedback).toMatch(/^STAFF_DIAG expected /);
+        // The two channels must remain distinct.
+        expect(tc.feedback).not.toContain("STAFF_DIAG");
+      }
+    },
+  );
 
   it(
     "does not expose the validator script or the answer to the run container",

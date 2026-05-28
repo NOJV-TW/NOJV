@@ -55,11 +55,13 @@ for attempt in range(budget):
     if guess == secret:
         write("correct")
         set_score(100 - attempt * 10)
+        judge_log("STAFF_DIAG solved secret=" + str(secret))
         accept("found in " + str(attempt + 1) + " guesses")
     elif guess < secret:
         write("higher")
     else:
         write("lower")
+judge_log("STAFF_DIAG budget exhausted secret=" + str(secret))
 wrong("guess budget exhausted")
 `;
 
@@ -175,6 +177,34 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("WA");
+      }
+    },
+  );
+
+  it(
+    "splits interactor messages: teammessage → student feedback, judgemessage → staffFeedback",
+    { timeout: 240_000 },
+    async (ctx) => {
+      if (!(await dockerImageAvailable())) return ctx.skip();
+
+      const result = await makeExecutor().execute(
+        interactiveRequest({
+          submissionId: "interactive-channels",
+          sourceCode: BINARY_SEARCH_SOLUTION,
+        }),
+      );
+
+      expect(result.compilationError).toBeUndefined();
+      expect(result.testcaseResults.length).toBe(2);
+      for (const tc of result.testcaseResults) {
+        expect(tc.verdict).toBe("AC");
+        // Student-facing accept message from the interactor.
+        expect(tc.feedback).toMatch(/^found in \d+ guesses$/);
+        // Operator diagnostic — the secret number is in here, must NEVER appear
+        // in the student channel.
+        expect(tc.staffFeedback).toMatch(/^STAFF_DIAG solved secret=\d+$/);
+        expect(tc.feedback).not.toContain("STAFF_DIAG");
+        expect(tc.feedback).not.toContain("secret=");
       }
     },
   );
