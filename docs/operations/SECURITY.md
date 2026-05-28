@@ -9,7 +9,7 @@ Security requirements are first-class because this system handles authentication
 | Passwords               | PostgreSQL `Account.password`                              | bcrypt hash                                                                       |
 | OAuth tokens            | PostgreSQL `Account.accessToken`                           | Encrypted by better-auth                                                          |
 | Session tokens          | PostgreSQL `Session.token`                                 | httpOnly cookie                                                                   |
-| Source code             | PostgreSQL `Submission.sourceCode`                         | Per-user access control                                                           |
+| Source code             | S3-compatible storage (`submissions/<id>/sources/<path>`)  | Per-user access control; never served raw, only read by domain helpers + worker   |
 | Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase`                      | Never exposed to students; only `Problem.samples` is rendered on the problem page |
 | Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)  | Filtered out server-side before `ProblemDetail` leaves the domain layer           |
 | Problem images          | S3-compatible storage                                      | Public read for problem paths                                                     |
@@ -66,6 +66,49 @@ Defence-in-depth is therefore layered on the cheap-but-strong primitives instead
 - Strict CPU / memory / PID limits.
 
 If a future audit identifies a specific syscall that materially expands the attack surface, the right move is to extend the Docker default profile incrementally — not to invent a from-scratch allowlist.
+
+## Editorial Visibility Gate
+
+Editorials must not be readable inside an event that re-uses the
+problem, even when the viewer earned AC in past practice. The gate is
+enforced by `canViewEditorials(userId, problemId, context)` in
+`packages/domain/src/editorial/queries.ts`:
+
+- `EditorialViewContext` is one of `{ kind: "practice" }`,
+  `{ kind: "contest", contestId, now }`,
+  `{ kind: "assignment", assignmentId, now }`, or
+  `{ kind: "exam", examId, now }`.
+- For non-practice contexts the gate only opens once the event has
+  passed its deadline (`contest.endsAt`, `assessment.closesAt`,
+  `exam.endsAt`).
+- Authors of any editorial for the problem keep access regardless of
+  context (the "rejudge grandfather" rule — see the editorials spec).
+
+**The client cannot supply or override the context.** The API route
+resolves it server-side via
+`resolveActiveContextForUser(userId, problemId, now)`, which scans
+every currently-running contest / assignment / exam that contains the
+problem and that the user is enrolled in, then picks the latest-ending
+one (the strictest gate). Only falls back to `practice` when no live
+event matches. This closes the bypass where a student who AC'd a
+problem in past practice could read the editorial via
+`GET /api/problems/<id>/editorials` while a live contest re-using the
+same problem was still running. Both GET and POST endpoints in
+`apps/web/src/routes/api/problems/[id]/editorials/+server.ts` go
+through the same resolver.
+
+## Plagiarism Tokenization (Multi-file)
+
+The plagiarism check feeds source code into Dolos. Multi-file
+submissions are loaded via
+`submissionDomain.getSubmissionSources(id)` (S3-backed) and
+concatenated in **sorted path order** with `// === <path> ===\n`
+boundary markers before tokenization
+(`packages/domain/src/plagiarism/queries.ts`). The earlier path that
+JSON-stringified the whole file map masked semantic similarity behind
+JSON syntax tokens; the comment-marker concatenation restores
+tokenization fidelity because every Dolos-supported language treats
+`//` as a line comment and the markers are dropped by the tokenizer.
 
 ## Input Validation
 
