@@ -103,6 +103,7 @@ export function mapResult(
     stdout: t.stdout,
     timeMs: t.timeMs,
     ...(t.memoryKb !== undefined && t.memoryKb > 0 ? { memoryKb: t.memoryKb } : {}),
+    ...(t.staffFeedback !== undefined ? { staffFeedback: t.staffFeedback } : {}),
   }));
 
   const peakMemoryKb = result.testcaseResults.reduce(
