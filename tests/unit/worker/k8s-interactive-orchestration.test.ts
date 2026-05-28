@@ -241,6 +241,44 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     expect(record.configMapsDeleted).toHaveLength(2);
   });
 
+  it(
+    "REGRESSION: Job-failed but both markers present → real verdict, not SE " +
+      "(every successful K8s interactive run reports the Job as failed because the " +
+      "solution-side socat exits non-zero with 'broken pipe' the moment the " +
+      "interactor's socat closes the TCP connection)",
+    async () => {
+      const record = emptyRecord();
+      const request = makeRequest(1);
+      const perJob = new Map([
+        [
+          "judge-sub-int-orch-int-0",
+          {
+            solution: runMarker({ exitCode: 0, timeMs: 5, errorVerdict: null }),
+            interactor: intMarker({
+              verdict: "WA",
+              score: 0,
+              teamMessage: "guess budget exhausted",
+            }),
+          },
+        ],
+      ]);
+      const outcomes = new Map<string, "succeeded" | "failed">([
+        ["judge-sub-int-orch-int-0", "failed"],
+      ]);
+
+      const executor = new K8sExecutor(
+        EXEC_CONFIG,
+        buildFakeClients(record, { perJob, outcomes }),
+      );
+      const result = await executor.execute(request);
+
+      // Markers are authoritative — Job-failed is the EXPECTED state for a clean
+      // interactive run, so it must NOT poison the verdict to SE.
+      expect(result.testcaseResults![0]!.verdict).toBe("WA");
+      expect(result.testcaseResults![0]!.feedback).toBe("guess budget exhausted");
+    },
+  );
+
   it("a forged marker (interactor outcome but no run marker) → SE", async () => {
     const record = emptyRecord();
     const request = makeRequest(1);

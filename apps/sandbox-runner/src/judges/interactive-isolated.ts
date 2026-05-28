@@ -8,6 +8,7 @@ import {
   type ValidatorOutcome,
 } from "@nojv/core";
 import * as fs from "node:fs/promises";
+import { writeSync as fsWriteSync } from "node:fs";
 import * as path from "node:path";
 import { createBoundedBuffer, createMemoryPoller, withProcessLimit } from "../utils.js";
 
@@ -33,7 +34,12 @@ export function runInteractiveSolution(
     const [cmd, ...args] = runCommand;
 
     if (!cmd) {
-      emitRunReport({ exitCode: -1, timeMs: 0, errorVerdict: "SE", stderr: "Empty run command." });
+      emitRunReport({
+        exitCode: -1,
+        timeMs: 0,
+        errorVerdict: "SE",
+        stderr: "Empty run command.",
+      });
       resolve();
       return;
     }
@@ -179,7 +185,10 @@ export function runInteractiveValidator(
 
     child.on("error", (err) => {
       clearTimeout(timer);
-      emitValidateReport({ verdict: "SE", judgeMessage: `Interactor failed to start: ${err.message}` });
+      emitValidateReport({
+        verdict: "SE",
+        judgeMessage: `Interactor failed to start: ${err.message}`,
+      });
       resolve();
     });
 
@@ -209,12 +218,37 @@ export function runInteractiveValidator(
   });
 }
 
-/** Write the run report marker line on this process's stderr (container fd 2). */
+/**
+ * Write the run report marker line on this process's stderr (container fd 2).
+ * Uses fs.writeSync — process.stderr.write is async on a pipe (which fd 2 is
+ * when the runner is wrapped by socat), and on a racy teardown (interactor
+ * finishes first → its socat closes TCP → solution-side socat tears down the
+ * solution container) the async write can be dropped before flush, so the
+ * marker line never reaches the K8s pod log → worker sees no marker → SE
+ * verdict for a successful run.
+ */
 function emitRunReport(report: InteractiveRunReport): void {
-  process.stderr.write(`\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`);
+  writeSync(2, `\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`);
 }
 
 /** Write the validate report marker line on this process's stderr (container fd 2). */
 function emitValidateReport(outcome: ValidatorOutcome): void {
-  process.stderr.write(`\n${INTERACTIVE_VALIDATE_MARKER}${JSON.stringify(outcome)}\n`);
+  writeSync(2, `\n${INTERACTIVE_VALIDATE_MARKER}${JSON.stringify(outcome)}\n`);
+}
+
+/**
+ * Synchronous best-effort stderr write — ignores EAGAIN/EPIPE on a torn-down
+ * pipe. The fs.writeSync path is critical on K8s: under the socat-bridged
+ * interactive pod, `process.stderr.write` is libuv-async, and on the racy
+ * "interactor finishes first" teardown (interactor exits → its socat closes
+ * TCP → solution-side socat dies) node can exit before the libuv write
+ * flushes — dropping the marker, so the worker sees no run report and
+ * returns false SE for a legitimate verdict.
+ */
+function writeSync(fd: number, data: string): void {
+  try {
+    fsWriteSync(fd, data);
+  } catch {
+    // Pipe already closed (e.g. socat torn down) — nothing more we can do.
+  }
 }

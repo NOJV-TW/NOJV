@@ -809,11 +809,7 @@ export class K8sExecutor implements SandboxExecutor {
         );
       }
 
-      if (
-        raw &&
-        typeof raw === "object" &&
-        (raw as { missing?: boolean }).missing === true
-      ) {
+      if (raw && typeof raw === "object" && (raw as { missing?: boolean }).missing === true) {
         return advancedFallbackResult(
           request,
           "Advanced judge image did not write result.json before the deadline.",
@@ -922,8 +918,14 @@ export class K8sExecutor implements SandboxExecutor {
       });
 
       const outcome = await this.waitForJobCompletion(jobName, namespace);
-      // Even on a failed Job we still try to read logs — one container can
-      // have produced a usable marker before the other crashed.
+      // We always try to read logs, regardless of Job status: an interactive
+      // pod's Job-level state is misleading because the solution-side socat
+      // exits non-zero with "broken pipe" the moment the interactor's socat
+      // closes the TCP connection — making EVERY successful interactive run
+      // look like a "failed" Job to K8s. The authoritative signal is the
+      // marker the sandbox runner writes on its container's stderr BEFORE
+      // socat tears down: if both markers are present, mergeInteractiveCase
+      // returns the real verdict; if either is missing, it returns SE.
       const podName = await this.findPodName(jobName, namespace);
       if (!podName) {
         if (outcome === "failed") return seCase("Interactive sandbox job failed or timed out.");
@@ -941,12 +943,12 @@ export class K8sExecutor implements SandboxExecutor {
 
       const sol: InteractiveSideResult = {
         stderr: solLogs,
-        timedOut: outcome === "failed",
+        timedOut: false,
         spawnError: false,
       };
       const int: InteractiveSideResult = {
         stderr: intLogs,
-        timedOut: outcome === "failed",
+        timedOut: false,
         spawnError: false,
       };
       return mergeInteractiveCase(testcase, sol, int);
