@@ -1,18 +1,24 @@
 import { spawn } from "node:child_process";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
   normalizeRelativePath,
   sourceFileNames,
+  type RawCaseRun,
   type SandboxRequest,
   type SandboxResult,
+  type ValidatorOutcome,
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
+import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
-import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
+import { runInteractiveMode } from "./interactive-executor";
+import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
+import { runValidator, type ValidatorCase } from "./validator-executor";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 
@@ -28,11 +34,96 @@ export async function runStandardMode(
   request: SandboxRequest,
   config: StandardModeConfig,
 ): Promise<SandboxResult> {
+  // Interactive mode runs the solution and the DOMjudge interactor in two
+  // SEPARATE isolated containers wired by a worker byte proxy — the secret
+  // input/answer is mounted only into the interactor container. It has its own
+  // launch path (per-case container pairs) and does not use the run container.
+  if (request.judgeType === "interactive") {
+    return await runInteractiveMode(request, config);
+  }
+
   await writeSubmissionFiles(tempDir, request);
-  return await runContainer(tempDir, request, config);
+  const runResult = await runContainer(tempDir, request, config);
+
+  // Checker mode: the run container only produced raw output. Run the
+  // DOMjudge validator in a SECOND isolated container, then merge.
+  if (request.judgeType === "checker" && runResult.rawRuns) {
+    return await resolveCheckerResult(request, config, runResult.rawRuns);
+  }
+
+  // Standard mode emits rawRuns → worker compares; checker/interactive that
+  // reached here without rawRuns already carry testcaseResults.
+  return resolveSandboxResult(runResult, request.testcases);
 }
 
-async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): Promise<void> {
+async function resolveCheckerResult(
+  request: SandboxRequest,
+  config: StandardModeConfig,
+  rawRuns: RawCaseRun[],
+): Promise<SandboxResult> {
+  const validatorScript = request.judgeConfig.checkerScript;
+  if (!validatorScript) {
+    return sandboxSystemError("Checker judge is missing its validator script.");
+  }
+
+  const validatorLanguage = request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
+
+  const testcaseByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
+
+  // Only clean runs go to the validator; failed runs (TLE/MLE/RE/SE) pass
+  // through. A clean run whose testcase has no expected answer is a
+  // misconfiguration → its outcome is left absent so the merge marks it SE.
+  const cases: ValidatorCase[] = [];
+  for (const run of rawRuns) {
+    if (run.errorVerdict) continue;
+    const tc = testcaseByIndex.get(run.index);
+    if (tc?.output === undefined) continue;
+    cases.push({
+      index: run.index,
+      input: tc.input,
+      answer: tc.output,
+      teamOutput: run.stdout,
+    });
+  }
+
+  const outcomes =
+    cases.length > 0
+      ? await runValidatorInTempDir(request, config, {
+          submissionId: request.submissionId,
+          validatorScript,
+          validatorLanguage,
+          cases,
+          limits: { timeoutMs: request.limits.timeoutMs, memoryMb: request.limits.memoryMb },
+        })
+      : new Map<number, ValidatorOutcome>();
+
+  return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
+}
+
+async function runValidatorInTempDir(
+  request: SandboxRequest,
+  config: StandardModeConfig,
+  params: Parameters<typeof runValidator>[1],
+): ReturnType<typeof runValidator> {
+  const validateTempDir = await mkdtemp(
+    join(tmpdir(), `nojv-validate-${sanitizeId(request.submissionId)}-`),
+  );
+  try {
+    return await runValidator(validateTempDir, params, {
+      cpuLimit: config.cpuLimit,
+      image: config.image,
+      memoryMb: config.memoryMb,
+      pidsLimit: config.pidsLimit,
+    });
+  } finally {
+    await rm(validateTempDir, { force: true, recursive: true });
+  }
+}
+
+export async function writeSubmissionFiles(
+  tempDir: string,
+  request: SandboxRequest,
+): Promise<void> {
   const fileWrites: Promise<void>[] = [];
   const sourceFileMap: { path: string; key: string }[] = [];
 
@@ -71,38 +162,26 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
     ),
   );
 
-  if (request.judgeConfig.checkerScript) {
-    const ext = sourceExtension(request.judgeConfig.checkerLanguage);
-    fileWrites.push(
-      writeFile(join(tempDir, `checker.${ext}`), request.judgeConfig.checkerScript, "utf8"),
-    );
-  }
-
-  if (request.judgeConfig.interactorScript) {
-    const ext = sourceExtension(request.judgeConfig.interactorLanguage);
-    fileWrites.push(
-      writeFile(
-        join(tempDir, `interactor.${ext}`),
-        request.judgeConfig.interactorScript,
-        "utf8",
-      ),
-    );
-  }
+  // Checker mode no longer runs an in-container checker: the validator runs
+  // in a SECOND isolated container (see runValidator), and interactive runs in
+  // its own two-container path. Neither the checker/validator script nor the
+  // interactor ever enters the run container alongside student code.
 
   await Promise.all(fileWrites);
 
   const testcasesDir = join(tempDir, "testcases");
   await mkdir(testcasesDir, { recursive: true });
 
+  // This path serves only standard and checker modes (interactive returns
+  // early in runStandardMode). Both decide the verdict elsewhere — worker
+  // comparison or an isolated validator container — so the expected answer
+  // must never be readable from inside the run container: a student program
+  // could otherwise just echo it back.
   await Promise.all(
     request.testcases.map(async (tc) => {
       const tcDir = join(testcasesDir, String(tc.index));
       await mkdir(tcDir, { recursive: true });
       await writeFile(join(tcDir, "input.txt"), tc.input, "utf8");
-
-      if (tc.output !== undefined) {
-        await writeFile(join(tcDir, "expected.txt"), tc.output, "utf8");
-      }
     }),
   );
 

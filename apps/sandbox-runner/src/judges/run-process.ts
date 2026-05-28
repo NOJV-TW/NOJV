@@ -19,7 +19,12 @@ export interface RunProcessResult {
  */
 export function runProcess(
   command: string[],
-  options: { stdin?: string; timeoutMs: number },
+  options: {
+    stdin?: string;
+    timeoutMs: number;
+    env?: Record<string, string>;
+    cpuSeconds?: number;
+  },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -41,10 +46,20 @@ export function runProcess(
 
     const useStdin = options.stdin !== undefined;
 
-    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const wrapped = withProcessLimit(
+      [cmd, ...args],
+      options.cpuSeconds !== undefined ? { cpuSeconds: options.cpuSeconds } : undefined,
+    );
+    // When the command is bash-wrapped (ulimit), a missing/non-executable
+    // target fails inside the wrapper instead of at spawn() — bash prints
+    // `exec: …: cannot execute` and exits 126/127. Treat that as a launch
+    // failure (SE), not a student RE; the signature is unique to the wrapper.
+    const isWrapped = wrapped[0] === "bash";
+    const [wrappedCmd, ...wrappedArgs] = wrapped;
     const proc = spawn(wrappedCmd!, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
       timeout: options.timeoutMs,
+      ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
     });
 
     const stdoutBuf = createBoundedBuffer();
@@ -79,16 +94,31 @@ export function runProcess(
       // and the SIGKILL fallback are the authoritative cut-offs.
       const elapsedMs = performance.now() - startTime;
       const memoryKb = memoryPoller?.stop() ?? 0;
+      const rawStderr = stderrBuf.toString();
+      // Bash's `exec` failure is exit 126 (not executable) / 127 (not found)
+      // AND its distinctive stderr. Gate on both so an adversarial student
+      // program that exits non-zero and prints the same phrase keeps its RE.
+      // macOS bash prints `... exec: <path>: cannot execute ...`; Linux bash
+      // prints `... line N: <path>: No such file or directory|Permission denied`
+      // without the `exec:` prefix. Match either variant.
+      const execFailed =
+        isWrapped &&
+        (code === 126 || code === 127) &&
+        (/exec: .*: (cannot execute|not found)/.test(rawStderr) ||
+          /: line \d+: \S+: (No such file or directory|Permission denied|cannot execute|not found)/.test(
+            rawStderr,
+          ));
+      const stderr = execFailed ? `Failed to spawn process: ${rawStderr}` : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
-        stderr: stderrBuf.toString(),
+        stderr,
         exitCode: code ?? -1,
         timeMs: Math.round(elapsedMs),
         memoryKb,
         timedOut:
           forceKilledViaFallbackTimer || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
         signal,
-        spawnError: false,
+        spawnError: execFailed,
       });
     });
 
@@ -128,26 +158,4 @@ export function classifySolutionVerdict(
   if (result.signal === "SIGKILL") return { ...base, verdict: "MLE" };
   if (result.exitCode !== 0) return { ...base, verdict: "RE" };
   return null;
-}
-
-// Protocol: exit code 0 = accepted; scoreText is an integer 0-100 (defaults to
-// 100 on accept, 0 on reject); feedbackText is a human-readable string.
-export function parseJudgeOutput(
-  exitCode: number,
-  scoreText: string,
-  feedbackText: string,
-): { accepted: boolean; score: number; feedback: string } {
-  const accepted = exitCode === 0;
-  const feedback = feedbackText.trim();
-
-  const trimmed = scoreText.trim();
-  let score: number;
-  if (trimmed.length > 0) {
-    const parsed = parseInt(trimmed, 10);
-    score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : accepted ? 100 : 0;
-  } else {
-    score = accepted ? 100 : 0;
-  }
-
-  return { accepted, score, feedback };
 }

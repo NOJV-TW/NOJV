@@ -30,6 +30,8 @@ const {
   listProblemWorkspaceFiles,
   hydrateTestcaseSets,
   hydrateWorkspaceFiles,
+  hydrateValidatorScripts,
+  saveProblemJudgeConfig,
   updateProblemRecord,
   updateProblemWorkspace,
   createProblemTestcaseSetRecord,
@@ -85,10 +87,16 @@ export const load: PageServerLoad = handleLoad(
     ]);
 
     // Hydrate every testcase + workspace blob from S3 in parallel. The
-    // edit page is not a hot path; the extra round trip is fine.
-    const [testcaseSets, workspaceFiles] = await Promise.all([
+    // edit page is not a hot path; the extra round trip is fine. Validator
+    // script bodies also live in storage now — fetch them for the JudgeTab
+    // editor (ownership already gated above; bodies are author/admin-only).
+    const [testcaseSets, workspaceFiles, validatorScripts] = await Promise.all([
       hydrateTestcaseSets(rawTestcaseSets),
       hydrateWorkspaceFiles(rawWorkspaceFiles),
+      hydrateValidatorScripts({
+        checkerKey: problem.judgeConfig.checkerKey,
+        interactorKey: problem.judgeConfig.interactorKey,
+      }),
     ]);
 
     // For special_env problems include advancedImageRef/advancedImageSource so
@@ -125,6 +133,7 @@ export const load: PageServerLoad = handleLoad(
       form,
       testcaseSets,
       workspaceFiles,
+      validatorScripts,
       imageConfig: isAdvanced
         ? {
             source: problem.advancedImageSource ?? "registry",
@@ -158,11 +167,19 @@ function problemEditAction<T>(
 // and Scoring) that each POST to a distinct action name, but the
 // server-side work is identical — parse judgeConfigSchema and write
 // it back. Aliasing both action names to one handler removes the
-// copy that previously had to be kept in sync by hand.
+// copy that previously had to be kept in sync by hand. The checker /
+// interactor script bodies arrive as separate form fields; the domain
+// uploads them to storage and persists only the keys in judgeConfig.
 const saveJudgeConfig = problemEditAction(async ({ actor, problemId, event }) => {
   const formData = await event.request.formData();
   const judgeConfig = parseJsonField(formData.get("data"), judgeConfigSchema);
-  await updateProblemRecord(actor, problemId, { judgeConfig });
+  const checkerScript = formData.get("checkerScript");
+  const interactorScript = formData.get("interactorScript");
+  await saveProblemJudgeConfig(actor, problemId, {
+    judgeConfig,
+    ...(typeof checkerScript === "string" ? { checkerScript } : {}),
+    ...(typeof interactorScript === "string" ? { interactorScript } : {}),
+  });
   return { success: true };
 });
 

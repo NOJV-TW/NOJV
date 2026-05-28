@@ -17,7 +17,7 @@
       "outputs": []
     },
     "typecheck": {
-      "dependsOn": ["paraglide:compile"],
+      "dependsOn": ["^build", "paraglide:compile"],
       "outputs": []
     },
     "paraglide:compile": {

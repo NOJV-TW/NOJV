@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  checkerKey,
   createStorageClient,
+  interactorKey,
   putText,
   testcaseInputKey,
   testcaseOutputKey,
@@ -166,6 +168,31 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
 // Shape of the S3 client subset used by `putText`. Allowing injection lets
 // the dry-run validator stub S3 without requiring real S3 env vars.
 export type SeedStorageClient = { send: (command: unknown) => Promise<unknown> };
+
+// Move checker/interactor script bodies to object storage and return the
+// judgeConfig to persist — type + *Language + the storage key, never the
+// body. Mirrors saveProblemJudgeConfig in the production domain layer.
+async function persistJudgeConfig(
+  storage: SeedStorageClient,
+  problemId: string,
+  judgeConfig: Record<string, unknown> | undefined,
+): Promise<Record<string, unknown> | undefined> {
+  if (!judgeConfig) return undefined;
+  const client = storage as ReturnType<typeof createStorageClient>;
+  const { checkerScript, interactorScript, ...rest } = judgeConfig;
+
+  if (rest.type === "checker" && typeof checkerScript === "string") {
+    const key = checkerKey(problemId);
+    await putText(client, key, checkerScript);
+    return { ...rest, checkerKey: key };
+  }
+  if (rest.type === "interactive" && typeof interactorScript === "string") {
+    const key = interactorKey(problemId);
+    await putText(client, key, interactorScript);
+    return { ...rest, interactorKey: key };
+  }
+  return rest;
+}
 
 export async function seedProblems(
   prisma: PrismaClient,
@@ -483,23 +510,15 @@ export async function seedProblems(
       memoryLimitMb: 256,
       judgeConfig: {
         type: "checker",
-        checkerScript: `import sys
-
-def main():
-    input_path, expected_path, user_path = sys.argv[1], sys.argv[2], sys.argv[3]
-    with open(expected_path) as f:
-        expected = float(f.read().strip())
-    with open(user_path) as f:
-        actual = float(f.read().strip())
-    if abs(expected - actual) < 1e-6:
-        print("100")
-        sys.exit(0)
-    else:
-        print(f"Expected {expected}, got {actual}", file=sys.stderr)
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+        checkerLanguage: "python",
+        checkerScript: `expected = float(judge_answer.strip())
+try:
+    actual = float(team_output.strip())
+except ValueError:
+    wrong("output is not a valid number")
+if abs(expected - actual) < 1e-6:
+    accept()
+wrong(f"expected {expected}, got {actual}")
 `,
       },
       timeLimitMs: 1000,
@@ -551,38 +570,20 @@ if __name__ == "__main__":
       memoryLimitMb: 256,
       judgeConfig: {
         type: "interactive",
-        interactorScript: `import sys
+        interactorLanguage: "python",
+        interactorScript: `secret = int(judge_input.strip())
 
-def main():
-    # The interactor picks a secret number
-    # User program must guess it using binary search
-    # Protocol: interactor writes the range, user guesses, interactor responds "higher"/"lower"/"correct"
+lo, hi = 1, 1000000
+write(f"{lo} {hi}")
 
-    input_path = sys.argv[1]
-    with open(input_path) as f:
-        secret = int(f.read().strip())
+for _ in range(20):
+    guess = int(read())
+    if guess == secret:
+        write("correct")
+        accept(f"correct: {secret}")
+    write("higher" if guess < secret else "lower")
 
-    lo, hi = 1, 1000000
-    print(f"{lo} {hi}", flush=True)
-
-    for _ in range(20):  # max 20 guesses
-        line = input().strip()
-        guess = int(line)
-
-        if guess == secret:
-            print("correct", flush=True)
-            sys.exit(0)
-        elif guess < secret:
-            print("higher", flush=True)
-        else:
-            print("lower", flush=True)
-
-    # Out of guesses
-    print(f"Failed to guess {secret} within 20 attempts", file=sys.stderr)
-    sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+wrong(f"failed to guess {secret} within 20 attempts")
 `,
       },
       timeLimitMs: 2000,
@@ -890,24 +891,14 @@ def read_events() -> List[str]:
       judgeConfig: {
         type: "checker",
         checkerLanguage: "python",
-        checkerScript: `import sys
-
-
-def main():
-    _input_path, expected_path, user_path = sys.argv[1], sys.argv[2], sys.argv[3]
-    with open(expected_path) as f:
-        expected = float(f.read().strip())
-    with open(user_path) as f:
-        actual = float(f.read().strip())
-    if abs(expected - actual) < 1e-6:
-        print("100")
-        sys.exit(0)
-    print(f"Expected {expected}, got {actual}", file=sys.stderr)
-    sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
+        checkerScript: `expected = float(judge_answer.strip())
+try:
+    actual = float(team_output.strip())
+except ValueError:
+    wrong("output is not a valid number")
+if abs(expected - actual) < 1e-6:
+    accept()
+wrong(f"expected {expected}, got {actual}")
 `,
       },
       timeLimitMs: 1000,
@@ -1017,34 +1008,19 @@ def mean(values: Sequence[float]) -> float:
       judgeConfig: {
         type: "interactive",
         interactorLanguage: "python",
-        interactorScript: `import sys
+        interactorScript: `secret = int(judge_input.strip())
 
+lo, hi = 1, 1_000_000
+write(f"{lo} {hi}")
 
-def main():
-    input_path = sys.argv[1]
-    with open(input_path) as f:
-        secret = int(f.read().strip())
+for _ in range(40):
+    guess = int(read())
+    if guess == secret:
+        write("correct")
+        accept(f"correct: {secret}")
+    write("higher" if guess < secret else "lower")
 
-    lo, hi = 1, 1_000_000
-    print(f"{lo} {hi}", flush=True)
-
-    for _ in range(40):  # log2(10^6) ~ 20 guesses suffice
-        line = input().strip()
-        guess = int(line)
-        if guess == secret:
-            print("correct", flush=True)
-            sys.exit(0)
-        elif guess < secret:
-            print("higher", flush=True)
-        else:
-            print("lower", flush=True)
-
-    print(f"Failed to find {secret} within the turn budget", file=sys.stderr)
-    sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
+wrong(f"failed to find {secret} within the turn budget")
 `,
       },
       timeLimitMs: 2000,
@@ -1165,38 +1141,26 @@ def read_verdict() -> str:
       memoryLimitMb: 256,
       judgeConfig: {
         type: "interactive",
-        interactorScript: `import sys
+        interactorLanguage: "python",
+        interactorScript: `secret = int(judge_input.strip())
 
-def main():
-    input_path = sys.argv[1]
-    with open(input_path) as f:
-        secret = int(f.read().strip())
+lo, hi = 1, 1_000_000
+max_turns = 35
+lie_period = 5
 
-    lo, hi = 1, 1_000_000
-    max_turns = 35
-    lie_period = 5
+write(f"{lo} {hi} {max_turns} {lie_period}")
 
-    print(f"{lo} {hi} {max_turns} {lie_period}", flush=True)
+for turn in range(1, max_turns + 1):
+    guess = int(read())
+    if guess == secret:
+        write("correct")
+        accept(f"correct: {secret}")
+    reply = "higher" if guess < secret else "lower"
+    if turn % lie_period == 0:
+        reply = "lower" if reply == "higher" else "higher"
+    write(reply)
 
-    for turn in range(1, max_turns + 1):
-        line = input().strip()
-        guess = int(line)
-
-        if guess == secret:
-            print("correct", flush=True)
-            sys.exit(0)
-
-        truthful = "higher" if guess < secret else "lower"
-        if turn % lie_period == 0:
-            truthful = "lower" if truthful == "higher" else "higher"
-
-        print(truthful, flush=True)
-
-    print(f"Failed to find {secret} in {max_turns} turns", file=sys.stderr)
-    sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+wrong(f"failed to find {secret} in {max_turns} turns")
 `,
       },
       timeLimitMs: 2500,
@@ -1274,12 +1238,17 @@ if __name__ == "__main__":
   validateProblemDefinitions(problemDefs);
 
   for (const def of problemDefs) {
+    // Validator script bodies move to object storage; the persisted
+    // judgeConfig keeps only the storage key. Upload first (S3 before DB),
+    // same flow as the production save path.
+    const judgeConfig = await persistJudgeConfig(storage, def.id, def.judgeConfig);
+
     const sharedFields = {
       title: def.title,
       difficulty: pickSeedDifficulty(def.tags),
       tags: stripDifficultyTags(def.tags),
       type: def.type,
-      judgeConfig: def.judgeConfig ?? undefined,
+      judgeConfig,
       status: def.status ?? "published",
       samples: toSamplesJson(def.samples),
       advancedImageRef: def.advancedImageRef ?? null,

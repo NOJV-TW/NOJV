@@ -1,8 +1,10 @@
 import {
+  checkerKey,
   createStorageClient,
   deleteBlob,
   deleteBlobsByPrefix,
   getText,
+  interactorKey,
   problemPrefix,
   putText,
   testcaseInputFileKey,
@@ -184,6 +186,63 @@ export async function writeWorkspaceFileBlob(
 
 export async function readWorkspaceFileBlob(contentKey: string): Promise<string> {
   return getText(getClient(), contentKey);
+}
+
+// --- Validator scripts (checker / interactor) ----------------------------
+//
+// Bodies live in object storage; the Problem.judgeConfig JSON carries only
+// the storage key. Keys are problem-ID-stable so editing the body is a pure
+// overwrite (no DB write needed to change the key).
+
+export async function readValidatorScriptBlob(key: string): Promise<string> {
+  return getText(getClient(), key);
+}
+
+export async function writeCheckerScriptBlob(problemId: string, body: string): Promise<string> {
+  const key = checkerKey(problemId);
+  await putText(getClient(), key, body);
+  return key;
+}
+
+export async function writeInteractorScriptBlob(
+  problemId: string,
+  body: string,
+): Promise<string> {
+  const key = interactorKey(problemId);
+  await putText(getClient(), key, body);
+  return key;
+}
+
+export async function bestEffortDeleteCheckerScriptBlob(problemId: string): Promise<void> {
+  try {
+    await deleteBlob(getClient(), checkerKey(problemId));
+  } catch (err) {
+    console.warn(`[problem-blobs] orphan checker script blob: problemId=${problemId}`, err);
+  }
+}
+
+export async function bestEffortDeleteInteractorScriptBlob(problemId: string): Promise<void> {
+  try {
+    await deleteBlob(getClient(), interactorKey(problemId));
+  } catch (err) {
+    console.warn(`[problem-blobs] orphan interactor script blob: problemId=${problemId}`, err);
+  }
+}
+
+// Edit-page hydration: fetch the checker/interactor script bodies from
+// storage given the keys persisted on judgeConfig. Caller MUST gate on
+// problem-edit access first — script bodies are author/admin-only and must
+// never leave the server for a student-facing flow.
+export async function hydrateValidatorScripts(keys: {
+  checkerKey?: string | null | undefined;
+  interactorKey?: string | null | undefined;
+}): Promise<{ checkerScript: string; interactorScript: string }> {
+  const client = getClient();
+  const [checkerScript, interactorScript] = await Promise.all([
+    keys.checkerKey ? getText(client, keys.checkerKey) : Promise.resolve(""),
+    keys.interactorKey ? getText(client, keys.interactorKey) : Promise.resolve(""),
+  ]);
+  return { checkerScript, interactorScript };
 }
 
 // --- Edit-page hydration helpers -----------------------------------------

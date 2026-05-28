@@ -14,32 +14,33 @@
 
   interface Props {
     problem: ProblemDetail;
+    validatorScripts: { checkerScript: string; interactorScript: string };
     ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { problem, ondirtychange }: Props = $props();
+  let { problem, validatorScripts, ondirtychange }: Props = $props();
 
   const cfg = untrack(() => problem.judgeConfig ?? {});
 
   let judgeType = $state<JudgeType>(cfg.type ?? "standard");
 
-  let checkerScript = $state(cfg.checkerScript ?? "");
+  let checkerScript = $state(untrack(() => validatorScripts.checkerScript));
   let checkerLanguage = $state<JudgeScriptLanguage>(cfg.checkerLanguage ?? "python");
-  let interactorScript = $state(cfg.interactorScript ?? "");
+  let interactorScript = $state(untrack(() => validatorScripts.interactorScript));
   let interactorLanguage = $state<JudgeScriptLanguage>(
     cfg.interactorLanguage ?? "python"
   );
 
+  // judgeConfig carries only type + *Language; the script bodies are POSTed
+  // as separate fields and uploaded to storage by the save action.
   function buildJudgeConfig() {
     const config: Record<string, unknown> = {
       type: judgeType
     };
 
     if (judgeType === "checker") {
-      config.checkerScript = checkerScript;
       config.checkerLanguage = checkerLanguage;
     } else if (judgeType === "interactive") {
-      config.interactorScript = interactorScript;
       config.interactorLanguage = interactorLanguage;
     }
 
@@ -52,29 +53,42 @@
     return config;
   }
 
-  let initialConfig = $state(JSON.stringify(buildJudgeConfig()));
+  // Dirty state must also track the script bodies, which no longer live in
+  // the config object.
+  function dirtySnapshot() {
+    return JSON.stringify({
+      config: buildJudgeConfig(),
+      checkerScript,
+      interactorScript
+    });
+  }
+
+  let initialConfig = $state(dirtySnapshot());
   let saving = $state(false);
   let saveMessage = $state("");
 
   $effect(() => {
-    const current = JSON.stringify(buildJudgeConfig());
-    ondirtychange?.(current !== initialConfig);
+    ondirtychange?.(dirtySnapshot() !== initialConfig);
   });
 
   async function handleSave() {
     saving = true;
     saveMessage = "";
     try {
-      const data = buildJudgeConfig();
       const formData = new FormData();
-      formData.set("data", JSON.stringify(data));
+      formData.set("data", JSON.stringify(buildJudgeConfig()));
+      if (judgeType === "checker") {
+        formData.set("checkerScript", checkerScript);
+      } else if (judgeType === "interactive") {
+        formData.set("interactorScript", interactorScript);
+      }
       const response = await fetch("?/updateJudgeConfig", {
         method: "POST",
         body: formData
       });
       if (response.ok) {
         saveMessage = "saved";
-        initialConfig = JSON.stringify(buildJudgeConfig());
+        initialConfig = dirtySnapshot();
       } else {
         saveMessage = "error";
       }

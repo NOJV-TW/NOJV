@@ -34,7 +34,13 @@ export {
   assertCanOperateOnSubmission,
   assertBatchRejudgeAccess,
 } from "./permissions";
-export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
+export {
+  buildSubtaskResults,
+  mapResult,
+  stripStaffFeedback,
+  verdictMap,
+  type SubtaskResultItem,
+} from "./scoring";
 export {
   dispatchRejudge,
   dispatchSubmissionJudge,

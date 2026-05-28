@@ -45,6 +45,9 @@ export interface SandboxRequest {
   limits: {
     timeoutMs: number;
     memoryMb: number;
+    // Per-problem environment variables, teacher-controlled and persisted on
+    // the problem. Injected into the judged SOLUTION process only.
+    env?: Record<string, string>;
   };
   advanced?: SandboxAdvancedRequest;
 }
@@ -65,12 +68,35 @@ export interface SandboxTestcaseResult {
   memoryKb?: number;
   score?: number;
   feedback?: string;
+  // Operator/staff-only feedback (DOMjudge `judgemessage.txt`); never sent to students.
+  staffFeedback?: string;
+}
+
+/**
+ * Raw per-case run emitted by the runner in standard mode. The runner runs
+ * the solution and reports its output verbatim WITHOUT deciding AC/WA — the
+ * worker compares against the expected answer it already holds, so the
+ * expected output never enters the run container. `errorVerdict` is set only
+ * when the run itself failed (timeout, OOM, crash, spawn error).
+ */
+export interface RawCaseRun {
+  index: number;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  timeMs: number;
+  memoryKb?: number;
+  errorVerdict?: Extract<SandboxVerdict, "TLE" | "MLE" | "RE" | "SE">;
 }
 
 export interface SandboxResult {
   compilationError?: string;
   pipelineError?: string;
+  // Mutually exclusive with `rawRuns`: the runner emits one or the other.
+  // `testcaseResults` carries in-container verdicts (checker/interactive),
+  // `rawRuns` carries undecided runs for worker-side comparison (standard).
   testcaseResults: SandboxTestcaseResult[];
+  rawRuns?: RawCaseRun[];
   customScore?: number;
   scoringFeedback?: string;
 }

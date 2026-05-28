@@ -17,10 +17,15 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-import { readTestcaseBlobs, readWorkspaceFileBlob } from "../problem/blobs";
+import {
+  readTestcaseBlobs,
+  readValidatorScriptBlob,
+  readWorkspaceFileBlob,
+} from "../problem/blobs";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError } from "../shared/errors";
 import { canOperateOnSubmission } from "./permissions";
+import { stripStaffFeedback } from "./scoring";
 import type {
   AdjustmentContext,
   AdvancedModeContext,
@@ -85,7 +90,12 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
 
   // Pre-terminal submissions (queued/compiling/running) have no verdictDetail.
   const parsedResult = submissionResultSchema.safeParse(submission.verdictDetail);
-  const result = parsedResult.success ? parsedResult.data : null;
+  const rawResult = parsedResult.success ? parsedResult.data : null;
+  // Staff-only operator messages must NEVER reach a non-staff payload — strip
+  // server-side so "View Source" cannot recover them. Owners viewing their own
+  // submission are NOT staff for this gate (viewerIsStaff is false when isOwner).
+  const result =
+    rawResult === null || viewerIsStaff ? rawResult : stripStaffFeedback(rawResult);
 
   return {
     id: submission.id,
@@ -240,7 +250,9 @@ export async function listProblemSubmissions(
   return submissions.map((s) => {
     // verdictDetail is the sole source of truth; `s.status` is validated to surface enum-column corruption.
     submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+    // Always strip staffFeedback — this surface is the user's own submission
+    // history in a problem panel and never has a staff viewer.
+    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
     const language = languageSchema.parse(s.language);
 
     return {
@@ -399,10 +411,19 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
         }
       : null;
 
+  const [checkerScript, interactorScript] = await Promise.all([
+    judgeConfig.checkerKey
+      ? readValidatorScriptBlob(judgeConfig.checkerKey)
+      : Promise.resolve(null),
+    judgeConfig.interactorKey
+      ? readValidatorScriptBlob(judgeConfig.interactorKey)
+      : Promise.resolve(null),
+  ]);
+
   return {
     adjustment,
-    checkerScript: judgeConfig.checkerScript ?? null,
-    interactorScript: judgeConfig.interactorScript ?? null,
+    checkerScript,
+    interactorScript,
     judgeType: judgeConfig.type,
     runtime,
     samples,

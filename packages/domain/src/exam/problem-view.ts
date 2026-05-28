@@ -11,6 +11,7 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
+import { stripStaffFeedback } from "../submission/scoring";
 
 function letterForIndex(index: number): string {
   if (index < 0) return String(index + 1);
@@ -108,7 +109,8 @@ export async function getExamProblemView(options: {
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
     submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+    // User's own submissions in their own exam — never a staff viewer here.
+    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,
@@ -211,7 +213,8 @@ export async function getExamProblemViewByProblemId(options: {
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
     submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+    // User's own submissions in their own exam — never a staff viewer here.
+    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,

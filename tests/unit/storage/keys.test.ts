@@ -5,6 +5,8 @@ import {
   testcaseOutputKey,
   testcaseInputFileKey,
   workspaceFileKey,
+  checkerKey,
+  interactorKey,
   problemPrefix,
 } from "../../../packages/storage/src/keys";
 
@@ -27,6 +29,14 @@ describe("storage key builders", () => {
     expect(workspaceFileKey("prob_1", "ws_1")).toBe("problems/prob_1/workspace/ws_1");
   });
 
+  it("checkerKey returns the canonical checker path", () => {
+    expect(checkerKey("prob_1")).toBe("problems/prob_1/validator/checker");
+  });
+
+  it("interactorKey returns the canonical interactor path", () => {
+    expect(interactorKey("prob_1")).toBe("problems/prob_1/validator/interactor");
+  });
+
   it("problemPrefix ends with a trailing slash", () => {
     const prefix = problemPrefix("prob_1");
     expect(prefix).toBe("problems/prob_1/");
@@ -41,5 +51,7 @@ describe("storage key builders", () => {
     expect(testcaseOutputKey(problemId, "tc_a").startsWith(prefix)).toBe(true);
     expect(testcaseInputFileKey(problemId, "tc_a", "input.txt").startsWith(prefix)).toBe(true);
     expect(workspaceFileKey(problemId, "ws_a").startsWith(prefix)).toBe(true);
+    expect(checkerKey(problemId).startsWith(prefix)).toBe(true);
+    expect(interactorKey(problemId).startsWith(prefix)).toBe(true);
   });
 });
