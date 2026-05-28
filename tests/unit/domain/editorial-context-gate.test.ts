@@ -78,7 +78,9 @@ describe("canViewEditorials — context gate", () => {
     ).resolves.toBe(true);
   });
 
-  it("allows AC + contest missing (defensive — don't lock out)", async () => {
+  it("M3 fix: denies AC + contest missing (fail-closed)", async () => {
+    // A transient Prisma flap or a stale contestId must NOT leak the
+    // editorial. The gate fails closed on a null lookup.
     submissionCount.mockResolvedValue(1);
     contestFindById.mockResolvedValue(null);
     await expect(
@@ -87,7 +89,19 @@ describe("canViewEditorials — context gate", () => {
         contestId: "ctx_missing",
         now: NOW,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
+  });
+
+  it("M3 fix: denies AC + contest lookup throwing (fail-closed)", async () => {
+    submissionCount.mockResolvedValue(1);
+    contestFindById.mockRejectedValue(new Error("connection lost"));
+    await expect(
+      canViewEditorials("usr_1", "prob_1", {
+        kind: "contest",
+        contestId: "ctx_1",
+        now: NOW,
+      }),
+    ).resolves.toBe(false);
   });
 
   it("denies AC + assignment before closesAt", async () => {
@@ -114,10 +128,10 @@ describe("canViewEditorials — context gate", () => {
     ).resolves.toBe(true);
   });
 
-  it("allows AC + assignment missing (defensive)", async () => {
+  it("M3 fix: denies AC + assignment missing (fail-closed)", async () => {
+    // findInfoById throws on a missing row; the gate must fail closed
+    // rather than leak the editorial during a transient lookup failure.
     submissionCount.mockResolvedValue(1);
-    // findInfoById throws on a missing row; canViewEditorials must
-    // swallow that and grant access rather than lock the student out.
     assessmentFindInfoById.mockRejectedValue(new Error("not found"));
     await expect(
       canViewEditorials("usr_1", "prob_1", {
@@ -125,7 +139,7 @@ describe("canViewEditorials — context gate", () => {
         assignmentId: "asn_missing",
         now: NOW,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
   });
 
   it("denies AC + exam in progress", async () => {
@@ -152,7 +166,7 @@ describe("canViewEditorials — context gate", () => {
     ).resolves.toBe(true);
   });
 
-  it("allows AC + exam missing (defensive)", async () => {
+  it("M3 fix: denies AC + exam missing (fail-closed)", async () => {
     submissionCount.mockResolvedValue(1);
     examFindById.mockResolvedValue(null);
     await expect(
@@ -161,7 +175,7 @@ describe("canViewEditorials — context gate", () => {
         examId: "exm_missing",
         now: NOW,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
   });
 
   it("denies non-AC user regardless of context (practice)", async () => {

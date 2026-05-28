@@ -25,28 +25,28 @@ export type EditorialViewContext =
   | { kind: "assignment"; assignmentId: string; now: Date }
   | { kind: "exam"; examId: string; now: Date };
 
-// Defensive: if the active event row can't be resolved (deleted, stale link, race),
-// don't lock the student out — fall through to the AC-only check.
+// Fail-closed: if the active event row can't be resolved (Prisma flap,
+// deleted row, stale link), deny editorial access. A transient lookup
+// failure during a live event must not leak editorials to participants.
 async function contextGateOpen(context: EditorialViewContext): Promise<boolean> {
   switch (context.kind) {
     case "practice":
       return true;
     case "contest": {
-      const contest = await contestRepo.findById(context.contestId);
-      if (!contest) return true;
+      const contest = await contestRepo.findById(context.contestId).catch(() => null);
+      if (!contest) return false;
       return context.now.getTime() >= contest.endsAt.getTime();
     }
     case "assignment": {
-      try {
-        const assessment = await assessmentRepo.findInfoById(context.assignmentId);
-        return context.now.getTime() >= assessment.closesAt.getTime();
-      } catch {
-        return true;
-      }
+      const assessment = await assessmentRepo
+        .findInfoById(context.assignmentId)
+        .catch(() => null);
+      if (!assessment) return false;
+      return context.now.getTime() >= assessment.closesAt.getTime();
     }
     case "exam": {
-      const exam = await examRepo.findById(context.examId);
-      if (!exam) return true;
+      const exam = await examRepo.findById(context.examId).catch(() => null);
+      if (!exam) return false;
       return context.now.getTime() >= exam.endsAt.getTime();
     }
   }

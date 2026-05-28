@@ -91,6 +91,37 @@ describe("resolveActiveContextForUser", () => {
     });
   });
 
+  it("H1 fix: course-enrolled student with no participation yet is still gated by live contest", async () => {
+    // ContestParticipation is created lazily on first submission. A
+    // student who has past-AC'd the problem and faces a live contest
+    // that reuses it must still resolve to contest context — not
+    // practice — even though no participation row exists yet. The
+    // repo helper (mocked here) is expected to surface the contest
+    // based on eligibility (published + live), not participation.
+    const endsAt = new Date("2026-05-28T14:00:00.000Z");
+    findActiveContests.mockResolvedValue([{ contest: { id: "ctx_live", endsAt } }]);
+    await expect(resolveActiveContextForUser("usr_no_part", "prob_1", NOW)).resolves.toEqual({
+      kind: "contest",
+      contestId: "ctx_live",
+      now: NOW,
+    });
+  });
+
+  it("H1 fix: course-enrolled student with no participation yet is still gated by live exam", async () => {
+    // Same pattern for exams: ExamParticipation is created lazily on
+    // first submission. The repo helper keys eligibility on active
+    // course membership (exams are always course-embedded), so an
+    // enrolled-but-unsubmitted student gets the exam context, not
+    // a practice downgrade.
+    const endsAt = new Date("2026-05-28T14:00:00.000Z");
+    findActiveExams.mockResolvedValue([{ exam: { id: "exm_live", endsAt } }]);
+    await expect(resolveActiveContextForUser("usr_no_part", "prob_1", NOW)).resolves.toEqual({
+      kind: "exam",
+      examId: "exm_live",
+      now: NOW,
+    });
+  });
+
   it("picks the strictest gate across heterogeneous event types", async () => {
     // assignment ends latest → must win over contest + exam.
     const contestEnds = new Date("2026-05-28T13:30:00.000Z");

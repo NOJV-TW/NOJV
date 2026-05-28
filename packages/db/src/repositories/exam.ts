@@ -339,8 +339,15 @@ export const examProblemRepo = {
   },
 
   // Currently-active exams that include this problem and that the user
-  // is a registered participant of. Used by the editorial context
-  // resolver to deny editorial reads while the exam is still running.
+  // is eligible to take. Used by the editorial context resolver to
+  // deny editorial reads while the exam is still running.
+  //
+  // ExamParticipation rows are created lazily on first submission, so
+  // filtering by `participations` alone misses a student who is in the
+  // course but hasn't submitted yet — they could downgrade to practice
+  // context and read editorials while a live exam reuses a past-AC
+  // problem. Exams are always course-embedded (`courseId` NOT NULL),
+  // so eligibility = active course membership.
   findActiveExamsForUser(problemId: string, userId: string, now: Date) {
     return prisma.examProblem.findMany({
       where: {
@@ -348,7 +355,10 @@ export const examProblemRepo = {
         exam: {
           status: "published",
           endsAt: { gt: now },
-          participations: { some: { userId } },
+          startsAt: { lte: now },
+          course: {
+            memberships: { some: { userId, status: "active" } },
+          },
         },
       },
       select: {
