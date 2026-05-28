@@ -17,7 +17,7 @@ RUN pnpm --filter @nojv/sandbox-runner build
 
 FROM node:26-alpine
 
-RUN apk add --no-cache bash build-base cargo go openjdk21-jdk python3 rust \
+RUN apk add --no-cache bash build-base cargo go openjdk21-jdk python3 rust socat \
   && addgroup -S sandbox -g 10001 \
   && adduser -S -D -h /home/sandbox -u 10001 -G sandbox sandbox \
   && mkdir -p /runner /workspace /tmp \
