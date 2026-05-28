@@ -98,10 +98,16 @@ export function runProcess(
       // Bash's `exec` failure is exit 126 (not executable) / 127 (not found)
       // AND its distinctive stderr. Gate on both so an adversarial student
       // program that exits non-zero and prints the same phrase keeps its RE.
+      // macOS bash prints `... exec: <path>: cannot execute ...`; Linux bash
+      // prints `... line N: <path>: No such file or directory|Permission denied`
+      // without the `exec:` prefix. Match either variant.
       const execFailed =
         isWrapped &&
         (code === 126 || code === 127) &&
-        /exec: .*: (cannot execute|not found)/.test(rawStderr);
+        (/exec: .*: (cannot execute|not found)/.test(rawStderr) ||
+          /: line \d+: \S+: (No such file or directory|Permission denied|cannot execute|not found)/.test(
+            rawStderr,
+          ));
       const stderr = execFailed ? `Failed to spawn process: ${rawStderr}` : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
