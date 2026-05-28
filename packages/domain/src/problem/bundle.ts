@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import archiver from "archiver";
 import { Open, type File as ZipFile } from "unzipper";
 
 import type { Prisma } from "@nojv/db";
@@ -26,6 +27,7 @@ import { assertProblemStorageBudget } from "./storage-budget";
 
 import {
   checkerKey as checkerKeyFor,
+  getText,
   interactorKey as interactorKeyFor,
   putText,
   testcaseInputKey,
@@ -427,7 +429,116 @@ export async function importBundle(
   return result;
 }
 
-// `exportBundle` will be added by Task W3.E. It shares this file so the
-// import/export pair can reuse the same path-format constants without
-// re-deriving them. Keep the seam clean: do NOT export private helpers
-// (`parseBundle`, `isUnsafePath`) until W3.E identifies an actual reuse.
+/**
+ * Stream a problem's testcases, workspace files, checker, and interactor
+ * into a single zip archive matching the layout `importBundle` consumes:
+ *
+ *   testcases/<N>/input.txt
+ *   testcases/<N>/answer.txt   (only when an answer is stored)
+ *   workspace/<path>
+ *   checker.<cpp|py>           (only when judgeConfig.checkerKey set)
+ *   interactor.<cpp|py>        (only when judgeConfig.interactorKey set)
+ *
+ * Buffered in memory — the 50 MB per-problem budget makes streaming the
+ * response unnecessary for v1. Caller MUST hold problem-edit access (the
+ * raw testcase/checker bodies are author/admin-only).
+ */
+export async function exportBundle(
+  actor: ProblemActorContext,
+  problemId: string,
+): Promise<Buffer> {
+  await assertProblemEditAccess(actor, problemId);
+
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) {
+    // assertProblemEditAccess already throws NotFoundError on missing,
+    // so this branch is defensive only.
+    throw new Error(`Problem disappeared after edit-access check: ${problemId}`);
+  }
+
+  const [sets, workspaceFiles] = await Promise.all([
+    testcaseSetRepo.findByProblemId(problemId),
+    problemWorkspaceFileRepo.findByProblemId(problemId),
+  ]);
+
+  // Flatten sets → ordered testcases. The bundle format collapses sets into
+  // a single flat namespace numbered from 0, mirroring the import side.
+  interface FlatTestcase {
+    inputKey: string;
+    outputKey: string | null;
+  }
+  const flatTestcases: FlatTestcase[] = [];
+  for (const set of sets) {
+    for (const tc of set.testcases) {
+      flatTestcases.push({ inputKey: tc.inputKey, outputKey: tc.outputKey });
+    }
+  }
+
+  // Pull every blob from S3 in parallel BEFORE constructing the archive.
+  // archiver streams entries as we append, but resolving the contents up
+  // front keeps the error path simple — any S3 read failure aborts before
+  // we've allocated archive state.
+  const client = getClient();
+  const testcaseContents = await Promise.all(
+    flatTestcases.map(async (tc) => {
+      const [input, answer] = await Promise.all([
+        getText(client, tc.inputKey),
+        tc.outputKey ? getText(client, tc.outputKey) : Promise.resolve(null),
+      ]);
+      return { input, answer };
+    }),
+  );
+  const workspaceContents = await Promise.all(
+    workspaceFiles.map(async (f) => ({
+      path: f.path,
+      content: await getText(client, f.contentKey),
+    })),
+  );
+
+  const parsedCfg = judgeConfigSchema.safeParse(problem.judgeConfig);
+  const cfg: JudgeConfig = parsedCfg.success
+    ? parsedCfg.data
+    : { type: "standard" as const };
+
+  const checkerBody =
+    cfg.checkerKey && cfg.checkerLanguage
+      ? await getText(client, cfg.checkerKey)
+      : null;
+  const interactorBody =
+    cfg.interactorKey && cfg.interactorLanguage
+      ? await getText(client, cfg.interactorKey)
+      : null;
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    const chunks: Buffer[] = [];
+
+    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+    archive.on("error", reject);
+    archive.on("end", () => resolve(Buffer.concat(chunks)));
+
+    testcaseContents.forEach((tc, i) => {
+      archive.append(tc.input, { name: `testcases/${String(i)}/input.txt` });
+      if (tc.answer !== null) {
+        archive.append(tc.answer, { name: `testcases/${String(i)}/answer.txt` });
+      }
+    });
+
+    for (const w of workspaceContents) {
+      // `path` is the stored relative path (e.g. `main.cpp`); we keep it
+      // verbatim so round-trip preserves the author's filename.
+      archive.append(w.content, { name: `workspace/${w.path}` });
+    }
+
+    if (checkerBody !== null && cfg.checkerLanguage) {
+      const ext = cfg.checkerLanguage === "python" ? "py" : "cpp";
+      archive.append(checkerBody, { name: `checker.${ext}` });
+    }
+    if (interactorBody !== null && cfg.interactorLanguage) {
+      const ext = cfg.interactorLanguage === "python" ? "py" : "cpp";
+      archive.append(interactorBody, { name: `interactor.${ext}` });
+    }
+
+    void archive.finalize();
+  });
+}

@@ -3,7 +3,7 @@ import { error, json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { problemDomain } from "@nojv/domain";
 
 // Upload cap: 60 MB raw zip bytes. Leaves headroom over the 50 MB
@@ -56,4 +56,39 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   );
 
   return json(result);
+});
+
+/**
+ * GET /api/problems/[id]/bundle
+ *
+ * Stream this problem's testcases, workspace files, and checker / interactor
+ * scripts back to the client as a zip in the same layout the POST handler
+ * imports. Caller must hold problem-edit access — script bodies are
+ * author/admin-only.
+ */
+export const GET: RequestHandler = apiHandler(async (event) => {
+  const actor = requireApiAuth(event);
+
+  const problemId = event.params.id;
+  if (!problemId) error(400, "Missing problem id");
+
+  const buf = await problemDomain.exportBundle(
+    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
+    problemId,
+  );
+
+  // Wrap in a Blob — Node's `Buffer` is typed against `ArrayBufferLike`
+  // (which includes `SharedArrayBuffer`) and the DOM `Response` typing
+  // svelte-check uses wants a strict `ArrayBuffer`. Copy through a fresh
+  // Uint8Array so the underlying buffer is an `ArrayBuffer` proper.
+  const copy = new Uint8Array(buf.byteLength);
+  copy.set(buf);
+  const body = new Blob([copy], { type: "application/zip" });
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="problem-${problemId}.zip"`,
+    },
+  });
 });
