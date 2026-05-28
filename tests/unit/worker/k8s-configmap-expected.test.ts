@@ -23,8 +23,9 @@ describe("buildTestcaseConfigMapData expected-output gating", () => {
     expect(data["testcase-0-expected.txt"]).toBeUndefined();
   });
 
-  it("includes the expected key for checker mode", () => {
+  it("omits the expected key for checker mode (validator runs in a separate Job)", () => {
     const data = buildTestcaseConfigMapData(makeRequest("checker"));
-    expect(data["testcase-0-expected.txt"]).toBe("3\n");
+    expect(data["testcase-0-input.txt"]).toBe("1 2\n");
+    expect(data["testcase-0-expected.txt"]).toBeUndefined();
   });
 });

@@ -11,12 +11,7 @@ import {
   type ValidateOutput,
   type ValidatorCaseOutcome,
 } from "./types.js";
-import {
-  compile,
-  compileInteractor,
-  compileValidator,
-  sourceFileName,
-} from "./compiler.js";
+import { compile, compileInteractor, compileValidator, sourceFileName } from "./compiler.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import {

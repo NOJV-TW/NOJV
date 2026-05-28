@@ -7,13 +7,15 @@ const require = createRequire(import.meta.url);
 import {
   normalizeRelativePath,
   sourceFileNames,
+  type RawCaseRun,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult,
+  type ValidatorOutcome,
 } from "@nojv/core";
 import { createLogger } from "../logger.js";
-import { resolveSandboxResult } from "./check-standard";
-import { parseSandboxResult } from "./sandbox-schema";
+import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
+import { parseSandboxResult, parseValidateOutput } from "./sandbox-schema";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 
 const logger = createLogger("k8s-executor");
@@ -32,14 +34,14 @@ const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
 
 /**
- * Build the flat testcase ConfigMap keys. Standard mode compares output
- * worker-side, so the expected answer must never reach the sandbox pod.
- * Checker and interactive are refused on K8s (see execute), so only standard
- * reaches here in practice; the guard is kept defensive.
+ * Build the flat testcase ConfigMap keys. Standard and checker both decide
+ * AC/WA off-pod (worker comparison; isolated validator Job), so the expected
+ * answer must never reach the sandbox run pod. Interactive is gated to Docker
+ * upstream and never reaches here.
  */
 export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {
   const data: Record<string, string> = {};
-  const shipExpected = request.judgeType !== "standard";
+  const shipExpected = request.judgeType !== "standard" && request.judgeType !== "checker";
 
   for (const tc of request.testcases) {
     data[`testcase-${String(tc.index)}-input.txt`] = tc.input;
@@ -49,6 +51,190 @@ export function buildTestcaseConfigMapData(request: SandboxRequest): Record<stri
   }
 
   return data;
+}
+
+/**
+ * Build the flat ConfigMap `data` for the run Job. Includes the student
+ * source + config.json + testcase inputs. For checker, the validator script
+ * is NOT shipped here — it goes into a SEPARATE validate Job (see
+ * `buildValidateConfigMapData`) so the run pod sees neither answer nor
+ * validator.
+ */
+export function buildRunConfigMapData(request: SandboxRequest): Record<string, string> {
+  const data: Record<string, string> = {};
+  const sourceFileMap: { path: string; key: string }[] = [];
+  const mainSourceName = sourceFileNames[request.language];
+  let wroteMainSource = false;
+
+  for (const sourceFile of request.sourceFiles ?? []) {
+    const normalizedPath = normalizeRelativePath(sourceFile.path);
+    if (!normalizedPath) {
+      continue;
+    }
+
+    if (normalizedPath === mainSourceName) {
+      wroteMainSource = true;
+    }
+
+    const key = `source-file-${String(sourceFileMap.length)}`;
+    data[key] = sourceFile.content;
+    sourceFileMap.push({ path: normalizedPath, key });
+  }
+
+  if (!wroteMainSource) {
+    data[mainSourceName] = request.sourceCode;
+  }
+
+  data["config.json"] = JSON.stringify(buildSandboxConfigJson(request, sourceFileMap));
+
+  Object.assign(data, buildTestcaseConfigMapData(request));
+
+  return data;
+}
+
+/**
+ * Build the flat ConfigMap `data` for the validate Job. Contains the
+ * validator source, a config.json carrying the `validate` block, and
+ * per-case input/answer/team files keyed flat (ConfigMaps cannot hold nested
+ * directories). Cases whose run errored or whose testcase has no expected
+ * answer are skipped — the worker-side merge marks them appropriately.
+ */
+export function buildValidateConfigMapData(
+  request: SandboxRequest,
+  rawRuns: RawCaseRun[],
+): Record<string, string> {
+  const data: Record<string, string> = {};
+  const validatorScript = request.judgeConfig.checkerScript ?? "";
+  const validatorLanguage = request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
+  const ext = sourceExtension(validatorLanguage);
+  data[`validator.${ext}`] = validatorScript;
+
+  const tcByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
+  const cases: { index: number }[] = [];
+  for (const run of rawRuns) {
+    if (run.errorVerdict) continue;
+    const tc = tcByIndex.get(run.index);
+    if (tc?.output === undefined) continue;
+    cases.push({ index: run.index });
+    data[`case-${String(run.index)}-input.txt`] = tc.input;
+    data[`case-${String(run.index)}-answer.txt`] = tc.output;
+    data[`case-${String(run.index)}-team.txt`] = run.stdout;
+  }
+
+  data["config.json"] = JSON.stringify({
+    submissionId: request.submissionId,
+    language: request.language,
+    judgeType: "checker",
+    problemType: request.problemType,
+    limits: request.limits,
+    validate: { language: validatorLanguage, cases },
+  });
+
+  return data;
+}
+
+export interface SandboxJobManifestParams {
+  jobName: string;
+  namespace: string;
+  configMapName: string;
+  image: string;
+  cpuRequest: string;
+  cpuLimit: string;
+  memoryRequest: string;
+  memoryLimit: string;
+}
+
+/**
+ * Build the K8s Job manifest for a sandbox pod. Used for BOTH the run pod
+ * and the validate pod so they get identical hardening (drop caps, read-only
+ * fs, non-root, RuntimeDefault seccomp, no service account, sandbox node
+ * pool + toleration, NetworkPolicy label).
+ */
+export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V1Job {
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: {
+      name: params.jobName,
+      namespace: params.namespace,
+      labels: { app: "nojv-sandbox" },
+    },
+    spec: {
+      ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
+      activeDeadlineSeconds: JOB_DEADLINE_SECONDS,
+      backoffLimit: 0,
+      template: {
+        // The `app: nojv-sandbox` label here (NOT on the Job metadata) is
+        // what the sandbox NetworkPolicy podSelector matches — Job labels
+        // do not propagate to the pod template.
+        metadata: {
+          labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
+        },
+        spec: {
+          restartPolicy: "Never",
+          automountServiceAccountToken: false,
+          // Sandbox pods only land on the untrusted-code node pool, which
+          // is tainted `nojv-role=sandbox:NoSchedule` so nothing else runs
+          // there. Keeps a runaway fork-bomb from starving the orchestrator.
+          nodeSelector: { "nojv-role": "sandbox" },
+          tolerations: [
+            {
+              key: "nojv-role",
+              operator: "Equal",
+              value: "sandbox",
+              effect: "NoSchedule",
+            },
+          ],
+          securityContext: {
+            runAsUser: 10001,
+            runAsGroup: 10001,
+            runAsNonRoot: true,
+            seccompProfile: { type: "RuntimeDefault" },
+          },
+          containers: [
+            {
+              name: "runner",
+              image: params.image,
+              command: ["node", "/runner/index.js"],
+              resources: {
+                requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
+                limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
+              },
+              securityContext: {
+                allowPrivilegeEscalation: false,
+                capabilities: { drop: ["ALL"] },
+                readOnlyRootFilesystem: true,
+                runAsNonRoot: true,
+              },
+              volumeMounts: [
+                {
+                  name: "submission-data",
+                  mountPath: "/submission",
+                  readOnly: true,
+                },
+                { name: "workspace", mountPath: "/workspace" },
+                { name: "tmp", mountPath: "/tmp" },
+              ],
+            },
+          ],
+          volumes: [
+            {
+              name: "submission-data",
+              configMap: { name: params.configMapName },
+            },
+            {
+              name: "workspace",
+              emptyDir: { sizeLimit: "128Mi" },
+            },
+            {
+              name: "tmp",
+              emptyDir: { sizeLimit: "64Mi" },
+            },
+          ],
+        },
+      },
+    },
+  };
 }
 
 export class K8sExecutor implements SandboxExecutor {
@@ -78,19 +264,6 @@ export class K8sExecutor implements SandboxExecutor {
       );
     }
 
-    // Checker mode now grades via an isolated validator container (Phase 2B),
-    // which only the Docker backend implements. The K8s path would otherwise
-    // grade the raw run as standard — fail fast instead of returning a wrong
-    // verdict. Operator-facing detail goes to the worker log.
-    if (request.judgeType === "checker") {
-      logger.error("K8s executor refused checker submission — switch to Docker backend", {
-        submissionId: request.submissionId,
-      });
-      return sandboxSystemError(
-        "Sandbox configuration error. Please contact your administrator.",
-      );
-    }
-
     // Interactive mode requires a live cross-container stdio pipe between the
     // solution and interactor containers (Phase 2C), proxied by the worker.
     // That is not feasible through the K8s Job API — fail fast instead of
@@ -104,12 +277,20 @@ export class K8sExecutor implements SandboxExecutor {
       );
     }
 
+    if (request.judgeType === "checker") {
+      return this.executeChecker(request);
+    }
+
+    return this.executeRunOnly(request);
+  }
+
+  private async executeRunOnly(request: SandboxRequest): Promise<SandboxResult> {
     const jobName = `judge-${request.submissionId}`;
     const ns = this.config.namespace;
 
     try {
-      await this.createConfigMap(jobName, ns, request);
-      await this.createJob(jobName, ns);
+      await this.createConfigMap(jobName, ns, buildRunConfigMapData(request));
+      await this.createJob(jobName, ns, jobName);
 
       const outcome = await this.waitForJobCompletion(jobName, ns);
       if (outcome === "failed") {
@@ -117,58 +298,130 @@ export class K8sExecutor implements SandboxExecutor {
       }
 
       const logs = await this.getPodLogs(jobName, ns);
-      return this.parseRunnerOutput(logs, request);
+      const parsed = this.parseRunnerOutput(logs);
+      if (!parsed) return sandboxSystemError("Failed to parse sandbox runner output.", logs);
+      return resolveSandboxResult(parsed, request.testcases);
     } finally {
       await this.cleanup(jobName, ns);
     }
   }
 
   /**
-   * Build a flat ConfigMap with submission data.
-   *
-   * ConfigMaps don't support nested directories, so testcases are stored
-   * as flat keys: `testcase-{i}-input.txt`, `testcase-{i}-expected.txt`.
-   * The sandbox runner must handle both directory layout (Docker volume
-   * mount) and flat ConfigMap keys (K8s).
+   * Checker flow on K8s: a TWO-Job pipeline (run pod → validate pod). The run
+   * pod sees neither the expected answer nor the validator script; the
+   * validate pod sees neither the student source nor the run pod's working
+   * directory. Per-case files reach the validate pod via a flat ConfigMap.
+   * Final verdicts come from `mergeCheckerResults` (same merge the Docker
+   * backend uses).
    */
+  private async executeChecker(request: SandboxRequest): Promise<SandboxResult> {
+    const baseName = `judge-${request.submissionId}`;
+    const validateName = `${baseName}-validate`;
+    const ns = this.config.namespace;
+
+    try {
+      await this.createConfigMap(baseName, ns, buildRunConfigMapData(request));
+      await this.createJob(baseName, ns, baseName);
+
+      const runOutcome = await this.waitForJobCompletion(baseName, ns);
+      if (runOutcome === "failed") {
+        return sandboxSystemError("Sandbox job failed or timed out.");
+      }
+
+      const runLogs = await this.getPodLogs(baseName, ns);
+      const runResult = this.parseRunnerOutput(runLogs);
+      if (!runResult) {
+        return sandboxSystemError("Failed to parse sandbox runner output.", runLogs);
+      }
+
+      // Compile error / pipeline error short-circuit: no rawRuns to validate.
+      if (!runResult.rawRuns) return runResult;
+      const rawRuns = runResult.rawRuns;
+
+      const hasGradableCase = rawRuns.some((r) => !r.errorVerdict);
+      const outcomes = hasGradableCase
+        ? await this.runValidateJob(validateName, ns, request, rawRuns)
+        : new Map<number, ValidatorOutcome>();
+
+      return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
+    } finally {
+      await this.cleanup(baseName, ns);
+      await this.cleanup(validateName, ns);
+    }
+  }
+
+  /**
+   * Run the validate Job and return per-case outcomes. Any Job/log/parse
+   * failure becomes an SE for every requested case (mirrors `runValidator` in
+   * the Docker path).
+   */
+  private async runValidateJob(
+    jobName: string,
+    namespace: string,
+    request: SandboxRequest,
+    rawRuns: RawCaseRun[],
+  ): Promise<Map<number, ValidatorOutcome>> {
+    const seForAll = (): Map<number, ValidatorOutcome> =>
+      new Map(
+        rawRuns
+          .filter((r) => !r.errorVerdict)
+          .map((r): [number, ValidatorOutcome] => [r.index, { verdict: "SE" }]),
+      );
+
+    try {
+      await this.createConfigMap(
+        jobName,
+        namespace,
+        buildValidateConfigMapData(request, rawRuns),
+      );
+      await this.createJob(jobName, namespace, jobName);
+
+      const outcome = await this.waitForJobCompletion(jobName, namespace);
+      if (outcome === "failed") return seForAll();
+
+      const logs = await this.getPodLogs(jobName, namespace);
+      const lines = logs.trim().split("\n");
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const trimmed = lines[i]?.trim();
+        if (!trimmed?.startsWith("{")) continue;
+        let json: unknown;
+        try {
+          json = JSON.parse(trimmed);
+        } catch {
+          continue;
+        }
+        const parsed = parseValidateOutput(json);
+        if (!parsed.success || parsed.data.validatorOutcomes === undefined) continue;
+
+        const outcomes = new Map<number, ValidatorOutcome>();
+        for (const o of parsed.data.validatorOutcomes) {
+          const { index, ...rest } = o;
+          outcomes.set(index, rest);
+        }
+        for (const r of rawRuns) {
+          if (!r.errorVerdict && !outcomes.has(r.index)) {
+            outcomes.set(r.index, { verdict: "SE" });
+          }
+        }
+        return outcomes;
+      }
+
+      return seForAll();
+    } catch (err) {
+      logger.error("K8s validate Job failed", {
+        submissionId: request.submissionId,
+        jobName,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return seForAll();
+    }
+  }
+
   private async createConfigMap(
     name: string,
     namespace: string,
-    request: SandboxRequest,
+    data: Record<string, string>,
   ): Promise<void> {
-    const data: Record<string, string> = {};
-    const sourceFileMap: { path: string; key: string }[] = [];
-    const mainSourceName = sourceFileNames[request.language];
-    let wroteMainSource = false;
-
-    for (const sourceFile of request.sourceFiles ?? []) {
-      const normalizedPath = normalizeRelativePath(sourceFile.path);
-      if (!normalizedPath) {
-        continue;
-      }
-
-      if (normalizedPath === mainSourceName) {
-        wroteMainSource = true;
-      }
-
-      const key = `source-file-${String(sourceFileMap.length)}`;
-      data[key] = sourceFile.content;
-      sourceFileMap.push({ path: normalizedPath, key });
-    }
-
-    if (!wroteMainSource) {
-      data[mainSourceName] = request.sourceCode;
-    }
-
-    data["config.json"] = JSON.stringify(buildSandboxConfigJson(request, sourceFileMap));
-
-    if (request.judgeConfig.checkerScript) {
-      const ext = sourceExtension(request.judgeConfig.checkerLanguage);
-      data[`checker.${ext}`] = request.judgeConfig.checkerScript;
-    }
-
-    Object.assign(data, buildTestcaseConfigMapData(request));
-
     await this.coreApi.createNamespacedConfigMap({
       namespace,
       body: {
@@ -178,99 +431,23 @@ export class K8sExecutor implements SandboxExecutor {
     });
   }
 
-  private async createJob(jobName: string, namespace: string): Promise<void> {
+  private async createJob(
+    jobName: string,
+    namespace: string,
+    configMapName: string,
+  ): Promise<void> {
     await this.batchApi.createNamespacedJob({
       namespace,
-      body: {
-        apiVersion: "batch/v1",
-        kind: "Job",
-        metadata: {
-          name: jobName,
-          namespace,
-          labels: { app: "nojv-sandbox" },
-        },
-        spec: {
-          ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
-          activeDeadlineSeconds: JOB_DEADLINE_SECONDS,
-          backoffLimit: 0,
-          template: {
-            // The `app: nojv-sandbox` label here (NOT on the Job metadata) is
-            // what the sandbox NetworkPolicy podSelector matches — Job labels
-            // do not propagate to the pod template.
-            metadata: {
-              labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
-            },
-            spec: {
-              restartPolicy: "Never",
-              automountServiceAccountToken: false,
-              // Sandbox pods only land on the untrusted-code node pool, which
-              // is tainted `nojv-role=sandbox:NoSchedule` so nothing else runs
-              // there. Keeps a runaway fork-bomb from starving the orchestrator.
-              nodeSelector: { "nojv-role": "sandbox" },
-              tolerations: [
-                {
-                  key: "nojv-role",
-                  operator: "Equal",
-                  value: "sandbox",
-                  effect: "NoSchedule",
-                },
-              ],
-              securityContext: {
-                runAsUser: 10001,
-                runAsGroup: 10001,
-                runAsNonRoot: true,
-                seccompProfile: { type: "RuntimeDefault" },
-              },
-              containers: [
-                {
-                  name: "runner",
-                  image: this.config.image,
-                  command: ["node", "/runner/index.js"],
-                  resources: {
-                    requests: {
-                      cpu: this.config.cpuRequest,
-                      memory: this.config.memoryRequest,
-                    },
-                    limits: {
-                      cpu: this.config.cpuLimit,
-                      memory: this.config.memoryLimit,
-                    },
-                  },
-                  securityContext: {
-                    allowPrivilegeEscalation: false,
-                    capabilities: { drop: ["ALL"] },
-                    readOnlyRootFilesystem: true,
-                    runAsNonRoot: true,
-                  },
-                  volumeMounts: [
-                    {
-                      name: "submission-data",
-                      mountPath: "/submission",
-                      readOnly: true,
-                    },
-                    { name: "workspace", mountPath: "/workspace" },
-                    { name: "tmp", mountPath: "/tmp" },
-                  ],
-                },
-              ],
-              volumes: [
-                {
-                  name: "submission-data",
-                  configMap: { name: jobName },
-                },
-                {
-                  name: "workspace",
-                  emptyDir: { sizeLimit: "128Mi" },
-                },
-                {
-                  name: "tmp",
-                  emptyDir: { sizeLimit: "64Mi" },
-                },
-              ],
-            },
-          },
-        },
-      },
+      body: buildSandboxJobManifest({
+        jobName,
+        namespace,
+        configMapName,
+        image: this.config.image,
+        cpuRequest: this.config.cpuRequest,
+        cpuLimit: this.config.cpuLimit,
+        memoryRequest: this.config.memoryRequest,
+        memoryLimit: this.config.memoryLimit,
+      }),
     });
   }
 
@@ -313,29 +490,27 @@ export class K8sExecutor implements SandboxExecutor {
     });
   }
 
-  private parseRunnerOutput(logs: string, request: SandboxRequest): SandboxResult {
+  private parseRunnerOutput(logs: string): SandboxResult | null {
     // The sandbox runner writes a single JSON object to stdout as its
     // last output. Find the last line that looks like JSON.
     const lines = logs.trim().split("\n");
 
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i];
-      if (!line) {
-        continue;
-      }
+      if (!line) continue;
 
       const trimmed = line.trim();
-      if (trimmed.startsWith("{")) {
-        try {
-          const parsed = parseSandboxResult(JSON.parse(trimmed));
-          if (parsed.success) return resolveSandboxResult(parsed.data, request.testcases);
-        } catch {
-          // Not valid JSON, keep searching
-        }
+      if (!trimmed.startsWith("{")) continue;
+
+      try {
+        const parsed = parseSandboxResult(JSON.parse(trimmed));
+        if (parsed.success) return parsed.data;
+      } catch {
+        // Not valid JSON, keep searching
       }
     }
 
-    return sandboxSystemError("Failed to parse sandbox runner output.", logs);
+    return null;
   }
 
   private async cleanup(jobName: string, namespace: string): Promise<void> {
