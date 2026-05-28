@@ -93,6 +93,44 @@ export function runInteractiveSolution(
   });
 }
 
+export interface InteractiveCaseFiles {
+  inputFile: string;
+  answerFile: string;
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the per-case input/answer files for the interactor container.
+ * Prefers Docker's directory layout (`/submission/cases/{index}/{input,answer}.txt`)
+ * and falls back to the K8s flat-ConfigMap layout
+ * (`/submission/case-{i}-{input,answer}.txt`) — ConfigMaps cannot hold nested
+ * directories.
+ */
+export async function resolveInteractiveCaseFiles(
+  submissionDir: string,
+  index: number,
+): Promise<InteractiveCaseFiles> {
+  const dirInput = path.join(submissionDir, "cases", String(index), "input.txt");
+  if (await pathExists(dirInput)) {
+    return {
+      inputFile: dirInput,
+      answerFile: path.join(submissionDir, "cases", String(index), "answer.txt"),
+    };
+  }
+  return {
+    inputFile: path.join(submissionDir, `case-${String(index)}-input.txt`),
+    answerFile: path.join(submissionDir, `case-${String(index)}-answer.txt`),
+  };
+}
+
 /** Read a feedback file if present; missing → undefined. */
 async function readFeedbackFile(dir: string, name: string): Promise<string | undefined> {
   try {

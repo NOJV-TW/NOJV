@@ -15,6 +15,7 @@ import { compile, compileInteractor, compileValidator, sourceFileName } from "./
 import { cleanupTempDir, pathExists } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import {
+  resolveInteractiveCaseFiles,
   runInteractiveSolution,
   runInteractiveValidator,
 } from "./judges/interactive-isolated.js";
@@ -331,9 +332,7 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   }
 
   const index = interactive.index ?? 0;
-  const caseDir = path.join(SUBMISSION_DIR, "cases", String(index));
-  const inputFile = path.join(caseDir, "input.txt");
-  const answerFile = path.join(caseDir, "answer.txt");
+  const { inputFile, answerFile } = await resolveInteractiveCaseFiles(SUBMISSION_DIR, index);
   const feedbackDir = await fs.mkdtemp(path.join(workDir, "fb-"));
 
   log(`Running interactor for case ${String(index)}...`);
