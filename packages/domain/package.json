@@ -23,9 +23,13 @@
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "@nojv/temporal": "workspace:*",
+    "archiver": "^7.0.1",
+    "unzipper": "^0.12.3",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/archiver": "^7.0.0",
+    "@types/unzipper": "^0.10.11",
     "tsdown": "catalog:"
   }
 }

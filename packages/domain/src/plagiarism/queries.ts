@@ -10,11 +10,19 @@ import {
   type PlagiarismContext,
   type PlagiarismReportSummary,
 } from "@nojv/db";
+import type { SubmissionSource } from "@nojv/storage";
 
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
+import { getSubmissionSources } from "../submission/queries";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
+// `sourceCode` is the hydrated, ready-to-tokenize blob. For multi-file
+// submissions we concatenate per-file contents in sorted-path order with
+// `// === path ===` boundary markers — every Dolos-supported language treats
+// `//` as a line comment, so the markers are dropped by the tokenizer and
+// don't pollute similarity. The old single-string `JSON.stringify({path: …})`
+// shape masked semantic similarity behind JSON syntax tokens.
 export interface PlagiarismSubmission {
   id: string;
   language: string;
@@ -27,10 +35,28 @@ export interface PlagiarismSubmission {
 export async function listSubmissionsForCheck(
   target: PlagiarismTarget,
 ): Promise<PlagiarismSubmission[]> {
-  return submissionRepo.findForPlagiarism({
+  const rows = await submissionRepo.findForPlagiarism({
     ...plagiarismTargetFilter(target),
     status: "accepted",
   });
+  return Promise.all(
+    rows.map(async (row): Promise<PlagiarismSubmission> => {
+      const sources = await getSubmissionSources(row.id);
+      const merged = sources
+        .slice()
+        .sort((a, b) => a.path.localeCompare(b.path))
+        .map((s) => `// === ${s.path} ===\n${s.content}`)
+        .join("\n");
+      return {
+        id: row.id,
+        userId: row.userId,
+        problemId: row.problemId,
+        language: row.language,
+        score: row.score,
+        sourceCode: merged,
+      };
+    }),
+  );
 }
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
@@ -164,11 +190,17 @@ export async function findPlagiarismReport(
   return plagiarismRepo.findByExamId(target.id);
 }
 
+/**
+ * Staff-only fetch of one student's submission sources for a side-by-side
+ * diff. Picks the highest-scoring submission in the target (assignment /
+ * contest / exam) and returns its files from object storage.
+ */
+// intentional-nullable: pair-diff view renders an empty side when a user has no submission for the problem (MOSS sometimes flags pairs where one side was later deleted); throwing would 500 the whole report.
 export async function getPlagiarismSourceCode(
   target: PlagiarismTarget,
   userId: string,
   problemId: string,
-) {
+): Promise<SubmissionSource[] | null> {
   const submission = await submissionRepo.findMany({
     where: {
       ...plagiarismTargetFilter(target),
@@ -176,10 +208,12 @@ export async function getPlagiarismSourceCode(
       userId,
     },
     orderBy: { score: "desc" },
-    select: { sourceCode: true },
+    select: { id: true },
     take: 1,
   });
-  return submission[0]?.sourceCode ?? null;
+  const top = submission[0];
+  if (!top) return null;
+  return getSubmissionSources(top.id);
 }
 
 // Returns 0 or 1 reports as an array so the route layer can keep its existing

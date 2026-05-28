@@ -9,14 +9,10 @@ import {
   submissionVerdictSchema,
 } from "../types";
 import { assessmentContextSchema } from "./course";
+import { safeRelativePath } from "./path";
 
 const sourceFileSchema = z.object({
-  path: z
-    .string()
-    .trim()
-    .min(1)
-    .max(300)
-    .refine((value) => !value.includes("\0"), "File path must not contain NUL bytes."),
+  path: safeRelativePath,
   content: z.string().max(500_000),
 });
 
@@ -49,6 +45,12 @@ const virtualContestIdSchema = z
   .max(128)
   .regex(/^[A-Za-z0-9_-]+$/);
 
+// `sourceCode` / `sourceFiles` carry the student's submitted bytes on inbound
+// `POST /api/submissions`. They are intentionally optional on the schema so
+// rejudge dispatches can re-use the same shape without carrying a placeholder —
+// the worker re-loads sources from object storage at `executeSandbox` time and
+// ignores any draft-side source fields. Inbound POSTs are validated at the
+// usage site via `normalizeSubmissionSources`.
 export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
@@ -62,7 +64,7 @@ export const submissionDraftSchema = z
     problemId: problemIdentifierSchema,
     runCases: z.array(runCaseSchema).max(MAX_RUN_CASES).optional(),
     sampleOnly: z.boolean().optional(),
-    sourceCode: sourceCodeSchema,
+    sourceCode: sourceCodeSchema.optional(),
     sourceFiles: z.array(sourceFileSchema).max(200).optional(),
   })
   .refine(
@@ -127,7 +129,24 @@ export const submissionOperationSchema = z.object({
   submissionId: z.string().min(1),
 });
 
+// Light-weight digest of a SubmissionResult; the source of truth for the full
+// `caseResults` / `compilerOutput` is the verdict-detail blob in object storage.
+// Kept under 4 KB so list views can render it without a storage round-trip.
+export const verdictSummarySchema = z.object({
+  caseSummary: z.object({
+    ac: z.number().int().nonnegative(),
+    wa: z.number().int().nonnegative(),
+    tle: z.number().int().nonnegative(),
+    mle: z.number().int().nonnegative(),
+    re: z.number().int().nonnegative(),
+    other: z.number().int().nonnegative(),
+  }),
+  subtaskSummary: z.array(z.object({ id: z.string(), score: z.number() })).optional(),
+  compilerErrorTruncated: z.string().max(1024).optional(),
+});
+
 export type CaseResult = z.infer<typeof caseResultSchema>;
 export type SubtaskResultItem = z.infer<typeof subtaskResultItemSchema>;
 export type SubmissionDraft = z.infer<typeof submissionDraftSchema>;
 export type SubmissionResult = z.infer<typeof submissionResultSchema>;
+export type VerdictSummary = z.infer<typeof verdictSummarySchema>;

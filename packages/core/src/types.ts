@@ -43,6 +43,9 @@ export const submissionOperationStatuses = [
   "runtime_error",
   "time_limit_exceeded",
   "memory_limit_exceeded",
+  // Terminal non-graded failure when the worker can't even start judging
+  // (e.g. source storage write failed before the worker picked up the job).
+  "system_error",
 ] as const;
 
 export const localeCodes = ["en", "zh-TW"] as const;

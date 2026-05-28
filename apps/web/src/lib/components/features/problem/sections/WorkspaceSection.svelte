@@ -35,9 +35,10 @@
     initial: WorkspaceSectionPayload;
     ondirtychange?: (dirty: boolean) => void;
     onsave?: (payload: WorkspaceSectionPayload) => Promise<void> | void;
+    onUploadFile?: (file: File, language: Language) => Promise<void>;
   }
 
-  let { initial, ondirtychange, onsave }: Props = $props();
+  let { initial, ondirtychange, onsave, onUploadFile }: Props = $props();
 
   // The component is a scratchpad seeded from `initial`; once the user starts
   // editing, external changes to `initial` must not clobber in-progress state.
@@ -242,6 +243,7 @@
     onAddFile={addFile}
     onUpdateFile={updateFile}
     onDeleteFile={deleteFile}
+    {onUploadFile}
   />
   <WorkspaceSaveBar {saving} {saveMessage} onSave={() => void handleSave()} />
 </div>

@@ -7,13 +7,17 @@ export {
   getSubmissionById,
   getSubmissionDetail,
   getSubmissionForUser,
+  getSubmissionSources,
+  getVerdictDetail,
   listForRejudge,
   listProblemSubmissions,
   listUserSubmissions,
 } from "./queries";
+export type { SubmissionSource } from "@nojv/storage";
 export {
   completeJudge,
   createQueuedSubmissionRecord,
+  deriveVerdictSummary,
   finalizeRejudgeLog,
   snapshotForRejudge,
   updateSubmissionStatus,

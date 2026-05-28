@@ -11,6 +11,7 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
+import { fallbackResultForRow, getVerdictDetail } from "../submission/queries";
 import { stripStaffFeedback } from "../submission/scoring";
 
 function letterForIndex(index: number): string {
@@ -95,7 +96,7 @@ export async function getExamProblemView(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true,
+        verdictDetailStorageKey: true,
       },
       take: 50,
     }),
@@ -107,10 +108,27 @@ export async function getExamProblemView(options: {
     }),
   ]);
 
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
-    submissionVerdictSchema.parse(s.status);
+  // Verdict detail lives in object storage; pull each row's blob in parallel.
+  // The query already caps at 50 rows, so the fan-out is bounded.
+  const detailBlobs = await Promise.all(
+    submissionRows.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
+    // status is validated AND used as the fallback verdict when the detail
+    // blob is missing/malformed.
+    const verdict = submissionVerdictSchema.parse(s.status);
+    // Detail blob may be absent (partial purge, read-after-write window) or
+    // schema-invalid; degrade to a row-status-only summary instead of 500'ing
+    // the whole list.
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
     // User's own submissions in their own exam — never a staff viewer here.
-    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,
@@ -199,7 +217,7 @@ export async function getExamProblemViewByProblemId(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true,
+        verdictDetailStorageKey: true,
       },
       take: 50,
     }),
@@ -211,10 +229,26 @@ export async function getExamProblemViewByProblemId(options: {
     }),
   ]);
 
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
-    submissionVerdictSchema.parse(s.status);
+  // Verdict detail lives in object storage; pull each row's blob in parallel.
+  const detailBlobs = await Promise.all(
+    submissionRows.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
+    // status is validated AND used as the fallback verdict when the detail
+    // blob is missing/malformed.
+    const verdict = submissionVerdictSchema.parse(s.status);
+    // Detail blob may be absent (partial purge, read-after-write window) or
+    // schema-invalid; degrade to a row-status-only summary instead of 500'ing
+    // the whole list.
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
     // User's own submissions in their own exam — never a staff viewer here.
-    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,

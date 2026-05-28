@@ -9,6 +9,7 @@ import {
 } from "@nojv/db";
 import type {
   JudgeConfig,
+  JudgeScriptLanguage,
   ProblemCreate,
   ProblemImageSource,
   ProblemStatus,
@@ -17,7 +18,7 @@ import type {
   ProblemVisibility,
 } from "@nojv/core";
 import type { ProblemDifficulty } from "@nojv/core";
-import { DEFAULT_LOCALE } from "@nojv/core";
+import { DEFAULT_LOCALE, judgeConfigSchema } from "@nojv/core";
 
 import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -31,7 +32,11 @@ import {
   writeCheckerScriptBlob,
   writeInteractorScriptBlob,
 } from "./blobs";
-import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
+import {
+  assertProblemEditAccess,
+  assertProblemOwnership,
+  type ProblemActorContext,
+} from "./permissions";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Problem CRUD
@@ -338,4 +343,91 @@ export async function convertProblemToAdvancedMode(
   // Advanced-mode tarballs and markdown images live under different
   // prefixes and are preserved.
   await bestEffortDeleteProblemStandardBlobs(problemId);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Interactor source upload (W3.C)
+//
+// Writes the interactor script body to object storage at
+// `interactorKey(problemId)`, then patches `problem.judgeConfig` so it
+// carries the storage key + language. Mirrors the checker-side helper in
+// shape — the per-route HTTP adapter is just request parsing + budget +
+// access guards, with this function as the single place that touches both
+// S3 and the row.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface SetProblemInteractorInput {
+  content: string;
+  language: JudgeScriptLanguage;
+}
+
+export async function setProblemInteractor(
+  actor: ProblemActorContext,
+  problemId: string,
+  input: SetProblemInteractorInput,
+): Promise<{ id: string }> {
+  await assertProblemEditAccess(actor, problemId);
+
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+
+  // Write the body first — a failed upload short-circuits before any
+  // column change, matching the saveProblemJudgeConfig pattern above.
+  const key = await writeInteractorScriptBlob(problemId, input.content);
+
+  const existing = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+    type: "interactive" as const,
+  };
+
+  const nextJudgeConfig: JudgeConfig = {
+    ...existing,
+    // Force `interactive` so a problem author can land here from a stale
+    // judge type without leaving the row in an inconsistent state.
+    type: "interactive",
+    interactorKey: key,
+    interactorLanguage: input.language,
+  };
+
+  return updateProblemRecord(actor, problemId, { judgeConfig: nextJudgeConfig });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Checker source upload (W3.B)
+//
+// Same shape as setProblemInteractor above: write the script body to
+// `checkerKey(problemId)` first, then patch `problem.judgeConfig` to carry
+// the storage key + language. Forces `type: "checker"` so the row never
+// ends up advertising a checker script under a `standard`/`interactive`
+// judge type.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface SetProblemCheckerInput {
+  content: string;
+  language: JudgeScriptLanguage;
+}
+
+export async function setProblemChecker(
+  actor: ProblemActorContext,
+  problemId: string,
+  input: SetProblemCheckerInput,
+): Promise<{ id: string }> {
+  await assertProblemEditAccess(actor, problemId);
+
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+
+  const key = await writeCheckerScriptBlob(problemId, input.content);
+
+  const existing = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+    type: "checker" as const,
+  };
+
+  const nextJudgeConfig: JudgeConfig = {
+    ...existing,
+    type: "checker",
+    checkerKey: key,
+    checkerLanguage: input.language,
+  };
+
+  return updateProblemRecord(actor, problemId, { judgeConfig: nextJudgeConfig });
 }

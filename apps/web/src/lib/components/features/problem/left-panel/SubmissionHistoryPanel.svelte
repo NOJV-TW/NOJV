@@ -4,6 +4,7 @@
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
+  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
@@ -88,13 +89,14 @@
     fetch(`/api/submissions/${entryId}/source`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load source code.");
-        return res.json() as Promise<{ sourceCode: string }>;
+        return res.json() as Promise<{ files: { path: string; content: string }[] }>;
       })
       .then((data) => {
         if (cancelled) return;
         const currentIdx = submissions.findIndex((s) => s.id === entryId);
         if (currentIdx === -1) return;
-        submissions[currentIdx] = { ...submissions[currentIdx]!, sourceCode: data.sourceCode };
+        const sourceCode = flattenSourcesForDisplay(data.files);
+        submissions[currentIdx] = { ...submissions[currentIdx]!, sourceCode };
       })
       .catch(() => {
         if (cancelled) return;

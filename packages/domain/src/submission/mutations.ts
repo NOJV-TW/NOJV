@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   courseMembershipRepo,
   examRepo,
@@ -12,16 +14,27 @@ import {
   validateRequiredPaths,
   type SubmissionDraft,
   type SubmissionResult,
+  type VerdictSummary,
 } from "@nojv/core";
+import {
+  deleteSubmissionStorage,
+  getVerdictDetail as storageGetVerdictDetail,
+  putSubmissionSources,
+  putVerdictDetail,
+  submissionSourcePrefix,
+  submissionVerdictDetailKey,
+} from "@nojv/storage";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
+import { normalizeSubmissionSources } from "./source-paths";
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
@@ -31,7 +44,12 @@ export async function createQueuedSubmissionRecord(
   actor: ActorContext,
   clientIp: string,
 ) {
-  return runTransaction(async (tx) => {
+  // Generate the submission id up front so its S3 prefix is known before the
+  // row is inserted; sources are written post-commit (see end of function) to
+  // keep the tx body short.
+  const submissionId = randomUUID();
+
+  const { row, sources } = await runTransaction(async (tx) => {
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
       payload.assessment
@@ -223,7 +241,12 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    return submissionRepo.withTx(tx).create({
+    // Normalize sources + validate paths + cap total bytes BEFORE writing the
+    // row. Any failure here throws and rolls back the tx — no orphan S3 blobs.
+    const sources = normalizeSubmissionSources(payload, problem, submissionId);
+
+    const created = await submissionRepo.withTx(tx).create({
+      id: submissionId,
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
       // Virtual submissions sit outside the contest/exam/assignment xor —
@@ -240,11 +263,40 @@ export async function createQueuedSubmissionRecord(
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
-      sourceCode: payload.sourceCode,
+      sourceStoragePrefix: submissionSourcePrefix(submissionId),
       status: "queued",
       userId: user.id,
     });
+
+    return { row: created, sources };
   });
+
+  // Sources are written post-commit so a long S3 round-trip doesn't hold the
+  // tx open. If storage fails after the row commits, best-effort wipe any
+  // partially-uploaded blobs under this submission's prefix, then mark the
+  // row `system_error` so the worker doesn't try to judge a row with no
+  // (or partial) sources.
+  try {
+    await putSubmissionSources(storage(), submissionId, sources);
+  } catch (err) {
+    // Best-effort orphan cleanup. Swallow delete failure — surfacing the
+    // original storage error to the caller is more useful than masking it
+    // with a cleanup error.
+    try {
+      await deleteSubmissionStorage(storage(), submissionId);
+    } catch {
+      // Swallowed; orphan blobs at worst stay in the bucket until a sweep.
+    }
+    try {
+      await submissionRepo.updateStatus(submissionId, "system_error");
+    } catch {
+      // Swallowed: prefer surfacing the original storage failure to the
+      // caller. The row stays in `queued`; the blobs are already wiped.
+    }
+    throw err;
+  }
+
+  return row;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -258,16 +310,65 @@ export async function updateSubmissionStatus(
   await submissionRepo.updateStatus(submissionId, status);
 }
 
+// Verdicts the summary tallies directly; anything else falls into `other`.
+const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
+
+export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
+  const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
+  for (const c of result.caseResults ?? []) {
+    const v = c.verdict.toUpperCase();
+    if (SUMMARY_VERDICTS.has(v)) {
+      if (v === "AC") caseSummary.ac += 1;
+      else if (v === "WA") caseSummary.wa += 1;
+      else if (v === "TLE") caseSummary.tle += 1;
+      else if (v === "MLE") caseSummary.mle += 1;
+      else if (v === "RE") caseSummary.re += 1;
+    } else {
+      caseSummary.other += 1;
+    }
+  }
+
+  const summary: VerdictSummary = { caseSummary };
+
+  if (result.subtaskResults && result.subtaskResults.length > 0) {
+    summary.subtaskSummary = result.subtaskResults.map((s) => ({
+      id: s.testcaseSetId,
+      // SubtaskResultItem carries `passed`/`weight` but not a numeric score —
+      // surface weight when passed, 0 otherwise so the UI sees a per-subtask
+      // breakdown without loading the full detail blob.
+      score: s.passed ? s.weight : 0,
+    }));
+  }
+
+  // compilerOutput lives on the full result; the schema exposes it via `feedback`
+  // when verdict is compile_error. Truncate to 1 KB so the summary stays small.
+  if (result.verdict === "compile_error" && result.feedback) {
+    summary.compilerErrorTruncated = result.feedback.slice(0, 1024);
+  }
+
+  return summary;
+}
+
 export async function completeJudge(
   submissionId: string,
   result: SubmissionResult,
 ): Promise<CompletedSubmission> {
+  // Write the heavy detail blob first; if storage fails the DB row stays in
+  // its prior state and the worker retry path re-runs `completeJudge` from
+  // the unchanged judge output. Doing the DB write first would leave a row
+  // marked AC with no detail blob — a state the read path can't distinguish
+  // from "judge hasn't finished yet".
+  await putVerdictDetail(storage(), submissionId, result);
+
+  const verdictSummary = deriveVerdictSummary(result);
+
   const submission = await submissionRepo.complete(submissionId, {
     runtimeMs: result.runtimeMs,
     ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
     score: result.score,
     status: result.verdict,
-    verdictDetail: toJsonValue(result),
+    verdictSummary: toJsonValue(verdictSummary),
+    verdictDetailStorageKey: submissionVerdictDetailKey(submissionId),
   });
 
   return {
@@ -306,12 +407,19 @@ export async function snapshotForRejudge(
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
+  // The audit log needs the FULL pre-rejudge result, not just the summary —
+  // pull the detail blob from storage if it was ever written. Null when the
+  // submission never reached a terminal state.
+  const oldDetail = current.verdictDetailStorageKey
+    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
+    : null;
+
   const row = await submissionRejudgeLogRepo.create({
     submissionId,
     rejudgedByUserId: triggeredByUserId,
     oldVerdict: current.status,
     oldScore: current.score,
-    oldResultJson: current.verdictDetail === null ? null : toJsonValue(current.verdictDetail),
+    oldResultJson: oldDetail === null ? null : toJsonValue(oldDetail),
   });
 
   return { logId: row.id, oldStatus: current.status };
@@ -325,9 +433,13 @@ export async function finalizeRejudgeLog(
   const updated = await submissionRepo.findById(submissionId);
   if (!updated) return;
 
+  const newDetail = updated.verdictDetailStorageKey
+    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
+    : null;
+
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,
-    newResultJson: updated.verdictDetail === null ? null : toJsonValue(updated.verdictDetail),
+    newResultJson: newDetail === null ? null : toJsonValue(newDetail),
   });
 }

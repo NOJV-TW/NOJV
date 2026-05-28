@@ -16,5 +16,24 @@ export {
   checkerKey,
   interactorKey,
   problemPrefix,
+  submissionPrefix,
+  submissionSourcePrefix,
+  submissionSourceKey,
+  submissionVerdictDetailKey,
 } from "./keys";
-export { putText, getText, deleteBlob, deleteBlobsByPrefix } from "./blobs";
+export {
+  putText,
+  getText,
+  deleteBlob,
+  deleteBlobsByPrefix,
+  listByPrefix,
+  sumSizesByPrefix,
+} from "./blobs";
+export {
+  putSubmissionSources,
+  getSubmissionSources,
+  putVerdictDetail,
+  getVerdictDetail,
+  deleteSubmissionStorage,
+} from "./submission";
+export type { SubmissionSource } from "./submission";

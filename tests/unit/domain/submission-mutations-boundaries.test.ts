@@ -11,6 +11,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createInMemoryStorage } from "../_fixtures/storage";
+
 const {
   problemFindById,
   userFindById,
@@ -21,9 +23,11 @@ const {
   workspaceFindByProblemId,
   submissionFindMostRecent,
   submissionCreate,
+  submissionUpdateStatus,
   examSessionFindActiveForUser,
   examFindById,
   txContestProblemFindFirst,
+  storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -34,9 +38,11 @@ const {
   workspaceFindByProblemId: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionUpdateStatus: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
+  storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -76,6 +82,7 @@ vi.mock("@nojv/db", () => ({
       create: submissionCreate,
       countForUserAndAssessmentSince: vi.fn(),
     }),
+    updateStatus: submissionUpdateStatus,
   },
   runTransaction: async <T>(
     fn: (tx: {
@@ -89,6 +96,13 @@ vi.mock("@nojv/db", () => ({
       contestProblem: { findFirst: txContestProblemFindFirst },
       courseAssessmentProblem: { findFirst: vi.fn() },
     }),
+}));
+
+vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+  storage: () => storageRef.client,
+  __setStorageClientForTests: (c: unknown) => {
+    storageRef.client = c as typeof storageRef.client;
+  },
 }));
 
 import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/domain";
@@ -113,6 +127,7 @@ const fakeProblem = {
 };
 
 function setupCommonProblemDefaults() {
+  storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   problemFindById.mockResolvedValue(fakeProblem);
   const user = {
     id: fakeActor.userId,

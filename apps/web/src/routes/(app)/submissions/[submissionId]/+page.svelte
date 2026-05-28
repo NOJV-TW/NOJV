@@ -4,6 +4,7 @@
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
   import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
 
@@ -52,7 +53,8 @@
     };
   });
 
-  const codeLines = $derived(submission.sourceCode.split("\n"));
+  const sourceCode = $derived(flattenSourcesForDisplay(submission.sources));
+  const codeLines = $derived(sourceCode.split("\n"));
   const displayLines = $derived(
     codeLines.length > 1 && codeLines[codeLines.length - 1] === ""
       ? codeLines.slice(0, -1)
@@ -73,7 +75,7 @@
 
   let copied = $state(false);
   async function handleCopy() {
-    await navigator.clipboard.writeText(submission.sourceCode);
+    await navigator.clipboard.writeText(sourceCode);
     copied = true;
     setTimeout(() => {
       copied = false;
@@ -82,7 +84,7 @@
 
   function handleDownload() {
     const ext = downloadExtension[submission.language] ?? "txt";
-    const blob = new Blob([submission.sourceCode], { type: "text/plain" });
+    const blob = new Blob([sourceCode], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;

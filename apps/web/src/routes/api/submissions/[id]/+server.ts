@@ -7,7 +7,7 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/domain";
 import { submissionResultSchema } from "@nojv/core";
 
-const { getSubmissionForUser, stripStaffFeedback } = submissionDomain;
+const { getSubmissionForUser, getVerdictDetail, stripStaffFeedback } = submissionDomain;
 
 // This polling endpoint serves the submitter (getSubmissionForUser 404s
 // non-admin non-owners). Treat every response as non-staff and strip the
@@ -30,8 +30,12 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     actor.platformRole === "admin",
   );
 
+  // Verdict detail lives in object storage; pull it only when the row has
+  // reached a terminal state (storage key set).
+  const detail = submission.verdictDetailStorageKey ? await getVerdictDetail(id) : null;
+
   return json({
-    result: sanitizeVerdictDetail(submission.verdictDetail),
+    result: sanitizeVerdictDetail(detail),
     status: submission.status,
     submissionId: submission.id,
   });

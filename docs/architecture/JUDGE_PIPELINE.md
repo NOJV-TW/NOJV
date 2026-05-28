@@ -201,6 +201,50 @@ Per-case verdicts (`SandboxVerdict` in `packages/core/src/sandbox.ts`):
 | RE      | Runtime Error (non-zero exit)  |
 | SE      | System Error (sandbox failure) |
 
+## Source + verdict data flow
+
+Submission sources and full verdict detail are stored in `@nojv/storage`
+(S3-compatible), not Postgres. The `Submission` row carries only the
+prefix / key references and a small JSON summary. The full flow:
+
+1. **Create** — `submission/mutations.ts` opens a Prisma tx, validates +
+   normalizes the per-file sources, writes the `Submission` row with
+   `sourceStoragePrefix = submissions/<id>/sources/` and status
+   `queued`, and commits. **After** the tx commits, it calls
+   `putSubmissionSources(storage(), id, sources)` to write one S3 object
+   per file. If that storage write fails, the row is flipped to
+   `system_error` so the worker won't try to grade a row with no
+   sources.
+2. **Judge** — `executeSandbox` (in `apps/worker/src/activities/judge.ts`)
+   loads sources via `submissionDomain.getSubmissionSources(id)` at the
+   start of the activity rather than trusting the dispatch draft. Both
+   fresh dispatches and rejudges see the same canonical bytes.
+3. **Plagiarism** — `listSubmissionsForCheck` (in
+   `packages/domain/src/plagiarism/queries.ts`) reads per-file sources
+   via the same helper and concatenates them in sorted-path order with
+   `// === <path> ===\n` boundary markers before handing the merged
+   blob to Dolos. Every Dolos-supported language treats `//` as a line
+   comment, so the markers are dropped by the tokenizer.
+4. **Complete** — `completeJudge` writes the full `SubmissionResult` to
+   S3 at `submissions/<id>/verdict-detail.json` via `putVerdictDetail`
+   first, then persists a small `verdictSummary` JSON + the
+   `verdictDetailStorageKey` on the row. Writing the heavy blob first
+   means a storage failure leaves the row in its prior state and
+   Temporal's retry path can safely re-run `completeJudge` from the
+   unchanged judge output.
+
+| Lives in DB                                                                                    | Lives in S3                                                     |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `Submission` row (status, score, FKs, runtime / memory, timestamps)                            | Per-file sources: `submissions/<id>/sources/<relpath>`          |
+| `Submission.sourceStoragePrefix` (pointer)                                                     | Full `SubmissionResult`: `submissions/<id>/verdict-detail.json` |
+| `Submission.verdictSummary` (< 4 KB: case counters, subtask summary, truncated compiler error) |                                                                 |
+| `Submission.verdictDetailStorageKey` (pointer, null until judge writes detail)                 |                                                                 |
+
+`SubmissionStatus.system_error` is the terminal verdict for storage-side
+failures — surfaced to the student as a non-graded platform fault so they
+can resubmit. See `packages/db/prisma/schema/submission.prisma` and
+`packages/storage/src/{keys,submission}.ts`.
+
 ## Activity / workflow boundary
 
 The judge pipeline is driven by `submissionJudgeWorkflow` (`apps/worker/src/workflows/submission-judge.ts`). It is a thin orchestrator: every effectful step is a Temporal activity, and the workflow itself contains only control flow + the `mode` derivation needed to pick the right finalize path.

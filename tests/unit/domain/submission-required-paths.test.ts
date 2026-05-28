@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createInMemoryStorage } from "../_fixtures/storage";
+
 // Hoisted repo stubs — referenced inside the vi.mock factory below.
 const {
   problemFindById,
@@ -8,9 +10,11 @@ const {
   userUpdate,
   workspaceFindByProblemId,
   submissionCreate,
+  submissionUpdateStatus,
   examSessionFindActiveForUser,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
+  storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -18,9 +22,11 @@ const {
   userUpdate: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionUpdateStatus: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
+  storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => {
@@ -58,6 +64,7 @@ vi.mock("@nojv/db", () => {
         countForUserAndAssessmentSince: vi.fn(),
         create: submissionCreate,
       }),
+      updateStatus: submissionUpdateStatus,
     },
     runTransaction: async <T>(
       fn: (tx: {
@@ -72,6 +79,13 @@ vi.mock("@nojv/db", () => {
   };
 });
 
+vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+  storage: () => storageRef.client,
+  __setStorageClientForTests: (c: unknown) => {
+    storageRef.client = c as typeof storageRef.client;
+  },
+}));
+
 import { ConflictError, submissionDomain } from "@nojv/domain";
 
 const { createQueuedSubmissionRecord } = submissionDomain;
@@ -85,6 +99,7 @@ const fakeActor = {
 };
 
 function setupPracticeDefaults() {
+  storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   const user = {
     id: fakeActor.userId,
     name: fakeActor.displayName,

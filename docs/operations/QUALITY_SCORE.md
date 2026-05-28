@@ -27,6 +27,14 @@ documentation, or vice versa. Clear the entry once the gap closes.
 
 One line each — full detail in `docs/plans/completed/` and git log.
 
+- **2026-05-28** — Storage unification + audit fixes (HIGH findings
+  resolved): editorial API-layer bypass closed by server-side context
+  resolution (commits `f1994619`, `fd2f7884`); multi-file MOSS
+  tokenization fix — sources concatenated by sorted path with `// ===`
+  boundary markers instead of JSON-stringified (commit `87ce1a30`).
+  `Submission.sourceCode` + `verdictDetail` columns replaced with
+  `sourceStoragePrefix` + `verdictSummary` + `verdictDetailStorageKey`;
+  new `SubmissionStatus.system_error` surfaces storage-side failures.
 - **2026-05-22** — Feedback edit history (`SubmissionFeedbackAuditLog`)
   - Plagiarism trigger log + route-level permission tests (22 cases).
     Closed the last two conditional-deferral entries from

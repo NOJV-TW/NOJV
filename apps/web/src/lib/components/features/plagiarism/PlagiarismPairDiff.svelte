@@ -6,6 +6,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
   import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
+  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
   interface Props {
@@ -24,6 +25,10 @@
 
   let isLoading = $state(false);
   let actionError = $state<string | null>(null);
+
+  function flattenFiles(files: { path: string; content: string }[] | null): string {
+    return flattenSourcesForDisplay(files ?? []);
+  }
 
   onMount(() => {
     let themeObserver: MutationObserver | undefined;
@@ -44,8 +49,8 @@
         scrollBeyondLastLine: false,
       });
 
-      const original = monacoModule.editor.createModel(data.left.sourceCode ?? "", "plaintext");
-      const modified = monacoModule.editor.createModel(data.right.sourceCode ?? "", "plaintext");
+      const original = monacoModule.editor.createModel(flattenFiles(data.left.files), "plaintext");
+      const modified = monacoModule.editor.createModel(flattenFiles(data.right.files), "plaintext");
       diffEditor.setModel({ original, modified });
 
       themeObserver = new MutationObserver(() => {
