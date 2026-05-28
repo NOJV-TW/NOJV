@@ -5,6 +5,7 @@ import type * as k8s from "@kubernetes/client-node";
 const require = createRequire(import.meta.url);
 
 import {
+  advancedResultSchema,
   normalizeRelativePath,
   sourceFileNames,
   type RawCaseRun,
@@ -18,6 +19,7 @@ import {
 import { createLogger } from "../logger.js";
 import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
+import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
 import { parseSandboxResult, parseValidateOutput } from "./sandbox-schema";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 
@@ -463,6 +465,239 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
   };
 }
 
+/**
+ * Advanced Mode on K8s — registry-source only.
+ *
+ * The TA grader image lives in a registry the cluster can pull. The grader
+ * reads `/workspace/submission/` + `/workspace/meta.json` and writes
+ * `/workspace/output/result.json` (same contract as the Docker advanced
+ * executor). Since K8s has no host bind mount, the worker can't read the
+ * result file directly — a SIDECAR container tails it and emits the JSON
+ * inside marker lines to its stdout, which the worker reads via pod logs.
+ *
+ * Pod layout (requires K8s ≥ 1.28 for native sidecars):
+ *   initContainers:
+ *     - prep (sandbox image): seeds /workspace from a ConfigMap-mounted payload
+ *     - emit-result (sandbox image, restartPolicy: Always): polls + emits
+ *   containers:
+ *     - grader (TA's registry image): the actual judge
+ */
+export const ADVANCED_INIT_NAME = "prep";
+export const ADVANCED_GRADER_NAME = "grader";
+export const ADVANCED_SIDECAR_NAME = "emit-result";
+export const ADVANCED_RESULT_MARKER_BEGIN = "<<<NOJV_ADVANCED_RESULT>>>";
+export const ADVANCED_RESULT_MARKER_END = "<<<END>>>";
+
+const ADVANCED_WORKSPACE_SIZE_LIMIT = "1Gi";
+const ADVANCED_TMP_SIZE_LIMIT = "64Mi";
+
+/**
+ * Pack everything the prep init container needs to seed /workspace into a
+ * single JSON blob keyed `payload.json`. ConfigMaps can't hold nested
+ * directories, so the init script reconstructs the layout from this blob
+ * instead of relying on per-file keys.
+ */
+export function buildAdvancedConfigMapData(request: SandboxRequest): Record<string, string> {
+  const advanced = request.advanced;
+  const submissionFiles: { path: string; content: string }[] = [];
+  const mainSourceName = sourceFileNames[request.language];
+  let wroteMain = false;
+
+  for (const sf of request.sourceFiles ?? []) {
+    const normalized = normalizeRelativePath(sf.path);
+    if (!normalized) continue;
+    if (normalized === mainSourceName) wroteMain = true;
+    submissionFiles.push({ path: normalized, content: sf.content });
+  }
+  if (!wroteMain && request.sourceCode) {
+    submissionFiles.push({ path: mainSourceName, content: request.sourceCode });
+  }
+
+  const payload = {
+    meta: {
+      submissionId: request.submissionId,
+      language: request.language,
+      submissionFiles: submissionFiles.map((f) => f.path),
+      resourceLimits: {
+        totalTimeMs: advanced?.totalTimeMs ?? request.limits.timeoutMs,
+        memoryMb: advanced?.memoryMb ?? request.limits.memoryMb,
+      },
+    },
+    submissionFiles,
+  };
+
+  return { "payload.json": JSON.stringify(payload) };
+}
+
+/**
+ * Shell script for the prep initContainer. Reads the packed payload from the
+ * read-only ConfigMap mount and lays out /workspace per the advanced
+ * contract. /workspace/output is chmod 0777 so the TA image (with its own
+ * user) can write result.json regardless of uid.
+ */
+export function buildAdvancedInitScript(): string {
+  return `set -eu
+mkdir -p /workspace/submission /workspace/output
+node -e '
+const fs = require("fs");
+const path = require("path");
+const payload = JSON.parse(fs.readFileSync("/init-payload/payload.json", "utf8"));
+fs.writeFileSync("/workspace/meta.json", JSON.stringify(payload.meta, null, 2));
+for (const f of payload.submissionFiles) {
+  const dest = path.join("/workspace/submission", f.path);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.writeFileSync(dest, f.content);
+}
+'
+chmod 0777 /workspace/output
+`;
+}
+
+/**
+ * Shell script for the emit-result native sidecar. Polls for the grader's
+ * result.json until either the file appears or a deadline elapses (derived
+ * from totalTimeMs + headroom). Emits the JSON inside marker lines so the
+ * worker can extract the result reliably from interleaved pod logs.
+ */
+export function buildAdvancedTailScript(totalTimeMs: number): string {
+  const timeoutS = Math.ceil(totalTimeMs / 1000) + 30;
+  return `set -u
+RESULT=/workspace/output/result.json
+TIMEOUT=${String(timeoutS)}
+DEADLINE=$(( $(date +%s) + TIMEOUT ))
+while [ ! -f "$RESULT" ] && [ "$(date +%s)" -lt "$DEADLINE" ]; do sleep 0.25; done
+sleep 0.2
+echo '${ADVANCED_RESULT_MARKER_BEGIN}'
+if [ -f "$RESULT" ]; then cat "$RESULT"; else echo '{"missing":true}'; fi
+echo
+echo '${ADVANCED_RESULT_MARKER_END}'
+`;
+}
+
+/**
+ * Extract the JSON payload between the BEGIN/END markers in a sidecar log.
+ * Returns null when markers are missing or the payload isn't valid JSON.
+ */
+export function parseAdvancedResultLog(logs: string): unknown {
+  const begin = logs.indexOf(ADVANCED_RESULT_MARKER_BEGIN);
+  if (begin < 0) return null;
+  const after = begin + ADVANCED_RESULT_MARKER_BEGIN.length;
+  const end = logs.indexOf(ADVANCED_RESULT_MARKER_END, after);
+  if (end < 0) return null;
+  const inner = logs.slice(after, end).trim();
+  try {
+    return JSON.parse(inner);
+  } catch {
+    return null;
+  }
+}
+
+export interface AdvancedJobManifestParams {
+  jobName: string;
+  namespace: string;
+  configMapName: string;
+  sandboxImage: string;
+  graderImage: string;
+  memoryMb: number;
+  totalTimeMs: number;
+  cpuLimit: string;
+  submissionId: string;
+  language: string;
+}
+
+/**
+ * Build the K8s Job manifest for an advanced-mode registry-source
+ * submission. Uses the K8s 1.28+ native sidecar pattern: the emit-result
+ * container is declared in `initContainers` with `restartPolicy: Always`
+ * so it runs alongside the grader and K8s terminates it after the grader
+ * exits — at which point the tail script's deadline-bounded loop has either
+ * already cat'd result.json or will emit the {"missing":true} sentinel.
+ */
+export function buildAdvancedJobManifest(params: AdvancedJobManifestParams): k8s.V1Job {
+  const sharedWorkspaceMount = { name: "workspace", mountPath: "/workspace" };
+  const totalTimeoutSeconds = Math.ceil(params.totalTimeMs / 1000) + 30;
+
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: {
+      name: params.jobName,
+      namespace: params.namespace,
+      labels: { app: "nojv-sandbox" },
+    },
+    spec: {
+      ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
+      activeDeadlineSeconds: totalTimeoutSeconds,
+      backoffLimit: 0,
+      template: {
+        metadata: {
+          labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
+        },
+        spec: {
+          restartPolicy: "Never",
+          automountServiceAccountToken: false,
+          nodeSelector: { "nojv-role": "sandbox" },
+          tolerations: [
+            {
+              key: "nojv-role",
+              operator: "Equal",
+              value: "sandbox",
+              effect: "NoSchedule",
+            },
+          ],
+          initContainers: [
+            {
+              name: ADVANCED_INIT_NAME,
+              image: params.sandboxImage,
+              command: ["sh", "-c", buildAdvancedInitScript()],
+              volumeMounts: [
+                sharedWorkspaceMount,
+                { name: "init-payload", mountPath: "/init-payload", readOnly: true },
+              ],
+            },
+            {
+              name: ADVANCED_SIDECAR_NAME,
+              image: params.sandboxImage,
+              restartPolicy: "Always",
+              command: ["sh", "-c", buildAdvancedTailScript(params.totalTimeMs)],
+              volumeMounts: [sharedWorkspaceMount],
+            },
+          ],
+          containers: [
+            {
+              name: ADVANCED_GRADER_NAME,
+              image: params.graderImage,
+              env: [
+                { name: "SUBMISSION_ID", value: params.submissionId },
+                { name: "LANGUAGE", value: params.language },
+              ],
+              workingDir: "/workspace",
+              resources: {
+                limits: {
+                  memory: `${String(params.memoryMb)}Mi`,
+                  cpu: params.cpuLimit,
+                  "ephemeral-storage": ADVANCED_WORKSPACE_SIZE_LIMIT,
+                },
+              },
+              securityContext: {
+                allowPrivilegeEscalation: false,
+                capabilities: { drop: ["ALL"] },
+                readOnlyRootFilesystem: true,
+              },
+              volumeMounts: [sharedWorkspaceMount, { name: "tmp", mountPath: "/tmp" }],
+            },
+          ],
+          volumes: [
+            { name: "workspace", emptyDir: { sizeLimit: ADVANCED_WORKSPACE_SIZE_LIMIT } },
+            { name: "tmp", emptyDir: { sizeLimit: ADVANCED_TMP_SIZE_LIMIT } },
+            { name: "init-payload", configMap: { name: params.configMapName } },
+          ],
+        },
+      },
+    },
+  };
+}
+
 export interface K8sClientHandles {
   coreApi: k8s.CoreV1Api;
   batchApi: k8s.BatchV1Api;
@@ -492,17 +727,8 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   async execute(request: SandboxRequest): Promise<SandboxResult> {
-    // Advanced Mode requires loading a TA-supplied tarball into a local
-    // Docker daemon (see AdvancedModeExecutor); the K8s executor has no
-    // path for that. Fail fast with a neutral learner-facing message;
-    // operator-facing detail goes to the worker log.
     if (request.advanced) {
-      logger.error("K8s executor refused advanced-mode submission — switch to Docker backend", {
-        submissionId: request.submissionId,
-      });
-      return sandboxSystemError(
-        "Sandbox configuration error. Please contact your administrator.",
-      );
+      return this.executeAdvanced(request);
     }
 
     if (request.judgeType === "interactive") {
@@ -514,6 +740,109 @@ export class K8sExecutor implements SandboxExecutor {
     }
 
     return this.executeRunOnly(request);
+  }
+
+  /**
+   * Advanced Mode on K8s. Tarball-source images can't be loaded ad-hoc into
+   * a cluster (no Docker daemon), so we fail-fast with a clear operator
+   * message. Registry-source images are dispatched via the init+grader+
+   * sidecar pattern; result.json is transported through the sidecar's stdout.
+   * Requires K8s ≥ 1.28 for the native sidecar (initContainer w/
+   * restartPolicy: Always) semantics.
+   */
+  private async executeAdvanced(request: SandboxRequest): Promise<SandboxResult> {
+    const advanced = request.advanced;
+    if (!advanced) return sandboxSystemError("advanced-mode dispatch called without payload");
+
+    if (advanced.imageSource === "tarball") {
+      const message =
+        "Advanced tarball-source images require the Docker backend; push the image to a registry the cluster can pull and switch the problem to 'registry' source, or run advanced workloads on the Docker backend.";
+      logger.error("K8s executor refused advanced tarball-source submission", {
+        submissionId: request.submissionId,
+      });
+      return advancedFallbackResult(request, message);
+    }
+
+    const jobName = `judge-${request.submissionId}`;
+    const ns = this.config.namespace;
+    const configMapName = `${jobName}-input`;
+
+    try {
+      await this.createConfigMap(configMapName, ns, buildAdvancedConfigMapData(request));
+      await this.batchApi.createNamespacedJob({
+        namespace: ns,
+        body: buildAdvancedJobManifest({
+          jobName,
+          namespace: ns,
+          configMapName,
+          sandboxImage: this.config.image,
+          graderImage: advanced.imageRef,
+          memoryMb: advanced.memoryMb,
+          totalTimeMs: advanced.totalTimeMs,
+          cpuLimit: this.config.cpuLimit,
+          submissionId: request.submissionId,
+          language: request.language,
+        }),
+      });
+
+      await this.waitForJobCompletion(jobName, ns);
+      // Even if the Job is reported failed, the sidecar may have flushed a
+      // result (or the {missing:true} sentinel); read its log either way.
+      const podName = await this.findPodName(jobName, ns);
+      if (!podName) {
+        return advancedFallbackResult(request, "Advanced sandbox produced no pod.");
+      }
+
+      const sidecarLog = await this.coreApi
+        .readNamespacedPodLog({
+          name: podName,
+          namespace: ns,
+          container: ADVANCED_SIDECAR_NAME,
+        })
+        .catch(() => "");
+
+      const raw = parseAdvancedResultLog(sidecarLog);
+      if (raw === null) {
+        return advancedFallbackResult(
+          request,
+          "Advanced sandbox sidecar produced no result marker.",
+        );
+      }
+
+      if (
+        raw &&
+        typeof raw === "object" &&
+        (raw as { missing?: boolean }).missing === true
+      ) {
+        return advancedFallbackResult(
+          request,
+          "Advanced judge image did not write result.json before the deadline.",
+        );
+      }
+
+      const parsed = advancedResultSchema.safeParse(raw);
+      if (!parsed.success) {
+        return advancedFallbackResult(
+          request,
+          `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        );
+      }
+
+      return mapAdvancedResult(request, parsed.data);
+    } catch (err) {
+      logger.error("K8s advanced execution failed", {
+        submissionId: request.submissionId,
+        jobName,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return advancedFallbackResult(
+        request,
+        `Advanced sandbox failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      await this.cleanupJob(jobName, ns);
+      await this.cleanupConfigMap(configMapName, ns);
+    }
   }
 
   /**
