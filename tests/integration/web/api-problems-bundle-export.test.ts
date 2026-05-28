@@ -220,10 +220,7 @@ describe("exportBundle round-trip (real Postgres, mocked storage)", () => {
     // whole zip in process memory. The round-trip assertion still needs
     // a concrete Buffer to feed back into `importBundle`, so consume
     // the stream here.
-    const exportedStream = await problemDomain.exportBundle(
-      seeded.actor,
-      seeded.problemId,
-    );
+    const exportedStream = await problemDomain.exportBundle(seeded.actor, seeded.problemId);
     const reader = exportedStream.getReader();
     const chunks: Uint8Array[] = [];
     while (true) {

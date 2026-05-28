@@ -134,7 +134,9 @@ describe("listProblemSubmissions — verdict-detail blob fallback", () => {
   });
 
   it("preserves a row-status of 'accepted' (and score 100) in the synthesized fallback", async () => {
-    submissionListByUserAndProblem.mockResolvedValue([row({ id: "sub_ok", status: "accepted" })]);
+    submissionListByUserAndProblem.mockResolvedValue([
+      row({ id: "sub_ok", status: "accepted" }),
+    ]);
     storageGetVerdictDetail.mockResolvedValue(null);
 
     const result = await listProblemSubmissions("usr_1", "prob_1");
