@@ -4,4 +4,6 @@ export * from "./bookmarks";
 export * from "./workspace";
 export * from "./testcase";
 export * from "./permissions";
+export * from "./storage-budget";
+export * from "./bundle";
 export { hydrateTestcaseSets, hydrateWorkspaceFiles, hydrateValidatorScripts } from "./blobs";

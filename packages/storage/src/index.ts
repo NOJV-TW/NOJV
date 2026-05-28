@@ -21,7 +21,14 @@ export {
   submissionSourceKey,
   submissionVerdictDetailKey,
 } from "./keys";
-export { putText, getText, deleteBlob, deleteBlobsByPrefix, listByPrefix } from "./blobs";
+export {
+  putText,
+  getText,
+  deleteBlob,
+  deleteBlobsByPrefix,
+  listByPrefix,
+  sumSizesByPrefix,
+} from "./blobs";
 export {
   putSubmissionSources,
   getSubmissionSources,

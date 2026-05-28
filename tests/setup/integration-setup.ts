@@ -34,6 +34,13 @@ vi.mock("@nojv/storage", async (importOriginal) => {
     listByPrefix: async (_client: unknown, prefix: string) => {
       return Array.from(testBlobs.keys()).filter((k) => k.startsWith(prefix));
     },
+    sumSizesByPrefix: async (_client: unknown, prefix: string) => {
+      let total = 0;
+      for (const [key, value] of testBlobs) {
+        if (key.startsWith(prefix)) total += Buffer.byteLength(value, "utf-8");
+      }
+      return total;
+    },
     deleteBlob: async (_client: unknown, key: string) => {
       testBlobs.delete(key);
     },
