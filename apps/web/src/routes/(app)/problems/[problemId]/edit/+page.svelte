@@ -14,6 +14,7 @@
   import RequiredPathsSection from "$lib/components/features/problem/advanced/RequiredPathsSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
+  import BundleControls from "$lib/components/features/problem/admin/BundleControls.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import { toasts } from "$lib/stores/toast";
@@ -98,6 +99,28 @@
     fd.set("data", JSON.stringify(payload));
     const res = await fetch("?/updateWorkspace", { method: "POST", body: fd });
     if (!res.ok) throw new Error("workspace save failed");
+    await invalidateAll();
+  }
+
+  async function handleWorkspaceFileUpload(file: File, language: Language) {
+    const fd = new FormData();
+    fd.set("file", file);
+    fd.set("language", language);
+    fd.set("path", file.name);
+    fd.set("visibility", "editable");
+    const res = await fetch(
+      `/api/problems/${data.problem.id}/workspace/files`,
+      {
+        method: "POST",
+        headers: { "X-Requested-With": "fetch" },
+        body: fd
+      }
+    );
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(body?.message ?? m.bundle_uploadFailed());
+    }
+    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
     await invalidateAll();
   }
 
@@ -217,6 +240,8 @@
     </div>
   </div>
 
+  <BundleControls problemId={data.problem.id} />
+
   {#if isAdvanced}
     <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
       <BasicInfoTab formData={data.form} problemId={data.problem.id} />
@@ -267,6 +292,7 @@
             initial={workspaceInitial}
             ondirtychange={(d) => isDirty = d}
             onsave={handleWorkspaceSave}
+            onUploadFile={handleWorkspaceFileUpload}
           />
         {/if}
       {/snippet}

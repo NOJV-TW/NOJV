@@ -42,3 +42,15 @@ export async function assertProblemStorageBudget(
     );
   }
 }
+
+/**
+ * Non-throwing counterpart to `assertProblemStorageBudget` — returns the
+ * current aggregate byte usage under `problems/{id}/` so the authoring UI
+ * can render a "X / 50 MB" indicator.
+ */
+export async function getProblemStorageUsage(
+  problemId: string,
+): Promise<{ used: number; limit: number }> {
+  const used = await sumSizesByPrefix(getClient(), problemPrefix(problemId));
+  return { used, limit: PROBLEM_STORAGE_BUDGET_BYTES };
+}
