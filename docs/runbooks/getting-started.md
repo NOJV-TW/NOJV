@@ -39,6 +39,7 @@ Edit `.env` with your values. For local development the defaults work out of the
 | `EXECUTION_BACKEND`       | `docker` for local sandbox execution (`kubernetes` in production)      |
 | `ALLOWED_HOSTS`           | Comma-separated Vite host allowlist; default `localhost,127.0.0.1,...` |
 | `METRICS_TOKEN`           | Random secret protecting the web `/metrics` endpoint                   |
+| `BODY_SIZE_LIMIT`         | 64 MiB upload cap for adapter-node (prod profile only; Vite dev ignores it) |
 | `GITHUB_CLIENT_ID/SECRET` | Optional: create a GitHub OAuth App                                    |
 | `GOOGLE_CLIENT_ID/SECRET` | Optional: create a Google OAuth App                                    |
 | `RESEND_API_KEY`          | Optional: needed for email verification                                |

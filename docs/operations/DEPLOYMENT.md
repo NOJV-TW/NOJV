@@ -49,6 +49,12 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production) |
 | `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects              |
 
+### Web
+
+| Variable           | Default    | Purpose                                                                                                                                                                                                                                                              |
+| ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BODY_SIZE_LIMIT`  | `67108864` | SvelteKit adapter-node POST body cap, in bytes. Baked into `web.Dockerfile` at 64 MiB so the 60 MB cap on bundle/workspace/checker/interactor upload routes is the effective ceiling. The adapter's built-in default is 512 KiB and would reject every asset upload. |
+
 ### OAuth (Optional)
 
 | Variable               | Purpose                    |
