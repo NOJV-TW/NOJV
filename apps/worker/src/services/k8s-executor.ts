@@ -11,9 +11,12 @@ import {
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult,
+  type SandboxTestcase,
+  type SandboxTestcaseResult,
   type ValidatorOutcome,
 } from "@nojv/core";
 import { createLogger } from "../logger.js";
+import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { parseSandboxResult, parseValidateOutput } from "./sandbox-schema";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
@@ -237,11 +240,249 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
   };
 }
 
+/**
+ * Localhost TCP port used by the in-pod socat pair to bridge the solution and
+ * interactor containers' stdio. Unprivileged (>= 1024) so the non-root sandbox
+ * user can bind it; the pod has `--network=none` semantics via NetworkPolicy,
+ * so this port is never exposed outside the pod's network namespace.
+ */
+export const INTERACTIVE_SOCKET_PORT = 7777;
+
+/**
+ * Build the solution container's ConfigMap data. Contains ONLY the student
+ * source + a config.json marking the runner as the solution side. NO testcase
+ * input, NO expected answer, NO interactor script — those live in a SEPARATE
+ * ConfigMap mounted ONLY into the interactor container.
+ */
+export function buildInteractiveSolutionConfigMapData(
+  request: SandboxRequest,
+): Record<string, string> {
+  const data: Record<string, string> = {};
+  const sourceFileMap: { path: string; key: string }[] = [];
+  const mainSourceName = sourceFileNames[request.language];
+  let wroteMainSource = false;
+
+  for (const sourceFile of request.sourceFiles ?? []) {
+    const normalizedPath = normalizeRelativePath(sourceFile.path);
+    if (!normalizedPath) continue;
+    if (normalizedPath === mainSourceName) wroteMainSource = true;
+    const key = `source-file-${String(sourceFileMap.length)}`;
+    data[key] = sourceFile.content;
+    sourceFileMap.push({ path: normalizedPath, key });
+  }
+
+  if (!wroteMainSource) {
+    data[mainSourceName] = request.sourceCode;
+  }
+
+  data["config.json"] = JSON.stringify({
+    ...buildSandboxConfigJson(request, sourceFileMap),
+    interactive: { role: "solution" },
+  });
+
+  return data;
+}
+
+/**
+ * Build the interactor container's ConfigMap data for ONE case. Contains the
+ * interactor script + that case's secret input/answer (under flat
+ * `case-{i}-input.txt` / `case-{i}-answer.txt` keys — ConfigMaps cannot hold
+ * nested directories) + a config.json marking the runner as the validator
+ * side. NEVER contains the student source.
+ */
+export function buildInteractiveInteractorConfigMapData(
+  request: SandboxRequest,
+  testcase: SandboxTestcase,
+): Record<string, string> {
+  const interactorScript = request.judgeConfig.interactorScript ?? "";
+  const interactorLanguage =
+    request.judgeConfig.interactorLanguage === "cpp"
+      ? "cpp"
+      : request.judgeConfig.checkerLanguage === "cpp"
+        ? "cpp"
+        : "python";
+  const ext = sourceExtension(interactorLanguage);
+
+  const data: Record<string, string> = {};
+  data[`interactor.${ext}`] = interactorScript;
+  data[`case-${String(testcase.index)}-input.txt`] = testcase.input;
+  data[`case-${String(testcase.index)}-answer.txt`] = testcase.output ?? "";
+
+  data["config.json"] = JSON.stringify({
+    submissionId: request.submissionId,
+    language: request.language,
+    judgeType: request.judgeType,
+    problemType: request.problemType,
+    limits: request.limits,
+    interactorLanguage,
+    interactive: { role: "validator", language: interactorLanguage, index: testcase.index },
+  });
+
+  return data;
+}
+
+/**
+ * Solution-side socat wrapper. Connects to the interactor's TCP listener on
+ * localhost and execs the sandbox runner — the runner's fd 0/1 become the
+ * socket end, so its existing `stdio: ["inherit","inherit","pipe"]` spawn just
+ * pipes student-program stdio across the pod-internal connection. Retries up to
+ * 40 × 0.25 s = 10 s to absorb the listener's startup race.
+ */
+export function buildSolutionContainerCommand(): string[] {
+  return [
+    "sh",
+    "-c",
+    `exec socat EXEC:"node /runner/index.js" TCP:127.0.0.1:${String(INTERACTIVE_SOCKET_PORT)},retry=40,interval=0.25`,
+  ];
+}
+
+/**
+ * Interactor-side socat wrapper. LISTENs on the shared port (reuseaddr so
+ * a stuck socket from a previous case never wedges retries) and execs the
+ * runner on each connection.
+ */
+export function buildInteractorContainerCommand(): string[] {
+  return [
+    "sh",
+    "-c",
+    `exec socat TCP-LISTEN:${String(INTERACTIVE_SOCKET_PORT)},reuseaddr EXEC:"node /runner/index.js"`,
+  ];
+}
+
+export interface InteractiveJobManifestParams {
+  jobName: string;
+  namespace: string;
+  solutionConfigMapName: string;
+  interactorConfigMapName: string;
+  image: string;
+  cpuRequest: string;
+  cpuLimit: string;
+  memoryRequest: string;
+  memoryLimit: string;
+  activeDeadlineSeconds: number;
+}
+
+/**
+ * Build the K8s Job manifest for one interactive testcase. The pod has TWO
+ * containers (`solution` + `interactor`) sharing a network namespace but with
+ * DISTINCT per-container `volumeMounts` — the secret input/answer/interactor
+ * ConfigMap is mounted ONLY into the interactor container, never into the
+ * solution container's filesystem. Same hardening profile as the standard run
+ * pod (drop caps, read-only fs, non-root, RuntimeDefault seccomp, no service
+ * account, sandbox node pool + toleration, NetworkPolicy label).
+ */
+export function buildInteractiveJobManifest(params: InteractiveJobManifestParams): k8s.V1Job {
+  const containerSecurityContext = {
+    allowPrivilegeEscalation: false,
+    capabilities: { drop: ["ALL"] },
+    readOnlyRootFilesystem: true,
+    runAsNonRoot: true,
+  };
+  const resources = {
+    requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
+    limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
+  };
+
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: {
+      name: params.jobName,
+      namespace: params.namespace,
+      labels: { app: "nojv-sandbox" },
+    },
+    spec: {
+      ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
+      activeDeadlineSeconds: params.activeDeadlineSeconds,
+      backoffLimit: 0,
+      template: {
+        metadata: {
+          labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
+        },
+        spec: {
+          restartPolicy: "Never",
+          automountServiceAccountToken: false,
+          nodeSelector: { "nojv-role": "sandbox" },
+          tolerations: [
+            {
+              key: "nojv-role",
+              operator: "Equal",
+              value: "sandbox",
+              effect: "NoSchedule",
+            },
+          ],
+          securityContext: {
+            runAsUser: 10001,
+            runAsGroup: 10001,
+            runAsNonRoot: true,
+            seccompProfile: { type: "RuntimeDefault" },
+          },
+          containers: [
+            {
+              name: "solution",
+              image: params.image,
+              command: buildSolutionContainerCommand(),
+              resources,
+              securityContext: containerSecurityContext,
+              volumeMounts: [
+                { name: "solution-data", mountPath: "/submission", readOnly: true },
+                { name: "solution-workspace", mountPath: "/workspace" },
+                { name: "solution-tmp", mountPath: "/tmp" },
+              ],
+            },
+            {
+              name: "interactor",
+              image: params.image,
+              command: buildInteractorContainerCommand(),
+              resources,
+              securityContext: containerSecurityContext,
+              volumeMounts: [
+                { name: "interactor-data", mountPath: "/submission", readOnly: true },
+                { name: "interactor-workspace", mountPath: "/workspace" },
+                { name: "interactor-tmp", mountPath: "/tmp" },
+              ],
+            },
+          ],
+          volumes: [
+            {
+              name: "solution-data",
+              configMap: { name: params.solutionConfigMapName },
+            },
+            {
+              name: "interactor-data",
+              configMap: { name: params.interactorConfigMapName },
+            },
+            { name: "solution-workspace", emptyDir: { sizeLimit: "128Mi" } },
+            { name: "solution-tmp", emptyDir: { sizeLimit: "64Mi" } },
+            { name: "interactor-workspace", emptyDir: { sizeLimit: "128Mi" } },
+            { name: "interactor-tmp", emptyDir: { sizeLimit: "64Mi" } },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export interface K8sClientHandles {
+  coreApi: k8s.CoreV1Api;
+  batchApi: k8s.BatchV1Api;
+}
+
 export class K8sExecutor implements SandboxExecutor {
   private coreApi: k8s.CoreV1Api;
   private batchApi: k8s.BatchV1Api;
 
-  constructor(private config: K8sExecutorConfig) {
+  constructor(
+    private config: K8sExecutorConfig,
+    clients?: K8sClientHandles,
+  ) {
+    if (clients) {
+      // Test-only injection seam — production callers omit `clients` and we
+      // load from the in-cluster kubeconfig below.
+      this.coreApi = clients.coreApi;
+      this.batchApi = clients.batchApi;
+      return;
+    }
     // Lazy-import avoids loading @kubernetes/client-node when DockerExecutor is used (local dev).
     const k8sLib = require("@kubernetes/client-node") as typeof k8s;
     const kc = new k8sLib.KubeConfig();
@@ -264,17 +505,8 @@ export class K8sExecutor implements SandboxExecutor {
       );
     }
 
-    // Interactive mode requires a live cross-container stdio pipe between the
-    // solution and interactor containers (Phase 2C), proxied by the worker.
-    // That is not feasible through the K8s Job API — fail fast instead of
-    // grading incorrectly. Operator-facing detail goes to the worker log.
     if (request.judgeType === "interactive") {
-      logger.error("K8s executor refused interactive submission — switch to Docker backend", {
-        submissionId: request.submissionId,
-      });
-      return sandboxSystemError(
-        "Sandbox configuration error. Please contact your administrator.",
-      );
+      return this.executeInteractive(request);
     }
 
     if (request.judgeType === "checker") {
@@ -282,6 +514,158 @@ export class K8sExecutor implements SandboxExecutor {
     }
 
     return this.executeRunOnly(request);
+  }
+
+  /**
+   * Interactive flow on K8s: one Job per case, each Job's pod has a
+   * `solution` + `interactor` container sharing a network namespace. The
+   * containers bridge stdio over a localhost TCP socket via socat. The secret
+   * input/answer reaches the interactor container's filesystem ONLY (via a
+   * dedicated ConfigMap); the solution container never has it mounted. After
+   * both containers exit, the worker reads each container's logs separately,
+   * parses the marker lines, and merges per-case via `mergeInteractiveCase` —
+   * the same function the Docker backend uses.
+   */
+  private async executeInteractive(request: SandboxRequest): Promise<SandboxResult> {
+    if (!request.judgeConfig.interactorScript) {
+      return sandboxSystemError("Interactive judge is missing its interactor script.");
+    }
+
+    const ns = this.config.namespace;
+    const baseName = `judge-${request.submissionId}`;
+    const results: SandboxTestcaseResult[] = [];
+
+    for (const testcase of request.testcases) {
+      results.push(await this.runInteractiveCase(baseName, ns, request, testcase));
+    }
+
+    return { testcaseResults: results };
+  }
+
+  private async runInteractiveCase(
+    baseName: string,
+    namespace: string,
+    request: SandboxRequest,
+    testcase: SandboxTestcase,
+  ): Promise<SandboxTestcaseResult> {
+    const jobName = `${baseName}-int-${String(testcase.index)}`;
+    const solConfigMap = `${jobName}-sol`;
+    const intConfigMap = `${jobName}-int`;
+
+    const seCase = (message: string): SandboxTestcaseResult => ({
+      index: testcase.index,
+      verdict: "SE",
+      stdout: "",
+      stderr: message,
+      exitCode: -1,
+      timeMs: 0,
+      score: 0,
+      feedback: message,
+    });
+
+    try {
+      await this.createConfigMap(
+        solConfigMap,
+        namespace,
+        buildInteractiveSolutionConfigMapData(request),
+      );
+      await this.createConfigMap(
+        intConfigMap,
+        namespace,
+        buildInteractiveInteractorConfigMapData(request, testcase),
+      );
+
+      const deadlineSeconds = Math.ceil(request.limits.timeoutMs / 1000) + 30;
+      await this.batchApi.createNamespacedJob({
+        namespace,
+        body: buildInteractiveJobManifest({
+          jobName,
+          namespace,
+          solutionConfigMapName: solConfigMap,
+          interactorConfigMapName: intConfigMap,
+          image: this.config.image,
+          cpuRequest: this.config.cpuRequest,
+          cpuLimit: this.config.cpuLimit,
+          memoryRequest: this.config.memoryRequest,
+          memoryLimit: this.config.memoryLimit,
+          activeDeadlineSeconds: deadlineSeconds,
+        }),
+      });
+
+      const outcome = await this.waitForJobCompletion(jobName, namespace);
+      // Even on a failed Job we still try to read logs — one container can
+      // have produced a usable marker before the other crashed.
+      const podName = await this.findPodName(jobName, namespace);
+      if (!podName) {
+        if (outcome === "failed") return seCase("Interactive sandbox job failed or timed out.");
+        return seCase("Interactive sandbox produced no pod.");
+      }
+
+      const [solLogs, intLogs] = await Promise.all([
+        this.coreApi
+          .readNamespacedPodLog({ name: podName, namespace, container: "solution" })
+          .catch(() => ""),
+        this.coreApi
+          .readNamespacedPodLog({ name: podName, namespace, container: "interactor" })
+          .catch(() => ""),
+      ]);
+
+      const sol: InteractiveSideResult = {
+        stderr: solLogs,
+        timedOut: outcome === "failed",
+        spawnError: false,
+      };
+      const int: InteractiveSideResult = {
+        stderr: intLogs,
+        timedOut: outcome === "failed",
+        spawnError: false,
+      };
+      return mergeInteractiveCase(testcase, sol, int);
+    } catch (err) {
+      logger.error("K8s interactive case failed", {
+        submissionId: request.submissionId,
+        jobName,
+        index: testcase.index,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return seCase("Interactive sandbox failed to start.");
+    } finally {
+      await this.cleanupJob(jobName, namespace);
+      await this.cleanupConfigMap(solConfigMap, namespace);
+      await this.cleanupConfigMap(intConfigMap, namespace);
+    }
+  }
+
+  private async cleanupJob(name: string, namespace: string): Promise<void> {
+    try {
+      await this.batchApi.deleteNamespacedJob({
+        name,
+        namespace,
+        propagationPolicy: "Background",
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
+  private async findPodName(jobName: string, namespace: string): Promise<string | null> {
+    try {
+      const pods = await this.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      });
+      return pods.items[0]?.metadata?.name ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async cleanupConfigMap(name: string, namespace: string): Promise<void> {
+    try {
+      await this.coreApi.deleteNamespacedConfigMap({ name, namespace });
+    } catch {
+      // best-effort
+    }
   }
 
   private async executeRunOnly(request: SandboxRequest): Promise<SandboxResult> {
