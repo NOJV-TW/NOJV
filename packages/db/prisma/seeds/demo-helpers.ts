@@ -1,4 +1,9 @@
-import type { CaseResult, SubmissionResult, SubtaskResultItem } from "@nojv/core";
+import type {
+  CaseResult,
+  SubmissionResult,
+  SubtaskResultItem,
+  VerdictSummary,
+} from "@nojv/core";
 
 import type { PrismaClient } from "../../generated/prisma/client";
 
@@ -272,4 +277,38 @@ export function buildVerdictDetail(args: {
     verdict,
   };
   return { detail, score, runtimeMs: maxRuntime, memoryKb: maxMemory };
+}
+
+const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
+
+/**
+ * Inlined mirror of `deriveVerdictSummary` from `@nojv/domain`. Lives here
+ * because `@nojv/db` cannot depend on `@nojv/domain` (domain depends on db).
+ * Shape must match `verdictSummarySchema` in `@nojv/core`.
+ */
+export function deriveSeedVerdictSummary(result: SubmissionResult): VerdictSummary {
+  const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
+  for (const c of result.caseResults ?? []) {
+    const v = c.verdict.toUpperCase();
+    if (SUMMARY_VERDICTS.has(v)) {
+      if (v === "AC") caseSummary.ac += 1;
+      else if (v === "WA") caseSummary.wa += 1;
+      else if (v === "TLE") caseSummary.tle += 1;
+      else if (v === "MLE") caseSummary.mle += 1;
+      else if (v === "RE") caseSummary.re += 1;
+    } else {
+      caseSummary.other += 1;
+    }
+  }
+  const summary: VerdictSummary = { caseSummary };
+  if (result.subtaskResults && result.subtaskResults.length > 0) {
+    summary.subtaskSummary = result.subtaskResults.map((s) => ({
+      id: s.testcaseSetId,
+      score: s.passed ? s.weight : 0,
+    }));
+  }
+  if (result.verdict === "compile_error" && result.feedback) {
+    summary.compilerErrorTruncated = result.feedback.slice(0, 1024);
+  }
+  return summary;
 }
