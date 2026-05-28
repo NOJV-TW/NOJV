@@ -159,7 +159,7 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
   <Crumbs
     items={[
-      { label: "assignments", href: "/assignments" },
+      { label: m.navigation_assignments(), href: "/assignments" },
       { label: detail.title }
     ]}
   />

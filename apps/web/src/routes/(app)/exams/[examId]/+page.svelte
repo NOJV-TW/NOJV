@@ -150,7 +150,7 @@
 
 <div class="space-y-6 pb-20 fade-up">
   <Crumbs
-    items={[{ label: "exam", href: "/exams" }, { label: examCode }]}
+    items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]}
   />
 
   <!-- Hero — bordered "official" block with corner crosshairs + dot grid -->

@@ -118,9 +118,9 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10">
   <Crumbs
     items={[
-      { label: "contest", href: "/contests" },
+      { label: m.navigation_contests(), href: "/contests" },
       { label: contestId, href: `/contests/${contestId}` },
-      { label: "scoreboard" }
+      { label: m.contestDetail_scoreboard() }
     ]}
   />
 

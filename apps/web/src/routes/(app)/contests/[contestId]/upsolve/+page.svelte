@@ -38,9 +38,9 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
   <Crumbs
     items={[
-      { label: "contest", href: "/contests" },
+      { label: m.navigation_contests(), href: "/contests" },
       { label: view.contestId, href: `/contests/${view.contestId}` },
-      { label: "upsolve" }
+      { label: m.contestDetail_actionUpsolve() }
     ]}
   />
 

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
+  import { getLocale } from "$lib/paraglide/runtime.js";
+
   interface HeatmapDay {
     date: string;
     acCount: number;
@@ -27,7 +30,11 @@
   }
 
   function formatLabel(day: HeatmapDay): string {
-    return `${day.date} — ${day.acCount} AC / ${day.submissionCount} submissions`;
+    return m.dashboard_heatmapDayTooltip({
+      date: day.date,
+      ac: day.acCount,
+      submissions: day.submissionCount
+    });
   }
 
   // GitHub-style layout: rows = weekday (0=Sun … 6=Sat), columns = weeks.
@@ -42,17 +49,21 @@
   });
   const columnCount = $derived(Math.ceil(cells.length / 7));
 
-  const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  // Localized short weekday names, Sun…Sat (2024-01-07 is a Sunday in UTC).
+  const weekdayLabels = $derived.by(() => {
+    const fmt = new Intl.DateTimeFormat(getLocale(), { weekday: "short", timeZone: "UTC" });
+    return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2024, 0, 7 + i))));
+  });
 
   const totalAc = $derived(data.reduce((sum, d) => sum + d.acCount, 0));
   const activeDays = $derived(data.filter((d) => d.acCount > 0).length);
-  const totalAcLabel = $derived(`${totalAc} AC over ${activeDays} active days`);
+  const totalAcLabel = $derived(m.dashboard_heatmapSummary({ ac: totalAc, days: activeDays }));
 </script>
 
 <div
   class="flex gap-2 {className}"
   role="img"
-  aria-label={`Activity heatmap: ${totalAcLabel}`}
+  aria-label={`${m.dashboard_heatmapAria()}: ${totalAcLabel}`}
 >
   <div class="flex flex-col justify-between py-0.5 text-micro text-muted-foreground">
     {#each weekdayLabels as label, i (i)}
