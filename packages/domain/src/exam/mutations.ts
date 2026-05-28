@@ -77,6 +77,11 @@ export async function checkExamSubmitCooldown(
 ) {
   if (cooldownSec <= 0) return;
 
+  // Serialize concurrent cooldown checks for the same (exam, user, problem)
+  // so two rapid submissions can't both pass the window check. Mirrors
+  // `checkSubmitCooldown` for contests.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${userId}:${problemId}`}, 0))`;
+
   const cutoff = new Date(Date.now() - cooldownSec * 1000);
 
   const recentSubmission = await submissionRepo.withTx(tx).findMostRecent({

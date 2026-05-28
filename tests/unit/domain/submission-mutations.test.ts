@@ -16,10 +16,12 @@ const {
   submissionCountForUserAndAssessmentSince,
   submissionCreate,
   submissionUpdateStatus,
+  submissionFindMostRecent,
   examSessionFindActiveForUser,
   examFindById,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
+  txExecuteRaw,
   storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
@@ -33,10 +35,12 @@ const {
   submissionCountForUserAndAssessmentSince: vi.fn(),
   submissionCreate: vi.fn(),
   submissionUpdateStatus: vi.fn(),
+  submissionFindMostRecent: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
+  txExecuteRaw: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
@@ -77,6 +81,7 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({
         countForUserAndAssessmentSince: submissionCountForUserAndAssessmentSince,
         create: submissionCreate,
+        findMostRecent: submissionFindMostRecent,
       }),
       updateStatus: submissionUpdateStatus,
     },
@@ -92,6 +97,7 @@ vi.mock("@nojv/db", () => {
       fn({
         courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
         contestProblem: { findFirst: txContestProblemFindFirst },
+        $executeRaw: txExecuteRaw,
       }),
   };
 });
@@ -483,5 +489,43 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
     expect(submissionCreate).toHaveBeenCalledTimes(1);
     const arg = submissionCreate.mock.calls[0][0] as { examId: string | null };
     expect(arg.examId).toBe("exam_window");
+  });
+
+  it("enforces the exam submit cooldown when a recent submission exists", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    examFindById.mockResolvedValue({
+      id: "exam_window",
+      startsAt: new Date("2026-04-14T09:00:00.000Z"),
+      endsAt: new Date("2026-04-14T10:00:00.000Z"),
+      submitCooldownSec: 30,
+    });
+    vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
+    // A submission 5s ago is within the 30s cooldown window.
+    submissionFindMostRecent.mockResolvedValue({
+      createdAt: new Date("2026-04-14T09:29:55.000Z"),
+    });
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows an exam submission once the cooldown window has passed", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    examFindById.mockResolvedValue({
+      id: "exam_window",
+      startsAt: new Date("2026-04-14T09:00:00.000Z"),
+      endsAt: new Date("2026-04-14T10:00:00.000Z"),
+      submitCooldownSec: 30,
+    });
+    vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
+    // No submission inside the cooldown window.
+    submissionFindMostRecent.mockResolvedValue(null);
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 });
