@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@nojv/db";
 import { problemRepo, problemWorkspaceFileRepo, runTransaction } from "@nojv/db";
 import type { Language, ProblemType } from "@nojv/core";
-import { entryFileNameFor, judgeConfigSchema } from "@nojv/core";
+import { entryFileNameFor, judgeConfigSchema, problemWorkspaceFileSchema } from "@nojv/core";
 
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -197,4 +197,79 @@ export async function updateProblemWorkspace(
   await Promise.all(existingFiles.map((f) => bestEffortDeleteWorkspaceBlob(problemId, f.id)));
 
   return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Single-file workspace upsert (W3.A)
+//
+// Used by the per-file upload route. Validates the incoming file via the
+// shared zod schema, writes its content to a fresh S3 object, then upserts
+// the metadata row keyed by (problemId, language, path). If a prior row
+// exists at that triple, its S3 blob is swept best-effort after the DB
+// update commits — the unique index guarantees only one row per triple,
+// so the previous content blob is now orphaned.
+//
+// Caller is responsible for `assertProblemEditAccess` and budget checks;
+// this helper only enforces shape + atomic write.
+// ─────────────────────────────────────────────────────────────────────────
+
+// Accept loosely-typed strings for language/visibility — the route layer
+// passes raw form values and the shared zod schema bounces invalid enums
+// into a ZodError that the api-handler wrapper maps to 400.
+export interface SetWorkspaceFileInput {
+  language: string;
+  path: string;
+  visibility: string;
+  content: string;
+  orderIndex?: number;
+}
+
+export async function setWorkspaceFile(
+  problemId: string,
+  file: SetWorkspaceFileInput,
+): Promise<{ id: string; problemId: string; path: string; language: Language }> {
+  // Validate shape (path traversal, length, visibility enum) using the
+  // shared schema so the HTTP layer and the bundle importer share one
+  // source of truth.
+  const parsed = problemWorkspaceFileSchema.parse({
+    language: file.language,
+    path: file.path,
+    visibility: file.visibility,
+    content: file.content,
+    orderIndex: file.orderIndex ?? 0,
+  });
+
+  const id = randomUUID();
+  const contentKey = await writeWorkspaceFileBlob(problemId, id, parsed.content);
+
+  const existing = await problemWorkspaceFileRepo.findOne(
+    problemId,
+    parsed.language,
+    parsed.path,
+  );
+
+  const row = await runTransaction(async (tx) => {
+    return problemWorkspaceFileRepo.withTx(tx).upsertOne({
+      id,
+      problemId,
+      language: parsed.language,
+      path: parsed.path,
+      contentKey,
+      visibility: parsed.visibility,
+      orderIndex: parsed.orderIndex,
+    });
+  });
+
+  // Sweep the superseded blob — the unique index means we wrote a new
+  // content key for the same logical file, so the old blob is orphaned.
+  if (existing && existing.id !== row.id) {
+    await bestEffortDeleteWorkspaceBlob(problemId, existing.id);
+  }
+
+  return {
+    id: row.id,
+    problemId: row.problemId,
+    path: row.path,
+    language: row.language,
+  };
 }
