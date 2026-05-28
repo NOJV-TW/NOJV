@@ -31,6 +31,14 @@
   let showRejudgeDialog = $state(false);
   let isDeleting = $state(false);
 
+  // Bumped on every successful upload (bundle import, checker/interactor
+  // script, workspace file). StorageBudgetBar watches this token and refetches
+  // usage when it changes so the bar never lags behind the actual budget.
+  let storageRefreshToken = $state(0);
+  function bumpStorageRefresh() {
+    storageRefreshToken += 1;
+  }
+
   // Advanced-mode image config — only meaningful when isAdvanced is true.
   // Initialised once via untrack so re-runs of `data` don't clobber edits.
   let imageRef = $state<string>(untrack(() => data.imageConfig?.ref ?? ""));
@@ -121,6 +129,7 @@
       throw new Error(body?.message ?? m.bundle_uploadFailed());
     }
     toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
+    bumpStorageRefresh();
     await invalidateAll();
   }
 
@@ -240,7 +249,11 @@
     </div>
   </div>
 
-  <BundleControls problemId={data.problem.id} />
+  <BundleControls
+    problemId={data.problem.id}
+    refreshToken={storageRefreshToken}
+    onuploaded={bumpStorageRefresh}
+  />
 
   {#if isAdvanced}
     <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
@@ -306,6 +319,7 @@
           problem={data.problem}
           validatorScripts={data.validatorScripts}
           ondirtychange={(d) => isDirty = d}
+          onuploaded={bumpStorageRefresh}
         />
       {/snippet}
     </ProblemSections>

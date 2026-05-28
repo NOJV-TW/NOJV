@@ -607,8 +607,7 @@ export async function exportBundle(
   void (async () => {
     try {
       const client = getClient();
-      for (let i = 0; i < flatTestcases.length; i++) {
-        const tc = flatTestcases[i]!;
+      for (const [i, tc] of flatTestcases.entries()) {
         const input = await getText(client, tc.inputKey);
         archive.append(input, { name: `testcases/${String(i)}/input.txt` });
         if (tc.outputKey) {

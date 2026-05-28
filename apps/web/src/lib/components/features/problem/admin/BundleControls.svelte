@@ -8,13 +8,14 @@
 
   interface Props {
     problemId: string;
+    refreshToken: number;
+    onuploaded?: () => void;
   }
 
-  let { problemId }: Props = $props();
+  let { problemId, refreshToken, onuploaded }: Props = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
   let importing = $state(false);
-  let refreshToken = $state(0);
 
   async function onImportChange() {
     const file = fileInput?.files?.[0];
@@ -31,7 +32,7 @@
       });
       if (res.ok) {
         toasts.add({ message: m.bundle_importSuccess(), type: "success" });
-        refreshToken += 1;
+        onuploaded?.();
         await invalidateAll();
       } else {
         const msg = await safeMessage(res);
