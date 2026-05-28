@@ -23,7 +23,11 @@ import {
   runInteractiveSolution,
   runInteractiveValidator,
 } from "./judges/interactive-isolated.js";
-import { validateCase, validatorTimeoutMs } from "./judges/validate.js";
+import {
+  resolveValidateCaseFiles,
+  validateCase,
+  validatorTimeoutMs,
+} from "./judges/validate.js";
 import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
@@ -247,23 +251,17 @@ async function runValidate(workDir: string, config: SandboxInput): Promise<void>
     return;
   }
 
-  const casesDir = path.join(SUBMISSION_DIR, "cases");
   const timeoutMs = validatorTimeoutMs(config.limits.timeoutMs);
   const validatorOutcomes: ValidatorCaseOutcome[] = [];
 
   for (const { index } of validate.cases) {
-    const caseDir = path.join(casesDir, String(index));
-    const inputFile = path.join(caseDir, "input.txt");
-    const answerFile = path.join(caseDir, "answer.txt");
-    const teamOutput = await fs
-      .readFile(path.join(caseDir, "team.txt"), "utf-8")
-      .catch(() => "");
+    const files = await resolveValidateCaseFiles(SUBMISSION_DIR, index);
 
     const feedbackDir = await fs.mkdtemp(path.join(workDir, `fb-${String(index)}-`));
     log(`Validating case ${String(index)}...`);
     const outcome = await validateCase(
       compiled.runCommand,
-      { inputFile, answerFile, teamOutput },
+      files,
       feedbackDir,
       index,
       timeoutMs,

@@ -13,6 +13,53 @@ export function validatorTimeoutMs(solutionTimeoutMs: number): number {
   return Math.max(VALIDATOR_TIMEOUT_FLOOR_MS, solutionTimeoutMs);
 }
 
+export interface ValidateCaseFiles {
+  inputFile: string;
+  answerFile: string;
+  teamOutput: string;
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the per-case files for the validator. Mirrors `loadTestcases` in
+ * index.ts: prefers Docker's directory layout
+ * (`/submission/cases/{index}/{input,answer,team}.txt`) and falls back to the
+ * K8s flat-ConfigMap layout (`/submission/case-{i}-{input,answer,team}.txt`)
+ * — ConfigMaps cannot hold nested directories.
+ */
+export async function resolveValidateCaseFiles(
+  submissionDir: string,
+  index: number,
+): Promise<ValidateCaseFiles> {
+  const dirInput = path.join(submissionDir, "cases", String(index), "input.txt");
+  if (await pathExists(dirInput)) {
+    const caseDir = path.join(submissionDir, "cases", String(index));
+    const teamOutput = await fs
+      .readFile(path.join(caseDir, "team.txt"), "utf-8")
+      .catch(() => "");
+    return {
+      inputFile: dirInput,
+      answerFile: path.join(caseDir, "answer.txt"),
+      teamOutput,
+    };
+  }
+
+  const inputFile = path.join(submissionDir, `case-${String(index)}-input.txt`);
+  const answerFile = path.join(submissionDir, `case-${String(index)}-answer.txt`);
+  const teamOutput = await fs
+    .readFile(path.join(submissionDir, `case-${String(index)}-team.txt`), "utf-8")
+    .catch(() => "");
+  return { inputFile, answerFile, teamOutput };
+}
+
 /** Read a feedback file if present; missing → undefined. */
 async function readFeedbackFile(dir: string, name: string): Promise<string | undefined> {
   try {
