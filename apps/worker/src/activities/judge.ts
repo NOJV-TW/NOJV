@@ -1,12 +1,14 @@
 import {
   entryFileNameFor,
   submissionResultSchema,
+  type Language,
   type SandboxExecutor,
   type SandboxRequest,
   type SubmissionDraft,
   type SubmissionResult,
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/domain";
+import type { SubmissionSource } from "@nojv/storage";
 import { heartbeat } from "@temporalio/activity";
 
 import type { RejudgeInput } from "@nojv/temporal";
@@ -42,20 +44,35 @@ export async function fetchJudgeContext(
 }
 
 // Student files may override only `editable` paths; readonly/hidden teacher files win.
-function mergeSandboxSources(
-  draft: SubmissionDraft,
+//
+// `studentSources` is the loaded-from-storage file list for the submission;
+// it always contains at least `main.<ext>`. For full_source submissions the
+// list has exactly one file. The merge is driven entirely off these sources
+// (the database row no longer carries any inline source text).
+export function mergeSandboxSources(
+  studentSources: readonly SubmissionSource[],
+  language: Language,
   judgeContext: submissionDomain.SubmissionJudgeContext,
 ): {
   sourceCode: string;
   sourceFiles?: { path: string; content: string }[];
   entryFile?: string;
 } {
-  const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === draft.language);
+  const mainPath = entryFileNameFor(language);
+  const mainSource =
+    studentSources.find((s) => s.path === mainPath)?.content ??
+    studentSources[0]?.content ??
+    "";
+
+  const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === language);
 
   if (langFiles.length === 0) {
+    if (studentSources.length <= 1) {
+      return { sourceCode: mainSource };
+    }
     return {
-      sourceCode: draft.sourceCode,
-      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
+      sourceCode: mainSource,
+      sourceFiles: studentSources.map((s) => ({ path: s.path, content: s.content })),
     };
   }
 
@@ -68,18 +85,10 @@ function mergeSandboxSources(
     langFiles.filter((wf) => wf.visibility === "editable").map((wf) => wf.path),
   );
 
-  if (draft.sourceFiles) {
-    for (const f of draft.sourceFiles) {
-      if (editablePaths.has(f.path)) {
-        merged.set(f.path, f.content);
-      }
+  for (const f of studentSources) {
+    if (editablePaths.has(f.path)) {
+      merged.set(f.path, f.content);
     }
-  }
-
-  // Entry file is always `main.<ext>`; `draft.entryFile` is ignored by design.
-  const mainPath = entryFileNameFor(draft.language);
-  if (draft.sourceCode && editablePaths.has(mainPath)) {
-    merged.set(mainPath, draft.sourceCode);
   }
 
   const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({
@@ -88,7 +97,7 @@ function mergeSandboxSources(
   }));
 
   return {
-    sourceCode: merged.get(mainPath) ?? draft.sourceCode,
+    sourceCode: merged.get(mainPath) ?? mainSource,
     sourceFiles,
     entryFile: mainPath,
   };
@@ -102,6 +111,11 @@ export async function executeSandbox(
   const executor = getExecutor();
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
+
+  // Sources are the canonical record in object storage. We re-load here
+  // rather than trust the draft so both fresh dispatches and rejudges see
+  // the same bytes; the draft's source fields are advisory and ignored.
+  const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
   const useSamples = draft.sampleOnly === true;
   const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";
@@ -138,7 +152,7 @@ export async function executeSandbox(
 
   const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
 
-  const sources = mergeSandboxSources(draft, judgeContext);
+  const sources = mergeSandboxSources(studentSources, draft.language, judgeContext);
 
   let advancedPayload: SandboxRequest["advanced"] | undefined;
   if (judgeContext.problemType === "special_env" && judgeContext.advanced) {

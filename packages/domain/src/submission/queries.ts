@@ -15,6 +15,10 @@ import {
   type SubmissionDraft,
   type SubmissionMode,
 } from "@nojv/core";
+import {
+  getSubmissionSources as storageGetSubmissionSources,
+  type SubmissionSource,
+} from "@nojv/storage";
 import { z } from "zod";
 
 import {
@@ -24,6 +28,7 @@ import {
 } from "../problem/blobs";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError } from "../shared/errors";
+import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
 import { stripStaffFeedback } from "./scoring";
 import type {
@@ -63,6 +68,16 @@ export async function getSubmissionById(id: string) {
 }
 
 /**
+ * Load a submission's source files from object storage. Returns an empty
+ * array when the prefix is absent. Sources are sorted by path (storage
+ * helper guarantee), so the entry file `main.<ext>` ranks deterministically
+ * within its directory.
+ */
+export async function getSubmissionSources(submissionId: string): Promise<SubmissionSource[]> {
+  return storageGetSubmissionSources(storage(), submissionId);
+}
+
+/**
  * Full detail payload for the submission dashboard page.
  *
  * Access rule:
@@ -97,11 +112,13 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   const result =
     rawResult === null || viewerIsStaff ? rawResult : stripStaffFeedback(rawResult);
 
+  const sources = await getSubmissionSources(submissionId);
+
   return {
     id: submission.id,
     createdAt: submission.createdAt.toISOString(),
     language,
-    sourceCode: submission.sourceCode,
+    sources,
     status: submission.status,
     score: submission.score,
     runtimeMs: submission.runtimeMs,
@@ -483,13 +500,17 @@ export async function listForRejudge(input: {
 
   const submissions = await submissionRepo.findForRejudge(where);
 
+  // Sources live in object storage now and are loaded by the worker at
+  // sandbox time; the draft only needs identity + language + sample flag.
+  // `sourceCode` carries an empty placeholder to satisfy the wire type —
+  // it is overwritten by `executeSandbox` before reaching the executor.
   return submissions.map((s) => ({
     submissionId: s.id,
     draft: {
       language: s.language,
       problemId: s.problemId,
       sampleOnly: s.sampleOnly,
-      sourceCode: s.sourceCode,
+      sourceCode: "",
     },
   }));
 }
@@ -505,7 +526,8 @@ export async function findOneForRejudge(
       language: submission.language,
       problemId: submission.problemId,
       sampleOnly: submission.sampleOnly,
-      sourceCode: submission.sourceCode,
+      // Placeholder — `executeSandbox` re-loads sources from storage.
+      sourceCode: "",
     },
   };
 }

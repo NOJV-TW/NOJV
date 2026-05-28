@@ -6,8 +6,11 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/domain";
 
-const { getSubmissionForUser } = submissionDomain;
+const { getSubmissionForUser, getSubmissionSources } = submissionDomain;
 
+// Returns the submission's source files in storage order. Multi-file
+// submissions emit one entry per file; full_source returns a single entry
+// at `main.<ext>`. The caller is responsible for picking / rendering.
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
@@ -20,5 +23,6 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     actor.platformRole === "admin",
   );
 
-  return json({ sourceCode: submission.sourceCode });
+  const files = await getSubmissionSources(submission.id);
+  return json({ files, language: submission.language });
 });

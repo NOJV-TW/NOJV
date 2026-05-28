@@ -1,4 +1,4 @@
-import type { plagiarismDomain } from "@nojv/domain";
+import type { plagiarismDomain, SubmissionSource } from "@nojv/domain";
 
 export interface PlagiarismPairDiffData {
   pair: {
@@ -14,13 +14,13 @@ export interface PlagiarismPairDiffData {
     userId: string;
     displayName: string | null;
     username: string | null;
-    sourceCode: string | null;
+    files: SubmissionSource[] | null;
   };
   right: {
     userId: string;
     displayName: string | null;
     username: string | null;
-    sourceCode: string | null;
+    files: SubmissionSource[] | null;
   };
   flag: {
     id: string;

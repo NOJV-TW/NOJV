@@ -27,4 +27,5 @@ export * as userDomain from "./user";
 export * as virtualContestDomain from "./virtual-contest";
 export { aggregateByTag } from "./user/queries";
 export type { TagAcCount } from "./user/queries";
+export type { SubmissionSource } from "@nojv/storage";
 export { isReservedUsername } from "@nojv/core";
