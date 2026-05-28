@@ -5,6 +5,7 @@ export {
   type SimilarityPair,
 } from "./types";
 export {
+  boundaryMarkerFor,
   createPlagiarismReport,
   findPlagiarismReport,
   getAssignmentProblemMap,
