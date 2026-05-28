@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   courseMembershipRepo,
   examRepo,
@@ -13,15 +15,18 @@ import {
   type SubmissionDraft,
   type SubmissionResult,
 } from "@nojv/core";
+import { putSubmissionSources, submissionSourcePrefix } from "@nojv/storage";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
+import { normalizeSubmissionSources } from "./source-paths";
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
@@ -31,7 +36,12 @@ export async function createQueuedSubmissionRecord(
   actor: ActorContext,
   clientIp: string,
 ) {
-  return runTransaction(async (tx) => {
+  // Generate the submission id up front so its S3 prefix is known before the
+  // row is inserted; sources are written post-commit (see end of function) to
+  // keep the tx body short.
+  const submissionId = randomUUID();
+
+  const { row, sources } = await runTransaction(async (tx) => {
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
       payload.assessment
@@ -223,7 +233,12 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    return submissionRepo.withTx(tx).create({
+    // Normalize sources + validate paths + cap total bytes BEFORE writing the
+    // row. Any failure here throws and rolls back the tx — no orphan S3 blobs.
+    const sources = normalizeSubmissionSources(payload, problem, submissionId);
+
+    const created = await submissionRepo.withTx(tx).create({
+      id: submissionId,
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
       // Virtual submissions sit outside the contest/exam/assignment xor —
@@ -240,11 +255,31 @@ export async function createQueuedSubmissionRecord(
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
-      sourceCode: payload.sourceCode,
+      sourceStoragePrefix: submissionSourcePrefix(submissionId),
       status: "queued",
       userId: user.id,
     });
+
+    return { row: created, sources };
   });
+
+  // Sources are written post-commit so a long S3 round-trip doesn't hold the
+  // tx open. If storage fails after the row commits, mark the submission
+  // `system_error` so the worker doesn't try to judge a row with no sources;
+  // an out-of-band sweep (future ops task) reconciles orphans either way.
+  try {
+    await putSubmissionSources(storage(), submissionId, sources);
+  } catch (err) {
+    try {
+      await submissionRepo.updateStatus(submissionId, "system_error");
+    } catch {
+      // Swallowed: prefer surfacing the original storage failure to the
+      // caller. The row stays in `queued` and a later sweep will reconcile.
+    }
+    throw err;
+  }
+
+  return row;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

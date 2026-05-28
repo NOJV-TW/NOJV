@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createInMemoryStorage } from "../_fixtures/storage";
+
 // Shared repo stubs — hoisted so they can be referenced in the vi.mock
 // factory below (vi.mock is hoisted above regular imports).
 const {
@@ -13,10 +15,12 @@ const {
   workspaceFindByProblemId,
   submissionCountForUserAndAssessmentSince,
   submissionCreate,
+  submissionUpdateStatus,
   examSessionFindActiveForUser,
   examFindById,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
+  storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -28,10 +32,12 @@ const {
   workspaceFindByProblemId: vi.fn(),
   submissionCountForUserAndAssessmentSince: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionUpdateStatus: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
+  storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => {
@@ -72,6 +78,7 @@ vi.mock("@nojv/db", () => {
         countForUserAndAssessmentSince: submissionCountForUserAndAssessmentSince,
         create: submissionCreate,
       }),
+      updateStatus: submissionUpdateStatus,
     },
     // createQueuedSubmissionRecord now does direct prisma reads against
     // the assessment/contest problem-link tables for problem-in-context
@@ -88,6 +95,15 @@ vi.mock("@nojv/db", () => {
       }),
   };
 });
+
+// Storage singleton — return whatever client storageRef.client is set to.
+// Tests reassign storageRef.client per case via the in-memory fixture.
+vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+  storage: () => storageRef.client,
+  __setStorageClientForTests: (c: unknown) => {
+    storageRef.client = c as typeof storageRef.client;
+  },
+}));
 
 import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/domain";
 import { supportedLanguages } from "@nojv/core";
@@ -119,6 +135,9 @@ const fakeAssessmentBase = {
 };
 
 function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
+  // Fresh in-memory storage for each test setup; reads via the mocked
+  // singleton above (`storage()` returns whatever storageRef.client is).
+  storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   const user = {
     id: fakeActor.userId,
     name: fakeActor.displayName,
@@ -403,6 +422,7 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
   };
 
   function setupExamSubmitDefaults(endsAt: Date) {
+    storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
     const user = {
       id: fakeActor.userId,
       name: fakeActor.displayName,
