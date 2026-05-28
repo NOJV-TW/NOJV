@@ -32,7 +32,11 @@ import {
   writeCheckerScriptBlob,
   writeInteractorScriptBlob,
 } from "./blobs";
-import { assertProblemEditAccess, assertProblemOwnership, type ProblemActorContext } from "./permissions";
+import {
+  assertProblemEditAccess,
+  assertProblemOwnership,
+  type ProblemActorContext,
+} from "./permissions";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Problem CRUD

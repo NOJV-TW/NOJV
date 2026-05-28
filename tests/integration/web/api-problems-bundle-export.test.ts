@@ -77,7 +77,8 @@ async function seedFixtures(problemId: string): Promise<{
       {
         language: "cpp",
         path: "main.cpp",
-        content: "#include <iostream>\nint main() { int a, b; std::cin >> a >> b; std::cout << a + b; }\n",
+        content:
+          "#include <iostream>\nint main() { int a, b; std::cin >> a >> b; std::cout << a + b; }\n",
       },
       {
         language: "cpp",
@@ -226,7 +227,9 @@ describe("exportBundle round-trip (real Postgres, mocked storage)", () => {
       where: { testcaseSet: { problemId: seeded.problemId } },
     });
     await testPrisma.testcaseSet.deleteMany({ where: { problemId: seeded.problemId } });
-    await testPrisma.problemWorkspaceFile.deleteMany({ where: { problemId: seeded.problemId } });
+    await testPrisma.problemWorkspaceFile.deleteMany({
+      where: { problemId: seeded.problemId },
+    });
     await testPrisma.problem.update({
       where: { id: seeded.problemId },
       data: { judgeConfig: { type: "standard" } },

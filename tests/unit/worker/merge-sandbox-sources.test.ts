@@ -119,7 +119,12 @@ describe("mergeSandboxSources", () => {
 
   it("merges all editable student files while keeping non-editable teacher files intact", () => {
     const workspaceFiles: WorkspaceFile[] = [
-      { path: "main.py", content: "# teacher main", language: "python", visibility: "editable" },
+      {
+        path: "main.py",
+        content: "# teacher main",
+        language: "python",
+        visibility: "editable",
+      },
       { path: "lib.py", content: "# teacher lib", language: "python", visibility: "editable" },
       {
         path: "hidden.py",

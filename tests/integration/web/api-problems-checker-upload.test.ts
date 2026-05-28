@@ -52,7 +52,11 @@ describe("POST /api/problems/[id]/checker (W3.B)", () => {
     // above. Now verify the row's judgeConfig carries the storage key + lang.
     const { problemRepo } = await import("@nojv/db");
     const row = await problemRepo.findById(problem.id);
-    const config = row?.judgeConfig as { type?: string; checkerKey?: string; checkerLanguage?: string };
+    const config = row?.judgeConfig as {
+      type?: string;
+      checkerKey?: string;
+      checkerLanguage?: string;
+    };
     expect(config?.type).toBe("checker");
     expect(config?.checkerKey).toBe(checkerKey(problem.id));
     expect(config?.checkerLanguage).toBe("cpp");
@@ -71,9 +75,9 @@ describe("POST /api/problems/[id]/checker (W3.B)", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
 
     // No blob was written under the problem prefix.
-    await expect(
-      getText(createStorageClient(), checkerKey(problem.id)),
-    ).rejects.toThrow(/No body returned/);
+    await expect(getText(createStorageClient(), checkerKey(problem.id))).rejects.toThrow(
+      /No body returned/,
+    );
   });
 
   it("oversize uploads are rejected by the per-problem 50 MB budget (HTTP 413)", async () => {

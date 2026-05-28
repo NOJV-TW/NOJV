@@ -8,8 +8,12 @@ import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { editorialDomain, problemDomain } from "@nojv/domain";
 
 const { getProblemRowById } = problemDomain;
-const { canViewEditorials, listProblemEditorials, resolveActiveContextForUser, upsertEditorial } =
-  editorialDomain;
+const {
+  canViewEditorials,
+  listProblemEditorials,
+  resolveActiveContextForUser,
+  upsertEditorial,
+} = editorialDomain;
 type EditorialViewContext = editorialDomain.EditorialViewContext;
 
 // problemRepo.findById, resolveActiveContextForUser and canViewEditorials are

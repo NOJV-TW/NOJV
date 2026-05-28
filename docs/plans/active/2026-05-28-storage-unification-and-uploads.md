@@ -5,6 +5,7 @@
 **Goal:** Move all blob-class submission data (sourceCode, verdictDetail heavy part) from DB to S3; fix two known auditing leaks (editorial context gate, MOSS multi-file); add uploader paths and zip import/export for problem authors.
 
 **Architecture:**
+
 - Single source of truth for file-class data: `@nojv/storage` (S3-compatible). DB only holds metadata + storage keys.
 - `Submission.sourceCode` (DB text) → multiple S3 objects under `submissions/{id}/sources/{path}`. Multi-file is no longer a JSON-string special case.
 - `Submission.verdictDetail` (DB JSON) → split: `verdictSummary` (DB JSON, < 4KB) for list views; full detail in S3 at `submissions/{id}/verdict-detail.json` for lazy load.
@@ -31,6 +32,7 @@ W5 (sequential)  : ci:verify + final review
 ### Task W0.1: Storage keys + sources / verdict-detail helpers
 
 **Files:**
+
 - Modify: `packages/storage/src/keys.ts`
 - Modify: `packages/storage/src/index.ts` (re-exports)
 - Create: `packages/storage/src/submission.ts` — put/get for sources + verdict-detail
@@ -113,9 +115,7 @@ export async function putSubmissionSources(
   sources: SubmissionSource[],
 ): Promise<void> {
   await Promise.all(
-    sources.map((s) =>
-      putText(storage, submissionSourceKey(submissionId, s.path), s.content),
-    ),
+    sources.map((s) => putText(storage, submissionSourceKey(submissionId, s.path), s.content)),
   );
 }
 
@@ -188,6 +188,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task W0.2: Submission schema migration
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/submission.prisma`
 - Create: `packages/db/prisma/migrations/20260528000000_submission_storage_unification/migration.sql`
 - Modify: `packages/db/src/repositories/submission.ts` — replace `sourceCode`/`verdictDetail` usages
@@ -195,6 +196,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Step 1: Schema change**
 
 In `packages/db/prisma/schema/submission.prisma`:
+
 - Remove `sourceCode String @db.Text`
 - Remove `verdictDetail Json?` (if present; locate via grep)
 - Add `sourceStoragePrefix String` (defaults to `""` on legacy rows, but pre-prod we just enforce non-null)
@@ -220,6 +222,7 @@ Run: `pnpm db:generate`. This will surface every consumer of the removed columns
 **Step 4: Repository surface update**
 
 In `packages/db/src/repositories/submission.ts`:
+
 - `findForPlagiarism`: drop `sourceCode` from `select`; add `sourceStoragePrefix`
 - `findById` / `findMany` variants: remove `sourceCode`; the domain layer will compose with S3 reads
 - Any `create` / `update` signatures referencing `sourceCode` / `verdictDetail`: rename to `sourceStoragePrefix` / `verdictSummary` + `verdictDetailStorageKey`
@@ -253,12 +256,14 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task W1.1: Submission write path (mutations.ts) → S3
 
 **Files:**
+
 - Modify: `packages/domain/src/submission/mutations.ts` (the `createQueuedSubmissionRecord` tx body, ~lines 175–247)
 - Modify: `tests/unit/domain/submission-mutations*.test.ts` — update existing tests; they were asserting `sourceCode`
 
 **Step 1: Update test expectations**
 
 For each test that called `createQueuedSubmissionRecord(...)` and asserted `submission.sourceCode === "..."`, change to assert:
+
 - `submission.sourceStoragePrefix === "submissions/<id>/sources/"`
 - `await getSubmissionSources(storage, submission.id)` returns the expected file list
 
@@ -319,6 +324,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task W1.2: Submission read helpers + judge worker
 
 **Files:**
+
 - Modify: `packages/domain/src/submission/queries.ts` — add `getSubmissionSources(id)`, `getVerdictDetail(id)`; the existing `getJudgeContext` calls the new helper
 - Modify: `apps/worker/src/activities/judge.ts` — replace `draft.sourceCode` reads with the helper
 - Modify: `apps/web/src/routes/api/submissions/[id]/source/+server.ts` — return `{ files: [{path, content}] }` instead of legacy single-string
@@ -365,6 +371,7 @@ export async function getVerdictDetail<T = unknown>(submissionId: string): Promi
 ```
 
 In `apps/worker/src/activities/judge.ts`:
+
 - Replace `mergeSandboxSources(draft, judgeContext)` — the function still receives a `draft` shape, but the activity's caller now loads sources via `getSubmissionSources(submissionId)` and passes them as `draft.sourceFiles`. `draft.sourceCode` retained only for the legacy single-file collapse but populated from `sources.find(s => s.path === mainPath)?.content`.
 
 In source / plagiarism source endpoints: return `{ files: SubmissionSource[] }`. Update the staff-facing UI consumer to render a tabbed file list if multi-file (sniff `files.length > 1`).
@@ -394,6 +401,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task W1.3: Verdict detail write path (worker → S3)
 
 **Files:**
+
 - Modify: `apps/worker/src/activities/judge.ts` (`completeSubmission` path)
 - Modify: `packages/domain/src/submission/mutations.ts` (`completeJudge` — split incoming `SubmissionResult` into summary + detail)
 - Update tests asserting verdictDetail shape
@@ -401,6 +409,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Step 1: Update tests**
 
 `tests/unit/domain/submission-complete*.test.ts`: replace `submission.verdictDetail` assertions with:
+
 - `submission.verdictSummary.caseSummary.ac === 5`
 - `submission.verdictDetailStorageKey === "submissions/<id>/verdict-detail.json"`
 - `getVerdictDetail(submission.id)` returns full caseResults
@@ -414,7 +423,7 @@ function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
   for (const c of result.caseResults ?? []) counts[c.verdict] = (counts[c.verdict] ?? 0) + 1;
   return {
     caseSummary: counts,
-    subtaskSummary: result.subtaskResults?.map(s => ({ id: s.id, score: s.score })),
+    subtaskSummary: result.subtaskResults?.map((s) => ({ id: s.id, score: s.score })),
     compilerErrorTruncated: result.compilerOutput?.slice(0, 1024),
   };
 }
@@ -457,6 +466,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task W2.A: Editorial context gate
 
 **Files:**
+
 - Modify: `packages/domain/src/editorial/queries.ts` (`canViewEditorials` signature)
 - Modify: `apps/web/src/routes/api/problems/[id]/editorials/+server.ts`
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/editorials/+page.server.ts`
@@ -508,8 +518,12 @@ export async function canViewEditorials(
     const contest = await contestRepo.findById(context.contestId);
     return !contest || context.now >= contest.endsAt;
   }
-  if (context.kind === "assignment") { /* check closesAt */ }
-  if (context.kind === "exam") { /* check endsAt */ }
+  if (context.kind === "assignment") {
+    /* check closesAt */
+  }
+  if (context.kind === "exam") {
+    /* check endsAt */
+  }
   return false;
 }
 ```
@@ -540,6 +554,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task W2.B: MOSS rewrite — read sources via S3
 
 **Files:**
+
 - Modify: `packages/domain/src/plagiarism/queries.ts` — `listSubmissionsForCheck`, `getPlagiarismSourceCode`
 - Modify: `apps/worker/src/activities/plagiarism.ts` (or `packages/temporal/src/activities/plagiarism.ts` — grep first)
 - Add integration test in `tests/integration/plagiarism/multi-file.test.ts`
@@ -550,45 +565,55 @@ Two submissions of the same multi-file problem with semantically equivalent code
 
 ```ts
 it("flags semantically equivalent multi-file submissions", async () => {
-  const subA = await seedMultiFileSubmission({ files: [
-    { path: "main.cpp", content: "int main() { /* solveA */ }" },
-    { path: "util.cpp", content: "/* utilA */" },
-  ]});
-  const subB = await seedMultiFileSubmission({ files: [
-    { path: "main.cpp", content: "int main() { /* solveA renamed */ }" },
-    { path: "util.cpp", content: "/* utilA */" },
-  ]});
+  const subA = await seedMultiFileSubmission({
+    files: [
+      { path: "main.cpp", content: "int main() { /* solveA */ }" },
+      { path: "util.cpp", content: "/* utilA */" },
+    ],
+  });
+  const subB = await seedMultiFileSubmission({
+    files: [
+      { path: "main.cpp", content: "int main() { /* solveA renamed */ }" },
+      { path: "util.cpp", content: "/* utilA */" },
+    ],
+  });
   const report = await runPlagiarismCheck({ assessmentId });
-  expect(report.pairs.find(p =>
-    [p.left.userId, p.right.userId].sort().join() === [subA.userId, subB.userId].sort().join()
-  )?.similarity).toBeGreaterThan(0.7);
+  expect(
+    report.pairs.find(
+      (p) =>
+        [p.left.userId, p.right.userId].sort().join() ===
+        [subA.userId, subB.userId].sort().join(),
+    )?.similarity,
+  ).toBeGreaterThan(0.7);
 });
 ```
 
 **Step 2: Update `listSubmissionsForCheck` to pull sources**
 
 ```ts
-export async function listSubmissionsForCheck(target: PlagiarismTarget): Promise<PlagiarismSubmission[]> {
+export async function listSubmissionsForCheck(
+  target: PlagiarismTarget,
+): Promise<PlagiarismSubmission[]> {
   const rows = await submissionRepo.findForPlagiarism({
     ...plagiarismTargetFilter(target),
     status: "accepted",
   });
-  return Promise.all(rows.map(async (row) => {
-    const sources = await getSubmissionSources(row.id);
-    // Concatenate by sorted path, separated by file boundary marker
-    // (markers are stripped by language tokenizers naturally)
-    const merged = sources
-      .map((s) => `// === ${s.path} ===\n${s.content}`)
-      .join("\n");
-    return {
-      id: row.id,
-      userId: row.userId,
-      problemId: row.problemId,
-      language: row.language,
-      score: row.score,
-      sourceCode: merged,
-    };
-  }));
+  return Promise.all(
+    rows.map(async (row) => {
+      const sources = await getSubmissionSources(row.id);
+      // Concatenate by sorted path, separated by file boundary marker
+      // (markers are stripped by language tokenizers naturally)
+      const merged = sources.map((s) => `// === ${s.path} ===\n${s.content}`).join("\n");
+      return {
+        id: row.id,
+        userId: row.userId,
+        problemId: row.problemId,
+        language: row.language,
+        score: row.score,
+        sourceCode: merged,
+      };
+    }),
+  );
 }
 ```
 
@@ -618,6 +643,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task W2.C: db:seed rewrite
 
 **Files:**
+
 - Modify: `packages/db/prisma/seed.ts` — every `submission.create({ sourceCode: ... })` call becomes:
   1. Generate cuid for the submission
   2. `putSubmissionSources(storage, submissionId, [{ path: "main.<ext>", content: ... }])`
@@ -663,6 +689,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ## Wave 3 — New upload routes (parallel x5)
 
 Pattern shared by all five tasks:
+
 - Route is `POST /api/problems/[id]/...`
 - Guard: `requireApiAuth` + `assertProblemEditAccess(actor, problemId)` + `writeApiRateLimiter`
 - Size limits enforced server-side from `Content-Length` AND post-read byte count
@@ -672,6 +699,7 @@ Pattern shared by all five tasks:
 ### Task W3.A: Workspace file upload route
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/problems/[id]/workspace/files/+server.ts`
 - Create: `tests/integration/web/api-problems-workspace-upload.test.ts`
 - Modify: `packages/domain/src/problem/workspace.ts` — add `setWorkspaceFile(problemId, file)` helper that wraps `putText` + DB metadata upsert
@@ -751,6 +779,7 @@ Commit: `feat(problem): interactor source upload route`
 ### Task W3.D: Zip bundle import route
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/problems/[id]/bundle/+server.ts` (POST)
 - Create: `packages/domain/src/problem/bundle.ts` — `importBundle(actor, problemId, zipBuffer)`
 - Create: `tests/integration/web/api-problems-bundle-import.test.ts`
@@ -783,7 +812,7 @@ export async function importBundle(actor: Actor, problemId: string, zipBuffer: B
   for (const f of archive.files) total += f.uncompressedSize;
   if (total > MAX_BYTES) throw new ConflictError("Bundle exceeds 50 MB");
 
-  const testcases: { index: number; field: "input"|"answer"; content: string }[] = [];
+  const testcases: { index: number; field: "input" | "answer"; content: string }[] = [];
   const workspace: { path: string; content: string }[] = [];
   let checker: { lang: string; content: string } | null = null;
   let interactor: { lang: string; content: string } | null = null;
@@ -797,9 +826,16 @@ export async function importBundle(actor: Actor, problemId: string, zipBuffer: B
     if (entry.path.startsWith("testcases/")) {
       const m = /^testcases\/(\d+)\/(input|answer)\.txt$/.exec(entry.path);
       if (!m) continue;
-      testcases.push({ index: Number(m[1]), field: m[2] as any, content: buf.toString("utf8") });
+      testcases.push({
+        index: Number(m[1]),
+        field: m[2] as any,
+        content: buf.toString("utf8"),
+      });
     } else if (entry.path.startsWith("workspace/")) {
-      workspace.push({ path: entry.path.slice("workspace/".length), content: buf.toString("utf8") });
+      workspace.push({
+        path: entry.path.slice("workspace/".length),
+        content: buf.toString("utf8"),
+      });
     } else if (/^checker\.(cpp|py|js)$/.test(entry.path)) {
       checker = { lang: extToLang(entry.path), content: buf.toString("utf8") };
     } else if (/^interactor\.(cpp|py|js)$/.test(entry.path)) {
@@ -809,12 +845,18 @@ export async function importBundle(actor: Actor, problemId: string, zipBuffer: B
 
   // Apply atomically: gather all S3 puts + DB updates, run DB updates in one tx
   // Storage puts are best-effort post-tx (same pattern as submission write)
-  await runTransaction(async (tx) => { /* replace problem.workspaceFiles[], testcase sets, checker/interactor metadata */ });
+  await runTransaction(async (tx) => {
+    /* replace problem.workspaceFiles[], testcase sets, checker/interactor metadata */
+  });
   await Promise.all([
-    ...testcases.map(t => putText(storage(), testcaseKey(problemId, t.index, t.field), t.content)),
-    ...workspace.map(w => putText(storage(), workspaceFileKey(problemId, w.path), w.content)),
+    ...testcases.map((t) =>
+      putText(storage(), testcaseKey(problemId, t.index, t.field), t.content),
+    ),
+    ...workspace.map((w) => putText(storage(), workspaceFileKey(problemId, w.path), w.content)),
     checker ? putText(storage(), checkerKey(problemId), checker.content) : Promise.resolve(),
-    interactor ? putText(storage(), interactorKey(problemId), interactor.content) : Promise.resolve(),
+    interactor
+      ? putText(storage(), interactorKey(problemId), interactor.content)
+      : Promise.resolve(),
   ]);
 }
 ```
@@ -830,6 +872,7 @@ Commit: `feat(problem): zip bundle import for testcases/workspace/checker`
 ### Task W3.E: Zip bundle export route
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/problems/[id]/bundle/+server.ts` (GET — same file as W3.D's POST)
 - Create: `packages/domain/src/problem/bundle.ts` — `exportBundle(actor, problemId): Promise<Buffer>` (same file as W3.D)
 - Create: `tests/integration/web/api-problems-bundle-export.test.ts`
@@ -860,7 +903,12 @@ import { Writable } from "node:stream";
 export async function exportBundle(actor: Actor, problemId: string): Promise<Buffer> {
   await assertProblemEditAccess(actor, problemId);
   const chunks: Buffer[] = [];
-  const sink = new Writable({ write(c, _, cb) { chunks.push(c); cb(); } });
+  const sink = new Writable({
+    write(c, _, cb) {
+      chunks.push(c);
+      cb();
+    },
+  });
   const zip = archiver("zip", { zlib: { level: 9 } });
   zip.pipe(sink);
 
@@ -875,9 +923,13 @@ export async function exportBundle(actor: Actor, problemId: string): Promise<Buf
     zip.append(wf.content, { name: `workspace/${wf.path}` });
   }
   if (problem.checker) {
-    zip.append(await getText(storage(), checkerKey(problemId)), { name: `checker.${problem.checker.lang}` });
+    zip.append(await getText(storage(), checkerKey(problemId)), {
+      name: `checker.${problem.checker.lang}`,
+    });
   }
-  if (problem.interactor) { /* ditto */ }
+  if (problem.interactor) {
+    /* ditto */
+  }
 
   await zip.finalize();
   return Buffer.concat(chunks);
@@ -899,6 +951,7 @@ Commit: `feat(problem): zip bundle export round-tripping with import`
 ### Task W4.A: Problem-author UI integration
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/problem/tabs/judge/*.svelte` — locate the workspace / checker / interactor tabs; add a drag-drop zone above the existing Monaco editor; add a "Import bundle…" / "Export bundle" button group; show "X.X MB / 50 MB" budget bar
 - Modify: `apps/web/src/lib/components/problem/tabs/judge/+page.svelte` (or sibling)
 - Add Playwright e2e if practical: `tests/e2e/problem-bundle.spec.ts`
@@ -912,6 +965,7 @@ Final commit: `feat(ui): bundle import/export + drag-drop in problem authoring`
 ### Task W4.B: Docs sync
 
 **Files:**
+
 - Modify: `docs/architecture/DATABASE.md` — Submission schema section (drop sourceCode/verdictDetail; describe sourceStoragePrefix + verdictSummary + verdictDetailStorageKey)
 - Modify: `docs/architecture/JUDGE_PIPELINE.md` — submission data-flow diagram (sources via S3)
 - Modify: `docs/operations/SECURITY.md` — note editorial context gate, ack the multi-file MOSS fix

@@ -49,9 +49,9 @@ describe("canViewEditorials — context gate", () => {
 
   it("allows AC + practice (explicit practice context)", async () => {
     submissionCount.mockResolvedValue(1);
-    await expect(
-      canViewEditorials("usr_1", "prob_1", { kind: "practice" }),
-    ).resolves.toBe(true);
+    await expect(canViewEditorials("usr_1", "prob_1", { kind: "practice" })).resolves.toBe(
+      true,
+    );
   });
 
   it("denies AC + contest still in progress (now < endsAt)", async () => {
@@ -166,9 +166,9 @@ describe("canViewEditorials — context gate", () => {
 
   it("denies non-AC user regardless of context (practice)", async () => {
     submissionCount.mockResolvedValue(0);
-    await expect(
-      canViewEditorials("usr_1", "prob_1", { kind: "practice" }),
-    ).resolves.toBe(false);
+    await expect(canViewEditorials("usr_1", "prob_1", { kind: "practice" })).resolves.toBe(
+      false,
+    );
   });
 
   it("denies non-AC user regardless of context (contest after end)", async () => {

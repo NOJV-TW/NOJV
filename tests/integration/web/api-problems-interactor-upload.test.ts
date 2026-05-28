@@ -68,9 +68,9 @@ describe("POST /api/problems/[id]/interactor (W3.C)", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
 
     // No blob was written under the problem prefix.
-    await expect(
-      getText(createStorageClient(), interactorKey(problem.id)),
-    ).rejects.toThrow(/No body returned/);
+    await expect(getText(createStorageClient(), interactorKey(problem.id))).rejects.toThrow(
+      /No body returned/,
+    );
   });
 
   it("oversize uploads are rejected by the per-problem 50 MB budget", async () => {

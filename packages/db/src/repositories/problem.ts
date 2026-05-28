@@ -218,7 +218,11 @@ export const problemWorkspaceFileRepo = {
     });
   },
 
-  findOne(problemId: string, language: Prisma.ProblemWorkspaceFileCreateInput["language"], path: string) {
+  findOne(
+    problemId: string,
+    language: Prisma.ProblemWorkspaceFileCreateInput["language"],
+    path: string,
+  ) {
     return prisma.problemWorkspaceFile.findUnique({
       where: { problemId_language_path: { problemId, language, path } },
     });

@@ -371,11 +371,7 @@ export async function importBundle(
       : { type: "standard" as const };
 
     const nextCfg: JudgeConfig = {
-      type: parsed.checker
-        ? "checker"
-        : parsed.interactor
-          ? "interactive"
-          : currentCfg.type,
+      type: parsed.checker ? "checker" : parsed.interactor ? "interactive" : currentCfg.type,
       ...(parsed.checker
         ? { checkerKey: checkerKeyFor(problem.id), checkerLanguage: parsed.checker.language }
         : { checkerKey: null, checkerLanguage: null }),
@@ -496,14 +492,10 @@ export async function exportBundle(
   );
 
   const parsedCfg = judgeConfigSchema.safeParse(problem.judgeConfig);
-  const cfg: JudgeConfig = parsedCfg.success
-    ? parsedCfg.data
-    : { type: "standard" as const };
+  const cfg: JudgeConfig = parsedCfg.success ? parsedCfg.data : { type: "standard" as const };
 
   const checkerBody =
-    cfg.checkerKey && cfg.checkerLanguage
-      ? await getText(client, cfg.checkerKey)
-      : null;
+    cfg.checkerKey && cfg.checkerLanguage ? await getText(client, cfg.checkerKey) : null;
   const interactorBody =
     cfg.interactorKey && cfg.interactorLanguage
       ? await getText(client, cfg.interactorKey)

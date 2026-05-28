@@ -154,12 +154,14 @@ int main() {
     expect(report).not.toBeNull();
     expect(report!.status).toBe("completed");
 
-    const results = report!.results as { pairs: Array<{
-      problemId: string;
-      userId1: string;
-      userId2: string;
-      similarity: number;
-    }> };
+    const results = report!.results as {
+      pairs: Array<{
+        problemId: string;
+        userId1: string;
+        userId2: string;
+        similarity: number;
+      }>;
+    };
     expect(results.pairs).toHaveLength(1);
 
     const pair = results.pairs[0]!;
