@@ -46,6 +46,31 @@ export async function getText(client: S3Client, key: string): Promise<string> {
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+export async function listByPrefix(client: S3Client, prefix: string): Promise<string[]> {
+  const keys: string[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    for (const object of response.Contents ?? []) {
+      if (typeof object.Key === "string") {
+        keys.push(object.Key);
+      }
+    }
+
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return keys;
+}
+
 export async function deleteBlob(client: S3Client, key: string): Promise<void> {
   await client.send(
     new DeleteObjectCommand({
