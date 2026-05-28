@@ -5,22 +5,20 @@ import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
 import {
-  INTERACTIVE_RUN_MARKER,
-  INTERACTIVE_VALIDATE_MARKER,
   normalizeRelativePath,
-  parseMarkedLine,
   sourceFileNames,
-  type InteractiveRunReport,
   type SandboxRequest,
   type SandboxResult,
   type SandboxTestcase,
   type SandboxTestcaseResult,
-  type ValidatorOutcome,
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
+import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
+
+export { mergeInteractiveCase } from "./check-interactive";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 // Beyond the per-case solution limit, allow extra wall time for the interactor
@@ -150,12 +148,6 @@ export async function writeInteractorFiles(
   await chmod(tempDir, 0o755);
 }
 
-interface SideResult {
-  stderr: string;
-  timedOut: boolean;
-  spawnError: boolean;
-}
-
 /**
  * Run ONE interactive case across two isolated containers wired by a byte
  * proxy: solution.stdout → interactor.stdin and interactor.stdout →
@@ -190,7 +182,10 @@ async function runCase(
       MAX_OUTER_TIMEOUT_MS,
     );
 
-    const { sol, int } = await new Promise<{ sol: SideResult; int: SideResult }>((resolve) => {
+    const { sol, int } = await new Promise<{
+      sol: InteractiveSideResult;
+      int: InteractiveSideResult;
+    }>((resolve) => {
       const solChild = spawn(
         "docker",
         buildContainerArgs({
@@ -296,66 +291,6 @@ async function runCase(
       rm(intDir, { force: true, recursive: true }),
     ]);
   }
-}
-
-/**
- * Merge one case's two-container outcome into a single result. A solution-side
- * run failure (TLE/MLE/RE/SE) wins with score 0; otherwise the interactor's
- * `ValidatorOutcome` decides verdict/score. `teamMessage` becomes the student
- * `feedback`; `judgeMessage` becomes the staff-only `staffFeedback` (gated
- * downstream so it never reaches the student). A missing/unparseable marker on
- * either side, or a container timeout, is SE for the case.
- */
-export function mergeInteractiveCase(
-  testcase: SandboxTestcase,
-  sol: SideResult,
-  int: SideResult,
-): SandboxTestcaseResult {
-  const se = (stderr: string, feedback: string): SandboxTestcaseResult => ({
-    index: testcase.index,
-    verdict: "SE",
-    stdout: "",
-    stderr,
-    exitCode: -1,
-    timeMs: 0,
-    score: 0,
-    feedback,
-  });
-
-  if (sol.timedOut || int.timedOut) return se("Interactive run timed out.", "Interactive run timed out.");
-  if (sol.spawnError) return se(sol.stderr, "Sandbox failed to start.");
-  if (int.spawnError) return se(int.stderr, "Interactor failed to start (system error).");
-
-  const run = parseMarkedLine(sol.stderr, INTERACTIVE_RUN_MARKER) as InteractiveRunReport | null;
-  const outcome = parseMarkedLine(int.stderr, INTERACTIVE_VALIDATE_MARKER) as ValidatorOutcome | null;
-
-  if (!run) return se(sol.stderr, "Interactive run produced no result (system error).");
-
-  const base = {
-    index: testcase.index,
-    stdout: "",
-    stderr: run.stderr ?? "",
-    exitCode: run.exitCode,
-    timeMs: run.timeMs,
-    ...(run.memoryKb !== undefined && run.memoryKb > 0 ? { memoryKb: run.memoryKb } : {}),
-  };
-
-  if (run.errorVerdict) {
-    return { ...base, verdict: run.errorVerdict, score: 0 };
-  }
-
-  if (!outcome || outcome.verdict === "SE") {
-    return { ...base, verdict: "SE", score: 0, feedback: "Interactor did not report a verdict." };
-  }
-
-  const score = outcome.score ?? (outcome.verdict === "AC" ? 100 : 0);
-  return {
-    ...base,
-    verdict: outcome.verdict,
-    score,
-    ...(outcome.teamMessage !== undefined ? { feedback: outcome.teamMessage } : {}),
-    ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
-  };
 }
 
 /**
