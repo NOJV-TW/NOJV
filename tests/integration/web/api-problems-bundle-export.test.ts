@@ -215,7 +215,23 @@ describe("exportBundle round-trip (real Postgres, mocked storage)", () => {
 
     const before = await snapshot(seeded.problemId);
 
-    const exported = await problemDomain.exportBundle(seeded.actor, seeded.problemId);
+    // `exportBundle` now returns a Web ReadableStream so the route can
+    // hand it straight to `new Response(...)` and avoid buffering the
+    // whole zip in process memory. The round-trip assertion still needs
+    // a concrete Buffer to feed back into `importBundle`, so consume
+    // the stream here.
+    const exportedStream = await problemDomain.exportBundle(
+      seeded.actor,
+      seeded.problemId,
+    );
+    const reader = exportedStream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const exported = Buffer.concat(chunks);
     expect(exported).toBeInstanceOf(Buffer);
     expect(exported.byteLength).toBeGreaterThan(0);
 

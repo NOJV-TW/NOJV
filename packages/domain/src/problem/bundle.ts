@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { PassThrough, Readable } from "node:stream";
 
 import archiver from "archiver";
 import { Open, type Entry as ZipEntry, type File as ZipFile } from "unzipper";
@@ -549,14 +550,18 @@ export async function importBundle(
  *   checker.<cpp|py>           (only when judgeConfig.checkerKey set)
  *   interactor.<cpp|py>        (only when judgeConfig.interactorKey set)
  *
- * Buffered in memory — the 50 MB per-problem budget makes streaming the
- * response unnecessary for v1. Caller MUST hold problem-edit access (the
- * raw testcase/checker bodies are author/admin-only).
+ * Memory is bounded: blobs are fetched from S3 sequentially and piped into
+ * archiver one entry at a time. Archiver's output flows through a
+ * PassThrough that we expose as a Web `ReadableStream` so the SvelteKit
+ * route can return it as the `Response` body — chunks leave the server as
+ * they are produced, never building up the full zip in process memory.
+ * Caller MUST hold problem-edit access (raw testcase/checker bodies are
+ * author/admin-only).
  */
 export async function exportBundle(
   actor: ProblemActorContext,
   problemId: string,
-): Promise<Buffer> {
+): Promise<ReadableStream<Uint8Array>> {
   await assertProblemEditAccess(actor, problemId);
 
   const problem = await problemRepo.findById(problemId);
@@ -584,67 +589,59 @@ export async function exportBundle(
     }
   }
 
-  // Pull every blob from S3 in parallel BEFORE constructing the archive.
-  // archiver streams entries as we append, but resolving the contents up
-  // front keeps the error path simple — any S3 read failure aborts before
-  // we've allocated archive state.
-  const client = getClient();
-  const testcaseContents = await Promise.all(
-    flatTestcases.map(async (tc) => {
-      const [input, answer] = await Promise.all([
-        getText(client, tc.inputKey),
-        tc.outputKey ? getText(client, tc.outputKey) : Promise.resolve(null),
-      ]);
-      return { input, answer };
-    }),
-  );
-  const workspaceContents = await Promise.all(
-    workspaceFiles.map(async (f) => ({
-      path: f.path,
-      content: await getText(client, f.contentKey),
-    })),
-  );
-
   const parsedCfg = judgeConfigSchema.safeParse(problem.judgeConfig);
   const cfg: JudgeConfig = parsedCfg.success ? parsedCfg.data : { type: "standard" as const };
 
-  const checkerBody =
-    cfg.checkerKey && cfg.checkerLanguage ? await getText(client, cfg.checkerKey) : null;
-  const interactorBody =
-    cfg.interactorKey && cfg.interactorLanguage
-      ? await getText(client, cfg.interactorKey)
-      : null;
+  const archive = archiver("zip", { zlib: { level: 9 } });
+  // archiver is a Transform, but Readable.toWeb's overload resolution for
+  // Duplex subclasses isn't clean. Pipe through a PassThrough so the web
+  // wrapper sees a plain Readable.
+  const passthrough = new PassThrough();
+  archive.pipe(passthrough);
 
-  return new Promise<Buffer>((resolve, reject) => {
-    const archive = archiver("zip", { zlib: { level: 9 } });
-    const chunks: Buffer[] = [];
-
-    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
-    archive.on("error", reject);
-    archive.on("end", () => resolve(Buffer.concat(chunks)));
-
-    testcaseContents.forEach((tc, i) => {
-      archive.append(tc.input, { name: `testcases/${String(i)}/input.txt` });
-      if (tc.answer !== null) {
-        archive.append(tc.answer, { name: `testcases/${String(i)}/answer.txt` });
+  // Producer: fetch each blob from S3 sequentially and append into the
+  // archive. Runs concurrently with the consumer that's draining the Web
+  // stream returned below; archiver applies backpressure via `pipe`, so
+  // memory stays bounded to a single in-flight blob plus the archiver's
+  // internal compressor state (~MB-class, not problem-sized).
+  void (async () => {
+    try {
+      const client = getClient();
+      for (let i = 0; i < flatTestcases.length; i++) {
+        const tc = flatTestcases[i]!;
+        const input = await getText(client, tc.inputKey);
+        archive.append(input, { name: `testcases/${String(i)}/input.txt` });
+        if (tc.outputKey) {
+          const answer = await getText(client, tc.outputKey);
+          archive.append(answer, { name: `testcases/${String(i)}/answer.txt` });
+        }
       }
-    });
-
-    for (const w of workspaceContents) {
-      // `path` is the stored relative path (e.g. `main.cpp`); we keep it
-      // verbatim so round-trip preserves the author's filename.
-      archive.append(w.content, { name: `workspace/${w.path}` });
+      for (const w of workspaceFiles) {
+        const content = await getText(client, w.contentKey);
+        // `path` is the stored relative path (e.g. `main.cpp`); we keep it
+        // verbatim so round-trip preserves the author's filename.
+        archive.append(content, { name: `workspace/${w.path}` });
+      }
+      if (cfg.checkerKey && cfg.checkerLanguage) {
+        const body = await getText(client, cfg.checkerKey);
+        const ext = cfg.checkerLanguage === "python" ? "py" : "cpp";
+        archive.append(body, { name: `checker.${ext}` });
+      }
+      if (cfg.interactorKey && cfg.interactorLanguage) {
+        const body = await getText(client, cfg.interactorKey);
+        const ext = cfg.interactorLanguage === "python" ? "py" : "cpp";
+        archive.append(body, { name: `interactor.${ext}` });
+      }
+      await archive.finalize();
+    } catch (err) {
+      // Tear the pipeline down: archive.destroy propagates the error to
+      // the PassThrough → web ReadableStream consumer, which will reject
+      // the in-flight `read()` and signal failure to the HTTP client.
+      const wrapped = err instanceof Error ? err : new Error(String(err));
+      archive.destroy(wrapped);
+      passthrough.destroy(wrapped);
     }
+  })();
 
-    if (checkerBody !== null && cfg.checkerLanguage) {
-      const ext = cfg.checkerLanguage === "python" ? "py" : "cpp";
-      archive.append(checkerBody, { name: `checker.${ext}` });
-    }
-    if (interactorBody !== null && cfg.interactorLanguage) {
-      const ext = cfg.interactorLanguage === "python" ? "py" : "cpp";
-      archive.append(interactorBody, { name: `interactor.${ext}` });
-    }
-
-    void archive.finalize();
-  });
+  return Readable.toWeb(passthrough) as ReadableStream<Uint8Array>;
 }

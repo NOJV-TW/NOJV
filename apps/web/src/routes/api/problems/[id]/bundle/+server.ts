@@ -65,6 +65,10 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
  * scripts back to the client as a zip in the same layout the POST handler
  * imports. Caller must hold problem-edit access — script bodies are
  * author/admin-only.
+ *
+ * The body is a `ReadableStream` driven by archiver: chunks leave the
+ * process as soon as each S3 blob is fetched and compressed, so memory
+ * stays bounded regardless of bundle size or concurrent exports.
  */
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -72,20 +76,12 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
 
-  const buf = await problemDomain.exportBundle(
+  const stream = await problemDomain.exportBundle(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
     problemId,
   );
 
-  // Wrap in a Blob — Node's `Buffer` is typed against `ArrayBufferLike`
-  // (which includes `SharedArrayBuffer`) and the DOM `Response` typing
-  // svelte-check uses wants a strict `ArrayBuffer`. Copy through a fresh
-  // Uint8Array so the underlying buffer is an `ArrayBuffer` proper.
-  const copy = new Uint8Array(buf.byteLength);
-  copy.set(buf);
-  const body = new Blob([copy], { type: "application/zip" });
-
-  return new Response(body, {
+  return new Response(stream, {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="problem-${problemId}.zip"`,
