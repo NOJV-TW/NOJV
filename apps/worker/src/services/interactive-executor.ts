@@ -316,7 +316,9 @@ export async function runInteractiveMode(
 
   const results: SandboxTestcaseResult[] = [];
   for (const testcase of request.testcases) {
-    results.push(await runCase(request, testcase, interactorScript, interactorLanguage, config));
+    results.push(
+      await runCase(request, testcase, interactorScript, interactorLanguage, config),
+    );
   }
 
   return { testcaseResults: results };

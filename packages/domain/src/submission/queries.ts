@@ -17,7 +17,11 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-import { readTestcaseBlobs, readValidatorScriptBlob, readWorkspaceFileBlob } from "../problem/blobs";
+import {
+  readTestcaseBlobs,
+  readValidatorScriptBlob,
+  readWorkspaceFileBlob,
+} from "../problem/blobs";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError } from "../shared/errors";
 import { canOperateOnSubmission } from "./permissions";
@@ -90,7 +94,8 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   // Staff-only operator messages must NEVER reach a non-staff payload — strip
   // server-side so "View Source" cannot recover them. Owners viewing their own
   // submission are NOT staff for this gate (viewerIsStaff is false when isOwner).
-  const result = rawResult === null || viewerIsStaff ? rawResult : stripStaffFeedback(rawResult);
+  const result =
+    rawResult === null || viewerIsStaff ? rawResult : stripStaffFeedback(rawResult);
 
   return {
     id: submission.id,
@@ -407,7 +412,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
       : null;
 
   const [checkerScript, interactorScript] = await Promise.all([
-    judgeConfig.checkerKey ? readValidatorScriptBlob(judgeConfig.checkerKey) : Promise.resolve(null),
+    judgeConfig.checkerKey
+      ? readValidatorScriptBlob(judgeConfig.checkerKey)
+      : Promise.resolve(null),
     judgeConfig.interactorKey
       ? readValidatorScriptBlob(judgeConfig.interactorKey)
       : Promise.resolve(null),

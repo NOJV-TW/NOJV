@@ -90,44 +90,40 @@ describe("standard-mode testcase exposure (isolation)", () => {
 
   // Positive control: the run/check separation must still grade a genuinely
   // correct solution as AC end-to-end (runner emits rawRuns → worker compares).
-  it(
-    "still grades a correct solution as AC end-to-end",
-    { timeout: 120_000 },
-    async (ctx) => {
-      if (!(await dockerImageAvailable())) {
-        ctx.skip();
-        return;
-      }
+  it("still grades a correct solution as AC end-to-end", { timeout: 120_000 }, async (ctx) => {
+    if (!(await dockerImageAvailable())) {
+      ctx.skip();
+      return;
+    }
 
-      const executor = new DockerExecutor({
-        cpuLimit: "1.0",
-        image: SANDBOX_IMAGE,
-        memoryMb: 256,
-        pidsLimit: 64,
-      });
+    const executor = new DockerExecutor({
+      cpuLimit: "1.0",
+      image: SANDBOX_IMAGE,
+      memoryMb: 256,
+      pidsLimit: 64,
+    });
 
-      const request: SandboxRequest = {
-        submissionId: "correct-test",
-        sourceCode: "a, b = map(int, input().split())\nprint(a + b)\n",
-        language: "python",
-        problemType: "full_source",
-        testcases: [
-          { index: 0, input: "1 2\n", output: "3\n", weight: 1, isSample: false },
-          { index: 1, input: "10 20\n", output: "30\n", weight: 1, isSample: false },
-        ],
-        judgeType: "standard",
-        judgeConfig: {},
-        limits: { timeoutMs: 5_000, memoryMb: 256 },
-      };
+    const request: SandboxRequest = {
+      submissionId: "correct-test",
+      sourceCode: "a, b = map(int, input().split())\nprint(a + b)\n",
+      language: "python",
+      problemType: "full_source",
+      testcases: [
+        { index: 0, input: "1 2\n", output: "3\n", weight: 1, isSample: false },
+        { index: 1, input: "10 20\n", output: "30\n", weight: 1, isSample: false },
+      ],
+      judgeType: "standard",
+      judgeConfig: {},
+      limits: { timeoutMs: 5_000, memoryMb: 256 },
+    };
 
-      const result = await executor.execute(request);
+    const result = await executor.execute(request);
 
-      expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
-      for (const tc of result.testcaseResults) {
-        expect(tc.verdict).toBe("AC");
-        expect(tc.score).toBe(100);
-      }
-    },
-  );
+    expect(result.compilationError).toBeUndefined();
+    expect(result.testcaseResults.length).toBe(2);
+    for (const tc of result.testcaseResults) {
+      expect(tc.verdict).toBe("AC");
+      expect(tc.score).toBe(100);
+    }
+  });
 });

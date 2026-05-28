@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // vi.hoisted handles need to live above the vi.mock that references them.
-const { findByIdWithJudgeContext, readTestcaseBlobs, readWorkspaceFileBlob, readValidatorScriptBlob } =
-  vi.hoisted(() => ({
-    findByIdWithJudgeContext: vi.fn(),
-    readTestcaseBlobs: vi.fn(),
-    readWorkspaceFileBlob: vi.fn(),
-    readValidatorScriptBlob: vi.fn(),
-  }));
+const {
+  findByIdWithJudgeContext,
+  readTestcaseBlobs,
+  readWorkspaceFileBlob,
+  readValidatorScriptBlob,
+} = vi.hoisted(() => ({
+  findByIdWithJudgeContext: vi.fn(),
+  readTestcaseBlobs: vi.fn(),
+  readWorkspaceFileBlob: vi.fn(),
+  readValidatorScriptBlob: vi.fn(),
+}));
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: {

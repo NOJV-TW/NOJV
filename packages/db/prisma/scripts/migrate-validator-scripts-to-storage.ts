@@ -50,7 +50,8 @@ async function main() {
     const checkerScript = record.checkerScript;
     const interactorScript = record.interactorScript;
 
-    const hasInlineChecker = typeof checkerScript === "string" && checkerScript.trim().length > 0;
+    const hasInlineChecker =
+      typeof checkerScript === "string" && checkerScript.trim().length > 0;
     const hasInlineInteractor =
       typeof interactorScript === "string" && interactorScript.trim().length > 0;
 

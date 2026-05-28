@@ -80,13 +80,11 @@ describe("saveProblemJudgeConfig", () => {
       checkerScript: "accept()\n",
     });
 
-    expect(putText).toHaveBeenCalledWith(
-      {},
-      "problems/prob_1/validator/checker",
-      "accept()\n",
-    );
+    expect(putText).toHaveBeenCalledWith({}, "problems/prob_1/validator/checker", "accept()\n");
 
-    const persisted = problemUpdate.mock.calls[0]![1] as { judgeConfig: Record<string, unknown> };
+    const persisted = problemUpdate.mock.calls[0]![1] as {
+      judgeConfig: Record<string, unknown>;
+    };
     expect(persisted.judgeConfig).toMatchObject({
       type: "checker",
       checkerKey: "problems/prob_1/validator/checker",
@@ -108,7 +106,9 @@ describe("saveProblemJudgeConfig", () => {
       "problems/prob_1/validator/interactor",
       "// interactor\n",
     );
-    const persisted = problemUpdate.mock.calls[0]![1] as { judgeConfig: Record<string, unknown> };
+    const persisted = problemUpdate.mock.calls[0]![1] as {
+      judgeConfig: Record<string, unknown>;
+    };
     expect(persisted.judgeConfig).toMatchObject({
       type: "interactive",
       interactorKey: "problems/prob_1/validator/interactor",
@@ -123,7 +123,9 @@ describe("saveProblemJudgeConfig", () => {
     });
 
     expect(putText).not.toHaveBeenCalled();
-    const persisted = problemUpdate.mock.calls[0]![1] as { judgeConfig: Record<string, unknown> };
+    const persisted = problemUpdate.mock.calls[0]![1] as {
+      judgeConfig: Record<string, unknown>;
+    };
     expect(persisted.judgeConfig).toEqual({ type: "standard" });
     expect(deleteBlob).toHaveBeenCalledWith({}, "problems/prob_1/validator/checker");
     expect(deleteBlob).toHaveBeenCalledWith({}, "problems/prob_1/validator/interactor");
@@ -136,7 +138,9 @@ describe("saveProblemJudgeConfig", () => {
     });
 
     expect(putText).not.toHaveBeenCalled();
-    const persisted = problemUpdate.mock.calls[0]![1] as { judgeConfig: Record<string, unknown> };
+    const persisted = problemUpdate.mock.calls[0]![1] as {
+      judgeConfig: Record<string, unknown>;
+    };
     expect(persisted.judgeConfig).not.toHaveProperty("checkerKey");
     expect(deleteBlob).toHaveBeenCalledWith({}, "problems/prob_1/validator/checker");
   });

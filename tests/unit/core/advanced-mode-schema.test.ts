@@ -31,18 +31,24 @@ describe("advancedResultSchema", () => {
       "time_limit_exceeded",
     );
     expect(advancedResultSchema.parse({ score: 0, verdict: "AC" }).verdict).toBe("accepted");
-    expect(advancedResultSchema.parse({ score: 0, verdict: "wa" }).verdict).toBe("wrong_answer");
+    expect(advancedResultSchema.parse({ score: 0, verdict: "wa" }).verdict).toBe(
+      "wrong_answer",
+    );
     expect(advancedResultSchema.parse({ score: 0, verdict: "mle" }).verdict).toBe(
       "memory_limit_exceeded",
     );
-    expect(advancedResultSchema.parse({ score: 0, verdict: "re" }).verdict).toBe("runtime_error");
-    expect(advancedResultSchema.parse({ score: 0, verdict: "ce" }).verdict).toBe("compile_error");
+    expect(advancedResultSchema.parse({ score: 0, verdict: "re" }).verdict).toBe(
+      "runtime_error",
+    );
+    expect(advancedResultSchema.parse({ score: 0, verdict: "ce" }).verdict).toBe(
+      "compile_error",
+    );
   });
 
   it("still accepts canonical long verdict forms", () => {
-    expect(advancedResultSchema.parse({ score: 0, verdict: "time_limit_exceeded" }).verdict).toBe(
-      "time_limit_exceeded",
-    );
+    expect(
+      advancedResultSchema.parse({ score: 0, verdict: "time_limit_exceeded" }).verdict,
+    ).toBe("time_limit_exceeded");
   });
 
   it("rejects an unknown verdict", () => {

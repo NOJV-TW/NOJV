@@ -198,10 +198,7 @@ export async function readValidatorScriptBlob(key: string): Promise<string> {
   return getText(getClient(), key);
 }
 
-export async function writeCheckerScriptBlob(
-  problemId: string,
-  body: string,
-): Promise<string> {
+export async function writeCheckerScriptBlob(problemId: string, body: string): Promise<string> {
   const key = checkerKey(problemId);
   await putText(getClient(), key, body);
   return key;

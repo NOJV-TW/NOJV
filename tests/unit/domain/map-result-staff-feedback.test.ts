@@ -6,7 +6,9 @@ import type { SandboxResult, SandboxTestcaseResult } from "@nojv/core";
 
 const { mapResult } = submissionDomain;
 
-function mkCase(overrides: Partial<SandboxTestcaseResult> & { index: number }): SandboxTestcaseResult {
+function mkCase(
+  overrides: Partial<SandboxTestcaseResult> & { index: number },
+): SandboxTestcaseResult {
   return {
     verdict: "AC",
     stdout: "",
@@ -31,7 +33,12 @@ describe("mapResult — staffFeedback carry-through", () => {
   it("copies staffFeedback from each SandboxTestcaseResult onto the persisted caseResult", () => {
     const sandbox: SandboxResult = {
       testcaseResults: [
-        mkCase({ index: 0, verdict: "WA", feedback: "off by one", staffFeedback: "expected 42" }),
+        mkCase({
+          index: 0,
+          verdict: "WA",
+          feedback: "off by one",
+          staffFeedback: "expected 42",
+        }),
         mkCase({ index: 1, verdict: "AC" }),
       ],
     };

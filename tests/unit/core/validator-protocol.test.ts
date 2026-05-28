@@ -99,7 +99,9 @@ describe("parseMarkedLine (interactive run/validate markers)", () => {
   });
 
   it("returns null when the payload is not valid JSON", () => {
-    expect(parseMarkedLine(`${INTERACTIVE_RUN_MARKER}not json`, INTERACTIVE_RUN_MARKER)).toBeNull();
+    expect(
+      parseMarkedLine(`${INTERACTIVE_RUN_MARKER}not json`, INTERACTIVE_RUN_MARKER),
+    ).toBeNull();
   });
 
   it("returns null on an empty payload", () => {

@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 import { resolveStandardResults } from "../../../apps/worker/src/services/check-standard";
 
 function testcase(index: number, output?: string): SandboxTestcase {
-  return { index, input: "", ...(output !== undefined ? { output } : {}), weight: 1, isSample: false };
+  return {
+    index,
+    input: "",
+    ...(output !== undefined ? { output } : {}),
+    weight: 1,
+    isSample: false,
+  };
 }
 
 function rawRun(overrides: Partial<RawCaseRun> & { index: number }): RawCaseRun {

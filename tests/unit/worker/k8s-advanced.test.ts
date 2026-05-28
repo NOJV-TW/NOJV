@@ -249,7 +249,9 @@ describe("buildAdvancedJobManifest — registry-source pod structure", () => {
 
   it("init prep container has NO restartPolicy (regular init, runs to completion)", () => {
     const m = buildAdvancedJobManifest(params);
-    const init = m.spec!.template.spec!.initContainers!.find((c) => c.name === ADVANCED_INIT_NAME);
+    const init = m.spec!.template.spec!.initContainers!.find(
+      (c) => c.name === ADVANCED_INIT_NAME,
+    );
     expect(init).toBeDefined();
     expect(init!.restartPolicy).toBeUndefined();
   });
@@ -262,7 +264,9 @@ describe("buildAdvancedJobManifest — registry-source pod structure", () => {
 
   it("prep + sidecar both use the sandbox image (vendored shell scripts)", () => {
     const m = buildAdvancedJobManifest(params);
-    const init = m.spec!.template.spec!.initContainers!.find((c) => c.name === ADVANCED_INIT_NAME)!;
+    const init = m.spec!.template.spec!.initContainers!.find(
+      (c) => c.name === ADVANCED_INIT_NAME,
+    )!;
     const sidecar = m.spec!.template.spec!.initContainers!.find(
       (c) => c.name === ADVANCED_SIDECAR_NAME,
     )!;
@@ -298,7 +302,9 @@ describe("buildAdvancedJobManifest — registry-source pod structure", () => {
 
   it("init prep also mounts the input ConfigMap read-only at /init-payload", () => {
     const m = buildAdvancedJobManifest(params);
-    const init = m.spec!.template.spec!.initContainers!.find((c) => c.name === ADVANCED_INIT_NAME)!;
+    const init = m.spec!.template.spec!.initContainers!.find(
+      (c) => c.name === ADVANCED_INIT_NAME,
+    )!;
     const payloadMount = init.volumeMounts!.find((m) => m.mountPath === "/init-payload");
     expect(payloadMount).toBeDefined();
     expect(payloadMount!.readOnly).toBe(true);
@@ -469,9 +475,7 @@ describe("K8sExecutor.execute(advanced) — registry source orchestration", () =
 describe("DRY: K8s advanced reuses Docker advanced's helpers", () => {
   it("uses the same mapAdvancedResult / advancedFallbackResult symbols as the Docker backend", async () => {
     const k8sMod = await import("../../../apps/worker/src/services/k8s-executor");
-    const mapperMod = await import(
-      "../../../apps/worker/src/services/sandbox-result-mapper"
-    );
+    const mapperMod = await import("../../../apps/worker/src/services/sandbox-result-mapper");
     // The k8s-executor module must import these — assert by re-export reference if exposed,
     // otherwise this just documents the contract (Docker imports the SAME mapper).
     expect(typeof mapperMod.mapAdvancedResult).toBe("function");
