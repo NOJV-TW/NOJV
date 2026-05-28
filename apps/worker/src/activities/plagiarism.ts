@@ -79,11 +79,7 @@ export async function runPlagiarismCheck(
       if (group.subs.length < 2) continue;
 
       const files = group.subs.map(
-        // TODO(W2.B): hydrate `sub.sourceStoragePrefix` from S3 before this point.
-        // Post-W1 the domain query no longer returns inline source bytes; this
-        // pipeline will produce empty files until the MOSS rewrite lands.
-        (sub) =>
-          new File(`${sub.userId}.${extensionForLang(sub.language)}`, sub.sourceCode ?? ""),
+        (sub) => new File(`${sub.userId}.${extensionForLang(sub.language)}`, sub.sourceCode),
       );
 
       let report;

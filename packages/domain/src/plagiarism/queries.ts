@@ -17,27 +17,46 @@ import { toJsonValue } from "../shared/to-json-value";
 import { getSubmissionSources } from "../submission/queries";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
-// Source bytes live in object storage; the MOSS pipeline (W2.B) hydrates them
-// from `sourceStoragePrefix` before feeding Dolos. The legacy `sourceCode`
-// field is left optional so the wire shape compiles until the W2.B rewrite
-// lands; consumers that still read it will see undefined post-W1.
+// `sourceCode` is the hydrated, ready-to-tokenize blob. For multi-file
+// submissions we concatenate per-file contents in sorted-path order with
+// `// === path ===` boundary markers — every Dolos-supported language treats
+// `//` as a line comment, so the markers are dropped by the tokenizer and
+// don't pollute similarity. The old single-string `JSON.stringify({path: …})`
+// shape masked semantic similarity behind JSON syntax tokens.
 export interface PlagiarismSubmission {
   id: string;
   language: string;
   problemId: string;
   score: number;
-  sourceStoragePrefix: string;
-  sourceCode?: string;
+  sourceCode: string;
   userId: string;
 }
 
 export async function listSubmissionsForCheck(
   target: PlagiarismTarget,
 ): Promise<PlagiarismSubmission[]> {
-  return submissionRepo.findForPlagiarism({
+  const rows = await submissionRepo.findForPlagiarism({
     ...plagiarismTargetFilter(target),
     status: "accepted",
   });
+  return Promise.all(
+    rows.map(async (row): Promise<PlagiarismSubmission> => {
+      const sources = await getSubmissionSources(row.id);
+      const merged = sources
+        .slice()
+        .sort((a, b) => a.path.localeCompare(b.path))
+        .map((s) => `// === ${s.path} ===\n${s.content}`)
+        .join("\n");
+      return {
+        id: row.id,
+        userId: row.userId,
+        problemId: row.problemId,
+        language: row.language,
+        score: row.score,
+        sourceCode: merged,
+      };
+    }),
+  );
 }
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
