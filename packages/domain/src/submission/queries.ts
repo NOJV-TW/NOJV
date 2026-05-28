@@ -290,12 +290,19 @@ export async function listProblemSubmissions(
   );
 
   return submissions.map((s, idx) => {
-    // status is validated to surface enum-column corruption.
-    submissionVerdictSchema.parse(s.status);
+    // status is validated to surface enum-column corruption AND used as the
+    // fallback verdict when the detail blob is missing/malformed.
+    const verdict = submissionVerdictSchema.parse(s.status);
+    // Detail blob may be absent (partial purge, read-after-write window) or
+    // schema-invalid; degrade to a row-status-only summary instead of 500'ing
+    // the whole list. `safeParse` keeps blob drift non-fatal.
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
     // Always strip staffFeedback — this surface is the user's own submission
     // history in a problem panel and never has a staff viewer.
-    const raw = detailBlobs[idx];
-    const result = stripStaffFeedback(submissionResultSchema.parse(raw));
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
 
     return {
@@ -306,6 +313,25 @@ export async function listProblemSubmissions(
       context: deriveSubmissionContextKind(s),
     };
   });
+}
+
+/**
+ * Synthesized `SubmissionResult` for rows whose verdict-detail blob is missing
+ * or schema-invalid. The DB row's `status` (already filtered to terminal
+ * verdicts and re-parsed for safety) carries the verdict; case breakdowns and
+ * runtime stats are omitted so the row still renders without pretending we
+ * know per-case results.
+ */
+export function fallbackResultForRow(
+  verdict: ReturnType<typeof submissionVerdictSchema.parse>,
+): SubmissionResult {
+  return {
+    accepted: verdict === "accepted",
+    feedback: "Verdict details unavailable.",
+    runtimeMs: 0,
+    score: verdict === "accepted" ? 100 : 0,
+    verdict,
+  };
 }
 
 // Contest wins over assignment — a submission carrying a contestId is always

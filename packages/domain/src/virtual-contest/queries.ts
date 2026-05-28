@@ -9,7 +9,7 @@ import {
 
 import { problemLetter } from "../shared/problem-letter";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
-import { getVerdictDetail } from "../submission/queries";
+import { fallbackResultForRow, getVerdictDetail } from "../submission/queries";
 import { stripStaffFeedback } from "../submission/scoring";
 import {
   buildScoreboard,
@@ -323,9 +323,18 @@ export async function listVirtualContestProblemSubmissions(
   );
 
   return submissions.map((s, idx) => {
-    submissionVerdictSchema.parse(s.status);
+    // status is validated AND used as the fallback verdict when the detail
+    // blob is missing/malformed.
+    const verdict = submissionVerdictSchema.parse(s.status);
+    // Detail blob may be absent (partial purge, read-after-write window) or
+    // schema-invalid; degrade to a row-status-only summary instead of 500'ing
+    // the whole list.
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
     // Personal virtual run — viewer is always the submitter, never a staff viewer.
-    const result = stripStaffFeedback(submissionResultSchema.parse(detailBlobs[idx]));
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,
