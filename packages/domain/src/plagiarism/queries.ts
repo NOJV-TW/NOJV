@@ -17,12 +17,17 @@ import { toJsonValue } from "../shared/to-json-value";
 import { getSubmissionSources } from "../submission/queries";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
+// Source bytes live in object storage; the MOSS pipeline (W2.B) hydrates them
+// from `sourceStoragePrefix` before feeding Dolos. The legacy `sourceCode`
+// field is left optional so the wire shape compiles until the W2.B rewrite
+// lands; consumers that still read it will see undefined post-W1.
 export interface PlagiarismSubmission {
   id: string;
   language: string;
   problemId: string;
   score: number;
-  sourceCode: string;
+  sourceStoragePrefix: string;
+  sourceCode?: string;
   userId: string;
 }
 

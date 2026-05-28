@@ -31,12 +31,50 @@ vi.mock("@nojv/storage", async (importOriginal) => {
       }
       return value;
     },
+    listByPrefix: async (_client: unknown, prefix: string) => {
+      return Array.from(testBlobs.keys()).filter((k) => k.startsWith(prefix));
+    },
     deleteBlob: async (_client: unknown, key: string) => {
       testBlobs.delete(key);
     },
     deleteBlobsByPrefix: async (_client: unknown, prefix: string) => {
       for (const key of Array.from(testBlobs.keys())) {
         if (key.startsWith(prefix)) testBlobs.delete(key);
+      }
+    },
+    // The submission helpers call their own module-local putText/getText/listByPrefix
+    // bindings; vi.mock only rewrites the @nojv/storage barrel exports, so we
+    // re-implement the helpers directly against testBlobs.
+    putSubmissionSources: async (
+      _client: unknown,
+      submissionId: string,
+      sources: readonly { path: string; content: string }[],
+    ) => {
+      for (const s of sources) {
+        testBlobs.set(`submissions/${submissionId}/sources/${s.path}`, s.content);
+      }
+    },
+    getSubmissionSources: async (_client: unknown, submissionId: string) => {
+      const prefix = `submissions/${submissionId}/sources/`;
+      const keys = Array.from(testBlobs.keys())
+        .filter((k) => k.startsWith(prefix))
+        .sort();
+      return keys.map((key) => ({
+        path: key.slice(prefix.length),
+        content: testBlobs.get(key)!,
+      }));
+    },
+    putVerdictDetail: async (_client: unknown, submissionId: string, detail: unknown) => {
+      testBlobs.set(`submissions/${submissionId}/verdict-detail.json`, JSON.stringify(detail));
+    },
+    getVerdictDetail: async (_client: unknown, submissionId: string) => {
+      const v = testBlobs.get(`submissions/${submissionId}/verdict-detail.json`);
+      return v === undefined ? null : JSON.parse(v);
+    },
+    deleteSubmissionStorage: async (_client: unknown, submissionId: string) => {
+      const prefix = `submissions/${submissionId}/`;
+      for (const k of Array.from(testBlobs.keys())) {
+        if (k.startsWith(prefix)) testBlobs.delete(k);
       }
     },
   };

@@ -27,6 +27,11 @@ enum SubmissionStatus {
   memory_limit_exceeded
   runtime_error
   compile_error
+  /// Terminal failure for submissions the worker can't grade — e.g. storage
+  /// write failed after the row committed, so the queued row points at a
+  /// nonexistent source prefix. Surfaced to the user as a non-graded
+  /// platform fault so they can resubmit.
+  system_error
 }
 
 /// Submission "mode" is derived on-demand from the FK shape:

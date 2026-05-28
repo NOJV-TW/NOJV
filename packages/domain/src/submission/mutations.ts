@@ -14,8 +14,15 @@ import {
   validateRequiredPaths,
   type SubmissionDraft,
   type SubmissionResult,
+  type VerdictSummary,
 } from "@nojv/core";
-import { putSubmissionSources, submissionSourcePrefix } from "@nojv/storage";
+import {
+  getVerdictDetail as storageGetVerdictDetail,
+  putSubmissionSources,
+  putVerdictDetail,
+  submissionSourcePrefix,
+  submissionVerdictDetailKey,
+} from "@nojv/storage";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
@@ -293,16 +300,65 @@ export async function updateSubmissionStatus(
   await submissionRepo.updateStatus(submissionId, status);
 }
 
+// Verdicts the summary tallies directly; anything else falls into `other`.
+const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
+
+export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
+  const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
+  for (const c of result.caseResults ?? []) {
+    const v = c.verdict.toUpperCase();
+    if (SUMMARY_VERDICTS.has(v)) {
+      if (v === "AC") caseSummary.ac += 1;
+      else if (v === "WA") caseSummary.wa += 1;
+      else if (v === "TLE") caseSummary.tle += 1;
+      else if (v === "MLE") caseSummary.mle += 1;
+      else if (v === "RE") caseSummary.re += 1;
+    } else {
+      caseSummary.other += 1;
+    }
+  }
+
+  const summary: VerdictSummary = { caseSummary };
+
+  if (result.subtaskResults && result.subtaskResults.length > 0) {
+    summary.subtaskSummary = result.subtaskResults.map((s) => ({
+      id: s.testcaseSetId,
+      // SubtaskResultItem carries `passed`/`weight` but not a numeric score —
+      // surface weight when passed, 0 otherwise so the UI sees a per-subtask
+      // breakdown without loading the full detail blob.
+      score: s.passed ? s.weight : 0,
+    }));
+  }
+
+  // compilerOutput lives on the full result; the schema exposes it via `feedback`
+  // when verdict is compile_error. Truncate to 1 KB so the summary stays small.
+  if (result.verdict === "compile_error" && result.feedback) {
+    summary.compilerErrorTruncated = result.feedback.slice(0, 1024);
+  }
+
+  return summary;
+}
+
 export async function completeJudge(
   submissionId: string,
   result: SubmissionResult,
 ): Promise<CompletedSubmission> {
+  // Write the heavy detail blob first; if storage fails the DB row stays in
+  // its prior state and the worker retry path re-runs `completeJudge` from
+  // the unchanged judge output. Doing the DB write first would leave a row
+  // marked AC with no detail blob — a state the read path can't distinguish
+  // from "judge hasn't finished yet".
+  await putVerdictDetail(storage(), submissionId, result);
+
+  const verdictSummary = deriveVerdictSummary(result);
+
   const submission = await submissionRepo.complete(submissionId, {
     runtimeMs: result.runtimeMs,
     ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
     score: result.score,
     status: result.verdict,
-    verdictDetail: toJsonValue(result),
+    verdictSummary: toJsonValue(verdictSummary),
+    verdictDetailStorageKey: submissionVerdictDetailKey(submissionId),
   });
 
   return {
@@ -341,12 +397,19 @@ export async function snapshotForRejudge(
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
+  // The audit log needs the FULL pre-rejudge result, not just the summary —
+  // pull the detail blob from storage if it was ever written. Null when the
+  // submission never reached a terminal state.
+  const oldDetail = current.verdictDetailStorageKey
+    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
+    : null;
+
   const row = await submissionRejudgeLogRepo.create({
     submissionId,
     rejudgedByUserId: triggeredByUserId,
     oldVerdict: current.status,
     oldScore: current.score,
-    oldResultJson: current.verdictDetail === null ? null : toJsonValue(current.verdictDetail),
+    oldResultJson: oldDetail === null ? null : toJsonValue(oldDetail),
   });
 
   return { logId: row.id, oldStatus: current.status };
@@ -360,9 +423,13 @@ export async function finalizeRejudgeLog(
   const updated = await submissionRepo.findById(submissionId);
   if (!updated) return;
 
+  const newDetail = updated.verdictDetailStorageKey
+    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
+    : null;
+
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,
-    newResultJson: updated.verdictDetail === null ? null : toJsonValue(updated.verdictDetail),
+    newResultJson: newDetail === null ? null : toJsonValue(newDetail),
   });
 }

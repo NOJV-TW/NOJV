@@ -33,6 +33,12 @@ export function normalizeSubmissionSources(
     }
   } else {
     void problem;
+    // `sourceCode` is optional on the schema (rejudge dispatches omit it), but
+    // inbound POST without sourceFiles must carry it. Reject empty so a stray
+    // rejudge-shaped payload can't sneak through and write an empty file.
+    if (!payload.sourceCode) {
+      throw new ConflictError("Submission missing source content.");
+    }
     const path = entryFileNameFor(payload.language);
     submissionSourceKey(submissionId, path);
     sources.push({ path, content: payload.sourceCode });

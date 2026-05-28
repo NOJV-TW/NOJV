@@ -9,6 +9,7 @@ import {
 
 import { problemLetter } from "../shared/problem-letter";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { getVerdictDetail } from "../submission/queries";
 import { stripStaffFeedback } from "../submission/scoring";
 import {
   buildScoreboard,
@@ -314,10 +315,17 @@ export async function listVirtualContestProblemSubmissions(
     virtualContestId,
   });
 
-  return submissions.map((s) => {
+  // Verdict detail lives in object storage; pull each row's blob in parallel.
+  const detailBlobs = await Promise.all(
+    submissions.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  return submissions.map((s, idx) => {
     submissionVerdictSchema.parse(s.status);
     // Personal virtual run — viewer is always the submitter, never a staff viewer.
-    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
+    const result = stripStaffFeedback(submissionResultSchema.parse(detailBlobs[idx]));
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,

@@ -11,6 +11,7 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
+import { getVerdictDetail } from "../submission/queries";
 import { stripStaffFeedback } from "../submission/scoring";
 
 function letterForIndex(index: number): string {
@@ -95,7 +96,7 @@ export async function getExamProblemView(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true,
+        verdictDetailStorageKey: true,
       },
       take: 50,
     }),
@@ -107,10 +108,18 @@ export async function getExamProblemView(options: {
     }),
   ]);
 
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
+  // Verdict detail lives in object storage; pull each row's blob in parallel.
+  // The query already caps at 50 rows, so the fan-out is bounded.
+  const detailBlobs = await Promise.all(
+    submissionRows.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
     submissionVerdictSchema.parse(s.status);
     // User's own submissions in their own exam — never a staff viewer here.
-    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
+    const result = stripStaffFeedback(submissionResultSchema.parse(detailBlobs[idx]));
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,
@@ -199,7 +208,7 @@ export async function getExamProblemViewByProblemId(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true,
+        verdictDetailStorageKey: true,
       },
       take: 50,
     }),
@@ -211,10 +220,17 @@ export async function getExamProblemViewByProblemId(options: {
     }),
   ]);
 
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
+  // Verdict detail lives in object storage; pull each row's blob in parallel.
+  const detailBlobs = await Promise.all(
+    submissionRows.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
     submissionVerdictSchema.parse(s.status);
     // User's own submissions in their own exam — never a staff viewer here.
-    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
+    const result = stripStaffFeedback(submissionResultSchema.parse(detailBlobs[idx]));
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,

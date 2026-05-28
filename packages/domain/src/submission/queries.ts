@@ -14,9 +14,11 @@ import {
   type Runtime,
   type SubmissionDraft,
   type SubmissionMode,
+  type SubmissionResult,
 } from "@nojv/core";
 import {
   getSubmissionSources as storageGetSubmissionSources,
+  getVerdictDetail as storageGetVerdictDetail,
   type SubmissionSource,
 } from "@nojv/storage";
 import { z } from "zod";
@@ -78,6 +80,16 @@ export async function getSubmissionSources(submissionId: string): Promise<Submis
 }
 
 /**
+ * Lazy-load the full verdict detail blob (case results, compiler output) for
+ * one submission. Returns `null` for pre-terminal submissions or when the
+ * blob was never written. The summary on the DB row is the right fit for list
+ * views; this is for the detail surface that renders the case-by-case table.
+ */
+export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult | null> {
+  return storageGetVerdictDetail<SubmissionResult>(storage(), submissionId);
+}
+
+/**
  * Full detail payload for the submission dashboard page.
  *
  * Access rule:
@@ -101,11 +113,15 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   }
 
   const language = languageSchema.parse(submission.language);
-  submissionVerdictSchema.parse(submission.status);
+  // status may be a terminal verdict OR `system_error` / pre-terminal — we
+  // intentionally don't parse it through `submissionVerdictSchema` here; the
+  // schema-narrowed `result` field below is what carries verdict semantics.
 
-  // Pre-terminal submissions (queued/compiling/running) have no verdictDetail.
-  const parsedResult = submissionResultSchema.safeParse(submission.verdictDetail);
-  const rawResult = parsedResult.success ? parsedResult.data : null;
+  // Pre-terminal submissions (queued/compiling/running) have no verdict detail.
+  // Detail lives in object storage; pull it lazily when the key is set.
+  const rawResult = submission.verdictDetailStorageKey
+    ? await getVerdictDetail(submissionId)
+    : null;
   // Staff-only operator messages must NEVER reach a non-staff payload — strip
   // server-side so "View Source" cannot recover them. Owners viewing their own
   // submission are NOT staff for this gate (viewerIsStaff is false when isOwner).
@@ -264,12 +280,22 @@ export async function listProblemSubmissions(
     ...(contestId ? { contestId } : {}),
   });
 
-  return submissions.map((s) => {
-    // verdictDetail is the sole source of truth; `s.status` is validated to surface enum-column corruption.
+  // The submission history panel renders per-case + per-subtask detail, so we
+  // need the full SubmissionResult per row. Storage reads run in parallel and
+  // the list is capped at 50 (`listByUserAndProblem` `take` default).
+  const detailBlobs = await Promise.all(
+    submissions.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  return submissions.map((s, idx) => {
+    // status is validated to surface enum-column corruption.
     submissionVerdictSchema.parse(s.status);
     // Always strip staffFeedback — this surface is the user's own submission
     // history in a problem panel and never has a staff viewer.
-    const result = stripStaffFeedback(submissionResultSchema.parse(s.verdictDetail));
+    const raw = detailBlobs[idx];
+    const result = stripStaffFeedback(submissionResultSchema.parse(raw));
     const language = languageSchema.parse(s.language);
 
     return {
@@ -500,17 +526,14 @@ export async function listForRejudge(input: {
 
   const submissions = await submissionRepo.findForRejudge(where);
 
-  // Sources live in object storage now and are loaded by the worker at
-  // sandbox time; the draft only needs identity + language + sample flag.
-  // `sourceCode` carries an empty placeholder to satisfy the wire type —
-  // it is overwritten by `executeSandbox` before reaching the executor.
+  // Sources live in object storage and are loaded by the worker at sandbox
+  // time; the draft only needs identity + language + sample flag.
   return submissions.map((s) => ({
     submissionId: s.id,
     draft: {
       language: s.language,
       problemId: s.problemId,
       sampleOnly: s.sampleOnly,
-      sourceCode: "",
     },
   }));
 }
@@ -526,8 +549,6 @@ export async function findOneForRejudge(
       language: submission.language,
       problemId: submission.problemId,
       sampleOnly: submission.sampleOnly,
-      // Placeholder — `executeSandbox` re-loads sources from storage.
-      sourceCode: "",
     },
   };
 }
