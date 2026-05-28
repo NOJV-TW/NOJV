@@ -68,6 +68,8 @@ export interface SandboxTestcaseResult {
   memoryKb?: number;
   score?: number;
   feedback?: string;
+  // Operator/staff-only feedback (DOMjudge `judgemessage.txt`); never sent to students.
+  staffFeedback?: string;
 }
 
 /**
