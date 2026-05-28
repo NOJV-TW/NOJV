@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import archiver from "archiver";
-import { Open, type File as ZipFile } from "unzipper";
+import { Open, type Entry as ZipEntry, type File as ZipFile } from "unzipper";
 
 import type { Prisma } from "@nojv/db";
 import {
@@ -20,15 +20,16 @@ import { requireProblem } from "../shared/require";
 import {
   bestEffortDeleteCheckerScriptBlob,
   bestEffortDeleteInteractorScriptBlob,
-  bestEffortDeleteProblemStandardBlobs,
 } from "./blobs";
 import { assertProblemEditAccess, type ProblemActorContext } from "./permissions";
-import { assertProblemStorageBudget } from "./storage-budget";
+import { PROBLEM_STORAGE_BUDGET_BYTES } from "./storage-budget";
 
 import {
   checkerKey as checkerKeyFor,
+  deleteBlob,
   getText,
   interactorKey as interactorKeyFor,
+  listByPrefix,
   putText,
   testcaseInputKey,
   testcaseOutputKey,
@@ -116,9 +117,16 @@ function extOf(name: string): string {
 
 /**
  * Parse + validate a zip buffer into the four bundle sections. Pure: no
- * S3 or DB calls. Caller enforces problem-edit access and the storage
- * budget BEFORE invoking this so unauthorised uploads short-circuit
- * before we spend memory unzipping.
+ * S3 or DB calls. Caller enforces problem-edit access BEFORE invoking
+ * this so unauthorised uploads short-circuit before we spend memory
+ * unzipping.
+ *
+ * Size enforcement is per-entry STREAMING, not central-directory-trust:
+ * the `File.uncompressedSize` field comes straight from the zip's central
+ * directory and is attacker-controlled. A deflate bomb can declare 1 byte
+ * per entry while each stream actually inflates to 100 MB. We therefore
+ * read each entry as a stream, accumulate inflated bytes as they arrive,
+ * and abort the moment cumulative bytes exceed the 50 MB cap.
  */
 async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
   let archive;
@@ -138,14 +146,6 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
     );
   }
 
-  let total = 0;
-  for (const f of fileEntries) total += f.uncompressedSize;
-  if (total > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
-    throw new ConflictError(
-      `Bundle exceeds ${String(MAX_BUNDLE_UNCOMPRESSED_BYTES)} bytes uncompressed (${String(total)}).`,
-    );
-  }
-
   // Validate every path BEFORE reading any content so a malicious entry
   // can't trigger I/O before we reject it.
   for (const entry of fileEntries) {
@@ -158,9 +158,12 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
   const workspace: BundleWorkspaceFile[] = [];
   let checker: BundleValidatorScript | null = null;
   let interactor: BundleValidatorScript | null = null;
+  let runningBytes = 0;
 
   for (const entry of fileEntries) {
-    const buf = await readEntry(entry);
+    const remaining = MAX_BUNDLE_UNCOMPRESSED_BYTES - runningBytes;
+    const buf = await readEntryBounded(entry, remaining);
+    runningBytes += buf.byteLength;
     const text = buf.toString("utf8");
 
     const testcaseMatch = /^testcases\/(\d+)\/(input|answer)\.txt$/.exec(entry.path);
@@ -218,11 +221,72 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
     });
   }
 
-  return { testcases, workspace, checker, interactor, totalBytes: total };
+  return { testcases, workspace, checker, interactor, totalBytes: runningBytes };
 }
 
-async function readEntry(entry: ZipFile): Promise<Buffer> {
-  return entry.buffer();
+/**
+ * Stream a single zip entry into a Buffer, aborting once `maxBytes` of
+ * INFLATED data have flowed past. Treats `File.uncompressedSize` as
+ * advisory only — the cap is enforced on the actual inflated stream so a
+ * deflate bomb (small declared size, large compressed-stream output)
+ * cannot OOM the worker.
+ *
+ * On budget overrun we reject, then call `autodrain` to release the
+ * inflater pipeline so the per-entry zlib state can be GC'd promptly.
+ */
+async function readEntryBounded(entry: ZipFile, maxBytes: number): Promise<Buffer> {
+  if (maxBytes <= 0) {
+    throw new ConflictError(
+      `Bundle exceeds ${String(MAX_BUNDLE_UNCOMPRESSED_BYTES)} bytes uncompressed.`,
+    );
+  }
+  const stream: ZipEntry = entry.stream();
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    let settled = false;
+
+    const onData = (chunk: Buffer): void => {
+      if (settled) return;
+      total += chunk.length;
+      if (total > maxBytes) {
+        settled = true;
+        // Drain remaining bytes so the underlying zlib stream releases
+        // its buffers; ignore drain errors since we've already rejected.
+        try {
+          void stream
+            .autodrain()
+            .promise()
+            .catch(() => {
+              // swallow drain errors — we've already rejected the parse
+            });
+        } catch {
+          // autodrain may throw synchronously on a closed stream; ignore.
+        }
+        reject(
+          new ConflictError(
+            `Bundle entry "${entry.path}" pushes inflated total past ${String(MAX_BUNDLE_UNCOMPRESSED_BYTES)} bytes.`,
+          ),
+        );
+        return;
+      }
+      chunks.push(chunk);
+    };
+    const onEnd = (): void => {
+      if (settled) return;
+      settled = true;
+      resolve(Buffer.concat(chunks));
+    };
+    const onError = (err: Error): void => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
+
+    stream.on("data", onData);
+    stream.on("end", onEnd);
+    stream.on("error", onError);
+  });
 }
 
 /**
@@ -236,15 +300,24 @@ async function readEntry(entry: ZipFile): Promise<Buffer> {
  *   interactor.<cpp|py>
  *
  * Replacement is wholesale: every existing testcase set / workspace file is
- * dropped before the new rows are written. S3 puts happen AFTER the DB
- * transaction commits — matching the project-wide "DB is the source of
- * truth, blobs are best-effort" convention for replace flows. A failed S3
- * put leaves the DB pointing at keys that don't yet exist; the next read
- * will surface a NoSuchKey error which the caller MUST handle.
+ * dropped before the new rows are written. Ordering:
  *
- * Old blobs under the standard prefixes (`testcases/`, `workspace/`,
- * `validator/`) are swept best-effort after the new puts finish, so the
- * problem ends in a clean state on success.
+ *   1. enumerate old testcase/workspace keys (snapshot the pre-state)
+ *   2. write every NEW blob (fresh UUIDs → no collision with old keys)
+ *   3. commit DB transaction (rows now point at already-written blobs)
+ *   4. best-effort delete the OLD blobs by individual key
+ *
+ * If step 2 fails partway: DB is untouched, old blobs still live, new
+ * blobs at fresh UUIDs are orphans the cleanup sweep removes.
+ *
+ * If step 3 fails: tx rolls back, DB unchanged, new blobs are orphans.
+ *
+ * If step 4 fails: DB points at the (already-written) new blobs, old
+ * blobs linger and get cleaned later.
+ *
+ * What this ordering prevents (the bug it fixes): a window where the DB
+ * commit lands BEFORE the put completes, during which a judge or edit
+ * loader gets NoSuchKey from S3.
  */
 export async function importBundle(
   actor: ProblemActorContext,
@@ -256,13 +329,17 @@ export async function importBundle(
 
   const parsed = await parseBundle(zipBuffer);
 
-  // Quota check runs against the CURRENT problem prefix usage + the new
-  // bytes. We don't subtract the about-to-be-deleted old bytes here — the
-  // bundle's `totalBytes` is the worst-case headroom after the import
-  // completes (DB delete + S3 sweep happen later). Importing a 40 MB
-  // bundle onto a 30 MB problem rejects, which matches the user-facing
-  // "50 MB per problem" promise.
-  await assertProblemStorageBudget(problemId, parsed.totalBytes);
+  // Bundle import is a wholesale REPLACE of testcase + workspace blobs,
+  // so the budget check is a post-state ceiling, not a current+delta sum.
+  // Using `assertProblemStorageBudget` here would reject any re-import on
+  // a problem currently near the cap (it adds new bytes on top of current
+  // usage, but the current usage is about to be removed). The 50 MB cap
+  // still applies to the bundle's own inflated size.
+  if (parsed.totalBytes > PROBLEM_STORAGE_BUDGET_BYTES) {
+    throw new ConflictError(
+      `Bundle exceeds ${String(PROBLEM_STORAGE_BUDGET_BYTES)} bytes per-problem cap.`,
+    );
+  }
 
   // Pre-allocate ids so we can compute stable S3 keys before either the
   // DB write OR the storage put. Mirrors the pattern in `updateProblem-
@@ -318,6 +395,51 @@ export async function importBundle(
     seenWorkspace.add(key);
   }
 
+  const client = getClient();
+
+  // Phase 1a: snapshot the OLD keys so we can delete them individually
+  // after the DB commit. We can't `deleteBlobsByPrefix` after the commit
+  // because the prefix now contains the just-written new blobs too.
+  const newKeySet = new Set<string>();
+  for (const t of preparedTestcases) {
+    newKeySet.add(t.inputKey);
+    if (t.outputKey !== null) newKeySet.add(t.outputKey);
+  }
+  for (const w of preparedWorkspace) {
+    newKeySet.add(w.contentKey);
+  }
+  const oldStandardKeys: string[] = [];
+  const [oldTestcaseKeys, oldWorkspaceKeys] = await Promise.all([
+    listByPrefix(client, `problems/${problemId}/testcases/`),
+    listByPrefix(client, `problems/${problemId}/workspace/`),
+  ]);
+  for (const k of oldTestcaseKeys) if (!newKeySet.has(k)) oldStandardKeys.push(k);
+  for (const k of oldWorkspaceKeys) if (!newKeySet.has(k)) oldStandardKeys.push(k);
+
+  // Phase 1b: stage every new blob. Random UUIDs mean these CANNOT
+  // collide with any existing testcase/workspace key. Checker/interactor
+  // keys ARE stable per-problem, so a put here overwrites the old body
+  // in place — that's fine because the DB key reference is unchanged.
+  const stagedPuts: Promise<unknown>[] = [];
+  for (const t of preparedTestcases) {
+    stagedPuts.push(putText(client, t.inputKey, t.input));
+    if (t.outputKey !== null && t.output !== null) {
+      stagedPuts.push(putText(client, t.outputKey, t.output));
+    }
+  }
+  for (const w of preparedWorkspace) {
+    stagedPuts.push(putText(client, w.contentKey, w.content));
+  }
+  if (parsed.checker) {
+    stagedPuts.push(putText(client, checkerKeyFor(problemId), parsed.checker.content));
+  }
+  if (parsed.interactor) {
+    stagedPuts.push(putText(client, interactorKeyFor(problemId), parsed.interactor.content));
+  }
+  await Promise.all(stagedPuts);
+
+  // Phase 2: commit the DB transaction. Rows now reference blobs that are
+  // already in S3 — no NoSuchKey window for concurrent readers.
   const result = await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
 
@@ -395,32 +517,24 @@ export async function importBundle(
     };
   });
 
-  // DB committed — sweep the OLD blobs (testcases + workspace files) so
-  // they can't drift past the new ids. Then write the new ones. We don't
-  // do this in reverse (new puts first, then sweep) because the new keys
-  // are random UUIDs and cannot collide with the just-deleted ones.
-  await bestEffortDeleteProblemStandardBlobs(problemId);
-  if (!parsed.checker) await bestEffortDeleteCheckerScriptBlob(problemId);
-  if (!parsed.interactor) await bestEffortDeleteInteractorScriptBlob(problemId);
-
-  const client = getClient();
-  const puts: Promise<unknown>[] = [];
-  for (const t of preparedTestcases) {
-    puts.push(putText(client, t.inputKey, t.input));
-    if (t.outputKey !== null && t.output !== null) {
-      puts.push(putText(client, t.outputKey, t.output));
-    }
-  }
-  for (const w of preparedWorkspace) {
-    puts.push(putText(client, w.contentKey, w.content));
-  }
-  if (parsed.checker) {
-    puts.push(putText(client, checkerKeyFor(problemId), parsed.checker.content));
-  }
-  if (parsed.interactor) {
-    puts.push(putText(client, interactorKeyFor(problemId), parsed.interactor.content));
-  }
-  await Promise.all(puts);
+  // Phase 3: DB committed — best-effort delete the OLD blobs by
+  // individual key. We CANNOT prefix-delete here because the prefix now
+  // contains the just-written new blobs as well; the `oldStandardKeys`
+  // snapshot taken before the puts captures only stale keys.
+  const cleanupDeletes: Promise<unknown>[] = oldStandardKeys.map((key) =>
+    deleteBlob(client, key).catch((err: unknown) => {
+      console.warn(
+        `[problem-bundle] orphan S3 blob after import: problemId=${problemId} key=${key}`,
+        err,
+      );
+    }),
+  );
+  // Checker/interactor keys are stable per-problem, so the new put (if
+  // any) already overwrote the old body in place. We only delete when the
+  // new bundle explicitly drops that validator.
+  if (!parsed.checker) cleanupDeletes.push(bestEffortDeleteCheckerScriptBlob(problemId));
+  if (!parsed.interactor) cleanupDeletes.push(bestEffortDeleteInteractorScriptBlob(problemId));
+  await Promise.all(cleanupDeletes);
 
   return result;
 }
