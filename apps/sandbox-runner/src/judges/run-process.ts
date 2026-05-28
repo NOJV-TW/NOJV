@@ -101,7 +101,7 @@ export function runProcess(
       const execFailed =
         isWrapped &&
         (code === 126 || code === 127) &&
-        /exec: .*: cannot execute/.test(rawStderr);
+        /exec: .*: (cannot execute|not found)/.test(rawStderr);
       const stderr = execFailed ? `Failed to spawn process: ${rawStderr}` : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
