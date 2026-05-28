@@ -1,4 +1,4 @@
-import type { SandboxResult, SubmissionResult } from "@nojv/core";
+import type { CaseResult, SandboxResult, SubmissionResult } from "@nojv/core";
 
 import { applyAdjustmentRules } from "./adjustments";
 import type { SubmissionJudgeContext, TestcaseSetGroup, SubtaskStrategyMap } from "./types";
@@ -226,5 +226,34 @@ export function mapResult(
     score,
     subtaskResults,
     verdict: "runtime_error" as const,
+  };
+}
+
+/**
+ * Drop the operator-only `staffFeedback` channel from every per-case result so
+ * it never reaches a non-staff viewer. Must run server-side before the payload
+ * is serialized to the client — a "hidden in CSS" gate would still leak via
+ * "View Source".
+ */
+export function stripStaffFeedback(result: SubmissionResult): SubmissionResult {
+  const stripCase = (c: CaseResult): CaseResult => {
+    if (c.staffFeedback === undefined) return c;
+    const copy: CaseResult = { ...c };
+    delete copy.staffFeedback;
+    return copy;
+  };
+  return {
+    ...result,
+    ...(result.caseResults !== undefined
+      ? { caseResults: result.caseResults.map(stripCase) }
+      : {}),
+    ...(result.subtaskResults !== undefined
+      ? {
+          subtaskResults: result.subtaskResults.map((s) => ({
+            ...s,
+            cases: s.cases.map(stripCase),
+          })),
+        }
+      : {}),
   };
 }

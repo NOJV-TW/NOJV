@@ -1790,6 +1790,7 @@
   "submissionDetail_contextContest": "屬於競賽：{contestTitle}",
   "submissionDetail_contextExam": "屬於考試：{examTitle}．{courseTitle}",
   "submissionDetail_feedback": "判題回饋",
+  "submissionDetail_staffFeedback": "教師專屬判題訊息",
   "submissionDetail_language": "語言",
   "submissionDetail_memory": "記憶體",
   "submissionDetail_noCaseResults": "此次提交沒有可顯示的逐案結果。",

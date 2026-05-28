@@ -263,7 +263,10 @@
           <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_perCaseBreakdown()}
           </h2>
-          <CaseResultGrid cases={caseResults} allowExpand={submission.sampleOnly} />
+          <CaseResultGrid
+            cases={caseResults}
+            allowExpand={submission.sampleOnly || submission.viewerIsStaff}
+          />
         </div>
       {:else if result && !isPending}
         <p

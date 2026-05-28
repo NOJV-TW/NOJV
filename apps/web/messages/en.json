@@ -1790,6 +1790,7 @@
   "submissionDetail_contextContest": "Submitted in contest {contestTitle}",
   "submissionDetail_contextExam": "Submitted in exam {examTitle} · {courseTitle}",
   "submissionDetail_feedback": "Feedback",
+  "submissionDetail_staffFeedback": "Staff-only feedback",
   "submissionDetail_language": "Language",
   "submissionDetail_memory": "Memory",
   "submissionDetail_noCaseResults": "No per-testcase breakdown is available for this submission.",
