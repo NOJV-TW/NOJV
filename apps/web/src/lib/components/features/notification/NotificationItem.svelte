@@ -3,7 +3,7 @@
   import { getLocale } from "$lib/paraglide/runtime.js";
   import { notifications, type NotificationItem } from "$lib/stores/notifications.svelte";
   import { cn } from "$lib/utils/css.js";
-  import { formatDate } from "$lib/utils/datetime";
+  import { relativeTime } from "$lib/utils/relative-time";
 
   let { item }: { item: NotificationItem } = $props();
 
@@ -33,28 +33,13 @@
     }
   }
 
-  function renderRelative(iso: string): string {
-    const then = new Date(iso).getTime();
-    const now = Date.now();
-    const diff = Math.max(0, now - then);
-    const sec = Math.floor(diff / 1000);
-    if (sec < 60) return `${sec}s ago`;
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m ago`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h ago`;
-    const day = Math.floor(hr / 24);
-    if (day < 7) return `${day}d ago`;
-    return formatDate(iso);
-  }
-
   function handleClick() {
     // Fire-and-forget; does not block navigation.
     void notifications.markOne(item.id);
   }
 
   let text = $derived(renderText(item));
-  let relative = $derived(renderRelative(item.createdAt));
+  let relative = $derived(relativeTime(item.createdAt));
   let commonClass = $derived(
     cn(
       "flex w-full items-start gap-3 border-l-2 px-4 py-3 text-left transition-colors duration-fast ease-out-soft hover:bg-accent",

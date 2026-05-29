@@ -16,12 +16,14 @@ import {
 } from "@nojv/domain";
 
 import { getAuth } from "$lib/auth.server";
+import { examContextCache, pageLockCache } from "$lib/server/exam-context-cache";
 import { createLogger } from "$lib/server/logger";
 import { m } from "$lib/paraglide/messages.js";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import {
   getActiveExamContext,
   isAllowedPathForExam,
+  isExamForbiddenApiPath,
   resolveExamGateDenial,
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
@@ -79,33 +81,6 @@ function isProfileExempt(pathname: string): boolean {
   const clean = stripLocalePrefix(pathname);
   return PROFILE_EXEMPT_PREFIXES.some((p) => clean.startsWith(p));
 }
-
-/** Bounded FIFO/LRU memoizer for per-user lock lookups: stale entries at
- *  most delay a freshly-released user from leaving the locked surface. */
-function createTtlCache<T>(ttlMs: number, maxEntries: number) {
-  const store = new Map<string, { value: T; expiresAt: number }>();
-  return {
-    async getOrLoad(key: string, load: () => Promise<T>): Promise<T> {
-      const now = Date.now();
-      const hit = store.get(key);
-      if (hit && hit.expiresAt > now) return hit.value;
-
-      const value = await load();
-
-      // Re-inserting on set promotes to the tail; first key is the oldest.
-      store.delete(key);
-      if (store.size >= maxEntries) {
-        const oldest = store.keys().next().value;
-        if (oldest != null) store.delete(oldest);
-      }
-      store.set(key, { value, expiresAt: now + ttlMs });
-      return value;
-    },
-  };
-}
-
-const pageLockCache = createTtlCache<PageLockedContext | null>(30_000, 10_000);
-const examContextCache = createTtlCache<ActiveExamContext | null>(30_000, 10_000);
 
 function isPageLockExempt(pathname: string): boolean {
   return (
@@ -364,6 +339,16 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
           message:
             denial.scope === "all" ? m.examShell_ipBlocked() : m.examShell_examUnavailable(),
           code: denial.code,
+        });
+      }
+
+      if (isExamForbiddenApiPath(cleanPath)) {
+        return denyExamGate({
+          cleanPath,
+          requestId: event.locals.requestId,
+          status: 403,
+          message: m.examShell_examUnavailable(),
+          code: "exam_api_scope",
         });
       }
     }

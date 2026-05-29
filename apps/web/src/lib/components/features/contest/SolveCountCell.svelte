@@ -31,7 +31,7 @@
     {#if isFirstBlood}
       <span
         class="absolute -top-1 -right-1 inline-grid place-items-center size-3.5 rounded-full text-[8px] font-bold"
-        style="background: #d4a054; color: white;"
+        style="background: var(--chart-4); color: white;"
         title={m.contestDetail_firstBlood()}
       >
         ★

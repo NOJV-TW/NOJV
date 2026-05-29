@@ -16,12 +16,16 @@ import {
   HttpError,
   listExamIpViolations,
   plagiarismDomain,
+  proctoringDomain,
   scoreOverrideDomain,
   userDomain,
 } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
+import { invalidateExamContextCaches } from "$lib/server/exam-context-cache";
+import { getClientIp } from "$lib/server/shared/client-ip";
+import { createLogger } from "$lib/server/logger";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -36,6 +40,8 @@ const {
   publishExam,
   updateExamRecord,
 } = examDomain;
+
+const logger = createLogger("exam-page-action");
 
 function parseWhitelist(text: string): string[] {
   return text
@@ -194,15 +200,35 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 export const actions = {
   startExam: withRateLimit(async (event) => {
     const actor = requireAuth(event);
+    const examId = event.params.examId;
+    const clientIp = getClientIp(event);
     try {
-      await examDomain.session.startSessionWithGate(actor, {
-        examId: event.params.examId,
-      });
+      await examDomain.session.startSessionWithGate(actor, { examId });
+      // Pin the IP binding to the start machine now. Otherwise the pin is
+      // deferred to the first gated request, and the stale per-user context
+      // cache (invalidated just below) could let that first request slip in
+      // from a different IP before the gate ever runs.
+      try {
+        await proctoringDomain.checkProctoringGate({
+          entityKind: "exam",
+          entityId: examId,
+          userId: actor.userId,
+          ip: clientIp,
+        });
+      } catch (err) {
+        logger.warn("start-time IP pin failed — hooks gate still enforces", {
+          userId: actor.userId,
+          examId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
     } catch (err) {
       if (err instanceof HttpError) {
         return fail(err.status, { error: err.message });
       }
       throw err;
+    } finally {
+      invalidateExamContextCaches(actor.userId);
     }
     return { success: true };
   }),
@@ -219,6 +245,8 @@ export const actions = {
         return fail(err.status, { error: err.message });
       }
       throw err;
+    } finally {
+      invalidateExamContextCaches(actor.userId);
     }
     return { success: true };
   }),

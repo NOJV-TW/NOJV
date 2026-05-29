@@ -436,7 +436,7 @@
           <span class="flex items-center gap-1.5">
             <span
               class="inline-grid place-items-center size-3.5 rounded-[2px] text-[8px]"
-              style="background: #d4a054; color: white;"
+              style="background: var(--chart-4); color: white;"
             >
               ★
             </span>

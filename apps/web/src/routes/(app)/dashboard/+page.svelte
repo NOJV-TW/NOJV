@@ -16,6 +16,7 @@
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { buildActivityModel } from "$lib/utils/activity";
+  import { relativeTime } from "$lib/utils/relative-time";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
@@ -217,18 +218,6 @@
     ]
   });
 
-  function timeAgo(date: Date | string): string {
-    const now = Date.now();
-    const then = new Date(date).getTime();
-    const diffMs = now - then;
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins} min ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  }
 </script>
 
 <PageContainer class="fade-up">
@@ -438,7 +427,7 @@
             <time
               class="shrink-0 text-caption text-muted-foreground tabular-nums"
             >
-              {timeAgo(sub.createdAt)}
+              {relativeTime(sub.createdAt)}
             </time>
             <VerdictBadge verdict={sub.status} />
             <a

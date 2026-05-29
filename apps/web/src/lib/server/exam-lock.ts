@@ -51,6 +51,12 @@ export async function getActiveExamContext(userId: string): Promise<ActiveExamCo
   return examDomain.session.getActiveSessionContext(userId);
 }
 
+// /api is exempt from the page lock so the exam UI can submit/poll/stream;
+// contest APIs are the one cross-event leak a locked student could script-read.
+export function isExamForbiddenApiPath(cleanPath: string): boolean {
+  return cleanPath.startsWith("/api/contests/");
+}
+
 // `pathname` is already stripped of the paraglide locale prefix.
 export function isAllowedPathForExam(pathname: string, ctx: ActiveExamContext): boolean {
   if (pathname.startsWith("/api/")) return true;
