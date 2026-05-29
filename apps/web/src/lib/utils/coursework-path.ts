@@ -39,9 +39,9 @@ export function deriveAssignmentWindowState({
 
 const windowStateColors: Record<AssignmentWindowState, string> = {
   closed: "text-[color:var(--color-muted-foreground)]",
-  grace: "text-amber-600 dark:text-amber-400",
-  open: "text-emerald-600 dark:text-emerald-400",
-  upcoming: "text-blue-600 dark:text-blue-400",
+  grace: "text-warning",
+  open: "text-success",
+  upcoming: "text-info",
 };
 
 export function windowStateColorClass(state: AssignmentWindowState): string {

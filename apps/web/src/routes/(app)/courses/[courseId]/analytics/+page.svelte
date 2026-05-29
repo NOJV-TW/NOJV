@@ -17,16 +17,52 @@
     return `${Math.round(fraction * 100)}%`;
   }
 
-  const verdictColors: Record<string, string> = {
-    accepted: "#10b981",
-    wrong_answer: "#ef4444",
-    time_limit_exceeded: "#f59e0b",
-    memory_limit_exceeded: "#f97316",
-    runtime_error: "#a855f7",
-    compile_error: "#f59e0b",
-    queued: "#3b82f6",
-    running: "#3b82f6"
+  // ECharts paints to canvas, so it needs resolved color strings rather than
+  // CSS var() references. Read the design tokens at runtime and re-read them
+  // when the theme class flips so the chart tracks light/dark mode.
+  const DEFAULT_VERDICT_COLORS = {
+    success: "#7a8f6d",
+    destructive: "#c4682d",
+    warning: "#d4a054",
+    info: "#4d6f8f",
+    chart2: "#4d6f8f",
+    chart3: "#8a6142",
+    mutedFg: "#6b7280"
   };
+  let tokenColors = $state({ ...DEFAULT_VERDICT_COLORS });
+
+  function resolveTokenColors() {
+    if (typeof window === "undefined") return;
+    const cs = getComputedStyle(document.documentElement);
+    const read = (n: string, fallback: string) => cs.getPropertyValue(n).trim() || fallback;
+    tokenColors = {
+      success: read("--success", DEFAULT_VERDICT_COLORS.success),
+      destructive: read("--destructive", DEFAULT_VERDICT_COLORS.destructive),
+      warning: read("--warning", DEFAULT_VERDICT_COLORS.warning),
+      info: read("--info", DEFAULT_VERDICT_COLORS.info),
+      chart2: read("--chart-2", DEFAULT_VERDICT_COLORS.chart2),
+      chart3: read("--chart-3", DEFAULT_VERDICT_COLORS.chart3),
+      mutedFg: read("--muted-foreground", DEFAULT_VERDICT_COLORS.mutedFg)
+    };
+  }
+
+  $effect(() => {
+    resolveTokenColors();
+    const observer = new MutationObserver(resolveTokenColors);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  });
+
+  const verdictColors = $derived<Record<string, string>>({
+    accepted: tokenColors.success,
+    wrong_answer: tokenColors.destructive,
+    time_limit_exceeded: tokenColors.warning,
+    memory_limit_exceeded: tokenColors.chart3,
+    runtime_error: tokenColors.chart2,
+    compile_error: tokenColors.info,
+    queued: tokenColors.mutedFg,
+    running: tokenColors.mutedFg
+  });
 
   const verdictOption: EChartsOption = $derived({
     tooltip: { trigger: "item" },
@@ -38,7 +74,7 @@
         data: analytics.verdictDistribution.map((entry) => ({
           name: formatVerdictLabel(entry.status),
           value: entry.count,
-          itemStyle: { color: verdictColors[entry.status] ?? "#6b7280" }
+          itemStyle: { color: verdictColors[entry.status] ?? tokenColors.mutedFg }
         }))
       }
     ]

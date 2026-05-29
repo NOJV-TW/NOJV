@@ -46,6 +46,23 @@
     });
   }
 
+  const uid = $props.id();
+
+  function onBottomTabKeydown(e: KeyboardEvent) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const target: "testcase" | "result" =
+      e.key === "Home"
+        ? "testcase"
+        : e.key === "End"
+          ? "result"
+          : tab === "testcase"
+            ? "result"
+            : "testcase";
+    ontabchange(target);
+    document.getElementById(`${uid}-btab-${target}`)?.focus();
+  }
+
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
 
@@ -61,24 +78,40 @@
 
 <div class="flex h-full flex-col">
   <div class="flex items-center border-b border-border-subtle px-2">
-    <button
-      class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab === 'testcase'
-        ? 'border-b-2 border-foreground text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => ontabchange("testcase")}
-      type="button"
-    >
-      {m.editor_testcase()}
-    </button>
-    <button
-      class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab === 'result'
-        ? 'border-b-2 border-foreground text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => ontabchange("result")}
-      type="button"
-    >
-      {m.editor_testResult()}
-    </button>
+    <div role="tablist" aria-label={m.editor_bottomTabsLabel()} class="flex items-center">
+      <button
+        id={`${uid}-btab-testcase`}
+        role="tab"
+        aria-selected={tab === "testcase"}
+        aria-controls={`${uid}-bpanel`}
+        tabindex={tab === "testcase" ? 0 : -1}
+        class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab ===
+        'testcase'
+          ? 'border-b-2 border-foreground text-foreground'
+          : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => ontabchange("testcase")}
+        onkeydown={onBottomTabKeydown}
+        type="button"
+      >
+        {m.editor_testcase()}
+      </button>
+      <button
+        id={`${uid}-btab-result`}
+        role="tab"
+        aria-selected={tab === "result"}
+        aria-controls={`${uid}-bpanel`}
+        tabindex={tab === "result" ? 0 : -1}
+        class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab ===
+        'result'
+          ? 'border-b-2 border-foreground text-foreground'
+          : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => ontabchange("result")}
+        onkeydown={onBottomTabKeydown}
+        type="button"
+      >
+        {m.editor_testResult()}
+      </button>
+    </div>
     {#if draftEnabled}
       <div class="ml-auto flex items-center gap-2 pr-2">
         {#if lastSavedAt == null && !isDirty}
@@ -108,7 +141,12 @@
     {/if}
   </div>
 
-  <div class="flex-1 overflow-y-auto px-4 py-3">
+  <div
+    id={`${uid}-bpanel`}
+    role="tabpanel"
+    aria-labelledby={`${uid}-btab-${tab}`}
+    class="flex-1 overflow-y-auto px-4 py-3 focus-visible:outline-none"
+  >
     {#if tab === "testcase"}
       {#if isReadOnly}
         <p class="py-4 text-body-sm text-muted-foreground">

@@ -42,6 +42,7 @@
         type="button"
       >
         #{idx + 1}
+        <span class="font-semibold uppercase">{cr.verdict}</span>
         <span class="text-muted-foreground">·</span>
         {cr.timeMs}ms
         {#if cr.memoryKb && cr.memoryKb > 0}
@@ -54,6 +55,7 @@
         class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums {cls}"
       >
         #{idx + 1}
+        <span class="font-semibold uppercase">{cr.verdict}</span>
         <span class="text-muted-foreground">·</span>
         {cr.timeMs}ms
         {#if cr.memoryKb && cr.memoryKb > 0}

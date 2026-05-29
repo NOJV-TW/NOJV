@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { Code2 } from "@lucide/svelte";
+  import { Code2, History } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import Section from "$lib/components/primitives/ui/Section.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { formatDateTime } from "$lib/utils/datetime";
@@ -48,29 +49,35 @@
   );
 </script>
 
-<Section>
-  {#snippet header()}
-    <h1 class="text-title-lg">{m.navigation_submissions()}</h1>
-    <p>{m.submissions_workspaceHint()}</p>
-  {/snippet}
+<PageContainer>
+  <div class="space-y-6 fade-up">
+    <PageHeader
+      eyebrow={m.submissionsTop_eyebrow()}
+      title={m.navigation_submissions()}
+      description={m.submissions_workspaceHint()}
+    >
+      {#snippet icon()}
+        <History class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
+      {/snippet}
+    </PageHeader>
 
-  {#if data.submissions.length === 0}
-    <EmptyState
-      variant="onboarding"
-      icon={Code2}
-      title={m.submissions_empty()}
-      description={m.submissions_emptyHint()}
-      actions={[
-        {
-          href: "/problems",
-          label: m.submissions_browseCta(),
-          variant: "default"
-        }
-      ]}
-    />
-  {:else}
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-      <label class="flex items-center gap-2 text-caption text-muted-foreground">
+    {#if data.submissions.length === 0}
+      <EmptyState
+        variant="onboarding"
+        icon={Code2}
+        title={m.submissions_empty()}
+        description={m.submissions_emptyHint()}
+        actions={[
+          {
+            href: "/problems",
+            label: m.submissions_browseCta(),
+            variant: "default"
+          }
+        ]}
+      />
+    {:else}
+      <div class="glass mb-4 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3">
+        <label class="flex items-center gap-2 text-caption text-muted-foreground">
         <span>{m.submissions_filterVerdict()}</span>
         <select
           class="rounded-md border border-border bg-background px-2 py-1 text-body-sm"
@@ -113,7 +120,7 @@
       <div class="grid gap-2">
         {#each filtered as sub (sub.id)}
           <a
-            class="rounded-md border border-border-subtle px-4 py-3 transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-rest"
+            class="glass hover-lift rounded-xl px-5 py-4 no-underline shadow-rest"
             href="/submissions/{sub.id}"
           >
             <div class="flex items-baseline justify-between gap-3">
@@ -141,4 +148,5 @@
       </div>
     {/if}
   {/if}
-</Section>
+  </div>
+</PageContainer>

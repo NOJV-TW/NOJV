@@ -101,6 +101,8 @@
               <CheckCircle2 aria-hidden="true" class="size-5 shrink-0 text-success" aria-label={m.problems_statusAc()} />
             {:else if problem.status === "attempted"}
               <XCircle aria-hidden="true" class="size-5 shrink-0 text-warning" aria-label={m.problems_statusAttempted()} />
+            {:else}
+              <span class="size-5 shrink-0" aria-hidden="true"></span>
             {/if}
             <div class="min-w-0">
               <h3 class="text-title font-semibold">
