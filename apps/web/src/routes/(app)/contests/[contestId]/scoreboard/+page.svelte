@@ -118,9 +118,9 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10">
   <Crumbs
     items={[
-      { label: "contest", href: "/contests" },
+      { label: m.navigation_contests(), href: "/contests" },
       { label: contestId, href: `/contests/${contestId}` },
-      { label: "scoreboard" }
+      { label: m.contestDetail_scoreboard() }
     ]}
   />
 
@@ -309,7 +309,7 @@
                         class="text-micro font-mono uppercase tracking-wider"
                         style="color: var(--primary);"
                       >
-                        YOU
+                        {m.results_youBadge()}
                       </span>
                     {/if}
                   </div>
@@ -392,7 +392,7 @@
                         class="text-micro font-mono uppercase tracking-wider"
                         style="color: var(--primary);"
                       >
-                        YOU
+                        {m.results_youBadge()}
                       </span>
                     {/if}
                   </div>

@@ -88,12 +88,6 @@
     { key: "audit", label: m.assignmentDetail_tabAudit() }
   ]);
 
-  function difficultyLabel(d: "easy" | "medium" | "hard"): "Easy" | "Medium" | "Hard" {
-    if (d === "easy") return "Easy";
-    if (d === "medium") return "Medium";
-    return "Hard";
-  }
-
   function verdictLabel(status: string): string {
     if (status === "accepted") return "AC";
     if (status === "wrong_answer") return "WA";
@@ -165,7 +159,7 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
   <Crumbs
     items={[
-      { label: "assignments", href: "/assignments" },
+      { label: m.navigation_assignments(), href: "/assignments" },
       { label: detail.title }
     ]}
   />
@@ -340,7 +334,7 @@
               <div class="min-w-0">
                 <div class="font-medium truncate">{problem.title}</div>
                 <div class="mt-1 flex items-center gap-3">
-                  <DifficultyTick level={difficultyLabel(problem.difficulty)} />
+                  <DifficultyTick level={problem.difficulty} />
                   <span
                     class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
                   >
@@ -493,7 +487,7 @@
     <!-- ══════ TEACHER VIEW ══════ -->
     <GlassPanel class="overflow-hidden">
       <nav
-        aria-label="Assignment sections"
+        aria-label={m.assignmentDetail_sectionsNavLabel()}
         class="border-b px-2"
         style="border-color: var(--border-subtle);"
       >

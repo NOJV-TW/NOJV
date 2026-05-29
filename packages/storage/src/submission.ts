@@ -18,9 +18,11 @@ export async function putSubmissionSources(
   submissionId: string,
   sources: readonly SubmissionSource[],
 ): Promise<void> {
-  for (const source of sources) {
-    await putText(client, submissionSourceKey(submissionId, source.path), source.content);
-  }
+  await Promise.all(
+    sources.map((source) =>
+      putText(client, submissionSourceKey(submissionId, source.path), source.content),
+    ),
+  );
 }
 
 export async function getSubmissionSources(
@@ -30,13 +32,12 @@ export async function getSubmissionSources(
   const prefix = submissionSourcePrefix(submissionId);
   const keys = (await listByPrefix(client, prefix)).sort();
 
-  const sources: SubmissionSource[] = [];
-  for (const key of keys) {
-    const path = key.slice(prefix.length);
-    const content = await getText(client, key);
-    sources.push({ path, content });
-  }
-  return sources;
+  return Promise.all(
+    keys.map(async (key) => ({
+      path: key.slice(prefix.length),
+      content: await getText(client, key),
+    })),
+  );
 }
 
 export async function putVerdictDetail(

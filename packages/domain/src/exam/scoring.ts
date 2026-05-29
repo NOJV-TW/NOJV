@@ -45,6 +45,8 @@ const SCORE_UPDATE_MAX_ATTEMPTS = 3;
  * `updateContestScores`.
  */
 export async function updateExamScores(examParticipationId: string): Promise<void> {
+  let overrideRows: Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>> | undefined;
+
   for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
     const participation = await examParticipationRepo.findByIdWithExam(examParticipationId);
 
@@ -117,7 +119,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
         }
 
         // Overlay any per-problem overrides for this participant.
-        const overrideRows = await scoreOverrideRepo.findAllByContext("exam", exam.id);
+        overrideRows ??= await scoreOverrideRepo.findAllByContext("exam", exam.id);
         for (const row of overrideRows) {
           if (row.userId !== participation.userId) continue;
           if (!examProblems.has(row.problemId)) continue;

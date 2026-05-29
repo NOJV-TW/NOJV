@@ -4,7 +4,6 @@ import {
   examRepo,
   plagiarismRepo,
   plagiarismTriggerLogRepo,
-  assessmentProblemRepo,
   submissionRepo,
   runTransaction,
   type PlagiarismContext,
@@ -222,14 +221,4 @@ export async function listAssignmentPlagiarismReports(
 ): Promise<PlagiarismReportSummary[]> {
   const report = await plagiarismRepo.findByAssessmentId(assignmentId);
   return report ? [report] : [];
-}
-
-export async function getAssignmentProblemMap(assignmentId: string) {
-  const assignmentProblems = await assessmentProblemRepo.findByAssessmentId(assignmentId);
-  return Object.fromEntries(
-    assignmentProblems.map((ap) => [
-      ap.problemId,
-      { id: ap.problem.id, title: ap.problem.title },
-    ]),
-  );
 }

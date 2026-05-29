@@ -1,6 +1,7 @@
 import {
   courseMembershipRepo,
   examParticipationIpRepo,
+  examParticipationRepo,
   examRepo,
   examSessionRepo,
   runTransaction,
@@ -77,6 +78,21 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
     if (activeElsewhere && activeElsewhere.examId !== examId) {
       throw new ConflictError("You already have an active session on a different exam.");
     }
+
+    // Re-entry must not revive a terminal (submitted/disqualified) participation.
+    const existingParticipation = await examParticipationRepo
+      .withTx(tx)
+      .findByExamAndUser(examId, actor.userId);
+    const activateOnEntry =
+      !existingParticipation || existingParticipation.status === "registered";
+    await examParticipationRepo
+      .withTx(tx)
+      .upsert(
+        examId,
+        actor.userId,
+        { examId, startedAt: new Date(), status: "active", userId: actor.userId },
+        activateOnEntry ? { status: "active" } : {},
+      );
 
     const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
 
