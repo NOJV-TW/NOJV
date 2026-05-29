@@ -49,7 +49,7 @@
         placeholder={m.contestCreate_slugPlaceholder()}
         bind:value={$form.id}
       />
-      {#if $errors.id}<p class="mt-1 text-xs text-red-600">{$errors.id}</p>{/if}
+      {#if $errors.id}<p class="mt-1 text-xs text-destructive">{$errors.id}</p>{/if}
     </div>
 
     <div>
@@ -62,7 +62,7 @@
         placeholder={m.contestCreate_titlePlaceholder()}
         bind:value={$form.title}
       />
-      {#if $errors.title}<p class="mt-1 text-xs text-red-600">{$errors.title}</p>{/if}
+      {#if $errors.title}<p class="mt-1 text-xs text-destructive">{$errors.title}</p>{/if}
     </div>
 
     <div>
@@ -74,7 +74,7 @@
         placeholder={m.contestCreate_summaryPlaceholder()}
         bind:value={$form.summary}
       ></textarea>
-      {#if $errors.summary}<p class="mt-1 text-xs text-red-600">{$errors.summary}</p>{/if}
+      {#if $errors.summary}<p class="mt-1 text-xs text-destructive">{$errors.summary}</p>{/if}
     </div>
 
     
@@ -92,7 +92,7 @@
           type="datetime-local"
           bind:value={$form.startsAt}
         />
-        {#if $errors.startsAt}<p class="mt-1 text-xs text-red-600">{$errors.startsAt}</p>{/if}
+        {#if $errors.startsAt}<p class="mt-1 text-xs text-destructive">{$errors.startsAt}</p>{/if}
       </div>
       <div>
         <label class="text-sm font-medium" for="endsAt">{m.contestCreate_endsAt()}</label>
@@ -103,7 +103,7 @@
           type="datetime-local"
           bind:value={$form.endsAt}
         />
-        {#if $errors.endsAt}<p class="mt-1 text-xs text-red-600">{$errors.endsAt}</p>{/if}
+        {#if $errors.endsAt}<p class="mt-1 text-xs text-destructive">{$errors.endsAt}</p>{/if}
       </div>
     </div>
 
@@ -131,7 +131,7 @@
         max="3600"
         bind:value={$form.submitCooldownSec}
       />
-      {#if $errors.submitCooldownSec}<p class="mt-1 text-xs text-red-600">{$errors.submitCooldownSec}</p>{/if}
+      {#if $errors.submitCooldownSec}<p class="mt-1 text-xs text-destructive">{$errors.submitCooldownSec}</p>{/if}
     </div>
 
     <div>
@@ -164,7 +164,7 @@
         placeholder={m.contestCreate_inviteCodePlaceholder()}
         bind:value={$form.inviteCode}
       />
-      {#if $errors.inviteCode}<p class="mt-1 text-xs text-red-600">{$errors.inviteCode}</p>{/if}
+      {#if $errors.inviteCode}<p class="mt-1 text-xs text-destructive">{$errors.inviteCode}</p>{/if}
       <p class="mt-1 text-xs text-muted-foreground">
         {m.contestCreate_inviteCodeHint()}
       </p>
@@ -189,7 +189,7 @@
           </label>
         {/each}
       </div>
-      {#if $errors.allowedLanguages}<p class="mt-1 text-xs text-red-600">{$errors.allowedLanguages}</p>{/if}
+      {#if $errors.allowedLanguages}<p class="mt-1 text-xs text-destructive">{$errors.allowedLanguages}</p>{/if}
     </div>
 
     
@@ -206,7 +206,7 @@
         placeholder={m.contestCreate_problemIdsPlaceholder()}
         bind:value={$form.problemIdsText}
       />
-      {#if $errors.problemIdsText}<p class="mt-1 text-xs text-red-600">{$errors.problemIdsText}</p>{/if}
+      {#if $errors.problemIdsText}<p class="mt-1 text-xs text-destructive">{$errors.problemIdsText}</p>{/if}
     </div>
 
       <Button type="submit" size="lg">

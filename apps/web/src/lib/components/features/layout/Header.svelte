@@ -122,6 +122,7 @@
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
             )}
             href={item.href}
+            aria-current={isActive(item.href) ? "page" : undefined}
           >
             <Icon class="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <span>{item.label}</span>
