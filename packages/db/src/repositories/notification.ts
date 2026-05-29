@@ -8,6 +8,7 @@ export interface NotificationCreateInput {
   type: NotificationType;
   params: Prisma.InputJsonValue;
   linkUrl?: string | null;
+  dedupeKey?: string | null;
 }
 
 export const notificationRepo = {
@@ -58,7 +59,9 @@ export const notificationRepo = {
         type: i.type,
         params: i.params,
         linkUrl: i.linkUrl ?? null,
+        dedupeKey: i.dedupeKey ?? null,
       })),
+      skipDuplicates: true,
     });
 
     const userIds = Array.from(new Set(inputs.map((i) => i.userId)));
