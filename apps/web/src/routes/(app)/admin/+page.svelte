@@ -24,6 +24,38 @@
 
   let { data }: { data: PageData } = $props();
 
+  const DEFAULT_THEME_COLORS = {
+    chart1: "#c4682d",
+    chart2: "#4d6f8f",
+    chart3: "#8a6142",
+    success: "#7a8f6d",
+    mutedFg: "#6b7280"
+  };
+  let themeColors = $state({ ...DEFAULT_THEME_COLORS });
+
+  function resolveThemeColors() {
+    if (typeof window === "undefined") return;
+    const cs = getComputedStyle(document.documentElement);
+    const read = (n: string, fallback: string) => cs.getPropertyValue(n).trim() || fallback;
+    themeColors = {
+      chart1: read("--chart-1", DEFAULT_THEME_COLORS.chart1),
+      chart2: read("--chart-2", DEFAULT_THEME_COLORS.chart2),
+      chart3: read("--chart-3", DEFAULT_THEME_COLORS.chart3),
+      success: read("--success", DEFAULT_THEME_COLORS.success),
+      mutedFg: read("--muted-foreground", DEFAULT_THEME_COLORS.mutedFg)
+    };
+  }
+
+  $effect(() => {
+    resolveThemeColors();
+    const observer = new MutationObserver(resolveThemeColors);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+    return () => observer.disconnect();
+  });
+
   const roleOption: EChartsOption = $derived.by(() => ({
     grid: { left: 32, right: 16, top: 20, bottom: 28 },
     xAxis: {
@@ -40,7 +72,9 @@
         type: "bar",
         data: [data.roleCounts.admin, data.roleCounts.teacher, data.roleCounts.student],
         itemStyle: {
-          color: (params: { dataIndex: number }) => ["#f97316", "#3b82f6", "#10b981"][params.dataIndex] ?? "#6b7280"
+          color: (params: { dataIndex: number }) =>
+            [themeColors.chart1, themeColors.chart2, themeColors.chart3][params.dataIndex] ??
+            themeColors.mutedFg
         },
         barMaxWidth: 38
       }
@@ -80,7 +114,7 @@
         name: m.admin_overviewSubmissionTrend(),
         data: data.dailySeries.map((d: { total: number }) => d.total),
         smooth: true,
-        itemStyle: { color: "#3b82f6" }
+        itemStyle: { color: themeColors.chart2 }
       },
       {
         type: "line",
@@ -88,7 +122,7 @@
         data: data.dailySeries.map((d: { accepted: number }) => d.accepted),
         smooth: true,
         areaStyle: { opacity: 0.15 },
-        itemStyle: { color: "#10b981" }
+        itemStyle: { color: themeColors.success }
       }
     ]
   }));
