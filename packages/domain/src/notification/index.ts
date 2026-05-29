@@ -125,6 +125,7 @@ export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<voi
         dueAt: dueAtIso,
       },
       linkUrl: `/assignments/${assignment.id}`,
+      dedupeKey: `assignment_due_soon:${assignment.id}:${userId}`,
     })),
   );
 }
@@ -159,6 +160,7 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
         startsAt: startsAtIso,
       },
       linkUrl: `/exams/${exam.id}`,
+      dedupeKey: `exam_starting_soon:${exam.id}:${userId}`,
     })),
   );
 }
@@ -189,6 +191,7 @@ export async function fanoutContestStartingSoon(contestId: string): Promise<void
         startsAt: startsAtIso,
       },
       linkUrl: `/contests/${contest.id}`,
+      dedupeKey: `contest_starting_soon:${contest.id}:${userId}`,
     })),
   );
 }

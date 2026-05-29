@@ -120,6 +120,33 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
     expect(params.dueAt).toBe(closesAt.toISOString());
   });
 
+  it("is idempotent — a re-run (activity retry) does not duplicate notifications", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+    const student = await createTestUser({ platformRole: "student" });
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+    });
+
+    const assessment = await testPrisma.courseAssessment.create({
+      data: {
+        courseId: course.id,
+        createdByUserId: teacher.id,
+        title: "Due Soon",
+        summary: "Not yet maxed",
+        status: "published",
+        opensAt: new Date(Date.now() - 3600_000),
+        closesAt: new Date(Date.now() + 24 * 3600_000),
+      },
+    });
+
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
+
+    const rows = await notificationRepo.listRecent(student.id, 10);
+    expect(rows).toHaveLength(1);
+  });
+
   it("is a no-op when the assessment is already closed", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
