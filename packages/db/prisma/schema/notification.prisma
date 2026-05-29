@@ -24,9 +24,11 @@ model Notification {
   linkUrl   String?
   readAt    DateTime?
   createdAt DateTime         @default(now())
+  dedupeKey String?
 
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([dedupeKey])
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, readAt, createdAt(sort: Desc)])
 }

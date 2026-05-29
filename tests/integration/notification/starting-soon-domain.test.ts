@@ -67,6 +67,28 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
     expect(params.startsAt).toBe(startsAt.toISOString());
   });
 
+  it("is idempotent — a re-run (activity retry) does not duplicate notifications", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+    const exam = await createTestExam({
+      courseId: course.id,
+      createdByUserId: teacher.id,
+      status: "published",
+      startsAt: new Date(Date.now() + 60 * 60_000),
+      endsAt: new Date(Date.now() + 3 * 60 * 60_000),
+    });
+    const student = await createTestUser({ platformRole: "student" });
+    await testPrisma.examParticipation.create({
+      data: { examId: exam.id, userId: student.id, status: "registered" },
+    });
+
+    await notificationDomain.fanoutExamStartingSoon(exam.id);
+    await notificationDomain.fanoutExamStartingSoon(exam.id);
+
+    const rows = await notificationRepo.listRecent(student.id, 10);
+    expect(rows).toHaveLength(1);
+  });
+
   it("is a no-op when the exam has already started", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
@@ -172,6 +194,24 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
     expect(params.contestId).toBe(contest.id);
     expect(params.title).toBe("Winter Open");
     expect(params.startsAt).toBe(startsAt.toISOString());
+  });
+
+  it("is idempotent — a re-run (activity retry) does not duplicate notifications", async () => {
+    const contest = await createTestContest({
+      visibility: "published",
+      startsAt: new Date(Date.now() + 60 * 60_000),
+      endsAt: new Date(Date.now() + 3 * 60 * 60_000),
+    });
+    const user = await createTestUser();
+    await testPrisma.contestParticipation.create({
+      data: { contestId: contest.id, userId: user.id, status: "registered" },
+    });
+
+    await notificationDomain.fanoutContestStartingSoon(contest.id);
+    await notificationDomain.fanoutContestStartingSoon(contest.id);
+
+    const rows = await notificationRepo.listRecent(user.id, 10);
+    expect(rows).toHaveLength(1);
   });
 
   it("is a no-op when the contest has already started", async () => {
