@@ -363,7 +363,8 @@ describe("standard judge", () => {
     const source = `#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-int main(){ size_t n=300UL*1024*1024; char*p=malloc(n); if(!p)return 1; memset(p,1,n); printf("8\\n"); return 0; }`;
+#include <unistd.h>
+int main(){ size_t n=300UL*1024*1024; char*p=malloc(n); if(!p)return 1; memset(p,1,n); usleep(300000); printf("8\\n"); return 0; }`;
     const result = await compileProgram("c", source);
     expect(result.success).toBe(true);
     if (!result.success) return;
