@@ -133,7 +133,9 @@
 
     <div class="ml-auto flex items-center gap-2">
       <div
-        class="hidden items-center gap-1 rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] p-1 text-caption sm:flex"
+        class="flex items-center gap-1 rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] p-1 text-caption"
+        role="group"
+        aria-label={m.common_language()}
       >
         {#each locales as entry (entry)}
           <button
@@ -145,6 +147,7 @@
             )}
             onclick={() => setLocale(entry)}
             type="button"
+            aria-pressed={entry === currentLocale}
           >
             {entry}
           </button>

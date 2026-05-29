@@ -30,7 +30,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const inputClassName =
-  "mt-2 w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm";
+  "mt-2 w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20";
 export const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
 
 export type WithoutChild<T> = T extends { child?: unknown } ? Omit<T, "child"> : T;
