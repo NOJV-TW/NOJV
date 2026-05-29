@@ -328,7 +328,7 @@
                 class="inline-flex items-center gap-1 font-mono text-caption uppercase tracking-wider text-muted-foreground"
               >
                 {m.examDetail_problemPreview()}
-                <ChevronRight class="size-3.5" />
+                <ChevronRight aria-hidden="true" class="size-3.5" />
               </span>
             </a>
             {#if feedbackComment}
@@ -493,7 +493,7 @@
           onclick={() => (activeSubTabKey = "settings")}
           class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium transition-colors hover:border-border"
         >
-          <Pencil class="size-3" /> {m.examDetail_managerEditButton()}
+          <Pencil aria-hidden="true" class="size-3" /> {m.examDetail_managerEditButton()}
         </button>
       </div>
       <p class="text-body-sm text-muted-foreground">

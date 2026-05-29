@@ -100,11 +100,11 @@
         </p>
         <div class="mt-6 flex flex-wrap justify-center gap-3">
           <Button href={data.repoUrl} variant="outline" target="_blank" rel="noreferrer noopener">
-            <Star class="size-4" />
+            <Star aria-hidden="true" class="size-4" />
             {m.about_starOnGithub()}
           </Button>
           <Button href={issuesUrl} variant="outline" target="_blank" rel="noreferrer noopener">
-            <MessageSquare class="size-4" />
+            <MessageSquare aria-hidden="true" class="size-4" />
             {m.about_openIssue()}
           </Button>
         </div>
@@ -120,7 +120,7 @@
         </p>
         <div class="mt-5 flex justify-center">
           <Button href={`mailto:${data.contactEmail}`} variant="outline">
-            <Mail class="size-4" />
+            <Mail aria-hidden="true" class="size-4" />
             {m.about_emailUs()}
           </Button>
         </div>

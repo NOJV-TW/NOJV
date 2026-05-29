@@ -359,7 +359,7 @@
                   class="text-caption font-medium text-muted-foreground inline-flex items-center gap-1"
                 >
                   {isSolved ? m.assignmentDetail_problemView() : m.assignmentDetail_problemSolve()}
-                  <ChevronRight class="size-3.5" />
+                  <ChevronRight aria-hidden="true" class="size-3.5" />
                 </span>
               {/if}
             {/snippet}

@@ -194,7 +194,7 @@
                 aria-label={m.members_removeAction()}
                 onclick={() => handleRemove(member.userId, member.name)}
               >
-                <X class="size-4" />
+                <X aria-hidden="true" class="size-4" />
               </button>
             {:else}
               <span></span>

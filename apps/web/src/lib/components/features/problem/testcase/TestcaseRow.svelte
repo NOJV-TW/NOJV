@@ -131,7 +131,7 @@
           type="button"
           title={m.testcases_editTestcase()}
         >
-          <Pencil class="size-3" />
+          <Pencil aria-hidden="true" class="size-3" />
         </button>
         <button
           class="rounded-full border border-border p-1 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
@@ -139,7 +139,7 @@
           type="button"
           title={m.testcases_deleteTestcase()}
         >
-          <Trash2 class="size-3" />
+          <Trash2 aria-hidden="true" class="size-3" />
         </button>
       </div>
     </div>

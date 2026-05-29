@@ -61,7 +61,7 @@
       class="flex items-center gap-2.5 text-title-sm font-medium tracking-[-0.01em]"
     >
       <span class="text-primary" aria-hidden="true">
-        <UserPlus class="h-5 w-5" />
+        <UserPlus aria-hidden="true" class="h-5 w-5" />
       </span>
       {m.members_addTitle()}
     </h2>

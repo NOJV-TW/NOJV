@@ -128,7 +128,7 @@
       onclick={() => { showMineCardTags = !showMineCardTags; }}
       type="button"
     >
-      <Tags class="size-3.5" />
+      <Tags aria-hidden="true" class="size-3.5" />
       {showMineCardTags ? m.problems_hideMoreTags() : m.problems_showMoreTags()}
     </button>
   </div>

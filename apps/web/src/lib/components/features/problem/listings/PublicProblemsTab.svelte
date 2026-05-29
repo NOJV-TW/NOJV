@@ -98,9 +98,9 @@
         >
           <div class="flex min-w-0 items-center gap-3">
             {#if problem.status === "ac"}
-              <CheckCircle2 class="size-5 shrink-0 text-success" aria-label={m.problems_statusAc()} />
+              <CheckCircle2 aria-hidden="true" class="size-5 shrink-0 text-success" aria-label={m.problems_statusAc()} />
             {:else if problem.status === "attempted"}
-              <XCircle class="size-5 shrink-0 text-warning" aria-label={m.problems_statusAttempted()} />
+              <XCircle aria-hidden="true" class="size-5 shrink-0 text-warning" aria-label={m.problems_statusAttempted()} />
             {/if}
             <div class="min-w-0">
               <h3 class="text-title font-semibold">
