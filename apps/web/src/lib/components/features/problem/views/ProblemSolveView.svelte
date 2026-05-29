@@ -90,12 +90,12 @@
   );
 </script>
 
-<div class="md:hidden">
+<div class="lg:hidden">
   <MobileWorkspaceBlocker {problem} />
 </div>
 
 <div
-  class="hidden h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-xl border border-border shadow-rest md:flex"
+  class="hidden h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-xl border border-border shadow-rest lg:flex"
 >
   {#if endedNotice}
     <div

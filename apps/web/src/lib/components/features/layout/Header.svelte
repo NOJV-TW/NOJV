@@ -8,6 +8,7 @@
     GraduationCap,
     History,
     LayoutDashboard,
+    Menu,
     Shield,
     Trophy
   } from "@lucide/svelte";
@@ -18,6 +19,7 @@
   import { cn } from "$lib/utils/css.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
   import NotificationBell from "../notification/NotificationBell.svelte";
+  import MobileNavDrawer from "./MobileNavDrawer.svelte";
   import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
 
   let currentLocale = $derived(getLocale());
@@ -51,6 +53,16 @@
     if (href === "/dashboard") return currentPath === "/dashboard";
     return currentPath === href || currentPath.startsWith(`${href}/`);
   }
+
+  let navLinks = $derived(navItems.map((item) => ({ ...item, active: isActive(item.href) })));
+
+  let mobileNavOpen = $state(false);
+
+  // Close the drawer whenever navigation lands on a new path.
+  $effect(() => {
+    void currentPath;
+    mobileNavOpen = false;
+  });
 
   $effect(() => {
     if (!user) return;
@@ -103,6 +115,18 @@
   class="sticky top-6 z-[var(--z-sticky)] rounded-xl border border-border bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
 >
   <div class="flex flex-wrap items-center gap-6">
+    {#if navItems.length > 0}
+      <button
+        type="button"
+        class="grid size-11 place-items-center rounded-md text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground lg:hidden"
+        aria-label={m.nav_openMenu()}
+        aria-expanded={mobileNavOpen}
+        onclick={() => (mobileNavOpen = true)}
+      >
+        <Menu class="size-5" aria-hidden="true" />
+      </button>
+    {/if}
+
     <a
       class="text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
       href="/"
@@ -111,18 +135,18 @@
     </a>
 
     {#if navItems.length > 0}
-      <nav class="flex flex-wrap items-center gap-2 text-body-sm font-medium">
-        {#each navItems as item (item.href)}
+      <nav class="hidden flex-wrap items-center gap-2 text-body-sm font-medium lg:flex">
+        {#each navLinks as item (item.href)}
           {@const Icon = item.icon}
           <a
             class={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors duration-fast ease-out-soft",
-              isActive(item.href)
+              item.active
                 ? "text-foreground bg-accent/60"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
             )}
             href={item.href}
-            aria-current={isActive(item.href) ? "page" : undefined}
+            aria-current={item.active ? "page" : undefined}
           >
             <Icon class="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <span>{item.label}</span>
@@ -161,3 +185,11 @@
     </div>
   </div>
 </header>
+
+{#if navItems.length > 0}
+  <MobileNavDrawer
+    open={mobileNavOpen}
+    items={navLinks}
+    onclose={() => (mobileNavOpen = false)}
+  />
+{/if}
