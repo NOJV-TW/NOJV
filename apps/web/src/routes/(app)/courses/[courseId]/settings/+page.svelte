@@ -16,6 +16,7 @@
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import { toasts } from "$lib/stores/toast";
   import { inputClassName } from "$lib/utils/css";
   import type { FormMessage } from "$lib/types/form-message";
   import type { ActionData, PageData } from "./$types";
@@ -201,7 +202,7 @@
       </div>
 
       <div class="flex items-center justify-end gap-3 pt-4">
-        <Button type="submit" disabled={$updateSubmitting}>
+        <Button type="submit" loading={$updateSubmitting} disabled={$updateSubmitting}>
           <Save class="h-4 w-4" aria-hidden="true" />
           {m.courseSettings_saveButton()}
         </Button>
@@ -247,6 +248,12 @@
           archiveSubmitting = false;
           if (result.type !== "success") {
             archivedLocal = !archivedLocal;
+          } else {
+            toasts.success(
+              archivedLocal
+                ? m.courseSettings_archiveSuccess()
+                : m.courseSettings_unarchiveSuccess()
+            );
           }
           await applyAction(result);
           await update({ reset: false });
@@ -254,7 +261,7 @@
       }}
     >
       <input type="hidden" name="archived" value={String(!archivedLocal)} />
-      <Button type="submit" variant="outline" disabled={archiveSubmitting}>
+      <Button type="submit" variant="outline" loading={archiveSubmitting} disabled={archiveSubmitting}>
         {#if archivedLocal}
           <ArchiveRestore class="h-4 w-4" aria-hidden="true" />
           {m.courseSettings_unarchiveButton()}
@@ -336,6 +343,9 @@
             deleting = true;
             return async ({ result, update }) => {
               deleting = false;
+              if (result.type === "redirect") {
+                toasts.success(m.courseSettings_deleteSuccess());
+              }
               await applyAction(result);
               await update({ reset: false });
             };
@@ -362,6 +372,7 @@
             <Button
               type="submit"
               variant="destructive"
+              loading={deleting}
               disabled={!canDelete || deleting}
             >
               <Trash2 class="h-4 w-4" aria-hidden="true" />
@@ -391,6 +402,9 @@
           copying = true;
           return async ({ result, update }) => {
             copying = false;
+            if (result.type === "redirect") {
+              toasts.success(m.courseSettings_copySuccess());
+            }
             await applyAction(result);
             await update({ reset: false });
           };
@@ -454,7 +468,11 @@
           <Button type="button" variant="outline" onclick={() => (copyOpen = false)}>
             {m.courseSettings_copyCancel()}
           </Button>
-          <Button type="submit" disabled={copying || copyTitleInput.trim().length === 0}>
+          <Button
+            type="submit"
+            loading={copying}
+            disabled={copying || copyTitleInput.trim().length === 0}
+          >
             <Copy class="h-4 w-4" aria-hidden="true" />
             {m.courseSettings_copyConfirm()}
           </Button>

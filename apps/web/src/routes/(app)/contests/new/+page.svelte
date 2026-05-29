@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { goto } from "$app/navigation";
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { inputClassName } from "$lib/utils/css";
@@ -13,13 +14,23 @@
   import { Card } from "$lib/components/primitives/ui/card/index.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
 
   let { data } = $props();
 
-  const { form, errors, enhance, message: formMessage } = superForm<typeof data.form.data, FormMessage>(untrack(() => data.form), {
-    resetForm: false
-  });
+  const { form, errors, enhance, submitting, message: formMessage } = superForm<typeof data.form.data, FormMessage>(
+    untrack(() => data.form),
+    {
+      resetForm: false,
+      onUpdated({ form }) {
+        if (form.message?.kind === "success") {
+          toasts.success(m.contestCreate_success());
+          goto("/contests");
+        }
+      }
+    }
+  );
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
@@ -31,10 +42,6 @@
     <TrophyIcon class="h-8 w-8 text-primary" />
     <h1 class="text-title-lg">{m.contestCreate_title()}</h1>
   </div>
-
-  {#if $formMessage?.kind === "success"}
-    <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
-  {/if}
 
   <Card variant="surface" size="hero" class="max-w-2xl">
     <form method="POST" action="?/create" use:enhance class="space-y-5">
@@ -209,7 +216,7 @@
       {#if $errors.problemIdsText}<p class="mt-1 text-xs text-destructive">{$errors.problemIdsText}</p>{/if}
     </div>
 
-      <Button type="submit" size="lg">
+      <Button type="submit" size="lg" loading={$submitting}>
         <TrophyIcon class="h-4 w-4" />
         {m.contestCreate_button()}
       </Button>
