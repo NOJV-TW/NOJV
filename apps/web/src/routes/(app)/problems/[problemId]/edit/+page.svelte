@@ -140,7 +140,10 @@
     isPublishing = true;
     const fd = new FormData();
     fetch(`?/publish`, { method: "POST", body: fd }).then(async (res) => {
-      if (res.ok) await invalidateAll();
+      if (res.ok) {
+        await invalidateAll();
+        toasts.success(m.admin_publishSuccess());
+      }
       isPublishing = false;
     });
   }
@@ -216,6 +219,7 @@
         <Button
           variant="outline"
           size="sm"
+          loading={isDeleting}
           disabled={isDeleting}
           onclick={() => (showDeleteConfirm = true)}
         >
@@ -225,6 +229,7 @@
       {#if isAdvanced && data.problem.status === "draft"}
         <Button
           size="sm"
+          loading={isPublishing}
           disabled={!canPublish || isPublishing}
           title={canPublish ? undefined : m.admin_advancedPublishHint()}
           onclick={handlePublishClick}
