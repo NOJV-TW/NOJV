@@ -2,17 +2,9 @@
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
-    /** "YYYY/M/D HH:MM"-formatted timestamp; empty string when never run. */
     lastRunLabel: string;
-    /** Whether the "show flagged" toggle is currently flipped on. */
     showFlagged: boolean;
-    /** Render the toggle only when there is something to (un-)flag. */
     showToggle: boolean;
-    /**
-     * Count of flagged pairs currently hidden behind the toggle. Surfaces in
-     * the toggle label so staff knows how many pairs they'd recover by flipping
-     * it on.
-     */
     flaggedHiddenCount: number;
     onShowFlaggedChange: (next: boolean) => void;
   }

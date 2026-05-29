@@ -60,47 +60,18 @@ export async function getSubmissionForUser(
   return submission;
 }
 
-/**
- * Thin wrapper around `submissionRepo.findById` — used by the rejudge
- * endpoint to load the submission row before the authz check. Returns
- * null on miss; callers surface a 404.
- */
 export async function getSubmissionById(id: string) {
   return submissionRepo.findById(id);
 }
 
-/**
- * Load a submission's source files from object storage. Returns an empty
- * array when the prefix is absent. Sources are sorted by path (storage
- * helper guarantee), so the entry file `main.<ext>` ranks deterministically
- * within its directory.
- */
 export async function getSubmissionSources(submissionId: string): Promise<SubmissionSource[]> {
   return storageGetSubmissionSources(storage(), submissionId);
 }
 
-/**
- * Lazy-load the full verdict detail blob (case results, compiler output) for
- * one submission. Returns `null` for pre-terminal submissions or when the
- * blob was never written. The summary on the DB row is the right fit for list
- * views; this is for the detail surface that renders the case-by-case table.
- */
 export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult | null> {
   return storageGetVerdictDetail<SubmissionResult>(storage(), submissionId);
 }
 
-/**
- * Full detail payload for the submission dashboard page.
- *
- * Access rule:
- *   - submission owner → always
- *   - else → delegates to `canOperateOnSubmission` (admin / contest
- *     organizer / course staff / problem author)
- *
- * Staff-only flag `viewerIsStaff` tells the UI whether to expose the
- * submitter's identity; the owner viewing their own submission doesn't
- * see that section.
- */
 export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
   const submission = await submissionRepo.findByIdForDetail(submissionId);
   if (!submission) throw new NotFoundError("Submission not found.");
@@ -113,18 +84,10 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   }
 
   const language = languageSchema.parse(submission.language);
-  // status may be a terminal verdict OR `system_error` / pre-terminal — we
-  // intentionally don't parse it through `submissionVerdictSchema` here; the
-  // schema-narrowed `result` field below is what carries verdict semantics.
 
-  // Pre-terminal submissions (queued/compiling/running) have no verdict detail.
-  // Detail lives in object storage; pull it lazily when the key is set.
   const rawResult = submission.verdictDetailStorageKey
     ? await getVerdictDetail(submissionId)
     : null;
-  // Staff-only operator messages must NEVER reach a non-staff payload — strip
-  // server-side so "View Source" cannot recover them. Owners viewing their own
-  // submission are NOT staff for this gate (viewerIsStaff is false when isOwner).
   const result =
     rawResult === null || viewerIsStaff ? rawResult : stripStaffFeedback(rawResult);
 
@@ -152,9 +115,6 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
 
 export type SubmissionContextKind = "exam" | "contest" | "assignment" | "practice";
 
-// Derive a submission's context kind from its FK columns. A DB XOR constraint
-// guarantees at most one of these context FKs is set, so the check order is
-// immaterial; a row that only carries `virtualContestId` counts as practice.
 export function deriveSubmissionContextKind(fks: {
   contestId: string | null;
   courseAssessmentId: string | null;
@@ -233,12 +193,6 @@ export async function listUserSubmissions(userId: string) {
   });
 }
 
-/**
- * How many submissions the user has made against an assignment since UTC
- * midnight. Matches the boundary used by the daily-quota gate in
- * `createQueuedSubmissionRecord` so the displayed count and the enforced
- * count agree.
- */
 export async function countAssignmentSubmissionsToday(
   userId: string,
   assignmentId: string,
@@ -280,9 +234,6 @@ export async function listProblemSubmissions(
     ...(contestId ? { contestId } : {}),
   });
 
-  // The submission history panel renders per-case + per-subtask detail, so we
-  // need the full SubmissionResult per row. Storage reads run in parallel and
-  // the list is capped at 50 (`listByUserAndProblem` `take` default).
   const detailBlobs = await Promise.all(
     submissions.map((s) =>
       s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
@@ -290,16 +241,9 @@ export async function listProblemSubmissions(
   );
 
   return submissions.map((s, idx) => {
-    // status is validated to surface enum-column corruption AND used as the
-    // fallback verdict when the detail blob is missing/malformed.
     const verdict = submissionVerdictSchema.parse(s.status);
-    // Detail blob may be absent (partial purge, read-after-write window) or
-    // schema-invalid; degrade to a row-status-only summary instead of 500'ing
-    // the whole list. `safeParse` keeps blob drift non-fatal.
     const raw = detailBlobs[idx];
     const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
-    // Always strip staffFeedback — this surface is the user's own submission
-    // history in a problem panel and never has a staff viewer.
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);
@@ -315,13 +259,6 @@ export async function listProblemSubmissions(
   });
 }
 
-/**
- * Synthesized `SubmissionResult` for rows whose verdict-detail blob is missing
- * or schema-invalid. The DB row's `status` (already filtered to terminal
- * verdicts and re-parsed for safety) carries the verdict; case breakdowns and
- * runtime stats are omitted so the row still renders without pretending we
- * know per-case results.
- */
 export function fallbackResultForRow(
   verdict: ReturnType<typeof submissionVerdictSchema.parse>,
 ): SubmissionResult {
@@ -334,8 +271,6 @@ export function fallbackResultForRow(
   };
 }
 
-// Contest wins over assignment — a submission carrying a contestId is always
-// contest-mode even if courseAssessmentId is also set.
 export function deriveSubmissionMode(s: {
   contestId: string | null;
   courseAssessmentId: string | null;
@@ -344,10 +279,6 @@ export function deriveSubmissionMode(s: {
   if (s.courseAssessmentId) return "assignment";
   return "practice";
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Judge context — sandbox-bound read assembled for the worker.
-// ─────────────────────────────────────────────────────────────────────────
 
 const inputFileKeysSchema = z.record(z.string(), z.string());
 
@@ -386,7 +317,6 @@ function parseInputFileKeys(raw: unknown, testcaseId: string): Record<string, st
   return null;
 }
 
-/** Derive whether this submission runs in standard or advanced (custom-image) sandbox mode. */
 export function deriveJudgeMode(
   context: Pick<SubmissionJudgeContext, "problemType" | "advanced">,
 ): "standard" | "advanced" {
@@ -432,7 +362,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const samples = collectSamples(problem);
 
-  // Legacy problems without judgeConfig.runtime fall back to Problem columns.
   const runtime: Runtime = judgeConfig.runtime ?? {
     env: {},
     memoryLimitMb: problem.memoryLimitMb,
@@ -456,7 +385,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const assignment = submission.courseAssessment;
 
-  // Adjustment rules are assignment-only; contest endsAt is a fallback due-by.
   const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
     assignmentAdjustmentRules: assignment
@@ -552,8 +480,6 @@ export async function listForRejudge(input: {
 
   const submissions = await submissionRepo.findForRejudge(where);
 
-  // Sources live in object storage and are loaded by the worker at sandbox
-  // time; the draft only needs identity + language + sample flag.
   return submissions.map((s) => ({
     submissionId: s.id,
     draft: {

@@ -15,10 +15,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const submission = await getSubmissionDetail(actor, submissionId);
 
-  // Grading feedback exists for assignment / exam submissions only — never
-  // for practice or contest. Build a FeedbackContext only for those, then
-  // pick the row matching this submission's problem (getFeedbackForStudent
-  // is close-gated and returns at most one row per problem).
   const ctx = submission.context;
   const feedbackContext: feedbackDomain.FeedbackContext | null =
     ctx.kind === "assignment"

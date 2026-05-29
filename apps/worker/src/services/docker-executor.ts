@@ -29,9 +29,6 @@ export class DockerExecutor implements SandboxExecutor {
     );
 
     try {
-      // Advanced-mode submissions skip the sandbox-runner image and
-      // spawn the TA-provided judge image directly. See
-      // `AdvancedModeExecutor.run` for the `/workspace/` contract.
       if (request.advanced) {
         return await this.advanced.run(tempDir, request, {
           cpuLimit: this.config.cpuLimit,

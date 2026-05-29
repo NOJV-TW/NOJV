@@ -1,12 +1,7 @@
-// Visual treatment helpers for problem / submission verdicts.
-// Pure presentation; no runtime imports of route data.
-
 export function formatVerdictLabel(verdict: string): string {
   return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-// Topic/skill tag pill — intentionally uniform, colour-coding lives on the
-// dedicated `Problem.difficulty` column (see `difficultyClass`).
 export function tagClass(): string {
   return "bg-muted text-muted-foreground border-border";
 }
@@ -18,14 +13,6 @@ export function difficultyClass(difficulty: string): string {
   return "bg-muted text-muted-foreground border-border";
 }
 
-// Single source of truth for verdict colour. Canonical semantics: resource
-// limits (TLE/MLE) = warning, errors (WA/RE/CE) = destructive, AC = success,
-// pre-terminal (queued/running/compiling) = pending. Accepts both the full
-// operation-status enum and the sandbox short codes (AC/WA/TLE/MLE/RE/CE) used
-// inside subtask case results.
-
-// Subset of the Badge component's `variant` union — every member below is a
-// valid `BadgeVariant`, so the return value flows straight into <Badge variant>.
 export type VerdictBadgeVariant =
   | "success"
   | "warning"
@@ -70,14 +57,10 @@ const VERDICT_TONE: Record<string, string> = {
   compiling: "text-muted-foreground",
 };
 
-/** Badge variant for a verdict — use via the `VerdictBadge` component or for
- *  subtask case pills that keep their short-code label. */
 export function verdictBadgeVariant(verdict: string): VerdictBadgeVariant {
   return VERDICT_VARIANT[normalizeVerdict(verdict)] ?? "muted";
 }
 
-/** Text-colour class for large/hero verdict text (submission detail header,
- *  run-result heading) where a pill would be too heavy. */
 export function verdictTone(verdict: string): string {
   return VERDICT_TONE[normalizeVerdict(verdict)] ?? "text-foreground";
 }

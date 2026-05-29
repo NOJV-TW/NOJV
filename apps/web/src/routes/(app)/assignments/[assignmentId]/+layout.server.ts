@@ -16,9 +16,6 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const actor = requireAuth(event);
   const { assignmentId } = event.params;
 
-  // Look up the assignment first — this mirrors the old `/courses/[courseId]/…`
-  // tree where courseId was in the URL.  In the id-unified tree we derive it
-  // from the assignment row.
   const assignment = await assignmentDomain.getAssignmentWithCourseId(assignmentId);
   if (!assignment) {
     throw new NotFoundError("Assignment not found.");
@@ -26,8 +23,6 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
 
   const courseId = assignment.course.id;
 
-  // Load the course header (also enforces course visibility + fetches
-  // the viewer's membership).
   const course = await getCourseHeaderById(courseId, actor.userId);
   if (!course) {
     throw new NotFoundError("Course not found.");
@@ -43,13 +38,9 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const isEnrolled = membership?.status === "active";
 
   if (!isManager && !isEnrolled) {
-    // Mask existence for non-members.
     throw new NotFoundError("Assignment not found.");
   }
 
-  // Time-window + draft gates (assignments use a lighter check than exam
-  // proctoring — no page-lock, no IP lock, no Redis gate).  Managers
-  // always see drafts/closed/upcoming so they can edit before open.
   if (!isManager) {
     if (assignment.status !== "published") {
       throw new NotFoundError("Assignment not found.");
@@ -61,8 +52,6 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       // student can read the title / opens-at.
     }
     if (now > assignment.closesAt && course.archived) {
-      // Archived + closed: deny click-through.  Matches the behaviour in
-      // getAssignmentContext().
       throw new ForbiddenError("This assignment is closed.");
     }
   }

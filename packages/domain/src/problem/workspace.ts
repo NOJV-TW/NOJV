@@ -11,10 +11,6 @@ import { requireProblem } from "../shared/require";
 import { bestEffortDeleteWorkspaceBlob, writeWorkspaceFileBlob } from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Workspace mutations
-// ─────────────────────────────────────────────────────────────────────────
-
 export interface UpdateWorkspaceInput {
   runtime?: {
     timeLimitMs: number;
@@ -32,8 +28,6 @@ export interface UpdateWorkspaceInput {
   }[];
 }
 
-// 1 MB aggregate cap per (problem, language); the per-file 200 KB cap is
-// enforced earlier via the zod schema in `@nojv/core`.
 const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576;
 
 export async function updateProblemWorkspace(
@@ -41,10 +35,6 @@ export async function updateProblemWorkspace(
   problemId: string,
   payload: UpdateWorkspaceInput,
 ) {
-  // Workspace-mode invariant: every language present in the payload
-  // must ship EXACTLY ONE editable file named `main.<ext>`. The judge
-  // and submission validator both rely on this — violating it means
-  // students in that language cannot submit anything.
   if (payload.files.length > 0) {
     const filesByLanguage = new Map<Language, UpdateWorkspaceInput["files"]>();
     for (const file of payload.files) {
@@ -70,9 +60,6 @@ export async function updateProblemWorkspace(
     }
   }
 
-  // Multi-file invariant: every allowed language MUST ship an editable
-  // main file. Full-source problems can leave the workspace empty —
-  // templates are just a UX nicety there.
   if (
     payload.type === "multi_file" &&
     payload.allowedLanguages &&
@@ -92,9 +79,6 @@ export async function updateProblemWorkspace(
     }
   }
 
-  // Aggregate byte totals per language. Using Buffer.byteLength for an
-  // accurate UTF-8 byte count — JS `.length` counts UTF-16 code units,
-  // which under-counts multi-byte characters.
   const totalsByLanguage = new Map<string, number>();
   for (const file of payload.files) {
     const bytes = Buffer.byteLength(file.content, "utf8");
@@ -108,19 +92,11 @@ export async function updateProblemWorkspace(
     }
   }
 
-  // Authorize FIRST so unauthorised callers can't trigger S3 traffic.
-  // We re-check inside the transaction below to handle the rare race
-  // where ownership flips between this read and the write.
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
   });
 
-  // Pre-allocate row ids so we can compute stable S3 keys, then upload
-  // every file's content BEFORE entering the DB transaction. The S3 puts
-  // happen in parallel; failure short-circuits the entire update with
-  // zero side effects (no DB rows touched, the existing rows + their
-  // S3 objects are untouched).
   interface PreparedWorkspaceFile {
     id: string;
     contentKey: string;
@@ -134,15 +110,12 @@ export async function updateProblemWorkspace(
     }),
   );
 
-  // Read the existing file rows BEFORE the transaction so we can sweep
-  // their S3 objects after the DB delete commits.
   const existingFiles = await problemWorkspaceFileRepo.findByProblemId(problemId);
 
   const result = await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    // Replace workspace files.
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     if (prepared.length > 0) {
       const rows: Prisma.ProblemWorkspaceFileCreateManyInput[] = prepared.map(
@@ -159,14 +132,8 @@ export async function updateProblemWorkspace(
       await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
     }
 
-    // Merge runtime into judgeConfig.runtime + persist type. Keep other
-    // judgeConfig keys intact so the caller can save workspace without
-    // clobbering the judge settings.
     const updateData: Prisma.ProblemUpdateInput = {};
     if (payload.runtime) {
-      // Validate existing judgeConfig before merging — silently dropping a
-      // corrupt blob preserves the new runtime, the alternative is to lose
-      // the user's update because of historical bad data.
       const parsed = judgeConfigSchema.safeParse(problem.judgeConfig);
       const currentConfig = parsed.success ? parsed.data : { type: "standard" as const };
       updateData.judgeConfig = {
@@ -191,31 +158,11 @@ export async function updateProblemWorkspace(
     return { id: problem.id, fileCount: payload.files.length };
   });
 
-  // DB committed — best-effort sweep of the OLD workspace blobs. The
-  // new ids are random UUIDs so they cannot collide with the just-deleted
-  // ones; failures here only leave orphan objects.
   await Promise.all(existingFiles.map((f) => bestEffortDeleteWorkspaceBlob(problemId, f.id)));
 
   return result;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Single-file workspace upsert (W3.A)
-//
-// Used by the per-file upload route. Validates the incoming file via the
-// shared zod schema, writes its content to a fresh S3 object, then upserts
-// the metadata row keyed by (problemId, language, path). If a prior row
-// exists at that triple, its S3 blob is swept best-effort after the DB
-// update commits — the unique index guarantees only one row per triple,
-// so the previous content blob is now orphaned.
-//
-// Caller is responsible for `assertProblemEditAccess` and budget checks;
-// this helper only enforces shape + atomic write.
-// ─────────────────────────────────────────────────────────────────────────
-
-// Accept loosely-typed strings for language/visibility — the route layer
-// passes raw form values and the shared zod schema bounces invalid enums
-// into a ZodError that the api-handler wrapper maps to 400.
 export interface SetWorkspaceFileInput {
   language: string;
   path: string;
@@ -228,9 +175,6 @@ export async function setWorkspaceFile(
   problemId: string,
   file: SetWorkspaceFileInput,
 ): Promise<{ id: string; problemId: string; path: string; language: Language }> {
-  // Validate shape (path traversal, length, visibility enum) using the
-  // shared schema so the HTTP layer and the bundle importer share one
-  // source of truth.
   const parsed = problemWorkspaceFileSchema.parse({
     language: file.language,
     path: file.path,
@@ -260,8 +204,6 @@ export async function setWorkspaceFile(
     });
   });
 
-  // Sweep the superseded blob — the unique index means we wrote a new
-  // content key for the same logical file, so the old blob is orphaned.
   if (existing && existing.id !== row.id) {
     await bestEffortDeleteWorkspaceBlob(problemId, existing.id);
   }

@@ -45,9 +45,6 @@ export async function createQueuedSubmissionRecord(
   actor: ActorContext,
   clientIp: string,
 ) {
-  // Generate the submission id up front so its S3 prefix is known before the
-  // row is inserted; sources are written post-commit (see end of function) to
-  // keep the tx body short.
   const submissionId = randomUUID();
 
   const { row, sources } = await runTransaction(async (tx) => {
@@ -64,9 +61,6 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    // Active-exam lockout: while a session is live, no foreign context (assignment,
-    // contest, or virtual contest) can ride along. Bypass would skip exam cooldown,
-    // IP binding, and per-day limits. Admins are exempt for operational recovery.
     if (activeExamSession && actor.platformRole !== "admin") {
       if (courseContext || payload.contestId || payload.virtualContestId) {
         throw new ForbiddenError(
@@ -74,11 +68,6 @@ export async function createQueuedSubmissionRecord(
         );
       }
 
-      // Time-window enforcement. The session row stays active until the
-      // auto-close workflow ends it, so without this an active session
-      // would let a student keep submitting after `endsAt` (mirrors the
-      // assignment `closesAt` check below). Authoritative — read fresh, so
-      // it holds even if the auto-close timer is late or was never re-armed.
       const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
       if (exam && new Date() >= exam.endsAt) {
         throw new ForbiddenError("Exam has ended.");
@@ -89,11 +78,6 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Virtual contest gate. A virtual submission is practice-like — it sets no
-    // contestId/examId/courseAssessmentId — but carries the `virtualContestId`
-    // tag so the personal re-run can aggregate its own score on read. The gate
-    // verifies the run is the actor's, the timer has not expired, and the
-    // problem belongs to the replayed contest.
     if (payload.virtualContestId) {
       if (courseContext || payload.contestId) {
         throw new ForbiddenError(
@@ -112,9 +96,6 @@ export async function createQueuedSubmissionRecord(
         throw new ForbiddenError("You are not enrolled in this course.");
       }
 
-      // Published status + time window. Admins may submit outside the
-      // window (operational review); course teachers/TAs currently flow
-      // through the same path and should too.
       const assignment = courseContext.assignment;
       if (assignment.status !== "published") {
         throw new NotFoundError("Assignment not found.");
@@ -129,9 +110,6 @@ export async function createQueuedSubmissionRecord(
         }
       }
 
-      // Problem must actually be attached to this assignment — otherwise
-      // a student could submit to an unrelated problem and have it
-      // counted against this assignment's attempts/scoreboard.
       const link = await tx.courseAssessmentProblem.findFirst({
         where: { assessmentId: assignment.id, problemId: problem.id },
         select: { id: true },
@@ -149,9 +127,6 @@ export async function createQueuedSubmissionRecord(
       : null;
     const contestParticipation = contestResult?.participation ?? null;
 
-    // Same "problem-in-context" check for contests: ensureContestParticipation
-    // enforces time + published state, but does not verify the problem
-    // belongs to the contest.
     if (contestResult) {
       const link = await tx.contestProblem.findFirst({
         where: { contestId: contestResult.contest.id, problemId: problem.id },
@@ -162,10 +137,6 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Private-problem visibility: author, admin, or a viewer whose validated
-    // context contains the problem. Without this, any private problem could be
-    // submitted to by cuid. The async path also admits historical participants
-    // (practice-after-close).
     const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
     await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
@@ -185,8 +156,6 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this assignment");
     }
 
-    // multi_file problems must have an editable main.<ext> for the chosen language.
-    // full_source ships a single source file (system template); special_env has no workspace.
     if (problem.type === "multi_file") {
       const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
       const entryPath = entryFileNameFor(payload.language);
@@ -201,8 +170,6 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Pre-flight already runs in the browser, but the API can be called
-    // directly. Re-validate the structural contract here as defense-in-depth.
     if (problem.type === "special_env" && problem.advancedRequiredPaths.length > 0) {
       const uploaded = (payload.sourceFiles ?? []).map((f) => f.path);
       const result = validateRequiredPaths(uploaded, problem.advancedRequiredPaths);
@@ -212,10 +179,8 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Exams own all IP gating; contest submissions no longer re-check.
     void clientIp;
 
-    // Enforce submit cooldown for contest submissions (not sampleOnly runs)
     if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
       await checkSubmitCooldown(
         tx,
@@ -226,7 +191,6 @@ export async function createQueuedSubmissionRecord(
       );
     }
 
-    // UTC midnight boundary: 00:00:00 UTC counts toward the new day (gte start-of-day).
     if (courseContext?.assignment && !payload.sampleOnly) {
       const { maxAttemptsPerDay } = courseContext.assignment;
 
@@ -248,23 +212,14 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Normalize sources + validate paths + cap total bytes BEFORE writing the
-    // row. Any failure here throws and rolls back the tx — no orphan S3 blobs.
     const sources = normalizeSubmissionSources(payload, problem, submissionId);
 
     const created = await submissionRepo.withTx(tx).create({
       id: submissionId,
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
-      // Virtual submissions sit outside the contest/exam/assignment xor —
-      // practice-like, but tagged for the personal re-run scoreboard.
       virtualContestId: payload.virtualContestId ?? null,
       courseAssessmentId: courseContext?.assignment.id ?? null,
-      // Active exam session is the source of truth for exam tagging:
-      // the lockout above guarantees no foreign assignment/contest
-      // payload sneaks past, so writing examId from the session here
-      // gives downstream scoring/cooldown a reliable join key without
-      // trusting the client.
       examId: activeExamSession?.examId ?? null,
       courseId: courseContext?.course.id ?? null,
       language: payload.language,
@@ -278,17 +233,9 @@ export async function createQueuedSubmissionRecord(
     return { row: created, sources };
   });
 
-  // Sources are written post-commit so a long S3 round-trip doesn't hold the
-  // tx open. If storage fails after the row commits, best-effort wipe any
-  // partially-uploaded blobs under this submission's prefix, then mark the
-  // row `system_error` so the worker doesn't try to judge a row with no
-  // (or partial) sources.
   try {
     await putSubmissionSources(storage(), submissionId, sources);
   } catch (err) {
-    // Best-effort orphan cleanup. Swallow delete failure — surfacing the
-    // original storage error to the caller is more useful than masking it
-    // with a cleanup error.
     try {
       await deleteSubmissionStorage(storage(), submissionId);
     } catch {
@@ -306,10 +253,6 @@ export async function createQueuedSubmissionRecord(
   return row;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Verdict writes
-// ─────────────────────────────────────────────────────────────────────────
-
 export async function updateSubmissionStatus(
   submissionId: string,
   status: string,
@@ -317,7 +260,6 @@ export async function updateSubmissionStatus(
   await submissionRepo.updateStatus(submissionId, status);
 }
 
-// Verdicts the summary tallies directly; anything else falls into `other`.
 const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
 
 export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
@@ -340,15 +282,10 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
   if (result.subtaskResults && result.subtaskResults.length > 0) {
     summary.subtaskSummary = result.subtaskResults.map((s) => ({
       id: s.testcaseSetId,
-      // SubtaskResultItem carries `passed`/`weight` but not a numeric score —
-      // surface weight when passed, 0 otherwise so the UI sees a per-subtask
-      // breakdown without loading the full detail blob.
       score: s.passed ? s.weight : 0,
     }));
   }
 
-  // compilerOutput lives on the full result; the schema exposes it via `feedback`
-  // when verdict is compile_error. Truncate to 1 KB so the summary stays small.
   if (result.verdict === "compile_error" && result.feedback) {
     summary.compilerErrorTruncated = result.feedback.slice(0, 1024);
   }
@@ -360,11 +297,6 @@ export async function completeJudge(
   submissionId: string,
   result: SubmissionResult,
 ): Promise<CompletedSubmission> {
-  // Write the heavy detail blob first; if storage fails the DB row stays in
-  // its prior state and the worker retry path re-runs `completeJudge` from
-  // the unchanged judge output. Doing the DB write first would leave a row
-  // marked AC with no detail blob — a state the read path can't distinguish
-  // from "judge hasn't finished yet".
   await putVerdictDetail(storage(), submissionId, result);
 
   const verdictSummary = deriveVerdictSummary(result);
@@ -391,22 +323,6 @@ export async function completeJudge(
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Rejudge audit log
-//
-// Two-pass audit for rejudges.
-//
-// `snapshotForRejudge` writes a log row with the pre-rejudge state
-// before the sandbox runs; `finalizeRejudgeLog` fills in the post-
-// rejudge fields after `completeJudge` writes the new verdict.
-//
-// The two passes are deliberately separate: the snapshot must see the
-// pre-rejudge row, and `completeJudge` overwrites it in place.
-// new* columns are nullable so the snapshot is a valid standalone
-// row if the workflow dies between the two calls (Temporal retries
-// land on the already-snapshotted row rather than duplicating).
-// ─────────────────────────────────────────────────────────────────────────
-
 export async function snapshotForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
@@ -414,9 +330,6 @@ export async function snapshotForRejudge(
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
-  // The audit log needs the FULL pre-rejudge result, not just the summary —
-  // pull the detail blob from storage if it was ever written. Null when the
-  // submission never reached a terminal state.
   const oldDetail = current.verdictDetailStorageKey
     ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
     : null;

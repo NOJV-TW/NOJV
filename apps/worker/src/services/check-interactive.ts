@@ -8,25 +8,12 @@ import {
   type ValidatorOutcome,
 } from "@nojv/core";
 
-/** One container's outcome from an interactive run (solution OR interactor). */
 export interface InteractiveSideResult {
   stderr: string;
   timedOut: boolean;
   spawnError: boolean;
 }
 
-/**
- * Merge one case's two-container outcome into a single result. A solution-side
- * run failure (TLE/MLE/RE/SE) wins with score 0; otherwise the interactor's
- * `ValidatorOutcome` decides verdict/score. `teamMessage` becomes the student
- * `feedback`; `judgeMessage` becomes the staff-only `staffFeedback` (gated
- * downstream so it never reaches the student). A missing/unparseable marker on
- * either side, or a container timeout, is SE for the case.
- *
- * Shared by the Docker interactive executor and the K8s interactive executor —
- * both backends ship the same `InteractiveSideResult` shape (each side's
- * captured stderr + spawn/timeout flags) so the merge logic stays single-source.
- */
 export function mergeInteractiveCase(
   testcase: SandboxTestcase,
   sol: InteractiveSideResult,

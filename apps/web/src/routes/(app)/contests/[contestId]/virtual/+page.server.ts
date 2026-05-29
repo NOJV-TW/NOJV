@@ -12,11 +12,6 @@ const { getContestDetail } = contestDomain;
 const { startVirtualContest, getVirtualContestForUser, getVirtualContestScoreboard } =
   virtualContestDomain;
 
-/**
- * Virtual-contest dashboard. Lets a user replay a past contest on their own
- * clock. The route is reachable for any published contest, but the "start"
- * action only succeeds once the contest has ended (enforced in the domain).
- */
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
   const { contestId } = event.params;

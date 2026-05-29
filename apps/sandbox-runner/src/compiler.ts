@@ -7,13 +7,6 @@ import { sourceFileNames, type JudgeScriptLanguage } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
 import { createBoundedBuffer, pathExists, withProcessLimit } from "./utils.js";
 
-// Wrapper assets live at `apps/sandbox-runner/assets/wrappers/` in source
-// and at `<runtime-prefix>/assets/wrappers/` in the built sandbox image
-// (the Dockerfile copies `apps/sandbox-runner/assets/` next to `dist/`).
-// Resolving as `<thisDir>/../assets/wrappers/<file>` works for both:
-//   - src layout: <repo>/apps/sandbox-runner/src/compiler.ts → ../assets/...
-//   - dist layout: /runner/compiler.js → /assets/wrappers/... (when the
-//     runtime prefix is `/runner` and assets are mounted at `/assets`).
 const COMPILER_DIR = path.dirname(fileURLToPath(import.meta.url));
 const WRAPPERS_DIR = path.resolve(COMPILER_DIR, "../assets/wrappers");
 
@@ -21,7 +14,6 @@ function loadWrapper(file: string): string {
   return readFileSync(path.join(WRAPPERS_DIR, file), "utf-8");
 }
 
-// Cached at module load — wrapper content is static and small.
 const PYTHON_VALIDATOR_WRAPPER = loadWrapper("python-validator.py");
 const PYTHON_INTERACTOR_DOMJUDGE_WRAPPER = loadWrapper("python-interactor-domjudge.py");
 
@@ -102,18 +94,6 @@ export async function compile(
   }
 }
 
-/**
- * Compile (or prepare) a DOMjudge output validator. Invoked as
- * `validator <input_file> <judge_answer_file> <feedback_dir>` with the team
- * output on stdin; exit 42 = accept, 43 = wrong, else = validator/system error.
- *
- * Python: the TA source is concatenated after a fixed wrapper that exposes
- * `judge_input`, `judge_answer`, `feedback_dir`, `team_output` plus
- * `accept` / `wrong` / `set_score` / `judge_log` helpers.
- *
- * C++: compiled with `g++ -O2 -std=c++20`. The DOMjudge interface is plain
- * argv/stdin/feedback-files, so no judge header is required.
- */
 export async function compileValidator(
   scriptPath: string,
   language: JudgeScriptLanguage,
@@ -126,7 +106,6 @@ export async function compileValidator(
     return { success: true, runCommand: ["python3", wrappedPath] };
   }
 
-  // language === "cpp"
   const outPath = path.join(workDir, "validator");
   return compileWithCommand(
     ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
@@ -135,14 +114,6 @@ export async function compileValidator(
   );
 }
 
-/**
- * Compile (or prepare) a DOMjudge interactive validator (interactor). Same
- * DOMjudge interface as `compileValidator` — `interactor <input_file>
- * <answer_file> <feedback_dir>`, exit 42/43, feedback files — but the Python
- * wrapper differs: `read()`/`write()` talk to the SOLUTION live over
- * stdin/stdout (the worker proxies bytes between containers) rather than
- * reading a fixed team-output blob from stdin.
- */
 export async function compileInteractor(
   scriptPath: string,
   language: JudgeScriptLanguage,
@@ -159,7 +130,6 @@ export async function compileInteractor(
     return { success: true, runCommand: ["python3", wrappedPath] };
   }
 
-  // language === "cpp"
   const outPath = path.join(workDir, "interactor");
   return compileWithCommand(
     ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
@@ -184,7 +154,6 @@ function compileWithCommand(
     const proc = spawn(wrappedCmd!, wrappedArgs, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
-      // 90s covers Go/Rust/Java cold compiles on CI where toolchain priming can eat 30s+.
       timeout: 90_000,
     });
 

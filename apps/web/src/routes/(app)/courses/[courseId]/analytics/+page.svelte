@@ -17,7 +17,6 @@
     return `${Math.round(fraction * 100)}%`;
   }
 
-  // Pie slice colours follow the project verdict semantic map.
   const verdictColors: Record<string, string> = {
     accepted: "#10b981",
     wrong_answer: "#ef4444",
@@ -45,7 +44,6 @@
     ]
   });
 
-  // Lowest AC rate = hardest. Surface the bottom band in a warning tone.
   function acRateTone(acRate: number): "destructive" | "warning" | "muted" {
     if (acRate < 0.3) return "destructive";
     if (acRate < 0.6) return "warning";
@@ -54,7 +52,7 @@
 </script>
 
 <div class="space-y-10 pb-20">
-  <!-- Per-assessment summary -->
+  
   <section class="animate-in animate-in-1 space-y-4">
     <h2 class="text-title-sm font-semibold">{m.courseAnalytics_assessmentsTitle()}</h2>
     {#if analytics.assessmentSummaries.length === 0}
@@ -107,7 +105,7 @@
   </section>
 
   <div class="grid gap-8 lg:grid-cols-2">
-    <!-- Hardest problems -->
+    
     <section class="animate-in animate-in-2 space-y-4">
       <h2 class="text-title-sm font-semibold">{m.courseAnalytics_hardestTitle()}</h2>
       <p class="text-caption text-muted-foreground">
@@ -145,7 +143,7 @@
       {/if}
     </section>
 
-    <!-- Verdict distribution -->
+    
     <section class="animate-in animate-in-2 space-y-4">
       <h2 class="text-title-sm font-semibold">{m.courseAnalytics_verdictsTitle()}</h2>
       <p class="text-caption text-muted-foreground">
@@ -166,7 +164,7 @@
     </section>
   </div>
 
-  <!-- Students needing attention -->
+  
   <section class="animate-in animate-in-3 space-y-4">
     <h2 class="text-title-sm font-semibold">{m.courseAnalytics_atRiskTitle()}</h2>
     <p class="text-caption text-muted-foreground">

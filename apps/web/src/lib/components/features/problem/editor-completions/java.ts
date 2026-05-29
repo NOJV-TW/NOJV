@@ -1,7 +1,6 @@
 import type { CompletionEntry } from "./index";
 
 export const javaCompletions: CompletionEntry[] = [
-  // I/O
   {
     label: "Scanner",
     kind: "Class",
@@ -45,7 +44,6 @@ export const javaCompletions: CompletionEntry[] = [
     detail: "java.lang",
     isSnippet: true,
   },
-  // Imports
   {
     label: "import java.util.*",
     kind: "Snippet",
@@ -58,7 +56,6 @@ export const javaCompletions: CompletionEntry[] = [
     insertText: "import java.io.*;",
     detail: "import",
   },
-  // Collections
   {
     label: "ArrayList",
     kind: "Class",
@@ -130,7 +127,6 @@ export const javaCompletions: CompletionEntry[] = [
     detail: "java.util",
     isSnippet: true,
   },
-  // Arrays / Collections utilities
   {
     label: "Arrays.sort",
     kind: "Function",
@@ -166,7 +162,6 @@ export const javaCompletions: CompletionEntry[] = [
     detail: "java.util.Collections",
     isSnippet: true,
   },
-  // Math
   {
     label: "Math.min",
     kind: "Function",
@@ -220,7 +215,6 @@ export const javaCompletions: CompletionEntry[] = [
     insertText: "Long.MAX_VALUE",
     detail: "java.lang",
   },
-  // String
   {
     label: "Integer.parseInt",
     kind: "Function",

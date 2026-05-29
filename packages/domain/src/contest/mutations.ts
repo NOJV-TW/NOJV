@@ -24,7 +24,6 @@ import { z } from "zod";
 import { scoreboard } from "@nojv/redis";
 import { dispatchContestLifecycle } from "@nojv/temporal";
 
-// Standalone contests only: no courseId, no proctoring, no attempt caps / adjustment rules.
 export const contestFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: z.string().min(1),
@@ -71,7 +70,6 @@ async function resolveAndAttachContestProblems(
     }
   }
 
-  // Every allowedLanguage must have an editable main.<ext> on every problem.
   if (allowedLanguages.length > 0) {
     await Promise.all(
       problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
@@ -126,7 +124,6 @@ export async function ensureContestParticipation(
     },
   );
 
-  // Contest has no `maxAttempts`; parameter kept for caller-signature parity.
   void attemptContext;
 
   return { contest, participation };
@@ -178,8 +175,6 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     await requireUser(tx, actor.userId);
 
-    // Auto-generate an invite code when one isn't supplied; standalone
-    // contests always need one to share out of band.
     const inviteCode = payload.inviteCode ?? crypto.randomBytes(4).toString("hex");
 
     const contest = await contestRepo.withTx(tx).create({
@@ -338,20 +333,12 @@ export async function deleteContestDraft(
 }
 
 export async function freezeContestBoard(contestId: string): Promise<void> {
-  // The frozen snapshot key gets the same `endsAt`-derived TTL as the
-  // live board so it does not squat memory after the contest ends.
   const contest = await contestRepo.findById(contestId);
   const ttl = contest ? scoreboard.scoreboardTtlForEndsAt(contest.endsAt) : undefined;
   await scoreboard.freezeScoreboard(contestId, ttl);
   await contestRepo.update(contestId, { frozenBoard: true });
 }
 
-/**
- * Called by the Temporal lifecycle workflow when the scheduled end is
- * reached. Unfreezes the scoreboard so the final standings are visible —
- * we no longer toggle visibility, the contest stays `published` and goes
- * read-only purely on `endsAt < now`.
- */
 export async function finalizeContest(contestId: string): Promise<void> {
   await scoreboard.unfreezeScoreboard(contestId);
   await contestRepo.update(contestId, { frozenBoard: false });

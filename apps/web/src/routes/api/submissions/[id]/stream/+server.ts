@@ -18,8 +18,6 @@ function sanitizeVerdictDetail(raw: unknown): unknown {
 async function loadDetail(
   submission: Awaited<ReturnType<typeof getSubmissionForUser>>,
 ): Promise<unknown> {
-  // Verdict detail is keyed off `verdictDetailStorageKey`; pre-terminal rows
-  // have no key, so don't waste a storage round-trip on them.
   if (!submission.verdictDetailStorageKey) return null;
   return getVerdictDetail(submission.id);
 }
@@ -98,7 +96,6 @@ export const GET: RequestHandler = async (event) => {
               break;
             }
           } catch {
-            // Workflow might have already completed - fall back to DB
             const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
             const detail = await loadDetail(submission);
             send({

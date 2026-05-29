@@ -13,10 +13,6 @@ export interface RunProcessResult {
   spawnError: boolean;
 }
 
-/**
- * Spawn a child process, optionally feed stdin, collect stdout/stderr,
- * and enforce a timeout with a fallback SIGKILL.
- */
 export function runProcess(
   command: string[],
   options: {
@@ -50,10 +46,6 @@ export function runProcess(
       [cmd, ...args],
       options.cpuSeconds !== undefined ? { cpuSeconds: options.cpuSeconds } : undefined,
     );
-    // When the command is bash-wrapped (ulimit), a missing/non-executable
-    // target fails inside the wrapper instead of at spawn() — bash prints
-    // `exec: …: cannot execute` and exits 126/127. Treat that as a launch
-    // failure (SE), not a student RE; the signature is unique to the wrapper.
     const isWrapped = wrapped[0] === "bash";
     const [wrappedCmd, ...wrappedArgs] = wrapped;
     const proc = spawn(wrappedCmd!, wrappedArgs, {
@@ -80,7 +72,6 @@ export function runProcess(
       proc.stdin!.end();
     }
 
-    // Fallback timer in case spawn timeout doesn't fire
     const timer = setTimeout(() => {
       forceKilledViaFallbackTimer = true;
       proc.kill("SIGKILL");
@@ -88,19 +79,9 @@ export function runProcess(
 
     proc.on("close", (code, signal) => {
       clearTimeout(timer);
-      // Compare against the raw float elapsed to avoid round-up false TLEs:
-      // a process that finishes at 999.6ms (rounded to 1000) must not be
-      // classified as TLE when the limit is 1000ms. The spawn-level timeout
-      // and the SIGKILL fallback are the authoritative cut-offs.
       const elapsedMs = performance.now() - startTime;
       const memoryKb = memoryPoller?.stop() ?? 0;
       const rawStderr = stderrBuf.toString();
-      // Bash's `exec` failure is exit 126 (not executable) / 127 (not found)
-      // AND its distinctive stderr. Gate on both so an adversarial student
-      // program that exits non-zero and prints the same phrase keeps its RE.
-      // macOS bash prints `... exec: <path>: cannot execute ...`; Linux bash
-      // prints `... line N: <path>: No such file or directory|Permission denied`
-      // without the `exec:` prefix. Match either variant.
       const execFailed =
         isWrapped &&
         (code === 126 || code === 127) &&
@@ -139,7 +120,6 @@ export function runProcess(
   });
 }
 
-/** Classify a solution run into an error verdict (SE/TLE/MLE/RE), or `null` if it succeeded. */
 export function classifySolutionVerdict(
   result: RunProcessResult,
   testcaseIndex: number,

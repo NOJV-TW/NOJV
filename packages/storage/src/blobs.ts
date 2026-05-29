@@ -11,11 +11,9 @@ const BUCKET = process.env.S3_BUCKET ?? "nojv";
 
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 
-// S3 DeleteObjects API caps each request at 1000 keys.
 const DELETE_BATCH_SIZE = 1000;
 
 export async function putText(client: S3Client, key: string, content: string): Promise<void> {
-  // Explicit Buffer + ContentLength silences the AWS SDK unknown-length warning.
   const body = Buffer.from(content, "utf-8");
   await client.send(
     new PutObjectCommand({
@@ -71,11 +69,6 @@ export async function listByPrefix(client: S3Client, prefix: string): Promise<st
   return keys;
 }
 
-/**
- * Sum the byte sizes of every object under `prefix`. Used by per-problem
- * storage budgets — paginates through `ListObjectsV2` and adds `Size` from
- * each entry (LIST returns size without a per-key HEAD round-trip).
- */
 export async function sumSizesByPrefix(client: S3Client, prefix: string): Promise<number> {
   let total = 0;
   let continuationToken: string | undefined;

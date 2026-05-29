@@ -12,18 +12,8 @@ import { writeSync as fsWriteSync } from "node:fs";
 import * as path from "node:path";
 import { createBoundedBuffer, createMemoryPoller, withProcessLimit } from "../utils.js";
 
-// Cap the captured child stderr included in the marked report so a noisy
-// program can't blow up the worker's stderr buffer through the marker line.
 const REPORT_STDERR_CAP = 4_096;
 
-/**
- * Solution side of an isolated interactive run. The compiled solution inherits
- * the container's stdin/stdout (fd 0/1) so the worker's byte proxy is the live
- * interaction pipe; only the child's stderr is captured here. After the child
- * exits we classify any run failure (TLE/MLE/RE/SE) and emit a SINGLE marked
- * JSON line on OUR stderr (container fd 2). The solution container mounts only
- * the source — no input, answer, or interactor.
- */
 export function runInteractiveSolution(
   runCommand: string[],
   timeoutMs: number,
@@ -46,9 +36,6 @@ export function runInteractiveSolution(
 
     const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
     const child = spawn(wrappedCmd!, wrappedArgs, {
-      // stdin/stdout ARE the container's fd 0/1 → the worker proxies bytes
-      // straight to/from the interactor container. stderr is captured for the
-      // run report.
       stdio: ["inherit", "inherit", "pipe"],
       ...(env ? { env: { ...process.env, ...env } } : {}),
     });
@@ -113,13 +100,6 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-/**
- * Resolve the per-case input/answer files for the interactor container.
- * Prefers Docker's directory layout (`/submission/cases/{index}/{input,answer}.txt`)
- * and falls back to the K8s flat-ConfigMap layout
- * (`/submission/case-{i}-{input,answer}.txt`) — ConfigMaps cannot hold nested
- * directories.
- */
 export async function resolveInteractiveCaseFiles(
   submissionDir: string,
   index: number,
@@ -137,7 +117,6 @@ export async function resolveInteractiveCaseFiles(
   };
 }
 
-/** Read a feedback file if present; missing → undefined. */
 async function readFeedbackFile(dir: string, name: string): Promise<string | undefined> {
   try {
     return await fs.readFile(path.join(dir, name), "utf-8");
@@ -146,14 +125,6 @@ async function readFeedbackFile(dir: string, name: string): Promise<string | und
   }
 }
 
-/**
- * Interactor side of an isolated interactive run. The DOMjudge interactor is
- * invoked `interactor <input> <answer> <feedbackDir>` with its stdin/stdout
- * inheriting the container's fd 0/1 — i.e. the live pipe to the solution. After
- * it exits we read its feedback files + exit code into a `ValidatorOutcome` and
- * emit a SINGLE marked JSON line on OUR stderr. The secret input/answer is
- * mounted ONLY into this container.
- */
 export function runInteractiveValidator(
   interactorCommand: string[],
   files: { inputFile: string; answerFile: string; feedbackDir: string },
@@ -218,33 +189,14 @@ export function runInteractiveValidator(
   });
 }
 
-/**
- * Write the run report marker line on this process's stderr (container fd 2).
- * Uses fs.writeSync — process.stderr.write is async on a pipe (which fd 2 is
- * when the runner is wrapped by socat), and on a racy teardown (interactor
- * finishes first → its socat closes TCP → solution-side socat tears down the
- * solution container) the async write can be dropped before flush, so the
- * marker line never reaches the K8s pod log → worker sees no marker → SE
- * verdict for a successful run.
- */
 function emitRunReport(report: InteractiveRunReport): void {
   writeSync(2, `\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`);
 }
 
-/** Write the validate report marker line on this process's stderr (container fd 2). */
 function emitValidateReport(outcome: ValidatorOutcome): void {
   writeSync(2, `\n${INTERACTIVE_VALIDATE_MARKER}${JSON.stringify(outcome)}\n`);
 }
 
-/**
- * Synchronous best-effort stderr write — ignores EAGAIN/EPIPE on a torn-down
- * pipe. The fs.writeSync path is critical on K8s: under the socat-bridged
- * interactive pod, `process.stderr.write` is libuv-async, and on the racy
- * "interactor finishes first" teardown (interactor exits → its socat closes
- * TCP → solution-side socat dies) node can exit before the libuv write
- * flushes — dropping the marker, so the worker sees no run report and
- * returns false SE for a legitimate verdict.
- */
 function writeSync(fd: number, data: string): void {
   try {
     fsWriteSync(fd, data);

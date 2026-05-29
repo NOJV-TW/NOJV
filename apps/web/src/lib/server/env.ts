@@ -12,7 +12,6 @@ const webEnvSchema = z
     DATABASE_URL: z.url().default("postgresql://postgres:postgres@localhost:5432/nojv"),
     REDIS_URL: z.url().default("redis://localhost:6379"),
 
-    // BETTER_AUTH_SECRET falls back to a dev default in non-prod; required in prod (enforced below).
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),
 
@@ -41,10 +40,6 @@ export type WebEnv = z.output<typeof webEnvSchema>;
 
 let _webEnv: WebEnv | undefined;
 
-/**
- * Lazily parsed and cached environment. Throws on first access if validation
- * fails, ensuring the app never starts with a misconfigured environment.
- */
 export function getWebEnv(): WebEnv {
   _webEnv ??= webEnvSchema.parse(env);
   return _webEnv;

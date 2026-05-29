@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Per-testcase result reported by the TA's container.
 export const advancedTestcaseResultSchema = z.object({
   index: z.number().int().nonnegative(),
   verdict: z.enum(["AC", "WA", "TLE", "MLE", "RE", "SE"]),
@@ -19,7 +18,6 @@ const TOP_VERDICT_ALIASES: Record<string, string> = {
   ce: "compile_error",
 };
 
-// The full result.json written by the TA's container.
 export const advancedResultSchema = z.object({
   score: z.number().min(0).max(100),
   verdict: z.preprocess(

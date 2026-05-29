@@ -31,9 +31,6 @@
     class?: string;
   }
 
-  // `detail` is reserved for future per-tab context (current exam metadata,
-  // server-rendered helpers). Keep it in the prop surface so callers don't
-  // have to remove it when we wire it back in.
   let { form: formProp, detail: _detail, liveStatus, class: className }: Props = $props();
 
   const {
@@ -48,20 +45,13 @@
     invalidateAll: true
   });
 
-  // Field-lock rules per spec. Server re-validates; these flags only
-  // hint to the UI which controls are safe to touch.
   const isDraft = $derived(liveStatus === "draft");
   const isUpcoming = $derived(liveStatus === "upcoming");
   const isRunning = $derived(liveStatus === "running");
   const isEnded = $derived(liveStatus === "ended");
 
-  // Anything set in draft/upcoming is freely editable.
   const editableBasics = $derived(isDraft || isUpcoming);
-  // Running phase keeps the proctoring escape hatches live; everything
-  // else freezes.
   const editableProctoring = $derived(isDraft || isUpcoming || isRunning);
-  // Scoring shape / cooldown / languages become immutable once any
-  // student can submit.
   const editableScoring = $derived(isDraft || isUpcoming);
 
   function lockHint(): string | null {

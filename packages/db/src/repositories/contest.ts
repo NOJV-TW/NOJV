@@ -5,11 +5,6 @@ import { problemMiniSelect, userMiniSelect, userScoreboardSelect } from "./selec
 
 type TxClient = TransactionClient;
 
-/**
- * Thrown by `contestParticipationRepo.updateWithVersion` when the row's
- * `version` column has moved on since the caller read it (Prisma surfaces
- * this as P2025). The domain layer catches this and retries on a fresh read.
- */
 export class ParticipationVersionConflict extends Error {
   readonly participationId: string;
   readonly expectedVersion: number;
@@ -55,7 +50,6 @@ export const contestRepo = {
     });
   },
 
-  // Standalone contests only; course-role teaching rights live on `Exam`.
   listManagedForUser(userId: string) {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -190,9 +184,6 @@ export const contestProblemRepo = {
       .then((row) => row !== null);
   },
 
-  // Practice-after-close: a user who participated in a published contest
-  // that has since ended retains read/submit access to the contest's
-  // problems — for practice only, no scoring.
   hasEndedContestForUser(problemId: string, userId: string, now: Date) {
     return prisma.contestProblem
       .findFirst({
@@ -209,20 +200,6 @@ export const contestProblemRepo = {
       .then((row) => row !== null);
   },
 
-  // Currently-active contests that include this problem and that the
-  // user is eligible to enter. Used by the editorial context resolver
-  // to deny editorial reads while the live event is still running.
-  //
-  // ContestParticipation rows are created lazily on first submission
-  // (see `ensureContestParticipation`), so filtering by participation
-  // alone misses a user who hasn't yet submitted but is fully eligible
-  // to join. That gap lets a past-AC student read editorials via the
-  // practice fallback while a live contest is reusing the problem.
-  // Contests have no `courseId` and visibility is `draft | published`
-  // only — published = open to any logged-in user — so the right key
-  // is "the contest is published and live". The `userId` parameter is
-  // accepted for signature parity with the assessment/exam helpers
-  // but does not narrow the result; eligibility is contest-wide.
   findActiveContestsForUser(problemId: string, userId: string, now: Date) {
     void userId;
     return prisma.contestProblem.findMany({
@@ -273,15 +250,12 @@ export const contestParticipationRepo = {
     });
   },
 
-  // Lightweight id-only list used by notification fan-out workflows.
   listParticipantUserIds(contestId: string) {
     return prisma.contestParticipation
       .findMany({ where: { contestId }, select: { userId: true } })
       .then((rows) => rows.map((r) => r.userId));
   },
 
-  // Participant roster with user mini profiles — used by the score-override
-  // drawer so staff can pick a student to adjust.
   listParticipantsWithUser(contestId: string) {
     return prisma.contestParticipation.findMany({
       where: { contestId },
@@ -297,13 +271,6 @@ export const contestParticipationRepo = {
     });
   },
 
-  /**
-   * Optimistic-lock update: only writes when the current row's `version`
-   * still matches `expectedVersion`, and bumps it by one in the same
-   * statement. If another writer raced ahead, Prisma's `update` raises
-   * P2025 (record not found) — we translate that to `ParticipationVersionConflict`
-   * so callers can retry on a fresh read.
-   */
   async updateWithVersion(
     id: string,
     expectedVersion: number,
@@ -322,8 +289,6 @@ export const contestParticipationRepo = {
     }
   },
 
-  // Id-only lookup — used by score-override invalidation so we can call
-  // `updateContestScores(participationId)` after editing an override.
   findIdByContestAndUser(contestId: string, userId: string) {
     return prisma.contestParticipation
       .findUnique({

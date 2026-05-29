@@ -34,7 +34,6 @@
   }
 
   function handleClick() {
-    // Fire-and-forget; does not block navigation.
     void notifications.markOne(item.id);
   }
 

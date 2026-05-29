@@ -7,11 +7,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { scoreOverrideDomain } from "@nojv/domain";
 
-/**
- * Wire shape: discriminated union keyed by `type`. Replaces the legacy
- * `{ contextType, contextId }` flat pair; the domain function now takes
- * a `ScoreOverrideContext` union directly.
- */
 const contextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
   z.object({ type: z.literal("exam"), examId: z.string().min(1) }),
@@ -44,10 +39,6 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const context = parseContextQuery(event.url);
 
-  // Listing surfaces the staff-only `reason` field, so gate on staff role —
-  // students must never reach this. Use the role-only assert, NOT the
-  // write-path assert: staff may list overrides while the context is still
-  // open (the post-close gate is a write-time restriction only).
   await scoreOverrideDomain.assertCanViewScoreOverrides(actor, context);
 
   const items = await scoreOverrideDomain.listByContext(context);

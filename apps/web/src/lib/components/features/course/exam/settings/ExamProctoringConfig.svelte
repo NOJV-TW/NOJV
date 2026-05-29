@@ -9,10 +9,6 @@
 
   interface Props {
     form: Sf["form"];
-    /**
-     * Proctoring escape hatches stay live during the running phase — this
-     * lets staff yank the lock when a student is stuck.
-     */
     editable: boolean;
   }
 

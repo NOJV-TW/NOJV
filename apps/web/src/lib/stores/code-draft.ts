@@ -57,10 +57,6 @@ export function loadDraft(key: DraftKey): DraftRecord | null {
   return parseDraftRecord(localStorage.getItem(buildDraftKey(key)));
 }
 
-// QuotaExceededError can be a DOMException with name "QuotaExceededError" or
-// the legacy code 22 (or 1014 in Firefox). Some test environments (jsdom)
-// expose DOMException as a non-Error host object, so we duck-type instead of
-// gating on `instanceof Error`.
 function isQuotaExceeded(err: unknown): boolean {
   if (err === null || typeof err !== "object") return false;
   const e = err as { name?: unknown; code?: unknown };
@@ -78,7 +74,6 @@ function listDraftsByAge(): IndexedDraft[] {
   for (let i = 0; i < localStorage.length; i++) {
     const storageKey = localStorage.key(i);
     if (!storageKey?.startsWith(KEY_PREFIX)) continue;
-    // Malformed entries are oldest-first candidates — treat them as savedAt 0.
     const record = parseDraftRecord(localStorage.getItem(storageKey));
     entries.push({ storageKey, savedAt: record?.savedAt ?? 0 });
   }

@@ -17,9 +17,6 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
-// Active clarification channel subscriptions, as `"${contextType}:${contextId}"`.
-// Serialized onto the EventSource URL as repeated `clarificationSub` params
-// so the server can subscribe to the right Redis channels for this connection.
 const clarificationSubs = new Set<string>();
 
 function buildStreamUrl(): string {
@@ -92,21 +89,11 @@ export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): ()
 function reconnectIfConnected(): void {
   if (!browser) return;
   if (!eventSource) return;
-  // Close and re-open so the server subscribes to the updated set of
-  // clarification channels. The existing `connectSSE` path handles
-  // reconnect-scheduling if this fails.
   eventSource.close();
   eventSource = null;
   connectSSE();
 }
 
-/**
- * Request that the SSE stream also subscribe to the
- * `clarification:{contextType}:{contextId}` channel. If the page is
- * already streaming, the connection is torn down and re-opened so the
- * server can resubscribe to the new channel set. Safe to call
- * repeatedly — the second call for the same (type, id) is a no-op.
- */
 export function subscribeClarificationChannel(
   contextType: "contest" | "exam" | "assignment",
   contextId: string,
@@ -118,11 +105,6 @@ export function subscribeClarificationChannel(
   reconnectIfConnected();
 }
 
-/**
- * Remove a clarification channel subscription. If the page had an
- * active EventSource, the connection is re-opened so the server drops
- * the Redis subscription along with its buffer.
- */
 export function unsubscribeClarificationChannel(
   contextType: "contest" | "exam" | "assignment",
   contextId: string,
@@ -145,8 +127,6 @@ function handleDefaultEvent(data: SSEEvent) {
     toasts.add({ message: m.sse_assignmentDeadlineApproaching(), type: "info" });
   }
   if (data.type === SSE_NOTIFICATION) {
-    // Batch signals arrive without id/createdAt; the store falls back to
-    // refetching /api/notifications in that case.
     notifications.handleSseEvent({
       notificationType: data.notificationType,
       params: data.params,

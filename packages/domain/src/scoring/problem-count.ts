@@ -26,7 +26,6 @@ export interface ProblemCountResult {
   penaltySeconds: number;
 }
 
-// Single source of truth for ICPC per-problem penalty; shared with the DB-write path.
 export function computeProblemCountPenalty(
   submissions: readonly ProblemCountScoringSubmission[],
   sessionStartsAt: Date,
@@ -67,8 +66,6 @@ export function buildProblemCountScoreboard(
 ): ScoreboardEntry[] {
   const frozenAt = session.frozenAt;
 
-  // Track first AC per problem (global, unfrozen). Submissions are sorted by
-  // createdAt asc, so the first AC seen is the global first blood.
   const firstAcByProblem = new Map<string, string>();
   for (const sub of submissions) {
     if (sub.status === "accepted" && !firstAcByProblem.has(sub.problemId)) {
@@ -89,8 +86,6 @@ export function buildProblemCountScoreboard(
       const probSubs = userSubs.filter((s) => s.problemId === prob.id);
       const { visibleSubs, isFrozen } = splitFrozenVisible(probSubs, frozenAt, showFrozen);
 
-      // Single source of truth for ICPC per-problem penalty. Shared with
-      // the DB-write path in updateContestScores so the two can't drift.
       const result = computeProblemCountPenalty(visibleSubs, session.startsAt);
       const score = result.solved ? prob.points : 0;
       if (result.solved) {
@@ -126,7 +121,6 @@ export function buildProblemCountScoreboard(
 
   sortByScoreThenPenalty(entries);
 
-  // Same score+penalty = same rank
   assignRanks(
     entries,
     (prev, curr) =>

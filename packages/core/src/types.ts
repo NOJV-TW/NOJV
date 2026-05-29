@@ -43,14 +43,11 @@ export const submissionOperationStatuses = [
   "runtime_error",
   "time_limit_exceeded",
   "memory_limit_exceeded",
-  // Terminal non-graded failure when the worker can't even start judging
-  // (e.g. source storage write failed before the worker picked up the job).
   "system_error",
 ] as const;
 
 export const localeCodes = ["en", "zh-TW"] as const;
 
-/** Default locale for database content (problem statements, user locale, etc.). */
 export const DEFAULT_LOCALE = "zh-TW";
 
 export const platformRoleSchema = z.enum(platformRoles);
@@ -110,7 +107,6 @@ const MAX_CIDR_LEN = 50;
 const MAX_WHITELIST_ENTRIES = 1000;
 const MAX_WHITELIST_TEXT_LEN = 50_000;
 
-/** Shared Zod fields for IP lock configuration. Use with z.object({ ...ipLockFields, ... }) */
 export const ipLockFields = {
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),
@@ -121,7 +117,6 @@ export const ipLockFields = {
   ipWhitelistEnabled: z.boolean().default(false),
 } as const;
 
-/** Shared Zod fields for IP lock form (textarea variant for whitelist). */
 export const ipLockFormFields = {
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),

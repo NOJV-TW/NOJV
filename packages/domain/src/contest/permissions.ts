@@ -5,8 +5,6 @@ export interface ContestPermissionInput {
   createdByUserId: string | null;
 }
 
-// Contests are standalone — creator OR platform admin can manage. Course-role
-// teaching rights do not transfer (contests have no course parent).
 export function canManageContest(
   userId: string | null,
   contest: ContestPermissionInput,
@@ -17,13 +15,6 @@ export function canManageContest(
   return contest.createdByUserId === userId;
 }
 
-/**
- * Returns true when the viewer is allowed to see the unfrozen (live) and
- * not-yet-revealed scoreboard rows. Admins and the contest organizer
- * qualify; everyone else — including teachers / TAs of unrelated courses
- * — gets the frozen view. The check loads the contest row exactly once
- * and is safe to call repeatedly within a single request.
- */
 export async function canViewLiveContestScoreboard(
   contestId: string,
   actor: { userId: string; platformRole: PlatformRole | null } | null,

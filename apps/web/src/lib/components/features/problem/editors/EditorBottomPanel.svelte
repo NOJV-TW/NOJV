@@ -11,40 +11,16 @@
   }
 
   interface Props {
-    /**
-     * Bindable: the parent (Editor.svelte) owns this array so the Run
-     * handler can read exactly what the student typed into the panel.
-     * The parent seeds it from `problem.samples` on first render.
-     */
     runCases: RunCase[];
-    /**
-     * When `true`, the Testcase tab hides its editing UI and shows a
-     * read-only notice instead. Used for `special_env` problems where
-     * the TA image owns the testcase format and a generic stdin panel
-     * would be misleading.
-     */
     isReadOnly?: boolean;
-    /** Active tab — bound so the parent can flip to "result" when a run starts. */
     tab: "testcase" | "result";
-    /** Final verdict from the most recent Run invocation, if any. */
     runResult: SubmissionResult | null;
-    /** Transient status string while a run is in flight (e.g. "running"). */
     runStatus: string | null;
-    /** Surfaced error message from the last Run / Submit failure. */
     runError: string | null;
-    /** Fires when the user clicks a tab. */
     ontabchange: (tab: "testcase" | "result") => void;
-    /**
-     * When true, render the draft status chip + clear button in the tab
-     * strip. Caller (Editor.svelte) passes false in workspace mode where
-     * the draft key has no path dimension.
-     */
     draftEnabled?: boolean;
-    /** Current language buffer differs from the last persisted draft. */
     isDirty?: boolean;
-    /** Epoch ms of the last successful save for the current language. */
     lastSavedAt?: number | null;
-    /** Fires when the user clicks the trash icon. */
     onClearDraft?: (() => void) | undefined;
   }
 
@@ -73,8 +49,6 @@
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
 
-  // Reset the result-case cursor whenever a new run lands so the result
-  // tab opens on the first case.
   $effect(() => {
     void runResult;
     selectedResultCase = 0;

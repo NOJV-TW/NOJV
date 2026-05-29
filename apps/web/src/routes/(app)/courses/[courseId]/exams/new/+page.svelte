@@ -107,10 +107,10 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <!-- Hidden courseId carrier -->
+    
     <input type="hidden" name="courseId" value={$form.courseId} />
 
-    <!-- ── Card 1 · Basics ───────────────────────────────── -->
+    
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -164,7 +164,7 @@
       </div>
     </section>
 
-    <!-- ── Card 2 · Problems ─────────────────────────────── -->
+    
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -183,7 +183,7 @@
         </div>
       </header>
 
-      <!-- Picker -->
+      
       <div class="rounded-md border border-border bg-[color:var(--color-panel)]/60">
         <div
           class="flex items-center gap-2.5 border-b border-border px-4 py-2.5"
@@ -231,7 +231,7 @@
         </div>
       </div>
 
-      <!-- Selected -->
+      
       {#if selectedDetails.length > 0}
         <div class="mt-4">
           <div
@@ -311,7 +311,7 @@
       {/if}
     </section>
 
-    <!-- ── Card 3 · Schedule ─────────────────────────────── -->
+    
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -364,7 +364,7 @@
       </div>
     </section>
 
-    <!-- ── Card 4 · Advanced (collapsible) ───────────────── -->
+    
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -414,7 +414,7 @@
       {/if}
     </section>
 
-    <!-- ── Card 5 · Proctoring ───────────────────────────── -->
+    
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -434,7 +434,7 @@
       </header>
 
       <div class="space-y-3">
-        <!-- Page lock -->
+        
         <div
           class="flex items-start justify-between gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.pageLockEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -474,7 +474,7 @@
           </label>
         </div>
 
-        <!-- IP binding -->
+        
         <div
           class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.ipBindingEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -548,7 +548,7 @@
           {/if}
         </div>
 
-        <!-- IP whitelist -->
+        
         <div
           class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.ipWhitelistEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -611,7 +611,7 @@
       </div>
     </section>
 
-    <!-- ── Card 6 · Scoring ──────────────────────────────── -->
+    
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -690,7 +690,7 @@
       </div>
     </section>
 
-    <!-- ── Actions ───────────────────────────────────────── -->
+    
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >

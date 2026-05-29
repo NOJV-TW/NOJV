@@ -20,7 +20,6 @@ export const contestSessionSchema = z
     path: ["endsAt"],
   });
 
-// Standalone events: no courseId binding, no proctoring, no adjustment rules.
 const contestCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: isoDateTimeSchema,
@@ -49,11 +48,6 @@ export const contestUpdateSchema = contestCreateBaseSchema.omit({ id: true }).pa
 export type ContestCreate = z.infer<typeof contestCreateSchema>;
 export type ContestUpdate = z.infer<typeof contestUpdateSchema>;
 
-/**
- * Superforms payload for the contest detail page's Settings tab.
- * Uses lax datetime strings produced by `<input type="datetime-local">`.
- * Server action converts to ISO before calling `updateContestRecord`.
- */
 export const contestSettingsFormSchema = z.object({
   title: z.string().trim().max(120).default(""),
   summary: z.string().trim().max(4_000).default(""),

@@ -6,7 +6,6 @@
 
   let { data } = $props();
 
-  // Notify the account page via BroadcastChannel on success
   $effect(() => {
     if (data.status !== "success") return;
 

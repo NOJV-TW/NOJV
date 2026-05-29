@@ -5,9 +5,6 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
 
-  // Pure-CSS visibility blocker shown on screens narrower than `md`. The
-  // server-side IP / page-lock checks remain authoritative; this component is
-  // visual-only to stop students from trying to type code into a 360px viewport.
   interface Props {
     problem: ProblemDetail;
   }
@@ -49,9 +46,7 @@
 </div>
 
 {#if showStatement}
-  <!-- Fullscreen statement viewer — purely client-side, mobile only. The
-       server already returned the statement as part of `problem`; we just
-       toggle visibility here. -->
+  
   <div
     class="fixed inset-0 z-[var(--z-modal,80)] flex flex-col bg-background"
     role="dialog"

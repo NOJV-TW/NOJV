@@ -7,7 +7,6 @@
 	export type IconButtonSize = "sm" | "md" | "lg";
 
 	export type IconButtonProps = WithElementRef<HTMLButtonAttributes> & {
-		/** Accessible label, used as aria-label (icon-only button has no visible text). */
 		label: string;
 		variant?: ButtonVariant;
 		size?: IconButtonSize;
@@ -15,8 +14,6 @@
 		children: Snippet;
 	};
 
-	// IconButton sizes map to Button's icon-* sizes.
-	// sm (36×36) — dense UI only; md (40×40) — default; lg (44×44) — primary touch targets.
 	const sizeMap = {
 		sm: "icon-sm",
 		md: "icon",

@@ -33,7 +33,6 @@
     }
   );
 
-  // Client re-runs the same split rule for preview; existence check is server-side only.
   const previewHandles = $derived.by(() => {
     const raw = $form.handles ?? "";
     const seen = new Set<string>();

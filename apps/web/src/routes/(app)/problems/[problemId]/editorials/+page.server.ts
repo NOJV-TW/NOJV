@@ -18,10 +18,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const requestedPage = pageParam ? Number.parseInt(pageParam, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  // Match the AC gate used by the API: problem lookup, server-side context
-  // resolution, and visibility check run in parallel. NotFoundError on the
-  // problem takes precedence over the 403 ForbiddenError on the AC gate.
-  // Context MUST be resolved server-side — see API route for rationale.
   const now = new Date();
   const context = await resolveActiveContextForUser(actor.userId, problemId, now);
   const [problem, canView] = await Promise.all([

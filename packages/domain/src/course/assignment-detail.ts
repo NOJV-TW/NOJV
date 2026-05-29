@@ -4,9 +4,6 @@ import { adjustmentRulesSchema, type AdjustmentRule, type Language } from "@nojv
 import { NotFoundError } from "../shared/errors";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 
-// The settings tab edits a single late-penalty rule. The stored
-// `adjustmentRules` JSON is an array; pull the one non-`time_bonus`
-// member back out for hydration.
 function extractLatePenalty(raw: unknown): AdjustmentRule | null {
   const parsed = adjustmentRulesSchema.safeParse(raw);
   if (!parsed.success) return null;
@@ -23,24 +20,18 @@ function extractLatePenalty(raw: unknown): AdjustmentRule | null {
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
 export interface AssignmentDetailProblem {
-  /** Stable problem id — used to link through to the problem page. */
   problemId: string;
-  /** A, B, C, ... letter derived from `ordinal`. */
   letter: string;
   ordinal: number;
   displayId: number;
   title: string;
   difficulty: "easy" | "medium" | "hard";
-  /** Max points for this problem within this assignment. */
   points: number;
-  // Null for managers OR when the assignment has no published problems.
   myStatus: {
     bestScore: number | null;
     attempts: number;
     lastSubmissionAt: string | null;
-    /** `ac` = full score, `partial` = score > 0, `attempted` = score === 0, `none` = no subs */
     state: "ac" | "partial" | "attempted" | "none";
-    /** True when the rendered bestScore came from a staff-set ScoreOverride. */
     overridden: boolean;
   } | null;
 }
@@ -76,9 +67,7 @@ export interface AssignmentDetail {
   totalPoints: number;
   problemCount: number;
   problems: AssignmentDetailProblem[];
-  // Null for managers — teacher UI shows the per-problem matrix instead.
   myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null;
-  // Lifecycle audit trail — populated for managers only.
   auditLog: AssessmentAuditEntry[];
 }
 
@@ -121,14 +110,10 @@ export async function getAssignmentDetail(
 
   const status = deriveStatus(row, now);
 
-  // Draft assignments are author-facing only — surface as 404 to everyone else.
   if (!options.isManager && status === "draft") {
     throw new NotFoundError("Assignment not found.");
   }
 
-  // Non-managers see problems only once the assignment has opened. Before
-  // then (upcoming) we strip the list so neither the UI nor a downstream
-  // caller can leak problem titles or link targets.
   const hideProblemsFromViewer = !options.isManager && status === "upcoming";
 
   const problems: AssignmentDetailProblem[] = hideProblemsFromViewer
@@ -151,7 +136,6 @@ export async function getAssignmentDetail(
   let myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null = null;
 
   if (!options.isManager && problems.length > 0) {
-    // Best score + attempt count per problem for this student.
     const problemIds = problems.map((p) => p.problemId);
     const [grouped, recent] = await Promise.all([
       submissionRepo.groupByUserAndProblem({
@@ -193,8 +177,6 @@ export async function getAssignmentDetail(
       }
     }
 
-    // Fetch overrides for this assignment (scoped to this viewer) and
-    // let them win over the best-submission aggregate.
     const overrides = await getOverridesForContext({
       type: "assignment",
       assignmentId,
@@ -291,9 +273,6 @@ export async function getAssignmentDetail(
     latePenalty: extractLatePenalty(row.adjustmentRules),
     auditLog,
     totalPoints,
-    // The true count stays visible to upcoming-viewers — the UI uses it
-    // to render "N problems will unlock when the assignment opens" — but
-    // the `problems` array stays empty.
     problemCount: row.problems.length,
     problems,
     myRecentSubmissions,

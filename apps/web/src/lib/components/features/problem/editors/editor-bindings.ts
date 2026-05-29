@@ -1,10 +1,3 @@
-/**
- * Pure helpers extracted from `apps/web/src/lib/components/problem/Editor.svelte`.
- *
- * Each function here is framework-agnostic (no Svelte runes) so the editor
- * shell can stay focused on rune-bound state. Tests can exercise these
- * helpers directly without instantiating a Svelte component.
- */
 import { entryFileNameFor, languageSchema, type Language, type ProblemType } from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
 import type {
@@ -17,16 +10,10 @@ const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
 
 export type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 
-/** Compose the per-language draft-map key for workspace mode. */
 export function workspaceDraftKey(lang: string, path: string): string {
   return `${lang}::${path}`;
 }
 
-/**
- * Read the persisted preferred language from localStorage, falling back to
- * "cpp". The schema parse keeps the fallback safe if a future build changes
- * the supported language set.
- */
 export function readPersistedLanguage(): Language {
   try {
     const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
@@ -38,7 +25,6 @@ export function readPersistedLanguage(): Language {
   return "cpp";
 }
 
-/** Persist the active language so the next visit boots into the same one. */
 export function persistLanguage(lang: Language): void {
   try {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
@@ -47,11 +33,6 @@ export function persistLanguage(lang: Language): void {
   }
 }
 
-/**
- * Pick the workspace file the student should land on for a language. Prefer
- * the canonical `main.<ext>` entry; fall back to the first editable file;
- * finally fall back to index 0.
- */
 export function pickInitialWorkspaceIndex(files: WorkspaceFile[], language: Language): number {
   const entry = entryFileNameFor(language);
   const entryIndex = files.findIndex((f) => f.path === entry && f.visibility === "editable");
@@ -60,7 +41,6 @@ export function pickInitialWorkspaceIndex(files: WorkspaceFile[], language: Lang
   return firstEditable >= 0 ? firstEditable : 0;
 }
 
-/** Seed a per-language/per-path draft map from the server's workspace files. */
 export function seedWorkspaceDrafts(files: WorkspaceFile[]): Record<string, string> {
   const drafts: Record<string, string> = {};
   for (const f of files) {
@@ -69,11 +49,6 @@ export function seedWorkspaceDrafts(files: WorkspaceFile[]): Record<string, stri
   return drafts;
 }
 
-/**
- * Project the workspace-file array into the wire shape the worker expects:
- * hidden files are stripped, editable files carry the student's draft,
- * read-only files carry the original content.
- */
 export function projectWorkspaceFilesForSubmit(
   files: WorkspaceFile[],
   drafts: Record<string, string>,
@@ -89,11 +64,6 @@ export function projectWorkspaceFilesForSubmit(
     }));
 }
 
-/**
- * For the "Run" flow, transform the editable sample-cases array into the
- * worker-side shape. `expectedOutput: ""` means "don't compare, just echo
- * stdout"; we drop the field entirely so the worker treats it as undefined.
- */
 export function projectRunCasesForRequest(
   cases: { input: string; expectedOutput: string }[],
 ): { input: string; expectedOutput?: string }[] {
@@ -104,20 +74,14 @@ export function projectRunCasesForRequest(
   });
 }
 
-/** Workspace-mode = student-editable multi-file (not special_env / not single-file). */
 export function isWorkspaceProblem(type: ProblemType): boolean {
   return type === "multi_file";
 }
 
-/** Special-env problems skip student-owned sample cases entirely. */
 export function isSpecialEnvProblem(type: ProblemType): boolean {
   return type === "special_env";
 }
 
-/**
- * Bind an Escape-key listener to exit fullscreen. Returns the cleanup fn
- * so the caller can wire it into a Svelte `$effect`.
- */
 export function bindEscapeToExitFullscreen(onExit: () => void): () => void {
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") onExit();
@@ -126,13 +90,6 @@ export function bindEscapeToExitFullscreen(onExit: () => void): () => void {
   return () => window.removeEventListener("keydown", onKey);
 }
 
-/**
- * Wire up a vertical drag handle that resizes a panel measured against the
- * given container. Returns a `(MouseEvent) => void` to attach to onmousedown.
- *
- * `onHeightChange` is the only side-effect — the caller owns the actual
- * height state. `onResizingChange` lets the UI flip a "active drag" affordance.
- */
 export function createBottomResizeHandler({
   getContainer,
   onHeightChange,
@@ -172,10 +129,6 @@ export function createBottomResizeHandler({
   };
 }
 
-/**
- * Build the submission-service request payload, branching on workspace vs
- * single-file mode. Keeps the run/submit flow in Editor.svelte mechanical.
- */
 export function buildSubmissionRequest(args: {
   problemId: string;
   language: Language;
@@ -210,11 +163,6 @@ export function buildSubmissionRequest(args: {
   return { ...base, sourceCode: args.drafts[args.language] ?? "" };
 }
 
-/**
- * Project the active source as a single string for the post-submit callback.
- * Workspace mode concatenates editable files with banner comments; single-file
- * mode returns the active draft.
- */
 export function projectSubmittedSource(args: {
   language: Language;
   isWorkspaceMode: boolean;

@@ -61,8 +61,6 @@
   let { data } = $props();
   const scoreboard = $derived(data.scoreboard);
   const chart = $derived(data.chart);
-  // Route params for `[contestId]` are always defined when this route renders,
-  // but svelte-kit types them as `string | undefined`. Coerce for downstream use.
   const contestId = $derived(page.params.contestId ?? "");
 
   const isSolveCount = $derived(scoreboard.scoringMode === "problem_count");
@@ -71,7 +69,6 @@
   let lastRefreshed = $state(Date.now());
   let justRefreshed = $state(false);
 
-  // Auto-refresh scoreboard every 30 seconds.
   const AUTO_REFRESH_MS = 30_000;
   onMount(() => {
     const interval = setInterval(async () => {
@@ -98,7 +95,6 @@
     }
   }
 
-  // Identify the viewer's row to highlight + drive the KPI strip.
   const myUsername = $derived(page.data.user?.username ?? null);
   const myRow = $derived(
     myUsername == null
@@ -106,7 +102,6 @@
       : scoreboard.entries.find((e) => e.username === myUsername) ?? null
   );
 
-  // Deterministic avatar tint per username.
   function avatarBg(name: string): string {
     const code = name.charCodeAt(0) || 65;
     return `hsl(${String((code * 7) % 360)} 30% 65%)`;
@@ -124,7 +119,7 @@
     ]}
   />
 
-  <!-- Compact header -->
+  
   <div class="glass rounded-xl shadow-rest p-4 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
@@ -198,7 +193,7 @@
     </div>
   </div>
 
-  <!-- Scoreboard panel -->
+  
   <GlassPanel class="overflow-hidden">
     <div
       class="flex items-center justify-between px-6 py-4 border-b gap-4 flex-wrap"
@@ -419,7 +414,7 @@
       </div>
     {/if}
 
-    <!-- Legend -->
+    
     {#if scoreboard.entries.length > 0}
       <div
         class="px-6 py-3 border-t flex flex-wrap items-center gap-x-5 gap-y-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
@@ -479,7 +474,7 @@
     {/if}
   </GlassPanel>
 
-  <!-- Score chart -->
+  
   {#if chart.series.length > 0}
     <GlassPanel class="p-6">
       <div class="flex items-baseline justify-between mb-3">

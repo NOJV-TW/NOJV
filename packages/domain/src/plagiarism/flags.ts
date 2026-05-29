@@ -13,12 +13,6 @@ import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors
 
 export type { PlagiarismContext };
 
-/**
- * Build the canonical pair key. The two user ids are sorted lexicographically
- * before being joined so the same pair always produces the same key regardless
- * of caller-supplied ordering. The server is the only place this is computed —
- * clients never get to invert the ordering.
- */
 export function buildPairKey(userAId: string, userBId: string, problemId: string): string {
   if (!userAId || !userBId || !problemId) {
     throw new ValidationError("userAId, userBId, and problemId are required.");
@@ -36,13 +30,6 @@ async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<bo
   return membership.role === "teacher" || membership.role === "ta";
 }
 
-/**
- * Permission rules:
- *   - platform admin   → always
- *   - assessment       → course teacher / TA (assignment, via CourseAssessment.courseId)
- *   - exam             → course teacher / TA (via Exam.courseId)
- *   - contest          → contest organizer (Contest.createdByUserId)
- */
 async function canManagePlagiarismFlag(
   actor: ActorContext,
   contextType: PlagiarismContext,

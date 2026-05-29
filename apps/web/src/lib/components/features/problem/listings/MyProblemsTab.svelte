@@ -58,8 +58,6 @@
     filterProblems(editableProblems, mineSearch, mineDifficulty, mineSelectedTags)
   );
 
-  // Sort lives in the URL alongside the public tab; toggling here flips the
-  // same param so the public list reflects the same direction when switched back.
   function toggleSort() {
     const params = new URLSearchParams(currentUrl.searchParams);
     if (sortDirection === "asc") params.set("sort", "desc");

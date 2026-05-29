@@ -66,7 +66,7 @@
     </div>
   {/if}
 
-  <!-- Rows -->
+  
   {#if assignments.length === 0}
     <div
       class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
@@ -85,7 +85,7 @@
             ? 'border-dashed bg-transparent'
             : 'border-border'}"
         >
-          <!-- Left border indicator (shows on hover; solid for draft) -->
+          
           <span
             class="pointer-events-none absolute left-[-1px] top-[10px] bottom-[10px] w-[3px] rounded-full transition-colors duration-fast ease-out-soft {assignment.status ===
             'draft'

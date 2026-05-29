@@ -6,11 +6,8 @@
 
   interface Props {
     pairs: PlagiarismReportPair[];
-    /** "high" gets destructive coloring + expandable details; "medium" gets warning coloring. */
     variant: "high" | "medium";
-    /** Set of pair keys that have been marked false positive by staff. */
     flaggedKeys: Set<string>;
-    /** Set of pair keys currently expanded; ignored for medium variant. */
     expandedPairKeys: Set<string>;
     pairKey: (p: PlagiarismReportPair) => string;
     pairKeyOf: (p: PlagiarismReportPair) => string;
@@ -37,8 +34,6 @@
     onTogglePair
   }: Props = $props();
 
-  // "high" cards present an expand/collapse affordance; "medium" cards stay
-  // compact because the volume is much higher.
   let isHigh = $derived(variant === "high");
 </script>
 

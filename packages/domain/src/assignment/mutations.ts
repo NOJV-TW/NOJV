@@ -24,8 +24,6 @@ async function requireAssignment(tx: TransactionClient, assignmentId: string) {
   return assignment;
 }
 
-// Defensive re-check — callers SHOULD have already verified this at the
-// route boundary, but mutations are not allowed to trust loader state.
 async function assertAssignmentManager(
   tx: TransactionClient,
   actor: ActorContext,
@@ -58,10 +56,6 @@ function deriveLiveStatus(
   return "open";
 }
 
-// Status-aware field-level lock. Once the assignment is open, we freeze
-// `opensAt` (already happened) and only allow `dueAt` / `closesAt` to
-// move forward — never backward. Closed assignments are fully immutable
-// via this path; managers can still extend `closesAt` to reopen.
 function assertFieldsAllowedForStatus(
   liveStatus: AssignmentLiveStatus,
   current: { opensAt: Date; dueAt: Date | null; closesAt: Date },
@@ -73,7 +67,6 @@ function assertFieldsAllowedForStatus(
 
   if (liveStatus === "draft" || liveStatus === "upcoming") return;
 
-  // liveStatus === "open": opensAt frozen, dueAt/closesAt delay-only.
   if (payload.opensAt !== undefined) {
     const nextOpens = new Date(payload.opensAt);
     if (nextOpens.getTime() !== current.opensAt.getTime()) {
@@ -133,12 +126,6 @@ async function replaceAssignmentProblems(
   );
 }
 
-/**
- * Partial update of a course assignment. Mirrors `updateExamRecord` in the
- * exam domain: permission check, strip `undefined`, coerce date strings,
- * and if `problemIds` is provided, wipe-and-recreate the attach rows.
- * Emits status-aware field-lock violations as `ValidationError` (400).
- */
 export async function updateAssignmentRecord(
   actor: ActorContext,
   assignmentId: string,
@@ -198,11 +185,6 @@ export async function updateAssignmentRecord(
   });
 }
 
-/**
- * Publish a draft assignment. Enforces the invariants a draft can skirt:
- * at least one problem, at least one allowed language, sane time window,
- * and the close time must still be in the future.
- */
 export async function publishAssignment(
   actor: ActorContext,
   assignmentId: string,
@@ -250,11 +232,6 @@ export async function publishAssignment(
   });
 }
 
-/**
- * Delete a draft assignment. Non-draft assignments stay forever — by
- * design, since their submissions remain visible to students after
- * `closesAt`. Delete is reserved for drafts that never shipped.
- */
 export async function deleteAssignmentDraft(
   actor: ActorContext,
   assignmentId: string,
@@ -277,7 +254,6 @@ export async function deleteAssignmentDraft(
   });
 }
 
-/** Flip status back to draft — only valid from `upcoming`. */
 export async function revertAssignmentToDraft(
   actor: ActorContext,
   assignmentId: string,

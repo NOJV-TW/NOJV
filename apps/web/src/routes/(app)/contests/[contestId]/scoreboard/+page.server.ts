@@ -19,8 +19,6 @@ export const load: PageServerLoad = handleLoad(async (event) => {
   const { contestId } = event.params;
   const actor = getActorContext(event);
 
-  // Only the contest organizer (and platform admin) can flip the frozen
-  // board off — the previous "any teacher" gate was too broad.
   const canSeeLive = await canViewLiveContestScoreboard(contestId, actor);
 
   const detail = await getContestDetail(contestId, {
@@ -29,9 +27,6 @@ export const load: PageServerLoad = handleLoad(async (event) => {
     userId: actor?.userId ?? null,
   });
 
-  // Bounce non-managers off the scoreboard before kickoff — the scoreboard
-  // payload still carries problem titles, which would leak content the
-  // contest detail page hides via `problemsHidden`.
   if (detail.problemsHidden) {
     redirect(303, `/contests/${contestId}`);
   }

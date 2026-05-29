@@ -38,10 +38,6 @@ import {
   type ProblemActorContext,
 } from "./permissions";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Problem CRUD
-// ─────────────────────────────────────────────────────────────────────────
-
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
   difficulty?: ProblemDifficulty | undefined;
@@ -106,9 +102,6 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   assertProblemOwnership(problem, actor);
 
-  // DB delete first — Prisma cascade handles every child row (testcase
-  // sets, testcases, workspace files). Then best-effort sweep the entire
-  // S3 prefix; failure here only leaves orphan objects.
   const deleted = await problemRepo.delete(problemId);
   await bestEffortDeleteProblemBlobs(problemId);
   return deleted;
@@ -164,10 +157,6 @@ export async function updateProblemRecord(
     if (payload.advancedImageSource !== undefined)
       updateData.advancedImageSource = payload.advancedImageSource;
 
-    // Special-env invariant: the create path's zod `superRefine` enforces
-    // `type === "special_env"` ⟺ (advancedImageRef && advancedImageSource),
-    // but `problemUpdateSchema.partial()` strips the refine (ZodEffects
-    // can't be partialed). Re-derive the merged row and check manually.
     const mergedType = payload.type ?? problem.type;
     const mergedImageRef = payload.advancedImageRef ?? problem.advancedImageRef;
     const mergedImageSource = payload.advancedImageSource ?? problem.advancedImageSource;
@@ -220,22 +209,11 @@ export async function updateProblemRecord(
 }
 
 export interface SaveJudgeConfigInput {
-  /** Parsed judgeConfig from the editor — carries type + *Language, never the script body. */
   judgeConfig: JudgeConfig;
-  /** Raw checker script body (only meaningful when type === "checker"). */
   checkerScript?: string | undefined;
-  /** Raw interactor script body (only meaningful when type === "interactive"). */
   interactorScript?: string | undefined;
 }
 
-/**
- * Persist a problem's judge config, moving the checker/interactor script
- * bodies to object storage. The JSON column keeps only the storage key.
- *
- * S3 first, then the DB write — a failed upload short-circuits before any
- * column change. Stale blobs for the now-unused judge type are swept
- * best-effort after the DB commits.
- */
 export async function saveProblemJudgeConfig(
   actor: ProblemActorContext,
   problemId: string,
@@ -246,8 +224,6 @@ export async function saveProblemJudgeConfig(
   assertProblemOwnership(problem, actor);
 
   const { type } = input.judgeConfig;
-  // .trim() decides upload-vs-clear; the stored body keeps its original
-  // bytes (a script's trailing newline is meaningful).
   const checkerBody =
     type === "checker" && (input.checkerScript ?? "").trim() ? input.checkerScript : null;
   const interactorBody =
@@ -277,13 +253,6 @@ export async function saveProblemJudgeConfig(
   return result;
 }
 
-/**
- * Update the `advancedRequiredPaths` array on a special_env problem.
- *
- * The create-time `superRefine` arm on `problemCreateSchema` enforces that
- * non-special_env problems can't carry required paths, but
- * `problemUpdateSchema.partial()` strips that refine, so we re-check here.
- */
 export async function updateAdvancedRequiredPaths(
   actor: ProblemActorContext,
   problemId: string,
@@ -300,12 +269,6 @@ export async function updateAdvancedRequiredPaths(
   await problemRepo.updateAdvancedRequiredPaths(problemId, paths);
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Problem mode conversion (standard → special_env)
-// Data-lossy: workspace files, testcase sets, samples, and judgeConfig are
-// discarded. The UI shows an explicit warning before calling this.
-// ─────────────────────────────────────────────────────────────────────────
-
 export async function convertProblemToAdvancedMode(
   actor: ProblemActorContext,
   problemId: string,
@@ -318,14 +281,9 @@ export async function convertProblemToAdvancedMode(
       throw new ConflictError("Problem is already a special_env problem.");
     }
 
-    // Drop workspace files and testcase sets. Testcases cascade via the
-    // `onDelete: Cascade` relation on Testcase.testcaseSetId.
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     await testcaseSetRepo.withTx(tx).deleteByProblemId(problem.id);
 
-    // special_env mode ignores judgeConfig in the runner, but the column
-    // is `Json?` and other call sites still read it; write a minimal
-    // valid value rather than leaving the previous standard-mode config.
     const resetJudgeConfig = {
       type: "standard",
     } satisfies Prisma.InputJsonValue;
@@ -339,22 +297,8 @@ export async function convertProblemToAdvancedMode(
     });
   });
 
-  // DB committed — best-effort sweep of testcase + workspace blobs only.
-  // Advanced-mode tarballs and markdown images live under different
-  // prefixes and are preserved.
   await bestEffortDeleteProblemStandardBlobs(problemId);
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Interactor source upload (W3.C)
-//
-// Writes the interactor script body to object storage at
-// `interactorKey(problemId)`, then patches `problem.judgeConfig` so it
-// carries the storage key + language. Mirrors the checker-side helper in
-// shape — the per-route HTTP adapter is just request parsing + budget +
-// access guards, with this function as the single place that touches both
-// S3 and the row.
-// ─────────────────────────────────────────────────────────────────────────
 
 export interface SetProblemInteractorInput {
   content: string;
@@ -371,8 +315,6 @@ export async function setProblemInteractor(
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
 
-  // Write the body first — a failed upload short-circuits before any
-  // column change, matching the saveProblemJudgeConfig pattern above.
   const key = await writeInteractorScriptBlob(problemId, input.content);
 
   const existing = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
@@ -381,8 +323,6 @@ export async function setProblemInteractor(
 
   const nextJudgeConfig: JudgeConfig = {
     ...existing,
-    // Force `interactive` so a problem author can land here from a stale
-    // judge type without leaving the row in an inconsistent state.
     type: "interactive",
     interactorKey: key,
     interactorLanguage: input.language,
@@ -390,16 +330,6 @@ export async function setProblemInteractor(
 
   return updateProblemRecord(actor, problemId, { judgeConfig: nextJudgeConfig });
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Checker source upload (W3.B)
-//
-// Same shape as setProblemInteractor above: write the script body to
-// `checkerKey(problemId)` first, then patch `problem.judgeConfig` to carry
-// the storage key + language. Forces `type: "checker"` so the row never
-// ends up advertising a checker script under a `standard`/`interactive`
-// judge type.
-// ─────────────────────────────────────────────────────────────────────────
 
 export interface SetProblemCheckerInput {
   content: string;

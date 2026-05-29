@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import { languageSchema } from "../types";
 
-// Shared content bounds — create + update must stay in sync.
 const CONTENT_MIN = 10;
 const CONTENT_MAX = 50_000;
 

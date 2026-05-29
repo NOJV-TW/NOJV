@@ -29,8 +29,6 @@ export async function processSchoolVerification(
 
   const username = extractStudentId(parsed.school, parsed.studentId);
 
-  // The token row stores `username` directly now — no opaque payload
-  // is encoded into the better-auth Verification record any more.
   const result = await userDomain.initiateSchoolVerification(userId, username);
 
   if (result.status === "error") {
@@ -72,9 +70,6 @@ export async function processSchoolVerification(
   return { success: true };
 }
 
-// Shared form action handler for the "send school verification email"
-// button. /account and /complete-profile both POST to ?/sendVerification
-// with identical semantics, so both routes alias this single handler.
 export const handleSendVerificationAction = withRateLimit(async (event) => {
   const user = event.locals.user;
   if (!user) {

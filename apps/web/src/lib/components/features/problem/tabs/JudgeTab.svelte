@@ -34,8 +34,6 @@
     cfg.interactorLanguage ?? "python"
   );
 
-  // judgeConfig carries only type + *Language; the script bodies are POSTed
-  // as separate fields and uploaded to storage by the save action.
   function buildJudgeConfig() {
     const config: Record<string, unknown> = {
       type: judgeType
@@ -47,8 +45,6 @@
       config.interactorLanguage = interactorLanguage;
     }
 
-    // Preserve runtime from the existing config — WorkspaceSection owns
-    // it, so Judge should not clobber it.
     if (cfg.runtime) {
       config.runtime = cfg.runtime;
     }
@@ -56,8 +52,6 @@
     return config;
   }
 
-  // Dirty state must also track the script bodies, which no longer live in
-  // the config object.
   function dirtySnapshot() {
     return JSON.stringify({
       config: buildJudgeConfig(),

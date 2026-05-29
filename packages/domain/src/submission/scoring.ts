@@ -26,13 +26,6 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "runtime_error",
 };
 
-// Subtask scoring strategies:
-// - PROPORTIONAL: subtask score = weight × (mean of per-case scores) / 100,
-//   so checker partial credit (0-100) flows through every case.
-// - MINIMUM: subtask score = weight × (lowest per-case score) / 100 — the
-//   worst case caps the subtask, but a non-zero floor still earns credit.
-// - ALL_OR_NOTHING: subtask earns full weight only if every case is AC,
-//   otherwise 0 — purely binary, ignores per-case partial scores.
 export function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],
@@ -71,7 +64,6 @@ export function buildSubtaskResults(
       const sumScore = caseScores.reduce((s, v) => s + v, 0);
       rawScore = (ts.weight * sumScore) / (total * 100);
     } else if (strategy === "MINIMUM") {
-      // `total === 0` is handled above, so `caseScores` is non-empty here.
       const minScore = Math.min(...caseScores);
       rawScore = (ts.weight * minScore) / 100;
     } else {
@@ -150,8 +142,6 @@ export function mapResult(
     score = result.customScore;
   }
 
-  // Apply assignment adjustment rules to raw score. Only assignments
-  // carry late-penalty / bonus rules — contests do not.
   const adjustmentRules = judgeContext.adjustment.assignmentAdjustmentRules ?? null;
 
   if (adjustmentRules && adjustmentRules.length > 0) {
@@ -182,8 +172,6 @@ export function mapResult(
   }
 
   if (allAc) {
-    // All AC but score < 100 (e.g. late penalty dropped it). Still
-    // counts as "accepted" in verdict semantics, score reflects penalty.
     return {
       accepted: true,
       caseResults,
@@ -229,12 +217,6 @@ export function mapResult(
   };
 }
 
-/**
- * Drop the operator-only `staffFeedback` channel from every per-case result so
- * it never reaches a non-staff viewer. Must run server-side before the payload
- * is serialized to the client — a "hidden in CSS" gate would still leak via
- * "View Source".
- */
 export function stripStaffFeedback(result: SubmissionResult): SubmissionResult {
   const stripCase = (c: CaseResult): CaseResult => {
     if (c.staffFeedback === undefined) return c;

@@ -4,12 +4,8 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-// Per-exam cap on retained violation rows. A noisy proctored exam can
-// otherwise accumulate logs without bound — `listByExam` only ever reads
-// the most recent few hundred. Mirrors `NOTIFICATION_RETENTION_PER_USER`.
 export const IP_VIOLATION_RETENTION_PER_EXAM = 2000;
 
-// Prune everything past the retention window for one exam, oldest first.
 async function capExamViolations(tx: TxClient, examId: string): Promise<void> {
   await tx.$executeRaw`
     DELETE FROM "IpViolationLog"
@@ -22,8 +18,6 @@ async function capExamViolations(tx: TxClient, examId: string): Promise<void> {
   `;
 }
 
-// Only exams carry proctoring; every `IpViolationLog` row is tied to an exam.
-// Contests are public CP events with no IP gating, by product design.
 export const ipViolationLogRepo = {
   create(data: Prisma.IpViolationLogUncheckedCreateInput) {
     return prisma.$transaction(async (tx) => {
@@ -44,7 +38,6 @@ export const ipViolationLogRepo = {
     });
   },
 
-  // Most-recent matching row's timestamp — drives violation-log throttling.
   findLastViolationAt(opts: {
     examId: string;
     userId: string;
@@ -92,8 +85,6 @@ export const examParticipationIpRepo = {
           data: { ipPin: ip },
         });
       },
-      // Teacher "reset IP binding": drop the pin and open a short grace window so
-      // a student who swapped machines can re-pin without tripping the gate.
       clearPinAndExempt(examId: string, userId: string, exemptUntil: Date) {
         return tx.examParticipation.update({
           where: { examId_userId: { examId, userId } },

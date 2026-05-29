@@ -7,8 +7,6 @@ import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { announcementDomain } from "@nojv/domain";
 
-// Layout-level guard only runs on GET loads; POST actions can be called
-// directly. Re-derive auth + admin role inside every action.
 function requireAdmin(event: RequestEvent) {
   const actor = requireAuth(event);
   if (actor.platformRole !== "admin") {
@@ -47,7 +45,6 @@ interface AnnouncementTranslationRow {
   content: string;
 }
 
-/** Pick the default-locale translation, falling back to the first one. */
 function pickTranslation(translations: AnnouncementTranslationRow[] | undefined) {
   if (!translations || translations.length === 0) {
     return { title: "", content: "" };

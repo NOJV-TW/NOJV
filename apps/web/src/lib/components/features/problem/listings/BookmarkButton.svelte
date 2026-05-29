@@ -7,22 +7,17 @@
   interface Props {
     problemId: string;
     bookmarked: boolean;
-    /** Larger hit area for the problem-detail header. */
     size?: "sm" | "md";
     class?: string;
   }
 
   let { problemId, bookmarked, size = "sm", class: className }: Props = $props();
 
-  // `bookmarked` is the server truth; `override` holds an optimistic local
-  // value once the user clicks. Deriving from both keeps SSR correct (no
-  // hydration flash) while still updating instantly on toggle.
   let override = $state<boolean | null>(null);
   let active = $derived(override ?? bookmarked);
   let pending = $state(false);
 
   async function toggle(e: MouseEvent) {
-    // Cards wrap the button in an <a>; never let a bookmark click navigate.
     e.preventDefault();
     e.stopPropagation();
     if (pending) return;

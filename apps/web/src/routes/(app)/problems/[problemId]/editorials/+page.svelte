@@ -17,9 +17,6 @@
   const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.pageSize)));
 
   function snippet(content: string, max = 240): string {
-    // Markdown source preview — strip the first run of fence markers /
-    // hashes so the snippet is readable, then truncate. Heavy formatting
-    // is not worth rendering here; the edit page shows full markdown.
     const stripped = content
       .replace(/```[\s\S]*?```/g, "")
       .replace(/[#*_`>]+/g, "")

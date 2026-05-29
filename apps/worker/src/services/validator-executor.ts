@@ -119,13 +119,6 @@ export async function writeValidatorFiles(
   await chmod(tempDir, 0o755);
 }
 
-/**
- * Run the DOMjudge output validator over the solution's captured per-case
- * output in a SECOND, isolated container. Student code is never present here —
- * only the validator source and the case input/answer/team files. Returns a
- * `ValidatorOutcome` per case keyed by `index`. Any container/system failure
- * surfaces as an SE outcome for every requested case.
- */
 export async function runValidator(
   tempDir: string,
   params: ValidatorRunParams,
@@ -225,7 +218,6 @@ export async function runValidator(
     const { index, ...outcome } = o;
     outcomes.set(index, outcome);
   }
-  // Any case the validator failed to report on is an SE for that case.
   for (const c of params.cases) {
     if (!outcomes.has(c.index)) outcomes.set(c.index, { verdict: "SE" });
   }

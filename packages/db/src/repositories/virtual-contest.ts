@@ -4,12 +4,6 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-/**
- * Thrown by `virtualContestRepo.updateWithVersion` when the row's
- * `version` column has moved on since the caller read it (Prisma surfaces
- * this as P2025). The domain layer catches this and retries on a fresh read.
- * Mirrors `ParticipationVersionConflict` in `./contest`.
- */
 export class VirtualContestVersionConflict extends Error {
   readonly virtualContestId: string;
   readonly expectedVersion: number;
@@ -46,14 +40,6 @@ export const virtualContestRepo = {
     });
   },
 
-  /**
-   * Optimistic-lock update: only writes when the current row's `version`
-   * still matches `expectedVersion`, and bumps it by one in the same
-   * statement. If another writer raced ahead, Prisma's `update` raises
-   * P2025 (record not found) — we translate that to `VirtualContestVersionConflict`
-   * so callers can retry on a fresh read. Mirrors
-   * `contestParticipationRepo.updateWithVersion`.
-   */
   async updateWithVersion(
     id: string,
     expectedVersion: number,

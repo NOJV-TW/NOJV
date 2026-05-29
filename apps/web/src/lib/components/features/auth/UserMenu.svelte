@@ -38,9 +38,7 @@
   }
 </script>
 
-{#if !session || !user}
-  <!-- No session or no user: render nothing -->
-{:else}
+{#if session && user}
   {@const initial = (user.name.charAt(0) || "?").toUpperCase()}
   {@const hasUsername = !!user.username}
 

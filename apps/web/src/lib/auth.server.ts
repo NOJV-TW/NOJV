@@ -10,7 +10,6 @@ import { createLogger } from "$lib/server/logger";
 
 const authLogger = createLogger("auth-hooks");
 
-// Runs from `user.create.after` — the `before` variant cannot redirect a create into an update.
 async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Promise<void> {
   const parsed = parseSchoolEmail(newUser.email);
   if (!parsed) return;
@@ -23,8 +22,6 @@ async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Pr
 
   try {
     await userRepo.attachPlaceholderToAuth(placeholder.id, newUser.id);
-    // Carry the handle onto the real user so subsequent page loads
-    // and the course members UI see the expected username.
     await userRepo.update(newUser.id, {
       username: handle,
       displayUsername: handle,
@@ -35,8 +32,6 @@ async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Pr
       handle,
     });
   } catch (err) {
-    // Fail open: if the merge crashes we leave both rows in place so
-    // an operator can reconcile manually. OAuth signup still succeeds.
     authLogger.error("Placeholder merge failed", {
       placeholderId: placeholder.id,
       userId: newUser.id,
@@ -92,9 +87,6 @@ function createAuth() {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     database: prismaAdapter(prisma, { provider: "postgresql" }),
-    // Pin cookie attributes explicitly so a future better-auth upgrade can't
-    // silently relax defaults. sameSite=lax keeps OAuth callbacks working
-    // (the callback is a top-level GET nav from the provider).
     advanced: {
       defaultCookieAttributes: {
         httpOnly: true,
@@ -104,7 +96,6 @@ function createAuth() {
     },
     emailAndPassword: {
       enabled: true,
-      // Seeded credential accounts store bcrypt hashes; configure auth to match.
       password: {
         hash: async (plain) => bcrypt.hash(plain, 10),
         verify: async ({ hash, password }) => bcrypt.compare(password, hash),
@@ -125,8 +116,6 @@ function createAuth() {
       user: {
         create: {
           after: async (user) => {
-            // `user` is better-auth's User shape; id + email are the
-            // only fields we need for placeholder merge.
             if (user.id && typeof user.email === "string") {
               await mergePlaceholderIfAny({ id: user.id, email: user.email });
             }

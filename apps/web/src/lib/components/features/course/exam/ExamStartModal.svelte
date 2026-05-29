@@ -10,7 +10,6 @@
     examTitle: string;
     problemCount: number;
     durationMinutes: number;
-    /** Form action path, e.g. "?/startExam". */
     action?: string;
   }
 
@@ -26,7 +25,6 @@
   let hasAgreed = $state(false);
   let submitting = $state(false);
 
-  // Reset agreement state when dialog closes so reopening starts fresh.
   $effect(() => {
     if (!open) {
       hasAgreed = false;

@@ -42,8 +42,6 @@
   );
   const clarificationEnabled = $derived(data.clarification.canView);
 
-  // Grading feedback keyed by problem — empty until the assignment closes
-  // (the loader's domain call is close-gated). Students only.
   const feedbackByProblem = $derived(
     new Map((data.mode === "student" ? data.feedback : []).map((f) => [f.problemId, f.comment]))
   );
@@ -52,8 +50,6 @@
   const canSetOverride = $derived(
     data.mode === "teacher" ? (data.canSetOverride ?? false) : false
   );
-  // Grading (overrides + feedback) is a post-close activity — the drawer
-  // entry only appears once the assignment has closed.
   const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
     data.mode === "teacher"
@@ -107,8 +103,6 @@
     return "verdict-pending";
   }
 
-  // Row tint by viewer state — mirrors the exam detail page so assignment
-  // status reads through background, not a separate AC/WA chip.
   function rowTint(state: "ac" | "partial" | "attempted" | "none"): string {
     if (state === "ac") return "bg-success/[0.06]";
     if (state === "partial")
@@ -117,7 +111,6 @@
     return "";
   }
 
-  // Derived assignment-level stats from problems[].
   const solved = $derived(
     detail.problems.filter((p) => p.myStatus?.state === "ac").length
   );
@@ -142,8 +135,6 @@
     }
   });
 
-  // After close, drop assignment context so the problem opens as practice
-  // (no attempt counting, no scoreboard write).
   function problemHref(problemId: string): string {
     if (detail.status === "closed") {
       return `/problems/${problemId}`;
@@ -151,8 +142,6 @@
     return `/assignments/${detail.id}/problems/${problemId}`;
   }
 
-  // Display target for the headline countdown: prefer dueAt when present,
-  // otherwise the close time.
   const targetIso = $derived(detail.dueAt ?? detail.closesAt);
 </script>
 
@@ -165,7 +154,7 @@
   />
 
   <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
-    <!-- Hero -->
+    
     <GlassPanel class="relative overflow-hidden p-7 lg:p-9">
       <DotGrid opacity={0.18} />
       <div class="relative">
@@ -218,7 +207,7 @@
       </div>
     </GlassPanel>
 
-    <!-- Sidebar facts -->
+    
     <div class="space-y-4">
       <GlassPanel class="p-5">
         <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
@@ -291,7 +280,7 @@
   </div>
 
   {#if data.mode === "student"}
-    <!-- ══════ STUDENT VIEW ══════ -->
+    
 
     <GlassPanel class="overflow-hidden">
       <div
@@ -484,7 +473,7 @@
       </GlassPanel>
     {/if}
   {:else}
-    <!-- ══════ TEACHER VIEW ══════ -->
+    
     <GlassPanel class="overflow-hidden">
       <nav
         aria-label={m.assignmentDetail_sectionsNavLabel()}

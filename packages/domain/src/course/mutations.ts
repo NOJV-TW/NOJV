@@ -27,7 +27,6 @@ import {
   assertProblemHasWorkspaceForLanguages,
 } from "../problem/permissions";
 
-// Defensive re-check so form-post handlers never rely on trusted loader state.
 async function assertCourseManager(
   tx: TransactionClient,
   actor: ActorContext,
@@ -58,8 +57,6 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
       ...(payload.semester != null ? { semester: payload.semester } : {}),
     });
 
-    // Owner is added as a teacher. No join-token path anymore — Phase 5
-    // introduces a teacher-paste handle bulk-add flow instead.
     await courseMembershipRepo.withTx(tx).create({
       addedByUserId: owner.id,
       courseId: course.id,
@@ -109,8 +106,6 @@ export async function manuallyEnrollCourseMember(
     return { course, membership };
   });
 
-  // Only students get a participant-style notification. Teachers / TAs are
-  // staff and get their context from the course manage UI, not the bell.
   if (payload.role === "student") {
     await notificationDomain.createNotification({
       userId: membership.userId,
@@ -123,7 +118,6 @@ export async function manuallyEnrollCourseMember(
   return membership;
 }
 
-// Suffix makes the readable id collision-resistant when two teachers type the same title.
 function generateAssignmentId(title: string): string {
   const base = title
     .toLowerCase()
@@ -148,8 +142,6 @@ export async function createCourseAssignmentRecord(
 
     const assignmentId = generateAssignmentId(payload.title);
 
-    // Workspace invariant: every problem must ship editable main.<ext>
-    // for every language listed on the assignment. Empty list = unrestricted.
     if (payload.allowedLanguages.length > 0 && payload.problemIds.length > 0) {
       await Promise.all(
         payload.problemIds.map((id) =>
@@ -169,8 +161,6 @@ export async function createCourseAssignmentRecord(
       opensAt: new Date(payload.opensAt),
       id: assignmentId,
       status: payload.status,
-      // Prototype 05 drops the summary field; use the title so the
-      // DB column (non-null @db.Text) has a meaningful value.
       summary: payload.title,
       title: payload.title,
       ...(payload.maxAttemptsPerDay != null
@@ -239,10 +229,6 @@ export async function deleteCourse(actor: ActorContext, courseId: string) {
   });
 }
 
-// Course managers flip `archived` to freeze student click-through while
-// preserving their score history. The action is reversible; destructive
-// ops live in deleteCourse. No read-side invalidation needed — every
-// consumer reads `course.archived` fresh via the layout loader.
 export async function setCourseArchived(
   actor: ActorContext,
   courseId: string,
@@ -256,21 +242,6 @@ export async function setCourseArchived(
   });
 }
 
-/**
- * Duplicate a course's structural scaffolding into a brand-new course.
- *
- * Copied: course title/description, all assignments (all statuses, reset
- * to `draft`) and their problem attachments, all exams (all statuses,
- * reset to `draft`) and their problem attachments.
- *
- * Intentionally NOT copied: memberships (actor becomes the sole teacher),
- * submissions, participations, exam sessions, announcements, plagiarism
- * reports, IP violation logs. These are either historical data tied to
- * the source term or time-bound artefacts that the new course will grow
- * on its own.
- *
- * Returns the new course id so the caller can redirect to its settings.
- */
 export async function copyCourse(
   actor: ActorContext,
   sourceCourseId: string,
@@ -298,8 +269,6 @@ export async function copyCourse(
       ...(source.semester != null ? { semester: source.semester } : {}),
     });
 
-    // 2. Actor becomes the teacher of the new course. Other roster members
-    // are NOT carried over; the new course starts with a clean member list.
     await courseMembershipRepo.withTx(tx).create({
       addedByUserId: owner.id,
       courseId: newCourse.id,
@@ -309,7 +278,6 @@ export async function copyCourse(
       userId: owner.id,
     });
 
-    // 3. Clone assignments — status reset to draft so nothing auto-publishes.
     const sourceAssignments = await assessmentRepo
       .withTx(tx)
       .listByCourseIdAllWithProblems(source.id);
@@ -339,7 +307,6 @@ export async function copyCourse(
       }
     }
 
-    // 4. Clone exams — status reset to draft; proctoring config carries over.
     const sourceExams = await examRepo.withTx(tx).listByCourseIdAllWithProblems(source.id);
 
     for (const e of sourceExams) {

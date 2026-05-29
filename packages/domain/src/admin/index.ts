@@ -31,10 +31,6 @@ function subDays(date: Date, days: number): Date {
 }
 
 export async function getAdminDashboard(): Promise<AdminDashboard> {
-  // Best-effort Redis read-through cache. Twelve aggregation queries on every
-  // admin refresh — a 5-minute window is fine for a dashboard. On any Redis
-  // hiccup we fall through to the live computation (same pattern as
-  // `invalidateScoreboardForOverride` in score-override/mutations.ts).
   const cacheKey = keys.adminDashboard();
   const redis = getRedis();
 
@@ -172,11 +168,6 @@ async function computeAdminDashboard() {
   };
 }
 
-// Return-shape mirror so the cached path can be typed without restating Prisma
-// inferred types. The only `Date` field in the payload is
-// `recentErrors[].createdAt`; JSON-stringify converts it to an ISO string, and
-// `reviveAdminDashboard` rebuilds the `Date` so callers see an identical shape
-// whether the response was cache-served or freshly computed.
 type AdminDashboard = Awaited<ReturnType<typeof computeAdminDashboard>>;
 type AdminDashboardSerialized = Omit<AdminDashboard, "recentErrors"> & {
   recentErrors: (Omit<AdminDashboard["recentErrors"][number], "createdAt"> & {
@@ -204,14 +195,10 @@ export async function checkSystemHealth(timeoutMs = 3000): Promise<SystemHealth>
   function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return Promise.race([
       promise,
-      // Race sentinel — caught immediately by the surrounding .catch and
-      // stringified into the health payload; never bubbles to an HTTP handler.
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
     ]);
   }
 
-  // Temporal gets a tighter 2 s budget so a stuck connection doesn't make
-  // /healthz hang for the full 3 s redis/postgres budget.
   const TEMPORAL_TIMEOUT_MS = Math.min(timeoutMs, 2000);
 
   async function probeTemporal(): Promise<void> {

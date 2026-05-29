@@ -8,14 +8,6 @@ import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/domain";
 
-/**
- * Default-locale (English) templates used as the canonical server-side
- * text. Task 12 will add paraglide message keys mirroring these; the
- * i18n pass keeps them in sync across locales. Server-side we always
- * write English — the client will render the localized label for the
- * button, but the stored answer text is stable across locales so staff
- * can grep audit logs reliably.
- */
 const CANNED_TEMPLATES = {
   noComment: "No comment.",
   readProblem: "Please re-read the problem statement.",

@@ -19,8 +19,6 @@ function isSeedDifficulty(value: string): value is SeedDifficulty {
   return (SEED_DIFFICULTIES as readonly string[]).includes(value);
 }
 
-// Seed defs still list difficulty inside `tags` for brevity — split it out
-// into the dedicated column at upsert time so `tags` stays topic-only.
 function pickSeedDifficulty(tags: string[] | undefined): SeedDifficulty {
   for (const tag of tags ?? []) {
     if (isSeedDifficulty(tag)) return tag;
@@ -165,13 +163,8 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
   }
 }
 
-// Shape of the S3 client subset used by `putText`. Allowing injection lets
-// the dry-run validator stub S3 without requiring real S3 env vars.
 export type SeedStorageClient = { send: (command: unknown) => Promise<unknown> };
 
-// Move checker/interactor script bodies to object storage and return the
-// judgeConfig to persist — type + *Language + the storage key, never the
-// body. Mirrors saveProblemJudgeConfig in the production domain layer.
 async function persistJudgeConfig(
   storage: SeedStorageClient,
   problemId: string,
@@ -199,10 +192,6 @@ export async function seedProblems(
   teacherId: string,
   storageOverride?: SeedStorageClient,
 ) {
-  // Single storage client shared across every blob upload below. The seed
-  // script writes testcase + workspace blobs through the same primitives
-  // the production domain layer uses (no parallel impl). Validator passes
-  // a no-op stub so it can run without S3 env vars.
   const storage = (storageOverride ?? createStorageClient()) as ReturnType<
     typeof createStorageClient
   >;
@@ -672,7 +661,6 @@ wrong(f"failed to guess {secret} within 20 attempts")
 
 from iolib import read_payloads
 
-
 def parse_dhcp_options(hex_payload: str) -> List[str]:
     """Parse a DHCP option TLV stream into CODE:LEN:VALUE entries.
 
@@ -686,11 +674,9 @@ def parse_dhcp_options(hex_payload: str) -> List[str]:
     # implement parse_dhcp_options here
     return ["ERROR"]
 
-
 def main() -> None:
     for payload in read_payloads():
         print("|".join(parse_dhcp_options(payload)))
-
 
 if __name__ == "__main__":
     main()
@@ -711,7 +697,6 @@ into the list of hex payload strings to parse.
 
 import sys
 from typing import List
-
 
 def read_payloads() -> List[str]:
     """Return the Q payload lines from stdin (empty list on bad count)."""
@@ -796,7 +781,6 @@ def read_payloads() -> List[str]:
 
 from iolib import read_events
 
-
 def analyze_trace(events: Iterable[str]) -> Tuple[int, int, int]:
     """Return (peak_bytes, leaked_blocks, invalid_free_count).
 
@@ -807,11 +791,9 @@ def analyze_trace(events: Iterable[str]) -> Tuple[int, int, int]:
     # implement analyze_trace here
     return (0, 0, 0)
 
-
 def main() -> None:
     peak, leaked, invalid = analyze_trace(read_events())
     print(f"{peak} {leaked} {invalid}")
-
 
 if __name__ == "__main__":
     main()
@@ -832,7 +814,6 @@ the list of N event lines analyze_trace expects.
 
 import sys
 from typing import List
-
 
 def read_events() -> List[str]:
     """Return the N event lines from stdin (empty list on bad count)."""
@@ -933,7 +914,6 @@ from typing import List
 
 from stats import mean
 
-
 def read_numbers() -> List[float]:
     """Read N then N integers from stdin and return them as floats."""
     # implement reading: first token is the count N, then N integers
@@ -943,11 +923,9 @@ def read_numbers() -> List[float]:
     n = int(tokens[0])
     return [float(t) for t in tokens[1 : 1 + n]]
 
-
 def main() -> None:
     numbers = read_numbers()
     print(f"{mean(numbers):.6f}")
-
 
 if __name__ == "__main__":
     main()
@@ -966,7 +944,6 @@ Do NOT modify. main.py imports mean to average the parsed numbers.
 """
 
 from typing import Sequence
-
 
 def mean(values: Sequence[float]) -> float:
     """Return the arithmetic mean of values (0.0 for an empty input)."""
@@ -1051,7 +1028,6 @@ wrong(f"failed to find {secret} within the turn budget")
           path: "main.py",
           content: `from proto import read_range, read_verdict, send_guess
 
-
 def main() -> None:
     lo, hi = read_range()
     # implement the binary search here: narrow [lo, hi] using the
@@ -1068,7 +1044,6 @@ def main() -> None:
             hi = mid - 1
         else:
             return
-
 
 if __name__ == "__main__":
     main()
@@ -1092,17 +1067,14 @@ Do NOT modify. main.py uses these helpers to talk to the judge:
 import sys
 from typing import Tuple
 
-
 def read_range() -> Tuple[int, int]:
     """Read the opening 'lo hi' line from the interactor."""
     lo, hi = sys.stdin.readline().split()
     return int(lo), int(hi)
 
-
 def send_guess(guess: int) -> None:
     """Print one integer guess and flush immediately."""
     print(guess, flush=True)
-
 
 def read_verdict() -> str:
     """Read one verdict line: 'higher', 'lower', or 'correct'."""
@@ -1238,9 +1210,6 @@ wrong(f"failed to find {secret} in {max_turns} turns")
   validateProblemDefinitions(problemDefs);
 
   for (const def of problemDefs) {
-    // Validator script bodies move to object storage; the persisted
-    // judgeConfig keeps only the storage key. Upload first (S3 before DB),
-    // same flow as the production save path.
     const judgeConfig = await persistJudgeConfig(storage, def.id, def.judgeConfig);
 
     const sharedFields = {
@@ -1268,7 +1237,6 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       where: { id: def.id },
     });
 
-    // Upsert statements for each locale
     for (const [locale, stmt] of Object.entries(def.statements)) {
       await prisma.problemStatementI18n.upsert({
         create: {
@@ -1294,8 +1262,6 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       });
     }
 
-    // Upsert testcase sets (standard types only — special_env has no
-    // system-managed testcases; the TA image bundles everything).
     if (def.testcases) {
       const setEntries = Object.entries(def.testcases);
       for (const [index, [setName, setDef]] of setEntries.entries()) {
@@ -1319,16 +1285,10 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           },
         });
 
-        // Delete existing testcases and re-create for idempotency. The
-        // matching S3 blobs from a previous run, if any, are overwritten
-        // below since each new testcase gets a fresh id (and thus a
-        // fresh S3 key). Old objects become orphans — fine for seed.
         await prisma.testcase.deleteMany({
           where: { testcaseSetId: testcaseSet.id },
         });
 
-        // S3 first, single createMany after — same write order as the
-        // production domain mutation.
         const testcaseIds = setDef.cases.map(() => randomUUID());
         await Promise.all(
           setDef.cases.flatMap((tc, caseIndex) => {
@@ -1354,13 +1314,10 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       }
     }
 
-    // Upsert workspace files (multi-file scaffolds + hidden helpers).
     if (def.workspaceFiles && def.workspaceFiles.length > 0) {
       await prisma.problemWorkspaceFile.deleteMany({
         where: { problemId: problem.id },
       });
-      // S3 first, then createMany — same flow as production. Orphan
-      // blobs from previous seed runs (if any) are tolerable.
       const fileIds = def.workspaceFiles.map(() => randomUUID());
       await Promise.all(
         def.workspaceFiles.map((wf, i) =>

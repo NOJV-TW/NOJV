@@ -23,7 +23,6 @@
         : m.contestUpsolve_statusUntouched();
   }
 
-  // Status → design-token colours: solved green, attempted amber, untouched muted.
   function statusStyle(status: contestDomain.UpsolveStatus): string {
     if (status === "solved") {
       return "background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success);";
@@ -44,7 +43,7 @@
     ]}
   />
 
-  <!-- Header -->
+  
   <div class="glass rounded-xl shadow-rest p-5 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
@@ -92,7 +91,7 @@
     </div>
   </div>
 
-  <!-- Problem list -->
+  
   <GlassPanel class="overflow-hidden">
     <div
       class="flex items-center justify-between px-6 py-4 border-b"

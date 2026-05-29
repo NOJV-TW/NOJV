@@ -17,7 +17,6 @@
   let editingName = $state(false);
   let editingUsername = $state(false);
 
-  // Map server-returned error codes to i18n strings. Username/name share most codes.
   function mapCode(code: string): string {
     switch (code) {
       case "VERIFIED_LOCKED":

@@ -12,9 +12,6 @@
   import { cn } from "$lib/utils/css.js";
   import { m } from "$lib/paraglide/messages.js";
 
-  // Each status owns its own border-color so the pill outline stays visible
-  // and consistent across all kinds, regardless of background contrast with
-  // the page surface.
   const NEUTRAL_STYLE =
     "border-color: color-mix(in oklab, var(--foreground) 14%, transparent);";
   const PRIMARY_STYLE =
@@ -41,7 +38,6 @@
 
   const CONTEST: Record<string, Def> = {
     upcoming: { label: () => m.statusPill_contest_upcoming(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE },
-    // "LIVE" is a brand/format word — keep as-is, not translated.
     live: { label: () => "LIVE", cls: "", style: DESTRUCTIVE_STYLE },
     ended: { label: () => m.statusPill_contest_ended(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE }
   };

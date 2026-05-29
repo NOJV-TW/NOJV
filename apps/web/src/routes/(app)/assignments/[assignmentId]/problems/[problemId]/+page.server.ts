@@ -12,8 +12,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { assignment, isManager, course } = parent;
   const { problemId } = event.params;
 
-  // Archived courses: non-managers lose click-through even after the
-  // assignment closes.  Managers can still open the problem to review.
   if (!isManager && course.archived) {
     error(403, "This course is archived.");
   }
@@ -26,16 +24,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       error(404, "Problem not available.");
     }
     if (now > closes) {
-      // Ended assignments mirror contests/exams: hand off to the practice
-      // surface so the student keeps read/practice access without an in-place
-      // graded workspace.
       redirect(302, `/problems/${problemId}?ended=assignment`);
     }
   }
 
   const problemInScope = await assignmentDomain.isProblemInAssignment(assignment.id, problemId);
   if (!problemInScope) {
-    // 404 so we don't leak whether the problem exists outside this assignment.
     error(404, "Problem not found in this assignment.");
   }
 

@@ -6,7 +6,6 @@
   interface Props {
     allowedLanguages: Language[];
     mode: WorkspaceMode;
-    /** Pure predicate: does the given language already have a `main.<ext>` template? */
     hasEntryFileForLanguage: (lang: Language) => boolean;
   }
 

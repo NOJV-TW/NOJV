@@ -38,12 +38,6 @@ const JOB_DEADLINE_SECONDS = 120;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
 
-/**
- * Build the flat testcase ConfigMap keys. Standard and checker both decide
- * AC/WA off-pod (worker comparison; isolated validator Job), so the expected
- * answer must never reach the sandbox run pod. Interactive is gated to Docker
- * upstream and never reaches here.
- */
 export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {
   const data: Record<string, string> = {};
   const shipExpected = request.judgeType !== "standard" && request.judgeType !== "checker";
@@ -58,13 +52,6 @@ export function buildTestcaseConfigMapData(request: SandboxRequest): Record<stri
   return data;
 }
 
-/**
- * Build the flat ConfigMap `data` for the run Job. Includes the student
- * source + config.json + testcase inputs. For checker, the validator script
- * is NOT shipped here — it goes into a SEPARATE validate Job (see
- * `buildValidateConfigMapData`) so the run pod sees neither answer nor
- * validator.
- */
 export function buildRunConfigMapData(request: SandboxRequest): Record<string, string> {
   const data: Record<string, string> = {};
   const sourceFileMap: { path: string; key: string }[] = [];
@@ -97,13 +84,6 @@ export function buildRunConfigMapData(request: SandboxRequest): Record<string, s
   return data;
 }
 
-/**
- * Build the flat ConfigMap `data` for the validate Job. Contains the
- * validator source, a config.json carrying the `validate` block, and
- * per-case input/answer/team files keyed flat (ConfigMaps cannot hold nested
- * directories). Cases whose run errored or whose testcase has no expected
- * answer are skipped — the worker-side merge marks them appropriately.
- */
 export function buildValidateConfigMapData(
   request: SandboxRequest,
   rawRuns: RawCaseRun[],
@@ -149,12 +129,6 @@ export interface SandboxJobManifestParams {
   memoryLimit: string;
 }
 
-/**
- * Build the K8s Job manifest for a sandbox pod. Used for BOTH the run pod
- * and the validate pod so they get identical hardening (drop caps, read-only
- * fs, non-root, RuntimeDefault seccomp, no service account, sandbox node
- * pool + toleration, NetworkPolicy label).
- */
 export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V1Job {
   return {
     apiVersion: "batch/v1",
@@ -169,18 +143,12 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
       activeDeadlineSeconds: JOB_DEADLINE_SECONDS,
       backoffLimit: 0,
       template: {
-        // The `app: nojv-sandbox` label here (NOT on the Job metadata) is
-        // what the sandbox NetworkPolicy podSelector matches — Job labels
-        // do not propagate to the pod template.
         metadata: {
           labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
         },
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
-          // Sandbox pods only land on the untrusted-code node pool, which
-          // is tainted `nojv-role=sandbox:NoSchedule` so nothing else runs
-          // there. Keeps a runaway fork-bomb from starving the orchestrator.
           nodeSelector: { "nojv-role": "sandbox" },
           tolerations: [
             {
@@ -242,20 +210,8 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
   };
 }
 
-/**
- * Localhost TCP port used by the in-pod socat pair to bridge the solution and
- * interactor containers' stdio. Unprivileged (>= 1024) so the non-root sandbox
- * user can bind it; the pod has `--network=none` semantics via NetworkPolicy,
- * so this port is never exposed outside the pod's network namespace.
- */
 export const INTERACTIVE_SOCKET_PORT = 7777;
 
-/**
- * Build the solution container's ConfigMap data. Contains ONLY the student
- * source + a config.json marking the runner as the solution side. NO testcase
- * input, NO expected answer, NO interactor script — those live in a SEPARATE
- * ConfigMap mounted ONLY into the interactor container.
- */
 export function buildInteractiveSolutionConfigMapData(
   request: SandboxRequest,
 ): Record<string, string> {
@@ -285,13 +241,6 @@ export function buildInteractiveSolutionConfigMapData(
   return data;
 }
 
-/**
- * Build the interactor container's ConfigMap data for ONE case. Contains the
- * interactor script + that case's secret input/answer (under flat
- * `case-{i}-input.txt` / `case-{i}-answer.txt` keys — ConfigMaps cannot hold
- * nested directories) + a config.json marking the runner as the validator
- * side. NEVER contains the student source.
- */
 export function buildInteractiveInteractorConfigMapData(
   request: SandboxRequest,
   testcase: SandboxTestcase,
@@ -323,13 +272,6 @@ export function buildInteractiveInteractorConfigMapData(
   return data;
 }
 
-/**
- * Solution-side socat wrapper. Connects to the interactor's TCP listener on
- * localhost and execs the sandbox runner — the runner's fd 0/1 become the
- * socket end, so its existing `stdio: ["inherit","inherit","pipe"]` spawn just
- * pipes student-program stdio across the pod-internal connection. Retries up to
- * 40 × 0.25 s = 10 s to absorb the listener's startup race.
- */
 export function buildSolutionContainerCommand(): string[] {
   return [
     "sh",
@@ -338,11 +280,6 @@ export function buildSolutionContainerCommand(): string[] {
   ];
 }
 
-/**
- * Interactor-side socat wrapper. LISTENs on the shared port (reuseaddr so
- * a stuck socket from a previous case never wedges retries) and execs the
- * runner on each connection.
- */
 export function buildInteractorContainerCommand(): string[] {
   return [
     "sh",
@@ -364,15 +301,6 @@ export interface InteractiveJobManifestParams {
   activeDeadlineSeconds: number;
 }
 
-/**
- * Build the K8s Job manifest for one interactive testcase. The pod has TWO
- * containers (`solution` + `interactor`) sharing a network namespace but with
- * DISTINCT per-container `volumeMounts` — the secret input/answer/interactor
- * ConfigMap is mounted ONLY into the interactor container, never into the
- * solution container's filesystem. Same hardening profile as the standard run
- * pod (drop caps, read-only fs, non-root, RuntimeDefault seccomp, no service
- * account, sandbox node pool + toleration, NetworkPolicy label).
- */
 export function buildInteractiveJobManifest(params: InteractiveJobManifestParams): k8s.V1Job {
   const containerSecurityContext = {
     allowPrivilegeEscalation: false,
@@ -465,23 +393,6 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
   };
 }
 
-/**
- * Advanced Mode on K8s — registry-source only.
- *
- * The TA grader image lives in a registry the cluster can pull. The grader
- * reads `/workspace/submission/` + `/workspace/meta.json` and writes
- * `/workspace/output/result.json` (same contract as the Docker advanced
- * executor). Since K8s has no host bind mount, the worker can't read the
- * result file directly — a SIDECAR container tails it and emits the JSON
- * inside marker lines to its stdout, which the worker reads via pod logs.
- *
- * Pod layout (requires K8s ≥ 1.28 for native sidecars):
- *   initContainers:
- *     - prep (sandbox image): seeds /workspace from a ConfigMap-mounted payload
- *     - emit-result (sandbox image, restartPolicy: Always): polls + emits
- *   containers:
- *     - grader (TA's registry image): the actual judge
- */
 export const ADVANCED_INIT_NAME = "prep";
 export const ADVANCED_GRADER_NAME = "grader";
 export const ADVANCED_SIDECAR_NAME = "emit-result";
@@ -491,12 +402,6 @@ export const ADVANCED_RESULT_MARKER_END = "<<<END>>>";
 const ADVANCED_WORKSPACE_SIZE_LIMIT = "1Gi";
 const ADVANCED_TMP_SIZE_LIMIT = "64Mi";
 
-/**
- * Pack everything the prep init container needs to seed /workspace into a
- * single JSON blob keyed `payload.json`. ConfigMaps can't hold nested
- * directories, so the init script reconstructs the layout from this blob
- * instead of relying on per-file keys.
- */
 export function buildAdvancedConfigMapData(request: SandboxRequest): Record<string, string> {
   const advanced = request.advanced;
   const submissionFiles: { path: string; content: string }[] = [];
@@ -529,12 +434,6 @@ export function buildAdvancedConfigMapData(request: SandboxRequest): Record<stri
   return { "payload.json": JSON.stringify(payload) };
 }
 
-/**
- * Shell script for the prep initContainer. Reads the packed payload from the
- * read-only ConfigMap mount and lays out /workspace per the advanced
- * contract. /workspace/output is chmod 0777 so the TA image (with its own
- * user) can write result.json regardless of uid.
- */
 export function buildAdvancedInitScript(): string {
   return `set -eu
 mkdir -p /workspace/submission /workspace/output
@@ -553,12 +452,6 @@ chmod 0777 /workspace/output
 `;
 }
 
-/**
- * Shell script for the emit-result native sidecar. Polls for the grader's
- * result.json until either the file appears or a deadline elapses (derived
- * from totalTimeMs + headroom). Emits the JSON inside marker lines so the
- * worker can extract the result reliably from interleaved pod logs.
- */
 export function buildAdvancedTailScript(totalTimeMs: number): string {
   const timeoutS = Math.ceil(totalTimeMs / 1000) + 30;
   return `set -u
@@ -574,10 +467,6 @@ echo '${ADVANCED_RESULT_MARKER_END}'
 `;
 }
 
-/**
- * Extract the JSON payload between the BEGIN/END markers in a sidecar log.
- * Returns null when markers are missing or the payload isn't valid JSON.
- */
 export function parseAdvancedResultLog(logs: string): unknown {
   const begin = logs.indexOf(ADVANCED_RESULT_MARKER_BEGIN);
   if (begin < 0) return null;
@@ -605,14 +494,6 @@ export interface AdvancedJobManifestParams {
   language: string;
 }
 
-/**
- * Build the K8s Job manifest for an advanced-mode registry-source
- * submission. Uses the K8s 1.28+ native sidecar pattern: the emit-result
- * container is declared in `initContainers` with `restartPolicy: Always`
- * so it runs alongside the grader and K8s terminates it after the grader
- * exits — at which point the tail script's deadline-bounded loop has either
- * already cat'd result.json or will emit the {"missing":true} sentinel.
- */
 export function buildAdvancedJobManifest(params: AdvancedJobManifestParams): k8s.V1Job {
   const sharedWorkspaceMount = { name: "workspace", mountPath: "/workspace" };
   const totalTimeoutSeconds = Math.ceil(params.totalTimeMs / 1000) + 30;
@@ -712,13 +593,10 @@ export class K8sExecutor implements SandboxExecutor {
     clients?: K8sClientHandles,
   ) {
     if (clients) {
-      // Test-only injection seam — production callers omit `clients` and we
-      // load from the in-cluster kubeconfig below.
       this.coreApi = clients.coreApi;
       this.batchApi = clients.batchApi;
       return;
     }
-    // Lazy-import avoids loading @kubernetes/client-node when DockerExecutor is used (local dev).
     const k8sLib = require("@kubernetes/client-node") as typeof k8s;
     const kc = new k8sLib.KubeConfig();
     kc.loadFromCluster();
@@ -742,14 +620,6 @@ export class K8sExecutor implements SandboxExecutor {
     return this.executeRunOnly(request);
   }
 
-  /**
-   * Advanced Mode on K8s. Tarball-source images can't be loaded ad-hoc into
-   * a cluster (no Docker daemon), so we fail-fast with a clear operator
-   * message. Registry-source images are dispatched via the init+grader+
-   * sidecar pattern; result.json is transported through the sidecar's stdout.
-   * Requires K8s ≥ 1.28 for the native sidecar (initContainer w/
-   * restartPolicy: Always) semantics.
-   */
   private async executeAdvanced(request: SandboxRequest): Promise<SandboxResult> {
     const advanced = request.advanced;
     if (!advanced) return sandboxSystemError("advanced-mode dispatch called without payload");
@@ -786,8 +656,6 @@ export class K8sExecutor implements SandboxExecutor {
       });
 
       await this.waitForJobCompletion(jobName, ns);
-      // Even if the Job is reported failed, the sidecar may have flushed a
-      // result (or the {missing:true} sentinel); read its log either way.
       const podName = await this.findPodName(jobName, ns);
       if (!podName) {
         return advancedFallbackResult(request, "Advanced sandbox produced no pod.");
@@ -841,16 +709,6 @@ export class K8sExecutor implements SandboxExecutor {
     }
   }
 
-  /**
-   * Interactive flow on K8s: one Job per case, each Job's pod has a
-   * `solution` + `interactor` container sharing a network namespace. The
-   * containers bridge stdio over a localhost TCP socket via socat. The secret
-   * input/answer reaches the interactor container's filesystem ONLY (via a
-   * dedicated ConfigMap); the solution container never has it mounted. After
-   * both containers exit, the worker reads each container's logs separately,
-   * parses the marker lines, and merges per-case via `mergeInteractiveCase` —
-   * the same function the Docker backend uses.
-   */
   private async executeInteractive(request: SandboxRequest): Promise<SandboxResult> {
     if (!request.judgeConfig.interactorScript) {
       return sandboxSystemError("Interactive judge is missing its interactor script.");
@@ -918,14 +776,6 @@ export class K8sExecutor implements SandboxExecutor {
       });
 
       const outcome = await this.waitForJobCompletion(jobName, namespace);
-      // We always try to read logs, regardless of Job status: an interactive
-      // pod's Job-level state is misleading because the solution-side socat
-      // exits non-zero with "broken pipe" the moment the interactor's socat
-      // closes the TCP connection — making EVERY successful interactive run
-      // look like a "failed" Job to K8s. The authoritative signal is the
-      // marker the sandbox runner writes on its container's stderr BEFORE
-      // socat tears down: if both markers are present, mergeInteractiveCase
-      // returns the real verdict; if either is missing, it returns SE.
       const podName = await this.findPodName(jobName, namespace);
       if (!podName) {
         if (outcome === "failed") return seCase("Interactive sandbox job failed or timed out.");
@@ -1021,14 +871,6 @@ export class K8sExecutor implements SandboxExecutor {
     }
   }
 
-  /**
-   * Checker flow on K8s: a TWO-Job pipeline (run pod → validate pod). The run
-   * pod sees neither the expected answer nor the validator script; the
-   * validate pod sees neither the student source nor the run pod's working
-   * directory. Per-case files reach the validate pod via a flat ConfigMap.
-   * Final verdicts come from `mergeCheckerResults` (same merge the Docker
-   * backend uses).
-   */
   private async executeChecker(request: SandboxRequest): Promise<SandboxResult> {
     const baseName = `judge-${request.submissionId}`;
     const validateName = `${baseName}-validate`;
@@ -1049,7 +891,6 @@ export class K8sExecutor implements SandboxExecutor {
         return sandboxSystemError("Failed to parse sandbox runner output.", runLogs);
       }
 
-      // Compile error / pipeline error short-circuit: no rawRuns to validate.
       if (!runResult.rawRuns) return runResult;
       const rawRuns = runResult.rawRuns;
 
@@ -1065,11 +906,6 @@ export class K8sExecutor implements SandboxExecutor {
     }
   }
 
-  /**
-   * Run the validate Job and return per-case outcomes. Any Job/log/parse
-   * failure becomes an SE for every requested case (mirrors `runValidator` in
-   * the Docker path).
-   */
   private async runValidateJob(
     jobName: string,
     namespace: string,
@@ -1206,8 +1042,6 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private parseRunnerOutput(logs: string): SandboxResult | null {
-    // The sandbox runner writes a single JSON object to stdout as its
-    // last output. Find the last line that looks like JSON.
     const lines = logs.trim().split("\n");
 
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -1229,7 +1063,6 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async cleanup(jobName: string, namespace: string): Promise<void> {
-    // Delete ConfigMap; Job auto-cleans via ttlSecondsAfterFinished.
     try {
       await this.coreApi.deleteNamespacedConfigMap({
         name: jobName,
@@ -1239,7 +1072,6 @@ export class K8sExecutor implements SandboxExecutor {
       // Best-effort cleanup; ignore errors
     }
 
-    // Also attempt to delete the Job in case TTL controller is slow
     try {
       await this.batchApi.deleteNamespacedJob({
         name: jobName,

@@ -17,8 +17,6 @@
   let endsAt = $derived(new Date(data.virtual.endsAt));
   let remainingMs = $derived(Math.max(0, endsAt.getTime() - now.getTime()));
 
-  // When the personal timer hits zero, send the user back to the dashboard —
-  // the server already blocks expired submissions; this keeps the UI honest.
   $effect(() => {
     if (remainingMs <= 0) {
       void goto(`/contests/${data.contestId}/virtual`);
@@ -35,7 +33,6 @@
   }
 </script>
 
-<!-- Virtual-contest timer bar — back link + personal remaining time. -->
 <div
   class="flex flex-wrap items-center justify-between gap-y-1 border-b border-border-subtle bg-[color:var(--color-panel)] px-4 py-2 text-caption backdrop-blur-sm"
 >

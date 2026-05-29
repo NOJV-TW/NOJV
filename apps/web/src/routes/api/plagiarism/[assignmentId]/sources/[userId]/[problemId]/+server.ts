@@ -9,11 +9,6 @@ import { plagiarismDomain } from "@nojv/domain";
 
 const { getPlagiarismTarget, getPlagiarismSourceCode } = plagiarismDomain;
 
-// GET /api/plagiarism/[assignmentId]/sources/[userId]/[problemId] — fetch a
-// specific submission's source code for side-by-side diff in the plagiarism
-// tooling. Staff-only; reuses the same access gate as the reports endpoint.
-//
-// `?type=contest` selects the contest target instead of the default assignment.
 export const GET: RequestHandler = apiHandler(async (event) => {
   requireApiAuth(event);
 

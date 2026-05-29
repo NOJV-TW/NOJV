@@ -15,7 +15,6 @@
   interface Props {
     form: Sf["form"];
     errors: Sf["errors"];
-    /** Scoring shape, languages, cooldown all freeze once anyone can submit. */
     editable: boolean;
   }
 

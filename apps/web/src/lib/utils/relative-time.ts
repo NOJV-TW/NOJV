@@ -1,7 +1,5 @@
 import { formatDate } from "$lib/utils/datetime";
 
-// Compact relative timestamp (Ns/Nm/Nh/Nd), falling back to an absolute date
-// past a week. Deliberately locale-agnostic so every feed reads consistently.
 export function relativeTime(value: Date | string | number): string {
   const then = typeof value === "number" ? value : new Date(value).getTime();
   const diff = Math.max(0, Date.now() - then);

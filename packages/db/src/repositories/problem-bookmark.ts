@@ -19,7 +19,6 @@ export const problemBookmarkRepo = {
     return prisma.problemBookmark.deleteMany({ where: { userId, problemId } });
   },
 
-  /** problemIds (within the given set) that the user has bookmarked. */
   async listBookmarkedIds(userId: string, problemIds: string[]): Promise<Set<string>> {
     if (problemIds.length === 0) return new Set();
     const rows = await prisma.problemBookmark.findMany({

@@ -45,8 +45,6 @@ export const examHeartbeatMissTotal = meter.createCounter("exam_heartbeat_miss_t
 
 export type HeartbeatGapBucket = "30s_to_60s" | "60s_to_120s" | "over_120s";
 
-// Bounded set of three labels keeps cardinality safe even on a noisy network.
-// Returns null when the gap is within the expected 30s cadence (no miss to count).
 export function heartbeatGapBucket(gapSec: number): HeartbeatGapBucket | null {
   if (gapSec <= 30) return null;
   if (gapSec < 60) return "30s_to_60s";

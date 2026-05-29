@@ -47,9 +47,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     now,
   });
 
-  // Mini-leaderboard for the detail sidebar. Skip for not-yet-started
-  // contests (no entries exist) and tolerate hidden boards by reading the
-  // user-facing view (entries auto-blank when `scoreboardMode === "hidden"`).
   const showLeaderboard = now >= new Date(contest.startsAt);
   const canSeeLive = await contestDomain.canViewLiveContestScoreboard(
     contest.id,
@@ -67,8 +64,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       )
     : [];
 
-  // Staff-only data for the score-override drawer + class results tab.
-  // Students don't see the button so we skip the extra fetches entirely.
   let canSetOverride = false;
   let overrideStudents: { id: string; username: string; name: string }[] = [];
   let results: ContestResults | null = null;
@@ -120,10 +115,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         };
       });
 
-      // Aggregate participant scores into the shared distribution bucket
-      // shape. For point_sum contests `score` is the absolute total; for
-      // problem_count contests it's the solve count and the helper falls
-      // back to absolute-vs-max bucketing.
       const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
       results = buildContestResults(
         scores,

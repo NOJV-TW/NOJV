@@ -4,11 +4,6 @@ import { examParticipationIpRepo, type TransactionClient } from "@nojv/db";
 
 import { logViolationThrottledInTx } from "../proctoring/violation-logger";
 
-// Client-IP resolution lives in the web layer (`apps/web/src/lib/server/shared/client-ip.ts`)
-// because it depends on SvelteKit's `RequestEvent` and on the Cloudflare trust
-// model documented in `docs/SECURITY.md`. The domain only operates on the
-// already-resolved IP string passed into `checkIpLock`.
-
 type IpFamily = "ipv4" | "ipv6";
 
 function classifyIp(ip: string): { family: IpFamily; addr: string } | null {
@@ -20,7 +15,6 @@ function classifyIp(ip: string): { family: IpFamily; addr: string } | null {
   return null;
 }
 
-/** Check if an IP falls within a CIDR range. Supports IPv4, IPv6, and v4-mapped v6. */
 export function isIpInCidr(ip: string, cidr: string): boolean {
   const [rangeIp, prefixStr] = cidr.split("/");
   if (!rangeIp) return false;
@@ -43,7 +37,6 @@ export function isIpInCidr(ip: string, cidr: string): boolean {
   }
 }
 
-/** Check if an IP matches any CIDR range in the whitelist. */
 export function isIpInWhitelist(ip: string, whitelist: string[]): boolean {
   return whitelist.some((cidr) => isIpInCidr(ip, cidr));
 }
@@ -63,17 +56,9 @@ export interface IpCheckResult {
 export interface IpLockDecision {
   allowed: boolean;
   violationType?: "whitelist" | "binding";
-  /** True when binding is on and no pin exists yet — caller should record clientIp. */
   shouldPin: boolean;
 }
 
-/**
- * Pure decision for the exam IP gate. No IO: the caller pins / logs based on
- * the returned flags. Whitelist takes precedence over binding. While a
- * teacher-granted grace window is open (`exemptUntil` in the future) the gate
- * never blocks or flags, but still reports `shouldPin` so the student's new
- * machine is bound by the time the window closes.
- */
 export function evaluateIpLock(
   config: IpLockConfig,
   clientIp: string,
@@ -107,12 +92,6 @@ export function evaluateIpLock(
   return { allowed: true, shouldPin };
 }
 
-/**
- * Exam-only IP gate. Contests do not have proctoring — callers must not
- * route contest requests through here. Pins the IP on first contact, records
- * every violation (both block and notify modes, throttled), and honours a
- * teacher-granted grace window on the participation.
- */
 export async function checkIpLock(
   tx: TransactionClient,
   config: IpLockConfig,

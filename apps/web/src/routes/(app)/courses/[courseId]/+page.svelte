@@ -95,7 +95,7 @@
 </script>
 
 <div class="grid gap-10 pb-20 lg:grid-cols-[2fr_3fr]">
-  <!-- 1. Announcements ────────────────────────────────────────────── -->
+  
   <section class="animate-in animate-in-1">
     <header class="mb-4 flex items-center justify-between gap-4">
       <h2
@@ -227,7 +227,7 @@
   </section>
 
   <div class="space-y-10">
-    <!-- 2. Assignments ────────────────────────────────────────────────── -->
+    
     <section class="animate-in animate-in-2">
     <header class="mb-4 flex items-center justify-between gap-4">
       <h2
@@ -301,10 +301,7 @@
                 <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
               </div>
             </div>
-            <!-- Right side: class stats (teacher) or personal progress (student).
-                 Both are populated by `fillAssessmentStats` in the overview
-                 domain; draft/upcoming rows intentionally stay null and
-                 fall through to the status-aware hint. -->
+            
             <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
               {#if assignment.status === "draft"}
                 <span class="block text-body-lg font-medium text-foreground">—</span>
@@ -336,7 +333,7 @@
     {/if}
   </section>
 
-  <!-- 3. Exams ──────────────────────────────────────────────────────── -->
+  
   <section class="animate-in animate-in-3">
     <header class="mb-4 flex items-center justify-between gap-4">
       <h2

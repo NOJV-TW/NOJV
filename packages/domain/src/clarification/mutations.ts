@@ -76,8 +76,6 @@ export async function ask(
     questionText: text,
   });
   await publishClarificationEvent("created", row);
-  // Asker is not staff — even on their own POST they get the masked
-  // projection. They recover identity via the bell notification.
   const isStaff = await canSeeAuthor(actor, input.context);
   return projectRow(row, isStaff);
 }
@@ -110,8 +108,6 @@ export async function answer(
   });
   await publishClarificationEvent("updated", updated);
 
-  // Fire notification only on the first pending → answered transition.
-  // Subsequent edits (answered → answered) do not re-notify.
   if (wasPending) {
     try {
       await notificationDomain.createNotification({
@@ -130,7 +126,6 @@ export async function answer(
       // landed and the asker can see it via the public board.
     }
   }
-  // Answerer is always staff — they see the full row.
   return projectRow(updated, true);
 }
 
@@ -152,17 +147,6 @@ export async function dismiss(
   return projectRow(updated, true);
 }
 
-/**
- * Soft-delete a clarification thread. Permission: staff of the context
- * (course teacher / TA, contest organizer, or platform admin) OR the
- * original asker — so a participant can retract a mistakenly-posted
- * question, and staff can clean up off-topic threads.
- *
- * Idempotency: a second call against an already-tombstoned id surfaces
- * as `NotFoundError`, so HTTP DELETE callers see the standard 404 on
- * the repeat attempt. The SSE `dismissed` event lets connected clients
- * drop the thread from their board immediately.
- */
 export async function deleteClarification(actor: ActorContext, id: string): Promise<void> {
   const row = await clarificationRepo.findById(id);
   if (!row || row.deletedAt) throw new NotFoundError("Clarification not found.");
@@ -183,13 +167,6 @@ async function publishClarificationEvent(
   row: ClarificationRow,
 ): Promise<void> {
   try {
-    // Publish the MASKED projection — asker identity is nulled. Staff
-    // of the context recover unmasked askers via the GET endpoint on
-    // (re)connect. Publishing the staff projection would be a latent
-    // anonymity regression if the SSE stream were ever mis-routed to a
-    // non-staff subscriber; the masked projection is fail-safe by
-    // default. Answerer identity is always public (staff are not
-    // anonymous), so `answeredBy` rides along.
     const masked = projectRow(row, false);
     const event: ClarificationSSEEvent = {
       type: SSE_CLARIFICATION,
@@ -237,10 +214,6 @@ async function assertProblemInContext(
   }
 }
 
-/**
- * Reject POST outside the context's active window. Reads remain open
- * so historical review works after the context ends.
- */
 async function assertContextActiveForAsk(context: ClarificationContext): Promise<void> {
   const now = new Date();
   switch (context.type) {

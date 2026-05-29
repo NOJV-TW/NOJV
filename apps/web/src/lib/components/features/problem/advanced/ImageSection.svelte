@@ -74,8 +74,6 @@
 
   async function save() {
     saveError = null;
-    // Mirror the server's required-field checks inline so the author sees a
-    // field-level reason instead of only a generic toast.
     if (imageRef.trim() === "") {
       saveError = imageSource === "tarball" ? m.admin_tarballRequired() : m.admin_imageRefRequired();
       return;

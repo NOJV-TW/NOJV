@@ -38,7 +38,6 @@ export interface ProblemDetail {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
-  /** Direct column on Problem; the single source of truth for shape. */
   type: ProblemType;
   samples: { input: string; output: string }[];
   starterByLanguage: Record<string, string>;
@@ -47,15 +46,8 @@ export interface ProblemDetail {
   tags: string[];
   timeLimitMs: number;
   title: string;
-  /**
-   * Number of distinct users who tried this problem (sampleOnly Run
-   * dry-runs excluded). Field name is preserved for backward compat —
-   * UI uses it only as a "any data yet?" guard for the AC rate label.
-   * The matching `acceptanceRate` is solvers / attempters.
-   */
   totalSubmissions: number;
   visibility: ProblemVisibility;
-  // Hidden files ship with `content === ""`; raw hidden content must never leave the server.
   workspaceFiles: {
     language: string;
     path: string;
@@ -83,10 +75,6 @@ function buildProblemSamples(problem: {
     .map((s) => ({ input: s.input, output: s.output }));
 }
 
-// full_source: always ships system templates — workspace files are ignored
-// even if DB residue exists (defense-in-depth against pre-migration rows).
-// multi_file: editable workspace files override the system template per language.
-// special_env: not reached for the student editor flow; return system defaults.
 export function buildStarterByLanguage(
   type: ProblemType,
   workspaceFiles: {
@@ -154,12 +142,6 @@ async function mapPersistedProblemDetail(
     type: "standard",
   };
 
-  // SECURITY: hidden workspace files are kept in the list so the client can
-  // render their metadata (path, language, description) but their `content`
-  // is blanked out. Raw hidden content must never leave the server — the
-  // judge pipeline reads it from S3 directly at judging time. We only fetch
-  // S3 content for non-hidden files, so we never even touch the bytes for
-  // hidden ones in this code path.
   const rawFiles = problem.workspaceFiles ?? [];
   const visibleWorkspaceFiles = await Promise.all(
     rawFiles.map(async (f) => {
@@ -236,7 +218,6 @@ export interface ProblemCardWithStatus {
   totalSubmissions: number;
 }
 
-/** Library-wide counts per status — only computed for authenticated users. */
 export interface ProblemStatusCounts {
   all: number;
   solved: number;
@@ -261,8 +242,6 @@ export async function listProblemCards(
 
   const where: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
 
-  // Full-text search via GIN index; fall back to LIKE only when FTS has zero
-  // hits (e.g. partial-word queries the tsvector tokenizer drops).
   if (params.q && params.q.trim().length > 0) {
     const q = params.q.trim();
     const matchingRows = await problemStatementRepo.fullTextSearch(q);
@@ -273,7 +252,6 @@ export async function listProblemCards(
     where.id = { in: [...new Set(matchedIds)] };
   }
 
-  // Difficulty filter — now a dedicated column.
   if (params.difficulty && params.difficulty !== "all") {
     const parsed = problemDifficultySchema.safeParse(params.difficulty);
     if (parsed.success) where.difficulty = parsed.data;
@@ -289,10 +267,6 @@ export async function listProblemCards(
     where.type = { in: params.types };
   }
 
-  // Judge method lives inside the judgeConfig JSON (a null config means
-  // "standard"). special_env problems have no judge method, so any
-  // judge-method filter excludes them. Skip when all three are selected
-  // (no-op) or none.
   if (
     params.judgeMethods &&
     params.judgeMethods.length > 0 &&
@@ -311,7 +285,6 @@ export async function listProblemCards(
     and.push({ OR: or });
   }
 
-  // Per-user status filter. Requires a userId; ignored for anonymous viewers.
   if (params.userId && params.status) {
     const uid = params.userId;
     if (params.status === "solved") {
@@ -345,9 +318,6 @@ export async function listProblemCards(
 
   const problemIds = persistedProblems.map((p) => p.id);
 
-  // Batch-fetch user-based stats + per-user status + bookmarks in parallel. AC
-  // rate is people-based (distinct solvers / distinct attempters) so a single
-  // student spamming the same problem can't tilt it.
   const [userStats, userSubmissions, bookmarkedIds] = await Promise.all([
     submissionRepo.countUserStatsByProblem(problemIds),
     params.userId && problemIds.length > 0
@@ -397,12 +367,6 @@ export async function listProblemCards(
   return { page, pageSize, problems, totalCount, statusCounts };
 }
 
-/**
- * Library-wide status counts shown next to the sidebar status filter. Computed
- * over the public+published base set only — independent of the other active
- * filters — so the numbers partition cleanly (solved + attempted + untried =
- * all). Returns null for anonymous viewers (no per-user status to count).
- */
 async function computeStatusCounts(
   userId: string | null | undefined,
 ): Promise<ProblemStatusCounts | null> {

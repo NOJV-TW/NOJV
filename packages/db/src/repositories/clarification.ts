@@ -31,7 +31,6 @@ export interface ClarificationAnswerUpdate {
 }
 
 export const clarificationRepo = {
-  /** Live threads for a context — soft-deleted rows are filtered. */
   listForContext(contextType: ClarificationContextType, contextId: string, since?: Date) {
     return prisma.clarification.findMany({
       where: {
@@ -45,11 +44,6 @@ export const clarificationRepo = {
     });
   },
 
-  /**
-   * Find by id, including soft-deleted rows. The domain layer translates
-   * `deletedAt != null` into NotFoundError so callers cannot distinguish
-   * "never existed" from "soft-deleted".
-   */
   findById(id: string) {
     return prisma.clarification.findUnique({
       where: { id },
@@ -91,10 +85,6 @@ export const clarificationRepo = {
     });
   },
 
-  /**
-   * Soft-delete by setting `deletedAt`. Idempotency is handled at the
-   * domain layer (a re-delete of a tombstoned row surfaces as 404).
-   */
   softDelete(id: string, now = new Date()) {
     return prisma.clarification.update({
       where: { id },

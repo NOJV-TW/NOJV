@@ -16,7 +16,6 @@ const sourceFileSchema = z.object({
   content: z.string().max(500_000),
 });
 
-// Problem IDs use underscores (e.g. "problem_noisy-oracle-hunt"), not just slug chars.
 const problemIdentifierSchema = z
   .string()
   .trim()
@@ -24,8 +23,6 @@ const problemIdentifierSchema = z
   .max(128, "validation_tooLong")
   .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
 
-// runCases are ephemeral student-authored Run-mode inputs — never persisted
-// and never allowed on Submit (would break the grading contract).
 const MAX_RUN_CASES = 10;
 const MAX_RUN_CASE_FIELD_LEN = 200_000;
 
@@ -36,8 +33,6 @@ export const runCaseSchema = z.object({
 
 export type SubmissionRunCase = z.infer<typeof runCaseSchema>;
 
-// VirtualContest ids are cuids (`@default(cuid())`), not slugs — accept the
-// same identifier shape as problem ids rather than the stricter slug rule.
 const virtualContestIdSchema = z
   .string()
   .trim()
@@ -45,19 +40,10 @@ const virtualContestIdSchema = z
   .max(128)
   .regex(/^[A-Za-z0-9_-]+$/);
 
-// `sourceCode` / `sourceFiles` carry the student's submitted bytes on inbound
-// `POST /api/submissions`. They are intentionally optional on the schema so
-// rejudge dispatches can re-use the same shape without carrying a placeholder —
-// the worker re-loads sources from object storage at `executeSandbox` time and
-// ignores any draft-side source fields. Inbound POSTs are validated at the
-// usage site via `normalizeSubmissionSources`.
 export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
     contestId: slugSchema.optional(),
-    // A virtual-contest submission is practice-like but carries this tag so the
-    // personal re-run can aggregate its own score. Mutually exclusive with the
-    // contest/assessment contexts (the submission path treats it as practice).
     virtualContestId: virtualContestIdSchema.optional(),
     language: languageSchema,
     mode: submissionModeSchema.optional(),
@@ -76,7 +62,6 @@ export const submissionDraftSchema = z
     },
   );
 
-// Defense-in-depth against a compromised sandbox-runner (runner already caps at 16 MB).
 const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
 const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
 const MAX_SUBTASK_LABEL_LEN = 200;
@@ -84,17 +69,12 @@ const MAX_FEEDBACK_LEN = 10_000;
 
 export const caseResultSchema = z.object({
   index: z.number().int().nonnegative(),
-  // Sandbox short code (AC/WA/TLE/MLE/RE/CE/SE); passed = verdict === "AC".
   verdict: z.string().max(16),
   timeMs: z.number().int().nonnegative(),
   memoryKb: z.number().int().nonnegative().optional(),
   stdout: z.string().max(MAX_CASE_STDOUT_BYTES).optional(),
   stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
   testcaseId: z.string().optional(),
-  // Operator/staff-only feedback (DOMjudge `judgemessage.txt`); stripped on the
-  // server before the payload reaches a non-staff viewer. Same cap as the
-  // top-level submission feedback (10 KB) — judgemessage.txt is operator-side
-  // text, not arbitrary data.
   staffFeedback: z.string().max(MAX_FEEDBACK_LEN).optional(),
 });
 
@@ -129,9 +109,6 @@ export const submissionOperationSchema = z.object({
   submissionId: z.string().min(1),
 });
 
-// Light-weight digest of a SubmissionResult; the source of truth for the full
-// `caseResults` / `compilerOutput` is the verdict-detail blob in object storage.
-// Kept under 4 KB so list views can render it without a storage round-trip.
 export const verdictSummarySchema = z.object({
   caseSummary: z.object({
     ac: z.number().int().nonnegative(),

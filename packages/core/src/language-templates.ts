@@ -1,13 +1,5 @@
 import type { Language } from "./types";
 
-/**
- * System-provided starter templates for full_source problems.
- *
- * full_source problems do NOT persist ProblemWorkspaceFile rows; the editor
- * pre-fills these templates client-side when a student first picks a language.
- * multi_file problems still use teacher-uploaded starters; see
- * buildStarterByLanguage() in @nojv/domain for the overlay logic.
- */
 export const LANGUAGE_TEMPLATES: Record<Language, string> = {
   c: `#include <stdio.h>
 

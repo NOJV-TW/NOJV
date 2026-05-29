@@ -14,10 +14,8 @@
   let { open = $bindable(), img, busy, onCancel, onSave }: Props = $props();
 
   const OUTPUT_SIZE = 512;
-  // Preview canvas size (CSS px, also the unit we use for hit-testing).
   const VIEW_SIZE = 320;
 
-  // Cover-fit so the smaller dimension fills the view.
   const fitScale = $derived(
     Math.max(VIEW_SIZE / img.naturalWidth, VIEW_SIZE / img.naturalHeight)
   );
@@ -26,9 +24,6 @@
   let imgX = $state(0);
   let imgY = $state(0);
 
-  // Center the image inside the view whenever a new image is passed in. The
-  // parent re-mounts this component per upload, so the effect runs exactly
-  // once with the initial image.
   $effect(() => {
     imgX = (VIEW_SIZE - img.naturalWidth * fitScale) / 2;
     imgY = (VIEW_SIZE - img.naturalHeight * fitScale) / 2;
@@ -43,7 +38,6 @@
   function clampPosition() {
     const dispW = img.naturalWidth * fitScale * scale;
     const dispH = img.naturalHeight * fitScale * scale;
-    // Image must always cover the view, so x must be between (VIEW_SIZE - dispW) and 0.
     const minX = VIEW_SIZE - dispW;
     const minY = VIEW_SIZE - dispH;
     if (imgX > 0) imgX = 0;
@@ -75,14 +69,12 @@
 
   function onWheel(e: WheelEvent) {
     e.preventDefault();
-    // Zoom around view center to keep behaviour predictable.
     const factor = Math.exp(-e.deltaY * 0.0015);
     setScale(scale * factor);
   }
 
   function setScale(next: number) {
     const clamped = Math.min(4, Math.max(1, next));
-    // Anchor zoom on view center so the visible portion stays centered.
     const cx = VIEW_SIZE / 2;
     const cy = VIEW_SIZE / 2;
     const ratio = clamped / scale;
@@ -98,7 +90,6 @@
     canvas.height = OUTPUT_SIZE;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    // Map view coords → output coords (uniform OUTPUT_SIZE/VIEW_SIZE scale).
     const k = OUTPUT_SIZE / VIEW_SIZE;
     const dispW = img.naturalWidth * fitScale * scale * k;
     const dispH = img.naturalHeight * fitScale * scale * k;

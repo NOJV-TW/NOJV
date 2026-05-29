@@ -1,4 +1,3 @@
-/** Compute a contest's lifecycle bucket from its start/end timestamps. */
 export function contestStatusFor(
   startsAt: string | Date,
   endsAt: string | Date,
@@ -11,7 +10,6 @@ export function contestStatusFor(
   return "ended";
 }
 
-/** Total contest duration in whole minutes. */
 export function durationMinutes(startsAt: string | Date, endsAt: string | Date): number {
   const s = typeof startsAt === "string" ? new Date(startsAt) : startsAt;
   const e = typeof endsAt === "string" ? new Date(endsAt) : endsAt;

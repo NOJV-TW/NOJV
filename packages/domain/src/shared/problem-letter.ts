@@ -1,4 +1,3 @@
-// 1-based: 1→A, 26→Z, 27→AA, 28→AB.
 export function problemLetter(ordinal: number): string {
   if (ordinal < 1) return String(ordinal);
   let n = ordinal;

@@ -39,7 +39,6 @@
       return;
     }
 
-    // Confirm cookie/session is actually persisted before leaving sign-in page.
     const { data: sessionData } = await authClient.getSession();
     if (!sessionData?.session) {
       error = m.auth_sessionCookieNotPersisted();

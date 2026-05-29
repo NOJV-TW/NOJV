@@ -57,7 +57,6 @@ export async function dispatchContestLifecycle(input: ContestLifecycleInput): Pr
   });
 }
 
-// Workflow id is keyed on `examId`; re-publishing terminates the pending workflow so the new endsAt follows.
 export async function dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void> {
   const client = await getTemporalClient();
 

@@ -11,9 +11,6 @@
   }
 
   let { image, name }: Props = $props();
-  // Fall back to initials when the stored URL fails to load (file deleted,
-  // OAuth provider rotated the URL, network error, etc.) — otherwise the
-  // browser's broken-image placeholder shows up forever.
   let imageBroken = $state(false);
   $effect(() => {
     void image;

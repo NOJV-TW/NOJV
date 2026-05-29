@@ -33,7 +33,6 @@ import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 
-// Validate environment variables eagerly on startup.
 getWebEnv();
 
 const processLogger = createLogger("process");
@@ -55,7 +54,6 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-/** Route prefixes exempt from the complete-profile redirect. */
 const PROFILE_EXEMPT_PREFIXES = [
   "/api/",
   "/complete-profile",
@@ -65,7 +63,6 @@ const PROFILE_EXEMPT_PREFIXES = [
   "/signup",
 ];
 
-/** Locale prefixes that paraglide may prepend to URLs (non-base locales). */
 const LOCALE_PREFIXES = ["/zh-TW"];
 
 function stripLocalePrefix(pathname: string): string {
@@ -104,18 +101,10 @@ function setSecurityHeaders(response: Response): void {
 }
 
 function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boolean {
-  // Exam solves live under the top-level `/exams/[examId]/...` tree. Contests
-  // are public and never page-locked. Strict prefix (not `includes`) so a
-  // crafted path like `/x/exams/<id>` can't slip through.
   const prefix = `/exams/${ctx.examId}`;
   return pathname === prefix || pathname.startsWith(prefix + "/");
 }
 
-/**
- * Block a mid-exam request that failed the IP gate. Pages render the error
- * page (a redirect would loop — the exam root fails the same gate); `/api`
- * calls get a JSON body so client fetches can surface it.
- */
 function denyExamGate(opts: {
   cleanPath: string;
   requestId: string;
@@ -136,11 +125,6 @@ function pageLockRedirectTarget(ctx: PageLockedContext): string {
   return `/exams/${ctx.examId}`;
 }
 
-/**
- * Reuse an inbound `X-Request-Id` only if it looks safe (printable ASCII,
- * <= 128 chars). Otherwise mint a fresh UUID. This protects logs and
- * downstream systems from header-injected control characters.
- */
 function deriveRequestId(headers: Headers): string {
   const incoming = headers.get("x-request-id");
   if (incoming && incoming.length > 0 && incoming.length <= 128 && /^[\w.-]+$/.test(incoming)) {
@@ -160,10 +144,6 @@ export const handle: Handle = async ({ event, resolve }) => {
   } finally {
     const routeId = event.route.id ?? "unmatched";
     if (!routeId.endsWith("/stream")) {
-      // `recordedStatus ?? 500` covers thrown redirect/error paths where the
-      // response object never exists in this scope — SvelteKit converts those
-      // to 3xx/4xx upstream of `handle`, but we can't observe the final status
-      // from `finally`. Imprecision accepted: ~5–10% of dashboard traffic.
       apiRequestDuration.record((performance.now() - startMs) / 1000, {
         route: routeId,
         method: event.request.method,
@@ -190,14 +170,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
       });
     }
 
-    // Require an `X-Requested-With: fetch` header on /api/** mutations.
-    // Browsers add this to non-simple cross-origin requests, which forces a
-    // CORS preflight that our server will reject (no CORS config). On
-    // same-origin calls our own client code adds it explicitly. A classic
-    // form-submission CSRF (from <form action> on an attacker page) cannot
-    // set custom headers, so it's blocked even when Origin is missing.
-    // better-auth lives at /api/auth and is exempt — it has its own CSRF
-    // defenses and is hit by external OAuth callbacks.
     if (!cleanPath.startsWith("/api/auth")) {
       const xrw = event.request.headers.get("x-requested-with");
       if (xrw !== "fetch") {
@@ -215,18 +187,11 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     }
   }
 
-  // Let better-auth own the callback/sign-in flow without additional middleware.
   if (cleanPath.startsWith("/api/auth")) {
-    // Brute-force lockout for password sign-in: only /admin-signin (and the
-    // seeded test accounts behind it) uses this surface. OAuth flows hit
-    // /api/auth/sign-in/social and /api/auth/callback/*, which are exempt.
     const isPasswordSignIn =
       event.request.method === "POST" &&
       (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
     if (isPasswordSignIn) {
-      // Pull the IP outside the try so a misconfigured Cloudflare ingress
-      // (getClientIp throws SvelteKit 403) surfaces as 403, not as a
-      // fake "rate limited" response that masks the real failure.
       const ip = getClientIp(event);
       try {
         await signInRateLimiter.consume(ip);
@@ -255,7 +220,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
-  // better-auth's inferred session.user is trustworthy; cast narrows `platformRole` / `username` to SessionUser.
   event.locals.sessionUser = (session?.user ?? null) as SessionUser | null;
 
   if (event.locals.sessionUser?.disabled) {
@@ -285,7 +249,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     }
   }
 
-  // Fails open on DB error: a degraded lock subsystem must never block the student from the site.
   if (event.locals.sessionUser) {
     const sessionUser = event.locals.sessionUser;
     let examCtx: ActiveExamContext | null = null;
@@ -300,12 +263,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
       });
     }
 
-    // Proctoring gate — enforced on EVERY request (pages + all `/api`) while a
-    // session is live. SvelteKit `/api` routes never trigger the exam layout,
-    // so this is the only place that re-checks IP whitelist / binding and
-    // course-membership for submissions, verdict polls, SSE and clarifications.
-    // Fails closed: we know the student is mid-exam, so a gate error must not
-    // open access. `resolveExamGateDenial` decides what to block (see there).
     if (examCtx) {
       const ip = getClientIp(event); // prod: throws 403 if the request bypassed Cloudflare
       let verdict;
@@ -381,7 +338,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   }
 
   return paraglideMiddleware(event.request, async ({ request }) => {
-    // Update the event request with the (potentially de-localized) request
     event.request = request;
     const response = await resolve(event);
     response.headers.set("x-request-id", event.locals.requestId);
@@ -389,12 +345,10 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   });
 };
 
-// Expected domain errors are wrapped by `handleLoad`; anything reaching here is an unexpected throw.
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
   const classified = classifyError(error);
   const requestId = event.locals.requestId;
 
-  // An "http" classification here is a domain HttpError that escaped an unwrapped load function.
   if (classified.type === "http") {
     errorLogger.warn("Unwrapped domain HttpError reached handleError", {
       method: event.request.method,

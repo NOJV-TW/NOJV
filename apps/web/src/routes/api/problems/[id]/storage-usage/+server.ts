@@ -5,13 +5,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { problemDomain } from "@nojv/domain";
 
-/**
- * GET /api/problems/[id]/storage-usage
- *
- * Returns aggregate bytes stored under `problems/{id}/` so the authoring
- * UI can render a "X / 50 MB" budget bar. Edit-access gated — usage is
- * staff-only metadata.
- */
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 

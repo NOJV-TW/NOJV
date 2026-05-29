@@ -26,8 +26,6 @@
   }
 </script>
 
-<!-- Contest timer bar — back link + remaining time. Problem-switching now
-     lives inside the float drawer rendered by ProblemSolveView. -->
 <div
   class="flex flex-wrap items-center justify-between gap-y-1 border-b border-border-subtle bg-[color:var(--color-panel)] px-4 py-2 text-caption backdrop-blur-sm"
 >

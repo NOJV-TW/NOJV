@@ -7,8 +7,6 @@ import { examHeartbeatMissTotal, heartbeatGapBucket } from "$lib/server/metrics"
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { examDomain } from "@nojv/domain";
 
-// Returns 200 + `{ released: true }` when the caller has no active session so
-// the client can treat it as "released" without parsing a body-less 204.
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 

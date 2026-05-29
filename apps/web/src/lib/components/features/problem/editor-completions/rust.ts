@@ -1,7 +1,6 @@
 import type { CompletionEntry } from "./index";
 
 export const rustCompletions: CompletionEntry[] = [
-  // I/O
   {
     label: "println!",
     kind: "Function",
@@ -31,7 +30,6 @@ export const rustCompletions: CompletionEntry[] = [
     detail: "stdin pattern",
     isSnippet: true,
   },
-  // Use
   {
     label: "use std::io",
     kind: "Snippet",
@@ -45,7 +43,6 @@ export const rustCompletions: CompletionEntry[] = [
     detail: "import",
     isSnippet: true,
   },
-  // Collections
   {
     label: "Vec",
     kind: "Class",
@@ -102,7 +99,6 @@ export const rustCompletions: CompletionEntry[] = [
     detail: "std::collections",
     isSnippet: true,
   },
-  // Iterators
   { label: ".iter()", kind: "Function", insertText: ".iter()", detail: "iterator" },
   {
     label: ".iter().map()",
@@ -138,7 +134,6 @@ export const rustCompletions: CompletionEntry[] = [
     insertText: ".iter().enumerate()",
     detail: "iterator",
   },
-  // Sort
   { label: ".sort()", kind: "Function", insertText: ".sort();", detail: "slice" },
   {
     label: ".sort_by()",
@@ -153,7 +148,6 @@ export const rustCompletions: CompletionEntry[] = [
     insertText: ".sort_unstable();",
     detail: "slice",
   },
-  // Parse
   {
     label: ".parse()",
     kind: "Function",
@@ -168,7 +162,6 @@ export const rustCompletions: CompletionEntry[] = [
     insertText: ".split_whitespace()",
     detail: "str",
   },
-  // Numeric
   { label: "i64::MAX", kind: "Constant", insertText: "i64::MAX", detail: "numeric" },
   { label: "i64::MIN", kind: "Constant", insertText: "i64::MIN", detail: "numeric" },
   { label: "usize::MAX", kind: "Constant", insertText: "usize::MAX", detail: "numeric" },
