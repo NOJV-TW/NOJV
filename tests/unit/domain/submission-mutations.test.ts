@@ -500,7 +500,6 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       submitCooldownSec: 30,
     });
     vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
-    // A submission 5s ago is within the 30s cooldown window.
     submissionFindMostRecent.mockResolvedValue({
       createdAt: new Date("2026-04-14T09:29:55.000Z"),
     });
@@ -520,7 +519,6 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       submitCooldownSec: 30,
     });
     vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
-    // No submission inside the cooldown window.
     submissionFindMostRecent.mockResolvedValue(null);
 
     await expect(

@@ -58,8 +58,6 @@ export const examSettingsFormSchema = z.object({
   scoringMode: contestScoringModeSchema.default("point_sum"),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
-  // Match examCreateSchema / contest bounds (max 1h) so an exam created with
-  // a cooldown above 600s isn't rejected when edited via the settings form.
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
   pageLockEnabled: z.boolean().default(false),
   ...ipLockFormFields,

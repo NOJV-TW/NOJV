@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Regression: ExamParticipation must be created when a student starts an exam
-// session. Without it the IP gate has no row to pin (IP binding silently never
-// enforced) and the scoreboard stays empty. See findings.md [P0].
 const {
   examFindById,
   membershipFindByComposite,
@@ -74,7 +71,6 @@ describe("startSession — ExamParticipation creation", () => {
     courseFindUnique.mockResolvedValue({ archived: false });
     sessionFindActiveForUser.mockResolvedValue(null);
     sessionRecordEvent.mockResolvedValue({});
-    // Default: no prior participation row (fresh entry).
     participationFindByExamAndUser.mockResolvedValue(null);
   });
 
@@ -113,7 +109,6 @@ describe("startSession — ExamParticipation creation", () => {
 
     await startSession(studentActor, { examId: "exm_1" });
 
-    // Upsert update payload must not flip status back to "active".
     expect(participationUpsert).toHaveBeenCalledTimes(1);
     const updateData = participationUpsert.mock.calls[0][3];
     expect(updateData.status).toBeUndefined();

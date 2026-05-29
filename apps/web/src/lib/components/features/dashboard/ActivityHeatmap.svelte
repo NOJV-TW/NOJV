@@ -49,7 +49,6 @@
   });
   const columnCount = $derived(Math.ceil(cells.length / 7));
 
-  // Localized short weekday names, Sun…Sat (2024-01-07 is a Sunday in UTC).
   const weekdayLabels = $derived.by(() => {
     const fmt = new Intl.DateTimeFormat(getLocale(), { weekday: "short", timeZone: "UTC" });
     return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2024, 0, 7 + i))));

@@ -84,8 +84,6 @@ export async function createQueuedSubmissionRecord(
         throw new ForbiddenError("Exam has ended.");
       }
 
-      // Per-problem submit cooldown — mirrors the contest path below. Without
-      // this an exam's configured cooldown is silently never enforced.
       if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
         await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
       }
@@ -238,9 +236,6 @@ export async function createQueuedSubmissionRecord(
           Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
         );
 
-        // Serialize the count-then-create window for this (user, assignment,
-        // day) so concurrent submissions can't both pass when one slot is
-        // left. Released when the tx commits/rolls back.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`daily-attempt:${user.id}:${courseContext.assignment.id}:${startOfDayUtc.toISOString()}`}, 0))`;
 
         const todayCount = await submissionRepo

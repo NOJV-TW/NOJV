@@ -79,12 +79,7 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
       throw new ConflictError("You already have an active session on a different exam.");
     }
 
-    // Entering the exam is the moment a participant becomes real. The IP gate
-    // pins `ipPin` onto this row on first contact and the scoreboard lists it;
-    // without creating it here both silently no-op (no row to pin, empty board).
-    // Re-entry must never revive a terminal participation: only flip a fresh
-    // `registered` row to `active`; leave `submitted` / `disqualified` (and an
-    // already-`active`) row untouched.
+    // Re-entry must not revive a terminal (submitted/disqualified) participation.
     const existingParticipation = await examParticipationRepo
       .withTx(tx)
       .findByExamAndUser(examId, actor.userId);

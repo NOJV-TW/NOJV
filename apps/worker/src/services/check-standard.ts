@@ -7,8 +7,6 @@ import {
   type ValidatorOutcome,
 } from "@nojv/core";
 
-// Enforces the per-problem memoryLimitMb from the runner's peak RSS — the
-// container cgroup only bounds the global SANDBOX_MEMORY_MB ceiling.
 export function enforceMemoryLimit(
   results: SandboxTestcaseResult[],
   memoryLimitMb: number,
