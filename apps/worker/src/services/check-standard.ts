@@ -7,6 +7,20 @@ import {
   type ValidatorOutcome,
 } from "@nojv/core";
 
+// Enforces the per-problem memoryLimitMb from the runner's peak RSS — the
+// container cgroup only bounds the global SANDBOX_MEMORY_MB ceiling.
+export function enforceMemoryLimit(
+  results: SandboxTestcaseResult[],
+  memoryLimitMb: number,
+): SandboxTestcaseResult[] {
+  const limitKb = memoryLimitMb * 1024;
+  return results.map((r) =>
+    (r.verdict === "AC" || r.verdict === "WA") && r.memoryKb !== undefined && r.memoryKb > limitKb
+      ? { ...r, verdict: "MLE", score: 0 }
+      : r,
+  );
+}
+
 /**
  * Decide AC/WA for standard-mode runs by comparing the runner's raw output
  * against the expected answer the worker already holds. The expected answer
