@@ -10,11 +10,8 @@
   interface Props {
     form: Sf["form"];
     errors: Sf["errors"];
-    /** Start time is editable only in draft / upcoming. */
     editableStart: boolean;
-    /** End time can be extended during the running phase (escape hatch for over-runs). */
     editableEnd: boolean;
-    /** Whether the exam is currently running — surfaces a hint about the limited end-edit. */
     isRunning: boolean;
   }
 

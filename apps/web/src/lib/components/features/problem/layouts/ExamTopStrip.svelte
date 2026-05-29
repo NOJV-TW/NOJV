@@ -4,7 +4,6 @@
     courseId: string;
     examTitle: string;
     courseLabel: string;
-    /** ISO timestamp — countdown ticks toward this instant. */
     endsAt: string;
     userHandle: string;
     ipAddress: string;

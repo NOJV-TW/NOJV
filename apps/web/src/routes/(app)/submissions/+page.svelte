@@ -34,8 +34,6 @@
   let languageFilter = $state("");
   let titleQuery = $state("");
 
-  // Distinct values present in the loaded rows drive the dropdown options so we
-  // never offer a filter that would match nothing.
   let verdictOptions = $derived([...new Set(data.submissions.map((s) => s.status))].sort());
   let languageOptions = $derived([...new Set(data.submissions.map((s) => s.language))].sort());
 

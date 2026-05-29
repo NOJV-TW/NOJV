@@ -24,7 +24,6 @@ export interface ExamProblemViewSibling {
   id: string;
   letter: string;
   title: string;
-  /** Best score the current user has achieved within this exam. */
   bestScore?: number | undefined;
   maxScore: number;
   isActive: boolean;
@@ -48,18 +47,14 @@ export interface ExamProblemViewExam {
 }
 
 export interface ExamProblemView {
-  /** Full problem-page payload — same shape the practice route uses. */
   problem: ProblemDetail;
-  /** User's submissions, server-side scoped to (examId, problemId, userId). */
   submissions: ExamProblemViewSubmission[];
-  /** All problems in the exam, in ordinal order, for the left rail. */
   siblingProblems: ExamProblemViewSibling[];
   exam: ExamProblemViewExam;
   examTitle: string;
   courseLabel: string;
 }
 
-// Submission filter is `(examId, userId, problemId)` — cross-exam data cannot leak through.
 export async function getExamProblemView(options: {
   examId: string;
   problemIdx: number;
@@ -108,8 +103,6 @@ export async function getExamProblemView(options: {
     }),
   ]);
 
-  // Verdict detail lives in object storage; pull each row's blob in parallel.
-  // The query already caps at 50 rows, so the fan-out is bounded.
   const detailBlobs = await Promise.all(
     submissionRows.map((s) =>
       s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
@@ -117,15 +110,9 @@ export async function getExamProblemView(options: {
   );
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
-    // status is validated AND used as the fallback verdict when the detail
-    // blob is missing/malformed.
     const verdict = submissionVerdictSchema.parse(s.status);
-    // Detail blob may be absent (partial purge, read-after-write window) or
-    // schema-invalid; degrade to a row-status-only summary instead of 500'ing
-    // the whole list.
     const raw = detailBlobs[idx];
     const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
-    // User's own submissions in their own exam — never a staff viewer here.
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);
@@ -172,16 +159,6 @@ export async function getExamProblemView(options: {
   };
 }
 
-/**
- * CUID-unified variant of {@link getExamProblemView} — resolves by problem id
- * and emits sibling URLs under the new top-level `/exams/[examId]/problems/...`
- * tree.  Behavior-identical to `getExamProblemView` otherwise: same submission
- * scoping (examId, userId, problemId), same verdict/language parsing, same
- * best-score map.
- *
- * Returns `null` when the problem is not part of the exam so the loader can
- * `error(404, ...)` without leaking existence.
- */
 export async function getExamProblemViewByProblemId(options: {
   examId: string;
   problemId: string;
@@ -229,7 +206,6 @@ export async function getExamProblemViewByProblemId(options: {
     }),
   ]);
 
-  // Verdict detail lives in object storage; pull each row's blob in parallel.
   const detailBlobs = await Promise.all(
     submissionRows.map((s) =>
       s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
@@ -237,15 +213,9 @@ export async function getExamProblemViewByProblemId(options: {
   );
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
-    // status is validated AND used as the fallback verdict when the detail
-    // blob is missing/malformed.
     const verdict = submissionVerdictSchema.parse(s.status);
-    // Detail blob may be absent (partial purge, read-after-write window) or
-    // schema-invalid; degrade to a row-status-only summary instead of 500'ing
-    // the whole list.
     const raw = detailBlobs[idx];
     const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
-    // User's own submissions in their own exam — never a staff viewer here.
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);

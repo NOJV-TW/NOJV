@@ -29,7 +29,6 @@
   const Icon = $derived(icons[toast.type]);
   const isError = $derived(toast.type === "error");
 
-  // Respect prefers-reduced-motion: skip transforms, fade only.
   let prefersReducedMotion = $state(false);
   $effect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -51,8 +50,6 @@
     }
   }
 
-  // Exit is 60% of enter per craft principle #9 (exit faster than enter).
-  // Svelte handles `out:` transitions by running the exit variant.
 </script>
 
 {#if prefersReducedMotion}

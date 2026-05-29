@@ -59,8 +59,6 @@ export async function listSubmissionsForCheck(
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
 
-// Plagiarism state is inlined on `Exam` / `Contest` / `CourseAssessment` as
-// six `plagiarism*` columns — the parent id IS the report identity.
 async function writePlagiarismFields(
   target: PlagiarismTarget,
   input: Parameters<typeof plagiarismRepo.upsertForExam>[1],
@@ -119,8 +117,6 @@ export async function getPlagiarismTarget(
   if (type === "contest") {
     const contest = await contestRepo.findById(targetId);
     if (!contest) throw new NotFoundError("Contest not found.");
-    // Contests are not course-bound; surface an empty courseId so callers
-    // that key off course membership fall back to platform-role checks.
     return { courseId: "", target: { id: contest.id, type: "contest" } };
   }
 
@@ -188,11 +184,6 @@ export async function findPlagiarismReport(
   return plagiarismRepo.findByExamId(target.id);
 }
 
-/**
- * Staff-only fetch of one student's submission sources for a side-by-side
- * diff. Picks the highest-scoring submission in the target (assignment /
- * contest / exam) and returns its files from object storage.
- */
 // intentional-nullable: pair-diff view renders an empty side when a user has no submission for the problem (MOSS sometimes flags pairs where one side was later deleted); throwing would 500 the whole report.
 export async function getPlagiarismSourceCode(
   target: PlagiarismTarget,
@@ -214,8 +205,6 @@ export async function getPlagiarismSourceCode(
   return getSubmissionSources(top.id);
 }
 
-// Returns 0 or 1 reports as an array so the route layer can keep its existing
-// list-style UI loop without a special empty-state branch.
 export async function listAssignmentPlagiarismReports(
   assignmentId: string,
 ): Promise<PlagiarismReportSummary[]> {

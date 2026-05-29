@@ -8,21 +8,12 @@ import {
 
 import { checkIpLock, type IpCheckResult } from "../shared/ip";
 
-/**
- * What entity this gate is checking. Both kinds share existence / visibility /
- * time-window semantics, but only `exam` has proctoring (page lock, IP
- * whitelist, IP binding). Contests are public CP events with no IP gating.
- */
 export type ProctoringEntityKind = "exam" | "contest";
 
 export type ProctoringVerdict =
   | { ok: true }
   | { ok: false; reason: ProctoringDenialReason; redirect?: string };
 
-/**
- * Machine-readable reason codes so callers (route loaders, hooks) can map
- * to localized messages and redirect behaviour without parsing strings.
- */
 export type ProctoringDenialReason =
   | "not_found"
   | "not_published"
@@ -37,21 +28,11 @@ export interface ProctoringGateInput {
   entityKind: ProctoringEntityKind;
   entityId: string;
   userId: string;
-  /** Optional — skip IP checks when not supplied (e.g. background jobs). Ignored for contests. */
   ip?: string | null;
-  /** Override `new Date()` for deterministic tests. */
   now?: Date;
-  /** Grace before startsAt during which access is permitted. Default 0. */
   startGraceMs?: number;
 }
 
-/**
- * Central proctoring gate. Covers:
- *   - existence + published visibility
- *   - course-membership + archival (exam only)
- *   - time window
- *   - IP whitelist + IP binding (exam only)
- */
 export async function checkProctoringGate(
   input: ProctoringGateInput,
 ): Promise<ProctoringVerdict> {
@@ -90,7 +71,6 @@ async function checkContestGate(
     return { ok: false, reason: "ended" };
   }
 
-  // Contests are public — no IP gating, no page lock.
   return { ok: true };
 }
 

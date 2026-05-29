@@ -5,10 +5,6 @@ export interface SubmissionActivityEvent {
   isAc: boolean;
 }
 
-// Raw submission timestamps for the dashboard activity surfaces (heatmap,
-// streak, weekly trend). The dashboard buckets these into the viewer's
-// local calendar day on the client — pre-aggregating here would force a
-// UTC day boundary and shift squares for non-UTC users.
 export async function getSubmissionActivity(
   userId: string,
   since: Date,

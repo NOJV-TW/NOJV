@@ -1,27 +1,4 @@
 #!/usr/bin/env node
-/**
- * Data migration: move inline validator script bodies out of the
- * Problem.judgeConfig JSON column into object storage.
- *
- * Before Phase 3, checkerScript / interactorScript were persisted inline in
- * judgeConfig (each up to 200KB). They now live in storage; judgeConfig keeps
- * only checkerKey / interactorKey. This script backfills existing rows.
- *
- * There is no Prisma schema column change (the change is inside the Json?
- * shape), so this is a node data-move rather than a .sql migration — a SQL
- * migration cannot upload to S3.
- *
- * Idempotent: rows already carrying a key (and no inline body) are skipped.
- * Run with:
- *
- *   pnpm --filter @nojv/db migrate:validator-scripts
- *
- * Note: the repo's standing strategy for file-asset moves of this kind is
- * "wipe + re-seed" (no production user data — see
- * docs/plans/completed/2026-04-13-testcase-blob-storage-design.md). A fresh
- * `pnpm db:seed` already produces the new shape. This script exists for any
- * live database that must preserve authored problems.
- */
 import { checkerKey, createStorageClient, interactorKey, putText } from "@nojv/storage";
 import { PrismaPg } from "@prisma/adapter-pg";
 

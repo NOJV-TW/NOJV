@@ -1,9 +1,3 @@
-// Runnable example bodies shown inside the JudgeTab documentation panel.
-// The Python examples show only the user-authored body — the sandbox
-// auto-prepends a wrapper that binds `judge_input`, `judge_answer`,
-// `team_output` (validator) / `read`, `write` (interactor), `feedback_dir`
-// and the helpers `accept`, `wrong`, `set_score`, `judge_log`.
-
 export const PYTHON_CHECKER_EXAMPLE = `# Bound: judge_input, judge_answer, team_output (strings)
 # Helpers: accept(team_msg=""), wrong(team_msg=""), set_score(x), judge_log(msg)
 

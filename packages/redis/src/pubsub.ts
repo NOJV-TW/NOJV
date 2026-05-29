@@ -12,10 +12,6 @@ import {
 import { getRedis } from "./connection";
 import { keys } from "./keys";
 
-// All publishers below are best-effort: SSE delivery is eventually consistent
-// with the DB, so a Redis outage degrades to "client refetches on reconnect"
-// rather than data loss. Each catch swallows accordingly.
-
 function publishEvent(channel: string, event: SSEEvent): Promise<number> {
   return getRedis().publish(channel, JSON.stringify(event));
 }
@@ -87,9 +83,6 @@ export async function publishClarification(
   }
 }
 
-// Batch fan-out signal: a "something happened, re-fetch" ping without
-// the full payload. Used by createNotificationBatch where the per-row
-// SSE round-trip would be expensive.
 export async function publishNotificationBatchSignal(
   userId: string,
   detail: { notificationType: string; params: unknown; linkUrl: string | null },
@@ -100,8 +93,6 @@ export async function publishNotificationBatchSignal(
       notificationType: detail.notificationType,
       params: detail.params,
       linkUrl: detail.linkUrl,
-      // id + createdAt intentionally omitted — the client refetches on
-      // any payload missing an id.
     });
   } catch {
     /* see module header */

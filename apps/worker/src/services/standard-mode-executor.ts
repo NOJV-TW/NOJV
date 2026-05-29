@@ -34,10 +34,6 @@ export async function runStandardMode(
   request: SandboxRequest,
   config: StandardModeConfig,
 ): Promise<SandboxResult> {
-  // Interactive mode runs the solution and the DOMjudge interactor in two
-  // SEPARATE isolated containers wired by a worker byte proxy — the secret
-  // input/answer is mounted only into the interactor container. It has its own
-  // launch path (per-case container pairs) and does not use the run container.
   if (request.judgeType === "interactive") {
     return await runInteractiveMode(request, config);
   }
@@ -45,14 +41,10 @@ export async function runStandardMode(
   await writeSubmissionFiles(tempDir, request);
   const runResult = await runContainer(tempDir, request, config);
 
-  // Checker mode: the run container only produced raw output. Run the
-  // DOMjudge validator in a SECOND isolated container, then merge.
   if (request.judgeType === "checker" && runResult.rawRuns) {
     return await resolveCheckerResult(request, config, runResult.rawRuns);
   }
 
-  // Standard mode emits rawRuns → worker compares; checker/interactive that
-  // reached here without rawRuns already carry testcaseResults.
   return resolveSandboxResult(runResult, request.testcases);
 }
 
@@ -70,9 +62,6 @@ async function resolveCheckerResult(
 
   const testcaseByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
 
-  // Only clean runs go to the validator; failed runs (TLE/MLE/RE/SE) pass
-  // through. A clean run whose testcase has no expected answer is a
-  // misconfiguration → its outcome is left absent so the merge marks it SE.
   const cases: ValidatorCase[] = [];
   for (const run of rawRuns) {
     if (run.errorVerdict) continue;
@@ -162,21 +151,11 @@ export async function writeSubmissionFiles(
     ),
   );
 
-  // Checker mode no longer runs an in-container checker: the validator runs
-  // in a SECOND isolated container (see runValidator), and interactive runs in
-  // its own two-container path. Neither the checker/validator script nor the
-  // interactor ever enters the run container alongside student code.
-
   await Promise.all(fileWrites);
 
   const testcasesDir = join(tempDir, "testcases");
   await mkdir(testcasesDir, { recursive: true });
 
-  // This path serves only standard and checker modes (interactive returns
-  // early in runStandardMode). Both decide the verdict elsewhere — worker
-  // comparison or an isolated validator container — so the expected answer
-  // must never be readable from inside the run container: a student program
-  // could otherwise just echo it back.
   await Promise.all(
     request.testcases.map(async (tc) => {
       const tcDir = join(testcasesDir, String(tc.index));
@@ -185,10 +164,8 @@ export async function writeSubmissionFiles(
     }),
   );
 
-  // Create artifacts directory
   await mkdir(join(tempDir, "artifacts"), { recursive: true });
 
-  // Make all files readable by the container's non-root user
   await chmod(tempDir, 0o755);
 }
 
@@ -199,10 +176,6 @@ async function runContainer(
 ): Promise<SandboxResult> {
   const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
 
-  // All containers — standard and advanced — run with
-  // `--network=none`. Student submissions must never reach the
-  // network. Advanced mode has its own launch path in
-  // `runAdvancedContainer` but enforces the same flag.
   const networkArgs = ["--network", "none"];
 
   const args = [
@@ -237,7 +210,6 @@ async function runContainer(
     "/runner/index.js",
   ];
 
-  // Outer timeout: container timeout + 30s grace for Docker overhead
   const outerTimeoutMs = Math.min(
     request.limits.timeoutMs * request.testcases.length + 30_000,
     MAX_OUTER_TIMEOUT_MS,

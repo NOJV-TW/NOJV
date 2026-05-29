@@ -17,7 +17,6 @@
     publicResult: ProblemListResult;
     showCreate?: boolean;
     loggedIn?: boolean;
-    /** False when the deployment's execution backend can't judge advanced problems. */
     advancedModeSupported?: boolean;
   }
 
@@ -47,8 +46,6 @@
       });
       if (!res.ok) throw new Error("Failed to create problem");
       const body = (await res.json()) as { id: string; mode: "standard" | "advanced" };
-      // Both modes use the same /edit route; the page detects problem.type
-      // and renders either the tabbed standard layout or the advanced sections.
       await goto(`/problems/${body.id}/edit`);
     } finally {
       creating = false;

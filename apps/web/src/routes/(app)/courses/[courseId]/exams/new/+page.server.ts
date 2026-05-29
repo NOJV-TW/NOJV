@@ -24,7 +24,6 @@ import type { FormMessage } from "$lib/types/form-message";
 const { createExamRecord } = examDomain;
 const { listEditableProblems } = problemDomain;
 
-// `datetime-local` binds to lax `YYYY-MM-DDTHH:mm` strings; `toIsoOrEmpty` converts on submit.
 const examFormSchema = z.object({
   courseId: z.string().min(1),
   title: z.string().trim().max(120).default(""),
@@ -130,7 +129,6 @@ function runCreateAction(status: ExamPublishStatus) {
       return fail(400, { form });
     }
 
-    // Defence in depth: reject POSTs that retarget to a different course via the hidden form field.
     if (form.data.courseId !== courseId) {
       return message<FormMessage>(
         form,
@@ -146,8 +144,6 @@ function runCreateAction(status: ExamPublishStatus) {
       examId = created.id;
     } catch (err) {
       const classified = classifyError(err);
-      // `message()` narrows status to the superforms-accepted literal
-      // union — collapse 4xx domain errors to 400 for the surface.
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },

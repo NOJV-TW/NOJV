@@ -41,9 +41,6 @@
     return "text-destructive";
   }
 
-  // ── Edit-mode local state. Seeded from `problems` when the tab mounts
-  // and kept in-sync via `$effect` so a server refresh (after save) flows
-  // back in without losing focus on unrelated fields.
   type EditRow = { problemId: string; title: string; points: number; letter: string };
 
   let editRows = $state<EditRow[]>([]);
@@ -61,8 +58,6 @@
   }
 
   $effect(() => {
-    // Whenever the server-side `problems` list changes (after a successful
-    // attach/detach/reorder), reseed the editable rows.
     seedRows(problems);
   });
 

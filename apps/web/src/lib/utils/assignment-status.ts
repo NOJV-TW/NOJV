@@ -1,8 +1,3 @@
-/**
- * Live status for the assignment settings UI. Mirrors the domain's
- * `deriveStatus`. There is no "archived" state — once closesAt is past
- * the assignment is "closed" and stays read-only.
- */
 export type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed";
 
 export function deriveAssignmentLiveStatus(

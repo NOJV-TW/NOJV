@@ -75,9 +75,6 @@ export const scoreOverrideRepo = {
     });
   },
 
-  // Bulk variant used by getOverridesForContext — returns every
-  // override row in the given (contextType, contextId) scope keyed by
-  // `${userId}::${problemId}` composite.
   findAllByContext(contextType: OverrideContextType, contextId: string) {
     return prisma.scoreOverride.findMany({
       where: { contextType, contextId },

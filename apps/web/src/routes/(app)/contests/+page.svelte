@@ -32,11 +32,8 @@
     };
   }
 
-  // Merge managed + participable so the manager sees their own contests on
-  // the same wall. Drafts/archived are still surfaced (managed-only field).
   const all = $derived(
     [...data.participable, ...data.managed].map(decorate).sort((a, b) => {
-      // Within each bucket, newest start first (live = soonest end first is fine too)
       return new Date(b.raw.startsAt).getTime() - new Date(a.raw.startsAt).getTime();
     })
   );

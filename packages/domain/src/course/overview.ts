@@ -20,15 +20,12 @@ export interface OverviewAnnouncement {
   createdAt: string;
   authorName: string;
   authorInitial: string;
-  /** Manager-edit fields. Safe to expose: row was already passed through audience filter. */
   pinned: boolean;
   published: boolean;
   audience: AnnouncementAudience;
   expiresAt: string | null;
 }
 
-// Sort bands: open rows < upcoming < draft < closed/ended.
-// Within each band the row's own time pushes the rank.
 const RANK_BAND_UPCOMING = 1_000_000_000_000;
 const RANK_BAND_DRAFT = 2_000_000_000_000;
 const RANK_BAND_TERMINAL = 3_000_000_000_000;
@@ -54,7 +51,6 @@ export async function listRecentAnnouncementsForCourse(
       content: localized.content,
       createdAt: row.createdAt.toISOString(),
       authorName,
-      // First char handles CJK ("王") and Latin ("Alice") alike.
       authorInitial: authorName.trim().charAt(0) || "?",
       pinned: row.pinned,
       published: row.status === "published",
@@ -70,13 +66,10 @@ export interface AssignmentOverviewRow {
   id: string;
   title: string;
   status: AssignmentOverviewStatus;
-  /** ISO strings; `opensAt`/`closesAt` may be null for draft rows. */
   opensAt: string | null;
   closesAt: string | null;
   problemCount: number;
-  /** Manager view only — null for students. avgScore is the rounded mean of per-user totals across submitters. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
-  /** Student view only — null for managers. solved counts distinct problems with at least one accepted submission. */
   myStatus: {
     solved: number;
     total: number;
@@ -101,7 +94,6 @@ function rankAssignment(
   if (status === "upcoming")
     return RANK_BAND_UPCOMING + (row.opensAt ? row.opensAt.getTime() - now.getTime() : 0);
   if (status === "draft") return RANK_BAND_DRAFT;
-  // Closed band: most-recently-closed first (larger closesAt → smaller rank).
   return RANK_BAND_TERMINAL - (row.closesAt?.getTime() ?? 0);
 }
 
@@ -187,7 +179,6 @@ export interface AssignmentListCounts {
   open: number;
   upcoming: number;
   closed: number;
-  /** Null when the viewer is not a manager (students don't see draft counts). */
   draft: number | null;
 }
 
@@ -198,14 +189,12 @@ export interface AssignmentListResult {
 
 export interface ListAssignmentsForCourseOptions {
   status: AssignmentStatusFilter;
-  /** `true` for teacher/TA viewers — includes draft rows in the unfiltered set. */
   includeDrafts: boolean;
   forUserId: string;
   limit: number;
   now?: Date;
 }
 
-// Fetches `limit * 3` superset and caps; for courses with more than ~150 assignments chip counts will underreport.
 export async function listAssignmentsForCourse(
   courseId: string,
   options: ListAssignmentsForCourseOptions,
@@ -266,15 +255,11 @@ export interface ExamOverviewRow {
   status: ExamOverviewStatus;
   startsAt: string | null;
   endsAt: string | null;
-  /** Duration in minutes. Null when draft has no window. */
   durationMinutes: number | null;
   problemCount: number;
   scoringMode: "point_sum" | "problem_count";
-  /** Registered participation count for teacher view. */
   registeredCount: number | null;
-  /** Total active students in the course — set in the loader. Null = unknown. */
   totalStudents: number | null;
-  /** Student view only — null for managers / upcoming / draft. */
   myStatus: {
     solved: number;
     total: number;

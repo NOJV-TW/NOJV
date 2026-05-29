@@ -37,9 +37,6 @@
     });
   }
 
-  // GitHub-style layout: rows = weekday (0=Sun … 6=Sat), columns = weeks.
-  // Pre-pad with empty cells until the first day's weekday so the grid
-  // aligns to a Sunday baseline regardless of the data window.
   type Cell = HeatmapDay | null;
   const cells = $derived.by<Cell[]>(() => {
     if (data.length === 0) return [];

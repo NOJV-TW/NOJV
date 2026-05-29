@@ -15,7 +15,6 @@ function parseStatusFilter(raw: string | null, isManager: boolean): ExamStatusFi
     case "ended":
       return raw;
     case "draft":
-      // Students never see draft — coerce to `all` if the URL is poked.
       return isManager ? "draft" : "all";
     case "all":
     default:
@@ -37,8 +36,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     limit: LIST_LIMIT,
   });
 
-  // totalStudents is stamped in once per page so every row can render
-  // "N/total" without the domain layer re-counting memberships per row.
   const totalStudents = course.studentCount;
   const rowsWithTotal = exams.map((row) => ({ ...row, totalStudents }));
 

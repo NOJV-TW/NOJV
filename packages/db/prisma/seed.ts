@@ -26,8 +26,6 @@ async function main() {
   await seedSubmissions(prisma, { student, demoStudents });
   await seedEngagement(prisma, { teacher, student, demoStudents });
 
-  // Seed announcements. Title/content now live on AnnouncementTranslation;
-  // the parent row carries lifecycle (status/audience/publishedAt).
   await prisma.announcement.deleteMany();
 
   const announcementSeeds: Array<{
@@ -92,8 +90,6 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    // The scoreboard seed opens an ioredis connection (lazy singleton in
-    // @nojv/redis); close it or the process never exits.
     await prisma.$disconnect();
     await getRedis().quit();
   });

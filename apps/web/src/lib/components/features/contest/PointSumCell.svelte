@@ -2,9 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
-    /** First AC time in seconds since contest start. `null` when not solved. */
     firstAcTime: number | null;
-    /** Best score on the problem. Acts as `points` when AC. */
     score: number;
     attempts: number;
     isPending: boolean;

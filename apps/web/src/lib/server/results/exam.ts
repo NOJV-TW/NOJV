@@ -34,7 +34,6 @@ export function buildExamResults(
     max: p.points,
   }));
 
-  // Sort by total desc; ties share rank.
   const sortedRows = [...matrix.rows].sort((a, b) => b.total - a.total);
   let lastTotal = -1;
   let lastRank = 0;

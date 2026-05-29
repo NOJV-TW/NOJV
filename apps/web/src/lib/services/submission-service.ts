@@ -1,4 +1,3 @@
-// Pure-TS helper with no Svelte imports so Editor.svelte, AdvancedModeWorkspace.svelte, and unit tests can share it.
 import {
   apiErrorSchema,
   submissionDispatchResponseSchema,
@@ -24,21 +23,16 @@ export interface SubmissionWorkspaceFile {
 export interface SubmissionRequest {
   assessment?: SubmissionAssessmentContext | undefined;
   contestId?: string | undefined;
-  // Virtual-contest re-run tag. Practice-like server-side; mutually exclusive
-  // with `contestId` / `assessment`.
   virtualContestId?: string | undefined;
   language: Language;
   problemId: string;
-  // Server rejects runCases when `sampleOnly` is false — they must never touch graded submissions.
   runCases?: SubmissionRunCase[];
   sampleOnly?: boolean;
   sourceCode: string;
-  // Workspace-file mode: server merges these with DB-stored hidden files to rebuild the judge context.
   sourceFiles?: SubmissionWorkspaceFile[];
 }
 
 export interface ExecuteSubmissionOptions {
-  // When aborted, the polling loop resolves with `null` instead of throwing.
   signal?: AbortSignal;
   timeoutMs?: number;
   onOperationUpdate?: (operation: ReturnType<typeof submissionOperationSchema.parse>) => void;
@@ -90,7 +84,6 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
   };
 }
 
-// Resolves with `null` when the signal aborts mid-flight; throws on server errors, parse failures, or timeout.
 export async function executeSubmission(
   request: SubmissionRequest,
   options: ExecuteSubmissionOptions = {},
@@ -156,7 +149,6 @@ export async function executeSubmission(
   throw new Error("Submission polling timed out.");
 }
 
-// Returns `true` when the sleep was cut short by an abort so callers can unwind without a separate check.
 function sleep(ms: number, signal?: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
     if (signal?.aborted) {

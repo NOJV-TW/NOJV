@@ -9,8 +9,6 @@ function avatarKey(userId: string): string {
   return `avatars/${userId}.webp`;
 }
 
-// `?v={timestamp}` cache-buster: the storage key is stable so browsers
-// would otherwise serve the previous avatar from cache.
 export async function uploadUserAvatar(
   client: S3Client,
   userId: string,

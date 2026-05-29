@@ -21,8 +21,6 @@
   import AdvancedFileManager from "./AdvancedFileManager.svelte";
 
   interface Props {
-    // `allowedLanguages` is irrelevant for advanced mode (TA image owns
-    // execution) but accepted for prop-shape parity with ProblemWorkspace.
     allowedLanguages?: Language[] | undefined;
     assessment?: {
       assessmentId: string;
@@ -30,16 +28,13 @@
     } | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
-    /** Server-computed editorial visibility (AC or authored an editorial). */
     canViewEditorials?: boolean;
-    /** Whether the Editorials tab is rendered (practice only). */
     editorialsEnabled?: boolean;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
-    /** TA-configured paths the student's ZIP must contain. Empty array = no constraint. */
     requiredPaths?: string[];
     testcaseSets?: ProblemTestcaseSetSummary[];
   }
@@ -78,8 +73,6 @@
       },
       ...submissions
     ].slice(0, 50);
-    // ProblemLeftPanel auto-flips to the submissions tab when it sees a new
-    // head entry in `submissions`.
   }
 
   let leftPanelWidth = $state(42);
@@ -137,7 +130,6 @@
     pollAbortController = new AbortController();
     const { signal } = pollAbortController;
 
-    // Advanced mode ignores `language`/`sourceCode` at the worker boundary; placeholders satisfy the wire schema.
     const placeholderLanguage: Language = "cpp";
     const placeholderSource = "// advanced-mode upload";
 

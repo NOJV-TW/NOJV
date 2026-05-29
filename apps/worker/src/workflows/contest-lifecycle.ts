@@ -11,10 +11,6 @@ import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
 const contest = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
-// Durable fanouts (`fanoutContestStartingSoon`) persist notification rows
-// plus chunked Redis pub/sub. They reuse `contest`'s SHORT_ACTIVITY budget
-// (30s, 3 retries) — the pub/sub-only NOTIFICATION_ACTIVITY (10s, 2 retries)
-// is too tight for the DB write path.
 
 const START_REMINDER_MINUTES = 15;
 
@@ -29,14 +25,10 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     if (signal.action === "earlyEnd") {
       earlyEnd = true;
     } else {
-      // Signal narrows to `{ action: "extend", newEndsAt }` here.
       endsAt = new Date(signal.newEndsAt).getTime();
     }
   });
 
-  // Fan out `contest_starting_soon` 15 min before the contest opens.
-  // The domain helper no-ops if the contest was unpublished or the
-  // start time already passed, so we don't need a second guard here.
   const startsAtMs = new Date(contestInfo.startsAt).getTime();
   const reminderAtMs = startsAtMs - START_REMINDER_MINUTES * 60_000;
   const msUntilReminder = reminderAtMs - Date.now();
@@ -57,8 +49,6 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     const msUntilFreeze = new Date(contestInfo.freezeTime).getTime() - Date.now();
     if (msUntilFreeze > 0) {
       const shouldContinue = await condition(() => earlyEnd, msUntilFreeze);
-      // `earlyEnd` is mutated by the signal handler above; eslint's type-aware
-      // narrowing can't see through async signal callbacks.
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!shouldContinue && !earlyEnd) {
         await contest.freezeScoreboard(input.contestId);

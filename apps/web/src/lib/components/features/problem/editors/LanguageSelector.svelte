@@ -9,29 +9,11 @@
   import type { ProblemDetail } from "$lib/types";
 
   interface Props {
-    /** Current language. Two-way via the `onchange` callback. */
     value: Language;
-    /**
-     * Hard restriction from the contest / assignment context. When present,
-     * any language outside this list is unavailable even if the problem
-     * itself supports it.
-     */
     allowedLanguages?: Language[] | undefined;
-    /**
-     * Problem type — determines whether workspace-file filtering applies.
-     * Only `multi_file` requires every available language to have an editable
-     * entry file in `workspaceFiles`.
-     */
     problemType: ProblemType;
-    /**
-     * Workspace-file mode: if the problem ships workspace files, we only
-     * expose languages that have an editable `main.<ext>` entry file —
-     * otherwise the student could pick a language they can't submit in.
-     */
     workspaceFiles: ProblemDetail["workspaceFiles"];
-    /** Fires whenever the student picks a different language. */
     onchange: (next: Language) => void;
-    /** Optional: parent can mirror the computed list for its own gating. */
     onavailablechange?: (available: Language[]) => void;
   }
 
@@ -61,15 +43,10 @@
     return langs;
   });
 
-  // Mirror the computed list up to the parent so it can disable buttons
-  // when nothing is runnable.
   $effect(() => {
     onavailablechange?.(availableLanguages);
   });
 
-  // If the current selection falls outside the available set (language
-  // filter toggled, or workspace files changed shape), snap to the first
-  // available entry so the editor doesn't get stuck on an invalid choice.
   $effect(() => {
     if (availableLanguages.length > 0 && !availableLanguages.includes(value)) {
       onchange(availableLanguages[0]!);

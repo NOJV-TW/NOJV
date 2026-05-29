@@ -3,7 +3,6 @@ import type { ContestScoringMode } from "@nojv/core";
 
 import { aggregateExamMyStatus } from "../shared/list-aggregations";
 
-// Drafts are excluded — they only live inside the per-course exams page.
 export type ExamAcrossStatus = "running" | "upcoming" | "ended";
 
 export type ExamAcrossStatusFilter = "all" | ExamAcrossStatus;
@@ -14,14 +13,11 @@ export interface ExamAcrossRow {
   courseId: string;
   courseTitle: string;
   status: ExamAcrossStatus;
-  /** ISO string. */
   startsAt: string;
-  /** ISO string. */
   endsAt: string;
   durationMinutes: number;
   scoringMode: ContestScoringMode;
   problemCount: number;
-  /** Student score so far — null if no attempts and exam hasn't ended. */
   myStatus: {
     solved: number;
     total: number;
@@ -54,7 +50,6 @@ function deriveStatus(startsAt: Date, endsAt: Date, now: Date): ExamAcrossStatus
 }
 
 function rankRow(row: ExamAcrossRow, now: Date): number {
-  // Lower rank = sorted earlier: running, upcoming, ended.
   const startMs = new Date(row.startsAt).getTime();
   const endMs = new Date(row.endsAt).getTime();
   const nowMs = now.getTime();
@@ -63,7 +58,6 @@ function rankRow(row: ExamAcrossRow, now: Date): number {
   return 2_000_000_000_000 - endMs;
 }
 
-// N+1 fetch (one `listByCourseId` per course) is acceptable: typical users are in <10 courses.
 export async function listExamsAcrossCoursesForUser(
   userId: string,
   options: ListExamsAcrossCoursesOptions = {},
@@ -114,8 +108,6 @@ export async function listExamsAcrossCoursesForUser(
   const filtered = filter === "all" ? rows : rows.filter((r) => r.status === filter);
   filtered.sort((a, b) => rankRow(a, now) - rankRow(b, now));
 
-  // Pull score/totalPoints for scoreable rows (running or ended — students see
-  // their best score so far; upcoming has no submissions yet).
   const scoreable = filtered.filter((r) => r.status !== "upcoming");
   if (scoreable.length > 0) {
     const my = await aggregateExamMyStatus(

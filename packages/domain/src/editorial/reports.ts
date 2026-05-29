@@ -13,11 +13,6 @@ export type EditorialReportAction = "resolve" | "dismiss";
 
 const REASON_MAX_LENGTH = 1000;
 
-/**
- * File a report against an editorial. Reporting your own editorial is
- * rejected; the `@@unique([editorialId, reportedByUserId])` constraint
- * makes a second report from the same user surface as ConflictError.
- */
 export async function reportEditorial(
   actor: ActorContext,
   editorialId: string,
@@ -54,7 +49,6 @@ export async function reportEditorial(
   }
 }
 
-/** Admin-only moderation-queue read. */
 export async function listEditorialReports(
   actor: ActorContext,
   status: EditorialReportStatus = "open",
@@ -65,11 +59,6 @@ export async function listEditorialReports(
   return editorialReportRepo.listByStatus(status);
 }
 
-/**
- * Resolve or dismiss a report. `resolve` also soft-deletes the offending
- * editorial; `dismiss` leaves it in place. Soft-delete is idempotent so a
- * resolve against an already-removed editorial does not fail.
- */
 export async function resolveEditorialReport(
   actor: ActorContext,
   reportId: string,

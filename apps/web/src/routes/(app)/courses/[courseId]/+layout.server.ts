@@ -24,13 +24,9 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
     actor.platformRole,
     membership?.role ?? null,
   );
-  // The course creator keeps manager rights even if their membership row
-  // is later demoted or removed — only teachers can create courses, so
-  // ownership is intentional and shouldn't silently disappear.
   const isCourseOwner = course.ownerId === actor.userId;
   const isManager = canManageCourse(effectiveRole) || isCourseOwner;
 
-  // Enrolled members (any role, active status) or managers can view.
   const isEnrolled = membership?.status === "active";
   if (!isManager && !isEnrolled) {
     throw new ForbiddenError("You are not a member of this course.");

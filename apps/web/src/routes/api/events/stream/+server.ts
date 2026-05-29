@@ -18,16 +18,6 @@ const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as
 
 type ClarificationContextType = "contest" | "exam" | "assignment";
 
-/**
- * Parse `clarificationSub` query params in `contextType:contextId` form
- * into discriminated `ClarificationContext` values. Silently drops
- * malformed entries — a malformed subscription request does not break
- * the whole SSE connection.
- *
- * The wire form on this endpoint stays flat (`contextType:contextId`)
- * for backward compatibility with the JS client; we lift it into the
- * discriminated union here at the boundary.
- */
 function parseClarificationSubs(url: URL): ClarificationContext[] {
   const out: ClarificationContext[] = [];
   const seen = new Set<string>();
@@ -90,10 +80,6 @@ export const GET: RequestHandler = async (event) => {
     return new Response("Too many concurrent connections", { status: 429 });
   }
 
-  // Authorize each requested clarification channel. We check both
-  // "can ask" (participant) and "can answer" (staff) because either
-  // role legitimately needs the live feed. Unauthorized subs are
-  // dropped silently — the rest of the connection continues.
   const requestedSubs = parseClarificationSubs(event.url);
   const authorizedClarChannels: string[] = [];
   for (const sub of requestedSubs) {
@@ -127,8 +113,6 @@ export const GET: RequestHandler = async (event) => {
 
       const startMs = performance.now();
       let closed = false;
-      // Subscribe failures keep the connection alive (keepalives, no events)
-      // but flag the connection so cleanup attributes the close to the fault.
       let droppedFault = false;
 
       function send(data: string) {
@@ -140,8 +124,6 @@ export const GET: RequestHandler = async (event) => {
       }
 
       subscriber.subscribe(...channels).catch((err: unknown) => {
-        // Subscription failed — the client will receive keepalives but no events.
-        // Log so operators can see the degradation instead of debugging silently.
         if (!droppedFault) {
           droppedFault = true;
           sseConnectionDroppedTotal.add(1);

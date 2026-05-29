@@ -1,17 +1,9 @@
-// Dashboard activity model — buckets raw submission timestamps into the
-// viewer's LOCAL calendar day. The server cannot do this (it does not know
-// the browser timezone), so the heatmap / streak / weekly-trend are all
-// derived here from raw `{ at, ac }` events.
-
 export interface ActivityEvent {
-  /** ISO timestamp of the submission. */
   at: string;
-  /** Whether the submission was accepted. */
   ac: boolean;
 }
 
 export interface ActivityDay {
-  /** Local calendar day, `YYYY-MM-DD`. */
   date: string;
   acCount: number;
   submissionCount: number;
@@ -47,9 +39,6 @@ function bucketByLocalDay(events: ActivityEvent[]): Map<string, DayBucket> {
   return byDay;
 }
 
-// Consecutive local days with >=1 AC, ending today — or yesterday if today
-// has none yet (LeetCode-style grace day, so a streak does not vanish
-// before the user has solved anything that day).
 function computeStreak(byDay: Map<string, DayBucket>, todayStart: Date): number {
   const acOn = (d: Date) => (byDay.get(localDayKey(d))?.acCount ?? 0) > 0;
   const prevDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
@@ -77,7 +66,6 @@ export function buildActivityModel(
 
   const heatmapDays: ActivityDay[] = [];
   for (let i = windowDays - 1; i >= 0; i--) {
-    // Date-constructor arithmetic normalises overflow and is DST-safe.
     const d = new Date(
       todayStart.getFullYear(),
       todayStart.getMonth(),

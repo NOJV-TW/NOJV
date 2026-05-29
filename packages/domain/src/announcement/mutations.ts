@@ -16,9 +16,7 @@ export const announcementCreateSchema = z.object({
   published: z.boolean().default(false),
   audience: announcementAudienceSchema.default("all"),
   expiresAt: z.coerce.date().nullable().optional(),
-  /** When set, scopes this announcement to a single course. Otherwise it is platform-wide. */
   courseId: z.string().min(1).nullable().optional(),
-  /** User who authored the announcement. Set by the route layer; nullable for legacy rows. */
   createdByUserId: z.string().min(1).nullable().optional(),
 });
 
@@ -27,12 +25,6 @@ export const announcementUpdateSchema = announcementCreateSchema;
 export type AnnouncementCreateInput = z.input<typeof announcementCreateSchema>;
 export type AnnouncementUpdateInput = z.input<typeof announcementUpdateSchema>;
 
-// Fan out `announcement_published` to recipients. Platform-wide announcements
-// (courseId == null) reach every active user; course-scoped announcements
-// reach only the active members of that course (any role). `title` is the
-// default-locale (zh-TW) translation — renderer can fall back to whatever
-// locale is available. Kept intentionally small: one row per (user,
-// announcement), params carry just enough to render the bell entry.
 async function fanoutAnnouncementPublished(
   announcementId: string,
   title: string,
@@ -52,8 +44,6 @@ async function fanoutAnnouncementPublished(
   );
 }
 
-// Two writes intentionally not wrapped in a transaction — admin authoring is
-// low-volume and the translation upsert is retry-safe.
 export async function createAnnouncement(data: AnnouncementCreateInput) {
   const parsed = announcementCreateSchema.parse(data);
   const announcement = await announcementRepo.create({
@@ -80,13 +70,8 @@ export async function createAnnouncement(data: AnnouncementCreateInput) {
   return announcement;
 }
 
-/**
- * Update an announcement plus its default-locale translation.
- */
 export async function updateAnnouncement(id: string, data: AnnouncementUpdateInput) {
   const parsed = announcementUpdateSchema.parse(data);
-  // Snapshot prior row so we can detect the draft → published transition and
-  // know which course (if any) to fan out to.
   const prior = await announcementRepo.findById(id);
 
   const updated = await announcementRepo.update(id, {
@@ -129,9 +114,6 @@ export async function toggleAnnouncementPublish(id: string) {
   });
 
   if (next === "published") {
-    // Read the default-locale translation for the notification payload.
-    // Absence falls back to the announcement id — UI can cope, and the
-    // admin UI always upserts a translation on create.
     const full = await announcementRepo.findById(id);
     const translation = full?.translations.find((t) => t.locale === DEFAULT_LOCALE);
     await fanoutAnnouncementPublished(id, translation?.title ?? id, full?.courseId ?? null);

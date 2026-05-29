@@ -17,9 +17,6 @@ export interface CompletionEntry {
   isSnippet?: boolean;
 }
 
-// Kept as numeric literals so monaco-editor (dynamically imported) is not
-// pulled into this module's static graph. Values mirror Monaco's
-// CompletionItemKind enum; CompletionItemInsertTextRule.InsertAsSnippet === 4.
 const kindMap: Record<CompletionEntry["kind"], Monaco.languages.CompletionItemKind> = {
   Class: 5,
   Constant: 21,

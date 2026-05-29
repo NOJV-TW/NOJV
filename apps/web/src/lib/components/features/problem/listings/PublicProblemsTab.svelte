@@ -64,7 +64,7 @@
 </script>
 
 <div class="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
-  <!-- Desktop sidebar -->
+  
   <aside class="hidden lg:block">
     <div class="sticky top-6">
       <ProblemFilterSidebar {publicResult} {loggedIn} />
@@ -72,7 +72,7 @@
   </aside>
 
   <div class="flex min-w-0 flex-col gap-4">
-    <!-- Mobile: open-filters trigger -->
+    
     <button
       type="button"
       onclick={() => { filtersOpen = true; }}
@@ -199,7 +199,6 @@
   </div>
 </div>
 
-<!-- Mobile filter drawer -->
 <Dialog.Root bind:open={filtersOpen}>
   <Dialog.Content showCloseButton class="max-h-[85vh] overflow-y-auto">
     <Dialog.Header>

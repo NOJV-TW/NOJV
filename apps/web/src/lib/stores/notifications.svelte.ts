@@ -35,11 +35,8 @@ class NotificationsStore {
     this.unreadCount = data.unreadCount;
   }
 
-  // Called by the SSE client when a "notification" event arrives.
-  // Batch signals (no id) trigger a re-fetch; single events prepend directly.
   handleSseEvent(payload: SseNotificationEvent) {
     if (!payload.id || !payload.createdAt) {
-      // Batch signal — refetch to get the authoritative recent list
       void this.init();
       return;
     }

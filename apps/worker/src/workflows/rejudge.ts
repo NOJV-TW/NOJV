@@ -34,9 +34,6 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
       batch.map(async (sub) => {
         await executeChild(submissionJudgeWorkflow, {
           workflowId: `rejudge-${sub.submissionId}-${String(Date.now())}`,
-          // Inherits this workflow's task queue (judge). Importing
-          // JUDGE_TASK_QUEUE from the @nojv/temporal barrel would pull
-          // @temporalio/client into the workflow bundle — forbidden.
           args: [{ submissionId: sub.submissionId, draft: sub.draft, forRejudge }],
         });
         completed++;

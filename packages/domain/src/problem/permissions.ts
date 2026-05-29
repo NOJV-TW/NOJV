@@ -50,24 +50,6 @@ export async function assertProblemEditAccess(
   assertProblemOwnership(problem, actor);
 }
 
-/**
- * Gate every viewer-side access to problem data (page load, submit, run).
- * Returns silently when allowed, throws NotFoundError otherwise (never 403 —
- * we hide the problem's existence from unauthorized viewers to prevent
- * enumeration).
- *
- * Resolution order:
- *   1. Public problem  → allow anyone logged in.
- *   2. Platform admin  → allow.
- *   3. Problem author  → allow.
- *   4. Active context  → caller already verified enrollment + time window
- *      and passes `contextIncludesProblem: true`.
- *   5. Historical participant of a closed context that contained the
- *      problem → allow (practice-after-close). This fires a single
- *      lightweight DB lookup and only when the four synchronous checks
- *      above reject; public problems and active-context callers pay
- *      nothing for it.
- */
 export async function assertProblemViewAccess(
   problem: { id: string; authorId: string | null; visibility: string },
   actor: ProblemActorContext | null,
@@ -78,8 +60,6 @@ export async function assertProblemViewAccess(
   if (actor?.userId === problem.authorId) return;
   if (opts?.contextIncludesProblem) return;
 
-  // Historical-participant gate. Runs three parallel existence checks —
-  // each hits a single indexed join table so the cost is bounded.
   if (actor?.userId) {
     const now = opts?.now ?? new Date();
     const [assignment, contest, exam] = await Promise.all([
@@ -90,13 +70,9 @@ export async function assertProblemViewAccess(
     if (assignment || contest || exam) return;
   }
 
-  // Mask the existence of the private problem — use 404 not 403.
   throw new NotFoundError(`Problem not found: ${problem.id}`);
 }
 
-// Every listed language must have an editable main.<ext> workspace file,
-// otherwise students in that language have no entry file to submit.
-// full_source problems always ship the system template and short-circuit here.
 export async function assertProblemHasWorkspaceForLanguages(
   tx: TransactionClient,
   problemId: string,

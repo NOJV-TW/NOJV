@@ -10,10 +10,6 @@ import type { PrismaClient } from "../../generated/prisma/client";
 export const HOUR = 3600 * 1000;
 export const DAY = 24 * HOUR;
 
-/**
- * Long-form verdict strings shared by `Submission.status` (SubmissionStatus
- * enum) and the top-level `verdictDetail.verdict` (submissionVerdictSchema).
- */
 export type LongVerdict =
   | "accepted"
   | "wrong_answer"
@@ -22,7 +18,6 @@ export type LongVerdict =
   | "time_limit_exceeded"
   | "memory_limit_exceeded";
 
-/** Per-case short code used inside caseResults / subtaskResults[].cases. */
 export type ShortVerdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "CE" | "SE";
 
 const LONG_TO_SHORT: Record<Exclude<LongVerdict, "accepted">, ShortVerdict> = {
@@ -35,32 +30,22 @@ const LONG_TO_SHORT: Record<Exclude<LongVerdict, "accepted">, ShortVerdict> = {
 
 export type SeedLanguage = "c" | "cpp" | "python";
 
-/**
- * Deterministic 32-bit LCG so reseeds produce identical spreads. Math.random
- * would make every reseed look different, which is bad for a demo fixture we
- * want to be reproducible.
- */
 export class SeededRng {
   private state: number;
 
   constructor(seed: number) {
-    // Force into a non-zero 32-bit space.
     this.state = seed >>> 0 || 0x9e3779b9;
   }
 
-  /** Next float in [0, 1). */
   next(): number {
-    // Numerical Recipes LCG constants.
     this.state = (Math.imul(this.state, 1664525) + 1013904223) >>> 0;
     return this.state / 0x100000000;
   }
 
-  /** Integer in [min, max] inclusive. */
   int(min: number, max: number): number {
     return min + Math.floor(this.next() * (max - min + 1));
   }
 
-  /** True with probability `p`. */
   chance(p: number): boolean {
     return this.next() < p;
   }
@@ -70,7 +55,6 @@ export class SeededRng {
   }
 }
 
-/** Short, realistic source-code stubs per language for demo submissions. */
 export function sampleSource(language: SeedLanguage, verdict: LongVerdict): string {
   if (language === "python") {
     if (verdict === "compile_error") {
@@ -84,7 +68,6 @@ export function sampleSource(language: SeedLanguage, verdict: LongVerdict): stri
     }
     return '#include <stdio.h>\n\nint main(void) {\n    long long a, b;\n    scanf("%lld %lld", &a, &b);\n    printf("%lld\\n", a + b);\n    return 0;\n}\n';
   }
-  // cpp
   if (verdict === "compile_error") {
     return "#include <iostream>\nint main() {\n    long long a, b\n    std::cin >> a >> b;\n    std::cout << a + b << '\\n';\n}\n";
   }
@@ -107,24 +90,16 @@ const COMPILER_OUTPUT: Record<SeedLanguage, string> = {
   cpp: "main.cpp: In function 'int main()':\nmain.cpp:3:20: error: expected ';' before 'std'\n    3 |     long long a, b\n      |                    ^",
 };
 
-/** Real testcase ids for one problem, grouped by testcase set (subtask). */
 export type ProblemTestcases = {
-  /** Subtask sets in ordinal order; each carries its real id + case ids. */
   sets: Array<{
     testcaseSetId: string;
     name: string;
     weight: number;
     testcaseIds: string[];
   }>;
-  /** Flat list of every testcase id (used for non-subtask flat caseResults). */
   flatTestcaseIds: string[];
 };
 
-/**
- * Load the real TestcaseSet + Testcase ids for a problem so verdictDetail can
- * reference persisted ids rather than fabricated ones. Returns sets in ordinal
- * order.
- */
 export async function loadProblemTestcases(
   prisma: PrismaClient,
   problemId: string,
@@ -163,15 +138,6 @@ function caseResult(
   return testcaseId ? { ...base, testcaseId } : base;
 }
 
-/**
- * Build a full verdictDetail JSON blob matching `submissionResultSchema`.
- *
- * - For subtask problems (>1 testcase set), emits `subtaskResults` with real
- *   set + case ids and a weighted score.
- * - For simple problems, emits flat `caseResults`.
- * - `compile_error` short-circuits to an empty caseResults blob with the
- *   compiler text as feedback.
- */
 export function buildVerdictDetail(args: {
   verdict: LongVerdict;
   language: SeedLanguage;
@@ -196,8 +162,6 @@ export function buildVerdictDetail(args: {
   const useSubtasks = testcases.sets.length > 1;
 
   if (useSubtasks) {
-    // Decide how many leading subtasks pass. AC => all pass; otherwise pass a
-    // deterministic prefix so partial credit is exercised.
     const totalSets = testcases.sets.length;
     const passingSets =
       verdict === "accepted" ? totalSets : rng.int(0, Math.max(0, totalSets - 1));
@@ -211,8 +175,6 @@ export function buildVerdictDetail(args: {
       const passed = setIndex < passingSets;
       if (passed) earnedWeight += set.weight;
 
-      // Within a failing subtask, fail exactly one case with the verdict's
-      // short code; the rest are AC so the demo shows a precise failure point.
       const failCaseIndex = passed ? -1 : rng.int(0, Math.max(0, set.testcaseIds.length - 1));
       const cases: CaseResult[] = set.testcaseIds.map((tcId, i) => {
         const cv: ShortVerdict = i === failCaseIndex ? shortFail : "AC";
@@ -246,8 +208,6 @@ export function buildVerdictDetail(args: {
     return { detail, score, runtimeMs: maxRuntime, memoryKb: maxMemory };
   }
 
-  // Flat (non-subtask) problem: one caseResult per known testcase id, or a
-  // small fabricated count when no testcases were loaded.
   const ids =
     testcases.flatTestcaseIds.length > 0
       ? testcases.flatTestcaseIds
@@ -281,11 +241,6 @@ export function buildVerdictDetail(args: {
 
 const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
 
-/**
- * Inlined mirror of `deriveVerdictSummary` from `@nojv/domain`. Lives here
- * because `@nojv/db` cannot depend on `@nojv/domain` (domain depends on db).
- * Shape must match `verdictSummarySchema` in `@nojv/core`.
- */
 export function deriveSeedVerdictSummary(result: SubmissionResult): VerdictSummary {
   const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
   for (const c of result.caseResults ?? []) {

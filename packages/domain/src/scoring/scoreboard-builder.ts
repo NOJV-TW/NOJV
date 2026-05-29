@@ -9,7 +9,6 @@ import {
   type TimedSession,
 } from "./rank-util";
 
-// "problem_count" runs ICPC rules; anything else runs IOI rules.
 type ScoringMode = "problem_count" | (string & {});
 
 export function buildScoreboard(
@@ -49,7 +48,6 @@ export function buildScoreboardChartSeries(
     const points: ChartSeriesPoint[] = [{ time: 0, score: 0 }];
 
     if (scoringMode === "problem_count") {
-      // Track cumulative solved * points
       const solved = new Set<string>();
       let cumScore = 0;
 
@@ -64,7 +62,6 @@ export function buildScoreboardChartSeries(
         }
       }
     } else {
-      // IOI: track cumulative best scores
       const bestByProblem = new Map<string, number>();
       let cumScore = 0;
 

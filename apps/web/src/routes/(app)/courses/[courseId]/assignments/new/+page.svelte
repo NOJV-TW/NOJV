@@ -97,7 +97,6 @@
     $form.latePenalty = value;
   }
 
-  // Map zod/prisma difficulty to the prototype color class.
   function difficultyClass(d: "easy" | "medium" | "hard"): string {
     if (d === "easy") return "text-success";
     if (d === "hard") return "text-destructive";
@@ -131,7 +130,7 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <!-- Card 1 — Basics -->
+    
     <div
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -171,7 +170,7 @@
       </div>
     </div>
 
-    <!-- Card 2 — Problems -->
+    
     <div
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -192,7 +191,7 @@
         </div>
       </div>
 
-      <!-- Picker: search + dropdown -->
+      
       <div class="rounded-md border border-border bg-[color:var(--color-panel-strong)]/40">
         <div class="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
           <Search class="size-4 text-muted-foreground" aria-hidden="true" />
@@ -242,7 +241,7 @@
         </div>
       </div>
 
-      <!-- Selected list with drag-to-reorder -->
+      
       {#if selectedProblems.length > 0}
         <div class="mt-4">
           <div
@@ -297,7 +296,7 @@
         </div>
       {/if}
 
-      <!-- Zero-problems info note — key UX change vs contest -->
+      
       <div
         class="mt-4 flex items-start gap-3.5 rounded-md border border-dashed border-info/30 bg-info/5 px-5 py-4 text-body-sm leading-relaxed text-muted-foreground"
       >
@@ -315,7 +314,7 @@
       {/if}
     </div>
 
-    <!-- Card 3 — Schedule -->
+    
     <div
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -386,7 +385,7 @@
       </div>
     </div>
 
-    <!-- Card 4 — Advanced -->
+    
     <div
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -411,7 +410,7 @@
 
       {#if advancedOpen}
         <div class="mt-6 space-y-6 border-t border-border-subtle pt-6">
-          <!-- Allowed languages -->
+          
           <div>
             <label class="text-body-sm font-medium" for="allowedLanguages">
               {m.assignmentCreate_languagesLabel()}
@@ -435,7 +434,7 @@
             </div>
           </div>
 
-          <!-- Max attempts per day -->
+          
           <div>
             <label class="text-body-sm font-medium" for="maxAttemptsPerDay">
               {m.assignmentCreate_maxAttemptsLabel()}
@@ -460,7 +459,7 @@
             {/if}
           </div>
 
-          <!-- Late penalty -->
+          
           <div>
             <label class="text-body-sm font-medium" for="latePenalty">
               {m.assignmentCreate_latePenaltyLabel()}
@@ -477,11 +476,10 @@
       {/if}
     </div>
 
-    <!-- Hidden field: courseId travels with the form so the zod schema
-         sees it, even though the server action reads it from params.  -->
+    
     <input type="hidden" name="courseId" value={$form.courseId} />
 
-    <!-- Form actions -->
+    
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >

@@ -11,11 +11,6 @@ import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";
 import type { ClarificationContext } from "./types";
 
-/**
- * Shared helper — same definition as submission/permissions and
- * score-override/permissions. Kept private to the module so the three files
- * evolve independently if the course-staff definition ever widens.
- */
 async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {
   const membership = await courseMembershipRepo.findByComposite(courseId, userId);
   if (membership?.status !== "active") return false;
@@ -23,9 +18,6 @@ async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<bo
 }
 
 async function hasContestParticipation(userId: string, contestId: string): Promise<boolean> {
-  // `listParticipantUserIds` is the cheapest existing read; a dedicated
-  // point lookup (exists(contestId, userId)) would be marginally faster
-  // but needs a new repo method. Keep it simple until there's a hot path.
   const ids = await contestParticipationRepo.listParticipantUserIds(contestId);
   return ids.includes(userId);
 }

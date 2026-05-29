@@ -12,10 +12,6 @@
   let chart: ECharts | undefined;
   let observer: ResizeObserver | undefined;
   let ready = $state(false);
-  // Dedup: $derived option objects are recreated on every reactive tick
-  // (a new array literal counts as a change). Without an equality check,
-  // echarts re-renders the canvas on every keystroke / hover, which the
-  // tooltip layer manifests as flicker.
   let lastSerialized = "";
 
   onMount(() => {

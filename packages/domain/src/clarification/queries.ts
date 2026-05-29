@@ -20,13 +20,6 @@ function normalizeUser(
   return { id: u.id, username: u.username ?? "", name: u.name };
 }
 
-/**
- * Anonymity projection. `askedByUserId` and `askedBy` are masked to
- * `null` for non-staff viewers — including the asker themselves, by
- * design: identifying your own threads on the public board would leak
- * identity to peers watching your screen. Askers recover their own
- * threads via the `clarification_answered` bell notification.
- */
 export function projectRow(row: ClarificationRow, isStaff: boolean): ProjectedClarification {
   return {
     ...row,
@@ -48,11 +41,6 @@ export async function listForViewer(
   return rows.map((r) => projectRow(r, isStaff));
 }
 
-/**
- * Build a deep link for the `clarification_answered` notification. Uses
- * cuid URLs per the CUID URL unification convention (contestId / examId
- * / assignmentId, never slug).
- */
 export function buildClarificationLink(context: ClarificationContext, id: string): string {
   switch (context.type) {
     case "contest":

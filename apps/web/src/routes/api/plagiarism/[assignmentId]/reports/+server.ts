@@ -14,8 +14,6 @@ const {
   dispatchPlagiarismCheck,
 } = plagiarismDomain;
 
-// POST /api/plagiarism/[assignmentId]/reports — trigger a fresh plagiarism
-// check. Returns 202; the workflow completes asynchronously.
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
@@ -35,9 +33,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     triggeredById: actor.userId,
   });
 
-  // Clients poll GET on the same collection URL to see when the report
-  // appears (`reports[0].status` flips to "completed"). The Location
-  // header points there per RFC 7231 §6.3.3.
   const pollUrl = new URL(event.url);
   pollUrl.search = type ? `?type=${encodeURIComponent(type)}` : "";
   return json(
@@ -46,8 +41,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   );
 });
 
-// GET /api/plagiarism/[assignmentId]/reports — list reports for the target.
-// Source-code fetching lives at `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]`.
 export const GET: RequestHandler = apiHandler(async (event) => {
   requireApiAuth(event);
 
@@ -58,7 +51,6 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const resolved = await getPlagiarismTarget(assignmentId, type);
   await assertCanManagePlagiarism(event, resolved, "Only staff can view plagiarism reports.");
 
-  // Report is 1:1 with its parent, but the response is still an array so `reports[0]` clients keep working.
   const report = await findPlagiarismReport(resolved.target);
 
   return json({ reports: report ? [report] : [] });

@@ -63,7 +63,6 @@ export const courseRepo = {
         },
       },
     });
-    // `archived` is a scalar field on Course and is included by default.
   },
 
   findManyForCards(courseIds: string[]) {
@@ -165,7 +164,6 @@ export const courseMembershipRepo = {
       .then((rows) => rows.map((r) => r.userId));
   },
 
-  /** Active members of any role (student, ta, teacher) — for course-wide fanout. */
   listActiveMemberUserIds(courseId: string) {
     return prisma.courseMembership
       .findMany({

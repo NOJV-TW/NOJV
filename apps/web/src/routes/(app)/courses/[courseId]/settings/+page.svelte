@@ -33,8 +33,6 @@
     { resetForm: false, taintedMessage: null }
   );
 
-  // Danger-zone state — typed confirmation text must match the course title
-  // before the destructive button unlocks.
   let typedConfirmation = $state("");
   let deleting = $state(false);
   let copying = $state(false);
@@ -46,10 +44,6 @@
     }
   });
   let archiveSubmitting = $state(false);
-  // Mirror server state locally so the toggle reflects the latest action
-  // result without waiting for full page reload (kit's `update()` handles
-  // the eventual sync). Initial read is wrapped in `untrack` so Svelte
-  // doesn't warn about capturing-but-not-reactively-following `data`.
   let archivedLocal = $state(untrack(() => data.archived));
   $effect(() => {
     archivedLocal = data.archived;
@@ -63,9 +57,6 @@
   );
   const updateSuccess = $derived($updateMessage?.kind === "success");
 
-  // `form` is a discriminated union across every action (updateInfo /
-  // deleteCourse / archiveCourse...). Narrow via property check instead
-  // of a double-cast.
   function resolveDangerBanner(actionResult: ActionData): string | null {
     if (actionResult == null || !("error" in actionResult)) return null;
     const errorCode = actionResult.error;
@@ -78,7 +69,7 @@
 </script>
 
 <div class="mx-auto w-full max-w-[860px] space-y-6 pb-24">
-  <!-- 1. Course info -->
+  
   <section
     class="animate-in animate-in-1 rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
@@ -218,7 +209,7 @@
     </form>
   </section>
 
-  <!-- 2. Archive (reversible, separate from danger zone) -->
+  
   <section
     class="animate-in animate-in-2 rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
@@ -275,7 +266,7 @@
     </form>
   </section>
 
-  <!-- 3. Danger zone -->
+  
   <section
     class="animate-in animate-in-3 rounded-xl border p-5"
     style="background: rgba(184, 55, 42, 0.04); border-color: rgba(184, 55, 42, 0.28);"
@@ -309,7 +300,7 @@
       </div>
     {/if}
 
-    <!-- Copy row -->
+    
     <div
       class="grid grid-cols-1 items-start gap-4 py-5 md:grid-cols-[1fr_auto] md:gap-6"
       style="border-bottom: 1px solid rgba(184, 55, 42, 0.18);"
@@ -328,7 +319,7 @@
       </Button>
     </div>
 
-    <!-- Delete row -->
+    
     <div class="grid grid-cols-1 items-start gap-4 py-5 md:grid-cols-[1fr_auto] md:gap-6">
       <div>
         <h3 class="text-body-lg font-semibold tracking-[-0.005em]">

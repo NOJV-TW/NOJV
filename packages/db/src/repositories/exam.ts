@@ -11,12 +11,6 @@ import {
 
 type TxClient = TransactionClient;
 
-/**
- * Thrown by `examParticipationRepo.updateWithVersion` when the row's
- * `version` column has moved on since the caller read it (Prisma surfaces
- * this as P2025). The domain layer catches this and retries on a fresh read.
- * Mirrors `ParticipationVersionConflict` for contests.
- */
 export class ExamParticipationVersionConflict extends Error {
   readonly participationId: string;
   readonly expectedVersion: number;
@@ -66,7 +60,6 @@ export const examRepo = {
     });
   },
 
-  // Returns a 3x superset; domain layer finalises the sort and trims to `take`.
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.exam.findMany({
       include: examListInclude,
@@ -79,7 +72,6 @@ export const examRepo = {
     });
   },
 
-  // running/upcoming/ended status is derived from `startsAt`/`endsAt` in the domain layer.
   listForCourse(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.exam.findMany({
       include: examListInclude,
@@ -132,13 +124,10 @@ export const examRepo = {
     });
   },
 
-  // Includes problem `difficulty` for the teacher problems list; `findDetailById`'s mini select omits it.
   findDetailForRegistrationPage(id: string) {
     return prisma.exam.findUnique({
       include: {
         _count: { select: { participations: true } },
-        // `archived` is needed by the detail page to gate student
-        // click-through; adding it here keeps courseMiniSelect lean.
         course: { select: { id: true, title: true, archived: true } },
         problems: {
           include: {
@@ -258,8 +247,6 @@ export const examRepo = {
         return tx.exam.findUnique({ where: { id } });
       },
 
-      // Full row (all statuses) + attached problems — used by `copyCourse` to
-      // replicate the exam structure of a source course into a new one.
       listByCourseIdAllWithProblems(courseId: string) {
         return tx.exam.findMany({
           where: { courseId },
@@ -319,9 +306,6 @@ export const examProblemRepo = {
     });
   },
 
-  // Practice-after-close: a registered participant of a published exam
-  // that has ended retains read/submit access to the exam's problems —
-  // for practice only, no scoring.
   hasEndedExamForUser(problemId: string, userId: string, now: Date) {
     return prisma.examProblem
       .findFirst({
@@ -338,16 +322,6 @@ export const examProblemRepo = {
       .then((row) => row !== null);
   },
 
-  // Currently-active exams that include this problem and that the user
-  // is eligible to take. Used by the editorial context resolver to
-  // deny editorial reads while the exam is still running.
-  //
-  // ExamParticipation rows are created lazily on first submission, so
-  // filtering by `participations` alone misses a student who is in the
-  // course but hasn't submitted yet — they could downgrade to practice
-  // context and read editorials while a live exam reuses a past-AC
-  // problem. Exams are always course-embedded (`courseId` NOT NULL),
-  // so eligibility = active course membership.
   findActiveExamsForUser(problemId: string, userId: string, now: Date) {
     return prisma.examProblem.findMany({
       where: {
@@ -397,7 +371,6 @@ export const examParticipationRepo = {
     });
   },
 
-  // Lightweight id-only list used by notification fan-out workflows.
   listParticipantUserIds(examId: string) {
     return prisma.examParticipation
       .findMany({ where: { examId }, select: { userId: true } })
@@ -424,13 +397,6 @@ export const examParticipationRepo = {
     });
   },
 
-  /**
-   * Optimistic-lock update: only writes when the current row's `version`
-   * still matches `expectedVersion`, and bumps it by one in the same
-   * statement. If another writer raced ahead, Prisma's `update` raises
-   * P2025 (record not found) — we translate that to
-   * `ExamParticipationVersionConflict` so callers can retry on a fresh read.
-   */
   async updateWithVersion(
     id: string,
     expectedVersion: number,
@@ -449,8 +415,6 @@ export const examParticipationRepo = {
     }
   },
 
-  // Id-only lookup — used by score-override invalidation so we can call
-  // `updateExamScores(participationId)` after editing an override.
   findIdByExamAndUser(examId: string, userId: string) {
     return prisma.examParticipation
       .findUnique({

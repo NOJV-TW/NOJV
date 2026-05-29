@@ -44,7 +44,7 @@
       {/snippet}
     </PageHeader>
 
-    <!-- Tab row -->
+    
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
       <div
         role="tablist"

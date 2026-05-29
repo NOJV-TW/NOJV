@@ -6,23 +6,15 @@
   type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 
   interface Props {
-    /** Files visible to the student for the currently selected language. */
     files: WorkspaceFile[];
-    /** Index into `files` — drives which file's content is rendered. */
     selectedIndex: number;
-    /** Latest draft content for the currently-selected file. */
     selectedContent: string;
-    /** Fires when the student clicks a different file in the sidebar. */
     onselect: (index: number) => void;
-    /** Fires when the student edits an editable file. */
     onfilechange: (value: string) => void;
   }
 
   let { files, selectedIndex, selectedContent, onselect, onfilechange }: Props = $props();
 
-  // Owned by this component: the horizontal split between the FILES
-  // sidebar and the code area. Kept local because nothing above cares
-  // about the exact pixel value.
   let filesWidth = $state(220);
   let layoutContainer: HTMLDivElement | null = $state(null);
   let isResizing = $state(false);
@@ -56,8 +48,7 @@
 </script>
 
 <div bind:this={layoutContainer} class="absolute inset-0 flex">
-  <!-- Student-side file navigation. Read-only list — students can't add or
-       remove files, only the TA-side problem editor does that. -->
+  
   <aside
     class="shrink-0 overflow-y-auto bg-[color:var(--color-panel)] p-2"
     style="width: {filesWidth}px"

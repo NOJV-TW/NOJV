@@ -47,7 +47,6 @@
     return m.admin_announcement_audience_all();
   }
 
-  /** Format an ISO date string for `<input type="datetime-local">` (local-tz, minute resolution). */
   function toLocalInput(iso: string | null): string {
     if (!iso) return "";
     const d = new Date(iso);
@@ -181,7 +180,7 @@
             class:py-4={editingId === ann.id}
           >
             {#if editingId === ann.id}
-              <!-- Edit mode -->
+              
               <form
                 class="space-y-4"
                 method="POST"
@@ -283,7 +282,7 @@
                 </div>
               </form>
             {:else}
-              <!-- View mode -->
+              
               <div
                 class="cursor-pointer rounded-md px-4 py-3 transition-colors duration-fast ease-out-soft hover:bg-accent/40"
                 onclick={() => openView(ann)}

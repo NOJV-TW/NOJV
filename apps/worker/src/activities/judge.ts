@@ -15,10 +15,6 @@ import type { RejudgeInput } from "@nojv/temporal";
 import { enforceMemoryLimit } from "../services/check-standard";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
-// The sandbox runs as a single opaque subprocess (`SandboxExecutor.execute`),
-// so the activity can't see per-testcase progress. Emit a coarse liveness
-// heartbeat on a fixed interval while it runs — without this the only signal
-// of a stuck sandbox is the full 5m `startToCloseTimeout`.
 const JUDGE_HEARTBEAT_INTERVAL_MS = 15_000;
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
@@ -44,12 +40,6 @@ export async function fetchJudgeContext(
   return submissionDomain.getJudgeContext(submissionId);
 }
 
-// Student files may override only `editable` paths; readonly/hidden teacher files win.
-//
-// `studentSources` is the loaded-from-storage file list for the submission;
-// it always contains at least `main.<ext>`. For full_source submissions the
-// list has exactly one file. The merge is driven entirely off these sources
-// (the database row no longer carries any inline source text).
 export function mergeSandboxSources(
   studentSources: readonly SubmissionSource[],
   language: Language,
@@ -113,20 +103,10 @@ export async function executeSandbox(
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
-  // Sources are the canonical record in object storage. We re-load here
-  // rather than trust the draft so both fresh dispatches and rejudges see
-  // the same bytes; the draft's source fields are advisory and ignored.
   const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
-  // Storage returned no files — this happens when a system_error row (where
-  // the original put failed and the blobs were swept) gets rejudged. Bail
-  // with a system_error tag rather than feeding an empty sourceCode to the
-  // sandbox, which would compile/run nothing and surface as wrong_answer.
   if (studentSources.length === 0) {
     await submissionDomain.updateSubmissionStatus(submissionId, "system_error");
-    // `system_error` is not a valid SubmissionResult.verdict (that schema is
-    // limited to graded verdicts); fall back to `runtime_error` for the
-    // result blob — the row status above is the authoritative signal.
     return {
       accepted: false,
       verdict: "runtime_error",
@@ -212,9 +192,6 @@ export async function executeSandbox(
     ...(advancedPayload ? { advanced: advancedPayload } : {}),
   };
 
-  // Heartbeat while the sandbox subprocess runs so Temporal can tell a slow
-  // judge from a wedged one. `heartbeat()` is best-effort and non-blocking;
-  // it has no effect on judging behaviour or the produced verdict.
   heartbeat("sandbox-started");
   const heartbeatTimer = setInterval(() => {
     heartbeat("sandbox-running");

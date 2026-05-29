@@ -4,8 +4,6 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-// Exactly one context id is set — mirrors the `SubmissionFeedback`
-// CHECK constraint that exactly one of the two columns is non-null.
 export type SubmissionFeedbackContext =
   | { courseAssessmentId: string; examId?: undefined }
   | { examId: string; courseAssessmentId?: undefined };

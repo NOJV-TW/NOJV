@@ -54,8 +54,6 @@
 
   let currentLocale = $derived(getLocale());
 
-  // `LanguageSelector` owns the language-availability logic; we mirror its
-  // computed list so the action bar can disable Run/Submit when empty.
   let availableLanguages = $state<Language[]>([]);
 
   let language = $state<Language>(readPersistedLanguage());
@@ -90,8 +88,6 @@
     return bindEscapeToExitFullscreen(() => (isFullscreen = false));
   });
 
-  // Persist language choice to localStorage so the student sees the same
-  // default when they come back to any problem.
   $effect(() => {
     persistLanguage(language);
   });
@@ -106,7 +102,6 @@
     applyCode: (lang, code) => (drafts[lang] = code)
   });
 
-  // Hydrate per-language draft on first visit + on language switch.
   $effect(() => {
     void language;
     draftController.hydrate();
@@ -114,7 +109,6 @@
 
   $effect(() => draftController.registerShortcut());
 
-  // Reset selection on language change: prefer `main.<ext>` as editable, fall back to first editable, then 0.
   $effect(() => {
     void language;
     workspaceFiles.resetSelectionForLanguage();
@@ -124,9 +118,6 @@
     isWorkspaceMode ? workspaceFiles.selectedContent : drafts[language]
   );
 
-  // Block Run/Submit when there's nothing meaningful to send. Server enforces
-  // sourceCode min(1) after trim; this just avoids the round-trip + the generic
-  // "Submission failed." toast users see when validation rejects an empty body.
   let hasSubmittableSource = $derived.by(() => {
     if (isWorkspaceMode) {
       return workspaceFilesForLanguage
@@ -188,12 +179,7 @@
     onToggleFullscreen={() => (isFullscreen = !isFullscreen)}
   />
 
-  <!--
-    The single-file Monaco container is always mounted so the underlying
-    editor survives switches in and out of workspace mode. When workspace
-    files exist for the current language, we overlay the workspace UI on
-    top and hide the single-file container via `hidden`.
-  -->
+  
   <div class="relative min-h-0 flex-1">
     <EditorCore
       {language}

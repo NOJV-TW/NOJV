@@ -21,8 +21,6 @@ import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./s
 export { mergeInteractiveCase } from "./check-interactive";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
-// Beyond the per-case solution limit, allow extra wall time for the interactor
-// to run + Docker startup overhead on both containers.
 const PER_CASE_GRACE_MS = 35_000;
 
 export interface InteractiveExecutorConfig {
@@ -77,7 +75,6 @@ function buildContainerArgs(params: {
   ];
 }
 
-/** Write the solution container's /submission: student source + config only. */
 export async function writeSolutionFiles(
   tempDir: string,
   request: SandboxRequest,
@@ -115,7 +112,6 @@ export async function writeSolutionFiles(
   await chmod(tempDir, 0o755);
 }
 
-/** Write the interactor container's /submission: interactor + one case's secret. */
 export async function writeInteractorFiles(
   tempDir: string,
   request: SandboxRequest,
@@ -148,12 +144,6 @@ export async function writeInteractorFiles(
   await chmod(tempDir, 0o755);
 }
 
-/**
- * Run ONE interactive case across two isolated containers wired by a byte
- * proxy: solution.stdout → interactor.stdin and interactor.stdout →
- * solution.stdin. The secret input/answer is mounted only into the interactor
- * container. Returns the merged per-case result.
- */
 async function runCase(
   request: SandboxRequest,
   testcase: SandboxTestcase,
@@ -212,10 +202,8 @@ async function runCase(
         { env: process.env, stdio: ["pipe", "pipe", "pipe"] },
       ) as PipedChild;
 
-      // Cross-wire the live interaction pipe.
       solChild.stdout.pipe(intChild.stdin);
       intChild.stdout.pipe(solChild.stdin);
-      // EPIPE is expected when one side exits before the other finishes writing.
       solChild.stdin.on("error", () => undefined);
       intChild.stdin.on("error", () => undefined);
 
@@ -265,7 +253,6 @@ async function runCase(
       });
       solChild.on("close", () => {
         solClosed = true;
-        // The solution finished; stop feeding the interactor.
         try {
           intChild.stdin.end();
         } catch {
@@ -293,12 +280,6 @@ async function runCase(
   }
 }
 
-/**
- * Interactive judging via two isolated containers + a worker byte proxy. The
- * solution and the DOMjudge interactor run in SEPARATE hardened containers; the
- * testcase secret (input/answer) is mounted ONLY into the interactor container,
- * so a student program cannot read it. Cases run sequentially.
- */
 export async function runInteractiveMode(
   request: SandboxRequest,
   config: InteractiveExecutorConfig,

@@ -12,15 +12,6 @@
 </script>
 
 <script lang="ts">
-	/**
-	 * Base skeleton primitive. Decorative only — the parent loading region is
-	 * responsible for setting `aria-busy="true"` on its wrapper.
-	 *
-	 * @example
-	 *   <div aria-busy="true">
-	 *     <Skeleton class="h-4 w-full" variant="text" />
-	 *   </div>
-	 */
 	let {
 		variant = "block",
 		animate = true,

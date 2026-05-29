@@ -2,7 +2,6 @@ import { prisma } from "../client";
 import type { Prisma, AnnouncementAudience } from "../../generated/prisma/client";
 
 export const announcementRepo = {
-  // Platform-wide announcements only (courseId null). Course-scoped rows belong to `listRecentForCourse`.
   listPublished(take: number, audiences?: AnnouncementAudience[]) {
     const now = new Date();
     return prisma.announcement.findMany({

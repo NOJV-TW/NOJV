@@ -57,8 +57,4 @@ export async function shutdownOtel(): Promise<void> {
   }
 }
 
-// Self-execute at module load so that a side-effect-only `import "./otel.js"`
-// (placed as the very first import in index.ts) registers import-in-the-middle
-// hooks BEFORE pg/ioredis/etc. are evaluated by subsequent imports. The
-// `started` flag keeps this idempotent.
 startOtel();

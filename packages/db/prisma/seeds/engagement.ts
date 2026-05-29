@@ -24,11 +24,6 @@ const HW1_ID = "hw1-process-trace";
 const SPRING_CONTEST_ID = "spring-qualifier-2026";
 const LIVE_CONTEST_ID = "contest_demo_live";
 
-/**
- * Ensure `author` has a non-sample accepted submission on `problemId` so the
- * editorial AC-gate is satisfied. Creates a practice AC if none exists.
- * Writes source + verdict-detail blobs to S3 alongside the DB row.
- */
 async function ensureAcceptedPractice(
   prisma: PrismaClient,
   storage: ReturnType<typeof createStorageClient>,
@@ -75,11 +70,6 @@ async function ensureAcceptedPractice(
   await putVerdictDetail(storage, id, detail);
 }
 
-/**
- * Seed engagement surfaces: editorials (+ a report), clarifications, bookmarks,
- * notifications, plagiarism flag/log, submission feedback, and a score
- * override. Idempotent: wipes the rows it owns before recreating.
- */
 export async function seedEngagement(
   prisma: PrismaClient,
   refs: { teacher: User; student: User; demoStudents: User[] },
@@ -89,7 +79,6 @@ export async function seedEngagement(
   const rng = new SeededRng(0x5eed_9000);
   const storage = createStorageClient();
 
-  // ── Idempotency: drop rows owned by this module ──
   await prisma.editorialReport.deleteMany({});
   await prisma.editorial.deleteMany({});
   await prisma.clarification.deleteMany({});
@@ -102,9 +91,6 @@ export async function seedEngagement(
   await prisma.scoreOverrideAuditLog.deleteMany({});
   await prisma.scoreOverride.deleteMany({});
 
-  // ─────────────────────────────────────────────────────────────
-  // Editorials — authored by students with an AC on the problem.
-  // ─────────────────────────────────────────────────────────────
   const s1 = demoStudents[0] ?? student;
   const s2 = demoStudents[1] ?? student;
 
@@ -166,7 +152,6 @@ export async function seedEngagement(
     },
   });
 
-  // One open report on the first editorial for the admin moderation demo.
   await prisma.editorialReport.create({
     data: {
       editorialId: ed1.id,
@@ -177,9 +162,6 @@ export async function seedEngagement(
     },
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // Clarifications — contest + assignment, mix of pending / answered.
-  // ─────────────────────────────────────────────────────────────
   await prisma.clarification.create({
     data: {
       contextType: "contest",
@@ -246,9 +228,6 @@ export async function seedEngagement(
     },
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // Bookmarks — main student bookmarks 4 problems.
-  // ─────────────────────────────────────────────────────────────
   const bookmarkProblems = [
     "problem_graph-docking",
     "problem_distributed-labyrinth",
@@ -265,10 +244,6 @@ export async function seedEngagement(
     });
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Notifications — mix of types + read/unread for the main student.
-  // params shapes mirror packages/domain/src/notification/index.ts.
-  // ─────────────────────────────────────────────────────────────
   await prisma.notification.createMany({
     data: [
       {
@@ -332,10 +307,6 @@ export async function seedEngagement(
     ],
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // Plagiarism — one pair flag + a trigger log on hw1.
-  // pairKey = "${minUserId}|${maxUserId}|${problemId}" (userIds sorted asc).
-  // ─────────────────────────────────────────────────────────────
   const pairA = (demoStudents[6] ?? student).id;
   const pairB = (demoStudents[7] ?? teacher).id;
   const [lo, hi] = pairA < pairB ? [pairA, pairB] : [pairB, pairA];
@@ -362,9 +333,6 @@ export async function seedEngagement(
     },
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // Submission feedback — teacher comments on student hw1 problems.
-  // ─────────────────────────────────────────────────────────────
   await prisma.submissionFeedback.create({
     data: {
       studentUserId: (demoStudents[0] ?? student).id,
@@ -387,9 +355,6 @@ export async function seedEngagement(
     },
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // Score override — teacher bumps a student's hw1 problem score.
-  // ─────────────────────────────────────────────────────────────
   const overrideStudent = demoStudents[2] ?? student;
   await prisma.scoreOverride.create({
     data: {

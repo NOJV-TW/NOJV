@@ -1,11 +1,6 @@
 import pino, { type LoggerOptions } from "pino";
 import type { RequestEvent } from "@sveltejs/kit";
 
-// In production on GCP (Cloud Run / GKE) we emit JSON aligned with Cloud
-// Logging's structured-log spec so entries land with the right severity,
-// message, and timestamp instead of being parsed as a text payload.
-// The two-signal detection means a local `NODE_ENV=production node ...` run
-// still gets plain pino JSON, which is friendlier for grep + jq.
 const isGcpProduction =
   process.env.NODE_ENV === "production" &&
   Boolean(process.env.K_SERVICE ?? process.env.GOOGLE_CLOUD_PROJECT);
@@ -30,7 +25,6 @@ const gcpOptions: LoggerOptions = {
       return record;
     },
   },
-  // Cloud Run records its own resource metadata; pid + hostname are noise.
   base: null,
 };
 
@@ -62,11 +56,6 @@ export function createLogger(context: string): Logger {
   return wrap(base.child({ context }));
 }
 
-/**
- * Returns a logger child that automatically tags every log line with the
- * request's correlation id (set by hooks.server.ts on `event.locals.requestId`).
- * Falls back to a regular logger when `requestId` is missing (e.g. background work).
- */
 export function getLogger(
   context: string,
   event: Pick<RequestEvent, "locals"> | { locals: { requestId?: string } },

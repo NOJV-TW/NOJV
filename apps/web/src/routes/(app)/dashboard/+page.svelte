@@ -16,15 +16,13 @@
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { buildActivityModel } from "$lib/utils/activity";
+  import { relativeTime } from "$lib/utils/relative-time";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
 
   const stats = $derived(data.stats);
   const analytics = $derived(data.analytics);
-  // Empty-account signal: a brand-new user has never submitted anything.
-  // totalAttempts counts every submission (incl. failed/queued/etc.), so
-  // === 0 is the cleanest "no activity at all" check.
   const hasActivity = $derived(stats.totalAttempts > 0);
 
   const acRate = $derived(
@@ -40,11 +38,6 @@
   const hasTagData = $derived(analytics.byTag.length > 0);
   const hasLanguageData = $derived(analytics.byLanguage.length > 0);
 
-  // ECharts canvas can't read `var(--token)` strings — they pass through to
-  // the rasteriser as literal text and fall back to defaults (which is why
-  // the difficulty pie was showing generic blue instead of green/amber/red).
-  // Resolve to concrete oklch/hex strings client-side and re-resolve when
-  // the html.dark class flips so dark-mode tokens take effect immediately.
   const DEFAULT_THEME_COLORS = {
     success: "#7a8f6d",
     warning: "#d4a054",
@@ -217,18 +210,6 @@
     ]
   });
 
-  function timeAgo(date: Date | string): string {
-    const now = Date.now();
-    const then = new Date(date).getTime();
-    const diffMs = now - then;
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins} min ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  }
 </script>
 
 <PageContainer class="fade-up">
@@ -242,8 +223,7 @@
     <WelcomeGuide username={data.username} />
   {:else}
   <div class="space-y-6">
-    <!-- Section 1 — Stat strip (kept here so Phase 5 can revisit; only the
-         eyebrow/title above moved into <PageHeader>). -->
+    
     <Card variant="surface" size="lg">
       <div class="flex flex-col gap-6">
         <div class="flex items-baseline justify-end gap-4">
@@ -298,15 +278,10 @@
       </div>
     </Card>
 
-  <!-- Sections 2 + 2.5 — heatmap + streak + weekly trend (all derived from
-       the deferred 365-day activity feed). The whole model is rebuilt twice
-       (here and in the practice-days cell) — the cost is ~365 iterations,
-       well under a ms; sharing across separate {#await} blocks would mean
-       a single outer await wrapping the stat strip too. -->
+  
   {#await data.streamed.activity}
     <div aria-busy="true" aria-live="polite" class="contents">
-      <!-- Heights match the resolved cards (~150-170px heatmap, ~140px
-           streak, ~210px weekly-trend) to minimise CLS on resolve. -->
+      
       <Card variant="surface" size="lg">
         <h2 class="mb-4 text-title-sm font-semibold">
           {m.dashboard_activityChart()}
@@ -349,8 +324,7 @@
       <WeeklyTrendCard data={activityModel.weeklyTrend} />
     </div>
   {:catch}
-    <!-- Transient DB failure on the activity feed: keep the dashboard
-         readable instead of bubbling to the SvelteKit error boundary. -->
+    
     <Card variant="surface" size="lg">
       <EmptyState
         variant="minimal"
@@ -361,7 +335,7 @@
     </Card>
   {/await}
 
-  <!-- Section 3 — Ability Profile -->
+  
   <div class="grid gap-4">
     <Card variant="surface" size="lg">
       <h2 class="mb-4 text-title-sm font-semibold">
@@ -426,7 +400,7 @@
     </div>
   </div>
 
-  <!-- Section 4 — Recent Submissions -->
+  
   <Card variant="surface" size="lg">
     <h2 class="mb-4 text-title-sm font-semibold">
       {m.dashboard_recentActivity()}
@@ -438,7 +412,7 @@
             <time
               class="shrink-0 text-caption text-muted-foreground tabular-nums"
             >
-              {timeAgo(sub.createdAt)}
+              {relativeTime(sub.createdAt)}
             </time>
             <VerdictBadge verdict={sub.status} />
             <a
@@ -465,9 +439,7 @@
     {/if}
   </Card>
 
-  <!-- Section 5 — Suggested problems (deferred — depends on the same
-       distinct-AC scan as the activity feed). Fallback height (~200px)
-       matches a 5-row list to minimise CLS on resolve. -->
+  
   {#await data.streamed.suggestedProblems}
     <div aria-busy="true" aria-live="polite">
       <Card variant="surface" size="lg">

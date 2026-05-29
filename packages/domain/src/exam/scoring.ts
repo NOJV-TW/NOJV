@@ -22,7 +22,6 @@ import {
 
 export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
 
-// Cuid IDs cannot collide, so Exam and Contest share the Redis scoreboard namespace.
 export interface ExamScoreboard {
   entries: ScoreboardEntry[];
   problems: ScoreboardProblem[];
@@ -32,18 +31,6 @@ export interface ExamScoreboard {
 
 const SCORE_UPDATE_MAX_ATTEMPTS = 3;
 
-/**
- * Recompute and persist an exam participant's score / penalty / per-problem
- * subtotals from their submissions and any active overrides.
- *
- * Concurrency: parallel score recomputes for the same participation (rejudge
- * fan-out, override edits, late submissions) would lost-update each other.
- * The repo enforces optimistic locking on the participation row's `version`
- * column; on conflict we re-read submissions+overrides and recompute, up to
- * SCORE_UPDATE_MAX_ATTEMPTS. If we still lose the race, we throw
- * `ConflictError` and let the caller's retry policy take over. Mirrors
- * `updateContestScores`.
- */
 export async function updateExamScores(examParticipationId: string): Promise<void> {
   let overrideRows: Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>> | undefined;
 
@@ -54,8 +41,6 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
 
     const { exam } = participation;
 
-    // Exam submissions are keyed off `Submission.examId`, not a
-    // participation FK. Fetch them directly for this participant.
     const allSubmissions = await submissionRepo.findMany({
       where: {
         examId: exam.id,
@@ -118,7 +103,6 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
           if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
         }
 
-        // Overlay any per-problem overrides for this participant.
         overrideRows ??= await scoreOverrideRepo.findAllByContext("exam", exam.id);
         for (const row of overrideRows) {
           if (row.userId !== participation.userId) continue;
@@ -150,7 +134,6 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
       return;
     } catch (err) {
       if (err instanceof ExamParticipationVersionConflict) {
-        // Another writer landed first — retry on a fresh read.
         continue;
       }
       throw err;
@@ -201,7 +184,6 @@ export async function getExamScoreboard(
     };
   }
 
-  // Exam submissions are keyed by examId directly; fetch all non-sample rows.
   const rawSubmissions = await submissionRepo.findMany({
     where: {
       examId: exam.id,

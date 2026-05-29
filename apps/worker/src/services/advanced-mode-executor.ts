@@ -21,10 +21,6 @@ export interface AdvancedModeConfig {
   pidsLimit: number;
 }
 
-// Cap on the host-bind-mounted /workspace dir. The TA image is trusted, but a
-// buggy run could fill the worker disk. result.json + artifacts must fit under
-// this. `--storage-opt size=` only works on devicemapper/btrfs, not overlay2,
-// so we poll the dir size instead and force-kill on exceed.
 export const ADVANCED_WORKSPACE_MAX_BYTES = 1024 * 1024 * 1024;
 const WORKSPACE_POLL_INTERVAL_MS = 2_000;
 
@@ -96,25 +92,8 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
 }
 
 export class AdvancedModeExecutor {
-  // Cached per-storage-key: once an image is loaded for a given key,
-  // subsequent calls reuse the cached ref without re-downloading or
-  // re-loading. Invalidate the cache by restarting the worker.
   private readonly loadedTarballs = new Map<string, string>();
 
-  /**
-   * Advanced Mode dispatch.
-   *
-   * Lay out /workspace per the advanced container contract and spawn
-   * the TA-provided image directly (no sandbox-runner intermediate).
-   * The TA image is expected to:
-   *   1. Read /workspace/submission/ and /workspace/meta.json
-   *   2. Do whatever grading it wants (compile, run, compare, ...) —
-   *      testcases are bundled inside the image itself
-   *   3. Write /workspace/output/result.json matching
-   *      advancedResultSchema
-   * On timeout, crash, or missing result.json we return a synthetic
-   * SE result.
-   */
   async run(
     tempDir: string,
     request: SandboxRequest,
@@ -125,9 +104,6 @@ export class AdvancedModeExecutor {
       return sandboxSystemError("advanced-mode dispatch called without payload");
     }
 
-    // If the image was uploaded as a tarball, stream it out of storage
-    // and load it into the local docker daemon before dispatching.
-    // The resulting image tag is parsed from `docker load` output.
     let imageRef = advanced.imageRef;
     if (advanced.imageSource === "tarball") {
       try {
@@ -198,9 +174,6 @@ export class AdvancedModeExecutor {
       sizeExceeded: boolean;
     }> => {
       const containerName = `nojv-advanced-${sanitizeId(request.submissionId).slice(0, 40)}`;
-      // Advanced Mode containers are fully network-isolated. Any packages
-      // or test data the TA image needs must be baked into the image at
-      // build time — runtime fetches are not allowed.
       const networkArgs = ["--network", "none"];
 
       const args = buildAdvancedDockerArgs({
@@ -246,8 +219,6 @@ export class AdvancedModeExecutor {
           child.kill("SIGKILL");
         }, outerTimeoutMs);
 
-        // Disk-cap watchdog: overlay2 ignores `--storage-opt size=`, so poll the
-        // bind-mounted host dir and force-kill if the image writes past the cap.
         const sizePoll = setInterval(() => {
           if (sizeExceeded || sizeCheckInFlight) return;
           sizeCheckInFlight = true;
@@ -323,11 +294,6 @@ export class AdvancedModeExecutor {
     return mapAdvancedResult(request, parsed.data);
   }
 
-  /**
-   * Stream a tarball out of object storage and `docker load` it into
-   * the local daemon. Returns the loaded image reference (e.g.
-   * `sha256:abcdef…` or `my-image:latest`) for use in `docker run`.
-   */
   private async ensureTarballLoaded(storageKey: string): Promise<string> {
     const cached = this.loadedTarballs.get(storageKey);
     if (cached) return cached;
@@ -358,7 +324,6 @@ export class AdvancedModeExecutor {
           reject(new Error(`docker load returned ${String(code)}: ${stderr.trim()}`));
           return;
         }
-        // `docker load -q` prints "sha256:…" or "Loaded image: name:tag".
         const match = /(?:Loaded image:\s*|^)(\S+)\s*$/m.exec(stdout.trim());
         const ref = match?.[1];
         if (!ref) {

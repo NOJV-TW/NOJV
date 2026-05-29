@@ -111,9 +111,9 @@
   </a>
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-    <!-- Left rail -->
+    
     <aside class="flex flex-col gap-5">
-      <!-- Hero -->
+      
       <div class="flex flex-col gap-2">
         <p class="text-caption uppercase tracking-wide text-muted-foreground">
           {formatProblemDisplayName(submission.problem)}
@@ -126,7 +126,7 @@
         </p>
       </div>
 
-      <!-- Metrics 2x2 -->
+      
       <dl
         class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-2"
       >
@@ -168,7 +168,7 @@
         </div>
       </dl>
 
-      <!-- Context badges & notices -->
+      
       {#if submission.context.kind === "contest"}
         <p
           class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
@@ -218,7 +218,7 @@
         </div>
       {/if}
 
-      <!-- Feedback / judging -->
+      
       {#if isPending}
         <p
           class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
@@ -235,7 +235,7 @@
         </div>
       {/if}
 
-      <!-- Teacher grading feedback — assignment/exam only, post-close. -->
+      
       {#if data.feedback}
         <div class="flex flex-col gap-1.5">
           <h2 class="text-caption uppercase tracking-wide text-info">
@@ -249,7 +249,7 @@
         </div>
       {/if}
 
-      <!-- Subtasks -->
+      
       {#if subtaskResults.length > 0}
         <div class="flex flex-col gap-2">
           <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -259,7 +259,7 @@
         </div>
       {/if}
 
-      <!-- Case mini-grid -->
+      
       {#if caseResults.length > 0}
         <div class="flex flex-col gap-2">
           <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -279,7 +279,7 @@
       {/if}
     </aside>
 
-    <!-- Right pane: source code -->
+    
     <section
       class="flex min-h-[60vh] flex-col overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)] lg:sticky lg:top-4"
     >

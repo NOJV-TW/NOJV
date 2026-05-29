@@ -15,8 +15,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(403, "Not authorized to create problems");
   }
 
-  // Clients send `mode: "standard" | "advanced"` for back-compat with
-  // the previous URL shape. Translate into the new `ProblemType` value.
   let mode: unknown;
   try {
     const body = (await event.request.json().catch(() => null)) as {
@@ -49,7 +47,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     visibility: "private",
   });
 
-  // The response field is still called `mode` — Tabs.svelte branches on
-  // it to pick the next route. Keep the contract stable.
   return json({ id: result.id, mode: type === "special_env" ? "advanced" : "standard" });
 });

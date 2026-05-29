@@ -2,7 +2,6 @@
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
-    /** Pre-formatted character count string (uses caller-owned locale). */
     charsLabel: string;
     isRunning: boolean;
     isSubmitting: boolean;

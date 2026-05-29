@@ -10,14 +10,6 @@ import { NotFoundError } from "../shared/errors";
 import { assertCanWriteFeedback } from "./permissions";
 import { fromContextDbFields, toContextDbFields, type FeedbackContext } from "./types";
 
-/**
- * Create or update grading feedback for a `(student, problem, context)`
- * triple. The repo `upsert` keys on that triple, so re-calling with the
- * same triple edits the existing row instead of inserting a second.
- *
- * `input` is an already-parsed `FeedbackUpsertInput` (validated by
- * `feedbackUpsertSchema` at the API boundary).
- */
 export async function upsertFeedback(
   actor: ActorContext,
   { context, input }: { context: FeedbackContext; input: FeedbackUpsertInput },
@@ -53,11 +45,6 @@ export async function upsertFeedback(
   });
 }
 
-/**
- * Delete a feedback row. Fetches the row first to derive its context, then
- * asserts the actor may write feedback there (which also re-checks the
- * post-close gate).
- */
 export async function deleteFeedback(actor: ActorContext, id: string) {
   const existing = await submissionFeedbackRepo.findById(id);
   if (!existing) {
@@ -66,7 +53,6 @@ export async function deleteFeedback(actor: ActorContext, id: string) {
   await assertCanWriteFeedback(actor, fromContextDbFields(existing));
 
   await runTransaction(async (tx) => {
-    // Write audit before delete so the FK still resolves to the live row.
     await submissionFeedbackAuditLogRepo.create(tx, {
       feedbackId: existing.id,
       studentUserId: existing.studentUserId,

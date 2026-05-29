@@ -9,10 +9,6 @@ import {
   type CourseAssessmentUpdate,
 } from "@nojv/core";
 
-// Body of the `updateProblems` action — posted by the client as a single
-// JSON field so we can ship problem IDs plus the matching points map in
-// one round trip. Validate here so downstream code can rely on the
-// narrowed types instead of re-filtering.
 const updateProblemsPayloadSchema = z.object({
   problemIds: z.array(z.string()).default([]),
   points: z.record(z.string(), z.unknown()).default({}),
@@ -129,10 +125,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             reportUrl: plagiarism.reportUrl,
             triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
             completedAt: plagiarism.completedAt?.toISOString() ?? null,
-            // `results` is `Prisma.JsonValue | null` on the domain side; the
-            // consumer (AssignmentPlagiarismReport) accepts `unknown` and
-            // defensively parses `pairs` at render time. Widening to
-            // `unknown` here keeps the prop contract loose on purpose.
             results: plagiarism.results as unknown,
           }
         : null,
@@ -156,7 +148,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     clarificationDomain.canAskClarification(actor, { type: "assignment", assignmentId }),
     clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
     clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
-    // Close-gated inside the domain — yields [] while the assignment is open.
     feedbackDomain.getFeedbackForStudent(actor.userId, {
       type: "assignment",
       assignmentId,

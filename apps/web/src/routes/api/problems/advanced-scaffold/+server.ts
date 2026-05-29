@@ -4,9 +4,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { buildScaffoldZip, SCAFFOLD_ZIP_FILENAME } from "$lib/server/advanced-scaffold";
 
-// GET /api/problems/advanced-scaffold — download the advanced-judge starter
-// project as a zip. TA-facing scaffolding (not secret), so any authenticated
-// user may fetch it.
 export const GET: RequestHandler = apiHandler(async (event) => {
   requireApiAuth(event);
 

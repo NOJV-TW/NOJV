@@ -4,9 +4,6 @@ import { parseValidatorFeedback, type ValidatorFeedbackFiles } from "@nojv/core"
 import type { ValidatorCaseOutcome } from "../types.js";
 import { runProcess } from "./run-process.js";
 
-// The validator post-processes one case's output. Mirror the checker floor:
-// generous enough for slow-but-correct validators, scaling up with the
-// solution's time limit but never below 30s.
 const VALIDATOR_TIMEOUT_FLOOR_MS = 30_000;
 
 export function validatorTimeoutMs(solutionTimeoutMs: number): number {
@@ -28,13 +25,6 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-/**
- * Resolve the per-case files for the validator. Mirrors `loadTestcases` in
- * index.ts: prefers Docker's directory layout
- * (`/submission/cases/{index}/{input,answer,team}.txt`) and falls back to the
- * K8s flat-ConfigMap layout (`/submission/case-{i}-{input,answer,team}.txt`)
- * — ConfigMaps cannot hold nested directories.
- */
 export async function resolveValidateCaseFiles(
   submissionDir: string,
   index: number,
@@ -60,7 +50,6 @@ export async function resolveValidateCaseFiles(
   return { inputFile, answerFile, teamOutput };
 }
 
-/** Read a feedback file if present; missing → undefined. */
 async function readFeedbackFile(dir: string, name: string): Promise<string | undefined> {
   try {
     return await fs.readFile(path.join(dir, name), "utf-8");
@@ -69,12 +58,6 @@ async function readFeedbackFile(dir: string, name: string): Promise<string | und
   }
 }
 
-/**
- * Run the validator over a single case. The validator is invoked
- * `validator <input> <answer> <feedbackDir>` with the team output on stdin;
- * exit 42 = AC, 43 = WA, else = SE. Validator infrastructure failures
- * (spawn error, timeout, crash signal) map to SE — not the student's fault.
- */
 export async function validateCase(
   validatorCommand: string[],
   files: { inputFile: string; answerFile: string; teamOutput: string },

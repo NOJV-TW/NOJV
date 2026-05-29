@@ -13,11 +13,6 @@ interface AcRow {
 
 const MAX_TAGS = 8;
 
-/**
- * Count AC problems per topic tag. One AC problem contributes +1 to every
- * tag it carries. Result is sorted descending by count and capped at 8 entries
- * so the dashboard tag bar chart stays legible.
- */
 export function aggregateByTag(rows: readonly AcRow[]): TagAcCount[] {
   const counts = new Map<string, number>();
   for (const row of rows) {
@@ -31,20 +26,10 @@ export function aggregateByTag(rows: readonly AcRow[]): TagAcCount[] {
     .slice(0, MAX_TAGS);
 }
 
-/**
- * Thin wrapper around `userRepo.findById`. Used where callers only need
- * the raw user row (display name / username) — e.g. the plagiarism
- * pair-diff view rendering both authors. Returns null on miss.
- */
 export async function getUserById(id: string) {
   return userRepo.findById(id);
 }
 
-/**
- * Batch-resolve a set of user ids to display names. Returns a map keyed
- * by user id; ids with no matching user are simply absent. Used to
- * hydrate actor names on audit timelines in a single query.
- */
 export async function listUserDisplayNames(
   ids: readonly string[],
 ): Promise<Record<string, string>> {
@@ -52,8 +37,6 @@ export async function listUserDisplayNames(
   const users = await userRepo.findManyByIds(ids);
   const names: Record<string, string> = {};
   for (const u of users) {
-    // `User.name` is the canonical display name shown across the UI and is
-    // always populated (placeholders seed it from the username on creation).
     names[u.id] = u.name;
   }
   return names;
@@ -97,9 +80,6 @@ export async function listUsersPaginated(params: UserSearchParams) {
 }
 
 export async function updateUserRole(userId: string, role: "admin" | "teacher" | "student") {
-  // Read the current role before writing so we can detect a no-op and
-  // avoid generating a role_changed bell entry for an admin re-applying
-  // the same role.
   const existing = await userRepo.findById(userId);
   const updated = await userRepo.update(userId, { platformRole: role });
 

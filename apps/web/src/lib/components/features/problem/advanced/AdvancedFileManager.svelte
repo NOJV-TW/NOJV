@@ -3,7 +3,6 @@
   import type { StagedFile } from "./AdvancedUploader.svelte";
 
   interface Props {
-    /** Currently-staged upload, if any. `null` = nothing to manage yet. */
     staged: StagedFile | null;
     isSubmitting: boolean;
     onClear: () => void;

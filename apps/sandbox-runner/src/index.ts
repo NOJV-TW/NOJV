@@ -29,18 +29,15 @@ import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 const SUBMISSION_DIR = "/submission";
 const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
 
-/** Log to stderr only — stdout is reserved for the JSON result. */
 function log(message: string): void {
   process.stderr.write(`[sandbox-runner] ${message}\n`);
 }
 
-/** Read and parse the submission config. */
 async function readConfig(): Promise<SandboxInput> {
   const raw = await fs.readFile(path.join(SUBMISSION_DIR, "config.json"), "utf-8");
   return SandboxInputSchema.parse(JSON.parse(raw));
 }
 
-/** Read the user's source code file. */
 async function readSourceCode(
   language: SandboxInput["language"],
   entryFile?: string,
@@ -99,11 +96,6 @@ async function materializeConfiguredSources(
   }
 }
 
-/**
- * Load testcases from either:
- * - Directory layout (Docker): /submission/testcases/{index}/input.txt
- * - Flat ConfigMap keys (K8s): /submission/testcase-{i}-input.txt
- */
 async function loadTestcases(): Promise<TestcaseFiles[]> {
   const testcasesDir = path.join(SUBMISSION_DIR, "testcases");
 
@@ -124,7 +116,6 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
   return loadTestcasesFromFlatKeys();
 }
 
-/** Docker volume mount layout: /submission/testcases/{index}/input.txt */
 async function loadTestcasesFromDirs(
   testcasesDir: string,
   dirs: string[],
@@ -149,8 +140,6 @@ async function loadTestcasesFromDirs(
       const metaRaw = await fs.readFile(path.join(tcDir, "meta.json"), "utf-8");
       const parsed = TestcaseMetaSchema.safeParse(JSON.parse(metaRaw));
       if (parsed.success) meta = parsed.data;
-      // If parsing fails (malformed JSON or wrong shape), fall through to
-      // defaults below — meta.json is advisory, not load-bearing.
     } catch {
       // meta.json is optional, defaults below
     }
@@ -167,7 +156,6 @@ async function loadTestcasesFromDirs(
   return testcases;
 }
 
-/** K8s ConfigMap layout: /submission/testcase-{i}-input.txt */
 async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
   const entries = await fs.readdir(SUBMISSION_DIR);
   const inputFiles = entries
@@ -200,14 +188,12 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
   return testcases;
 }
 
-/** Find the checker or interactor script in /submission/. */
 async function findScript(prefix: string): Promise<string | null> {
   const entries = await fs.readdir(SUBMISSION_DIR);
   const match = entries.find((e) => e.startsWith(`${prefix}.`));
   return match ? path.join(SUBMISSION_DIR, match) : null;
 }
 
-/** Write a SandboxOutput to stdout. */
 function emit(overrides: Partial<SandboxOutput>): void {
   const output: SandboxOutput = {
     testcaseResults: [],
@@ -216,17 +202,10 @@ function emit(overrides: Partial<SandboxOutput>): void {
   process.stdout.write(JSON.stringify(output));
 }
 
-/** Write a ValidateOutput to stdout. */
 function emitValidate(output: ValidateOutput): void {
   process.stdout.write(JSON.stringify(output));
 }
 
-/**
- * Validate phase: run an isolated DOMjudge output validator over each case's
- * captured solution output. No student code is present in this container — only
- * the validator source and the per-case input/answer/team files written by the
- * worker under /submission/cases/{index}/.
- */
 async function runValidate(workDir: string, config: SandboxInput): Promise<void> {
   const validate = config.validate;
   if (!validate) {
@@ -269,7 +248,6 @@ async function runValidate(workDir: string, config: SandboxInput): Promise<void>
   emitValidate({ validatorOutcomes });
 }
 
-/** Materialize the student source into `workDir` and compile it. */
 async function compileSubmission(
   workDir: string,
   config: SandboxInput,
@@ -291,14 +269,6 @@ async function compileSubmission(
   return compile(config, srcFile, workDir);
 }
 
-/**
- * Interactive phase: one of two isolated containers in a worker-coordinated
- * two-container run (see apps/worker/src/services/interactive-executor.ts).
- * `solution` compiles + runs the student program with its stdio = container
- * stdio (the live pipe). `validator` compiles the DOMjudge interactor and runs
- * it over the one mounted case; the secret input/answer lives only here. Each
- * side reports via a marked stderr line — NEVER stdout, which is the pipe.
- */
 async function runInteractive(workDir: string, config: SandboxInput): Promise<void> {
   const interactive = config.interactive!;
 
@@ -316,7 +286,6 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
     return;
   }
 
-  // role === "validator": compile the interactor and run it over the one case.
   const interactorPath = await findScript("interactor");
   if (!interactorPath) {
     emit({ compilationError: "Interactive validator requires an interactor script." });
@@ -343,14 +312,6 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   );
 }
 
-/**
- * Standard / checker judging: run the solution over each case and report raw
- * output. Interactive is dispatched to `runInteractive` before this point (the
- * config carries an `interactive` block), so it never reaches here. The
- * expected answer and the checker/validator script never enter this container —
- * the worker decides AC/WA (standard) or runs the validator in a separate
- * isolated container (checker) against the answer it holds.
- */
 async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   const compileResult = await compileSubmission(workDir, config);
 
@@ -401,7 +362,6 @@ async function main(): Promise<void> {
   }
 }
 
-// Run and handle any unhandled errors as SE
 main().catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(`[sandbox-runner] Fatal error: ${message}\n`);

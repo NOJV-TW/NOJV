@@ -2,8 +2,6 @@ import { metrics, type Histogram } from "@opentelemetry/api";
 
 import { getRedis, scoreboard } from "@nojv/redis";
 
-// --- Metrics ------------------------------------------------------------
-
 const meter = metrics.getMeter("@nojv/worker", "0.1.0");
 
 export const judgeLatencyHistogram = meter.createHistogram("judge_latency_seconds", {
@@ -19,12 +17,9 @@ export interface JudgeLatencyArgs {
 }
 
 export function recordJudgeLatency(hist: Histogram, args: JudgeLatencyArgs): void {
-  // Clamp negative durations from clock skew to 0; not expected in practice.
   const seconds = Math.max(0, (args.completedAtMs - args.startedAtMs) / 1000);
   hist.record(seconds, { mode: args.mode, verdict: args.verdict });
 }
-
-// --- Redis re-exports ---------------------------------------------------
 
 export { getRedis };
 

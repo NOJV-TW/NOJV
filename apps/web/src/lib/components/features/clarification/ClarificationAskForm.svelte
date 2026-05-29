@@ -15,7 +15,6 @@
   const QUESTION_MAX = 1000;
 
   let questionText = $state("");
-  // Empty string sentinel = "General (not about a specific problem)".
   let selectedProblemId = $state("");
   let busy = $state(false);
 

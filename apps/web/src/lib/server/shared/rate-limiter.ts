@@ -6,16 +6,6 @@ import { getRedis } from "@nojv/redis";
 
 import { getClientIp } from "./client-ip";
 
-// Why: in production we run multiple web instances. A `RateLimiterMemory`
-// fallback would make the limit per-instance, which an attacker can bypass
-// by spreading requests across replicas. Redis gives a shared counter; if
-// Redis is unreachable, we fail closed (deny) rather than degrade silently.
-// Local dev keeps the memory fallback so a single laptop without Redis
-// still works for development.
-
-// Dev gets effectively-unlimited rate limits: the parallel E2E suite
-// bursts far past production thresholds from a single IP, and a human
-// developer never will. Production (`dev` false) keeps the real limits.
 const multiplier = dev ? 1000 : 1;
 
 interface RateLimiterLike {
@@ -47,9 +37,6 @@ function createRateLimiter(points: number, duration: number): RateLimiterLike {
       keyPrefix: "rl",
     });
   } catch (err) {
-    // In dev we tolerate a missing Redis (e.g. running a unit test or a fresh
-    // checkout) and fall back to an in-memory limiter. In production we
-    // refuse to start a process-local limiter — see the comment above.
     if (dev) {
       return new RateLimiterMemory({
         points: points * multiplier,
@@ -68,16 +55,8 @@ export const apiRateLimiter = createRateLimiter(60, 60);
 export const writeApiRateLimiter = createRateLimiter(10, 60);
 const formActionRateLimiter = createRateLimiter(20, 60);
 
-// Password sign-in attempts (`/api/auth/sign-in/email|username`). Strict
-// cap targeted at /admin-signin brute force — OAuth flows do not hit this
-// limiter. 5 attempts per 15 minutes per IP. Acts as a coarse account
-// lockout for the only password-accessible surface (admin / seeded test
-// accounts).
 export const signInRateLimiter = createRateLimiter(5, 900);
 
-// Internal helper used by `withRateLimit` in `./action-handlers.ts`.
-// Not exported on purpose — new routes should compose through the
-// wrapper so the limiter can't be bypassed by accident.
 export async function consumeFormRateLimitInternal(
   event: RequestEvent,
 ): Promise<ReturnType<typeof fail<{ error: string }>> | null> {
@@ -92,6 +71,4 @@ export async function consumeFormRateLimitInternal(
   }
 }
 
-// Exposed for tests so they can assert fail-closed behaviour without spinning
-// up a real Redis. Production code should not import this.
 export const __test = { createRateLimiter, RateLimiterFailClosedError };

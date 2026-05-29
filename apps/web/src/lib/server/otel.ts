@@ -57,12 +57,4 @@ export async function shutdownOtel(): Promise<void> {
   }
 }
 
-// Web does not wire SIGTERM shutdown — adapter-node's lifecycle owns process exit.
-// Last 0–30s of metrics may be dropped on shutdown. Accepted trade-off.
-
-// Self-execute at module load so that a side-effect-only `import "$lib/server/otel"`
-// (placed as the very first import in hooks.server.ts) registers
-// import-in-the-middle hooks BEFORE pg/ioredis/etc. are evaluated by subsequent
-// imports. The `started` flag keeps this idempotent for callers who still
-// invoke `startOtel()` manually (e.g. in tests).
 startOtel();

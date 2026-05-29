@@ -23,8 +23,6 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const id = requireId(event);
   const raw = patchSchema.parse(await event.request.json());
-  // Drop undefined optional keys to satisfy exactOptionalPropertyTypes on
-  // the Partial<Pick<OverrideInput, ...>> contract.
   const patch: Parameters<typeof scoreOverrideDomain.updateOverride>[2] = {
     ...(raw.overrideScore !== undefined ? { overrideScore: raw.overrideScore } : {}),
     ...(raw.reason !== undefined ? { reason: raw.reason } : {}),

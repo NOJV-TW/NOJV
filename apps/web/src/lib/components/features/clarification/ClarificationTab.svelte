@@ -23,10 +23,6 @@
 
   let { contextType, contextId, canAsk, canAnswer, problems }: Props = $props();
 
-  // Store is created lazily in onMount so the initial-value lint in
-  // Svelte 5's runes does not flag reading `contextType` / `contextId`
-  // during setup. In practice the caller never swaps these props
-  // mid-mount, but keeping them out of the module scope is tidier.
   let store: ClarificationsStore | null = $state(null);
   let sseUnsubscribe: (() => void) | null = null;
 
@@ -34,10 +30,6 @@
     const s = createClarificationsStore(contextType, contextId);
     store = s;
     void s.init();
-    // Server-side channel subscribe: extend the EventSource URL so the
-    // stream endpoint joins `clarification:{type}:{id}` in addition to
-    // the user's personal channels. A reconnect is needed for the
-    // EventSource to pick up the new query param.
     subscribeClarificationChannel(contextType, contextId);
 
     sseUnsubscribe = onSSEEvent(SSE_CLARIFICATION, (event: SSEEvent) => {

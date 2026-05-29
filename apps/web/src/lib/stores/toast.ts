@@ -9,11 +9,8 @@ export interface ToastUndo {
 
 export interface ToastOptions {
   type?: ToastType;
-  /** Auto-dismiss after N ms. Default 4000. Set to 0 to make the toast sticky. */
   duration?: number;
-  /** Whether the user can dismiss the toast via the close button. Default true. */
   dismissible?: boolean;
-  /** Optional undo action rendered as a pill button before the close button. */
   undo?: ToastUndo;
 }
 

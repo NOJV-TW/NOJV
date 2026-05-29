@@ -26,8 +26,6 @@ function median(nums: number[]): number {
   return sorted[mid] ?? 0;
 }
 
-// Buckets by percentage of maxScore. When maxScore is 0 (e.g. ICPC solve-count)
-// the absolute max is used as denominator so the distribution still spreads.
 export function buildScoreStats(
   scores: number[],
   studentCount: number,

@@ -25,7 +25,7 @@
     ]}
   />
 
-  <!-- Header -->
+  
   <div class="glass rounded-xl shadow-rest p-5 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
@@ -70,7 +70,7 @@
   </div>
 
   {#if !virtual}
-    <!-- ══════ NOT STARTED ══════ -->
+    
     <GlassPanel class="p-8 text-center space-y-4">
       <p class="text-body text-muted-foreground">
         {m.virtualContest_startBlurb()}
@@ -101,8 +101,8 @@
       {/if}
     </GlassPanel>
   {:else}
-    <!-- ══════ STARTED — dashboard ══════ -->
-    <!-- Problem list -->
+    
+    
     <GlassPanel class="overflow-hidden">
       <div
         class="flex items-center justify-between px-6 py-4 border-b"
@@ -161,7 +161,7 @@
       {/if}
     </GlassPanel>
 
-    <!-- Scoreboard: viewer's live row + ghost rows from the original final board -->
+    
     {#if scoreboard}
       <GlassPanel class="overflow-hidden">
         <div

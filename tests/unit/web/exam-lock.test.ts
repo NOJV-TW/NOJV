@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isAllowedPathForExam,
+  isExamForbiddenApiPath,
   resolveExamGateDenial,
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
@@ -85,6 +86,29 @@ describe("isAllowedPathForExam", () => {
     it("denies /signup — only /signin is an escape hatch", () => {
       expect(isAllowedPathForExam("/signup", ctx)).toBe(false);
     });
+  });
+});
+
+describe("isExamForbiddenApiPath", () => {
+  it("blocks cross-event contest APIs (scoreboard leak)", () => {
+    expect(isExamForbiddenApiPath("/api/contests/c1/scoreboard")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/contests/c1/scoreboard/chart")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/contests/c1")).toBe(true);
+  });
+
+  it("allows the /api endpoints the exam UI legitimately uses", () => {
+    expect(isExamForbiddenApiPath("/api/submissions")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/submissions/s1")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/problems/p1")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/editorials/e1")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/events/stream")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/clarifications")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/exam-sessions/exam-1/heartbeat")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/notifications")).toBe(false);
+  });
+
+  it("does not match non-/api paths that merely contain 'contests'", () => {
+    expect(isExamForbiddenApiPath("/contests/c1/scoreboard")).toBe(false);
   });
 });
 
