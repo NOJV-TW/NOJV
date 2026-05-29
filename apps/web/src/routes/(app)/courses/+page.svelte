@@ -81,7 +81,7 @@
 
     {#if showCreateButton}
       <Button href="/courses/new">
-        <Plus class="h-4 w-4" />
+        <Plus aria-hidden="true" class="h-4 w-4" />
         {m.courses_createNew()}
       </Button>
     {/if}
@@ -93,7 +93,7 @@
         class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
-          <GraduationCap class="h-7 w-7 text-muted-foreground/70" />
+          <GraduationCap aria-hidden="true" class="h-7 w-7 text-muted-foreground/70" />
         </div>
         <h3 class="mt-4 text-title font-medium">{m.courses_emptyEnrolledTitle()}</h3>
         <p class="mt-2 text-body-sm text-muted-foreground">
@@ -105,7 +105,7 @@
         class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
-          <BookOpen class="h-7 w-7 text-muted-foreground/70" />
+          <BookOpen aria-hidden="true" class="h-7 w-7 text-muted-foreground/70" />
         </div>
         <h3 class="mt-4 text-title font-medium">{m.courses_emptyManagingTitle()}</h3>
         <p class="mt-2 text-body-sm text-muted-foreground">
@@ -114,7 +114,7 @@
         {#if data.canCreate}
           <div class="mt-5">
             <Button href="/courses/new">
-              <Plus class="h-4 w-4" />
+              <Plus aria-hidden="true" class="h-4 w-4" />
               {m.courses_createFirst()}
             </Button>
           </div>
@@ -208,7 +208,7 @@
             <span
               class="ml-auto inline-flex text-muted-foreground transition-transform duration-fast ease-out-soft group-hover:translate-x-0.5 group-hover:text-primary"
             >
-              <ArrowRight class="h-4 w-4" />
+              <ArrowRight aria-hidden="true" class="h-4 w-4" />
             </span>
           </div>
         </a>

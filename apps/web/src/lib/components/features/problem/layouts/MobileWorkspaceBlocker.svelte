@@ -29,7 +29,7 @@
     class="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10"
     aria-hidden="true"
   >
-    <Monitor class="h-8 w-8 text-primary" />
+    <Monitor aria-hidden="true" class="h-8 w-8 text-primary" />
   </div>
   <h2 class="mt-5 text-title font-semibold leading-tight">
     {m.mobile_workspaceBlockerTitle()}

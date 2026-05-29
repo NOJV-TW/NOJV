@@ -65,7 +65,7 @@
                 <div class="min-w-0 flex-1">
                   <h3 class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
                     {#if announcement.pinned}
-                      <Pin
+                      <Pin aria-hidden="true"
                         class="size-3.5 shrink-0 text-warning"
                         aria-label={m.common_pinned()}
                       />

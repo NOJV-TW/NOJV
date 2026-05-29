@@ -68,7 +68,7 @@
         {m.contestsList_joinByCode()}
       </Button>
       <Button href="/contests/new">
-        <Plus class="h-4 w-4" />
+        <Plus aria-hidden="true" class="h-4 w-4" />
         {m.contestsList_create()}
       </Button>
     {/if}

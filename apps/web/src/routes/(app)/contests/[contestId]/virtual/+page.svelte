@@ -31,7 +31,7 @@
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
       >
-        <Timer class="size-3.5" />
+        <Timer aria-hidden="true" class="size-3.5" />
         <span>{m.virtualContest_eyebrow()}</span>
       </div>
       <h1 class="mt-2 text-headline font-semibold tracking-tight">
@@ -168,7 +168,7 @@
           class="flex items-center gap-2 px-6 py-4 border-b"
           style="border-color: var(--border-subtle);"
         >
-          <Trophy class="size-4" style="color: var(--primary);" />
+          <Trophy aria-hidden="true" class="size-4" style="color: var(--primary);" />
           <h2 class="text-title font-semibold">{m.virtualContest_scoreboardHeading()}</h2>
         </div>
         <table class="w-full text-body-sm">

@@ -97,7 +97,7 @@
   {#if canCreate}
     <div class="animate-in animate-in-1 flex justify-end">
       <Button href={`/courses/${courseId}/exams/new`}>
-        <Plus class="h-4 w-4" />
+        <Plus aria-hidden="true" class="h-4 w-4" />
         {m.examsList_createNew()}
       </Button>
     </div>

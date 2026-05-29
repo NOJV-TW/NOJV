@@ -106,7 +106,7 @@
     class="inline-flex w-fit items-center gap-1.5 text-body-sm text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
     href={backTarget.href}
   >
-    <ArrowLeft class="size-4" />
+    <ArrowLeft aria-hidden="true" class="size-4" />
     {backTarget.label}
   </a>
 
@@ -300,10 +300,10 @@
             type="button"
           >
             {#if copied}
-              <Check class="size-3.5 text-success" />
+              <Check aria-hidden="true" class="size-3.5 text-success" />
               <span class="text-success">{m.common_copied()}</span>
             {:else}
-              <Copy class="size-3.5" />
+              <Copy aria-hidden="true" class="size-3.5" />
               <span>{m.common_copy()}</span>
             {/if}
           </button>
@@ -312,7 +312,7 @@
             onclick={handleDownload}
             type="button"
           >
-            <Download class="size-3.5" />
+            <Download aria-hidden="true" class="size-3.5" />
             <span>{m.submissionDetail_downloadCode()}</span>
           </button>
         </div>

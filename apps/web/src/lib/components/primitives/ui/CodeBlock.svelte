@@ -40,10 +40,10 @@
       type="button"
     >
       {#if isCopied}
-        <Check class="h-3.5 w-3.5 text-emerald-500" />
+        <Check aria-hidden="true" class="h-3.5 w-3.5 text-emerald-500" />
         <span class="text-emerald-500">{m.common_copied()}</span>
       {:else}
-        <Copy class="h-3.5 w-3.5" />
+        <Copy aria-hidden="true" class="h-3.5 w-3.5" />
         <span>{m.common_copy()}</span>
       {/if}
     </button>

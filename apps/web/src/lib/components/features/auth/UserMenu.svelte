@@ -75,7 +75,7 @@
             onclick={() => (open = false)}
             role="menuitem"
           >
-            <UserIcon size={16} />
+            <UserIcon aria-hidden="true" size={16} />
             {m.navigation_account()}
           </a>
         {/if}
@@ -86,7 +86,7 @@
           type="button"
           role="menuitem"
         >
-          <LogOutIcon size={16} />
+          <LogOutIcon aria-hidden="true" size={16} />
           {m.auth_signOut()}
         </button>
       </div>

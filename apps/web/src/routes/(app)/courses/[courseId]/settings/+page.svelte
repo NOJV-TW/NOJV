@@ -79,7 +79,7 @@
         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
         aria-hidden="true"
       >
-        <Settings class="h-5 w-5" />
+        <Settings aria-hidden="true" class="h-5 w-5" />
       </span>
       <div>
         <h2 class="text-title-sm font-medium tracking-[-0.01em]">
@@ -228,9 +228,9 @@
         aria-hidden="true"
       >
         {#if archivedLocal}
-          <ArchiveRestore class="h-5 w-5" />
+          <ArchiveRestore aria-hidden="true" class="h-5 w-5" />
         {:else}
-          <Archive class="h-5 w-5" />
+          <Archive aria-hidden="true" class="h-5 w-5" />
         {/if}
       </span>
       <div>
@@ -292,7 +292,7 @@
         style="background: rgba(184, 55, 42, 0.12);"
         aria-hidden="true"
       >
-        <AlertTriangle class="h-5 w-5" />
+        <AlertTriangle aria-hidden="true" class="h-5 w-5" />
       </span>
       <div>
         <h2 class="text-title-sm font-medium tracking-[-0.01em] text-destructive">

@@ -102,7 +102,7 @@
         class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
       >
         <span class="text-primary" aria-hidden="true">
-          <Megaphone class="h-5 w-5" />
+          <Megaphone aria-hidden="true" class="h-5 w-5" />
         </span>
         {m.courseOverview_announcementsHeading()}
       </h2>
@@ -112,7 +112,7 @@
           size="sm"
           onclick={openCreate}
         >
-          <Plus class="h-4 w-4" />
+          <Plus aria-hidden="true" class="h-4 w-4" />
           {m.courseOverview_newAnnouncement()}
         </Button>
       {/if}
@@ -144,7 +144,7 @@
               <div class="min-w-0 flex-1">
                 <h3 class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
                   {#if announcement.pinned}
-                    <Pin
+                    <Pin aria-hidden="true"
                       class="size-3.5 shrink-0 text-warning"
                       aria-label={m.admin_announcementsPinned()}
                     />
@@ -195,7 +195,7 @@
                           : m.admin_announcementsPin()}
                         aria-pressed={announcement.pinned}
                       >
-                        <Pin class="h-3.5 w-3.5" />
+                        <Pin aria-hidden="true" class="h-3.5 w-3.5" />
                       </button>
                     </form>
                     <button
@@ -205,7 +205,7 @@
                       aria-label={m.courseOverview_editAnnouncement()}
                       onclick={() => openEdit(announcement)}
                     >
-                      <Pencil class="h-3.5 w-3.5" />
+                      <Pencil aria-hidden="true" class="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"
@@ -214,7 +214,7 @@
                       aria-label={m.common_delete()}
                       onclick={() => (pendingDeleteId = announcement.id)}
                     >
-                      <Trash2 class="h-3.5 w-3.5" />
+                      <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
                     </button>
                   </div>
                 {/if}
@@ -234,7 +234,7 @@
         class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
       >
         <span class="text-primary" aria-hidden="true">
-          <ClipboardList class="h-5 w-5" />
+          <ClipboardList aria-hidden="true" class="h-5 w-5" />
         </span>
         {m.courseOverview_assignmentsHeading()}
       </h2>
@@ -245,7 +245,7 @@
             size="sm"
             href={`/courses/${course.id}/assignments/new`}
           >
-            <Plus class="h-4 w-4" />
+            <Plus aria-hidden="true" class="h-4 w-4" />
             {m.courseOverview_newAssignment()}
           </Button>
         {/if}
@@ -340,7 +340,7 @@
         class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
       >
         <span class="text-primary" aria-hidden="true">
-          <CalendarClock class="h-5 w-5" />
+          <CalendarClock aria-hidden="true" class="h-5 w-5" />
         </span>
         {m.courseOverview_examsHeading()}
       </h2>
@@ -351,7 +351,7 @@
             size="sm"
             href={`/courses/${course.id}/exams/new`}
           >
-            <Plus class="h-4 w-4" />
+            <Plus aria-hidden="true" class="h-4 w-4" />
             {m.courseOverview_newExam()}
           </Button>
         {/if}
