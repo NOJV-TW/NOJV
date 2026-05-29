@@ -12,6 +12,7 @@ import type { SubmissionSource } from "@nojv/storage";
 import { heartbeat } from "@temporalio/activity";
 
 import type { RejudgeInput } from "@nojv/temporal";
+import { enforceMemoryLimit } from "../services/check-standard";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 // The sandbox runs as a single opaque subprocess (`SandboxExecutor.execute`),
@@ -224,6 +225,16 @@ export async function executeSandbox(
     result = await executor.execute(request);
   } finally {
     clearInterval(heartbeatTimer);
+  }
+
+  if (!useAdvanced && result.testcaseResults.length > 0) {
+    result = {
+      ...result,
+      testcaseResults: enforceMemoryLimit(
+        result.testcaseResults,
+        judgeContext.runtime.memoryLimitMb,
+      ),
+    };
   }
 
   if (useSamples) {

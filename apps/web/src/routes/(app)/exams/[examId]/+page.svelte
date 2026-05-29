@@ -65,13 +65,6 @@
   // "EX-xxxxxx" eyebrow the design specifies.
   const examCode = $derived(`EX-${detail.id.slice(-6).toUpperCase()}`);
 
-  // Difficulty domain enum → DifficultyTick prop (PascalCase).
-  function difficultyLevel(d: "easy" | "medium" | "hard"): "Easy" | "Medium" | "Hard" {
-    if (d === "easy") return "Easy";
-    if (d === "hard") return "Hard";
-    return "Medium";
-  }
-
   // Allowed languages — only the manager payload knows them; for
   // students we fall back to a sensible default list so the pre-exam
   // rules card has something to render.
@@ -157,7 +150,7 @@
 
 <div class="space-y-6 pb-20 fade-up">
   <Crumbs
-    items={[{ label: "exam", href: "/exams" }, { label: examCode }]}
+    items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]}
   />
 
   <!-- Hero — bordered "official" block with corner crosshairs + dot grid -->
@@ -313,7 +306,7 @@
               <div>
                 <div class="font-medium">{p.title}</div>
                 <div class="mt-1 flex items-center gap-3">
-                  <DifficultyTick level={difficultyLevel(p.difficulty)} />
+                  <DifficultyTick level={p.difficulty} />
                 </div>
               </div>
               <div class="hidden sm:block">

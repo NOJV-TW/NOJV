@@ -19,9 +19,9 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
   <Crumbs
     items={[
-      { label: "contest", href: "/contests" },
+      { label: m.navigation_contests(), href: "/contests" },
       { label: data.contestId, href: `/contests/${data.contestId}` },
-      { label: "virtual" }
+      { label: m.virtualContest_badge() }
     ]}
   />
 

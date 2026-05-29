@@ -32,6 +32,7 @@ import { toJsonValue } from "../shared/to-json-value";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
+import { checkExamSubmitCooldown } from "../exam/mutations";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
 import { normalizeSubmissionSources } from "./source-paths";
@@ -81,6 +82,10 @@ export async function createQueuedSubmissionRecord(
       const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
       if (exam && new Date() >= exam.endsAt) {
         throw new ForbiddenError("Exam has ended.");
+      }
+
+      if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
+        await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
       }
     }
 
@@ -230,6 +235,8 @@ export async function createQueuedSubmissionRecord(
         const startOfDayUtc = new Date(
           Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
         );
+
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`daily-attempt:${user.id}:${courseContext.assignment.id}:${startOfDayUtc.toISOString()}`}, 0))`;
 
         const todayCount = await submissionRepo
           .withTx(tx)
