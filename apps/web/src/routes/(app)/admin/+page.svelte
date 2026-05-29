@@ -162,7 +162,7 @@
     <Card variant="surface" size="md" class="xl:col-span-2">
       <div class="flex items-center justify-between">
         <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-          <BarChart3 class="h-3.5 w-3.5" /> {m.admin_overviewSubmissionTrend()}
+          <BarChart3 aria-hidden="true" class="h-3.5 w-3.5" /> {m.admin_overviewSubmissionTrend()}
         </h2>
         <span class="text-caption text-muted-foreground">{m.admin_overviewLast14d()}</span>
       </div>
@@ -172,13 +172,13 @@
     <Card variant="surface" size="md">
       <div>
         <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-          <ShieldCheck class="h-3.5 w-3.5" /> {m.admin_overviewHealth()}
+          <ShieldCheck aria-hidden="true" class="h-3.5 w-3.5" /> {m.admin_overviewHealth()}
         </h2>
         <p class="mt-1 text-caption text-muted-foreground">{m.admin_overviewHealthSubtitle()}</p>
       </div>
       <div class="space-y-2 text-body-sm">
         <div class="flex items-center justify-between rounded-sm border border-border-subtle px-3 py-2">
-          <span class="inline-flex items-center gap-1"><Database class="h-3.5 w-3.5" /> {m.admin_overviewDatabase()}</span>
+          <span class="inline-flex items-center gap-1"><Database aria-hidden="true" class="h-3.5 w-3.5" /> {m.admin_overviewDatabase()}</span>
           {#if data.dbOk}
             <Badge variant="success" size="sm" dot>{m.admin_overviewConnected()}</Badge>
           {:else}
@@ -193,7 +193,7 @@
     <Card variant="surface" size="md">
       <div>
         <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-          <Users class="h-3.5 w-3.5" /> {m.admin_overviewUserRoleDist()}
+          <Users aria-hidden="true" class="h-3.5 w-3.5" /> {m.admin_overviewUserRoleDist()}
         </h2>
         <p class="mt-1 text-caption text-muted-foreground">{m.admin_overviewRoleSubtitle()}</p>
       </div>
@@ -203,7 +203,7 @@
     <Card variant="surface" size="md">
       <div>
         <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-          <PieChart class="h-3.5 w-3.5" /> {m.admin_overviewStatusDist()}
+          <PieChart aria-hidden="true" class="h-3.5 w-3.5" /> {m.admin_overviewStatusDist()}
         </h2>
         <p class="mt-1 text-caption text-muted-foreground">{m.admin_overviewStatusSubtitle()}</p>
       </div>
@@ -214,7 +214,7 @@
   <section class="grid gap-4 xl:grid-cols-2">
     <Card variant="surface" size="md">
       <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-        <AlertTriangle class="h-3.5 w-3.5" /> {m.admin_overviewTopFailing()}
+        <AlertTriangle aria-hidden="true" class="h-3.5 w-3.5" /> {m.admin_overviewTopFailing()}
       </h2>
       {#if data.topFailingProblems.length === 0}
         <p class="text-body-sm text-muted-foreground">{m.admin_overviewNoTopFail()}</p>
@@ -238,7 +238,7 @@
 
     <Card variant="surface" size="md">
       <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-        <Bug class="h-3.5 w-3.5" /> {m.admin_overviewRecentErrors()}
+        <Bug aria-hidden="true" class="h-3.5 w-3.5" /> {m.admin_overviewRecentErrors()}
       </h2>
       {#if data.recentErrors.length === 0}
         <p class="text-body-sm text-muted-foreground">{m.admin_overviewNoRecentErrors()}</p>

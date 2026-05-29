@@ -101,7 +101,7 @@
             title={m.draft_clearAction()}
             type="button"
           >
-            <Trash2 class="h-3.5 w-3.5" />
+            <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
           </button>
         {/if}
       </div>

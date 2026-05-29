@@ -49,7 +49,7 @@
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
       >
-        <Dumbbell class="size-3.5" />
+        <Dumbbell aria-hidden="true" class="size-3.5" />
         <span>{m.contestUpsolve_eyebrow()}</span>
       </div>
       <h1 class="mt-2 text-headline font-semibold tracking-tight">

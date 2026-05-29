@@ -33,7 +33,7 @@
         class="mb-1.5 inline-flex items-center gap-1 text-body-sm font-medium"
         for="role-filter"
       >
-        <Shield class="h-3.5 w-3.5 text-muted-foreground" /> {m.admin_usersRole()}
+        <Shield aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" /> {m.admin_usersRole()}
       </label>
       <select
         id="role-filter"
@@ -48,7 +48,7 @@
       </select>
     </div>
     <Button variant="default" type="button" onclick={onApply}>
-      <Search class="h-4 w-4" />
+      <Search aria-hidden="true" class="h-4 w-4" />
       {m.admin_usersSearch()}
     </Button>
   </div>

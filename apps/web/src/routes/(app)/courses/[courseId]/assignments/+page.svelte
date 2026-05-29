@@ -60,7 +60,7 @@
   {#if canCreate}
     <div class="animate-in animate-in-1 flex justify-end">
       <Button href={`/courses/${courseId}/assignments/new`}>
-        <Plus class="h-4 w-4" />
+        <Plus aria-hidden="true" class="h-4 w-4" />
         {m.courseAssignments_createNew()}
       </Button>
     </div>
@@ -177,7 +177,7 @@
               {#if assignment.status === "open"}
                 <span class={buttonVariants({ variant: "default", size: "sm" })}>
                   {m.courseAssignments_actionContinue()}
-                  <ChevronRight class="h-4 w-4" />
+                  <ChevronRight aria-hidden="true" class="h-4 w-4" />
                 </span>
               {:else if assignment.status === "closed"}
                 <span class={buttonVariants({ variant: "outline", size: "sm" })}>

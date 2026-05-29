@@ -136,7 +136,7 @@
                     onclick={() => move(id, -1)}
                     aria-label={m.examDetail_problemsEditMoveUp()}
                   >
-                    <ChevronUp class="h-4 w-4" />
+                    <ChevronUp aria-hidden="true" class="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -145,7 +145,7 @@
                     onclick={() => move(id, 1)}
                     aria-label={m.examDetail_problemsEditMoveDown()}
                   >
-                    <ChevronDown class="h-4 w-4" />
+                    <ChevronDown aria-hidden="true" class="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -153,7 +153,7 @@
                     onclick={() => detach(id)}
                     aria-label={m.examDetail_problemsEditDetachButton()}
                   >
-                    <X class="h-4 w-4" />
+                    <X aria-hidden="true" class="h-4 w-4" />
                   </button>
                 </div>
               {:else}

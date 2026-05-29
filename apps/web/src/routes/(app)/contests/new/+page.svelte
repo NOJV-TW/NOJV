@@ -39,7 +39,7 @@
 
 <div class="space-y-6">
   <div class="flex items-center gap-3">
-    <TrophyIcon class="h-8 w-8 text-primary" />
+    <TrophyIcon aria-hidden="true" class="h-8 w-8 text-primary" />
     <h1 class="text-title-lg">{m.contestCreate_title()}</h1>
   </div>
 
@@ -92,7 +92,7 @@
 
     
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <ClockIcon class="h-4 w-4" />
+      <ClockIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.common_timeline()}</span>
     </div>
     <div class="grid gap-4 sm:grid-cols-2">
@@ -126,7 +126,7 @@
 
     
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <SettingsIcon class="h-4 w-4" />
+      <SettingsIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.contestCreate_scoringMode()}</span>
     </div>
     <div>
@@ -193,7 +193,7 @@
 
     
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <CodeIcon class="h-4 w-4" />
+      <CodeIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.contestCreate_allowedLanguages()}</span>
     </div>
     <div>
@@ -220,7 +220,7 @@
 
     
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <ListIcon class="h-4 w-4" />
+      <ListIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.contestCreate_problemIds()}</span>
     </div>
     <div>
@@ -238,7 +238,7 @@
     </div>
 
       <Button type="submit" size="lg" loading={$submitting}>
-        <TrophyIcon class="h-4 w-4" />
+        <TrophyIcon aria-hidden="true" class="h-4 w-4" />
         {m.contestCreate_button()}
       </Button>
     </form>

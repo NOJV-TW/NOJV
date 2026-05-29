@@ -65,7 +65,7 @@
       title={m.editor_reset()}
       type="button"
     >
-      <RotateCcw class="h-3.5 w-3.5" />
+      <RotateCcw aria-hidden="true" class="h-3.5 w-3.5" />
     </button>
     <button
       aria-label={isFullscreen ? m.editor_exitFullscreen() : m.editor_fullscreen()}
@@ -75,9 +75,9 @@
       type="button"
     >
       {#if isFullscreen}
-        <Minimize2 class="h-3.5 w-3.5" />
+        <Minimize2 aria-hidden="true" class="h-3.5 w-3.5" />
       {:else}
-        <Maximize2 class="h-3.5 w-3.5" />
+        <Maximize2 aria-hidden="true" class="h-3.5 w-3.5" />
       {/if}
     </button>
   </div>

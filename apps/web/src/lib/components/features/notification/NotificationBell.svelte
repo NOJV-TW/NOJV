@@ -41,7 +41,7 @@
     onclick={() => (open = !open)}
     type="button"
   >
-    <BellIcon size={18} />
+    <BellIcon aria-hidden="true" size={18} />
     {#if notifications.unreadCount > 0}
       <span
         class={cn(

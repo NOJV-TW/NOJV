@@ -220,7 +220,7 @@
               <span
                 class="flex h-6 w-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
               >
-                <Plus class="h-3.5 w-3.5" />
+                <Plus aria-hidden="true" class="h-3.5 w-3.5" />
               </span>
             </button>
           {:else}
@@ -274,7 +274,7 @@
                     onclick={() => moveProblem(problem.id, -1)}
                     aria-label={m.examCreate_moveUp()}
                   >
-                    <ChevronLeft class="h-3.5 w-3.5 rotate-90" />
+                    <ChevronLeft aria-hidden="true" class="h-3.5 w-3.5 rotate-90" />
                   </button>
                   <button
                     type="button"
@@ -283,7 +283,7 @@
                     onclick={() => moveProblem(problem.id, 1)}
                     aria-label={m.examCreate_moveDown()}
                   >
-                    <ChevronRight class="h-3.5 w-3.5 rotate-90" />
+                    <ChevronRight aria-hidden="true" class="h-3.5 w-3.5 rotate-90" />
                   </button>
                 </div>
                 <button
@@ -292,7 +292,7 @@
                   onclick={() => removeProblem(problem.id)}
                   aria-label={m.examCreate_removeProblem()}
                 >
-                  <X class="h-3.5 w-3.5" />
+                  <X aria-hidden="true" class="h-3.5 w-3.5" />
                 </button>
               </div>
             {/each}
@@ -374,7 +374,7 @@
         onclick={() => (advancedOpen = !advancedOpen)}
         aria-expanded={advancedOpen}
       >
-        <ChevronRight
+        <ChevronRight aria-hidden="true"
           class="h-4 w-4 transition-transform {advancedOpen ? 'rotate-90' : ''}"
         />
         <div>

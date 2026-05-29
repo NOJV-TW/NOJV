@@ -190,7 +190,7 @@
                 class="flex size-9 items-center justify-center rounded-full bg-warning/15 text-warning"
                 aria-hidden="true"
               >
-                <AlertTriangle class="size-4" />
+                <AlertTriangle aria-hidden="true" class="size-4" />
               </span>
               <div class="min-w-0">
                 <div class="truncate text-body font-medium">{student.name}</div>
