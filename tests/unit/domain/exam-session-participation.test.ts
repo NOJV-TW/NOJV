@@ -13,6 +13,7 @@ const {
   sessionUpdate,
   sessionRecordEvent,
   participationUpsert,
+  participationFindByExamAndUser,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
@@ -23,6 +24,7 @@ const {
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
   participationUpsert: vi.fn(),
+  participationFindByExamAndUser: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -38,7 +40,12 @@ vi.mock("@nojv/db", () => ({
       recordEvent: sessionRecordEvent,
     }),
   },
-  examParticipationRepo: { withTx: () => ({ upsert: participationUpsert }) },
+  examParticipationRepo: {
+    withTx: () => ({
+      upsert: participationUpsert,
+      findByExamAndUser: participationFindByExamAndUser,
+    }),
+  },
   examParticipationIpRepo: { withTx: () => ({}) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
     fn({
@@ -67,6 +74,8 @@ describe("startSession — ExamParticipation creation", () => {
     courseFindUnique.mockResolvedValue({ archived: false });
     sessionFindActiveForUser.mockResolvedValue(null);
     sessionRecordEvent.mockResolvedValue({});
+    // Default: no prior participation row (fresh entry).
+    participationFindByExamAndUser.mockResolvedValue(null);
   });
 
   it("upserts an ExamParticipation row on a fresh session start", async () => {
@@ -92,5 +101,32 @@ describe("startSession — ExamParticipation creation", () => {
     await startSession(studentActor, { examId: "exm_1" });
 
     expect(participationUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT revive a disqualified participation on re-entry", async () => {
+    participationFindByExamAndUser.mockResolvedValue({
+      id: "ep_1",
+      status: "disqualified",
+    });
+    sessionFindByUserAndExam.mockResolvedValue(null);
+    sessionCreate.mockResolvedValue({ id: "ses_1", examId: "exm_1", userId: "usr_student" });
+
+    await startSession(studentActor, { examId: "exm_1" });
+
+    // Upsert update payload must not flip status back to "active".
+    expect(participationUpsert).toHaveBeenCalledTimes(1);
+    const updateData = participationUpsert.mock.calls[0][3];
+    expect(updateData.status).toBeUndefined();
+  });
+
+  it("activates a previously-registered participation on entry", async () => {
+    participationFindByExamAndUser.mockResolvedValue({ id: "ep_1", status: "registered" });
+    sessionFindByUserAndExam.mockResolvedValue(null);
+    sessionCreate.mockResolvedValue({ id: "ses_1", examId: "exm_1", userId: "usr_student" });
+
+    await startSession(studentActor, { examId: "exm_1" });
+
+    const updateData = participationUpsert.mock.calls[0][3];
+    expect(updateData.status).toBe("active");
   });
 });

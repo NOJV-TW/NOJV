@@ -13,6 +13,7 @@ const {
   membershipFindByComposite,
   txCourseFindUnique,
   participationUpsert,
+  participationFindByExamAndUser,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examFindByIdOrThrow: vi.fn(),
@@ -24,6 +25,7 @@ const {
   membershipFindByComposite: vi.fn(),
   txCourseFindUnique: vi.fn(),
   participationUpsert: vi.fn(),
+  participationFindByExamAndUser: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -46,7 +48,10 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({ findByComposite: membershipFindByComposite }),
     },
     examParticipationRepo: {
-      withTx: () => ({ upsert: participationUpsert }),
+      withTx: () => ({
+        upsert: participationUpsert,
+        findByExamAndUser: participationFindByExamAndUser,
+      }),
     },
     // assertEnrolledInExamCourse now reads `tx.course` directly to check
     // course.archived alongside membership; provide a tx mock that exposes it.
