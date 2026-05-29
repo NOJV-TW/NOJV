@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as Dialog from "$lib/components/primitives/ui/dialog";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     open: boolean;
@@ -16,8 +17,8 @@
     open = $bindable(false),
     title,
     message,
-    confirmText = "\u78BA\u8A8D",
-    cancelText = "\u53D6\u6D88",
+    confirmText = m.common_confirm(),
+    cancelText = m.common_cancel(),
     onconfirm,
     oncancel,
     variant = "default",
@@ -39,7 +40,7 @@
         {cancelText}
       </button>
       <button
-        class="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 {variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary/90'}"
+        class="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 {variant === 'danger' ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'}"
         type="button"
         onclick={() => onconfirm?.()}
       >
