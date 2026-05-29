@@ -11,9 +11,6 @@ const patchSchema = z.object({
   read: z.literal(true),
 });
 
-// PATCH /api/notifications/[id]  body { read: true } — mark a single
-// notification as read. `read: false` is intentionally not supported
-// (notifications are write-once after delivery).
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
@@ -25,8 +22,6 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   return json({ updated });
 });
 
-// DELETE /api/notifications/[id] — drop a single notification belonging to
-// the caller. Idempotent: 204 on success, 204 on already-deleted.
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 

@@ -8,7 +8,6 @@ const { listEditableProblems, listProblemCards } = problemDomain;
 const STATUS_VALUES = ["solved", "attempted", "untried", "bookmarked"] as const;
 type StatusFilter = (typeof STATUS_VALUES)[number];
 
-/** Parse a CSV param into a deduped, schema-validated enum array. */
 function parseEnumCsv<T>(
   raw: string | null,
   schema: { safeParse: (v: unknown) => { success: boolean; data?: T } },

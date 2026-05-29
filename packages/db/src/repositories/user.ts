@@ -4,7 +4,6 @@ import { runTransaction, type TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-// `@placeholder.nojv.local` is reserved; `attachPlaceholderToAuth` swaps in the real OAuth email on first login.
 function synthesizePlaceholderEmail(username: string): string {
   return `placeholder+${username}@placeholder.nojv.local`;
 }
@@ -14,7 +13,6 @@ async function attachPlaceholderInTx(
   placeholderId: string,
   realUserId: string,
 ): Promise<void> {
-  // Walk each membership so a single `(courseId, userId)` conflict doesn't kill the whole batch.
   const placeholderMemberships = await tx.courseMembership.findMany({
     where: { userId: placeholderId },
     select: { id: true, courseId: true },
@@ -25,7 +23,6 @@ async function attachPlaceholderInTx(
       select: { id: true },
     });
     if (existing) {
-      // Real user already in this course — drop the placeholder row.
       await tx.courseMembership.delete({ where: { id: mem.id } });
     } else {
       await tx.courseMembership.update({
@@ -52,8 +49,6 @@ export const userRepo = {
     return prisma.user.findUnique({ where: { username } });
   },
 
-  // Batch display-name lookup for a set of user ids. Used to hydrate
-  // actor names on audit timelines without an N+1 fetch loop.
   findManyByIds(ids: readonly string[]) {
     return prisma.user.findMany({
       where: { id: { in: [...ids] } },
@@ -94,8 +89,6 @@ export const userRepo = {
     });
   },
 
-  // Active-only recipient set for platform-wide fan-outs (announcements, etc).
-  // Excludes `disabled` and `pending_first_login` users.
   listActiveIds() {
     return prisma.user.findMany({
       where: { status: "active" },
@@ -126,15 +119,12 @@ export const userRepo = {
         name: input.username,
         emailVerified: false,
         status: "pending_first_login",
-        // Placeholders cannot sign in (no Account row); `disabled` stays false so they show as pending, not locked.
         disabled: false,
         platformRole: "student",
       },
     });
   },
 
-  // Transactional merge: transfers memberships + rewrites `addedBy` refs, then deletes the placeholder.
-  // Wraps `attachPlaceholderInTx` in its own transaction for callers outside an existing tx.
   async attachPlaceholderToAuth(placeholderId: string, realUserId: string) {
     if (placeholderId === realUserId) {
       throw new Error("attachPlaceholderToAuth: placeholder and real user must differ");
@@ -142,9 +132,6 @@ export const userRepo = {
     await runTransaction((tx) => attachPlaceholderInTx(tx, placeholderId, realUserId));
   },
 
-  // Tx-scoped version for callers that are already inside a `runTransaction`
-  // block (e.g. `renameUsername`). Same semantics as `attachPlaceholderToAuth`
-  // but does not open a nested transaction.
   attachPlaceholderInTx(tx: TxClient, placeholderId: string, realUserId: string) {
     if (placeholderId === realUserId) {
       throw new Error("attachPlaceholderInTx: placeholder and real user must differ");

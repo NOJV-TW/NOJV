@@ -1,8 +1,6 @@
 import { contestDomain, examDomain, notificationDomain } from "@nojv/domain";
 import { pubsub } from "@nojv/redis";
 
-// --- Contest ------------------------------------------------------------
-
 export type ContestInfo = contestDomain.ContestLifecycleSnapshot;
 
 export async function getContestInfo(contestId: string): Promise<ContestInfo> {
@@ -25,13 +23,9 @@ export async function updateContestScores(contestParticipationId: string): Promi
   await contestDomain.updateContestScores(contestParticipationId);
 }
 
-// --- Exam session -------------------------------------------------------
-
 export async function closeActiveSessionsForExam(examId: string): Promise<{ closed: number }> {
   return examDomain.session.autoCloseForExam(examId);
 }
-
-// --- Notification -------------------------------------------------------
 
 export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;

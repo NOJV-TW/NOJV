@@ -12,44 +12,15 @@
 
   export interface ProblemLeftPanelProps {
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
-    /**
-     * Server-computed flag controlling whether the "Rejudge this submission"
-     * button is rendered in the submission detail view. The real gate lives
-     * on `/api/submissions/[id]/rejudge`; this is progressive disclosure only.
-     */
     canRejudge?: boolean;
-    /**
-     * Server-computed editorial visibility — true when the viewer has AC
-     * OR has authored an editorial. The client `hasAc` derive only sees the
-     * current submission list, so an author whose AC was overturned by a
-     * rejudge needs this flag to keep editorial access.
-     */
     canViewEditorials?: boolean;
-    /**
-     * Whether the Editorials tab is rendered at all. Only practice enables it;
-     * assignment/contest/exam workspaces omit it to avoid an editorial spoiler
-     * mid-event. Distinct from `canViewEditorials`, which gates content once the
-     * tab is shown.
-     */
     editorialsEnabled?: boolean;
-    /** Assignment-only daily submission quota shown in the SpecialLabels strip.
-     *  `max: null` means unlimited — the badge renders `{used} / ∞`. */
     dailyAttempts?: { used: number; max: number | null } | undefined;
-    /**
-     * Bindable submission history. Parents (the right-pane Editor / advanced
-     * uploader) mutate this array to push freshly-completed submissions; the
-     * left pane owns the rendering and the lazy source-code fetch effect.
-     */
     submissions?: ProblemSubmissionEntry[];
-    /** Initial active tab when the panel mounts. Parents pass the default and
-     * then leave tab state alone — the panel auto-flips to "submissions" when
-     * it detects a new entry at the head of `submissions`. */
     leftTab?: "description" | "editorials" | "submissions";
-    /** Initial submission focus when the panel mounts. */
     viewingIndex?: number | null;
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
-    /** Unique DOM id suffix so two panels can coexist on the same page without colliding ids. */
     editorialFormIdSuffix?: string;
   }
 
@@ -67,18 +38,11 @@
     editorialFormIdSuffix = ""
   }: ProblemLeftPanelProps = $props();
 
-  // Tab + focused-entry are panel-owned one-way state. Parents never read them
-  // back, so we drop the $bindable round-trip and instead auto-flip when a new
-  // submission lands at the head of `submissions` (see effect below). The
-  // props seed the initial value only; untrack() makes the capture explicit.
   let leftTab = $state<"description" | "editorials" | "submissions">(
     untrack(() => initialLeftTab)
   );
   let viewingIndex = $state<number | null>(untrack(() => initialViewingIndex));
 
-  // Detect a newly-prepended submission by watching the first entry's marker
-  // (id when the server has assigned one, otherwise submittedAt). On mount we
-  // seed the baseline so the initial render does NOT count as a new submit.
   let lastKnownHead = $state<string | null>(
     untrack(() => submissions[0]?.id ?? submissions[0]?.submittedAt ?? null)
   );
@@ -93,9 +57,6 @@
     }
   });
 
-  // Editorial gate: a fresh AC in the live submission list OR the
-  // server-computed flag (which also covers authors grandfathered past a
-  // rejudge that overturned their AC).
   let hasAc = $derived(
     canViewEditorials || submissions.some((s) => s.result.verdict === "accepted")
   );

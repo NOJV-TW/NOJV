@@ -21,17 +21,6 @@ export function enforceMemoryLimit(
   );
 }
 
-/**
- * Decide AC/WA for standard-mode runs by comparing the runner's raw output
- * against the expected answer the worker already holds. The expected answer
- * is never shipped into the sandbox, so this comparison happens here instead
- * of in the run container.
- *
- * A `rawRun.errorVerdict` (TLE/MLE/RE/SE) means the run itself failed and is
- * passed through unchanged. A run with no matching testcase, or whose
- * testcase has no expected output, is an SE — a misconfiguration the learner
- * shouldn't be silently graded against.
- */
 export function resolveStandardResults(
   rawRuns: RawCaseRun[],
   testcases: SandboxTestcase[],
@@ -67,16 +56,6 @@ export function resolveStandardResults(
   });
 }
 
-/**
- * Decide each checker case by merging the run-phase raw output with the
- * isolated validator's per-case outcome. A failed run (TLE/MLE/RE/SE) passes
- * through unchanged — the validator never ran for it. A clean run takes the
- * validator's verdict/score; the validator's `teamMessage` becomes the
- * student-facing `feedback` and `judgeMessage` becomes the staff-only
- * `staffFeedback` (gated downstream so it never reaches the student). A clean
- * run with no validator outcome is an SE (the validator failed to report on
- * that case).
- */
 export function mergeCheckerResults(
   rawRuns: RawCaseRun[],
   outcomes: Map<number, ValidatorOutcome>,
@@ -116,12 +95,6 @@ export function mergeCheckerResults(
   });
 }
 
-/**
- * Normalize a parsed runner result into a `SandboxResult` carrying
- * `testcaseResults`. Standard mode emits `rawRuns` for worker-side checking;
- * convert those against the request testcases. Checker/interactive already
- * emit `testcaseResults`, so they pass through unchanged.
- */
 export function resolveSandboxResult(
   parsed: SandboxResult,
   testcases: SandboxTestcase[],

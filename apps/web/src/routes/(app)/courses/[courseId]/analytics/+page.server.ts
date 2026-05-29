@@ -7,8 +7,6 @@ const { getCourseAnalytics } = courseDomain;
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const { course, isManager } = await event.parent();
 
-  // Analytics is staff-only — `isManager` from the course layout is true for
-  // teachers, TAs, the course owner, and platform admins.
   if (!isManager) {
     throw new ForbiddenError("Only course staff can view class analytics.");
   }

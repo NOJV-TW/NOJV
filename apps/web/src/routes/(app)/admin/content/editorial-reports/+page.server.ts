@@ -7,8 +7,6 @@ import { editorialDomain } from "@nojv/domain";
 
 const { listEditorialReports, resolveEditorialReport } = editorialDomain;
 
-// Layout-level guard only runs on GET loads; POST actions can be called
-// directly. Re-derive auth + admin role inside every action.
 function requireAdmin(event: RequestEvent) {
   const actor = requireAuth(event);
   if (actor.platformRole !== "admin") {

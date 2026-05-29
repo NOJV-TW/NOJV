@@ -67,12 +67,10 @@ function wrapHandler(
   };
 }
 
-/** Wrap a read API handler with general rate limiting + error handling. */
 export function apiHandler(handler: ApiHandler): ApiHandler {
   return wrapHandler(handler, apiRateLimiter);
 }
 
-/** Wrap a write API handler with stricter rate limiting + error handling. */
 export function writeApiHandler(handler: ApiHandler): ApiHandler {
   return wrapHandler(handler, writeApiRateLimiter);
 }

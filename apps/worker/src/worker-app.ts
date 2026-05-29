@@ -24,10 +24,6 @@ export class WorkerApp {
     this.env = env;
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
-      // Readiness is derived live from each Worker's `getState()`. A stale
-      // boolean would let `/readyz` keep returning 200 after a mid-run
-      // disconnect (state would transition to `FAILED` / `STOPPED` but the
-      // flag would still read `true`).
       isTemporalConnected: () =>
         this.workers.length > 0 && this.workers.every((w) => w.getState() === "RUNNING"),
     });
@@ -97,10 +93,6 @@ export class WorkerApp {
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);
       for (const w of this.workers) {
-        // Swallow "Not running. Current state: DRAINING" when a second
-        // signal races the first shutdown — e.g. under `node --watch`
-        // hot-restart the SIGTERM arrives while the worker is already
-        // draining from a prior shutdown call.
         try {
           w.shutdown();
         } catch (err) {
@@ -110,10 +102,6 @@ export class WorkerApp {
           throw err;
         }
       }
-      // Close the shared dispatch-side Temporal client so the process can
-      // exit cleanly. The worker uses `NativeConnection` (closed by
-      // `Worker.shutdown()`); this drops the high-level client kept alive
-      // by `@nojv/temporal` dispatch helpers.
       await closeTemporalClient();
     })();
 

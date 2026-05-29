@@ -11,14 +11,8 @@
 
   interface Props {
     problemId: string;
-    /**
-     * Whether the viewer has at least one accepted submission. Editorials are
-     * gated behind solving the problem to keep spoiler exposure intentional.
-     */
     hasAc: boolean;
-    /** Whether this panel is the currently-visible tab — controls lazy fetch. */
     active: boolean;
-    /** Unique DOM id suffix so two panels can coexist on the same page. */
     formIdSuffix?: string;
   }
 
@@ -32,13 +26,10 @@
   let editorialLanguage = $state<Language>("python");
   let editorialSubmitting = $state(false);
 
-  // Report state — keyed by editorial id so only one inline form is open.
   let reportingId = $state<string | null>(null);
   let reportReason = $state("");
   let reportSubmitting = $state(false);
 
-  // The viewer's own username — used to hide the Report button on their
-  // own editorials (the server also rejects self-reports).
   const viewerUsername = $derived(page.data.user?.username ?? null);
 
   function openReport(id: string) {
@@ -105,7 +96,6 @@
     }
   }
 
-  // Fetch when the tab becomes active and the user has solved the problem.
   $effect(() => {
     if (active && hasAc && !editorialsLoaded && !editorialsLoading) {
       void loadEditorials();

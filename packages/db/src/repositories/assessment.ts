@@ -63,7 +63,6 @@ export const assessmentRepo = {
     });
   },
 
-  // Courses with zero rows fall out of the result set — callers must merge them in as 0.
   groupOpenCountsByCourse(courseIds: string[], now: Date) {
     if (courseIds.length === 0)
       return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
@@ -92,7 +91,6 @@ export const assessmentRepo = {
     });
   },
 
-  // Returns a 3x superset; the domain layer applies urgency-based sort and trims to `take`.
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
@@ -107,7 +105,6 @@ export const assessmentRepo = {
     });
   },
 
-  // open/upcoming/closed status is derived from `opensAt`/`closesAt` in the domain layer, not stored columns.
   listForCourse(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
@@ -122,7 +119,6 @@ export const assessmentRepo = {
     });
   },
 
-  // Early return on empty arrays would collapse the inferred include-payload type at the call site.
   listAcrossCourses(allCourseIds: string[], managerCourseIds: string[], take: number) {
     return prisma.courseAssessment.findMany({
       include: {
@@ -186,9 +182,6 @@ export const assessmentRepo = {
     });
   },
 
-  // Published assessments of a course with their attached problems (id + points).
-  // Backs the class-analytics dashboard — drafts are excluded so unpublished
-  // homework doesn't skew completion rates.
   listPublishedWithProblemsByCourse(courseId: string) {
     return prisma.courseAssessment.findMany({
       where: { courseId, status: "published" },
@@ -269,15 +262,12 @@ export const assessmentRepo = {
         return tx.courseAssessment.findUnique({ where: { id } });
       },
 
-      // `courseId` is retained as a scoping guard (row must belong to that course).
       findByCompositeId(courseId: string, assessmentId: string) {
         return tx.courseAssessment.findFirst({
           where: { id: assessmentId, courseId },
         });
       },
 
-      // Full row (all statuses) + attached problems — used by `copyCourse` to
-      // replicate the homework structure of a source course into a new one.
       listByCourseIdAllWithProblems(courseId: string) {
         return tx.courseAssessment.findMany({
           where: { courseId },
@@ -332,9 +322,6 @@ export const assessmentProblemRepo = {
     });
   },
 
-  // Practice-after-close: a user who had an active membership in a course
-  // whose published assessment closed in the past and contained this
-  // problem retains read/submit access — for practice only, no scoring.
   hasEndedAssessmentForUser(problemId: string, userId: string, now: Date) {
     return prisma.courseAssessmentProblem
       .findFirst({
@@ -353,10 +340,6 @@ export const assessmentProblemRepo = {
       .then((row) => row !== null);
   },
 
-  // Currently-active assignments that include this problem and that the
-  // user is enrolled in (active course membership). Used by the editorial
-  // context resolver to deny editorial reads while the assignment is
-  // still open.
   findActiveAssessmentsForUser(problemId: string, userId: string, now: Date) {
     return prisma.courseAssessmentProblem.findMany({
       where: {

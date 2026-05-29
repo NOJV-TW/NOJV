@@ -48,20 +48,13 @@
     }
   );
 
-  // Status-aware field locks. The server re-validates; these flags keep
-  // the UI honest so students/TAs don't waste a round-trip fiddling with
-  // a locked field.
   const isDraft = $derived(liveStatus === "draft");
   const isUpcoming = $derived(liveStatus === "upcoming");
   const isOpen = $derived(liveStatus === "open");
   const isClosed = $derived(liveStatus === "closed");
 
-  // Basic fields (title / summary / languages / attempts / cooldown /
-  // scoring): editable while the assignment hasn't ended.
   const editableBasics = $derived(isDraft || isUpcoming || isOpen);
-  // opensAt locks once the assignment opens.
   const editableOpensAt = $derived(isDraft || isUpcoming);
-  // dueAt / closesAt: free-form in draft/upcoming, delay-only while open.
   const editableDeadlines = $derived(isDraft || isUpcoming || isOpen);
 
   function toggleLanguage(lang: Language) {

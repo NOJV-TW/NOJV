@@ -20,8 +20,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const isAuthor = editorial.userId === actor.userId;
   const isAdmin = actor.platformRole === "admin";
   if (!isAuthor && !isAdmin) {
-    // 404 (not 403) so non-staff probes can not enumerate other authors'
-    // ids — matches the API-layer NotFoundError contract.
     error(404, "Editorial not found.");
   }
 

@@ -10,14 +10,12 @@ import type {
   SubmissionResult,
 } from "@nojv/core";
 
-// `id` is absent for local-only entries added before server persistence; when present, source is lazily fetched.
 export interface ProblemSubmissionEntry {
   id?: string;
   language: string;
   result: SubmissionResult;
   sourceCode?: string;
   submittedAt: string;
-  /** Source context of this submission; absent on optimistic entries that predate a context inference. */
   context?: "practice" | "assignment" | "contest" | "exam";
 }
 
@@ -40,7 +38,6 @@ export interface ProblemTestcaseSetSummary {
 
 export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
-  /** Practice page only — undefined elsewhere (contest/exam/assignment). */
   bookmarked?: boolean;
   inputFormat: string;
   judgeConfig: JudgeConfig;
@@ -61,7 +58,6 @@ export interface ProblemDetail extends ProblemOverview {
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
   advancedRequiredPaths: string[];
-  // Hidden files have `content === ""`; the domain layer blanks them before they leave the server.
   workspaceFiles: {
     language: string;
     path: string;

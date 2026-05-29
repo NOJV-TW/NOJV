@@ -15,7 +15,6 @@ function parseStatusFilter(raw: string | null, isManager: boolean): AssignmentSt
     case "closed":
       return raw;
     case "draft":
-      // Students never see draft — coerce to `all` if the URL is poked.
       return isManager ? "draft" : "all";
     case "all":
     default:

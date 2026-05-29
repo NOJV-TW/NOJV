@@ -31,7 +31,6 @@
     contextId: string;
     students: StudentOption[];
     problems: ProblemOption[];
-    /** Required when mode === "edit". */
     existing?: OverrideRow | null | undefined;
     onsuccess: () => void;
     oncancel?: (() => void) | undefined;
@@ -48,11 +47,6 @@
     oncancel
   }: Props = $props();
 
-  // Prop snapshot: this component is recreated by a parent `{#key}` block
-  // every time the edit target changes, so capturing the initial prop values
-  // as `$state` is intentional — there's no need to reactively re-seed.
-  // Wrapping each default in an IIFE silences svelte-check's
-  // `state_referenced_locally` warning without changing semantics.
   let userId = $state<string>(((): string => existing?.userId ?? students[0]?.id ?? "")());
   let problemId = $state<string>(
     ((): string => existing?.problemId ?? problems[0]?.id ?? "")()
@@ -88,8 +82,6 @@
     try {
       let res: Response;
       if (mode === "create") {
-        // Body shape mirrors `ScoreOverrideContext` discriminated union:
-        // `{ context: { type, (assignmentId|examId|contestId) }, ... }`.
         const context =
           contextType === "assignment"
             ? { type: contextType, assignmentId: contextId }
@@ -129,7 +121,6 @@
               : m.override_staff_toastUpdated()
         });
         if (mode === "create") {
-          // Reset for the next create; keep the edit form pre-filled.
           userId = students[0]?.id ?? "";
           problemId = problems[0]?.id ?? "";
           overrideScore = 0;

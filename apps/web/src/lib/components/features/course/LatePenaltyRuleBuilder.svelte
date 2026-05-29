@@ -21,7 +21,6 @@
     value: LatePenaltyRule;
     onChange: (value: LatePenaltyRule) => void;
     class?: string;
-    /** HTML name attribute for the radio inputs (ensures one group). */
     name?: string;
   }
 

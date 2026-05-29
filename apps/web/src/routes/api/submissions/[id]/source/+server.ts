@@ -8,9 +8,6 @@ import { submissionDomain } from "@nojv/domain";
 
 const { getSubmissionForUser, getSubmissionSources } = submissionDomain;
 
-// Returns the submission's source files in storage order. Multi-file
-// submissions emit one entry per file; full_source returns a single entry
-// at `main.<ext>`. The caller is responsible for picking / rendering.
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 

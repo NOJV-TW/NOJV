@@ -27,7 +27,6 @@ export interface SubmissionsMatrix {
   studentCount: number;
 }
 
-// Does not re-check permissions; route loader must gate on `isManager` before calling.
 export async function buildSubmissionsMatrix(
   courseId: string,
   assignmentId: string,
@@ -73,9 +72,6 @@ export async function buildSubmissionsMatrix(
     });
   }
 
-  // Overlay any manual score overrides. Overrides win over the best-submission
-  // score and also "unlock" a cell that otherwise had 0 attempts — a teacher
-  // can assign credit for an off-platform solution.
   const overrides = await getOverridesForContext({
     type: "assignment",
     assignmentId,

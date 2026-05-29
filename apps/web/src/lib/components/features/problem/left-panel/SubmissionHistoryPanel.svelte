@@ -27,13 +27,7 @@
   }
 
   interface Props {
-    /**
-     * Bindable submission history. The parent owns ingestion (push new
-     * results from Run/Submit); this panel renders + mutates entries
-     * in-place to attach lazily-fetched source code.
-     */
     submissions?: ProblemSubmissionEntry[];
-    /** Bindable index of the focused entry; `null` shows the list view. */
     viewingIndex?: number | null;
     canRejudge?: boolean;
   }
@@ -66,15 +60,6 @@
     }
   }
 
-  // Lazy-fetch the source code for the submission currently in focus. We key
-  // the work off the entry ID (not the array index) and gate writes on a
-  // per-effect-run `cancelled` flag so that:
-  //   1. if `viewingIndex` changes before the request resolves, the late
-  //      response is dropped (the cleanup callback flips `cancelled`),
-  //   2. if the parent re-shuffles `submissions` between dispatch and
-  //      resolution, we re-locate the target entry by ID at write time, and
-  //   3. if the entry has been dropped entirely (e.g. truncated off the
-  //      50-entry tail), the response is discarded silently.
   $effect(() => {
     const idx = viewingIndex;
     if (idx === null) return;

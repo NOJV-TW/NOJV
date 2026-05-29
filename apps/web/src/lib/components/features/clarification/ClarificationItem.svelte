@@ -2,7 +2,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
-  import { formatDate } from "$lib/utils/datetime";
+  import { relativeTime } from "$lib/utils/relative-time";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import type { ClarificationItem } from "$lib/stores/clarifications.svelte";
@@ -38,27 +38,6 @@
     item.problemId ? (problems.find((p) => p.id === item.problemId)?.title ?? null) : null
   );
 
-  // Render-time relative timestamp. Not reactive to clock tick — cheap
-  // approximation for a low-frequency feed; re-computes on every SSE
-  // update anyway.
-  // Relative-time copy is locale-agnostic by design (follows the same
-  // `Ns / Nm / Nh / Nd` pattern used by NotificationItem); not wired to
-  // paraglide to keep the unit labels untranslated but consistent.
-  function renderRelative(iso: string): string {
-    const then = new Date(iso).getTime();
-    const now = Date.now();
-    const diff = Math.max(0, now - then);
-    const sec = Math.floor(diff / 1000);
-    if (sec < 60) return `${sec}s ago`;
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m ago`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h ago`;
-    const day = Math.floor(hr / 24);
-    if (day < 7) return `${day}d ago`;
-    return formatDate(iso);
-  }
-
   const stateVariant = $derived<"info" | "success" | "muted">(
     item.state === "pending" ? "info" : item.state === "answered" ? "success" : "muted"
   );
@@ -89,7 +68,7 @@
       class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
       aria-hidden="true"
     ></span>
-    <span class="text-caption text-muted-foreground">{renderRelative(item.createdAt)}</span>
+    <span class="text-caption text-muted-foreground">{relativeTime(item.createdAt)}</span>
     {#if problemTitle}
       <span
         class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
@@ -124,7 +103,7 @@
         <p class="mt-2 text-caption text-muted-foreground">
           {m.clarification_answerBy({ name: item.answeredBy.name })}
           {#if item.answeredAt}
-            · {renderRelative(item.answeredAt)}
+            · {relativeTime(item.answeredAt)}
           {/if}
         </p>
       {/if}

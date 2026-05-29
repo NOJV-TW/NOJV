@@ -23,7 +23,7 @@
 </script>
 
 <div class="mx-auto w-full max-w-3xl px-6 pb-24">
-  <!-- Page head -->
+  
   <section class="animate-in mb-8">
     <a
       href="/courses"
@@ -43,7 +43,7 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <!-- Card 1 — Basics -->
+    
     <div
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -101,7 +101,7 @@
         </div>
       </div>
 
-      <!-- Term (optional) -->
+      
       <div class="mt-5 space-y-5 border-t border-border-subtle pt-5">
         <p class="text-body-sm font-medium">{m.coursesNew_termTitle()}</p>
         <p class="-mt-4 text-caption text-muted-foreground">{m.coursesNew_termSubtitle()}</p>
@@ -146,7 +146,7 @@
         </div>
       </div>
 
-      <!-- Placeholder user info banner -->
+      
       <div
         class="mt-5 flex items-start gap-3 rounded-md border border-info/20 border-l-4 border-l-info bg-info/5 px-4 py-3.5 text-body-sm leading-snug text-muted-foreground"
       >
@@ -160,7 +160,7 @@
       </div>
     </div>
 
-    <!-- Form actions -->
+    
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >

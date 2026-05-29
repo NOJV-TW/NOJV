@@ -19,9 +19,6 @@ const patchSchema = z.discriminatedUnion("kind", [
 ]);
 
 function parseBody(raw: unknown): z.infer<typeof patchSchema> {
-  // Accept both explicit `{ kind: "answer", answerText }` and the
-  // shorthand shapes the design doc lists: `{ answerText }` or
-  // `{ state: "dismissed" }` or `{ state: "answered", answerText }`.
   if (typeof raw === "object" && raw !== null) {
     const obj = raw as Record<string, unknown>;
     if (obj.kind === undefined) {

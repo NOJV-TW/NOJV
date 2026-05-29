@@ -21,8 +21,6 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const id = requireId(event);
   const payload = editorialUpdateSchema.parse(await event.request.json());
 
-  // Pass only keys that were actually provided — `exactOptionalPropertyTypes`
-  // forbids forwarding `undefined` for optional fields.
   const input: { content?: string; language?: Language } = {};
   if (payload.content !== undefined) input.content = payload.content;
   if (payload.language !== undefined) input.language = payload.language;

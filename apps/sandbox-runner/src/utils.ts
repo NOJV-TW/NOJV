@@ -10,27 +10,14 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
-// Best-effort cleanup — judges run in single-use containers, so a failed rm
-// only matters when running locally; swallowing the error keeps shutdown clean.
 export function cleanupTempDir(dir: string): Promise<void> {
   return fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
 
 export interface MemoryPoller {
-  /** Stop polling and return the peak resident set size observed, in KB. */
   stop(): number;
 }
 
-/**
- * Sample `/proc/<pid>/status` to track a child process's peak resident
- * memory (VmHWM, in KB). Linux-only — `/proc` is not present on macOS
- * dev hosts, but sandbox-runner always executes inside an Alpine container
- * regardless of where the developer runs `pnpm dev`, so the data path is
- * guaranteed in practice.
- *
- * Reads happen on a 50 ms interval, plus one synchronous read at start
- * time so processes that finish before the first tick still get a sample.
- */
 export function createMemoryPoller(pid: number): MemoryPoller {
   let peakKb = 0;
   let stopped = false;
@@ -57,16 +44,12 @@ export function createMemoryPoller(pid: number): MemoryPoller {
     stop(): number {
       stopped = true;
       clearInterval(interval);
-      // One final sample in case the process is still alive at stop time
-      // and VmHWM grew past the last tick.
       sample();
       return peakKb;
     },
   };
 }
 
-// Cap per-stream buffering so a runaway program printing unbounded output
-// cannot OOM-kill the runner before its timeout fires.
 const DEFAULT_OUTPUT_CAP_BYTES = 16 * 1024 * 1024;
 
 export interface BoundedBuffer {
@@ -75,27 +58,6 @@ export interface BoundedBuffer {
   get truncated(): boolean;
 }
 
-/**
- * Wrap a spawn command with `ulimit -u N` so the resulting process tree
- * cannot exceed N processes for the sandbox UID. Primary defence against
- * fork-bomb submissions — seccomp `RuntimeDefault` permits `clone()`, and
- * dropping capabilities does not restrict fork(), so an application-layer
- * rlimit is the only thing that actually bounds process count.
- *
- * Gated on `SANDBOX_NPROC_LIMIT` env. The sandbox Docker image sets this;
- * local dev and CI do not, because `RLIMIT_NPROC` is per-UID system-wide —
- * setting it to 64 on a dev laptop that already runs hundreds of processes
- * as the same user would EAGAIN every child spawn.
- *
- * Uses `bash -c 'ulimit -u N; exec "$@"' --` rather than `prlimit(1)` to
- * avoid pulling util-linux into the Alpine image; bash is already present
- * for shell-invoked toolchains.
- *
- * `opts.cpuSeconds` additionally sets `ulimit -t` (RLIMIT_CPU) as a CPU-time
- * cap on the solution run — defence-in-depth alongside the wall-clock timeout.
- * Unlike the nproc cap this is not env-gated: it bounds the spawned process
- * tree's CPU usage, not a per-UID system-wide limit, so it is safe on dev/CI.
- */
 export function withProcessLimit(command: string[], opts?: { cpuSeconds?: number }): string[] {
   const limits: string[] = [];
 

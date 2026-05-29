@@ -69,9 +69,6 @@ export function createWorkerHealthServer(deps: HealthDeps): Server {
     }
 
     if (request.url === "/readyz" && request.method === "GET") {
-      // Readiness gates traffic out of the worker pool. Without a live
-      // Temporal connection the worker cannot pull tasks, so it must not
-      // appear ready to Kubernetes.
       const ready = deps.isTemporalConnected();
       writeJson(response, ready ? 200 : 503, {
         ready,

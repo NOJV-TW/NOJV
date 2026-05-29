@@ -1,8 +1,3 @@
-/**
- * Run / submit flow used by `Editor.svelte`. Owns the run/submit busy flags,
- * the bottom-panel tab + last-run snapshot, and the in-flight abort
- * controller. The editor shell binds directly to the reactive surface.
- */
 import type { Language, SubmissionResult } from "@nojv/core";
 import { executeSubmission } from "$lib/services/submission-service";
 import type { ProblemDetail } from "$lib/types";

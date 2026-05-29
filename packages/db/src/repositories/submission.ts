@@ -11,8 +11,6 @@ import {
 
 type TxClient = TransactionClient;
 
-// Shared list shape for contest / exam submission feeds — identical columns,
-// different scoping. Keep extracted so adding a column updates one place.
 const contestExamListSelect = {
   id: true,
   createdAt: true,
@@ -24,8 +22,6 @@ const contestExamListSelect = {
   user: { select: userMiniSelect },
 } satisfies Prisma.SubmissionSelect;
 
-// Scoring base — chart, scoreboard, and per-participation scoring share these
-// four columns; each method spreads it and adds the nesting it needs.
 const scoringBaseSelect = {
   createdAt: true,
   problemId: true,
@@ -235,11 +231,6 @@ export const submissionRepo = {
     });
   },
 
-  // User-based stats per problem: how many distinct users tried it, and how
-  // many of those AC'd at least once. Drives the public AC rate (people-based,
-  // not submission-based) so that one prolific student spamming submissions
-  // can't skew the visible rate. `sampleOnly: false` excludes Run-mode dry-runs
-  // since they aren't real attempts.
   async countUserStatsByProblem(
     problemIds: string[],
   ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {
@@ -378,12 +369,6 @@ export const submissionRepo = {
     });
   },
 
-  /**
-   * Real (non-sample) submissions tagged to one virtual contest, in
-   * chronological order. Drives the compute-on-read virtual scoreboard:
-   * a virtual contest has a single participant so no participation join
-   * is needed — `userId` is carried directly on the row.
-   */
   findForVirtualContestScoreboard(virtualContestId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
@@ -436,10 +421,6 @@ export const submissionRepo = {
     });
   },
 
-  // Submission IDs for one gradable context — backs the audit timeline's
-  // rejudge-log lookup. Selects only `id` to keep the row scan cheap.
-  // Intentionally unbounded (no `take`): the audit timeline has no
-  // pagination, so every submission's rejudge history must be reachable.
   async listIdsForContext(
     context:
       | { type: "assignment"; assignmentId: string }
@@ -456,10 +437,6 @@ export const submissionRepo = {
     return rows.map((r) => r.id);
   },
 
-  // Used by the batch-rejudge authz check: is there any submission for this
-  // problem that's attached to a contest / assessment / exam context? If so,
-  // an unscoped batch would include work that the problem author alone can't
-  // re-grade, and the caller must scope the batch instead.
   async anyWithContextForProblem(problemId: string): Promise<boolean> {
     const row = await prisma.submission.findFirst({
       where: {
@@ -595,8 +572,6 @@ export const submissionRepo = {
     });
   },
 
-  // Verdict distribution across a set of assessments — backs the class-analytics
-  // verdict pie. Counts every real submission (Run-mode dry-runs excluded).
   groupStatusByAssessments(assessmentIds: string[]) {
     if (assessmentIds.length === 0) return Promise.resolve([]);
     return prisma.submission.groupBy({
@@ -609,9 +584,6 @@ export const submissionRepo = {
     });
   },
 
-  // Per-problem people-based stats scoped to a set of assessments: distinct
-  // attempters and distinct solvers. Drives the "hardest problems" panel —
-  // people-based so one student spamming submissions can't skew the AC rate.
   async countUserStatsByProblemForAssessments(
     assessmentIds: string[],
   ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {

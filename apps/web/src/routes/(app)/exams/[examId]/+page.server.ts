@@ -16,12 +16,16 @@ import {
   HttpError,
   listExamIpViolations,
   plagiarismDomain,
+  proctoringDomain,
   scoreOverrideDomain,
   userDomain,
 } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
+import { invalidateExamContextCaches } from "$lib/server/exam-context-cache";
+import { getClientIp } from "$lib/server/shared/client-ip";
+import { createLogger } from "$lib/server/logger";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -36,6 +40,8 @@ const {
   publishExam,
   updateExamRecord,
 } = examDomain;
+
+const logger = createLogger("exam-page-action");
 
 function parseWhitelist(text: string): string[] {
   return text
@@ -78,12 +84,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       : Promise.resolve([]),
     isManager ? listExamIpViolations({ examId }).catch(() => []) : Promise.resolve([]),
     isManager ? examDomain.session.listActiveSessions(examId) : Promise.resolve([]),
-    // Student-facing grading feedback — close-gated inside the domain, so
-    // it yields [] until the exam ends. Managers don't render it here.
     isManager
       ? Promise.resolve([])
       : feedbackDomain.getFeedbackForStudent(actor.userId, { type: "exam", examId }),
-    // Staff-only audit timeline; students get an empty list (the tab is hidden).
     isManager
       ? auditDomain.listAuditTimelineForContext({ type: "exam", examId })
       : Promise.resolve([] as auditDomain.AuditEvent[]),
@@ -95,7 +98,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ])
     : {};
 
-  // Matrix reuses detail.problems instead of re-fetching the exam row.
   const matrix =
     isManager && detail
       ? await buildExamSubmissionsMatrix({
@@ -112,16 +114,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const results: ExamResults | null = matrix ? buildExamResults(matrix, actor.userId) : null;
 
-  // The layout gate already accepted this exam for the viewer; treat a
-  // null payload here (draft hidden from students, archived, etc.) as a
-  // defense-in-depth 404 rather than a crash.
   if (detail?.courseId !== examHeader.courseId) {
     error(404, "Exam not found");
   }
 
-  // Managers also get a pre-seeded superform for the Settings tab so
-  // the initial render matches what the server believes the exam looks
-  // like — avoids client-side duplication of seeding logic.
   const settingsForm =
     isManager && detail.manager
       ? await superValidate<ExamSettingsForm, FormMessage>(
@@ -194,15 +190,31 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 export const actions = {
   startExam: withRateLimit(async (event) => {
     const actor = requireAuth(event);
+    const examId = event.params.examId;
+    const clientIp = getClientIp(event);
     try {
-      await examDomain.session.startSessionWithGate(actor, {
-        examId: event.params.examId,
-      });
+      await examDomain.session.startSessionWithGate(actor, { examId });
+      try {
+        await proctoringDomain.checkProctoringGate({
+          entityKind: "exam",
+          entityId: examId,
+          userId: actor.userId,
+          ip: clientIp,
+        });
+      } catch (err) {
+        logger.warn("start-time IP pin failed — hooks gate still enforces", {
+          userId: actor.userId,
+          examId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
     } catch (err) {
       if (err instanceof HttpError) {
         return fail(err.status, { error: err.message });
       }
       throw err;
+    } finally {
+      invalidateExamContextCaches(actor.userId);
     }
     return { success: true };
   }),
@@ -219,6 +231,8 @@ export const actions = {
         return fail(err.status, { error: err.message });
       }
       throw err;
+    } finally {
+      invalidateExamContextCaches(actor.userId);
     }
     return { success: true };
   }),
@@ -350,10 +364,6 @@ export const actions = {
   updateProblems: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
-    // `problemIds` is sent once per row (repeated) in the canonical
-    // order the user selected; order is preserved in-order by
-    // `getAll()`. Deduplicate while keeping first occurrence so
-    // double-submits from the Attach form can't double-list.
     const seen = new Set<string>();
     const problemIds: string[] = [];
     for (const raw of formData.getAll("problemIds")) {
@@ -362,7 +372,6 @@ export const actions = {
       seen.add(id);
       problemIds.push(id);
     }
-    // Optional per-problem points override via `points_<id>` inputs.
     const pointOverrides: Record<string, number> = {};
     for (const [key, val] of formData.entries()) {
       if (!key.startsWith("points_")) continue;

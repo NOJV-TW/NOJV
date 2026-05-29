@@ -17,8 +17,6 @@
     disconnectSSE();
   });
 
-  // Load recent notifications once per authenticated session. The `$effect`
-  // re-fires only if `user?.id` changes (login/logout), not on every re-render.
   let initedFor: string | null = null;
   $effect(() => {
     const id = user?.id ?? null;

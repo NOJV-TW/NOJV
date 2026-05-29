@@ -21,8 +21,6 @@ export async function seedContests(prisma: PrismaClient) {
     where: { id: "spring-qualifier-2026" },
   });
 
-  // Demo: upcoming contest. Used to exercise the redesigned hidden-problem
-  // pre-start state — non-managers must not see problem titles before kickoff.
   const upcomingCup = await prisma.contest.upsert({
     create: {
       id: "contest_demo_upcoming",
@@ -41,7 +39,6 @@ export async function seedContests(prisma: PrismaClient) {
     where: { id: "contest_demo_upcoming" },
   });
 
-  // Demo: live contest in progress. Started recently, ends in a couple of hours.
   const liveRound = await prisma.contest.upsert({
     create: {
       id: "contest_demo_live",
@@ -60,7 +57,6 @@ export async function seedContests(prisma: PrismaClient) {
     where: { id: "contest_demo_live" },
   });
 
-  // Link problems to contests
   const contestProblemLinks = [
     {
       contestId: springQualifier.id,

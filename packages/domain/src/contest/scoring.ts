@@ -41,18 +41,6 @@ export interface ScoreboardChart {
 
 const SCORE_UPDATE_MAX_ATTEMPTS = 3;
 
-/**
- * Recompute and persist a participant's score / penalty / per-problem
- * subtotals from their submissions and any active overrides.
- *
- * Concurrency: multiple Temporal workflows can call this for the same
- * participation in parallel (rejudge fan-out, override edits, late
- * submissions). The repo enforces optimistic locking on the participation
- * row's `version` column; on conflict we re-read submissions+overrides
- * and recompute, up to SCORE_UPDATE_MAX_ATTEMPTS. If we still lose
- * the race, we throw `ConflictError` and let the workflow retry policy
- * take over.
- */
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
   let overrideRows: Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>> | undefined;
 
@@ -117,9 +105,6 @@ export async function updateContestScores(contestParticipationId: string): Promi
           if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
         }
 
-        // Overlay any per-problem overrides for this participant — overrides
-        // win over the best-submission aggregate, even for problems they
-        // never submitted to.
         overrideRows ??= await scoreOverrideRepo.findAllByContext("contest", contest.id);
         for (const row of overrideRows) {
           if (row.userId !== participation.userId) continue;
@@ -155,7 +140,6 @@ export async function updateContestScores(contestParticipationId: string): Promi
       return;
     } catch (err) {
       if (err instanceof ParticipationVersionConflict) {
-        // Another writer landed first — retry on a fresh read.
         continue;
       }
       throw err;
@@ -167,13 +151,6 @@ export async function updateContestScores(contestParticipationId: string): Promi
   );
 }
 
-/**
- * Render a contest scoreboard. The single `canSeeLive` flag controls both
- * the freeze and the `hidden` mode bypass — callers MUST decide based on
- * server-side actor identity (admin or contest organizer), never on a
- * client-supplied query parameter, otherwise a student can leak the
- * unfrozen ranking by toggling a URL flag.
- */
 export async function getScoreboard(
   contestId: string,
   options?: { canSeeLive?: boolean },
@@ -266,8 +243,6 @@ export async function getScoreboardChart(
   contestId: string,
   topN: number,
 ): Promise<ScoreboardChart> {
-  // Chart is read-only data for the top-N table — frozen view is fine for
-  // everyone (admin / organizer overlays the live picture elsewhere).
   const scoreboardData = await getScoreboard(contestId, { canSeeLive: false });
 
   const topEntries = scoreboardData.entries.slice(0, topN);
@@ -277,7 +252,6 @@ export async function getScoreboardChart(
 
   const topUserIds = new Set(topEntries.map((e) => e.userId));
 
-  // Reuse problem points from scoreboard instead of re-fetching the contest row.
   const pointsMap = new Map(scoreboardData.problems.map((p) => [p.id, p.points]));
 
   const contest = await contestRepo.findForChartById(contestId, [...topUserIds]);
@@ -289,7 +263,6 @@ export async function getScoreboardChart(
   const participationIds = contest.participations.map((p) => p.id);
   const submissions = await submissionRepo.findForContestChart(participationIds);
 
-  // Keep the pure builder unaware of contestParticipationId plumbing.
   const submissionsByUser = new Map<string, SubmissionRow[]>();
   for (const sub of submissions) {
     const userId = participationUserMap.get(sub.contestParticipationId ?? "");

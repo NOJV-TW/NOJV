@@ -124,7 +124,7 @@
             ? 'border-dashed border-border bg-transparent'
             : 'border-border bg-[color:var(--color-panel)]'}"
         >
-          <!-- Left status indicator strip -->
+          
           <span
             class="pointer-events-none absolute left-0 top-0 bottom-0 w-[4px] {isUpcoming
               ? 'bg-info'
@@ -136,7 +136,7 @@
             aria-hidden="true"
           ></span>
 
-          <!-- Date block -->
+          
           <div
             class="min-w-[72px] rounded-md border px-3 py-2 text-center {isRunning
               ? 'border-[color:var(--color-primary)]/28 bg-[color:var(--color-primary)]/8'
@@ -157,7 +157,7 @@
             </div>
           </div>
 
-          <!-- Middle: title + meta -->
+          
           <div class="min-w-0">
             <div class="flex items-center gap-3">
               <h3 class="truncate text-title-sm font-semibold tracking-[-0.01em]">
@@ -279,7 +279,7 @@
             </div>
           </div>
 
-          <!-- Right: countdown / class stats -->
+          
           <div class="flex min-w-[200px] items-center justify-end gap-6">
             {#if isRunning}
               <div class="text-title font-medium tabular-nums">

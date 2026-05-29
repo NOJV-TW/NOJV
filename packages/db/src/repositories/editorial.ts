@@ -3,9 +3,6 @@ import type { Prisma } from "../../generated/prisma/client";
 import { userPublicSelect } from "./selects";
 
 export const editorialRepo = {
-  /**
-   * List live editorials for a problem (soft-deleted rows are filtered).
-   */
   listByProblemId(problemId: string) {
     return prisma.editorial.findMany({
       where: { problemId, deletedAt: null },
@@ -14,10 +11,6 @@ export const editorialRepo = {
     });
   },
 
-  /**
-   * Paginated list of live editorials for a problem. `take` is clamped
-   * by the caller; `skip` is the offset (page-based pagination).
-   */
   listByProblemIdPaged(problemId: string, skip: number, take: number) {
     return prisma.editorial.findMany({
       where: { problemId, deletedAt: null },
@@ -28,21 +21,12 @@ export const editorialRepo = {
     });
   },
 
-  /**
-   * Live count for a problem (soft-deleted rows are filtered). Used by
-   * the paginated list page header.
-   */
   countByProblemId(problemId: string) {
     return prisma.editorial.count({
       where: { problemId, deletedAt: null },
     });
   },
 
-  /**
-   * Whether the user has at least one live editorial for the problem.
-   * Used by the rejudge-grandfather check so an author who lost current
-   * AC after a rejudge can still see editorials they have authored.
-   */
   async existsForUserProblem(userId: string, problemId: string) {
     const count = await prisma.editorial.count({
       where: { userId, problemId, deletedAt: null },
@@ -50,12 +34,6 @@ export const editorialRepo = {
     return count > 0;
   },
 
-  /**
-   * Find by id, including soft-deleted rows. Domain layer is responsible
-   * for translating `deletedAt != null` into NotFoundError so the
-   * caller can not distinguish "never existed" from "soft-deleted" for
-   * unauthenticated probes.
-   */
   findById(id: string) {
     return prisma.editorial.findUnique({
       where: { id },
@@ -68,10 +46,6 @@ export const editorialRepo = {
     problemId: string,
     data: { content: string; language: Prisma.EditorialCreateInput["language"] },
   ) {
-    // If a soft-deleted row exists with the same composite key, the
-    // upsert reuses it: `update` clears `deletedAt` so the editorial is
-    // effectively restored with new content. This keeps the composite
-    // unique constraint race-safe.
     return prisma.editorial.upsert({
       where: {
         userId_problemId_language: {
@@ -85,12 +59,6 @@ export const editorialRepo = {
     });
   },
 
-  /**
-   * Partial update of body / language. Returns the updated row.
-   * Caller is expected to have already gated on ownership and existence.
-   * Only the keys present in `data` are sent to Prisma — passing
-   * `undefined` keys would trip `exactOptionalPropertyTypes`.
-   */
   update(
     id: string,
     data: { content?: string; language?: Prisma.EditorialCreateInput["language"] },
@@ -105,10 +73,6 @@ export const editorialRepo = {
     });
   },
 
-  /**
-   * Soft-delete by setting `deletedAt`. Idempotent — re-deleting a
-   * tombstoned row is allowed (the domain treats double-delete as 404).
-   */
   softDelete(id: string, now = new Date()) {
     return prisma.editorial.update({
       where: { id },

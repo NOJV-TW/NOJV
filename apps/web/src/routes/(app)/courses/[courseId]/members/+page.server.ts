@@ -44,10 +44,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     superValidate({ handles: "", role: "student" as const }, zod4(bulkAddSchema)),
   ]);
 
-  // Active-only filter mirrors the UI; removed rows live on the server for audit.
-  // Placeholders are only exposed to managers — leaking placeholder usernames to
-  // peers lets any student claim a pre-invited TA/teacher handle via the
-  // self-service rename flow and inherit the course membership.
   const visibleMembers = members
     .filter((member) => member.status === "active")
     .filter((member) => isManager || !member.isPlaceholder)
@@ -70,7 +66,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 export const actions = {
   bulkAdd: withRateLimit(async (event) => {
     const actor = requireAuth(event);
-    // Defensive backstop for direct POSTs: `event.parent()` is unavailable in form actions.
     const role = await getCoursePermissionRole(event.params.courseId, actor);
     if (!canManageCourse(role)) {
       return fail(403, { error: "Forbidden" });

@@ -8,9 +8,6 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 
 const { canViewLiveContestScoreboard, getScoreboard } = contestDomain;
 
-// View resolution is server-side only — admins and the contest organizer
-// see the live board, every other caller sees the frozen / hidden view.
-// We deliberately ignore any client-supplied freeze flag.
 export const GET: RequestHandler = apiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing contest id." }, { status: 400 });

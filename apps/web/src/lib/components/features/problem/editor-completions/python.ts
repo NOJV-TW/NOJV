@@ -1,7 +1,6 @@
 import type { CompletionEntry } from "./index";
 
 export const pythonCompletions: CompletionEntry[] = [
-  // I/O
   {
     label: "input",
     kind: "Function",
@@ -29,7 +28,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "sys",
     isSnippet: true,
   },
-  // Imports
   { label: "import sys", kind: "Snippet", insertText: "import sys", detail: "module" },
   {
     label: "from collections import",
@@ -70,7 +68,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "module",
     isSnippet: true,
   },
-  // Builtins
   {
     label: "len",
     kind: "Function",
@@ -211,7 +208,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "builtin",
     isSnippet: true,
   },
-  // collections
   {
     label: "defaultdict",
     kind: "Class",
@@ -233,7 +229,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "collections",
     isSnippet: true,
   },
-  // heapq
   {
     label: "heappush",
     kind: "Function",
@@ -255,7 +250,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "heapq",
     isSnippet: true,
   },
-  // bisect
   {
     label: "bisect_left",
     kind: "Function",
@@ -270,7 +264,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "bisect",
     isSnippet: true,
   },
-  // math
   {
     label: "math.gcd",
     kind: "Function",
@@ -321,7 +314,6 @@ export const pythonCompletions: CompletionEntry[] = [
     isSnippet: true,
   },
   { label: "math.inf", kind: "Constant", insertText: "math.inf", detail: "math" },
-  // functools
   {
     label: "lru_cache",
     kind: "Function",
@@ -329,7 +321,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "functools",
     isSnippet: true,
   },
-  // itertools
   {
     label: "permutations",
     kind: "Function",
@@ -351,7 +342,6 @@ export const pythonCompletions: CompletionEntry[] = [
     detail: "itertools",
     isSnippet: true,
   },
-  // Patterns
   {
     label: "read ints",
     kind: "Snippet",

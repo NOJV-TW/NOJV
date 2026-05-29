@@ -19,7 +19,6 @@
     contextId: string;
     students: StudentOption[];
     problems: ProblemOption[];
-    /** Required when mode === "edit". */
     existing?: FeedbackRow | null | undefined;
     onsuccess: () => void;
     oncancel?: (() => void) | undefined;
@@ -36,10 +35,6 @@
     oncancel
   }: Props = $props();
 
-  // Prop snapshot: this component is recreated by a parent `{#key}` block
-  // every time the edit target changes, so capturing the initial prop values
-  // as `$state` is intentional. IIFE-wrapped defaults silence svelte-check's
-  // `state_referenced_locally` warning without changing semantics.
   let studentUserId = $state<string>(
     ((): string => existing?.studentUserId ?? students[0]?.id ?? "")()
   );
@@ -70,9 +65,6 @@
 
     submitting = true;
     try {
-      // Body shape mirrors the `/api/feedback` context union:
-      // `{ context: { type, (assignmentId|examId) }, ... }`. Feedback is an
-      // upsert — one PUT handles both create and edit.
       const context =
         contextType === "assignment"
           ? { type: contextType, assignmentId: contextId }
@@ -92,7 +84,6 @@
               : m.feedback_staff_toastUpdated()
         });
         if (mode === "create") {
-          // Reset for the next create; keep the edit form pre-filled.
           studentUserId = students[0]?.id ?? "";
           problemId = problems[0]?.id ?? "";
           comment = "";

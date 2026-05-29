@@ -3,15 +3,12 @@ import type { AdjustmentRule, AdjustmentRules } from "@nojv/core";
 export interface AdjustmentInputs {
   rules: AdjustmentRules | null;
   submittedAt: Date;
-  /** Soft deadline — used as `startFrom: "due"` anchor. */
   dueAt: Date | null;
-  /** Hard close of the assignment — used as `startFrom: "final_day"` anchor and by `final_day_zero`. */
   finalDay: Date | null;
   runtimeMs: number;
   rawScore: number;
 }
 
-// Rules run in array order; the running score is clamped to [0, 100] at each step.
 export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   score: number;
   adjustments: { rule: AdjustmentRule["type"]; delta: number }[];
@@ -28,7 +25,6 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
     const before = score;
 
     if (rule.type === "time_bonus") {
-      // `baselineMs > 0` guards against a divide-by-zero that would produce NaN and wipe the score.
       if (rule.baselineMs > 0 && runtimeMs >= 0) {
         const ratio = Math.max(0, 1 - runtimeMs / rule.baselineMs);
         const bonus = ratio * rule.maxBonusPercent;
@@ -40,7 +36,6 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
         score = score * (1 - rule.penaltyPct / 100);
       }
     } else if (rule.type === "daily_late_penalty") {
-      // `daysLate = 0` (inside the first 24h window) keeps a submission penalty-free.
       const anchor = resolveAnchor(rule.startFrom, dueAt, finalDay, rule.type);
       if (anchor && submittedAt > anchor) {
         const msLate = submittedAt.getTime() - anchor.getTime();
@@ -51,7 +46,6 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
         }
       }
     } else {
-      // `final_day_zero`: a missing `closesAt` anchor must not silently zero everything.
       if (!finalDay) {
         warnMissingAnchor(rule.type, "final_day");
       } else if (submittedAt > finalDay) {
@@ -68,7 +62,6 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   return { score, adjustments: log };
 }
 
-// Returns `null` (and logs once per missing anchor kind) when the assignment context lacks the field.
 function resolveAnchor(
   startFrom: "due" | "final_day",
   dueAt: Date | null,

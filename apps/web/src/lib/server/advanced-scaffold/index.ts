@@ -1,8 +1,5 @@
 import JSZip from "jszip";
 
-// Inline every scaffold source file into the server bundle at build time so
-// the route works without resolving on-disk paths (which break once Vite
-// bundles apps/web). Keys are paths relative to ./files; values are contents.
 const rawFiles: Record<string, string> = import.meta.glob("./files/**/*", {
   query: "?raw",
   import: "default",

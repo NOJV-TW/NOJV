@@ -25,9 +25,6 @@ export type EditorialViewContext =
   | { kind: "assignment"; assignmentId: string; now: Date }
   | { kind: "exam"; examId: string; now: Date };
 
-// Fail-closed: if the active event row can't be resolved (Prisma flap,
-// deleted row, stale link), deny editorial access. A transient lookup
-// failure during a live event must not leak editorials to participants.
 async function contextGateOpen(context: EditorialViewContext): Promise<boolean> {
   switch (context.kind) {
     case "practice":
@@ -52,14 +49,6 @@ async function contextGateOpen(context: EditorialViewContext): Promise<boolean> 
   }
 }
 
-/**
- * Editorial visibility gate. Authors of any editorial for the problem
- * always see it (grandfather rule — a rejudge overturning their AC must
- * not lock them out of their own writing). Otherwise the user must have
- * an accepted submission AND the contextual event (contest/assignment/exam)
- * must have already ended — past-practice AC alone is not enough to read
- * editorials during an active contest reuse of the same problem.
- */
 export async function canViewEditorials(
   userId: string,
   problemId: string,
@@ -74,17 +63,6 @@ export async function canViewEditorials(
   return contextGateOpen(context);
 }
 
-/**
- * Resolve the editorial view context for `(userId, problemId)` server-side.
- *
- * The client must NOT be allowed to declare its own context — that lets a
- * student in a live event spoof `practice` (or point at some unrelated
- * already-ended contest) and bypass the gate. Instead we look at every
- * currently-running (now < endsAt/closesAt) contest / assignment / exam
- * that contains the problem AND which the user is enrolled in or
- * participating in, and pick the one with the latest deadline — the
- * strictest gate. If nothing matches, fall back to practice context.
- */
 export async function resolveActiveContextForUser(
   userId: string,
   problemId: string,
@@ -116,7 +94,6 @@ export async function resolveActiveContextForUser(
     });
   }
 
-  // Strictest gate = latest-ending event (waits longest before it opens).
   let strictest: { context: EditorialViewContext; deadline: number } | undefined;
   for (const candidate of candidates) {
     if (!strictest || candidate.deadline > strictest.deadline) {
@@ -136,10 +113,6 @@ export interface ListEditorialsPageInput {
   pageSize: number;
 }
 
-/**
- * Paginated read for the dedicated editorial list page. Returns the
- * page slice plus the total count so the UI can render page controls.
- */
 export async function listEditorialsPage({
   problemId,
   page,

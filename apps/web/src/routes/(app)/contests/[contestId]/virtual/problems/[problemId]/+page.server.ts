@@ -9,16 +9,6 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 const { getProblemPageData } = problemDomain;
 const { getVirtualContestForUser, listVirtualContestProblemSubmissions } = virtualContestDomain;
 
-/**
- * Virtual-contest solve workspace. Reuses the standard `ProblemSolveView`
- * (practice mode) but tags every submission with the run's `virtualContestId`.
- *
- * Guard rails:
- *  - the user must have started a virtual contest for this contest;
- *  - if the personal timer has expired, the loader redirects back to the
- *    dashboard (read-only) — finished runs are not solvable;
- *  - the problem must belong to the contest.
- */
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
   const { contestId, problemId } = event.params;
@@ -29,7 +19,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     redirect(303, `/contests/${contestId}/virtual`);
   }
   if (virtual.status === "finished") {
-    // Timer expired — the run is over, no further submissions allowed.
     redirect(303, `/contests/${contestId}/virtual`);
   }
 
@@ -43,7 +32,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     listVirtualContestProblemSubmissions(virtual.virtualContestId, actor.userId, problemId),
   ]);
 
-  // Sibling list for the float problem switcher — scoped to the virtual run.
   const siblingProblems = virtual.problems.map((p) => ({
     id: p.problemId,
     letter: p.letter,

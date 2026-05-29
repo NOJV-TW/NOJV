@@ -13,7 +13,6 @@ interface AnnouncementTranslationRow {
   content: string;
 }
 
-/** Project translations into a flat title/content/published shape. */
 function flattenAnnouncement(announcement: {
   id: string;
   status: "draft" | "published" | "archived";
@@ -65,7 +64,6 @@ export const load: PageServerLoad = async (event) => {
     });
     return {
       ...a,
-      // Template calls `new Date(dueAt)` directly; coalesce to closesAt.
       dueAt: a.dueAt ?? a.closesAt,
       windowState,
       windowStateColor: windowStateColorClass(windowState),

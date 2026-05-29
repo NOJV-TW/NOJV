@@ -36,7 +36,7 @@
   <Header />
   <main class="flex-1 pt-6">
   <div class="grid gap-8 lg:grid-cols-[1fr_1fr]">
-    <!-- Left column: Announcements -->
+    
     <Card
       variant="surface"
       size="lg"
@@ -90,7 +90,7 @@
     </Card>
 
     {#if !user}
-      <!-- Right column: Hero card (logged out) -->
+      
       <Card
         variant="strong"
         size="hero"
@@ -114,7 +114,7 @@
         </div>
       </Card>
     {:else}
-      <!-- Right column: Upcoming Assessments (logged in) -->
+      
       <Card
         variant="surface"
         size="lg"

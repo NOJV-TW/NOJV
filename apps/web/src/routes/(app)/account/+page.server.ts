@@ -12,7 +12,6 @@ import type { FormMessage } from "$lib/types/form-message";
 import type { Actions, PageServerLoad } from "./$types";
 import { nameSchema, usernameSchema } from "./schemas";
 
-// Map domain error `.message` codes → HTTP status for the message envelope.
 const ERROR_STATUS: Record<string, number> = {
   VERIFIED_LOCKED: 409,
   PLACEHOLDER_LOCKED: 403,

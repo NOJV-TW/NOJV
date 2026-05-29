@@ -8,11 +8,8 @@
   type Sf = SuperForm<ExamSettingsForm, FormMessage>;
 
   interface Props {
-    /** Live form snapshot from `superForm.form`; bindable so we can two-way the inputs. */
     form: Sf["form"];
-    /** Field-level error map. */
     errors: Sf["errors"];
-    /** Whether basic fields are editable in the current lifecycle phase. */
     editable: boolean;
   }
 

@@ -5,11 +5,6 @@ import type { PrismaClient, User } from "../../generated/prisma/client";
 const COURSE_ID = "course_os-lab-spring-2026";
 const ROSTER_SIZE = 10;
 
-/**
- * Create ~10 demo students (student01..student10) with credential accounts and
- * enroll them all into the OS Lab course as students. Idempotent: upserts on
- * username and on the (course, user) membership composite.
- */
 export async function seedDemoStudents(
   prisma: PrismaClient,
   teacher: { id: string },

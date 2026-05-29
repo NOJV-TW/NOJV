@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { judgeTypeSchema } from "../types";
 
-// Authoritative judge configuration.
-
 export const judgeScriptLanguageSchema = z.enum(["python", "cpp"]);
 
 export type JudgeScriptLanguage = z.infer<typeof judgeScriptLanguageSchema>;
@@ -18,16 +16,11 @@ export type Runtime = z.infer<typeof runtimeSchema>;
 export const judgeConfigSchema = z.object({
   type: judgeTypeSchema.default("standard"),
 
-  // Checker / interactive scripts live in object storage; the JSON column
-  // carries only the storage key. Presence of the key means a script exists.
-  // Nullish since older rows persisted explicit null while newer code writes
-  // undefined.
   checkerKey: z.string().max(500).nullish(),
   checkerLanguage: judgeScriptLanguageSchema.nullish(),
   interactorKey: z.string().max(500).nullish(),
   interactorLanguage: judgeScriptLanguageSchema.nullish(),
 
-  // Runtime: authoritative source for time/memory limits + env.
   runtime: runtimeSchema.nullish(),
 });
 

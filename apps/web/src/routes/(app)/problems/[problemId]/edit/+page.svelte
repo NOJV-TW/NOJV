@@ -31,16 +31,11 @@
   let showRejudgeDialog = $state(false);
   let isDeleting = $state(false);
 
-  // Bumped on every successful upload (bundle import, checker/interactor
-  // script, workspace file). StorageBudgetBar watches this token and refetches
-  // usage when it changes so the bar never lags behind the actual budget.
   let storageRefreshToken = $state(0);
   function bumpStorageRefresh() {
     storageRefreshToken += 1;
   }
 
-  // Advanced-mode image config — only meaningful when isAdvanced is true.
-  // Initialised once via untrack so re-runs of `data` don't clobber edits.
   let imageRef = $state<string>(untrack(() => data.imageConfig?.ref ?? ""));
   let imageSource = $state<ProblemImageSource>(
     untrack(() => data.imageConfig?.source ?? "registry")
@@ -52,7 +47,6 @@
     untrack(() => data.imageConfig?.memoryLimitMb ?? 1_024)
   );
 
-  // Advanced-mode required paths — persists separately from the image config.
   let requiredPaths = $state<string[]>(
     untrack(() => data.problem.advancedRequiredPaths ?? [])
   );
@@ -64,8 +58,6 @@
     data.problem.outputFormat !== ""
   );
 
-  // Publish gate: standard problems need at least one testcase set; advanced
-  // problems have none, so they need basic info complete + a judge image set.
   let canPublish = $derived(
     data.problem.status === "draft" &&
     (isAdvanced
@@ -73,11 +65,6 @@
       : data.testcaseSets.length > 0)
   );
 
-  // Build WorkspaceSection initial payload from loaded problem + files.
-  // The workspace is a scratchpad the user edits before saving; capture the
-  // initial values once via untrack() so re-runs of `data` don't discard edits.
-  // Only consumed by `multi_file` problems — full_source uses system templates
-  // and advanced mode routes to its own layout.
   const workspaceInitial = untrack(() => {
     if (data.problem.type !== "multi_file") return undefined;
     const runtime = (data.problem.judgeConfig?.runtime as
@@ -175,7 +162,6 @@
       })
     );
     const res = await fetch("?/updateImage", { method: "POST", body: fd });
-    // Success surfaces as a toast; failures render inline inside ImageSection.
     if (res.ok) {
       toasts.add({ message: m.admin_imageConfigSaved(), type: "success" });
     }

@@ -40,7 +40,6 @@ export async function ensureUser(
   const existing = await userRepo.withTx(tx).findById(userId);
 
   if (existing) {
-    // Only update fields explicitly provided — never overwrite with fallbacks
     const updates: Record<string, string> = {};
     if (input.displayName) updates.name = input.displayName;
     if (input.email) updates.email = input.email;
@@ -73,7 +72,6 @@ export async function renameName(userId: string, newName: string): Promise<void>
   await userRepo.update(userId, { name: trimmed });
 }
 
-/** Persist (or clear) the avatar URL on `User.image`. */
 export async function setUserAvatar(userId: string, imageUrl: string | null): Promise<void> {
   await userRepo.update(userId, { image: imageUrl });
 }
@@ -122,10 +120,6 @@ export async function renameUsername(
     }
 
     if (conflict.status === "pending_first_login") {
-      // A self-service rename must not inherit TA/teacher course memberships.
-      // Report the same "TAKEN" error as a regular conflict so the existence of
-      // privileged placeholders cannot be probed by handle enumeration. Real
-      // TAs/teachers attach through `attachPlaceholderToAuth` (OAuth/email).
       const elevatedMembership = await tx.courseMembership.findFirst({
         where: { userId: conflict.id, role: { in: ["teacher", "ta"] } },
         select: { id: true },

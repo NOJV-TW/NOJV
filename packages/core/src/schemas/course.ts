@@ -44,9 +44,6 @@ export const courseProblemAttachSchema = z.object({
   problemId: slugSchema,
 });
 
-// Title for a copied course — same bounds as a course title. The copy
-// dialog pre-fills a `"<title> (copy)"` suggestion but the teacher may
-// replace it freely.
 export const copyCourseSchema = z.object({
   newTitle: z.string().trim().min(3).max(120),
 });
@@ -64,15 +61,11 @@ export const manualCourseEnrollmentSchema = z.object({
   role: courseRoleSchema.default("student"),
 });
 
-// Assessments are identified by (courseId, assessmentId). The id
-// carrier used to be the course slug; now it's the course cuid.
 export const assessmentContextSchema = z.object({
   assessmentId: slugSchema,
   courseId: z.string().trim().min(1),
 });
 
-// Homework assessment: no scoreboard, no IP lock, no page lock
-// (those were exam-only concerns and now live on Contest).
 export const courseAssessmentCreateSchema = z
   .object({
     adjustmentRules: adjustmentRulesSchema.optional(),
@@ -118,7 +111,6 @@ export const courseAssessmentCreateSchema = z
     }
   });
 
-// `problemIds` allows 0 entries so a teacher can stand up a draft for a TA to fill in later.
 export const courseAssignmentFormSchema = z
   .object({
     allowedLanguages: z.array(languageSchema).max(8).default([]),
@@ -166,10 +158,6 @@ export const courseAssignmentFormSchema = z
     }
   });
 
-// Domain-facing partial update payload. Every field is optional so
-// callers can send only the fields they actually want to change. The
-// domain layer enforces status-aware field-level locks (see
-// `packages/domain/src/assessment/mutations.ts`).
 export const courseAssessmentUpdateSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).optional(),
   closesAt: isoDateTimeSchema.optional(),
@@ -191,10 +179,6 @@ export const courseAssessmentUpdateSchema = z.object({
   title: z.string().trim().min(3).max(120).optional(),
 });
 
-// Superforms-facing schema used by the assignment settings tab. Strings
-// come out of <input type="datetime-local"> as local-time strings rather
-// than ISO — we accept any non-empty string and normalise to ISO in the
-// server action before calling the domain update.
 export const assessmentSettingsFormSchema = z.object({
   title: z.string().trim().min(3).max(120),
   summary: z.string().trim().max(2_000).default(""),

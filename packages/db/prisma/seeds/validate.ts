@@ -35,9 +35,6 @@ function createMockPrisma() {
   };
 }
 
-// No-op S3 stub: every `send()` just resolves, so `putText` appears to
-// succeed without making a real network call. The validator only cares
-// about schema/definition shape, not blob persistence.
 const stubStorage: SeedStorageClient = {
   send: async () => ({}),
 };

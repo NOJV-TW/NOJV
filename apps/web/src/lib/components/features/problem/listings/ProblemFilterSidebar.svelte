@@ -126,7 +126,7 @@
 {/snippet}
 
 <div class="flex flex-col gap-6">
-  <!-- Search -->
+  
   <div class="relative">
     <Search
       class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -141,7 +141,7 @@
     />
   </div>
 
-  <!-- Status (authenticated only) -->
+  
   {#if loggedIn}
     <div>
       {@render heading(m.problems_filterStatus())}
@@ -154,7 +154,7 @@
     </div>
   {/if}
 
-  <!-- Difficulty -->
+  
   <div>
     {@render heading(m.common_difficulty())}
     <FilterChips
@@ -165,7 +165,7 @@
     />
   </div>
 
-  <!-- Problem type -->
+  
   <div>
     {@render heading(m.problems_filterProblemType())}
     <div class="flex flex-col gap-2">
@@ -177,7 +177,7 @@
     </div>
   </div>
 
-  <!-- Judge method -->
+  
   <div>
     {@render heading(m.problems_filterJudgeMethod())}
     <div class="flex flex-col gap-2">
@@ -189,7 +189,7 @@
     </div>
   </div>
 
-  <!-- Tags -->
+  
   {#if allTags.length > 0}
     <div>
       {@render heading(m.problems_filterTags())}
@@ -213,7 +213,7 @@
     </div>
   {/if}
 
-  <!-- Footer: reset + sort -->
+  
   <div class="flex items-center gap-2 border-t border-border-subtle pt-4">
     <button
       type="button"

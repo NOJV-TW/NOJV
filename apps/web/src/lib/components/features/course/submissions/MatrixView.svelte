@@ -52,7 +52,6 @@
     paginationLabel: (args: { from: number; to: number; total: number }) => string;
     prev: () => string;
     next: () => string;
-    // Optional labels — only used when the corresponding feature is enabled
     filterAll?: () => string;
     filterStudents?: () => string;
     roleFilterTooltip?: () => string;
@@ -73,10 +72,6 @@
     labels: MatrixViewLabels;
     dataSlot: string;
     showRoleFilter?: boolean;
-    /**
-     * When provided, a trailing column is rendered with a per-row link.
-     * The callback receives the row's userId and returns the href.
-     */
     viewHref?: (userId: string) => string;
     class?: string | undefined;
   }

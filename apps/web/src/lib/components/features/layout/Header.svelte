@@ -52,7 +52,6 @@
     return currentPath === href || currentPath.startsWith(`${href}/`);
   }
 
-  // Global "g + <key>" navigation shortcuts — only when signed in.
   $effect(() => {
     if (!user) return;
 

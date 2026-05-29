@@ -7,19 +7,11 @@ export type ActiveExamContext = NonNullable<
 type ProctoringVerdict = Awaited<ReturnType<typeof proctoringDomain.checkProctoringGate>>;
 
 export interface ExamGateDenial {
-  /** HTTP status to return. */
   status: number;
-  /** Machine-readable code for the JSON body / client handling. */
   code: string;
-  /** `all` blocks pages + /api (IP failures); `api` blocks /api only. */
   scope: "all" | "api";
 }
 
-// Authorization failures with no legitimate reason to keep serving a mid-exam
-// request. `ended` / `not_started` are deliberately excluded: the submission
-// gate already blocks the security-relevant action and the auto-close workflow
-// ends the session within seconds, so blocking them would only 4xx legitimate
-// end-of-exam verdict reads / release calls.
 const API_BLOCKING_REASONS = new Set([
   "not_enrolled",
   "course_archived",
@@ -27,12 +19,6 @@ const API_BLOCKING_REASONS = new Set([
   "not_found",
 ]);
 
-/**
- * Decide how hooks should treat a proctoring-gate verdict on the current path.
- * Returns null to allow. IP failures block every surface; structural authz
- * failures block `/api` only and leave pages to the exam-shell loaders, which
- * render a graceful state rather than a bare error page.
- */
 export function resolveExamGateDenial(
   verdict: ProctoringVerdict,
   cleanPath: string,
@@ -51,11 +37,13 @@ export async function getActiveExamContext(userId: string): Promise<ActiveExamCo
   return examDomain.session.getActiveSessionContext(userId);
 }
 
-// `pathname` is already stripped of the paraglide locale prefix.
+export function isExamForbiddenApiPath(cleanPath: string): boolean {
+  return cleanPath.startsWith("/api/contests/");
+}
+
 export function isAllowedPathForExam(pathname: string, ctx: ActiveExamContext): boolean {
   if (pathname.startsWith("/api/")) return true;
 
-  // Session recovery — don't trap a student whose session expired.
   if (pathname === "/signin" || pathname.startsWith("/signin/")) return true;
   if (pathname === "/signout" || pathname.startsWith("/signout/")) return true;
 

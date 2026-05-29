@@ -77,7 +77,7 @@
       {#if $errors.summary}<p class="mt-1 text-xs text-red-600">{$errors.summary}</p>{/if}
     </div>
 
-    <!-- Time -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <ClockIcon class="h-4 w-4" />
       <span>{m.common_timeline()}</span>
@@ -107,7 +107,7 @@
       </div>
     </div>
 
-    <!-- Scoring -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <SettingsIcon class="h-4 w-4" />
       <span>{m.contestCreate_scoringMode()}</span>
@@ -170,7 +170,7 @@
       </p>
     </div>
 
-    <!-- Languages -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <CodeIcon class="h-4 w-4" />
       <span>{m.contestCreate_allowedLanguages()}</span>
@@ -192,7 +192,7 @@
       {#if $errors.allowedLanguages}<p class="mt-1 text-xs text-red-600">{$errors.allowedLanguages}</p>{/if}
     </div>
 
-    <!-- Problems -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <ListIcon class="h-4 w-4" />
       <span>{m.contestCreate_problemIds()}</span>

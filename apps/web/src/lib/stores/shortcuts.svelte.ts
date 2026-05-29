@@ -39,14 +39,6 @@ class ShortcutRegistry {
   #sequenceTimer: ReturnType<typeof setTimeout> | null = null;
 
   register(shortcut: Shortcut): () => void {
-    // `this.shortcuts = [...this.shortcuts, shortcut]` reads shortcuts on
-    // the RHS to spread it, and Svelte 5 tracks that read for whatever
-    // effect is currently running. When the caller is an $effect (as in
-    // Header.svelte) the subsequent write re-invalidates that effect,
-    // producing an `effect_update_depth_exceeded` loop. Wrapping in
-    // untrack() tells Svelte not to treat the RHS read as a tracked
-    // dep of the caller — the write still notifies subscribers like
-    // ShortcutOverlay, which is exactly what we want.
     untrack(() => {
       this.shortcuts = [...this.shortcuts, shortcut];
     });
@@ -56,9 +48,6 @@ class ShortcutRegistry {
   }
 
   unregister(id: string) {
-    // Same rationale as register(): filter reads the old array before
-    // writing the new one; untrack prevents that read from becoming a
-    // tracked dep of the caller effect.
     untrack(() => {
       this.shortcuts = this.shortcuts.filter((s) => s.id !== id);
     });
@@ -78,7 +67,6 @@ class ShortcutRegistry {
         target.isContentEditable)
     );
 
-    // Built-in: "?" opens overlay (only outside editables)
     if (!inEditable && event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
       this.toggleOverlay();
@@ -87,7 +75,6 @@ class ShortcutRegistry {
 
     const keyLabel = normalizeKey(event);
 
-    // If we have a pending first key, try sequence match
     if (this.#pendingFirstKey) {
       const pending = this.#pendingFirstKey;
       const seqShortcut = this.shortcuts.find((s) => {
@@ -106,7 +93,6 @@ class ShortcutRegistry {
       }
     }
 
-    // Try single combo
     const comboShortcut = this.shortcuts.find((s) => {
       if (Array.isArray(s.keys[0])) return false;
       if (s.allowInInputs !== true && inEditable) return false;
@@ -118,7 +104,6 @@ class ShortcutRegistry {
       return;
     }
 
-    // Start a new sequence if the pressed key is the first key of any registered sequence
     const startsSeq = this.shortcuts.some((s) => {
       if (!Array.isArray(s.keys[0])) return false;
       const seq = s.keys as string[][];
@@ -145,10 +130,6 @@ class ShortcutRegistry {
 
 export const shortcuts = new ShortcutRegistry();
 
-/**
- * Helper hook for the root layout to install the global keydown listener.
- * Call inside a Svelte component's top-level script (requires runes context).
- */
 export function useGlobalShortcuts() {
   $effect(() => {
     const handler = (e: KeyboardEvent) => {

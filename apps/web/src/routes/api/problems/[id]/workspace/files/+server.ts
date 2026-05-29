@@ -6,9 +6,6 @@ import { canEditProblem, problemDomain } from "@nojv/domain";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 
-// Hard cap per uploaded workspace file. Aggregate per-problem usage is
-// bounded separately by assertProblemStorageBudget (50 MB across testcases
-// + workspace + validator scripts).
 const MAX_WORKSPACE_FILE_SIZE = 5 * 1024 * 1024;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -26,9 +23,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     problemId,
   );
 
-  // Pre-flight on the declared Content-Length so we reject obvious oversize
-  // before reading the body off the wire. Post-read size check below still
-  // runs because Content-Length is a hint, not a contract.
   const contentLength = Number(event.request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_WORKSPACE_FILE_SIZE * 2) {
     error(413, "File too large");
@@ -54,9 +48,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const content = await file.text();
 
-  // setWorkspaceFile runs `problemWorkspaceFileSchema.parse(...)` which
-  // bounces invalid language / visibility / path strings into a ZodError —
-  // wrapHandler in api-handler.ts maps that to 400.
   await problemDomain.setWorkspaceFile(problemId, {
     language,
     path,

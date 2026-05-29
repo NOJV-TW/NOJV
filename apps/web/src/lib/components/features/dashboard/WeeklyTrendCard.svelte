@@ -20,7 +20,6 @@
 
   const hasData = $derived(data.some((d) => d.submissionCount > 0));
 
-  // Show MM-DD on the axis — full ISO would clutter a 7-tick chart.
   const labels = $derived(data.map((d) => d.date.slice(5)));
 
   const option: EChartsOption = $derived({

@@ -30,9 +30,6 @@ import type { SubmissionResult } from "@nojv/core";
 
 const COURSE_ID = "course_os-lab-spring-2026";
 
-// Verdict mix used to drive the practice activity. Weighted toward AC so the
-// heatmap looks like a real, mostly-succeeding student while still covering
-// every verdict for the demo.
 const PRACTICE_VERDICTS: LongVerdict[] = [
   "accepted",
   "accepted",
@@ -61,7 +58,6 @@ const LANGS: SeedLanguage[] = ["c", "cpp", "python"];
 
 type SubmissionRow = Prisma.SubmissionCreateManyInput;
 
-/** Full submission seed unit: DB row + S3 source blobs + verdict detail blob. */
 type SeedSubmission = {
   id: string;
   row: SubmissionRow;
@@ -69,7 +65,6 @@ type SeedSubmission = {
   detail: SubmissionResult;
 };
 
-/** Convert a SubmissionResult verdict into the SubmissionStatus enum value. */
 function statusFor(verdict: LongVerdict): SubmissionStatus {
   return verdict;
 }
@@ -134,11 +129,6 @@ function makeSubmission(args: {
   return { id, row, sources, detail };
 }
 
-/**
- * Persist a batch of seed submissions: bulk-insert the DB rows, then write
- * source + verdict-detail blobs to S3. Storage writes are fire-and-loop —
- * any failure surfaces with the offending submission id.
- */
 async function persistSeedSubmissions(
   prisma: PrismaClient,
   storage: S3Client,
@@ -152,26 +142,17 @@ async function persistSeedSubmissions(
   }
 }
 
-/**
- * Seed every demo submission context with relative timestamps. Idempotent:
- * wipes the rows it owns (Submission + ContestParticipation) before recreating
- * so a reseed is clean.
- */
 export async function seedSubmissions(
   prisma: PrismaClient,
   refs: { student: User; demoStudents: User[] },
 ): Promise<void> {
   const now = Date.now();
   const { student, demoStudents } = refs;
-  // Source + verdict-detail blobs go to S3 (MinIO locally). Requires
-  // S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY in the env that runs the seed.
   const storage = createStorageClient();
 
-  // ── Idempotency: drop rows owned by this module ──
   await prisma.submission.deleteMany({});
   await prisma.contestParticipation.deleteMany({});
 
-  // Preload testcases for every problem we touch (real set + case ids).
   const problemIds = new Set<string>([
     ...PUBLIC_PRACTICE_PROBLEMS,
     "problem_process-log-parser",
@@ -186,13 +167,7 @@ export async function seedSubmissions(
 
   const subs: SeedSubmission[] = [];
 
-  // ─────────────────────────────────────────────────────────────
-  // A. Practice — dense ~90-day activity for the main student plus
-  //    lighter activity for the first few demo students.
-  // ─────────────────────────────────────────────────────────────
   const mainRng = new SeededRng(0x5eed_0001);
-  // Walk back 90 days. Most days have activity; the last few days are
-  // guaranteed to have submissions so the streak + heatmap look current.
   for (let dayOffset = 90; dayOffset >= 0; dayOffset--) {
     const isRecent = dayOffset <= 4;
     const active = isRecent || mainRng.chance(0.55);
@@ -202,7 +177,6 @@ export async function seedSubmissions(
     for (let k = 0; k < perDay; k++) {
       const problemId = mainRng.pick(PUBLIC_PRACTICE_PROBLEMS);
       const verdict = mainRng.pick(PRACTICE_VERDICTS);
-      // Spread within the day; clamp the most-recent day to the last hour.
       const within =
         dayOffset === 0
           ? now - mainRng.int(5, 55) * 60 * 1000
@@ -220,7 +194,6 @@ export async function seedSubmissions(
     }
   }
 
-  // A few sampleOnly (Run) submissions for the main student in the last week.
   for (let i = 0; i < 4; i++) {
     const problemId = mainRng.pick(PUBLIC_PRACTICE_PROBLEMS);
     subs.push(
@@ -236,7 +209,6 @@ export async function seedSubmissions(
     );
   }
 
-  // Lighter practice for the first 4 demo students over the last ~40 days.
   demoStudents.slice(0, 4).forEach((s, idx) => {
     const rng = new SeededRng(0x5eed_1000 + idx);
     for (let dayOffset = 40; dayOffset >= 0; dayOffset--) {
@@ -257,37 +229,27 @@ export async function seedSubmissions(
     }
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // B. Assignments — hw1 (warmup-sum + process-log-parser) and
-  //    hw2 (add-two-numbers). Every demo student submits 1-3 times.
-  // ─────────────────────────────────────────────────────────────
   const HW1_ID = "hw1-process-trace";
   const HW2_ID = "hw2-signal-handling";
   const HW1_PROBLEMS = ["problem_warmup-sum", "problem_process-log-parser"] as const;
-  // hw1 window: opens 2026-03-17, due 2026-03-23, closes 2026-03-25.
   const HW1_OPEN = new Date("2026-03-17T09:00:00.000Z").getTime();
   const HW1_DUE = new Date("2026-03-23T15:00:00.000Z").getTime();
   const HW1_CLOSE = new Date("2026-03-25T15:00:00.000Z").getTime();
-  // hw2 window: opens 2026-04-16, closes 2026-04-30.
   const HW2_OPEN = new Date("2026-04-16T09:00:00.000Z").getTime();
   const HW2_CLOSE = new Date("2026-04-30T15:00:00.000Z").getTime();
 
-  // hw2 only allows c/cpp.
   const HW2_LANGS: SeedLanguage[] = ["c", "cpp"];
 
-  // Include the main student in coursework too.
   const courseworkStudents = [student, ...demoStudents];
 
   courseworkStudents.forEach((s, idx) => {
     const rng = new SeededRng(0x5eed_2000 + idx);
 
-    // hw1 — submit to one or both problems, some after dueAt (late penalty).
     for (const problemId of HW1_PROBLEMS) {
       const attempts = rng.int(1, 3);
       for (let a = 0; a < attempts; a++) {
         const verdict =
           a === attempts - 1 ? pickAssignmentFinal(rng) : pickAssignmentEarly(rng);
-        // ~25% of last attempts land after dueAt to exercise the flat penalty.
         const late = a === attempts - 1 && rng.chance(0.25);
         const when = late
           ? HW1_DUE + rng.int(1, Math.floor((HW1_CLOSE - HW1_DUE) / HOUR)) * HOUR
@@ -306,7 +268,6 @@ export async function seedSubmissions(
       }
     }
 
-    // hw2 — add-two-numbers only, c/cpp only.
     const hw2Attempts = rng.int(1, 3);
     for (let a = 0; a < hw2Attempts; a++) {
       const verdict =
@@ -327,10 +288,6 @@ export async function seedSubmissions(
     }
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // C. Exam — midterm (graph-docking / fork-bomb-safeguard /
-  //    memory-leak-forensics) within the 2026-04-18 09:00-11:00 window.
-  // ─────────────────────────────────────────────────────────────
   const EXAM_ID = "exam_midterm-systems-lab";
   const EXAM_PROBLEMS = [
     "problem_graph-docking",
@@ -341,11 +298,9 @@ export async function seedSubmissions(
   const EXAM_END = new Date("2026-04-18T11:00:00.000Z").getTime();
   const EXAM_LANGS: SeedLanguage[] = ["c", "cpp"];
 
-  // Exam participants: the main student + first 6 demo students.
   const examStudents = [student, ...demoStudents.slice(0, 6)];
   examStudents.forEach((s, idx) => {
     const rng = new SeededRng(0x5eed_3000 + idx);
-    // Each student attempts a deterministic subset of problems.
     const problemCount = rng.int(1, EXAM_PROBLEMS.length);
     for (let p = 0; p < problemCount; p++) {
       const problemId = EXAM_PROBLEMS[p]!;
@@ -372,22 +327,14 @@ export async function seedSubmissions(
     }
   });
 
-  // Persist all non-contest submissions (DB rows + S3 source / verdict-detail
-  // blobs) in one batch.
   await persistSeedSubmissions(prisma, storage, subs);
 
-  // ─────────────────────────────────────────────────────────────
-  // D. Contests — spring-qualifier (past, frozen board) and the live
-  //    round. ContestParticipation per student; submissions linked via
-  //    contestParticipationId. Redis scoreboard populated per participant.
-  // ─────────────────────────────────────────────────────────────
   await seedContestSubmissions(prisma, storage, {
     contestId: "spring-qualifier-2026",
     problems: ["problem_warmup-sum", "problem_graph-docking"],
     students: [student, ...demoStudents.slice(0, 8)],
     startsAt: new Date("2026-03-15T14:00:00+08:00"),
     endsAt: new Date("2026-03-15T18:00:00+08:00"),
-    // Past contest: submissions land inside the real window.
     submissionTimeFor: (rng) => {
       const start = new Date("2026-03-15T14:00:00+08:00").getTime();
       const end = new Date("2026-03-15T18:00:00+08:00").getTime();
@@ -403,7 +350,6 @@ export async function seedSubmissions(
     students: [student, ...demoStudents.slice(0, 6)],
     startsAt: new Date(now - HOUR),
     endsAt: new Date(now + 2 * HOUR),
-    // Live contest: submissions land within the last hour so it looks active.
     submissionTimeFor: (rng) => now - rng.int(2, 58) * 60 * 1000,
     rngBase: 0x5eed_5000,
     tc,
@@ -415,7 +361,6 @@ export async function seedSubmissions(
 }
 
 function pickAssignmentEarly(rng: SeededRng): LongVerdict {
-  // Earlier attempts skew toward failures (the student is iterating).
   return rng.pick([
     "wrong_answer",
     "wrong_answer",
@@ -427,16 +372,9 @@ function pickAssignmentEarly(rng: SeededRng): LongVerdict {
 }
 
 function pickAssignmentFinal(rng: SeededRng): LongVerdict {
-  // Final attempts skew toward success / partial.
   return rng.pick(["accepted", "accepted", "accepted", "wrong_answer", "time_limit_exceeded"]);
 }
 
-/**
- * Seed one contest: a ContestParticipation per student, contest-context
- * submissions, the persisted participation score/penalty, and the Redis
- * scoreboard (ICPC packed score). Redis writes are guarded so a missing Redis
- * does not fail the seed.
- */
 async function seedContestSubmissions(
   prisma: PrismaClient,
   storage: S3Client,
@@ -473,7 +411,6 @@ async function seedContestSubmissions(
     let totalPenalty = 0;
 
     for (const problemId of problems) {
-      // Deterministic: roughly 70% of problems get solved.
       const willSolve = rng.chance(0.7);
       const wrongAttempts = willSolve ? rng.int(0, 2) : rng.int(1, 3);
 
@@ -510,7 +447,6 @@ async function seedContestSubmissions(
           }),
         );
         solvedCount++;
-        // ICPC penalty = minutes from start to AC + 20 min per wrong attempt.
         const minutesToAc = Math.max(
           0,
           Math.round((acTime - startsAt.getTime()) / (60 * 1000)),
@@ -521,14 +457,11 @@ async function seedContestSubmissions(
 
     await persistSeedSubmissions(prisma, storage, contestSubs);
 
-    // Persist the participation aggregate (ICPC: score = solved count).
     await prisma.contestParticipation.update({
       where: { id: participation.id },
       data: { score: solvedCount, penaltySeconds: totalPenalty },
     });
 
-    // Push to the Redis scoreboard with the same packed-score formula the
-    // domain layer uses. Guarded so a missing Redis only logs a warning.
     try {
       const packedScore = solvedCount * 1e9 - totalPenalty;
       await scoreboard.updateScoreboard(

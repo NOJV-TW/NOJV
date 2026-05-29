@@ -11,7 +11,6 @@ import { ForbiddenError } from "../shared/errors";
 import { resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 
-/** Effective course role of the actor (platform admin overrides to "admin"). */
 async function resolveActorCourseRole(
   actor: ActorContext,
   courseId: string,
@@ -21,13 +20,11 @@ async function resolveActorCourseRole(
   return resolveEffectiveCourseRole(actor.platformRole, courseRole);
 }
 
-/** Current active role of the target member, or null if not an active member. */
 async function activeMemberRole(courseId: string, userId: string): Promise<CourseRole | null> {
   const membership = await courseMembershipRepo.findByComposite(courseId, userId);
   return membership?.status === "active" ? membership.role : null;
 }
 
-// Email is always present here — the route strips it for non-manager viewers.
 export interface CourseMemberRow {
   userId: string;
   name: string;
@@ -40,7 +37,6 @@ export interface CourseMemberRow {
   removedAt: string | null;
 }
 
-// Includes removed rows — the current UI filters them in the page template.
 export async function listMembersForCourse(courseId: string): Promise<CourseMemberRow[]> {
   const rows = await courseMembershipAdminRepo.listWithUserByCourse(courseId);
   return rows.map((row) => ({
@@ -56,7 +52,6 @@ export async function listMembersForCourse(courseId: string): Promise<CourseMemb
   }));
 }
 
-// Order follows first-occurrence so the server summary matches the visual order of the pasted list.
 export function parseHandleInput(raw: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -77,14 +72,11 @@ export interface BulkAddResult {
   reactivated: number;
 }
 
-// One tx per call so partial failure rolls back cleanly; replaying the same paste is idempotent.
 export async function bulkAddByHandle(
   actor: ActorContext,
   courseId: string,
   payload: { handles: string[]; role: CourseRole },
 ): Promise<BulkAddResult> {
-  // Granting TA (staff) status is an elevation — restrict it to teachers/admins.
-  // Adding plain students stays open to any course manager.
   if (payload.role === "ta") {
     const actorRole = await resolveActorCourseRole(actor, courseId);
     if (actorRole !== "admin" && actorRole !== "teacher") {
@@ -108,7 +100,6 @@ export async function bulkAddByHandle(
       let user = await tx.user.findUnique({ where: { username: handle } });
 
       if (!user) {
-        // Inline create stays inside the tx; `userRepo.createPlaceholder` would break atomicity.
         user = await createPlaceholderInTx(tx, handle);
         placeholdersCreated += 1;
       }

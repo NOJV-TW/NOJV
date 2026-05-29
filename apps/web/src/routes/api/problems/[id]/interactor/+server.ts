@@ -5,8 +5,6 @@ import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { problemDomain } from "@nojv/domain";
 import { judgeScriptLanguageSchema } from "@nojv/core";
 
-// Interactor scripts are short C++/Python; 5 MB matches the per-file cap
-// the W3 family of upload routes share.
 const MAX_SIZE = 5 * 1024 * 1024;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -20,7 +18,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     userId: actor.userId,
     username: actor.username,
   };
-  // Edit-access first so a student gets 403 before we touch S3 or quota.
   await problemDomain.assertProblemEditAccess(actorContext, problemId);
 
   const formData = await event.request.formData();
@@ -39,8 +36,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "Invalid interactor language (expected 'python' or 'cpp')");
   }
 
-  // Quota check uses the post-read byte count, not Content-Length —
-  // Content-Length can be spoofed or missing on streamed uploads.
   await problemDomain.assertProblemStorageBudget(problemId, file.size);
 
   const content = await file.text();

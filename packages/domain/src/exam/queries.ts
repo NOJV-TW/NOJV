@@ -61,7 +61,6 @@ function mapExamListItem(e: ExamWithCounts): ExamListItem {
   return {
     allowedLanguages: e.allowedLanguages,
     courseId: e.courseId,
-    // Exam always has a courseId (FK NOT NULL) so course is always present.
     courseTitle: e.course.title,
     endsAt: e.endsAt.toISOString(),
     id: e.id,
@@ -132,21 +131,15 @@ export interface ExamListRow {
   id: string;
   title: string;
   status: ExamRowStatus;
-  /** ISO strings; null when status === "draft". */
   startsAt: string | null;
   endsAt: string | null;
-  /** Duration in minutes (null for draft rows with no window). */
   durationMinutes: number | null;
   scoringMode: "problem_count" | "point_sum";
   problemCount: number;
   proctoring: ExamProctoring;
-  /** Participation count — null for students (only managers see it). */
   registeredCount: number | null;
-  /** Active-student total for the course — set in the loader. Null = unknown. */
   totalStudents: number | null;
-  /** Manager view only — null for students. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
-  /** Student view only — null for managers. */
   myStatus: {
     solved: number;
     total: number;
@@ -160,7 +153,6 @@ export interface ExamListCounts {
   upcoming: number;
   running: number;
   ended: number;
-  /** Null when the viewer is not a manager. */
   draft: number | null;
 }
 
@@ -171,7 +163,6 @@ export interface ExamListResult {
 
 export interface ListForCourseOptions {
   status: ExamStatusFilter;
-  /** `true` for teacher/TA viewers — includes draft rows in the unfiltered set. */
   includeDrafts: boolean;
   forUserId: string;
   limit: number;
@@ -185,7 +176,6 @@ function rankExamRow(
   row: { startsAt: Date; endsAt: Date },
   now: Date,
 ): number {
-  // Lower rank = higher priority: running, upcoming, draft, ended.
   if (status === "running") return row.endsAt.getTime() - now.getTime();
   if (status === "upcoming")
     return 1_000_000_000_000 + (row.startsAt.getTime() - now.getTime());
@@ -239,7 +229,6 @@ function mapExamRow(
   };
 }
 
-// For courses with more than ~50 exams the chip counts will underreport — acceptable at current scale.
 export async function listForCourse(
   courseId: string,
   options: ListForCourseOptions,
@@ -354,10 +343,6 @@ export async function getExamDetail(
   };
 }
 
-/**
- * Thin wrapper around `examRepo.findById` — used by the exam shell layout
- * to derive `courseId`. Returns null on miss; callers surface a 404.
- */
 export async function getExamById(id: string) {
   return examRepo.findById(id);
 }

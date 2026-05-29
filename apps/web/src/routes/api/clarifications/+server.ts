@@ -7,11 +7,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/domain";
 
-/**
- * Wire shape: discriminated union keyed by `type`. Replaces the legacy
- * `{ contextType, contextId }` flat pair; the domain function now takes
- * a `ClarificationContext` union directly.
- */
 const contextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
   z.object({ type: z.literal("exam"), examId: z.string().min(1) }),
@@ -30,9 +25,6 @@ const askSchema = z.object({
 });
 
 function parseContextQuery(url: URL): z.infer<typeof contextSchema> {
-  // Query string carries the discriminated union as a flat
-  // `type=...&assignmentId=...` (or `examId` / `contestId`). We hand the
-  // correctly-shaped object to Zod's discriminated-union parser.
   const type = url.searchParams.get("type");
   if (type === "assignment") {
     return contextSchema.parse({ type, assignmentId: url.searchParams.get("assignmentId") });

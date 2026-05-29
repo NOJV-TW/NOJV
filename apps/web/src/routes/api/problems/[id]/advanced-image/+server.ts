@@ -13,15 +13,8 @@ const logger = createLogger("advanced-image-upload");
 
 const { updateProblemRecord } = problemDomain;
 
-// Docker image tarballs are typically 50–500 MB. Cap at 2 GB so we
-// don't silently accept something that'll blow out the worker.
 const MAX_SIZE = 2 * 1024 * 1024 * 1024;
 
-/**
- * Coarse tar sniff — the worker runs a proper `docker load` validation
- * before the image is ever used, so all we need here is a fast reject
- * for obviously-wrong uploads.
- */
 function looksLikeTar(buffer: Buffer): boolean {
   if (buffer.length < 512) return false;
   const magic = buffer.subarray(257, 262).toString("utf8");
@@ -57,8 +50,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "File does not look like a tar archive");
   }
 
-  // Capture the prior tarball key (if any) so we can drop it after the
-  // record points at the new upload — each upload gets a fresh UUID key.
   const existing = await problemDomain.getProblemRowById(problemId);
   const previousKey =
     existing?.advancedImageSource === "tarball" ? existing.advancedImageRef : null;

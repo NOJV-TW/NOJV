@@ -10,7 +10,6 @@ import { getOverridesForContext } from "../scoring/resolve-final-score";
 
 export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
 
-/** Viewer's outcome on a single problem after the exam ends. */
 export type ExamProblemViewerState = "ac" | "partial" | "zero" | "empty";
 
 export interface ExamDetailProblem {
@@ -20,13 +19,7 @@ export interface ExamDetailProblem {
   difficulty: "easy" | "medium" | "hard";
   points: number;
   ordinal: number;
-  /** A, B, C… derived from ordinal so the UI never has to compute it. */
   letter: string;
-  /**
-   * Viewer's best-effort state for post-exam review. Populated only when
-   * the exam has ended and the viewer is a student; null otherwise so
-   * managers (who use the matrix tab) and pre-end viewers see no leak.
-   */
   viewerState: ExamProblemViewerState | null;
 }
 
@@ -37,13 +30,7 @@ export interface ExamRosterEntry {
   status: "registered" | "active" | "submitted" | "disqualified";
 }
 
-/**
- * Fields exposed only to managers. Keeps the hydration payload for
- * student viewers lean and avoids leaking the raw whitelist / cooldown
- * config through DevTools.
- */
 export interface ExamDetailManagerFields {
-  /** Raw exam status — `liveStatus` still drives UI gating. */
   rawStatus: "draft" | "published";
   ipWhitelist: string[];
   allowedLanguages: Language[];
@@ -68,17 +55,9 @@ export interface ExamDetailPage {
   problems: ExamDetailProblem[];
   registeredCount: number;
   totalStudents: number;
-  /**
-   * Viewer's total score across every problem in this exam. Populated only
-   * for student viewers after the exam ends; null for managers and while
-   * the exam is still upcoming/running.
-   */
   viewerScore: number | null;
-  /** Sum of `points` across every problem — convenience for the post-exam summary. */
   totalPoints: number;
-  /** Manager-only — null for student viewers. */
   roster: ExamRosterEntry[] | null;
-  /** Manager-only settings payload; null for student viewers. */
   manager: ExamDetailManagerFields | null;
 }
 
@@ -89,8 +68,6 @@ export interface GetExamDetailPageOptions {
 }
 
 function letterFromOrdinal(ordinal: number): string {
-  // Ordinal is 1-indexed in the schema (1, 2, 3 …). Map → A, B, C …
-  // and fall back to the raw number if we ever exceed Z.
   const idx = ordinal - 1;
   if (idx < 0 || idx >= 26) return String(ordinal);
   return String.fromCharCode(65 + idx);
@@ -108,7 +85,6 @@ function deriveStatus(
   return "running";
 }
 
-// Returns null when the exam is missing OR the viewer shouldn't see it — caller converts to 404 without leaking.
 export async function getExamDetailPage(
   examId: string,
   options: GetExamDetailPageOptions,
@@ -117,7 +93,6 @@ export async function getExamDetailPage(
   const exam = await examRepo.findDetailForRegistrationPage(examId);
   if (!exam) return null;
 
-  // Drafts are manager-only.
   if (exam.status === "draft" && !options.isManager) return null;
 
   const [roster, students] = await Promise.all([
@@ -129,22 +104,12 @@ export async function getExamDetailPage(
 
   const derivedStatus = deriveStatus(exam.status, exam.startsAt, exam.endsAt, now);
 
-  // Problem titles/points/difficulty leak to the SvelteKit hydration
-  // payload (the UI may hide them, DevTools still sees them). Strip the
-  // list for non-managers when:
-  //   - the exam hasn't opened yet (upcoming/draft), or
-  //   - the parent course is archived (post-hoc lockdown — students see
-  //     scoreboard scores but can't preview problems).
   const hideProblemsFromViewer =
     !options.isManager &&
     (derivedStatus === "upcoming" || derivedStatus === "draft" || exam.course.archived);
 
   const problemRows = hideProblemsFromViewer ? [] : exam.problems;
 
-  // Post-exam review: students get a per-problem state + total score so the
-  // detail page can colour-code their attempts and surface a final number
-  // without going through the manager-only matrix endpoint. Managers keep
-  // viewerState/viewerScore null — they have the matrix tab for that.
   const enrichWithViewerScores =
     !options.isManager && derivedStatus === "ended" && problemRows.length > 0;
 

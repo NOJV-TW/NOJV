@@ -16,9 +16,6 @@ const {
 } = editorialDomain;
 type EditorialViewContext = editorialDomain.EditorialViewContext;
 
-// problemRepo.findById, resolveActiveContextForUser and canViewEditorials are
-// independent reads. NotFoundError on the problem still takes precedence over
-// ForbiddenError from the gate.
 async function requireProblemWithAc(
   userId: string,
   problemId: string,
@@ -41,10 +38,6 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
 
-  // Context is resolved server-side from (userId, problemId, now). Clients
-  // MUST NOT be allowed to declare their own context — that lets a student
-  // in a live event pick a lenient gate (e.g. practice or some unrelated
-  // already-ended event) and bypass the editorial visibility rule.
   const context = await resolveActiveContextForUser(actor.userId, id, new Date());
 
   const [, editorials] = await Promise.all([

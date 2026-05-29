@@ -25,7 +25,6 @@ export interface CourseMemberRecord {
 export interface CourseAssessmentRecord {
   allowedLanguages: Language[];
   closesAt: string;
-  /** Nullable: assessments without a soft due date have no late penalty. */
   dueAt: string | null;
   id: string;
   opensAt: string;
@@ -106,7 +105,6 @@ export interface CourseListingCard {
   myAllCaughtUp: boolean;
 }
 
-// `managing` includes teacher + ta memberships; inactive memberships are already filtered upstream.
 export async function listForUserWithCards(userId: string): Promise<{
   enrolled: CourseListingCard[];
   managing: CourseListingCard[];
@@ -140,7 +138,6 @@ export async function listForUserWithCards(userId: string): Promise<{
     const draftAssignments = draftByCourseId.get(course.id) ?? 0;
     const upcomingExams = upcomingExamsByCourseId.get(course.id) ?? 0;
 
-    // Student "due / upcoming" approximation: counts open-assignments / upcoming-exams, not per-user unsolved work.
     const myDueCount = openAssignments;
     const myUpcomingCount = upcomingExams;
 
@@ -227,28 +224,11 @@ export interface GetAssignmentContextOptions {
 export interface AssignmentContextResult {
   allowedLanguages: Language[];
   courseId: string;
-  /** Assignment id — the readable, URL-facing identifier. */
   assignmentId: string;
-  /** Resolved time-window state: `upcoming`, `open`, `closed`. */
   timeStatus: "upcoming" | "open" | "closed";
-  /** True when the viewer is a manager (owner/teacher/TA) or platform admin. */
   viewerIsManager: boolean;
 }
 
-/**
- * Resolve an assignment by (courseId, assignmentId) for the given viewer.
- *
- * Returns `null` when the assignment is missing, unpublished, or the
- * viewer has no route to it. This masks the existence of the
- * assignment from outsiders — critical because the problem page
- * previously trusted any forged `?course=X&assignment=Y` query param.
- *
- * Authorization:
- * - Platform admins always pass.
- * - Course teachers/TAs pass and get `viewerIsManager: true`.
- * - Enrolled students pass only when the assignment's time window is
- *   currently open (upcoming/closed both reject).
- */
 // intentional-nullable: the /problems/[id] loader is shared by practice, assignment, and contest modes — a missing or unauthorized assignment must silently fall back to practice-mode, not throw.
 export async function getAssignmentContext(
   courseId: string,
@@ -273,20 +253,11 @@ export async function getAssignmentContext(
     (membership.role === "teacher" || membership.role === "ta");
   const isEnrolledStudent = membership?.status === "active" && membership.role === "student";
 
-  // Course creator keeps manager rights even if their membership was
-  // later removed — only teachers can create courses, so ownership
-  // indicates a deliberate, policy-level grant.
   const viewerIsManager = isAdmin || isCourseManager || isCourseOwner;
 
   if (!viewerIsManager) {
-    // Non-members never see the assignment exists.
     if (!isEnrolledStudent) return null;
-    // Enrolled students lose access outside the time window.
     if (timeStatus !== "open") return null;
-    // Archived courses keep score visibility but lock click-through
-    // into problem detail / submission. Returning null here means a
-    // student typing the URL directly hits the same closed door as
-    // the UI rendering.
     if (assignment.course.archived) return null;
   }
 

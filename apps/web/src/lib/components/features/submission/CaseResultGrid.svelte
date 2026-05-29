@@ -4,7 +4,6 @@
 
   interface Props {
     cases: CaseResult[];
-    /** When true, cases with stdout/staffFeedback expand to reveal them (+ stderr). */
     allowExpand?: boolean;
   }
 

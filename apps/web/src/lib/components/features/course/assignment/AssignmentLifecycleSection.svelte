@@ -79,7 +79,6 @@
   {/if}
 </section>
 
-<!-- Danger zone (delete, drafts only) -->
 {#if isDraft}
   <section
     class="space-y-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] px-6 py-5"

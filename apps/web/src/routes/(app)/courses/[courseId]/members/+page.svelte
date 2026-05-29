@@ -85,7 +85,7 @@
     <BulkHandleAddPanel form={bulkAddForm} />
   {/if}
 
-  <!-- Filter chips + search -->
+  
   <div class="animate-in animate-in-2 flex flex-wrap items-center gap-4">
     <FilterChips
       options={filterOptions}
@@ -107,7 +107,7 @@
     </div>
   </div>
 
-  <!-- Roster -->
+  
   <div class="animate-in animate-in-3">
     {#if filtered.length === 0}
       <div

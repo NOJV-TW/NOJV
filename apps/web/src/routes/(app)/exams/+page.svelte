@@ -24,9 +24,6 @@
     });
   }
 
-  // Sort: running > upcoming (by start asc) > ended (recent first).
-  // The domain already returns this order via rankRow, but resort for
-  // safety in case future callers pass through unsorted data.
   const sorted = $derived(
     [...exams].sort((a, b) => {
       const order = { running: 0, upcoming: 1, ended: 2 } as const;
@@ -57,7 +54,7 @@
       {/snippet}
     </PageHeader>
 
-    <!-- Tab row -->
+    
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
       <div
         role="tablist"

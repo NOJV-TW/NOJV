@@ -1,51 +1,27 @@
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 
-/**
- * Class-analytics dashboard aggregation.
- *
- * Everything here is derived from existing Submission / CourseAssessment data —
- * no new tables. Scope is the course's *published assignments*; drafts and exams
- * are excluded so unpublished homework and timed exams don't skew the picture.
- *
- * The route loader is responsible for the teacher/TA permission gate; this
- * function does not re-check authorization.
- */
-
-/** Per-assessment class summary. */
 export interface AssessmentSummary {
   assessmentId: string;
   title: string;
   problemCount: number;
-  /** Active students in the course (constant across rows — kept here for convenience). */
   studentCount: number;
-  /** Rounded mean of per-student total best-score across submitters. */
   avgScore: number;
-  /**
-   * Fraction (0-1) of active students who "completed" the assessment.
-   * Completion = the student has an accepted submission on every problem in it.
-   * An assessment with no problems is treated as 0.
-   */
   completionRate: number;
 }
 
-/** A problem ranked by how hard it is — lowest AC rate first. */
 export interface HardestProblem {
   problemId: string;
-  /** Public, URL-facing problem number. */
   displayId: number;
   title: string;
   attempters: number;
   solvers: number;
-  /** Fraction (0-1) of distinct attempters who got it accepted. */
   acRate: number;
 }
 
-/** A student the teacher should check on. */
 export interface StudentAtRisk {
   userId: string;
   name: string;
   username: string | null;
-  /** "no_submissions" = never submitted to a course assignment; "all_zero" = submitted but every best score is 0. */
   reason: "no_submissions" | "all_zero";
 }
 
@@ -59,9 +35,7 @@ export interface CourseAnalytics {
   hardestProblems: HardestProblem[];
   studentsAtRisk: StudentAtRisk[];
   verdictDistribution: VerdictDistributionEntry[];
-  /** Active student count — surfaced so empty-state copy can distinguish "no students" from "no data". */
   studentCount: number;
-  /** Published assignment count — distinguishes "no assignments" from "no submissions". */
   assessmentCount: number;
 }
 
@@ -92,14 +66,12 @@ export async function getCourseAnalytics(courseId: string): Promise<CourseAnalyt
     };
   }
 
-  // Three batch queries — no per-assessment / per-problem N+1.
   const [scoreGroups, verdictGroups, problemStats] = await Promise.all([
     submissionRepo.groupBestScoresByAssessment(assessmentIds),
     submissionRepo.groupStatusByAssessments(assessmentIds),
     submissionRepo.countUserStatsByProblemForAssessments(assessmentIds),
   ]);
 
-  // best score keyed `${assessmentId}::${userId}::${problemId}`
   const bestScore = new Map<string, number>();
   for (const g of scoreGroups) {
     const aid = g.courseAssessmentId;
@@ -158,9 +130,6 @@ function summarizeAssessment(
       }
       attempted = true;
       total += score;
-      // "Completed a problem" = an accepted submission on it. The best-score
-      // map only reflects scores, so we treat a problem as solved when the
-      // student reached its full point value.
       if (score < (problemPoints(assessment, problemId) ?? Infinity)) {
         completedAll = false;
       }
@@ -194,7 +163,6 @@ function rankHardestProblems(
   assessments: AssessmentWithProblems[],
   problemStats: { problemId: string; attempters: number; solvers: number }[],
 ): HardestProblem[] {
-  // Same problem can be linked to several assessments — dedupe to first occurrence.
   const problemMeta = new Map<string, { displayId: number; title: string }>();
   for (const assessment of assessments) {
     for (const link of assessment.problems) {
@@ -210,8 +178,6 @@ function rankHardestProblems(
   return problemStats
     .flatMap((s): HardestProblem[] => {
       const meta = problemMeta.get(s.problemId);
-      // No attempters can't have an AC rate; unknown problem = stat row for a
-      // problem since unlinked from the course.
       if (s.attempters === 0 || !meta) return [];
       return [
         {
@@ -232,7 +198,6 @@ function findStudentsAtRisk(
   students: StudentRow[],
   bestScore: Map<string, number>,
 ): StudentAtRisk[] {
-  // Per-student rollup of submission presence and max score across all assignments.
   const hasSubmission = new Set<string>();
   const maxScoreByUser = new Map<string, number>();
   for (const [key, score] of bestScore) {

@@ -22,8 +22,6 @@ export function buildPointSumScoreboard(
 ): ScoreboardEntry[] {
   const frozenAt = session.frozenAt;
 
-  // Track first full-score per problem (global). Submissions are sorted by
-  // createdAt asc, so the first full score seen is the global first.
   const firstFullByProblem = new Map<string, string>();
   const pointsByProblem = new Map(problems.map((p) => [p.id, p.points]));
   for (const sub of submissions) {
@@ -88,10 +86,8 @@ export function buildPointSumScoreboard(
     };
   });
 
-  // IOI reuses totalPenalty as lastImprovementTime for the secondary sort key
   sortByScoreThenPenalty(entries);
 
-  // IOI ties on total score alone
   assignRanks(entries, (prev, curr) => prev.totalScore === curr.totalScore);
 
   return entries;

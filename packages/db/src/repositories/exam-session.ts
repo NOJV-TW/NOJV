@@ -5,7 +5,6 @@ import type { TransactionClient } from "../transaction";
 type TxClient = TransactionClient;
 
 export const examSessionRepo = {
-  // Unique index is `(userId, examId)`; the `endedAt: null` filter is what makes "one active" safe.
   findActiveForUser(userId: string) {
     return prisma.activeExamSession.findFirst({
       where: { userId, endedAt: null },
@@ -30,7 +29,6 @@ export const examSessionRepo = {
     });
   },
 
-  // Idempotent: an unended row is returned untouched; an ended row is reopened by clearing `endedAt`.
   async startSession({ userId, examId }: { userId: string; examId: string }) {
     const existing = await prisma.activeExamSession.findUnique({
       where: { userId_examId: { userId, examId } },
@@ -79,7 +77,6 @@ export const examSessionRepo = {
     });
   },
 
-  // Only updates the row; callers append the `heartbeat` audit event separately.
   updateHeartbeat(sessionId: string) {
     return prisma.activeExamSession.update({
       where: { id: sessionId },
