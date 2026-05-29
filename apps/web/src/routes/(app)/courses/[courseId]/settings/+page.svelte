@@ -122,10 +122,12 @@
             name="title"
             type="text"
             bind:value={$updateForm.title}
-            class="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            aria-invalid={Boolean($errors.title)}
+            aria-describedby={$errors.title ? "title-error" : undefined}
+            class="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
           />
           {#if $errors.title}
-            <p class="mt-1 text-caption text-destructive">{$errors.title}</p>
+            <p id="title-error" class="mt-1 text-caption text-destructive">{$errors.title}</p>
           {/if}
         </div>
       </div>
@@ -143,10 +145,12 @@
             name="description"
             rows="3"
             bind:value={$updateForm.description}
-            class="min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            aria-invalid={Boolean($errors.description)}
+            aria-describedby={$errors.description ? "description-error" : undefined}
+            class="min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
           ></textarea>
           {#if $errors.description}
-            <p class="mt-1 text-caption text-destructive">{$errors.description}</p>
+            <p id="description-error" class="mt-1 text-caption text-destructive">{$errors.description}</p>
           {/if}
         </div>
       </div>
@@ -173,10 +177,12 @@
               max="999"
               placeholder={m.coursesNew_academicYearPlaceholder()}
               bind:value={$updateForm.academicYear}
-              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              aria-invalid={Boolean($errors.academicYear)}
+              aria-describedby={$errors.academicYear ? "academicYear-error" : undefined}
+              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
             />
             {#if $errors.academicYear}
-              <p class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
+              <p id="academicYear-error" class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
             {/if}
           </div>
           <div>
@@ -187,7 +193,9 @@
               id="semester"
               name="semester"
               bind:value={$updateForm.semester}
-              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              aria-invalid={Boolean($errors.semester)}
+              aria-describedby={$errors.semester ? "semester-error" : undefined}
+              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
             >
               <option value={undefined}>{m.coursesNew_semesterPlaceholder()}</option>
               <option value={1}>{m.coursesNew_semesterOption1()}</option>
@@ -195,7 +203,7 @@
               <option value={3}>{m.coursesNew_semesterOption3()}</option>
             </select>
             {#if $errors.semester}
-              <p class="mt-1 text-caption text-destructive">{$errors.semester}</p>
+              <p id="semester-error" class="mt-1 text-caption text-destructive">{$errors.semester}</p>
             {/if}
           </div>
         </div>
