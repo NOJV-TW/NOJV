@@ -357,24 +357,20 @@ describe("standard judge", () => {
     );
   }
 
-  it(
-    "measures peak resident memory for a memory-heavy run",
-    async () => {
-      if (!existsSync("/proc/self/status")) return;
-      if (await skipIfMissing("c")) return;
-      const source = `#include <stdio.h>
+  it("measures peak resident memory for a memory-heavy run", async () => {
+    if (!existsSync("/proc/self/status")) return;
+    if (await skipIfMissing("c")) return;
+    const source = `#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 int main(){ size_t n=300UL*1024*1024; char*p=malloc(n); if(!p)return 1; memset(p,1,n); printf("8\\n"); return 0; }`;
-      const result = await compileProgram("c", source);
-      expect(result.success).toBe(true);
-      if (!result.success) return;
-      const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-      expect(verdict.memoryKb).toBeDefined();
-      expect(verdict.memoryKb ?? 0).toBeGreaterThan(200 * 1024);
-    },
-    30_000,
-  );
+    const result = await compileProgram("c", source);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
+    expect(verdict.memoryKb).toBeDefined();
+    expect(verdict.memoryKb ?? 0).toBeGreaterThan(200 * 1024);
+  }, 30_000);
 
   it("SE — invalid command", async () => {
     const verdict = await judgeStandard(["/nonexistent/binary"], makeTestcase(), TIMEOUT_MS);

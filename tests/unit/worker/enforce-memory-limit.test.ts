@@ -21,7 +21,10 @@ describe("enforceMemoryLimit", () => {
   const LIMIT_MB = 256;
 
   it("reclassifies an AC run that exceeded the per-problem memory limit as MLE", () => {
-    const out = enforceMemoryLimit([caseResult({ verdict: "AC", memoryKb: 300 * 1024 })], LIMIT_MB);
+    const out = enforceMemoryLimit(
+      [caseResult({ verdict: "AC", memoryKb: 300 * 1024 })],
+      LIMIT_MB,
+    );
     expect(out[0]!.verdict).toBe("MLE");
     expect(out[0]!.score).toBe(0);
   });
@@ -35,13 +38,19 @@ describe("enforceMemoryLimit", () => {
   });
 
   it("leaves an AC run under the limit untouched", () => {
-    const out = enforceMemoryLimit([caseResult({ verdict: "AC", memoryKb: 100 * 1024 })], LIMIT_MB);
+    const out = enforceMemoryLimit(
+      [caseResult({ verdict: "AC", memoryKb: 100 * 1024 })],
+      LIMIT_MB,
+    );
     expect(out[0]!.verdict).toBe("AC");
     expect(out[0]!.score).toBe(100);
   });
 
   it("does not false-trigger when memoryKb is unmeasured", () => {
-    const out = enforceMemoryLimit([caseResult({ verdict: "AC", memoryKb: undefined })], LIMIT_MB);
+    const out = enforceMemoryLimit(
+      [caseResult({ verdict: "AC", memoryKb: undefined })],
+      LIMIT_MB,
+    );
     expect(out[0]!.verdict).toBe("AC");
   });
 

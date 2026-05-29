@@ -13,7 +13,9 @@ export function enforceMemoryLimit(
 ): SandboxTestcaseResult[] {
   const limitKb = memoryLimitMb * 1024;
   return results.map((r) =>
-    (r.verdict === "AC" || r.verdict === "WA") && r.memoryKb !== undefined && r.memoryKb > limitKb
+    (r.verdict === "AC" || r.verdict === "WA") &&
+    r.memoryKb !== undefined &&
+    r.memoryKb > limitKb
       ? { ...r, verdict: "MLE", score: 0 }
       : r,
   );

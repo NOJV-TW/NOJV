@@ -83,7 +83,8 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
     const existingParticipation = await examParticipationRepo
       .withTx(tx)
       .findByExamAndUser(examId, actor.userId);
-    const activateOnEntry = !existingParticipation || existingParticipation.status === "registered";
+    const activateOnEntry =
+      !existingParticipation || existingParticipation.status === "registered";
     await examParticipationRepo
       .withTx(tx)
       .upsert(
