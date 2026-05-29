@@ -283,13 +283,11 @@
 
   
   <section
-    class="animate-in animate-in-3 rounded-xl border p-5"
-    style="background: rgba(184, 55, 42, 0.04); border-color: rgba(184, 55, 42, 0.28);"
+    class="animate-in animate-in-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-5"
   >
     <div class="mb-6 flex items-start gap-3.5">
       <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-destructive"
-        style="background: rgba(184, 55, 42, 0.12);"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-destructive/15 text-destructive"
         aria-hidden="true"
       >
         <AlertTriangle aria-hidden="true" class="h-5 w-5" />
@@ -317,8 +315,7 @@
 
     
     <div
-      class="grid grid-cols-1 items-start gap-4 py-5 md:grid-cols-[1fr_auto] md:gap-6"
-      style="border-bottom: 1px solid rgba(184, 55, 42, 0.18);"
+      class="grid grid-cols-1 items-start gap-4 border-b border-destructive/20 py-5 md:grid-cols-[1fr_auto] md:gap-6"
     >
       <div>
         <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
@@ -358,8 +355,7 @@
               await update({ reset: false });
             };
           }}
-          class="mt-3 rounded-md border border-dashed bg-[color:var(--color-panel)] px-4 py-3.5"
-          style="border-color: rgba(184, 55, 42, 0.32);"
+          class="mt-3 rounded-md border border-dashed border-destructive/30 bg-[color:var(--color-panel)] px-4 py-3.5"
         >
           <label
             for="typedConfirmation"

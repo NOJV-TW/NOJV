@@ -92,16 +92,16 @@ describe("deriveAssignmentWindowState", () => {
 });
 
 describe("windowStateColorClass", () => {
-  it("returns emerald for open state", () => {
-    expect(windowStateColorClass("open")).toContain("emerald");
+  it("returns success token for open state", () => {
+    expect(windowStateColorClass("open")).toContain("success");
   });
 
-  it("returns amber for grace state", () => {
-    expect(windowStateColorClass("grace")).toContain("amber");
+  it("returns warning token for grace state", () => {
+    expect(windowStateColorClass("grace")).toContain("warning");
   });
 
-  it("returns blue for upcoming state", () => {
-    expect(windowStateColorClass("upcoming")).toContain("blue");
+  it("returns info token for upcoming state", () => {
+    expect(windowStateColorClass("upcoming")).toContain("info");
   });
 
   it("returns muted for closed state", () => {
