@@ -55,7 +55,7 @@
     </PageHeader>
 
     
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
       <div
         role="tablist"
         aria-label={m.navigation_exams()}

@@ -178,7 +178,7 @@
       {#each submissions as entry, index (`sub-${index}`)}
         {@const label = formatVerdictLabel(entry.result.verdict)}
         <button
-          class="rounded-md border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
+          class="rounded-md border border-border-subtle-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
           onclick={() => (viewingIndex = index)}
           type="button"
         >

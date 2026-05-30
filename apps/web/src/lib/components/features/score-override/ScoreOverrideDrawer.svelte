@@ -125,7 +125,7 @@
         {/if}
       </section>
 
-      <section class="space-y-3 border-t border-border pt-5">
+      <section class="space-y-3 border-t border-border-subtle pt-5">
         <div class="flex items-center justify-between">
           <h3 class="text-title-sm font-medium">
             {editTarget
@@ -162,7 +162,7 @@
 
       {#if showFeedback}
         {@const feedbackContextType = contextType as "assignment" | "exam"}
-        <section class="space-y-3 border-t border-border pt-5">
+        <section class="space-y-3 border-t border-border-subtle pt-5">
           <h3 class="text-title-sm font-medium">
             {m.feedback_staff_sectionTitle()}
           </h3>

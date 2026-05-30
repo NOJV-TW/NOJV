@@ -188,7 +188,7 @@ Difficulty badges: easy = emerald, medium = amber, hard = red. All use the `bg-{
 
 4. **Variant-driven components use `tailwind-variants`.** When a component has more than two visual variants, define them with `tv()` and export the type (see `buttonVariants`, `badgeVariants`).
 
-5. **Glassmorphism for major panels.** Cards, headers, navs, and dropdowns use `bg-[color:var(--color-panel)] backdrop-blur-sm` with `border border-border`. Do not use opaque solid backgrounds for top-level surfaces.
+5. **Glassmorphism for major panels.** Cards, headers, navs, and dropdowns use `bg-[color:var(--color-panel)] backdrop-blur-sm`. Do not use opaque solid backgrounds for top-level surfaces. **Border weight follows the shadow:** a panel that also carries an elevation shadow (`shadow-rest` / `shadow-hover` — the `Card` `surface` / `strong` / `elevated` variants and equivalent inline panels) uses the lighter `border-border-subtle` so the shadow does the separating and the outline stays a faint edge; only flat, shadowless surfaces that rely on the outline alone keep the full `border-border`. Internal dividers (`border-t` / `border-b`, table header rows, filter underlines) always use `border-border-subtle`. Floating overlays that sit on unknown backgrounds (toasts, tooltips/popovers) keep `border-border` for edge clarity. Reserve `border-border-strong` for deliberate outline-only treatments.
 
 6. **Both themes must work.** Every color choice must be verified in both light and dark mode. Dark mode uses the `.dark` class on `<html>`.
 

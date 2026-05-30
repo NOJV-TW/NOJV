@@ -112,7 +112,7 @@
 
     
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -166,7 +166,7 @@
 
     
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -186,7 +186,7 @@
       
       <div class="rounded-md border border-border bg-[color:var(--color-panel)]/60">
         <div
-          class="flex items-center gap-2.5 border-b border-border px-4 py-2.5"
+          class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5"
         >
           <Search class="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input
@@ -313,7 +313,7 @@
 
     
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -366,7 +366,7 @@
 
     
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <button
         type="button"
@@ -388,7 +388,7 @@
       </button>
 
       {#if advancedOpen}
-        <div class="mt-6 border-t border-border pt-6">
+        <div class="mt-6 border-t border-border-subtle pt-6">
           <div>
             <span class="text-sm font-medium">{m.examCreate_languagesLabel()}</span>
             <p class="mt-1 text-caption text-muted-foreground">
@@ -416,7 +416,7 @@
 
     
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -613,7 +613,7 @@
 
     
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span

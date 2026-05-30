@@ -54,7 +54,7 @@
     {/snippet}
   </PageHeader>
 
-  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
+  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
     <div role="tablist" aria-label={m.courses_tablistLabel()} class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       {#each [{ key: "enrolled" as const, label: m.courses_tabEnrolled(), count: tabCounts.enrolled }, { key: "managing" as const, label: m.courses_tabManaging(), count: tabCounts.managing }] as tab (tab.key)}
         {@const isActive = tab.key === activeTab}
@@ -126,7 +126,7 @@
       {#each visibleCourses as course (course.id)}
         <a
           href={`/courses/${course.id}`}
-          class="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)] px-7 py-7 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-normal ease-out-soft hover:-translate-y-0.5 hover:border-border-strong hover:shadow-hover {course.archived
+          class="group relative flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-7 py-7 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-normal ease-out-soft hover:-translate-y-0.5 hover:border-border-strong hover:shadow-hover {course.archived
             ? 'opacity-60 hover:opacity-100'
             : ''}"
         >

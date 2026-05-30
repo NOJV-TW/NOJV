@@ -115,7 +115,7 @@
 </script>
 
 <div class="flex gap-6">
-  <nav class="w-52 shrink-0 rounded-xl border border-border bg-[color:var(--color-panel)] p-2 shadow-rest">
+  <nav class="w-52 shrink-0 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-rest">
     <ul class="space-y-1">
       {#each sections as section (section.id)}
         {@const locked = isLocked(section.id)}

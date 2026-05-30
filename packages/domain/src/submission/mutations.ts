@@ -312,6 +312,7 @@ export async function completeJudge(
 
   return {
     contestParticipationId: submission.contestParticipationId,
+    examId: submission.examId,
     createdAt: submission.createdAt,
     id: submission.id,
     language: submission.language,

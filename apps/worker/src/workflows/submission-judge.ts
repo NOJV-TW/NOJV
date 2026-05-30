@@ -52,6 +52,8 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
 
   if (submission.contestParticipationId) {
     await contest.updateContestScores(submission.contestParticipationId);
+  } else if (submission.examId) {
+    await contest.updateExamScores(submission.examId, submission.userId);
   }
 
   status = "completed";

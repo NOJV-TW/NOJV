@@ -23,7 +23,7 @@
 </script>
 
 <div
-  class="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-12 text-center shadow-rest"
+  class="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-6 py-12 text-center shadow-rest"
 >
   <div
     class="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10"

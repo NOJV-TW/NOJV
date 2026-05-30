@@ -57,7 +57,7 @@
 </script>
 
 <section
-  class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+  class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
 >
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div class="min-w-0 flex-1">

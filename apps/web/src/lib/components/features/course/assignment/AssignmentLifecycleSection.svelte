@@ -29,7 +29,7 @@
 </script>
 
 <section
-  class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+  class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
 >
   <h3 class="mb-4 text-title-sm font-medium">
     {m.assignmentDetail_settingsSectionLifecycle()}
@@ -56,7 +56,7 @@
   </div>
 
   {#if auditLog.length > 0}
-    <div class="mt-4 border-t border-border pt-4">
+    <div class="mt-4 border-t border-border-subtle pt-4">
       <h4 class="mb-2 text-caption font-medium text-muted-foreground">
         {m.assignmentDetail_lifecycleHistoryHeading()}
       </h4>

@@ -72,7 +72,7 @@
 <div class="mx-auto w-full max-w-[860px] space-y-6 pb-24">
   
   <section
-    class="animate-in animate-in-1 rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    class="animate-in animate-in-1 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
     <div class="mb-6 flex items-start gap-3.5">
       <span
@@ -220,7 +220,7 @@
 
   
   <section
-    class="animate-in animate-in-2 rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    class="animate-in animate-in-2 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
     <div class="mb-6 flex items-start gap-3.5">
       <span

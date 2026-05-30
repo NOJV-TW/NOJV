@@ -112,7 +112,7 @@
 </script>
 
 <header
-  class="sticky top-6 z-[var(--z-sticky)] rounded-xl border border-border bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
+  class="sticky top-6 z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
 >
   <div class="flex flex-wrap items-center gap-6">
     {#if navItems.length > 0}

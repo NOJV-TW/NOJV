@@ -45,7 +45,7 @@
 
     
     <div
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
