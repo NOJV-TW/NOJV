@@ -45,7 +45,7 @@
   <div class="relative">
     <button
       bind:this={btnEl}
-      class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border bg-primary text-body-sm font-semibold text-primary-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover hover:opacity-90"
+      class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border-subtle bg-primary text-body-sm font-semibold text-primary-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover hover:opacity-90"
       onclick={() => (open = !open)}
       title={user.name}
       type="button"

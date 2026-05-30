@@ -4,6 +4,7 @@ export {
   freezeScoreboard,
   finalizeContest,
   updateContestScores,
+  updateExamScores,
   closeActiveSessionsForExam,
   publishVerdict,
   publishContestEvent,

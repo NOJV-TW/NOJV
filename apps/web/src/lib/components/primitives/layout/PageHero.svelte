@@ -32,7 +32,7 @@
   data-slot="page-hero"
   data-variant={variant}
   class={cn(
-    "animate-in border-b border-border",
+    "animate-in border-b border-border-subtle",
     variant === "hub" ? "pb-7 pt-8" : "pb-9 pt-2",
     className
   )}

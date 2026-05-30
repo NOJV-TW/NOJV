@@ -1017,6 +1017,7 @@
   "editor_fullscreen": "全螢幕",
   "editor_input": "輸入",
   "editor_outputLabel": "輸出",
+  "editor_removeCase": "移除測資 {index}",
   "editor_reset": "重置",
   "editor_resetConfirm": "確定要重置成原始範本嗎？目前的編輯內容將會遺失。",
   "editor_run": "執行",

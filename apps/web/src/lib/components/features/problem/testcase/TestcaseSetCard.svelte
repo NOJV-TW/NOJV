@@ -121,7 +121,7 @@
   }
 </script>
 
-<div class="rounded-lg border border-border-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
+<div class="rounded-lg border border-border-subtle-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
   <div class="flex items-center gap-3">
     <button
       class="flex items-center gap-1 text-body-sm font-semibold"

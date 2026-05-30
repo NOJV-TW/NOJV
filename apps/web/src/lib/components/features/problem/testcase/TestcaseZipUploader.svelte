@@ -135,7 +135,7 @@
   }
 </script>
 
-<section class="rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+<section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
   <p class="text-body-sm font-bold">
     {m.testcases_uploadZip()} <HelpTooltip text={m.testcases_zipFormatHelp()} />
   </p>
@@ -240,7 +240,7 @@
         </div>
         {#each subtasks as subtask, si (`subtask-${si}`)}
           <div
-            class="rounded-lg border border-border bg-[color:var(--color-panel)] px-5 py-4 shadow-rest"
+            class="rounded-lg border border-border-subtle bg-[color:var(--color-panel)] px-5 py-4 shadow-rest"
           >
             <div class="flex flex-wrap items-center gap-3">
               <label class="grid gap-1">

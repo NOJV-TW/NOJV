@@ -156,31 +156,33 @@
       <div>
         <div class="flex items-center gap-1">
           {#each runCases as _, index (`tab-${index}`)}
-            <button
-              class="group relative rounded-md px-3 py-1 text-caption font-medium transition-[background-color,color] duration-fast ease-out-soft {selectedCase ===
+            <div
+              class="group flex items-center rounded-md transition-[background-color] duration-fast ease-out-soft {selectedCase ===
               index
                 ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground'}"
-              onclick={() => (selectedCase = index)}
-              type="button"
+                : 'text-muted-foreground'}"
             >
-              {m.editor_case({ index: index + 1 })}
+              <button
+                class="rounded-md px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
+                onclick={() => (selectedCase = index)}
+                type="button"
+              >
+                {m.editor_case({ index: index + 1 })}
+              </button>
               {#if runCases.length > 1}
-                <span
-                  class="ml-1.5 hidden text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive group-hover:inline"
-                  role="button"
-                  tabindex="-1"
-                  onclick={(e: MouseEvent) => {
-                    e.stopPropagation();
+                <button
+                  class="mr-1 rounded text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                  type="button"
+                  aria-label={m.editor_removeCase({ index: index + 1 })}
+                  onclick={() => {
                     runCases = runCases.filter((_, i) => i !== index);
                     selectedCase = Math.min(selectedCase, runCases.length - 1);
                   }}
-                  onkeydown={() => {}}
                 >
                   &times;
-                </span>
+                </button>
               {/if}
-            </button>
+            </div>
           {/each}
           <button
             class="rounded-md px-2 py-1 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"

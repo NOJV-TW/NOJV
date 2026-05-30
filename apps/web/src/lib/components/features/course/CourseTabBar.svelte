@@ -99,7 +99,7 @@
   data-slot="course-tab-bar"
   aria-label={m.course_tabBarLabel()}
   class={cn(
-    "sticky top-[60px] z-10 mb-10 border-b border-border bg-[color:var(--color-background)]/90 backdrop-blur-md",
+    "sticky top-[60px] z-10 mb-10 border-b border-border-subtle bg-[color:var(--color-background)]/90 backdrop-blur-md",
     className
   )}
 >

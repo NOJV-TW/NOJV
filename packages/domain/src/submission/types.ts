@@ -58,6 +58,7 @@ export interface SubmissionJudgeContext {
 
 export interface CompletedSubmission {
   contestParticipationId: string | null;
+  examId: string | null;
   createdAt: Date;
   id: string;
   language: string;

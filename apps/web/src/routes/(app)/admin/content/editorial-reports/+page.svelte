@@ -34,7 +34,7 @@
     <div class="overflow-x-auto">
       <table class="w-full text-body-sm">
         <thead>
-          <tr class="border-b border-border text-left text-caption text-muted-foreground">
+          <tr class="border-b border-border-subtle text-left text-caption text-muted-foreground">
             <th class="px-3 py-2 font-medium">{m.adminEditorialReports_colProblem()}</th>
             <th class="px-3 py-2 font-medium">{m.adminEditorialReports_colAuthor()}</th>
             <th class="px-3 py-2 font-medium">{m.adminEditorialReports_colReporter()}</th>

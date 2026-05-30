@@ -35,7 +35,7 @@
     aria-haspopup="menu"
     aria-label={m.notification_bell_ariaLabel()}
     class={cn(
-      "relative flex size-9 cursor-pointer items-center justify-center rounded-full border border-border bg-[color:var(--color-panel-strong)] text-foreground transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover",
+      "relative flex size-9 cursor-pointer items-center justify-center rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] text-foreground transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover",
       notifications.isAnimating && "bell-shake"
     )}
     onclick={() => (open = !open)}

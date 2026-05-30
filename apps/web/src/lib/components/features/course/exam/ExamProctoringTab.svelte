@@ -37,7 +37,7 @@
 
 <Card class={className}>
   <div
-    class="mb-5 flex items-center justify-between gap-3 border-b border-border pb-5"
+    class="mb-5 flex items-center justify-between gap-3 border-b border-border-subtle pb-5"
   >
     <div>
       <h2 class="text-title font-semibold">
@@ -55,10 +55,10 @@
   </div>
 
   {#if activeSessions.length > 0}
-    <div class="mb-5 overflow-x-auto border-b border-border pb-5">
+    <div class="mb-5 overflow-x-auto border-b border-border-subtle pb-5">
       <table class="w-full text-body-sm">
         <thead>
-          <tr class="border-b border-border text-left text-caption text-muted-foreground">
+          <tr class="border-b border-border-subtle text-left text-caption text-muted-foreground">
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colStudent()}</th>
             <th class="py-2 pr-3 font-medium">{m.examProctoring_startedAt()}</th>
             <th class="py-2 font-medium"></th>
@@ -123,7 +123,7 @@
     <div class="overflow-x-auto">
       <table class="w-full text-body-sm">
         <thead>
-          <tr class="border-b border-border text-left text-caption text-muted-foreground">
+          <tr class="border-b border-border-subtle text-left text-caption text-muted-foreground">
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colTime()}</th>
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colStudent()}</th>
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colType()}</th>
