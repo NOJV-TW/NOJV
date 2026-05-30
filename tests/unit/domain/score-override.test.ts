@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   contestFindById,
+  contestFindInfoById,
   assessmentFindByIdWithCourseId,
   examFindById,
+  examFindInfoById,
   courseMembershipFindByComposite,
   overrideCreate,
   overrideUpdate,
@@ -12,8 +14,10 @@ const {
   auditCreate,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
+  contestFindInfoById: vi.fn(() => Promise.resolve({ scoringMode: "point_sum" })),
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
+  examFindInfoById: vi.fn(() => Promise.resolve({ scoringMode: "point_sum" })),
   courseMembershipFindByComposite: vi.fn(),
   overrideCreate: vi.fn(),
   overrideUpdate: vi.fn(),
@@ -23,9 +27,9 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  contestRepo: { findById: contestFindById },
+  contestRepo: { findById: contestFindById, findInfoById: contestFindInfoById },
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
-  examRepo: { findById: examFindById },
+  examRepo: { findById: examFindById, findInfoById: examFindInfoById },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
   contestParticipationRepo: { findIdByContestAndUser: vi.fn(() => Promise.resolve(null)) },
   examParticipationRepo: { findIdByExamAndUser: vi.fn(() => Promise.resolve(null)) },
@@ -262,6 +266,37 @@ describe("createOverride", () => {
     await expect(
       createOverride(actor({ userId: "usr_t" }), { ...baseInput, overrideScore: 1.5 }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("rejects an override on an ICPC (problem_count) contest with ValidationError", async () => {
+    contestFindInfoById.mockResolvedValue({ scoringMode: "problem_count" });
+    await expect(
+      createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), {
+        ...baseInput,
+        context: { type: "contest", contestId: "c_1" },
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(overrideCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an override on an ICPC (problem_count) exam with ValidationError", async () => {
+    examFindInfoById.mockResolvedValue({ scoringMode: "problem_count" });
+    await expect(
+      createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), {
+        ...baseInput,
+        context: { type: "exam", examId: "e_1" },
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(overrideCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows an override on a point-sum (IOI) contest", async () => {
+    contestFindInfoById.mockResolvedValue({ scoringMode: "point_sum" });
+    await createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), {
+      ...baseInput,
+      context: { type: "contest", contestId: "c_1" },
+    });
+    expect(overrideCreate).toHaveBeenCalledTimes(1);
   });
 
   it("denies non-staff non-admin callers", async () => {

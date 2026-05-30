@@ -132,7 +132,7 @@
 
     
     <div
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
@@ -172,7 +172,7 @@
 
     
     <div
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
@@ -193,7 +193,7 @@
 
       
       <div class="rounded-md border border-border bg-[color:var(--color-panel-strong)]/40">
-        <div class="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
+        <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
           <Search class="size-4 text-muted-foreground" aria-hidden="true" />
           <input
             type="text"
@@ -259,7 +259,7 @@
               ondragstart={() => handleDragStart(index)}
               ondragover={handleDragOver}
               ondrop={() => handleDrop(index)}
-              class="mt-2 grid grid-cols-[auto_auto_1fr_auto_auto_auto] items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3 transition-[border-color,box-shadow] duration-fast hover:border-border-strong hover:shadow-rest"
+              class="mt-2 grid grid-cols-[auto_auto_1fr_auto_auto_auto] items-center gap-4 rounded-md border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 transition-[border-color,box-shadow] duration-fast hover:border-border-strong hover:shadow-rest"
             >
               <span class="cursor-grab text-muted-foreground hover:text-foreground">
                 <GripVertical class="size-4" aria-hidden="true" />
@@ -316,7 +316,7 @@
 
     
     <div
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
@@ -387,7 +387,7 @@
 
     
     <div
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <button
         type="button"

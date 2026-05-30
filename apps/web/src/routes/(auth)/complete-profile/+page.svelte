@@ -124,7 +124,7 @@
           {m.onboarding_subtitle()}
         </p>
         <button
-          class="group rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
+          class="group rounded-sm border border-border-subtle-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
           onclick={() => (mode = "school")}
           type="button"
         >
@@ -134,7 +134,7 @@
           </p>
         </button>
         <button
-          class="group rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
+          class="group rounded-sm border border-border-subtle-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
           onclick={() => (mode = "general")}
           type="button"
         >

@@ -95,7 +95,7 @@
 </div>
 
 <div
-  class="hidden h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-xl border border-border shadow-rest lg:flex"
+  class="hidden h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-xl border border-border-subtle shadow-rest lg:flex"
 >
   {#if endedNotice}
     <div

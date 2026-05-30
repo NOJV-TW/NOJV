@@ -145,6 +145,19 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
   );
 }
 
+/**
+ * Recompute persisted exam scores for a (exam, user) pair after their submission
+ * is judged. Mirrors the contest path (`updateContestScores`): the judge workflow
+ * knows the examId + userId but not the participation id, so resolve it here.
+ * No-ops if the user has no participation row yet.
+ */
+export async function updateExamScoresForUser(examId: string, userId: string): Promise<void> {
+  const participationId = await examParticipationRepo.findIdByExamAndUser(examId, userId);
+  if (participationId) {
+    await updateExamScores(participationId);
+  }
+}
+
 export async function getExamScoreboard(
   examId: string,
   options?: { isPrivileged?: boolean },

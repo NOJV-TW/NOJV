@@ -89,7 +89,7 @@
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
       <h3 class="mb-4 text-title-sm font-medium">
         {m.contestDetail_settingsSectionBasic()}
@@ -160,7 +160,7 @@
     </section>
 
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
       <h3 class="mb-4 text-title-sm font-medium">
         {m.contestDetail_settingsSectionScoring()}
@@ -248,7 +248,7 @@
   </form>
 
   <section
-    class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+    class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
   >
     <h3 class="mb-4 text-title-sm font-medium">
       {m.contestDetail_settingsSectionLifecycle()}

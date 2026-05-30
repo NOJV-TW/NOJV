@@ -1017,6 +1017,7 @@
   "editor_fullscreen": "Fullscreen",
   "editor_input": "Input",
   "editor_outputLabel": "Output",
+  "editor_removeCase": "Remove case {index}",
   "editor_reset": "Reset",
   "editor_resetConfirm": "Reset the editor to the starter code? Your edits will be lost.",
   "editor_run": "Run",

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   findByIdWithExam,
+  findIdByExamAndUser,
   findMany,
   findAllByContext,
   updateWithVersion,
@@ -20,6 +21,7 @@ const {
   }
   return {
     findByIdWithExam: vi.fn(),
+    findIdByExamAndUser: vi.fn(),
     findMany: vi.fn(),
     findAllByContext: vi.fn(),
     updateWithVersion: vi.fn(),
@@ -31,6 +33,7 @@ const {
 vi.mock("@nojv/db", () => ({
   examParticipationRepo: {
     findByIdWithExam,
+    findIdByExamAndUser,
     updateWithVersion,
   },
   examRepo: {},
@@ -54,7 +57,7 @@ vi.mock("@nojv/redis", () => ({
 
 import { examDomain, ConflictError } from "@nojv/domain";
 
-const { updateExamScores } = examDomain;
+const { updateExamScores, updateExamScoresForUser } = examDomain;
 
 const PARTICIPATION_ID = "ep_1";
 const EXAM_ID = "ex_1";
@@ -199,5 +202,34 @@ describe("updateExamScores — optimistic locking", () => {
 
     expect(updateWithVersion).not.toHaveBeenCalled();
     expect(updateScoreboardMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateExamScoresForUser — judge-pipeline entry point", () => {
+  it("resolves the participation for (exam, user) and recomputes its score", async () => {
+    findIdByExamAndUser.mockResolvedValue(PARTICIPATION_ID);
+    findByIdWithExam.mockResolvedValue(participationFixture(0));
+    findMany.mockResolvedValue([
+      { problemId: PROBLEM_ID, score: 80, status: "partial", createdAt: new Date() },
+    ]);
+    updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, score: 80, version: 1 });
+
+    await updateExamScoresForUser(EXAM_ID, USER_ID);
+
+    expect(findIdByExamAndUser).toHaveBeenCalledWith(EXAM_ID, USER_ID);
+    expect(updateWithVersion).toHaveBeenCalledWith(
+      PARTICIPATION_ID,
+      0,
+      expect.objectContaining({ score: 80 }),
+    );
+  });
+
+  it("no-ops when the user has no participation row yet", async () => {
+    findIdByExamAndUser.mockResolvedValue(null);
+
+    await updateExamScoresForUser(EXAM_ID, USER_ID);
+
+    expect(findByIdWithExam).not.toHaveBeenCalled();
+    expect(updateWithVersion).not.toHaveBeenCalled();
   });
 });

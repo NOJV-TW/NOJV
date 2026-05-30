@@ -23,6 +23,10 @@ export async function updateContestScores(contestParticipationId: string): Promi
   await contestDomain.updateContestScores(contestParticipationId);
 }
 
+export async function updateExamScores(examId: string, userId: string): Promise<void> {
+  await examDomain.updateExamScoresForUser(examId, userId);
+}
+
 export async function closeActiveSessionsForExam(examId: string): Promise<{ closed: number }> {
   return examDomain.session.autoCloseForExam(examId);
 }

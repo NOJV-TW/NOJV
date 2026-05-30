@@ -119,7 +119,7 @@
         </Button>
         {#if showCreateMenu}
           <div
-            class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border bg-[color:var(--color-panel)] p-2 shadow-hover"
+            class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-hover"
             role="menu"
           >
             <button

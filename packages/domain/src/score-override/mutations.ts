@@ -1,6 +1,8 @@
 import {
   contestParticipationRepo,
+  contestRepo,
   examParticipationRepo,
+  examRepo,
   runTransaction,
   scoreOverrideAuditLogRepo,
   scoreOverrideRepo,
@@ -40,6 +42,26 @@ async function invalidateScoreboardForOverride(
   }
 }
 
+async function assertScoringModeSupportsOverride(context: ScoreOverrideContext): Promise<void> {
+  // ICPC-style (problem_count) scoreboards rank by solved-count + penalty, so a
+  // per-problem point override has no defined meaning and is silently dropped by
+  // the scoring pipeline (only the point_sum branch merges overrides). Reject it
+  // loudly here instead of persisting a no-op the teacher believes took effect.
+  let scoringMode: string;
+  if (context.type === "contest") {
+    ({ scoringMode } = await contestRepo.findInfoById(context.contestId));
+  } else if (context.type === "exam") {
+    ({ scoringMode } = await examRepo.findInfoById(context.examId));
+  } else {
+    return;
+  }
+  if (scoringMode === "problem_count") {
+    throw new ValidationError(
+      "Score overrides are not supported for ICPC-style (problem-count) scoring.",
+    );
+  }
+}
+
 export interface OverrideInput {
   userId: string;
   problemId: string;
@@ -70,6 +92,7 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
   await assertCanSetScoreOverride(actor, input.context);
   validateScore(input.overrideScore);
   validateReason(input.reason);
+  await assertScoringModeSupportsOverride(input.context);
 
   const db = toContextDbFields(input.context);
   const row = await runTransaction(async (tx) => {
