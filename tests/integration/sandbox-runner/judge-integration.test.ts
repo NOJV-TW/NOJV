@@ -69,13 +69,13 @@ async function skipIfMissing(name: string): Promise<boolean> {
 const correctPrograms: Record<string, LangEntry> = {
   c: {
     language: "c",
-    source: `#include <stdio.h>
-int main() { int a, b; scanf("%d %d", &a, &b); printf("%d\\n", a+b); return 0; }`,
+    source: String.raw`#include <stdio.h>
+int main() { int a, b; scanf("%d %d", &a, &b); printf("%d\n", a+b); return 0; }`,
   },
   cpp: {
     language: "cpp",
-    source: `#include <iostream>
-int main() { int a, b; std::cin >> a >> b; std::cout << a+b << '\\n'; }`,
+    source: String.raw`#include <iostream>
+int main() { int a, b; std::cin >> a >> b; std::cout << a+b << '\n'; }`,
   },
   go: {
     language: "go",
@@ -389,7 +389,7 @@ describe("standard judge edge cases", () => {
 
   it("trailing whitespace in output still matches if trimEnd matches", async () => {
     // Output with trailing newlines
-    const result = await compileProgram("python", `print("8\\n\\n")`);
+    const result = await compileProgram("python", String.raw`print("8\n\n")`);
     expect(result.success).toBe(true);
     if (!result.success) return;
 

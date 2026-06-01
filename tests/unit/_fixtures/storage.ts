@@ -26,7 +26,7 @@ export function createInMemoryStorage() {
     // Apply queued failure predicates (consume on match).
     for (let i = 0; i < fails.length; i += 1) {
       const pred = fails[i];
-      if (pred && pred(name)) {
+      if (pred?.(name)) {
         fails.splice(i, 1);
         const err = new Error(`Simulated storage failure on ${name}`);
         (err as Error & { name: string }).name = "SimulatedError";
@@ -37,12 +37,8 @@ export function createInMemoryStorage() {
     if (name === "PutObjectCommand") {
       const key = input.Key as string;
       const body = input.Body;
-      const text =
-        body instanceof Buffer
-          ? body.toString("utf-8")
-          : typeof body === "string"
-            ? body
-            : String(body);
+      const bodyAsString = typeof body === "string" ? body : String(body);
+      const text = body instanceof Buffer ? body.toString("utf-8") : bodyAsString;
       store.set(key, text);
       return {};
     }
@@ -67,7 +63,7 @@ export function createInMemoryStorage() {
       const prefix = (input.Prefix as string) ?? "";
       const contents = [...store.keys()]
         .filter((key) => key.startsWith(prefix))
-        .sort()
+        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
         .map((key) => ({ Key: key }));
       return { Contents: contents, IsTruncated: false };
     }

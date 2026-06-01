@@ -20,7 +20,7 @@ function normalizeKey(event: KeyboardEvent): string {
 function comboMatches(keys: string[], event: KeyboardEvent): boolean {
   if (keys.length === 0) return false;
   const modifiers = new Set(keys.slice(0, -1).map((k) => k.toLowerCase()));
-  const mainKey = keys[keys.length - 1];
+  const mainKey = keys.at(-1);
   if (!mainKey) return false;
   const normalizedMain = mainKey.length === 1 ? mainKey.toUpperCase() : mainKey;
   if (normalizeKey(event) !== normalizedMain) return false;

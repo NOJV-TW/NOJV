@@ -277,7 +277,7 @@ export async function listVirtualContestProblemSubmissions(
   return submissions.map((s, idx) => {
     const verdict = submissionVerdictSchema.parse(s.status);
     const raw = detailBlobs[idx];
-    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
+    const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);

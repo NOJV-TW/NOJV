@@ -40,7 +40,7 @@ export async function writeTestcaseBlobs(input: TestcaseBlobInputs): Promise<Tes
   const client = getClient();
   const inputKey = testcaseInputKey(input.problemId, input.testcaseId);
   const outputKey =
-    input.output !== undefined ? testcaseOutputKey(input.problemId, input.testcaseId) : null;
+    input.output === undefined ? null : testcaseOutputKey(input.problemId, input.testcaseId);
   const inputFileKeys =
     input.inputFiles && Object.keys(input.inputFiles).length > 0
       ? Object.fromEntries(

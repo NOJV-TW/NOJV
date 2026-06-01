@@ -84,7 +84,7 @@ export const courseAssessmentCreateSchema = z
     const opensAt = new Date(value.opensAt);
     const closesAt = new Date(value.closesAt);
 
-    if (!(opensAt < closesAt)) {
+    if (opensAt >= closesAt) {
       ctx.addIssue({
         code: "custom",
         message: "closesAt must be later than opensAt",
@@ -94,14 +94,14 @@ export const courseAssessmentCreateSchema = z
 
     if (value.dueAt !== undefined) {
       const dueAt = new Date(value.dueAt);
-      if (!(opensAt < dueAt)) {
+      if (opensAt >= dueAt) {
         ctx.addIssue({
           code: "custom",
           message: "dueAt must be later than opensAt",
           path: ["dueAt"],
         });
       }
-      if (!(dueAt <= closesAt)) {
+      if (dueAt > closesAt) {
         ctx.addIssue({
           code: "custom",
           message: "closesAt must be later than or equal to dueAt",
@@ -142,14 +142,14 @@ export const courseAssignmentFormSchema = z
       return;
     }
 
-    if (!(opensAt < dueAt)) {
+    if (opensAt >= dueAt) {
       ctx.addIssue({
         code: "custom",
         message: "dueAt must be later than opensAt",
         path: ["dueAt"],
       });
     }
-    if (!(dueAt <= closesAt)) {
+    if (dueAt > closesAt) {
       ctx.addIssue({
         code: "custom",
         message: "closesAt must be later than or equal to dueAt",

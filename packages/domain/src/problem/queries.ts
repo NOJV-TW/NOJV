@@ -234,6 +234,41 @@ export interface ProblemListResult {
   statusCounts: ProblemStatusCounts | null;
 }
 
+function buildJudgeMethodClauses(judgeMethods: JudgeType[]): Prisma.ProblemWhereInput[] {
+  if (judgeMethods.length === 0 || judgeMethods.length >= judgeTypes.length) return [];
+  const or: Prisma.ProblemWhereInput[] = [];
+  for (const jm of judgeMethods) {
+    if (jm === "standard") {
+      or.push(
+        { judgeConfig: { equals: Prisma.DbNull } },
+        { judgeConfig: { path: ["type"], equals: "standard" } },
+      );
+    } else {
+      or.push({ judgeConfig: { path: ["type"], equals: jm } });
+    }
+  }
+  return [{ type: { not: "special_env" } }, { OR: or }];
+}
+
+function buildStatusClauses(
+  uid: string,
+  status: ProblemStatusFilter,
+): Prisma.ProblemWhereInput[] {
+  if (status === "solved") {
+    return [{ submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } } }];
+  }
+  if (status === "attempted") {
+    return [
+      { submissions: { some: { userId: uid, sampleOnly: false } } },
+      { submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } } },
+    ];
+  }
+  if (status === "untried") {
+    return [{ submissions: { none: { userId: uid, sampleOnly: false } } }];
+  }
+  return [{ bookmarks: { some: { userId: uid } } }];
+}
+
 export async function listProblemCards(
   params: ProblemListParams = {},
 ): Promise<ProblemListResult> {
@@ -267,40 +302,12 @@ export async function listProblemCards(
     where.type = { in: params.types };
   }
 
-  if (
-    params.judgeMethods &&
-    params.judgeMethods.length > 0 &&
-    params.judgeMethods.length < judgeTypes.length
-  ) {
-    const or: Prisma.ProblemWhereInput[] = [];
-    for (const jm of params.judgeMethods) {
-      if (jm === "standard") {
-        or.push({ judgeConfig: { equals: Prisma.DbNull } });
-        or.push({ judgeConfig: { path: ["type"], equals: "standard" } });
-      } else {
-        or.push({ judgeConfig: { path: ["type"], equals: jm } });
-      }
-    }
-    and.push({ type: { not: "special_env" } });
-    and.push({ OR: or });
+  if (params.judgeMethods) {
+    and.push(...buildJudgeMethodClauses(params.judgeMethods));
   }
 
   if (params.userId && params.status) {
-    const uid = params.userId;
-    if (params.status === "solved") {
-      and.push({
-        submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } },
-      });
-    } else if (params.status === "attempted") {
-      and.push({ submissions: { some: { userId: uid, sampleOnly: false } } });
-      and.push({
-        submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } },
-      });
-    } else if (params.status === "untried") {
-      and.push({ submissions: { none: { userId: uid, sampleOnly: false } } });
-    } else {
-      and.push({ bookmarks: { some: { userId: uid } } });
-    }
+    and.push(...buildStatusClauses(params.userId, params.status));
   }
 
   if (and.length > 0) where.AND = and;

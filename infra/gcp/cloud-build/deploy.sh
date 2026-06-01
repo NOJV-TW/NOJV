@@ -3,15 +3,17 @@
 set -euo pipefail
 
 require_command() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1" >&2
+  local command_name="$1"
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name" >&2
     exit 1
   fi
 }
 
 require_env() {
-  if [[ -z "${!1:-}" ]]; then
-    echo "Missing required environment variable: $1" >&2
+  local var_name="$1"
+  if [[ -z "${!var_name:-}" ]]; then
+    echo "Missing required environment variable: $var_name" >&2
     exit 1
   fi
 }

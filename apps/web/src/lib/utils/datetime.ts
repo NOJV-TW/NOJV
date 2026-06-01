@@ -1,11 +1,13 @@
 import { m } from "$lib/paraglide/messages.js";
 import { getLocale } from "$lib/paraglide/runtime.js";
 
+type DateInput = Date | string | number;
+
 function pad2(n: number): string {
   return n < 10 ? `0${String(n)}` : String(n);
 }
 
-function toDate(value: Date | string | number): Date | null {
+function toDate(value: DateInput): Date | null {
   const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
 }
@@ -30,28 +32,19 @@ const TIME_DEFAULTS: Intl.DateTimeFormatOptions = {
   minute: "2-digit",
 };
 
-export function formatDateTime(
-  value: Date | string | number,
-  opts?: Intl.DateTimeFormatOptions,
-): string {
+export function formatDateTime(value: DateInput, opts?: Intl.DateTimeFormatOptions): string {
   const d = toDate(value);
   if (!d) return "";
   return new Intl.DateTimeFormat(getLocale(), { ...DATE_TIME_DEFAULTS, ...opts }).format(d);
 }
 
-export function formatDate(
-  value: Date | string | number,
-  opts?: Intl.DateTimeFormatOptions,
-): string {
+export function formatDate(value: DateInput, opts?: Intl.DateTimeFormatOptions): string {
   const d = toDate(value);
   if (!d) return "";
   return new Intl.DateTimeFormat(getLocale(), { ...DATE_DEFAULTS, ...opts }).format(d);
 }
 
-export function formatTime(
-  value: Date | string | number,
-  opts?: Intl.DateTimeFormatOptions,
-): string {
+export function formatTime(value: DateInput, opts?: Intl.DateTimeFormatOptions): string {
   const d = toDate(value);
   if (!d) return "";
   return new Intl.DateTimeFormat(getLocale(), { ...TIME_DEFAULTS, ...opts }).format(d);
@@ -147,7 +140,8 @@ export function formatRelativeFromNow(value: string | Date, now: Date = new Date
     unit = "day";
   }
 
-  const unitLabel = unit === "min" ? "min" : unit === "hr" ? "hr" : "day";
+  const nonMinLabel = unit === "hr" ? "hr" : "day";
+  const unitLabel = unit === "min" ? "min" : nonMinLabel;
   const plural = value2 === 1 ? "" : "s";
   const count = String(value2);
   return past ? `${count} ${unitLabel}${plural} ago` : `in ${count} ${unitLabel}${plural}`;

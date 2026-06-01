@@ -71,13 +71,14 @@ export function createClarificationsStore(
     }
   }
 
+  function buildAskContext() {
+    if (contextType === "assignment") return { type: contextType, assignmentId: contextId };
+    if (contextType === "exam") return { type: contextType, examId: contextId };
+    return { type: contextType, contestId: contextId };
+  }
+
   async function ask(questionText: string, problemId: string | null): Promise<void> {
-    const context =
-      contextType === "assignment"
-        ? { type: contextType, assignmentId: contextId }
-        : contextType === "exam"
-          ? { type: contextType, examId: contextId }
-          : { type: contextType, contestId: contextId };
+    const context = buildAskContext();
     const r = await fetchWithCsrf("/api/clarifications", {
       method: "POST",
       body: JSON.stringify({ context, problemId, questionText }),

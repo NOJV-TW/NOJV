@@ -11,28 +11,27 @@ export interface SubtaskConfig {
   caseIndices: number[];
 }
 
-export function detectSubtasksFromFiles(
+interface CaseEntry {
+  in?: string;
+  out?: string;
+  fileName: string;
+}
+type SubtaskMap = Map<string, Map<string, CaseEntry>>;
+
+function baseNameOf(name: string): string {
+  return name.includes("/") ? (name.split("/").pop() ?? name) : name;
+}
+
+function groupFilesBySubtask(
   files: { name: string; content: string }[],
-  regexPattern: string,
+  regex: RegExp,
   inExt: string,
   outExt: string,
-): { cases: ParsedCase[]; subtasks: SubtaskConfig[]; error?: string } {
-  let regex: RegExp;
-  try {
-    regex = new RegExp(`^${regexPattern}$`);
-  } catch {
-    return { cases: [], subtasks: [], error: "invalid_regex" };
-  }
-
-  const bySubtask = new Map<
-    string,
-    Map<string, { in?: string; out?: string; fileName: string }>
-  >();
+): SubtaskMap {
+  const bySubtask: SubtaskMap = new Map();
 
   for (const file of files) {
-    const baseName = file.name.includes("/")
-      ? (file.name.split("/").pop() ?? file.name)
-      : file.name;
+    const baseName = baseNameOf(file.name);
     const isIn = baseName.endsWith(inExt);
     const isOut = baseName.endsWith(outExt);
     if (!isIn && !isOut) continue;
@@ -59,10 +58,13 @@ export function detectSubtasksFromFiles(
     if (isOut) entry.out = file.content;
   }
 
-  if (bySubtask.size === 0) {
-    return { cases: [], subtasks: [], error: "no_files_matched" };
-  }
+  return bySubtask;
+}
 
+function buildSubtasks(
+  bySubtask: SubtaskMap,
+  inExt: string,
+): { cases: ParsedCase[]; subtasks: SubtaskConfig[] } {
   const allCases: ParsedCase[] = [];
   const subtasks: SubtaskConfig[] = [];
   const sortedSubtaskIds = [...bySubtask.keys()].sort((a, b) => Number(a) - Number(b));
@@ -93,4 +95,26 @@ export function detectSubtasksFromFiles(
   }
 
   return { cases: allCases, subtasks };
+}
+
+export function detectSubtasksFromFiles(
+  files: { name: string; content: string }[],
+  regexPattern: string,
+  inExt: string,
+  outExt: string,
+): { cases: ParsedCase[]; subtasks: SubtaskConfig[]; error?: string } {
+  let regex: RegExp;
+  try {
+    regex = new RegExp(`^${regexPattern}$`);
+  } catch {
+    return { cases: [], subtasks: [], error: "invalid_regex" };
+  }
+
+  const bySubtask = groupFilesBySubtask(files, regex, inExt, outExt);
+
+  if (bySubtask.size === 0) {
+    return { cases: [], subtasks: [], error: "no_files_matched" };
+  }
+
+  return buildSubtasks(bySubtask, inExt);
 }

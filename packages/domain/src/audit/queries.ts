@@ -53,6 +53,17 @@ export interface RejudgeAuditEvent extends AuditEventBase {
 
 export type AuditEvent = LifecycleAuditEvent | ScoreOverrideAuditEvent | RejudgeAuditEvent;
 
+function resolveContextId(context: GradableContext): string {
+  switch (context.type) {
+    case "assignment":
+      return context.assignmentId;
+    case "exam":
+      return context.examId;
+    case "contest":
+      return context.contestId;
+  }
+}
+
 export async function listAuditTimelineForContext(
   context: GradableContext,
 ): Promise<AuditEvent[]> {
@@ -68,12 +79,7 @@ export async function listAuditTimelineForContext(
         )
       : Promise.resolve([]);
 
-  const contextId =
-    context.type === "assignment"
-      ? context.assignmentId
-      : context.type === "exam"
-        ? context.examId
-        : context.contestId;
+  const contextId = resolveContextId(context);
 
   const overrideP: Promise<ScoreOverrideAuditEvent[]> = scoreOverrideAuditLogRepo
     .listForContext(context.type, contextId)

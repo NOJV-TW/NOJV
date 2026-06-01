@@ -16,7 +16,7 @@ import { stripStaffFeedback } from "../submission/scoring";
 
 function letterForIndex(index: number): string {
   if (index < 0) return String(index + 1);
-  if (index < 26) return String.fromCharCode(65 + index);
+  if (index < 26) return String.fromCodePoint(65 + index);
   return String(index + 1);
 }
 
@@ -112,7 +112,7 @@ export async function getExamProblemView(options: {
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
     const verdict = submissionVerdictSchema.parse(s.status);
     const raw = detailBlobs[idx];
-    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
+    const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);
@@ -215,7 +215,7 @@ export async function getExamProblemViewByProblemId(options: {
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
     const verdict = submissionVerdictSchema.parse(s.status);
     const raw = detailBlobs[idx];
-    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
+    const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);

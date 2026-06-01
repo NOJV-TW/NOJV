@@ -51,9 +51,9 @@ describe("getSubmissionSources — domain wrapper", () => {
 
     const result = await getSubmissionSources("sub_multi");
     expect(result.map((s) => s.path)).toEqual([
-      "README.md",
       "lib/helpers.py",
       "main.py",
+      "README.md",
       "util.py",
     ]);
   });

@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     ? (statusParam as StatusFilter)
     : undefined;
   const pageParam = url.searchParams.get("page");
-  const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+  const page = pageParam ? Math.max(1, Number.parseInt(pageParam, 10) || 1) : 1;
   const sort = url.searchParams.get("sort") === "desc" ? "desc" : "asc";
 
   const [publicResult, editableProblems] = await Promise.all([

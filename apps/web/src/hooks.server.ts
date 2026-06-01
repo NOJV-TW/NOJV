@@ -153,67 +153,80 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 };
 
-const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Response> => {
-  event.locals.requestId = deriveRequestId(event.request.headers);
+type HandleEvent = Parameters<Handle>[0]["event"];
+type HandleResolve = Parameters<Handle>[0]["resolve"];
 
-  const cleanPath = stripLocalePrefix(event.url.pathname);
-
+function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response | null {
   if (
-    cleanPath.startsWith("/api/") &&
-    !["GET", "HEAD", "OPTIONS"].includes(event.request.method)
+    !cleanPath.startsWith("/api/") ||
+    ["GET", "HEAD", "OPTIONS"].includes(event.request.method)
   ) {
-    const origin = event.request.headers.get("origin");
-    if (origin && origin !== event.url.origin) {
-      return new Response("CSRF validation failed", {
-        status: 403,
-        headers: { "x-request-id": event.locals.requestId },
-      });
-    }
+    return null;
+  }
 
-    if (!cleanPath.startsWith("/api/auth")) {
-      const xrw = event.request.headers.get("x-requested-with");
-      if (xrw !== "fetch") {
-        return new Response(
-          JSON.stringify({ message: "CSRF token required", code: "csrf_required" }),
-          {
-            status: 403,
-            headers: {
-              "content-type": "application/json",
-              "x-request-id": event.locals.requestId,
-            },
+  const origin = event.request.headers.get("origin");
+  if (origin && origin !== event.url.origin) {
+    return new Response("CSRF validation failed", {
+      status: 403,
+      headers: { "x-request-id": event.locals.requestId },
+    });
+  }
+
+  if (!cleanPath.startsWith("/api/auth")) {
+    const xrw = event.request.headers.get("x-requested-with");
+    if (xrw !== "fetch") {
+      return new Response(
+        JSON.stringify({ message: "CSRF token required", code: "csrf_required" }),
+        {
+          status: 403,
+          headers: {
+            "content-type": "application/json",
+            "x-request-id": event.locals.requestId,
           },
-        );
-      }
+        },
+      );
     }
   }
 
-  if (cleanPath.startsWith("/api/auth")) {
-    const isPasswordSignIn =
-      event.request.method === "POST" &&
-      (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
-    if (isPasswordSignIn) {
-      const ip = getClientIp(event);
-      try {
-        await signInRateLimiter.consume(ip);
-      } catch (err) {
-        if (isHttpError(err)) throw err;
-        return new Response(
-          JSON.stringify({ message: "Too many sign-in attempts. Try again later." }),
-          {
-            status: 429,
-            headers: {
-              "content-type": "application/json",
-              "x-request-id": event.locals.requestId,
-            },
-          },
-        );
-      }
-    }
-    const response = await resolve(event);
-    response.headers.set("x-request-id", event.locals.requestId);
-    return response;
+  return null;
+}
+
+async function handleApiAuthRoute(
+  event: HandleEvent,
+  cleanPath: string,
+  resolve: HandleResolve,
+): Promise<Response | null> {
+  if (!cleanPath.startsWith("/api/auth")) {
+    return null;
   }
 
+  const isPasswordSignIn =
+    event.request.method === "POST" &&
+    (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
+  if (isPasswordSignIn) {
+    const ip = getClientIp(event);
+    try {
+      await signInRateLimiter.consume(ip);
+    } catch (err) {
+      if (isHttpError(err)) throw err;
+      return new Response(
+        JSON.stringify({ message: "Too many sign-in attempts. Try again later." }),
+        {
+          status: 429,
+          headers: {
+            "content-type": "application/json",
+            "x-request-id": event.locals.requestId,
+          },
+        },
+      );
+    }
+  }
+  const response = await resolve(event);
+  response.headers.set("x-request-id", event.locals.requestId);
+  return response;
+}
+
+async function loadSession(event: HandleEvent): Promise<void> {
   const session = await getAuth().api.getSession({
     headers: event.request.headers,
   });
@@ -221,7 +234,9 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
   event.locals.sessionUser = (session?.user ?? null) as SessionUser | null;
+}
 
+function enforceAccountState(event: HandleEvent, cleanPath: string): void {
   if (event.locals.sessionUser?.disabled) {
     event.locals.session = null;
     event.locals.user = null;
@@ -238,103 +253,148 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   ) {
     redirect(302, "/complete-profile");
   }
+}
 
-  if (event.locals.sessionUser) {
-    if (!isPageLockExempt(cleanPath)) {
-      const userId = event.locals.sessionUser.id;
-      const lockCtx = await pageLockCache.getOrLoad(userId, () => getPageLockedContext(userId));
-      if (lockCtx && !isProctoredEntityAllowed(cleanPath, lockCtx)) {
-        redirect(302, pageLockRedirectTarget(lockCtx));
-      }
-    }
+async function enforcePageLock(event: HandleEvent, cleanPath: string): Promise<void> {
+  if (!event.locals.sessionUser || isPageLockExempt(cleanPath)) {
+    return;
+  }
+  const userId = event.locals.sessionUser.id;
+  const lockCtx = await pageLockCache.getOrLoad(userId, () => getPageLockedContext(userId));
+  if (lockCtx && !isProctoredEntityAllowed(cleanPath, lockCtx)) {
+    redirect(302, pageLockRedirectTarget(lockCtx));
+  }
+}
+
+async function recordExamVisibilityLost(
+  sessionUser: NonNullable<HandleEvent["locals"]["sessionUser"]>,
+  examCtx: ActiveExamContext,
+  cleanPath: string,
+): Promise<void> {
+  try {
+    await examDomain.session.recordEvent(
+      {
+        displayName: sessionUser.name,
+        email: sessionUser.email,
+        username: sessionUser.username ?? "",
+        platformRole: sessionUser.platformRole,
+        userId: sessionUser.id,
+      },
+      {
+        examId: examCtx.exam.id,
+        eventType: "visibility_lost",
+        metadata: { attemptedPath: cleanPath },
+      },
+    );
+  } catch (err) {
+    examLockLogger.warn("recordEvent(visibility_lost) failed", {
+      userId: sessionUser.id,
+      examId: examCtx.exam.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+async function enforceExamGate(
+  event: HandleEvent,
+  cleanPath: string,
+): Promise<Response | null> {
+  const sessionUser = event.locals.sessionUser;
+  if (!sessionUser) {
+    return null;
   }
 
-  if (event.locals.sessionUser) {
-    const sessionUser = event.locals.sessionUser;
-    let examCtx: ActiveExamContext | null = null;
-    try {
-      examCtx = await examContextCache.getOrLoad(sessionUser.id, () =>
-        getActiveExamContext(sessionUser.id),
-      );
-    } catch (err) {
-      examLockLogger.warn("getActiveExamContext failed — failing open", {
-        userId: sessionUser.id,
-        err: err instanceof Error ? err.message : String(err),
-      });
-    }
+  let examCtx: ActiveExamContext | null = null;
+  try {
+    examCtx = await examContextCache.getOrLoad(sessionUser.id, () =>
+      getActiveExamContext(sessionUser.id),
+    );
+  } catch (err) {
+    examLockLogger.warn("getActiveExamContext failed — failing open", {
+      userId: sessionUser.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
 
-    if (examCtx) {
-      const ip = getClientIp(event); // prod: throws 403 if the request bypassed Cloudflare
-      let verdict;
-      try {
-        verdict = await proctoringDomain.checkProctoringGate({
-          entityKind: "exam",
-          entityId: examCtx.exam.id,
-          userId: sessionUser.id,
-          ip,
-        });
-      } catch (err) {
-        examLockLogger.error("exam proctoring gate failed — failing closed", {
-          userId: sessionUser.id,
-          examId: examCtx.exam.id,
-          err: err instanceof Error ? err.message : String(err),
-        });
-        return denyExamGate({
-          cleanPath,
-          requestId: event.locals.requestId,
-          status: 503,
-          message: m.examShell_ipGateUnavailable(),
-          code: "exam_ip_gate_unavailable",
-        });
-      }
-      const denial = resolveExamGateDenial(verdict, cleanPath);
-      if (denial) {
-        return denyExamGate({
-          cleanPath,
-          requestId: event.locals.requestId,
-          status: denial.status,
-          message:
-            denial.scope === "all" ? m.examShell_ipBlocked() : m.examShell_examUnavailable(),
-          code: denial.code,
-        });
-      }
+  if (!examCtx) {
+    return null;
+  }
 
-      if (isExamForbiddenApiPath(cleanPath)) {
-        return denyExamGate({
-          cleanPath,
-          requestId: event.locals.requestId,
-          status: 403,
-          message: m.examShell_examUnavailable(),
-          code: "exam_api_scope",
-        });
-      }
-    }
+  const ip = getClientIp(event); // prod: throws 403 if the request bypassed Cloudflare
+  let verdict;
+  try {
+    verdict = await proctoringDomain.checkProctoringGate({
+      entityKind: "exam",
+      entityId: examCtx.exam.id,
+      userId: sessionUser.id,
+      ip,
+    });
+  } catch (err) {
+    examLockLogger.error("exam proctoring gate failed — failing closed", {
+      userId: sessionUser.id,
+      examId: examCtx.exam.id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return denyExamGate({
+      cleanPath,
+      requestId: event.locals.requestId,
+      status: 503,
+      message: m.examShell_ipGateUnavailable(),
+      code: "exam_ip_gate_unavailable",
+    });
+  }
 
-    if (examCtx && !isAllowedPathForExam(cleanPath, examCtx)) {
-      try {
-        await examDomain.session.recordEvent(
-          {
-            displayName: sessionUser.name,
-            email: sessionUser.email,
-            username: sessionUser.username ?? "",
-            platformRole: sessionUser.platformRole,
-            userId: sessionUser.id,
-          },
-          {
-            examId: examCtx.exam.id,
-            eventType: "visibility_lost",
-            metadata: { attemptedPath: cleanPath },
-          },
-        );
-      } catch (err) {
-        examLockLogger.warn("recordEvent(visibility_lost) failed", {
-          userId: sessionUser.id,
-          examId: examCtx.exam.id,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-      redirect(307, `/exams/${examCtx.exam.id}`);
-    }
+  const denial = resolveExamGateDenial(verdict, cleanPath);
+  if (denial) {
+    return denyExamGate({
+      cleanPath,
+      requestId: event.locals.requestId,
+      status: denial.status,
+      message: denial.scope === "all" ? m.examShell_ipBlocked() : m.examShell_examUnavailable(),
+      code: denial.code,
+    });
+  }
+
+  if (isExamForbiddenApiPath(cleanPath)) {
+    return denyExamGate({
+      cleanPath,
+      requestId: event.locals.requestId,
+      status: 403,
+      message: m.examShell_examUnavailable(),
+      code: "exam_api_scope",
+    });
+  }
+
+  if (!isAllowedPathForExam(cleanPath, examCtx)) {
+    await recordExamVisibilityLost(sessionUser, examCtx, cleanPath);
+    redirect(307, `/exams/${examCtx.exam.id}`);
+  }
+
+  return null;
+}
+
+const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Response> => {
+  event.locals.requestId = deriveRequestId(event.request.headers);
+
+  const cleanPath = stripLocalePrefix(event.url.pathname);
+
+  const csrfResponse = enforceApiCsrf(event, cleanPath);
+  if (csrfResponse) {
+    return csrfResponse;
+  }
+
+  const authResponse = await handleApiAuthRoute(event, cleanPath, resolve);
+  if (authResponse) {
+    return authResponse;
+  }
+
+  await loadSession(event);
+  enforceAccountState(event, cleanPath);
+  await enforcePageLock(event, cleanPath);
+
+  const examResponse = await enforceExamGate(event, cleanPath);
+  if (examResponse) {
+    return examResponse;
   }
 
   return paraglideMiddleware(event.request, async ({ request }) => {

@@ -30,7 +30,7 @@ export async function getSubmissionSources(
   submissionId: string,
 ): Promise<SubmissionSource[]> {
   const prefix = submissionSourcePrefix(submissionId);
-  const keys = (await listByPrefix(client, prefix)).sort();
+  const keys = (await listByPrefix(client, prefix)).sort((a, b) => a.localeCompare(b));
 
   return Promise.all(
     keys.map(async (key) => ({

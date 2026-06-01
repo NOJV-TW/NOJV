@@ -340,24 +340,24 @@ print("".join(chunks))
 // Test 2 — Checker mode (DOMjudge validator in a separate Job)
 // ---------------------------------------------------------------------------
 
-describe("K8s judge — checker mode", () => {
-  function checkerRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
-    return {
-      submissionId: "checker-default",
-      sourceCode: "",
-      language: "python",
-      problemType: "full_source",
-      testcases: [
-        { index: 0, input: "1 2\n", output: "1 2 3\n", weight: 1, isSample: false },
-        { index: 1, input: "10 20\n", output: "10 20 30\n", weight: 1, isSample: false },
-      ],
-      judgeType: "checker",
-      judgeConfig: { checkerScript: VALIDATOR_SCRIPT, checkerLanguage: "python" },
-      limits: { timeoutMs: 5_000, memoryMb: 128 },
-      ...overrides,
-    };
-  }
+function checkerRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
+  return {
+    submissionId: "checker-default",
+    sourceCode: "",
+    language: "python",
+    problemType: "full_source",
+    testcases: [
+      { index: 0, input: "1 2\n", output: "1 2 3\n", weight: 1, isSample: false },
+      { index: 1, input: "10 20\n", output: "10 20 30\n", weight: 1, isSample: false },
+    ],
+    judgeType: "checker",
+    judgeConfig: { checkerScript: VALIDATOR_SCRIPT, checkerLanguage: "python" },
+    limits: { timeoutMs: 5_000, memoryMb: 128 },
+    ...overrides,
+  };
+}
 
+describe("K8s judge — checker mode", () => {
   it(
     "AC: correct solution graded by isolated validator",
     { timeout: STANDARD_TIMEOUT_MS },
@@ -475,24 +475,24 @@ print("".join(chunks))
 // Test 3 — Interactive mode (DOMjudge interactor, two-container pod)
 // ---------------------------------------------------------------------------
 
-describe("K8s judge — interactive mode", () => {
-  function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
-    return {
-      submissionId: "interactive-default",
-      sourceCode: "",
-      language: "python",
-      problemType: "full_source",
-      testcases: [
-        { index: 0, input: "42\n", weight: 1, isSample: false },
-        { index: 1, input: "73\n", weight: 1, isSample: false },
-      ],
-      judgeType: "interactive",
-      judgeConfig: { interactorScript: INTERACTOR_SCRIPT, interactorLanguage: "python" },
-      limits: { timeoutMs: 5_000, memoryMb: 128 },
-      ...overrides,
-    };
-  }
+function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
+  return {
+    submissionId: "interactive-default",
+    sourceCode: "",
+    language: "python",
+    problemType: "full_source",
+    testcases: [
+      { index: 0, input: "42\n", weight: 1, isSample: false },
+      { index: 1, input: "73\n", weight: 1, isSample: false },
+    ],
+    judgeType: "interactive",
+    judgeConfig: { interactorScript: INTERACTOR_SCRIPT, interactorLanguage: "python" },
+    limits: { timeoutMs: 5_000, memoryMb: 128 },
+    ...overrides,
+  };
+}
 
+describe("K8s judge — interactive mode", () => {
   it(
     "AC: binary search solution with partial score from interactor",
     { timeout: INTERACTIVE_TIMEOUT_MS },

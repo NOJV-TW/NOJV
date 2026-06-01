@@ -44,7 +44,7 @@ test.describe("Problem workspace UI", () => {
     const stamp = `// e2e draft ${Date.now()}\n`;
     const typed = await page.evaluate((source) => {
       // @ts-expect-error monaco is attached to window in the editor host
-      const monaco: typeof import("monaco-editor") | undefined = window.monaco;
+      const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
       if (!monaco) return false;
       const editors = monaco.editor.getEditors();
       const target = editors[0];
@@ -71,7 +71,7 @@ test.describe("Problem workspace UI", () => {
 
     const restored = await page.evaluate(() => {
       // @ts-expect-error monaco shimmed onto window in the editor host
-      const monaco: typeof import("monaco-editor") | undefined = window.monaco;
+      const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
       if (!monaco) return null;
       const editors = monaco.editor.getEditors();
       return editors[0]?.getValue() ?? null;

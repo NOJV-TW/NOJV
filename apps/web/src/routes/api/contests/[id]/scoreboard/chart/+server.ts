@@ -12,7 +12,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   if (!id) return json({ message: "Missing contest id." }, { status: 400 });
 
   const topN = Math.min(
-    Math.max(1, parseInt(event.url.searchParams.get("topN") ?? "10", 10) || 10),
+    Math.max(1, Number.parseInt(event.url.searchParams.get("topN") ?? "10", 10) || 10),
     50,
   );
 

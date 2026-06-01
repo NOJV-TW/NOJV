@@ -43,14 +43,17 @@ const INITIAL_POLL_DELAY_MS = 500;
 const MAX_POLL_DELAY_MS = 3_000;
 const POLL_BACKOFF_FACTOR = 1.5;
 
+function resolveSubmissionMode(
+  request: SubmissionRequest,
+): "contest" | "assignment" | "practice" | "virtual" {
+  if (request.contestId) return "contest";
+  if (request.virtualContestId) return "virtual";
+  if (request.assessment) return "assignment";
+  return "practice";
+}
+
 export function buildSubmissionBody(request: SubmissionRequest): Record<string, unknown> {
-  const mode: "contest" | "assignment" | "practice" | "virtual" = request.contestId
-    ? "contest"
-    : request.virtualContestId
-      ? "virtual"
-      : request.assessment
-        ? "assignment"
-        : "practice";
+  const mode = resolveSubmissionMode(request);
 
   const commonFields: Record<string, unknown> = {
     assessment: request.assessment,
@@ -84,14 +87,12 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
   };
 }
 
-export async function executeSubmission(
-  request: SubmissionRequest,
-  options: ExecuteSubmissionOptions = {},
-): Promise<SubmissionResult | null> {
-  const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, onOperationUpdate } = options;
+type SubmissionOperation = ReturnType<typeof submissionOperationSchema.parse>;
 
-  const body = buildSubmissionBody(request);
-
+async function postSubmission(
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<ReturnType<typeof submissionDispatchResponseSchema.parse> | null> {
   const postInit: RequestInit = {
     body: JSON.stringify(body),
     method: "POST",
@@ -111,30 +112,52 @@ export async function executeSubmission(
     throw new Error(parsed.success ? parsed.data.message : "Submission failed.");
   }
 
-  const dispatch = submissionDispatchResponseSchema.parse(await response.json());
+  return submissionDispatchResponseSchema.parse(await response.json());
+}
+
+async function pollOnce(
+  pollUrl: string,
+  signal?: AbortSignal,
+): Promise<SubmissionOperation | null> {
+  const pollInit: RequestInit = { cache: "no-store" };
+  if (signal) pollInit.signal = signal;
+
+  let poll: Response;
+  try {
+    poll = await fetch(pollUrl, pollInit);
+  } catch (err) {
+    if (signal?.aborted) return null;
+    throw err;
+  }
+
+  if (!poll.ok) {
+    const parsed = apiErrorSchema.safeParse(await poll.json());
+    throw new Error(parsed.success ? parsed.data.message : "Polling failed.");
+  }
+
+  return submissionOperationSchema.parse(await poll.json());
+}
+
+export async function executeSubmission(
+  request: SubmissionRequest,
+  options: ExecuteSubmissionOptions = {},
+): Promise<SubmissionResult | null> {
+  const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, onOperationUpdate } = options;
+
+  const body = buildSubmissionBody(request);
+
+  const dispatch = await postSubmission(body, signal);
+  if (!dispatch) return null;
+
   const startedAt = Date.now();
   let pollDelay = INITIAL_POLL_DELAY_MS;
 
   while (Date.now() - startedAt < timeoutMs) {
     if (signal?.aborted) return null;
 
-    const pollInit: RequestInit = { cache: "no-store" };
-    if (signal) pollInit.signal = signal;
+    const operation = await pollOnce(dispatch.pollUrl, signal);
+    if (!operation) return null;
 
-    let poll: Response;
-    try {
-      poll = await fetch(dispatch.pollUrl, pollInit);
-    } catch (err) {
-      if (signal?.aborted) return null;
-      throw err;
-    }
-
-    if (!poll.ok) {
-      const parsed = apiErrorSchema.safeParse(await poll.json());
-      throw new Error(parsed.success ? parsed.data.message : "Polling failed.");
-    }
-
-    const operation = submissionOperationSchema.parse(await poll.json());
     onOperationUpdate?.(operation);
 
     if (operation.result) {

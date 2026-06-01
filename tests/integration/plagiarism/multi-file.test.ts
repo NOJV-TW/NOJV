@@ -32,21 +32,21 @@ import {
  * pair clears a similarity threshold that the old JSON-stringified shape
  * could not reach.
  */
-describe("plagiarism — multi-file detection (real DB + Dolos)", () => {
-  async function makeAssignment(courseId: string, createdByUserId: string) {
-    return testPrisma.courseAssessment.create({
-      data: {
-        courseId,
-        createdByUserId,
-        title: "Multi-file plagiarism HW",
-        summary: "for tests",
-        status: "published",
-        opensAt: new Date(Date.now() - 7200_000),
-        closesAt: new Date(Date.now() + 3600_000),
-      },
-    });
-  }
+async function makeAssignment(courseId: string, createdByUserId: string) {
+  return testPrisma.courseAssessment.create({
+    data: {
+      courseId,
+      createdByUserId,
+      title: "Multi-file plagiarism HW",
+      summary: "for tests",
+      status: "published",
+      opensAt: new Date(Date.now() - 7200_000),
+      closesAt: new Date(Date.now() + 3600_000),
+    },
+  });
+}
 
+describe("plagiarism — multi-file detection (real DB + Dolos)", () => {
   it("detects similarity between semantically equivalent multi-file C++ submissions", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
@@ -166,8 +166,8 @@ int main() {
 
     const pair = results.pairs[0]!;
     expect(pair.problemId).toBe(problem.id);
-    const users = [pair.userId1, pair.userId2].sort();
-    expect(users).toEqual([userA.id, userB.id].sort());
+    const users = [pair.userId1, pair.userId2].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    expect(users).toEqual([userA.id, userB.id].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
     // Threshold: 70. Semantic equivalence (same logic, variable rename) on
     // cpp typically scores ~85-95 with Dolos. The legacy JSON-stringified
     // shape would score around 10-30 because the JSON syntax tokens

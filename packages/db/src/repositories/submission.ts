@@ -427,12 +427,18 @@ export const submissionRepo = {
       | { type: "exam"; examId: string }
       | { type: "contest"; contestId: string },
   ): Promise<string[]> {
-    const where: Prisma.SubmissionWhereInput =
-      context.type === "assignment"
-        ? { courseAssessmentId: context.assignmentId }
-        : context.type === "exam"
-          ? { examId: context.examId }
-          : { contestId: context.contestId };
+    let where: Prisma.SubmissionWhereInput;
+    switch (context.type) {
+      case "assignment":
+        where = { courseAssessmentId: context.assignmentId };
+        break;
+      case "exam":
+        where = { examId: context.examId };
+        break;
+      default:
+        where = { contestId: context.contestId };
+        break;
+    }
     const rows = await prisma.submission.findMany({ where, select: { id: true } });
     return rows.map((r) => r.id);
   },

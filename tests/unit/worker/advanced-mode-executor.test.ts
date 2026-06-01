@@ -47,7 +47,7 @@ describe("buildAdvancedDockerArgs", () => {
     expect(args).toContain("ALL");
     expect(args).toContain("no-new-privileges");
     expect(args).toContain("/tmp/job/workspace:/workspace");
-    expect(args[args.length - 1]).toBe("ta-image:latest");
+    expect(args.at(-1)).toBe("ta-image:latest");
   });
 
   it("mounts the rootfs read-only with a writable /tmp tmpfs", () => {

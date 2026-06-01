@@ -239,8 +239,9 @@ export async function getAssignmentContext(
   if (!assignment) return null;
 
   const now = options.now ?? new Date();
-  const timeStatus: "upcoming" | "open" | "closed" =
-    now < assignment.opensAt ? "upcoming" : now > assignment.closesAt ? "closed" : "open";
+  let timeStatus: "upcoming" | "open" | "closed" = "open";
+  if (now < assignment.opensAt) timeStatus = "upcoming";
+  else if (now > assignment.closesAt) timeStatus = "closed";
 
   const isAdmin = options.viewerPlatformRole === "admin";
   const membership = await courseMembershipRepo.findByComposite(

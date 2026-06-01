@@ -17,10 +17,8 @@ export function validateRequiredPaths(
       if (!uploadedPaths.some((p) => p.startsWith(req) && p.length > req.length)) {
         errors.push({ kind: "missing_folder", path: req });
       }
-    } else {
-      if (!uploadedPaths.includes(req)) {
-        errors.push({ kind: "missing_file", path: req });
-      }
+    } else if (!uploadedPaths.includes(req)) {
+      errors.push({ kind: "missing_file", path: req });
     }
   }
   return { ok: errors.length === 0, errors };

@@ -13,7 +13,9 @@ const SCAFFOLD_FILES: Record<string, string> = Object.fromEntries(
   ]),
 );
 
-export const SCAFFOLD_ENTRY_NAMES = Object.keys(SCAFFOLD_FILES).sort();
+export const SCAFFOLD_ENTRY_NAMES = Object.keys(SCAFFOLD_FILES).sort((a, b) =>
+  a.localeCompare(b),
+);
 
 export const SCAFFOLD_ZIP_FILENAME = "nojv-advanced-judge-starter.zip";
 

@@ -19,6 +19,8 @@ function extractLatePenalty(raw: unknown): AdjustmentRule | null {
 
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
+type ProblemSolveState = "ac" | "partial" | "attempted" | "none";
+
 export interface AssignmentDetailProblem {
   problemId: string;
   letter: string;
@@ -31,7 +33,7 @@ export interface AssignmentDetailProblem {
     bestScore: number | null;
     attempts: number;
     lastSubmissionAt: string | null;
-    state: "ac" | "partial" | "attempted" | "none";
+    state: ProblemSolveState;
     overridden: boolean;
   } | null;
 }
@@ -83,7 +85,7 @@ function letterFor(ordinal: number): string {
   let label = "";
   while (n > 0) {
     const rem = (n - 1) % 26;
-    label = String.fromCharCode(65 + rem) + label;
+    label = String.fromCodePoint(65 + rem) + label;
     n = Math.floor((n - 1) / 26);
   }
   return label;
@@ -97,6 +99,81 @@ function deriveStatus(
   if (row.opensAt > now) return "upcoming";
   if (row.closesAt < now) return "closed";
   return "open";
+}
+
+interface ProblemStats {
+  bestScore: number;
+  attempts: number;
+}
+
+function resolveProblemStatus(
+  problem: AssignmentDetailProblem,
+  stats: ProblemStats | undefined,
+  override: number | undefined,
+  lastSubmissionAt: string | null,
+): AssignmentDetailProblem["myStatus"] {
+  if (override !== undefined) {
+    let state: ProblemSolveState = "none";
+    if (override >= problem.points) state = "ac";
+    else if (override > 0) state = "partial";
+    else if ((stats?.attempts ?? 0) > 0) state = "attempted";
+    return {
+      bestScore: override,
+      attempts: stats?.attempts ?? 0,
+      lastSubmissionAt,
+      state,
+      overridden: true,
+    };
+  }
+
+  if (!stats) {
+    return {
+      bestScore: null,
+      attempts: 0,
+      lastSubmissionAt: null,
+      state: "none",
+      overridden: false,
+    };
+  }
+
+  let state: ProblemSolveState = "none";
+  if (stats.bestScore >= problem.points) state = "ac";
+  else if (stats.bestScore > 0) state = "partial";
+  else if (stats.attempts > 0) state = "attempted";
+  return {
+    bestScore: stats.bestScore,
+    attempts: stats.attempts,
+    lastSubmissionAt,
+    state,
+    overridden: false,
+  };
+}
+
+function buildRecentSubmissionLog(
+  recent: {
+    id: string;
+    problemId: string;
+    status: string;
+    score: number;
+    createdAt: Date;
+  }[],
+  problems: AssignmentDetailProblem[],
+): AssignmentDetailSubmissionLogEntry[] {
+  const problemLookup = new Map(
+    problems.map((p) => [p.problemId, { letter: p.letter, title: p.title }]),
+  );
+  return recent.map((s) => {
+    const p = problemLookup.get(s.problemId);
+    return {
+      id: s.id,
+      problemId: s.problemId,
+      problemLetter: p?.letter ?? "?",
+      problemTitle: p?.title ?? "",
+      status: s.status,
+      score: s.score,
+      createdAt: s.createdAt.toISOString(),
+    };
+  });
 }
 
 export async function getAssignmentDetail(
@@ -186,68 +263,15 @@ export async function getAssignmentDetail(
       const stats = statsByProblem.get(problem.problemId);
       const overrideKey = `${options.viewerUserId}::${problem.problemId}`;
       const override = overrides.get(overrideKey);
-
-      if (override !== undefined) {
-        let state: "ac" | "partial" | "attempted" | "none" = "none";
-        if (override >= problem.points) state = "ac";
-        else if (override > 0) state = "partial";
-        else if ((stats?.attempts ?? 0) > 0) state = "attempted";
-        problem.myStatus = {
-          bestScore: override,
-          attempts: stats?.attempts ?? 0,
-          lastSubmissionAt: lastByProblem.get(problem.problemId) ?? null,
-          state,
-          overridden: true,
-        };
-        continue;
-      }
-
-      if (!stats) {
-        problem.myStatus = {
-          bestScore: null,
-          attempts: 0,
-          lastSubmissionAt: null,
-          state: "none",
-          overridden: false,
-        };
-        continue;
-      }
-      let state: "ac" | "partial" | "attempted" | "none" = "none";
-      if (stats.bestScore >= problem.points) state = "ac";
-      else if (stats.bestScore > 0) state = "partial";
-      else if (stats.attempts > 0) state = "attempted";
-      problem.myStatus = {
-        bestScore: stats.bestScore,
-        attempts: stats.attempts,
-        lastSubmissionAt: lastByProblem.get(problem.problemId) ?? null,
-        state,
-        overridden: false,
-      };
+      problem.myStatus = resolveProblemStatus(
+        problem,
+        stats,
+        override,
+        lastByProblem.get(problem.problemId) ?? null,
+      );
     }
 
-    const problemLookup = new Map(
-      problems.map((p) => [p.problemId, { letter: p.letter, title: p.title }]),
-    );
-    myRecentSubmissions = (
-      recent as {
-        id: string;
-        problemId: string;
-        status: string;
-        score: number;
-        createdAt: Date;
-      }[]
-    ).map((s) => {
-      const p = problemLookup.get(s.problemId);
-      return {
-        id: s.id,
-        problemId: s.problemId,
-        problemLetter: p?.letter ?? "?",
-        problemTitle: p?.title ?? "",
-        status: s.status,
-        score: s.score,
-        createdAt: s.createdAt.toISOString(),
-      };
-    });
+    myRecentSubmissions = buildRecentSubmissionLog(recent, problems);
   }
 
   const auditRows = options.isManager

@@ -179,7 +179,7 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
 
     const createArg = submissionCreate.mock.calls[0]![0] as { id: string };
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
-    expect([...store.keys()].sort()).toEqual([
+    expect([...store.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))).toEqual([
       `submissions/${createArg.id}/sources/lib/helpers.py`,
       `submissions/${createArg.id}/sources/main.py`,
       `submissions/${createArg.id}/sources/util.py`,
@@ -203,7 +203,7 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
 
     const createArg = submissionCreate.mock.calls[0]![0] as { id: string };
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
-    expect([...store.keys()].sort()).toEqual([
+    expect([...store.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))).toEqual([
       `submissions/${createArg.id}/sources/Makefile`,
       `submissions/${createArg.id}/sources/src/main.c`,
     ]);

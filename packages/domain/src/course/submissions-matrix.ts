@@ -5,12 +5,12 @@ import { problemLetter } from "../shared/problem-letter";
 import {
   buildMatrixRowCells,
   type MatrixCell,
-  type MatrixCellState,
   type MatrixProblemColumn,
 } from "../shared/submissions-matrix";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 
-export type { MatrixCell, MatrixCellState, MatrixProblemColumn };
+export type { MatrixCellState } from "../shared/submissions-matrix";
+export type { MatrixCell, MatrixProblemColumn };
 
 export interface MatrixRow {
   userId: string;

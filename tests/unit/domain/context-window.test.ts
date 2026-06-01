@@ -12,8 +12,12 @@ vi.mock("@nojv/db", () => ({
   contestRepo: { findById: contestFindById },
 }));
 
-import { ConflictError, NotFoundError } from "@nojv/domain";
-import { isContextClosed, assertContextClosed } from "@nojv/domain";
+import {
+  assertContextClosed,
+  ConflictError,
+  isContextClosed,
+  NotFoundError,
+} from "@nojv/domain";
 
 const PAST = new Date("2020-01-01T00:00:00Z");
 const FUTURE = new Date("2999-01-01T00:00:00Z");

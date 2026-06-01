@@ -66,7 +66,8 @@ async function assertEnrolledInExamCourse(
 
 export async function startSession(actor: ActorContext, { examId }: { examId: string }) {
   return runTransaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`exam-session:${actor.userId}`}, 0))`;
+    const lockKey = `exam-session:${actor.userId}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
 

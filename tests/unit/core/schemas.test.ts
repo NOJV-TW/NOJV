@@ -148,7 +148,7 @@ describe("safeRelativePath", () => {
   });
 
   it("rejects a backslash (Windows separator)", () => {
-    expect(() => safeRelativePath.parse("win\\path.cpp")).toThrow();
+    expect(() => safeRelativePath.parse(String.raw`win\path.cpp`)).toThrow();
   });
 
   it("rejects a NUL byte", () => {

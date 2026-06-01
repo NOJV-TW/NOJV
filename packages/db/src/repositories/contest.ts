@@ -200,8 +200,7 @@ export const contestProblemRepo = {
       .then((row) => row !== null);
   },
 
-  findActiveContestsForUser(problemId: string, userId: string, now: Date) {
-    void userId;
+  findActiveContestsForUser(problemId: string, _userId: string, now: Date) {
     return prisma.contestProblem.findMany({
       where: {
         problemId,
