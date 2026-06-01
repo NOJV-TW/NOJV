@@ -103,8 +103,13 @@ export async function resolveActiveContextForUser(
   return strictest ? strictest.context : { kind: "practice" };
 }
 
-export async function listProblemEditorials(problemId: string) {
-  return editorialRepo.listByProblemId(problemId);
+export async function listProblemEditorials(problemId: string, viewerId: string) {
+  const rows = await editorialRepo.listByProblemId(problemId);
+  return rows.map(({ votes, ...rest }) => ({
+    ...rest,
+    voteScore: votes.reduce((sum, v) => sum + v.value, 0),
+    viewerVote: votes.find((v) => v.userId === viewerId)?.value ?? 0,
+  }));
 }
 
 export interface ListEditorialsPageInput {

@@ -212,6 +212,7 @@ test.describe("Editorials — happy path (AC required)", () => {
     const stamp = Date.now();
     const res = await page.request.post(`/api/problems/${PROBLEM_ID}/editorials`, {
       data: {
+        title: `Editorial ${stamp}`,
         content: `# Editorial ${stamp}\n\nRead two integers, print their sum. Trivial warmup.`,
         language: "python",
       },

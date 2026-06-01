@@ -42,7 +42,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const [, editorials] = await Promise.all([
     requireProblemWithAc(actor.userId, id, context),
-    listProblemEditorials(id),
+    listProblemEditorials(id, actor.userId),
   ]);
 
   return json(editorials);
@@ -67,6 +67,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const editorial = await upsertEditorial(
     actor.userId,
     problem.id,
+    payload.title,
     payload.content,
     payload.language,
   );

@@ -1,8 +1,6 @@
 <script lang="ts">
   import type { SubmissionResult } from "@nojv/core";
-  import { Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { formatTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
 
   interface RunCase {
@@ -18,10 +16,6 @@
     runStatus: string | null;
     runError: string | null;
     ontabchange: (tab: "testcase" | "result") => void;
-    draftEnabled?: boolean;
-    isDirty?: boolean;
-    lastSavedAt?: number | null;
-    onClearDraft?: (() => void) | undefined;
   }
 
   let {
@@ -31,20 +25,8 @@
     runResult,
     runStatus,
     runError,
-    ontabchange,
-    draftEnabled = false,
-    isDirty = false,
-    lastSavedAt = null,
-    onClearDraft
+    ontabchange
   }: Props = $props();
-
-  function formatSavedTime(ms: number): string {
-    return formatTime(ms, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
-  }
 
   const uid = $props.id();
 
@@ -112,33 +94,6 @@
         {m.editor_testResult()}
       </button>
     </div>
-    {#if draftEnabled}
-      <div class="ml-auto flex items-center gap-2 pr-2">
-        {#if lastSavedAt == null && !isDirty}
-          <span class="text-caption text-muted-foreground/70">{m.draft_none()}</span>
-        {:else if isDirty}
-          <span class="flex items-center gap-1 text-caption font-medium text-amber-500">
-            <span class="inline-block size-1.5 animate-pulse rounded-full bg-amber-500"></span>
-            {m.draft_unsaved()}
-          </span>
-        {:else if lastSavedAt != null}
-          <span class="text-caption text-muted-foreground tabular-nums">
-            {m.draft_lastSavedAt({ time: formatSavedTime(lastSavedAt) })}
-          </span>
-        {/if}
-        {#if lastSavedAt != null || isDirty}
-          <button
-            aria-label={m.draft_clearAction()}
-            class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
-            onclick={() => onClearDraft?.()}
-            title={m.draft_clearAction()}
-            type="button"
-          >
-            <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
-          </button>
-        {/if}
-      </div>
-    {/if}
   </div>
 
   <div

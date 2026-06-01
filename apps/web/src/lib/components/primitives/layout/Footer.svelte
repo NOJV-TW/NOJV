@@ -13,7 +13,7 @@
 </script>
 
 <footer
-  class="mt-16 flex flex-col gap-3 border-t border-border-subtle pt-5 pb-6 text-caption text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
+  class="mt-16 flex flex-col gap-3 border-t border-border-subtle pt-3 pb-3 text-caption text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
 >
   <p class="tabular-nums">{m.footer_copyright({ year: String(year) })}</p>
   <nav class="flex flex-wrap items-center gap-x-6 gap-y-2">
