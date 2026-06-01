@@ -47,10 +47,11 @@ describe("upsertEditorial", () => {
     const row = { id: "ed_1" };
     editorialUpsert.mockResolvedValue(row);
 
-    const result = await upsertEditorial("usr_1", "prob_1", "markdown body", "cpp");
+    const result = await upsertEditorial("usr_1", "prob_1", "My title", "markdown body", "cpp");
 
     expect(result).toBe(row);
     expect(editorialUpsert).toHaveBeenCalledWith("usr_1", "prob_1", {
+      title: "My title",
       content: "markdown body",
       language: "cpp",
     });
@@ -58,14 +59,16 @@ describe("upsertEditorial", () => {
 
   it("permits the same user to post in a different language (separate call)", async () => {
     editorialUpsert.mockResolvedValue({});
-    await upsertEditorial("usr_1", "prob_1", "cpp body", "cpp");
-    await upsertEditorial("usr_1", "prob_1", "python body", "python");
+    await upsertEditorial("usr_1", "prob_1", "C++ title", "cpp body", "cpp");
+    await upsertEditorial("usr_1", "prob_1", "Python title", "python body", "python");
 
     expect(editorialUpsert).toHaveBeenNthCalledWith(1, "usr_1", "prob_1", {
+      title: "C++ title",
       content: "cpp body",
       language: "cpp",
     });
     expect(editorialUpsert).toHaveBeenNthCalledWith(2, "usr_1", "prob_1", {
+      title: "Python title",
       content: "python body",
       language: "python",
     });

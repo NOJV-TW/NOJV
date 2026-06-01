@@ -7,7 +7,10 @@ export const editorialRepo = {
     return prisma.editorial.findMany({
       where: { problemId, deletedAt: null },
       orderBy: { createdAt: "desc" },
-      include: { user: { select: userPublicSelect } },
+      include: {
+        user: { select: userPublicSelect },
+        votes: { select: { userId: true, value: true } },
+      },
     });
   },
 
@@ -44,7 +47,7 @@ export const editorialRepo = {
   upsert(
     userId: string,
     problemId: string,
-    data: { content: string; language: Prisma.EditorialCreateInput["language"] },
+    data: { title: string; content: string; language: Prisma.EditorialCreateInput["language"] },
   ) {
     return prisma.editorial.upsert({
       where: {
@@ -54,16 +57,27 @@ export const editorialRepo = {
           language: data.language,
         },
       },
-      create: { userId, problemId, content: data.content, language: data.language },
-      update: { content: data.content, deletedAt: null },
+      create: {
+        userId,
+        problemId,
+        title: data.title,
+        content: data.content,
+        language: data.language,
+      },
+      update: { title: data.title, content: data.content, deletedAt: null },
     });
   },
 
   update(
     id: string,
-    data: { content?: string; language?: Prisma.EditorialCreateInput["language"] },
+    data: {
+      title?: string;
+      content?: string;
+      language?: Prisma.EditorialCreateInput["language"];
+    },
   ) {
     const update: Prisma.EditorialUpdateInput = {};
+    if (data.title !== undefined) update.title = data.title;
     if (data.content !== undefined) update.content = data.content;
     if (data.language !== undefined) update.language = data.language;
     return prisma.editorial.update({

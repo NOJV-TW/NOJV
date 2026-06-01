@@ -1,7 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { getLocale } from "$lib/paraglide/runtime.js";
   import type { Language, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import EditorCore from "./EditorCore.svelte";
@@ -51,8 +50,6 @@
     problem
   }: Props = $props();
   const initialProblem = untrack(() => problem);
-
-  let currentLocale = $derived(getLocale());
 
   let availableLanguages = $state<Language[]>([]);
 
@@ -114,10 +111,6 @@
     workspaceFiles.resetSelectionForLanguage();
   });
 
-  let currentSource = $derived(
-    isWorkspaceMode ? workspaceFiles.selectedContent : drafts[language]
-  );
-
   let hasSubmittableSource = $derived.by(() => {
     if (isWorkspaceMode) {
       return workspaceFilesForLanguage
@@ -162,7 +155,7 @@
 <div
   bind:this={outerContainer}
   class={isFullscreen
-    ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[color:var(--color-panel)]"
+    ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[color:var(--color-background)]"
     : "flex h-full flex-col overflow-hidden bg-[color:var(--color-panel)]"}
 >
   <EditorTopBar
@@ -199,11 +192,14 @@
   </div>
 
   <EditorActionBar
-    charsLabel={new Intl.NumberFormat(currentLocale).format(currentSource.length)}
     isRunning={runController.isRunning}
     isSubmitting={runController.isSubmitting}
     {hasSubmittableSource}
     availableLanguageCount={availableLanguages.length}
+    draftEnabled={draftController.enabled}
+    isDirty={draftController.isDirty}
+    lastSavedAt={draftController.currentLastSavedAt}
+    onClearDraft={() => draftController.clear()}
     onRun={() => void runController.run()}
     onSubmit={() => void runController.submit()}
   />
@@ -223,10 +219,6 @@
       runStatus={runController.runStatus}
       runError={runController.runError}
       ontabchange={(next) => runController.setBottomTab(next)}
-      draftEnabled={draftController.enabled}
-      isDirty={draftController.isDirty}
-      lastSavedAt={draftController.currentLastSavedAt}
-      onClearDraft={() => draftController.clear()}
     />
   </div>
 </div>

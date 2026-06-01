@@ -6,7 +6,7 @@
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
-  import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
+  import HighlightedCode from "$lib/components/primitives/ui/HighlightedCode.svelte";
 
   let { data } = $props();
 
@@ -23,7 +23,6 @@
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);
   const memoryKb = $derived(submission.memoryKb ?? result?.memoryKb ?? null);
 
-  const caseResults = $derived(result?.caseResults ?? []);
   const subtaskResults = $derived(result?.subtaskResults ?? []);
 
   const backTarget = $derived.by(() => {
@@ -60,7 +59,6 @@
       ? codeLines.slice(0, -1)
       : codeLines,
   );
-  const gutterWidth = $derived(String(displayLines.length).length);
 
   const downloadExtension: Record<string, string> = {
     c: "c",
@@ -259,24 +257,6 @@
         </div>
       {/if}
 
-      
-      {#if caseResults.length > 0}
-        <div class="flex flex-col gap-2">
-          <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
-            {m.submissionDetail_perCaseBreakdown()}
-          </h2>
-          <CaseResultGrid
-            cases={caseResults}
-            allowExpand={submission.sampleOnly || submission.viewerIsStaff}
-          />
-        </div>
-      {:else if result && !isPending}
-        <p
-          class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
-        >
-          {m.submissionDetail_noCaseResults()}
-        </p>
-      {/if}
     </aside>
 
     
@@ -317,24 +297,8 @@
           </button>
         </div>
       </header>
-      <div class="flex-1 overflow-auto bg-[color:var(--color-panel)]">
-        <table class="w-full border-collapse">
-          <tbody>
-            {#each displayLines as line, i (i)}
-              <tr class="leading-6">
-                <td
-                  class="select-none border-r border-border/50 px-3 text-right font-mono text-xs text-muted-foreground/50"
-                  style="min-width: {gutterWidth + 1.5}ch"
-                >
-                  {i + 1}
-                </td>
-                <td class="px-4 font-mono text-sm text-foreground">
-                  <pre class="whitespace-pre-wrap break-all">{line || " "}</pre>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      <div class="flex-1 overflow-hidden">
+        <HighlightedCode code={sourceCode} language={submission.language} />
       </div>
     </section>
   </div>
