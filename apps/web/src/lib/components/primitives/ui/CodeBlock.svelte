@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Copy, Check } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import HighlightedCode from "./HighlightedCode.svelte";
 
   interface Props {
     code: string;
@@ -11,12 +12,6 @@
   let { code, language = "", maxHeight = "50vh" }: Props = $props();
 
   let isCopied = $state(false);
-
-  let lines = $derived(code.split("\n"));
-  let displayLines = $derived(
-    lines.length > 1 && lines[lines.length - 1] === "" ? lines.slice(0, -1) : lines
-  );
-  let gutterWidth = $derived(String(displayLines.length).length);
 
   async function handleCopy() {
     await navigator.clipboard.writeText(code);
@@ -48,23 +43,5 @@
       {/if}
     </button>
   </div>
-  <div class="overflow-auto bg-[color:var(--color-panel)]" style="max-height: {maxHeight}">
-    <table class="w-full border-collapse">
-      <tbody>
-        {#each displayLines as line, i (i)}
-          <tr class="leading-6">
-            <td
-              class="select-none border-r border-border/50 px-3 text-right font-mono text-xs text-muted-foreground/50"
-              style="min-width: {gutterWidth + 1.5}ch"
-            >
-              {i + 1}
-            </td>
-            <td class="px-4 font-mono text-sm text-foreground">
-              <pre class="whitespace-pre-wrap break-all">{line || " "}</pre>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+  <HighlightedCode {code} {language} {maxHeight} />
 </div>

@@ -21,9 +21,12 @@ export interface ProblemSubmissionEntry {
 
 export interface ProblemEditorialEntry {
   id: string;
+  title: string;
   content: string;
   language: string;
   createdAt: string;
+  voteScore: number;
+  viewerVote: number;
   user: { username: string | null; name: string };
 }
 

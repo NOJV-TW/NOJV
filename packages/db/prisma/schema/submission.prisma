@@ -260,6 +260,7 @@ model Editorial {
   id        String            @id @default(cuid())
   userId    String
   problemId String
+  title     String            @default("")
   content   String            @db.Text
   language  SupportedLanguage
   createdAt DateTime          @default(now())
@@ -274,11 +275,30 @@ model Editorial {
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
   reports   EditorialReport[]
+  votes     EditorialVote[]
 
   /// A user can post multiple editorials for the same problem as
   /// long as they're in different languages.
   @@unique([userId, problemId, language])
   @@index([problemId, createdAt])
+}
+
+/// One vote per (editorial, user). `value` is +1 (upvote) or -1
+/// (downvote); the net score is the sum. Removing a vote deletes the
+/// row rather than storing 0, so the unique index stays meaningful.
+model EditorialVote {
+  id          String   @id @default(cuid())
+  editorialId String
+  userId      String
+  value       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  editorial Editorial @relation(fields: [editorialId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([editorialId, userId])
+  @@index([editorialId])
 }
 
 /// User-filed report against an editorial (spam, off-topic, etc.).

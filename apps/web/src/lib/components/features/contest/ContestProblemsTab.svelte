@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ListChecks } from "@lucide/svelte";
+  import { ListChecks, Lock } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
@@ -52,27 +52,11 @@
 
   <div class="divide-y" style="border-color: var(--border-subtle);">
     {#if problemsHidden || problems === null}
-      {#each [0, 1, 2, 3, 4] as i (i)}
-        <div
-          class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5"
-        >
-          <div class="font-mono text-title font-semibold text-muted-foreground">
-            {String.fromCharCode(65 + i)}
-          </div>
-          <div>
-            <div class="font-medium text-muted-foreground">———————</div>
-            <div class="mt-1 flex items-center gap-3">
-              <DifficultyTick level="medium" />
-            </div>
-          </div>
-          <span
-            class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"
-            style="border-color: var(--border-subtle); opacity: 0.5;"
-          >
-            🔒
-          </span>
-        </div>
-      {/each}
+      <EmptyState
+        icon={Lock}
+        title={m.contestDetail_problemsLockedTitle()}
+        description={m.contestDetail_problemsLockedBody()}
+      />
     {:else if problems.length === 0}
       <EmptyState
         icon={ListChecks}
