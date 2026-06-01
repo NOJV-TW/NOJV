@@ -40,6 +40,6 @@
   "devDependencies": {
     "prisma": "catalog:",
     "tsdown": "catalog:",
-    "tsx": "^4.22.3"
+    "tsx": "^4.22.4"
   }
 }
