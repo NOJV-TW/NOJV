@@ -35,7 +35,10 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "pnpm": {
-    "overrides": {},
+    "overrides": {
+      "kysely": "0.28.17",
+      "protobufjs": "7.6.0"
+    },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
       "@prisma/engines",
