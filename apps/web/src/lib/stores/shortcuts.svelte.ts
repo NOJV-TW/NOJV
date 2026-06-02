@@ -135,9 +135,9 @@ export function useGlobalShortcuts() {
     const handler = (e: KeyboardEvent) => {
       shortcuts.handleKeydown(e);
     };
-    window.addEventListener("keydown", handler);
+    globalThis.addEventListener("keydown", handler);
     return () => {
-      window.removeEventListener("keydown", handler);
+      globalThis.removeEventListener("keydown", handler);
     };
   });
 }

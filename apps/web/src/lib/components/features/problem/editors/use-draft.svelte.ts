@@ -75,8 +75,8 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
   function clear() {
     const ctx = args.draftContext();
     if (args.isWorkspaceMode() || !ctx) return;
-    if (typeof window === "undefined") return;
-    if (!window.confirm(m.draft_clearConfirm())) return;
+    if (typeof globalThis.window === "undefined") return;
+    if (!globalThis.confirm(m.draft_clearConfirm())) return;
     const lang = args.language();
     clearDraft({ context: ctx, problemId: args.problemId, language: lang });
     const starter = args.starterFor(lang);

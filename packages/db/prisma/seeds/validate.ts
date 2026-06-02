@@ -47,7 +47,9 @@ async function main() {
   console.log("Seed dry-run validation succeeded.");
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error("Seed dry-run validation failed:", error);
   process.exit(1);
-});
+}

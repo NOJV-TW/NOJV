@@ -362,7 +362,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
+try {
+  await main();
+} catch (err) {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(`[sandbox-runner] Fatal error: ${message}\n`);
 
@@ -380,4 +382,4 @@ main().catch((err) => {
   };
   process.stdout.write(JSON.stringify(output));
   process.exit(1);
-});
+}

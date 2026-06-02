@@ -351,6 +351,32 @@ function collectNewKeySet(
   return newKeySet;
 }
 
+function stageBundleUploads(
+  client: StorageClient,
+  problemId: string,
+  testcases: PreparedTestcase[],
+  workspace: PreparedWorkspaceFile[],
+  parsed: ParsedBundle,
+): Promise<unknown>[] {
+  const puts: Promise<unknown>[] = [];
+  for (const t of testcases) {
+    puts.push(putText(client, t.inputKey, t.input));
+    if (t.outputKey !== null && t.output !== null) {
+      puts.push(putText(client, t.outputKey, t.output));
+    }
+  }
+  for (const w of workspace) {
+    puts.push(putText(client, w.contentKey, w.content));
+  }
+  if (parsed.checker) {
+    puts.push(putText(client, checkerKeyFor(problemId), parsed.checker.content));
+  }
+  if (parsed.interactor) {
+    puts.push(putText(client, interactorKeyFor(problemId), parsed.interactor.content));
+  }
+  return puts;
+}
+
 export async function importBundle(
   actor: ProblemActorContext,
   problemId: string,
@@ -382,22 +408,13 @@ export async function importBundle(
   for (const k of oldTestcaseKeys) if (!newKeySet.has(k)) oldStandardKeys.push(k);
   for (const k of oldWorkspaceKeys) if (!newKeySet.has(k)) oldStandardKeys.push(k);
 
-  const stagedPuts: Promise<unknown>[] = [];
-  for (const t of preparedTestcases) {
-    stagedPuts.push(putText(client, t.inputKey, t.input));
-    if (t.outputKey !== null && t.output !== null) {
-      stagedPuts.push(putText(client, t.outputKey, t.output));
-    }
-  }
-  for (const w of preparedWorkspace) {
-    stagedPuts.push(putText(client, w.contentKey, w.content));
-  }
-  if (parsed.checker) {
-    stagedPuts.push(putText(client, checkerKeyFor(problemId), parsed.checker.content));
-  }
-  if (parsed.interactor) {
-    stagedPuts.push(putText(client, interactorKeyFor(problemId), parsed.interactor.content));
-  }
+  const stagedPuts = stageBundleUploads(
+    client,
+    problemId,
+    preparedTestcases,
+    preparedWorkspace,
+    parsed,
+  );
   await Promise.all(stagedPuts);
 
   const result = await runTransaction(async (tx) => {
