@@ -30,6 +30,33 @@ export interface ClarificationsStore {
   markTabVisited(): void;
 }
 
+async function answer(id: string, answerText: string): Promise<void> {
+  const r = await fetchWithCsrf(`/api/clarifications/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ answerText }),
+  });
+  if (!r.ok) throw new Error("Answer failed");
+}
+
+async function dismiss(id: string): Promise<void> {
+  const r = await fetchWithCsrf(`/api/clarifications/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ state: "dismissed" }),
+  });
+  if (!r.ok) throw new Error("Dismiss failed");
+}
+
+async function canned(
+  id: string,
+  templateKey: "noComment" | "readProblem" | "yes" | "no",
+): Promise<void> {
+  const r = await fetchWithCsrf(`/api/clarifications/${id}/replies`, {
+    method: "POST",
+    body: JSON.stringify({ templateKey }),
+  });
+  if (!r.ok) throw new Error("Canned reply failed");
+}
+
 export function createClarificationsStore(
   contextType: "contest" | "exam" | "assignment",
   contextId: string,
@@ -89,33 +116,6 @@ export function createClarificationsStore(
       };
       throw new Error(body.message ?? "Ask failed");
     }
-  }
-
-  async function answer(id: string, answerText: string): Promise<void> {
-    const r = await fetchWithCsrf(`/api/clarifications/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ answerText }),
-    });
-    if (!r.ok) throw new Error("Answer failed");
-  }
-
-  async function dismiss(id: string): Promise<void> {
-    const r = await fetchWithCsrf(`/api/clarifications/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ state: "dismissed" }),
-    });
-    if (!r.ok) throw new Error("Dismiss failed");
-  }
-
-  async function canned(
-    id: string,
-    templateKey: "noComment" | "readProblem" | "yes" | "no",
-  ): Promise<void> {
-    const r = await fetchWithCsrf(`/api/clarifications/${id}/replies`, {
-      method: "POST",
-      body: JSON.stringify({ templateKey }),
-    });
-    if (!r.ok) throw new Error("Canned reply failed");
   }
 
   async function remove(id: string): Promise<void> {

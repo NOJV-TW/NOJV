@@ -62,11 +62,11 @@ async function main() {
   console.log(`Done. migrated=${String(migrated)} skipped=${String(skipped)}`);
 }
 
-main()
-  .catch((err: unknown) => {
-    console.error("Validator-script migration failed:", err);
-    process.exit(1);
-  })
-  .finally(() => {
-    void prisma.$disconnect();
-  });
+try {
+  await main();
+} catch (err: unknown) {
+  console.error("Validator-script migration failed:", err);
+  process.exitCode = 1;
+} finally {
+  await prisma.$disconnect();
+}

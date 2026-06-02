@@ -269,12 +269,9 @@ function buildStatusClauses(
   return [{ bookmarks: { some: { userId: uid } } }];
 }
 
-export async function listProblemCards(
-  params: ProblemListParams = {},
-): Promise<ProblemListResult> {
-  const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 30));
-  const page = Math.max(1, params.page ?? 1);
-
+async function buildProblemListWhere(
+  params: ProblemListParams,
+): Promise<Prisma.ProblemWhereInput> {
   const where: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
 
   if (params.q && params.q.trim().length > 0) {
@@ -311,6 +308,17 @@ export async function listProblemCards(
   }
 
   if (and.length > 0) where.AND = and;
+
+  return where;
+}
+
+export async function listProblemCards(
+  params: ProblemListParams = {},
+): Promise<ProblemListResult> {
+  const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 30));
+  const page = Math.max(1, params.page ?? 1);
+
+  const where = await buildProblemListWhere(params);
 
   const [totalCount, persistedProblems, statusCounts] = await Promise.all([
     problemRepo.count(where),

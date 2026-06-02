@@ -84,12 +84,12 @@ async function main() {
   console.log("Seed complete.");
 }
 
-main()
-  .catch((error) => {
-    console.error("Seed failed:", error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-    await getRedis().quit();
-  });
+try {
+  await main();
+} catch (error) {
+  console.error("Seed failed:", error);
+  process.exitCode = 1;
+} finally {
+  await prisma.$disconnect();
+  await getRedis().quit();
+}
