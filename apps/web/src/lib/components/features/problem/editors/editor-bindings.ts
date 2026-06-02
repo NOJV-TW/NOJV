@@ -86,8 +86,8 @@ export function bindEscapeToExitFullscreen(onExit: () => void): () => void {
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") onExit();
   };
-  window.addEventListener("keydown", onKey);
-  return () => window.removeEventListener("keydown", onKey);
+  globalThis.addEventListener("keydown", onKey);
+  return () => globalThis.removeEventListener("keydown", onKey);
 }
 
 export function createBottomResizeHandler({
