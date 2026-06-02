@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { canEditProblem, canManageCourse, resolveEffectiveCourseRole } from "@nojv/domain";
+import {
+  canCreateProblem,
+  canEditProblem,
+  canManageCourse,
+  resolveEffectiveCourseRole,
+} from "@nojv/domain";
 
 describe("resolveEffectiveCourseRole", () => {
   it("admin platform role overrides course role", () => {
@@ -40,4 +45,21 @@ describe("canEditProblem", () => {
   it("admin can edit", () => expect(canEditProblem("admin")).toBe(true));
   it("teacher can edit", () => expect(canEditProblem("teacher")).toBe(true));
   it("student cannot edit", () => expect(canEditProblem("student")).toBe(false));
+});
+
+describe("canCreateProblem", () => {
+  it("admin can create regardless of email verification", () => {
+    expect(canCreateProblem("admin", false)).toBe(true);
+    expect(canCreateProblem("admin", true)).toBe(true);
+  });
+  it("teacher can create regardless of email verification", () => {
+    expect(canCreateProblem("teacher", false)).toBe(true);
+    expect(canCreateProblem("teacher", true)).toBe(true);
+  });
+  it("verified student can create", () => {
+    expect(canCreateProblem("student", true)).toBe(true);
+  });
+  it("unverified student cannot create", () => {
+    expect(canCreateProblem("student", false)).toBe(false);
+  });
 });
