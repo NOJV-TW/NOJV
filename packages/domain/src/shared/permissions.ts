@@ -30,3 +30,8 @@ export function canManageMembers(effectiveRole: EffectiveCourseRole | null): boo
 export function canEditProblem(platformRole: PlatformRole): boolean {
   return platformRole === "admin" || platformRole === "teacher";
 }
+
+export function canCreateProblem(platformRole: PlatformRole, emailVerified: boolean): boolean {
+  if (canEditProblem(platformRole)) return true;
+  return emailVerified;
+}

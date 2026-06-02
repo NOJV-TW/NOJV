@@ -1,5 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import { problemDomain } from "@nojv/domain";
+import { canCreateProblem, problemDomain } from "@nojv/domain";
 import { problemTypeSchema, judgeTypeSchema } from "@nojv/core";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   const sessionUser = locals.sessionUser;
   const canCreate =
-    !!sessionUser && (sessionUser.platformRole !== "student" || sessionUser.emailVerified);
+    !!sessionUser && canCreateProblem(sessionUser.platformRole, sessionUser.emailVerified);
 
   return {
     editableProblems,
