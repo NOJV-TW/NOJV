@@ -96,7 +96,7 @@ function isUnsafePath(p: string): boolean {
   if (p.startsWith("/")) return true;
   if (p.includes("\\")) return true;
   if (p.includes("\0")) return true;
-  return p.split("/").some((segment) => segment === "..");
+  return p.split("/").includes("..");
 }
 
 function extOf(name: string): string {
@@ -104,7 +104,7 @@ function extOf(name: string): string {
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
 }
 
-async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
+async function openBundleEntries(zipBuffer: Buffer): Promise<ZipFile[]> {
   let archive;
   try {
     archive = await Open.buffer(zipBuffer);
@@ -128,55 +128,58 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
     }
   }
 
-  const testcaseMap = new Map<number, { input?: string; answer?: string }>();
-  const workspace: BundleWorkspaceFile[] = [];
-  let checker: BundleValidatorScript | null = null;
-  let interactor: BundleValidatorScript | null = null;
-  let runningBytes = 0;
+  return fileEntries;
+}
 
-  for (const entry of fileEntries) {
-    const remaining = MAX_BUNDLE_UNCOMPRESSED_BYTES - runningBytes;
-    const buf = await readEntryBounded(entry, remaining);
-    runningBytes += buf.byteLength;
-    const text = buf.toString("utf8");
+interface BundleAccumulator {
+  testcaseMap: Map<number, { input?: string; answer?: string }>;
+  workspace: BundleWorkspaceFile[];
+  checker: BundleValidatorScript | null;
+  interactor: BundleValidatorScript | null;
+}
 
-    const testcaseMatch = /^testcases\/(\d+)\/(input|answer)\.txt$/.exec(entry.path);
-    if (testcaseMatch) {
-      const idx = Number(testcaseMatch[1]);
-      const field = testcaseMatch[2] as "input" | "answer";
-      const bucket = testcaseMap.get(idx) ?? {};
-      bucket[field] = text;
-      testcaseMap.set(idx, bucket);
-      continue;
-    }
+function ingestTestcaseEntry(path: string, text: string, acc: BundleAccumulator): boolean {
+  const testcaseMatch = /^testcases\/(\d+)\/(input|answer)\.txt$/.exec(path);
+  if (!testcaseMatch) return false;
+  const idx = Number(testcaseMatch[1]);
+  const field = testcaseMatch[2] as "input" | "answer";
+  const bucket = acc.testcaseMap.get(idx) ?? {};
+  bucket[field] = text;
+  acc.testcaseMap.set(idx, bucket);
+  return true;
+}
 
-    if (entry.path.startsWith("workspace/")) {
-      const relPath = entry.path.slice("workspace/".length);
-      if (relPath.length === 0) continue;
-      const ext = extOf(relPath);
-      const lang = WORKSPACE_LANG_BY_EXT[ext];
-      if (!lang) continue; // Drop unknown extensions; can't infer language.
-      workspace.push({ language: lang, path: relPath, content: text });
-      continue;
-    }
+function ingestWorkspaceEntry(path: string, text: string, acc: BundleAccumulator): boolean {
+  if (!path.startsWith("workspace/")) return false;
+  const relPath = path.slice("workspace/".length);
+  if (relPath.length === 0) return true;
+  const ext = extOf(relPath);
+  const lang = WORKSPACE_LANG_BY_EXT[ext];
+  if (!lang) return true; // Drop unknown extensions; can't infer language.
+  acc.workspace.push({ language: lang, path: relPath, content: text });
+  return true;
+}
 
-    const validatorMatch = /^(checker|interactor)\.(cpp|py|js)$/.exec(entry.path);
-    if (validatorMatch) {
-      const [, roleRaw, ext = ""] = validatorMatch;
-      const role = roleRaw as "checker" | "interactor";
-      const lang = CHECKER_SCRIPT_LANG[ext];
-      if (!lang) {
-        throw new ValidationError(
-          `Unsupported ${role} script extension: .${ext} (only .cpp and .py are accepted).`,
-        );
-      }
-      const script: BundleValidatorScript = { language: lang, content: text };
-      if (role === "checker") checker = script;
-      else interactor = script;
-      continue;
-    }
+function ingestValidatorEntry(path: string, text: string, acc: BundleAccumulator): boolean {
+  const validatorMatch = /^(checker|interactor)\.(cpp|py|js)$/.exec(path);
+  if (!validatorMatch) return false;
+  const [, roleRaw, ext = ""] = validatorMatch;
+  const role = roleRaw as "checker" | "interactor";
+  const lang = CHECKER_SCRIPT_LANG[ext];
+  if (!lang) {
+    throw new ValidationError(
+      `Unsupported ${role} script extension: .${ext} (only .cpp and .py are accepted).`,
+    );
   }
+  const script: BundleValidatorScript = { language: lang, content: text };
+  if (role === "checker") acc.checker = script;
+  else acc.interactor = script;
+  return true;
+}
 
+function materializeTestcases(
+  testcaseMap: Map<number, { input?: string; answer?: string }>,
+): BundleTestcase[] {
   const testcases: BundleTestcase[] = [];
   const sortedIndices = Array.from(testcaseMap.keys()).sort((a, b) => a - b);
   for (const idx of sortedIndices) {
@@ -188,8 +191,38 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
       answer: bucket.answer ?? null,
     });
   }
+  return testcases;
+}
 
-  return { testcases, workspace, checker, interactor, totalBytes: runningBytes };
+async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
+  const fileEntries = await openBundleEntries(zipBuffer);
+
+  const acc: BundleAccumulator = {
+    testcaseMap: new Map(),
+    workspace: [],
+    checker: null,
+    interactor: null,
+  };
+  let runningBytes = 0;
+
+  for (const entry of fileEntries) {
+    const remaining = MAX_BUNDLE_UNCOMPRESSED_BYTES - runningBytes;
+    const buf = await readEntryBounded(entry, remaining);
+    runningBytes += buf.byteLength;
+    const text = buf.toString("utf8");
+
+    if (ingestTestcaseEntry(entry.path, text, acc)) continue;
+    if (ingestWorkspaceEntry(entry.path, text, acc)) continue;
+    ingestValidatorEntry(entry.path, text, acc);
+  }
+
+  return {
+    testcases: materializeTestcases(acc.testcaseMap),
+    workspace: acc.workspace,
+    checker: acc.checker,
+    interactor: acc.interactor,
+    totalBytes: runningBytes,
+  };
 }
 
 async function readEntryBounded(entry: ZipFile, maxBytes: number): Promise<Buffer> {
@@ -245,6 +278,79 @@ async function readEntryBounded(entry: ZipFile, maxBytes: number): Promise<Buffe
   });
 }
 
+interface PreparedTestcase {
+  id: string;
+  inputKey: string;
+  outputKey: string | null;
+  input: string;
+  output: string | null;
+}
+
+interface PreparedWorkspaceFile {
+  id: string;
+  contentKey: string;
+  language: Language;
+  path: string;
+  content: string;
+}
+
+function prepareTestcases(problemId: string, testcases: BundleTestcase[]): PreparedTestcase[] {
+  return testcases.map((tc) => {
+    const id = randomUUID();
+    return {
+      id,
+      inputKey: testcaseInputKey(problemId, id),
+      outputKey: tc.answer === null ? null : testcaseOutputKey(problemId, id),
+      input: tc.input,
+      output: tc.answer,
+    };
+  });
+}
+
+function prepareWorkspaceFiles(
+  problemId: string,
+  workspace: BundleWorkspaceFile[],
+): PreparedWorkspaceFile[] {
+  return workspace.map((w) => {
+    const id = randomUUID();
+    return {
+      id,
+      contentKey: workspaceFileKey(problemId, id),
+      language: w.language,
+      path: w.path,
+      content: w.content,
+    };
+  });
+}
+
+function assertNoDuplicateWorkspaceFiles(prepared: PreparedWorkspaceFile[]): void {
+  const seenWorkspace = new Set<string>();
+  for (const w of prepared) {
+    const key = `${w.language}::${w.path}`;
+    if (seenWorkspace.has(key)) {
+      throw new ConflictError(
+        `Workspace bundle contains duplicate file: language=${w.language} path=${w.path}`,
+      );
+    }
+    seenWorkspace.add(key);
+  }
+}
+
+function collectNewKeySet(
+  preparedTestcases: PreparedTestcase[],
+  preparedWorkspace: PreparedWorkspaceFile[],
+): Set<string> {
+  const newKeySet = new Set<string>();
+  for (const t of preparedTestcases) {
+    newKeySet.add(t.inputKey);
+    if (t.outputKey !== null) newKeySet.add(t.outputKey);
+  }
+  for (const w of preparedWorkspace) {
+    newKeySet.add(w.contentKey);
+  }
+  return newKeySet;
+}
+
 export async function importBundle(
   actor: ProblemActorContext,
   problemId: string,
@@ -260,63 +366,14 @@ export async function importBundle(
     );
   }
 
-  interface PreparedTestcase {
-    id: string;
-    inputKey: string;
-    outputKey: string | null;
-    input: string;
-    output: string | null;
-  }
-  const preparedTestcases: PreparedTestcase[] = parsed.testcases.map((tc) => {
-    const id = randomUUID();
-    return {
-      id,
-      inputKey: testcaseInputKey(problemId, id),
-      outputKey: tc.answer !== null ? testcaseOutputKey(problemId, id) : null,
-      input: tc.input,
-      output: tc.answer,
-    };
-  });
+  const preparedTestcases = prepareTestcases(problemId, parsed.testcases);
+  const preparedWorkspace = prepareWorkspaceFiles(problemId, parsed.workspace);
 
-  interface PreparedWorkspaceFile {
-    id: string;
-    contentKey: string;
-    language: Language;
-    path: string;
-    content: string;
-  }
-  const preparedWorkspace: PreparedWorkspaceFile[] = parsed.workspace.map((w) => {
-    const id = randomUUID();
-    return {
-      id,
-      contentKey: workspaceFileKey(problemId, id),
-      language: w.language,
-      path: w.path,
-      content: w.content,
-    };
-  });
-
-  const seenWorkspace = new Set<string>();
-  for (const w of preparedWorkspace) {
-    const key = `${w.language}::${w.path}`;
-    if (seenWorkspace.has(key)) {
-      throw new ConflictError(
-        `Workspace bundle contains duplicate file: language=${w.language} path=${w.path}`,
-      );
-    }
-    seenWorkspace.add(key);
-  }
+  assertNoDuplicateWorkspaceFiles(preparedWorkspace);
 
   const client = getClient();
 
-  const newKeySet = new Set<string>();
-  for (const t of preparedTestcases) {
-    newKeySet.add(t.inputKey);
-    if (t.outputKey !== null) newKeySet.add(t.outputKey);
-  }
-  for (const w of preparedWorkspace) {
-    newKeySet.add(w.contentKey);
-  }
+  const newKeySet = collectNewKeySet(preparedTestcases, preparedWorkspace);
   const oldStandardKeys: string[] = [];
   const [oldTestcaseKeys, oldWorkspaceKeys] = await Promise.all([
     listByPrefix(client, `problems/${problemId}/testcases/`),
@@ -391,8 +448,9 @@ export async function importBundle(
       ? parsedCfg.data
       : { type: "standard" as const };
 
+    const interactorOrCurrentType = parsed.interactor ? "interactive" : currentCfg.type;
     const nextCfg: JudgeConfig = {
-      type: parsed.checker ? "checker" : parsed.interactor ? "interactive" : currentCfg.type,
+      type: parsed.checker ? "checker" : interactorOrCurrentType,
       ...(parsed.checker
         ? { checkerKey: checkerKeyFor(problem.id), checkerLanguage: parsed.checker.language }
         : { checkerKey: null, checkerLanguage: null }),

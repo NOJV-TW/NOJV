@@ -28,7 +28,7 @@ describe("advanced-scaffold", () => {
     const fileNames = Object.values(zip.files)
       .filter((f) => !f.dir)
       .map((f) => f.name)
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
     expect(fileNames).toEqual([...SCAFFOLD_ENTRY_NAMES]);
 
     const dockerfile = await zip.file("Dockerfile")?.async("string");

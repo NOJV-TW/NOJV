@@ -34,7 +34,11 @@ describe("runProcess env forwarding", () => {
     // exit code is not 126/127, so the reclassification gate must NOT fire —
     // this stays a runtime error, not a downgraded SE.
     const result = await runProcess(
-      ["node", "-e", "process.stderr.write('exec: foo: cannot execute\\n'); process.exit(1)"],
+      [
+        "node",
+        "-e",
+        String.raw`process.stderr.write('exec: foo: cannot execute\n'); process.exit(1)`,
+      ],
       { timeoutMs: 5_000, cpuSeconds: 3 },
     );
     expect(result.spawnError).toBe(false);

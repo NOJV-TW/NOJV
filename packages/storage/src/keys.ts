@@ -45,7 +45,7 @@ export const submissionSourceKey = (submissionId: string, path: string): string 
     throw new Error("submissionSourceKey: path must not contain control characters");
   }
   const segments = path.split("/");
-  if (segments.some((segment) => segment === "..")) {
+  if (segments.includes("..")) {
     throw new Error("submissionSourceKey: path must not contain parent traversal");
   }
   return `${submissionSourcePrefix(submissionId)}${path}`;

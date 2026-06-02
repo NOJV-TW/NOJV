@@ -24,10 +24,10 @@ Your solution must be split into three files:
 
 If the three input points are collinear, the parallelogram is invalid and every numeric getter must return \`-1\`.`;
 
-const INPUT_FORMAT = `A single line containing six integers separated by spaces:
-$P_{1x}\\ P_{1y}\\ P_{2x}\\ P_{2y}\\ P_{3x}\\ P_{3y}$
+const INPUT_FORMAT = String.raw`A single line containing six integers separated by spaces:
+$P_{1x}\ P_{1y}\ P_{2x}\ P_{2y}\ P_{3x}\ P_{3y}$
 
-All coordinates satisfy $-10^{4} \\le x, y \\le 10^{4}$.`;
+All coordinates satisfy $-10^{4} \le x, y \le 10^{4}$.`;
 
 const OUTPUT_FORMAT = `A single line containing three floating-point numbers separated by spaces, each rounded to two decimal places:
 
@@ -55,7 +55,7 @@ const HIDDEN_CASES: Array<{ input: string; output: string }> = [
 // files get linked together automatically.
 // -----------------------------------------------------------------------------
 
-const MAIN_C = `#include <stdio.h>
+const MAIN_C = String.raw`#include <stdio.h>
 #include <stdint.h>
 #include "parallelogram.h"
 
@@ -70,7 +70,7 @@ int main(void) {
     double perimeter = get_perimeter();
     double area = get_area();
     double degree = get_p1_degree();
-    printf("%.2f %.2f %.2f\\n", perimeter, area, degree);
+    printf("%.2f %.2f %.2f\n", perimeter, area, degree);
     return 0;
 }
 `;
@@ -251,7 +251,6 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     // the native form, then trigger the onValueChange callback through the
     // component's internal state by evaluating on the page.
     await page.evaluate(() => {
-      const trigger = document.querySelector<HTMLButtonElement>('[data-slot="select-trigger"]');
       // Find the visibility trigger (the second one — first is difficulty)
       const triggers = [
         ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]'),

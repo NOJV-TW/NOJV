@@ -250,6 +250,16 @@ export interface ContestContextResult {
   viewerIsManager: boolean;
 }
 
+function resolveContestTimeStatus(
+  now: Date,
+  startsAt: Date,
+  endsAt: Date,
+): "upcoming" | "open" | "closed" {
+  if (now < startsAt) return "upcoming";
+  if (now > endsAt) return "closed";
+  return "open";
+}
+
 // intentional-nullable: paired with getAssignmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
 export async function getContestContext(
   contestId: string,
@@ -259,8 +269,7 @@ export async function getContestContext(
   if (contest?.visibility !== "published") return null;
 
   const now = options.now ?? new Date();
-  const timeStatus: "upcoming" | "open" | "closed" =
-    now < contest.startsAt ? "upcoming" : now > contest.endsAt ? "closed" : "open";
+  const timeStatus = resolveContestTimeStatus(now, contest.startsAt, contest.endsAt);
 
   const viewerIsManager = canManageContest(
     options.viewerUserId,
@@ -301,7 +310,7 @@ export interface ContestProblemSibling {
 
 function letterForIndex(index: number): string {
   if (index < 0) return String(index + 1);
-  if (index < 26) return String.fromCharCode(65 + index);
+  if (index < 26) return String.fromCodePoint(65 + index);
   return String(index + 1);
 }
 

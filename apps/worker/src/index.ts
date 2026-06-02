@@ -1,5 +1,4 @@
-import "./otel.js"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
-import { shutdownOtel } from "./otel.js"; // named export for shutdown wiring; ESM caches the module so this does not re-evaluate
+import { shutdownOtel } from "./otel.js"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
 
 import { parseWorkerEnv } from "./env";
 import { createLogger } from "./logger.js";

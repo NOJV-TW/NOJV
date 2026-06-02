@@ -97,6 +97,35 @@ async function makeAssignment(courseId: string, createdByUserId: string) {
   });
 }
 
+async function setupFlagPair() {
+  const teacher = await createTestUser({ platformRole: "teacher" });
+  const course = await createTestCourse({ ownerId: teacher.id });
+  await addCourseMember(course.id, teacher.id, "teacher");
+  const assignment = await makeAssignment(course.id, teacher.id);
+  const problem = await createTestProblem({ authorId: teacher.id });
+  const userA = await createTestUser({ platformRole: "student" });
+  const userB = await createTestUser({ platformRole: "student" });
+  const pairKey = plagiarismDomain.buildPairKey(userA.id, userB.id, problem.id);
+  return { teacher, course, assignment, pairKey };
+}
+
+async function setupFlag() {
+  const teacher = await createTestUser({ platformRole: "teacher" });
+  const course = await createTestCourse({ ownerId: teacher.id });
+  await addCourseMember(course.id, teacher.id, "teacher");
+  const assignment = await makeAssignment(course.id, teacher.id);
+  const problem = await createTestProblem({ authorId: teacher.id });
+  const userA = await createTestUser({ platformRole: "student" });
+  const userB = await createTestUser({ platformRole: "student" });
+  const pairKey = plagiarismDomain.buildPairKey(userA.id, userB.id, problem.id);
+  const flag = await plagiarismDomain.flagPair(actorFor(teacher), {
+    contextType: "assessment",
+    contextId: assignment.id,
+    pairKey,
+  });
+  return { teacher, course, assignment, flag };
+}
+
 describe("plagiarism API permission gates (real DB)", () => {
   describe("POST /api/plagiarism/[assignmentId]/reports gate", () => {
     it("rejects a student in the same course with ForbiddenError", async () => {
@@ -249,20 +278,8 @@ describe("plagiarism API permission gates (real DB)", () => {
   });
 
   describe("POST /api/plagiarism-flags gate (flagPair)", () => {
-    async function setup() {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const course = await createTestCourse({ ownerId: teacher.id });
-      await addCourseMember(course.id, teacher.id, "teacher");
-      const assignment = await makeAssignment(course.id, teacher.id);
-      const problem = await createTestProblem({ authorId: teacher.id });
-      const userA = await createTestUser({ platformRole: "student" });
-      const userB = await createTestUser({ platformRole: "student" });
-      const pairKey = plagiarismDomain.buildPairKey(userA.id, userB.id, problem.id);
-      return { teacher, course, assignment, pairKey };
-    }
-
     it("rejects a same-course student with ForbiddenError", async () => {
-      const { course, assignment, pairKey } = await setup();
+      const { course, assignment, pairKey } = await setupFlagPair();
       const student = await createTestUser({ platformRole: "student" });
       await addCourseMember(course.id, student.id, "student");
 
@@ -276,7 +293,7 @@ describe("plagiarism API permission gates (real DB)", () => {
     });
 
     it("rejects a teacher of a different course with ForbiddenError", async () => {
-      const { assignment, pairKey } = await setup();
+      const { assignment, pairKey } = await setupFlagPair();
       const stranger = await createTestUser({ platformRole: "teacher" });
 
       await expect(
@@ -289,7 +306,7 @@ describe("plagiarism API permission gates (real DB)", () => {
     });
 
     it("allows a course TA", async () => {
-      const { course, assignment, pairKey } = await setup();
+      const { course, assignment, pairKey } = await setupFlagPair();
       const ta = await createTestUser({ platformRole: "student" });
       await addCourseMember(course.id, ta.id, "ta");
 
@@ -302,7 +319,7 @@ describe("plagiarism API permission gates (real DB)", () => {
     });
 
     it("allows a platform admin", async () => {
-      const { assignment, pairKey } = await setup();
+      const { assignment, pairKey } = await setupFlagPair();
       const admin = await createTestUser({ platformRole: "admin" });
 
       const flag = await plagiarismDomain.flagPair(actorFor(admin), {
@@ -349,23 +366,6 @@ describe("plagiarism API permission gates (real DB)", () => {
   });
 
   describe("DELETE /api/plagiarism-flags/[id] gate (unflagPair)", () => {
-    async function setupFlag() {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const course = await createTestCourse({ ownerId: teacher.id });
-      await addCourseMember(course.id, teacher.id, "teacher");
-      const assignment = await makeAssignment(course.id, teacher.id);
-      const problem = await createTestProblem({ authorId: teacher.id });
-      const userA = await createTestUser({ platformRole: "student" });
-      const userB = await createTestUser({ platformRole: "student" });
-      const pairKey = plagiarismDomain.buildPairKey(userA.id, userB.id, problem.id);
-      const flag = await plagiarismDomain.flagPair(actorFor(teacher), {
-        contextType: "assessment",
-        contextId: assignment.id,
-        pairKey,
-      });
-      return { teacher, course, assignment, flag };
-    }
-
     it("rejects a same-course student with ForbiddenError", async () => {
       const { course, flag } = await setupFlag();
       const student = await createTestUser({ platformRole: "student" });

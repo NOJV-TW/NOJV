@@ -10,18 +10,18 @@ describe("rate limiter (RateLimiterMemory smoke test)", () => {
   });
 });
 
+function mockClientIp(): void {
+  // rate-limiter imports getClientIp, which transitively pulls in
+  // $env/dynamic/private. Mock it directly so the env shim is bypassed.
+  vi.doMock("$lib/server/shared/client-ip", () => ({
+    getClientIp: () => "1.2.3.4",
+  }));
+}
+
 describe("rate limiter fail-closed in production", () => {
   beforeEach(() => {
     vi.resetModules();
   });
-
-  function mockClientIp(): void {
-    // rate-limiter imports getClientIp, which transitively pulls in
-    // $env/dynamic/private. Mock it directly so the env shim is bypassed.
-    vi.doMock("$lib/server/shared/client-ip", () => ({
-      getClientIp: () => "1.2.3.4",
-    }));
-  }
 
   it("falls back to memory limiter in dev when Redis is down", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: true, building: false }));

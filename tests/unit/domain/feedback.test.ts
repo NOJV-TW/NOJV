@@ -43,8 +43,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-import { ConflictError, ForbiddenError, NotFoundError } from "@nojv/domain";
-import { feedbackDomain } from "@nojv/domain";
+import { ConflictError, feedbackDomain, ForbiddenError, NotFoundError } from "@nojv/domain";
 
 const {
   upsertFeedback,

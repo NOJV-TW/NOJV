@@ -37,7 +37,7 @@ describe("submission storage key builders", () => {
   });
 
   it("submissionSourceKey rejects backslash", () => {
-    expect(() => submissionSourceKey("sub_abc", "win\\path")).toThrow();
+    expect(() => submissionSourceKey("sub_abc", String.raw`win\path`)).toThrow();
   });
 
   it("submissionSourceKey rejects NUL character", () => {
@@ -90,7 +90,7 @@ function createFakeS3() {
       const prefix = (input.Prefix as string) ?? "";
       const contents = [...store.keys()]
         .filter((key) => key.startsWith(prefix))
-        .sort()
+        .sort((a, b) => Number(a > b) - Number(a < b))
         .map((key) => ({ Key: key }));
       return { Contents: contents, IsTruncated: false };
     }
@@ -119,7 +119,7 @@ describe("submission storage helpers", () => {
     ]);
 
     const result = await getSubmissionSources(client, "sub_1");
-    expect(result.map((s) => s.path)).toEqual(["README.md", "lib/util.cpp", "main.cpp"]);
+    expect(result.map((s) => s.path)).toEqual(["lib/util.cpp", "main.cpp", "README.md"]);
     expect(result.find((s) => s.path === "main.cpp")?.content).toBe("int main() {}");
   });
 

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "@nojv/domain";
-import { examDomain } from "@nojv/domain";
+import {
+  ConflictError,
+  examDomain,
+  ForbiddenError,
+  HttpError,
+  NotFoundError,
+} from "@nojv/domain";
 
 import {
   createTestCourse,

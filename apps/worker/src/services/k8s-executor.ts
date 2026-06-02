@@ -246,12 +246,10 @@ export function buildInteractiveInteractorConfigMapData(
   testcase: SandboxTestcase,
 ): Record<string, string> {
   const interactorScript = request.judgeConfig.interactorScript ?? "";
+  const checkerFallbackLanguage =
+    request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
   const interactorLanguage =
-    request.judgeConfig.interactorLanguage === "cpp"
-      ? "cpp"
-      : request.judgeConfig.checkerLanguage === "cpp"
-        ? "cpp"
-        : "python";
+    request.judgeConfig.interactorLanguage === "cpp" ? "cpp" : checkerFallbackLanguage;
   const ext = sourceExtension(interactorLanguage);
 
   const data: Record<string, string> = {};
@@ -584,12 +582,53 @@ export interface K8sClientHandles {
   batchApi: k8s.BatchV1Api;
 }
 
+function validatorOutcomesSeForAll(rawRuns: RawCaseRun[]): Map<number, ValidatorOutcome> {
+  return new Map(
+    rawRuns
+      .filter((r) => !r.errorVerdict)
+      .map((r): [number, ValidatorOutcome] => [r.index, { verdict: "SE" }]),
+  );
+}
+
+function parseValidatorOutcomesFromLogs(
+  logs: string,
+  rawRuns: RawCaseRun[],
+): Map<number, ValidatorOutcome> | null {
+  const lines = logs.trim().split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = lines[i]?.trim();
+    if (!trimmed?.startsWith("{")) continue;
+    let json: unknown;
+    try {
+      json = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    const parsed = parseValidateOutput(json);
+    if (!parsed.success || parsed.data.validatorOutcomes === undefined) continue;
+
+    const outcomes = new Map<number, ValidatorOutcome>();
+    for (const o of parsed.data.validatorOutcomes) {
+      const { index, ...rest } = o;
+      outcomes.set(index, rest);
+    }
+    for (const r of rawRuns) {
+      if (!r.errorVerdict && !outcomes.has(r.index)) {
+        outcomes.set(r.index, { verdict: "SE" });
+      }
+    }
+    return outcomes;
+  }
+
+  return null;
+}
+
 export class K8sExecutor implements SandboxExecutor {
-  private coreApi: k8s.CoreV1Api;
-  private batchApi: k8s.BatchV1Api;
+  private readonly coreApi: k8s.CoreV1Api;
+  private readonly batchApi: k8s.BatchV1Api;
 
   constructor(
-    private config: K8sExecutorConfig,
+    private readonly config: K8sExecutorConfig,
     clients?: K8sClientHandles,
   ) {
     if (clients) {
@@ -912,13 +951,6 @@ export class K8sExecutor implements SandboxExecutor {
     request: SandboxRequest,
     rawRuns: RawCaseRun[],
   ): Promise<Map<number, ValidatorOutcome>> {
-    const seForAll = (): Map<number, ValidatorOutcome> =>
-      new Map(
-        rawRuns
-          .filter((r) => !r.errorVerdict)
-          .map((r): [number, ValidatorOutcome] => [r.index, { verdict: "SE" }]),
-      );
-
     try {
       await this.createConfigMap(
         jobName,
@@ -928,43 +960,19 @@ export class K8sExecutor implements SandboxExecutor {
       await this.createJob(jobName, namespace, jobName);
 
       const outcome = await this.waitForJobCompletion(jobName, namespace);
-      if (outcome === "failed") return seForAll();
+      if (outcome === "failed") return validatorOutcomesSeForAll(rawRuns);
 
       const logs = await this.getPodLogs(jobName, namespace);
-      const lines = logs.trim().split("\n");
-      for (let i = lines.length - 1; i >= 0; i--) {
-        const trimmed = lines[i]?.trim();
-        if (!trimmed?.startsWith("{")) continue;
-        let json: unknown;
-        try {
-          json = JSON.parse(trimmed);
-        } catch {
-          continue;
-        }
-        const parsed = parseValidateOutput(json);
-        if (!parsed.success || parsed.data.validatorOutcomes === undefined) continue;
-
-        const outcomes = new Map<number, ValidatorOutcome>();
-        for (const o of parsed.data.validatorOutcomes) {
-          const { index, ...rest } = o;
-          outcomes.set(index, rest);
-        }
-        for (const r of rawRuns) {
-          if (!r.errorVerdict && !outcomes.has(r.index)) {
-            outcomes.set(r.index, { verdict: "SE" });
-          }
-        }
-        return outcomes;
-      }
-
-      return seForAll();
+      return (
+        parseValidatorOutcomesFromLogs(logs, rawRuns) ?? validatorOutcomesSeForAll(rawRuns)
+      );
     } catch (err) {
       logger.error("K8s validate Job failed", {
         submissionId: request.submissionId,
         jobName,
         err: err instanceof Error ? err.message : String(err),
       });
-      return seForAll();
+      return validatorOutcomesSeForAll(rawRuns);
     }
   }
 

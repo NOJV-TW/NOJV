@@ -16,10 +16,14 @@ mkdir -p "$OUT_DIR"
 
 write_result() {
   # $1 = score, $2 = verdict, $3 = feedback
-  printf '{"score":%s,"verdict":"%s","feedback":"%s"}\n' "$1" "$2" "$3" > "$OUT_DIR/result.json"
+  local score="$1"
+  local verdict="$2"
+  local feedback="$3"
+  printf '{"score":%s,"verdict":"%s","feedback":"%s"}\n' "$score" "$verdict" "$feedback" > "$OUT_DIR/result.json"
+  return
 }
 
-if [ ! -f "$SUBMISSION" ]; then
+if [[ ! -f "$SUBMISSION" ]]; then
   write_result 0 runtime_error "No main.sh found under /workspace/submission/."
   exit 0
 fi
@@ -27,7 +31,7 @@ fi
 SCRIPT_OUTPUT="$(bash "$SUBMISSION" 2>&1)"
 RUN_STATUS=$?
 
-if [ "$RUN_STATUS" -ne 0 ]; then
+if [[ "$RUN_STATUS" -ne 0 ]]; then
   write_result 0 runtime_error "main.sh exited with status $RUN_STATUS."
   exit 0
 fi

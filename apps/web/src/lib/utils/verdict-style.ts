@@ -1,5 +1,5 @@
 export function formatVerdictLabel(verdict: string): string {
-  return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  return verdict.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export function tagClass(): string {

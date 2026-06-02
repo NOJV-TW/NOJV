@@ -156,12 +156,9 @@ describe("mergeSandboxSources", () => {
     expect(byPath.get("lib.py")).toBe("print('lib')");
     expect(byPath.get("hidden.py")).toBe("# teacher hidden");
     expect(byPath.get("readme.py")).toBe("# teacher readme");
-    expect(result.sourceFiles!.map((f) => f.path).sort()).toEqual([
-      "hidden.py",
-      "lib.py",
-      "main.py",
-      "readme.py",
-    ]);
+    expect(
+      result.sourceFiles!.map((f) => f.path).sort((a, b) => Number(a > b) - Number(a < b)),
+    ).toEqual(["hidden.py", "lib.py", "main.py", "readme.py"]);
   });
 
   it("ignores workspace files for a different language", () => {

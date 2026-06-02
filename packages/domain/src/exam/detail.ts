@@ -70,7 +70,7 @@ export interface GetExamDetailPageOptions {
 function letterFromOrdinal(ordinal: number): string {
   const idx = ordinal - 1;
   if (idx < 0 || idx >= 26) return String(ordinal);
-  return String.fromCharCode(65 + idx);
+  return String.fromCodePoint(65 + idx);
 }
 
 function deriveStatus(
@@ -83,6 +83,66 @@ function deriveStatus(
   if (now < startsAt) return "upcoming";
   if (now >= endsAt) return "ended";
   return "running";
+}
+
+type ExamDetailData = NonNullable<
+  Awaited<ReturnType<typeof examRepo.findDetailForRegistrationPage>>
+>;
+type ExamDetailProblemRow = ExamDetailData["problems"][number];
+
+function resolveScoredState(score: number, points: number): ExamProblemViewerState {
+  if (score >= points) return "ac";
+  if (score > 0) return "partial";
+  return "zero";
+}
+
+async function computeViewerScores(
+  examId: string,
+  viewerUserId: string,
+  problemRows: ExamDetailProblemRow[],
+): Promise<{
+  viewerStateByProblem: Map<string, ExamProblemViewerState>;
+  viewerTotalScore: number;
+}> {
+  const problemIds = problemRows.map((ep) => ep.problem.id);
+  const [grouped, overrides] = await Promise.all([
+    submissionRepo.groupByUserAndProblem({
+      examId,
+      userId: viewerUserId,
+      problemId: { in: problemIds },
+      sampleOnly: false,
+    }),
+    getOverridesForContext({ type: "exam", examId }),
+  ]);
+
+  const bestByProblem = new Map<string, { best: number; count: number }>();
+  for (const g of grouped) {
+    bestByProblem.set(g.problemId, { best: g._max.score ?? 0, count: g._count.id });
+  }
+
+  const viewerStateByProblem = new Map<string, ExamProblemViewerState>();
+  let total = 0;
+  for (const ep of problemRows) {
+    const overrideKey = `${viewerUserId}::${ep.problem.id}`;
+    const override = overrides.get(overrideKey);
+    const hit = bestByProblem.get(ep.problem.id);
+    let score: number;
+    let state: ExamProblemViewerState;
+    if (override !== undefined) {
+      score = override;
+      state = resolveScoredState(override, ep.points);
+    } else if (!hit || hit.count === 0) {
+      score = 0;
+      state = "empty";
+    } else {
+      score = hit.best;
+      state = resolveScoredState(hit.best, ep.points);
+    }
+    viewerStateByProblem.set(ep.problem.id, state);
+    total += score;
+  }
+
+  return { viewerStateByProblem, viewerTotalScore: total };
 }
 
 export async function getExamDetailPage(
@@ -113,52 +173,13 @@ export async function getExamDetailPage(
   const enrichWithViewerScores =
     !options.isManager && derivedStatus === "ended" && problemRows.length > 0;
 
-  const viewerStateByProblem = new Map<string, ExamProblemViewerState>();
-  let viewerTotalScore: number | null = null;
-
-  if (enrichWithViewerScores) {
-    const problemIds = problemRows.map((ep) => ep.problem.id);
-    const [grouped, overrides] = await Promise.all([
-      submissionRepo.groupByUserAndProblem({
-        examId,
-        userId: options.viewerUserId,
-        problemId: { in: problemIds },
-        sampleOnly: false,
-      }),
-      getOverridesForContext({ type: "exam", examId }),
-    ]);
-
-    const bestByProblem = new Map<string, { best: number; count: number }>();
-    for (const g of grouped) {
-      bestByProblem.set(g.problemId, { best: g._max.score ?? 0, count: g._count.id });
-    }
-
-    let total = 0;
-    for (const ep of problemRows) {
-      const overrideKey = `${options.viewerUserId}::${ep.problem.id}`;
-      const override = overrides.get(overrideKey);
-      const hit = bestByProblem.get(ep.problem.id);
-      let score: number;
-      let state: ExamProblemViewerState;
-      if (override !== undefined) {
-        score = override;
-        if (override >= ep.points) state = "ac";
-        else if (override > 0) state = "partial";
-        else state = "zero";
-      } else if (!hit || hit.count === 0) {
-        score = 0;
-        state = "empty";
-      } else {
-        score = hit.best;
-        if (hit.best >= ep.points) state = "ac";
-        else if (hit.best > 0) state = "partial";
-        else state = "zero";
-      }
-      viewerStateByProblem.set(ep.problem.id, state);
-      total += score;
-    }
-    viewerTotalScore = total;
-  }
+  const viewerScores = enrichWithViewerScores
+    ? await computeViewerScores(examId, options.viewerUserId, problemRows)
+    : {
+        viewerStateByProblem: new Map<string, ExamProblemViewerState>(),
+        viewerTotalScore: null,
+      };
+  const { viewerStateByProblem, viewerTotalScore } = viewerScores;
 
   const problems: ExamDetailProblem[] = problemRows.map((ep) => ({
     id: ep.problem.id,

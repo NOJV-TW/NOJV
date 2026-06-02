@@ -16,8 +16,7 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-import { submissionDomain } from "@nojv/domain";
-import { NotFoundError } from "@nojv/domain";
+import { NotFoundError, submissionDomain } from "@nojv/domain";
 
 const { getSubmissionForUser } = submissionDomain;
 

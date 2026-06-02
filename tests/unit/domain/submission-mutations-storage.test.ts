@@ -148,9 +148,11 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
     const createArg = submissionCreate.mock.calls[0]![0] as {
       id: string;
       sourceStoragePrefix: string;
+      ipAddress: string | null;
     };
     expect(createArg.id).toBeTruthy();
     expect(createArg.sourceStoragePrefix).toBe(`submissions/${createArg.id}/sources/`);
+    expect(createArg.ipAddress).toBe("127.0.0.1");
 
     // Row returned to the caller matches the created row, not the {row, sources} pair.
     expect((row as { id: string }).id).toBe(createArg.id);
@@ -179,7 +181,7 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
 
     const createArg = submissionCreate.mock.calls[0]![0] as { id: string };
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
-    expect([...store.keys()].sort()).toEqual([
+    expect([...store.keys()].sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
       `submissions/${createArg.id}/sources/lib/helpers.py`,
       `submissions/${createArg.id}/sources/main.py`,
       `submissions/${createArg.id}/sources/util.py`,
@@ -203,7 +205,7 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
 
     const createArg = submissionCreate.mock.calls[0]![0] as { id: string };
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
-    expect([...store.keys()].sort()).toEqual([
+    expect([...store.keys()].sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
       `submissions/${createArg.id}/sources/Makefile`,
       `submissions/${createArg.id}/sources/src/main.c`,
     ]);

@@ -32,7 +32,7 @@ function isTerminalVerdict(status: string): status is SubmissionVerdict {
 function buildDefaultVerdictDetail(status: SubmissionVerdict): Prisma.InputJsonValue {
   return {
     accepted: status === "accepted",
-    feedback: status.replace(/_/g, " "),
+    feedback: status.replaceAll("_", " "),
     runtimeMs: 0,
     score: status === "accepted" ? 100 : 0,
     verdict: status,

@@ -116,7 +116,7 @@ async function seedFixtures(problemId: string): Promise<{
   for (const [i, tc] of fixtures.testcases.entries()) {
     const id = randomUUID();
     const inputKey = testcaseInputKey(problemId, id);
-    const outputKey = tc.answer !== null ? testcaseOutputKey(problemId, id) : null;
+    const outputKey = tc.answer === null ? null : testcaseOutputKey(problemId, id);
     await putText(storage, inputKey, tc.input);
     if (outputKey !== null && tc.answer !== null) {
       await putText(storage, outputKey, tc.answer);

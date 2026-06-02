@@ -4,6 +4,14 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
+type ExamSessionEventType =
+  | "enter"
+  | "leave"
+  | "visibility_lost"
+  | "release"
+  | "auto_close"
+  | "heartbeat";
+
 export const examSessionRepo = {
   findActiveForUser(userId: string) {
     return prisma.activeExamSession.findFirst({
@@ -90,7 +98,7 @@ export const examSessionRepo = {
     metadata,
   }: {
     sessionId: string;
-    eventType: "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat";
+    eventType: ExamSessionEventType;
     metadata?: Prisma.InputJsonValue | null;
   }) {
     return prisma.examSessionEvent.create({
@@ -109,10 +117,7 @@ export const examSessionRepo = {
     });
   },
 
-  findLatestEventOfType(
-    sessionId: string,
-    eventType: "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat",
-  ) {
+  findLatestEventOfType(sessionId: string, eventType: ExamSessionEventType) {
     return prisma.examSessionEvent.findFirst({
       where: { sessionId, eventType },
       orderBy: { occurredAt: "desc" },
@@ -154,16 +159,7 @@ export const examSessionRepo = {
         return tx.examSessionEvent.create({ data });
       },
 
-      findLatestEventOfType(
-        sessionId: string,
-        eventType:
-          | "enter"
-          | "leave"
-          | "visibility_lost"
-          | "release"
-          | "auto_close"
-          | "heartbeat",
-      ) {
+      findLatestEventOfType(sessionId: string, eventType: ExamSessionEventType) {
         return tx.examSessionEvent.findFirst({
           where: { sessionId, eventType },
           orderBy: { occurredAt: "desc" },

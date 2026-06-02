@@ -1,22 +1,14 @@
-import Skeleton, { type SkeletonProps, type SkeletonVariant } from "./skeleton.svelte";
-import SkeletonText, { type SkeletonTextProps } from "./SkeletonText.svelte";
-import SkeletonCard, { type SkeletonCardProps } from "./SkeletonCard.svelte";
-import SkeletonList, { type SkeletonListProps } from "./SkeletonList.svelte";
-import SkeletonTable, { type SkeletonTableProps } from "./SkeletonTable.svelte";
-import SkeletonStat, { type SkeletonStatProps } from "./SkeletonStat.svelte";
+import Skeleton from "./skeleton.svelte";
+import SkeletonText from "./SkeletonText.svelte";
+import SkeletonCard from "./SkeletonCard.svelte";
+import SkeletonList from "./SkeletonList.svelte";
+import SkeletonTable from "./SkeletonTable.svelte";
+import SkeletonStat from "./SkeletonStat.svelte";
 
-export {
-  Skeleton,
-  SkeletonText,
-  SkeletonCard,
-  SkeletonList,
-  SkeletonTable,
-  SkeletonStat,
-  type SkeletonProps,
-  type SkeletonVariant,
-  type SkeletonTextProps,
-  type SkeletonCardProps,
-  type SkeletonListProps,
-  type SkeletonTableProps,
-  type SkeletonStatProps,
-};
+export { Skeleton, SkeletonText, SkeletonCard, SkeletonList, SkeletonTable, SkeletonStat };
+export { type SkeletonProps, type SkeletonVariant } from "./skeleton.svelte";
+export { type SkeletonTextProps } from "./SkeletonText.svelte";
+export { type SkeletonCardProps } from "./SkeletonCard.svelte";
+export { type SkeletonListProps } from "./SkeletonList.svelte";
+export { type SkeletonTableProps } from "./SkeletonTable.svelte";
+export { type SkeletonStatProps } from "./SkeletonStat.svelte";

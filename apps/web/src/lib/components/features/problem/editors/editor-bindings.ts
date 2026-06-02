@@ -38,7 +38,7 @@ export function pickInitialWorkspaceIndex(files: WorkspaceFile[], language: Lang
   const entryIndex = files.findIndex((f) => f.path === entry && f.visibility === "editable");
   if (entryIndex >= 0) return entryIndex;
   const firstEditable = files.findIndex((f) => f.visibility === "editable");
-  return firstEditable >= 0 ? firstEditable : 0;
+  return Math.max(firstEditable, 0);
 }
 
 export function seedWorkspaceDrafts(files: WorkspaceFile[]): Record<string, string> {

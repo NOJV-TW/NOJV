@@ -65,7 +65,7 @@ vi.mock("@nojv/storage", async (importOriginal) => {
       const prefix = `submissions/${submissionId}/sources/`;
       const keys = Array.from(testBlobs.keys())
         .filter((k) => k.startsWith(prefix))
-        .sort();
+        .sort((a, b) => Number(a > b) - Number(a < b));
       return keys.map((key) => ({
         path: key.slice(prefix.length),
         content: testBlobs.get(key)!,

@@ -24,8 +24,7 @@ describe("aggregateByTag", () => {
     const rows = Array.from({ length: 12 }, (_, i) => ({
       problem: { tags: [`tag${i}`] },
     }));
-    rows.push({ problem: { tags: ["tag0"] } });
-    rows.push({ problem: { tags: ["tag0"] } });
+    rows.push({ problem: { tags: ["tag0"] } }, { problem: { tags: ["tag0"] } });
 
     const result = aggregateByTag(rows);
     expect(result).toHaveLength(8);

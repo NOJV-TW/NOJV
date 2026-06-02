@@ -8,6 +8,7 @@ import {
   runTransaction,
   submissionRejudgeLogRepo,
   submissionRepo,
+  type TransactionClient,
 } from "@nojv/db";
 import {
   entryFileNameFor,
@@ -40,6 +41,155 @@ import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
 
+type SubmissionProblem = Awaited<ReturnType<typeof requireProblem>>;
+type SubmissionCourseContext = Awaited<ReturnType<typeof requireCourseAssignment>>;
+type SubmissionUser = Awaited<ReturnType<typeof ensureUser>>;
+type ActiveExamSession = NonNullable<
+  Awaited<ReturnType<typeof examSessionRepo.findActiveForUser>>
+>;
+type ContestSubmissionResult = Awaited<ReturnType<typeof ensureContestParticipation>>;
+
+async function assertActiveExamSubmissionAllowed(
+  tx: TransactionClient,
+  ctx: {
+    activeExamSession: ActiveExamSession;
+    courseContext: SubmissionCourseContext | null;
+    payload: SubmissionDraft;
+    problem: SubmissionProblem;
+    user: SubmissionUser;
+  },
+): Promise<void> {
+  const { activeExamSession, courseContext, payload, problem, user } = ctx;
+  if (courseContext || payload.contestId || payload.virtualContestId) {
+    throw new ForbiddenError(
+      "You are in an active exam — submissions cannot carry an external assignment or contest context.",
+    );
+  }
+
+  const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
+  if (exam && new Date() >= exam.endsAt) {
+    throw new ForbiddenError("Exam has ended.");
+  }
+
+  if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
+    await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
+  }
+}
+
+async function assertCourseSubmissionAllowed(
+  tx: TransactionClient,
+  ctx: {
+    actor: ActorContext;
+    courseContext: SubmissionCourseContext;
+    problem: SubmissionProblem;
+  },
+): Promise<void> {
+  const { actor, courseContext, problem } = ctx;
+  const membership = await courseMembershipRepo
+    .withTx(tx)
+    .findByComposite(courseContext.course.id, actor.userId);
+
+  if (membership?.status !== "active") {
+    throw new ForbiddenError("You are not enrolled in this course.");
+  }
+
+  const assignment = courseContext.assignment;
+  if (assignment.status !== "published") {
+    throw new NotFoundError("Assignment not found.");
+  }
+  if (actor.platformRole !== "admin" && membership.role === "student") {
+    const now = new Date();
+    if (now < assignment.opensAt) {
+      throw new ForbiddenError("Assignment has not opened yet.");
+    }
+    if (now > assignment.closesAt) {
+      throw new ForbiddenError("Assignment has ended.");
+    }
+  }
+
+  const link = await tx.courseAssessmentProblem.findFirst({
+    where: { assessmentId: assignment.id, problemId: problem.id },
+    select: { id: true },
+  });
+  if (!link) {
+    throw new ForbiddenError("This problem is not part of the assignment.");
+  }
+}
+
+function assertLanguageAllowed(
+  payload: SubmissionDraft,
+  contestResult: ContestSubmissionResult | null,
+  courseContext: SubmissionCourseContext | null,
+): void {
+  if (
+    contestResult &&
+    contestResult.contest.allowedLanguages.length > 0 &&
+    !contestResult.contest.allowedLanguages.includes(payload.language)
+  ) {
+    throw new ForbiddenError("Language not allowed in this contest");
+  }
+
+  if (
+    courseContext?.assignment &&
+    courseContext.assignment.allowedLanguages.length > 0 &&
+    !courseContext.assignment.allowedLanguages.includes(payload.language)
+  ) {
+    throw new ForbiddenError("Language not allowed in this assignment");
+  }
+}
+
+async function assertSubmissionFilesValid(
+  payload: SubmissionDraft,
+  problem: SubmissionProblem,
+): Promise<void> {
+  if (problem.type === "multi_file") {
+    const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
+    const entryPath = entryFileNameFor(payload.language);
+    const hasEntry = workspaceFiles.some(
+      (f) =>
+        f.language === payload.language && f.path === entryPath && f.visibility === "editable",
+    );
+    if (!hasEntry) {
+      throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
+    }
+  }
+
+  if (problem.type === "special_env" && problem.advancedRequiredPaths.length > 0) {
+    const uploaded = (payload.sourceFiles ?? []).map((f) => f.path);
+    const result = validateRequiredPaths(uploaded, problem.advancedRequiredPaths);
+    if (!result.ok) {
+      const missing = result.errors.map((e) => e.path).join(", ");
+      throw new ConflictError(`Submission missing required paths: ${missing}`);
+    }
+  }
+}
+
+async function assertDailyAttemptLimit(
+  tx: TransactionClient,
+  courseContext: SubmissionCourseContext,
+  user: SubmissionUser,
+): Promise<void> {
+  const { maxAttemptsPerDay } = courseContext.assignment;
+
+  if (maxAttemptsPerDay != null) {
+    const now = new Date();
+    const startOfDayUtc = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
+    );
+
+    const lockKey = `daily-attempt:${user.id}:${courseContext.assignment.id}:${startOfDayUtc.toISOString()}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+
+    const todayCount = await submissionRepo
+      .withTx(tx)
+      .countForUserAndAssessmentSince(user.id, courseContext.assignment.id, startOfDayUtc);
+
+    if (todayCount >= maxAttemptsPerDay) {
+      throw new ConflictError("Daily submission limit reached. Please try again tomorrow.");
+    }
+  }
+}
+
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: ActorContext,
@@ -62,20 +212,13 @@ export async function createQueuedSubmissionRecord(
     ]);
 
     if (activeExamSession && actor.platformRole !== "admin") {
-      if (courseContext || payload.contestId || payload.virtualContestId) {
-        throw new ForbiddenError(
-          "You are in an active exam — submissions cannot carry an external assignment or contest context.",
-        );
-      }
-
-      const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
-      if (exam && new Date() >= exam.endsAt) {
-        throw new ForbiddenError("Exam has ended.");
-      }
-
-      if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
-        await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
-      }
+      await assertActiveExamSubmissionAllowed(tx, {
+        activeExamSession,
+        courseContext,
+        payload,
+        problem,
+        user,
+      });
     }
 
     if (payload.virtualContestId) {
@@ -88,42 +231,11 @@ export async function createQueuedSubmissionRecord(
     }
 
     if (courseContext) {
-      const membership = await courseMembershipRepo
-        .withTx(tx)
-        .findByComposite(courseContext.course.id, actor.userId);
-
-      if (membership?.status !== "active") {
-        throw new ForbiddenError("You are not enrolled in this course.");
-      }
-
-      const assignment = courseContext.assignment;
-      if (assignment.status !== "published") {
-        throw new NotFoundError("Assignment not found.");
-      }
-      if (actor.platformRole !== "admin" && membership.role === "student") {
-        const now = new Date();
-        if (now < assignment.opensAt) {
-          throw new ForbiddenError("Assignment has not opened yet.");
-        }
-        if (now > assignment.closesAt) {
-          throw new ForbiddenError("Assignment has ended.");
-        }
-      }
-
-      const link = await tx.courseAssessmentProblem.findFirst({
-        where: { assessmentId: assignment.id, problemId: problem.id },
-        select: { id: true },
-      });
-      if (!link) {
-        throw new ForbiddenError("This problem is not part of the assignment.");
-      }
+      await assertCourseSubmissionAllowed(tx, { actor, courseContext, problem });
     }
 
     const contestResult = payload.contestId
-      ? await ensureContestParticipation(tx, user.id, payload.contestId, {
-          problemId: problem.id,
-          sampleOnly: payload.sampleOnly ?? false,
-        })
+      ? await ensureContestParticipation(tx, user.id, payload.contestId)
       : null;
     const contestParticipation = contestResult?.participation ?? null;
 
@@ -140,46 +252,9 @@ export async function createQueuedSubmissionRecord(
     const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
     await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
-    if (
-      contestResult &&
-      contestResult.contest.allowedLanguages.length > 0 &&
-      !contestResult.contest.allowedLanguages.includes(payload.language)
-    ) {
-      throw new ForbiddenError("Language not allowed in this contest");
-    }
+    assertLanguageAllowed(payload, contestResult, courseContext);
 
-    if (
-      courseContext?.assignment &&
-      courseContext.assignment.allowedLanguages.length > 0 &&
-      !courseContext.assignment.allowedLanguages.includes(payload.language)
-    ) {
-      throw new ForbiddenError("Language not allowed in this assignment");
-    }
-
-    if (problem.type === "multi_file") {
-      const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
-      const entryPath = entryFileNameFor(payload.language);
-      const hasEntry = workspaceFiles.some(
-        (f) =>
-          f.language === payload.language &&
-          f.path === entryPath &&
-          f.visibility === "editable",
-      );
-      if (!hasEntry) {
-        throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
-      }
-    }
-
-    if (problem.type === "special_env" && problem.advancedRequiredPaths.length > 0) {
-      const uploaded = (payload.sourceFiles ?? []).map((f) => f.path);
-      const result = validateRequiredPaths(uploaded, problem.advancedRequiredPaths);
-      if (!result.ok) {
-        const missing = result.errors.map((e) => e.path).join(", ");
-        throw new ConflictError(`Submission missing required paths: ${missing}`);
-      }
-    }
-
-    void clientIp;
+    await assertSubmissionFilesValid(payload, problem);
 
     if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
       await checkSubmitCooldown(
@@ -192,27 +267,10 @@ export async function createQueuedSubmissionRecord(
     }
 
     if (courseContext?.assignment && !payload.sampleOnly) {
-      const { maxAttemptsPerDay } = courseContext.assignment;
-
-      if (maxAttemptsPerDay != null) {
-        const now = new Date();
-        const startOfDayUtc = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
-        );
-
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`daily-attempt:${user.id}:${courseContext.assignment.id}:${startOfDayUtc.toISOString()}`}, 0))`;
-
-        const todayCount = await submissionRepo
-          .withTx(tx)
-          .countForUserAndAssessmentSince(user.id, courseContext.assignment.id, startOfDayUtc);
-
-        if (todayCount >= maxAttemptsPerDay) {
-          throw new ConflictError("Daily submission limit reached. Please try again tomorrow.");
-        }
-      }
+      await assertDailyAttemptLimit(tx, courseContext, user);
     }
 
-    const sources = normalizeSubmissionSources(payload, problem, submissionId);
+    const sources = normalizeSubmissionSources(payload, submissionId);
 
     const created = await submissionRepo.withTx(tx).create({
       id: submissionId,
@@ -222,6 +280,7 @@ export async function createQueuedSubmissionRecord(
       courseAssessmentId: courseContext?.assignment.id ?? null,
       examId: activeExamSession?.examId ?? null,
       courseId: courseContext?.course.id ?? null,
+      ipAddress: clientIp,
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
