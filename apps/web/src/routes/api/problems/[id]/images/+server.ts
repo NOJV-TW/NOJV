@@ -7,13 +7,13 @@ import {
   MAX_IMAGE_SIZE,
   detectImageMime,
 } from "$lib/server/shared/file-validation";
-import { canEditProblem, problemDomain } from "@nojv/domain";
+import { canCreateProblem, problemDomain } from "@nojv/domain";
 import { uploadProblemImage } from "$lib/server/storage/problem-image";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  if (!canEditProblem(actor.platformRole)) {
+  if (!canCreateProblem(actor.platformRole, actor.emailVerified)) {
     error(403, "Not authorized to edit problems");
   }
 
