@@ -22,6 +22,8 @@
   import MobileNavDrawer from "./MobileNavDrawer.svelte";
   import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
 
+  let { immersive = false }: { immersive?: boolean } = $props();
+
   let currentLocale = $derived(getLocale());
   let user = $derived(page.data.user);
   let currentPath = $derived(page.url.pathname);
@@ -112,7 +114,9 @@
 </script>
 
 <header
-  class="sticky top-6 z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
+  class="z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 px-5 py-1.5 shadow-rest backdrop-blur-md sm:px-6 {immersive
+    ? 'relative'
+    : 'sticky top-6 animate-[fade-up_700ms_var(--ease-out-soft)_both]'}"
 >
   <div class="flex flex-wrap items-center gap-6">
     {#if navItems.length > 0}

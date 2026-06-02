@@ -7,6 +7,35 @@ import type {
 } from "$lib/services/submission-service";
 
 const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
+const PANEL_WIDTH_STORAGE_KEY = "nojv:editor:panelWidth";
+
+export const DEFAULT_PANEL_WIDTH = 42;
+export const MIN_PANEL_WIDTH = 20;
+export const MAX_PANEL_WIDTH = 80;
+
+export function clampPanelWidth(width: number): number {
+  return Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, width));
+}
+
+export function readPanelWidth(): number {
+  try {
+    const raw = localStorage.getItem(PANEL_WIDTH_STORAGE_KEY);
+    if (raw === null) return DEFAULT_PANEL_WIDTH;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return clampPanelWidth(parsed);
+  } catch {
+    // localStorage may throw under private-mode quotas / SSR; fall through.
+  }
+  return DEFAULT_PANEL_WIDTH;
+}
+
+export function persistPanelWidth(width: number): void {
+  try {
+    localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(clampPanelWidth(width)));
+  } catch {
+    // Quota / disabled storage — silently no-op.
+  }
+}
 
 export type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 

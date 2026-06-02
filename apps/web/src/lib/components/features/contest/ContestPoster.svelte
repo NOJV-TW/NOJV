@@ -6,7 +6,6 @@
 
   interface Props {
     href: string;
-    code: string;
     scoringLabel: string;
     status: "upcoming" | "live" | "ended";
     title: string;
@@ -20,7 +19,6 @@
 
   let {
     href,
-    code,
     scoringLabel,
     status,
     title,
@@ -53,13 +51,6 @@
   >
     <div class="p-6 lg:p-7 min-w-0">
       <div class="flex items-center gap-2 flex-wrap">
-        <span
-          class="font-mono text-micro uppercase tracking-[0.18em]"
-          style="color: {isLive ? 'oklch(0.55 0.2 27)' : 'var(--muted-foreground)'};"
-        >
-          {code}
-        </span>
-        <span class="opacity-40 text-micro">·</span>
         <span class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
           {scoringLabel}
         </span>

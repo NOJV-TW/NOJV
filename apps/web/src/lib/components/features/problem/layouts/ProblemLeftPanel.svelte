@@ -58,7 +58,7 @@
   });
 
   let hasAc = $derived(
-    canViewEditorials || submissions.some((s) => s.result.verdict === "accepted")
+    canViewEditorials || submissions.some((s) => s.result?.verdict === "accepted")
   );
 
   const uid = $props.id();

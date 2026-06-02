@@ -35,6 +35,7 @@ export interface SubmissionRequest {
 export interface ExecuteSubmissionOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
+  onDispatched?: (dispatch: ReturnType<typeof submissionDispatchResponseSchema.parse>) => void;
   onOperationUpdate?: (operation: ReturnType<typeof submissionOperationSchema.parse>) => void;
 }
 
@@ -142,12 +143,14 @@ export async function executeSubmission(
   request: SubmissionRequest,
   options: ExecuteSubmissionOptions = {},
 ): Promise<SubmissionResult | null> {
-  const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, onOperationUpdate } = options;
+  const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, onDispatched, onOperationUpdate } = options;
 
   const body = buildSubmissionBody(request);
 
   const dispatch = await postSubmission(body, signal);
   if (!dispatch) return null;
+
+  onDispatched?.(dispatch);
 
   const startedAt = Date.now();
   let pollDelay = INITIAL_POLL_DELAY_MS;

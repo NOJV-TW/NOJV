@@ -20,8 +20,14 @@ interface EditorRunArgs {
   assessment?: (() => { assessmentId: string; courseId: string } | undefined) | undefined;
   contestId?: (() => string | undefined) | undefined;
   virtualContestId?: (() => string | undefined) | undefined;
+  onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
   onSubmissionComplete?:
-    | ((result: SubmissionResult, language: string, sourceCode: string) => void)
+    | ((
+        submissionId: string,
+        result: SubmissionResult,
+        language: string,
+        sourceCode: string,
+      ) => void)
     | undefined;
 }
 
@@ -52,6 +58,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
 
   let destroyed = false;
   let abortController: AbortController | null = null;
+  const inflightSubmits = new Set<AbortController>();
 
   async function runSubmission(sampleOnly: boolean): Promise<SubmissionResult | null> {
     abortController = new AbortController();
@@ -96,24 +103,51 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   }
 
   async function submit() {
+    const controller = new AbortController();
+    inflightSubmits.add(controller);
     isSubmitting = true;
+
+    const language = args.language();
+    const source = projectSubmittedSource({
+      drafts: args.drafts(),
+      isWorkspaceMode: args.isWorkspaceMode(),
+      language,
+      workspaceDrafts: args.workspaceDrafts(),
+      workspaceFiles: args.workspaceFiles(),
+    });
+
+    const request = buildSubmissionRequest({
+      drafts: args.drafts(),
+      isWorkspaceMode: args.isWorkspaceMode(),
+      language,
+      problemId: args.problemId,
+      sampleOnly: false,
+      workspaceDrafts: args.workspaceDrafts(),
+      workspaceFiles: args.workspaceFiles(),
+      ...(args.assessment?.() ? { assessment: args.assessment() } : {}),
+      ...(args.contestId?.() ? { contestId: args.contestId() } : {}),
+      ...(args.virtualContestId?.() ? { virtualContestId: args.virtualContestId() } : {}),
+    });
+
+    const dispatched: { submissionId: string | null } = { submissionId: null };
     try {
-      const result = await runSubmission(false);
-      if (result) {
-        const source = projectSubmittedSource({
-          drafts: args.drafts(),
-          isWorkspaceMode: args.isWorkspaceMode(),
-          language: args.language(),
-          workspaceDrafts: args.workspaceDrafts(),
-          workspaceFiles: args.workspaceFiles(),
-        });
-        args.onSubmissionComplete?.(result, args.language(), source);
+      const result = await executeSubmission(request, {
+        signal: controller.signal,
+        onDispatched: (dispatch) => {
+          dispatched.submissionId = dispatch.submissionId;
+          isSubmitting = false;
+          args.onSubmissionDispatched?.(dispatch.submissionId, language);
+        },
+      });
+      if (result && dispatched.submissionId) {
+        args.onSubmissionComplete?.(dispatched.submissionId, result, language, source);
       }
     } catch (err) {
       runError = err instanceof Error ? err.message : "Submission failed.";
       bottomTab = "result";
     } finally {
       isSubmitting = false;
+      inflightSubmits.delete(controller);
     }
   }
 
@@ -150,6 +184,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     markDestroyed() {
       destroyed = true;
       abortController?.abort();
+      for (const controller of inflightSubmits) controller.abort();
     },
   };
 }

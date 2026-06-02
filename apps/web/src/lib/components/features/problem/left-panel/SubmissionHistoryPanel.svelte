@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ProblemSubmissionEntry } from "$lib/types";
-  import { formatTime } from "$lib/utils/datetime";
+  import { formatSmartTimestamp } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
@@ -65,7 +65,7 @@
     if (idx === null) return;
 
     const entry = submissions[idx];
-    if (!entry || entry.sourceCode !== undefined || !entry.id) return;
+    if (!entry || !entry.result || entry.sourceCode !== undefined || !entry.id) return;
 
     const entryId = entry.id;
     let cancelled = false;
@@ -109,7 +109,6 @@
     </p>
   {:else if viewingIndex !== null && submissions[viewingIndex]}
     {@const entry = submissions[viewingIndex]!}
-    {@const label = formatVerdictLabel(entry.result.verdict)}
     <div>
       <button
         class="mb-4 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
@@ -119,8 +118,28 @@
         &larr; {m.problemDetail_allSubmissions()}
       </button>
 
-      <div class="flex items-baseline gap-3">
-        <span class="text-body-lg font-semibold {verdictTone(entry.result.verdict)}">
+      {#if !entry.result}
+        <div class="flex items-center gap-3 py-6">
+          <div
+            class="size-5 animate-spin rounded-full border-2 border-border border-t-foreground"
+          ></div>
+          <div class="flex flex-col">
+            <span class="text-body font-semibold text-muted-foreground">
+              {m.submission_pending()}
+            </span>
+            <span class="mt-0.5 text-caption text-muted-foreground">
+              {entry.language} · {formatSmartTimestamp(entry.submittedAt)}
+            </span>
+          </div>
+        </div>
+      {:else}
+        {@const label = formatVerdictLabel(entry.result.verdict)}
+        <div class="flex items-baseline gap-3">
+        <span
+          class="inline-block text-body-lg font-semibold motion-safe:animate-[verdict-pop_320ms_var(--ease-spring)_both] {verdictTone(
+            entry.result.verdict
+          )}"
+        >
           {label}
         </span>
         {#if entry.result.runtimeMs > 0}
@@ -143,7 +162,7 @@
       <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
         <span>{entry.language}</span>
         <span class="tabular-nums">{String(entry.result.score)}/100</span>
-        <span class="tabular-nums">{formatTime(entry.submittedAt)}</span>
+        <span class="tabular-nums">{formatSmartTimestamp(entry.submittedAt)}</span>
       </div>
 
       {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
@@ -172,22 +191,32 @@
           <CodeBlock code={entry.sourceCode ?? ""} language={entry.language} />
         {/if}
       </div>
+      {/if}
     </div>
   {:else}
     <div class="grid gap-3">
       {#each submissions as entry, index (`sub-${index}`)}
-        {@const label = formatVerdictLabel(entry.result.verdict)}
         <button
-          class="rounded-md border border-border-subtle-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
+          class="rounded-md border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
           onclick={() => (viewingIndex = index)}
           type="button"
         >
           <div class="flex items-baseline justify-between gap-3">
-            <span class="text-body-sm font-semibold {verdictTone(entry.result.verdict)}">
-              {label}
-            </span>
+            {#if entry.result}
+              <span class="text-body-sm font-semibold {verdictTone(entry.result.verdict)}">
+                {formatVerdictLabel(entry.result.verdict)}
+              </span>
+            {:else}
+              <span class="flex items-center gap-2 text-body-sm font-semibold text-muted-foreground">
+                <span
+                  class="size-3.5 animate-spin rounded-full border-2 border-border border-t-foreground"
+                  aria-hidden="true"
+                ></span>
+                {m.submission_pending()}
+              </span>
+            {/if}
             <span class="text-caption text-muted-foreground tabular-nums">
-              {formatTime(entry.submittedAt)}
+              {formatSmartTimestamp(entry.submittedAt)}
             </span>
           </div>
           <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
@@ -195,10 +224,12 @@
               <Badge variant="outline" size="xs">{contextLabel(entry.context)}</Badge>
             {/if}
             <span>{entry.language}</span>
-            {#if entry.result.runtimeMs > 0}
-              <span class="tabular-nums">{String(entry.result.runtimeMs)} ms</span>
+            {#if entry.result}
+              {#if entry.result.runtimeMs > 0}
+                <span class="tabular-nums">{String(entry.result.runtimeMs)} ms</span>
+              {/if}
+              <span class="tabular-nums">{String(entry.result.score)}/100</span>
             {/if}
-            <span class="tabular-nums">{String(entry.result.score)}/100</span>
           </div>
         </button>
       {/each}
