@@ -4,7 +4,6 @@
 
   interface Props {
     href: string;
-    code: string;
     scoringLabel: string;
     title: string;
     startsAt: string;
@@ -14,7 +13,6 @@
 
   let {
     href,
-    code,
     scoringLabel,
     title,
     startsAt,
@@ -29,12 +27,6 @@
   style="animation-delay: {delay}ms;"
 >
   <div class="flex items-center gap-4">
-    <span
-      class="font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground rounded px-1.5 py-0.5 border"
-      style="border-color: var(--border-subtle);"
-    >
-      {code}
-    </span>
     <div class="min-w-0 flex-1">
       <div class="flex items-baseline gap-2">
         <h3 class="text-body-lg font-semibold truncate">{title}</h3>
