@@ -66,7 +66,7 @@
 </script>
 
 <header
-  class="z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 px-5 py-1.5 shadow-rest backdrop-blur-md sm:px-6 {immersive
+  class="z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 py-1.5 pl-5 pr-1.5 shadow-rest backdrop-blur-md sm:pl-6 {immersive
     ? 'relative'
     : 'sticky top-6 animate-[fade-up_700ms_var(--ease-out-soft)_both]'}"
 >
