@@ -23,11 +23,10 @@ function zodErrorResponse(error: ZodError, event: RequestEvent): Response {
   });
   const first = error.issues[0];
   const path = first?.path.map(String).join(".");
-  const message = first
-    ? path
-      ? `${path}: ${first.message}`
-      : first.message
-    : "Invalid request";
+  let message = "Invalid request";
+  if (first) {
+    message = path ? `${path}: ${first.message}` : first.message;
+  }
   return json({ message, issues: error.issues }, { status: 400 });
 }
 
