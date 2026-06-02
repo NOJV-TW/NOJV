@@ -130,7 +130,6 @@
         {#each past as c, i (c.raw.id)}
           <ContestRowPast
             href="/contests/{c.raw.id}"
-            code={c.code}
             scoringLabel={c.scoringLabel}
             title={c.raw.title}
             startsAt={c.raw.startsAt}
