@@ -1,5 +1,5 @@
 import { m } from "$lib/paraglide/messages.js";
-import { clearDraft, loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
+import { loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
 import { shortcuts } from "$lib/stores/shortcuts.svelte";
 import { toasts } from "$lib/stores/toast";
 import type { Language } from "@nojv/core";
@@ -20,9 +20,12 @@ export interface DraftController {
   readonly currentLastSavedAt: number | null;
   hydrate: () => void;
   save: () => void;
-  clear: () => void;
+  scheduleAutosave: () => void;
+  dispose: () => void;
   registerShortcut: () => (() => void) | undefined;
 }
+
+const AUTOSAVE_DELAY_MS = 1200;
 
 export function createDraftController(args: DraftControllerArgs): DraftController {
   const lastSavedCode = $state<Record<string, string>>({});
@@ -54,7 +57,9 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     hydratedLanguages[lang] = true;
   }
 
-  function save() {
+  let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function persist(notify: boolean) {
     const ctx = args.draftContext();
     if (args.isWorkspaceMode() || !ctx) return;
     const lang = args.language();
@@ -66,23 +71,31 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
       );
       lastSavedCode[lang] = code;
       lastSavedAt[lang] = record.savedAt;
-      toasts.add({ type: "success", message: m.draft_saved() });
+      if (notify) toasts.add({ type: "success", message: m.draft_saved() });
     } catch {
-      toasts.add({ type: "error", message: m.draft_saveFailed() });
+      if (notify) toasts.add({ type: "error", message: m.draft_saveFailed() });
     }
   }
 
-  function clear() {
-    const ctx = args.draftContext();
-    if (args.isWorkspaceMode() || !ctx) return;
-    if (typeof globalThis.window === "undefined") return;
-    if (!globalThis.confirm(m.draft_clearConfirm())) return;
-    const lang = args.language();
-    clearDraft({ context: ctx, problemId: args.problemId, language: lang });
-    const starter = args.starterFor(lang);
-    args.applyCode(lang, starter);
-    lastSavedCode[lang] = starter;
-    lastSavedAt[lang] = null;
+  function save() {
+    persist(true);
+  }
+
+  function scheduleAutosave() {
+    if (!enabled || !isDirty) return;
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      autosaveTimer = null;
+      persist(false);
+    }, AUTOSAVE_DELAY_MS);
+  }
+
+  function dispose() {
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+    }
+    if (enabled && isDirty) persist(false);
   }
 
   function registerShortcut() {
@@ -109,7 +122,8 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     },
     hydrate,
     save,
-    clear,
+    scheduleAutosave,
+    dispose,
     registerShortcut,
   };
 }

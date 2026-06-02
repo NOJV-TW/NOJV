@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
@@ -10,7 +9,6 @@
     draftEnabled?: boolean;
     isDirty?: boolean;
     lastSavedAt?: number | null;
-    onClearDraft?: (() => void) | undefined;
     onRun: () => void;
     onSubmit: () => void;
   }
@@ -23,7 +21,6 @@
     draftEnabled = false,
     isDirty = false,
     lastSavedAt = null,
-    onClearDraft,
     onRun,
     onSubmit
   }: Props = $props();
@@ -46,17 +43,6 @@
           <span class="inline-block size-1.5 rounded-full bg-success"></span>
           {m.draft_saved()}
         </span>
-      {/if}
-      {#if lastSavedAt != null || isDirty}
-        <button
-          aria-label={m.draft_clearAction()}
-          class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
-          onclick={() => onClearDraft?.()}
-          title={m.draft_clearAction()}
-          type="button"
-        >
-          <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
-        </button>
       {/if}
     {/if}
   </div>

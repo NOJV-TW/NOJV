@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
   import {
     ClipboardList,
     Code2,
@@ -15,12 +14,13 @@
   import type { Component } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
-  import { shortcuts } from "$lib/stores/shortcuts.svelte.js";
   import { cn } from "$lib/utils/css.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
   import NotificationBell from "../notification/NotificationBell.svelte";
   import MobileNavDrawer from "./MobileNavDrawer.svelte";
   import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
+
+  let { immersive = false }: { immersive?: boolean } = $props();
 
   let currentLocale = $derived(getLocale());
   let user = $derived(page.data.user);
@@ -63,56 +63,12 @@
     void currentPath;
     mobileNavOpen = false;
   });
-
-  $effect(() => {
-    if (!user) return;
-
-    const unregisters = [
-      shortcuts.register({
-        id: "nav-dashboard",
-        keys: [["G"], ["D"]],
-        description: m.shortcuts_goDashboard(),
-        category: "navigation",
-        handler: () => goto("/dashboard")
-      }),
-      shortcuts.register({
-        id: "nav-problems",
-        keys: [["G"], ["P"]],
-        description: m.shortcuts_goProblems(),
-        category: "navigation",
-        handler: () => goto("/problems")
-      }),
-      shortcuts.register({
-        id: "nav-exams",
-        keys: [["G"], ["E"]],
-        description: m.shortcuts_goExams(),
-        category: "navigation",
-        handler: () => goto("/exams")
-      }),
-      shortcuts.register({
-        id: "nav-contests",
-        keys: [["G"], ["C"]],
-        description: m.shortcuts_goContests(),
-        category: "navigation",
-        handler: () => goto("/contests")
-      }),
-      shortcuts.register({
-        id: "nav-submissions",
-        keys: [["G"], ["S"]],
-        description: m.shortcuts_goSubmissions(),
-        category: "navigation",
-        handler: () => goto("/submissions")
-      })
-    ];
-
-    return () => {
-      for (const off of unregisters) off();
-    };
-  });
 </script>
 
 <header
-  class="sticky top-6 z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
+  class="z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 px-5 py-1.5 shadow-rest backdrop-blur-md sm:px-6 {immersive
+    ? 'relative'
+    : 'sticky top-6 animate-[fade-up_700ms_var(--ease-out-soft)_both]'}"
 >
   <div class="flex flex-wrap items-center gap-6">
     {#if navItems.length > 0}

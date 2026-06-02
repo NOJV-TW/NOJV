@@ -1,4 +1,4 @@
-import { entryFileNameFor, languageSchema, type Language, type ProblemType } from "@nojv/core";
+import { entryFileNameFor, type Language, type ProblemType } from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
 import type {
   SubmissionAssessmentContext,
@@ -6,7 +6,36 @@ import type {
   SubmissionWorkspaceFile,
 } from "$lib/services/submission-service";
 
-const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
+export const EDITOR_LANGUAGE_COOKIE = "nojv_editor_lang";
+const PANEL_WIDTH_STORAGE_KEY = "nojv:editor:panelWidth";
+
+export const DEFAULT_PANEL_WIDTH = 42;
+export const MIN_PANEL_WIDTH = 20;
+export const MAX_PANEL_WIDTH = 80;
+
+export function clampPanelWidth(width: number): number {
+  return Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, width));
+}
+
+export function readPanelWidth(): number {
+  try {
+    const raw = localStorage.getItem(PANEL_WIDTH_STORAGE_KEY);
+    if (raw === null) return DEFAULT_PANEL_WIDTH;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return clampPanelWidth(parsed);
+  } catch {
+    // localStorage may throw under private-mode quotas / SSR; fall through.
+  }
+  return DEFAULT_PANEL_WIDTH;
+}
+
+export function persistPanelWidth(width: number): void {
+  try {
+    localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(clampPanelWidth(width)));
+  } catch {
+    // Quota / disabled storage — silently no-op.
+  }
+}
 
 export type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 
@@ -14,22 +43,11 @@ export function workspaceDraftKey(lang: string, path: string): string {
   return `${lang}::${path}`;
 }
 
-export function readPersistedLanguage(): Language {
-  try {
-    const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    const parsed = languageSchema.safeParse(saved);
-    if (parsed.success) return parsed.data;
-  } catch {
-    // localStorage may throw under private-mode quotas / SSR; fall through.
-  }
-  return "cpp";
-}
-
 export function persistLanguage(lang: Language): void {
   try {
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    document.cookie = `${EDITOR_LANGUAGE_COOKIE}=${lang}; path=/; max-age=31536000; samesite=lax`;
   } catch {
-    // Quota / disabled storage — silently no-op.
+    // Disabled cookies / SSR — silently no-op.
   }
 }
 

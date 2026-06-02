@@ -1,5 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 
+import { EDITOR_LANGUAGE_COOKIE } from "$lib/components/features/problem/editors/editor-bindings";
 import type { LayoutServerLoad } from "./$types";
 
 export const load: LayoutServerLoad = (event) => {
@@ -8,5 +9,8 @@ export const load: LayoutServerLoad = (event) => {
     redirect(302, "/signin");
   }
 
-  return { user: event.locals.sessionUser };
+  return {
+    user: event.locals.sessionUser,
+    editorLanguage: event.cookies.get(EDITOR_LANGUAGE_COOKIE),
+  };
 };

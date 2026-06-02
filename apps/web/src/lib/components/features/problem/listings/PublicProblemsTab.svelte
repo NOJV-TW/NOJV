@@ -89,12 +89,13 @@
         <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} />
       {/if}
 
-      {#each publicResult.problems as problem (problem.id)}
+      {#each publicResult.problems as problem, index (problem.id)}
         <Card.Root
           variant="surface"
           size="lg"
           interactive
-          class="relative grid gap-x-8 gap-y-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
+          style="animation-delay: {Math.min(index * 30, 300)}ms"
+          class="relative grid gap-x-8 gap-y-3 p-4 motion-safe:animate-[fade-up_400ms_var(--ease-out-soft)_both] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
         >
           <div class="flex min-w-0 items-center gap-3">
             {#if problem.status === "ac"}
