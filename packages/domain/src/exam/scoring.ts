@@ -31,8 +31,96 @@ export interface ExamScoreboard {
 
 const SCORE_UPDATE_MAX_ATTEMPTS = 3;
 
+type ExamParticipationWithExam = NonNullable<
+  Awaited<ReturnType<typeof examParticipationRepo.findByIdWithExam>>
+>;
+type ExamSubmissionRows = Awaited<ReturnType<typeof submissionRepo.findMany>>;
+type ExamProblemMap = Map<string, ExamParticipationWithExam["exam"]["problems"][number]>;
+type OverrideRows = Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>>;
+
+async function persistProblemCountScore(
+  participation: ExamParticipationWithExam,
+  allSubmissions: ExamSubmissionRows,
+  examProblems: ExamProblemMap,
+): Promise<void> {
+  const { exam } = participation;
+  let solvedCount = 0;
+  let totalPenalty = 0;
+
+  const byProblem = new Map<string, ExamSubmissionRows>();
+  for (const sub of allSubmissions) {
+    if (!examProblems.has(sub.problemId)) continue;
+    const existing = byProblem.get(sub.problemId) ?? [];
+    existing.push(sub);
+    byProblem.set(sub.problemId, existing);
+  }
+
+  for (const [, problemSubs] of byProblem) {
+    const { solved, penaltySeconds } = computeProblemCountPenalty(problemSubs, exam.startsAt);
+    if (solved) {
+      solvedCount++;
+      totalPenalty += penaltySeconds;
+    }
+  }
+
+  await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
+    penaltySeconds: totalPenalty,
+    score: solvedCount,
+  });
+
+  const packedScore = solvedCount * 1e9 - totalPenalty;
+  await scoreboard.updateScoreboard(
+    exam.id,
+    participation.id,
+    packedScore,
+    "icpc",
+    scoreboard.scoreboardTtlForEndsAt(exam.endsAt),
+  );
+}
+
+async function persistBestScore(
+  participation: ExamParticipationWithExam,
+  allSubmissions: ExamSubmissionRows,
+  examProblems: ExamProblemMap,
+  overrideRows: OverrideRows,
+): Promise<void> {
+  const { exam } = participation;
+  const bestByProblem = new Map<string, number>();
+  for (const sub of allSubmissions) {
+    if (!examProblems.has(sub.problemId)) continue;
+    const current = bestByProblem.get(sub.problemId) ?? 0;
+    if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
+  }
+
+  for (const row of overrideRows) {
+    if (row.userId !== participation.userId) continue;
+    if (!examProblems.has(row.problemId)) continue;
+    bestByProblem.set(row.problemId, row.overrideScore);
+  }
+
+  let totalScore = 0;
+  const subtaskScores: Record<string, number> = {};
+  for (const [problemId, best] of bestByProblem) {
+    totalScore += best;
+    subtaskScores[problemId] = best;
+  }
+
+  await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
+    score: totalScore,
+    subtaskScores,
+  });
+
+  await scoreboard.updateScoreboard(
+    exam.id,
+    participation.id,
+    totalScore,
+    "ioi",
+    scoreboard.scoreboardTtlForEndsAt(exam.endsAt),
+  );
+}
+
 export async function updateExamScores(examParticipationId: string): Promise<void> {
-  let overrideRows: Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>> | undefined;
+  let overrideRows: OverrideRows | undefined;
 
   for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
     const participation = await examParticipationRepo.findByIdWithExam(examParticipationId);
@@ -60,75 +148,10 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
 
     try {
       if (exam.scoringMode === "problem_count") {
-        let solvedCount = 0;
-        let totalPenalty = 0;
-
-        const byProblem = new Map<string, typeof allSubmissions>();
-        for (const sub of allSubmissions) {
-          if (!examProblems.has(sub.problemId)) continue;
-          const existing = byProblem.get(sub.problemId) ?? [];
-          existing.push(sub);
-          byProblem.set(sub.problemId, existing);
-        }
-
-        for (const [, problemSubs] of byProblem) {
-          const { solved, penaltySeconds } = computeProblemCountPenalty(
-            problemSubs,
-            exam.startsAt,
-          );
-          if (solved) {
-            solvedCount++;
-            totalPenalty += penaltySeconds;
-          }
-        }
-
-        await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
-          penaltySeconds: totalPenalty,
-          score: solvedCount,
-        });
-
-        const packedScore = solvedCount * 1e9 - totalPenalty;
-        await scoreboard.updateScoreboard(
-          exam.id,
-          participation.id,
-          packedScore,
-          "icpc",
-          scoreboard.scoreboardTtlForEndsAt(exam.endsAt),
-        );
+        await persistProblemCountScore(participation, allSubmissions, examProblems);
       } else {
-        const bestByProblem = new Map<string, number>();
-        for (const sub of allSubmissions) {
-          if (!examProblems.has(sub.problemId)) continue;
-          const current = bestByProblem.get(sub.problemId) ?? 0;
-          if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
-        }
-
         overrideRows ??= await scoreOverrideRepo.findAllByContext("exam", exam.id);
-        for (const row of overrideRows) {
-          if (row.userId !== participation.userId) continue;
-          if (!examProblems.has(row.problemId)) continue;
-          bestByProblem.set(row.problemId, row.overrideScore);
-        }
-
-        let totalScore = 0;
-        const subtaskScores: Record<string, number> = {};
-        for (const [problemId, best] of bestByProblem) {
-          totalScore += best;
-          subtaskScores[problemId] = best;
-        }
-
-        await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
-          score: totalScore,
-          subtaskScores,
-        });
-
-        await scoreboard.updateScoreboard(
-          exam.id,
-          participation.id,
-          totalScore,
-          "ioi",
-          scoreboard.scoreboardTtlForEndsAt(exam.endsAt),
-        );
+        await persistBestScore(participation, allSubmissions, examProblems, overrideRows);
       }
 
       return;

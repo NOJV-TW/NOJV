@@ -7,7 +7,6 @@ const MAX_SUBMISSION_BYTES = 1 * 1024 * 1024; // 1 MB total
 
 export function normalizeSubmissionSources(
   payload: SubmissionDraft,
-  problem: { type: string },
   submissionId: string,
 ): SubmissionSource[] {
   const sources: SubmissionSource[] = [];
@@ -18,7 +17,6 @@ export function normalizeSubmissionSources(
       sources.push({ path: file.path, content: file.content });
     }
   } else {
-    void problem;
     if (!payload.sourceCode) {
       throw new ConflictError("Submission missing source content.");
     }

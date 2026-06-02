@@ -16,12 +16,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const submission = await getSubmissionDetail(actor, submissionId);
 
   const ctx = submission.context;
-  const feedbackContext: feedbackDomain.FeedbackContext | null =
-    ctx.kind === "assignment"
-      ? { type: "assignment", assignmentId: ctx.assignmentId }
-      : ctx.kind === "exam"
-        ? { type: "exam", examId: ctx.examId }
-        : null;
+  let feedbackContext: feedbackDomain.FeedbackContext | null = null;
+  if (ctx.kind === "assignment") {
+    feedbackContext = { type: "assignment", assignmentId: ctx.assignmentId };
+  } else if (ctx.kind === "exam") {
+    feedbackContext = { type: "exam", examId: ctx.examId };
+  }
   let feedback: string | null = null;
   if (feedbackContext) {
     const rows = await feedbackDomain.getFeedbackForStudent(actor.userId, feedbackContext);

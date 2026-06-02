@@ -1,6 +1,6 @@
 import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 
 import { getStorageBaseUrl } from "./client";
 

@@ -235,7 +235,9 @@ describe("buildAdvancedJobManifest — registry-source pod structure", () => {
     expect(podSpec.containers[0]!.name).toBe(ADVANCED_GRADER_NAME);
 
     const initNames = (podSpec.initContainers ?? []).map((c) => c.name).sort();
-    expect(initNames).toEqual([ADVANCED_INIT_NAME, ADVANCED_SIDECAR_NAME].sort());
+    expect(initNames).toEqual(
+      [ADVANCED_INIT_NAME, ADVANCED_SIDECAR_NAME].sort((a, b) => Number(a > b) - Number(a < b)),
+    );
   });
 
   it("sidecar is in initContainers with restartPolicy: Always (K8s 1.28+ native sidecar)", () => {
@@ -369,17 +371,17 @@ describe("K8sExecutor.execute(advanced) — tarball source fail-fast", () => {
   });
 });
 
-describe("K8sExecutor.execute(advanced) — registry source orchestration", () => {
-  function buildSidecarLog(payload: Record<string, unknown>): string {
-    return [
-      "prep ok",
-      ADVANCED_RESULT_MARKER_BEGIN,
-      JSON.stringify(payload),
-      ADVANCED_RESULT_MARKER_END,
-      "",
-    ].join("\n");
-  }
+function buildSidecarLog(payload: Record<string, unknown>): string {
+  return [
+    "prep ok",
+    ADVANCED_RESULT_MARKER_BEGIN,
+    JSON.stringify(payload),
+    ADVANCED_RESULT_MARKER_END,
+    "",
+  ].join("\n");
+}
 
+describe("K8sExecutor.execute(advanced) — registry source orchestration", () => {
   it("creates ConfigMap + Job, reads sidecar logs, returns mapped AC result", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({

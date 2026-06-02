@@ -110,14 +110,13 @@ function renderFile(fileName, { models, enums }) {
       if (m.doc) out.push(m.doc, "");
       out.push("| Field | Type | Attributes |", "| ----- | ---- | ---------- |");
       for (const f of m.fields) {
-        out.push(`| \`${f.name}\` | \`${f.type}\` | ${f.attrs ? `\`${f.attrs}\`` : "—"} |`);
+        const attrs = f.attrs ? `\`${f.attrs}\`` : "—";
+        out.push(`| \`${f.name}\` | \`${f.type}\` | ${attrs} |`);
       }
       out.push("");
       if (m.blockAttrs.length > 0) {
-        out.push(
-          `Indexes & constraints: ${m.blockAttrs.map((a) => `\`${a}\``).join(", ")}`,
-          "",
-        );
+        const blockAttrs = m.blockAttrs.map((a) => `\`${a}\``).join(", ");
+        out.push(`Indexes & constraints: ${blockAttrs}`, "");
       }
     }
   }

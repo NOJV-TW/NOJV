@@ -288,12 +288,10 @@ export async function runInteractiveMode(
   if (!interactorScript) {
     return sandboxSystemError("Interactive judge is missing its interactor script.");
   }
+  const checkerFallbackLanguage =
+    request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
   const interactorLanguage =
-    request.judgeConfig.interactorLanguage === "cpp"
-      ? "cpp"
-      : request.judgeConfig.checkerLanguage === "cpp"
-        ? "cpp"
-        : "python";
+    request.judgeConfig.interactorLanguage === "cpp" ? "cpp" : checkerFallbackLanguage;
 
   const results: SandboxTestcaseResult[] = [];
   for (const testcase of request.testcases) {

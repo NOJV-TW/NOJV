@@ -94,6 +94,65 @@ export function mergeSandboxSources(
   };
 }
 
+function buildSandboxTestcases(
+  judgeContext: submissionDomain.SubmissionJudgeContext,
+  options: {
+    useSamples: boolean;
+    useAdvanced: boolean;
+    runCases: SubmissionDraft["runCases"];
+    hasRunCases: boolean;
+  },
+): SandboxRequest["testcases"] {
+  if (options.hasRunCases) {
+    return (options.runCases ?? []).map((tc, i) => ({
+      index: i,
+      input: tc.input,
+      ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),
+      weight: 0,
+      isSample: true,
+    }));
+  }
+
+  if (options.useSamples) {
+    return judgeContext.samples.map((s, i) => ({
+      index: i,
+      input: s.input,
+      output: s.output,
+      weight: 0,
+      isSample: true,
+    }));
+  }
+
+  if (options.useAdvanced) {
+    return [];
+  }
+
+  return judgeContext.testcaseSets
+    .flatMap((ts) => ts.testcases)
+    .map((tc, i) => ({
+      index: i,
+      input: tc.input,
+      ...(tc.output != null ? { output: tc.output } : {}),
+      weight: tc.weight,
+      isSample: false,
+    }));
+}
+
+function buildAdvancedPayload(
+  judgeContext: submissionDomain.SubmissionJudgeContext,
+): SandboxRequest["advanced"] | undefined {
+  if (judgeContext.problemType !== "special_env" || !judgeContext.advanced) {
+    return undefined;
+  }
+  const ctx = judgeContext.advanced;
+  return {
+    imageRef: ctx.imageRef,
+    imageSource: ctx.imageSource,
+    totalTimeMs: ctx.resourceLimits.totalTimeMs,
+    memoryMb: ctx.resourceLimits.memoryMb,
+  };
+}
+
 export async function executeSandbox(
   submissionId: string,
   draft: SubmissionDraft,
@@ -122,48 +181,18 @@ export async function executeSandbox(
   const runCases = useSamples && !useAdvanced ? draft.runCases : undefined;
   const hasRunCases = runCases !== undefined && runCases.length > 0;
 
-  const testcasesForSandbox = hasRunCases
-    ? runCases.map((tc, i) => ({
-        index: i,
-        input: tc.input,
-        ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),
-        weight: 0,
-        isSample: true,
-      }))
-    : useSamples
-      ? judgeContext.samples.map((s, i) => ({
-          index: i,
-          input: s.input,
-          output: s.output,
-          weight: 0,
-          isSample: true,
-        }))
-      : useAdvanced
-        ? [] // advanced: TA image bundles testcases
-        : judgeContext.testcaseSets
-            .flatMap((ts) => ts.testcases)
-            .map((tc, i) => ({
-              index: i,
-              input: tc.input,
-              ...(tc.output != null ? { output: tc.output } : {}),
-              weight: tc.weight,
-              isSample: false,
-            }));
+  const testcasesForSandbox = buildSandboxTestcases(judgeContext, {
+    useSamples,
+    useAdvanced,
+    runCases,
+    hasRunCases,
+  });
 
   const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
 
   const sources = mergeSandboxSources(studentSources, draft.language, judgeContext);
 
-  let advancedPayload: SandboxRequest["advanced"] | undefined;
-  if (judgeContext.problemType === "special_env" && judgeContext.advanced) {
-    const ctx = judgeContext.advanced;
-    advancedPayload = {
-      imageRef: ctx.imageRef,
-      imageSource: ctx.imageSource,
-      totalTimeMs: ctx.resourceLimits.totalTimeMs,
-      memoryMb: ctx.resourceLimits.memoryMb,
-    };
-  }
+  const advancedPayload = buildAdvancedPayload(judgeContext);
 
   const request: SandboxRequest = {
     submissionId,

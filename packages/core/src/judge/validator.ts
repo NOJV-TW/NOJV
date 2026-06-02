@@ -24,7 +24,7 @@ function trimmedOrUndefined(raw: string | undefined): string | undefined {
 
 function parseScore(scoreTxt: string | undefined): number | undefined {
   if (scoreTxt === undefined) return undefined;
-  const value = parseFloat(scoreTxt);
+  const value = Number.parseFloat(scoreTxt);
   if (Number.isNaN(value)) return undefined;
 
   let scaled: number;
@@ -39,8 +39,10 @@ export function parseValidatorFeedback(
   exitCode: number,
   files: ValidatorFeedbackFiles,
 ): ValidatorOutcome {
+  const nonAcceptVerdict: ValidatorOutcome["verdict"] =
+    exitCode === VALIDATOR_EXIT_WRONG ? "WA" : "SE";
   const verdict: ValidatorOutcome["verdict"] =
-    exitCode === VALIDATOR_EXIT_ACCEPT ? "AC" : exitCode === VALIDATOR_EXIT_WRONG ? "WA" : "SE";
+    exitCode === VALIDATOR_EXIT_ACCEPT ? "AC" : nonAcceptVerdict;
 
   const outcome: ValidatorOutcome = { verdict };
 

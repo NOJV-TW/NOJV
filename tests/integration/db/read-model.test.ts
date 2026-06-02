@@ -5,7 +5,6 @@ import {
   createTestProblem,
   createTestSubmission,
   createTestUser,
-  testPrisma,
 } from "../../fixtures/factories";
 
 import { problemDomain, courseDomain } from "@nojv/domain";

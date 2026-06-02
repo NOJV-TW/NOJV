@@ -56,13 +56,15 @@ export async function getUpsolveView(
   const solvedProblemIds = new Set(acceptedRows.map((r) => r.problemId));
   const attemptedProblemIds = new Set(attemptRows.map((r) => r.problemId));
 
+  const resolveStatus = (problemId: string): UpsolveStatus => {
+    if (solvedProblemIds.has(problemId)) return "solved";
+    if (attemptedProblemIds.has(problemId)) return "attempted";
+    return "untouched";
+  };
+
   const problems: UpsolveProblem[] = contest.problems.map((cp) => {
     const problemId = cp.problem.id;
-    const status: UpsolveStatus = solvedProblemIds.has(problemId)
-      ? "solved"
-      : attemptedProblemIds.has(problemId)
-        ? "attempted"
-        : "untouched";
+    const status: UpsolveStatus = resolveStatus(problemId);
     return {
       problemId,
       letter: problemLetter(cp.ordinal),

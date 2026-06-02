@@ -44,7 +44,7 @@ export function runProcess(
 
     const wrapped = withProcessLimit(
       [cmd, ...args],
-      options.cpuSeconds !== undefined ? { cpuSeconds: options.cpuSeconds } : undefined,
+      options.cpuSeconds === undefined ? undefined : { cpuSeconds: options.cpuSeconds },
     );
     const isWrapped = wrapped[0] === "bash";
     const [wrappedCmd, ...wrappedArgs] = wrapped;

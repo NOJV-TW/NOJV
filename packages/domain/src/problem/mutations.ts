@@ -11,13 +11,13 @@ import type {
   JudgeConfig,
   JudgeScriptLanguage,
   ProblemCreate,
+  ProblemDifficulty,
   ProblemImageSource,
   ProblemStatus,
   ProblemType,
   ProblemUpdate,
   ProblemVisibility,
 } from "@nojv/core";
-import type { ProblemDifficulty } from "@nojv/core";
 import { DEFAULT_LOCALE, judgeConfigSchema } from "@nojv/core";
 
 import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
@@ -133,6 +133,49 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
   });
 }
 
+function buildProblemUpdateData(payload: ProblemUpdate): Record<string, unknown> {
+  const updateData: Record<string, unknown> = {};
+  if (payload.title !== undefined) updateData.title = payload.title;
+  if (payload.visibility !== undefined) updateData.visibility = payload.visibility;
+  if (payload.timeLimitMs !== undefined) updateData.timeLimitMs = payload.timeLimitMs;
+  if (payload.memoryLimitMb !== undefined) updateData.memoryLimitMb = payload.memoryLimitMb;
+  if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
+  if (payload.status !== undefined) updateData.status = payload.status;
+  if (payload.type !== undefined) updateData.type = payload.type;
+  if (payload.samples !== undefined) updateData.samples = payload.samples;
+  if (payload.advancedImageRef !== undefined)
+    updateData.advancedImageRef = payload.advancedImageRef;
+  if (payload.advancedImageSource !== undefined)
+    updateData.advancedImageSource = payload.advancedImageSource;
+  if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
+  if (payload.tags !== undefined) updateData.tags = payload.tags;
+  return updateData;
+}
+
+function assertSpecialEnvImageConsistency(
+  payload: ProblemUpdate,
+  problem: {
+    type: ProblemType;
+    advancedImageRef: string | null;
+    advancedImageSource: string | null;
+  },
+): void {
+  const mergedType = payload.type ?? problem.type;
+  const mergedImageRef = payload.advancedImageRef ?? problem.advancedImageRef;
+  const mergedImageSource = payload.advancedImageSource ?? problem.advancedImageSource;
+  const hasImage = Boolean(mergedImageRef) && Boolean(mergedImageSource);
+  if (mergedType === "special_env" && !hasImage) {
+    throw new ValidationError(
+      "special_env problems require both advancedImageRef and advancedImageSource.",
+    );
+  }
+  if (mergedType !== "special_env" && hasImage) {
+    throw new ValidationError(
+      "advancedImageRef / advancedImageSource are only allowed on special_env problems.",
+    );
+  }
+}
+
 export async function updateProblemRecord(
   actor: ProblemActorContext,
   problemId: string,
@@ -143,37 +186,9 @@ export async function updateProblemRecord(
 
     assertProblemOwnership(problem, actor);
 
-    const updateData: Record<string, unknown> = {};
-    if (payload.title !== undefined) updateData.title = payload.title;
-    if (payload.visibility !== undefined) updateData.visibility = payload.visibility;
-    if (payload.timeLimitMs !== undefined) updateData.timeLimitMs = payload.timeLimitMs;
-    if (payload.memoryLimitMb !== undefined) updateData.memoryLimitMb = payload.memoryLimitMb;
-    if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
-    if (payload.status !== undefined) updateData.status = payload.status;
-    if (payload.type !== undefined) updateData.type = payload.type;
-    if (payload.samples !== undefined) updateData.samples = payload.samples;
-    if (payload.advancedImageRef !== undefined)
-      updateData.advancedImageRef = payload.advancedImageRef;
-    if (payload.advancedImageSource !== undefined)
-      updateData.advancedImageSource = payload.advancedImageSource;
+    const updateData = buildProblemUpdateData(payload);
 
-    const mergedType = payload.type ?? problem.type;
-    const mergedImageRef = payload.advancedImageRef ?? problem.advancedImageRef;
-    const mergedImageSource = payload.advancedImageSource ?? problem.advancedImageSource;
-    const hasImage = Boolean(mergedImageRef) && Boolean(mergedImageSource);
-    if (mergedType === "special_env" && !hasImage) {
-      throw new ValidationError(
-        "special_env problems require both advancedImageRef and advancedImageSource.",
-      );
-    }
-    if (mergedType !== "special_env" && hasImage) {
-      throw new ValidationError(
-        "advancedImageRef / advancedImageSource are only allowed on special_env problems.",
-      );
-    }
-
-    if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
-    if (payload.tags !== undefined) updateData.tags = payload.tags;
+    assertSpecialEnvImageConsistency(payload, problem);
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
@@ -232,9 +247,9 @@ export async function saveProblemJudgeConfig(
       : null;
 
   const checkerKey =
-    checkerBody != null ? await writeCheckerScriptBlob(problemId, checkerBody) : null;
+    checkerBody == null ? null : await writeCheckerScriptBlob(problemId, checkerBody);
   const interactorKey =
-    interactorBody != null ? await writeInteractorScriptBlob(problemId, interactorBody) : null;
+    interactorBody == null ? null : await writeInteractorScriptBlob(problemId, interactorBody);
 
   const judgeConfig: JudgeConfig = {
     type,

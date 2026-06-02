@@ -1,4 +1,5 @@
 import type { CaseResult, SandboxResult, SubmissionResult } from "@nojv/core";
+import type { SubtaskScoringStrategy } from "@nojv/db";
 
 import { applyAdjustmentRules } from "./adjustments";
 import type { SubmissionJudgeContext, TestcaseSetGroup, SubtaskStrategyMap } from "./types";
@@ -57,18 +58,7 @@ export function buildSubtaskResults(
     const allPassed = total > 0 && passed === total;
 
     const strategy = strategies[ts.id] ?? "ALL_OR_NOTHING";
-    let rawScore: number;
-    if (total === 0) {
-      rawScore = 0;
-    } else if (strategy === "PROPORTIONAL") {
-      const sumScore = caseScores.reduce((s, v) => s + v, 0);
-      rawScore = (ts.weight * sumScore) / (total * 100);
-    } else if (strategy === "MINIMUM") {
-      const minScore = Math.min(...caseScores);
-      rawScore = (ts.weight * minScore) / 100;
-    } else {
-      rawScore = allPassed ? ts.weight : 0;
-    }
+    const rawScore = computeSubtaskRawScore(strategy, caseScores, ts.weight, total, allPassed);
 
     subtaskResults.push({
       cases,
@@ -81,6 +71,27 @@ export function buildSubtaskResults(
   }
 
   return subtaskResults;
+}
+
+function computeSubtaskRawScore(
+  strategy: SubtaskScoringStrategy,
+  caseScores: number[],
+  weight: number,
+  total: number,
+  allPassed: boolean,
+): number {
+  if (total === 0) {
+    return 0;
+  }
+  if (strategy === "PROPORTIONAL") {
+    const sumScore = caseScores.reduce((s, v) => s + v, 0);
+    return (weight * sumScore) / (total * 100);
+  }
+  if (strategy === "MINIMUM") {
+    const minScore = Math.min(...caseScores);
+    return (weight * minScore) / 100;
+  }
+  return allPassed ? weight : 0;
 }
 
 export function mapResult(
@@ -191,7 +202,7 @@ export function mapResult(
       const feedback =
         result.scoringFeedback ??
         tc.feedback ??
-        `Failed on testcase ${String(tc.index + 1)}: ${verdict.replace(/_/g, " ")}`;
+        `Failed on testcase ${String(tc.index + 1)}: ${verdict.replaceAll("_", " ")}`;
       return {
         accepted: false,
         caseResults,

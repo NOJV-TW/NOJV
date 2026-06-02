@@ -30,57 +30,57 @@ export interface UpdateWorkspaceInput {
 
 const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576;
 
-export async function updateProblemWorkspace(
-  actor: ProblemActorContext,
-  problemId: string,
-  payload: UpdateWorkspaceInput,
-) {
-  if (payload.files.length > 0) {
-    const filesByLanguage = new Map<Language, UpdateWorkspaceInput["files"]>();
-    for (const file of payload.files) {
-      const bucket = filesByLanguage.get(file.language);
-      if (bucket) bucket.push(file);
-      else filesByLanguage.set(file.language, [file]);
-    }
-
-    const brokenLanguages: string[] = [];
-    for (const [language, files] of filesByLanguage) {
-      const entryPath = entryFileNameFor(language);
-      const editableEntryCount = files.filter(
-        (f) => f.path === entryPath && f.visibility === "editable",
-      ).length;
-      if (editableEntryCount !== 1) {
-        brokenLanguages.push(
-          `Language '${language}' must have exactly one editable file named '${entryPath}'`,
-        );
-      }
-    }
-    if (brokenLanguages.length > 0) {
-      throw new ValidationError(`Workspace invariant violated: ${brokenLanguages.join("; ")}.`);
-    }
+function assertExactlyOneEditableEntry(files: UpdateWorkspaceInput["files"]): void {
+  if (files.length === 0) return;
+  const filesByLanguage = new Map<Language, UpdateWorkspaceInput["files"]>();
+  for (const file of files) {
+    const bucket = filesByLanguage.get(file.language);
+    if (bucket) bucket.push(file);
+    else filesByLanguage.set(file.language, [file]);
   }
 
-  if (
-    payload.type === "multi_file" &&
-    payload.allowedLanguages &&
-    payload.allowedLanguages.length > 0
-  ) {
-    const entryByLanguage = new Set<string>();
-    for (const file of payload.files) {
-      if (file.visibility === "editable" && file.path === entryFileNameFor(file.language)) {
-        entryByLanguage.add(file.language);
-      }
-    }
-    const missing = payload.allowedLanguages.filter((lang) => !entryByLanguage.has(lang));
-    if (missing.length > 0) {
-      throw new ValidationError(
-        `Multi-file problems require an editable main file for every allowed language. Missing: ${missing.join(", ")}.`,
+  const brokenLanguages: string[] = [];
+  for (const [language, langFiles] of filesByLanguage) {
+    const entryPath = entryFileNameFor(language);
+    const editableEntryCount = langFiles.filter(
+      (f) => f.path === entryPath && f.visibility === "editable",
+    ).length;
+    if (editableEntryCount !== 1) {
+      brokenLanguages.push(
+        `Language '${language}' must have exactly one editable file named '${entryPath}'`,
       );
     }
   }
+  if (brokenLanguages.length > 0) {
+    throw new ValidationError(`Workspace invariant violated: ${brokenLanguages.join("; ")}.`);
+  }
+}
 
-  const totalsByLanguage = new Map<string, number>();
+function assertMultiFileEntries(payload: UpdateWorkspaceInput): void {
+  if (
+    payload.type !== "multi_file" ||
+    !payload.allowedLanguages ||
+    payload.allowedLanguages.length === 0
+  ) {
+    return;
+  }
+  const entryByLanguage = new Set<string>();
   for (const file of payload.files) {
+    if (file.visibility === "editable" && file.path === entryFileNameFor(file.language)) {
+      entryByLanguage.add(file.language);
+    }
+  }
+  const missing = payload.allowedLanguages.filter((lang) => !entryByLanguage.has(lang));
+  if (missing.length > 0) {
+    throw new ValidationError(
+      `Multi-file problems require an editable main file for every allowed language. Missing: ${missing.join(", ")}.`,
+    );
+  }
+}
+
+function assertWorkspaceByteLimit(files: UpdateWorkspaceInput["files"]): void {
+  const totalsByLanguage = new Map<string, number>();
+  for (const file of files) {
     const bytes = Buffer.byteLength(file.content, "utf8");
     totalsByLanguage.set(file.language, (totalsByLanguage.get(file.language) ?? 0) + bytes);
   }
@@ -91,6 +91,16 @@ export async function updateProblemWorkspace(
       );
     }
   }
+}
+
+export async function updateProblemWorkspace(
+  actor: ProblemActorContext,
+  problemId: string,
+  payload: UpdateWorkspaceInput,
+) {
+  assertExactlyOneEditableEntry(payload.files);
+  assertMultiFileEntries(payload);
+  assertWorkspaceByteLimit(payload.files);
 
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);

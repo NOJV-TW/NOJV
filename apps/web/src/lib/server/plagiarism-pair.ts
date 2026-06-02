@@ -1,11 +1,11 @@
 import {
   NotFoundError,
   ValidationError,
+  canManageCourse,
   contestDomain,
   plagiarismDomain,
   userDomain,
 } from "@nojv/domain";
-import { canManageCourse } from "@nojv/domain";
 import type { RequestEvent } from "@sveltejs/kit";
 
 import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";

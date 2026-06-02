@@ -104,7 +104,7 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
     const dirs = entries
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
-      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+      .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10));
 
     if (dirs.length > 0) {
       return loadTestcasesFromDirs(testcasesDir, dirs);
@@ -124,7 +124,7 @@ async function loadTestcasesFromDirs(
 
   for (const dirName of dirs) {
     const tcDir = path.join(testcasesDir, dirName);
-    const index = parseInt(dirName, 10);
+    const index = Number.parseInt(dirName, 10);
 
     const input = await fs.readFile(path.join(tcDir, "input.txt"), "utf-8");
 
@@ -161,15 +161,15 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
   const inputFiles = entries
     .filter((e) => e.match(/^testcase-\d+-input\.txt$/))
     .sort((a, b) => {
-      const ai = parseInt(a.split("-")[1]!, 10);
-      const bi = parseInt(b.split("-")[1]!, 10);
+      const ai = Number.parseInt(a.split("-")[1]!, 10);
+      const bi = Number.parseInt(b.split("-")[1]!, 10);
       return ai - bi;
     });
 
   const testcases: TestcaseFiles[] = [];
 
   for (const inputFile of inputFiles) {
-    const index = parseInt(inputFile.split("-")[1]!, 10);
+    const index = Number.parseInt(inputFile.split("-")[1]!, 10);
     const input = await fs.readFile(path.join(SUBMISSION_DIR, inputFile), "utf-8");
 
     let expected: string | undefined;

@@ -210,14 +210,14 @@ export async function publishAssignment(
     if (assignment.closesAt <= now) {
       throw new ValidationError("closesAt must be in the future.");
     }
-    if (!(assignment.opensAt < assignment.closesAt)) {
+    if (assignment.opensAt >= assignment.closesAt) {
       throw new ValidationError("closesAt must be later than opensAt.");
     }
     if (assignment.dueAt) {
-      if (!(assignment.opensAt < assignment.dueAt)) {
+      if (assignment.opensAt >= assignment.dueAt) {
         throw new ValidationError("dueAt must be later than opensAt.");
       }
-      if (!(assignment.dueAt <= assignment.closesAt)) {
+      if (assignment.dueAt > assignment.closesAt) {
         throw new ValidationError("closesAt must be later than or equal to dueAt.");
       }
     }

@@ -11,58 +11,70 @@ export interface SubtaskConfig {
   caseIndices: number[];
 }
 
-export function detectSubtasksFromFiles(
-  files: { name: string; content: string }[],
-  regexPattern: string,
+interface CaseEntry {
+  in?: string;
+  out?: string;
+  fileName: string;
+}
+type SubtaskMap = Map<string, Map<string, CaseEntry>>;
+
+function baseNameOf(name: string): string {
+  return name.includes("/") ? (name.split("/").pop() ?? name) : name;
+}
+
+function ingestSubtaskFile(
+  bySubtask: SubtaskMap,
+  file: { name: string; content: string },
+  regex: RegExp,
   inExt: string,
   outExt: string,
-): { cases: ParsedCase[]; subtasks: SubtaskConfig[]; error?: string } {
-  let regex: RegExp;
-  try {
-    regex = new RegExp(`^${regexPattern}$`);
-  } catch {
-    return { cases: [], subtasks: [], error: "invalid_regex" };
+): void {
+  const baseName = baseNameOf(file.name);
+  const isIn = baseName.endsWith(inExt);
+  const isOut = baseName.endsWith(outExt);
+  if (!isIn && !isOut) return;
+
+  const ext = isIn ? inExt : outExt;
+  const stem = baseName.slice(0, -ext.length);
+  const match = regex.exec(stem);
+  if (!match?.[1] || !match[2]) return;
+
+  const subtaskId = match[1];
+  const caseId = match[2];
+
+  let cases = bySubtask.get(subtaskId);
+  if (!cases) {
+    cases = new Map();
+    bySubtask.set(subtaskId, cases);
   }
 
-  const bySubtask = new Map<
-    string,
-    Map<string, { in?: string; out?: string; fileName: string }>
-  >();
+  let entry = cases.get(caseId);
+  if (!entry) {
+    entry = { fileName: stem };
+    cases.set(caseId, entry);
+  }
 
+  if (isIn) entry.in = file.content;
+  if (isOut) entry.out = file.content;
+}
+
+function groupFilesBySubtask(
+  files: { name: string; content: string }[],
+  regex: RegExp,
+  inExt: string,
+  outExt: string,
+): SubtaskMap {
+  const bySubtask: SubtaskMap = new Map();
   for (const file of files) {
-    const baseName = file.name.includes("/")
-      ? (file.name.split("/").pop() ?? file.name)
-      : file.name;
-    const isIn = baseName.endsWith(inExt);
-    const isOut = baseName.endsWith(outExt);
-    if (!isIn && !isOut) continue;
-
-    const ext = isIn ? inExt : outExt;
-    const stem = baseName.slice(0, -ext.length);
-    const match = regex.exec(stem);
-    if (!match?.[1] || !match[2]) continue;
-
-    const subtaskId = match[1];
-    const caseId = match[2];
-
-    if (!bySubtask.has(subtaskId)) {
-      bySubtask.set(subtaskId, new Map());
-    }
-    const cases = bySubtask.get(subtaskId);
-    if (!cases) continue;
-    if (!cases.has(caseId)) {
-      cases.set(caseId, { fileName: stem });
-    }
-    const entry = cases.get(caseId);
-    if (!entry) continue;
-    if (isIn) entry.in = file.content;
-    if (isOut) entry.out = file.content;
+    ingestSubtaskFile(bySubtask, file, regex, inExt, outExt);
   }
+  return bySubtask;
+}
 
-  if (bySubtask.size === 0) {
-    return { cases: [], subtasks: [], error: "no_files_matched" };
-  }
-
+function buildSubtasks(
+  bySubtask: SubtaskMap,
+  inExt: string,
+): { cases: ParsedCase[]; subtasks: SubtaskConfig[] } {
   const allCases: ParsedCase[] = [];
   const subtasks: SubtaskConfig[] = [];
   const sortedSubtaskIds = [...bySubtask.keys()].sort((a, b) => Number(a) - Number(b));
@@ -93,4 +105,26 @@ export function detectSubtasksFromFiles(
   }
 
   return { cases: allCases, subtasks };
+}
+
+export function detectSubtasksFromFiles(
+  files: { name: string; content: string }[],
+  regexPattern: string,
+  inExt: string,
+  outExt: string,
+): { cases: ParsedCase[]; subtasks: SubtaskConfig[]; error?: string } {
+  let regex: RegExp;
+  try {
+    regex = new RegExp(`^${regexPattern}$`);
+  } catch {
+    return { cases: [], subtasks: [], error: "invalid_regex" };
+  }
+
+  const bySubtask = groupFilesBySubtask(files, regex, inExt, outExt);
+
+  if (bySubtask.size === 0) {
+    return { cases: [], subtasks: [], error: "no_files_matched" };
+  }
+
+  return buildSubtasks(bySubtask, inExt);
 }

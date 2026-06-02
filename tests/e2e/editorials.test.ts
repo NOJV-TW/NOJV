@@ -180,7 +180,9 @@ test.describe("Editorials — happy path (AC required)", () => {
     const page = await context.newPage();
 
     const verdict = await submitAcAndAwait(page.request, PROBLEM_ID);
-    if (verdict !== "accepted") {
+    if (verdict === "accepted") {
+      acReached = true;
+    } else {
       // Local e2e runs without a Temporal worker / sandbox image will
       // never reach `accepted`. Record that and let downstream tests
       // skip cleanly via `test.skip(!acReached, ...)` — do not fail.
@@ -188,8 +190,6 @@ test.describe("Editorials — happy path (AC required)", () => {
         type: "skip-reason",
         description: `judge did not reach accepted (final: ${verdict}); editorial AC-gated tests will skip`,
       });
-    } else {
-      acReached = true;
     }
     await context.close();
   });

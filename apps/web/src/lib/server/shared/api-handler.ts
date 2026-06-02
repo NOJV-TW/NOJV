@@ -11,6 +11,45 @@ const logger = createLogger("api");
 
 type ApiHandler = (event: RequestEvent) => Promise<Response>;
 
+function zodErrorResponse(error: ZodError, event: RequestEvent): Response {
+  logger.warn("API validation failed", {
+    issues: error.issues.map((issue) => ({
+      code: issue.code,
+      message: issue.message,
+      path: issue.path.map(String).join("."),
+    })),
+    method: event.request.method,
+    url: event.url.pathname,
+  });
+  const first = error.issues[0];
+  const path = first?.path.map(String).join(".");
+  const message = first
+    ? path
+      ? `${path}: ${first.message}`
+      : first.message
+    : "Invalid request";
+  return json({ message, issues: error.issues }, { status: 400 });
+}
+
+function errorResponse(error: unknown, event: RequestEvent): Response {
+  if (error instanceof ZodError) {
+    return zodErrorResponse(error, event);
+  }
+
+  const classified = classifyError(error);
+
+  if (classified.type === "unknown") {
+    logger.error("Unhandled API error", {
+      err: error instanceof Error ? error.message : String(error),
+      method: event.request.method,
+      stack: error instanceof Error ? error.stack : undefined,
+      url: event.url.pathname,
+    });
+  }
+
+  return json({ message: classified.message }, { status: classified.status });
+}
+
 function wrapHandler(
   handler: ApiHandler,
   rateLimiter: { consume: (key: string) => Promise<unknown> },
@@ -30,39 +69,7 @@ function wrapHandler(
       if (isRedirect(error) || isSvelteKitError(error)) {
         throw error;
       }
-
-      if (error instanceof ZodError) {
-        logger.warn("API validation failed", {
-          issues: error.issues.map((issue) => ({
-            code: issue.code,
-            message: issue.message,
-            path: issue.path.map((segment) => String(segment)).join("."),
-          })),
-          method: event.request.method,
-          url: event.url.pathname,
-        });
-        const first = error.issues[0];
-        const path = first?.path.map((s) => String(s)).join(".");
-        const message = first
-          ? path
-            ? `${path}: ${first.message}`
-            : first.message
-          : "Invalid request";
-        return json({ message, issues: error.issues }, { status: 400 });
-      }
-
-      const classified = classifyError(error);
-
-      if (classified.type === "unknown") {
-        logger.error("Unhandled API error", {
-          err: error instanceof Error ? error.message : String(error),
-          method: event.request.method,
-          stack: error instanceof Error ? error.stack : undefined,
-          url: event.url.pathname,
-        });
-      }
-
-      return json({ message: classified.message }, { status: classified.status });
+      return errorResponse(error, event);
     }
   };
 }

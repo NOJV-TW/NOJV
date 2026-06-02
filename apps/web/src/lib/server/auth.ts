@@ -4,16 +4,15 @@ import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@n
 
 import {
   canEditProblem,
-  canManageCourse,
   courseDomain,
   resolveEffectiveCourseRole,
   HttpError,
   NotFoundError,
-  ConflictError,
   ForbiddenError,
 } from "@nojv/domain";
 
-export { HttpError, NotFoundError, ConflictError, ForbiddenError };
+export { HttpError, NotFoundError, ForbiddenError };
+export { ConflictError } from "@nojv/domain";
 
 export interface ActorContext {
   displayName: string;
@@ -110,4 +109,4 @@ export function canCreateCourse(platformRole: PlatformRole) {
   return canEditProblem(platformRole);
 }
 
-export const isCourseStaff = canManageCourse;
+export { canManageCourse as isCourseStaff } from "@nojv/domain";

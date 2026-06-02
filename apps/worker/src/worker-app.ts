@@ -67,12 +67,9 @@ export class WorkerApp {
       this.healthServer.listen(this.env.PORT, () => resolve());
     });
 
+    const singleModeQueue = mode === "judge" ? JUDGE_TASK_QUEUE : PLATFORM_TASK_QUEUE;
     const taskQueues = this.workers.map((_, i) =>
-      mode === "all"
-        ? [JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE][i]
-        : mode === "judge"
-          ? JUDGE_TASK_QUEUE
-          : PLATFORM_TASK_QUEUE,
+      mode === "all" ? [JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE][i] : singleModeQueue,
     );
 
     logger.info("temporal worker started", {

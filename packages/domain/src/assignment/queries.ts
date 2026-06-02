@@ -50,7 +50,7 @@ export async function listAssignmentProblemSiblings(options: {
 
   return ordered.map((r, index) => ({
     id: r.problemId,
-    letter: index < 26 ? String.fromCharCode(65 + index) : String(index + 1),
+    letter: index < 26 ? String.fromCodePoint(65 + index) : String(index + 1),
     title: r.problem.title,
     bestScore: bestByProblemId.get(r.problemId),
     maxScore: r.points,

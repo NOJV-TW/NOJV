@@ -211,6 +211,6 @@ async function collectSourceFiles(baseDir: string, extensions: string[]): Promis
   };
 
   await walk(baseDir);
-  results.sort();
+  results.sort((a, b) => a.localeCompare(b));
   return results;
 }

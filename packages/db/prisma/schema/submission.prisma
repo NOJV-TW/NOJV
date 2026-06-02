@@ -74,6 +74,7 @@ model Submission {
   /// S3 key for the full verdict detail blob (caseResults, compilerOutput,
   /// stderr snippets). Null until judge writes detail.
   verdictDetailStorageKey String?
+  ipAddress               String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

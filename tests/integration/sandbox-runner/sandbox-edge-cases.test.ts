@@ -187,7 +187,7 @@ print(line.strip())`,
 
   it("mixed whitespace (tabs and spaces)", async () => {
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `print("hello\\tworld  test")`);
+    await writeFile(solutionFile, String.raw`print("hello\tworld  test")`);
 
     const tc: TestcaseFiles = {
       index: 0,
@@ -205,8 +205,8 @@ print(line.strip())`,
     const solutionFile = join(workDir, "solution.py");
     await writeFile(
       solutionFile,
-      `import sys
-sys.stderr.write("debug message\\n")
+      String.raw`import sys
+sys.stderr.write("debug message\n")
 print("")  # Empty output`,
     );
 
@@ -225,7 +225,7 @@ print("")  # Empty output`,
 
   it("multiple newlines in output", async () => {
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `print("line1\\n\\nline2\\n")`);
+    await writeFile(solutionFile, String.raw`print("line1\n\nline2\n")`);
 
     const tc: TestcaseFiles = {
       index: 0,

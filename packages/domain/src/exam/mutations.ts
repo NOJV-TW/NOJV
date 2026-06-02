@@ -76,7 +76,8 @@ export async function checkExamSubmitCooldown(
 ) {
   if (cooldownSec <= 0) return;
 
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${userId}:${problemId}`}, 0))`;
+  const lockKey = `${examId}:${userId}:${problemId}`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 
   const cutoff = new Date(Date.now() - cooldownSec * 1000);
 
@@ -218,8 +219,8 @@ export async function updateExamRecord(
       id: exam.id,
       status: exam.status,
       windowChanged: payload.startsAt !== undefined || payload.endsAt !== undefined,
-      startsAt: payload.startsAt !== undefined ? new Date(payload.startsAt) : exam.startsAt,
-      endsAt: payload.endsAt !== undefined ? new Date(payload.endsAt) : exam.endsAt,
+      startsAt: payload.startsAt === undefined ? exam.startsAt : new Date(payload.startsAt),
+      endsAt: payload.endsAt === undefined ? exam.endsAt : new Date(payload.endsAt),
     };
   });
 
