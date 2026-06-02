@@ -210,15 +210,13 @@ export async function seedProblems(
         "zh-TW": {
           title: "Warmup Sum",
           body: "實作經典的暖身題。從標準輸入讀取兩個整數，並將它們的總和加上換行符號後輸出。",
-          inputFormat:
-            "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
+          inputFormat: String.raw`一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \le a, b \le 2^{31}-1$）。`,
           outputFormat: "一行，輸出 $a + b$ 的值。",
         },
         en: {
           title: "Warmup Sum",
           body: "Implement the classic warmup judge task. Read exactly two integers from standard input and print their sum followed by a newline.",
-          inputFormat:
-            "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
+          inputFormat: String.raw`A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \le a, b \le 2^{31}-1$).`,
           outputFormat: "A single line containing the value of $a + b$.",
         },
       },
@@ -455,15 +453,13 @@ export async function seedProblems(
         "zh-TW": {
           title: "兩數相加",
           body: "讀入兩個整數並輸出它們的總和。",
-          inputFormat:
-            "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
+          inputFormat: String.raw`一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \le a, b \le 2^{31}-1$）。`,
           outputFormat: "一行，輸出 $a + b$ 的值。",
         },
         en: {
           title: "Add Two Numbers",
           body: "Read two integers from stdin and print their sum.",
-          inputFormat:
-            "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
+          inputFormat: String.raw`A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \le a, b \le 2^{31}-1$).`,
           outputFormat: "A single line containing the value of $a + b$.",
         },
       },
@@ -516,15 +512,13 @@ wrong(f"expected {expected}, got {actual}")
         "zh-TW": {
           title: "浮點數比較",
           body: "計算結果並以浮點數精度輸出。答案與預期值的絕對差必須小於 1e-6。",
-          inputFormat:
-            "一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \\le a, b \\le 10^9$）。",
+          inputFormat: String.raw`一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \le a, b \le 10^9$）。`,
           outputFormat: "一行，輸出 $a / b$ 的值。答案與預期值的絕對差須小於 $10^{-6}$。",
         },
         en: {
           title: "Float Compare",
           body: "Compute the result and output it with floating-point precision. Your answer must be within 1e-6 absolute difference of the expected value.",
-          inputFormat:
-            "A single line containing two space-separated positive integers $a$ and $b$ ($1 \\le a, b \\le 10^9$).",
+          inputFormat: String.raw`A single line containing two space-separated positive integers $a$ and $b$ ($1 \le a, b \le 10^9$).`,
           outputFormat:
             "A single line containing the value of $a / b$. Your answer must be within $10^{-6}$ absolute difference of the expected value.",
         },
@@ -581,15 +575,13 @@ wrong(f"failed to guess {secret} within 20 attempts")
         "zh-TW": {
           title: "猜數字",
           body: "這是一道互動題。系統會選定一個秘密數字，你需要透過互動來猜出它。\\n\\n系統首先會輸出範圍 `lo hi`，你每次猜一個數字，系統會回應 `higher`（太小）、`lower`（太大）或 `correct`（猜對）。你最多有 20 次猜測機會。",
-          inputFormat:
-            "第一行包含兩個整數 $lo$ 和 $hi$（$1 \\le lo \\le hi \\le 10^6$），表示數字的範圍。",
+          inputFormat: String.raw`第一行包含兩個整數 $lo$ 和 $hi$（$1 \le lo \le hi \le 10^6$），表示數字的範圍。`,
           outputFormat: "每次輸出一個整數作為你的猜測。",
         },
         en: {
           title: "Guess the Number",
           body: "This is an interactive problem. The system picks a secret number and you must guess it.\\n\\nThe system first outputs the range `lo hi`. Each turn, you output a guess and the system responds with `higher` (too low), `lower` (too high), or `correct`. You have at most 20 guesses.",
-          inputFormat:
-            "The first line contains two integers $lo$ and $hi$ ($1 \\le lo \\le hi \\le 10^6$), the range of the number.",
+          inputFormat: String.raw`The first line contains two integers $lo$ and $hi$ ($1 \le lo \le hi \le 10^6$), the range of the number.`,
           outputFormat: "Output one integer per line as your guess.",
         },
       },
@@ -888,15 +880,13 @@ wrong(f"expected {expected}, got {actual}")
         "zh-TW": {
           title: "Multi-File Mean (Checker)",
           body: "這是一題「多檔 × 自訂 checker」示範題。可執行的進入點是 `main.py`：它讀入 $N$ 與 $N$ 個整數，`import` 唯讀的 `stats.py`（提供 `mean(values)`），並以 6 位小數印出平均值。\n\n判題使用自訂 checker：只要你的答案與標準答案的絕對誤差小於 $10^{-6}$ 即視為正確。你只需在 `main.py` 裡完成讀檔與輸出。",
-          inputFormat:
-            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），接著有 $N$ 個整數（可跨多行，以空白分隔）。",
+          inputFormat: String.raw`第一行一個整數 $N$（$1 \le N \le 10^5$），接著有 $N$ 個整數（可跨多行，以空白分隔）。`,
           outputFormat: "一行，輸出這 $N$ 個整數的平均值。與標準答案絕對誤差須小於 $10^{-6}$。",
         },
         en: {
           title: "Multi-File Mean (Checker)",
           body: "A multi_file × custom-checker demo problem. The runnable entry point is `main.py`: it reads $N$ and $N$ integers, imports the read-only `stats.py` (which provides `mean(values)`), and prints the mean to 6 decimal places.\n\nGrading uses a custom checker: any answer within $10^{-6}$ absolute error of the reference is accepted. You only complete the read + print logic in `main.py`.",
-          inputFormat:
-            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), followed by $N$ integers (whitespace-separated, possibly across multiple lines).",
+          inputFormat: String.raw`The first line contains an integer $N$ ($1 \le N \le 10^5$), followed by $N$ integers (whitespace-separated, possibly across multiple lines).`,
           outputFormat:
             "A single line containing the mean of the $N$ integers. Must be within $10^{-6}$ absolute error of the reference.",
         },
