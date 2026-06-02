@@ -35,7 +35,10 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "pnpm": {
-    "overrides": {},
+    "overrides": {
+      "kysely": "0.28.17",
+      "protobufjs": "7.6.0"
+    },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
       "@prisma/engines",
@@ -66,7 +69,7 @@
     "tsx": "^4.22.4",
     "turbo": "^2.9.16",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.59.4",
+    "typescript-eslint": "^8.60.1",
     "vitest": "catalog:",
     "zod": "catalog:"
   }
