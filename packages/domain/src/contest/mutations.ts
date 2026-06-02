@@ -94,7 +94,6 @@ export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
   contestId: string,
-  attemptContext?: { problemId: string; sampleOnly: boolean },
 ) {
   const contest = await requireContest(tx, contestId);
 
@@ -123,8 +122,6 @@ export async function ensureContestParticipation(
       status: "active",
     },
   );
-
-  void attemptContext;
 
   return { contest, participation };
 }

@@ -235,10 +235,7 @@ export async function createQueuedSubmissionRecord(
     }
 
     const contestResult = payload.contestId
-      ? await ensureContestParticipation(tx, user.id, payload.contestId, {
-          problemId: problem.id,
-          sampleOnly: payload.sampleOnly ?? false,
-        })
+      ? await ensureContestParticipation(tx, user.id, payload.contestId)
       : null;
     const contestParticipation = contestResult?.participation ?? null;
 
@@ -275,7 +272,7 @@ export async function createQueuedSubmissionRecord(
       await assertDailyAttemptLimit(tx, courseContext, user);
     }
 
-    const sources = normalizeSubmissionSources(payload, problem, submissionId);
+    const sources = normalizeSubmissionSources(payload, submissionId);
 
     const created = await submissionRepo.withTx(tx).create({
       id: submissionId,
