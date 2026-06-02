@@ -95,7 +95,7 @@
           size="lg"
           interactive
           style="animation-delay: {Math.min(index * 30, 300)}ms"
-          class="relative grid gap-x-8 gap-y-3 p-4 motion-safe:animate-[fade-up_400ms_var(--ease-out-soft)_both] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
+          class="relative grid gap-x-8 gap-y-3 px-4 py-3 motion-safe:animate-[fade-up_400ms_var(--ease-out-soft)_both] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
         >
           <div class="flex min-w-0 items-center gap-3">
             {#if problem.status === "ac"}
