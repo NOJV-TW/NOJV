@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { ArrowLeft, Check, Copy, Download, X } from "@lucide/svelte";
+  import { ArrowLeft, Check, Copy, Download } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
+  import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
+  import HighlightedCode from "$lib/components/primitives/ui/HighlightedCode.svelte";
 
   let { data } = $props();
 
@@ -11,7 +14,7 @@
   const result = $derived(submission.result);
   const verdict = $derived(result?.verdict ?? submission.status);
   const verdictLabel = $derived(formatVerdictLabel(verdict));
-  const verdictClass = $derived(verdictColor[verdict] ?? "text-foreground");
+  const verdictClass = $derived(verdictTone(verdict));
   const isPending = $derived(
     verdict === "queued" || verdict === "compiling" || verdict === "running",
   );
@@ -20,16 +23,7 @@
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);
   const memoryKb = $derived(submission.memoryKb ?? result?.memoryKb ?? null);
 
-  const caseResults = $derived(result?.caseResults ?? []);
   const subtaskResults = $derived(result?.subtaskResults ?? []);
-
-  // Per the redesign decision: stdout is only revealed on sample-only runs.
-  // Graded submissions show case pills as a verdict overview only.
-  const allowCaseExpand = $derived(submission.sampleOnly === true);
-  let expandedCaseIndex = $state<number | null>(null);
-  const expandedCase = $derived(
-    expandedCaseIndex !== null ? caseResults[expandedCaseIndex] : null,
-  );
 
   const backTarget = $derived.by(() => {
     const ctx = submission.context;
@@ -58,13 +52,13 @@
     };
   });
 
-  const codeLines = $derived(submission.sourceCode.split("\n"));
+  const sourceCode = $derived(flattenSourcesForDisplay(submission.sources));
+  const codeLines = $derived(sourceCode.split("\n"));
   const displayLines = $derived(
     codeLines.length > 1 && codeLines[codeLines.length - 1] === ""
       ? codeLines.slice(0, -1)
       : codeLines,
   );
-  const gutterWidth = $derived(String(displayLines.length).length);
 
   const downloadExtension: Record<string, string> = {
     c: "c",
@@ -79,7 +73,7 @@
 
   let copied = $state(false);
   async function handleCopy() {
-    await navigator.clipboard.writeText(submission.sourceCode);
+    await navigator.clipboard.writeText(sourceCode);
     copied = true;
     setTimeout(() => {
       copied = false;
@@ -88,7 +82,7 @@
 
   function handleDownload() {
     const ext = downloadExtension[submission.language] ?? "txt";
-    const blob = new Blob([submission.sourceCode], { type: "text/plain" });
+    const blob = new Blob([sourceCode], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -103,12 +97,6 @@
     if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
     return `${String(kb)} KB`;
   }
-
-  function casePillClass(passed: boolean): string {
-    return passed
-      ? "border-success/40 bg-success/10 text-success"
-      : "border-destructive/40 bg-destructive/10 text-destructive";
-  }
 </script>
 
 <div class="flex flex-col gap-4">
@@ -116,14 +104,14 @@
     class="inline-flex w-fit items-center gap-1.5 text-body-sm text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
     href={backTarget.href}
   >
-    <ArrowLeft class="size-4" />
+    <ArrowLeft aria-hidden="true" class="size-4" />
     {backTarget.label}
   </a>
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-    <!-- Left rail -->
+    
     <aside class="flex flex-col gap-5">
-      <!-- Hero -->
+      
       <div class="flex flex-col gap-2">
         <p class="text-caption uppercase tracking-wide text-muted-foreground">
           {formatProblemDisplayName(submission.problem)}
@@ -136,7 +124,7 @@
         </p>
       </div>
 
-      <!-- Metrics 2x2 -->
+      
       <dl
         class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-2"
       >
@@ -178,7 +166,7 @@
         </div>
       </dl>
 
-      <!-- Context badges & notices -->
+      
       {#if submission.context.kind === "contest"}
         <p
           class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
@@ -228,7 +216,7 @@
         </div>
       {/if}
 
-      <!-- Feedback / judging -->
+      
       {#if isPending}
         <p
           class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
@@ -245,7 +233,7 @@
         </div>
       {/if}
 
-      <!-- Teacher grading feedback — assignment/exam only, post-close. -->
+      
       {#if data.feedback}
         <div class="flex flex-col gap-1.5">
           <h2 class="text-caption uppercase tracking-wide text-info">
@@ -259,118 +247,19 @@
         </div>
       {/if}
 
-      <!-- Subtasks -->
+      
       {#if subtaskResults.length > 0}
         <div class="flex flex-col gap-2">
           <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_subtasks()}
           </h2>
-          <div class="flex flex-col gap-1.5">
-            {#each subtaskResults as st, idx (`st-${idx}-${st.testcaseSetId}`)}
-              <div
-                class="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2"
-              >
-                <div class="flex min-w-0 items-center gap-2">
-                  <span
-                    class="flex size-5 shrink-0 items-center justify-center rounded-full {st.passed
-                      ? 'bg-success/15 text-success'
-                      : 'bg-destructive/15 text-destructive'}"
-                  >
-                    {#if st.passed}
-                      <Check class="size-3" />
-                    {:else}
-                      <X class="size-3" />
-                    {/if}
-                  </span>
-                  <span class="truncate text-body-sm font-medium text-foreground"
-                    >{st.label}</span
-                  >
-                </div>
-                <span class="shrink-0 text-caption text-muted-foreground tabular-nums">
-                  {m.submissionDetail_subtaskWeight({ weight: st.weight })} · {st.cases.length}
-                </span>
-              </div>
-            {/each}
-          </div>
+          <SubtaskResultTree {subtaskResults} />
         </div>
       {/if}
 
-      <!-- Case mini-grid -->
-      {#if caseResults.length > 0}
-        <div class="flex flex-col gap-2">
-          <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
-            {m.submissionDetail_perCaseBreakdown()}
-          </h2>
-          <div class="flex flex-wrap gap-1.5">
-            {#each caseResults as cr, idx (`cr-${idx}`)}
-              {@const cls = casePillClass(cr.passed)}
-              {@const interactive = allowCaseExpand && cr.stdout.length > 0}
-              {#if interactive}
-                <button
-                  class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums transition-[background-color] duration-fast {cls} {expandedCaseIndex ===
-                  idx
-                    ? 'ring-1 ring-foreground/30'
-                    : 'hover:brightness-110'}"
-                  onclick={() =>
-                    (expandedCaseIndex = expandedCaseIndex === idx ? null : idx)}
-                  type="button"
-                >
-                  #{idx + 1}
-                  <span class="text-muted-foreground">·</span>
-                  {cr.timeMs}ms
-                  {#if cr.memoryKb && cr.memoryKb > 0}
-                    <span class="text-muted-foreground">·</span>
-                    {formatMemory(cr.memoryKb)}
-                  {/if}
-                </button>
-              {:else}
-                <span
-                  class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums {cls}"
-                >
-                  #{idx + 1}
-                  <span class="text-muted-foreground">·</span>
-                  {cr.timeMs}ms
-                  {#if cr.memoryKb && cr.memoryKb > 0}
-                    <span class="text-muted-foreground">·</span>
-                    {formatMemory(cr.memoryKb)}
-                  {/if}
-                </span>
-              {/if}
-            {/each}
-          </div>
-
-          {#if allowCaseExpand && expandedCase}
-            <div class="mt-2 flex flex-col gap-2">
-              <div>
-                <p class="text-caption font-medium text-muted-foreground">
-                  {m.submissionDetail_caseStdout()}
-                </p>
-                <pre
-                  class="mt-1 max-h-48 overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.stdout ||
-                    "(empty)"}</pre>
-              </div>
-              {#if expandedCase.stderr}
-                <div>
-                  <p class="text-caption font-medium text-destructive">
-                    {m.submissionDetail_stderr()}
-                  </p>
-                  <pre
-                    class="mt-1 max-h-48 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{expandedCase.stderr}</pre>
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {:else if result && !isPending}
-        <p
-          class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
-        >
-          {m.submissionDetail_noCaseResults()}
-        </p>
-      {/if}
     </aside>
 
-    <!-- Right pane: source code -->
+    
     <section
       class="flex min-h-[60vh] flex-col overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)] lg:sticky lg:top-4"
     >
@@ -391,10 +280,10 @@
             type="button"
           >
             {#if copied}
-              <Check class="size-3.5 text-success" />
+              <Check aria-hidden="true" class="size-3.5 text-success" />
               <span class="text-success">{m.common_copied()}</span>
             {:else}
-              <Copy class="size-3.5" />
+              <Copy aria-hidden="true" class="size-3.5" />
               <span>{m.common_copy()}</span>
             {/if}
           </button>
@@ -403,29 +292,13 @@
             onclick={handleDownload}
             type="button"
           >
-            <Download class="size-3.5" />
+            <Download aria-hidden="true" class="size-3.5" />
             <span>{m.submissionDetail_downloadCode()}</span>
           </button>
         </div>
       </header>
-      <div class="flex-1 overflow-auto bg-[color:var(--color-panel)]">
-        <table class="w-full border-collapse">
-          <tbody>
-            {#each displayLines as line, i (i)}
-              <tr class="leading-6">
-                <td
-                  class="select-none border-r border-border/50 px-3 text-right font-mono text-xs text-muted-foreground/50"
-                  style="min-width: {gutterWidth + 1.5}ch"
-                >
-                  {i + 1}
-                </td>
-                <td class="px-4 font-mono text-sm text-foreground">
-                  <pre class="whitespace-pre-wrap break-all">{line || " "}</pre>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      <div class="flex-1 overflow-hidden">
+        <HighlightedCode code={sourceCode} language={submission.language} />
       </div>
     </section>
   </div>

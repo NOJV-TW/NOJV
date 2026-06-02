@@ -1,8 +1,10 @@
 import {
+  checkerKey,
   createStorageClient,
   deleteBlob,
   deleteBlobsByPrefix,
   getText,
+  interactorKey,
   problemPrefix,
   putText,
   testcaseInputFileKey,
@@ -11,7 +13,6 @@ import {
   workspaceFileKey,
 } from "@nojv/storage";
 
-// Inferred to avoid pulling @aws-sdk/client-s3 into @nojv/domain.
 type StorageClient = ReturnType<typeof createStorageClient>;
 
 let cachedClient: StorageClient | null = null;
@@ -35,7 +36,6 @@ export interface TestcaseBlobKeys {
   inputFileKeys: Record<string, string> | null;
 }
 
-/** MUST run before the DB INSERT so a failed upload short-circuits the write. */
 export async function writeTestcaseBlobs(input: TestcaseBlobInputs): Promise<TestcaseBlobKeys> {
   const client = getClient();
   const inputKey = testcaseInputKey(input.problemId, input.testcaseId);
@@ -101,7 +101,6 @@ export async function readTestcaseBlobs(row: {
   return { input, output, inputFiles };
 }
 
-/** Keys are stable for the row's lifetime, so no DB UPDATE is needed. */
 export async function overwriteTestcaseField(
   problemId: string,
   testcaseId: string,
@@ -115,7 +114,6 @@ export async function overwriteTestcaseField(
   await putText(getClient(), key, content);
 }
 
-/** Sweeps the entire `problems/{id}/` prefix; tolerates orphan objects on failure. */
 export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<void> {
   try {
     await deleteBlobsByPrefix(getClient(), problemPrefix(problemId));
@@ -127,7 +125,6 @@ export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<v
   }
 }
 
-/** Clears testcase + workspace blobs only; keeps markdown images and tarballs. */
 export async function bestEffortDeleteProblemStandardBlobs(problemId: string): Promise<void> {
   const client = getClient();
   const prefixes = [`problems/${problemId}/testcases/`, `problems/${problemId}/workspace/`];
@@ -171,7 +168,6 @@ export async function bestEffortDeleteWorkspaceBlob(
   }
 }
 
-/** MUST run before the DB INSERT. Returns the key to persist on the row. */
 export async function writeWorkspaceFileBlob(
   problemId: string,
   fileId: string,
@@ -186,18 +182,52 @@ export async function readWorkspaceFileBlob(contentKey: string): Promise<string>
   return getText(getClient(), contentKey);
 }
 
-// --- Edit-page hydration helpers -----------------------------------------
-//
-// The /problems/[id]/edit loader needs each testcase's input/output text
-// and each workspace file's content body. Both live in object storage, so
-// the loader used to reach for `createStorageClient` + `getText` directly.
-// Encapsulating that here keeps `apps/web` off `@nojv/storage` and lets the
-// domain layer evolve the storage backing without touching SvelteKit code.
-//
-// Signatures are generic so the Prisma-inferred enum types (`visibility`,
-// `scoringStrategy`, `language`, …) propagate through to the caller — the
-// previous inline maps returned exactly these widened-but-still-enum
-// shapes and downstream Svelte components depend on them.
+export async function readValidatorScriptBlob(key: string): Promise<string> {
+  return getText(getClient(), key);
+}
+
+export async function writeCheckerScriptBlob(problemId: string, body: string): Promise<string> {
+  const key = checkerKey(problemId);
+  await putText(getClient(), key, body);
+  return key;
+}
+
+export async function writeInteractorScriptBlob(
+  problemId: string,
+  body: string,
+): Promise<string> {
+  const key = interactorKey(problemId);
+  await putText(getClient(), key, body);
+  return key;
+}
+
+export async function bestEffortDeleteCheckerScriptBlob(problemId: string): Promise<void> {
+  try {
+    await deleteBlob(getClient(), checkerKey(problemId));
+  } catch (err) {
+    console.warn(`[problem-blobs] orphan checker script blob: problemId=${problemId}`, err);
+  }
+}
+
+export async function bestEffortDeleteInteractorScriptBlob(problemId: string): Promise<void> {
+  try {
+    await deleteBlob(getClient(), interactorKey(problemId));
+  } catch (err) {
+    console.warn(`[problem-blobs] orphan interactor script blob: problemId=${problemId}`, err);
+  }
+}
+
+export async function hydrateValidatorScripts(keys: {
+  checkerKey?: string | null | undefined;
+  interactorKey?: string | null | undefined;
+}): Promise<{ checkerScript: string; interactorScript: string }> {
+  const client = getClient();
+  const [checkerScript, interactorScript] = await Promise.all([
+    keys.checkerKey ? getText(client, keys.checkerKey) : Promise.resolve(""),
+    keys.interactorKey ? getText(client, keys.interactorKey) : Promise.resolve(""),
+  ]);
+  return { checkerScript, interactorScript };
+}
 
 interface TestcaseRowLike {
   inputKey: string;
@@ -229,9 +259,6 @@ export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
             getText(client, tc.inputKey),
             tc.outputKey ? getText(client, tc.outputKey) : Promise.resolve(null),
           ]);
-          // Spread tc so caller-supplied enum types (e.g. `visibility`)
-          // propagate; the redundant `inputKey`/`outputKey` are typed
-          // away by `Omit` in `HydratedTestcase`.
           return { ...tc, input, output } as HydratedTestcase<T["testcases"][number]>;
         }),
       );

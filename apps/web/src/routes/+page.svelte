@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { Megaphone, Calendar, Pin } from "@lucide/svelte";
   import Header from "$lib/components/features/layout/Header.svelte";
   import Footer from "$lib/components/primitives/layout/Footer.svelte";
@@ -14,7 +14,7 @@
 
   let { data } = $props();
 
-  let user = $derived($page.data.user);
+  let user = $derived(page.data.user);
 
   type AnnouncementRow = (typeof data.announcements)[number];
 
@@ -36,7 +36,7 @@
   <Header />
   <main class="flex-1 pt-6">
   <div class="grid gap-8 lg:grid-cols-[1fr_1fr]">
-    <!-- Left column: Announcements -->
+    
     <Card
       variant="surface"
       size="lg"
@@ -56,24 +56,16 @@
       {:else}
         <div class="mt-6 space-y-3">
           {#each data.announcements as announcement (announcement.id)}
-            <div
-              class="cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+            <button
+              type="button"
+              class="w-full cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 text-left backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
               onclick={() => openView(announcement)}
-              onkeydown={(e) => {
-                if (e.currentTarget !== e.target) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openView(announcement);
-                }
-              }}
-              role="button"
-              tabindex="0"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
                   <h3 class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
                     {#if announcement.pinned}
-                      <Pin
+                      <Pin aria-hidden="true"
                         class="size-3.5 shrink-0 text-warning"
                         aria-label={m.common_pinned()}
                       />
@@ -91,14 +83,14 @@
                   {formatDate(announcement.createdAt)}
                 </time>
               </div>
-            </div>
+            </button>
           {/each}
         </div>
       {/if}
     </Card>
 
     {#if !user}
-      <!-- Right column: Hero card (logged out) -->
+      
       <Card
         variant="strong"
         size="hero"
@@ -122,7 +114,7 @@
         </div>
       </Card>
     {:else}
-      <!-- Right column: Upcoming Assessments (logged in) -->
+      
       <Card
         variant="surface"
         size="lg"

@@ -13,13 +13,14 @@ export interface RunProcessResult {
   spawnError: boolean;
 }
 
-/**
- * Spawn a child process, optionally feed stdin, collect stdout/stderr,
- * and enforce a timeout with a fallback SIGKILL.
- */
 export function runProcess(
   command: string[],
-  options: { stdin?: string; timeoutMs: number },
+  options: {
+    stdin?: string;
+    timeoutMs: number;
+    env?: Record<string, string>;
+    cpuSeconds?: number;
+  },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -41,10 +42,16 @@ export function runProcess(
 
     const useStdin = options.stdin !== undefined;
 
-    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const wrapped = withProcessLimit(
+      [cmd, ...args],
+      options.cpuSeconds !== undefined ? { cpuSeconds: options.cpuSeconds } : undefined,
+    );
+    const isWrapped = wrapped[0] === "bash";
+    const [wrappedCmd, ...wrappedArgs] = wrapped;
     const proc = spawn(wrappedCmd!, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
       timeout: options.timeoutMs,
+      ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
     });
 
     const stdoutBuf = createBoundedBuffer();
@@ -65,7 +72,6 @@ export function runProcess(
       proc.stdin!.end();
     }
 
-    // Fallback timer in case spawn timeout doesn't fire
     const timer = setTimeout(() => {
       forceKilledViaFallbackTimer = true;
       proc.kill("SIGKILL");
@@ -73,22 +79,27 @@ export function runProcess(
 
     proc.on("close", (code, signal) => {
       clearTimeout(timer);
-      // Compare against the raw float elapsed to avoid round-up false TLEs:
-      // a process that finishes at 999.6ms (rounded to 1000) must not be
-      // classified as TLE when the limit is 1000ms. The spawn-level timeout
-      // and the SIGKILL fallback are the authoritative cut-offs.
       const elapsedMs = performance.now() - startTime;
       const memoryKb = memoryPoller?.stop() ?? 0;
+      const rawStderr = stderrBuf.toString();
+      const execFailed =
+        isWrapped &&
+        (code === 126 || code === 127) &&
+        (/exec: .*: (cannot execute|not found)/.test(rawStderr) ||
+          /: line \d+: \S+: (No such file or directory|Permission denied|cannot execute|not found)/.test(
+            rawStderr,
+          ));
+      const stderr = execFailed ? `Failed to spawn process: ${rawStderr}` : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
-        stderr: stderrBuf.toString(),
+        stderr,
         exitCode: code ?? -1,
         timeMs: Math.round(elapsedMs),
         memoryKb,
         timedOut:
           forceKilledViaFallbackTimer || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
         signal,
-        spawnError: false,
+        spawnError: execFailed,
       });
     });
 
@@ -109,7 +120,6 @@ export function runProcess(
   });
 }
 
-/** Classify a solution run into an error verdict (SE/TLE/MLE/RE), or `null` if it succeeded. */
 export function classifySolutionVerdict(
   result: RunProcessResult,
   testcaseIndex: number,
@@ -128,26 +138,4 @@ export function classifySolutionVerdict(
   if (result.signal === "SIGKILL") return { ...base, verdict: "MLE" };
   if (result.exitCode !== 0) return { ...base, verdict: "RE" };
   return null;
-}
-
-// Protocol: exit code 0 = accepted; scoreText is an integer 0-100 (defaults to
-// 100 on accept, 0 on reject); feedbackText is a human-readable string.
-export function parseJudgeOutput(
-  exitCode: number,
-  scoreText: string,
-  feedbackText: string,
-): { accepted: boolean; score: number; feedback: string } {
-  const accepted = exitCode === 0;
-  const feedback = feedbackText.trim();
-
-  const trimmed = scoreText.trim();
-  let score: number;
-  if (trimmed.length > 0) {
-    const parsed = parseInt(trimmed, 10);
-    score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : accepted ? 100 : 0;
-  } else {
-    score = accepted ? 100 : 0;
-  }
-
-  return { accepted, score, feedback };
 }

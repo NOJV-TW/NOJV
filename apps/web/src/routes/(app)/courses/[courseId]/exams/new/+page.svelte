@@ -107,12 +107,12 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <!-- Hidden courseId carrier -->
+    
     <input type="hidden" name="courseId" value={$form.courseId} />
 
-    <!-- ── Card 1 · Basics ───────────────────────────────── -->
+    
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -164,9 +164,9 @@
       </div>
     </section>
 
-    <!-- ── Card 2 · Problems ─────────────────────────────── -->
+    
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -183,10 +183,10 @@
         </div>
       </header>
 
-      <!-- Picker -->
+      
       <div class="rounded-md border border-border bg-[color:var(--color-panel)]/60">
         <div
-          class="flex items-center gap-2.5 border-b border-border px-4 py-2.5"
+          class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5"
         >
           <Search class="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input
@@ -220,7 +220,7 @@
               <span
                 class="flex h-6 w-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
               >
-                <Plus class="h-3.5 w-3.5" />
+                <Plus aria-hidden="true" class="h-3.5 w-3.5" />
               </span>
             </button>
           {:else}
@@ -231,7 +231,7 @@
         </div>
       </div>
 
-      <!-- Selected -->
+      
       {#if selectedDetails.length > 0}
         <div class="mt-4">
           <div
@@ -274,7 +274,7 @@
                     onclick={() => moveProblem(problem.id, -1)}
                     aria-label={m.examCreate_moveUp()}
                   >
-                    <ChevronLeft class="h-3.5 w-3.5 rotate-90" />
+                    <ChevronLeft aria-hidden="true" class="h-3.5 w-3.5 rotate-90" />
                   </button>
                   <button
                     type="button"
@@ -283,7 +283,7 @@
                     onclick={() => moveProblem(problem.id, 1)}
                     aria-label={m.examCreate_moveDown()}
                   >
-                    <ChevronRight class="h-3.5 w-3.5 rotate-90" />
+                    <ChevronRight aria-hidden="true" class="h-3.5 w-3.5 rotate-90" />
                   </button>
                 </div>
                 <button
@@ -292,7 +292,7 @@
                   onclick={() => removeProblem(problem.id)}
                   aria-label={m.examCreate_removeProblem()}
                 >
-                  <X class="h-3.5 w-3.5" />
+                  <X aria-hidden="true" class="h-3.5 w-3.5" />
                 </button>
               </div>
             {/each}
@@ -311,9 +311,9 @@
       {/if}
     </section>
 
-    <!-- ── Card 3 · Schedule ─────────────────────────────── -->
+    
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -364,9 +364,9 @@
       </div>
     </section>
 
-    <!-- ── Card 4 · Advanced (collapsible) ───────────────── -->
+    
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <button
         type="button"
@@ -374,7 +374,7 @@
         onclick={() => (advancedOpen = !advancedOpen)}
         aria-expanded={advancedOpen}
       >
-        <ChevronRight
+        <ChevronRight aria-hidden="true"
           class="h-4 w-4 transition-transform {advancedOpen ? 'rotate-90' : ''}"
         />
         <div>
@@ -388,7 +388,7 @@
       </button>
 
       {#if advancedOpen}
-        <div class="mt-6 border-t border-border pt-6">
+        <div class="mt-6 border-t border-border-subtle pt-6">
           <div>
             <span class="text-sm font-medium">{m.examCreate_languagesLabel()}</span>
             <p class="mt-1 text-caption text-muted-foreground">
@@ -414,9 +414,9 @@
       {/if}
     </section>
 
-    <!-- ── Card 5 · Proctoring ───────────────────────────── -->
+    
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -434,7 +434,7 @@
       </header>
 
       <div class="space-y-3">
-        <!-- Page lock -->
+        
         <div
           class="flex items-start justify-between gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.pageLockEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -474,7 +474,7 @@
           </label>
         </div>
 
-        <!-- IP binding -->
+        
         <div
           class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.ipBindingEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -548,7 +548,7 @@
           {/if}
         </div>
 
-        <!-- IP whitelist -->
+        
         <div
           class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.ipWhitelistEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -611,9 +611,9 @@
       </div>
     </section>
 
-    <!-- ── Card 6 · Scoring ──────────────────────────────── -->
+    
     <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -690,7 +690,7 @@
       </div>
     </section>
 
-    <!-- ── Actions ───────────────────────────────────────── -->
+    
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >

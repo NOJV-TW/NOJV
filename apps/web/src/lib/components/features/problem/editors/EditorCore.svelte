@@ -6,13 +6,9 @@
   import { registerCompletionProviders } from "../editor-completions";
 
   interface Props {
-    /** Current language — drives Monaco model language + the buffer we sync. */
     language: Language;
-    /** Per-language draft map. `value` for the current language is what we mirror. */
     drafts: Record<string, string>;
-    /** Hide the underlying container without disposing Monaco. */
     isHidden?: boolean;
-    /** Fires with the latest buffer whenever the student edits code. */
     onchange: (value: string) => void;
   }
 
@@ -32,9 +28,6 @@
     wordWrap: "on" as const
   };
 
-  // Monaco uses its own language ids for a couple of our slugs — everything
-  // else maps 1:1, but we keep the table explicit so future additions are
-  // obvious.
   const languageIdMap: Record<string, string> = {
     c: "c",
     cpp: "cpp",
@@ -71,8 +64,6 @@
         onchange(editor.getValue());
       });
 
-      // Watch for dark mode toggling on <html> so the editor theme tracks
-      // the global theme without a full reload.
       themeObserver = new MutationObserver(() => {
         const dark = document.documentElement.classList.contains("dark");
         monacoModule!.editor.setTheme(getNojvThemeName(dark));
@@ -89,10 +80,6 @@
     };
   });
 
-  // Keep Monaco in sync with external changes to `language` / `drafts`:
-  //  - reassign the model language when the student switches languages
-  //  - push the new draft into the buffer only when it actually differs
-  //    (prevents an infinite loop with `onDidChangeModelContent`)
   $effect(() => {
     const lang = language;
     const draft = drafts[lang] ?? "";

@@ -11,10 +11,6 @@ export interface ClarificationItem {
   questionText: string;
   answerText: string | null;
   state: "pending" | "answered" | "dismissed";
-  /**
-   * `null` for non-staff viewers (anonymity projection). Staff of the
-   * context see the real asker. See `canSeeAuthor` in the domain module.
-   */
   askedBy: { id: string; username: string; name: string } | null;
   answeredBy: { id: string; username: string; name: string } | null;
   answeredAt: string | null;
@@ -34,15 +30,6 @@ export interface ClarificationsStore {
   markTabVisited(): void;
 }
 
-/**
- * One store per (contextType, contextId). The caller creates it in
- * `ClarificationTab` on mount and discards it on destroy — state does
- * not survive navigation, which matches the scoped nature of the board.
- *
- * The "last seen" timestamp is persisted to `localStorage` under a key
- * that includes the context so switching between two live contests
- * keeps separate unread counts.
- */
 export function createClarificationsStore(
   contextType: "contest" | "exam" | "assignment",
   contextId: string,
@@ -57,8 +44,6 @@ export function createClarificationsStore(
 
   async function init(): Promise<void> {
     if (!browser) return;
-    // Wire query carries the discriminated context flat:
-    // `type=<contest|exam|assignment>&(contestId|examId|assignmentId)=...`.
     const params = new URLSearchParams({ type: contextType });
     if (contextType === "assignment") params.set("assignmentId", contextId);
     if (contextType === "exam") params.set("examId", contextId);
@@ -70,13 +55,10 @@ export function createClarificationsStore(
   }
 
   function handleSse(event: ClarificationSSEEvent): void {
-    // Only apply events for our context — the SSE subscription is already
-    // scoped, but defensive filtering keeps multiple-tab races safe.
     if (event.payload.contextType !== contextType || event.payload.contextId !== contextId) {
       return;
     }
     const incoming = event.payload as ClarificationItem;
-    // A soft-deleted thread leaves the board entirely for every viewer.
     if (event.action === "deleted") {
       items = items.filter((i) => i.id !== incoming.id);
       return;
@@ -90,8 +72,6 @@ export function createClarificationsStore(
   }
 
   async function ask(questionText: string, problemId: string | null): Promise<void> {
-    // Body shape mirrors the `ClarificationContext` discriminated union:
-    // `{ context: { type, (assignmentId|examId|contestId) }, ... }`.
     const context =
       contextType === "assignment"
         ? { type: contextType, assignmentId: contextId }
@@ -108,7 +88,6 @@ export function createClarificationsStore(
       };
       throw new Error(body.message ?? "Ask failed");
     }
-    // SSE push will populate the list; don't optimistically insert.
   }
 
   async function answer(id: string, answerText: string): Promise<void> {
@@ -141,8 +120,6 @@ export function createClarificationsStore(
   async function remove(id: string): Promise<void> {
     const r = await fetchWithCsrf(`/api/clarifications/${id}`, { method: "DELETE" });
     if (!r.ok) throw new Error("Delete failed");
-    // SSE `deleted` push removes it for everyone; drop locally too in
-    // case this tab is not subscribed to the stream.
     items = items.filter((i) => i.id !== id);
   }
 

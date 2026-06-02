@@ -24,7 +24,7 @@
 	class={cn("flex flex-col", className)}
 >
 	<div
-		class="grid gap-4 border-b border-border py-3"
+		class="grid gap-4 border-b border-border-subtle py-3"
 		style={gridStyle}
 	>
 		{#each Array(colCount) as _, i (i)}

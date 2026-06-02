@@ -4,7 +4,6 @@
 
   const MAX_FILES = 200;
   const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MB aggregate
-  // Plain source extensions that are wrapped as a single-file submission.
   const PLAIN_EXTENSIONS = [
     ".c",
     ".cpp",
@@ -40,11 +39,6 @@
     return name.toLowerCase().endsWith(".zip");
   }
 
-  /**
-   * Read a user-picked file and return either a staged payload or an error
-   * message. Performs ZIP extraction, MOSS-style mac-noise stripping, and
-   * `validateRequiredPaths` enforcement.
-   */
   export async function stageUploadedFile(
     file: File,
     requiredPaths: string[]
@@ -69,19 +63,19 @@
         await Promise.all(promises);
 
         if (entries.length === 0) {
-          return { ok: false, error: "ZIP contains no readable files." };
+          return { ok: false, error: messages.advancedMode_zipNoFiles() };
         }
         if (entries.length > MAX_FILES) {
           return {
             ok: false,
-            error: `ZIP contains ${String(entries.length)} files (max ${String(MAX_FILES)}).`
+            error: messages.advancedMode_zipTooManyFiles({ count: entries.length, max: MAX_FILES })
           };
         }
         const totalBytes = entries.reduce((sum, e) => sum + e.content.length, 0);
         if (totalBytes > MAX_TOTAL_BYTES) {
           return {
             ok: false,
-            error: `ZIP content exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`
+            error: messages.advancedMode_zipTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) })
           };
         }
         if (entries.every((e) => e.content.trim().length === 0)) {
@@ -107,7 +101,7 @@
         if (content.length > MAX_TOTAL_BYTES) {
           return {
             ok: false,
-            error: `File exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`
+            error: messages.advancedMode_fileTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) })
           };
         }
         if (content.trim().length === 0) {
@@ -133,12 +127,12 @@
 
       return {
         ok: false,
-        error: "Unsupported file type. Upload a .zip archive or a single source file."
+        error: messages.advancedMode_unsupportedType()
       };
     } catch (err) {
       return {
         ok: false,
-        error: err instanceof Error ? err.message : "Failed to read file."
+        error: err instanceof Error ? err.message : messages.advancedMode_readFailed()
       };
     }
   }
@@ -148,12 +142,9 @@
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
-    /** Stable id used for the hidden `<input type="file">` so multiple uploaders coexist. */
     inputId: string;
-    /** Currently-staged payload; bindable so the parent can read it for submit. */
     staged: StagedFile | null;
     requiredPaths: string[];
-    /** TA-configured paths the student's ZIP must contain. Empty array = no constraint. */
     onStagingError: (msg: string | null) => void;
   }
 
@@ -194,7 +185,6 @@
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (file) void stageFile(file);
-    // Reset so selecting the same file again retriggers the change event.
     input.value = "";
   }
 </script>

@@ -9,18 +9,13 @@ import {
   submissionVerdictSchema,
 } from "../types";
 import { assessmentContextSchema } from "./course";
+import { safeRelativePath } from "./path";
 
 const sourceFileSchema = z.object({
-  path: z
-    .string()
-    .trim()
-    .min(1)
-    .max(300)
-    .refine((value) => !value.includes("\0"), "File path must not contain NUL bytes."),
+  path: safeRelativePath,
   content: z.string().max(500_000),
 });
 
-// Problem IDs use underscores (e.g. "problem_noisy-oracle-hunt"), not just slug chars.
 const problemIdentifierSchema = z
   .string()
   .trim()
@@ -28,8 +23,6 @@ const problemIdentifierSchema = z
   .max(128, "validation_tooLong")
   .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
 
-// runCases are ephemeral student-authored Run-mode inputs — never persisted
-// and never allowed on Submit (would break the grading contract).
 const MAX_RUN_CASES = 10;
 const MAX_RUN_CASE_FIELD_LEN = 200_000;
 
@@ -40,8 +33,6 @@ export const runCaseSchema = z.object({
 
 export type SubmissionRunCase = z.infer<typeof runCaseSchema>;
 
-// VirtualContest ids are cuids (`@default(cuid())`), not slugs — accept the
-// same identifier shape as problem ids rather than the stricter slug rule.
 const virtualContestIdSchema = z
   .string()
   .trim()
@@ -53,16 +44,13 @@ export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
     contestId: slugSchema.optional(),
-    // A virtual-contest submission is practice-like but carries this tag so the
-    // personal re-run can aggregate its own score. Mutually exclusive with the
-    // contest/assessment contexts (the submission path treats it as practice).
     virtualContestId: virtualContestIdSchema.optional(),
     language: languageSchema,
     mode: submissionModeSchema.optional(),
     problemId: problemIdentifierSchema,
     runCases: z.array(runCaseSchema).max(MAX_RUN_CASES).optional(),
     sampleOnly: z.boolean().optional(),
-    sourceCode: sourceCodeSchema,
+    sourceCode: sourceCodeSchema.optional(),
     sourceFiles: z.array(sourceFileSchema).max(200).optional(),
   })
   .refine(
@@ -74,32 +62,24 @@ export const submissionDraftSchema = z
     },
   );
 
-// Defense-in-depth against a compromised sandbox-runner (runner already caps at 16 MB).
 const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
 const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
 const MAX_SUBTASK_LABEL_LEN = 200;
 const MAX_FEEDBACK_LEN = 10_000;
 
-export const testcaseResultItemSchema = z.object({
+export const caseResultSchema = z.object({
   index: z.number().int().nonnegative(),
-  passed: z.boolean(),
-  stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
-  stdout: z.string().max(MAX_CASE_STDOUT_BYTES),
+  verdict: z.string().max(16),
   timeMs: z.number().int().nonnegative(),
   memoryKb: z.number().int().nonnegative().optional(),
-});
-
-export const subtaskCaseResultSchema = z.object({
-  memoryKb: z.number().int().nonnegative().optional(),
-  ordinal: z.number().int(),
-  runtimeMs: z.number().int().nonnegative(),
-  testcaseId: z.string(),
-  // Sandbox verdict string ("AC"/"WA"/...); mapped to DB enum in judge activity.
-  verdict: z.string().max(16),
+  stdout: z.string().max(MAX_CASE_STDOUT_BYTES).optional(),
+  stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
+  testcaseId: z.string().optional(),
+  staffFeedback: z.string().max(MAX_FEEDBACK_LEN).optional(),
 });
 
 export const subtaskResultItemSchema = z.object({
-  cases: z.array(subtaskCaseResultSchema).max(10_000),
+  cases: z.array(caseResultSchema).max(10_000),
   label: z.string().max(MAX_SUBTASK_LABEL_LEN),
   passed: z.boolean(),
   testcaseSetId: z.string(),
@@ -108,7 +88,7 @@ export const subtaskResultItemSchema = z.object({
 
 export const submissionResultSchema = z.object({
   accepted: z.boolean(),
-  caseResults: z.array(testcaseResultItemSchema).max(10_000).optional(),
+  caseResults: z.array(caseResultSchema).max(10_000).optional(),
   feedback: z.string().min(1).max(MAX_FEEDBACK_LEN),
   runtimeMs: z.number().int().nonnegative(),
   memoryKb: z.number().int().nonnegative().optional(),
@@ -129,7 +109,21 @@ export const submissionOperationSchema = z.object({
   submissionId: z.string().min(1),
 });
 
-export type SubtaskCaseResult = z.infer<typeof subtaskCaseResultSchema>;
+export const verdictSummarySchema = z.object({
+  caseSummary: z.object({
+    ac: z.number().int().nonnegative(),
+    wa: z.number().int().nonnegative(),
+    tle: z.number().int().nonnegative(),
+    mle: z.number().int().nonnegative(),
+    re: z.number().int().nonnegative(),
+    other: z.number().int().nonnegative(),
+  }),
+  subtaskSummary: z.array(z.object({ id: z.string(), score: z.number() })).optional(),
+  compilerErrorTruncated: z.string().max(1024).optional(),
+});
+
+export type CaseResult = z.infer<typeof caseResultSchema>;
 export type SubtaskResultItem = z.infer<typeof subtaskResultItemSchema>;
 export type SubmissionDraft = z.infer<typeof submissionDraftSchema>;
 export type SubmissionResult = z.infer<typeof submissionResultSchema>;
+export type VerdictSummary = z.infer<typeof verdictSummarySchema>;

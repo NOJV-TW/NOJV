@@ -18,6 +18,7 @@ export { courseRepo, courseMembershipRepo } from "./course";
 export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";
 export { editorialReportRepo } from "./editorial-report";
+export { editorialVoteRepo } from "./editorial-vote";
 export {
   examRepo,
   examProblemRepo,
@@ -49,6 +50,7 @@ export {
   testcaseSetRepo,
   testcaseRepo,
 } from "./problem";
+export { problemBookmarkRepo } from "./problem-bookmark";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export {
   scoreOverrideRepo,

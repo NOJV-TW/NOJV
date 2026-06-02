@@ -3,17 +3,13 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@nojv/db";
 import { problemRepo, problemWorkspaceFileRepo, runTransaction } from "@nojv/db";
 import type { Language, ProblemType } from "@nojv/core";
-import { entryFileNameFor, judgeConfigSchema } from "@nojv/core";
+import { entryFileNameFor, judgeConfigSchema, problemWorkspaceFileSchema } from "@nojv/core";
 
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 
 import { bestEffortDeleteWorkspaceBlob, writeWorkspaceFileBlob } from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Workspace mutations
-// ─────────────────────────────────────────────────────────────────────────
 
 export interface UpdateWorkspaceInput {
   runtime?: {
@@ -32,8 +28,6 @@ export interface UpdateWorkspaceInput {
   }[];
 }
 
-// 1 MB aggregate cap per (problem, language); the per-file 200 KB cap is
-// enforced earlier via the zod schema in `@nojv/core`.
 const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576;
 
 export async function updateProblemWorkspace(
@@ -41,10 +35,6 @@ export async function updateProblemWorkspace(
   problemId: string,
   payload: UpdateWorkspaceInput,
 ) {
-  // Workspace-mode invariant: every language present in the payload
-  // must ship EXACTLY ONE editable file named `main.<ext>`. The judge
-  // and submission validator both rely on this — violating it means
-  // students in that language cannot submit anything.
   if (payload.files.length > 0) {
     const filesByLanguage = new Map<Language, UpdateWorkspaceInput["files"]>();
     for (const file of payload.files) {
@@ -70,9 +60,6 @@ export async function updateProblemWorkspace(
     }
   }
 
-  // Multi-file invariant: every allowed language MUST ship an editable
-  // main file. Full-source problems can leave the workspace empty —
-  // templates are just a UX nicety there.
   if (
     payload.type === "multi_file" &&
     payload.allowedLanguages &&
@@ -92,9 +79,6 @@ export async function updateProblemWorkspace(
     }
   }
 
-  // Aggregate byte totals per language. Using Buffer.byteLength for an
-  // accurate UTF-8 byte count — JS `.length` counts UTF-16 code units,
-  // which under-counts multi-byte characters.
   const totalsByLanguage = new Map<string, number>();
   for (const file of payload.files) {
     const bytes = Buffer.byteLength(file.content, "utf8");
@@ -108,19 +92,11 @@ export async function updateProblemWorkspace(
     }
   }
 
-  // Authorize FIRST so unauthorised callers can't trigger S3 traffic.
-  // We re-check inside the transaction below to handle the rare race
-  // where ownership flips between this read and the write.
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
   });
 
-  // Pre-allocate row ids so we can compute stable S3 keys, then upload
-  // every file's content BEFORE entering the DB transaction. The S3 puts
-  // happen in parallel; failure short-circuits the entire update with
-  // zero side effects (no DB rows touched, the existing rows + their
-  // S3 objects are untouched).
   interface PreparedWorkspaceFile {
     id: string;
     contentKey: string;
@@ -134,15 +110,12 @@ export async function updateProblemWorkspace(
     }),
   );
 
-  // Read the existing file rows BEFORE the transaction so we can sweep
-  // their S3 objects after the DB delete commits.
   const existingFiles = await problemWorkspaceFileRepo.findByProblemId(problemId);
 
   const result = await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    // Replace workspace files.
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     if (prepared.length > 0) {
       const rows: Prisma.ProblemWorkspaceFileCreateManyInput[] = prepared.map(
@@ -159,14 +132,8 @@ export async function updateProblemWorkspace(
       await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
     }
 
-    // Merge runtime into judgeConfig.runtime + persist type. Keep other
-    // judgeConfig keys intact so the caller can save workspace without
-    // clobbering the judge settings.
     const updateData: Prisma.ProblemUpdateInput = {};
     if (payload.runtime) {
-      // Validate existing judgeConfig before merging — silently dropping a
-      // corrupt blob preserves the new runtime, the alternative is to lose
-      // the user's update because of historical bad data.
       const parsed = judgeConfigSchema.safeParse(problem.judgeConfig);
       const currentConfig = parsed.success ? parsed.data : { type: "standard" as const };
       updateData.judgeConfig = {
@@ -191,10 +158,60 @@ export async function updateProblemWorkspace(
     return { id: problem.id, fileCount: payload.files.length };
   });
 
-  // DB committed — best-effort sweep of the OLD workspace blobs. The
-  // new ids are random UUIDs so they cannot collide with the just-deleted
-  // ones; failures here only leave orphan objects.
   await Promise.all(existingFiles.map((f) => bestEffortDeleteWorkspaceBlob(problemId, f.id)));
 
   return result;
+}
+
+export interface SetWorkspaceFileInput {
+  language: string;
+  path: string;
+  visibility: string;
+  content: string;
+  orderIndex?: number;
+}
+
+export async function setWorkspaceFile(
+  problemId: string,
+  file: SetWorkspaceFileInput,
+): Promise<{ id: string; problemId: string; path: string; language: Language }> {
+  const parsed = problemWorkspaceFileSchema.parse({
+    language: file.language,
+    path: file.path,
+    visibility: file.visibility,
+    content: file.content,
+    orderIndex: file.orderIndex ?? 0,
+  });
+
+  const id = randomUUID();
+  const contentKey = await writeWorkspaceFileBlob(problemId, id, parsed.content);
+
+  const existing = await problemWorkspaceFileRepo.findOne(
+    problemId,
+    parsed.language,
+    parsed.path,
+  );
+
+  const row = await runTransaction(async (tx) => {
+    return problemWorkspaceFileRepo.withTx(tx).upsertOne({
+      id,
+      problemId,
+      language: parsed.language,
+      path: parsed.path,
+      contentKey,
+      visibility: parsed.visibility,
+      orderIndex: parsed.orderIndex,
+    });
+  });
+
+  if (existing && existing.id !== row.id) {
+    await bestEffortDeleteWorkspaceBlob(problemId, existing.id);
+  }
+
+  return {
+    id: row.id,
+    problemId: row.problemId,
+    path: row.path,
+    language: row.language,
+  };
 }

@@ -23,7 +23,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const body = (await event.request.json()) as unknown;
   const parsed = flagBodySchema.parse(body);
 
-  // Server sorts the user ids — clients can never invert the pair.
   const pairKey = buildPairKey(parsed.userAId, parsed.userBId, parsed.problemId);
 
   const flag = await flagPair(actor, {

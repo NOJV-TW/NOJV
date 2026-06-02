@@ -115,7 +115,6 @@ export const actions = {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    // Compare typed confirmation against the server-side row — a hidden form field would defeat the check.
     const course = await findCourseWithMembership(courseId, actor.userId);
     if (!course) {
       return fail(404, { error: "not_found" });

@@ -1,21 +1,20 @@
 import {
   entryFileNameFor,
   submissionResultSchema,
+  type Language,
   type SandboxExecutor,
   type SandboxRequest,
   type SubmissionDraft,
   type SubmissionResult,
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/domain";
+import type { SubmissionSource } from "@nojv/storage";
 import { heartbeat } from "@temporalio/activity";
 
 import type { RejudgeInput } from "@nojv/temporal";
+import { enforceMemoryLimit } from "../services/check-standard";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
-// The sandbox runs as a single opaque subprocess (`SandboxExecutor.execute`),
-// so the activity can't see per-testcase progress. Emit a coarse liveness
-// heartbeat on a fixed interval while it runs — without this the only signal
-// of a stuck sandbox is the full 5m `startToCloseTimeout`.
 const JUDGE_HEARTBEAT_INTERVAL_MS = 15_000;
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
@@ -41,21 +40,30 @@ export async function fetchJudgeContext(
   return submissionDomain.getJudgeContext(submissionId);
 }
 
-// Student files may override only `editable` paths; readonly/hidden teacher files win.
-function mergeSandboxSources(
-  draft: SubmissionDraft,
+export function mergeSandboxSources(
+  studentSources: readonly SubmissionSource[],
+  language: Language,
   judgeContext: submissionDomain.SubmissionJudgeContext,
 ): {
   sourceCode: string;
   sourceFiles?: { path: string; content: string }[];
   entryFile?: string;
 } {
-  const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === draft.language);
+  const mainPath = entryFileNameFor(language);
+  const mainSource =
+    studentSources.find((s) => s.path === mainPath)?.content ??
+    studentSources[0]?.content ??
+    "";
+
+  const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === language);
 
   if (langFiles.length === 0) {
+    if (studentSources.length <= 1) {
+      return { sourceCode: mainSource };
+    }
     return {
-      sourceCode: draft.sourceCode,
-      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
+      sourceCode: mainSource,
+      sourceFiles: studentSources.map((s) => ({ path: s.path, content: s.content })),
     };
   }
 
@@ -68,18 +76,10 @@ function mergeSandboxSources(
     langFiles.filter((wf) => wf.visibility === "editable").map((wf) => wf.path),
   );
 
-  if (draft.sourceFiles) {
-    for (const f of draft.sourceFiles) {
-      if (editablePaths.has(f.path)) {
-        merged.set(f.path, f.content);
-      }
+  for (const f of studentSources) {
+    if (editablePaths.has(f.path)) {
+      merged.set(f.path, f.content);
     }
-  }
-
-  // Entry file is always `main.<ext>`; `draft.entryFile` is ignored by design.
-  const mainPath = entryFileNameFor(draft.language);
-  if (draft.sourceCode && editablePaths.has(mainPath)) {
-    merged.set(mainPath, draft.sourceCode);
   }
 
   const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({
@@ -88,7 +88,7 @@ function mergeSandboxSources(
   }));
 
   return {
-    sourceCode: merged.get(mainPath) ?? draft.sourceCode,
+    sourceCode: merged.get(mainPath) ?? mainSource,
     sourceFiles,
     entryFile: mainPath,
   };
@@ -102,6 +102,20 @@ export async function executeSandbox(
   const executor = getExecutor();
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
+
+  const studentSources = await submissionDomain.getSubmissionSources(submissionId);
+
+  if (studentSources.length === 0) {
+    await submissionDomain.updateSubmissionStatus(submissionId, "system_error");
+    return {
+      accepted: false,
+      verdict: "runtime_error",
+      score: 0,
+      runtimeMs: 0,
+      caseResults: [],
+      feedback: "Submission sources missing from storage; marked as system_error.",
+    };
+  }
 
   const useSamples = draft.sampleOnly === true;
   const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";
@@ -138,7 +152,7 @@ export async function executeSandbox(
 
   const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
 
-  const sources = mergeSandboxSources(draft, judgeContext);
+  const sources = mergeSandboxSources(studentSources, draft.language, judgeContext);
 
   let advancedPayload: SandboxRequest["advanced"] | undefined;
   if (judgeContext.problemType === "special_env" && judgeContext.advanced) {
@@ -171,13 +185,13 @@ export async function executeSandbox(
     limits: {
       timeoutMs: judgeContext.runtime.timeLimitMs,
       memoryMb: judgeContext.runtime.memoryLimitMb,
+      ...(Object.keys(judgeContext.runtime.env).length > 0
+        ? { env: judgeContext.runtime.env }
+        : {}),
     },
     ...(advancedPayload ? { advanced: advancedPayload } : {}),
   };
 
-  // Heartbeat while the sandbox subprocess runs so Temporal can tell a slow
-  // judge from a wedged one. `heartbeat()` is best-effort and non-blocking;
-  // it has no effect on judging behaviour or the produced verdict.
   heartbeat("sandbox-started");
   const heartbeatTimer = setInterval(() => {
     heartbeat("sandbox-running");
@@ -188,6 +202,16 @@ export async function executeSandbox(
     result = await executor.execute(request);
   } finally {
     clearInterval(heartbeatTimer);
+  }
+
+  if (!useAdvanced && result.testcaseResults.length > 0) {
+    result = {
+      ...result,
+      testcaseResults: enforceMemoryLimit(
+        result.testcaseResults,
+        judgeContext.runtime.memoryLimitMb,
+      ),
+    };
   }
 
   if (useSamples) {

@@ -5,11 +5,6 @@ import { problemMiniSelect, userMiniSelect, userScoreboardSelect } from "./selec
 
 type TxClient = TransactionClient;
 
-/**
- * Thrown by `contestParticipationRepo.updateWithVersion` when the row's
- * `version` column has moved on since the caller read it (Prisma surfaces
- * this as P2025). The domain layer catches this and retries on a fresh read.
- */
 export class ParticipationVersionConflict extends Error {
   readonly participationId: string;
   readonly expectedVersion: number;
@@ -55,7 +50,6 @@ export const contestRepo = {
     });
   },
 
-  // Standalone contests only; course-role teaching rights live on `Exam`.
   listManagedForUser(userId: string) {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -190,9 +184,6 @@ export const contestProblemRepo = {
       .then((row) => row !== null);
   },
 
-  // Practice-after-close: a user who participated in a published contest
-  // that has since ended retains read/submit access to the contest's
-  // problems — for practice only, no scoring.
   hasEndedContestForUser(problemId: string, userId: string, now: Date) {
     return prisma.contestProblem
       .findFirst({
@@ -207,6 +198,23 @@ export const contestProblemRepo = {
         select: { id: true },
       })
       .then((row) => row !== null);
+  },
+
+  findActiveContestsForUser(problemId: string, userId: string, now: Date) {
+    void userId;
+    return prisma.contestProblem.findMany({
+      where: {
+        problemId,
+        contest: {
+          visibility: "published",
+          endsAt: { gt: now },
+          startsAt: { lte: now },
+        },
+      },
+      select: {
+        contest: { select: { id: true, endsAt: true } },
+      },
+    });
   },
 
   withTx(tx: TxClient) {
@@ -242,15 +250,12 @@ export const contestParticipationRepo = {
     });
   },
 
-  // Lightweight id-only list used by notification fan-out workflows.
   listParticipantUserIds(contestId: string) {
     return prisma.contestParticipation
       .findMany({ where: { contestId }, select: { userId: true } })
       .then((rows) => rows.map((r) => r.userId));
   },
 
-  // Participant roster with user mini profiles — used by the score-override
-  // drawer so staff can pick a student to adjust.
   listParticipantsWithUser(contestId: string) {
     return prisma.contestParticipation.findMany({
       where: { contestId },
@@ -266,13 +271,6 @@ export const contestParticipationRepo = {
     });
   },
 
-  /**
-   * Optimistic-lock update: only writes when the current row's `version`
-   * still matches `expectedVersion`, and bumps it by one in the same
-   * statement. If another writer raced ahead, Prisma's `update` raises
-   * P2025 (record not found) — we translate that to `ParticipationVersionConflict`
-   * so callers can retry on a fresh read.
-   */
   async updateWithVersion(
     id: string,
     expectedVersion: number,
@@ -291,8 +289,6 @@ export const contestParticipationRepo = {
     }
   },
 
-  // Id-only lookup — used by score-override invalidation so we can call
-  // `updateContestScores(participationId)` after editing an override.
   findIdByContestAndUser(contestId: string, userId: string) {
     return prisma.contestParticipation
       .findUnique({

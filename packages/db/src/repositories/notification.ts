@@ -8,6 +8,7 @@ export interface NotificationCreateInput {
   type: NotificationType;
   params: Prisma.InputJsonValue;
   linkUrl?: string | null;
+  dedupeKey?: string | null;
 }
 
 export const notificationRepo = {
@@ -23,7 +24,6 @@ export const notificationRepo = {
     return prisma.notification.count({ where: { userId, readAt: null } });
   },
 
-  // Single-user insert + capped cleanup in one transaction.
   async createAndCap(input: NotificationCreateInput) {
     return prisma.$transaction(async (tx) => {
       const row = await tx.notification.create({
@@ -49,7 +49,6 @@ export const notificationRepo = {
     });
   },
 
-  // Batch insert for fan-outs; caller splits into chunks of 500 upstream.
   async createManyAndCap(inputs: NotificationCreateInput[]) {
     if (inputs.length === 0) return 0;
     const result = await prisma.notification.createMany({
@@ -58,7 +57,9 @@ export const notificationRepo = {
         type: i.type,
         params: i.params,
         linkUrl: i.linkUrl ?? null,
+        dedupeKey: i.dedupeKey ?? null,
       })),
+      skipDuplicates: true,
     });
 
     const userIds = Array.from(new Set(inputs.map((i) => i.userId)));
@@ -102,7 +103,6 @@ export const notificationRepo = {
   },
 };
 
-// Set-based DELETE via ROW_NUMBER() — one query for N users, not N OFFSET scans.
 async function capRetentionForUsers(userIds: string[]): Promise<void> {
   if (userIds.length === 0) return;
   await prisma.$executeRaw`

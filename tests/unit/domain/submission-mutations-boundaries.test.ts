@@ -11,6 +11,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createInMemoryStorage } from "../_fixtures/storage";
+
 const {
   problemFindById,
   userFindById,
@@ -21,8 +23,11 @@ const {
   workspaceFindByProblemId,
   submissionFindMostRecent,
   submissionCreate,
+  submissionUpdateStatus,
   examSessionFindActiveForUser,
+  examFindById,
   txContestProblemFindFirst,
+  storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -33,8 +38,11 @@ const {
   workspaceFindByProblemId: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionUpdateStatus: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
+  examFindById: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
+  storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -62,6 +70,9 @@ vi.mock("@nojv/db", () => ({
   examSessionRepo: {
     withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
   },
+  examRepo: {
+    withTx: () => ({ findById: examFindById }),
+  },
   problemWorkspaceFileRepo: {
     findByProblemId: workspaceFindByProblemId,
   },
@@ -71,6 +82,7 @@ vi.mock("@nojv/db", () => ({
       create: submissionCreate,
       countForUserAndAssessmentSince: vi.fn(),
     }),
+    updateStatus: submissionUpdateStatus,
   },
   runTransaction: async <T>(
     fn: (tx: {
@@ -84,6 +96,13 @@ vi.mock("@nojv/db", () => ({
       contestProblem: { findFirst: txContestProblemFindFirst },
       courseAssessmentProblem: { findFirst: vi.fn() },
     }),
+}));
+
+vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+  storage: () => storageRef.client,
+  __setStorageClientForTests: (c: unknown) => {
+    storageRef.client = c as typeof storageRef.client;
+  },
 }));
 
 import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/domain";
@@ -108,6 +127,7 @@ const fakeProblem = {
 };
 
 function setupCommonProblemDefaults() {
+  storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   problemFindById.mockResolvedValue(fakeProblem);
   const user = {
     id: fakeActor.userId,
@@ -120,6 +140,14 @@ function setupCommonProblemDefaults() {
   userUpdate.mockResolvedValue(user);
   userCreate.mockResolvedValue(user);
   workspaceFindByProblemId.mockResolvedValue([]);
+  // Active-exam tests run with the clock pinned to 2026-04-14; a far-future
+  // endsAt keeps the exam "running" so the new time-window check is a no-op
+  // here (window enforcement is covered in submission-mutations.test.ts).
+  examFindById.mockResolvedValue({
+    id: "exam_default",
+    startsAt: new Date("2026-01-01T00:00:00.000Z"),
+    endsAt: new Date("2026-12-31T23:59:59.000Z"),
+  });
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),

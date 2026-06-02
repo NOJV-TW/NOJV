@@ -14,13 +14,25 @@ import {
   type Runtime,
   type SubmissionDraft,
   type SubmissionMode,
+  type SubmissionResult,
 } from "@nojv/core";
+import {
+  getSubmissionSources as storageGetSubmissionSources,
+  getVerdictDetail as storageGetVerdictDetail,
+  type SubmissionSource,
+} from "@nojv/storage";
 import { z } from "zod";
 
-import { readTestcaseBlobs, readWorkspaceFileBlob } from "../problem/blobs";
+import {
+  readTestcaseBlobs,
+  readValidatorScriptBlob,
+  readWorkspaceFileBlob,
+} from "../problem/blobs";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError } from "../shared/errors";
+import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
+import { stripStaffFeedback } from "./scoring";
 import type {
   AdjustmentContext,
   AdvancedModeContext,
@@ -48,27 +60,18 @@ export async function getSubmissionForUser(
   return submission;
 }
 
-/**
- * Thin wrapper around `submissionRepo.findById` — used by the rejudge
- * endpoint to load the submission row before the authz check. Returns
- * null on miss; callers surface a 404.
- */
 export async function getSubmissionById(id: string) {
   return submissionRepo.findById(id);
 }
 
-/**
- * Full detail payload for the submission dashboard page.
- *
- * Access rule:
- *   - submission owner → always
- *   - else → delegates to `canOperateOnSubmission` (admin / contest
- *     organizer / course staff / problem author)
- *
- * Staff-only flag `viewerIsStaff` tells the UI whether to expose the
- * submitter's identity; the owner viewing their own submission doesn't
- * see that section.
- */
+export async function getSubmissionSources(submissionId: string): Promise<SubmissionSource[]> {
+  return storageGetSubmissionSources(storage(), submissionId);
+}
+
+export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult | null> {
+  return storageGetVerdictDetail<SubmissionResult>(storage(), submissionId);
+}
+
 export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
   const submission = await submissionRepo.findByIdForDetail(submissionId);
   if (!submission) throw new NotFoundError("Submission not found.");
@@ -81,17 +84,20 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   }
 
   const language = languageSchema.parse(submission.language);
-  submissionVerdictSchema.parse(submission.status);
 
-  // Pre-terminal submissions (queued/compiling/running) have no verdictDetail.
-  const parsedResult = submissionResultSchema.safeParse(submission.verdictDetail);
-  const result = parsedResult.success ? parsedResult.data : null;
+  const rawResult = submission.verdictDetailStorageKey
+    ? await getVerdictDetail(submissionId)
+    : null;
+  const result =
+    rawResult === null || viewerIsStaff ? rawResult : stripStaffFeedback(rawResult);
+
+  const sources = await getSubmissionSources(submissionId);
 
   return {
     id: submission.id,
     createdAt: submission.createdAt.toISOString(),
     language,
-    sourceCode: submission.sourceCode,
+    sources,
     status: submission.status,
     score: submission.score,
     runtimeMs: submission.runtimeMs,
@@ -105,6 +111,19 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
       : null,
     viewerIsStaff,
   };
+}
+
+export type SubmissionContextKind = "exam" | "contest" | "assignment" | "practice";
+
+export function deriveSubmissionContextKind(fks: {
+  contestId: string | null;
+  courseAssessmentId: string | null;
+  examId: string | null;
+}): SubmissionContextKind {
+  if (fks.examId) return "exam";
+  if (fks.contestId) return "contest";
+  if (fks.courseAssessmentId) return "assignment";
+  return "practice";
 }
 
 function buildSubmissionContext(submission: {
@@ -166,18 +185,14 @@ export async function listUserSubmissions(userId: string) {
       problemId: s.problem.id,
       problemTitle: s.problem.title,
       runtimeMs: s.runtimeMs,
+      memoryKb: s.memoryKb,
       score: s.score,
       status: s.status,
+      context: deriveSubmissionContextKind(s),
     };
   });
 }
 
-/**
- * How many submissions the user has made against an assignment since UTC
- * midnight. Matches the boundary used by the daily-quota gate in
- * `createQueuedSubmissionRecord` so the displayed count and the enforced
- * count agree.
- */
 export async function countAssignmentSubmissionsToday(
   userId: string,
   assignmentId: string,
@@ -192,32 +207,46 @@ export async function countAssignmentSubmissionsToday(
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,
-  assignmentFilter?: { assignmentId: string; courseId: string },
+  context?: { assignmentId: string; courseId: string } | { contestId: string },
 ) {
+  const isAssignmentFilter = context !== undefined && "assignmentId" in context;
+
   const problemP = problemRepo.findById(problemId);
 
-  const assignmentP = assignmentFilter
-    ? assessmentRepo.findByCourseAndId(assignmentFilter.courseId, assignmentFilter.assignmentId)
+  const assignmentP = isAssignmentFilter
+    ? assessmentRepo.findByCourseAndId(context.courseId, context.assignmentId)
     : null;
 
   const [problem, assignment] = await Promise.all([problemP, assignmentP]);
 
   if (!problem) return [];
-  if (assignmentFilter && !assignment) return [];
+  if (isAssignmentFilter && !assignment) return [];
 
   const courseAssessmentId = assignment?.id;
+  const contestId =
+    context !== undefined && "contestId" in context ? context.contestId : undefined;
 
   const submissions = await submissionRepo.listByUserAndProblem({
     problemId: problem.id,
     userId,
     statusIn: [...submissionVerdicts],
     ...(courseAssessmentId ? { courseAssessmentId } : {}),
+    ...(contestId ? { contestId } : {}),
   });
 
-  return submissions.map((s) => {
-    // verdictDetail is the sole source of truth; `s.status` is validated to surface enum-column corruption.
-    submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+  const detailBlobs = await Promise.all(
+    submissions.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  return submissions.map((s, idx) => {
+    const verdict = submissionVerdictSchema.parse(s.status);
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
 
     return {
@@ -225,12 +254,23 @@ export async function listProblemSubmissions(
       language,
       result,
       submittedAt: s.createdAt.toISOString(),
+      context: deriveSubmissionContextKind(s),
     };
   });
 }
 
-// Contest wins over assignment — a submission carrying a contestId is always
-// contest-mode even if courseAssessmentId is also set.
+export function fallbackResultForRow(
+  verdict: ReturnType<typeof submissionVerdictSchema.parse>,
+): SubmissionResult {
+  return {
+    accepted: verdict === "accepted",
+    feedback: "Verdict details unavailable.",
+    runtimeMs: 0,
+    score: verdict === "accepted" ? 100 : 0,
+    verdict,
+  };
+}
+
 export function deriveSubmissionMode(s: {
   contestId: string | null;
   courseAssessmentId: string | null;
@@ -239,10 +279,6 @@ export function deriveSubmissionMode(s: {
   if (s.courseAssessmentId) return "assignment";
   return "practice";
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Judge context — sandbox-bound read assembled for the worker.
-// ─────────────────────────────────────────────────────────────────────────
 
 const inputFileKeysSchema = z.record(z.string(), z.string());
 
@@ -281,7 +317,6 @@ function parseInputFileKeys(raw: unknown, testcaseId: string): Record<string, st
   return null;
 }
 
-/** Derive whether this submission runs in standard or advanced (custom-image) sandbox mode. */
 export function deriveJudgeMode(
   context: Pick<SubmissionJudgeContext, "problemType" | "advanced">,
 ): "standard" | "advanced" {
@@ -327,7 +362,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const samples = collectSamples(problem);
 
-  // Legacy problems without judgeConfig.runtime fall back to Problem columns.
   const runtime: Runtime = judgeConfig.runtime ?? {
     env: {},
     memoryLimitMb: problem.memoryLimitMb,
@@ -351,7 +385,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const assignment = submission.courseAssessment;
 
-  // Adjustment rules are assignment-only; contest endsAt is a fallback due-by.
   const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
     assignmentAdjustmentRules: assignment
@@ -375,10 +408,19 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
         }
       : null;
 
+  const [checkerScript, interactorScript] = await Promise.all([
+    judgeConfig.checkerKey
+      ? readValidatorScriptBlob(judgeConfig.checkerKey)
+      : Promise.resolve(null),
+    judgeConfig.interactorKey
+      ? readValidatorScriptBlob(judgeConfig.interactorKey)
+      : Promise.resolve(null),
+  ]);
+
   return {
     adjustment,
-    checkerScript: judgeConfig.checkerScript ?? null,
-    interactorScript: judgeConfig.interactorScript ?? null,
+    checkerScript,
+    interactorScript,
     judgeType: judgeConfig.type,
     runtime,
     samples,
@@ -444,7 +486,6 @@ export async function listForRejudge(input: {
       language: s.language,
       problemId: s.problemId,
       sampleOnly: s.sampleOnly,
-      sourceCode: s.sourceCode,
     },
   }));
 }
@@ -460,7 +501,6 @@ export async function findOneForRejudge(
       language: submission.language,
       problemId: submission.problemId,
       sampleOnly: submission.sampleOnly,
-      sourceCode: submission.sourceCode,
     },
   };
 }

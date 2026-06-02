@@ -43,7 +43,6 @@
     }
   }
 
-  /** Score as a string, or an em-dash when null. */
   function score(value: number | null): string {
     return value === null ? "—" : String(value);
   }
@@ -78,8 +77,7 @@
   <EmptyState icon={History} title={m.audit_emptyTitle()} description={m.audit_emptyBody()} />
 {:else}
   <ol class="border-l border-border">
-    <!-- Index key is deliberate: AuditEvent has no stable id and this list is
-         static read-only (never reordered/filtered/prepended). Revisit if reactivity is added. -->
+    
     {#each events as event, i (i)}
       <li class="relative pb-5 pl-6 last:pb-0">
         <span

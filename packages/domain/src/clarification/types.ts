@@ -1,16 +1,5 @@
 import { ValidationError } from "../shared/errors";
 
-/**
- * Discriminated union describing the three kinds of context a
- * clarification thread can live in. Replaces the legacy
- * `(contextType: string, contextId: string)` pair on every domain
- * function signature so callers cannot accidentally swap arguments or
- * pair an `examId` with `contextType: "contest"`.
- *
- * The DB column pair (`Clarification.contextType` + `.contextId`) stays
- * flat — `toContextDbFields` / `fromContextDbFields` translate at the
- * repository boundary.
- */
 export type ClarificationContext =
   | { type: "assignment"; assignmentId: string }
   | { type: "exam"; examId: string }

@@ -10,8 +10,6 @@ export async function seedCourses(
   const { teacher, taStudent, student } = users;
   const now = Date.now();
 
-  // Real OAuth-registered user (student handle `41047025s`) — enroll into the OS Lab course
-  // if present. Skipped on a fresh DB without the real login.
   const studentNtnu = await prisma.user.findUnique({ where: { username: "41047025s" } });
 
   const osLabCourse = await prisma.course.upsert({
@@ -28,8 +26,6 @@ export async function seedCourses(
     where: { id: "course_os-lab-spring-2026" },
   });
 
-  // Course memberships. Everyone is added by the teacher now that the
-  // join-token flow has been removed.
   const osLabMemberships: Array<{ userId: string; role: "teacher" | "ta" | "student" }> = [
     { userId: teacher.id, role: "teacher" },
     { userId: taStudent.id, role: "ta" },
@@ -74,7 +70,6 @@ export async function seedCourses(
       summary:
         "Coursework-oriented assignment with a visible deadline and a private systems problem.",
       title: "Homework 1: Process Trace",
-      // Demo flat late penalty: submissions after `dueAt` take a 20% hit.
       adjustmentRules: [
         {
           type: "flat_late_penalty",
@@ -100,7 +95,6 @@ export async function seedCourses(
       summary:
         "Second homework exercising the per-day attempt limit — three submissions per UTC day.",
       title: "Homework 2: Signal Handling",
-      // Task 1.7: per-UTC-day attempt cap. Counter resets at midnight.
       maxAttemptsPerDay: 3,
     },
     update: {},
@@ -146,8 +140,6 @@ export async function seedCourses(
     where: { id: "exam_midterm-systems-lab" },
   });
 
-  // Assessment problem links. hw1 and hw2 get problems; hw3 is draft
-  // and stays empty to mirror the TA-collab state.
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemId: "problem_warmup-sum", ordinal: 1 },
     { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 },
@@ -178,7 +170,6 @@ export async function seedCourses(
     });
   }
 
-  // Midterm exam problem links — 3 problems per course redesign task 1.8.
   const midtermProblemLinks = [
     { examId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
     { examId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 },
@@ -210,9 +201,6 @@ export async function seedCourses(
     });
   }
 
-  // Demo fixture for 41047025s — assignment currently "in progress":
-  // opens past, due in a week, with the warmup-sum problem linked. Dates are
-  // recomputed every seed run so the state stays current.
   const hwActive = await prisma.courseAssessment.upsert({
     create: {
       id: "hw-demo-active",
@@ -251,8 +239,6 @@ export async function seedCourses(
     },
   });
 
-  // Demo fixture — upcoming exam so the redesigned pre-exam "rules" view has
-  // something to render. startsAt 7d out.
   const examUpcomingDemo = await prisma.exam.upsert({
     create: {
       id: "exam_demo_upcoming",
@@ -293,7 +279,6 @@ export async function seedCourses(
     },
   });
 
-  // startsAt is far in the future so the hiding logic always fires regardless of clock.
   const upcomingDemo = await prisma.exam.upsert({
     create: {
       courseId: osLabCourse.id,

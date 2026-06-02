@@ -147,7 +147,6 @@ export async function listContestsForUser(
 
 export interface ContestDetailOptions {
   userId: string | null;
-  /** Optional — caller should pass it so platform admins are recognized as managers. */
   platformRole?: PlatformRole | null;
   now: Date;
 }
@@ -234,12 +233,6 @@ export async function findContestByInviteCode(inviteCode: string) {
   return contestRepo.findByInviteCode(inviteCode);
 }
 
-/**
- * Thin wrapper around `contestRepo.findById` — used where callers need the
- * raw contest row (e.g. plagiarism authz checking `createdByUserId`).
- * Returns null when the row is missing; callers decide how to map that
- * to a 404 or forbidden.
- */
 export async function getContestById(id: string) {
   return contestRepo.findById(id);
 }
@@ -275,9 +268,6 @@ export async function getContestContext(
     options.viewerPlatformRole,
   );
 
-  // Non-managers must hit a live time window; pre-start leaks problem
-  // metadata (allowedLanguages alone is benign but the symmetric guard
-  // keeps every caller using the same ruleset).
   if (!viewerIsManager && timeStatus !== "open") return null;
 
   return {
@@ -295,11 +285,6 @@ export async function unfreezeContest(contestId: string) {
   return { ok: true };
 }
 
-/**
- * Return the participant roster with user mini-profiles for the score-override
- * drawer. Caller is responsible for verifying the actor may manage the contest
- * before invoking.
- */
 export async function listContestParticipantsWithUser(contestId: string) {
   return contestParticipationRepo.listParticipantsWithUser(contestId);
 }
@@ -320,13 +305,6 @@ function letterForIndex(index: number): string {
   return String(index + 1);
 }
 
-/**
- * Build the contest's left-rail sibling list for the float problem switcher.
- * Caller passes the ordered `problems` slice from `getContestWorkspaceData`
- * (so we don't re-query the contest detail row) plus the active problem id
- * and viewer's user id. Submission filter is scoped by (contestId, userId,
- * problemId) — cross-contest data cannot leak through.
- */
 export async function listContestProblemSiblings(options: {
   contestId: string;
   problems: ContestProblemSummary[];

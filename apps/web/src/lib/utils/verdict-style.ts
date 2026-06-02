@@ -1,12 +1,7 @@
-// Visual treatment helpers for problem / submission verdicts.
-// Pure presentation; no runtime imports of route data.
-
 export function formatVerdictLabel(verdict: string): string {
   return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-// Topic/skill tag pill — intentionally uniform, colour-coding lives on the
-// dedicated `Problem.difficulty` column (see `difficultyClass`).
 export function tagClass(): string {
   return "bg-muted text-muted-foreground border-border";
 }
@@ -18,14 +13,54 @@ export function difficultyClass(difficulty: string): string {
   return "bg-muted text-muted-foreground border-border";
 }
 
-export const verdictColor: Record<string, string> = {
-  accepted: "text-emerald-600 dark:text-emerald-400",
-  compile_error: "text-amber-600 dark:text-amber-400",
-  compiling: "text-muted-foreground",
-  memory_limit_exceeded: "text-red-600 dark:text-red-400",
+export type VerdictBadgeVariant =
+  | "success"
+  | "warning"
+  | "destructive"
+  | "verdict-pending"
+  | "muted";
+
+const SHORT_CODE_TO_VERDICT: Record<string, string> = {
+  AC: "accepted",
+  WA: "wrong_answer",
+  TLE: "time_limit_exceeded",
+  MLE: "memory_limit_exceeded",
+  RE: "runtime_error",
+  CE: "compile_error",
+};
+
+function normalizeVerdict(verdict: string): string {
+  return SHORT_CODE_TO_VERDICT[verdict] ?? verdict;
+}
+
+const VERDICT_VARIANT: Record<string, VerdictBadgeVariant> = {
+  accepted: "success",
+  wrong_answer: "destructive",
+  runtime_error: "destructive",
+  compile_error: "destructive",
+  time_limit_exceeded: "warning",
+  memory_limit_exceeded: "warning",
+  queued: "verdict-pending",
+  running: "verdict-pending",
+  compiling: "verdict-pending",
+};
+
+const VERDICT_TONE: Record<string, string> = {
+  accepted: "text-success",
+  wrong_answer: "text-destructive",
+  runtime_error: "text-destructive",
+  compile_error: "text-destructive",
+  time_limit_exceeded: "text-warning",
+  memory_limit_exceeded: "text-warning",
   queued: "text-muted-foreground",
   running: "text-muted-foreground",
-  runtime_error: "text-amber-600 dark:text-amber-400",
-  time_limit_exceeded: "text-red-600 dark:text-red-400",
-  wrong_answer: "text-red-600 dark:text-red-400",
+  compiling: "text-muted-foreground",
 };
+
+export function verdictBadgeVariant(verdict: string): VerdictBadgeVariant {
+  return VERDICT_VARIANT[normalizeVerdict(verdict)] ?? "muted";
+}
+
+export function verdictTone(verdict: string): string {
+  return VERDICT_TONE[normalizeVerdict(verdict)] ?? "text-foreground";
+}

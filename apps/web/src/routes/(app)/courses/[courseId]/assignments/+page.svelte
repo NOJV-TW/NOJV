@@ -60,13 +60,13 @@
   {#if canCreate}
     <div class="animate-in animate-in-1 flex justify-end">
       <Button href={`/courses/${courseId}/assignments/new`}>
-        <Plus class="h-4 w-4" />
+        <Plus aria-hidden="true" class="h-4 w-4" />
         {m.courseAssignments_createNew()}
       </Button>
     </div>
   {/if}
 
-  <!-- Rows -->
+  
   {#if assignments.length === 0}
     <div
       class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
@@ -85,7 +85,7 @@
             ? 'border-dashed bg-transparent'
             : 'border-border'}"
         >
-          <!-- Left border indicator (shows on hover; solid for draft) -->
+          
           <span
             class="pointer-events-none absolute left-[-1px] top-[10px] bottom-[10px] w-[3px] rounded-full transition-colors duration-fast ease-out-soft {assignment.status ===
             'draft'
@@ -177,7 +177,7 @@
               {#if assignment.status === "open"}
                 <span class={buttonVariants({ variant: "default", size: "sm" })}>
                   {m.courseAssignments_actionContinue()}
-                  <ChevronRight class="h-4 w-4" />
+                  <ChevronRight aria-hidden="true" class="h-4 w-4" />
                 </span>
               {:else if assignment.status === "closed"}
                 <span class={buttonVariants({ variant: "outline", size: "sm" })}>

@@ -9,6 +9,13 @@
     actualIp: string;
     createdAt: string;
   }
+
+  export interface ActiveSessionRow {
+    userId: string;
+    displayName: string;
+    handle: string;
+    startedAt: string;
+  }
 </script>
 
 <script lang="ts">
@@ -21,31 +28,76 @@
 
   interface Props {
     violations: IpViolationRow[];
-    activeSessionCount: number;
+    activeSessions: ActiveSessionRow[];
     class?: string;
   }
 
-  let { violations, activeSessionCount, class: className }: Props = $props();
+  let { violations, activeSessions, class: className }: Props = $props();
 </script>
 
 <Card class={className}>
   <div
-    class="mb-5 flex items-center justify-between gap-3 border-b border-border pb-5"
+    class="mb-5 flex items-center justify-between gap-3 border-b border-border-subtle pb-5"
   >
     <div>
       <h2 class="text-title font-semibold">
         {m.examProctoring_sessionsHeading()}
       </h2>
       <p class="text-body-sm text-muted-foreground">
-        {m.examProctoring_sessionsActive({ count: activeSessionCount })}
+        {m.examProctoring_sessionsActive({ count: activeSessions.length })}
       </p>
     </div>
     <form method="POST" action="?/releaseAllSessions" use:enhance>
-      <Button type="submit" variant="outline" size="sm" disabled={activeSessionCount === 0}>
+      <Button type="submit" variant="outline" size="sm" disabled={activeSessions.length === 0}>
         {m.examProctoring_releaseAll()}
       </Button>
     </form>
   </div>
+
+  {#if activeSessions.length > 0}
+    <div class="mb-5 overflow-x-auto border-b border-border-subtle pb-5">
+      <table class="w-full text-body-sm">
+        <thead>
+          <tr class="border-b border-border-subtle text-left text-caption text-muted-foreground">
+            <th class="py-2 pr-3 font-medium">{m.examProctoring_colStudent()}</th>
+            <th class="py-2 pr-3 font-medium">{m.examProctoring_startedAt()}</th>
+            <th class="py-2 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each activeSessions as s (s.userId)}
+            <tr class="border-b border-border/40 last:border-b-0">
+              <td class="py-2 pr-3">
+                <div class="flex flex-col leading-tight">
+                  <span class="font-medium">{s.displayName}</span>
+                  <span class="text-caption text-muted-foreground">{s.handle}</span>
+                </div>
+              </td>
+              <td class="py-2 pr-3 font-mono text-caption tabular-nums">
+                {formatDateTime(s.startedAt)}
+              </td>
+              <td class="py-2 text-right">
+                <div class="flex justify-end gap-2">
+                  <form method="POST" action="?/resetStudentIpBinding" use:enhance>
+                    <input type="hidden" name="targetUserId" value={s.userId} />
+                    <Button type="submit" variant="outline" size="sm">
+                      {m.examProctoring_resetIpBinding()}
+                    </Button>
+                  </form>
+                  <form method="POST" action="?/releaseStudentSession" use:enhance>
+                    <input type="hidden" name="targetUserId" value={s.userId} />
+                    <Button type="submit" variant="outline" size="sm">
+                      {m.examProctoring_release()}
+                    </Button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
 
   <div class="flex items-center justify-between gap-3">
     <div>
@@ -71,7 +123,7 @@
     <div class="overflow-x-auto">
       <table class="w-full text-body-sm">
         <thead>
-          <tr class="border-b border-border text-left text-caption text-muted-foreground">
+          <tr class="border-b border-border-subtle text-left text-caption text-muted-foreground">
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colTime()}</th>
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colStudent()}</th>
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colType()}</th>

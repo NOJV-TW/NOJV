@@ -1,7 +1,6 @@
 import type { CompletionEntry } from "./index";
 
 export const cppCompletions: CompletionEntry[] = [
-  // Headers & boilerplate
   {
     label: "#include <bits/stdc++.h>",
     kind: "Snippet",
@@ -70,7 +69,6 @@ export const cppCompletions: CompletionEntry[] = [
     insertText: "using namespace std;",
     detail: "namespace",
   },
-  // I/O
   {
     label: "cin",
     kind: "Keyword",
@@ -98,7 +96,6 @@ export const cppCompletions: CompletionEntry[] = [
     insertText: "ios::sync_with_stdio(false);\ncin.tie(nullptr);",
     detail: "fast I/O",
   },
-  // Containers
   {
     label: "vector",
     kind: "Class",
@@ -190,7 +187,6 @@ export const cppCompletions: CompletionEntry[] = [
     detail: "STL utility",
     isSnippet: true,
   },
-  // Algorithms
   {
     label: "sort",
     kind: "Function",
@@ -296,7 +292,6 @@ export const cppCompletions: CompletionEntry[] = [
     detail: "algorithm",
     isSnippet: true,
   },
-  // Math & limits
   { label: "INT_MAX", kind: "Constant", insertText: "INT_MAX", detail: "climits" },
   { label: "INT_MIN", kind: "Constant", insertText: "INT_MIN", detail: "climits" },
   { label: "LLONG_MAX", kind: "Constant", insertText: "LLONG_MAX", detail: "climits" },

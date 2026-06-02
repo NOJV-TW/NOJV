@@ -42,8 +42,6 @@
   );
   const clarificationEnabled = $derived(data.clarification.canView);
 
-  // Grading feedback keyed by problem — empty until the assignment closes
-  // (the loader's domain call is close-gated). Students only.
   const feedbackByProblem = $derived(
     new Map((data.mode === "student" ? data.feedback : []).map((f) => [f.problemId, f.comment]))
   );
@@ -52,8 +50,6 @@
   const canSetOverride = $derived(
     data.mode === "teacher" ? (data.canSetOverride ?? false) : false
   );
-  // Grading (overrides + feedback) is a post-close activity — the drawer
-  // entry only appears once the assignment has closed.
   const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
     data.mode === "teacher"
@@ -88,12 +84,6 @@
     { key: "audit", label: m.assignmentDetail_tabAudit() }
   ]);
 
-  function difficultyLabel(d: "easy" | "medium" | "hard"): "Easy" | "Medium" | "Hard" {
-    if (d === "easy") return "Easy";
-    if (d === "medium") return "Medium";
-    return "Hard";
-  }
-
   function verdictLabel(status: string): string {
     if (status === "accepted") return "AC";
     if (status === "wrong_answer") return "WA";
@@ -113,8 +103,6 @@
     return "verdict-pending";
   }
 
-  // Row tint by viewer state — mirrors the exam detail page so assignment
-  // status reads through background, not a separate AC/WA chip.
   function rowTint(state: "ac" | "partial" | "attempted" | "none"): string {
     if (state === "ac") return "bg-success/[0.06]";
     if (state === "partial")
@@ -123,7 +111,6 @@
     return "";
   }
 
-  // Derived assignment-level stats from problems[].
   const solved = $derived(
     detail.problems.filter((p) => p.myStatus?.state === "ac").length
   );
@@ -148,8 +135,6 @@
     }
   });
 
-  // After close, drop assignment context so the problem opens as practice
-  // (no attempt counting, no scoreboard write).
   function problemHref(problemId: string): string {
     if (detail.status === "closed") {
       return `/problems/${problemId}`;
@@ -157,21 +142,19 @@
     return `/assignments/${detail.id}/problems/${problemId}`;
   }
 
-  // Display target for the headline countdown: prefer dueAt when present,
-  // otherwise the close time.
   const targetIso = $derived(detail.dueAt ?? detail.closesAt);
 </script>
 
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
   <Crumbs
     items={[
-      { label: "assignments", href: "/assignments" },
+      { label: m.navigation_assignments(), href: "/assignments" },
       { label: detail.title }
     ]}
   />
 
   <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
-    <!-- Hero -->
+    
     <GlassPanel class="relative overflow-hidden p-7 lg:p-9">
       <DotGrid opacity={0.18} />
       <div class="relative">
@@ -179,7 +162,7 @@
           class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
         >
           <TypeIcon kind="assignment" size={14} />
-          <span>Assignment · {data.course.title}</span>
+          <span>{m.assignmentDetail_typeLabel()} · {data.course.title}</span>
         </div>
         <div class="mt-3 flex items-baseline gap-3 flex-wrap">
           <StatusPill {status} type="assignment" />
@@ -224,7 +207,7 @@
       </div>
     </GlassPanel>
 
-    <!-- Sidebar facts -->
+    
     <div class="space-y-4">
       <GlassPanel class="p-5">
         <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
@@ -297,7 +280,7 @@
   </div>
 
   {#if data.mode === "student"}
-    <!-- ══════ STUDENT VIEW ══════ -->
+    
 
     <GlassPanel class="overflow-hidden">
       <div
@@ -340,7 +323,7 @@
               <div class="min-w-0">
                 <div class="font-medium truncate">{problem.title}</div>
                 <div class="mt-1 flex items-center gap-3">
-                  <DifficultyTick level={difficultyLabel(problem.difficulty)} />
+                  <DifficultyTick level={problem.difficulty} />
                   <span
                     class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
                   >
@@ -376,7 +359,7 @@
                   class="text-caption font-medium text-muted-foreground inline-flex items-center gap-1"
                 >
                   {isSolved ? m.assignmentDetail_problemView() : m.assignmentDetail_problemSolve()}
-                  <ChevronRight class="size-3.5" />
+                  <ChevronRight aria-hidden="true" class="size-3.5" />
                 </span>
               {/if}
             {/snippet}
@@ -490,10 +473,10 @@
       </GlassPanel>
     {/if}
   {:else}
-    <!-- ══════ TEACHER VIEW ══════ -->
+    
     <GlassPanel class="overflow-hidden">
       <nav
-        aria-label="Assignment sections"
+        aria-label={m.assignmentDetail_sectionsNavLabel()}
         class="border-b px-2"
         style="border-color: var(--border-subtle);"
       >

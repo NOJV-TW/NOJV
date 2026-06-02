@@ -13,13 +13,6 @@ export interface SandboxSourceFile {
   content: string;
 }
 
-/**
- * Optional payload supplied when the submission is for an advanced-mode
- * problem (TA-provided judge container). When set, the runner skips the
- * standard pipeline and instead invokes the configured image with the
- * v2 container contract: student files under `/workspace/submission/`,
- * image writes its score to `/workspace/output/result.json`.
- */
 export interface SandboxAdvancedRequest {
   imageRef: string;
   imageSource: "registry" | "tarball";
@@ -45,6 +38,7 @@ export interface SandboxRequest {
   limits: {
     timeoutMs: number;
     memoryMb: number;
+    env?: Record<string, string>;
   };
   advanced?: SandboxAdvancedRequest;
 }
@@ -59,18 +53,27 @@ export interface SandboxTestcaseResult {
   stderr: string;
   exitCode: number;
   timeMs: number;
-  // Peak resident set size (kB) observed for the user program during this
-  // testcase. Undefined when measurement was not possible (compile failure,
-  // advanced-mode TA image, /proc unavailable).
   memoryKb?: number;
   score?: number;
   feedback?: string;
+  staffFeedback?: string;
+}
+
+export interface RawCaseRun {
+  index: number;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  timeMs: number;
+  memoryKb?: number;
+  errorVerdict?: Extract<SandboxVerdict, "TLE" | "MLE" | "RE" | "SE">;
 }
 
 export interface SandboxResult {
   compilationError?: string;
   pipelineError?: string;
   testcaseResults: SandboxTestcaseResult[];
+  rawRuns?: RawCaseRun[];
   customScore?: number;
   scoringFeedback?: string;
 }
@@ -79,7 +82,6 @@ export interface SandboxExecutor {
   execute(request: SandboxRequest): Promise<SandboxResult>;
 }
 
-/** Normalize a relative file path, rejecting traversal attacks and invalid segments. */
 export function normalizeRelativePath(rawPath: string): string | null {
   const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
   if (!normalized || normalized.startsWith("/")) return null;

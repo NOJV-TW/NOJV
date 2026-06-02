@@ -4,6 +4,7 @@
   import WorkspaceFileList from "./WorkspaceFileList.svelte";
   import WorkspaceFileEditor, { type WorkspaceFile } from "./WorkspaceFileEditor.svelte";
   import type { WorkspaceMode } from "./WorkspaceModeSection.svelte";
+  import UploadDropZone from "$lib/components/features/problem/admin/UploadDropZone.svelte";
 
   interface Props {
     mode: WorkspaceMode;
@@ -24,6 +25,7 @@
     onAddFile: () => void;
     onUpdateFile: (globalIndex: number, updated: WorkspaceFile) => void;
     onDeleteFile: (globalIndex: number) => void;
+    onUploadFile?: ((file: File, language: Language) => Promise<void>) | undefined;
   }
 
   let {
@@ -44,7 +46,8 @@
     onChangeActiveLang,
     onAddFile,
     onUpdateFile,
-    onDeleteFile
+    onDeleteFile,
+    onUploadFile
   }: Props = $props();
 </script>
 
@@ -100,6 +103,16 @@
         </button>
       {/each}
     </div>
+
+    {#if onUploadFile}
+      <div class="mt-3">
+        <UploadDropZone
+          label={m.bundle_uploadWorkspaceLabel({ language: activeLang })}
+          hint={m.bundle_uploadWorkspaceHint()}
+          onupload={(file) => onUploadFile(file, activeLang)}
+        />
+      </div>
+    {/if}
 
     <div class="mt-3 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
       <WorkspaceFileList

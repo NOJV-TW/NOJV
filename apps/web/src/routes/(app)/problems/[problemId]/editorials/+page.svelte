@@ -17,9 +17,6 @@
   const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.pageSize)));
 
   function snippet(content: string, max = 240): string {
-    // Markdown source preview — strip the first run of fence markers /
-    // hashes so the snippet is readable, then truncate. Heavy formatting
-    // is not worth rendering here; the edit page shows full markdown.
     const stripped = content
       .replace(/```[\s\S]*?```/g, "")
       .replace(/[#*_`>]+/g, "")
@@ -122,7 +119,7 @@
     </div>
 
     {#if totalPages > 1}
-      <nav class="mt-6 flex items-center justify-center gap-2" aria-label="Pagination">
+      <nav class="mt-6 flex items-center justify-center gap-2" aria-label={m.problems_pagination()}>
         <button
           class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           type="button"

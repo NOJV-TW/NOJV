@@ -3,7 +3,6 @@
 
   interface Props {
     saving: boolean;
-    /** "" = idle, "saved" = success, "error" = failure, otherwise validation message. */
     saveMessage: string;
     onSave: () => void;
   }

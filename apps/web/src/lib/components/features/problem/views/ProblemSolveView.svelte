@@ -13,15 +13,11 @@
 
   export interface ProblemSolveSibling {
     id: string;
-    /** Display letter, e.g. "A", "B", "C" — assigned by the loader. */
     letter: string;
     title: string;
-    /** Best score the current user has achieved on this sibling. */
     bestScore?: number | undefined;
     maxScore: number;
-    /** Whether this row is the problem currently being solved. */
     isActive: boolean;
-    /** Where clicking the row should navigate. */
     href: string;
   }
 
@@ -35,7 +31,6 @@
   }
 
   interface Props {
-    // `mode` is a UI hint ONLY — it MUST NOT be used as a security boundary; the loader owns all data scoping.
     mode: "practice" | "exam";
     problem: ProblemDetail;
     submissions?: ProblemSubmissionEntry[];
@@ -49,22 +44,13 @@
       | undefined;
     endedKind?: "assignment" | "exam" | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
-    /** Whether the viewer may rejudge submissions in this context. */
     canRejudge?: boolean;
-    /**
-     * Server-computed editorial visibility — true when the viewer has AC
-     * OR has authored an editorial. Grandfathers authors past a rejudge
-     * that overturns AC, which the client-side `hasAc` derive cannot.
-     */
     canViewEditorials?: boolean;
+    editorialsEnabled?: boolean;
     contestId?: string | undefined;
-    /** Virtual-contest re-run id — tags submissions for the personal scoreboard. */
     virtualContestId?: string | undefined;
-    /** Assignment-only daily submission quota shown in the problem header. */
     dailyAttempts?: { used: number; max: number | null } | undefined;
-    /** Siblings in the same contest/exam/assignment. Renders a float drawer. */
     siblingProblems?: ProblemSolveSibling[] | undefined;
-    /** Exam-only context, consumed by the route-level page chrome. */
     examContext?: ProblemSolveExamContext | undefined;
   }
 
@@ -79,6 +65,7 @@
     backLink,
     canRejudge = false,
     canViewEditorials = false,
+    editorialsEnabled = false,
     contestId,
     virtualContestId,
     dailyAttempts,
@@ -103,15 +90,12 @@
   );
 </script>
 
-<!-- Mobile (< md): the Monaco editor + submit form are hidden behind a
-     blocker. Statement remains accessible via the blocker's fullscreen
-     viewer. Server-side IP/page-lock checks are unchanged. -->
-<div class="md:hidden">
+<div class="lg:hidden">
   <MobileWorkspaceBlocker {problem} />
 </div>
 
 <div
-  class="hidden h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-xl border border-border shadow-rest md:flex"
+  class="hidden h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-xl border border-border-subtle shadow-rest lg:flex"
 >
   {#if endedNotice}
     <div
@@ -127,7 +111,7 @@
       <ProblemSwitcherDrawer siblings={siblingProblems} {solvedCount} />
     {/if}
 
-    <!-- Main workspace. When siblings exist, leave 24px room on the left for the always-visible trigger bar. -->
+    
     <div class="flex min-h-0 min-w-0 flex-1 {hasSiblings ? 'pl-6' : ''}">
       {#if problem.type === "special_env"}
         <AdvancedModeWorkspace
@@ -136,6 +120,7 @@
           {backLink}
           {canRejudge}
           {canViewEditorials}
+          {editorialsEnabled}
           {contestId}
           {virtualContestId}
           {dailyAttempts}
@@ -151,6 +136,7 @@
           {backLink}
           {canRejudge}
           {canViewEditorials}
+          {editorialsEnabled}
           {contestId}
           {virtualContestId}
           {dailyAttempts}

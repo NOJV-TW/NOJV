@@ -2,7 +2,7 @@
   export interface FilterChipOption {
     value: string;
     label: string;
-    count?: number;
+    count?: number | undefined;
   }
 </script>
 

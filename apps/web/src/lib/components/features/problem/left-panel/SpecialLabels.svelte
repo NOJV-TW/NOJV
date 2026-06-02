@@ -4,19 +4,10 @@
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
 
   interface Props {
-    /** Derived problem type — see @nojv/core's ProblemType. */
     problemType: ProblemType;
-    /** Judge method. Ignored for `problemType === "special_env"`. */
     judgeType: string;
-    /** Optional difficulty level (easy / medium / hard). Shown in the full variant only. */
     difficulty?: string;
-    /** Compact variant (no titles, no tooltips) used in list cards. */
     isCompact?: boolean;
-    /**
-     * Which section(s) to render. Defaults to both. In list layouts the
-     * parent may want to render each as its own grid column, which is what
-     * `"problem-type"` / `"judge-method"` are for.
-     */
     which?: "both" | "problem-type" | "judge-method";
   }
 
@@ -89,10 +80,6 @@
     judgeTypeColor[judgeType] ?? judgeTypeColor["standard"]!
   );
 
-  // Special environment problems do not expose a judging method — the TA's
-  // Docker image owns the entire evaluation loop. The request + eligibility
-  // are ANDed so the parent can't force a judge badge onto a special-env
-  // problem.
   let showJudgeMethod = $derived(
     showJudgeMethodRequested && problemType !== "special_env"
   );

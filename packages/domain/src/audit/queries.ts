@@ -9,10 +9,6 @@ import type { GradableContext } from "../shared/context-window";
 
 export type AuditEventKind = "lifecycle" | "score_override" | "rejudge";
 
-// Source-row types derived from the repo return shapes rather than imported
-// from `generated/prisma/enums` — keeps `detail` field types (e.g. the
-// `action` enums) compile-checked against the DB without the domain layer
-// reaching into generated Prisma artifacts.
 type LifecycleRow = Awaited<ReturnType<typeof assessmentAuditLogRepo.listByAssessment>>[number];
 type ScoreOverrideRow = Awaited<
   ReturnType<typeof scoreOverrideAuditLogRepo.listForContext>
@@ -21,19 +17,16 @@ type RejudgeRow = Awaited<
   ReturnType<typeof submissionRejudgeLogRepo.listForSubmissionIds>
 >[number];
 
-/** Fields common to every audit event regardless of source. */
 interface AuditEventBase {
   at: Date;
   actorUserId: string | null;
 }
 
-/** Assignment lifecycle transition (publish / revert-to-draft / delete-draft). */
 export interface LifecycleAuditEvent extends AuditEventBase {
   kind: "lifecycle";
   detail: { action: LifecycleRow["action"] };
 }
 
-/** Score-override create / update / delete on a student's problem score. */
 export interface ScoreOverrideAuditEvent extends AuditEventBase {
   kind: "score_override";
   detail: {
@@ -47,7 +40,6 @@ export interface ScoreOverrideAuditEvent extends AuditEventBase {
   };
 }
 
-/** A submission rejudge — result-JSON blobs are deliberately omitted. */
 export interface RejudgeAuditEvent extends AuditEventBase {
   kind: "rejudge";
   detail: {
@@ -59,21 +51,8 @@ export interface RejudgeAuditEvent extends AuditEventBase {
   };
 }
 
-/**
- * One normalized row in a context's audit timeline. The three source
- * tables (`AssessmentAuditLog`, `ScoreOverrideAuditLog`,
- * `SubmissionRejudgeLog`) have unrelated shapes — they are flattened
- * into this discriminated union so the timeline UI can `switch` on
- * `kind` with exhaustive, compile-checked `detail` narrowing.
- */
 export type AuditEvent = LifecycleAuditEvent | ScoreOverrideAuditEvent | RejudgeAuditEvent;
 
-/**
- * Read-only merged audit timeline for one gradable context, newest
- * first. Assignments draw from all three sources; exams and contests
- * have no lifecycle audit log, so their timelines omit lifecycle
- * events. Callers are responsible for the staff permission gate.
- */
 export async function listAuditTimelineForContext(
   context: GradableContext,
 ): Promise<AuditEvent[]> {

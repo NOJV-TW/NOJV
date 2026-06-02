@@ -85,7 +85,7 @@
     <BulkHandleAddPanel form={bulkAddForm} />
   {/if}
 
-  <!-- Filter chips + search -->
+  
   <div class="animate-in animate-in-2 flex flex-wrap items-center gap-4">
     <FilterChips
       options={filterOptions}
@@ -107,7 +107,7 @@
     </div>
   </div>
 
-  <!-- Roster -->
+  
   <div class="animate-in animate-in-3">
     {#if filtered.length === 0}
       <div
@@ -194,7 +194,7 @@
                 aria-label={m.members_removeAction()}
                 onclick={() => handleRemove(member.userId, member.name)}
               >
-                <X class="size-4" />
+                <X aria-hidden="true" class="size-4" />
               </button>
             {:else}
               <span></span>

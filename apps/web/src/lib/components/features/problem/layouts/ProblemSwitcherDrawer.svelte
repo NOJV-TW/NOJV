@@ -7,7 +7,6 @@
 
   interface Props {
     siblings: ProblemSolveSibling[];
-    /** Pre-computed count of fully-AC'd siblings. Header shows `solved/total`. */
     solvedCount: number;
   }
 
@@ -68,7 +67,6 @@
 
 <svelte:window onkeydown={onKey} />
 
-<!-- Trigger bar: always-visible 24px sliver on the left edge of the workspace. -->
 <button
   type="button"
   class="group absolute inset-y-0 left-0 z-20 flex w-6 shrink-0 flex-col items-center justify-center gap-2 border-r border-border-subtle bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-muted hover:text-foreground"
@@ -90,7 +88,7 @@
 </button>
 
 {#if open}
-  <!-- Backdrop: dims only the workspace area, not the entire viewport. -->
+  
   <button
     type="button"
     class="absolute inset-0 z-20 cursor-default bg-background/40 backdrop-blur-[1px]"
@@ -99,7 +97,7 @@
     transition:fade={{ duration: 120 }}
   ></button>
 
-  <!-- Drawer panel: slides in from the left, leaves the 24px trigger visible. -->
+  
   <aside
     class="absolute inset-y-0 left-6 z-30 flex w-60 flex-col overflow-hidden border-r border-border bg-card shadow-rest"
     transition:fly={{ x: -240, duration: 200, easing: cubicOut }}

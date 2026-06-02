@@ -10,9 +10,6 @@
 
   let { data } = $props();
 
-  // Seed editor state from `data` once. Re-loads (e.g. after navigating
-  // back from a successful save) hit a fresh component instance, so we
-  // do not need to reactively re-sync.
   let content = $state(untrack(() => data.editorial.content));
   let language = $state<Language>(untrack(() => data.editorial.language));
   let saving = $state(false);

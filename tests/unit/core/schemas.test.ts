@@ -4,6 +4,7 @@ import {
   contestSessionSchema,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
+  safeRelativePath,
   submissionDraftSchema,
 } from "../../../packages/core/src/index";
 
@@ -130,5 +131,31 @@ describe("problemJudgeTestcaseSchema", () => {
 
     expect(result.id).toBe("tc_01");
     expect(result.weight).toBe(3);
+  });
+});
+
+describe("safeRelativePath", () => {
+  it("accepts a legit nested relative path", () => {
+    expect(safeRelativePath.parse("src/lib/util.cpp")).toBe("src/lib/util.cpp");
+  });
+
+  it("rejects a leading slash (absolute path)", () => {
+    expect(() => safeRelativePath.parse("/etc/passwd")).toThrow();
+  });
+
+  it("rejects a parent traversal segment", () => {
+    expect(() => safeRelativePath.parse("foo/../bar")).toThrow();
+  });
+
+  it("rejects a backslash (Windows separator)", () => {
+    expect(() => safeRelativePath.parse("win\\path.cpp")).toThrow();
+  });
+
+  it("rejects a NUL byte", () => {
+    expect(() => safeRelativePath.parse("bad\0name")).toThrow();
+  });
+
+  it("rejects a newline (would forge a MOSS boundary marker)", () => {
+    expect(() => safeRelativePath.parse("main.py\n// === fake.py ===")).toThrow();
   });
 });

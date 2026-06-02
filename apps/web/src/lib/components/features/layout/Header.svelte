@@ -1,12 +1,14 @@
 <script lang="ts">
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import {
     ClipboardList,
     Code2,
     FileCheck,
     GraduationCap,
+    History,
     LayoutDashboard,
+    Menu,
     Shield,
     Trophy
   } from "@lucide/svelte";
@@ -17,11 +19,12 @@
   import { cn } from "$lib/utils/css.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
   import NotificationBell from "../notification/NotificationBell.svelte";
+  import MobileNavDrawer from "./MobileNavDrawer.svelte";
   import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
 
   let currentLocale = $derived(getLocale());
-  let user = $derived($page.data.user);
-  let currentPath = $derived($page.url.pathname);
+  let user = $derived(page.data.user);
+  let currentPath = $derived(page.url.pathname);
 
   type NavItem = { href: string; label: string; icon: Component };
 
@@ -30,6 +33,7 @@
       ? [
           { href: "/dashboard", label: m.navigation_dashboard(), icon: LayoutDashboard },
           { href: "/problems", label: m.navigation_problems(), icon: Code2 },
+          { href: "/submissions", label: m.navigation_submissions(), icon: History },
           { href: "/courses", label: m.navigation_courses(), icon: GraduationCap },
           ...(user.platformRole === "student"
             ? [
@@ -50,7 +54,16 @@
     return currentPath === href || currentPath.startsWith(`${href}/`);
   }
 
-  // Global "g + <key>" navigation shortcuts — only when signed in.
+  let navLinks = $derived(navItems.map((item) => ({ ...item, active: isActive(item.href) })));
+
+  let mobileNavOpen = $state(false);
+
+  // Close the drawer whenever navigation lands on a new path.
+  $effect(() => {
+    void currentPath;
+    mobileNavOpen = false;
+  });
+
   $effect(() => {
     if (!user) return;
 
@@ -99,9 +112,21 @@
 </script>
 
 <header
-  class="sticky top-6 z-[var(--z-sticky)] rounded-xl border border-border bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
+  class="sticky top-6 z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
 >
   <div class="flex flex-wrap items-center gap-6">
+    {#if navItems.length > 0}
+      <button
+        type="button"
+        class="grid size-11 place-items-center rounded-md text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground lg:hidden"
+        aria-label={m.nav_openMenu()}
+        aria-expanded={mobileNavOpen}
+        onclick={() => (mobileNavOpen = true)}
+      >
+        <Menu class="size-5" aria-hidden="true" />
+      </button>
+    {/if}
+
     <a
       class="text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
       href="/"
@@ -110,17 +135,18 @@
     </a>
 
     {#if navItems.length > 0}
-      <nav class="flex flex-wrap items-center gap-2 text-body-sm font-medium">
-        {#each navItems as item (item.href)}
+      <nav class="hidden flex-wrap items-center gap-2 text-body-sm font-medium lg:flex">
+        {#each navLinks as item (item.href)}
           {@const Icon = item.icon}
           <a
             class={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors duration-fast ease-out-soft",
-              isActive(item.href)
+              item.active
                 ? "text-foreground bg-accent/60"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
             )}
             href={item.href}
+            aria-current={item.active ? "page" : undefined}
           >
             <Icon class="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <span>{item.label}</span>
@@ -131,7 +157,9 @@
 
     <div class="ml-auto flex items-center gap-2">
       <div
-        class="hidden items-center gap-1 rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] p-1 text-caption sm:flex"
+        class="flex items-center gap-1 rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] p-1 text-caption"
+        role="group"
+        aria-label={m.common_language()}
       >
         {#each locales as entry (entry)}
           <button
@@ -143,6 +171,7 @@
             )}
             onclick={() => setLocale(entry)}
             type="button"
+            aria-pressed={entry === currentLocale}
           >
             {entry}
           </button>
@@ -156,3 +185,11 @@
     </div>
   </div>
 </header>
+
+{#if navItems.length > 0}
+  <MobileNavDrawer
+    open={mobileNavOpen}
+    items={navLinks}
+    onclose={() => (mobileNavOpen = false)}
+  />
+{/if}

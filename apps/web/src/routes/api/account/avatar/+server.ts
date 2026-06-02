@@ -7,8 +7,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { deleteAvatar, MAX_AVATAR_BYTES, uploadAvatar } from "$lib/server/storage/avatar";
 
-// PUT /api/account/avatar — replace (or create) the caller's avatar from
-// the multipart `file` field. Returns `{ image }` with the new URL.
 export const PUT: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
@@ -17,6 +15,10 @@ export const PUT: RequestHandler = writeApiHandler(async (event) => {
 
   if (!(file instanceof File)) {
     error(400, "No file provided");
+  }
+
+  if (file.type !== "image/webp") {
+    error(400, "Invalid file type. Avatars must be webp.");
   }
 
   if (file.size > MAX_AVATAR_BYTES) {

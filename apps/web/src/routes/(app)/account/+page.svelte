@@ -17,7 +17,6 @@
   let editingName = $state(false);
   let editingUsername = $state(false);
 
-  // Map server-returned error codes to i18n strings. Username/name share most codes.
   function mapCode(code: string): string {
     switch (code) {
       case "VERIFIED_LOCKED":
@@ -157,7 +156,7 @@
                       aria-label={m.account_save()}
                       title={m.account_save()}
                     >
-                      <Check class="h-4 w-4" />
+                      <Check aria-hidden="true" class="h-4 w-4" />
                     </button>
                     <button
                       type="button"
@@ -166,7 +165,7 @@
                       aria-label={m.account_cancel()}
                       title={m.account_cancel()}
                     >
-                      <X class="h-4 w-4" />
+                      <X aria-hidden="true" class="h-4 w-4" />
                     </button>
                   </div>
                   {#if $nameErrors.name}
@@ -185,7 +184,7 @@
                     aria-label={m.account_edit()}
                     title={m.account_edit()}
                   >
-                    <Pencil class="h-3.5 w-3.5" />
+                    <Pencil aria-hidden="true" class="h-3.5 w-3.5" />
                   </button>
                 </div>
               {/if}
@@ -227,7 +226,7 @@
                       aria-label={m.account_save()}
                       title={m.account_save()}
                     >
-                      <Check class="h-4 w-4" />
+                      <Check aria-hidden="true" class="h-4 w-4" />
                     </button>
                     <button
                       type="button"
@@ -236,7 +235,7 @@
                       aria-label={m.account_cancel()}
                       title={m.account_cancel()}
                     >
-                      <X class="h-4 w-4" />
+                      <X aria-hidden="true" class="h-4 w-4" />
                     </button>
                   </div>
                   <p class="text-caption text-muted-foreground">
@@ -264,7 +263,7 @@
                       aria-label={m.account_edit()}
                       title={m.account_edit()}
                     >
-                      <Pencil class="h-3.5 w-3.5" />
+                      <Pencil aria-hidden="true" class="h-3.5 w-3.5" />
                     </button>
                   {/if}
                 </div>

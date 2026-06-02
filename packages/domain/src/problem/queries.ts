@@ -1,15 +1,17 @@
 import {
+  Prisma,
+  problemBookmarkRepo,
   problemRepo,
   problemStatementRepo,
   problemWorkspaceFileRepo,
   submissionRepo,
   testcaseSetRepo,
-  type Prisma,
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
   LANGUAGE_TEMPLATES,
   judgeConfigSchema,
+  judgeTypes,
   problemDifficultySchema,
   type JudgeConfig,
   type JudgeType,
@@ -36,7 +38,6 @@ export interface ProblemDetail {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
-  /** Direct column on Problem; the single source of truth for shape. */
   type: ProblemType;
   samples: { input: string; output: string }[];
   starterByLanguage: Record<string, string>;
@@ -45,15 +46,8 @@ export interface ProblemDetail {
   tags: string[];
   timeLimitMs: number;
   title: string;
-  /**
-   * Number of distinct users who tried this problem (sampleOnly Run
-   * dry-runs excluded). Field name is preserved for backward compat —
-   * UI uses it only as a "any data yet?" guard for the AC rate label.
-   * The matching `acceptanceRate` is solvers / attempters.
-   */
   totalSubmissions: number;
   visibility: ProblemVisibility;
-  // Hidden files ship with `content === ""`; raw hidden content must never leave the server.
   workspaceFiles: {
     language: string;
     path: string;
@@ -81,10 +75,6 @@ function buildProblemSamples(problem: {
     .map((s) => ({ input: s.input, output: s.output }));
 }
 
-// full_source: always ships system templates — workspace files are ignored
-// even if DB residue exists (defense-in-depth against pre-migration rows).
-// multi_file: editable workspace files override the system template per language.
-// special_env: not reached for the student editor flow; return system defaults.
 export function buildStarterByLanguage(
   type: ProblemType,
   workspaceFiles: {
@@ -152,12 +142,6 @@ async function mapPersistedProblemDetail(
     type: "standard",
   };
 
-  // SECURITY: hidden workspace files are kept in the list so the client can
-  // render their metadata (path, language, description) but their `content`
-  // is blanked out. Raw hidden content must never leave the server — the
-  // judge pipeline reads it from S3 directly at judging time. We only fetch
-  // S3 content for non-hidden files, so we never even touch the bytes for
-  // hidden ones in this code path.
   const rawFiles = problem.workspaceFiles ?? [];
   const visibleWorkspaceFiles = await Promise.all(
     rawFiles.map(async (f) => {
@@ -203,6 +187,8 @@ async function mapPersistedProblemDetail(
   };
 }
 
+export type ProblemStatusFilter = "solved" | "attempted" | "untried" | "bookmarked";
+
 export interface ProblemListParams {
   difficulty?: string | undefined;
   page?: number | undefined;
@@ -210,6 +196,9 @@ export interface ProblemListParams {
   q?: string | undefined;
   sort?: "asc" | "desc" | undefined;
   tags?: string[] | undefined;
+  types?: ProblemType[] | undefined;
+  judgeMethods?: JudgeType[] | undefined;
+  status?: ProblemStatusFilter | undefined;
   userId?: string | null | undefined;
 }
 
@@ -217,6 +206,7 @@ export type ProblemUserStatus = "ac" | "attempted" | null;
 
 export interface ProblemCardWithStatus {
   acceptanceRate: number;
+  bookmarked: boolean;
   difficulty: ProblemDifficulty;
   displayId: number;
   id: string;
@@ -228,11 +218,20 @@ export interface ProblemCardWithStatus {
   totalSubmissions: number;
 }
 
+export interface ProblemStatusCounts {
+  all: number;
+  solved: number;
+  attempted: number;
+  untried: number;
+  bookmarked: number;
+}
+
 export interface ProblemListResult {
   page: number;
   pageSize: number;
   problems: ProblemCardWithStatus[];
   totalCount: number;
+  statusCounts: ProblemStatusCounts | null;
 }
 
 export async function listProblemCards(
@@ -243,8 +242,6 @@ export async function listProblemCards(
 
   const where: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
 
-  // Full-text search via GIN index; fall back to LIKE only when FTS has zero
-  // hits (e.g. partial-word queries the tsvector tokenizer drops).
   if (params.q && params.q.trim().length > 0) {
     const q = params.q.trim();
     const matchingRows = await problemStatementRepo.fullTextSearch(q);
@@ -255,7 +252,6 @@ export async function listProblemCards(
     where.id = { in: [...new Set(matchedIds)] };
   }
 
-  // Difficulty filter — now a dedicated column.
   if (params.difficulty && params.difficulty !== "all") {
     const parsed = problemDifficultySchema.safeParse(params.difficulty);
     if (parsed.success) where.difficulty = parsed.data;
@@ -265,7 +261,51 @@ export async function listProblemCards(
     where.tags = { hasEvery: params.tags };
   }
 
-  const [totalCount, persistedProblems] = await Promise.all([
+  const and: Prisma.ProblemWhereInput[] = [];
+
+  if (params.types && params.types.length > 0) {
+    where.type = { in: params.types };
+  }
+
+  if (
+    params.judgeMethods &&
+    params.judgeMethods.length > 0 &&
+    params.judgeMethods.length < judgeTypes.length
+  ) {
+    const or: Prisma.ProblemWhereInput[] = [];
+    for (const jm of params.judgeMethods) {
+      if (jm === "standard") {
+        or.push({ judgeConfig: { equals: Prisma.DbNull } });
+        or.push({ judgeConfig: { path: ["type"], equals: "standard" } });
+      } else {
+        or.push({ judgeConfig: { path: ["type"], equals: jm } });
+      }
+    }
+    and.push({ type: { not: "special_env" } });
+    and.push({ OR: or });
+  }
+
+  if (params.userId && params.status) {
+    const uid = params.userId;
+    if (params.status === "solved") {
+      and.push({
+        submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } },
+      });
+    } else if (params.status === "attempted") {
+      and.push({ submissions: { some: { userId: uid, sampleOnly: false } } });
+      and.push({
+        submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } },
+      });
+    } else if (params.status === "untried") {
+      and.push({ submissions: { none: { userId: uid, sampleOnly: false } } });
+    } else {
+      and.push({ bookmarks: { some: { userId: uid } } });
+    }
+  }
+
+  if (and.length > 0) where.AND = and;
+
+  const [totalCount, persistedProblems, statusCounts] = await Promise.all([
     problemRepo.count(where),
     problemRepo.listWithCounts({
       where,
@@ -273,18 +313,19 @@ export async function listProblemCards(
       take: pageSize,
       sort: params.sort,
     }),
+    computeStatusCounts(params.userId),
   ]);
 
   const problemIds = persistedProblems.map((p) => p.id);
 
-  // Batch-fetch user-based stats + per-user status in parallel. AC rate is
-  // people-based (distinct solvers / distinct attempters) so a single
-  // student spamming the same problem can't tilt it.
-  const [userStats, userSubmissions] = await Promise.all([
+  const [userStats, userSubmissions, bookmarkedIds] = await Promise.all([
     submissionRepo.countUserStatsByProblem(problemIds),
     params.userId && problemIds.length > 0
       ? submissionRepo.groupByProblemAndStatus(params.userId, problemIds)
       : [],
+    params.userId
+      ? problemBookmarkRepo.listBookmarkedIds(params.userId, problemIds)
+      : new Set<string>(),
   ]);
 
   const statsByProblemId = new Map(
@@ -310,6 +351,7 @@ export async function listProblemCards(
     };
     return {
       acceptanceRate: attempters > 0 ? solvers / attempters : 0,
+      bookmarked: bookmarkedIds.has(problem.id),
       difficulty: problem.difficulty,
       displayId: problem.displayId,
       id: problem.id,
@@ -322,7 +364,30 @@ export async function listProblemCards(
     };
   });
 
-  return { page, pageSize, problems, totalCount };
+  return { page, pageSize, problems, totalCount, statusCounts };
+}
+
+async function computeStatusCounts(
+  userId: string | null | undefined,
+): Promise<ProblemStatusCounts | null> {
+  if (!userId) return null;
+  const base: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
+  const [all, solved, attempted, bookmarked] = await Promise.all([
+    problemRepo.count(base),
+    problemRepo.count({
+      ...base,
+      submissions: { some: { userId, sampleOnly: false, status: "accepted" } },
+    }),
+    problemRepo.count({
+      ...base,
+      AND: [
+        { submissions: { some: { userId, sampleOnly: false } } },
+        { submissions: { none: { userId, sampleOnly: false, status: "accepted" } } },
+      ],
+    }),
+    problemRepo.count({ ...base, bookmarks: { some: { userId } } }),
+  ]);
+  return { all, solved, attempted, untried: all - solved - attempted, bookmarked };
 }
 
 export async function listEditableProblems(userId: string, sort: "asc" | "desc" = "asc") {

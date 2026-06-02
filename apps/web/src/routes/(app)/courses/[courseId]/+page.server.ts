@@ -68,7 +68,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   };
 });
 
-// Re-derive manager status server-side per action — never trust loader output.
 async function assertCourseManager(
   userId: string,
   platformRole: PlatformRole,
@@ -116,8 +115,6 @@ export const actions = {
         title,
         content,
         pinned: readCheckbox(formData, "pinned"),
-        // Course announcements always go live and target the whole class —
-        // platform-level audience/draft semantics don't apply here.
         published: true,
         audience: "all",
         expiresAt: readExpiresAt(formData),
@@ -151,7 +148,6 @@ export const actions = {
       return fail(400, { error: "ID, title, and content are required." });
     }
 
-    // Forbid moving an announcement between courses through this endpoint.
     const existing = await getAnnouncementById(id);
     if (existing?.courseId !== courseId) {
       return fail(404, { error: "Announcement not found in this course." });

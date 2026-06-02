@@ -5,7 +5,6 @@
 	import { buttonVariants, type ButtonSize, type ButtonVariant } from "./button.svelte";
 
 	export type LinkButtonProps = WithElementRef<HTMLAnchorAttributes, HTMLAnchorElement> & {
-		/** Destination URL — required for link-styled buttons. */
 		href: string;
 		variant?: ButtonVariant;
 		size?: ButtonSize;

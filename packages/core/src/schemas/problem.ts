@@ -10,9 +10,9 @@ import {
 } from "../types";
 
 import { judgeConfigSchema } from "./judge-config";
+import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
 
-// 16 MB cap on blob-backed fields: API payload safety, not a storage bound.
 const BLOB_FIELD_MAX_BYTES = 16 * 1024 * 1024;
 
 export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
@@ -35,13 +35,7 @@ export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySche
 
 export const problemWorkspaceFileSchema = z.object({
   language: languageSchema,
-  path: z
-    .string()
-    .min(1)
-    .max(500)
-    .refine((p) => !p.startsWith("/") && !p.includes(".."), {
-      message: "path must be relative and must not contain ..",
-    }),
+  path: safeRelativePath,
   content: z.string().max(BLOB_FIELD_MAX_BYTES),
   visibility: workspaceFileVisibilitySchema,
   description: z.string().max(5_000).default(""),
@@ -70,8 +64,6 @@ export function entryFileNameFor(language: Language): string {
   return `${ENTRY_FILE_BASENAME}.${languageExtension(language)}`;
 }
 
-// Separate from `problemCreateSchema` so `problemUpdateSchema` can `.partial()` it;
-// the special_env/image-config refine runs only on create and in the mutation layer.
 const problemCreateObjectSchema = z.object({
   difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().min(1, "validation_required").max(4_000, "validation_tooLong"),
@@ -94,7 +86,6 @@ const problemCreateObjectSchema = z.object({
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
   status: problemStatusSchema.default("draft"),
-  // Sample IO + special_env image config
   samples: problemSamplesSchema.optional(),
   advancedImageRef: z.string().max(500).optional(),
   advancedImageSource: problemImageSourceSchema.optional(),
@@ -122,7 +113,6 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
       });
     }
   } else {
-    // Non-special_env must NOT carry image config.
     if (hasImageRef) {
       ctx.addIssue({
         code: "custom",

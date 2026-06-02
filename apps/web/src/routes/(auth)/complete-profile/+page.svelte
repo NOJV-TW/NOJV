@@ -18,34 +18,19 @@
   let error = $state("");
   let loading = $state(false);
 
-  // School flow state
   let schoolEmail = $state("");
   let emailSent = $state(false);
   let cooldown = $state(0);
   let verified = $state(false);
 
-  // Countdown timer for resend cooldown
   $effect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => (cooldown -= 1), 1000);
     return () => clearTimeout(timer);
   });
 
-  // General flow state
   let username = $state("");
 
-  /**
-   * Wait for verification after the email is sent. Two strategies run in
-   * parallel:
-   *   1. BroadcastChannel — fast path when the verification link opens in
-   *      the same browser. Fires instantly, shows the success state, then
-   *      navigates home.
-   *   2. invalidateAll() polling — fallback when the user opens the link
-   *      on another device, another browser, or in private mode (where
-   *      BroadcastChannel is scoped away). Each invalidation re-runs the
-   *      server load; once `locals.sessionUser.username` is set, the load
-   *      itself redirects to "/".
-   */
   const POLL_INTERVAL_MS = 3000;
 
   $effect(() => {
@@ -68,10 +53,6 @@
     };
   });
 
-  // Once we know the user is verified (via BroadcastChannel), show the
-  // success state for a beat and then navigate home. The polling path
-  // reaches home via the server load's own redirect, so no client nav
-  // is needed there.
   $effect(() => {
     if (!verified) return;
     const timer = setTimeout(async () => {
@@ -143,7 +124,7 @@
           {m.onboarding_subtitle()}
         </p>
         <button
-          class="group rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
+          class="group rounded-sm border border-border-subtle-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
           onclick={() => (mode = "school")}
           type="button"
         >
@@ -153,7 +134,7 @@
           </p>
         </button>
         <button
-          class="group rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
+          class="group rounded-sm border border-border-subtle-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
           onclick={() => (mode = "general")}
           type="button"
         >

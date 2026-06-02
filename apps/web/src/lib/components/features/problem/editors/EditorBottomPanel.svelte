@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { SubmissionResult } from "@nojv/core";
-  import { Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { formatTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
 
   interface RunCase {
     input: string;
@@ -11,41 +9,13 @@
   }
 
   interface Props {
-    /**
-     * Bindable: the parent (Editor.svelte) owns this array so the Run
-     * handler can read exactly what the student typed into the panel.
-     * The parent seeds it from `problem.samples` on first render.
-     */
     runCases: RunCase[];
-    /**
-     * When `true`, the Testcase tab hides its editing UI and shows a
-     * read-only notice instead. Used for `special_env` problems where
-     * the TA image owns the testcase format and a generic stdin panel
-     * would be misleading.
-     */
     isReadOnly?: boolean;
-    /** Active tab — bound so the parent can flip to "result" when a run starts. */
     tab: "testcase" | "result";
-    /** Final verdict from the most recent Run invocation, if any. */
     runResult: SubmissionResult | null;
-    /** Transient status string while a run is in flight (e.g. "running"). */
     runStatus: string | null;
-    /** Surfaced error message from the last Run / Submit failure. */
     runError: string | null;
-    /** Fires when the user clicks a tab. */
     ontabchange: (tab: "testcase" | "result") => void;
-    /**
-     * When true, render the draft status chip + clear button in the tab
-     * strip. Caller (Editor.svelte) passes false in workspace mode where
-     * the draft key has no path dimension.
-     */
-    draftEnabled?: boolean;
-    /** Current language buffer differs from the last persisted draft. */
-    isDirty?: boolean;
-    /** Epoch ms of the last successful save for the current language. */
-    lastSavedAt?: number | null;
-    /** Fires when the user clicks the trash icon. */
-    onClearDraft?: (() => void) | undefined;
   }
 
   let {
@@ -55,26 +25,29 @@
     runResult,
     runStatus,
     runError,
-    ontabchange,
-    draftEnabled = false,
-    isDirty = false,
-    lastSavedAt = null,
-    onClearDraft
+    ontabchange
   }: Props = $props();
 
-  function formatSavedTime(ms: number): string {
-    return formatTime(ms, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
+  const uid = $props.id();
+
+  function onBottomTabKeydown(e: KeyboardEvent) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const target: "testcase" | "result" =
+      e.key === "Home"
+        ? "testcase"
+        : e.key === "End"
+          ? "result"
+          : tab === "testcase"
+            ? "result"
+            : "testcase";
+    ontabchange(target);
+    document.getElementById(`${uid}-btab-${target}`)?.focus();
   }
 
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
 
-  // Reset the result-case cursor whenever a new run lands so the result
-  // tab opens on the first case.
   $effect(() => {
     void runResult;
     selectedResultCase = 0;
@@ -87,54 +60,48 @@
 
 <div class="flex h-full flex-col">
   <div class="flex items-center border-b border-border-subtle px-2">
-    <button
-      class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab === 'testcase'
-        ? 'border-b-2 border-foreground text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => ontabchange("testcase")}
-      type="button"
-    >
-      {m.editor_testcase()}
-    </button>
-    <button
-      class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab === 'result'
-        ? 'border-b-2 border-foreground text-foreground'
-        : 'text-muted-foreground hover:text-foreground'}"
-      onclick={() => ontabchange("result")}
-      type="button"
-    >
-      {m.editor_testResult()}
-    </button>
-    {#if draftEnabled}
-      <div class="ml-auto flex items-center gap-2 pr-2">
-        {#if lastSavedAt == null && !isDirty}
-          <span class="text-caption text-muted-foreground/70">{m.draft_none()}</span>
-        {:else if isDirty}
-          <span class="flex items-center gap-1 text-caption font-medium text-amber-500">
-            <span class="inline-block size-1.5 animate-pulse rounded-full bg-amber-500"></span>
-            {m.draft_unsaved()}
-          </span>
-        {:else if lastSavedAt != null}
-          <span class="text-caption text-muted-foreground tabular-nums">
-            {m.draft_lastSavedAt({ time: formatSavedTime(lastSavedAt) })}
-          </span>
-        {/if}
-        {#if lastSavedAt != null || isDirty}
-          <button
-            aria-label={m.draft_clearAction()}
-            class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
-            onclick={() => onClearDraft?.()}
-            title={m.draft_clearAction()}
-            type="button"
-          >
-            <Trash2 class="h-3.5 w-3.5" />
-          </button>
-        {/if}
-      </div>
-    {/if}
+    <div role="tablist" aria-label={m.editor_bottomTabsLabel()} class="flex items-center">
+      <button
+        id={`${uid}-btab-testcase`}
+        role="tab"
+        aria-selected={tab === "testcase"}
+        aria-controls={`${uid}-bpanel`}
+        tabindex={tab === "testcase" ? 0 : -1}
+        class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab ===
+        'testcase'
+          ? 'border-b-2 border-foreground text-foreground'
+          : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => ontabchange("testcase")}
+        onkeydown={onBottomTabKeydown}
+        type="button"
+      >
+        {m.editor_testcase()}
+      </button>
+      <button
+        id={`${uid}-btab-result`}
+        role="tab"
+        aria-selected={tab === "result"}
+        aria-controls={`${uid}-bpanel`}
+        tabindex={tab === "result" ? 0 : -1}
+        class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab ===
+        'result'
+          ? 'border-b-2 border-foreground text-foreground'
+          : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => ontabchange("result")}
+        onkeydown={onBottomTabKeydown}
+        type="button"
+      >
+        {m.editor_testResult()}
+      </button>
+    </div>
   </div>
 
-  <div class="flex-1 overflow-y-auto px-4 py-3">
+  <div
+    id={`${uid}-bpanel`}
+    role="tabpanel"
+    aria-labelledby={`${uid}-btab-${tab}`}
+    class="flex-1 overflow-y-auto px-4 py-3 focus-visible:outline-none"
+  >
     {#if tab === "testcase"}
       {#if isReadOnly}
         <p class="py-4 text-body-sm text-muted-foreground">
@@ -144,31 +111,33 @@
       <div>
         <div class="flex items-center gap-1">
           {#each runCases as _, index (`tab-${index}`)}
-            <button
-              class="group relative rounded-md px-3 py-1 text-caption font-medium transition-[background-color,color] duration-fast ease-out-soft {selectedCase ===
+            <div
+              class="group flex items-center rounded-md transition-[background-color] duration-fast ease-out-soft {selectedCase ===
               index
                 ? 'bg-muted text-foreground'
-                : 'text-muted-foreground hover:text-foreground'}"
-              onclick={() => (selectedCase = index)}
-              type="button"
+                : 'text-muted-foreground'}"
             >
-              {m.editor_case({ index: index + 1 })}
+              <button
+                class="rounded-md px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
+                onclick={() => (selectedCase = index)}
+                type="button"
+              >
+                {m.editor_case({ index: index + 1 })}
+              </button>
               {#if runCases.length > 1}
-                <span
-                  class="ml-1.5 hidden text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive group-hover:inline"
-                  role="button"
-                  tabindex="-1"
-                  onclick={(e: MouseEvent) => {
-                    e.stopPropagation();
+                <button
+                  class="mr-1 rounded text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                  type="button"
+                  aria-label={m.editor_removeCase({ index: index + 1 })}
+                  onclick={() => {
                     runCases = runCases.filter((_, i) => i !== index);
                     selectedCase = Math.min(selectedCase, runCases.length - 1);
                   }}
-                  onkeydown={() => {}}
                 >
                   &times;
-                </span>
+                </button>
               {/if}
-            </button>
+            </div>
           {/each}
           <button
             class="rounded-md px-2 py-1 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
@@ -218,10 +187,7 @@
         {#if runResult}
           <div>
             <div class="flex items-baseline gap-3">
-              <span
-                class="text-body-lg font-semibold {verdictColor[runResult.verdict] ??
-                  'text-foreground'}"
-              >
+              <span class="text-body-lg font-semibold {verdictTone(runResult.verdict)}">
                 {runVerdictLabel}
               </span>
               {#if runResult.runtimeMs > 0}
@@ -242,8 +208,8 @@
                     onclick={() => (selectedResultCase = index)}
                     type="button"
                   >
-                    <span class={cr.passed ? "text-success" : "text-destructive"}>
-                      {cr.passed ? "\u2714" : "\u2718"}
+                    <span class={cr.verdict === "AC" ? "text-success" : "text-destructive"}>
+                      {cr.verdict === "AC" ? "\u2714" : "\u2718"}
                     </span>
                     {m.editor_case({ index: index + 1 })}
                   </button>
@@ -264,11 +230,11 @@
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">{m.editor_outputLabel()}</p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || m.common_emptyOutput()}</pre>
                   </div>
                   {#if caseData.stderr}
                     <div>
-                      <p class="text-caption font-medium text-destructive">Stderr</p>
+                      <p class="text-caption font-medium text-destructive">{m.submissionDetail_stderr()}</p>
                       <pre
                         class="mt-1 overflow-x-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{caseData.stderr}</pre>
                     </div>

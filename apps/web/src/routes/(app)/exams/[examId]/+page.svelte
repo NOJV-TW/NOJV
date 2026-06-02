@@ -28,7 +28,6 @@
   const detail = $derived(data.detail);
   const isManager = $derived(data.isManager);
 
-  // Re-tick every second so countdown / live-status flips don't need a reload.
   let nowMs = $state(Date.now());
   $effect(() => {
     const id = setInterval(() => {
@@ -60,29 +59,12 @@
     return "ended";
   }
 
-  // Code stub — domain doesn't expose a short code, so derive one
-  // from the exam id (last 6 chars) so the UI still has the
-  // "EX-xxxxxx" eyebrow the design specifies.
   const examCode = $derived(`EX-${detail.id.slice(-6).toUpperCase()}`);
 
-  // Difficulty domain enum → DifficultyTick prop (PascalCase).
-  function difficultyLevel(d: "easy" | "medium" | "hard"): "Easy" | "Medium" | "Hard" {
-    if (d === "easy") return "Easy";
-    if (d === "hard") return "Hard";
-    return "Medium";
-  }
-
-  // Allowed languages — only the manager payload knows them; for
-  // students we fall back to a sensible default list so the pre-exam
-  // rules card has something to render.
   const allowedLanguages = $derived(
     detail.manager?.allowedLanguages ?? ["cpp17", "python311", "java17"]
   );
 
-  // Static rules — domain doesn't expose author-authored rules. Use
-  // a derived list that reflects the actual proctoring config so the
-  // student sees what's actually enforced, plus a few generic exam
-  // hygiene rules.
   const rules = $derived.by(() => {
     const list: string[] = [
       m.examDetail_ruleProctorTabSwitch(),
@@ -106,10 +88,8 @@
     return list;
   });
 
-  // Modal state for the pre-exam "start" CTA.
   let showStartModal = $state(false);
 
-  // Manager sub-tabs.
   type SubTab =
     | "problems"
     | "submissions"
@@ -125,8 +105,6 @@
     detail.problems.map((p) => ({ id: p.id, title: p.title }))
   );
 
-  // Grading feedback keyed by problem — empty until the exam ends (the
-  // loader's domain call is close-gated). Students only.
   const feedbackByProblem = $derived(
     new Map((data.feedback ?? []).map((f) => [f.problemId, f.comment]))
   );
@@ -146,7 +124,6 @@
     detail.problems.map((p) => ({ id: p.id, title: p.title }))
   );
 
-  // ReviewRow tint by viewer outcome (for past-exam problem list).
   function rowTint(state: "ac" | "partial" | "zero" | "empty" | null): string {
     if (state === "ac") return "bg-success/[0.06]";
     if (state === "partial")
@@ -157,10 +134,10 @@
 
 <div class="space-y-6 pb-20 fade-up">
   <Crumbs
-    items={[{ label: "exam", href: "/exams" }, { label: examCode }]}
+    items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]}
   />
 
-  <!-- Hero — bordered "official" block with corner crosshairs + dot grid -->
+  
   <div
     class="relative overflow-hidden rounded-xl border-2 shadow-rest"
     style="border-color: var(--border); background: var(--panel);"
@@ -207,7 +184,7 @@
           {/if}
         </div>
 
-        <!-- Big-clock side -->
+        
         <div
           class="min-w-[260px] rounded-lg border border-dashed p-3"
           style="border-color: var(--border-strong);"
@@ -257,10 +234,10 @@
     </div>
   {/if}
 
-  <!-- ─── STUDENT / NON-MANAGER VIEW ─── -->
+  
   {#if !isManager}
     {#if past}
-      <!-- Compact rules note + past problem list (assignment-style). -->
+      
       <GlassPanel class="p-5">
         <div class="mb-2 flex items-center justify-between">
           <div
@@ -313,7 +290,7 @@
               <div>
                 <div class="font-medium">{p.title}</div>
                 <div class="mt-1 flex items-center gap-3">
-                  <DifficultyTick level={difficultyLevel(p.difficulty)} />
+                  <DifficultyTick level={p.difficulty} />
                 </div>
               </div>
               <div class="hidden sm:block">
@@ -351,7 +328,7 @@
                 class="inline-flex items-center gap-1 font-mono text-caption uppercase tracking-wider text-muted-foreground"
               >
                 {m.examDetail_problemPreview()}
-                <ChevronRight class="size-3.5" />
+                <ChevronRight aria-hidden="true" class="size-3.5" />
               </span>
             </a>
             {#if feedbackComment}
@@ -387,9 +364,9 @@
         </GlassPanel>
       {/if}
     {:else}
-      <!-- Pre-exam: rules + action panel. -->
+      
       <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <!-- Rules -->
+        
         <GlassPanel class="p-7">
           <div class="flex items-start justify-between gap-3">
             <h2 class="flex items-center gap-2 text-title font-semibold">
@@ -426,7 +403,7 @@
           </div>
         </GlassPanel>
 
-        <!-- Action panel -->
+        
         <GlassPanel class="flex flex-col gap-4 p-6">
           <div>
             <div
@@ -501,8 +478,8 @@
       {/if}
     {/if}
   {:else}
-    <!-- ─── MANAGER VIEW ─── -->
-    <!-- Compact rules note with edit pencil. -->
+    
+    
     <GlassPanel class="p-5">
       <div class="mb-2 flex items-center justify-between">
         <div
@@ -516,7 +493,7 @@
           onclick={() => (activeSubTabKey = "settings")}
           class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium transition-colors hover:border-border"
         >
-          <Pencil class="size-3" /> {m.examDetail_managerEditButton()}
+          <Pencil aria-hidden="true" class="size-3" /> {m.examDetail_managerEditButton()}
         </button>
       </div>
       <p class="text-body-sm text-muted-foreground">
@@ -540,7 +517,7 @@
       </p>
     </GlassPanel>
 
-    <!-- Quick links -->
+    
     <div class="flex flex-wrap gap-2">
       <button
         type="button"
@@ -573,7 +550,7 @@
       {/if}
     </div>
 
-    <!-- Manager tabs (problems / submissions / settings / clarifications) -->
+    
     <div
       role="tablist"
       aria-label={m.examDetail_subTabsLabel()}
@@ -711,7 +688,7 @@
       <GlassPanel class="p-5">
         <ExamProctoringTab
           violations={data.ipViolations ?? []}
-          activeSessionCount={data.activeSessionCount ?? 0}
+          activeSessions={data.activeSessions ?? []}
         />
       </GlassPanel>
     {:else if activeSubTabKey === "settings" && data.settingsForm}
@@ -741,7 +718,6 @@
   {/if}
 </div>
 
-<!-- Pre-exam start modal -->
 {#if !isManager && !past}
   <ExamStartModal
     open={showStartModal}

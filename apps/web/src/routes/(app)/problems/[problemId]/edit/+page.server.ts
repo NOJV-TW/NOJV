@@ -21,6 +21,7 @@ import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
+import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 import { problemDomain } from "@nojv/domain";
 
 const {
@@ -29,6 +30,8 @@ const {
   listProblemWorkspaceFiles,
   hydrateTestcaseSets,
   hydrateWorkspaceFiles,
+  hydrateValidatorScripts,
+  saveProblemJudgeConfig,
   updateProblemRecord,
   updateProblemWorkspace,
   createProblemTestcaseSetRecord,
@@ -49,8 +52,6 @@ const updateWorkspaceSchema = z.object({
   files: z.array(problemWorkspaceFileSchema).max(50),
 });
 
-// Save payload: the image ref + source plus the time/memory limit columns.
-// Only used when problem.type === "special_env".
 const advancedImageSavePayloadSchema = z.object({
   source: problemImageSourceSchema,
   ref: z.string().min(1).max(500),
@@ -68,12 +69,6 @@ export const load: PageServerLoad = handleLoad(
       redirect(302, `/problems/${params.problemId}`);
     }
 
-    // Ownership gate BEFORE loading testcase I/O or workspace file
-    // content from S3 — actions used to be the only authz layer, but
-    // the load handler itself streams raw testcases + solution-template
-    // file bodies to the client, which should only ever reach the author
-    // or an admin. Without this, any logged-in user could GET this page
-    // for somebody else's problem and exfiltrate hidden testcases.
     const actor = requireAuth({ locals, params } as RequestEvent);
     await problemDomain.assertProblemEditAccess(actor, params.problemId);
 
@@ -83,16 +78,15 @@ export const load: PageServerLoad = handleLoad(
       listProblemWorkspaceFiles(params.problemId),
     ]);
 
-    // Hydrate every testcase + workspace blob from S3 in parallel. The
-    // edit page is not a hot path; the extra round trip is fine.
-    const [testcaseSets, workspaceFiles] = await Promise.all([
+    const [testcaseSets, workspaceFiles, validatorScripts] = await Promise.all([
       hydrateTestcaseSets(rawTestcaseSets),
       hydrateWorkspaceFiles(rawWorkspaceFiles),
+      hydrateValidatorScripts({
+        checkerKey: problem.judgeConfig.checkerKey,
+        interactorKey: problem.judgeConfig.interactorKey,
+      }),
     ]);
 
-    // For special_env problems include advancedImageRef/advancedImageSource so
-    // problemCreateSchema's superRefine passes — BasicInfoTab never binds those
-    // fields but they ride along in $form and get submitted.
     const isAdvanced = problem.type === "special_env";
     const form = await superValidate(
       {
@@ -124,6 +118,7 @@ export const load: PageServerLoad = handleLoad(
       form,
       testcaseSets,
       workspaceFiles,
+      validatorScripts,
       imageConfig: isAdvanced
         ? {
             source: problem.advancedImageSource ?? "registry",
@@ -132,6 +127,7 @@ export const load: PageServerLoad = handleLoad(
             memoryLimitMb: problem.memoryLimitMb,
           }
         : null,
+      advancedModeSupported: isAdvancedModeSupported(),
     };
   },
 );
@@ -152,15 +148,16 @@ function problemEditAction<T>(
   });
 }
 
-// Shared judgeConfig save handler. The edit UI has two tabs (Judge
-// and Scoring) that each POST to a distinct action name, but the
-// server-side work is identical — parse judgeConfigSchema and write
-// it back. Aliasing both action names to one handler removes the
-// copy that previously had to be kept in sync by hand.
 const saveJudgeConfig = problemEditAction(async ({ actor, problemId, event }) => {
   const formData = await event.request.formData();
   const judgeConfig = parseJsonField(formData.get("data"), judgeConfigSchema);
-  await updateProblemRecord(actor, problemId, { judgeConfig });
+  const checkerScript = formData.get("checkerScript");
+  const interactorScript = formData.get("interactorScript");
+  await saveProblemJudgeConfig(actor, problemId, {
+    judgeConfig,
+    ...(typeof checkerScript === "string" ? { checkerScript } : {}),
+    ...(typeof interactorScript === "string" ? { interactorScript } : {}),
+  });
   return { success: true };
 });
 
@@ -253,13 +250,12 @@ export const actions: Actions = {
     redirect(302, "/problems?tab=mine");
   }),
 
-  // Convert a Standard Mode problem to Advanced Mode. This is
-  // intentionally destructive — workspace files, testcase sets, samples,
-  // and judge config are discarded. Requires an explicit `confirm=yes`
-  // field on the POST body to guard against accidental submissions.
-  // The same /edit route renders the advanced layout when problem.type
-  // becomes "special_env", so we just reload the same URL after converting.
   convertToAdvanced: problemEditAction(async ({ actor, problemId, event }) => {
+    if (!isAdvancedModeSupported()) {
+      return fail(400, {
+        message: "Advanced-mode problems require the Docker execution backend.",
+      });
+    }
     const formData = await event.request.formData();
     if (formData.get("confirm") !== "yes") {
       return fail(400, { message: "Conversion not confirmed" });

@@ -5,8 +5,15 @@ import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/domain";
+import { submissionResultSchema } from "@nojv/core";
 
-const { getSubmissionForUser } = submissionDomain;
+const { getSubmissionForUser, getVerdictDetail, stripStaffFeedback } = submissionDomain;
+
+function sanitizeVerdictDetail(raw: unknown): unknown {
+  if (raw === null || raw === undefined) return raw;
+  const parsed = submissionResultSchema.safeParse(raw);
+  return parsed.success ? stripStaffFeedback(parsed.data) : raw;
+}
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -20,8 +27,10 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     actor.platformRole === "admin",
   );
 
+  const detail = submission.verdictDetailStorageKey ? await getVerdictDetail(id) : null;
+
   return json({
-    result: submission.verdictDetail,
+    result: sanitizeVerdictDetail(detail),
     status: submission.status,
     submissionId: submission.id,
   });

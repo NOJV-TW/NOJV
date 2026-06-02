@@ -52,11 +52,11 @@ export async function dispatchContestLifecycle(input: ContestLifecycleInput): Pr
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `contest-lifecycle-${input.contestId}`,
+    workflowIdConflictPolicy: "TERMINATE_EXISTING",
     args: [input],
   });
 }
 
-// Workflow id is keyed on `examId`; re-publishing terminates the pending workflow so the new endsAt follows.
 export async function dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void> {
   const client = await getTemporalClient();
 
@@ -74,6 +74,7 @@ export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Prom
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: plagiarismWorkflowId(input.targetType, input.targetId),
+    workflowIdConflictPolicy: "TERMINATE_EXISTING",
     args: [input],
   });
 }

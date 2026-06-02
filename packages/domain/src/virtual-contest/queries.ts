@@ -9,6 +9,8 @@ import {
 
 import { problemLetter } from "../shared/problem-letter";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { fallbackResultForRow, getVerdictDetail } from "../submission/queries";
+import { stripStaffFeedback } from "../submission/scoring";
 import {
   buildScoreboard,
   type ParticipantRow,
@@ -23,12 +25,10 @@ export type VirtualContestStatus = "active" | "finished";
 
 export interface VirtualContestProblem {
   problemId: string;
-  /** Contest-local letter (A, B, ...) derived from the problem's ordinal. */
   letter: string;
   ordinal: number;
   points: number;
   title: string;
-  /** Best score this user has reached on the problem within the virtual run. */
   bestScore: number;
   solved: boolean;
 }
@@ -50,9 +50,7 @@ export interface VirtualScoreboardRow {
   displayName: string;
   totalScore: number;
   totalPenalty: number;
-  /** True for the viewer's own (live, compute-on-read) row. */
   isMe: boolean;
-  /** True for a static reference row copied from the original contest's final board. */
   isGhost: boolean;
 }
 
@@ -61,21 +59,14 @@ export interface VirtualScoreboard {
   rows: VirtualScoreboardRow[];
 }
 
-/** Time-derived status — v1 has no Temporal workflow, `now` is the source of truth. */
 function statusFor(endsAt: Date, now: Date): VirtualContestStatus {
   return now < endsAt ? "active" : "finished";
 }
 
-/** Two scoreboard rows tie when both score and penalty match. */
 function rowsTied(a: VirtualScoreboardRow, b: VirtualScoreboardRow): boolean {
   return a.totalScore === b.totalScore && a.totalPenalty === b.totalPenalty;
 }
 
-/**
- * Return the viewer's virtual-contest dashboard data, or `null` if they have
- * not started one for this contest. The problem list carries each problem's
- * best score within the virtual run so the dashboard can show solve state.
- */
 // intentional-nullable: "not started" is a normal state — the dashboard route renders the start CTA instead of a 404.
 export async function getVirtualContestForUser(
   contestId: string,
@@ -92,7 +83,6 @@ export async function getVirtualContestForUser(
 
   const problemIds = contest.problems.map((cp) => cp.problem.id);
 
-  // One grouped query — best score per problem scoped to this virtual run.
   const bestRows =
     problemIds.length === 0
       ? []
@@ -134,17 +124,6 @@ export async function getVirtualContestForUser(
   };
 }
 
-/**
- * Compute-on-read virtual scoreboard:
- *  - the viewer's own row is built live from submissions tagged with this
- *    `virtualContestId`, replaying `buildScoreboard` with `startsAt` swapped
- *    for the personal `startedAt` (so penalty times are measured against the
- *    user's own clock);
- *  - the original contest's final standings are appended as static "ghost"
- *    reference rows so the user can see where they would have placed.
- *
- * Returns `null` when the user has no virtual contest for this contest.
- */
 // intentional-nullable: paired with getVirtualContestForUser — a user with no run gets the start CTA, not a 404.
 export async function getVirtualContestScoreboard(
   contestId: string,
@@ -166,8 +145,6 @@ export async function getVirtualContestScoreboard(
     title: cp.problem.title,
   }));
 
-  // Original contest final board → ghost rows. The contest has ended, so the
-  // user-facing scoreboard already reflects the final, unfrozen standings.
   const ghostBoard = await getScoreboard(contestId);
   const ghostRows: VirtualScoreboardRow[] = ghostBoard.entries.map((e) => ({
     rank: e.rank,
@@ -179,7 +156,6 @@ export async function getVirtualContestScoreboard(
     isGhost: true,
   }));
 
-  // Viewer's own live row from virtual-tagged submissions.
   const rawSubs = await submissionRepo.findForVirtualContestScoreboard(virtual.id);
   const submissions: SubmissionRow[] = rawSubs.map((s) => ({
     createdAt: s.createdAt,
@@ -189,8 +165,6 @@ export async function getVirtualContestScoreboard(
     userId: s.userId,
   }));
 
-  // The virtual run has exactly one participant — `startedAt` is the personal
-  // session start so penalty is measured against the user's own clock.
   const participants: ParticipantRow[] = [
     {
       userId,
@@ -229,8 +203,6 @@ export async function getVirtualContestScoreboard(
       }
     : null;
 
-  // Splice the user's row into the ghost ranking by score/penalty so the
-  // dashboard shows their relative position. Lower penalty breaks score ties.
   const rows: VirtualScoreboardRow[] = myRow ? [...ghostRows, myRow] : ghostRows;
   rows.sort((a, b) => {
     if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
@@ -251,17 +223,6 @@ export interface VirtualSubmitGate {
   contestId: string;
 }
 
-/**
- * Submission gate for virtual-contest mode. Given a `virtualContestId` from
- * the submission draft, confirms:
- *  - the row exists and belongs to `userId`;
- *  - the personal timer is still running (`now < endsAt`);
- *  - `problemId` belongs to the original contest the run replays.
- *
- * Throws `NotFoundError` / `ForbiddenError` otherwise. Called inside the
- * submission transaction, mirroring how `ensureContestParticipation` gates
- * real-contest submissions.
- */
 export async function assertCanSubmitToVirtualContest(
   virtualContestId: string,
   userId: string,
@@ -295,12 +256,6 @@ export interface VirtualSubmissionEntry {
   submittedAt: string;
 }
 
-/**
- * The viewer's submission history for one problem, scoped to a virtual run.
- * Mirrors `submissionDomain.listProblemSubmissions` but filters by
- * `virtualContestId` so the solve page only shows the personal re-run's
- * attempts — not the user's live-contest or practice submissions.
- */
 export async function listVirtualContestProblemSubmissions(
   virtualContestId: string,
   userId: string,
@@ -313,9 +268,19 @@ export async function listVirtualContestProblemSubmissions(
     virtualContestId,
   });
 
-  return submissions.map((s) => {
-    submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+  const detailBlobs = await Promise.all(
+    submissions.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  return submissions.map((s, idx) => {
+    const verdict = submissionVerdictSchema.parse(s.status);
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,

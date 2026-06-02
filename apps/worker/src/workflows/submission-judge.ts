@@ -5,19 +5,13 @@ import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
-// Short judge activities are DB-bound and finish quickly; they do not
-// heartbeat, so they must NOT carry a `heartbeatTimeout`.
 const judge = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "5m",
   retry: { maximumAttempts: 3 },
 });
 
-// `executeSandbox` is the long-running step (compile + run every testcase in a
-// sandbox subprocess). It heartbeats on a 15s interval, so a `heartbeatTimeout`
-// lets Temporal detect a wedged sandbox well before the 5m `startToCloseTimeout`;
-// 60s tolerates a few missed beats from GC / slow ticks before failing the attempt.
 const judgeSandbox = proxyActivities<typeof judgeActivities>({
-  startToCloseTimeout: "5m",
+  startToCloseTimeout: "10m",
   heartbeatTimeout: "60s",
   retry: { maximumAttempts: 3 },
 });
@@ -31,12 +25,6 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   let status: SubmissionJudgeStatus = "queued";
   setHandler(getStatusQuery, () => status);
 
-  // When invoked via rejudgeWorkflow, snapshot the pre-rejudge state
-  // before we overwrite it. A null return means the submission no
-  // longer exists (e.g. deleted between dispatch and workflow start);
-  // in that case we skip both the snapshot and the finalize and let
-  // the judge proceed normally — it will fail cleanly if the row is
-  // truly gone.
   let rejudgeLogId: string | null = null;
   if (input.forRejudge) {
     const snap = await judge.snapshotSubmissionForRejudge(
@@ -56,9 +44,6 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
     judgeContext,
   );
 
-  // Inlined: workflow sandbox can't import @nojv/domain (would pull Prisma into
-  // the workflow bundle). Mirrors `submissionDomain.deriveJudgeMode` — kept in
-  // sync by the unit test on `deriveJudgeMode` covering the same condition.
   const mode: "standard" | "advanced" =
     judgeContext.problemType === "special_env" && judgeContext.advanced !== null
       ? "advanced"
@@ -67,6 +52,8 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
 
   if (submission.contestParticipationId) {
     await contest.updateContestScores(submission.contestParticipationId);
+  } else if (submission.examId) {
+    await contest.updateExamScores(submission.examId, submission.userId);
   }
 
   status = "completed";

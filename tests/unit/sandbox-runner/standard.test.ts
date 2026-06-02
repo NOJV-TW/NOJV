@@ -8,41 +8,41 @@
  */
 import { describe, it, expect } from "vitest";
 
-import { compareOutputs } from "../../../apps/sandbox-runner/src/judges/standard.js";
+import { compareStandard } from "@nojv/core";
 
-describe("compareOutputs (canonical normalization)", () => {
+describe("compareStandard (canonical normalization)", () => {
   it("matches identical strings", () => {
-    expect(compareOutputs("hello", "hello")).toBe(true);
+    expect(compareStandard("hello", "hello")).toBe(true);
   });
 
   it("treats CRLF and LF as equivalent", () => {
-    expect(compareOutputs("a\r\nb\r\nc", "a\nb\nc")).toBe(true);
+    expect(compareStandard("a\r\nb\r\nc", "a\nb\nc")).toBe(true);
   });
 
   it("ignores per-line trailing spaces and tabs", () => {
-    expect(compareOutputs("hello   \nworld\t", "hello\nworld")).toBe(true);
+    expect(compareStandard("hello   \nworld\t", "hello\nworld")).toBe(true);
   });
 
   it("ignores trailing blank lines", () => {
-    expect(compareOutputs("hello\n\n\n", "hello")).toBe(true);
-    expect(compareOutputs("hello\nworld\n\n", "hello\nworld")).toBe(true);
+    expect(compareStandard("hello\n\n\n", "hello")).toBe(true);
+    expect(compareStandard("hello\nworld\n\n", "hello\nworld")).toBe(true);
   });
 
   it("rejects genuinely different content", () => {
-    expect(compareOutputs("hello", "world")).toBe(false);
-    expect(compareOutputs("1 2 3", "1 2 4")).toBe(false);
+    expect(compareStandard("hello", "world")).toBe(false);
+    expect(compareStandard("1 2 3", "1 2 4")).toBe(false);
   });
 
   it("is case-sensitive (no more ignore_case mode)", () => {
-    expect(compareOutputs("Hello", "hello")).toBe(false);
+    expect(compareStandard("Hello", "hello")).toBe(false);
   });
 
   it("does not collapse internal whitespace (no more ignore_whitespace mode)", () => {
-    expect(compareOutputs("a  b", "a b")).toBe(false);
-    expect(compareOutputs("a\tb", "a b")).toBe(false);
+    expect(compareStandard("a  b", "a b")).toBe(false);
+    expect(compareStandard("a\tb", "a b")).toBe(false);
   });
 
   it("does not apply float tolerance (no more float mode)", () => {
-    expect(compareOutputs("1.0000001", "1.0")).toBe(false);
+    expect(compareStandard("1.0000001", "1.0")).toBe(false);
   });
 });

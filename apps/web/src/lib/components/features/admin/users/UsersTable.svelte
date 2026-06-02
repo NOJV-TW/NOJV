@@ -59,12 +59,12 @@
       <tr class="border-b border-border-subtle text-left">
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <User class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersUsername()}
+            <User aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersUsername()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <Mail class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersEmail()}
+            <Mail aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersEmail()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">{m.admin_usersName()}</th>
@@ -72,12 +72,12 @@
         <th class="px-5 py-3 font-medium">{m.admin_usersStatus()}</th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <CalendarClock class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersCreated()}
+            <CalendarClock aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersCreated()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <UserCog class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersActions()}
+            <UserCog aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersActions()}
           </span>
         </th>
       </tr>

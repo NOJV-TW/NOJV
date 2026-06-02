@@ -7,13 +7,17 @@ export {
   getSubmissionById,
   getSubmissionDetail,
   getSubmissionForUser,
+  getSubmissionSources,
+  getVerdictDetail,
   listForRejudge,
   listProblemSubmissions,
   listUserSubmissions,
 } from "./queries";
+export type { SubmissionSource } from "@nojv/storage";
 export {
   completeJudge,
   createQueuedSubmissionRecord,
+  deriveVerdictSummary,
   finalizeRejudgeLog,
   snapshotForRejudge,
   updateSubmissionStatus,
@@ -34,7 +38,13 @@ export {
   assertCanOperateOnSubmission,
   assertBatchRejudgeAccess,
 } from "./permissions";
-export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
+export {
+  buildSubtaskResults,
+  mapResult,
+  stripStaffFeedback,
+  verdictMap,
+  type SubtaskResultItem,
+} from "./scoring";
 export {
   dispatchRejudge,
   dispatchSubmissionJudge,

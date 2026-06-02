@@ -21,8 +21,6 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const actor = requireAuth(event);
   const { examId } = event.params;
 
-  // Look up the exam first so we can derive the courseId — same approach
-  // as the id-unified assignment shell.
   const exam = await examDomain.getExamById(examId);
   if (!exam) {
     throw new NotFoundError("Exam not found.");
@@ -32,7 +30,6 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
 
   const course = await getCourseHeaderById(courseId, actor.userId);
   if (!course) {
-    // Course gone under the exam — mask as exam-level 404.
     throw new NotFoundError("Exam not found.");
   }
 
@@ -44,8 +41,6 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const isCourseOwner = course.ownerId === actor.userId;
   const isManager = canManageCourse(effectiveRole) || isCourseOwner;
 
-  // Managers bypass the proctoring gate — they always get the detail
-  // view so they can author / preview before the exam opens.
   if (!isManager) {
     const verdict = await proctoringDomain.checkProctoringGate({
       entityKind: "exam",
@@ -64,17 +59,10 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
           throw new ForbiddenError("This course has been archived.");
         case "ip_whitelist":
         case "ip_binding":
-          // No dedicated IP error page yet — surface as 403 with a
-          // localised message. The hooks-based exam lock is the primary
-          // enforcement path; this branch only fires when a student
-          // navigates in directly.
           error(403, m.examShell_ipBlocked());
           break;
         case "not_started":
         case "ended":
-          // Non-blocking: fall through to detail/problem loaders so the
-          // student can still view the overview and (once ended) see
-          // their own results.
           break;
       }
     }

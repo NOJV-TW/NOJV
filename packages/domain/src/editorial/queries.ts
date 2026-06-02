@@ -1,4 +1,13 @@
-import { editorialRepo, submissionRepo } from "@nojv/db";
+import {
+  assessmentProblemRepo,
+  assessmentRepo,
+  contestProblemRepo,
+  contestRepo,
+  editorialRepo,
+  examProblemRepo,
+  examRepo,
+  submissionRepo,
+} from "@nojv/db";
 
 export async function hasUserAcProblem(userId: string, problemId: string): Promise<boolean> {
   const count = await submissionRepo.count({
@@ -10,23 +19,97 @@ export async function hasUserAcProblem(userId: string, problemId: string): Promi
   return count > 0;
 }
 
-/**
- * Editorial visibility gate. A user may view editorials if they currently
- * have an accepted submission OR they have already authored an editorial
- * for the problem. The second clause grandfathers authors past a rejudge
- * that overturns their AC — losing access to your own editorial would be
- * surprising and breaks the edit flow.
- */
-export async function canViewEditorials(userId: string, problemId: string): Promise<boolean> {
-  const [ac, authored] = await Promise.all([
-    hasUserAcProblem(userId, problemId),
-    editorialRepo.existsForUserProblem(userId, problemId),
-  ]);
-  return ac || authored;
+export type EditorialViewContext =
+  | { kind: "practice" }
+  | { kind: "contest"; contestId: string; now: Date }
+  | { kind: "assignment"; assignmentId: string; now: Date }
+  | { kind: "exam"; examId: string; now: Date };
+
+async function contextGateOpen(context: EditorialViewContext): Promise<boolean> {
+  switch (context.kind) {
+    case "practice":
+      return true;
+    case "contest": {
+      const contest = await contestRepo.findById(context.contestId).catch(() => null);
+      if (!contest) return false;
+      return context.now.getTime() >= contest.endsAt.getTime();
+    }
+    case "assignment": {
+      const assessment = await assessmentRepo
+        .findInfoById(context.assignmentId)
+        .catch(() => null);
+      if (!assessment) return false;
+      return context.now.getTime() >= assessment.closesAt.getTime();
+    }
+    case "exam": {
+      const exam = await examRepo.findById(context.examId).catch(() => null);
+      if (!exam) return false;
+      return context.now.getTime() >= exam.endsAt.getTime();
+    }
+  }
 }
 
-export async function listProblemEditorials(problemId: string) {
-  return editorialRepo.listByProblemId(problemId);
+export async function canViewEditorials(
+  userId: string,
+  problemId: string,
+  context: EditorialViewContext = { kind: "practice" },
+): Promise<boolean> {
+  const authored = await editorialRepo.existsForUserProblem(userId, problemId);
+  if (authored) return true;
+
+  const ac = await hasUserAcProblem(userId, problemId);
+  if (!ac) return false;
+
+  return contextGateOpen(context);
+}
+
+export async function resolveActiveContextForUser(
+  userId: string,
+  problemId: string,
+  now: Date,
+): Promise<EditorialViewContext> {
+  const [contests, assignments, exams] = await Promise.all([
+    contestProblemRepo.findActiveContestsForUser(problemId, userId, now),
+    assessmentProblemRepo.findActiveAssessmentsForUser(problemId, userId, now),
+    examProblemRepo.findActiveExamsForUser(problemId, userId, now),
+  ]);
+
+  const candidates: { context: EditorialViewContext; deadline: number }[] = [];
+  for (const row of contests) {
+    candidates.push({
+      context: { kind: "contest", contestId: row.contest.id, now },
+      deadline: row.contest.endsAt.getTime(),
+    });
+  }
+  for (const row of assignments) {
+    candidates.push({
+      context: { kind: "assignment", assignmentId: row.assessment.id, now },
+      deadline: row.assessment.closesAt.getTime(),
+    });
+  }
+  for (const row of exams) {
+    candidates.push({
+      context: { kind: "exam", examId: row.exam.id, now },
+      deadline: row.exam.endsAt.getTime(),
+    });
+  }
+
+  let strictest: { context: EditorialViewContext; deadline: number } | undefined;
+  for (const candidate of candidates) {
+    if (!strictest || candidate.deadline > strictest.deadline) {
+      strictest = candidate;
+    }
+  }
+  return strictest ? strictest.context : { kind: "practice" };
+}
+
+export async function listProblemEditorials(problemId: string, viewerId: string) {
+  const rows = await editorialRepo.listByProblemId(problemId);
+  return rows.map(({ votes, ...rest }) => ({
+    ...rest,
+    voteScore: votes.reduce((sum, v) => sum + v.value, 0),
+    viewerVote: votes.find((v) => v.userId === viewerId)?.value ?? 0,
+  }));
 }
 
 export interface ListEditorialsPageInput {
@@ -35,10 +118,6 @@ export interface ListEditorialsPageInput {
   pageSize: number;
 }
 
-/**
- * Paginated read for the dedicated editorial list page. Returns the
- * page slice plus the total count so the UI can render page controls.
- */
 export async function listEditorialsPage({
   problemId,
   page,

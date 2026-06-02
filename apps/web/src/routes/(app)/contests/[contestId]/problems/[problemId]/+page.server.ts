@@ -21,11 +21,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       platformRole: actor.platformRole,
     }),
     getProblemPageData(problemId),
-    listProblemSubmissions(actor.userId, problemId),
+    listProblemSubmissions(actor.userId, problemId, { contestId }),
   ]);
 
-  // A manager may preview any problem in the contest even before start.
-  // Non-managers still require the contest to be active.
   const problemsList = contestData.problems ?? [];
   const isContestProblem = problemsList.some((p) => p.id === problemId);
 
@@ -38,16 +36,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       redirect(303, `/contests/${contestId}`);
     }
     if (now > new Date(contestData.endsAt)) {
-      // Contest has ended. Practice-after-close sends the student to the
-      // plain problem page — no scoreboard, no cooldown, no frozen
-      // participation. assertProblemViewAccess on the target route
-      // admits past participants via the historical-participant gate.
       redirect(302, `/problems/${problemId}`);
     }
   }
 
-  // Submissions on this route all live in the same contest context, so
-  // the rejudge authz decision is homogeneous — compute once.
   const canRejudge = await canOperateOnSubmission(actor, {
     id: "",
     userId: actor.userId,

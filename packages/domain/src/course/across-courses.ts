@@ -5,7 +5,6 @@ import {
   aggregateAssignmentMyStatus,
 } from "../shared/list-aggregations";
 
-// No draft filter: drafts are course-internal and only appear inside "all" for managers.
 export type AssignmentsTopStatusFilter = "all" | "open" | "upcoming" | "closed";
 
 export type AssignmentsTopStatus = "draft" | "upcoming" | "open" | "closed";
@@ -16,18 +15,15 @@ export interface AssignmentsTopRow {
   courseTitle: string;
   title: string;
   status: AssignmentsTopStatus;
-  /** ISO strings; both are null only for drafts without a schedule. */
   opensAt: string | null;
   closesAt: string | null;
   problemCount: number;
-  /** Student row only — null for assignments in courses this user manages. */
   myStatus: {
     solved: number;
     total: number;
     score: number;
     totalPoints: number;
   } | null;
-  /** Manager row only — null for assignments in courses this user is enrolled in as a student. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
 }
 
@@ -41,7 +37,6 @@ export interface AssignmentsTopCounts {
 export interface AssignmentsTopResult {
   rows: AssignmentsTopRow[];
   counts: AssignmentsTopCounts;
-  /** True when the user has no active course memberships. */
   hasNoCourses: boolean;
 }
 
@@ -71,7 +66,6 @@ function rankRow(
   closesAt: Date,
   now: Date,
 ): number {
-  // Lower rank = higher priority; matches per-course `rankAssignment` bands.
   if (status === "open") return closesAt.getTime() - now.getTime();
   if (status === "upcoming") return 1_000_000_000_000 + (opensAt.getTime() - now.getTime());
   if (status === "draft") return 2_000_000_000_000;

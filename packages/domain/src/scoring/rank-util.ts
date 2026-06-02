@@ -78,7 +78,6 @@ export function assignRanks(
   }
 }
 
-// Cell is "frozen" when the user has at least one post-freeze submission and `showFrozen` is active.
 export function splitFrozenVisible(
   probSubs: SubmissionRow[],
   frozenAt: Date | null,
@@ -99,7 +98,6 @@ export function splitFrozenVisible(
   return { isFrozen: hasFrozen, visibleSubs };
 }
 
-// IOI reuses `totalPenalty` as `lastImprovementTime` — both sort order rules are identical.
 export function sortByScoreThenPenalty(entries: ScoreboardEntry[]): void {
   entries.sort((a, b) => {
     if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;

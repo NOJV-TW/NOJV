@@ -22,8 +22,8 @@ import {
 import { z } from "zod";
 
 import { scoreboard } from "@nojv/redis";
+import { dispatchContestLifecycle } from "@nojv/temporal";
 
-// Standalone contests only: no courseId, no proctoring, no attempt caps / adjustment rules.
 export const contestFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: z.string().min(1),
@@ -47,6 +47,7 @@ import {
   ValidationError,
 } from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
+import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
 
@@ -69,7 +70,6 @@ async function resolveAndAttachContestProblems(
     }
   }
 
-  // Every allowedLanguage must have an editable main.<ext> on every problem.
   if (allowedLanguages.length > 0) {
     await Promise.all(
       problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
@@ -124,7 +124,6 @@ export async function ensureContestParticipation(
     },
   );
 
-  // Contest has no `maxAttempts`; parameter kept for caller-signature parity.
   void attemptContext;
 
   return { contest, participation };
@@ -163,7 +162,11 @@ export async function checkSubmitCooldown(
 }
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {
-  return runTransaction(async (tx) => {
+  if (!canEditProblem(actor.platformRole)) {
+    throw new ForbiddenError("Only teachers and admins can create contests.");
+  }
+
+  const contest = await runTransaction(async (tx) => {
     const existing = await contestRepo.withTx(tx).findById(payload.id);
 
     if (existing) {
@@ -172,8 +175,6 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     await requireUser(tx, actor.userId);
 
-    // Auto-generate an invite code when one isn't supplied; standalone
-    // contests always need one to share out of band.
     const inviteCode = payload.inviteCode ?? crypto.randomBytes(4).toString("hex");
 
     const contest = await contestRepo.withTx(tx).create({
@@ -201,6 +202,9 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     return contest;
   });
+
+  await dispatchContestLifecycle({ contestId: contest.id });
+  return contest;
 }
 
 export async function updateContestRecord(
@@ -309,6 +313,8 @@ export async function publishContest(actor: ActorContext, contestId: string): Pr
 
     await contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
   });
+
+  await dispatchContestLifecycle({ contestId });
 }
 
 export async function deleteContestDraft(
@@ -327,20 +333,12 @@ export async function deleteContestDraft(
 }
 
 export async function freezeContestBoard(contestId: string): Promise<void> {
-  // The frozen snapshot key gets the same `endsAt`-derived TTL as the
-  // live board so it does not squat memory after the contest ends.
   const contest = await contestRepo.findById(contestId);
   const ttl = contest ? scoreboard.scoreboardTtlForEndsAt(contest.endsAt) : undefined;
   await scoreboard.freezeScoreboard(contestId, ttl);
   await contestRepo.update(contestId, { frozenBoard: true });
 }
 
-/**
- * Called by the Temporal lifecycle workflow when the scheduled end is
- * reached. Unfreezes the scoreboard so the final standings are visible —
- * we no longer toggle visibility, the contest stays `published` and goes
- * read-only purely on `endsAt < now`.
- */
 export async function finalizeContest(contestId: string): Promise<void> {
   await scoreboard.unfreezeScoreboard(contestId);
   await contestRepo.update(contestId, { frozenBoard: false });

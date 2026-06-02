@@ -42,7 +42,7 @@
 </script>
 
 <div class="space-y-6">
-  <section class="rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+  <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <div class="mb-4">
       <p class="text-body-sm font-bold">{m.testcases_hiddenCases()}</p>
       <p class="mt-1 text-caption text-muted-foreground">

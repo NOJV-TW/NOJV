@@ -4,22 +4,10 @@ import { getRedis } from "./connection";
 import { keys } from "./keys";
 import { scoreboardUpdateLatency, type ScoreboardUpdateMode } from "./metrics";
 
-// Fallback TTL when the caller does not pass one (e.g. a write that has
-// no `endsAt` context). Refreshed on every write so active boards stay
-// alive; ended ones expire.
 const SCOREBOARD_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 
-// Floor so an `endsAt`-derived TTL for an already-ended contest still
-// leaves the board readable briefly after a late recompute lands.
 const MIN_SCOREBOARD_TTL_SECONDS = 60 * 60; // 1 hour
 
-/**
- * Derive a Redis TTL from a contest/exam end time: the board lives until
- * `endsAt` plus a grace window so post-mortem viewing works, then expires
- * instead of squatting memory for the full fallback period. Active boards
- * keep refreshing on every submission, so an in-progress contest never
- * actually hits the floor.
- */
 export function scoreboardTtlForEndsAt(
   endsAt: Date,
   graceSeconds = 7 * 24 * 60 * 60,
@@ -37,7 +25,6 @@ async function execPipeline(pipeline: ReturnType<Redis["pipeline"]>): Promise<vo
   }
 }
 
-// Walks an alternating [member, score, member, score, ...] WITHSCORES reply.
 function parseZsetWithScores(raw: string[]): { participationId: string; score: number }[] {
   const entries: { participationId: string; score: number }[] = [];
   for (let i = 0; i + 1 < raw.length; i += 2) {
@@ -67,12 +54,10 @@ export async function updateScoreboard(
         .expire(key, ttlSeconds),
     );
   } finally {
-    // try/finally so failure latency is still recorded — useful for the dashboard.
     scoreboardUpdateLatency.record((performance.now() - startMs) / 1000, { mode });
   }
 }
 
-/** Returns the frozen snapshot if present, otherwise the live board. */
 export async function getScoreboard(
   contestId: string,
   start = 0,
@@ -87,7 +72,6 @@ export async function getScoreboard(
   return parseZsetWithScores(await redis.zrevrange(key, start, stop, "WITHSCORES"));
 }
 
-/** Snapshots live → frozen. Live key keeps updating; `getScoreboard` hides it until unfreeze. */
 export async function freezeScoreboard(
   contestId: string,
   ttlSeconds: number = SCOREBOARD_TTL_SECONDS,
@@ -96,19 +80,8 @@ export async function freezeScoreboard(
   const key = keys.scoreboard(contestId);
   const frozenKey = keys.scoreboardFrozen(contestId);
 
-  // ZRANGE + ZADD instead of ZRANGESTORE to avoid depending on Redis 6.2+.
-  await redis.del(frozenKey);
-  const entries = parseZsetWithScores(await redis.zrange(key, 0, -1, "WITHSCORES"));
-  if (entries.length === 0) return;
-
-  // ZADD takes score-then-member; flatten back from parsed entries.
-  const zaddArgs = entries.flatMap((e) => [e.score.toString(), e.participationId]);
-  await execPipeline(
-    redis
-      .pipeline()
-      .zadd(frozenKey, ...zaddArgs)
-      .expire(frozenKey, ttlSeconds),
-  );
+  await redis.zrangestore(frozenKey, key, 0, -1);
+  await redis.expire(frozenKey, ttlSeconds);
 }
 
 export async function unfreezeScoreboard(contestId: string): Promise<void> {

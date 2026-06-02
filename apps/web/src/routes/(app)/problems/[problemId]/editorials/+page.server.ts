@@ -6,7 +6,7 @@ import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const { getProblemRowById } = problemDomain;
-const { canViewEditorials, listEditorialsPage } = editorialDomain;
+const { canViewEditorials, listEditorialsPage, resolveActiveContextForUser } = editorialDomain;
 
 const PAGE_SIZE = 20;
 
@@ -18,12 +18,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const requestedPage = pageParam ? Number.parseInt(pageParam, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  // Match the AC gate used by the API: problem lookup and visibility check
-  // run in parallel; NotFoundError on the problem takes precedence over the
-  // 403 ForbiddenError on the AC gate.
+  const now = new Date();
+  const context = await resolveActiveContextForUser(actor.userId, problemId, now);
   const [problem, canView] = await Promise.all([
     getProblemRowById(problemId),
-    canViewEditorials(actor.userId, problemId),
+    canViewEditorials(actor.userId, problemId, context),
   ]);
 
   if (!problem) {

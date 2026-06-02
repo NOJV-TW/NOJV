@@ -2,9 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
-    /** First AC time in seconds since contest start. `null` when not solved. */
     firstAcTime: number | null;
-    /** Total wrong attempts before AC (or total wrong attempts when not solved). */
     attempts: number;
     isPending: boolean;
     isFirstBlood: boolean;
@@ -31,8 +29,8 @@
     {#if isFirstBlood}
       <span
         class="absolute -top-1 -right-1 inline-grid place-items-center size-3.5 rounded-full text-[8px] font-bold"
-        style="background: #d4a054; color: white;"
-        title="First Blood"
+        style="background: var(--chart-4); color: white;"
+        title={m.contestDetail_firstBlood()}
       >
         ★
       </span>

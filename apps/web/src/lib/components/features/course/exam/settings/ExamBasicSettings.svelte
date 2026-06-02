@@ -8,11 +8,8 @@
   type Sf = SuperForm<ExamSettingsForm, FormMessage>;
 
   interface Props {
-    /** Live form snapshot from `superForm.form`; bindable so we can two-way the inputs. */
     form: Sf["form"];
-    /** Field-level error map. */
     errors: Sf["errors"];
-    /** Whether basic fields are editable in the current lifecycle phase. */
     editable: boolean;
   }
 
@@ -20,7 +17,7 @@
 </script>
 
 <section
-  class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+  class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
 >
   <h3 class="mb-4 text-title-sm font-medium">
     {m.examDetail_settingsSectionBasic()}

@@ -1,16 +1,3 @@
-/**
- * Generic submissions-matrix builder used by contest/exam/assignment matrix
- * pages. All three contexts share the same cell-state rules:
- *
- *  - If a teacher has filed a score override, it wins (overlay map keyed by
- *    `${userId}::${problemId}`). State derives from the override's value.
- *  - Otherwise fall back to the best-submission score for the cell. Missing
- *    or zero-attempt cells stay `empty`.
- *
- * Per-context callers prepare the inputs (problems, participants, score
- * index, overrides) and call this helper to produce the cells+total tuples.
- */
-
 export type MatrixCellState = "ac" | "partial" | "zero" | "empty";
 
 export interface MatrixProblemColumn {

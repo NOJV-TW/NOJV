@@ -4,12 +4,8 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-// Per-exam cap on retained violation rows. A noisy proctored exam can
-// otherwise accumulate logs without bound — `listByExam` only ever reads
-// the most recent few hundred. Mirrors `NOTIFICATION_RETENTION_PER_USER`.
 export const IP_VIOLATION_RETENTION_PER_EXAM = 2000;
 
-// Prune everything past the retention window for one exam, oldest first.
 async function capExamViolations(tx: TxClient, examId: string): Promise<void> {
   await tx.$executeRaw`
     DELETE FROM "IpViolationLog"
@@ -22,8 +18,6 @@ async function capExamViolations(tx: TxClient, examId: string): Promise<void> {
   `;
 }
 
-// Only exams carry proctoring; every `IpViolationLog` row is tied to an exam.
-// Contests are public CP events with no IP gating, by product design.
 export const ipViolationLogRepo = {
   create(data: Prisma.IpViolationLogUncheckedCreateInput) {
     return prisma.$transaction(async (tx) => {
@@ -44,6 +38,14 @@ export const ipViolationLogRepo = {
     });
   },
 
+  findLastViolationAt(opts: {
+    examId: string;
+    userId: string;
+    violationType: "whitelist" | "binding";
+  }): Promise<Date | null> {
+    return findLastViolationAt(prisma, opts);
+  },
+
   withTx(tx: TxClient) {
     return {
       async create(data: Prisma.IpViolationLogUncheckedCreateInput) {
@@ -51,9 +53,28 @@ export const ipViolationLogRepo = {
         await capExamViolations(tx, data.examId);
         return row;
       },
+      findLastViolationAt(opts: {
+        examId: string;
+        userId: string;
+        violationType: "whitelist" | "binding";
+      }) {
+        return findLastViolationAt(tx, opts);
+      },
     };
   },
 };
+
+async function findLastViolationAt(
+  client: typeof prisma | TxClient,
+  opts: { examId: string; userId: string; violationType: "whitelist" | "binding" },
+): Promise<Date | null> {
+  const row = await client.ipViolationLog.findFirst({
+    where: { examId: opts.examId, userId: opts.userId, violationType: opts.violationType },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  return row?.createdAt ?? null;
+}
 
 export const examParticipationIpRepo = {
   withTx(tx: TxClient) {
@@ -62,6 +83,12 @@ export const examParticipationIpRepo = {
         return tx.examParticipation.update({
           where: { id },
           data: { ipPin: ip },
+        });
+      },
+      clearPinAndExempt(examId: string, userId: string, exemptUntil: Date) {
+        return tx.examParticipation.update({
+          where: { examId_userId: { examId, userId } },
+          data: { ipPin: null, ipGateExemptUntil: exemptUntil },
         });
       },
     };

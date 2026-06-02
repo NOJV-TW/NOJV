@@ -16,8 +16,6 @@
   import WorkspaceSaveBar from "$lib/components/features/problem/workspace/WorkspaceSaveBar.svelte";
   import type { WorkspaceFile } from "$lib/components/features/problem/workspace/WorkspaceFileEditor.svelte";
 
-  // Re-exports preserve the original public type surface so callers don't
-  // need to touch their imports.
   export type { WorkspaceMode };
 
   export interface WorkspaceSectionPayload {
@@ -35,13 +33,10 @@
     initial: WorkspaceSectionPayload;
     ondirtychange?: (dirty: boolean) => void;
     onsave?: (payload: WorkspaceSectionPayload) => Promise<void> | void;
+    onUploadFile?: (file: File, language: Language) => Promise<void>;
   }
 
-  let { initial, ondirtychange, onsave }: Props = $props();
-
-  // The component is a scratchpad seeded from `initial`; once the user starts
-  // editing, external changes to `initial` must not clobber in-progress state.
-  // Wrap every read of `initial` in untrack() to capture a one-shot snapshot.
+  let { initial, ondirtychange, onsave, onUploadFile }: Props = $props();
 
   let timeLimitMs = $state(untrack(() => initial.runtime.timeLimitMs));
   let memoryLimitMb = $state(untrack(() => initial.runtime.memoryLimitMb));
@@ -67,9 +62,6 @@
   );
   let selectedIndex = $state(0);
 
-  // Keep activeLang in sync with allowedLanguages — if the user un-ticks
-  // the current language, fall back to the first available one so the
-  // Files panel doesn't stay pointed at an absent language.
   $effect(() => {
     if (allowedLanguages.length === 0) return;
     if (!allowedLanguages.includes(activeLang)) {
@@ -111,9 +103,6 @@
       orderIndex: files.length
     };
     files = [...files, newFile];
-    // `filesForActiveLang` is a $derived that recomputes on read, so after
-    // the append its length reflects the new file. The appended file is the
-    // last active-lang entry, so its local index is length-1.
     selectedIndex = filesForActiveLang.length - 1;
   }
 
@@ -153,9 +142,6 @@
   });
 
   function validateBeforeSave(): string | null {
-    // Every language that DOES have files needs a well-formed entry
-    // (single editable main.<ext>). Applies in both modes because the
-    // backend mutation enforces the same invariant.
     for (const lang of allowedLanguages) {
       const entryName = entryFileNameFor(lang);
       const langFiles = files.filter((f) => f.language === lang);
@@ -167,7 +153,6 @@
         return m.workspace_mustHaveMainFile({ filename: entryName });
       }
     }
-    // Multi-file adds: every allowed language must actually have an entry.
     if (mode === "multi_file" && missingEntryLanguages.length > 0) {
       return m.admin_workspaceMissingTemplatesBanner({
         languages: missingEntryLanguages.join(", ")
@@ -242,6 +227,7 @@
     onAddFile={addFile}
     onUpdateFile={updateFile}
     onDeleteFile={deleteFile}
+    {onUploadFile}
   />
   <WorkspaceSaveBar {saving} {saveMessage} onSave={() => void handleSave()} />
 </div>

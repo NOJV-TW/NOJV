@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { goto, invalidateAll } from "$app/navigation";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { ChevronDown, Plus } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -16,14 +16,22 @@
     editableProblems: EditableProblemCard[] | null;
     publicResult: ProblemListResult;
     showCreate?: boolean;
+    loggedIn?: boolean;
+    advancedModeSupported?: boolean;
   }
 
-  let { editableProblems, publicResult, showCreate }: Props = $props();
+  let {
+    editableProblems,
+    publicResult,
+    showCreate,
+    loggedIn = false,
+    advancedModeSupported = true,
+  }: Props = $props();
 
   let creating = $state(false);
   let showCreateMenu = $state(false);
 
-  let currentUrl = $derived($page.url);
+  let currentUrl = $derived(page.url);
   let tab = $derived<"public" | "mine">(
     showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public"
   );
@@ -38,8 +46,6 @@
       });
       if (!res.ok) throw new Error("Failed to create problem");
       const body = (await res.json()) as { id: string; mode: "standard" | "advanced" };
-      // Both modes use the same /edit route; the page detects problem.type
-      // and renders either the tabbed standard layout or the advanced sections.
       await goto(`/problems/${body.id}/edit`);
     } finally {
       creating = false;
@@ -113,7 +119,7 @@
         </Button>
         {#if showCreateMenu}
           <div
-            class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border bg-[color:var(--color-panel)] p-2 shadow-hover"
+            class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-hover"
             role="menu"
           >
             <button
@@ -126,16 +132,18 @@
                 {m.problems_createStandardDescription()}
               </span>
             </button>
-            <button
-              class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
-              onclick={() => void handleCreate("advanced")}
-              type="button"
-            >
-              <span class="font-semibold">{m.problems_createAdvancedTitle()}</span>
-              <span class="text-caption text-muted-foreground">
-                {m.problems_createAdvancedDescription()}
-              </span>
-            </button>
+            {#if advancedModeSupported}
+              <button
+                class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
+                onclick={() => void handleCreate("advanced")}
+                type="button"
+              >
+                <span class="font-semibold">{m.problems_createAdvancedTitle()}</span>
+                <span class="text-caption text-muted-foreground">
+                  {m.problems_createAdvancedDescription()}
+                </span>
+              </button>
+            {/if}
           </div>
         {/if}
       </div>
@@ -143,7 +151,7 @@
   </div>
 
   {#if tab === "public"}
-    <PublicProblemsTab {publicResult} />
+    <PublicProblemsTab {publicResult} {loggedIn} />
   {:else if tab === "mine" && showCreate}
     <MyProblemsTab
       editableProblems={editableProblems ?? []}

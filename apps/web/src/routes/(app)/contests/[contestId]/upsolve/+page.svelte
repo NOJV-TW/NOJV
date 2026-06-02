@@ -23,7 +23,6 @@
         : m.contestUpsolve_statusUntouched();
   }
 
-  // Status → design-token colours: solved green, attempted amber, untouched muted.
   function statusStyle(status: contestDomain.UpsolveStatus): string {
     if (status === "solved") {
       return "background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success);";
@@ -38,19 +37,19 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
   <Crumbs
     items={[
-      { label: "contest", href: "/contests" },
+      { label: m.navigation_contests(), href: "/contests" },
       { label: view.contestId, href: `/contests/${view.contestId}` },
-      { label: "upsolve" }
+      { label: m.contestDetail_actionUpsolve() }
     ]}
   />
 
-  <!-- Header -->
+  
   <div class="glass rounded-xl shadow-rest p-5 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
       >
-        <Dumbbell class="size-3.5" />
+        <Dumbbell aria-hidden="true" class="size-3.5" />
         <span>{m.contestUpsolve_eyebrow()}</span>
       </div>
       <h1 class="mt-2 text-headline font-semibold tracking-tight">
@@ -92,7 +91,7 @@
     </div>
   </div>
 
-  <!-- Problem list -->
+  
   <GlassPanel class="overflow-hidden">
     <div
       class="flex items-center justify-between px-6 py-4 border-b"

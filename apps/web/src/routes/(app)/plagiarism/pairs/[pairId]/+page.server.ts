@@ -20,16 +20,6 @@ import { loadPlagiarismPair } from "$lib/server/plagiarism-pair";
 const { getCourseHeaderById } = courseDomain;
 const { getContestDetail } = contestDomain;
 
-// `[pairId]` is a composite path segment that encodes both the plagiarism
-// context (assignment / contest / exam + its id) and the report-internal
-// pair key (userA|userB|problemId). Format:
-//
-//   <ctxType>:<ctxId>:<userA>|<userB>|<problemId>
-//
-// The whole thing is `encodeURIComponent`-ed by the caller. We decode and
-// split off the two leading `:` segments here to derive the context, then
-// hand the remaining `<userA>|<userB>|<problemId>` to `loadPlagiarismPair`
-// in the same shape it already understands.
 function parsePairIdParam(raw: string): {
   contextType: plagiarismDomain.PlagiarismContext;
   contextId: string;
@@ -131,7 +121,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     });
   }
 
-  // contest
   await assertContestManager(actor, contextId);
   return await loadPlagiarismPair({
     pairId: pairKey,

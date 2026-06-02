@@ -5,30 +5,11 @@ export async function getAssignmentWithCourseId(assignmentId: string) {
   return assessmentRepo.findByIdWithCourseId(assignmentId);
 }
 
-// Used as a 404 gate so the problem-solve loader does not leak whether the
-// problem exists outside the assignment scope.
 export async function isProblemInAssignment(
   assignmentId: string,
   problemId: string,
 ): Promise<boolean> {
   return assessmentProblemRepo.exists(assignmentId, problemId);
-}
-
-export interface AssignmentTiming {
-  closesAt: string;
-  /** Nullable: assignments without a soft deadline have no late penalty. */
-  dueAt: string | null;
-  opensAt: string;
-}
-
-export async function getAssignmentInfo(assignmentId: string): Promise<AssignmentTiming> {
-  const assignment = await assessmentRepo.findInfoById(assignmentId);
-
-  return {
-    closesAt: assignment.closesAt.toISOString(),
-    dueAt: assignment.dueAt?.toISOString() ?? null,
-    opensAt: assignment.opensAt.toISOString(),
-  };
 }
 
 export interface AssignmentProblemSibling {
@@ -41,11 +22,6 @@ export interface AssignmentProblemSibling {
   href: string;
 }
 
-/**
- * Build the assignment's sibling-problem list for the float problem switcher.
- * Submission filter is scoped by (assignmentId, userId, problemId) — cross-
- * assignment data cannot leak through.
- */
 export async function listAssignmentProblemSiblings(options: {
   assignmentId: string;
   activeProblemId: string;
@@ -83,15 +59,6 @@ export async function listAssignmentProblemSiblings(options: {
   }));
 }
 
-/**
- * Given a candidate set of user ids, return those whose summed best score
- * across the assignment's attached problems is strictly less than the
- * assignment total. Used by the 24h deadline fan-out to skip students who
- * have already maxed out — no point reminding them.
- *
- * Returns the input `userIds` unchanged when there are no attached problems
- * or no max score to compare against (nothing to max out → everyone qualifies).
- */
 export async function listStudentsBelowMaxScore(
   assignmentId: string,
   userIds: string[],

@@ -5,6 +5,8 @@
   import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/features/problem/editors/MonacoScriptEditor.svelte";
+  import UploadDropZone from "$lib/components/features/problem/admin/UploadDropZone.svelte";
+  import { toasts } from "$lib/stores/toast";
   import {
     PYTHON_CHECKER_EXAMPLE,
     PYTHON_INTERACTOR_EXAMPLE,
@@ -14,18 +16,20 @@
 
   interface Props {
     problem: ProblemDetail;
+    validatorScripts: { checkerScript: string; interactorScript: string };
     ondirtychange?: (dirty: boolean) => void;
+    onuploaded?: () => void;
   }
 
-  let { problem, ondirtychange }: Props = $props();
+  let { problem, validatorScripts, ondirtychange, onuploaded }: Props = $props();
 
   const cfg = untrack(() => problem.judgeConfig ?? {});
 
   let judgeType = $state<JudgeType>(cfg.type ?? "standard");
 
-  let checkerScript = $state(cfg.checkerScript ?? "");
+  let checkerScript = $state(untrack(() => validatorScripts.checkerScript));
   let checkerLanguage = $state<JudgeScriptLanguage>(cfg.checkerLanguage ?? "python");
-  let interactorScript = $state(cfg.interactorScript ?? "");
+  let interactorScript = $state(untrack(() => validatorScripts.interactorScript));
   let interactorLanguage = $state<JudgeScriptLanguage>(
     cfg.interactorLanguage ?? "python"
   );
@@ -36,15 +40,11 @@
     };
 
     if (judgeType === "checker") {
-      config.checkerScript = checkerScript;
       config.checkerLanguage = checkerLanguage;
     } else if (judgeType === "interactive") {
-      config.interactorScript = interactorScript;
       config.interactorLanguage = interactorLanguage;
     }
 
-    // Preserve runtime from the existing config — WorkspaceSection owns
-    // it, so Judge should not clobber it.
     if (cfg.runtime) {
       config.runtime = cfg.runtime;
     }
@@ -52,29 +52,40 @@
     return config;
   }
 
-  let initialConfig = $state(JSON.stringify(buildJudgeConfig()));
+  function dirtySnapshot() {
+    return JSON.stringify({
+      config: buildJudgeConfig(),
+      checkerScript,
+      interactorScript
+    });
+  }
+
+  let initialConfig = $state(dirtySnapshot());
   let saving = $state(false);
   let saveMessage = $state("");
 
   $effect(() => {
-    const current = JSON.stringify(buildJudgeConfig());
-    ondirtychange?.(current !== initialConfig);
+    ondirtychange?.(dirtySnapshot() !== initialConfig);
   });
 
   async function handleSave() {
     saving = true;
     saveMessage = "";
     try {
-      const data = buildJudgeConfig();
       const formData = new FormData();
-      formData.set("data", JSON.stringify(data));
+      formData.set("data", JSON.stringify(buildJudgeConfig()));
+      if (judgeType === "checker") {
+        formData.set("checkerScript", checkerScript);
+      } else if (judgeType === "interactive") {
+        formData.set("interactorScript", interactorScript);
+      }
       const response = await fetch("?/updateJudgeConfig", {
         method: "POST",
         body: formData
       });
       if (response.ok) {
         saveMessage = "saved";
-        initialConfig = JSON.stringify(buildJudgeConfig());
+        initialConfig = dirtySnapshot();
       } else {
         saveMessage = "error";
       }
@@ -91,6 +102,41 @@
   let interactorExample = $derived(
     interactorLanguage === "python" ? PYTHON_INTERACTOR_EXAMPLE : CPP_INTERACTOR_EXAMPLE
   );
+
+  function languageFromName(name: string): JudgeScriptLanguage | null {
+    if (name.endsWith(".py")) return "python";
+    if (name.endsWith(".cpp") || name.endsWith(".cc") || name.endsWith(".cxx")) return "cpp";
+    return null;
+  }
+
+  async function uploadScript(kind: "checker" | "interactor", file: File) {
+    const inferred = languageFromName(file.name.toLowerCase());
+    const language =
+      inferred ?? (kind === "checker" ? checkerLanguage : interactorLanguage);
+    const form = new FormData();
+    form.set("file", file);
+    form.set("language", language);
+    const res = await fetch(`/api/problems/${problem.id}/${kind}`, {
+      method: "POST",
+      headers: { "X-Requested-With": "fetch" },
+      body: form
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(data?.message ?? m.bundle_uploadFailed());
+    }
+    const text = await file.text();
+    if (kind === "checker") {
+      checkerScript = text;
+      checkerLanguage = language;
+    } else {
+      interactorScript = text;
+      interactorLanguage = language;
+    }
+    initialConfig = dirtySnapshot();
+    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
+    onuploaded?.();
+  }
 </script>
 
 <div class="space-y-4">
@@ -168,6 +214,13 @@
             class="mt-2 overflow-x-auto rounded-md bg-[color:var(--color-panel)] p-3 font-mono text-caption"><code>{checkerExample}</code></pre>
         </details>
 
+        <UploadDropZone
+          label={m.bundle_uploadCheckerLabel()}
+          hint={m.bundle_uploadCheckerHint()}
+          accept=".py,.cpp,.cc,.cxx"
+          onupload={(f) => uploadScript("checker", f)}
+        />
+
         <MonacoScriptEditor
           value={checkerScript}
           onchange={(v) => (checkerScript = v)}
@@ -202,6 +255,13 @@
           <pre
             class="mt-2 overflow-x-auto rounded-md bg-[color:var(--color-panel)] p-3 font-mono text-caption"><code>{interactorExample}</code></pre>
         </details>
+
+        <UploadDropZone
+          label={m.bundle_uploadInteractorLabel()}
+          hint={m.bundle_uploadInteractorHint()}
+          accept=".py,.cpp,.cc,.cxx"
+          onupload={(f) => uploadScript("interactor", f)}
+        />
 
         <MonacoScriptEditor
           value={interactorScript}

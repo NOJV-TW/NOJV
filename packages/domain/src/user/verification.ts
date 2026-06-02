@@ -6,10 +6,6 @@ export type InitiateVerificationResult =
   | { status: "error"; detail: string; httpStatus: 400 | 409 }
   | { status: "success"; token: string; expiresAt: Date };
 
-/**
- * Tokens live in their own table, separate from better-auth's `Verification`
- * table, so neither side's cleanup sweeps interfere with the other.
- */
 export async function initiateSchoolVerification(
   userId: string,
   username: string,

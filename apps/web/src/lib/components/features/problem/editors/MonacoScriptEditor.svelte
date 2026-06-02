@@ -78,8 +78,6 @@
     monacoModule.editor.setModelLanguage(model, getMonacoLanguage(lang));
   });
 
-  // External value changes overwrite the buffer only when they differ — guards
-  // against an infinite loop with `onDidChangeModelContent`.
   $effect(() => {
     const val = value;
     if (!monacoEditor) return;

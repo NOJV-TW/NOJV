@@ -10,7 +10,6 @@
     examTitle: string;
     problemCount: number;
     durationMinutes: number;
-    /** Form action path, e.g. "?/startExam". */
     action?: string;
   }
 
@@ -26,7 +25,6 @@
   let hasAgreed = $state(false);
   let submitting = $state(false);
 
-  // Reset agreement state when dialog closes so reopening starts fresh.
   $effect(() => {
     if (!open) {
       hasAgreed = false;
@@ -45,7 +43,7 @@
           class="rounded-lg p-2.5"
           style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
         >
-          <AlertTriangle
+          <AlertTriangle aria-hidden="true"
             class="size-5"
             style="color: oklch(0.55 0.2 27);"
             strokeWidth={2}

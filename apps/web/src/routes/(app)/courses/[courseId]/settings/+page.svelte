@@ -16,6 +16,7 @@
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import { toasts } from "$lib/stores/toast";
   import { inputClassName } from "$lib/utils/css";
   import type { FormMessage } from "$lib/types/form-message";
   import type { ActionData, PageData } from "./$types";
@@ -33,8 +34,6 @@
     { resetForm: false, taintedMessage: null }
   );
 
-  // Danger-zone state — typed confirmation text must match the course title
-  // before the destructive button unlocks.
   let typedConfirmation = $state("");
   let deleting = $state(false);
   let copying = $state(false);
@@ -46,10 +45,6 @@
     }
   });
   let archiveSubmitting = $state(false);
-  // Mirror server state locally so the toggle reflects the latest action
-  // result without waiting for full page reload (kit's `update()` handles
-  // the eventual sync). Initial read is wrapped in `untrack` so Svelte
-  // doesn't warn about capturing-but-not-reactively-following `data`.
   let archivedLocal = $state(untrack(() => data.archived));
   $effect(() => {
     archivedLocal = data.archived;
@@ -63,9 +58,6 @@
   );
   const updateSuccess = $derived($updateMessage?.kind === "success");
 
-  // `form` is a discriminated union across every action (updateInfo /
-  // deleteCourse / archiveCourse...). Narrow via property check instead
-  // of a double-cast.
   function resolveDangerBanner(actionResult: ActionData): string | null {
     if (actionResult == null || !("error" in actionResult)) return null;
     const errorCode = actionResult.error;
@@ -78,16 +70,16 @@
 </script>
 
 <div class="mx-auto w-full max-w-[860px] space-y-6 pb-24">
-  <!-- 1. Course info -->
+  
   <section
-    class="animate-in animate-in-1 rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    class="animate-in animate-in-1 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
     <div class="mb-6 flex items-start gap-3.5">
       <span
         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
         aria-hidden="true"
       >
-        <Settings class="h-5 w-5" />
+        <Settings aria-hidden="true" class="h-5 w-5" />
       </span>
       <div>
         <h2 class="text-title-sm font-medium tracking-[-0.01em]">
@@ -130,10 +122,12 @@
             name="title"
             type="text"
             bind:value={$updateForm.title}
-            class="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            aria-invalid={Boolean($errors.title)}
+            aria-describedby={$errors.title ? "title-error" : undefined}
+            class="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
           />
           {#if $errors.title}
-            <p class="mt-1 text-caption text-destructive">{$errors.title}</p>
+            <p id="title-error" class="mt-1 text-caption text-destructive">{$errors.title}</p>
           {/if}
         </div>
       </div>
@@ -151,10 +145,12 @@
             name="description"
             rows="3"
             bind:value={$updateForm.description}
-            class="min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            aria-invalid={Boolean($errors.description)}
+            aria-describedby={$errors.description ? "description-error" : undefined}
+            class="min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
           ></textarea>
           {#if $errors.description}
-            <p class="mt-1 text-caption text-destructive">{$errors.description}</p>
+            <p id="description-error" class="mt-1 text-caption text-destructive">{$errors.description}</p>
           {/if}
         </div>
       </div>
@@ -181,10 +177,12 @@
               max="999"
               placeholder={m.coursesNew_academicYearPlaceholder()}
               bind:value={$updateForm.academicYear}
-              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              aria-invalid={Boolean($errors.academicYear)}
+              aria-describedby={$errors.academicYear ? "academicYear-error" : undefined}
+              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
             />
             {#if $errors.academicYear}
-              <p class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
+              <p id="academicYear-error" class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
             {/if}
           </div>
           <div>
@@ -195,7 +193,9 @@
               id="semester"
               name="semester"
               bind:value={$updateForm.semester}
-              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              aria-invalid={Boolean($errors.semester)}
+              aria-describedby={$errors.semester ? "semester-error" : undefined}
+              class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
             >
               <option value={undefined}>{m.coursesNew_semesterPlaceholder()}</option>
               <option value={1}>{m.coursesNew_semesterOption1()}</option>
@@ -203,14 +203,14 @@
               <option value={3}>{m.coursesNew_semesterOption3()}</option>
             </select>
             {#if $errors.semester}
-              <p class="mt-1 text-caption text-destructive">{$errors.semester}</p>
+              <p id="semester-error" class="mt-1 text-caption text-destructive">{$errors.semester}</p>
             {/if}
           </div>
         </div>
       </div>
 
       <div class="flex items-center justify-end gap-3 pt-4">
-        <Button type="submit" disabled={$updateSubmitting}>
+        <Button type="submit" loading={$updateSubmitting} disabled={$updateSubmitting}>
           <Save class="h-4 w-4" aria-hidden="true" />
           {m.courseSettings_saveButton()}
         </Button>
@@ -218,9 +218,9 @@
     </form>
   </section>
 
-  <!-- 2. Archive (reversible, separate from danger zone) -->
+  
   <section
-    class="animate-in animate-in-2 rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    class="animate-in animate-in-2 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
     <div class="mb-6 flex items-start gap-3.5">
       <span
@@ -228,9 +228,9 @@
         aria-hidden="true"
       >
         {#if archivedLocal}
-          <ArchiveRestore class="h-5 w-5" />
+          <ArchiveRestore aria-hidden="true" class="h-5 w-5" />
         {:else}
-          <Archive class="h-5 w-5" />
+          <Archive aria-hidden="true" class="h-5 w-5" />
         {/if}
       </span>
       <div>
@@ -256,6 +256,12 @@
           archiveSubmitting = false;
           if (result.type !== "success") {
             archivedLocal = !archivedLocal;
+          } else {
+            toasts.success(
+              archivedLocal
+                ? m.courseSettings_archiveSuccess()
+                : m.courseSettings_unarchiveSuccess()
+            );
           }
           await applyAction(result);
           await update({ reset: false });
@@ -263,7 +269,7 @@
       }}
     >
       <input type="hidden" name="archived" value={String(!archivedLocal)} />
-      <Button type="submit" variant="outline" disabled={archiveSubmitting}>
+      <Button type="submit" variant="outline" loading={archiveSubmitting} disabled={archiveSubmitting}>
         {#if archivedLocal}
           <ArchiveRestore class="h-4 w-4" aria-hidden="true" />
           {m.courseSettings_unarchiveButton()}
@@ -275,18 +281,16 @@
     </form>
   </section>
 
-  <!-- 3. Danger zone -->
+  
   <section
-    class="animate-in animate-in-3 rounded-xl border p-5"
-    style="background: rgba(184, 55, 42, 0.04); border-color: rgba(184, 55, 42, 0.28);"
+    class="animate-in animate-in-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-5"
   >
     <div class="mb-6 flex items-start gap-3.5">
       <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-destructive"
-        style="background: rgba(184, 55, 42, 0.12);"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-destructive/15 text-destructive"
         aria-hidden="true"
       >
-        <AlertTriangle class="h-5 w-5" />
+        <AlertTriangle aria-hidden="true" class="h-5 w-5" />
       </span>
       <div>
         <h2 class="text-title-sm font-medium tracking-[-0.01em] text-destructive">
@@ -309,10 +313,9 @@
       </div>
     {/if}
 
-    <!-- Copy row -->
+    
     <div
-      class="grid grid-cols-1 items-start gap-4 py-5 md:grid-cols-[1fr_auto] md:gap-6"
-      style="border-bottom: 1px solid rgba(184, 55, 42, 0.18);"
+      class="grid grid-cols-1 items-start gap-4 border-b border-destructive/20 py-5 md:grid-cols-[1fr_auto] md:gap-6"
     >
       <div>
         <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
@@ -328,7 +331,7 @@
       </Button>
     </div>
 
-    <!-- Delete row -->
+    
     <div class="grid grid-cols-1 items-start gap-4 py-5 md:grid-cols-[1fr_auto] md:gap-6">
       <div>
         <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
@@ -345,12 +348,14 @@
             deleting = true;
             return async ({ result, update }) => {
               deleting = false;
+              if (result.type === "redirect") {
+                toasts.success(m.courseSettings_deleteSuccess());
+              }
               await applyAction(result);
               await update({ reset: false });
             };
           }}
-          class="mt-3 rounded-md border border-dashed bg-[color:var(--color-panel)] px-4 py-3.5"
-          style="border-color: rgba(184, 55, 42, 0.32);"
+          class="mt-3 rounded-md border border-dashed border-destructive/30 bg-[color:var(--color-panel)] px-4 py-3.5"
         >
           <label
             for="typedConfirmation"
@@ -371,6 +376,7 @@
             <Button
               type="submit"
               variant="destructive"
+              loading={deleting}
               disabled={!canDelete || deleting}
             >
               <Trash2 class="h-4 w-4" aria-hidden="true" />
@@ -400,6 +406,9 @@
           copying = true;
           return async ({ result, update }) => {
             copying = false;
+            if (result.type === "redirect") {
+              toasts.success(m.courseSettings_copySuccess());
+            }
             await applyAction(result);
             await update({ reset: false });
           };
@@ -463,7 +472,11 @@
           <Button type="button" variant="outline" onclick={() => (copyOpen = false)}>
             {m.courseSettings_copyCancel()}
           </Button>
-          <Button type="submit" disabled={copying || copyTitleInput.trim().length === 0}>
+          <Button
+            type="submit"
+            loading={copying}
+            disabled={copying || copyTitleInput.trim().length === 0}
+          >
             <Copy class="h-4 w-4" aria-hidden="true" />
             {m.courseSettings_copyConfirm()}
           </Button>

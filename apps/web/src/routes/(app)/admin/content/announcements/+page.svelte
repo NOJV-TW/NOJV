@@ -47,7 +47,6 @@
     return m.admin_announcement_audience_all();
   }
 
-  /** Format an ISO date string for `<input type="datetime-local">` (local-tz, minute resolution). */
   function toLocalInput(iso: string | null): string {
     if (!iso) return "";
     const d = new Date(iso);
@@ -65,7 +64,7 @@
     type="button"
     onclick={() => (showCreateForm = !showCreateForm)}
   >
-    <Plus class="h-4 w-4" />
+    <Plus aria-hidden="true" class="h-4 w-4" />
     {m.admin_announcementsNew()}
   </Button>
 {/snippet}
@@ -181,7 +180,7 @@
             class:py-4={editingId === ann.id}
           >
             {#if editingId === ann.id}
-              <!-- Edit mode -->
+              
               <form
                 class="space-y-4"
                 method="POST"
@@ -283,7 +282,7 @@
                 </div>
               </form>
             {:else}
-              <!-- View mode -->
+              
               <div
                 class="cursor-pointer rounded-md px-4 py-3 transition-colors duration-fast ease-out-soft hover:bg-accent/40"
                 onclick={() => openView(ann)}
@@ -301,7 +300,7 @@
                   <div class="min-w-0 flex-1">
                     <h3 class="flex flex-wrap items-center gap-1.5 text-body-sm font-semibold text-foreground">
                       {#if ann.pinned}
-                        <Pin
+                        <Pin aria-hidden="true"
                           class="size-3.5 shrink-0 text-warning"
                           aria-label={m.admin_announcementsPinned()}
                         />
@@ -347,7 +346,7 @@
                             : m.admin_announcementsPin()}
                           aria-pressed={ann.pinned}
                         >
-                          <Pin class="h-3.5 w-3.5" />
+                          <Pin aria-hidden="true" class="h-3.5 w-3.5" />
                         </button>
                       </form>
                       <form method="POST" action="?/togglePublish" use:enhance>
@@ -365,7 +364,7 @@
                             : m.admin_announcementsPublish()}
                           aria-pressed={ann.published}
                         >
-                          <Send class="h-3.5 w-3.5" />
+                          <Send aria-hidden="true" class="h-3.5 w-3.5" />
                         </button>
                       </form>
                       <button
@@ -375,7 +374,7 @@
                         aria-label={m.common_edit()}
                         onclick={() => (editingId = ann.id)}
                       >
-                        <Pencil class="h-3.5 w-3.5" />
+                        <Pencil aria-hidden="true" class="h-3.5 w-3.5" />
                       </button>
                       <form
                         method="POST"
@@ -393,7 +392,7 @@
                           title={m.common_delete()}
                           aria-label={m.common_delete()}
                         >
-                          <Trash2 class="h-3.5 w-3.5" />
+                          <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
                         </button>
                       </form>
                     </div>

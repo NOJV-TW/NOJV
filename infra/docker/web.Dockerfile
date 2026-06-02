@@ -3,7 +3,7 @@ FROM node:26-alpine AS builder
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-RUN corepack enable
+RUN npm install -g pnpm@10.33.0
 
 WORKDIR /build
 
@@ -17,7 +17,6 @@ COPY packages/db/package.json packages/db/
 COPY packages/domain/package.json packages/domain/
 COPY packages/redis/package.json packages/redis/
 COPY packages/storage/package.json packages/storage/
-COPY packages/job-dispatch/package.json packages/job-dispatch/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/web...
 
@@ -26,7 +25,6 @@ COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
 COPY packages/redis/ packages/redis/
 COPY packages/storage/ packages/storage/
-COPY packages/job-dispatch/ packages/job-dispatch/
 COPY packages/domain/ packages/domain/
 COPY apps/web/ apps/web/
 
@@ -34,7 +32,6 @@ RUN pnpm --filter @nojv/db build
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/redis build
 RUN pnpm --filter @nojv/storage build
-RUN pnpm --filter @nojv/job-dispatch build
 RUN pnpm --filter @nojv/domain build
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter @nojv/web build
 
@@ -65,9 +62,6 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/dist/ ./packages/storage/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/package.json ./packages/storage/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/dist/ ./packages/job-dispatch/dist/
-COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/package.json ./packages/job-dispatch/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/node_modules/ ./packages/job-dispatch/node_modules/
 
 # Prisma generated client output (prisma-client generator)
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/generated/prisma/ ./packages/db/generated/prisma/
@@ -80,6 +74,10 @@ COPY --from=builder --chown=appuser:nodejs /build/apps/web/node_modules/ ./apps/
 WORKDIR /app/apps/web
 
 ENV NODE_ENV=production
+# Raise SvelteKit adapter-node body-size cap from the 512K default so the
+# 60 MB POST cap on bundle/workspace/checker/interactor upload routes is the
+# effective ceiling. Overridable at runtime.
+ENV BODY_SIZE_LIMIT=67108864
 EXPOSE 3000
 
 USER appuser

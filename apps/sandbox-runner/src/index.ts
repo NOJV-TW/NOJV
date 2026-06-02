@@ -8,30 +8,36 @@ import {
   type SandboxOutput,
   type TestcaseFiles,
   type TestcaseMeta,
-  type TestcaseResult,
+  type ValidateOutput,
+  type ValidatorCaseOutcome,
 } from "./types.js";
-import { compile, compileChecker, sourceFileName } from "./compiler.js";
+import { compile, compileInteractor, compileValidator, sourceFileName } from "./compiler.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
-import { judgeStandard } from "./judges/standard.js";
-import { judgeChecker } from "./judges/checker.js";
-import { judgeInteractive } from "./judges/interactive.js";
-import { normalizeRelativePath } from "@nojv/core";
+import { runSolution } from "./judges/standard.js";
+import {
+  resolveInteractiveCaseFiles,
+  runInteractiveSolution,
+  runInteractiveValidator,
+} from "./judges/interactive-isolated.js";
+import {
+  resolveValidateCaseFiles,
+  validateCase,
+  validatorTimeoutMs,
+} from "./judges/validate.js";
+import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
 const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
 
-/** Log to stderr only — stdout is reserved for the JSON result. */
 function log(message: string): void {
   process.stderr.write(`[sandbox-runner] ${message}\n`);
 }
 
-/** Read and parse the submission config. */
 async function readConfig(): Promise<SandboxInput> {
   const raw = await fs.readFile(path.join(SUBMISSION_DIR, "config.json"), "utf-8");
   return SandboxInputSchema.parse(JSON.parse(raw));
 }
 
-/** Read the user's source code file. */
 async function readSourceCode(
   language: SandboxInput["language"],
   entryFile?: string,
@@ -90,11 +96,6 @@ async function materializeConfiguredSources(
   }
 }
 
-/**
- * Load testcases from either:
- * - Directory layout (Docker): /submission/testcases/{index}/input.txt
- * - Flat ConfigMap keys (K8s): /submission/testcase-{i}-input.txt
- */
 async function loadTestcases(): Promise<TestcaseFiles[]> {
   const testcasesDir = path.join(SUBMISSION_DIR, "testcases");
 
@@ -115,7 +116,6 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
   return loadTestcasesFromFlatKeys();
 }
 
-/** Docker volume mount layout: /submission/testcases/{index}/input.txt */
 async function loadTestcasesFromDirs(
   testcasesDir: string,
   dirs: string[],
@@ -140,8 +140,6 @@ async function loadTestcasesFromDirs(
       const metaRaw = await fs.readFile(path.join(tcDir, "meta.json"), "utf-8");
       const parsed = TestcaseMetaSchema.safeParse(JSON.parse(metaRaw));
       if (parsed.success) meta = parsed.data;
-      // If parsing fails (malformed JSON or wrong shape), fall through to
-      // defaults below — meta.json is advisory, not load-bearing.
     } catch {
       // meta.json is optional, defaults below
     }
@@ -158,7 +156,6 @@ async function loadTestcasesFromDirs(
   return testcases;
 }
 
-/** K8s ConfigMap layout: /submission/testcase-{i}-input.txt */
 async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
   const entries = await fs.readdir(SUBMISSION_DIR);
   const inputFiles = entries
@@ -191,14 +188,12 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
   return testcases;
 }
 
-/** Find the checker or interactor script in /submission/. */
 async function findScript(prefix: string): Promise<string | null> {
   const entries = await fs.readdir(SUBMISSION_DIR);
   const match = entries.find((e) => e.startsWith(`${prefix}.`));
   return match ? path.join(SUBMISSION_DIR, match) : null;
 }
 
-/** Write a SandboxOutput to stdout. */
 function emit(overrides: Partial<SandboxOutput>): void {
   const output: SandboxOutput = {
     testcaseResults: [],
@@ -207,7 +202,56 @@ function emit(overrides: Partial<SandboxOutput>): void {
   process.stdout.write(JSON.stringify(output));
 }
 
-async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
+function emitValidate(output: ValidateOutput): void {
+  process.stdout.write(JSON.stringify(output));
+}
+
+async function runValidate(workDir: string, config: SandboxInput): Promise<void> {
+  const validate = config.validate;
+  if (!validate) {
+    emitValidate({ compilationError: "Validate phase invoked without a validate block." });
+    return;
+  }
+
+  const validatorPath = await findScript("validator");
+  if (!validatorPath) {
+    emitValidate({ compilationError: "Validate phase requires a validator script." });
+    return;
+  }
+
+  log("Compiling validator...");
+  const compiled = await compileValidator(validatorPath, validate.language, workDir);
+  if (!compiled.success) {
+    emitValidate({ compilationError: `Validator compilation failed: ${compiled.error}` });
+    return;
+  }
+
+  const timeoutMs = validatorTimeoutMs(config.limits.timeoutMs);
+  const validatorOutcomes: ValidatorCaseOutcome[] = [];
+
+  for (const { index } of validate.cases) {
+    const files = await resolveValidateCaseFiles(SUBMISSION_DIR, index);
+
+    const feedbackDir = await fs.mkdtemp(path.join(workDir, `fb-${String(index)}-`));
+    log(`Validating case ${String(index)}...`);
+    const outcome = await validateCase(
+      compiled.runCommand,
+      files,
+      feedbackDir,
+      index,
+      timeoutMs,
+    );
+    validatorOutcomes.push(outcome);
+    log(`Case ${String(index)}: ${outcome.verdict}`);
+  }
+
+  emitValidate({ validatorOutcomes });
+}
+
+async function compileSubmission(
+  workDir: string,
+  config: SandboxInput,
+): Promise<ReturnType<typeof compile>> {
   await materializeConfiguredSources(config, workDir);
 
   const defaultEntry = sourceFileName(config.language);
@@ -222,105 +266,79 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   }
 
   log("Compiling...");
-  const compileResult = await compile(config, srcFile, workDir);
+  return compile(config, srcFile, workDir);
+}
+
+async function runInteractive(workDir: string, config: SandboxInput): Promise<void> {
+  const interactive = config.interactive!;
+
+  if (interactive.role === "solution") {
+    const compileResult = await compileSubmission(workDir, config);
+    if (!compileResult.success) {
+      emit({ compilationError: compileResult.error });
+      return;
+    }
+    await runInteractiveSolution(
+      compileResult.runCommand,
+      config.limits.timeoutMs,
+      config.limits.env,
+    );
+    return;
+  }
+
+  const interactorPath = await findScript("interactor");
+  if (!interactorPath) {
+    emit({ compilationError: "Interactive validator requires an interactor script." });
+    return;
+  }
+
+  const interactorLang = interactive.language ?? config.interactorLanguage ?? "python";
+  log("Compiling interactor...");
+  const compiled = await compileInteractor(interactorPath, interactorLang, workDir);
+  if (!compiled.success) {
+    emit({ compilationError: `Interactor compilation failed: ${compiled.error}` });
+    return;
+  }
+
+  const index = interactive.index ?? 0;
+  const { inputFile, answerFile } = await resolveInteractiveCaseFiles(SUBMISSION_DIR, index);
+  const feedbackDir = await fs.mkdtemp(path.join(workDir, "fb-"));
+
+  log(`Running interactor for case ${String(index)}...`);
+  await runInteractiveValidator(
+    compiled.runCommand,
+    { inputFile, answerFile, feedbackDir },
+    validatorTimeoutMs(config.limits.timeoutMs),
+  );
+}
+
+async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
+  const compileResult = await compileSubmission(workDir, config);
 
   if (!compileResult.success) {
     emit({ compilationError: compileResult.error });
     return;
   }
 
-  let checkerCommand: string[] | undefined;
-  let interactorCommand: string[] | undefined;
-
-  if (config.judgeType === "checker") {
-    const checkerPath = await findScript("checker");
-    if (!checkerPath) {
-      emit({
-        compilationError: "Checker judge requires a checker script in /submission/.",
-      });
-      return;
-    }
-
-    const checkerLang = config.checkerLanguage ?? "python";
-    const checkerResult = await compileChecker(checkerPath, checkerLang, workDir, "checker");
-    if (!checkerResult.success) {
-      emit({
-        compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`,
-      });
-      return;
-    }
-    checkerCommand = checkerResult.runCommand;
-  }
-
-  if (config.judgeType === "interactive") {
-    const interactorPath = await findScript("interactor");
-    if (!interactorPath) {
-      emit({
-        compilationError: "Interactive judge requires an interactor script in /submission/.",
-      });
-      return;
-    }
-
-    const interactorLang = config.interactorLanguage ?? config.checkerLanguage ?? "python";
-    const interactorResult = await compileChecker(
-      interactorPath,
-      interactorLang,
-      workDir,
-      "interactor",
-    );
-    if (!interactorResult.success) {
-      emit({
-        compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,
-      });
-      return;
-    }
-    interactorCommand = interactorResult.runCommand;
-  }
-
   log("Loading testcases...");
   const testcases = await loadTestcases();
   log(`Found ${String(testcases.length)} testcase(s).`);
 
-  const results: TestcaseResult[] = [];
-
+  const rawRuns: RawCaseRun[] = [];
   for (const testcase of testcases) {
-    log(`Judging testcase ${String(testcase.index)}...`);
-
-    let result: TestcaseResult;
-
-    switch (config.judgeType) {
-      case "standard":
-        result = await judgeStandard(
-          compileResult.runCommand,
-          testcase,
-          config.limits.timeoutMs,
-        );
-        break;
-
-      case "checker":
-        result = await judgeChecker(
-          compileResult.runCommand,
-          testcase,
-          checkerCommand!,
-          config.limits.timeoutMs,
-        );
-        break;
-
-      case "interactive":
-        result = await judgeInteractive(
-          compileResult.runCommand,
-          testcase,
-          interactorCommand!,
-          config.limits.timeoutMs,
-        );
-        break;
-    }
-
-    results.push(result);
-    log(`Testcase ${String(testcase.index)}: ${result.verdict} (${String(result.timeMs)}ms)`);
+    log(`Running testcase ${String(testcase.index)}...`);
+    const run = await runSolution(
+      compileResult.runCommand,
+      testcase,
+      config.limits.timeoutMs,
+      config.limits.env,
+    );
+    rawRuns.push(run);
+    log(
+      `Testcase ${String(testcase.index)}: ${run.errorVerdict ?? "ran"} (${String(run.timeMs)}ms)`,
+    );
   }
-
-  emit({ testcaseResults: results });
+  emit({ rawRuns });
 }
 
 async function main(): Promise<void> {
@@ -332,13 +350,18 @@ async function main(): Promise<void> {
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   try {
-    await runJudge(workDir, config);
+    if (config.interactive) {
+      await runInteractive(workDir, config);
+    } else if (config.validate) {
+      await runValidate(workDir, config);
+    } else {
+      await runJudge(workDir, config);
+    }
   } finally {
     await cleanupTempDir(workDir);
   }
 }
 
-// Run and handle any unhandled errors as SE
 main().catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(`[sandbox-runner] Fatal error: ${message}\n`);

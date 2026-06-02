@@ -8,8 +8,9 @@ import {
 } from "../../fixtures/factories";
 
 import { submissionDomain } from "@nojv/domain";
+import { submissionSourcePrefix } from "@nojv/storage";
 
-const { getSubmissionForUser, listProblemSubmissions } = submissionDomain;
+const { getSubmissionForUser, getSubmissionSources, listProblemSubmissions } = submissionDomain;
 import { NotFoundError } from "$lib/server/auth";
 
 describe("submission queries (real DB)", () => {
@@ -185,7 +186,11 @@ describe("submission queries (real DB)", () => {
       expect(fetched).not.toBeNull();
       expect(fetched!.language).toBe("cpp");
       expect(fetched!.status).toBe("wrong_answer");
-      expect(fetched!.sourceCode).toBe("int main() {}");
+      // Source bytes live in object storage; the row only carries the prefix.
+      expect(fetched!.sourceStoragePrefix).toBe(submissionSourcePrefix(submission.id));
+      const sources = await getSubmissionSources(submission.id);
+      expect(sources.length).toBeGreaterThan(0);
+      expect(sources[0]!.content).toBe("int main() {}");
       expect(fetched!.userId).toBe(user.id);
       expect(fetched!.problemId).toBe(problem.id);
     });

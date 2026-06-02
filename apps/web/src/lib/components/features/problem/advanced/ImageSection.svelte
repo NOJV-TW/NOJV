@@ -14,7 +14,7 @@
       imageSource: ProblemImageSource;
       timeLimitMs: number;
       memoryLimitMb: number;
-    }) => void | Promise<void>;
+    }) => Promise<{ ok: boolean; message?: string }>;
   }
 
   let {
@@ -31,6 +31,7 @@
   let uploadedFileName = $state<string | null>(null);
   let uploading = $state(false);
   let uploadError = $state<string | null>(null);
+  let saveError = $state<string | null>(null);
 
   async function handleTarball(file: File) {
     uploading = true;
@@ -72,14 +73,22 @@
   }
 
   async function save() {
+    saveError = null;
+    if (imageRef.trim() === "") {
+      saveError = imageSource === "tarball" ? m.admin_tarballRequired() : m.admin_imageRefRequired();
+      return;
+    }
     saving = true;
     try {
-      await onsave?.({
+      const result = await onsave?.({
         imageRef,
         imageSource,
         timeLimitMs,
         memoryLimitMb,
       });
+      if (result && !result.ok) {
+        saveError = result.message ?? m.admin_imageConfigFailed();
+      }
     } finally {
       saving = false;
     }
@@ -210,7 +219,10 @@
     </label>
   </div>
 
-  <div class="flex justify-end">
+  <div class="flex items-center justify-end gap-3">
+    {#if saveError}
+      <p class="text-caption text-destructive">{saveError}</p>
+    {/if}
     <button
       type="button"
       class="rounded-full bg-primary px-5 py-2 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-primary/90 disabled:opacity-50"

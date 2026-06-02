@@ -20,6 +20,7 @@
     "test:all": "pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "typecheck": "turbo typecheck",
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
+    "demo-judge:build": "docker build -t nojv-demo-judge-shell:local infra/docker/demo-judge-shell",
     "grafana:provision": "node --env-file=.env --import tsx infra/grafana/provision.ts",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
@@ -34,7 +35,10 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "pnpm": {
-    "overrides": {},
+    "overrides": {
+      "kysely": "0.28.17",
+      "protobufjs": "7.6.0"
+    },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
       "@prisma/engines",
@@ -56,16 +60,16 @@
     "@playwright/test": "catalog:",
     "@prisma/adapter-pg": "catalog:",
     "@types/node": "catalog:",
-    "@vitest/coverage-v8": "^4.1.7",
-    "eslint": "^10.4.0",
+    "@vitest/coverage-v8": "^4.1.8",
+    "eslint": "^10.4.1",
     "globals": "^17.6.0",
     "jszip": "catalog:",
     "prettier": "^3.8.3",
     "rate-limiter-flexible": "catalog:",
-    "tsx": "^4.22.3",
-    "turbo": "^2.9.14",
+    "tsx": "^4.22.4",
+    "turbo": "^2.9.16",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.59.4",
+    "typescript-eslint": "^8.60.1",
     "vitest": "catalog:",
     "zod": "catalog:"
   }

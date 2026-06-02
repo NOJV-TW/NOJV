@@ -25,10 +25,6 @@ import {
   type ProblemActorContext,
 } from "./permissions";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Testcase mutations
-// ─────────────────────────────────────────────────────────────────────────
-
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
 export async function createProblemTestcaseSetRecord(
@@ -36,10 +32,6 @@ export async function createProblemTestcaseSetRecord(
   problemId: string,
   payload: ProblemTestcaseSetCreate,
 ) {
-  // 1. Pre-allocate testcase ids so we can compute stable S3 keys, then
-  //    upload the blobs OUTSIDE the DB transaction. Upload failure throws
-  //    here with zero side effects (no DB rows, no orphan blobs because
-  //    PutObject is the only operation that ran).
   interface PreparedCase {
     id: string;
     blobKeys: TestcaseBlobKeys;
@@ -57,9 +49,6 @@ export async function createProblemTestcaseSetRecord(
     }),
   );
 
-  // 2. Now the transaction: ownership check, set creation, and createMany.
-  //    The S3 objects already exist; if this transaction rolls back the
-  //    blobs become orphans (tolerable per design).
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
@@ -73,9 +62,6 @@ export async function createProblemTestcaseSetRecord(
       );
     }
 
-    // TestcaseSet has @@unique([problemId, ordinal]) + ordinal defaults to 0,
-    // so every call without an explicit ordinal would collide. Compute the
-    // next slot by reading the current max within the transaction.
     const { _max } = await tx.testcaseSet.aggregate({
       where: { problemId: problem.id },
       _max: { ordinal: true },
@@ -131,12 +117,6 @@ export async function deleteTestcaseSetRecord(
   problemId: string,
   setId: string,
 ) {
-  // Fetch the set's testcase ids first so we know which S3 prefixes to
-  // sweep after the DB delete commits. Each testcase has a stable prefix
-  // under `problems/{problemId}/testcases/{testcaseId}/` — sweeping the
-  // set in one shot would also work, but per-testcase keeps the cleanup
-  // surgical and matches the per-row deletion that `deleteTestcase`
-  // already does.
   const existing = await testcaseSetRepo.findById(setId);
   const testcaseIds = existing?.testcases.map((tc) => tc.id) ?? [];
 
@@ -147,8 +127,6 @@ export async function deleteTestcaseSetRecord(
     await testcaseSetRepo.delete(setId);
   });
 
-  // DB committed — best-effort S3 cleanup. Failure here only leaves
-  // orphan objects, which the design accepts.
   await Promise.all(testcaseIds.map((id) => bestEffortDeleteTestcaseBlobs(problemId, id)));
 }
 
@@ -158,16 +136,11 @@ export async function updateTestcaseRecord(
   testcaseId: string,
   payload: TestcaseUpdate,
 ) {
-  // Authorize first so unauthorised callers can't trigger S3 traffic.
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
   });
 
-  // Pure content edit: the row's key columns already point at the
-  // correct S3 objects (keys are stable for the lifetime of the row),
-  // so we just overwrite the blobs in place — no DB UPDATE required.
-  // Touch only the fields that were explicitly provided.
   const writes: Promise<unknown>[] = [];
   if (payload.input !== undefined) {
     writes.push(overwriteTestcaseField(problemId, testcaseId, "input", payload.input));
@@ -192,7 +165,6 @@ export async function deleteTestcaseRecord(
     await testcaseRepo.delete(testcaseId);
   });
 
-  // DB committed — best-effort S3 cleanup.
   await bestEffortDeleteTestcaseBlobs(problemId, testcaseId);
 }
 
@@ -200,9 +172,6 @@ function isSubtaskScoringStrategy(value: string): value is SubtaskScoringStrateg
   return (Object.values(SubtaskScoringStrategy) as string[]).includes(value);
 }
 
-// Validates the raw string against the SubtaskScoringStrategy enum and runs
-// the edit-access check before writing. Keeps route handlers out of the
-// business of enumerating the enum values themselves.
 export async function setTestcaseSetScoringStrategy(
   actor: ProblemActorContext,
   problemId: string,

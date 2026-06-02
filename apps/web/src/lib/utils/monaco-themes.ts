@@ -1,7 +1,5 @@
 import type * as Monaco from "monaco-editor";
 
-// Custom themes that highlight the current line with a background fill
-// instead of the default border outline.
 const NOJV_LIGHT_THEME = "nojv-light";
 const NOJV_DARK_THEME = "nojv-dark";
 

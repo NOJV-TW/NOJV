@@ -41,9 +41,6 @@
     return "text-destructive";
   }
 
-  // ── Edit-mode local state. Seeded from `problems` when the tab mounts
-  // and kept in-sync via `$effect` so a server refresh (after save) flows
-  // back in without losing focus on unrelated fields.
   type EditRow = { problemId: string; title: string; points: number; letter: string };
 
   let editRows = $state<EditRow[]>([]);
@@ -61,8 +58,6 @@
   }
 
   $effect(() => {
-    // Whenever the server-side `problems` list changes (after a successful
-    // attach/detach/reorder), reseed the editable rows.
     seedRows(problems);
   });
 
@@ -161,7 +156,7 @@
       {#each problems as problem (problem.problemId)}
         <a
           href={`/assignments/${assignmentId}/problems/${problem.problemId}`}
-          class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
+          class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-md border border-border-subtle bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
         >
           <div
             class="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-title-sm font-medium text-muted-foreground"
@@ -269,7 +264,7 @@
     <div
       class="mt-4 rounded-md border border-border bg-[color:var(--color-panel-strong)]/40"
     >
-      <div class="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
+      <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
         <Search class="size-4 text-muted-foreground" aria-hidden="true" />
         <input
           type="text"

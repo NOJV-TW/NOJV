@@ -1,5 +1,7 @@
 import {
   courseMembershipRepo,
+  examParticipationIpRepo,
+  examParticipationRepo,
   examRepo,
   examSessionRepo,
   runTransaction,
@@ -55,9 +57,6 @@ async function assertEnrolledInExamCourse(
     throw new ForbiddenError("You must be enrolled in the course to access this exam.");
   }
 
-  // Archived courses lock new exam sessions and submissions. Existing
-  // active sessions are not torn down — students mid-exam keep playing
-  // until they release the session normally.
   if (course?.archived) {
     throw new ForbiddenError("This course is archived; new exam sessions are not allowed.");
   }
@@ -65,10 +64,30 @@ async function assertEnrolledInExamCourse(
   return exam;
 }
 
-// Idempotent: if the actor already has an unended session for this exam, returns it without a new enter event.
 export async function startSession(actor: ActorContext, { examId }: { examId: string }) {
   return runTransaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`exam-session:${actor.userId}`}, 0))`;
+
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
+
+    const activeElsewhere = await examSessionRepo.withTx(tx).findActiveForUser(actor.userId);
+    if (activeElsewhere && activeElsewhere.examId !== examId) {
+      throw new ConflictError("You already have an active session on a different exam.");
+    }
+
+    const existingParticipation = await examParticipationRepo
+      .withTx(tx)
+      .findByExamAndUser(examId, actor.userId);
+    const activateOnEntry =
+      !existingParticipation || existingParticipation.status === "registered";
+    await examParticipationRepo
+      .withTx(tx)
+      .upsert(
+        examId,
+        actor.userId,
+        { examId, startedAt: new Date(), status: "active", userId: actor.userId },
+        activateOnEntry ? { status: "active" } : {},
+      );
 
     const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
 
@@ -125,7 +144,6 @@ export async function endSession(
   });
 }
 
-// Does NOT touch the session row itself — use `heartbeat` to update `lastHeartbeatAt`.
 export async function recordEvent(
   actor: ActorContext,
   {
@@ -174,14 +192,22 @@ export async function heartbeat(userId: string, examId: string) {
   });
 }
 
-// Idempotent: re-running on an exam with no active sessions is a no-op.
 export async function autoCloseForExam(examId: string): Promise<{ closed: number }> {
-  const active = await examSessionRepo.findAllActiveForExam(examId);
-  for (const session of active) {
-    await examSessionRepo.endSession({ sessionId: session.id, reason: "time_up" });
-    await examSessionRepo.recordEvent({ sessionId: session.id, eventType: "auto_close" });
-  }
-  return { closed: active.length };
+  return runTransaction(async (tx) => {
+    const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
+    const now = new Date();
+    for (const session of active) {
+      await examSessionRepo.withTx(tx).update(session.id, {
+        endedAt: now,
+        releaseReason: "time_up",
+      });
+      await examSessionRepo.withTx(tx).recordEvent({
+        sessionId: session.id,
+        eventType: "auto_close",
+      });
+    }
+    return { closed: active.length };
+  });
 }
 
 export async function getActiveSessionContext(
@@ -214,7 +240,6 @@ export async function getActiveSessionContext(
   };
 }
 
-// Defense-in-depth: loaders don't trust that `hooks.server.ts` already redirected users without an active session.
 export async function requireActiveSessionForUserExam(userId: string, examId: string) {
   const session = await examSessionRepo.findActiveForUser(userId);
   if (session?.examId !== examId || session.endedAt !== null) {
@@ -223,13 +248,10 @@ export async function requireActiveSessionForUserExam(userId: string, examId: st
   return session;
 }
 
-/** 5-minute grace window before `exam.startsAt` when start is allowed. */
 export const START_GRACE_MS = 5 * 60 * 1000;
 
-/** Default heartbeat audit-event throttle: one event per minute per session. */
 export const HEARTBEAT_EVENT_THROTTLE_MS = 60 * 1000;
 
-// Sessions are mutually exclusive globally — a different active exam blocks start (hook would otherwise redirect-loop).
 export interface StartSessionResult {
   session: {
     id: string;
@@ -242,7 +264,6 @@ export interface StartSessionResult {
     id: string;
     endsAt: Date;
   };
-  /** True when this call freshly created (or re-opened) the session. */
   created: boolean;
 }
 
@@ -333,15 +354,59 @@ export async function releaseSessionAsInstructor(
   });
 }
 
-// Active-session count for an exam — drives the proctoring tab badge.
+const IP_BINDING_RESET_GRACE_MINUTES = 10;
+
+export async function resetStudentIpBinding(
+  actor: ActorContext,
+  { examId, targetUserId }: { examId: string; targetUserId: string },
+  now: Date = new Date(),
+): Promise<{ exemptUntil: Date }> {
+  return runTransaction(async (tx) => {
+    const exam = await examRepo.withTx(tx).findById(examId);
+    if (!exam) {
+      throw new NotFoundError(`Exam not found: ${examId}`);
+    }
+
+    const callerMembership = await courseMembershipRepo
+      .withTx(tx)
+      .findByComposite(exam.courseId, actor.userId);
+    const isStaff =
+      callerMembership?.status === "active" &&
+      (callerMembership.role === "teacher" || callerMembership.role === "ta");
+    if (!isStaff) {
+      throw new ForbiddenError("Only course staff can reset a student's IP binding.");
+    }
+
+    const exemptUntil = new Date(now.getTime() + IP_BINDING_RESET_GRACE_MINUTES * 60_000);
+    await examParticipationIpRepo
+      .withTx(tx)
+      .clearPinAndExempt(examId, targetUserId, exemptUntil);
+    return { exemptUntil };
+  });
+}
+
 export async function countActiveSessions(examId: string): Promise<number> {
   const active = await examSessionRepo.findAllActiveForExam(examId);
   return active.length;
 }
 
-// Bulk counterpart of `releaseSessionAsInstructor`: ends every active
-// session for the exam in one transaction. Used when staff need to clear
-// a whole room at once (e.g. exam over-run, class-wide incident).
+export interface ActiveSessionRow {
+  userId: string;
+  displayName: string;
+  handle: string;
+  startedAt: string;
+}
+
+export async function listActiveSessions(examId: string): Promise<ActiveSessionRow[]> {
+  const rows = await examSessionRepo.findAllActiveForExamWithUser(examId);
+  return rows.map((r) => ({
+    userId: r.userId,
+    displayName: r.user.name,
+    handle: r.user.displayUsername ?? r.user.email,
+    startedAt: r.startedAt.toISOString(),
+  }));
+}
+
 export async function releaseAllSessionsAsInstructor(
   actor: ActorContext,
   { examId }: { examId: string },
@@ -380,9 +445,6 @@ export async function releaseAllSessionsAsInstructor(
   });
 }
 
-// Always bumps `lastHeartbeatAt`; throttles the audit-event insert to avoid flooding `ExamSessionEvent`.
-// `previousHeartbeatAt` is the pre-update timestamp — callers (e.g. observability)
-// use it to detect cadence misses regardless of whether the audit event was throttled.
 export async function heartbeatWithThrottle(
   userId: string,
   examId: string,

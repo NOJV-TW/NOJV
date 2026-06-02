@@ -1,9 +1,3 @@
-/**
- * Stateful draft controller used by `Editor.svelte`. Owns per-language
- * hydration / save / clear / dirty-tracking so the editor shell can stay
- * thin. Workspace-mode problems are out of scope here — they have no
- * single-blob draft.
- */
 import { m } from "$lib/paraglide/messages.js";
 import { clearDraft, loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
 import { shortcuts } from "$lib/stores/shortcuts.svelte";
@@ -74,7 +68,7 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
       lastSavedAt[lang] = record.savedAt;
       toasts.add({ type: "success", message: m.draft_saved() });
     } catch {
-      toasts.add({ type: "error", message: "Failed to save draft." });
+      toasts.add({ type: "error", message: m.draft_saveFailed() });
     }
   }
 

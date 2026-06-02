@@ -61,11 +61,21 @@ OUTPUT.write_text(json.dumps({
 </script>
 
 <section class="space-y-4">
-  <header class="space-y-1">
-    <h3 class="text-body-lg font-semibold">{m.admin_containerContract()}</h3>
-    <p class="text-body-sm text-muted-foreground">
-      {m.admin_containerContractHint()}
-    </p>
+  <header class="flex items-start justify-between gap-4">
+    <div class="space-y-1">
+      <h3 class="text-body-lg font-semibold">{m.admin_containerContract()}</h3>
+      <p class="text-body-sm text-muted-foreground">
+        {m.admin_containerContractHint()}
+      </p>
+    </div>
+    <a
+      href="/api/problems/advanced-scaffold"
+      download
+      class="shrink-0 rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
+      title={m.admin_downloadStarterHint()}
+    >
+      {m.admin_downloadStarter()}
+    </a>
   </header>
 
   <div class="grid gap-4 md:grid-cols-2">
@@ -98,12 +108,15 @@ OUTPUT.write_text(json.dumps({
       <pre
         class="mt-3 overflow-x-auto rounded-md bg-muted p-3 font-mono text-caption leading-5 text-foreground">{`{
   "score": 85,               // 0 ~ 100
-  "verdict": "wrong_answer", // accepted | wrong_answer | tle | mle | re | ce
+  "verdict": "wrong_answer", // accepted | wrong_answer | time_limit_exceeded | memory_limit_exceeded | runtime_error | compile_error
   "feedback": "5/6 passed",  // optional
   "testcases": [             // optional per-case detail
     { "index": 0, "verdict": "AC", "runtimeMs": 23 }
   ]
 }`}</pre>
+      <p class="mt-3 text-caption text-muted-foreground">
+        {m.admin_verdictNamingNote()}
+      </p>
       <p class="mt-3 text-caption text-muted-foreground">
         {@html m.admin_exitCodeWarning({ file: '<code>result.json</code>' })}
       </p>

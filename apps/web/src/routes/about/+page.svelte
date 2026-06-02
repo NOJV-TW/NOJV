@@ -27,7 +27,7 @@
   <PublicHeader />
 
   <main class="flex-1 space-y-16 pt-10">
-    <!-- Hero -->
+    
     <section
       class="text-center animate-[fade-up_700ms_var(--ease-out-soft)_both]"
     >
@@ -53,7 +53,7 @@
       </div>
     </section>
 
-    <!-- Meet the team -->
+    
     <section class="animate-[fade-up_700ms_var(--ease-out-soft)_120ms_both]">
       <div class="mb-8 text-center">
         <h2 class="text-title-lg font-bold text-foreground">{m.about_teamTitle()}</h2>
@@ -91,7 +91,7 @@
       </div>
     </section>
 
-    <!-- Open source -->
+    
     <section class="animate-[fade-up_700ms_var(--ease-out-soft)_240ms_both]">
       <Card variant="strong" size="hero" class="text-center">
         <h2 class="text-title-lg font-bold text-foreground">{m.about_openSourceTitle()}</h2>
@@ -100,18 +100,18 @@
         </p>
         <div class="mt-6 flex flex-wrap justify-center gap-3">
           <Button href={data.repoUrl} variant="outline" target="_blank" rel="noreferrer noopener">
-            <Star class="size-4" />
+            <Star aria-hidden="true" class="size-4" />
             {m.about_starOnGithub()}
           </Button>
           <Button href={issuesUrl} variant="outline" target="_blank" rel="noreferrer noopener">
-            <MessageSquare class="size-4" />
+            <MessageSquare aria-hidden="true" class="size-4" />
             {m.about_openIssue()}
           </Button>
         </div>
       </Card>
     </section>
 
-    <!-- Contact -->
+    
     <section class="animate-[fade-up_700ms_var(--ease-out-soft)_360ms_both]">
       <Card variant="surface" size="lg" class="text-center">
         <h2 class="text-title-lg font-bold text-foreground">{m.about_contactTitle()}</h2>
@@ -120,7 +120,7 @@
         </p>
         <div class="mt-5 flex justify-center">
           <Button href={`mailto:${data.contactEmail}`} variant="outline">
-            <Mail class="size-4" />
+            <Mail aria-hidden="true" class="size-4" />
             {m.about_emailUs()}
           </Button>
         </div>

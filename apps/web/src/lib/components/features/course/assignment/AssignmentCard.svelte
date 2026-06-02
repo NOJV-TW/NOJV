@@ -19,7 +19,6 @@
 
   let { assignment, delay = 0 }: Props = $props();
 
-  // Drive urgency from a live clock so the "截止將至" hint updates without a reload.
   let now = $state(Date.now());
   onMount(() => {
     const id = setInterval(() => {
@@ -47,7 +46,6 @@
   const score = $derived(assignment.myStatus?.score ?? 0);
   const totalPoints = $derived(assignment.myStatus?.totalPoints ?? 0);
   const status = $derived(pillStatus(assignment.status));
-  // Student rows only know their score once the window opens; hide for upcoming/draft.
   const showScore = $derived(
     assignment.classStats === null && assignment.status !== "upcoming" && assignment.status !== "draft"
   );
@@ -59,7 +57,6 @@
     !!countdown && !countdown.past && countdown.d < 2 && assignment.status === "open"
   );
 
-  // Manager rows have classStats instead of myStatus.
   const isManagerRow = $derived(assignment.classStats !== null);
 </script>
 

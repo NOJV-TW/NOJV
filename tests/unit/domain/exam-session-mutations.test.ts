@@ -7,12 +7,14 @@ const {
   sessionFindAllActive,
   sessionUpdate,
   sessionRecordEvent,
+  clearPinAndExempt,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
   sessionFindAllActive: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
+  clearPinAndExempt: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -26,12 +28,13 @@ vi.mock("@nojv/db", () => ({
       recordEvent: sessionRecordEvent,
     }),
   },
+  examParticipationIpRepo: { withTx: () => ({ clearPinAndExempt }) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
 import { examDomain } from "@nojv/domain";
 
-const { releaseAllSessionsAsInstructor } = examDomain.session;
+const { releaseAllSessionsAsInstructor, resetStudentIpBinding } = examDomain.session;
 
 const teacherActor = {
   userId: "usr_teacher",
@@ -95,6 +98,68 @@ describe("releaseAllSessionsAsInstructor", () => {
 
     await expect(
       releaseAllSessionsAsInstructor(teacherActor, { examId: "missing" }),
+    ).rejects.toThrow(/not found/i);
+  });
+});
+
+describe("resetStudentIpBinding", () => {
+  const now = new Date("2026-05-26T10:00:00Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
+    clearPinAndExempt.mockResolvedValue({});
+  });
+
+  it("clears the pin and opens a grace window for staff", async () => {
+    membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+
+    const result = await resetStudentIpBinding(
+      teacherActor,
+      { examId: "exm_1", targetUserId: "usr_student" },
+      now,
+    );
+
+    // 10-minute grace window.
+    const expected = new Date("2026-05-26T10:10:00Z");
+    expect(clearPinAndExempt).toHaveBeenCalledWith("exm_1", "usr_student", expected);
+    expect(result).toEqual({ exemptUntil: expected });
+  });
+
+  it("allows a TA", async () => {
+    membershipFindByComposite.mockResolvedValue({ role: "ta", status: "active" });
+
+    await resetStudentIpBinding(
+      teacherActor,
+      { examId: "exm_1", targetUserId: "usr_student" },
+      now,
+    );
+
+    expect(clearPinAndExempt).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a non-staff actor", async () => {
+    membershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
+
+    await expect(
+      resetStudentIpBinding(
+        studentActor,
+        { examId: "exm_1", targetUserId: "usr_student" },
+        now,
+      ),
+    ).rejects.toThrow(/staff/i);
+    expect(clearPinAndExempt).not.toHaveBeenCalled();
+  });
+
+  it("throws when the exam does not exist", async () => {
+    examFindById.mockResolvedValue(null);
+
+    await expect(
+      resetStudentIpBinding(
+        teacherActor,
+        { examId: "missing", targetUserId: "usr_student" },
+        now,
+      ),
     ).rejects.toThrow(/not found/i);
   });
 });

@@ -9,10 +9,6 @@
 
   interface Props {
     form: Sf["form"];
-    /**
-     * Proctoring escape hatches stay live during the running phase — this
-     * lets staff yank the lock when a student is stuck.
-     */
     editable: boolean;
   }
 
@@ -20,7 +16,7 @@
 </script>
 
 <section
-  class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+  class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
 >
   <h3 class="mb-4 text-title-sm font-medium">
     {m.examDetail_settingsSectionProctoring()}

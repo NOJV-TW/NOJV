@@ -1,18 +1,26 @@
 import { spawn } from "node:child_process";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
   normalizeRelativePath,
   sourceFileNames,
+  type RawCaseRun,
   type SandboxRequest,
   type SandboxResult,
+  type ValidatorOutcome,
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
-import { forceRemoveContainer, sanitizeId } from "./docker-process";
-import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
+import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
+import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import { runInteractiveMode } from "./interactive-executor";
+import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
+import { runValidator, type ValidatorCase } from "./validator-executor";
+
+const MAX_OUTER_TIMEOUT_MS = 540_000;
 
 export interface StandardModeConfig {
   cpuLimit: string;
@@ -26,11 +34,85 @@ export async function runStandardMode(
   request: SandboxRequest,
   config: StandardModeConfig,
 ): Promise<SandboxResult> {
+  if (request.judgeType === "interactive") {
+    return await runInteractiveMode(request, config);
+  }
+
   await writeSubmissionFiles(tempDir, request);
-  return await runContainer(tempDir, request, config);
+  const runResult = await runContainer(tempDir, request, config);
+
+  if (request.judgeType === "checker" && runResult.rawRuns) {
+    return await resolveCheckerResult(request, config, runResult.rawRuns);
+  }
+
+  return resolveSandboxResult(runResult, request.testcases);
 }
 
-async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): Promise<void> {
+async function resolveCheckerResult(
+  request: SandboxRequest,
+  config: StandardModeConfig,
+  rawRuns: RawCaseRun[],
+): Promise<SandboxResult> {
+  const validatorScript = request.judgeConfig.checkerScript;
+  if (!validatorScript) {
+    return sandboxSystemError("Checker judge is missing its validator script.");
+  }
+
+  const validatorLanguage = request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
+
+  const testcaseByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
+
+  const cases: ValidatorCase[] = [];
+  for (const run of rawRuns) {
+    if (run.errorVerdict) continue;
+    const tc = testcaseByIndex.get(run.index);
+    if (tc?.output === undefined) continue;
+    cases.push({
+      index: run.index,
+      input: tc.input,
+      answer: tc.output,
+      teamOutput: run.stdout,
+    });
+  }
+
+  const outcomes =
+    cases.length > 0
+      ? await runValidatorInTempDir(request, config, {
+          submissionId: request.submissionId,
+          validatorScript,
+          validatorLanguage,
+          cases,
+          limits: { timeoutMs: request.limits.timeoutMs, memoryMb: request.limits.memoryMb },
+        })
+      : new Map<number, ValidatorOutcome>();
+
+  return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
+}
+
+async function runValidatorInTempDir(
+  request: SandboxRequest,
+  config: StandardModeConfig,
+  params: Parameters<typeof runValidator>[1],
+): ReturnType<typeof runValidator> {
+  const validateTempDir = await mkdtemp(
+    join(tmpdir(), `nojv-validate-${sanitizeId(request.submissionId)}-`),
+  );
+  try {
+    return await runValidator(validateTempDir, params, {
+      cpuLimit: config.cpuLimit,
+      image: config.image,
+      memoryMb: config.memoryMb,
+      pidsLimit: config.pidsLimit,
+    });
+  } finally {
+    await rm(validateTempDir, { force: true, recursive: true });
+  }
+}
+
+export async function writeSubmissionFiles(
+  tempDir: string,
+  request: SandboxRequest,
+): Promise<void> {
   const fileWrites: Promise<void>[] = [];
   const sourceFileMap: { path: string; key: string }[] = [];
 
@@ -69,24 +151,6 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
     ),
   );
 
-  if (request.judgeConfig.checkerScript) {
-    const ext = sourceExtension(request.judgeConfig.checkerLanguage);
-    fileWrites.push(
-      writeFile(join(tempDir, `checker.${ext}`), request.judgeConfig.checkerScript, "utf8"),
-    );
-  }
-
-  if (request.judgeConfig.interactorScript) {
-    const ext = sourceExtension(request.judgeConfig.interactorLanguage);
-    fileWrites.push(
-      writeFile(
-        join(tempDir, `interactor.${ext}`),
-        request.judgeConfig.interactorScript,
-        "utf8",
-      ),
-    );
-  }
-
   await Promise.all(fileWrites);
 
   const testcasesDir = join(tempDir, "testcases");
@@ -97,17 +161,11 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
       const tcDir = join(testcasesDir, String(tc.index));
       await mkdir(tcDir, { recursive: true });
       await writeFile(join(tcDir, "input.txt"), tc.input, "utf8");
-
-      if (tc.output !== undefined) {
-        await writeFile(join(tcDir, "expected.txt"), tc.output, "utf8");
-      }
     }),
   );
 
-  // Create artifacts directory
   await mkdir(join(tempDir, "artifacts"), { recursive: true });
 
-  // Make all files readable by the container's non-root user
   await chmod(tempDir, 0o755);
 }
 
@@ -118,10 +176,6 @@ async function runContainer(
 ): Promise<SandboxResult> {
   const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
 
-  // All containers — standard and advanced — run with
-  // `--network=none`. Student submissions must never reach the
-  // network. Advanced mode has its own launch path in
-  // `runAdvancedContainer` but enforces the same flag.
   const networkArgs = ["--network", "none"];
 
   const args = [
@@ -130,16 +184,8 @@ async function runContainer(
     "--name",
     containerName,
     ...networkArgs,
-    // Mirror the K8s `securityContext` (runAsUser=10001, runAsNonRoot,
-    // seccompProfile: RuntimeDefault). The Dockerfile already declares
-    // `USER sandbox` (UID 10001) and Docker applies a default seccomp
-    // profile, but pinning both explicitly is defense in depth — it stops
-    // an accidental Dockerfile edit or `--user 0` overlay from regressing
-    // the standard-mode isolation.
     "--user",
     "10001:10001",
-    "--security-opt",
-    "seccomp=default",
     "--cap-drop",
     "ALL",
     "--security-opt",
@@ -164,8 +210,12 @@ async function runContainer(
     "/runner/index.js",
   ];
 
-  // Outer timeout: container timeout + 30s grace for Docker overhead
-  const outerTimeoutMs = request.limits.timeoutMs * request.testcases.length + 30_000;
+  const outerTimeoutMs = Math.min(
+    request.limits.timeoutMs * request.testcases.length + 30_000,
+    MAX_OUTER_TIMEOUT_MS,
+  );
+
+  forceRemoveContainerSync(containerName);
 
   return await new Promise<SandboxResult>((resolve) => {
     const child = spawn("docker", args, { env: process.env, stdio: "pipe" });

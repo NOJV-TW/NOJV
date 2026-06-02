@@ -33,7 +33,6 @@
     }
   );
 
-  // Client re-runs the same split rule for preview; existence check is server-side only.
   const previewHandles = $derived.by(() => {
     const raw = $form.handles ?? "";
     const seen = new Set<string>();
@@ -50,7 +49,7 @@
 </script>
 
 <section
-  class="animate-in animate-in-1 relative overflow-hidden rounded-xl border border-border-strong bg-[color:var(--color-panel-strong)] p-5 shadow-rest backdrop-blur-md"
+  class="animate-in animate-in-1 relative overflow-hidden rounded-xl border border-border-subtle-strong bg-[color:var(--color-panel-strong)] p-5 shadow-rest backdrop-blur-md"
 >
   <div
     class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(196,104,45,0.06),transparent_50%)]"
@@ -62,7 +61,7 @@
       class="flex items-center gap-2.5 text-title-sm font-medium tracking-[-0.01em]"
     >
       <span class="text-primary" aria-hidden="true">
-        <UserPlus class="h-5 w-5" />
+        <UserPlus aria-hidden="true" class="h-5 w-5" />
       </span>
       {m.members_addTitle()}
     </h2>

@@ -25,7 +25,6 @@
 
   let { open, onOpenChange, contextType, contextId, students, problems }: Props = $props();
 
-  // Feedback is assignment + exam only — contests never get a feedback section.
   const showFeedback = $derived(contextType !== "contest");
 
   let rows = $state<OverrideListRow[]>([]);
@@ -40,8 +39,6 @@
     loading = true;
     try {
       const url = new URL("/api/overrides", window.location.origin);
-      // Query carries the discriminated context flat:
-      // `type=<assignment|exam|contest>&(assignmentId|examId|contestId)=...`.
       url.searchParams.set("type", contextType);
       const idKey = `${contextType}Id` as const;
       url.searchParams.set(idKey, contextId);
@@ -128,7 +125,7 @@
         {/if}
       </section>
 
-      <section class="space-y-3 border-t border-border pt-5">
+      <section class="space-y-3 border-t border-border-subtle pt-5">
         <div class="flex items-center justify-between">
           <h3 class="text-title-sm font-medium">
             {editTarget
@@ -165,7 +162,7 @@
 
       {#if showFeedback}
         {@const feedbackContextType = contextType as "assignment" | "exam"}
-        <section class="space-y-3 border-t border-border pt-5">
+        <section class="space-y-3 border-t border-border-subtle pt-5">
           <h3 class="text-title-sm font-medium">
             {m.feedback_staff_sectionTitle()}
           </h3>

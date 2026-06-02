@@ -42,7 +42,6 @@
       return "Context id is required when a context type is selected.";
     }
     if (since !== "" && until !== "") {
-      // datetime-local strings are lexicographically comparable.
       if (since >= until) return "\"Since\" must be earlier than \"Until\".";
     }
     return null;
@@ -50,7 +49,6 @@
 
   function toIsoOrUndef(v: string): string | undefined {
     if (!v) return undefined;
-    // datetime-local → interpret in local TZ, then serialize as ISO.
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return undefined;
     return d.toISOString();

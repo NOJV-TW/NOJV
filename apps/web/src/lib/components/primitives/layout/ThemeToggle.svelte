@@ -30,8 +30,8 @@
   onclick={toggle}
 >
   {#if isDark}
-    <SunIcon class="size-4" />
+    <SunIcon aria-hidden="true" class="size-4" />
   {:else}
-    <MoonIcon class="size-4" />
+    <MoonIcon aria-hidden="true" class="size-4" />
   {/if}
 </IconButton>

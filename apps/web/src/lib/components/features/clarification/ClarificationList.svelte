@@ -11,9 +11,6 @@
 
   let { store, canAnswer, problems }: Props = $props();
 
-  // Sort: pending → answered → dismissed, then newest first within each bucket.
-  // Staff see pending at the top so they can triage; students see the same
-  // ordering so they can track their outstanding questions.
   const sorted = $derived.by(() => {
     const stateRank = (s: "pending" | "answered" | "dismissed"): number =>
       s === "pending" ? 0 : s === "answered" ? 1 : 2;

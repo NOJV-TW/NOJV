@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth.client";
   import UserIcon from "@lucide/svelte/icons/user";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
 
-  let user = $derived($page.data.user);
-  let session = $derived($page.data.session);
+  let user = $derived(page.data.user);
+  let session = $derived(page.data.session);
 
   let open = $state(false);
   let btnEl: HTMLButtonElement | undefined = $state();
@@ -38,16 +38,14 @@
   }
 </script>
 
-{#if !session || !user}
-  <!-- No session or no user: render nothing -->
-{:else}
+{#if session && user}
   {@const initial = (user.name.charAt(0) || "?").toUpperCase()}
   {@const hasUsername = !!user.username}
 
   <div class="relative">
     <button
       bind:this={btnEl}
-      class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border bg-primary text-body-sm font-semibold text-primary-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover hover:opacity-90"
+      class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border-subtle bg-primary text-body-sm font-semibold text-primary-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover hover:opacity-90"
       onclick={() => (open = !open)}
       title={user.name}
       type="button"
@@ -77,7 +75,7 @@
             onclick={() => (open = false)}
             role="menuitem"
           >
-            <UserIcon size={16} />
+            <UserIcon aria-hidden="true" size={16} />
             {m.navigation_account()}
           </a>
         {/if}
@@ -88,7 +86,7 @@
           type="button"
           role="menuitem"
         >
-          <LogOutIcon size={16} />
+          <LogOutIcon aria-hidden="true" size={16} />
           {m.auth_signOut()}
         </button>
       </div>

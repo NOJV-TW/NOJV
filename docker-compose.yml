@@ -140,6 +140,7 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-placeholder}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-placeholder}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-placeholder}
+      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-67108864}
     ports:
       - "3000:3000"
     healthcheck:

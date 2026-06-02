@@ -30,11 +30,6 @@ const TIME_DEFAULTS: Intl.DateTimeFormatOptions = {
   minute: "2-digit",
 };
 
-/**
- * Format an absolute date+time in the active Paraglide locale, with a
- * timezone short name (e.g. `5/20/2026, 6:30 PM GMT+8`). Override fields via
- * `opts`; supplied keys win over the defaults.
- */
 export function formatDateTime(
   value: Date | string | number,
   opts?: Intl.DateTimeFormatOptions,
@@ -44,7 +39,6 @@ export function formatDateTime(
   return new Intl.DateTimeFormat(getLocale(), { ...DATE_TIME_DEFAULTS, ...opts }).format(d);
 }
 
-/** Date-only variant. No timezone marker by default. */
 export function formatDate(
   value: Date | string | number,
   opts?: Intl.DateTimeFormatOptions,
@@ -54,7 +48,6 @@ export function formatDate(
   return new Intl.DateTimeFormat(getLocale(), { ...DATE_DEFAULTS, ...opts }).format(d);
 }
 
-/** Time-only variant. No timezone marker by default. */
 export function formatTime(
   value: Date | string | number,
   opts?: Intl.DateTimeFormatOptions,
@@ -76,7 +69,6 @@ export function formatTimeRangeCompact(start: string | Date, end: string | Date)
   return `${formatPart(s)} → ${formatPart(e)}`;
 }
 
-/** Single timestamp rendered the same way (for non-range meta). */
 export function formatDateTimeCompact(value: string | Date): string {
   const d = typeof value === "string" ? new Date(value) : value;
   return formatPart(d);
@@ -86,7 +78,6 @@ export interface FmtDateOptions {
   dateOnly?: boolean;
 }
 
-/** "M/D HH:MM" or, with `dateOnly`, "M/D". Used by the coursework views. */
 export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   const m = d.getMonth() + 1;
@@ -95,9 +86,6 @@ export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
   return `${String(m)}/${String(day)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-// Indexed via `Date#getDay()` (0 = Sunday). Messages live under
-// `weekday_short_0..6` in `apps/web/messages/*.json` so the locale
-// switches as part of the normal paraglide locale flip.
 const WEEKDAY_MESSAGES = [
   m.weekday_short_0,
   m.weekday_short_1,

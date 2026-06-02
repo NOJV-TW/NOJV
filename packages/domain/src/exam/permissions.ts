@@ -5,7 +5,6 @@ export interface ExamPermissionInput {
   courseId: string;
 }
 
-// Pure: callers pre-fetch memberships so the list page can batch-resolve without N+1.
 export function canManageExam(
   userId: string | null,
   exam: ExamPermissionInput,

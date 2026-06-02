@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { goto } from "$app/navigation";
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { inputClassName } from "$lib/utils/css";
@@ -13,13 +14,23 @@
   import { Card } from "$lib/components/primitives/ui/card/index.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
 
   let { data } = $props();
 
-  const { form, errors, enhance, message: formMessage } = superForm<typeof data.form.data, FormMessage>(untrack(() => data.form), {
-    resetForm: false
-  });
+  const { form, errors, enhance, submitting, message: formMessage } = superForm<typeof data.form.data, FormMessage>(
+    untrack(() => data.form),
+    {
+      resetForm: false,
+      onUpdated({ form }) {
+        if (form.message?.kind === "success") {
+          toasts.success(m.contestCreate_success());
+          goto("/contests");
+        }
+      }
+    }
+  );
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
@@ -28,13 +39,9 @@
 
 <div class="space-y-6">
   <div class="flex items-center gap-3">
-    <TrophyIcon class="h-8 w-8 text-primary" />
+    <TrophyIcon aria-hidden="true" class="h-8 w-8 text-primary" />
     <h1 class="text-title-lg">{m.contestCreate_title()}</h1>
   </div>
-
-  {#if $formMessage?.kind === "success"}
-    <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
-  {/if}
 
   <Card variant="surface" size="hero" class="max-w-2xl">
     <form method="POST" action="?/create" use:enhance class="space-y-5">
@@ -48,8 +55,10 @@
         type="text"
         placeholder={m.contestCreate_slugPlaceholder()}
         bind:value={$form.id}
+        aria-invalid={Boolean($errors.id)}
+        aria-describedby={$errors.id ? "id-error" : undefined}
       />
-      {#if $errors.id}<p class="mt-1 text-xs text-red-600">{$errors.id}</p>{/if}
+      {#if $errors.id}<p id="id-error" class="mt-1 text-xs text-destructive">{$errors.id}</p>{/if}
     </div>
 
     <div>
@@ -61,8 +70,10 @@
         type="text"
         placeholder={m.contestCreate_titlePlaceholder()}
         bind:value={$form.title}
+        aria-invalid={Boolean($errors.title)}
+        aria-describedby={$errors.title ? "title-error" : undefined}
       />
-      {#if $errors.title}<p class="mt-1 text-xs text-red-600">{$errors.title}</p>{/if}
+      {#if $errors.title}<p id="title-error" class="mt-1 text-xs text-destructive">{$errors.title}</p>{/if}
     </div>
 
     <div>
@@ -73,13 +84,15 @@
         name="summary"
         placeholder={m.contestCreate_summaryPlaceholder()}
         bind:value={$form.summary}
+        aria-invalid={Boolean($errors.summary)}
+        aria-describedby={$errors.summary ? "summary-error" : undefined}
       ></textarea>
-      {#if $errors.summary}<p class="mt-1 text-xs text-red-600">{$errors.summary}</p>{/if}
+      {#if $errors.summary}<p id="summary-error" class="mt-1 text-xs text-destructive">{$errors.summary}</p>{/if}
     </div>
 
-    <!-- Time -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <ClockIcon class="h-4 w-4" />
+      <ClockIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.common_timeline()}</span>
     </div>
     <div class="grid gap-4 sm:grid-cols-2">
@@ -91,8 +104,10 @@
           name="startsAt"
           type="datetime-local"
           bind:value={$form.startsAt}
+          aria-invalid={Boolean($errors.startsAt)}
+          aria-describedby={$errors.startsAt ? "startsAt-error" : undefined}
         />
-        {#if $errors.startsAt}<p class="mt-1 text-xs text-red-600">{$errors.startsAt}</p>{/if}
+        {#if $errors.startsAt}<p id="startsAt-error" class="mt-1 text-xs text-destructive">{$errors.startsAt}</p>{/if}
       </div>
       <div>
         <label class="text-sm font-medium" for="endsAt">{m.contestCreate_endsAt()}</label>
@@ -102,14 +117,16 @@
           name="endsAt"
           type="datetime-local"
           bind:value={$form.endsAt}
+          aria-invalid={Boolean($errors.endsAt)}
+          aria-describedby={$errors.endsAt ? "endsAt-error" : undefined}
         />
-        {#if $errors.endsAt}<p class="mt-1 text-xs text-red-600">{$errors.endsAt}</p>{/if}
+        {#if $errors.endsAt}<p id="endsAt-error" class="mt-1 text-xs text-destructive">{$errors.endsAt}</p>{/if}
       </div>
     </div>
 
-    <!-- Scoring -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <SettingsIcon class="h-4 w-4" />
+      <SettingsIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.contestCreate_scoringMode()}</span>
     </div>
     <div>
@@ -130,8 +147,10 @@
         min="0"
         max="3600"
         bind:value={$form.submitCooldownSec}
+        aria-invalid={Boolean($errors.submitCooldownSec)}
+        aria-describedby={$errors.submitCooldownSec ? "submitCooldownSec-error" : undefined}
       />
-      {#if $errors.submitCooldownSec}<p class="mt-1 text-xs text-red-600">{$errors.submitCooldownSec}</p>{/if}
+      {#if $errors.submitCooldownSec}<p id="submitCooldownSec-error" class="mt-1 text-xs text-destructive">{$errors.submitCooldownSec}</p>{/if}
     </div>
 
     <div>
@@ -163,21 +182,28 @@
         type="text"
         placeholder={m.contestCreate_inviteCodePlaceholder()}
         bind:value={$form.inviteCode}
+        aria-invalid={Boolean($errors.inviteCode)}
+        aria-describedby={$errors.inviteCode ? "inviteCode-error" : undefined}
       />
-      {#if $errors.inviteCode}<p class="mt-1 text-xs text-red-600">{$errors.inviteCode}</p>{/if}
+      {#if $errors.inviteCode}<p id="inviteCode-error" class="mt-1 text-xs text-destructive">{$errors.inviteCode}</p>{/if}
       <p class="mt-1 text-xs text-muted-foreground">
         {m.contestCreate_inviteCodeHint()}
       </p>
     </div>
 
-    <!-- Languages -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <CodeIcon class="h-4 w-4" />
+      <CodeIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.contestCreate_allowedLanguages()}</span>
     </div>
     <div>
       <p class="text-xs text-muted-foreground">{m.contestCreate_allowedLanguagesHint()}</p>
-      <div class="mt-2 flex flex-wrap gap-3">
+      <div
+        class="mt-2 flex flex-wrap gap-3"
+        role="group"
+        aria-label={m.contestCreate_allowedLanguages()}
+        aria-describedby={$errors.allowedLanguages ? "allowedLanguages-error" : undefined}
+      >
         {#each supportedLanguages as lang (lang)}
           <label class="flex items-center gap-1.5 text-sm">
             <input
@@ -189,12 +215,12 @@
           </label>
         {/each}
       </div>
-      {#if $errors.allowedLanguages}<p class="mt-1 text-xs text-red-600">{$errors.allowedLanguages}</p>{/if}
+      {#if $errors.allowedLanguages}<p id="allowedLanguages-error" class="mt-1 text-xs text-destructive">{$errors.allowedLanguages}</p>{/if}
     </div>
 
-    <!-- Problems -->
+    
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <ListIcon class="h-4 w-4" />
+      <ListIcon aria-hidden="true" class="h-4 w-4" />
       <span>{m.contestCreate_problemIds()}</span>
     </div>
     <div>
@@ -205,12 +231,14 @@
         type="text"
         placeholder={m.contestCreate_problemIdsPlaceholder()}
         bind:value={$form.problemIdsText}
+        aria-invalid={Boolean($errors.problemIdsText)}
+        aria-describedby={$errors.problemIdsText ? "problemIdsText-error" : undefined}
       />
-      {#if $errors.problemIdsText}<p class="mt-1 text-xs text-red-600">{$errors.problemIdsText}</p>{/if}
+      {#if $errors.problemIdsText}<p id="problemIdsText-error" class="mt-1 text-xs text-destructive">{$errors.problemIdsText}</p>{/if}
     </div>
 
-      <Button type="submit" size="lg">
-        <TrophyIcon class="h-4 w-4" />
+      <Button type="submit" size="lg" loading={$submitting}>
+        <TrophyIcon aria-hidden="true" class="h-4 w-4" />
         {m.contestCreate_button()}
       </Button>
     </form>

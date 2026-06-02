@@ -195,13 +195,13 @@ describe("buildSubtaskResults", () => {
       expect(result[0]!.passed).toBe(false);
     });
 
-    it("uses the per-case runtimeMs from the sandbox payload", () => {
+    it("uses the per-case timeMs from the sandbox payload", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"])];
       const sandbox: SandboxResult = {
         testcaseResults: [mkCase(0, "AC", 12), mkCase(1, "AC", 34)],
       };
       const result = buildSubtaskResults(sandbox, sets, { s1: "ALL_OR_NOTHING" });
-      expect(result[0]!.cases.map((c) => c.runtimeMs)).toEqual([12, 34]);
+      expect(result[0]!.cases.map((c) => c.timeMs)).toEqual([12, 34]);
     });
 
     it("links each case to its testcaseId in subtask order", () => {

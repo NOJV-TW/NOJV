@@ -1,8 +1,3 @@
-/**
- * Drop keys whose values are `undefined`. Used to build Prisma update inputs
- * from Zod `.partial()` schemas without tripping `exactOptionalPropertyTypes`.
- * The return type marks every key as optional since stripped keys are omitted.
- */
 export function stripUndefined<T extends Record<string, unknown>>(
   obj: T,
 ): Partial<{ [K in keyof T]: Exclude<T[K], undefined> }> {

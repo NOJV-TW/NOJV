@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // vi.hoisted handles need to live above the vi.mock that references them.
-const { findByIdWithJudgeContext, readTestcaseBlobs, readWorkspaceFileBlob } = vi.hoisted(
-  () => ({
-    findByIdWithJudgeContext: vi.fn(),
-    readTestcaseBlobs: vi.fn(),
-    readWorkspaceFileBlob: vi.fn(),
-  }),
-);
+const {
+  findByIdWithJudgeContext,
+  readTestcaseBlobs,
+  readWorkspaceFileBlob,
+  readValidatorScriptBlob,
+} = vi.hoisted(() => ({
+  findByIdWithJudgeContext: vi.fn(),
+  readTestcaseBlobs: vi.fn(),
+  readWorkspaceFileBlob: vi.fn(),
+  readValidatorScriptBlob: vi.fn(),
+}));
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: {
@@ -21,6 +25,7 @@ vi.mock("@nojv/db", () => ({
 vi.mock("../../../packages/domain/src/problem/blobs", () => ({
   readTestcaseBlobs,
   readWorkspaceFileBlob,
+  readValidatorScriptBlob,
 }));
 
 import { submissionDomain, NotFoundError } from "@nojv/domain";
@@ -95,6 +100,7 @@ describe("getJudgeContext", () => {
       inputFiles: undefined,
     });
     readWorkspaceFileBlob.mockResolvedValue("// starter\n");
+    readValidatorScriptBlob.mockResolvedValue("");
   });
 
   afterEach(() => {
@@ -138,41 +144,47 @@ describe("getJudgeContext", () => {
     ]);
   });
 
-  it("propagates checker / interactor scripts from judgeConfig", async () => {
+  it("fetches the checker script from storage via judgeConfig.checkerKey", async () => {
     const row = mkSubmissionRow(
       {},
       {
         judgeConfig: {
           type: "checker",
-          checkerScript: "checker source",
-          interactorScript: null,
+          checkerKey: "problems/prob_1/validator/checker",
+          interactorKey: null,
           runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
         },
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
+    readValidatorScriptBlob.mockResolvedValue("checker source");
 
     const ctx = await getJudgeContext("sub_1");
     expect(ctx.judgeType).toBe("checker");
+    expect(readValidatorScriptBlob).toHaveBeenCalledWith("problems/prob_1/validator/checker");
     expect(ctx.checkerScript).toBe("checker source");
     expect(ctx.interactorScript).toBeNull();
   });
 
-  it("propagates interactor script when present", async () => {
+  it("fetches the interactor script from storage via judgeConfig.interactorKey", async () => {
     const row = mkSubmissionRow(
       {},
       {
         judgeConfig: {
           type: "interactive",
-          interactorScript: "interactor source",
+          interactorKey: "problems/prob_1/validator/interactor",
           runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
         },
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
+    readValidatorScriptBlob.mockResolvedValue("interactor source");
 
     const ctx = await getJudgeContext("sub_1");
     expect(ctx.judgeType).toBe("interactive");
+    expect(readValidatorScriptBlob).toHaveBeenCalledWith(
+      "problems/prob_1/validator/interactor",
+    );
     expect(ctx.interactorScript).toBe("interactor source");
   });
 
@@ -184,6 +196,7 @@ describe("getJudgeContext", () => {
     expect(ctx.judgeType).toBe("standard");
     expect(ctx.checkerScript).toBeNull();
     expect(ctx.interactorScript).toBeNull();
+    expect(readValidatorScriptBlob).not.toHaveBeenCalled();
   });
 
   it("falls back to problem time/memory limits when judgeConfig.runtime is missing", async () => {

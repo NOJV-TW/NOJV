@@ -13,7 +13,6 @@
     reportUrl: string | null;
     triggeredAt: string | null;
     completedAt: string | null;
-    /** Raw results payload; we defensively parse `pairs` at render time. */
     results: unknown;
   }
 
@@ -37,7 +36,6 @@
     note: string | null;
   }
 
-  /** Match the server's `buildPairKey`: sort users, then `userA|userB|problemId`. */
   export function pairKeyOf(pair: PlagiarismReportPair): string {
     const [a, b] = [pair.userId1, pair.userId2].sort();
     return `${a}|${b}|${pair.problemId}`;
@@ -55,11 +53,6 @@
     problems: PlagiarismProblemEntry[];
     students: PlagiarismStudentEntry[];
     flags?: PlagiarismFlagEntry[];
-    /**
-     * Plagiarism context for the per-pair diff link. We build a single
-     * `/plagiarism/pairs/<encodedPairId>` URL where `pairId` is a composite
-     * `<ctxType>:<ctxId>:<pairKey>` segment parsed back on the server.
-     */
     diffContext?: { type: "assessment" | "contest" | "exam"; id: string };
     class?: string;
   }
@@ -108,9 +101,6 @@
     return copy;
   });
 
-  // When `showFlagged` is false (default) we hide pairs that staff has marked
-  // as a false positive; when true we show them at reduced opacity so the
-  // grader can still review the decision.
   const visiblePairs = $derived.by(() => {
     if (showFlagged) return sortedPairs;
     return sortedPairs.filter((p) => !flaggedKeys.has(pairKeyOf(p)));

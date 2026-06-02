@@ -13,9 +13,6 @@ export type {
   SandboxVerdict,
 } from "@nojv/core";
 
-// Config schema for validating /submission/config.json.
-// Uses domain enums from @nojv/core. The sandbox-runner runs the
-// submission as-is; `problemType` is preserved for diagnostics.
 export const SandboxInputSchema = z.object({
   submissionId: z.string(),
   language: languageSchema,
@@ -43,15 +40,27 @@ export const SandboxInputSchema = z.object({
   limits: z.object({
     timeoutMs: z.number(),
     memoryMb: z.number(),
+    env: z.record(z.string(), z.string()).optional(),
   }),
   checkerLanguage: judgeScriptLanguageSchema.optional(),
   interactorLanguage: judgeScriptLanguageSchema.optional(),
+  validate: z
+    .object({
+      language: judgeScriptLanguageSchema,
+      cases: z.array(z.object({ index: z.number() })).max(2000),
+    })
+    .optional(),
+  interactive: z
+    .object({
+      role: z.enum(["solution", "validator"]),
+      language: judgeScriptLanguageSchema.optional(),
+      index: z.number().optional(),
+    })
+    .optional(),
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
 
-// Optional per-testcase metadata sitting next to input/expected on disk.
-// Both fields default to loader-level values when missing or invalid.
 export const TestcaseMetaSchema = z.object({
   weight: z.number().optional(),
   isSample: z.boolean().optional(),
@@ -59,7 +68,6 @@ export const TestcaseMetaSchema = z.object({
 
 export type TestcaseMeta = z.infer<typeof TestcaseMetaSchema>;
 
-// Testcase files read from disk (not from config.json)
 export interface TestcaseFiles {
   index: number;
   input: string;
@@ -68,9 +76,56 @@ export interface TestcaseFiles {
   isSample: boolean;
 }
 
-// Re-export for backward compatibility within sandbox-runner
-// (judges import TestcaseResult from types.ts)
 export type { SandboxTestcaseResult as TestcaseResult } from "@nojv/core";
 
-// Re-export for index.ts which constructs SandboxOutput
 export type { SandboxResult as SandboxOutput } from "@nojv/core";
+
+const sandboxVerdictSchema = z.enum(["AC", "WA", "TLE", "MLE", "RE", "SE"]);
+
+const sandboxTestcaseResultSchema = z.object({
+  index: z.number(),
+  verdict: sandboxVerdictSchema,
+  stdout: z.string(),
+  stderr: z.string(),
+  exitCode: z.number(),
+  timeMs: z.number(),
+  memoryKb: z.number().optional(),
+  score: z.number().optional(),
+  feedback: z.string().optional(),
+});
+
+const rawCaseRunSchema = z.object({
+  index: z.number(),
+  stdout: z.string(),
+  stderr: z.string(),
+  exitCode: z.number(),
+  timeMs: z.number(),
+  memoryKb: z.number().optional(),
+  errorVerdict: z.enum(["TLE", "MLE", "RE", "SE"]).optional(),
+});
+
+export const SandboxOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  pipelineError: z.string().optional(),
+  testcaseResults: z.array(sandboxTestcaseResultSchema).optional(),
+  rawRuns: z.array(rawCaseRunSchema).optional(),
+  customScore: z.number().optional(),
+  scoringFeedback: z.string().optional(),
+});
+
+const validatorCaseOutcomeSchema = z.object({
+  index: z.number(),
+  verdict: z.enum(["AC", "WA", "SE"]),
+  score: z.number().optional(),
+  teamMessage: z.string().optional(),
+  judgeMessage: z.string().optional(),
+});
+
+export type ValidatorCaseOutcome = z.infer<typeof validatorCaseOutcomeSchema>;
+
+export const ValidateOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  validatorOutcomes: z.array(validatorCaseOutcomeSchema).optional(),
+});
+
+export type ValidateOutput = z.infer<typeof ValidateOutputSchema>;

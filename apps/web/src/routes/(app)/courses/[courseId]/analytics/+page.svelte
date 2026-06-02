@@ -17,17 +17,52 @@
     return `${Math.round(fraction * 100)}%`;
   }
 
-  // Pie slice colours follow the project verdict semantic map.
-  const verdictColors: Record<string, string> = {
-    accepted: "#10b981",
-    wrong_answer: "#ef4444",
-    time_limit_exceeded: "#f59e0b",
-    memory_limit_exceeded: "#f97316",
-    runtime_error: "#a855f7",
-    compile_error: "#f59e0b",
-    queued: "#3b82f6",
-    running: "#3b82f6"
+  // ECharts paints to canvas, so it needs resolved color strings rather than
+  // CSS var() references. Read the design tokens at runtime and re-read them
+  // when the theme class flips so the chart tracks light/dark mode.
+  const DEFAULT_VERDICT_COLORS = {
+    success: "#7a8f6d",
+    destructive: "#c4682d",
+    warning: "#d4a054",
+    info: "#4d6f8f",
+    chart2: "#4d6f8f",
+    chart3: "#8a6142",
+    mutedFg: "#6b7280"
   };
+  let tokenColors = $state({ ...DEFAULT_VERDICT_COLORS });
+
+  function resolveTokenColors() {
+    if (typeof window === "undefined") return;
+    const cs = getComputedStyle(document.documentElement);
+    const read = (n: string, fallback: string) => cs.getPropertyValue(n).trim() || fallback;
+    tokenColors = {
+      success: read("--success", DEFAULT_VERDICT_COLORS.success),
+      destructive: read("--destructive", DEFAULT_VERDICT_COLORS.destructive),
+      warning: read("--warning", DEFAULT_VERDICT_COLORS.warning),
+      info: read("--info", DEFAULT_VERDICT_COLORS.info),
+      chart2: read("--chart-2", DEFAULT_VERDICT_COLORS.chart2),
+      chart3: read("--chart-3", DEFAULT_VERDICT_COLORS.chart3),
+      mutedFg: read("--muted-foreground", DEFAULT_VERDICT_COLORS.mutedFg)
+    };
+  }
+
+  $effect(() => {
+    resolveTokenColors();
+    const observer = new MutationObserver(resolveTokenColors);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  });
+
+  const verdictColors = $derived<Record<string, string>>({
+    accepted: tokenColors.success,
+    wrong_answer: tokenColors.destructive,
+    time_limit_exceeded: tokenColors.warning,
+    memory_limit_exceeded: tokenColors.chart3,
+    runtime_error: tokenColors.chart2,
+    compile_error: tokenColors.info,
+    queued: tokenColors.mutedFg,
+    running: tokenColors.mutedFg
+  });
 
   const verdictOption: EChartsOption = $derived({
     tooltip: { trigger: "item" },
@@ -39,13 +74,12 @@
         data: analytics.verdictDistribution.map((entry) => ({
           name: formatVerdictLabel(entry.status),
           value: entry.count,
-          itemStyle: { color: verdictColors[entry.status] ?? "#6b7280" }
+          itemStyle: { color: verdictColors[entry.status] ?? tokenColors.mutedFg }
         }))
       }
     ]
   });
 
-  // Lowest AC rate = hardest. Surface the bottom band in a warning tone.
   function acRateTone(acRate: number): "destructive" | "warning" | "muted" {
     if (acRate < 0.3) return "destructive";
     if (acRate < 0.6) return "warning";
@@ -54,7 +88,7 @@
 </script>
 
 <div class="space-y-10 pb-20">
-  <!-- Per-assessment summary -->
+  
   <section class="animate-in animate-in-1 space-y-4">
     <h2 class="text-title-sm font-semibold">{m.courseAnalytics_assessmentsTitle()}</h2>
     {#if analytics.assessmentSummaries.length === 0}
@@ -107,7 +141,7 @@
   </section>
 
   <div class="grid gap-8 lg:grid-cols-2">
-    <!-- Hardest problems -->
+    
     <section class="animate-in animate-in-2 space-y-4">
       <h2 class="text-title-sm font-semibold">{m.courseAnalytics_hardestTitle()}</h2>
       <p class="text-caption text-muted-foreground">
@@ -145,7 +179,7 @@
       {/if}
     </section>
 
-    <!-- Verdict distribution -->
+    
     <section class="animate-in animate-in-2 space-y-4">
       <h2 class="text-title-sm font-semibold">{m.courseAnalytics_verdictsTitle()}</h2>
       <p class="text-caption text-muted-foreground">
@@ -166,7 +200,7 @@
     </section>
   </div>
 
-  <!-- Students needing attention -->
+  
   <section class="animate-in animate-in-3 space-y-4">
     <h2 class="text-title-sm font-semibold">{m.courseAnalytics_atRiskTitle()}</h2>
     <p class="text-caption text-muted-foreground">
@@ -192,7 +226,7 @@
                 class="flex size-9 items-center justify-center rounded-full bg-warning/15 text-warning"
                 aria-hidden="true"
               >
-                <AlertTriangle class="size-4" />
+                <AlertTriangle aria-hidden="true" class="size-4" />
               </span>
               <div class="min-w-0">
                 <div class="truncate text-body font-medium">{student.name}</div>

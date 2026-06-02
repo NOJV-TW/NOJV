@@ -17,14 +17,10 @@ const batchSchema = z.object({
   until: z.iso.datetime().optional(),
 });
 
-// Batch rejudge — fan out across a problem + optional context filters.
-// Single-submission rejudge lives at `POST /api/submissions/[id]/rejudge`.
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const body = batchSchema.parse(await event.request.json());
 
-  // Drop undefined optional keys to satisfy exactOptionalPropertyTypes
-  // in the authz + dispatch input contracts.
   const batchInput: Parameters<typeof submissionDomain.dispatchRejudge>[0] = {
     mode: "batch",
     problemId: body.problemId,

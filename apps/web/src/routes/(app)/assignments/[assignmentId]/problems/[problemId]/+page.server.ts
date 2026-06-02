@@ -1,4 +1,4 @@
-import { error } from "@sveltejs/kit";
+import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { assignmentDomain, submissionDomain } from "@nojv/domain";
@@ -12,13 +12,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { assignment, isManager, course } = parent;
   const { problemId } = event.params;
 
-  // Archived courses: non-managers lose click-through even after the
-  // assignment closes.  Managers can still open the problem to review.
   if (!isManager && course.archived) {
     error(403, "This course is archived.");
   }
 
-  let isEnded = false;
   if (!isManager) {
     const now = new Date();
     const opens = new Date(assignment.opensAt);
@@ -26,12 +23,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     if (now < opens) {
       error(404, "Problem not available.");
     }
-    isEnded = now > closes;
+    if (now > closes) {
+      redirect(302, `/problems/${problemId}?ended=assignment`);
+    }
   }
 
   const problemInScope = await assignmentDomain.isProblemInAssignment(assignment.id, problemId);
   if (!problemInScope) {
-    // 404 so we don't leak whether the problem exists outside this assignment.
     error(404, "Problem not found in this assignment.");
   }
 
@@ -64,5 +62,5 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         max: assignment.maxAttemptsPerDay,
       };
 
-  return { solveProps, siblingProblems, isEnded, dailyAttempts };
+  return { solveProps, siblingProblems, dailyAttempts };
 });

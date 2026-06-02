@@ -49,6 +49,12 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production) |
 | `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects              |
 
+### Web
+
+| Variable          | Default    | Purpose                                                                                                                                                                                                                                                              |
+| ----------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BODY_SIZE_LIMIT` | `67108864` | SvelteKit adapter-node POST body cap, in bytes. Baked into `web.Dockerfile` at 64 MiB so the 60 MB cap on bundle/workspace/checker/interactor upload routes is the effective ceiling. The adapter's built-in default is 512 KiB and would reject every asset upload. |
+
 ### OAuth (Optional)
 
 | Variable               | Purpose                    |
@@ -84,6 +90,11 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `PORT`               | `8080`               | Worker health server port (`/healthz`, `/readyz`) |
 | `WORKER_CONCURRENCY` | `4`                  | Activity concurrency per task queue               |
 | `WORKER_MODE`        | `all`                | Task queues: `all`, `judge`, `platform`           |
+
+> Advanced-mode (`special_env`) judging runs only on the Docker backend. When
+> `EXECUTION_BACKEND=kubernetes`, also set the same value on the **web** service
+> so it hides advanced-problem creation/conversion (the guard defaults to
+> "supported" when unset, leaving Docker deployments unaffected).
 
 ### Object Storage (S3-Compatible)
 

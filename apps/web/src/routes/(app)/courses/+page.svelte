@@ -54,8 +54,8 @@
     {/snippet}
   </PageHeader>
 
-  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
-    <div role="tablist" aria-label="Course tabs" class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
+    <div role="tablist" aria-label={m.courses_tablistLabel()} class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       {#each [{ key: "enrolled" as const, label: m.courses_tabEnrolled(), count: tabCounts.enrolled }, { key: "managing" as const, label: m.courses_tabManaging(), count: tabCounts.managing }] as tab (tab.key)}
         {@const isActive = tab.key === activeTab}
         <button
@@ -81,7 +81,7 @@
 
     {#if showCreateButton}
       <Button href="/courses/new">
-        <Plus class="h-4 w-4" />
+        <Plus aria-hidden="true" class="h-4 w-4" />
         {m.courses_createNew()}
       </Button>
     {/if}
@@ -93,7 +93,7 @@
         class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
-          <GraduationCap class="h-7 w-7 text-muted-foreground/70" />
+          <GraduationCap aria-hidden="true" class="h-7 w-7 text-muted-foreground/70" />
         </div>
         <h3 class="mt-4 text-title font-medium">{m.courses_emptyEnrolledTitle()}</h3>
         <p class="mt-2 text-body-sm text-muted-foreground">
@@ -105,7 +105,7 @@
         class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
-          <BookOpen class="h-7 w-7 text-muted-foreground/70" />
+          <BookOpen aria-hidden="true" class="h-7 w-7 text-muted-foreground/70" />
         </div>
         <h3 class="mt-4 text-title font-medium">{m.courses_emptyManagingTitle()}</h3>
         <p class="mt-2 text-body-sm text-muted-foreground">
@@ -114,7 +114,7 @@
         {#if data.canCreate}
           <div class="mt-5">
             <Button href="/courses/new">
-              <Plus class="h-4 w-4" />
+              <Plus aria-hidden="true" class="h-4 w-4" />
               {m.courses_createFirst()}
             </Button>
           </div>
@@ -126,7 +126,7 @@
       {#each visibleCourses as course (course.id)}
         <a
           href={`/courses/${course.id}`}
-          class="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)] px-7 py-7 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-normal ease-out-soft hover:-translate-y-0.5 hover:border-border-strong hover:shadow-hover {course.archived
+          class="group relative flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-7 py-7 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-normal ease-out-soft hover:-translate-y-0.5 hover:border-border-strong hover:shadow-hover {course.archived
             ? 'opacity-60 hover:opacity-100'
             : ''}"
         >
@@ -208,7 +208,7 @@
             <span
               class="ml-auto inline-flex text-muted-foreground transition-transform duration-fast ease-out-soft group-hover:translate-x-0.5 group-hover:text-primary"
             >
-              <ArrowRight class="h-4 w-4" />
+              <ArrowRight aria-hidden="true" class="h-4 w-4" />
             </span>
           </div>
         </a>

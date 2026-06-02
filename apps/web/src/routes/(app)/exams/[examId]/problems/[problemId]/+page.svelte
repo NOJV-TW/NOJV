@@ -5,10 +5,6 @@
 
   let { data } = $props();
 
-  // Defense-in-depth UX: hooks.server.ts is the real gate; real release
-  // runs through the `releaseSession` form action on /exams/[examId].
-  // This mirrors the legacy route's pop-state guard so the student
-  // cannot browser-back out of exam mode.
   $effect(() => {
     if (typeof window === "undefined") return;
 
@@ -21,9 +17,6 @@
 
     const handlePopState = () => {
       if (!window.location.pathname.startsWith(examPath)) {
-        // The first sibling is the natural landing spot after a
-        // rogue history pop — `siblingProblems[0]?.href` always points
-        // back into the id-unified exam tree.
         const fallback =
           data.siblingProblems[0]?.href ?? `${examPath}/problems/${data.problem.id}`;
         goto(fallback, { replaceState: true });

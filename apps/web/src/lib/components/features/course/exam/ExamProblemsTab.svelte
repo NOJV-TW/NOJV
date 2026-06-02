@@ -19,10 +19,6 @@
 
   interface Props {
     detail: ProblemsTabDetail;
-    // `liveStatus` kept for API symmetry with ExamSettingsTab and so the
-    // container at the route level can pass the same prop everywhere; not
-    // used inside the component because `canEdit` already projects the
-    // locked/unlocked split.
     liveStatus?: ProblemsLiveStatus;
     canEdit: boolean;
     form?: ActionData;
@@ -31,8 +27,6 @@
 
   let { detail, canEdit, form, class: className }: Props = $props();
 
-  // Local reorder state — seeded from the server payload and resynced
-  // whenever `detail` changes (e.g. after a successful POST).
   let ids = $state<string[]>([]);
   let pointsMap = $state<Record<string, number>>({});
   let attachInput = $state("");
@@ -142,7 +136,7 @@
                     onclick={() => move(id, -1)}
                     aria-label={m.examDetail_problemsEditMoveUp()}
                   >
-                    <ChevronUp class="h-4 w-4" />
+                    <ChevronUp aria-hidden="true" class="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -151,7 +145,7 @@
                     onclick={() => move(id, 1)}
                     aria-label={m.examDetail_problemsEditMoveDown()}
                   >
-                    <ChevronDown class="h-4 w-4" />
+                    <ChevronDown aria-hidden="true" class="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -159,7 +153,7 @@
                     onclick={() => detach(id)}
                     aria-label={m.examDetail_problemsEditDetachButton()}
                   >
-                    <X class="h-4 w-4" />
+                    <X aria-hidden="true" class="h-4 w-4" />
                   </button>
                 </div>
               {:else}
@@ -176,9 +170,7 @@
         {/each}
       </ul>
 
-      <!-- Canonical ordering + points payload. dataType=default so the
-           page.server action parses `problemIds` as repeated fields and
-           `points_*` inputs per row. -->
+      
       {#each ids as id (id)}
         <input type="hidden" name="problemIds" value={id} />
       {/each}
@@ -212,7 +204,7 @@
           placeholder="prob_01JA…"
         />
       </div>
-      <!-- Ship current list + appended id. -->
+      
       {#each ids as id (id)}
         <input type="hidden" name="problemIds" value={id} />
       {/each}

@@ -1,21 +1,33 @@
 <script lang="ts">
   import type { ProblemSubmissionEntry } from "$lib/types";
   import { formatTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
+  import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
-  import SubtaskResults from "./SubtaskResults.svelte";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
+  import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
   import { toasts } from "$lib/stores/toast";
 
+  function contextLabel(kind: ProblemSubmissionEntry["context"]): string | null {
+    switch (kind) {
+      case "practice":
+        return m.submissions_kind_practice();
+      case "assignment":
+        return m.submissions_kind_assignment();
+      case "contest":
+        return m.submissions_kind_contest();
+      case "exam":
+        return m.submissions_kind_exam();
+      default:
+        return null;
+    }
+  }
+
   interface Props {
-    /**
-     * Bindable submission history. The parent owns ingestion (push new
-     * results from Run/Submit); this panel renders + mutates entries
-     * in-place to attach lazily-fetched source code.
-     */
     submissions?: ProblemSubmissionEntry[];
-    /** Bindable index of the focused entry; `null` shows the list view. */
     viewingIndex?: number | null;
     canRejudge?: boolean;
   }
@@ -48,15 +60,6 @@
     }
   }
 
-  // Lazy-fetch the source code for the submission currently in focus. We key
-  // the work off the entry ID (not the array index) and gate writes on a
-  // per-effect-run `cancelled` flag so that:
-  //   1. if `viewingIndex` changes before the request resolves, the late
-  //      response is dropped (the cleanup callback flips `cancelled`),
-  //   2. if the parent re-shuffles `submissions` between dispatch and
-  //      resolution, we re-locate the target entry by ID at write time, and
-  //   3. if the entry has been dropped entirely (e.g. truncated off the
-  //      50-entry tail), the response is discarded silently.
   $effect(() => {
     const idx = viewingIndex;
     if (idx === null) return;
@@ -71,13 +74,14 @@
     fetch(`/api/submissions/${entryId}/source`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load source code.");
-        return res.json() as Promise<{ sourceCode: string }>;
+        return res.json() as Promise<{ files: { path: string; content: string }[] }>;
       })
       .then((data) => {
         if (cancelled) return;
         const currentIdx = submissions.findIndex((s) => s.id === entryId);
         if (currentIdx === -1) return;
-        submissions[currentIdx] = { ...submissions[currentIdx]!, sourceCode: data.sourceCode };
+        const sourceCode = flattenSourcesForDisplay(data.files);
+        submissions[currentIdx] = { ...submissions[currentIdx]!, sourceCode };
       })
       .catch(() => {
         if (cancelled) return;
@@ -116,10 +120,7 @@
       </button>
 
       <div class="flex items-baseline gap-3">
-        <span
-          class="text-body-lg font-semibold {verdictColor[entry.result.verdict] ??
-            'text-foreground'}"
-        >
+        <span class="text-body-lg font-semibold {verdictTone(entry.result.verdict)}">
           {label}
         </span>
         {#if entry.result.runtimeMs > 0}
@@ -147,19 +148,11 @@
 
       {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
         <div class="mt-4">
-          <SubtaskResults subtaskResults={entry.result.subtaskResults} />
+          <SubtaskResultTree subtaskResults={entry.result.subtaskResults} />
         </div>
       {:else if entry.result.caseResults && entry.result.caseResults.length > 0}
-        <div class="mt-4 flex flex-wrap items-center gap-1">
-          {#each entry.result.caseResults as cr, i (`cr-${i}`)}
-            <span
-              class="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-caption font-medium {cr.passed
-                ? 'bg-success/15 text-success'
-                : 'bg-destructive/15 text-destructive'}"
-            >
-              {cr.passed ? "✔" : "✘"} Case {i + 1}
-            </span>
-          {/each}
+        <div class="mt-4">
+          <CaseResultGrid cases={entry.result.caseResults} />
         </div>
       {:else if entry.result.feedback}
         <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
@@ -185,15 +178,12 @@
       {#each submissions as entry, index (`sub-${index}`)}
         {@const label = formatVerdictLabel(entry.result.verdict)}
         <button
-          class="rounded-md border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
+          class="rounded-md border border-border-subtle-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
           onclick={() => (viewingIndex = index)}
           type="button"
         >
           <div class="flex items-baseline justify-between gap-3">
-            <span
-              class="text-body-sm font-semibold {verdictColor[entry.result.verdict] ??
-                'text-foreground'}"
-            >
+            <span class="text-body-sm font-semibold {verdictTone(entry.result.verdict)}">
               {label}
             </span>
             <span class="text-caption text-muted-foreground tabular-nums">
@@ -201,6 +191,9 @@
             </span>
           </div>
           <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
+            {#if contextLabel(entry.context)}
+              <Badge variant="outline" size="xs">{contextLabel(entry.context)}</Badge>
+            {/if}
             <span>{entry.language}</span>
             {#if entry.result.runtimeMs > 0}
               <span class="tabular-nums">{String(entry.result.runtimeMs)} ms</span>

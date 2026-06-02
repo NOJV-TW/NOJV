@@ -27,6 +27,11 @@ enum SubmissionStatus {
   memory_limit_exceeded
   runtime_error
   compile_error
+  /// Terminal failure for submissions the worker can't grade — e.g. storage
+  /// write failed after the row committed, so the queued row points at a
+  /// nonexistent source prefix. Surfaced to the user as a non-graded
+  /// platform fault so they can resubmit.
+  system_error
 }
 
 /// Submission "mode" is derived on-demand from the FK shape:
@@ -44,29 +49,31 @@ enum SubmissionStatus {
 /// re-run can aggregate its own score. It is therefore valid for a row to
 /// have only `virtualContestId` set with all three context columns null.
 model Submission {
-  id                     String            @id @default(cuid())
-  userId                 String
-  problemId              String
-  contestParticipationId String?
-  examId                 String?
-  contestId              String?
-  virtualContestId       String?
-  courseId               String?
-  courseAssessmentId     String?
-  sampleOnly             Boolean           @default(false)
-  language               SupportedLanguage
-  /// Single file for full_source submissions. Multi-file is stored
-  /// as JSON.stringify({ [path]: content }) — the judge pipeline
-  /// parses on the other side.
-  sourceCode             String            @db.Text
-  status                 SubmissionStatus  @default(queued)
-  score                  Int               @default(0)
-  runtimeMs              Int?
-  memoryKb               Int?
-  /// Full verdict blob: { verdict, feedback, caseResults, subtaskResults, compilerOutput }.
-  /// All judging detail lives here; there are no separate columns for
-  /// per-case results or compiler output.
-  verdictDetail          Json?
+  id                      String            @id @default(cuid())
+  userId                  String
+  problemId               String
+  contestParticipationId  String?
+  examId                  String?
+  contestId               String?
+  virtualContestId        String?
+  courseId                String?
+  courseAssessmentId      String?
+  sampleOnly              Boolean           @default(false)
+  language                SupportedLanguage
+  /// Prefix under @nojv/storage for this submission's source files,
+  /// e.g. "submissions/<id>/sources/". One S3 object per file.
+  sourceStoragePrefix     String
+  status                  SubmissionStatus  @default(queued)
+  score                   Int               @default(0)
+  runtimeMs               Int?
+  memoryKb                Int?
+  /// Light-weight summary derived from the full verdict result.
+  /// Shape: { caseSummary: { ac, wa, tle, mle, re, other }, subtaskSummary?: { id, score }[], compilerErrorTruncated?: string }
+  /// Always < 4 KB; safe to load in list views.
+  verdictSummary          Json?
+  /// S3 key for the full verdict detail blob (caseResults, compilerOutput,
+  /// stderr snippets). Null until judge writes detail.
+  verdictDetailStorageKey String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -80,7 +87,7 @@ model Submission {
   course               Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
   courseAssessment     CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
 
-  rejudgeLogs          SubmissionRejudgeLog[]
+  rejudgeLogs SubmissionRejudgeLog[]
 
   @@index([problemId, createdAt])
   @@index([userId, createdAt])
@@ -253,6 +260,7 @@ model Editorial {
   id        String            @id @default(cuid())
   userId    String
   problemId String
+  title     String            @default("")
   content   String            @db.Text
   language  SupportedLanguage
   createdAt DateTime          @default(now())
@@ -267,11 +275,30 @@ model Editorial {
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
   reports   EditorialReport[]
+  votes     EditorialVote[]
 
   /// A user can post multiple editorials for the same problem as
   /// long as they're in different languages.
   @@unique([userId, problemId, language])
   @@index([problemId, createdAt])
+}
+
+/// One vote per (editorial, user). `value` is +1 (upvote) or -1
+/// (downvote); the net score is the sum. Removing a vote deletes the
+/// row rather than storing 0, so the unique index stays meaningful.
+model EditorialVote {
+  id          String   @id @default(cuid())
+  editorialId String
+  userId      String
+  value       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  editorial Editorial @relation(fields: [editorialId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([editorialId, userId])
+  @@index([editorialId])
 }
 
 /// User-filed report against an editorial (spam, off-topic, etc.).

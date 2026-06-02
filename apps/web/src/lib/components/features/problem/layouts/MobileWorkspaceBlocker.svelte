@@ -5,9 +5,6 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
 
-  // Pure-CSS visibility blocker shown on screens narrower than `md`. The
-  // server-side IP / page-lock checks remain authoritative; this component is
-  // visual-only to stop students from trying to type code into a 360px viewport.
   interface Props {
     problem: ProblemDetail;
   }
@@ -26,13 +23,13 @@
 </script>
 
 <div
-  class="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-12 text-center shadow-rest"
+  class="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-6 py-12 text-center shadow-rest"
 >
   <div
     class="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10"
     aria-hidden="true"
   >
-    <Monitor class="h-8 w-8 text-primary" />
+    <Monitor aria-hidden="true" class="h-8 w-8 text-primary" />
   </div>
   <h2 class="mt-5 text-title font-semibold leading-tight">
     {m.mobile_workspaceBlockerTitle()}
@@ -49,9 +46,7 @@
 </div>
 
 {#if showStatement}
-  <!-- Fullscreen statement viewer — purely client-side, mobile only. The
-       server already returned the statement as part of `problem`; we just
-       toggle visibility here. -->
+  
   <div
     class="fixed inset-0 z-[var(--z-modal,80)] flex flex-col bg-background"
     role="dialog"

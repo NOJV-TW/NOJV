@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
@@ -7,14 +8,6 @@ import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/domain";
 
-/**
- * Default-locale (English) templates used as the canonical server-side
- * text. Task 12 will add paraglide message keys mirroring these; the
- * i18n pass keeps them in sync across locales. Server-side we always
- * write English — the client will render the localized label for the
- * button, but the stored answer text is stable across locales so staff
- * can grep audit logs reliably.
- */
 const CANNED_TEMPLATES = {
   noComment: "No comment.",
   readProblem: "Please re-read the problem statement.",
@@ -26,7 +19,7 @@ const cannedSchema = z.object({
   templateKey: z.enum(["noComment", "readProblem", "yes", "no"]),
 });
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Clarification id is required.", 400);
   return id;

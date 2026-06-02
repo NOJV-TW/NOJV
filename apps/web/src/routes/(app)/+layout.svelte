@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import Header from "$lib/components/features/layout/Header.svelte";
   import Footer from "$lib/components/primitives/layout/Footer.svelte";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { connectSSE, disconnectSSE } from "$lib/stores/sse";
 
   let { children } = $props();
-  let user = $derived($page.data.user);
+  let user = $derived(page.data.user);
 
   onMount(() => {
     connectSSE();
@@ -17,8 +17,6 @@
     disconnectSSE();
   });
 
-  // Load recent notifications once per authenticated session. The `$effect`
-  // re-fires only if `user?.id` changes (login/logout), not on every re-render.
   let initedFor: string | null = null;
   $effect(() => {
     const id = user?.id ?? null;

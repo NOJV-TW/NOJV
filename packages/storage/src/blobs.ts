@@ -11,11 +11,9 @@ const BUCKET = process.env.S3_BUCKET ?? "nojv";
 
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 
-// S3 DeleteObjects API caps each request at 1000 keys.
 const DELETE_BATCH_SIZE = 1000;
 
 export async function putText(client: S3Client, key: string, content: string): Promise<void> {
-  // Explicit Buffer + ContentLength silences the AWS SDK unknown-length warning.
   const body = Buffer.from(content, "utf-8");
   await client.send(
     new PutObjectCommand({
@@ -44,6 +42,56 @@ export async function getText(client: S3Client, key: string): Promise<string> {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString("utf-8");
+}
+
+export async function listByPrefix(client: S3Client, prefix: string): Promise<string[]> {
+  const keys: string[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    for (const object of response.Contents ?? []) {
+      if (typeof object.Key === "string") {
+        keys.push(object.Key);
+      }
+    }
+
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return keys;
+}
+
+export async function sumSizesByPrefix(client: S3Client, prefix: string): Promise<number> {
+  let total = 0;
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    for (const object of response.Contents ?? []) {
+      if (typeof object.Size === "number") {
+        total += object.Size;
+      }
+    }
+
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return total;
 }
 
 export async function deleteBlob(client: S3Client, key: string): Promise<void> {

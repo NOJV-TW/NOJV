@@ -1,8 +1,3 @@
-/**
- * Stateful workspace-mode controller used by `Editor.svelte`. Owns
- * per-language file selection + per-file draft maps. Returns a thin reactive
- * surface so the editor shell can stay focused on the run/submit flow.
- */
 import { type Language } from "@nojv/core";
 import {
   pickInitialWorkspaceIndex,
@@ -23,11 +18,8 @@ export interface WorkspaceFilesController {
   readonly selectedFile: WorkspaceFile | undefined;
   readonly selectedContent: string;
   select: (index: number) => void;
-  /** Called on language change to land on the canonical `main.<ext>` file. */
   resetSelectionForLanguage: () => void;
-  /** Update the currently-selected editable file's draft. */
   applyChange: (value: string) => void;
-  /** Reset all editable files for the current language to their server content. */
   resetCurrentLanguage: () => void;
 }
 

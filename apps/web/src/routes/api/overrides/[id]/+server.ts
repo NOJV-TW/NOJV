@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
@@ -12,7 +13,7 @@ const patchSchema = z.object({
   reason: z.string().min(1).max(500).optional(),
 });
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Override id is required.", 400);
   return id;
@@ -22,8 +23,6 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const id = requireId(event);
   const raw = patchSchema.parse(await event.request.json());
-  // Drop undefined optional keys to satisfy exactOptionalPropertyTypes on
-  // the Partial<Pick<OverrideInput, ...>> contract.
   const patch: Parameters<typeof scoreOverrideDomain.updateOverride>[2] = {
     ...(raw.overrideScore !== undefined ? { overrideScore: raw.overrideScore } : {}),
     ...(raw.reason !== undefined ? { reason: raw.reason } : {}),

@@ -16,8 +16,8 @@
     } | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
-    /** Server-computed editorial visibility (AC or authored an editorial). */
     canViewEditorials?: boolean;
+    editorialsEnabled?: boolean;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null } | undefined;
@@ -32,6 +32,7 @@
     backLink,
     canRejudge = false,
     canViewEditorials = false,
+    editorialsEnabled = false,
     contestId,
     virtualContestId,
     dailyAttempts,
@@ -54,12 +55,11 @@
         language,
         result,
         sourceCode,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        context: draftContext.kind
       },
       ...submissions
     ].slice(0, 50);
-    // ProblemLeftPanel auto-flips to the submissions tab when it sees a new
-    // head entry in `submissions`.
   }
 
   let leftPanelWidth = $state(42);
@@ -100,6 +100,7 @@
     {backLink}
     {canRejudge}
     {canViewEditorials}
+    {editorialsEnabled}
     {dailyAttempts}
     bind:submissions
     {problem}
@@ -109,9 +110,7 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<!-- Resize handle (desktop only) — role="separator" carries keyboard intent.
-     Hit area is 8px wide; the visible line is 1px and stays transparent
-     until hover / focus / active drag, à la VS Code. -->
+
 <div
   class="group hidden w-2 shrink-0 cursor-col-resize items-stretch justify-center outline-none lg:flex"
   role="separator"

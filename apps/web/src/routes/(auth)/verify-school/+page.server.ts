@@ -13,9 +13,5 @@ export const load: PageServerLoad = async ({ url }) => {
     return { status: "error" as const, detail: m.auth_missingVerifyToken() };
   }
 
-  // The token itself now carries the username — no parseData callback
-  // is needed because SchoolVerificationToken rows store username
-  // directly instead of encoding it into the opaque better-auth
-  // verification record.
   return processSchoolVerification(token);
 };

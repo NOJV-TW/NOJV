@@ -1,7 +1,5 @@
-import { assignmentDomain, contestDomain, examDomain, notificationDomain } from "@nojv/domain";
+import { contestDomain, examDomain, notificationDomain } from "@nojv/domain";
 import { pubsub } from "@nojv/redis";
-
-// --- Contest ------------------------------------------------------------
 
 export type ContestInfo = contestDomain.ContestLifecycleSnapshot;
 
@@ -25,33 +23,13 @@ export async function updateContestScores(contestParticipationId: string): Promi
   await contestDomain.updateContestScores(contestParticipationId);
 }
 
-// --- Assignment ---------------------------------------------------------
-// Activity names (getAssessmentInfo, activateAssessment) are preserved as the
-// temporal-worker wire identifier — renaming them would break in-flight
-// workflows. Internally they delegate to the renamed domain helpers.
-//
-// There's no more `closeAssessment` — the lifecycle workflow stops at
-// `closesAt`, no row write is needed. "Closed" is derived from
-// `closesAt < now` instead of a stored status, and a closed assignment
-// stays at status=published forever (matches contest / exam).
-
-export type AssessmentInfo = Awaited<ReturnType<typeof assignmentDomain.getAssignmentInfo>>;
-
-export async function getAssessmentInfo(assessmentId: string) {
-  return assignmentDomain.getAssignmentInfo(assessmentId);
+export async function updateExamScores(examId: string, userId: string): Promise<void> {
+  await examDomain.updateExamScoresForUser(examId, userId);
 }
-
-export async function activateAssessment(assessmentId: string): Promise<void> {
-  await assignmentDomain.markAssignmentPublished(assessmentId);
-}
-
-// --- Exam session -------------------------------------------------------
 
 export async function closeActiveSessionsForExam(examId: string): Promise<{ closed: number }> {
   return examDomain.session.autoCloseForExam(examId);
 }
-
-// --- Notification -------------------------------------------------------
 
 export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;

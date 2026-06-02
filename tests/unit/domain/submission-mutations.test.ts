@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createInMemoryStorage } from "../_fixtures/storage";
+
 // Shared repo stubs — hoisted so they can be referenced in the vi.mock
 // factory below (vi.mock is hoisted above regular imports).
 const {
@@ -13,9 +15,14 @@ const {
   workspaceFindByProblemId,
   submissionCountForUserAndAssessmentSince,
   submissionCreate,
+  submissionUpdateStatus,
+  submissionFindMostRecent,
   examSessionFindActiveForUser,
+  examFindById,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
+  txExecuteRaw,
+  storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -27,9 +34,14 @@ const {
   workspaceFindByProblemId: vi.fn(),
   submissionCountForUserAndAssessmentSince: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionUpdateStatus: vi.fn(),
+  submissionFindMostRecent: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
+  examFindById: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
+  txExecuteRaw: vi.fn(),
+  storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => {
@@ -59,6 +71,9 @@ vi.mock("@nojv/db", () => {
     examSessionRepo: {
       withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
     },
+    examRepo: {
+      withTx: () => ({ findById: examFindById }),
+    },
     problemWorkspaceFileRepo: {
       findByProblemId: workspaceFindByProblemId,
     },
@@ -66,7 +81,9 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({
         countForUserAndAssessmentSince: submissionCountForUserAndAssessmentSince,
         create: submissionCreate,
+        findMostRecent: submissionFindMostRecent,
       }),
+      updateStatus: submissionUpdateStatus,
     },
     // createQueuedSubmissionRecord now does direct prisma reads against
     // the assessment/contest problem-link tables for problem-in-context
@@ -80,9 +97,19 @@ vi.mock("@nojv/db", () => {
       fn({
         courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
         contestProblem: { findFirst: txContestProblemFindFirst },
+        $executeRaw: txExecuteRaw,
       }),
   };
 });
+
+// Storage singleton — return whatever client storageRef.client is set to.
+// Tests reassign storageRef.client per case via the in-memory fixture.
+vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+  storage: () => storageRef.client,
+  __setStorageClientForTests: (c: unknown) => {
+    storageRef.client = c as typeof storageRef.client;
+  },
+}));
 
 import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/domain";
 import { supportedLanguages } from "@nojv/core";
@@ -114,6 +141,9 @@ const fakeAssessmentBase = {
 };
 
 function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
+  // Fresh in-memory storage for each test setup; reads via the mocked
+  // singleton above (`storage()` returns whatever storageRef.client is).
+  storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   const user = {
     id: fakeActor.userId,
     name: fakeActor.displayName,
@@ -384,5 +414,116 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
       ),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(submissionCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("createQueuedSubmissionRecord — exam time window", () => {
+  // Exam-tagged drafts carry no assessment/contest context — the active
+  // session is the source of truth (see the lockout in the mutation).
+  const examDraft = {
+    problemId: fakeProblem.id,
+    language: "python" as const,
+    sourceCode: "print('hi')",
+    sampleOnly: false,
+  };
+
+  function setupExamSubmitDefaults(endsAt: Date) {
+    storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
+    const user = {
+      id: fakeActor.userId,
+      name: fakeActor.displayName,
+      email: fakeActor.email,
+      username: fakeActor.username,
+      platformRole: fakeActor.platformRole,
+    };
+    problemFindById.mockResolvedValue({ ...fakeProblem, visibility: "public" });
+    userFindById.mockResolvedValue(user);
+    userUpdate.mockResolvedValue(user);
+    userCreate.mockResolvedValue(user);
+    workspaceFindByProblemId.mockResolvedValue([]);
+    // Student is mid-exam: an active (unended) session row exists.
+    examSessionFindActiveForUser.mockResolvedValue({
+      id: "es_1",
+      examId: "exam_window",
+      userId: fakeActor.userId,
+      endedAt: null,
+    });
+    examFindById.mockResolvedValue({
+      id: "exam_window",
+      startsAt: new Date("2026-04-14T09:00:00.000Z"),
+      endsAt,
+    });
+    submissionCreate.mockImplementation(async (data: unknown) => ({
+      id: "sub_exam",
+      ...(data as object),
+    }));
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("rejects a submission once the exam has ended even while the session row is still active", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    // One second past endsAt: the auto-close workflow has not run yet.
+    vi.setSystemTime(new Date("2026-04-14T10:00:01.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a submission while the exam is still running and tags it from the session", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
+    const arg = submissionCreate.mock.calls[0][0] as { examId: string | null };
+    expect(arg.examId).toBe("exam_window");
+  });
+
+  it("enforces the exam submit cooldown when a recent submission exists", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    examFindById.mockResolvedValue({
+      id: "exam_window",
+      startsAt: new Date("2026-04-14T09:00:00.000Z"),
+      endsAt: new Date("2026-04-14T10:00:00.000Z"),
+      submitCooldownSec: 30,
+    });
+    vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
+    submissionFindMostRecent.mockResolvedValue({
+      createdAt: new Date("2026-04-14T09:29:55.000Z"),
+    });
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows an exam submission once the cooldown window has passed", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    examFindById.mockResolvedValue({
+      id: "exam_window",
+      startsAt: new Date("2026-04-14T09:00:00.000Z"),
+      endsAt: new Date("2026-04-14T10:00:00.000Z"),
+      submitCooldownSec: 30,
+    });
+    vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
+    submissionFindMostRecent.mockResolvedValue(null);
+
+    await expect(
+      createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 });

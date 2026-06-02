@@ -1,9 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 
-// Register the project's custom font-size tokens so tailwind-merge stops
-// treating e.g. `text-micro` as a text-color and silently dropping it when a
-// `text-muted-foreground` follows. See app.css `--text-*` definitions.
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
@@ -33,7 +30,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const inputClassName =
-  "mt-2 w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm";
+  "mt-2 w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20";
 export const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
 
 export type WithoutChild<T> = T extends { child?: unknown } ? Omit<T, "child"> : T;

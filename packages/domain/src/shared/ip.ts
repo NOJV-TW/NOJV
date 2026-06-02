@@ -2,12 +2,7 @@ import { BlockList, isIPv4, isIPv6 } from "node:net";
 
 import { examParticipationIpRepo, type TransactionClient } from "@nojv/db";
 
-import { logViolationInTx } from "../proctoring/violation-logger";
-
-// Client-IP resolution lives in the web layer (`apps/web/src/lib/server/shared/client-ip.ts`)
-// because it depends on SvelteKit's `RequestEvent` and on the Cloudflare trust
-// model documented in `docs/SECURITY.md`. The domain only operates on the
-// already-resolved IP string passed into `checkIpLock`.
+import { logViolationThrottledInTx } from "../proctoring/violation-logger";
 
 type IpFamily = "ipv4" | "ipv6";
 
@@ -20,7 +15,6 @@ function classifyIp(ip: string): { family: IpFamily; addr: string } | null {
   return null;
 }
 
-/** Check if an IP falls within a CIDR range. Supports IPv4, IPv6, and v4-mapped v6. */
 export function isIpInCidr(ip: string, cidr: string): boolean {
   const [rangeIp, prefixStr] = cidr.split("/");
   if (!rangeIp) return false;
@@ -43,7 +37,6 @@ export function isIpInCidr(ip: string, cidr: string): boolean {
   }
 }
 
-/** Check if an IP matches any CIDR range in the whitelist. */
 export function isIpInWhitelist(ip: string, whitelist: string[]): boolean {
   return whitelist.some((cidr) => isIpInCidr(ip, cidr));
 }
@@ -60,49 +53,81 @@ export interface IpCheckResult {
   violationType?: "whitelist" | "binding";
 }
 
-/**
- * Exam-only IP gate. Contests do not have proctoring — callers must not
- * route contest requests through here.
- */
+export interface IpLockDecision {
+  allowed: boolean;
+  violationType?: "whitelist" | "binding";
+  shouldPin: boolean;
+}
+
+export function evaluateIpLock(
+  config: IpLockConfig,
+  clientIp: string,
+  ipPin: string | null,
+  opts?: { exemptUntil?: Date | null; now?: Date },
+): IpLockDecision {
+  const now = opts?.now ?? new Date();
+  const exempt = opts?.exemptUntil != null && now < opts.exemptUntil;
+  const shouldPin = config.ipBindingEnabled && !ipPin;
+
+  if (exempt) {
+    return { allowed: true, shouldPin };
+  }
+
+  if (config.ipWhitelistEnabled && !isIpInWhitelist(clientIp, config.ipWhitelist)) {
+    return {
+      allowed: config.ipViolationMode !== "block",
+      violationType: "whitelist",
+      shouldPin,
+    };
+  }
+
+  if (config.ipBindingEnabled && ipPin && ipPin !== clientIp) {
+    return {
+      allowed: config.ipViolationMode !== "block",
+      violationType: "binding",
+      shouldPin,
+    };
+  }
+
+  return { allowed: true, shouldPin };
+}
+
 export async function checkIpLock(
   tx: TransactionClient,
   config: IpLockConfig,
   clientIp: string,
-  participation: { id: string; ipPin: string | null } | null,
+  participation: { id: string; ipPin: string | null; ipGateExemptUntil?: Date | null } | null,
   context: { userId: string; examId: string },
+  now: Date = new Date(),
 ): Promise<IpCheckResult> {
-  // Whitelist check — when enabled, an empty list denies all (fail-closed).
-  if (config.ipWhitelistEnabled) {
-    if (!isIpInWhitelist(clientIp, config.ipWhitelist)) {
-      if (config.ipViolationMode === "block") {
-        return { allowed: false, violationType: "whitelist" };
-      }
-      await logViolationInTx(tx, {
-        actualIp: clientIp,
-        examId: context.examId,
-        expectedIp: config.ipWhitelist.join(", "),
-        userId: context.userId,
-        violationType: "whitelist",
-      });
-    }
+  const decision = evaluateIpLock(config, clientIp, participation?.ipPin ?? null, {
+    exemptUntil: participation?.ipGateExemptUntil ?? null,
+    now,
+  });
+
+  if (decision.shouldPin && participation) {
+    await examParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
   }
 
-  if (config.ipBindingEnabled && participation) {
-    if (!participation.ipPin) {
-      await examParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
-    } else if (participation.ipPin !== clientIp) {
-      if (config.ipViolationMode === "block") {
-        return { allowed: false, violationType: "binding" };
-      }
-      await logViolationInTx(tx, {
+  if (decision.violationType) {
+    await logViolationThrottledInTx(
+      tx,
+      {
         actualIp: clientIp,
         examId: context.examId,
-        expectedIp: participation.ipPin,
+        expectedIp:
+          decision.violationType === "whitelist"
+            ? config.ipWhitelist.join(", ")
+            : (participation?.ipPin ?? null),
         userId: context.userId,
-        violationType: "binding",
-      });
-    }
+        violationType: decision.violationType,
+      },
+      now,
+    );
   }
 
+  if (!decision.allowed && decision.violationType) {
+    return { allowed: false, violationType: decision.violationType };
+  }
   return { allowed: true };
 }

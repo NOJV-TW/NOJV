@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
+
 import {
   courseMembershipRepo,
+  examRepo,
   examSessionRepo,
   problemWorkspaceFileRepo,
   runTransaction,
@@ -11,16 +14,28 @@ import {
   validateRequiredPaths,
   type SubmissionDraft,
   type SubmissionResult,
+  type VerdictSummary,
 } from "@nojv/core";
+import {
+  deleteSubmissionStorage,
+  getVerdictDetail as storageGetVerdictDetail,
+  putSubmissionSources,
+  putVerdictDetail,
+  submissionSourcePrefix,
+  submissionVerdictDetailKey,
+} from "@nojv/storage";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
+import { checkExamSubmitCooldown } from "../exam/mutations";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
+import { normalizeSubmissionSources } from "./source-paths";
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
@@ -30,7 +45,9 @@ export async function createQueuedSubmissionRecord(
   actor: ActorContext,
   clientIp: string,
 ) {
-  return runTransaction(async (tx) => {
+  const submissionId = randomUUID();
+
+  const { row, sources } = await runTransaction(async (tx) => {
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
       payload.assessment
@@ -44,22 +61,23 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    // Active-exam lockout: while a session is live, no foreign context (assignment,
-    // contest, or virtual contest) can ride along. Bypass would skip exam cooldown,
-    // IP binding, and per-day limits. Admins are exempt for operational recovery.
     if (activeExamSession && actor.platformRole !== "admin") {
       if (courseContext || payload.contestId || payload.virtualContestId) {
         throw new ForbiddenError(
           "You are in an active exam — submissions cannot carry an external assignment or contest context.",
         );
       }
+
+      const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
+      if (exam && new Date() >= exam.endsAt) {
+        throw new ForbiddenError("Exam has ended.");
+      }
+
+      if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
+        await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
+      }
     }
 
-    // Virtual contest gate. A virtual submission is practice-like — it sets no
-    // contestId/examId/courseAssessmentId — but carries the `virtualContestId`
-    // tag so the personal re-run can aggregate its own score on read. The gate
-    // verifies the run is the actor's, the timer has not expired, and the
-    // problem belongs to the replayed contest.
     if (payload.virtualContestId) {
       if (courseContext || payload.contestId) {
         throw new ForbiddenError(
@@ -78,9 +96,6 @@ export async function createQueuedSubmissionRecord(
         throw new ForbiddenError("You are not enrolled in this course.");
       }
 
-      // Published status + time window. Admins may submit outside the
-      // window (operational review); course teachers/TAs currently flow
-      // through the same path and should too.
       const assignment = courseContext.assignment;
       if (assignment.status !== "published") {
         throw new NotFoundError("Assignment not found.");
@@ -95,9 +110,6 @@ export async function createQueuedSubmissionRecord(
         }
       }
 
-      // Problem must actually be attached to this assignment — otherwise
-      // a student could submit to an unrelated problem and have it
-      // counted against this assignment's attempts/scoreboard.
       const link = await tx.courseAssessmentProblem.findFirst({
         where: { assessmentId: assignment.id, problemId: problem.id },
         select: { id: true },
@@ -115,9 +127,6 @@ export async function createQueuedSubmissionRecord(
       : null;
     const contestParticipation = contestResult?.participation ?? null;
 
-    // Same "problem-in-context" check for contests: ensureContestParticipation
-    // enforces time + published state, but does not verify the problem
-    // belongs to the contest.
     if (contestResult) {
       const link = await tx.contestProblem.findFirst({
         where: { contestId: contestResult.contest.id, problemId: problem.id },
@@ -128,10 +137,6 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Private-problem visibility: author, admin, or a viewer whose validated
-    // context contains the problem. Without this, any private problem could be
-    // submitted to by cuid. The async path also admits historical participants
-    // (practice-after-close).
     const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
     await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
@@ -151,8 +156,6 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this assignment");
     }
 
-    // multi_file problems must have an editable main.<ext> for the chosen language.
-    // full_source ships a single source file (system template); special_env has no workspace.
     if (problem.type === "multi_file") {
       const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
       const entryPath = entryFileNameFor(payload.language);
@@ -167,8 +170,6 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Pre-flight already runs in the browser, but the API can be called
-    // directly. Re-validate the structural contract here as defense-in-depth.
     if (problem.type === "special_env" && problem.advancedRequiredPaths.length > 0) {
       const uploaded = (payload.sourceFiles ?? []).map((f) => f.path);
       const result = validateRequiredPaths(uploaded, problem.advancedRequiredPaths);
@@ -178,10 +179,8 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Exams own all IP gating; contest submissions no longer re-check.
     void clientIp;
 
-    // Enforce submit cooldown for contest submissions (not sampleOnly runs)
     if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
       await checkSubmitCooldown(
         tx,
@@ -192,7 +191,6 @@ export async function createQueuedSubmissionRecord(
       );
     }
 
-    // UTC midnight boundary: 00:00:00 UTC counts toward the new day (gte start-of-day).
     if (courseContext?.assignment && !payload.sampleOnly) {
       const { maxAttemptsPerDay } = courseContext.assignment;
 
@@ -201,6 +199,8 @@ export async function createQueuedSubmissionRecord(
         const startOfDayUtc = new Date(
           Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
         );
+
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`daily-attempt:${user.id}:${courseContext.assignment.id}:${startOfDayUtc.toISOString()}`}, 0))`;
 
         const todayCount = await submissionRepo
           .withTx(tx)
@@ -212,33 +212,46 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    return submissionRepo.withTx(tx).create({
+    const sources = normalizeSubmissionSources(payload, problem, submissionId);
+
+    const created = await submissionRepo.withTx(tx).create({
+      id: submissionId,
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
-      // Virtual submissions sit outside the contest/exam/assignment xor —
-      // practice-like, but tagged for the personal re-run scoreboard.
       virtualContestId: payload.virtualContestId ?? null,
       courseAssessmentId: courseContext?.assignment.id ?? null,
-      // Active exam session is the source of truth for exam tagging:
-      // the lockout above guarantees no foreign assignment/contest
-      // payload sneaks past, so writing examId from the session here
-      // gives downstream scoring/cooldown a reliable join key without
-      // trusting the client.
       examId: activeExamSession?.examId ?? null,
       courseId: courseContext?.course.id ?? null,
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
-      sourceCode: payload.sourceCode,
+      sourceStoragePrefix: submissionSourcePrefix(submissionId),
       status: "queued",
       userId: user.id,
     });
-  });
-}
 
-// ─────────────────────────────────────────────────────────────────────────
-// Verdict writes
-// ─────────────────────────────────────────────────────────────────────────
+    return { row: created, sources };
+  });
+
+  try {
+    await putSubmissionSources(storage(), submissionId, sources);
+  } catch (err) {
+    try {
+      await deleteSubmissionStorage(storage(), submissionId);
+    } catch {
+      // Swallowed; orphan blobs at worst stay in the bucket until a sweep.
+    }
+    try {
+      await submissionRepo.updateStatus(submissionId, "system_error");
+    } catch {
+      // Swallowed: prefer surfacing the original storage failure to the
+      // caller. The row stays in `queued`; the blobs are already wiped.
+    }
+    throw err;
+  }
+
+  return row;
+}
 
 export async function updateSubmissionStatus(
   submissionId: string,
@@ -247,20 +260,59 @@ export async function updateSubmissionStatus(
   await submissionRepo.updateStatus(submissionId, status);
 }
 
+const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
+
+export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
+  const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
+  for (const c of result.caseResults ?? []) {
+    const v = c.verdict.toUpperCase();
+    if (SUMMARY_VERDICTS.has(v)) {
+      if (v === "AC") caseSummary.ac += 1;
+      else if (v === "WA") caseSummary.wa += 1;
+      else if (v === "TLE") caseSummary.tle += 1;
+      else if (v === "MLE") caseSummary.mle += 1;
+      else if (v === "RE") caseSummary.re += 1;
+    } else {
+      caseSummary.other += 1;
+    }
+  }
+
+  const summary: VerdictSummary = { caseSummary };
+
+  if (result.subtaskResults && result.subtaskResults.length > 0) {
+    summary.subtaskSummary = result.subtaskResults.map((s) => ({
+      id: s.testcaseSetId,
+      score: s.passed ? s.weight : 0,
+    }));
+  }
+
+  if (result.verdict === "compile_error" && result.feedback) {
+    summary.compilerErrorTruncated = result.feedback.slice(0, 1024);
+  }
+
+  return summary;
+}
+
 export async function completeJudge(
   submissionId: string,
   result: SubmissionResult,
 ): Promise<CompletedSubmission> {
+  await putVerdictDetail(storage(), submissionId, result);
+
+  const verdictSummary = deriveVerdictSummary(result);
+
   const submission = await submissionRepo.complete(submissionId, {
     runtimeMs: result.runtimeMs,
     ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
     score: result.score,
     status: result.verdict,
-    verdictDetail: toJsonValue(result),
+    verdictSummary: toJsonValue(verdictSummary),
+    verdictDetailStorageKey: submissionVerdictDetailKey(submissionId),
   });
 
   return {
     contestParticipationId: submission.contestParticipationId,
+    examId: submission.examId,
     createdAt: submission.createdAt,
     id: submission.id,
     language: submission.language,
@@ -272,22 +324,6 @@ export async function completeJudge(
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Rejudge audit log
-//
-// Two-pass audit for rejudges.
-//
-// `snapshotForRejudge` writes a log row with the pre-rejudge state
-// before the sandbox runs; `finalizeRejudgeLog` fills in the post-
-// rejudge fields after `completeJudge` writes the new verdict.
-//
-// The two passes are deliberately separate: the snapshot must see the
-// pre-rejudge row, and `completeJudge` overwrites it in place.
-// new* columns are nullable so the snapshot is a valid standalone
-// row if the workflow dies between the two calls (Temporal retries
-// land on the already-snapshotted row rather than duplicating).
-// ─────────────────────────────────────────────────────────────────────────
-
 export async function snapshotForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
@@ -295,12 +331,16 @@ export async function snapshotForRejudge(
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
+  const oldDetail = current.verdictDetailStorageKey
+    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
+    : null;
+
   const row = await submissionRejudgeLogRepo.create({
     submissionId,
     rejudgedByUserId: triggeredByUserId,
     oldVerdict: current.status,
     oldScore: current.score,
-    oldResultJson: current.verdictDetail === null ? null : toJsonValue(current.verdictDetail),
+    oldResultJson: oldDetail === null ? null : toJsonValue(oldDetail),
   });
 
   return { logId: row.id, oldStatus: current.status };
@@ -314,9 +354,13 @@ export async function finalizeRejudgeLog(
   const updated = await submissionRepo.findById(submissionId);
   if (!updated) return;
 
+  const newDetail = updated.verdictDetailStorageKey
+    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
+    : null;
+
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,
-    newResultJson: updated.verdictDetail === null ? null : toJsonValue(updated.verdictDetail),
+    newResultJson: newDetail === null ? null : toJsonValue(newDetail),
   });
 }

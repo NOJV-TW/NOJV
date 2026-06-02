@@ -25,13 +25,6 @@ process.on("uncaughtException", (err) => {
 const env = parseWorkerEnv(process.env);
 const app = new WorkerApp(env);
 
-// Signal handlers MUST be registered before `await app.start()`. start()
-// blocks on each worker's run() promise, which only resolves after
-// shutdown is triggered — so any handler registered after the await
-// wouldn't exist until workers had already stopped, leaving the default
-// Node behavior (immediate kill) to handle every SIGTERM/SIGINT in
-// production. That would skip closeServerSafely, skip worker.shutdown(),
-// and leave in-flight activities without the chance to drain.
 const gracefulShutdown = async (signal: string) => {
   await app.shutdown(signal);
   await shutdownOtel();

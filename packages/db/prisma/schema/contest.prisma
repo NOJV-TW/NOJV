@@ -243,6 +243,9 @@ model ExamParticipation {
   penaltySeconds     Int                     @default(0)
   subtaskScores      Json?
   ipPin              String?
+  /// Teacher-granted grace window: while now < this, the IP gate is skipped for
+  /// this student (e.g. mid-exam machine swap) but still re-pins on first access.
+  ipGateExemptUntil  DateTime?
   /// Optimistic-lock counter — bumped on every score recompute so
   /// concurrent `updateExamScores` calls cannot silently overwrite
   /// each other. Mirrors `ContestParticipation.version`.

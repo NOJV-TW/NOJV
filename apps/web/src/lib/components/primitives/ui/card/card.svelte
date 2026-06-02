@@ -7,10 +7,10 @@
 		base: "text-card-foreground flex flex-col backdrop-blur-sm border transition-[transform,box-shadow] duration-normal ease-out-soft",
 		variants: {
 			variant: {
-				surface: "bg-[color:var(--color-panel)] border-border shadow-rest",
-				strong: "bg-[color:var(--color-panel-strong)] border-border shadow-rest",
+				surface: "bg-[color:var(--color-panel)] border-border-subtle shadow-rest",
+				strong: "bg-[color:var(--color-panel-strong)] border-border-subtle shadow-rest",
 				flat: "bg-[color:var(--color-panel)] border-border-subtle",
-				elevated: "bg-[color:var(--color-panel-strong)] border-border shadow-hover",
+				elevated: "bg-[color:var(--color-panel-strong)] border-border-subtle shadow-hover",
 				outline: "bg-transparent border-border-strong",
 			},
 			size: {

@@ -1,6 +1,10 @@
 export * from "./shared";
 export { canManageContest } from "./contest/permissions";
 export { canManageExam } from "./exam/permissions";
+export {
+  isViolationLogDue,
+  IP_VIOLATION_LOG_THROTTLE_SECONDS,
+} from "./proctoring/violation-logger";
 export { listExamIpViolations, listExamIpViolationsForActor } from "./exam/queries";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
@@ -23,4 +27,5 @@ export * as userDomain from "./user";
 export * as virtualContestDomain from "./virtual-contest";
 export { aggregateByTag } from "./user/queries";
 export type { TagAcCount } from "./user/queries";
+export type { SubmissionSource } from "@nojv/storage";
 export { isReservedUsername } from "@nojv/core";

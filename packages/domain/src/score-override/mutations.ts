@@ -1,6 +1,8 @@
 import {
   contestParticipationRepo,
+  contestRepo,
   examParticipationRepo,
+  examRepo,
   runTransaction,
   scoreOverrideAuditLogRepo,
   scoreOverrideRepo,
@@ -13,18 +15,6 @@ import { NotFoundError, ValidationError } from "../shared/errors";
 import { assertCanSetScoreOverride } from "./permissions";
 import { fromContextDbFields, toContextDbFields, type ScoreOverrideContext } from "./types";
 
-/**
- * Fire-and-forget scoreboard invalidation after an override mutation.
- * Contest + exam scoreboards are ZSETs in Redis that only refresh when
- * `updateContestScores` / `updateExamScores` recompute from the DB — so
- * after tweaking an override we need to re-run those for this user's
- * participation. Assignments have no cached scoreboard (class stats are
- * recomputed live), so nothing to do there.
- *
- * Errors are swallowed on purpose: the mutation already succeeded, a
- * stale Redis ZSET self-heals on the next submission, and the UI re-reads
- * overrides directly in submissions-matrix / assignment-detail.
- */
 async function invalidateScoreboardForOverride(
   context: ScoreOverrideContext,
   userId: string,
@@ -47,10 +37,28 @@ async function invalidateScoreboardForOverride(
         await updateExamScores(participationId);
       }
     }
-    // assignment — no cached scoreboard; class stats / matrix reads
-    // call getOverridesForContext live.
   } catch {
     // best-effort; see docstring
+  }
+}
+
+async function assertScoringModeSupportsOverride(context: ScoreOverrideContext): Promise<void> {
+  // ICPC-style (problem_count) scoreboards rank by solved-count + penalty, so a
+  // per-problem point override has no defined meaning and is silently dropped by
+  // the scoring pipeline (only the point_sum branch merges overrides). Reject it
+  // loudly here instead of persisting a no-op the teacher believes took effect.
+  let scoringMode: string;
+  if (context.type === "contest") {
+    ({ scoringMode } = await contestRepo.findInfoById(context.contestId));
+  } else if (context.type === "exam") {
+    ({ scoringMode } = await examRepo.findInfoById(context.examId));
+  } else {
+    return;
+  }
+  if (scoringMode === "problem_count") {
+    throw new ValidationError(
+      "Score overrides are not supported for ICPC-style (problem-count) scoring.",
+    );
   }
 }
 
@@ -58,9 +66,7 @@ export interface OverrideInput {
   userId: string;
   problemId: string;
   context: ScoreOverrideContext;
-  /** Non-negative integer. */
   overrideScore: number;
-  /** 1-500 chars, staff-internal — never surfaced to students. */
   reason: string;
 }
 
@@ -86,6 +92,7 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
   await assertCanSetScoreOverride(actor, input.context);
   validateScore(input.overrideScore);
   validateReason(input.reason);
+  await assertScoringModeSupportsOverride(input.context);
 
   const db = toContextDbFields(input.context);
   const row = await runTransaction(async (tx) => {
@@ -169,10 +176,6 @@ export async function deleteOverride(actor: ActorContext, id: string) {
   await assertCanSetScoreOverride(actor, existingContext);
 
   await runTransaction(async (tx) => {
-    // `overrideId: null` on the audit row so the log survives the subsequent
-    // delete (the FK has ON DELETE SET NULL, but setting explicitly up-front
-    // keeps the intent visible and audit-stable even if the FK cascade
-    // changes later).
     await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: null,
       userId: existing.userId,

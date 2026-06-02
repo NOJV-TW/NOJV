@@ -1,28 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findAllActiveForExam, endSession, recordEvent } = vi.hoisted(() => ({
+const { findAllActiveForExam, update, recordEvent } = vi.hoisted(() => ({
   findAllActiveForExam: vi.fn(),
-  endSession: vi.fn(),
+  update: vi.fn(),
   recordEvent: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
+  const txRepo = {
+    findAllActiveForExam,
+    update,
+    recordEvent,
+    findByUserAndExam: vi.fn(),
+    findActiveForUser: vi.fn(),
+    create: vi.fn(),
+  };
   return {
     examRepo: {
       withTx: () => ({ findById: vi.fn() }),
       findByIdOrThrow: vi.fn(),
     },
     examSessionRepo: {
-      findAllActiveForExam,
-      endSession,
-      recordEvent,
       findActiveForUser: vi.fn(),
-      withTx: () => ({
-        findByUserAndExam: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        recordEvent: vi.fn(),
-      }),
+      withTx: () => txRepo,
     },
     courseMembershipRepo: {
       withTx: () => ({ findByComposite: vi.fn() }),
@@ -46,7 +46,7 @@ describe("examDomain.session.autoCloseForExam", () => {
     const result = await session.autoCloseForExam("exam_abc");
 
     expect(result).toEqual({ closed: 0 });
-    expect(endSession).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
     expect(recordEvent).not.toHaveBeenCalled();
   });
 
@@ -61,10 +61,22 @@ describe("examDomain.session.autoCloseForExam", () => {
 
     expect(result).toEqual({ closed: 3 });
 
-    expect(endSession).toHaveBeenCalledTimes(3);
-    expect(endSession).toHaveBeenNthCalledWith(1, { sessionId: "sess_a", reason: "time_up" });
-    expect(endSession).toHaveBeenNthCalledWith(2, { sessionId: "sess_b", reason: "time_up" });
-    expect(endSession).toHaveBeenNthCalledWith(3, { sessionId: "sess_c", reason: "time_up" });
+    expect(update).toHaveBeenCalledTimes(3);
+    expect(update).toHaveBeenNthCalledWith(
+      1,
+      "sess_a",
+      expect.objectContaining({ releaseReason: "time_up" }),
+    );
+    expect(update).toHaveBeenNthCalledWith(
+      2,
+      "sess_b",
+      expect.objectContaining({ releaseReason: "time_up" }),
+    );
+    expect(update).toHaveBeenNthCalledWith(
+      3,
+      "sess_c",
+      expect.objectContaining({ releaseReason: "time_up" }),
+    );
 
     expect(recordEvent).toHaveBeenCalledTimes(3);
     expect(recordEvent).toHaveBeenNthCalledWith(1, {

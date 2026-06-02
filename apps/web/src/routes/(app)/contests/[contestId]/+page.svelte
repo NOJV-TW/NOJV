@@ -28,8 +28,6 @@
   let contest = $derived(data.contest);
   const isManager = $derived(contest.isManager);
 
-  // Manager sub-tabs. Defaults to "problems" on mount so the page first
-  // renders the same problem list students see.
   type SubTabKey =
     | "problems"
     | "submissions"
@@ -81,7 +79,6 @@
   );
   const durationMin = $derived(durationMinutes(contest.startsAt, contest.endsAt));
 
-  // First visible problem — used as the "enter contest" target during live.
   const firstProblem = $derived((contest.problems ?? [])[0] ?? null);
   const primaryHref = $derived(
     isLive && firstProblem
@@ -101,9 +98,9 @@
 </script>
 
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
-  <Crumbs items={[{ label: "contest", href: "/contests" }, { label: contest.id }]} />
+  <Crumbs items={[{ label: m.navigation_contests(), href: "/contests" }, { label: contest.id }]} />
 
-  <!-- Hero -->
+  
   <div
     class="relative overflow-hidden rounded-xl shadow-rest"
     style="border: 1px solid var(--border); background: {isLive
@@ -111,7 +108,7 @@
       : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
   >
     <Marquee
-      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} PARTICIPANTS"
+      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} {m.contestDetail_participantsLabel().toUpperCase()}"
     />
 
     <div class="relative px-7 py-9 lg:p-10">
@@ -121,7 +118,7 @@
             class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
           >
             <TypeIcon kind="contest" size={14} />
-            <span>Contest · {scoringLabel}</span>
+            <span>{m.contestDetail_typeLabel()} · {scoringLabel}</span>
           </div>
           <div class="mt-3">
             <StatusPill {status} type="contest" />
@@ -139,7 +136,7 @@
           {/if}
         </div>
 
-        <!-- Stats sidebar / clock -->
+        
         <div
           class="rounded-lg border p-3 min-w-[280px]"
           style="border-color: var(--border); background: var(--panel);"
@@ -188,7 +185,7 @@
     </div>
   </div>
 
-  <!-- Action bar -->
+  
   <div class="flex flex-wrap items-center gap-3">
     <TabStrip tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]} activeTabValue="overview" onChange={() => {}} />
 
@@ -229,7 +226,7 @@
   </div>
 
   {#if isManager}
-    <!-- ══════ MANAGER VIEW: tabbed sections ══════ -->
+    
     <div
       role="tablist"
       aria-label={m.contestDetail_subTabsLabel()}
@@ -324,7 +321,7 @@
     {/if}
   {:else}
   <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
-    <!-- Problem list -->
+    
     <ContestProblemsTab
       problems={contest.problems}
       problemsHidden={contest.problemsHidden}
@@ -334,7 +331,7 @@
       {isManager}
     />
 
-    <!-- Sidebar -->
+    
     <div class="space-y-4">
       {#if (isLive || isPast) && data.topEntries.length > 0}
         <GlassPanel class="p-5">

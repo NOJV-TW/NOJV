@@ -21,7 +21,6 @@
     value: LatePenaltyRule;
     onChange: (value: LatePenaltyRule) => void;
     class?: string;
-    /** HTML name attribute for the radio inputs (ensures one group). */
     name?: string;
   }
 
@@ -152,7 +151,7 @@
         </div>
         {#if isSelected && option.key === "flat_late_penalty" && value?.type === "flat_late_penalty"}
           <div
-            class="mt-3 flex flex-wrap items-center gap-3 rounded-sm border border-border bg-[color:var(--color-panel-strong)] px-3.5 py-3"
+            class="mt-3 flex flex-wrap items-center gap-3 rounded-sm bg-[color:var(--color-panel-strong)] px-3.5 py-3"
           >
             <span class="text-caption text-muted-foreground">
               {m.latePenalty_flatDeductLabel()}
@@ -186,7 +185,7 @@
           </div>
         {:else if isSelected && option.key === "daily_late_penalty" && value?.type === "daily_late_penalty"}
           <div
-            class="mt-3 flex flex-wrap items-center gap-3 rounded-sm border border-border bg-[color:var(--color-panel-strong)] px-3.5 py-3"
+            class="mt-3 flex flex-wrap items-center gap-3 rounded-sm bg-[color:var(--color-panel-strong)] px-3.5 py-3"
           >
             <span class="text-caption text-muted-foreground">
               {m.latePenalty_dailyPerDayLabel()}

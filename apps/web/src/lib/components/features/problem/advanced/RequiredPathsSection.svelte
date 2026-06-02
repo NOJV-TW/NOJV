@@ -13,18 +13,12 @@
 
   let { value, onchange, onsave }: Props = $props();
 
-  // Mirrors the array cap on requiredPathsSchema in @nojv/core.
   const MAX_PATHS = 50;
 
   let draft = $state("");
   let error = $state<string | null>(null);
   let saving = $state(false);
 
-  // `dirty` is derived from a baseline snapshot rather than a flag flipped
-  // on every change. If the parent ever rehydrates `value` (e.g. via
-  // invalidateAll() after save), dirty correctly tracks whether the new
-  // value differs from the new baseline. Capture the initial baseline via
-  // untrack() so the linter knows we intend a one-shot snapshot.
   let baseline = $state<string[]>(untrack(() => [...value]));
   let dirty = $derived(!arraysEqual(value, baseline));
   let atCap = $derived(value.length >= MAX_PATHS);
@@ -115,7 +109,7 @@
             onclick={tryAdd}
             disabled={atCap || draft.trim().length === 0}
           >
-            <Plus class="h-4 w-4" />
+            <Plus aria-hidden="true" class="h-4 w-4" />
             {m.advancedRequiredPaths_addButton()}
           </button>
         </div>
@@ -142,12 +136,12 @@
             data-kind={isFolder(path) ? "folder" : "file"}
           >
             {#if isFolder(path)}
-              <Folder
+              <Folder aria-hidden="true"
                 class="h-4 w-4 text-muted-foreground"
                 aria-label={m.advancedRequiredPaths_folderBadge()}
               />
             {:else}
-              <FileText
+              <FileText aria-hidden="true"
                 class="h-4 w-4 text-muted-foreground"
                 aria-label={m.advancedRequiredPaths_fileBadge()}
               />
@@ -159,7 +153,7 @@
               aria-label={`Remove ${path}`}
               onclick={() => remove(i)}
             >
-              <X class="h-3.5 w-3.5" />
+              <X aria-hidden="true" class="h-3.5 w-3.5" />
             </button>
           </li>
         {/each}

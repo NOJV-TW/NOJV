@@ -45,9 +45,6 @@ export async function createNotificationBatch(inputs: NotificationCreateInput[])
     total += await notificationRepo.createManyAndCap(inputs.slice(i, i + BATCH));
   }
 
-  // One signal per unique userId — clients refetch /api/notifications/recent
-  // regardless of how many rows landed, so per-row publishes would be waste.
-  // Pick the first row's detail as a sample payload for debugging in Redis logs.
   const firstPerUser = new Map<string, NotificationCreateInput>();
   for (const input of inputs) {
     if (!firstPerUser.has(input.userId)) firstPerUser.set(input.userId, input);
@@ -80,27 +77,14 @@ export async function markAllAsRead(userId: string) {
   return notificationRepo.markAllRead(userId);
 }
 
-/** Delete a single notification owned by the caller. */
 export async function deleteOne(userId: string, notificationId: string) {
   return notificationRepo.deleteOne(userId, notificationId);
 }
 
-/**
- * Drop every notification belonging to the caller. With `{ onlyRead: true }`
- * we keep unread rows so the inbox-clear UX doesn't silently swallow alerts
- * the user hasn't seen yet.
- */
 export async function deleteAll(userId: string, opts?: { onlyRead?: boolean }) {
   return notificationRepo.deleteAll(userId, opts);
 }
 
-/**
- * Fan out `assignment_due_soon` notifications to every active student in
- * the course who has not yet reached the assignment's maximum score.
- *
- * No-ops (returns silently) when the assignment was unpublished, deleted,
- * or already closed between workflow schedule time and the fire moment.
- */
 export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {
   const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
   if (!assignment) return;
@@ -125,19 +109,11 @@ export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<voi
         dueAt: dueAtIso,
       },
       linkUrl: `/assignments/${assignment.id}`,
+      dedupeKey: `assignment_due_soon:${assignment.id}:${userId}`,
     })),
   );
 }
 
-/**
- * Fan out `exam_starting_soon` notifications to every registered
- * participant of a published exam.
- *
- * No-ops (returns silently) when the exam is unpublished/deleted, has no
- * `startsAt`, or `startsAt` has already passed — the workflow schedules
- * this ~15 min before `startsAt`, but retries and clock skew can fire it
- * late, at which point the reminder is stale.
- */
 export async function fanoutExamStartingSoon(examId: string): Promise<void> {
   const exam = await examRepo.findById(examId);
   if (!exam) return;
@@ -159,16 +135,11 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
         startsAt: startsAtIso,
       },
       linkUrl: `/exams/${exam.id}`,
+      dedupeKey: `exam_starting_soon:${exam.id}:${userId}`,
     })),
   );
 }
 
-/**
- * Fan out `contest_starting_soon` notifications to every registered
- * participant of a published contest. Contests use the
- * `visibility` enum (no `status` field) — gate on
- * `visibility === "published"`.
- */
 export async function fanoutContestStartingSoon(contestId: string): Promise<void> {
   const contest = await contestRepo.findById(contestId);
   if (!contest) return;
@@ -189,6 +160,7 @@ export async function fanoutContestStartingSoon(contestId: string): Promise<void
         startsAt: startsAtIso,
       },
       linkUrl: `/contests/${contest.id}`,
+      dedupeKey: `contest_starting_soon:${contest.id}:${userId}`,
     })),
   );
 }

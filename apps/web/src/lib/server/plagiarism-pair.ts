@@ -14,12 +14,6 @@ import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsForContext } =
   plagiarismDomain;
 
-/**
- * Server-side authz gate for `/api/plagiarism/[assignmentId]/*` endpoints.
- * Both the report listing and the source-code fetch reuse this — staff
- * only, with the contest case falling back to organizer-or-admin since
- * contests are not course-bound.
- */
 export async function assertCanManagePlagiarism(
   event: RequestEvent,
   resolved: Awaited<ReturnType<typeof plagiarismDomain.getPlagiarismTarget>>,
@@ -133,13 +127,13 @@ export async function loadPlagiarismPair(
       userId: userAId,
       displayName: leftUser?.name ?? null,
       username: leftUser?.username ?? null,
-      sourceCode: leftSource,
+      files: leftSource,
     },
     right: {
       userId: userBId,
       displayName: rightUser?.name ?? null,
       username: rightUser?.username ?? null,
-      sourceCode: rightSource,
+      files: rightSource,
     },
     flag: flag
       ? {

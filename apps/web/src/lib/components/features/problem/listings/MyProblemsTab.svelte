@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
-  import { page } from "$app/stores";
+  import { page } from "$app/state";
   import { ArrowDownNarrowWide, ArrowUpNarrowWide, FileCode, Pencil, Search, Tags, Trash2 } from "@lucide/svelte";
   import { Button, LinkButton } from "$lib/components/primitives/ui/button";
   import { Badge } from "$lib/components/primitives/ui/badge";
@@ -40,7 +40,7 @@
 
   let { editableProblems, deletingProblemId, isDeleting, onDeleteClick }: Props = $props();
 
-  let currentUrl = $derived($page.url);
+  let currentUrl = $derived(page.url);
   let sortDirection = $derived<"asc" | "desc">(
     currentUrl.searchParams.get("sort") === "desc" ? "desc" : "asc"
   );
@@ -58,8 +58,6 @@
     filterProblems(editableProblems, mineSearch, mineDifficulty, mineSelectedTags)
   );
 
-  // Sort lives in the URL alongside the public tab; toggling here flips the
-  // same param so the public list reflects the same direction when switched back.
   function toggleSort() {
     const params = new URLSearchParams(currentUrl.searchParams);
     if (sortDirection === "asc") params.set("sort", "desc");
@@ -130,7 +128,7 @@
       onclick={() => { showMineCardTags = !showMineCardTags; }}
       type="button"
     >
-      <Tags class="size-3.5" />
+      <Tags aria-hidden="true" class="size-3.5" />
       {showMineCardTags ? m.problems_hideMoreTags() : m.problems_showMoreTags()}
     </button>
   </div>

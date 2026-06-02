@@ -22,7 +22,7 @@ NOJV is an Online Judge platform supporting competitive programming contests (IC
 | Session tokens          | PostgreSQL `Session` table, httpOnly cookies                    | Critical — session hijack grants full account access          |
 | OAuth credentials       | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                           |
 | User passwords          | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                                   |
-| Student source code     | PostgreSQL `Submission.sourceCode`                              | High — per-user access control, intellectual property         |
+| Student source code     | S3 bucket `submissions/{submissionId}/sources/{path}`           | High — per-user access control, intellectual property         |
 | Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                        |
 | Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)       | High — test harness and library code kept out of student view |
 | Advanced judge tarballs | S3 bucket `problems/{problemId}/advanced-images/{uuid}.tar`     | Medium — teacher-only write, worker-only read at judge time   |

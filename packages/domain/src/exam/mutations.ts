@@ -1,6 +1,5 @@
 import {
   courseMembershipRepo,
-  examParticipationRepo,
   examProblemRepo,
   examRepo,
   problemRepo,
@@ -39,7 +38,6 @@ async function resolveAndAttachExamProblems(
     }
   }
 
-  // Every allowedLanguage must have an editable main.<ext> on every problem.
   if (allowedLanguages.length > 0) {
     await Promise.all(
       problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
@@ -69,49 +67,6 @@ async function requireExam(tx: TransactionClient, examId: string) {
   return exam;
 }
 
-export async function ensureExamParticipation(
-  tx: TransactionClient,
-  userId: string,
-  examId: string,
-) {
-  const exam = await requireExam(tx, examId);
-
-  if (exam.status !== "published") {
-    throw new NotFoundError(`Exam not found: ${examId}`);
-  }
-
-  const now = new Date();
-  if (now < exam.startsAt) {
-    throw new ForbiddenError("Exam has not started yet.");
-  }
-  if (now > exam.endsAt) {
-    throw new ForbiddenError("Exam has ended.");
-  }
-
-  const membership = await courseMembershipRepo
-    .withTx(tx)
-    .findByComposite(exam.courseId, userId);
-  if (membership?.status !== "active") {
-    throw new ForbiddenError("You must be enrolled in the course to take this exam.");
-  }
-
-  const participation = await examParticipationRepo.withTx(tx).upsert(
-    exam.id,
-    userId,
-    {
-      examId: exam.id,
-      startedAt: new Date(),
-      status: "active",
-      userId,
-    },
-    {
-      status: "active",
-    },
-  );
-
-  return { exam, participation };
-}
-
 export async function checkExamSubmitCooldown(
   tx: TransactionClient,
   examId: string,
@@ -120,6 +75,8 @@ export async function checkExamSubmitCooldown(
   cooldownSec: number,
 ) {
   if (cooldownSec <= 0) return;
+
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${userId}:${problemId}`}, 0))`;
 
   const cutoff = new Date(Date.now() - cooldownSec * 1000);
 
@@ -145,7 +102,6 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
     await requireUser(tx, actor.userId);
     const course = await requireCourse(tx, payload.courseId);
 
-    // Course teachers / TAs / owner may create exams. Students cannot.
     if (actor.platformRole === "student") {
       const membership = await courseMembershipRepo
         .withTx(tx)
@@ -189,7 +145,6 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
     return created;
   });
 
-  // Fires after commit so a rolled-back creation never leaves a phantom workflow behind.
   if (exam.status === "published") {
     await dispatchExamAutoClose({
       examId: exam.id,
@@ -202,9 +157,6 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
 }
 
 export interface UpdateExamOptions {
-  /** Per-problem points override (problemId → points). Applied when
-   *  the caller also passes `problemIds`; missing IDs fall back to the
-   *  default of 100. */
   pointOverrides?: Record<string, number>;
 }
 
@@ -214,10 +166,9 @@ export async function updateExamRecord(
   payload: ExamUpdate,
   options: UpdateExamOptions = {},
 ) {
-  return runTransaction(async (tx) => {
+  const result = await runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
 
-    // Permission check — owner-of-course or contest creator
     if (exam.createdByUserId !== actor.userId) {
       const membership = await courseMembershipRepo
         .withTx(tx)
@@ -263,8 +214,24 @@ export async function updateExamRecord(
       );
     }
 
-    return { id: exam.id };
+    return {
+      id: exam.id,
+      status: exam.status,
+      windowChanged: payload.startsAt !== undefined || payload.endsAt !== undefined,
+      startsAt: payload.startsAt !== undefined ? new Date(payload.startsAt) : exam.startsAt,
+      endsAt: payload.endsAt !== undefined ? new Date(payload.endsAt) : exam.endsAt,
+    };
   });
+
+  if (result.status === "published" && result.windowChanged) {
+    await dispatchExamAutoClose({
+      examId: result.id,
+      startsAt: result.startsAt.toISOString(),
+      endsAt: result.endsAt.toISOString(),
+    });
+  }
+
+  return { id: result.id };
 }
 
 export interface ExamLifecycleSnapshot {
@@ -282,19 +249,10 @@ export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycl
   };
 }
 
-/**
- * Status write called by the Temporal lifecycle workflow when the scheduled
- * opens-at boundary is reached. No permission / state checks — the workflow
- * is the source of truth for the transition. Distinct from the user-driven
- * `publishExam` (draft → published, with validation).
- */
 export async function markExamPublished(examId: string): Promise<void> {
   await examRepo.update(examId, { status: "published" });
 }
 
-// Owner-of-exam or active teacher/TA of the hosting course may manage it.
-// Kept in sync with `updateExamRecord` / `createExamRecord` so Publish and
-// Delete share the same gate.
 async function assertExamManagePermission(
   tx: TransactionClient,
   actor: ActorContext,
@@ -312,11 +270,6 @@ async function assertExamManagePermission(
   }
 }
 
-/**
- * Flip a draft exam to `published`. Validates the exam is actually
- * publishable (has problems, allowed languages, a sane window) and
- * schedules the auto-close workflow on commit.
- */
 export async function publishExam(actor: ActorContext, examId: string): Promise<void> {
   const {
     examId: committedId,
@@ -350,7 +303,6 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
     return { examId: exam.id, startsAt: exam.startsAt, endsAt: exam.endsAt };
   });
 
-  // Fires after commit so a rolled-back publish never leaves a phantom workflow behind.
   await dispatchExamAutoClose({
     examId: committedId,
     startsAt: startsAt.toISOString(),
@@ -358,12 +310,6 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
   });
 }
 
-/**
- * Delete a draft exam outright. Only draft status is permitted so
- * scoreboards / submissions tied to a published exam stay intact.
- * Cascading relations (ExamProblem etc.) go with it via the schema's
- * onDelete rules.
- */
 export async function deleteExamDraft(actor: ActorContext, examId: string): Promise<void> {
   await runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);

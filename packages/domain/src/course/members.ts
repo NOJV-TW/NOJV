@@ -1,10 +1,30 @@
-import { courseMembershipAdminRepo, runTransaction, type TransactionClient } from "@nojv/db";
-import type { CourseRole } from "@nojv/core";
+import {
+  courseMembershipAdminRepo,
+  courseMembershipRepo,
+  runTransaction,
+  type TransactionClient,
+} from "@nojv/db";
+import type { CourseRole, EffectiveCourseRole } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
+import { ForbiddenError } from "../shared/errors";
+import { resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 
-// Email is always present here — the route strips it for non-manager viewers.
+async function resolveActorCourseRole(
+  actor: ActorContext,
+  courseId: string,
+): Promise<EffectiveCourseRole | null> {
+  const membership = await courseMembershipRepo.findByComposite(courseId, actor.userId);
+  const courseRole = membership?.status === "active" ? membership.role : null;
+  return resolveEffectiveCourseRole(actor.platformRole, courseRole);
+}
+
+async function activeMemberRole(courseId: string, userId: string): Promise<CourseRole | null> {
+  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
+  return membership?.status === "active" ? membership.role : null;
+}
+
 export interface CourseMemberRow {
   userId: string;
   name: string;
@@ -17,7 +37,6 @@ export interface CourseMemberRow {
   removedAt: string | null;
 }
 
-// Includes removed rows — the current UI filters them in the page template.
 export async function listMembersForCourse(courseId: string): Promise<CourseMemberRow[]> {
   const rows = await courseMembershipAdminRepo.listWithUserByCourse(courseId);
   return rows.map((row) => ({
@@ -33,7 +52,6 @@ export async function listMembersForCourse(courseId: string): Promise<CourseMemb
   }));
 }
 
-// Order follows first-occurrence so the server summary matches the visual order of the pasted list.
 export function parseHandleInput(raw: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -54,12 +72,18 @@ export interface BulkAddResult {
   reactivated: number;
 }
 
-// One tx per call so partial failure rolls back cleanly; replaying the same paste is idempotent.
 export async function bulkAddByHandle(
   actor: ActorContext,
   courseId: string,
   payload: { handles: string[]; role: CourseRole },
 ): Promise<BulkAddResult> {
+  if (payload.role === "ta") {
+    const actorRole = await resolveActorCourseRole(actor, courseId);
+    if (actorRole !== "admin" && actorRole !== "teacher") {
+      throw new ForbiddenError("Only teachers or admins can add teaching assistants.");
+    }
+  }
+
   const uniqueHandles = Array.from(
     new Set(payload.handles.map((h) => h.trim().toLowerCase())),
   ).filter((h) => h.length > 0);
@@ -76,7 +100,6 @@ export async function bulkAddByHandle(
       let user = await tx.user.findUnique({ where: { username: handle } });
 
       if (!user) {
-        // Inline create stays inside the tx; `userRepo.createPlaceholder` would break atomicity.
         user = await createPlaceholderInTx(tx, handle);
         placeholdersCreated += 1;
       }
@@ -124,15 +147,42 @@ export async function bulkAddByHandle(
 }
 
 export async function changeMemberRole(
-  _actor: ActorContext,
+  actor: ActorContext,
   courseId: string,
   userId: string,
   role: CourseRole,
 ) {
+  const actorRole = await resolveActorCourseRole(actor, courseId);
+  if (actorRole !== "admin" && actorRole !== "teacher") {
+    throw new ForbiddenError("Only teachers or admins can change member roles.");
+  }
+  if (actorRole === "teacher") {
+    if (userId === actor.userId) {
+      throw new ForbiddenError("You cannot change your own role.");
+    }
+    if (role === "teacher") {
+      throw new ForbiddenError("Only an admin can promote a member to teacher.");
+    }
+    if ((await activeMemberRole(courseId, userId)) === "teacher") {
+      throw new ForbiddenError("Teachers cannot change another teacher's role.");
+    }
+  }
   return courseMembershipAdminRepo.updateRole(courseId, userId, role);
 }
 
-export async function removeMember(_actor: ActorContext, courseId: string, userId: string) {
+export async function removeMember(actor: ActorContext, courseId: string, userId: string) {
+  const actorRole = await resolveActorCourseRole(actor, courseId);
+  if (actorRole !== "admin" && actorRole !== "teacher") {
+    throw new ForbiddenError("Only teachers or admins can remove members.");
+  }
+  if (actorRole === "teacher") {
+    if (userId === actor.userId) {
+      throw new ForbiddenError("You cannot remove yourself.");
+    }
+    if ((await activeMemberRole(courseId, userId)) === "teacher") {
+      throw new ForbiddenError("Teachers cannot remove another teacher.");
+    }
+  }
   return courseMembershipAdminRepo.removeFromCourse(courseId, userId);
 }
 

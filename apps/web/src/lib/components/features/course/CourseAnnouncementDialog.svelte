@@ -38,10 +38,6 @@
   const action = $derived(mode === "create" ? "?/createAnnouncement" : "?/updateAnnouncement");
 
   $effect(() => {
-    // Re-seed `content` when the dialog reopens with different initial data
-    // (mode flip or selecting a different announcement to edit). Writes to
-    // $state inside $effect don't subscribe, so the in-progress edits don't
-    // trigger a self-overwriting loop.
     content = initial?.content ?? "";
   });
 </script>

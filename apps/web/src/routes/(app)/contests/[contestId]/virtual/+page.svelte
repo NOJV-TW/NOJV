@@ -19,19 +19,19 @@
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
   <Crumbs
     items={[
-      { label: "contest", href: "/contests" },
+      { label: m.navigation_contests(), href: "/contests" },
       { label: data.contestId, href: `/contests/${data.contestId}` },
-      { label: "virtual" }
+      { label: m.virtualContest_badge() }
     ]}
   />
 
-  <!-- Header -->
+  
   <div class="glass rounded-xl shadow-rest p-5 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
       >
-        <Timer class="size-3.5" />
+        <Timer aria-hidden="true" class="size-3.5" />
         <span>{m.virtualContest_eyebrow()}</span>
       </div>
       <h1 class="mt-2 text-headline font-semibold tracking-tight">
@@ -70,7 +70,7 @@
   </div>
 
   {#if !virtual}
-    <!-- ══════ NOT STARTED ══════ -->
+    
     <GlassPanel class="p-8 text-center space-y-4">
       <p class="text-body text-muted-foreground">
         {m.virtualContest_startBlurb()}
@@ -101,8 +101,8 @@
       {/if}
     </GlassPanel>
   {:else}
-    <!-- ══════ STARTED — dashboard ══════ -->
-    <!-- Problem list -->
+    
+    
     <GlassPanel class="overflow-hidden">
       <div
         class="flex items-center justify-between px-6 py-4 border-b"
@@ -161,14 +161,14 @@
       {/if}
     </GlassPanel>
 
-    <!-- Scoreboard: viewer's live row + ghost rows from the original final board -->
+    
     {#if scoreboard}
       <GlassPanel class="overflow-hidden">
         <div
           class="flex items-center gap-2 px-6 py-4 border-b"
           style="border-color: var(--border-subtle);"
         >
-          <Trophy class="size-4" style="color: var(--primary);" />
+          <Trophy aria-hidden="true" class="size-4" style="color: var(--primary);" />
           <h2 class="text-title font-semibold">{m.virtualContest_scoreboardHeading()}</h2>
         </div>
         <table class="w-full text-body-sm">

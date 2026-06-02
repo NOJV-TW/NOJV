@@ -7,16 +7,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { notificationDomain } from "@nojv/domain";
 
-// GET /api/notifications — list the caller's recent notifications + unread count.
-//   ?limit=N — cap the list size; 1..50, default 20.
-// PATCH /api/notifications  body { action: "markAllRead" } — bulk mark every
-//   notification belonging to the caller as read. Idempotent.
-// DELETE /api/notifications?status=read — bulk delete every already-read
-//   notification belonging to the caller. Unread rows stay. Returns 204.
-// Sub-resources:
-//   GET  /api/notifications/unread-count — cheap unread badge count
-//   PATCH /api/notifications/[id]        — mark a single notification as read
-//   DELETE /api/notifications/[id]       — drop a single notification
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const limitRaw = Number(event.url.searchParams.get("limit") ?? "20");

@@ -121,7 +121,7 @@
   }
 </script>
 
-<div class="rounded-lg border border-border-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
+<div class="rounded-lg border border-border-subtle-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
   <div class="flex items-center gap-3">
     <button
       class="flex items-center gap-1 text-body-sm font-semibold"
@@ -129,9 +129,9 @@
       type="button"
     >
       {#if expanded}
-        <ChevronDown class="size-4" />
+        <ChevronDown aria-hidden="true" class="size-4" />
       {:else}
-        <ChevronRight class="size-4" />
+        <ChevronRight aria-hidden="true" class="size-4" />
       {/if}
       {set.name}
     </button>
@@ -168,7 +168,7 @@
         type="button"
         title={m.testcases_editSet()}
       >
-        <Pencil class="size-3.5" />
+        <Pencil aria-hidden="true" class="size-3.5" />
       </button>
       <button
         class="rounded-full border border-border p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
@@ -176,7 +176,7 @@
         type="button"
         title={m.testcases_deleteSet()}
       >
-        <Trash2 class="size-3.5" />
+        <Trash2 aria-hidden="true" class="size-3.5" />
       </button>
     </div>
   </div>

@@ -11,6 +11,8 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
+import { fallbackResultForRow, getVerdictDetail } from "../submission/queries";
+import { stripStaffFeedback } from "../submission/scoring";
 
 function letterForIndex(index: number): string {
   if (index < 0) return String(index + 1);
@@ -22,7 +24,6 @@ export interface ExamProblemViewSibling {
   id: string;
   letter: string;
   title: string;
-  /** Best score the current user has achieved within this exam. */
   bestScore?: number | undefined;
   maxScore: number;
   isActive: boolean;
@@ -34,6 +35,7 @@ export interface ExamProblemViewSubmission {
   language: Language;
   result: SubmissionResult;
   submittedAt: string;
+  context: "exam";
 }
 
 export interface ExamProblemViewExam {
@@ -45,18 +47,14 @@ export interface ExamProblemViewExam {
 }
 
 export interface ExamProblemView {
-  /** Full problem-page payload — same shape the practice route uses. */
   problem: ProblemDetail;
-  /** User's submissions, server-side scoped to (examId, problemId, userId). */
   submissions: ExamProblemViewSubmission[];
-  /** All problems in the exam, in ordinal order, for the left rail. */
   siblingProblems: ExamProblemViewSibling[];
   exam: ExamProblemViewExam;
   examTitle: string;
   courseLabel: string;
 }
 
-// Submission filter is `(examId, userId, problemId)` — cross-exam data cannot leak through.
 export async function getExamProblemView(options: {
   examId: string;
   problemIdx: number;
@@ -93,7 +91,7 @@ export async function getExamProblemView(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true,
+        verdictDetailStorageKey: true,
       },
       take: 50,
     }),
@@ -105,15 +103,26 @@ export async function getExamProblemView(options: {
     }),
   ]);
 
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
-    submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+  const detailBlobs = await Promise.all(
+    submissionRows.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
+    const verdict = submissionVerdictSchema.parse(s.status);
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,
       language,
       result,
       submittedAt: s.createdAt.toISOString(),
+      context: "exam" as const,
     };
   });
 
@@ -150,16 +159,6 @@ export async function getExamProblemView(options: {
   };
 }
 
-/**
- * CUID-unified variant of {@link getExamProblemView} — resolves by problem id
- * and emits sibling URLs under the new top-level `/exams/[examId]/problems/...`
- * tree.  Behavior-identical to `getExamProblemView` otherwise: same submission
- * scoping (examId, userId, problemId), same verdict/language parsing, same
- * best-score map.
- *
- * Returns `null` when the problem is not part of the exam so the loader can
- * `error(404, ...)` without leaking existence.
- */
 export async function getExamProblemViewByProblemId(options: {
   examId: string;
   problemId: string;
@@ -195,7 +194,7 @@ export async function getExamProblemViewByProblemId(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true,
+        verdictDetailStorageKey: true,
       },
       take: 50,
     }),
@@ -207,15 +206,26 @@ export async function getExamProblemViewByProblemId(options: {
     }),
   ]);
 
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
-    submissionVerdictSchema.parse(s.status);
-    const result = submissionResultSchema.parse(s.verdictDetail);
+  const detailBlobs = await Promise.all(
+    submissionRows.map((s) =>
+      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
+    ),
+  );
+
+  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
+    const verdict = submissionVerdictSchema.parse(s.status);
+    const raw = detailBlobs[idx];
+    const parsed = raw != null ? submissionResultSchema.safeParse(raw) : null;
+    const result = parsed?.success
+      ? stripStaffFeedback(parsed.data)
+      : fallbackResultForRow(verdict);
     const language = languageSchema.parse(s.language);
     return {
       id: s.id,
       language,
       result,
       submittedAt: s.createdAt.toISOString(),
+      context: "exam" as const,
     };
   });
 

@@ -7,11 +7,6 @@ export const editorialReportRepo = {
     return prisma.editorialReport.create({ data });
   },
 
-  /**
-   * Moderation-queue read. Soft-deleted editorials are still included —
-   * a report against an already-removed editorial is valid moderation
-   * history; the admin UI just shows the tombstoned target.
-   */
   listByStatus(status: EditorialReportStatus) {
     return prisma.editorialReport.findMany({
       where: { status },

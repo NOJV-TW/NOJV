@@ -13,29 +13,13 @@ const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 
 import type { ActorContext } from "$lib/server/auth";
 
-/**
- * Per-family scope that bounds a student's view of a problem.
- *
- * Loaders in the new family-scoped route trees (assignment / contest / exam)
- * call `loadProblemSolveData` with the context their `+layout.server.ts`
- * already verified — enrollment, time window, and membership have all been
- * checked upstream. This helper only needs to confirm the problem itself is
- * visible to the viewer and return the uniform `solveProps` shape that
- * `<ProblemSolveView>` consumes.
- *
- * `assignment` is the assignment-shell variant.  `contest` and `exam` hooks
- * are stubbed for the parallel agents working on those trees — they can
- * extend this type without breaking the assignment flow.
- */
 export type ProblemSolveContext =
   | {
       kind: "assignment";
       assignmentId: string;
       courseId: string;
       allowedLanguages: Language[];
-      /** Link shown on the solve-page header to return to the shell. */
       backLink: { href: string; type: "assignment" };
-      /** Already verified by the shell layout — `exists(assignmentId, problemId)`. */
       problemInScope: boolean;
     }
   | {
@@ -56,11 +40,6 @@ export type ProblemSolveContext =
 
 export interface ProblemSolvePropsShape {
   allowedLanguages: Language[];
-  /**
-   * Shape mirrors `assessmentContextSchema` (core wire-format) so it flows
-   * directly into ProblemSolveView's `assessment` prop. Keeping the
-   * `assessmentId` field name matches the schema.
-   */
   assignmentProp:
     | {
         assessmentId: string;
@@ -68,13 +47,10 @@ export interface ProblemSolvePropsShape {
       }
     | undefined;
   backLink: { href: string; type: "assignment" | "contest" } | undefined;
-  /** Whether the viewer may rejudge submissions in this context. */
   canRejudge: boolean;
   contestId: string | undefined;
   problem: Awaited<ReturnType<typeof getProblemPageData>>;
   submissions: Awaited<ReturnType<typeof listProblemSubmissions>>;
-  // `description` is non-null in the DB (default ""), so we match the
-  // `ProblemTestcaseSetSummary` shape expected by the UI.
   testcaseSets: {
     id: string;
     name: string;
@@ -85,22 +61,11 @@ export interface ProblemSolvePropsShape {
   }[];
 }
 
-/**
- * Load the uniform `solveProps` bundle that `<ProblemSolveView>` expects.
- *
- * The caller's `+layout.server.ts` is responsible for membership / time-window
- * checks; this helper only runs the problem-row-level access check and then
- * fetches the display payload in parallel.
- */
 export async function loadProblemSolveData(
   problemId: string,
   actor: ActorContext,
   context: ProblemSolveContext,
 ): Promise<ProblemSolvePropsShape> {
-  // `getProblemPageData` returns the UI-facing `ProblemDetail` which does not
-  // carry `authorId`.  We fetch the row separately to run the view-access
-  // check; the two calls hit different tables so running them in parallel
-  // is a small win.
   const [problemRow, problem] = await Promise.all([
     getProblemRowById(problemId),
     getProblemPageData(problemId),
@@ -131,12 +96,6 @@ export async function loadProblemSolveData(
 
   const contestId = context.kind === "contest" ? context.contestId : undefined;
 
-  // Submissions are always scoped to the shell's context so that
-  // a student's assignment submissions don't leak into a contest view
-  // (and vice-versa).
-  // Submissions listed here all share the same context, so the rejudge
-  // authz decision is homogeneous — compute once. The synthetic submission
-  // only needs the context fields; id/userId do not affect the check.
   const [fullTestcaseSets, submissions, canRejudge] = await Promise.all([
     getProblemTestcaseSets(problemId),
     listProblemSubmissions(

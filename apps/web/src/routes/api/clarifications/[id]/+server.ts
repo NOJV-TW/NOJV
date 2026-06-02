@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
@@ -18,9 +19,6 @@ const patchSchema = z.discriminatedUnion("kind", [
 ]);
 
 function parseBody(raw: unknown): z.infer<typeof patchSchema> {
-  // Accept both explicit `{ kind: "answer", answerText }` and the
-  // shorthand shapes the design doc lists: `{ answerText }` or
-  // `{ state: "dismissed" }` or `{ state: "answered", answerText }`.
   if (typeof raw === "object" && raw !== null) {
     const obj = raw as Record<string, unknown>;
     if (obj.kind === undefined) {
@@ -33,7 +31,7 @@ function parseBody(raw: unknown): z.infer<typeof patchSchema> {
   return patchSchema.parse(raw);
 }
 
-function requireId(event: { params: { id?: string } }): string {
+function requireId(event: RequestEvent): string {
   const id = event.params.id;
   if (!id) throw new HttpError("Clarification id is required.", 400);
   return id;

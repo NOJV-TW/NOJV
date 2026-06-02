@@ -14,6 +14,7 @@
   import RequiredPathsSection from "$lib/components/features/problem/advanced/RequiredPathsSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
+  import BundleControls from "$lib/components/features/problem/admin/BundleControls.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import { toasts } from "$lib/stores/toast";
@@ -30,8 +31,11 @@
   let showRejudgeDialog = $state(false);
   let isDeleting = $state(false);
 
-  // Advanced-mode image config — only meaningful when isAdvanced is true.
-  // Initialised once via untrack so re-runs of `data` don't clobber edits.
+  let storageRefreshToken = $state(0);
+  function bumpStorageRefresh() {
+    storageRefreshToken += 1;
+  }
+
   let imageRef = $state<string>(untrack(() => data.imageConfig?.ref ?? ""));
   let imageSource = $state<ProblemImageSource>(
     untrack(() => data.imageConfig?.source ?? "registry")
@@ -43,14 +47,8 @@
     untrack(() => data.imageConfig?.memoryLimitMb ?? 1_024)
   );
 
-  // Advanced-mode required paths — persists separately from the image config.
   let requiredPaths = $state<string[]>(
     untrack(() => data.problem.advancedRequiredPaths ?? [])
-  );
-
-  // Publish requires: at least one testcase set
-  let canPublish = $derived(
-    data.problem.status === "draft" && data.testcaseSets.length > 0
   );
 
   let isBasicInfoComplete = $derived(
@@ -60,11 +58,13 @@
     data.problem.outputFormat !== ""
   );
 
-  // Build WorkspaceSection initial payload from loaded problem + files.
-  // The workspace is a scratchpad the user edits before saving; capture the
-  // initial values once via untrack() so re-runs of `data` don't discard edits.
-  // Only consumed by `multi_file` problems — full_source uses system templates
-  // and advanced mode routes to its own layout.
+  let canPublish = $derived(
+    data.problem.status === "draft" &&
+    (isAdvanced
+      ? isBasicInfoComplete && (data.imageConfig?.ref ?? "") !== ""
+      : data.testcaseSets.length > 0)
+  );
+
   const workspaceInitial = untrack(() => {
     if (data.problem.type !== "multi_file") return undefined;
     const runtime = (data.problem.judgeConfig?.runtime as
@@ -97,6 +97,29 @@
     await invalidateAll();
   }
 
+  async function handleWorkspaceFileUpload(file: File, language: Language) {
+    const fd = new FormData();
+    fd.set("file", file);
+    fd.set("language", language);
+    fd.set("path", file.name);
+    fd.set("visibility", "editable");
+    const res = await fetch(
+      `/api/problems/${data.problem.id}/workspace/files`,
+      {
+        method: "POST",
+        headers: { "X-Requested-With": "fetch" },
+        body: fd
+      }
+    );
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(body?.message ?? m.bundle_uploadFailed());
+    }
+    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
+    bumpStorageRefresh();
+    await invalidateAll();
+  }
+
   function handlePublishClick() {
     showPublishConfirm = true;
   }
@@ -117,7 +140,10 @@
     isPublishing = true;
     const fd = new FormData();
     fetch(`?/publish`, { method: "POST", body: fd }).then(async (res) => {
-      if (res.ok) await invalidateAll();
+      if (res.ok) {
+        await invalidateAll();
+        toasts.success(m.admin_publishSuccess());
+      }
       isPublishing = false;
     });
   }
@@ -127,7 +153,7 @@
     imageSource: ProblemImageSource;
     timeLimitMs: number;
     memoryLimitMb: number;
-  }) {
+  }): Promise<{ ok: boolean }> {
     const fd = new FormData();
     fd.append(
       "data",
@@ -139,10 +165,10 @@
       })
     );
     const res = await fetch("?/updateImage", { method: "POST", body: fd });
-    toasts.add({
-      message: res.ok ? m.admin_imageConfigSaved() : m.admin_imageConfigFailed(),
-      type: res.ok ? "success" : "error"
-    });
+    if (res.ok) {
+      toasts.add({ message: m.admin_imageConfigSaved(), type: "success" });
+    }
+    return { ok: res.ok };
   }
 
   async function saveRequiredPaths() {
@@ -193,25 +219,43 @@
         <Button
           variant="outline"
           size="sm"
+          loading={isDeleting}
           disabled={isDeleting}
           onclick={() => (showDeleteConfirm = true)}
         >
           {isDeleting ? m.common_deleting() : m.common_delete()}
         </Button>
       {/if}
+      {#if isAdvanced && data.problem.status === "draft"}
+        <Button
+          size="sm"
+          loading={isPublishing}
+          disabled={!canPublish || isPublishing}
+          title={canPublish ? undefined : m.admin_advancedPublishHint()}
+          onclick={handlePublishClick}
+        >
+          {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
+        </Button>
+      {/if}
     </div>
   </div>
 
+  <BundleControls
+    problemId={data.problem.id}
+    refreshToken={storageRefreshToken}
+    onuploaded={bumpStorageRefresh}
+  />
+
   {#if isAdvanced}
-    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
       <BasicInfoTab formData={data.form} problemId={data.problem.id} />
     </section>
 
-    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
       <ContainerContractSection />
     </section>
 
-    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
       <ImageSection
         problemId={data.problem.id}
         bind:imageRef
@@ -222,7 +266,7 @@
       />
     </section>
 
-    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
       <RequiredPathsSection
         value={requiredPaths}
         onchange={(next) => (requiredPaths = next)}
@@ -234,7 +278,7 @@
       bind:activeSection
       problemType={data.problem.type}
       showPublish={data.problem.status === "draft"}
-      showConvertToAdvanced
+      showConvertToAdvanced={data.advancedModeSupported}
       {canPublish}
       {isPublishing}
       {isBasicInfoComplete}
@@ -252,6 +296,7 @@
             initial={workspaceInitial}
             ondirtychange={(d) => isDirty = d}
             onsave={handleWorkspaceSave}
+            onUploadFile={handleWorkspaceFileUpload}
           />
         {/if}
       {/snippet}
@@ -263,7 +308,9 @@
       {#snippet judge()}
         <JudgeTab
           problem={data.problem}
+          validatorScripts={data.validatorScripts}
           ondirtychange={(d) => isDirty = d}
+          onuploaded={bumpStorageRefresh}
         />
       {/snippet}
     </ProblemSections>

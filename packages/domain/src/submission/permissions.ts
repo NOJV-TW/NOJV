@@ -11,26 +11,12 @@ import type { RejudgeInput } from "@nojv/temporal";
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";
 
-/**
- * Shared helper: can `userId` act as course staff (teacher or TA) on `courseId`?
- * Platform admins bypass this entirely at the caller.
- */
 async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {
   const membership = await courseMembershipRepo.findByComposite(courseId, userId);
   if (membership?.status !== "active") return false;
   return membership.role === "teacher" || membership.role === "ta";
 }
 
-/**
- * Can `actor` perform destructive operations (rejudge, score-override) on
- * the given submission? See the "submission operation permission" memo:
- *
- *   - platform admin   → always
- *   - contest context  → contest organizer (`Contest.createdByUserId`)
- *   - assignment       → course teacher/TA
- *   - exam             → course teacher/TA (via `Exam.courseId`)
- *   - practice         → problem author (`Problem.authorId`)
- */
 export async function canOperateOnSubmission(
   actor: ActorContext,
   submission: {
@@ -61,7 +47,6 @@ export async function canOperateOnSubmission(
     return isCourseTeacherOrTa(actor.userId, exam.courseId);
   }
 
-  // practice context — problem author only
   const problem = await problemRepo.findById(submission.problemId);
   return problem?.authorId === actor.userId;
 }
@@ -82,13 +67,6 @@ export async function assertCanOperateOnSubmission(
   }
 }
 
-/**
- * Authorization for batch-rejudge inputs. The input mirrors the shape
- * used by `dispatchRejudge` in batch mode. Checks the context-specific
- * permission; for an unscoped batch (bare `problemId`) the problem author
- * is allowed, but only if no matching submissions live in a non-practice
- * context (those must be scoped by contest / assignment / exam).
- */
 export async function assertBatchRejudgeAccess(
   actor: ActorContext,
   input: Extract<RejudgeInput, { mode: "batch" }>,
@@ -119,8 +97,6 @@ export async function assertBatchRejudgeAccess(
     return;
   }
 
-  // Unscoped batch on bare problemId — problem author only, and reject if
-  // any matching submission is in a non-practice context.
   const problem = await problemRepo.findById(input.problemId);
   if (problem?.authorId !== actor.userId) {
     throw new ForbiddenError(

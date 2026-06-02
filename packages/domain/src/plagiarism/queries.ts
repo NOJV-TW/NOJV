@@ -4,16 +4,21 @@ import {
   examRepo,
   plagiarismRepo,
   plagiarismTriggerLogRepo,
-  assessmentProblemRepo,
   submissionRepo,
   runTransaction,
   type PlagiarismContext,
   type PlagiarismReportSummary,
 } from "@nojv/db";
+import type { SubmissionSource } from "@nojv/storage";
 
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
+import { getSubmissionSources } from "../submission/queries";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
+
+export function boundaryMarkerFor(language: string): string {
+  return language === "python" ? "#" : "//";
+}
 
 export interface PlagiarismSubmission {
   id: string;
@@ -27,16 +32,33 @@ export interface PlagiarismSubmission {
 export async function listSubmissionsForCheck(
   target: PlagiarismTarget,
 ): Promise<PlagiarismSubmission[]> {
-  return submissionRepo.findForPlagiarism({
+  const rows = await submissionRepo.findForPlagiarism({
     ...plagiarismTargetFilter(target),
     status: "accepted",
   });
+  return Promise.all(
+    rows.map(async (row): Promise<PlagiarismSubmission> => {
+      const sources = await getSubmissionSources(row.id);
+      const marker = boundaryMarkerFor(row.language);
+      const merged = sources
+        .slice()
+        .sort((a, b) => a.path.localeCompare(b.path))
+        .map((s) => `${marker} === ${s.path} ===\n${s.content}`)
+        .join("\n");
+      return {
+        id: row.id,
+        userId: row.userId,
+        problemId: row.problemId,
+        language: row.language,
+        score: row.score,
+        sourceCode: merged,
+      };
+    }),
+  );
 }
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
 
-// Plagiarism state is inlined on `Exam` / `Contest` / `CourseAssessment` as
-// six `plagiarism*` columns — the parent id IS the report identity.
 async function writePlagiarismFields(
   target: PlagiarismTarget,
   input: Parameters<typeof plagiarismRepo.upsertForExam>[1],
@@ -95,8 +117,6 @@ export async function getPlagiarismTarget(
   if (type === "contest") {
     const contest = await contestRepo.findById(targetId);
     if (!contest) throw new NotFoundError("Contest not found.");
-    // Contests are not course-bound; surface an empty courseId so callers
-    // that key off course membership fall back to platform-role checks.
     return { courseId: "", target: { id: contest.id, type: "contest" } };
   }
 
@@ -164,11 +184,12 @@ export async function findPlagiarismReport(
   return plagiarismRepo.findByExamId(target.id);
 }
 
+// intentional-nullable: pair-diff view renders an empty side when a user has no submission for the problem (MOSS sometimes flags pairs where one side was later deleted); throwing would 500 the whole report.
 export async function getPlagiarismSourceCode(
   target: PlagiarismTarget,
   userId: string,
   problemId: string,
-) {
+): Promise<SubmissionSource[] | null> {
   const submission = await submissionRepo.findMany({
     where: {
       ...plagiarismTargetFilter(target),
@@ -176,27 +197,17 @@ export async function getPlagiarismSourceCode(
       userId,
     },
     orderBy: { score: "desc" },
-    select: { sourceCode: true },
+    select: { id: true },
     take: 1,
   });
-  return submission[0]?.sourceCode ?? null;
+  const top = submission[0];
+  if (!top) return null;
+  return getSubmissionSources(top.id);
 }
 
-// Returns 0 or 1 reports as an array so the route layer can keep its existing
-// list-style UI loop without a special empty-state branch.
 export async function listAssignmentPlagiarismReports(
   assignmentId: string,
 ): Promise<PlagiarismReportSummary[]> {
   const report = await plagiarismRepo.findByAssessmentId(assignmentId);
   return report ? [report] : [];
-}
-
-export async function getAssignmentProblemMap(assignmentId: string) {
-  const assignmentProblems = await assessmentProblemRepo.findByAssessmentId(assignmentId);
-  return Object.fromEntries(
-    assignmentProblems.map((ap) => [
-      ap.problemId,
-      { id: ap.problem.id, title: ap.problem.title },
-    ]),
-  );
 }
