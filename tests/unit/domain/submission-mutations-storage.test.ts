@@ -148,9 +148,11 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
     const createArg = submissionCreate.mock.calls[0]![0] as {
       id: string;
       sourceStoragePrefix: string;
+      ipAddress: string | null;
     };
     expect(createArg.id).toBeTruthy();
     expect(createArg.sourceStoragePrefix).toBe(`submissions/${createArg.id}/sources/`);
+    expect(createArg.ipAddress).toBe("127.0.0.1");
 
     // Row returned to the caller matches the created row, not the {row, sources} pair.
     expect((row as { id: string }).id).toBe(createArg.id);

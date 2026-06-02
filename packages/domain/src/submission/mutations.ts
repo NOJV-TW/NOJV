@@ -256,8 +256,6 @@ export async function createQueuedSubmissionRecord(
 
     await assertSubmissionFilesValid(payload, problem);
 
-    void clientIp;
-
     if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
       await checkSubmitCooldown(
         tx,
@@ -282,6 +280,7 @@ export async function createQueuedSubmissionRecord(
       courseAssessmentId: courseContext?.assignment.id ?? null,
       examId: activeExamSession?.examId ?? null,
       courseId: courseContext?.course.id ?? null,
+      ipAddress: clientIp,
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
