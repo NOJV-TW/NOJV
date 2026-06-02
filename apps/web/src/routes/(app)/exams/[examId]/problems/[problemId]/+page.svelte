@@ -33,9 +33,9 @@
   });
 </script>
 
-<div class="flex min-h-screen flex-col">
+<div class="flex h-full flex-col">
   <ExamTopStrip context={data.examContext} />
-  <div class="flex-1">
+  <div class="min-h-0 flex-1">
     <ProblemSolveView
       mode="exam"
       canRejudge={data.canRejudge}

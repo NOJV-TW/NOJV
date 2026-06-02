@@ -27,7 +27,6 @@
         c.scoringMode === "problem_count"
           ? m.contestsList_scoringProblemCount()
           : m.contestsList_scoringPointSum(),
-      code: c.id,
       durationMin: durationMinutes(c.startsAt, c.endsAt)
     };
   }
@@ -60,19 +59,18 @@
       {#snippet icon()}
         <Trophy class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
       {/snippet}
+      {#snippet actions()}
+        {#if data.loggedIn}
+          <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
+            {m.contestsList_joinByCode()}
+          </Button>
+          <Button href="/contests/new">
+            <Plus aria-hidden="true" class="h-4 w-4" />
+            {m.contestsList_create()}
+          </Button>
+        {/if}
+      {/snippet}
     </PageHeader>
-
-  <div class="flex flex-wrap items-center gap-3">
-    {#if data.loggedIn}
-      <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
-        {m.contestsList_joinByCode()}
-      </Button>
-      <Button href="/contests/new">
-        <Plus aria-hidden="true" class="h-4 w-4" />
-        {m.contestsList_create()}
-      </Button>
-    {/if}
-  </div>
 
   {#if live.length > 0}
     <ContestSection title={m.contestsList_sectionLiveTitle().toUpperCase()} subtitle={m.contestsList_sectionLiveSubtitle()} badge={m.contestsList_sectionLiveBadge()}>
@@ -80,7 +78,6 @@
         {#each live as c, i (c.raw.id)}
           <ContestPoster
             href="/contests/{c.raw.id}"
-            code={c.code}
             scoringLabel={c.scoringLabel}
             status={c.status}
             title={c.raw.title}
@@ -108,7 +105,6 @@
         {#each upcoming as c, i (c.raw.id)}
           <ContestPoster
             href="/contests/{c.raw.id}"
-            code={c.code}
             scoringLabel={c.scoringLabel}
             status={c.status}
             title={c.raw.title}

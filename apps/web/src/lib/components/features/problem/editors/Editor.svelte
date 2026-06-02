@@ -10,13 +10,13 @@
   import EditorActionBar from "./EditorActionBar.svelte";
   import EditorResizeHandle from "./EditorResizeHandle.svelte";
   import { type DraftContext } from "$lib/stores/code-draft";
+  import { shortcuts } from "$lib/stores/shortcuts.svelte";
   import {
     bindEscapeToExitFullscreen,
     createBottomResizeHandler,
     isSpecialEnvProblem,
     isWorkspaceProblem,
     persistLanguage,
-    readPersistedLanguage,
     workspaceDraftKey
   } from "./editor-bindings";
   import { createDraftController } from "./use-draft.svelte";
@@ -34,8 +34,15 @@
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     draftContext?: DraftContext | undefined;
+    initialLanguage?: Language | undefined;
+    onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
     onSubmissionComplete?:
-      | ((result: SubmissionResult, language: string, sourceCode: string) => void)
+      | ((
+          submissionId: string,
+          result: SubmissionResult,
+          language: string,
+          sourceCode: string
+        ) => void)
       | undefined;
     problem: ProblemDetail;
   }
@@ -46,6 +53,8 @@
     contestId,
     virtualContestId,
     draftContext,
+    initialLanguage,
+    onSubmissionDispatched,
     onSubmissionComplete,
     problem
   }: Props = $props();
@@ -53,7 +62,15 @@
 
   let availableLanguages = $state<Language[]>([]);
 
-  let language = $state<Language>(readPersistedLanguage());
+  function resolveInitialLanguage(): Language {
+    const base = initialLanguage ?? "cpp";
+    if (allowedLanguages && allowedLanguages.length > 0 && !allowedLanguages.includes(base)) {
+      return allowedLanguages[0]!;
+    }
+    return base;
+  }
+
+  let language = $state<Language>(resolveInitialLanguage());
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isFullscreen = $state(false);
 
@@ -107,6 +124,13 @@
   $effect(() => draftController.registerShortcut());
 
   $effect(() => {
+    void drafts[language];
+    draftController.scheduleAutosave();
+  });
+
+  $effect(() => () => draftController.dispose());
+
+  $effect(() => {
     void language;
     workspaceFiles.resetSelectionForLanguage();
   });
@@ -136,10 +160,25 @@
     assessment: () => assessment,
     contestId: () => contestId,
     virtualContestId: () => virtualContestId,
-    onSubmissionComplete: (result, lang, src) => onSubmissionComplete?.(result, lang, src)
+    onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
+    onSubmissionComplete: (id, result, lang, src) =>
+      onSubmissionComplete?.(id, result, lang, src)
   });
 
   $effect(() => () => runController.markDestroyed());
+
+  $effect(() =>
+    shortcuts.register({
+      id: `editor-submit:${initialProblem.id}`,
+      keys: ["Ctrl", "Enter"],
+      description: m.shortcut_submit(),
+      category: "actions",
+      allowInInputs: true,
+      handler: () => {
+        if (!runController.isSubmitting && hasSubmittableSource) void runController.submit();
+      }
+    })
+  );
 
   let bottomPanelHeight = $state(260);
   let outerContainer: HTMLDivElement = $state(null!);
@@ -199,7 +238,6 @@
     draftEnabled={draftController.enabled}
     isDirty={draftController.isDirty}
     lastSavedAt={draftController.currentLastSavedAt}
-    onClearDraft={() => draftController.clear()}
     onRun={() => void runController.run()}
     onSubmit={() => void runController.submit()}
   />

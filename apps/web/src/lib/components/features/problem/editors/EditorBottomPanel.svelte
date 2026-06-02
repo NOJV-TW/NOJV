@@ -187,7 +187,11 @@
         {#if runResult}
           <div>
             <div class="flex items-baseline gap-3">
-              <span class="text-body-lg font-semibold {verdictTone(runResult.verdict)}">
+              <span
+                class="inline-block text-body-lg font-semibold motion-safe:animate-[verdict-pop_320ms_var(--ease-spring)_both] {verdictTone(
+                  runResult.verdict
+                )}"
+              >
                 {runVerdictLabel}
               </span>
               {#if runResult.runtimeMs > 0}

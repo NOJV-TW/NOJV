@@ -50,6 +50,26 @@ export function formatTime(value: DateInput, opts?: Intl.DateTimeFormatOptions):
   return new Intl.DateTimeFormat(getLocale(), { ...TIME_DEFAULTS, ...opts }).format(d);
 }
 
+export function formatSmartTimestamp(value: DateInput, now: Date = new Date()): string {
+  const d = toDate(value);
+  if (!d) return "";
+  const locale = getLocale();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return new Intl.DateTimeFormat(locale, TIME_DEFAULTS).format(d);
+  }
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "numeric",
+    day: "numeric",
+    ...TIME_DEFAULTS,
+  };
+  if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  return new Intl.DateTimeFormat(locale, opts).format(d);
+}
+
 function formatPart(date: Date): string {
   const month = String(date.getMonth() + 1);
   const day = String(date.getDate());

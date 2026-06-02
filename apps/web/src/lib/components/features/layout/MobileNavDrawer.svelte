@@ -4,6 +4,7 @@
   import { X } from "@lucide/svelte";
   import type { Component } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { trapFocus } from "$lib/utils/focus-trap";
 
   export interface MobileNavLink {
     href: string;
@@ -22,18 +23,12 @@
 
   const uid = $props.id();
 
-  let closeButton = $state<HTMLButtonElement | null>(null);
-
   function onKey(event: KeyboardEvent) {
     if (event.key === "Escape" && open) {
       event.preventDefault();
       onclose();
     }
   }
-
-  $effect(() => {
-    if (open) closeButton?.focus();
-  });
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -54,11 +49,11 @@
     aria-modal="true"
     aria-label={m.nav_menuHeading()}
     transition:fly={{ x: -288, duration: 220, easing: cubicOut }}
+    use:trapFocus
   >
     <header class="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-4">
       <span class="text-title-sm font-bold tracking-tight">NOJV</span>
       <button
-        bind:this={closeButton}
         type="button"
         class="grid size-11 place-items-center rounded-md text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
         aria-label={m.common_close()}

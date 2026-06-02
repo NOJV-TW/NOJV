@@ -47,7 +47,8 @@
     let themeObserver: MutationObserver | undefined;
 
     void (async () => {
-      monacoModule = await import("monaco-editor");
+      const { loadMonaco } = await import("$lib/utils/monaco-loader");
+      monacoModule = loadMonaco();
       registerCompletionProviders(monacoModule);
       defineNojvThemes(monacoModule);
 

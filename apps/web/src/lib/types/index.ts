@@ -13,7 +13,7 @@ import type {
 export interface ProblemSubmissionEntry {
   id?: string;
   language: string;
-  result: SubmissionResult;
+  result?: SubmissionResult;
   sourceCode?: string;
   submittedAt: string;
   context?: "practice" | "assignment" | "contest" | "exam";

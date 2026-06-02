@@ -1,11 +1,17 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { page } from "$app/state";
-  import { type Language, type SubmissionResult } from "@nojv/core";
+  import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { inferDraftContext } from "$lib/stores/code-draft";
   import type { ProblemDetail, ProblemSubmissionEntry, ProblemTestcaseSetSummary } from "$lib/types";
   import ProblemEditor from "../editors/Editor.svelte";
+  import {
+    DEFAULT_PANEL_WIDTH,
+    clampPanelWidth,
+    persistPanelWidth,
+    readPanelWidth
+  } from "../editors/editor-bindings";
   import ProblemLeftPanel from "./ProblemLeftPanel.svelte";
 
   interface Props {
@@ -45,13 +51,41 @@
 
   let draftContext = $derived(inferDraftContext(page.route.id, page.params));
 
+  const initialLanguage = (() => {
+    const fromSubmission = languageSchema.safeParse(
+      untrack(() => initialSubmissions)?.[0]?.language
+    );
+    if (fromSubmission.success) return fromSubmission.data;
+    const fromCookie = languageSchema.safeParse(untrack(() => page.data.editorLanguage));
+    return fromCookie.success ? fromCookie.data : undefined;
+  })();
+
+  function handleSubmissionDispatched(submissionId: string, language: string) {
+    submissions = [
+      {
+        id: submissionId,
+        language,
+        submittedAt: new Date().toISOString(),
+        context: draftContext.kind
+      },
+      ...submissions
+    ].slice(0, 50);
+  }
+
   function handleSubmissionComplete(
+    submissionId: string,
     result: SubmissionResult,
     language: string,
     sourceCode: string
   ) {
+    const index = submissions.findIndex((s) => s.id === submissionId);
+    if (index >= 0) {
+      submissions[index] = { ...submissions[index]!, result, sourceCode };
+      return;
+    }
     submissions = [
       {
+        id: submissionId,
         language,
         result,
         sourceCode,
@@ -62,8 +96,21 @@
     ].slice(0, 50);
   }
 
-  let leftPanelWidth = $state(42);
+  let leftPanelWidth = $state(DEFAULT_PANEL_WIDTH);
   let isResizing = $state(false);
+
+  onMount(() => {
+    leftPanelWidth = readPanelWidth();
+  });
+
+  function setWidth(width: number) {
+    leftPanelWidth = clampPanelWidth(width);
+  }
+
+  function resetWidth() {
+    setWidth(DEFAULT_PANEL_WIDTH);
+    persistPanelWidth(DEFAULT_PANEL_WIDTH);
+  }
 
   function startResize(e: MouseEvent) {
     e.preventDefault();
@@ -72,8 +119,7 @@
 
     const onMove = (ev: MouseEvent) => {
       const rect = container.getBoundingClientRect();
-      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
-      leftPanelWidth = Math.max(20, Math.min(80, pct));
+      setWidth(((ev.clientX - rect.left) / rect.width) * 100);
     };
 
     const onUp = () => {
@@ -82,6 +128,7 @@
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       isResizing = false;
+      persistPanelWidth(leftPanelWidth);
     };
 
     isResizing = true;
@@ -116,11 +163,19 @@
   role="separator"
   aria-orientation="vertical"
   aria-label={m.common_resizePanels()}
+  title={m.common_resizePanelsHint()}
   tabindex="0"
   onmousedown={startResize}
+  ondblclick={resetWidth}
   onkeydown={(e) => {
-    if (e.key === "ArrowLeft") leftPanelWidth = Math.max(20, leftPanelWidth - 2);
-    if (e.key === "ArrowRight") leftPanelWidth = Math.min(80, leftPanelWidth + 2);
+    if (e.key === "ArrowLeft") {
+      setWidth(leftPanelWidth - 2);
+      persistPanelWidth(leftPanelWidth);
+    }
+    if (e.key === "ArrowRight") {
+      setWidth(leftPanelWidth + 2);
+      persistPanelWidth(leftPanelWidth);
+    }
   }}
 >
   <span
@@ -138,6 +193,8 @@
     {contestId}
     {virtualContestId}
     {draftContext}
+    {initialLanguage}
+    onSubmissionDispatched={handleSubmissionDispatched}
     onSubmissionComplete={handleSubmissionComplete}
     {problem}
   />

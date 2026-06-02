@@ -3,6 +3,7 @@
   import { cubicOut } from "svelte/easing";
 
   import { m } from "$lib/paraglide/messages.js";
+  import { trapFocus } from "$lib/utils/focus-trap";
   import type { ProblemSolveSibling } from "../views/ProblemSolveView.svelte";
 
   interface Props {
@@ -40,6 +41,17 @@
     return "border-transparent hover:bg-muted";
   }
 
+  function miniChipClass(s: ProblemSolveSibling): string {
+    if (s.isActive) return "bg-primary text-primary-foreground ring-1 ring-primary";
+    if (s.bestScore !== undefined && s.bestScore >= s.maxScore) {
+      return "bg-success/20 text-success hover:bg-success/30";
+    }
+    if (s.bestScore !== undefined && s.bestScore > 0) {
+      return "bg-destructive/20 text-destructive hover:bg-destructive/30";
+    }
+    return "bg-muted text-muted-foreground hover:bg-accent";
+  }
+
   function chipClass(s: ProblemSolveSibling): string {
     if (s.isActive) return "bg-primary text-primary-foreground";
     if (s.bestScore !== undefined && s.bestScore >= s.maxScore) {
@@ -67,25 +79,43 @@
 
 <svelte:window onkeydown={onKey} />
 
-<button
-  type="button"
-  class="group absolute inset-y-0 left-0 z-20 flex w-6 shrink-0 flex-col items-center justify-center gap-2 border-r border-border-subtle bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-muted hover:text-foreground"
-  aria-label={m.problemSwitcher_triggerLabel()}
-  aria-expanded={open}
-  onclick={toggle}
+<div
+  class="absolute inset-y-0 left-0 z-20 flex w-6 flex-col items-center border-r border-border-subtle bg-[color:var(--color-panel)] py-2"
 >
-  <span
-    aria-hidden="true"
-    class="text-caption transition-transform duration-fast ease-out-soft {open ? 'rotate-180' : ''}"
+  <button
+    type="button"
+    class="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-muted hover:text-foreground"
+    aria-label={m.problemSwitcher_triggerLabel()}
+    aria-expanded={open}
+    onclick={toggle}
   >
-    ▶
-  </span>
-  <span
-    class="font-medium uppercase tracking-[0.18em] text-caption [writing-mode:vertical-rl]"
+    <span
+      aria-hidden="true"
+      class="text-caption transition-transform duration-fast ease-out-soft {open
+        ? 'rotate-180'
+        : ''}"
+    >
+      ▶
+    </span>
+  </button>
+  <nav
+    class="mt-2 flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto"
+    aria-label={m.problemSwitcher_drawerHeading()}
   >
-    {m.problemSwitcher_triggerLabel()}
-  </span>
-</button>
+    {#each siblings as sibling (sibling.id)}
+      <a
+        href={sibling.href}
+        title="{sibling.letter} · {sibling.title}"
+        aria-current={sibling.isActive ? "page" : undefined}
+        class="grid size-5 shrink-0 place-items-center rounded-sm text-[length:0.625rem] font-semibold leading-none transition-colors duration-fast ease-out-soft {miniChipClass(
+          sibling
+        )}"
+      >
+        {sibling.letter}
+      </a>
+    {/each}
+  </nav>
+</div>
 
 {#if open}
   
@@ -98,9 +128,13 @@
   ></button>
 
   
-  <aside
+  <div
     class="absolute inset-y-0 left-6 z-30 flex w-60 flex-col overflow-hidden border-r border-border bg-card shadow-rest"
+    role="dialog"
+    aria-modal="true"
+    aria-label={m.problemSwitcher_drawerHeading()}
     transition:fly={{ x: -240, duration: 200, easing: cubicOut }}
+    use:trapFocus
   >
     <header
       class="flex shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3"
@@ -141,5 +175,5 @@
         </a>
       {/each}
     </nav>
-  </aside>
+  </div>
 {/if}
