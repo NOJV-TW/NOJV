@@ -1,10 +1,9 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import { page } from "$app/state";
-  import { type Language, type SubmissionResult } from "@nojv/core";
+  import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { inferDraftContext } from "$lib/stores/code-draft";
-  import { submissionFeedback } from "$lib/stores/submission-feedback.svelte";
   import type { ProblemDetail, ProblemSubmissionEntry, ProblemTestcaseSetSummary } from "$lib/types";
   import ProblemEditor from "../editors/Editor.svelte";
   import {
@@ -52,6 +51,15 @@
 
   let draftContext = $derived(inferDraftContext(page.route.id, page.params));
 
+  const initialLanguage = (() => {
+    const fromSubmission = languageSchema.safeParse(
+      untrack(() => initialSubmissions)?.[0]?.language
+    );
+    if (fromSubmission.success) return fromSubmission.data;
+    const fromCookie = languageSchema.safeParse(untrack(() => page.data.editorLanguage));
+    return fromCookie.success ? fromCookie.data : undefined;
+  })();
+
   function handleSubmissionDispatched(submissionId: string, language: string) {
     submissions = [
       {
@@ -70,7 +78,6 @@
     language: string,
     sourceCode: string
   ) {
-    submissionFeedback.play(result.verdict);
     const index = submissions.findIndex((s) => s.id === submissionId);
     if (index >= 0) {
       submissions[index] = { ...submissions[index]!, result, sourceCode };
@@ -186,6 +193,7 @@
     {contestId}
     {virtualContestId}
     {draftContext}
+    {initialLanguage}
     onSubmissionDispatched={handleSubmissionDispatched}
     onSubmissionComplete={handleSubmissionComplete}
     {problem}

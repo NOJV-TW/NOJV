@@ -34,7 +34,6 @@ function comboMatches(keys: string[], event: KeyboardEvent): boolean {
 
 class ShortcutRegistry {
   shortcuts = $state<Shortcut[]>([]);
-  isOverlayOpen = $state(false);
   #pendingFirstKey = $state<string | null>(null);
   #sequenceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -53,10 +52,6 @@ class ShortcutRegistry {
     });
   }
 
-  toggleOverlay() {
-    this.isOverlayOpen = !this.isOverlayOpen;
-  }
-
   handleKeydown(event: KeyboardEvent) {
     const target = event.target as HTMLElement | null;
     const inEditable = !!(
@@ -66,12 +61,6 @@ class ShortcutRegistry {
         target.tagName === "SELECT" ||
         target.isContentEditable)
     );
-
-    if (!inEditable && event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      event.preventDefault();
-      this.toggleOverlay();
-      return;
-    }
 
     const keyLabel = normalizeKey(event);
 

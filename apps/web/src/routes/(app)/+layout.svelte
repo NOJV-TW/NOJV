@@ -2,7 +2,6 @@
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/state";
   import Header from "$lib/components/features/layout/Header.svelte";
-  import CommandPalette from "$lib/components/features/layout/CommandPalette.svelte";
   import Footer from "$lib/components/primitives/layout/Footer.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { notifications } from "$lib/stores/notifications.svelte";
@@ -54,7 +53,3 @@
     <Footer />
   {/if}
 </div>
-
-{#if user}
-  <CommandPalette />
-{/if}

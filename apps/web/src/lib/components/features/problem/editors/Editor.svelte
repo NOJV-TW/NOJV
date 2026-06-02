@@ -17,7 +17,6 @@
     isSpecialEnvProblem,
     isWorkspaceProblem,
     persistLanguage,
-    readPersistedLanguage,
     workspaceDraftKey
   } from "./editor-bindings";
   import { createDraftController } from "./use-draft.svelte";
@@ -35,6 +34,7 @@
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     draftContext?: DraftContext | undefined;
+    initialLanguage?: Language | undefined;
     onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
     onSubmissionComplete?:
       | ((
@@ -53,6 +53,7 @@
     contestId,
     virtualContestId,
     draftContext,
+    initialLanguage,
     onSubmissionDispatched,
     onSubmissionComplete,
     problem
@@ -61,7 +62,15 @@
 
   let availableLanguages = $state<Language[]>([]);
 
-  let language = $state<Language>(readPersistedLanguage());
+  function resolveInitialLanguage(): Language {
+    const base = initialLanguage ?? "cpp";
+    if (allowedLanguages && allowedLanguages.length > 0 && !allowedLanguages.includes(base)) {
+      return allowedLanguages[0]!;
+    }
+    return base;
+  }
+
+  let language = $state<Language>(resolveInitialLanguage());
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isFullscreen = $state(false);
 
