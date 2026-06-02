@@ -236,7 +236,7 @@ describe("buildAdvancedJobManifest — registry-source pod structure", () => {
 
     const initNames = (podSpec.initContainers ?? []).map((c) => c.name).sort();
     expect(initNames).toEqual(
-      [ADVANCED_INIT_NAME, ADVANCED_SIDECAR_NAME].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+      [ADVANCED_INIT_NAME, ADVANCED_SIDECAR_NAME].sort((a, b) => Number(a > b) - Number(a < b)),
     );
   });
 

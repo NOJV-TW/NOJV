@@ -134,8 +134,8 @@ describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)"
 
     const [, payload] = saveResults.mock.calls[0];
     expect(payload.pairs).toHaveLength(1);
-    const users = [payload.pairs[0].userId1, payload.pairs[0].userId2].sort((a, b) =>
-      a < b ? -1 : a > b ? 1 : 0,
+    const users = [payload.pairs[0].userId1, payload.pairs[0].userId2].sort(
+      (a, b) => Number(a > b) - Number(a < b),
     );
     expect(users).toEqual(["usr_b", "usr_c"]);
   });

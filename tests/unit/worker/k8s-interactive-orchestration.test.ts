@@ -152,14 +152,14 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
 
     // Every ConfigMap + Job is cleaned up after each case (best-effort delete).
     expect(
-      record.configMapsDeleted.map((c) => c.name).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+      record.configMapsDeleted.map((c) => c.name).sort((a, b) => Number(a > b) - Number(a < b)),
     ).toEqual(
-      record.configMapsCreated.map((c) => c.name).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+      record.configMapsCreated.map((c) => c.name).sort((a, b) => Number(a > b) - Number(a < b)),
     );
     expect(
-      record.jobsDeleted.map((j) => j.name).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+      record.jobsDeleted.map((j) => j.name).sort((a, b) => Number(a > b) - Number(a < b)),
     ).toEqual(
-      record.jobsCreated.map((j) => j.name).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+      record.jobsCreated.map((j) => j.name).sort((a, b) => Number(a > b) - Number(a < b)),
     );
 
     expect(result.testcaseResults).toBeDefined();
@@ -190,7 +190,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
 
     const containers = record.podLogsRead
       .map((p) => p.container)
-      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      .sort((a, b) => Number(a > b) - Number(a < b));
     expect(containers).toEqual(["interactor", "solution"]);
 
     for (const call of record.podLogsRead) {

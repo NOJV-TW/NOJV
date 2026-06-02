@@ -166,8 +166,8 @@ int main() {
 
     const pair = results.pairs[0]!;
     expect(pair.problemId).toBe(problem.id);
-    const users = [pair.userId1, pair.userId2].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    expect(users).toEqual([userA.id, userB.id].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
+    const users = [pair.userId1, pair.userId2].sort((a, b) => Number(a > b) - Number(a < b));
+    expect(users).toEqual([userA.id, userB.id].sort((a, b) => Number(a > b) - Number(a < b)));
     // Threshold: 70. Semantic equivalence (same logic, variable rename) on
     // cpp typically scores ~85-95 with Dolos. The legacy JSON-stringified
     // shape would score around 10-30 because the JSON syntax tokens

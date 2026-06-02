@@ -22,6 +22,42 @@ function baseNameOf(name: string): string {
   return name.includes("/") ? (name.split("/").pop() ?? name) : name;
 }
 
+function ingestSubtaskFile(
+  bySubtask: SubtaskMap,
+  file: { name: string; content: string },
+  regex: RegExp,
+  inExt: string,
+  outExt: string,
+): void {
+  const baseName = baseNameOf(file.name);
+  const isIn = baseName.endsWith(inExt);
+  const isOut = baseName.endsWith(outExt);
+  if (!isIn && !isOut) return;
+
+  const ext = isIn ? inExt : outExt;
+  const stem = baseName.slice(0, -ext.length);
+  const match = regex.exec(stem);
+  if (!match?.[1] || !match[2]) return;
+
+  const subtaskId = match[1];
+  const caseId = match[2];
+
+  let cases = bySubtask.get(subtaskId);
+  if (!cases) {
+    cases = new Map();
+    bySubtask.set(subtaskId, cases);
+  }
+
+  let entry = cases.get(caseId);
+  if (!entry) {
+    entry = { fileName: stem };
+    cases.set(caseId, entry);
+  }
+
+  if (isIn) entry.in = file.content;
+  if (isOut) entry.out = file.content;
+}
+
 function groupFilesBySubtask(
   files: { name: string; content: string }[],
   regex: RegExp,
@@ -29,35 +65,9 @@ function groupFilesBySubtask(
   outExt: string,
 ): SubtaskMap {
   const bySubtask: SubtaskMap = new Map();
-
   for (const file of files) {
-    const baseName = baseNameOf(file.name);
-    const isIn = baseName.endsWith(inExt);
-    const isOut = baseName.endsWith(outExt);
-    if (!isIn && !isOut) continue;
-
-    const ext = isIn ? inExt : outExt;
-    const stem = baseName.slice(0, -ext.length);
-    const match = regex.exec(stem);
-    if (!match?.[1] || !match[2]) continue;
-
-    const subtaskId = match[1];
-    const caseId = match[2];
-
-    if (!bySubtask.has(subtaskId)) {
-      bySubtask.set(subtaskId, new Map());
-    }
-    const cases = bySubtask.get(subtaskId);
-    if (!cases) continue;
-    if (!cases.has(caseId)) {
-      cases.set(caseId, { fileName: stem });
-    }
-    const entry = cases.get(caseId);
-    if (!entry) continue;
-    if (isIn) entry.in = file.content;
-    if (isOut) entry.out = file.content;
+    ingestSubtaskFile(bySubtask, file, regex, inExt, outExt);
   }
-
   return bySubtask;
 }
 

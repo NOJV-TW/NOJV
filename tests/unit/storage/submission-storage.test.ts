@@ -90,7 +90,7 @@ function createFakeS3() {
       const prefix = (input.Prefix as string) ?? "";
       const contents = [...store.keys()]
         .filter((key) => key.startsWith(prefix))
-        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+        .sort((a, b) => Number(a > b) - Number(a < b))
         .map((key) => ({ Key: key }));
       return { Contents: contents, IsTruncated: false };
     }
