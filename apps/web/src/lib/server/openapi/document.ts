@@ -838,14 +838,32 @@ export const openApiDocument = {
         },
         required: ["result", "status", "submissionId"],
       },
-      SubmissionSourceResponse: {
+      SubmissionSourceFile: {
         type: "object",
         properties: {
-          sourceCode: {
+          path: {
+            type: "string",
+          },
+          content: {
             type: "string",
           },
         },
-        required: ["sourceCode"],
+        required: ["path", "content"],
+      },
+      SubmissionSourceResponse: {
+        type: "object",
+        properties: {
+          files: {
+            type: "array",
+            items: {
+              $ref: "#/components/schemas/SubmissionSourceFile",
+            },
+          },
+          language: {
+            $ref: "#/components/schemas/SupportedLanguage",
+          },
+        },
+        required: ["files", "language"],
       },
       ErrorResponse: {
         type: "object",

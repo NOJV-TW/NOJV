@@ -13,7 +13,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   }
 
   const row = await getProblemRowById(problemId);
-  if (!row || row.visibility !== "public" || row.status !== "published") {
+  if (row?.visibility !== "public" || row.status !== "published") {
     error(404, "Problem not found");
   }
 

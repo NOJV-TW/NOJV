@@ -2,7 +2,7 @@
 
 ## Problem
 
-NOJV needs a stable public API surface for external students and tools. Today, most /api/** routes are internal SvelteKit web APIs designed for browser sessions, CSRF protection, and UI workflows. We should not treat every existing route as a public contract.
+NOJV needs a stable public API surface for external students and tools. Today, most /api/\*\* routes are internal SvelteKit web APIs designed for browser sessions, CSRF protection, and UI workflows. We should not treat every existing route as a public contract.
 
 This project introduces two related capabilities:
 
@@ -23,7 +23,7 @@ This project introduces two related capabilities:
 
 ## Non-Goals
 
-- Do not expose every existing /api/** route as public API.
+- Do not expose every existing /api/\*\* route as public API.
 - Do not replace better-auth session authentication.
 - Do not remove existing CSRF protection for browser-based internal APIs.
 - Do not store raw API token secrets in the database.
@@ -42,7 +42,7 @@ Current state:
 
 - SvelteKit route handlers live under `apps/web/src/routes/api/**`.
 - Most API routes use `requireApiAuth(event)`, which reads `event.locals.sessionUser`.
-- hooks.server.ts enforces CSRF-style protection for non-GET /api/** requests using `X-Requested-With: fetch`.
+- hooks.server.ts enforces CSRF-style protection for non-GET /api/\*\* requests using `X-Requested-With: fetch`.
 - Auth is powered by better-auth sessions.
 - There is currently no API token table.
 
@@ -52,14 +52,14 @@ Use `/api/v1/**` for external API clients.
 
 Example first public endpoints:
 
-| Endpoint | Method | Scope | Purpose |
-| --- | --- | --- | --- |
-| /api/v1/healthz | GET | none | Public health check |
-| /api/v1/problems | GET | problems:read | List public problems |
-| /api/v1/problems/{id} | GET | problems:read | Get problem detail |
-| /api/v1/submissions | POST | submissions:write | Create a submission |
-| /api/v1/submissions/{id} | GET | submissions:read | Get submission result |
-| /api/v1/submissions/{id}/source | GET | submissions:read | Get submission source if permitted |
+| Endpoint                        | Method | Scope             | Purpose                            |
+| ------------------------------- | ------ | ----------------- | ---------------------------------- |
+| /api/v1/healthz                 | GET    | none              | Public health check                |
+| /api/v1/problems                | GET    | problems:read     | List public problems               |
+| /api/v1/problems/{id}           | GET    | problems:read     | Get problem detail                 |
+| /api/v1/submissions             | POST   | submissions:write | Create a submission                |
+| /api/v1/submissions/{id}        | GET    | submissions:read  | Get submission result              |
+| /api/v1/submissions/{id}/source | GET    | submissions:read  | Get submission source if permitted |
 
 Existing internal routes like `/api/submissions` may continue to exist for the web app, but public docs should prefer `/api/v1/submissions`.
 
@@ -87,13 +87,16 @@ GET /api/openapi.json
 GET /api/docs
 Recommended tooling:
 ```
+
 Scalar for rendered docs.
 OpenAPI 3.1 as the document format.
 Optional later: generate schemas from Zod using @asteasolutions/zod-to-openapi.
 Initial implementation should hand-write a small OpenAPI document first. Once the docs pipeline is working, move shared schemas toward Zod-derived OpenAPI schemas.
 
 ## OpenAPI Security Scheme
+
 The OpenAPI document should include a placeholder before token auth ships:
+
 ```yaml
 components:
   securitySchemes:
@@ -102,21 +105,27 @@ components:
       scheme: bearer
       bearerFormat: NOJV API token
 ```
+
 Token-authenticated endpoints should use:
+
 ```yaml
 security:
   - ApiToken: []
 ```
+
 Endpoint descriptions should explicitly state required scopes.
 
 ## API Token Model
+
 Add a new Prisma model:
+
 ```prisma
 enum ApiTokenStatus {
   active
   revoked
 }
 ```
+
 ```
 model ApiToken {
   id          String         @id @default(cuid())
@@ -143,11 +152,15 @@ model ApiToken {
   @@index([expiresAt])
 }
 ```
+
 Add relation to User:
+
 ```
 apiTokens ApiToken[]
 ```
+
 ## Token Format
+
 Use an opaque token format:
 `nojv_live_<prefix>.<secret>`
 Example:
@@ -155,6 +168,7 @@ Example:
 The plaintext token is shown only once after creation or rotation.
 
 Store:
+
 - prefix: short lookup prefix
 - tokenHash: HMAC or strong hash of the full token
 - never store the raw token
@@ -174,22 +188,25 @@ Verification flow:
 
 Initial Scopes
 Start with a small stable set:
+
 ```ts
-"profile:read"
-"problems:read"
-"submissions:read"
-"submissions:write"
-"contests:read"
-"assignments:read"
+"profile:read";
+"problems:read";
+"submissions:read";
+"submissions:write";
+"contests:read";
+"assignments:read";
 ```
+
 Future staff/admin scopes:
+
 ```ts
-"problems:write"
-"courses:read"
-"courses:write"
-"rejudge:write"
-"admin:read"
-"admin:write"
+"problems:write";
+"courses:read";
+"courses:write";
+"rejudge:write";
+"admin:read";
+"admin:write";
 ```
 
 Auth Integration
@@ -205,22 +222,27 @@ Public `/api/v1/**` routes should call the new helper.
 Internal `/api/**` routes should continue using the current session-based helpers unless intentionally migrated.
 
 ## CSRF Boundary
+
 Existing CSRF-style protection should remain for browser-session APIs.
 
 For `/api/v1/**`, Bearer token auth should be used instead of requiring X-Requested-With: fetch.
 
 hooks.server.ts should eventually distinguish:
+
 ```text
 /api/v1/**      external token API
 /api/**         internal browser/session API
 ```
+
 Only internal mutation routes should require the current CSRF header.
 
 ## Token Management UI
+
 Add user-facing management under:
 text
 /account/api-tokens
 Required actions:
+
 - Create token
 - List tokens
 - Update token name
@@ -243,7 +265,9 @@ List view should show:
 The plaintext token should be shown only immediately after create or rotate.
 
 ## Token Management API
+
 Possible internal routes:
+
 ```
 GET    /api/account/api-tokens
 POST   /api/account/api-tokens
@@ -251,10 +275,13 @@ PATCH  /api/account/api-tokens/{id}
 POST   /api/account/api-tokens/{id}/rotate
 POST   /api/account/api-tokens/{id}/revoke
 ```
+
 Hard delete is optional. Prefer revoke-first behavior so there is an audit trail.
 
 ## Milestones
+
 ### Milestone 1: API Docs Skeleton
+
 - Add OpenAPI document module.
 - Add `/api/openapi.json`.
 - Add `/api/docs`.
@@ -262,18 +289,21 @@ Hard delete is optional. Prefer revoke-first behavior so there is an audit trail
 - Verify docs render locally.
 
 ### Milestone 2: Public API v1 Shape
+
 - Decide first public endpoints.
 - Add `/api/v1/**` route skeletons.
 - Keep behavior aligned with existing domain layer.
 - Document request and response schemas.
 
 ### Milestone 3: Token Data Model
+
 - Add ApiToken Prisma model.
 - Add repository functions.
 - Add migration.
 - Add token hashing/generation helper.
 
 ### Milestone 4: Token Auth Middleware
+
 - Implement Bearer token parsing.
 - Verify hash and expiry.
 - Enforce scopes.
@@ -281,16 +311,19 @@ Hard delete is optional. Prefer revoke-first behavior so there is an audit trail
 - Add tests for invalid, expired, revoked, and insufficient-scope tokens.
 
 ### Milestone 5: Token Management UI
+
 - Add /account/api-tokens.
 - Create/list/update/rotate/revoke tokens.
 - Show token plaintext only once.
 
 ### Milestone 6: OpenAPI Auth Completion
+
 - Add Bearer auth to OpenAPI.
 - Document required scopes per endpoint.
 - Add examples for curl / JavaScript / Python.
 
 ## Testing Plan
+
 API docs:
 
 - /api/openapi.json returns valid JSON.
@@ -298,6 +331,7 @@ API docs:
 - OpenAPI document contains expected paths and security schemes.
 
 Token auth:
+
 - Valid token can call scoped endpoint.
 - Missing token returns 401.
 - Invalid token returns 401.
@@ -314,6 +348,7 @@ Regression:
 - Browser app behavior does not change.
 
 ## Open Questions
+
 - Should all completed student accounts be allowed to create tokens?
 - Should teachers/admins be able to disable token creation globally?
 - What should the default expiry be: 30 days, 90 days, or no expiry?
