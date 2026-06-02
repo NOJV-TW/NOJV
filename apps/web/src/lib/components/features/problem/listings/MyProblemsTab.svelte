@@ -177,7 +177,7 @@
     <Card.Root
       variant="surface"
       size="lg"
-      class="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
+      class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
     >
       <div class="min-w-0">
         <a href={titleHref} class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80">
