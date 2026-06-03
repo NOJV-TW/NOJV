@@ -18,6 +18,7 @@
   import UserAuthMenu from "../auth/UserMenu.svelte";
   import NotificationBell from "../notification/NotificationBell.svelte";
   import MobileNavDrawer from "./MobileNavDrawer.svelte";
+  import BrandLogo from "$lib/components/primitives/layout/BrandLogo.svelte";
   import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
 
   let { immersive = false }: { immersive?: boolean } = $props();
@@ -66,7 +67,7 @@
 </script>
 
 <header
-  class="z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 py-1.5 pl-5 pr-1.5 shadow-rest backdrop-blur-md sm:pl-6 {immersive
+  class="z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 py-1.5 pl-1.5 pr-1.5 shadow-rest backdrop-blur-md {immersive
     ? 'relative'
     : 'sticky top-6 animate-[fade-up_700ms_var(--ease-out-soft)_both]'}"
 >
@@ -84,10 +85,10 @@
     {/if}
 
     <a
-      class="text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
+      class="transition-colors duration-fast ease-out-soft hover:text-primary"
       href="/"
     >
-      NOJV
+      <BrandLogo />
     </a>
 
     {#if navItems.length > 0}
