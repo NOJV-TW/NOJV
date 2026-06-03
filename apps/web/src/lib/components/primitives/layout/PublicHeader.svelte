@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
   import { cn } from "$lib/utils/css.js";
+  import BrandLogo from "./BrandLogo.svelte";
   import ThemeToggle from "./ThemeToggle.svelte";
 
   let currentLocale = $derived(getLocale());
@@ -11,10 +12,10 @@
 >
   <div class="flex flex-wrap items-center gap-6">
     <a
-      class="text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
+      class="transition-colors duration-fast ease-out-soft hover:text-primary"
       href="/"
     >
-      NOJV
+      <BrandLogo />
     </a>
 
     <div class="ml-auto flex items-center gap-2">
