@@ -80,7 +80,7 @@ vi.mock("@nojv/db", () => ({
     withTx: () => ({
       findMostRecent: submissionFindMostRecent,
       create: submissionCreate,
-      countForUserAndAssessmentSince: vi.fn(),
+      countForUserAssessmentProblemSince: vi.fn(),
     }),
     updateStatus: submissionUpdateStatus,
   },

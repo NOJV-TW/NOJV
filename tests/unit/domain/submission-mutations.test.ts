@@ -13,7 +13,7 @@ const {
   courseMembershipFindByComposite,
   assessmentFindByCompositeId,
   workspaceFindByProblemId,
-  submissionCountForUserAndAssessmentSince,
+  submissionCountForUserAssessmentProblemSince,
   submissionCreate,
   submissionUpdateStatus,
   submissionFindMostRecent,
@@ -32,7 +32,7 @@ const {
   courseMembershipFindByComposite: vi.fn(),
   assessmentFindByCompositeId: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
-  submissionCountForUserAndAssessmentSince: vi.fn(),
+  submissionCountForUserAssessmentProblemSince: vi.fn(),
   submissionCreate: vi.fn(),
   submissionUpdateStatus: vi.fn(),
   submissionFindMostRecent: vi.fn(),
@@ -79,7 +79,7 @@ vi.mock("@nojv/db", () => {
     },
     submissionRepo: {
       withTx: () => ({
-        countForUserAndAssessmentSince: submissionCountForUserAndAssessmentSince,
+        countForUserAssessmentProblemSince: submissionCountForUserAssessmentProblemSince,
         create: submissionCreate,
         findMostRecent: submissionFindMostRecent,
       }),
@@ -140,7 +140,10 @@ const fakeAssessmentBase = {
   allowedLanguages: [] as string[],
 };
 
-function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
+function setupSubmitPipelineDefaults(
+  maxAttemptsPerDay: number | null,
+  attemptResetMinuteOfDay: number | null = null,
+) {
   // Fresh in-memory storage for each test setup; reads via the mocked
   // singleton above (`storage()` returns whatever storageRef.client is).
   storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
@@ -165,6 +168,7 @@ function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
   assessmentFindByCompositeId.mockResolvedValue({
     ...fakeAssessmentBase,
     maxAttemptsPerDay,
+    attemptResetMinuteOfDay,
     status: "published",
     opensAt: new Date("2026-01-01T00:00:00.000Z"),
     closesAt: new Date("2026-12-31T23:59:59.000Z"),
@@ -211,13 +215,13 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     vi.useRealTimers();
   });
 
-  it("allows up to maxAttemptsPerDay submissions within the same UTC day", async () => {
+  it("allows up to maxAttemptsPerDay submissions within the same attempt window", async () => {
     setupSubmitPipelineDefaults(3);
     vi.setSystemTime(new Date("2026-04-14T08:00:00.000Z"));
 
     // Walk the in-memory counter so each call sees the prior count.
     let dbCount = 0;
-    submissionCountForUserAndAssessmentSince.mockImplementation(async () => dbCount);
+    submissionCountForUserAssessmentProblemSince.mockImplementation(async () => dbCount);
     submissionCreate.mockImplementation(async () => {
       dbCount += 1;
       return { id: `sub_${String(dbCount)}` };
@@ -229,7 +233,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
       ).resolves.toBeDefined();
     }
 
-    expect(submissionCountForUserAndAssessmentSince).toHaveBeenCalledTimes(3);
+    expect(submissionCountForUserAssessmentProblemSince).toHaveBeenCalledTimes(3);
     expect(submissionCreate).toHaveBeenCalledTimes(3);
   });
 
@@ -238,7 +242,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     vi.setSystemTime(new Date("2026-04-14T15:30:00.000Z"));
 
     // Already 3 submissions on record for today.
-    submissionCountForUserAndAssessmentSince.mockResolvedValue(3);
+    submissionCountForUserAssessmentProblemSince.mockResolvedValue(3);
 
     await expect(
       createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
@@ -247,47 +251,57 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     expect(submissionCreate).not.toHaveBeenCalled();
   });
 
-  it("passes UTC midnight of the current day as the sinceTime boundary", async () => {
-    setupSubmitPipelineDefaults(3);
-    vi.setSystemTime(new Date("2026-04-14T15:30:45.123Z"));
-    submissionCountForUserAndAssessmentSince.mockResolvedValue(0);
+  it("queries with (userId, assessmentId, problemId, Taipei reset-window start)", async () => {
+    setupSubmitPipelineDefaults(3); // attemptResetMinuteOfDay null → default 05:00 (300)
+    vi.setSystemTime(new Date("2026-04-14T15:30:45.123Z")); // Taipei 23:30 same day
+    submissionCountForUserAssessmentProblemSince.mockResolvedValue(0);
 
     await createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1");
 
-    expect(submissionCountForUserAndAssessmentSince).toHaveBeenCalledTimes(1);
-    const [userId, assessmentId, sinceTime] =
-      submissionCountForUserAndAssessmentSince.mock.calls[0];
+    expect(submissionCountForUserAssessmentProblemSince).toHaveBeenCalledTimes(1);
+    const [userId, assessmentId, problemId, sinceTime] =
+      submissionCountForUserAssessmentProblemSince.mock.calls[0];
     expect(userId).toBe(fakeActor.userId);
     expect(assessmentId).toBe(fakeAssessmentBase.id);
+    expect(problemId).toBe(fakeProblem.id);
     expect(sinceTime).toBeInstanceOf(Date);
-    expect((sinceTime as Date).toISOString()).toBe("2026-04-14T00:00:00.000Z");
+    // default reset 05:00 (300); Taipei 2026-04-14 05:00 = UTC 2026-04-13 21:00
+    expect((sinceTime as Date).toISOString()).toBe("2026-04-13T21:00:00.000Z");
   });
 
-  it("resets the per-day counter at UTC midnight — advancing the clock to the next day unblocks submissions", async () => {
-    setupSubmitPipelineDefaults(3);
-    // Start near end of day.
-    vi.setSystemTime(new Date("2026-04-14T23:59:50.000Z"));
+  it("uses the teacher-configured reset time (Taipei) for the window start", async () => {
+    setupSubmitPipelineDefaults(3, 360); // reset at Taipei 06:00 (360 min of day)
+    vi.setSystemTime(new Date("2026-04-14T00:00:00.000Z")); // Taipei 08:00, past 06:00
+    submissionCountForUserAssessmentProblemSince.mockResolvedValue(0);
 
-    // First query: 3 submissions today → reject.
-    submissionCountForUserAndAssessmentSince.mockResolvedValueOnce(3);
+    await createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1");
+
+    const [, , , sinceTime] = submissionCountForUserAssessmentProblemSince.mock.calls[0];
+    // Taipei 2026-04-14 06:00 = UTC 2026-04-13 22:00
+    expect((sinceTime as Date).toISOString()).toBe("2026-04-13T22:00:00.000Z");
+  });
+
+  it("resets the counter at the Taipei reset time — advancing past it unblocks submissions", async () => {
+    setupSubmitPipelineDefaults(3, 0); // reset at Taipei midnight (UTC 16:00)
+    // Taipei 2026-04-14 23:59:50 → window start UTC 2026-04-13 16:00.
+    vi.setSystemTime(new Date("2026-04-14T15:59:50.000Z"));
+    submissionCountForUserAssessmentProblemSince.mockResolvedValueOnce(3);
 
     await expect(
       createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(submissionCreate).not.toHaveBeenCalled();
 
-    // Advance to the next UTC day. The count query would now use a
-    // fresh start-of-day boundary and return 0.
-    vi.setSystemTime(new Date("2026-04-15T00:00:05.000Z"));
-    submissionCountForUserAndAssessmentSince.mockResolvedValueOnce(0);
+    // Cross Taipei midnight → Taipei 2026-04-15 00:00:05 → new window UTC 2026-04-14 16:00.
+    vi.setSystemTime(new Date("2026-04-14T16:00:05.000Z"));
+    submissionCountForUserAssessmentProblemSince.mockResolvedValueOnce(0);
 
     await expect(
       createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
     ).resolves.toBeDefined();
 
-    // Second call should have used the new day's boundary.
-    const secondCall = submissionCountForUserAndAssessmentSince.mock.calls[1];
-    expect((secondCall[2] as Date).toISOString()).toBe("2026-04-15T00:00:00.000Z");
+    const secondCall = submissionCountForUserAssessmentProblemSince.mock.calls[1];
+    expect((secondCall[3] as Date).toISOString()).toBe("2026-04-14T16:00:00.000Z");
     expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 
@@ -297,7 +311,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
 
     await createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1");
 
-    expect(submissionCountForUserAndAssessmentSince).not.toHaveBeenCalled();
+    expect(submissionCountForUserAssessmentProblemSince).not.toHaveBeenCalled();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 
@@ -311,7 +325,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
       "127.0.0.1",
     );
 
-    expect(submissionCountForUserAndAssessmentSince).not.toHaveBeenCalled();
+    expect(submissionCountForUserAssessmentProblemSince).not.toHaveBeenCalled();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 });

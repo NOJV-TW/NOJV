@@ -1,5 +1,11 @@
-import { assessmentRepo, problemRepo, submissionRepo } from "@nojv/db";
+import {
+  assessmentRepo,
+  problemRepo,
+  submissionRepo,
+  submissionRejudgeLogRepo,
+} from "@nojv/db";
 import type { Prisma } from "@nojv/db";
+import { attemptWindowStart } from "./attempt-window";
 import {
   adjustmentRulesSchema,
   judgeConfigSchema,
@@ -193,15 +199,32 @@ export async function listUserSubmissions(userId: string) {
   });
 }
 
-export async function countAssignmentSubmissionsToday(
+export async function listRejudgeLogsPaged(opts: {
+  limit: number;
+  cursor?: string;
+  problemId?: string;
+  rejudgedByUserId?: string;
+}) {
+  const rows = await submissionRejudgeLogRepo.listPaged(opts);
+  const hasMore = rows.length > opts.limit;
+  const items = hasMore ? rows.slice(0, opts.limit) : rows;
+  const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+  return { items, nextCursor };
+}
+
+export async function countAssignmentProblemAttemptsInWindow(
   userId: string,
   assignmentId: string,
+  problemId: string,
+  resetHour: number,
 ): Promise<number> {
-  const now = new Date();
-  const startOfDayUtc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
+  const windowStart = attemptWindowStart(resetHour, new Date());
+  return submissionRepo.countForUserAssessmentProblemSince(
+    userId,
+    assignmentId,
+    problemId,
+    windowStart,
   );
-  return submissionRepo.countForUserAndAssessmentSince(userId, assignmentId, startOfDayUtc);
 }
 
 export async function listProblemSubmissions(

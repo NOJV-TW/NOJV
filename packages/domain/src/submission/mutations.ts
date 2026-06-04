@@ -32,6 +32,7 @@ import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
+import { attemptWindowStart, DEFAULT_ATTEMPT_RESET_MINUTE } from "./attempt-window";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
 import { checkExamSubmitCooldown } from "../exam/mutations";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
@@ -168,23 +169,29 @@ async function assertDailyAttemptLimit(
   tx: TransactionClient,
   courseContext: SubmissionCourseContext,
   user: SubmissionUser,
+  problemId: string,
 ): Promise<void> {
-  const { maxAttemptsPerDay } = courseContext.assignment;
+  const { maxAttemptsPerDay, attemptResetMinuteOfDay } = courseContext.assignment;
 
   if (maxAttemptsPerDay != null) {
-    const now = new Date();
-    const startOfDayUtc = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
+    const windowStart = attemptWindowStart(
+      attemptResetMinuteOfDay ?? DEFAULT_ATTEMPT_RESET_MINUTE,
+      new Date(),
     );
 
-    const lockKey = `daily-attempt:${user.id}:${courseContext.assignment.id}:${startOfDayUtc.toISOString()}`;
+    const lockKey = `daily-attempt:${user.id}:${courseContext.assignment.id}:${problemId}:${windowStart.toISOString()}`;
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 
-    const todayCount = await submissionRepo
+    const windowCount = await submissionRepo
       .withTx(tx)
-      .countForUserAndAssessmentSince(user.id, courseContext.assignment.id, startOfDayUtc);
+      .countForUserAssessmentProblemSince(
+        user.id,
+        courseContext.assignment.id,
+        problemId,
+        windowStart,
+      );
 
-    if (todayCount >= maxAttemptsPerDay) {
+    if (windowCount >= maxAttemptsPerDay) {
       throw new ConflictError("Daily submission limit reached. Please try again tomorrow.");
     }
   }
@@ -267,7 +274,7 @@ export async function createQueuedSubmissionRecord(
     }
 
     if (courseContext?.assignment && !payload.sampleOnly) {
-      await assertDailyAttemptLimit(tx, courseContext, user);
+      await assertDailyAttemptLimit(tx, courseContext, user, problem.id);
     }
 
     const sources = normalizeSubmissionSources(payload, submissionId);

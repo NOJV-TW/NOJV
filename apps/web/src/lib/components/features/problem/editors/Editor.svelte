@@ -44,6 +44,7 @@
           sourceCode: string
         ) => void)
       | undefined;
+    attemptsExhausted?: boolean | undefined;
     problem: ProblemDetail;
   }
 
@@ -56,6 +57,7 @@
     initialLanguage,
     onSubmissionDispatched,
     onSubmissionComplete,
+    attemptsExhausted = false,
     problem
   }: Props = $props();
   const initialProblem = untrack(() => problem);
@@ -234,6 +236,7 @@
     isRunning={runController.isRunning}
     isSubmitting={runController.isSubmitting}
     {hasSubmittableSource}
+    {attemptsExhausted}
     availableLanguageCount={availableLanguages.length}
     draftEnabled={draftController.enabled}
     isDirty={draftController.isDirty}

@@ -74,6 +74,7 @@ export const courseAssessmentCreateSchema = z
     courseId: z.string().trim().min(1),
     dueAt: isoDateTimeSchema.optional(),
     maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+    attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
     opensAt: isoDateTimeSchema,
     problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
     id: slugSchema,
@@ -119,6 +120,7 @@ export const courseAssignmentFormSchema = z
     dueAt: z.string().trim().min(1),
     latePenalty: adjustmentRuleSchema.nullable().default(null),
     maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+    attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
     opensAt: z.string().trim().min(1),
     problemIds: z.array(z.string().trim().min(1)).max(64).default([]),
     status: z.enum(["draft", "published"]).default("draft"),
@@ -163,6 +165,7 @@ export const courseAssessmentUpdateSchema = z.object({
   closesAt: isoDateTimeSchema.optional(),
   dueAt: isoDateTimeSchema.nullish(),
   maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+  attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
   opensAt: isoDateTimeSchema.optional(),
   problemIds: z.array(z.string().trim().min(1)).max(32).optional(),
   problemOrdinals: z
@@ -187,6 +190,7 @@ export const assessmentSettingsFormSchema = z.object({
   closesAt: z.string().trim().min(1),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+  attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
   latePenalty: adjustmentRuleSchema.nullable().default(null),
 });
 

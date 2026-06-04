@@ -4,6 +4,7 @@
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
+  import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
@@ -457,6 +458,27 @@
                 {$errors.maxAttemptsPerDay}
               </p>
             {/if}
+          </div>
+
+          <div>
+            <label class="text-body-sm font-medium" for="attemptResetTime">
+              {m.assignmentDetail_settingsResetTimeLabel()}
+            </label>
+            <input
+              id="attemptResetTime"
+              type="time"
+              value={minutesToHHMM($form.attemptResetMinuteOfDay)}
+              oninput={(e) => ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
+              class="mt-2 {inputClass} max-w-[200px]"
+            />
+            <input
+              type="hidden"
+              name="attemptResetMinuteOfDay"
+              value={$form.attemptResetMinuteOfDay ?? 300}
+            />
+            <p class="mt-1 text-caption text-muted-foreground">
+              {m.assignmentDetail_settingsResetTimeDesc()}
+            </p>
           </div>
 
           

@@ -15,7 +15,7 @@
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     editorialsEnabled?: boolean;
-    dailyAttempts?: { used: number; max: number | null } | undefined;
+    dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     submissions?: ProblemSubmissionEntry[];
     leftTab?: "description" | "editorials" | "submissions";
     viewingIndex?: number | null;

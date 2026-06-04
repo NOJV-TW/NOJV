@@ -66,6 +66,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       closesAt: assignment.closesAt.toISOString(),
       allowedLanguages: assignment.allowedLanguages,
       maxAttemptsPerDay: assignment.maxAttemptsPerDay,
+      attemptResetMinuteOfDay: assignment.attemptResetMinuteOfDay,
     },
     course: {
       id: course.id,

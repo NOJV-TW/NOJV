@@ -26,7 +26,7 @@
     editorialsEnabled?: boolean;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
-    dailyAttempts?: { used: number; max: number | null } | undefined;
+    dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
@@ -196,6 +196,9 @@
     {initialLanguage}
     onSubmissionDispatched={handleSubmissionDispatched}
     onSubmissionComplete={handleSubmissionComplete}
+    attemptsExhausted={!!dailyAttempts &&
+      dailyAttempts.max != null &&
+      dailyAttempts.used >= dailyAttempts.max}
     {problem}
   />
 </div>

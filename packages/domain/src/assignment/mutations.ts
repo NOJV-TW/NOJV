@@ -151,6 +151,7 @@ export async function updateAssignmentRecord(
       summary: payload.summary,
       allowedLanguages: payload.allowedLanguages,
       maxAttemptsPerDay: payload.maxAttemptsPerDay,
+      attemptResetMinuteOfDay: payload.attemptResetMinuteOfDay,
     });
 
     if (payload.opensAt !== undefined) updateData.opensAt = new Date(payload.opensAt);

@@ -64,6 +64,7 @@ export interface AssignmentDetail {
   dueAt: string | null;
   closesAt: string;
   maxAttemptsPerDay: number | null;
+  attemptResetMinuteOfDay: number | null;
   allowedLanguages: Language[];
   latePenalty: AdjustmentRule | null;
   totalPoints: number;
@@ -293,6 +294,7 @@ export async function getAssignmentDetail(
     dueAt: row.dueAt?.toISOString() ?? null,
     closesAt: row.closesAt.toISOString(),
     maxAttemptsPerDay: row.maxAttemptsPerDay,
+    attemptResetMinuteOfDay: row.attemptResetMinuteOfDay,
     allowedLanguages: row.allowedLanguages,
     latePenalty: extractLatePenalty(row.adjustmentRules),
     auditLog,

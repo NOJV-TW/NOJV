@@ -52,14 +52,19 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     }),
   ]);
 
+  const resetMinuteOfDay =
+    assignment.attemptResetMinuteOfDay ?? submissionDomain.DEFAULT_ATTEMPT_RESET_MINUTE;
   const dailyAttempts = isManager
     ? null
     : {
-        used: await submissionDomain.countAssignmentSubmissionsToday(
+        used: await submissionDomain.countAssignmentProblemAttemptsInWindow(
           actor.userId,
           assignment.id,
+          problemId,
+          resetMinuteOfDay,
         ),
         max: assignment.maxAttemptsPerDay,
+        resetMinuteOfDay,
       };
 
   return { solveProps, siblingProblems, dailyAttempts };
