@@ -61,7 +61,7 @@ vi.mock("@nojv/db", () => {
     },
     submissionRepo: {
       withTx: () => ({
-        countForUserAndAssessmentSince: vi.fn(),
+        countForUserAssessmentProblemSince: vi.fn(),
         create: submissionCreate,
       }),
       updateStatus: submissionUpdateStatus,

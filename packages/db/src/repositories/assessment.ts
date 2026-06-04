@@ -213,6 +213,7 @@ export const assessmentRepo = {
         dueAt: true,
         closesAt: true,
         maxAttemptsPerDay: true,
+        attemptResetMinuteOfDay: true,
         allowedLanguages: true,
         adjustmentRules: true,
         problems: {

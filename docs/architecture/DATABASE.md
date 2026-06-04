@@ -44,6 +44,51 @@ Course ──┬── CourseMembership
          └── Submission
 ```
 
+## Entity-Relationship Diagram
+
+Core entities and their cardinalities (auth, i18n, audit-log, and notification
+tables omitted for legibility — see `DATABASE.generated.md` for the exhaustive
+field-level reference).
+
+```mermaid
+erDiagram
+    User ||--o{ Submission : submits
+    User ||--o{ CourseMembership : joins
+    User ||--o{ ContestParticipation : enters
+    User ||--o{ ExamParticipation : enters
+    User ||--o{ Editorial : writes
+    User ||--o{ ScoreOverride : grades
+
+    Course ||--o{ CourseMembership : has
+    Course ||--o{ CourseAssessment : owns
+    Course ||--o{ Exam : embeds
+
+    CourseAssessment ||--o{ CourseAssessmentProblem : links
+    CourseAssessment ||--o{ Submission : scopes
+
+    Problem ||--o{ Submission : "judged in"
+    Problem ||--o{ CourseAssessmentProblem : "attached to"
+    Problem ||--o{ ContestProblem : "attached to"
+    Problem ||--o{ ExamProblem : "attached to"
+    Problem ||--o{ Editorial : explains
+    Problem ||--o{ TestcaseSet : groups
+    TestcaseSet ||--o{ Testcase : contains
+
+    Submission ||--o{ SubmissionRejudgeLog : "re-judged by"
+    Submission ||--o{ ScoreOverride : "overridden by"
+    Submission ||--o{ SubmissionFeedback : annotated
+
+    Contest ||--o{ ContestProblem : links
+    Contest ||--o{ ContestParticipation : tracks
+    Contest ||--o{ Submission : scopes
+
+    Exam ||--o{ ExamProblem : links
+    Exam ||--o{ ExamParticipation : tracks
+    Exam ||--o{ Submission : scopes
+    Exam ||--o{ ActiveExamSession : proctors
+    ActiveExamSession ||--o{ ExamSessionEvent : records
+```
+
 ## Enums
 
 | Enum                         | Values                                                                                                                                        |

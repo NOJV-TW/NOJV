@@ -660,11 +660,17 @@ export const submissionRepo = {
     return prisma.submission.create({ data });
   },
 
-  countForUserAndAssessmentSince(userId: string, courseAssessmentId: string, sinceTime: Date) {
+  countForUserAssessmentProblemSince(
+    userId: string,
+    courseAssessmentId: string,
+    problemId: string,
+    sinceTime: Date,
+  ) {
     return prisma.submission.count({
       where: {
         userId,
         courseAssessmentId,
+        problemId,
         sampleOnly: false,
         createdAt: { gte: sinceTime },
       },
@@ -681,15 +687,17 @@ export const submissionRepo = {
         return tx.submission.count({ where });
       },
 
-      countForUserAndAssessmentSince(
+      countForUserAssessmentProblemSince(
         userId: string,
         courseAssessmentId: string,
+        problemId: string,
         sinceTime: Date,
       ) {
         return tx.submission.count({
           where: {
             userId,
             courseAssessmentId,
+            problemId,
             sampleOnly: false,
             createdAt: { gte: sinceTime },
           },

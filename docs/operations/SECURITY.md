@@ -121,6 +121,30 @@ tokenization fidelity because every Dolos-supported language treats
 | Testcase input    | Text               | Stored as `@db.Text`                              |
 | Editorial         | `content` field    | 10–50,000 chars                                   |
 
+## Dependency Advisory Posture
+
+CI runs `pnpm audit --audit-level high` as a **blocking gate** — any
+high/critical advisory fails the build (currently 0).
+
+Moderate/low advisories are tracked but not gated. As of the last sweep all
+10 remaining are **transitive, with no real exposure**:
+
+- **`dompurify` (8× moderate)** — pulled only via `monaco-editor`'s bundled
+  copy, used for the editor's own internal rendering (never to sanitize
+  untrusted HTML). Our markdown sanitizer uses a separate, patched
+  `isomorphic-dompurify` (`$lib/markdown.ts`), which is **not** affected.
+- **`@hono/node-server` (1× moderate)** — reached only through
+  `prisma > @prisma/dev`, a local development tool that never ships in the
+  production runtime.
+- **`cookie` (1× low)** — internal to `@sveltejs/kit`.
+
+**Gate decision:** keep the threshold at `high`. Raising it to `moderate`
+would only force blanket dismissals of upstream-unfixed transitives.
+
+**Cadence:** review `pnpm audit` monthly; clear these transitives
+opportunistically when `monaco-editor`, `@sveltejs/kit`, or `prisma` take a
+major bump that carries the patched dependency.
+
 ## Review Expectations
 
 Flag for security review when:

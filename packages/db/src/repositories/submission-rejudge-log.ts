@@ -53,4 +53,33 @@ export const submissionRejudgeLogRepo = {
       orderBy: { createdAt: "desc" },
     });
   },
+
+  listPaged(opts: {
+    limit: number;
+    cursor?: string;
+    problemId?: string;
+    rejudgedByUserId?: string;
+  }) {
+    const where: Prisma.SubmissionRejudgeLogWhereInput = {};
+    if (opts.problemId) where.submission = { problemId: opts.problemId };
+    if (opts.rejudgedByUserId) where.rejudgedByUserId = opts.rejudgedByUserId;
+
+    return prisma.submissionRejudgeLog.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: opts.limit + 1,
+      ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        createdAt: true,
+        oldVerdict: true,
+        oldScore: true,
+        newVerdict: true,
+        newScore: true,
+        submissionId: true,
+        submission: { select: { problemId: true, userId: true } },
+        rejudgedBy: { select: { id: true, username: true } },
+      },
+    });
+  },
 };

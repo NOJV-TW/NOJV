@@ -101,6 +101,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         closesAt: toDateTimeLocal(detail.closesAt),
         allowedLanguages: detail.allowedLanguages,
         maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
+        // Null → 05:00 (300) so the time picker shows the default reset time.
+        attemptResetMinuteOfDay: detail.attemptResetMinuteOfDay ?? 300,
         latePenalty: detail.latePenalty,
       },
       zod4(assessmentSettingsFormSchema),
@@ -178,6 +180,7 @@ export const actions = {
       summary: form.data.summary,
       allowedLanguages: form.data.allowedLanguages,
       maxAttemptsPerDay: form.data.maxAttemptsPerDay ?? null,
+      attemptResetMinuteOfDay: form.data.attemptResetMinuteOfDay ?? null,
       opensAt: localToIso(form.data.opensAt),
       closesAt: localToIso(form.data.closesAt),
       dueAt: form.data.dueAt ? localToIso(form.data.dueAt) : null,

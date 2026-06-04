@@ -9,5 +9,6 @@ export {
   dispatchPlagiarismCheck,
   querySubmissionStatus,
   queryRejudgeProgress,
+  cancelRejudge,
   queryPlagiarismStatus,
 } from "./dispatch";

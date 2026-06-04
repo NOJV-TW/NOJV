@@ -100,6 +100,12 @@ export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeP
   return handle.query<RejudgeProgress>("getProgress");
 }
 
+export async function cancelRejudge(workflowId: string): Promise<void> {
+  const client = await getTemporalClient();
+  const handle = client.workflow.getHandle(workflowId);
+  await handle.cancel();
+}
+
 export async function queryPlagiarismStatus(
   targetType: PlagiarismCheckInput["targetType"],
   targetId: string,
