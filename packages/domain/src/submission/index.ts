@@ -1,5 +1,6 @@
 export {
-  countAssignmentSubmissionsToday,
+  countAssignmentProblemAttemptsInWindow,
+  listRejudgeLogsPaged,
   deriveJudgeMode,
   deriveSubmissionMode,
   findOneForRejudge,
@@ -33,6 +34,7 @@ export type {
   WorkspaceFileEntry,
 } from "./types";
 export { applyAdjustmentRules, type AdjustmentInputs } from "./adjustments";
+export { attemptWindowStart, DEFAULT_ATTEMPT_RESET_MINUTE } from "./attempt-window";
 export {
   canOperateOnSubmission,
   assertCanOperateOnSubmission,
@@ -49,4 +51,6 @@ export {
   dispatchRejudge,
   dispatchSubmissionJudge,
   querySubmissionStatus,
+  queryRejudgeProgress,
+  cancelRejudge,
 } from "@nojv/temporal";

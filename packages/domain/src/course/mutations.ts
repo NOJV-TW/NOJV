@@ -166,6 +166,9 @@ export async function createCourseAssignmentRecord(
       ...(payload.maxAttemptsPerDay != null
         ? { maxAttemptsPerDay: payload.maxAttemptsPerDay }
         : {}),
+      ...(payload.attemptResetMinuteOfDay != null
+        ? { attemptResetMinuteOfDay: payload.attemptResetMinuteOfDay }
+        : {}),
       ...(adjustmentRules.length > 0 ? { adjustmentRules: adjustmentRules } : {}),
     });
 
@@ -294,6 +297,9 @@ export async function copyCourse(
         summary: a.summary,
         title: a.title,
         ...(a.maxAttemptsPerDay != null ? { maxAttemptsPerDay: a.maxAttemptsPerDay } : {}),
+        ...(a.attemptResetMinuteOfDay != null
+          ? { attemptResetMinuteOfDay: a.attemptResetMinuteOfDay }
+          : {}),
         ...(a.adjustmentRules != null ? { adjustmentRules: a.adjustmentRules } : {}),
       });
 

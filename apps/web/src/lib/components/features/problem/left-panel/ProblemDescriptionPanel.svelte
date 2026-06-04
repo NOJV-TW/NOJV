@@ -3,6 +3,7 @@
   import { tagClass } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { minutesToHHMM } from "$lib/utils/attempt-reset-time";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
   import BookmarkButton from "../listings/BookmarkButton.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
@@ -10,7 +11,9 @@
   interface Props {
     problem: ProblemDetail;
     testcaseSets: ProblemTestcaseSetSummary[];
-    dailyAttempts?: { used: number; max: number | null } | undefined;
+    dailyAttempts?:
+      | { used: number; max: number | null; resetMinuteOfDay: number }
+      | undefined;
   }
 
   let { problem, testcaseSets, dailyAttempts }: Props = $props();
@@ -34,19 +37,32 @@
         dailyAttempts.max == null
           ? null
           : Math.max(0, dailyAttempts.max - dailyAttempts.used)}
-      <div class="ml-auto flex shrink-0 items-center gap-2">
-        <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
-          {m.problemDetail_dailyAttemptsTitle()}
-        </span>
-        <span
-          class="rounded-full px-2.5 py-0.5 text-caption font-medium tabular-nums {remaining === 0
-            ? 'bg-destructive/15 text-destructive'
-            : remaining !== null && remaining <= 2
-              ? 'bg-warning/15 text-warning'
-              : 'bg-muted text-muted-foreground'}"
-        >
-          {dailyAttempts.used} / {dailyAttempts.max ?? "∞"}
-        </span>
+      <div class="ml-auto flex shrink-0 flex-col items-end gap-1">
+        <div class="flex items-center gap-2">
+          <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+            {m.problemDetail_dailyAttemptsTitle()}
+          </span>
+          <span
+            class="rounded-full px-2.5 py-0.5 text-caption font-medium tabular-nums {remaining === 0
+              ? 'bg-destructive/15 text-destructive'
+              : remaining !== null && remaining <= 2
+                ? 'bg-warning/15 text-warning'
+                : 'bg-muted text-muted-foreground'}"
+          >
+            {dailyAttempts.used} / {dailyAttempts.max ?? "∞"}
+          </span>
+        </div>
+        {#if dailyAttempts.max != null}
+          <span class="text-caption {remaining === 0 ? 'text-destructive' : 'text-muted-foreground'}">
+            {remaining === 0
+              ? m.problemDetail_dailyAttemptsExhausted({
+                  time: minutesToHHMM(dailyAttempts.resetMinuteOfDay),
+                })
+              : m.problemDetail_dailyAttemptsResetAt({
+                  time: minutesToHHMM(dailyAttempts.resetMinuteOfDay),
+                })}
+          </span>
+        {/if}
       </div>
     {/if}
   </div>

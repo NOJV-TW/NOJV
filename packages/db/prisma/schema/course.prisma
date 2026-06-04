@@ -89,9 +89,14 @@ model CourseAssessment {
   /// Hard close — no submissions accepted after this timestamp.
   closesAt DateTime
 
-  /// Per-UTC-day attempt cap for (user, assessment). Null = unlimited.
+  /// Per-window attempt cap for (user, assessment, problem) — counted
+  /// independently per problem. Null = unlimited.
   /// Enforced at submit time in packages/domain/src/submission/mutations.ts.
   maxAttemptsPerDay Int?
+  /// Daily reset time as minutes-of-day (0–1439) on the Asia/Taipei wall clock
+  /// (e.g. 300 = 05:00). Defines the start of each per-day attempt window.
+  /// Null = treated as 300 (05:00), matching the teacher form default.
+  attemptResetMinuteOfDay  Int?
   /// Empty array = all languages allowed. Adding a problem is
   /// application-gated: every listed language must have an editable
   /// main.<ext> workspace file on the problem.

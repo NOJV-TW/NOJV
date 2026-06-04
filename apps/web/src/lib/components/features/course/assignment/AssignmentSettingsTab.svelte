@@ -15,6 +15,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import { cn, inputClassName } from "$lib/utils/css";
+  import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
@@ -155,6 +156,23 @@
           {#if $errors.maxAttemptsPerDay}
             <p class="mt-1 text-xs text-destructive">{$errors.maxAttemptsPerDay}</p>
           {/if}
+        </div>
+
+        <div>
+          <label class="text-sm font-medium" for="settings-resetTime">
+            {m.assignmentDetail_settingsResetTimeLabel()}
+          </label>
+          <input
+            id="settings-resetTime"
+            class={inputClassName}
+            type="time"
+            value={minutesToHHMM($form.attemptResetMinuteOfDay)}
+            oninput={(e) => ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
+            disabled={!editableBasics}
+          />
+          <p class="mt-1 text-xs text-muted-foreground">
+            {m.assignmentDetail_settingsResetTimeDesc()}
+          </p>
         </div>
 
         <fieldset disabled={!editableBasics} class="m-0 min-w-0 border-0 p-0">

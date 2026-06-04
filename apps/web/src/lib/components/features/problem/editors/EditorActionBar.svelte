@@ -6,6 +6,7 @@
     isSubmitting: boolean;
     hasSubmittableSource: boolean;
     availableLanguageCount: number;
+    attemptsExhausted?: boolean;
     draftEnabled?: boolean;
     isDirty?: boolean;
     lastSavedAt?: number | null;
@@ -18,6 +19,7 @@
     isSubmitting,
     hasSubmittableSource,
     availableLanguageCount,
+    attemptsExhausted = false,
     draftEnabled = false,
     isDirty = false,
     lastSavedAt = null,
@@ -58,9 +60,13 @@
     </button>
     <button
       class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={isSubmitting || disabled}
+      disabled={isSubmitting || disabled || attemptsExhausted}
       onclick={onSubmit}
-      title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
+      title={attemptsExhausted
+        ? m.editor_attemptsExhaustedTooltip()
+        : !hasSubmittableSource
+          ? m.editor_emptySourceTooltip()
+          : undefined}
       type="button"
     >
       {isSubmitting ? m.editor_submitting() : m.editor_submitButton()}

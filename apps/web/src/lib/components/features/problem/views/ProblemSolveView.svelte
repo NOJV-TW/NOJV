@@ -51,7 +51,7 @@
     editorialsEnabled?: boolean;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
-    dailyAttempts?: { used: number; max: number | null } | undefined;
+    dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     siblingProblems?: ProblemSolveSibling[] | undefined;
     examContext?: ProblemSolveExamContext | undefined;
   }
