@@ -61,11 +61,13 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 ### Public Static Routes
 
-| Route            | Purpose                                       |
-| ---------------- | --------------------------------------------- |
-| `/about`         | Project description, links, contributor names |
-| `/legal/privacy` | Privacy policy                                |
-| `/legal/terms`   | Terms of service                              |
+| Route            | Purpose                                                          |
+| ---------------- | ---------------------------------------------------------------- |
+| `/about`         | Project description, links, contributor names                    |
+| `/legal/privacy` | Privacy policy                                                   |
+| `/legal/terms`   | Terms of service                                                 |
+| `/docs`          | Scalar API reference page for the public OpenAPI document        |
+| `/docs/internal` | Scalar API reference page for the internal (maintainer) document |
 
 ### API Routes
 
@@ -74,6 +76,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/auth/[...path]`                                         | GET, POST          | better-auth catch-all (session, OAuth, registration). POST sign-in/email/username rate-limited |
 | `/api/healthz`                                                | GET                | Public liveness probe. Returns `{ ok }` with HTTP 200 or 503                                   |
 | `/api/admin/healthz`                                          | GET                | Admin-only mirror returning per-subsystem `{ postgres, redis, temporal }` detail               |
+| `/api/openapi.public.json`                                    | GET                | Public OpenAPI 3.1 document (documentation-only; describes existing routes)                    |
+| `/api/openapi.internal.json`                                  | GET                | Internal OpenAPI 3.1 document (broader maintainer surface, not a compatibility contract)       |
 | `/api/submissions`                                            | POST               | Create submission, dispatch to Temporal                                                        |
 | `/api/submissions/[id]`                                       | GET                | Submission result and verdict                                                                  |
 | `/api/submissions/[id]/source`                                | GET                | Submission source code                                                                         |
