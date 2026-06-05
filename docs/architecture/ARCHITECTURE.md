@@ -139,6 +139,7 @@ Responsibilities:
 - Session validation via better-auth
 - Calls `@nojv/domain` for all business logic — **zero business logic in this layer**
 - Role-based access control (platform + course roles)
+- Serves OpenAPI 3.1 documents (`/api/openapi.{public,internal}.json`) and Scalar reference pages (`/docs`, `/docs/internal`) describing the existing API surface — documentation-only, assembled in `src/lib/server/openapi/` (internal paths split per-tag under `openapi/internal/`); a unit test (`tests/unit/openapi-contract.test.ts`) guards the docs against route drift
 
 Directly accesses: Redis (SSE subscriber + `RateLimiterRedis`), DB
 (better-auth adapter + a few repository-direct routes). See the table
