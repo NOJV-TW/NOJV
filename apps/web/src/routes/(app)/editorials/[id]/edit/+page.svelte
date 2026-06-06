@@ -7,6 +7,7 @@
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import { toasts } from "$lib/stores/toast";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
   let { data } = $props();
 
@@ -45,71 +46,73 @@
   }
 </script>
 
-<Section>
-  {#snippet header()}
-    <h1 class="text-title-lg">{m.editorial_editTitle()}</h1>
-    {#if data.problem}
-      <p>
-        <a href="/problems/{data.problem.id}/editorials" class="text-primary hover:underline">
-          ← {formatProblemDisplayName(data.problem)}
-        </a>
-      </p>
-    {/if}
-  {/snippet}
+<PageContainer width="form">
+  <Section>
+    {#snippet header()}
+      <h1 class="text-title-lg">{m.editorial_editTitle()}</h1>
+      {#if data.problem}
+        <p>
+          <a href="/problems/{data.problem.id}/editorials" class="text-primary hover:underline">
+            ← {formatProblemDisplayName(data.problem)}
+          </a>
+        </p>
+      {/if}
+    {/snippet}
 
-  <div class="grid gap-4">
-    <div>
-      <label
-        class="mb-1 block text-caption font-medium text-muted-foreground"
-        for="editorial-edit-language"
-      >
-        {m.editorials_language()}
-      </label>
-      <select
-        id="editorial-edit-language"
-        class="w-full rounded-md border border-border bg-background px-3 py-1.5 text-body-sm"
-        bind:value={language}
-      >
-        {#each supportedLanguages as lang (lang)}
-          <option value={lang}>{lang}</option>
-        {/each}
-      </select>
+    <div class="grid gap-4">
+      <div>
+        <label
+          class="mb-1 block text-caption font-medium text-muted-foreground"
+          for="editorial-edit-language"
+        >
+          {m.editorials_language()}
+        </label>
+        <select
+          id="editorial-edit-language"
+          class="w-full rounded-md border border-border bg-background px-3 py-1.5 text-body-sm"
+          bind:value={language}
+        >
+          {#each supportedLanguages as lang (lang)}
+            <option value={lang}>{lang}</option>
+          {/each}
+        </select>
+      </div>
+      <div>
+        <label
+          class="mb-1 block text-caption font-medium text-muted-foreground"
+          for="editorial-edit-content"
+        >
+          {m.editorial_contentLabel()}
+        </label>
+        <ImageDropZone
+          id="editorial-edit-content"
+          class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
+          rows="20"
+          name="content"
+          bind:value={content}
+        />
+        <p class="mt-1 text-micro text-muted-foreground tabular-nums">
+          {content.length} / 50000
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          class="rounded-md bg-primary px-4 py-1.5 text-caption font-medium text-primary-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          type="button"
+          disabled={!dirty || !valid || saving}
+          onclick={save}
+        >
+          {saving ? m.editorial_saving() : m.editorial_save()}
+        </button>
+        <a
+          href={data.problem
+            ? `/problems/${data.problem.id}/editorials`
+            : `/problems/${data.editorial.problemId}/editorials`}
+          class="rounded-md border border-border px-4 py-1.5 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent"
+        >
+          {m.common_cancel()}
+        </a>
+      </div>
     </div>
-    <div>
-      <label
-        class="mb-1 block text-caption font-medium text-muted-foreground"
-        for="editorial-edit-content"
-      >
-        {m.editorial_contentLabel()}
-      </label>
-      <ImageDropZone
-        id="editorial-edit-content"
-        class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
-        rows="20"
-        name="content"
-        bind:value={content}
-      />
-      <p class="mt-1 text-micro text-muted-foreground tabular-nums">
-        {content.length} / 50000
-      </p>
-    </div>
-    <div class="flex items-center gap-2">
-      <button
-        class="rounded-md bg-primary px-4 py-1.5 text-caption font-medium text-primary-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-        type="button"
-        disabled={!dirty || !valid || saving}
-        onclick={save}
-      >
-        {saving ? m.editorial_saving() : m.editorial_save()}
-      </button>
-      <a
-        href={data.problem
-          ? `/problems/${data.problem.id}/editorials`
-          : `/problems/${data.editorial.problemId}/editorials`}
-        class="rounded-md border border-border px-4 py-1.5 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent"
-      >
-        {m.common_cancel()}
-      </a>
-    </div>
-  </div>
-</Section>
+  </Section>
+</PageContainer>

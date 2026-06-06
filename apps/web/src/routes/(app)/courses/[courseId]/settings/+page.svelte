@@ -16,6 +16,7 @@
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { toasts } from "$lib/stores/toast";
   import { inputClassName } from "$lib/utils/css";
   import type { FormMessage } from "$lib/types/form-message";
@@ -69,7 +70,7 @@
   const dangerBanner = $derived(resolveDangerBanner(form));
 </script>
 
-<div class="mx-auto w-full max-w-[860px] space-y-6 pb-24">
+<PageContainer width="form" class="space-y-6">
   
   <section
     class="animate-in animate-in-1 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
@@ -387,7 +388,7 @@
       </div>
     </div>
   </section>
-</div>
+</PageContainer>
 
 <Dialog.Root open={copyOpen} onOpenChange={(v) => (copyOpen = v)}>
   <Dialog.Content class="max-w-lg">

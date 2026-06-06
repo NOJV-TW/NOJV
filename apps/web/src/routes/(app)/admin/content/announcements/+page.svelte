@@ -5,6 +5,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
@@ -69,6 +70,7 @@
   </Button>
 {/snippet}
 
+<PageContainer class="space-y-6">
 <PageHeader
   eyebrow={m.admin_eyebrow()}
   title={m.admin_announcementsTitle()}
@@ -76,7 +78,6 @@
   actions={announcementsActions}
 />
 
-<div class="space-y-6">
 
   {#if showCreateForm}
     <Card variant="flat" size="md">
@@ -405,6 +406,6 @@
       </div>
     {/if}
   </Card>
-</div>
+</PageContainer>
 
 <AnnouncementViewDialog bind:open={viewOpen} announcement={viewing} />

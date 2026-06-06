@@ -8,6 +8,7 @@
   import { toasts } from "$lib/stores/toast";
   import { formatDate } from "$lib/utils/datetime";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
   let { data } = $props();
 
@@ -59,98 +60,100 @@
   }
 </script>
 
-<Section>
-  {#snippet header()}
-    <h1 class="text-title-lg">{m.editorial_listTitle()}</h1>
-    <p>
-      {m.editorial_listSubtitle()} —
-      <a href="/problems/{data.problem.id}" class="text-primary hover:underline">
-        {formatProblemDisplayName(data.problem)}
-      </a>
-    </p>
-  {/snippet}
+<PageContainer>
+  <Section>
+    {#snippet header()}
+      <h1 class="text-title-lg">{m.editorial_listTitle()}</h1>
+      <p>
+        {m.editorial_listSubtitle()} —
+        <a href="/problems/{data.problem.id}" class="text-primary hover:underline">
+          {formatProblemDisplayName(data.problem)}
+        </a>
+      </p>
+    {/snippet}
 
-  {#if data.editorials.length === 0}
-    <EmptyState
-      variant="minimal"
-      icon={BookOpen}
-      title={m.editorial_listEmpty()}
-      description={m.editorial_listEmptyHint()}
-    />
-  {:else}
-    <div class="grid gap-4">
-      {#each data.editorials as editorial (editorial.id)}
-        <article class="rounded-md border border-border-subtle p-4">
-          <header class="flex flex-wrap items-baseline justify-between gap-3">
-            <div class="flex flex-wrap items-baseline gap-2 text-caption text-muted-foreground">
-              <span class="font-medium text-foreground">
-                {editorial.author.name ?? editorial.author.username ?? m.editorial_unknownAuthor()}
-              </span>
-              <span class="rounded-full bg-muted px-2 py-0.5 text-micro font-medium">
-                {editorial.language}
-              </span>
-              <span class="tabular-nums">
-                {formatDate(editorial.createdAt)}
-              </span>
-            </div>
-            {#if canManage(editorial.authorId)}
-              <div class="flex shrink-0 items-center gap-2">
-                <a
-                  href="/editorials/{editorial.id}/edit"
-                  class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent"
-                >
-                  {m.editorial_edit()}
-                </a>
-                <button
-                  class="rounded-md border border-border px-3 py-1 text-caption font-medium text-destructive transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-destructive/40 hover:bg-destructive/10"
-                  type="button"
-                  onclick={() => (pendingDeleteId = editorial.id)}
-                >
-                  {m.editorial_delete()}
-                </button>
+    {#if data.editorials.length === 0}
+      <EmptyState
+        variant="minimal"
+        icon={BookOpen}
+        title={m.editorial_listEmpty()}
+        description={m.editorial_listEmptyHint()}
+      />
+    {:else}
+      <div class="grid gap-4">
+        {#each data.editorials as editorial (editorial.id)}
+          <article class="rounded-md border border-border-subtle p-4">
+            <header class="flex flex-wrap items-baseline justify-between gap-3">
+              <div class="flex flex-wrap items-baseline gap-2 text-caption text-muted-foreground">
+                <span class="font-medium text-foreground">
+                  {editorial.author.name ?? editorial.author.username ?? m.editorial_unknownAuthor()}
+                </span>
+                <span class="rounded-full bg-muted px-2 py-0.5 text-micro font-medium">
+                  {editorial.language}
+                </span>
+                <span class="tabular-nums">
+                  {formatDate(editorial.createdAt)}
+                </span>
               </div>
-            {/if}
-          </header>
-          <p class="mt-3 whitespace-pre-wrap text-body-sm leading-6 text-muted-foreground">
-            {snippet(editorial.content)}
-          </p>
-        </article>
-      {/each}
-    </div>
+              {#if canManage(editorial.authorId)}
+                <div class="flex shrink-0 items-center gap-2">
+                  <a
+                    href="/editorials/{editorial.id}/edit"
+                    class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent"
+                  >
+                    {m.editorial_edit()}
+                  </a>
+                  <button
+                    class="rounded-md border border-border px-3 py-1 text-caption font-medium text-destructive transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-destructive/40 hover:bg-destructive/10"
+                    type="button"
+                    onclick={() => (pendingDeleteId = editorial.id)}
+                  >
+                    {m.editorial_delete()}
+                  </button>
+                </div>
+              {/if}
+            </header>
+            <p class="mt-3 whitespace-pre-wrap text-body-sm leading-6 text-muted-foreground">
+              {snippet(editorial.content)}
+            </p>
+          </article>
+        {/each}
+      </div>
 
-    {#if totalPages > 1}
-      <nav class="mt-6 flex items-center justify-center gap-2" aria-label={m.problems_pagination()}>
-        <button
-          class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-          type="button"
-          disabled={data.page <= 1}
-          onclick={() => gotoPage(data.page - 1)}
-        >
-          {m.editorial_pagePrev()}
-        </button>
-        <span class="text-caption text-muted-foreground tabular-nums">
-          {data.page} / {totalPages}
-        </span>
-        <button
-          class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-          type="button"
-          disabled={data.page >= totalPages}
-          onclick={() => gotoPage(data.page + 1)}
-        >
-          {m.editorial_pageNext()}
-        </button>
-      </nav>
+      {#if totalPages > 1}
+        <nav class="mt-6 flex items-center justify-center gap-2" aria-label={m.problems_pagination()}>
+          <button
+            class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            disabled={data.page <= 1}
+            onclick={() => gotoPage(data.page - 1)}
+          >
+            {m.editorial_pagePrev()}
+          </button>
+          <span class="text-caption text-muted-foreground tabular-nums">
+            {data.page} / {totalPages}
+          </span>
+          <button
+            class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            disabled={data.page >= totalPages}
+            onclick={() => gotoPage(data.page + 1)}
+          >
+            {m.editorial_pageNext()}
+          </button>
+        </nav>
+      {/if}
     {/if}
-  {/if}
-</Section>
+  </Section>
 
-<ConfirmDialog
-  open={pendingDeleteId !== null}
-  title={m.editorial_confirmDeleteTitle()}
-  message={m.editorial_confirmDelete()}
-  variant="danger"
-  confirmText={deleting ? m.editorial_deleting() : m.editorial_delete()}
-  cancelText={m.common_cancel()}
-  onconfirm={confirmDelete}
-  oncancel={() => (pendingDeleteId = null)}
-/>
+  <ConfirmDialog
+    open={pendingDeleteId !== null}
+    title={m.editorial_confirmDeleteTitle()}
+    message={m.editorial_confirmDelete()}
+    variant="danger"
+    confirmText={deleting ? m.editorial_deleting() : m.editorial_delete()}
+    cancelText={m.common_cancel()}
+    onconfirm={confirmDelete}
+    oncancel={() => (pendingDeleteId = null)}
+  />
+</PageContainer>

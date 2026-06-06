@@ -17,6 +17,7 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import CourseAnnouncementDialog from "$lib/components/features/course/CourseAnnouncementDialog.svelte";
   import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { formatDate, formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
@@ -94,7 +95,7 @@
   }
 </script>
 
-<div class="grid gap-10 pb-20 lg:grid-cols-[2fr_3fr]">
+<PageContainer class="grid gap-10 lg:grid-cols-[2fr_3fr]">
   
   <section class="animate-in animate-in-1">
     <header class="mb-4 flex items-center justify-between gap-4">
@@ -456,7 +457,7 @@
     {/if}
   </section>
   </div>
-</div>
+</PageContainer>
 
 <AnnouncementViewDialog bind:open={viewOpen} announcement={viewingAnnouncement} />
 

@@ -6,6 +6,7 @@
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { toasts } from "$lib/stores/toast";
@@ -107,7 +108,7 @@
   );
 </script>
 
-<div class="mx-auto w-full max-w-2xl">
+<PageContainer width="form">
   <Section>
     {#snippet header()}
       <h1 class="text-title-lg">{m.navigation_account()}</h1>
@@ -287,4 +288,4 @@
       <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
     </div>
   </Section>
-</div>
+</PageContainer>

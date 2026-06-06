@@ -14,6 +14,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -88,7 +89,7 @@
   }
 </script>
 
-<div class="space-y-6 pb-20">
+<PageContainer width="form" class="space-y-6">
   <PageHero
     variant="workspace"
     breadcrumbHref={`/courses/${courseId}/exams`}
@@ -713,4 +714,4 @@
       </Button>
     </div>
   </form>
-</div>
+</PageContainer>

@@ -17,6 +17,7 @@
   import BundleControls from "$lib/components/features/problem/admin/BundleControls.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { toasts } from "$lib/stores/toast";
 
   let { data } = $props();
@@ -184,7 +185,7 @@
   }
 </script>
 
-<div class="space-y-6">
+<PageContainer class="space-y-6">
   <div class="flex items-center gap-3">
     <h1 class="text-title-lg">
       {formatProblemDisplayName({
@@ -342,4 +343,4 @@
     open={showRejudgeDialog}
     onOpenChange={(v) => (showRejudgeDialog = v)}
   />
-</div>
+</PageContainer>

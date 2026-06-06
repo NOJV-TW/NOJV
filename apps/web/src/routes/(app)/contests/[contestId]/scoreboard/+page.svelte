@@ -53,6 +53,7 @@
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import RankBadge from "$lib/components/primitives/visual/RankBadge.svelte";
   import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import SolveCountCell from "$lib/components/features/contest/SolveCountCell.svelte";
@@ -110,7 +111,7 @@
   const chartPaths = $derived(buildChartPaths(chart.series, 800, 300, 40));
 </script>
 
-<div class="space-y-6 fade-up px-6 py-8 lg:px-10">
+<PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[
       { label: m.navigation_contests(), href: "/contests" },
@@ -524,4 +525,4 @@
       </div>
     </GlassPanel>
   {/if}
-</div>
+</PageContainer>

@@ -2,8 +2,6 @@
   import { m } from "$lib/paraglide/messages.js";
   import { page } from "$app/state";
   import { Megaphone, Calendar, Pin } from "@lucide/svelte";
-  import Header from "$lib/components/features/layout/Header.svelte";
-  import Footer from "$lib/components/primitives/layout/Footer.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -32,10 +30,7 @@
   <meta name="description" content={m.home_productDescription()} />
 </svelte:head>
 
-<div class="mx-auto flex min-h-screen w-full max-w-screen-2xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8">
-  <Header />
-  <main class="flex-1 pt-6">
-  <div class="grid gap-8 lg:grid-cols-[1fr_1fr]">
+<div class="grid gap-8 lg:grid-cols-[1fr_1fr]">
     
     <Card
       variant="surface"
@@ -167,9 +162,6 @@
         {/if}
       </Card>
     {/if}
-  </div>
-  </main>
-  <Footer />
 </div>
 
 <AnnouncementViewDialog bind:open={viewOpen} announcement={viewing} />

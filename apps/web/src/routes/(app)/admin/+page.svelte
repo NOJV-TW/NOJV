@@ -13,6 +13,7 @@
   } from "@lucide/svelte";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import StatCard from "$lib/components/primitives/ui/StatCard.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -128,13 +129,13 @@
   }));
 </script>
 
+<PageContainer class="space-y-6">
 <PageHeader
   eyebrow={m.admin_eyebrow()}
   title={m.admin_overviewTitle()}
   description={m.admin_overviewSubtitle()}
 />
 
-<div class="space-y-6">
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
     <StatCard
       label={m.admin_overviewUsers()}
@@ -276,4 +277,4 @@
       {/if}
     </Card>
   </section>
-</div>
+</PageContainer>

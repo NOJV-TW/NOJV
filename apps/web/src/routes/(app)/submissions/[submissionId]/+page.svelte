@@ -7,6 +7,7 @@
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
   import HighlightedCode from "$lib/components/primitives/ui/HighlightedCode.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
   let { data } = $props();
 
@@ -99,7 +100,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-4">
+<PageContainer class="flex flex-col gap-4">
   <a
     class="inline-flex w-fit items-center gap-1.5 text-body-sm text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
     href={backTarget.href}
@@ -302,4 +303,4 @@
       </div>
     </section>
   </div>
-</div>
+</PageContainer>

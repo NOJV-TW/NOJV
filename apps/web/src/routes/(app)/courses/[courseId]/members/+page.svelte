@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import FilterChips from "$lib/components/primitives/ui/FilterChips.svelte";
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -80,7 +81,7 @@
   }
 </script>
 
-<div class="space-y-8 pb-20">
+<PageContainer class="space-y-8">
   {#if isManager}
     <BulkHandleAddPanel form={bulkAddForm} />
   {/if}
@@ -210,4 +211,4 @@
       </p>
     {/if}
   </div>
-</div>
+</PageContainer>

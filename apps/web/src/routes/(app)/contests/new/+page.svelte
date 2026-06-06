@@ -14,6 +14,7 @@
   import { Card } from "$lib/components/primitives/ui/card/index.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
 
@@ -37,7 +38,7 @@
   }
 </script>
 
-<div class="space-y-6">
+<PageContainer width="form" class="space-y-6">
   <div class="flex items-center gap-3">
     <TrophyIcon aria-hidden="true" class="h-8 w-8 text-primary" />
     <h1 class="text-title-lg">{m.contestCreate_title()}</h1>
@@ -243,4 +244,4 @@
       </Button>
     </form>
   </Card>
-</div>
+</PageContainer>
