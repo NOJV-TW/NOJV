@@ -10,6 +10,7 @@
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
@@ -145,7 +146,7 @@
   const targetIso = $derived(detail.dueAt ?? detail.closesAt);
 </script>
 
-<div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
+<PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[
       { label: m.navigation_assignments(), href: "/assignments" },
@@ -568,7 +569,7 @@
       </div>
     </GlassPanel>
   {/if}
-</div>
+</PageContainer>
 
 {#if canSetOverride}
   <ScoreOverrideDrawer

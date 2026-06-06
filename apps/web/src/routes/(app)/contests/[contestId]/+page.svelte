@@ -9,6 +9,7 @@
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import Marquee from "$lib/components/primitives/visual/Marquee.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
@@ -97,7 +98,7 @@
 
 </script>
 
-<div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
+<PageContainer class="space-y-6 fade-up">
   <Crumbs items={[{ label: m.navigation_contests(), href: "/contests" }, { label: contest.id }]} />
 
   
@@ -434,7 +435,7 @@
     </GlassPanel>
   {/if}
   {/if}
-</div>
+</PageContainer>
 
 {#if canSetOverride}
   <ScoreOverrideDrawer

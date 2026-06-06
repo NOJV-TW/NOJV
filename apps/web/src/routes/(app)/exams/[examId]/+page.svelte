@@ -20,6 +20,7 @@
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { fmtDate } from "$lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
@@ -132,7 +133,7 @@
   }
 </script>
 
-<div class="space-y-6 pb-20 fade-up">
+<PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]}
   />
@@ -716,7 +717,7 @@
       />
     {/if}
   {/if}
-</div>
+</PageContainer>
 
 {#if !isManager && !past}
   <ExamStartModal

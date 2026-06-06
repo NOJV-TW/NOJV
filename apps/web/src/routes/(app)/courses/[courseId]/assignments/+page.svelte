@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
@@ -56,7 +57,7 @@
   }
 </script>
 
-<div class="space-y-6 pb-20">
+<PageContainer class="space-y-6">
   {#if canCreate}
     <div class="animate-in animate-in-1 flex justify-end">
       <Button href={`/courses/${courseId}/assignments/new`}>
@@ -202,4 +203,4 @@
       {/each}
     </div>
   {/if}
-</div>
+</PageContainer>

@@ -6,6 +6,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import type { PageData } from "./$types";
 
@@ -87,7 +88,7 @@
   }
 </script>
 
-<div class="space-y-10 pb-20">
+<PageContainer class="space-y-10">
   
   <section class="animate-in animate-in-1 space-y-4">
     <h2 class="text-title-sm font-semibold">{m.courseAnalytics_assessmentsTitle()}</h2>
@@ -245,4 +246,4 @@
       </div>
     {/if}
   </section>
-</div>
+</PageContainer>

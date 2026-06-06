@@ -6,6 +6,7 @@
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
 
   let { data, form } = $props();
@@ -16,7 +17,7 @@
   let starting = $state(false);
 </script>
 
-<div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
+<PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[
       { label: m.navigation_contests(), href: "/contests" },
@@ -215,4 +216,4 @@
       </GlassPanel>
     {/if}
   {/if}
-</div>
+</PageContainer>
