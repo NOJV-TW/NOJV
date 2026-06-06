@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Card } from "$lib/components/primitives/ui/card";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { m } from "$lib/paraglide/messages.js";
@@ -15,6 +16,7 @@
   <Badge variant="muted" size="sm">{data.reports.length}</Badge>
 {/snippet}
 
+<PageContainer>
 <PageHeader
   eyebrow={m.adminEditorialReports_eyebrow()}
   title={m.adminEditorialReports_title()}
@@ -106,3 +108,4 @@
     </div>
   {/if}
 </Card>
+</PageContainer>

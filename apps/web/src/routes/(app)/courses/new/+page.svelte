@@ -5,6 +5,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import type { PageData } from "./$types";
 
@@ -22,8 +23,8 @@
   );
 </script>
 
-<div class="mx-auto w-full max-w-3xl px-6 pb-24">
-  
+<PageContainer width="form">
+
   <section class="animate-in mb-8">
     <a
       href="/courses"
@@ -182,4 +183,4 @@
       </Button>
     </div>
   </form>
-</div>
+</PageContainer>

@@ -6,6 +6,7 @@
   import { formatDateTime } from "$lib/utils/datetime";
   import { Input } from "$lib/components/primitives/ui/input";
   import { Button } from "$lib/components/primitives/ui/button";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
   let { data }: { data: PageData } = $props();
 
@@ -28,7 +29,7 @@
   });
 </script>
 
-<section class="animate-in animate-in-2 space-y-4">
+<PageContainer class="animate-in animate-in-2 space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-h3 font-semibold">{m.admin_rejudges_title()}</h1>
     <form class="flex items-center gap-2" onsubmit={applyFilter}>
@@ -98,4 +99,4 @@
       </div>
     {/if}
   {/if}
-</section>
+</PageContainer>

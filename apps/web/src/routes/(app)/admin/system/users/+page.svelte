@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { Users } from "@lucide/svelte";
   import { Card } from "$lib/components/primitives/ui/card";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import FilterBar from "$lib/components/features/admin/users/FilterBar.svelte";
@@ -23,13 +24,13 @@
   }
 </script>
 
+<PageContainer class="space-y-4">
 <PageHeader
   eyebrow={m.admin_eyebrow()}
   title={m.admin_usersTitle()}
   description={`${m.admin_usersFound({ count: data.totalCount })} · ${m.admin_usersPageOf({ page: data.page, totalPages: data.totalPages })}`}
 />
 
-<div class="space-y-4">
   <FilterBar bind:search={searchValue} bind:role={roleValue} onApply={applyFilters} />
 
   <Card variant="surface" size="lg" class="overflow-hidden p-0">
@@ -51,4 +52,4 @@
     search={data.search}
     roleFilter={data.roleFilter}
   />
-</div>
+</PageContainer>

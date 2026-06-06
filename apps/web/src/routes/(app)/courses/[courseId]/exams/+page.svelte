@@ -8,6 +8,7 @@
   import { getLocale } from "$lib/paraglide/runtime.js";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -93,7 +94,7 @@
   }
 </script>
 
-<div class="space-y-6 pb-20">
+<PageContainer class="space-y-6">
   {#if canCreate}
     <div class="animate-in animate-in-1 flex justify-end">
       <Button href={`/courses/${courseId}/exams/new`}>
@@ -324,7 +325,7 @@
       {/each}
     </div>
   {/if}
-</div>
+</PageContainer>
 
 <style>
   .live-dot {

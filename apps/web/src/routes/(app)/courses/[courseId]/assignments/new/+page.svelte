@@ -9,6 +9,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule
   } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
@@ -116,7 +117,7 @@
   const courseId = $derived(data.form.data.courseId ?? "");
 </script>
 
-<div class="mx-auto w-full max-w-4xl pb-24">
+<PageContainer width="form">
   <PageHero
     variant="workspace"
     breadcrumbHref={`/courses/${courseId}/assignments`}
@@ -524,4 +525,4 @@
       </Button>
     </div>
   </form>
-</div>
+</PageContainer>

@@ -3,8 +3,6 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Button } from "$lib/components/primitives/ui/button";
-  import PublicHeader from "$lib/components/primitives/layout/PublicHeader.svelte";
-  import Footer from "$lib/components/primitives/layout/Footer.svelte";
   import GithubMark from "$lib/components/primitives/layout/GithubMark.svelte";
 
   let { data } = $props();
@@ -23,10 +21,7 @@
   <meta name="description" content={m.about_heroSubtitle()} />
 </svelte:head>
 
-<div class="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8">
-  <PublicHeader />
-
-  <main class="flex-1 space-y-16 pt-10">
+<div class="space-y-16 pt-4">
     
     <section
       class="text-center animate-[fade-up_700ms_var(--ease-out-soft)_both]"
@@ -126,7 +121,4 @@
         </div>
       </Card>
     </section>
-  </main>
-
-  <Footer repoUrl={data.repoUrl} />
 </div>
