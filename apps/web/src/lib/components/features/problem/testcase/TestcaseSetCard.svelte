@@ -37,7 +37,7 @@
     try {
       await postProblemAction(problemId, "updateTestcaseSetScoring", {
         setId: set.id,
-        strategy: value
+        strategy: value,
       });
       await invalidateAll();
     } finally {
@@ -69,7 +69,7 @@
     try {
       await postProblemAction(problemId, "updateTestcaseSet", {
         setId: set.id,
-        data: JSON.stringify({ name: editName, weight: editWeight })
+        data: JSON.stringify({ name: editName, weight: editWeight }),
       });
       editing = false;
       await invalidateAll();
@@ -100,7 +100,7 @@
     try {
       await postProblemAction(problemId, "updateTestcase", {
         testcaseId: tcId,
-        data: JSON.stringify({ input: editInput, output: editOutput })
+        data: JSON.stringify({ input: editInput, output: editOutput }),
       });
       editingTestcaseId = null;
       await invalidateAll();
@@ -121,7 +121,9 @@
   }
 </script>
 
-<div class="rounded-lg border border-border-subtle-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
+<div
+  class="rounded-lg border border-border-subtle-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest"
+>
   <div class="flex items-center gap-3">
     <button
       class="flex items-center gap-1 text-body-sm font-semibold"
@@ -143,7 +145,8 @@
     </span>
 
     <span class="text-caption text-muted-foreground tabular-nums">
-      {set.weight} {m.admin_pts()}
+      {set.weight}
+      {m.admin_pts()}
     </span>
 
     <label class="flex items-center gap-1 text-caption text-muted-foreground">
@@ -194,7 +197,9 @@
   {/if}
 
   {#if confirmDelete}
-    <div class="mt-3 flex items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3">
+    <div
+      class="mt-3 flex items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+    >
       <span class="text-body-sm text-destructive">
         {m.testcases_confirmDeleteSet({ name: set.name })}
       </span>

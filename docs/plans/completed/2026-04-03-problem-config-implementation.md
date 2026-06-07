@@ -474,8 +474,8 @@ Tab container with 5 tabs. Uses Bits UI tabs or simple custom tabs matching exis
       <button
         class="px-4 py-2 text-sm font-medium transition-colors
           {activeTab === tab.id
-            ? 'border-b-2 border-primary text-primary'
-            : 'text-muted-foreground hover:text-foreground'}"
+          ? 'border-b-2 border-primary text-primary'
+          : 'text-muted-foreground hover:text-foreground'}"
         onclick={() => (activeTab = tab.id)}
       >
         {tab.label}

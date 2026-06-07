@@ -26,7 +26,9 @@
 
   let currentUrl = $derived(page.url);
   let currentPage = $derived(publicResult.page);
-  let totalPages = $derived(Math.max(1, Math.ceil(publicResult.totalCount / publicResult.pageSize)));
+  let totalPages = $derived(
+    Math.max(1, Math.ceil(publicResult.totalCount / publicResult.pageSize)),
+  );
   let hasActiveFilters = $derived(
     [...currentUrl.searchParams.keys()].some((k) =>
       ["q", "difficulty", "status", "types", "judge", "tags"].includes(k),
@@ -64,7 +66,6 @@
 </script>
 
 <div class="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
-  
   <aside class="hidden lg:block">
     <div class="sticky top-6">
       <ProblemFilterSidebar {publicResult} {loggedIn} />
@@ -72,10 +73,11 @@
   </aside>
 
   <div class="flex min-w-0 flex-col gap-4">
-    
     <button
       type="button"
-      onclick={() => { filtersOpen = true; }}
+      onclick={() => {
+        filtersOpen = true;
+      }}
       class="inline-flex items-center justify-center gap-2 self-start rounded-full border border-border bg-[color:var(--color-panel)] px-4 py-2 text-body-sm font-medium text-foreground transition-[background-color] duration-fast ease-out-soft hover:bg-accent lg:hidden"
     >
       <ListFilter class="size-4" aria-hidden="true" />
@@ -99,9 +101,17 @@
         >
           <div class="flex min-w-0 items-center gap-3">
             {#if problem.status === "ac"}
-              <CheckCircle2 aria-hidden="true" class="size-5 shrink-0 text-success" aria-label={m.problems_statusAc()} />
+              <CheckCircle2
+                aria-hidden="true"
+                class="size-5 shrink-0 text-success"
+                aria-label={m.problems_statusAc()}
+              />
             {:else if problem.status === "attempted"}
-              <XCircle aria-hidden="true" class="size-5 shrink-0 text-warning" aria-label={m.problems_statusAttempted()} />
+              <XCircle
+                aria-hidden="true"
+                class="size-5 shrink-0 text-warning"
+                aria-label={m.problems_statusAttempted()}
+              />
             {:else}
               <span class="size-5 shrink-0" aria-hidden="true"></span>
             {/if}
@@ -128,11 +138,15 @@
             </div>
           </div>
           <div class="flex min-w-24 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">{m.problemDetail_problemTypeTitle()}</p>
+            <p class="text-body-sm text-muted-foreground">
+              {m.problemDetail_problemTypeTitle()}
+            </p>
             <p class="mt-1 text-body font-semibold">{renderProblemType(problem.type)}</p>
           </div>
           <div class="flex min-w-24 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">{m.problemDetail_judgeMethodTitle()}</p>
+            <p class="text-body-sm text-muted-foreground">
+              {m.problemDetail_judgeMethodTitle()}
+            </p>
             <p class="mt-1 text-body font-semibold">
               {renderJudgeMethod(problem.type, problem.judgeType)}
             </p>
@@ -140,7 +154,9 @@
           <div class="flex min-w-20 flex-col items-center text-center">
             <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
             <span
-              class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(problem.difficulty)}"
+              class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
+                problem.difficulty,
+              )}"
             >
               {problem.difficulty}
             </span>
@@ -177,7 +193,8 @@
             <span class="px-2 py-1 text-body-sm text-muted-foreground">&hellip;</span>
           {:else}
             <button
-              class="rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft {p === currentPage
+              class="rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft {p ===
+              currentPage
                 ? 'border-primary bg-primary text-white'
                 : 'border-border hover:bg-[color:var(--color-panel)]'}"
               onclick={() => goToPage(p)}

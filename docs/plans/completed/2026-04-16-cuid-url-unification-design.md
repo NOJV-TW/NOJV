@@ -135,6 +135,7 @@ Tabs inside `/assignments/[assessmentId]/+page.svelte` and `/exams/[examId]/+pag
   import ProblemSolveView from "$lib/components/problem/ProblemSolveView.svelte";
   let { data } = $props();
 </script>
+
 <ProblemSolveView {...data.solveProps} />
 ```
 

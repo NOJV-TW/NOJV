@@ -110,9 +110,7 @@
   </a>
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-    
     <aside class="flex flex-col gap-5">
-      
       <div class="flex flex-col gap-2">
         <p class="text-caption uppercase tracking-wide text-muted-foreground">
           {formatProblemDisplayName(submission.problem)}
@@ -125,10 +123,7 @@
         </p>
       </div>
 
-      
-      <dl
-        class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-2"
-      >
+      <dl class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-2">
         <div class="flex flex-col gap-0.5">
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_runtime()}
@@ -167,7 +162,6 @@
         </div>
       </dl>
 
-      
       {#if submission.context.kind === "contest"}
         <p
           class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
@@ -217,7 +211,6 @@
         </div>
       {/if}
 
-      
       {#if isPending}
         <p
           class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
@@ -234,7 +227,6 @@
         </div>
       {/if}
 
-      
       {#if data.feedback}
         <div class="flex flex-col gap-1.5">
           <h2 class="text-caption uppercase tracking-wide text-info">
@@ -248,7 +240,6 @@
         </div>
       {/if}
 
-      
       {#if subtaskResults.length > 0}
         <div class="flex flex-col gap-2">
           <h2 class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -257,10 +248,8 @@
           <SubtaskResultTree {subtaskResults} />
         </div>
       {/if}
-
     </aside>
 
-    
     <section
       class="flex min-h-[60vh] flex-col overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)] lg:sticky lg:top-4"
     >

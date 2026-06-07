@@ -91,7 +91,14 @@
           type="password"
         />
       </FormField>
-      <Button type="submit" variant="default" size="lg" class="w-full" {loading} disabled={loading}>
+      <Button
+        type="submit"
+        variant="default"
+        size="lg"
+        class="w-full"
+        {loading}
+        disabled={loading}
+      >
         {loading ? m.auth_signingIn() : m.auth_signIn()}
       </Button>
     </form>

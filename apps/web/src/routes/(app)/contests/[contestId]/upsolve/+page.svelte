@@ -13,7 +13,7 @@
   const summary = $derived({
     solved: view.problems.filter((p) => p.status === "solved").length,
     attempted: view.problems.filter((p) => p.status === "attempted").length,
-    untouched: view.problems.filter((p) => p.status === "untouched").length
+    untouched: view.problems.filter((p) => p.status === "untouched").length,
   });
 
   function statusLabel(status: contestDomain.UpsolveStatus): string {
@@ -40,11 +40,10 @@
     items={[
       { label: m.navigation_contests(), href: "/contests" },
       { label: view.contestId, href: `/contests/${view.contestId}` },
-      { label: m.contestDetail_actionUpsolve() }
+      { label: m.contestDetail_actionUpsolve() },
     ]}
   />
 
-  
   <div class="glass rounded-xl shadow-rest p-5 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
@@ -66,10 +65,7 @@
         <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
           {m.contestUpsolve_statusSolved()}
         </div>
-        <div
-          class="mt-1 text-title font-semibold tabular-nums"
-          style="color: var(--success);"
-        >
+        <div class="mt-1 text-title font-semibold tabular-nums" style="color: var(--success);">
           {summary.solved}
         </div>
       </div>
@@ -92,7 +88,6 @@
     </div>
   </div>
 
-  
   <GlassPanel class="overflow-hidden">
     <div
       class="flex items-center justify-between px-6 py-4 border-b"
@@ -117,10 +112,7 @@
             href="/problems/{p.problemId}"
             class="grid grid-cols-[48px_1fr_auto] sm:grid-cols-[48px_1fr_minmax(110px,140px)_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-muted/40"
           >
-            <div
-              class="font-mono text-title font-semibold"
-              style="color: var(--primary);"
-            >
+            <div class="font-mono text-title font-semibold" style="color: var(--primary);">
               {p.letter}
             </div>
             <div class="min-w-0">

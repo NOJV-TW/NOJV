@@ -22,7 +22,9 @@
       </p>
       <div class="mt-1 flex items-center gap-3">
         {#if icon}
-          <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center text-foreground">
+          <span
+            class="inline-flex h-10 w-10 shrink-0 items-center justify-center text-foreground"
+          >
             {@render icon()}
           </span>
         {/if}

@@ -16,9 +16,7 @@
   const { exams, canCreate } = $derived(data);
   const courseId = $derived(page.params.courseId ?? "");
 
-  const monthFormatter = $derived(
-    new Intl.DateTimeFormat(getLocale(), { month: "short" })
-  );
+  const monthFormatter = $derived(new Intl.DateTimeFormat(getLocale(), { month: "short" }));
 
   function pad2(n: number): string {
     return n < 10 ? `0${String(n)}` : String(n);
@@ -29,14 +27,14 @@
       return {
         month: m.examsList_draftMonth(),
         day: m.examsList_draftDay(),
-        time: m.examsList_draftTime()
+        time: m.examsList_draftTime(),
       };
     }
     const d = new Date(iso);
     return {
       month: monthFormatter.format(d),
       day: pad2(d.getDate()),
-      time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+      time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`,
     };
   }
 
@@ -48,7 +46,7 @@
   function formatTimeRangeForCard(
     startsAt: string,
     endsAt: string,
-    endedStyle: boolean
+    endedStyle: boolean,
   ): string {
     const s = new Date(startsAt);
     const range = `${formatHHMM(startsAt)} - ${formatHHMM(endsAt)}`;
@@ -82,7 +80,7 @@
 
   function proctorTitle(
     name: "pageLock" | "ipBinding" | "ipWhitelist",
-    enabled: boolean
+    enabled: boolean,
   ): string {
     const label =
       name === "pageLock"
@@ -125,7 +123,6 @@
             ? 'border-dashed border-border bg-transparent'
             : 'border-border bg-[color:var(--color-panel)]'}"
         >
-          
           <span
             class="pointer-events-none absolute left-0 top-0 bottom-0 w-[4px] {isUpcoming
               ? 'bg-info'
@@ -137,7 +134,6 @@
             aria-hidden="true"
           ></span>
 
-          
           <div
             class="min-w-[72px] rounded-md border px-3 py-2 text-center {isRunning
               ? 'border-[color:var(--color-primary)]/28 bg-[color:var(--color-primary)]/8'
@@ -158,7 +154,6 @@
             </div>
           </div>
 
-          
           <div class="min-w-0">
             <div class="flex items-center gap-3">
               <h3 class="truncate text-title-sm font-semibold tracking-[-0.01em]">
@@ -168,9 +163,7 @@
                 <span
                   class="live-pulse inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-primary)]/12 px-2.5 py-1 text-caption font-semibold tracking-[0.04em] text-primary"
                 >
-                  <span
-                    class="live-dot h-1.5 w-1.5 rounded-full bg-primary"
-                    aria-hidden="true"
+                  <span class="live-dot h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true"
                   ></span>
                   {m.examsList_liveChip()}
                 </span>
@@ -280,7 +273,6 @@
             </div>
           </div>
 
-          
           <div class="flex min-w-[200px] items-center justify-end gap-6">
             {#if isRunning}
               <div class="text-title font-medium tabular-nums">
@@ -295,9 +287,7 @@
               class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
             >
               {#if isDraft}
-                <span class="block text-title-sm font-medium text-foreground"
-                  >—</span
-                >
+                <span class="block text-title-sm font-medium text-foreground">—</span>
                 {m.examsList_teacherOnlyHint()}
               {:else if exam.registeredCount !== null && exam.totalStudents !== null}
                 <span class="block text-title-sm font-medium text-foreground">
@@ -314,9 +304,7 @@
                 </span>
                 {m.courseOverview_scoreCaption()}
               {:else}
-                <span class="block text-title-sm font-medium text-foreground"
-                  >—</span
-                >
+                <span class="block text-title-sm font-medium text-foreground">—</span>
                 {m.examsList_classStatsPendingTeacher()}
               {/if}
             </div>

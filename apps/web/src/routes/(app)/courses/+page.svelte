@@ -24,14 +24,18 @@
   function setTab(next: TabKey) {
     const url = new URL(page.url);
     url.searchParams.set("tab", next);
-    goto(`?${url.searchParams.toString()}`, { keepFocus: true, replaceState: true, noScroll: true });
+    goto(`?${url.searchParams.toString()}`, {
+      keepFocus: true,
+      replaceState: true,
+      noScroll: true,
+    });
   }
 
   const visibleCourses = $derived(activeTab === "enrolled" ? data.enrolled : data.managing);
 
   const tabCounts = $derived({
     enrolled: data.enrolled.length,
-    managing: data.managing.length
+    managing: data.managing.length,
   });
 
   const showCreateButton = $derived(data.canCreate && activeTab === "managing");
@@ -54,8 +58,14 @@
     {/snippet}
   </PageHeader>
 
-  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
-    <div role="tablist" aria-label={m.courses_tablistLabel()} class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+  <div
+    class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle"
+  >
+    <div
+      role="tablist"
+      aria-label={m.courses_tablistLabel()}
+      class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+    >
       {#each [{ key: "enrolled" as const, label: m.courses_tabEnrolled(), count: tabCounts.enrolled }, { key: "managing" as const, label: m.courses_tabManaging(), count: tabCounts.managing }] as tab (tab.key)}
         {@const isActive = tab.key === activeTab}
         <button
@@ -158,13 +168,13 @@
             {#if course.role === "student"}
               {m.courses_subtitleStudent({
                 studentCount: course.studentCount,
-                teacher: course.ownerDisplayName
+                teacher: course.ownerDisplayName,
               })}
             {:else}
               {m.courses_subtitleStaff({
                 studentCount: course.studentCount,
                 assignmentCount: course.assignmentCount,
-                examCount: course.examCount
+                examCount: course.examCount,
               })}
             {/if}
           </p>
@@ -182,7 +192,9 @@
                   >
                 {/if}
                 {#if course.myUpcomingCount > 0}
-                  <Badge variant="info">{m.courses_upcomingCount({ count: course.myUpcomingCount })}</Badge>
+                  <Badge variant="info"
+                    >{m.courses_upcomingCount({ count: course.myUpcomingCount })}</Badge
+                  >
                 {/if}
               {/if}
             {:else}

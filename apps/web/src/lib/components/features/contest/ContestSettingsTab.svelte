@@ -33,12 +33,15 @@
     errors,
     enhance,
     message: formMessage,
-    submitting
-  } = superForm<ContestSettingsForm, FormMessage>(untrack(() => formProp), {
-    dataType: "json",
-    resetForm: false,
-    invalidateAll: true
-  });
+    submitting,
+  } = superForm<ContestSettingsForm, FormMessage>(
+    untrack(() => formProp),
+    {
+      dataType: "json",
+      resetForm: false,
+      invalidateAll: true,
+    },
+  );
 
   const isDraft = $derived(liveStatus === "draft");
   const isUpcoming = $derived(liveStatus === "upcoming");

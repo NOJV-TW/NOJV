@@ -6,7 +6,9 @@
   let { children, data } = $props();
 </script>
 
-<div class="mx-auto flex min-h-dvh w-full max-w-screen-2xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+<div
+  class="mx-auto flex min-h-dvh w-full max-w-screen-2xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8"
+>
   <a
     href="#main-content"
     class="sr-only z-[var(--z-toast)] rounded-md bg-primary px-4 py-2 text-primary-foreground shadow-modal focus:not-sr-only focus:absolute focus:left-4 focus:top-4"

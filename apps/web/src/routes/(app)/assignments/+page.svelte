@@ -20,7 +20,7 @@
     void goto(`?${url.searchParams.toString()}`, {
       keepFocus: true,
       replaceState: true,
-      noScroll: true
+      noScroll: true,
     });
   }
 
@@ -28,7 +28,7 @@
     { key: "all", label: m.assignmentsList_tabAll(), count: counts.all },
     { key: "open", label: m.assignmentsList_tabOpen(), count: counts.open },
     { key: "upcoming", label: m.assignmentsList_tabUpcoming(), count: counts.upcoming },
-    { key: "closed", label: m.assignmentsList_tabClosed(), count: counts.closed }
+    { key: "closed", label: m.assignmentsList_tabClosed(), count: counts.closed },
   ]);
 </script>
 
@@ -44,7 +44,6 @@
       {/snippet}
     </PageHeader>
 
-    
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
       <div
         role="tablist"
@@ -73,13 +72,13 @@
           </button>
         {/each}
       </div>
-      <div class="text-caption text-muted-foreground font-mono">{m.assignmentsList_sortByDue()}</div>
+      <div class="text-caption text-muted-foreground font-mono">
+        {m.assignmentsList_sortByDue()}
+      </div>
     </div>
 
     {#if assignments.length === 0}
-      <div
-        class="glass rounded-xl px-8 py-16 text-center"
-      >
+      <div class="glass rounded-xl px-8 py-16 text-center">
         <ClipboardList
           class="mx-auto h-12 w-12 text-muted-foreground"
           strokeWidth={1.5}

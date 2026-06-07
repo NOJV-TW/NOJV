@@ -14,7 +14,7 @@
     showFlagged,
     showToggle,
     flaggedHiddenCount,
-    onShowFlaggedChange
+    onShowFlaggedChange,
   }: Props = $props();
 </script>
 

@@ -17,9 +17,8 @@
 >
   <p class="tabular-nums">{m.footer_copyright({ year: String(year) })}</p>
   <nav class="flex flex-wrap items-center gap-x-6 gap-y-2">
-    <a
-      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
-      href="/about">{m.footer_about()}</a
+    <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/about"
+      >{m.footer_about()}</a
     >
     <a
       class="inline-flex items-center gap-1.5 transition-colors duration-fast ease-out-soft hover:text-foreground"

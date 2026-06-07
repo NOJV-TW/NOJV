@@ -20,7 +20,7 @@
     ".rs",
     ".java",
     ".txt",
-    ".md"
+    ".md",
   ];
 
   export const ADVANCED_UPLOAD_ACCEPT =
@@ -41,7 +41,7 @@
 
   export async function stageUploadedFile(
     file: File,
-    requiredPaths: string[]
+    requiredPaths: string[],
   ): Promise<{ ok: true; staged: StagedFile } | { ok: false; error: string }> {
     try {
       if (isZipFile(file.name)) {
@@ -51,13 +51,14 @@
         const promises: Promise<void>[] = [];
         zip.forEach((relativePath, zipEntry) => {
           if (zipEntry.dir) return;
-          if (relativePath.startsWith("__MACOSX/") || relativePath.includes("/__MACOSX/")) return;
+          if (relativePath.startsWith("__MACOSX/") || relativePath.includes("/__MACOSX/"))
+            return;
           const baseName = relativePath.split("/").pop() ?? "";
           if (baseName === ".DS_Store") return;
           promises.push(
             zipEntry.async("string").then((content) => {
               entries.push({ path: relativePath, content });
-            })
+            }),
           );
         });
         await Promise.all(promises);
@@ -68,14 +69,17 @@
         if (entries.length > MAX_FILES) {
           return {
             ok: false,
-            error: messages.advancedMode_zipTooManyFiles({ count: entries.length, max: MAX_FILES })
+            error: messages.advancedMode_zipTooManyFiles({
+              count: entries.length,
+              max: MAX_FILES,
+            }),
           };
         }
         const totalBytes = entries.reduce((sum, e) => sum + e.content.length, 0);
         if (totalBytes > MAX_TOTAL_BYTES) {
           return {
             ok: false,
-            error: messages.advancedMode_zipTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) })
+            error: messages.advancedMode_zipTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) }),
           };
         }
         if (entries.every((e) => e.content.trim().length === 0)) {
@@ -83,13 +87,13 @@
         }
         const requiredCheck = validateRequiredPaths(
           entries.map((e) => e.path),
-          requiredPaths
+          requiredPaths,
         );
         if (!requiredCheck.ok) {
           const missingList = requiredCheck.errors.map((e) => e.path).join(", ");
           return {
             ok: false,
-            error: messages.advancedRequiredPaths_missingList({ paths: missingList })
+            error: messages.advancedRequiredPaths_missingList({ paths: missingList }),
           };
         }
         entries.sort((a, b) => a.path.localeCompare(b.path));
@@ -101,7 +105,7 @@
         if (content.length > MAX_TOTAL_BYTES) {
           return {
             ok: false,
-            error: messages.advancedMode_fileTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) })
+            error: messages.advancedMode_fileTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) }),
           };
         }
         if (content.trim().length === 0) {
@@ -112,7 +116,7 @@
           const missingList = requiredCheck.errors.map((e) => e.path).join(", ");
           return {
             ok: false,
-            error: messages.advancedRequiredPaths_missingList({ paths: missingList })
+            error: messages.advancedRequiredPaths_missingList({ paths: missingList }),
           };
         }
         return {
@@ -120,19 +124,19 @@
           staged: {
             kind: "single",
             file,
-            sourceFiles: [{ path: file.name, content }]
-          }
+            sourceFiles: [{ path: file.name, content }],
+          },
         };
       }
 
       return {
         ok: false,
-        error: messages.advancedMode_unsupportedType()
+        error: messages.advancedMode_unsupportedType(),
       };
     } catch (err) {
       return {
         ok: false,
-        error: err instanceof Error ? err.message : messages.advancedMode_readFailed()
+        error: err instanceof Error ? err.message : messages.advancedMode_readFailed(),
       };
     }
   }
@@ -148,12 +152,7 @@
     onStagingError: (msg: string | null) => void;
   }
 
-  let {
-    inputId,
-    staged = $bindable(),
-    requiredPaths,
-    onStagingError
-  }: Props = $props();
+  let { inputId, staged = $bindable(), requiredPaths, onStagingError }: Props = $props();
 
   let staging = $state(false);
   let dragOver = $state(false);

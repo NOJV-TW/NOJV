@@ -101,28 +101,43 @@ git commit -m "i18n(admin): add users role/disable UX strings"
 Open `apps/web/src/routes/(app)/admin/+page.svelte` and delete the entire `<Card>` block that starts with the `UserCog` icon heading. Specifically, remove lines 387–408:
 
 ```svelte
-  <Card variant="surface" size="md">
-    <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-      <UserCog class="h-3.5 w-3.5" /> {t("roleMix")}
-    </h2>
-    <div class="grid gap-3 sm:grid-cols-3">
-      <div class="rounded-sm border border-border-subtle px-3 py-3">
-        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("admin")}</p>
-        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.admin}</p>
-        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.admin, data.kpi.totalUsers)}</p>
-      </div>
-      <div class="rounded-sm border border-border-subtle px-3 py-3">
-        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("teacher")}</p>
-        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.teacher}</p>
-        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.teacher, data.kpi.totalUsers)}</p>
-      </div>
-      <div class="rounded-sm border border-border-subtle px-3 py-3">
-        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("student")}</p>
-        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.student}</p>
-        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.student, data.kpi.totalUsers)}</p>
-      </div>
+<Card variant="surface" size="md">
+  <h2
+    class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
+  >
+    <UserCog class="h-3.5 w-3.5" />
+    {t("roleMix")}
+  </h2>
+  <div class="grid gap-3 sm:grid-cols-3">
+    <div class="rounded-sm border border-border-subtle px-3 py-3">
+      <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("admin")}</p>
+      <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+        {data.roleCounts.admin}
+      </p>
+      <p class="text-caption text-muted-foreground">
+        {pct(data.roleCounts.admin, data.kpi.totalUsers)}
+      </p>
     </div>
-  </Card>
+    <div class="rounded-sm border border-border-subtle px-3 py-3">
+      <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("teacher")}</p>
+      <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+        {data.roleCounts.teacher}
+      </p>
+      <p class="text-caption text-muted-foreground">
+        {pct(data.roleCounts.teacher, data.kpi.totalUsers)}
+      </p>
+    </div>
+    <div class="rounded-sm border border-border-subtle px-3 py-3">
+      <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("student")}</p>
+      <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+        {data.roleCounts.student}
+      </p>
+      <p class="text-caption text-muted-foreground">
+        {pct(data.roleCounts.student, data.kpi.totalUsers)}
+      </p>
+    </div>
+  </div>
+</Card>
 ```
 
 - [ ] **Step 2: Remove now-unused imports / locals**
@@ -184,46 +199,46 @@ function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
 Find the role cell in the table body (around lines 229–243):
 
 ```svelte
-                <td class="px-5 py-3">
-                  <form method="POST" action="?/updateRole" use:enhance>
-                    <input type="hidden" name="userId" value={user.id} />
-                    <select
-                      class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
-                      name="role"
-                      value={user.platformRole}
-                      onchange={(e) => e.currentTarget.form?.requestSubmit()}
-                    >
-                      <option value="admin">admin</option>
-                      <option value="teacher">teacher</option>
-                      <option value="student">student</option>
-                    </select>
-                  </form>
-                </td>
+<td class="px-5 py-3">
+  <form method="POST" action="?/updateRole" use:enhance>
+    <input type="hidden" name="userId" value={user.id} />
+    <select
+      class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
+      name="role"
+      value={user.platformRole}
+      onchange={(e) => e.currentTarget.form?.requestSubmit()}
+    >
+      <option value="admin">admin</option>
+      <option value="teacher">teacher</option>
+      <option value="student">student</option>
+    </select>
+  </form>
+</td>
 ```
 
 Replace with:
 
 ```svelte
-                <td class="px-5 py-3">
-                  <div class="flex items-center gap-2">
-                    <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
-                      {user.platformRole}
-                    </Badge>
-                    <form method="POST" action="?/updateRole" use:enhance>
-                      <input type="hidden" name="userId" value={user.id} />
-                      <select
-                        class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
-                        name="role"
-                        value={user.platformRole}
-                        onchange={(e) => e.currentTarget.form?.requestSubmit()}
-                      >
-                        <option value="admin">admin</option>
-                        <option value="teacher">teacher</option>
-                        <option value="student">student</option>
-                      </select>
-                    </form>
-                  </div>
-                </td>
+<td class="px-5 py-3">
+  <div class="flex items-center gap-2">
+    <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
+      {user.platformRole}
+    </Badge>
+    <form method="POST" action="?/updateRole" use:enhance>
+      <input type="hidden" name="userId" value={user.id} />
+      <select
+        class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
+        name="role"
+        value={user.platformRole}
+        onchange={(e) => e.currentTarget.form?.requestSubmit()}
+      >
+        <option value="admin">admin</option>
+        <option value="teacher">teacher</option>
+        <option value="student">student</option>
+      </select>
+    </form>
+  </div>
+</td>
 ```
 
 `Badge` is already imported at the top of the file — no new imports.
@@ -279,65 +294,55 @@ function cancelEditRole() {
 Replace the role `<td>` you modified in Task 3 (the whole cell starting `<td class="px-5 py-3">`) with:
 
 ```svelte
-                <td class="px-5 py-3">
-                  {#if editingUserId === user.id}
-                    <form
-                      method="POST"
-                      action="?/updateRole"
-                      class="flex flex-col gap-2"
-                      use:enhance
-                    >
-                      <input type="hidden" name="userId" value={user.id} />
-                      <input type="hidden" name="role" value={draftRole} />
-                      <select
-                        class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
-                        bind:value={draftRole}
-                      >
-                        <option value="admin">admin</option>
-                        <option value="teacher">teacher</option>
-                        <option value="student">student</option>
-                      </select>
-                      {#if draftRole !== user.platformRole}
-                        <p class="text-caption text-muted-foreground">
-                          {m.admin_usersRoleChangeDiff({
-                            username: user.username ?? user.name,
-                            from: user.platformRole,
-                            to: draftRole
-                          })}
-                        </p>
-                      {/if}
-                      <div class="flex items-center gap-1">
-                        <Button
-                          type="submit"
-                          variant="default"
-                          size="sm"
-                          disabled={draftRole === user.platformRole}
-                        >
-                          {m.admin_usersRoleSave()}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onclick={cancelEditRole}
-                        >
-                          {m.admin_usersRoleCancel()}
-                        </Button>
-                      </div>
-                    </form>
-                  {:else}
-                    <button
-                      type="button"
-                      class="inline-flex cursor-pointer items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={m.admin_usersRoleEdit()}
-                      onclick={() => beginEditRole(user)}
-                    >
-                      <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
-                        {user.platformRole}
-                      </Badge>
-                    </button>
-                  {/if}
-                </td>
+<td class="px-5 py-3">
+  {#if editingUserId === user.id}
+    <form method="POST" action="?/updateRole" class="flex flex-col gap-2" use:enhance>
+      <input type="hidden" name="userId" value={user.id} />
+      <input type="hidden" name="role" value={draftRole} />
+      <select
+        class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
+        bind:value={draftRole}
+      >
+        <option value="admin">admin</option>
+        <option value="teacher">teacher</option>
+        <option value="student">student</option>
+      </select>
+      {#if draftRole !== user.platformRole}
+        <p class="text-caption text-muted-foreground">
+          {m.admin_usersRoleChangeDiff({
+            username: user.username ?? user.name,
+            from: user.platformRole,
+            to: draftRole,
+          })}
+        </p>
+      {/if}
+      <div class="flex items-center gap-1">
+        <Button
+          type="submit"
+          variant="default"
+          size="sm"
+          disabled={draftRole === user.platformRole}
+        >
+          {m.admin_usersRoleSave()}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onclick={cancelEditRole}>
+          {m.admin_usersRoleCancel()}
+        </Button>
+      </div>
+    </form>
+  {:else}
+    <button
+      type="button"
+      class="inline-flex cursor-pointer items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={m.admin_usersRoleEdit()}
+      onclick={() => beginEditRole(user)}
+    >
+      <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
+        {user.platformRole}
+      </Badge>
+    </button>
+  {/if}
+</td>
 ```
 
 **Important:** The form submits two hidden inputs (`userId` and `role`) because a `bind:value`'d `<select>` without a `name` attribute does NOT include its value in the form data. We drive the submitted value through a separate hidden input to keep the server action contract unchanged (it still reads `role` from form data).
@@ -479,15 +484,12 @@ git commit -m "feat(admin/users): confirm demotions and surface role changes via
 Find the enable/disable form in the last table column (around lines 254–268 before your edits, but shift accordingly after Tasks 3–5):
 
 ```svelte
-                  <form method="POST" action="?/toggleDisabled" use:enhance>
-                    <input type="hidden" name="userId" value={user.id} />
-                    <Button
-                      type="submit"
-                      ...
-                    >
-                      {user.disabled ? t("enable") : t("disable")}
-                    </Button>
-                  </form>
+<form method="POST" action="?/toggleDisabled" use:enhance>
+  <input type="hidden" name="userId" value={user.id} />
+  <Button type="submit" ...>
+    {user.disabled ? t("enable") : t("disable")}
+  </Button>
+</form>
 ```
 
 Replace `use:enhance` with:

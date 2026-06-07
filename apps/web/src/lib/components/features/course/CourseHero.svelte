@@ -25,7 +25,7 @@
     isManager,
     breadcrumbHref = "/courses",
     breadcrumbLabel,
-    class: className
+    class: className,
   }: Props = $props();
 
   const resolvedBreadcrumbLabel = $derived(breadcrumbLabel ?? m.navigation_courses());

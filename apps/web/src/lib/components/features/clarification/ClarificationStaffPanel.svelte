@@ -4,7 +4,7 @@
   import { toasts } from "$lib/stores/toast";
   import type {
     ClarificationItem,
-    ClarificationsStore
+    ClarificationsStore,
   } from "$lib/stores/clarifications.svelte";
 
   interface Props {
@@ -20,9 +20,7 @@
   const ANSWER_MIN = 1;
   const ANSWER_MAX = 1000;
   const charCount = $derived(answerText.length);
-  const canSubmit = $derived(
-    !busy && charCount >= ANSWER_MIN && charCount <= ANSWER_MAX
-  );
+  const canSubmit = $derived(!busy && charCount >= ANSWER_MIN && charCount <= ANSWER_MAX);
 
   async function submit() {
     if (!canSubmit) return;
@@ -123,13 +121,7 @@
   </label>
 
   <div class="flex flex-wrap items-center justify-end gap-2">
-    <Button
-      variant="outline"
-      size="sm"
-      type="button"
-      disabled={busy}
-      onclick={handleDismiss}
-    >
+    <Button variant="outline" size="sm" type="button" disabled={busy} onclick={handleDismiss}>
       {m.clarification_staff_dismissBtn()}
     </Button>
     <Button type="button" size="sm" disabled={!canSubmit} onclick={submit}>

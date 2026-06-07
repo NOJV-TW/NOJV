@@ -33,7 +33,7 @@
 
   let currentUrl = $derived(page.url);
   let tab = $derived<"public" | "mine">(
-    showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public"
+    showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public",
   );
 
   async function handleCreate(mode: "standard" | "advanced" = "standard") {
@@ -42,7 +42,7 @@
     try {
       const res = await fetchWithCsrf("/api/problems", {
         method: "POST",
-        body: JSON.stringify({ mode })
+        body: JSON.stringify({ mode }),
       });
       if (!res.ok) throw new Error("Failed to create problem");
       const body = (await res.json()) as { id: string; mode: "standard" | "advanced" };
@@ -78,7 +78,10 @@
     showDeleteConfirm = false;
     isDeleting = true;
     const fd = new FormData();
-    await fetch(`/problems/${deletingProblemId}/edit?/deleteProblem`, { method: "POST", body: fd });
+    await fetch(`/problems/${deletingProblemId}/edit?/deleteProblem`, {
+      method: "POST",
+      body: fd,
+    });
     isDeleting = false;
     deletingProblemId = null;
     await invalidateAll();
@@ -88,7 +91,8 @@
 <div class="flex flex-col gap-6">
   <div class="flex items-center gap-2">
     <button
-      class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab === 'public'
+      class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab ===
+      'public'
         ? 'border-primary bg-primary text-white'
         : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
       onclick={() => setTab("public")}
@@ -98,7 +102,8 @@
     </button>
     {#if showCreate}
       <button
-        class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab === 'mine'
+        class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab ===
+        'mine'
           ? 'border-primary bg-primary text-white'
           : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
         onclick={() => setTab("mine")}
@@ -110,7 +115,9 @@
         <Button
           disabled={creating}
           loading={creating}
-          onclick={() => { showCreateMenu = !showCreateMenu; }}
+          onclick={() => {
+            showCreateMenu = !showCreateMenu;
+          }}
           class="rounded-full"
         >
           <Plus class="size-4" aria-hidden="true" />
@@ -170,5 +177,8 @@
   cancelText={m.admin_cancel()}
   variant="danger"
   onconfirm={handleDeleteConfirmed}
-  oncancel={() => { showDeleteConfirm = false; deletingProblemId = null; }}
+  oncancel={() => {
+    showDeleteConfirm = false;
+    deletingProblemId = null;
+  }}
 />

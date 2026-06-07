@@ -33,7 +33,8 @@
         class="mb-1.5 inline-flex items-center gap-1 text-body-sm font-medium"
         for="role-filter"
       >
-        <Shield aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" /> {m.admin_usersRole()}
+        <Shield aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />
+        {m.admin_usersRole()}
       </label>
       <select
         id="role-filter"

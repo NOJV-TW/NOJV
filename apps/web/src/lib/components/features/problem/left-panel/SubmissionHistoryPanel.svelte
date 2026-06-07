@@ -35,7 +35,7 @@
   let {
     submissions = $bindable([]),
     viewingIndex = $bindable(null),
-    canRejudge = false
+    canRejudge = false,
   }: Props = $props();
 
   let loadingSourceId = $state<string | null>(null);
@@ -46,7 +46,7 @@
     rejudgingId = submissionId;
     try {
       const res = await fetchWithCsrf(`/api/submissions/${submissionId}/rejudge`, {
-        method: "POST"
+        method: "POST",
       });
       if (res.ok) {
         toasts.add({ type: "success", message: m.rejudge_toast_queuedSingle() });
@@ -89,7 +89,7 @@
         if (currentIdx === -1) return;
         submissions[currentIdx] = {
           ...submissions[currentIdx]!,
-          sourceCode: "// Failed to load source code."
+          sourceCode: "// Failed to load source code.",
         };
       })
       .finally(() => {
@@ -135,62 +135,64 @@
       {:else}
         {@const label = formatVerdictLabel(entry.result.verdict)}
         <div class="flex items-baseline gap-3">
-        <span
-          class="inline-block text-body-lg font-semibold motion-safe:animate-[verdict-pop_320ms_var(--ease-spring)_both] {verdictTone(
-            entry.result.verdict
-          )}"
-        >
-          {label}
-        </span>
-        {#if entry.result.runtimeMs > 0}
-          <span class="text-caption text-muted-foreground tabular-nums">
-            Runtime: {String(entry.result.runtimeMs)} ms
-          </span>
-        {/if}
-        {#if canRejudge && entry.id}
-          <button
-            class="ml-auto rounded-md border border-border px-2.5 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={rejudgingId === entry.id}
-            onclick={() => handleRejudge(entry.id!)}
-            type="button"
+          <span
+            class="inline-block text-body-lg font-semibold motion-safe:animate-[verdict-pop_320ms_var(--ease-spring)_both] {verdictTone(
+              entry.result.verdict,
+            )}"
           >
-            {m.rejudge_single_button()}
-          </button>
-        {/if}
-      </div>
-
-      <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
-        <span>{entry.language}</span>
-        <span class="tabular-nums">{String(entry.result.score)}/100</span>
-        <span class="tabular-nums">{formatSmartTimestamp(entry.submittedAt)}</span>
-      </div>
-
-      {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
-        <div class="mt-4">
-          <SubtaskResultTree subtaskResults={entry.result.subtaskResults} />
+            {label}
+          </span>
+          {#if entry.result.runtimeMs > 0}
+            <span class="text-caption text-muted-foreground tabular-nums">
+              Runtime: {String(entry.result.runtimeMs)} ms
+            </span>
+          {/if}
+          {#if canRejudge && entry.id}
+            <button
+              class="ml-auto rounded-md border border-border px-2.5 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={rejudgingId === entry.id}
+              onclick={() => handleRejudge(entry.id!)}
+              type="button"
+            >
+              {m.rejudge_single_button()}
+            </button>
+          {/if}
         </div>
-      {:else if entry.result.caseResults && entry.result.caseResults.length > 0}
-        <div class="mt-4">
-          <CaseResultGrid cases={entry.result.caseResults} />
-        </div>
-      {:else if entry.result.feedback}
-        <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
-          {entry.result.feedback}
-        </p>
-      {/if}
 
-      <div class="mt-5">
-        {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
-          <div class="flex items-center gap-2 rounded-md bg-muted px-4 py-3">
-            <div
-              class="size-4 animate-spin rounded-full border-2 border-border border-t-foreground"
-            ></div>
-            <span class="text-caption text-muted-foreground">{m.problemDetail_loadingSource()}</span>
+        <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
+          <span>{entry.language}</span>
+          <span class="tabular-nums">{String(entry.result.score)}/100</span>
+          <span class="tabular-nums">{formatSmartTimestamp(entry.submittedAt)}</span>
+        </div>
+
+        {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
+          <div class="mt-4">
+            <SubtaskResultTree subtaskResults={entry.result.subtaskResults} />
           </div>
-        {:else}
-          <CodeBlock code={entry.sourceCode ?? ""} language={entry.language} />
+        {:else if entry.result.caseResults && entry.result.caseResults.length > 0}
+          <div class="mt-4">
+            <CaseResultGrid cases={entry.result.caseResults} />
+          </div>
+        {:else if entry.result.feedback}
+          <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
+            {entry.result.feedback}
+          </p>
         {/if}
-      </div>
+
+        <div class="mt-5">
+          {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
+            <div class="flex items-center gap-2 rounded-md bg-muted px-4 py-3">
+              <div
+                class="size-4 animate-spin rounded-full border-2 border-border border-t-foreground"
+              ></div>
+              <span class="text-caption text-muted-foreground"
+                >{m.problemDetail_loadingSource()}</span
+              >
+            </div>
+          {:else}
+            <CodeBlock code={entry.sourceCode ?? ""} language={entry.language} />
+          {/if}
+        </div>
       {/if}
     </div>
   {:else}
@@ -207,7 +209,9 @@
                 {formatVerdictLabel(entry.result.verdict)}
               </span>
             {:else}
-              <span class="flex items-center gap-2 text-body-sm font-semibold text-muted-foreground">
+              <span
+                class="flex items-center gap-2 text-body-sm font-semibold text-muted-foreground"
+              >
                 <span
                   class="size-3.5 animate-spin rounded-full border-2 border-border border-t-foreground"
                   aria-hidden="true"

@@ -59,7 +59,7 @@
       const fd = new FormData();
       const res = await fetch(`/exams/${context.examId}?/releaseSession`, {
         method: "POST",
-        body: fd
+        body: fd,
       });
       if (!res.ok) {
         ending = false;
@@ -88,9 +88,7 @@
       <Lock class="size-[18px]" strokeWidth={1.75} aria-hidden="true" />
     </div>
     <div class="flex flex-col leading-tight">
-      <span
-        class="text-caption font-medium uppercase tracking-[0.06em] text-muted-foreground"
-      >
+      <span class="text-caption font-medium uppercase tracking-[0.06em] text-muted-foreground">
         {context.courseLabel}
       </span>
       <span class="mt-px text-body-lg font-medium tracking-[-0.01em]">
@@ -101,9 +99,7 @@
 
   <div class="flex items-center justify-center gap-6">
     <div class="flex items-baseline gap-2">
-      <span
-        class="text-caption font-semibold uppercase tracking-[0.1em] text-muted-foreground"
-      >
+      <span class="text-caption font-semibold uppercase tracking-[0.1em] text-muted-foreground">
         {m.examMode_countdownLabel()}
       </span>
       <span

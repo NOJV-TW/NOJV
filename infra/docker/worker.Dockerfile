@@ -1,4 +1,4 @@
-FROM node:26-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -41,7 +41,7 @@ RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/worker build
 
 # 3. Production image
-FROM node:26-bookworm-slim
+FROM node:24-bookworm-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends docker.io ca-certificates \

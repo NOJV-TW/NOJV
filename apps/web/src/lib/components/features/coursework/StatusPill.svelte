@@ -22,30 +22,62 @@
     "background: color-mix(in oklab, var(--info) 15%, transparent); color: oklch(0.45 0.12 230); border-color: color-mix(in oklab, var(--info) 32%, transparent);";
 
   const ASSIGNMENT: Record<string, Def> = {
-    not_started: { label: () => m.statusPill_assignment_notStarted(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE },
-    in_progress: { label: () => m.statusPill_assignment_inProgress(), cls: "", style: PRIMARY_STYLE },
+    not_started: {
+      label: () => m.statusPill_assignment_notStarted(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
+    in_progress: {
+      label: () => m.statusPill_assignment_inProgress(),
+      cls: "",
+      style: PRIMARY_STYLE,
+    },
     submitted: { label: () => m.statusPill_assignment_submitted(), cls: "", style: INFO_STYLE },
-    closed: { label: () => m.statusPill_assignment_closed(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE }
+    closed: {
+      label: () => m.statusPill_assignment_closed(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
   };
 
   const EXAM: Record<string, Def> = {
-    scheduled: { label: () => m.statusPill_exam_scheduled(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE },
+    scheduled: {
+      label: () => m.statusPill_exam_scheduled(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
     open: { label: () => m.statusPill_exam_open(), cls: "", style: PRIMARY_STYLE },
-    in_progress: { label: () => m.statusPill_exam_inProgress(), cls: "", style: DESTRUCTIVE_STYLE },
+    in_progress: {
+      label: () => m.statusPill_exam_inProgress(),
+      cls: "",
+      style: DESTRUCTIVE_STYLE,
+    },
     submitted: { label: () => m.statusPill_exam_submitted(), cls: "", style: INFO_STYLE },
-    ended: { label: () => m.statusPill_exam_ended(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE }
+    ended: {
+      label: () => m.statusPill_exam_ended(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
   };
 
   const CONTEST: Record<string, Def> = {
-    upcoming: { label: () => m.statusPill_contest_upcoming(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE },
+    upcoming: {
+      label: () => m.statusPill_contest_upcoming(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
     live: { label: () => "LIVE", cls: "", style: DESTRUCTIVE_STYLE },
-    ended: { label: () => m.statusPill_contest_ended(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE }
+    ended: {
+      label: () => m.statusPill_contest_ended(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
   };
 
   const MAPS: Record<CourseworkKind, Record<string, Def>> = {
     assignment: ASSIGNMENT,
     exam: EXAM,
-    contest: CONTEST
+    contest: CONTEST,
   };
 
   interface Props {
@@ -57,7 +89,11 @@
   let { status, type = "assignment", class: className }: Props = $props();
 
   const def = $derived<Def>(
-    MAPS[type][status] ?? { label: () => status, cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE }
+    MAPS[type][status] ?? {
+      label: () => status,
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
   );
 </script>
 
@@ -65,7 +101,7 @@
   class={cn(
     "inline-flex min-w-20 items-center justify-center gap-1.5 rounded-full border px-2.5 py-1 text-micro font-mono uppercase tracking-wider",
     def.cls,
-    className
+    className,
   )}
   style={def.style}
 >

@@ -33,7 +33,7 @@
     counts,
     showAnalytics,
     showSettings,
-    class: className
+    class: className,
   }: Props = $props();
 
   interface TabDef {
@@ -47,7 +47,7 @@
     key: CourseTabKey,
     label: string,
     href: string,
-    count: number | undefined
+    count: number | undefined,
   ): TabDef {
     return count === undefined ? { key, label, href } : { key, label, href, count };
   }
@@ -58,28 +58,18 @@
       "assignments",
       m.course_tabAssignments(),
       `/courses/${courseId}/assignments`,
-      counts?.assignments
+      counts?.assignments,
     ),
-    makeTab(
-      "exams",
-      m.course_tabExams(),
-      `/courses/${courseId}/exams`,
-      counts?.exams
-    ),
-    makeTab(
-      "members",
-      m.course_tabMembers(),
-      `/courses/${courseId}/members`,
-      counts?.members
-    ),
+    makeTab("exams", m.course_tabExams(), `/courses/${courseId}/exams`, counts?.exams),
+    makeTab("members", m.course_tabMembers(), `/courses/${courseId}/members`, counts?.members),
     ...(showAnalytics
       ? [
           makeTab(
             "analytics",
             m.course_tabAnalytics(),
             `/courses/${courseId}/analytics`,
-            undefined
-          )
+            undefined,
+          ),
         ]
       : []),
     ...(showSettings
@@ -88,10 +78,10 @@
             "settings",
             m.course_tabSettings(),
             `/courses/${courseId}/settings`,
-            undefined
-          )
+            undefined,
+          ),
         ]
-      : [])
+      : []),
   ]);
 </script>
 
@@ -100,7 +90,7 @@
   aria-label={m.course_tabBarLabel()}
   class={cn(
     "sticky top-[60px] z-10 mb-10 border-b border-border-subtle bg-[color:var(--color-background)]/90 backdrop-blur-md",
-    className
+    className,
   )}
 >
   <div class="flex items-center gap-1">
@@ -113,7 +103,7 @@
           "-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft",
           isActive
             ? "border-primary text-foreground"
-            : "border-transparent text-muted-foreground hover:text-foreground"
+            : "border-transparent text-muted-foreground hover:text-foreground",
         )}
       >
         <span>{tab.label}</span>
@@ -121,7 +111,9 @@
           <span
             class={cn(
               "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums",
-              isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground",
             )}
           >
             {tab.count}

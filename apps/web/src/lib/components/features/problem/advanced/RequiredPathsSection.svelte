@@ -136,12 +136,14 @@
             data-kind={isFolder(path) ? "folder" : "file"}
           >
             {#if isFolder(path)}
-              <Folder aria-hidden="true"
+              <Folder
+                aria-hidden="true"
                 class="h-4 w-4 text-muted-foreground"
                 aria-label={m.advancedRequiredPaths_folderBadge()}
               />
             {:else}
-              <FileText aria-hidden="true"
+              <FileText
+                aria-hidden="true"
                 class="h-4 w-4 text-muted-foreground"
                 aria-label={m.advancedRequiredPaths_fileBadge()}
               />

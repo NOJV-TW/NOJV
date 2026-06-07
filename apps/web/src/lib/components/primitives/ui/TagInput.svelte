@@ -39,9 +39,15 @@
   onkeydown={() => {}}
 >
   {#each tags as tag, index (tag)}
-    <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+    <span
+      class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+    >
       {tag}
-      <button class="ml-0.5 text-primary/60 hover:text-primary" onclick={() => remove(index)} type="button">&times;</button>
+      <button
+        class="ml-0.5 text-primary/60 hover:text-primary"
+        onclick={() => remove(index)}
+        type="button">&times;</button
+      >
     </span>
   {/each}
   <input

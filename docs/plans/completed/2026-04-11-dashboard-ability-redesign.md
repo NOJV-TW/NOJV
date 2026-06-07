@@ -282,10 +282,8 @@ Create `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` with exactly 
 
   function intensityClass(acCount: number): string {
     if (acCount <= 0) return "bg-[color:var(--muted)]/40";
-    if (acCount === 1)
-      return "bg-[color:color-mix(in_oklch,var(--chart-5)_30%,transparent)]";
-    if (acCount <= 3)
-      return "bg-[color:color-mix(in_oklch,var(--chart-5)_60%,transparent)]";
+    if (acCount === 1) return "bg-[color:color-mix(in_oklch,var(--chart-5)_30%,transparent)]";
+    if (acCount <= 3) return "bg-[color:color-mix(in_oklch,var(--chart-5)_60%,transparent)]";
     return "bg-[color:var(--chart-5)]";
   }
 
@@ -304,7 +302,7 @@ Create `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` with exactly 
       <Tooltip.Trigger>
         <div
           class="h-4 w-full rounded-[3px] transition-colors duration-fast sm:h-5 {intensityClass(
-            day.acCount
+            day.acCount,
           )}"
           role="img"
           aria-label={formatLabel(day)}
@@ -515,17 +513,13 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
   const acRate = $derived(
     stats.totalAttempts > 0
       ? ((stats.totalAc / stats.totalAttempts) * 100).toFixed(1) + "%"
-      : "0%"
+      : "0%",
   );
 
-  const practiceDays = $derived(
-    dailyActivity.filter((d) => d.submissionCount > 0).length
-  );
+  const practiceDays = $derived(dailyActivity.filter((d) => d.submissionCount > 0).length);
 
   const hasHeatmapData = $derived(dailyActivity.some((d) => d.acCount > 0));
-  const hasDifficultyData = $derived(
-    analytics.byDifficulty.some((d) => d.acCount > 0)
-  );
+  const hasDifficultyData = $derived(analytics.byDifficulty.some((d) => d.acCount > 0));
   const hasVerdictData = $derived(analytics.byVerdict.length > 0);
   const hasTagData = $derived(analytics.byTag.length > 0);
 
@@ -533,7 +527,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
   const difficultyColor: Record<string, string> = {
     easy: "#10b981",
     medium: "#f59e0b",
-    hard: "#ef4444"
+    hard: "#ef4444",
   };
 
   const difficultyOption: EChartsOption = $derived({
@@ -548,16 +542,16 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
         itemStyle: {
           borderRadius: 6,
           borderColor: "var(--color-panel)",
-          borderWidth: 2
+          borderWidth: 2,
         },
         label: { show: false },
         data: analytics.byDifficulty.map((d) => ({
           name: d.difficulty,
           value: d.acCount,
-          itemStyle: { color: difficultyColor[d.difficulty] }
-        }))
-      }
-    ]
+          itemStyle: { color: difficultyColor[d.difficulty] },
+        })),
+      },
+    ],
   });
 
   const verdictPalette: Record<string, string> = {
@@ -569,7 +563,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
     compile_error: "rgba(239, 68, 68, 0.35)",
     queued: "rgba(148, 163, 184, 0.5)",
     compiling: "rgba(148, 163, 184, 0.5)",
-    running: "rgba(148, 163, 184, 0.5)"
+    running: "rgba(148, 163, 184, 0.5)",
   };
 
   const verdictOption: EChartsOption = $derived({
@@ -579,7 +573,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
       left: "center",
       top: "34%",
       textStyle: { fontSize: 26, fontWeight: 600 },
-      subtextStyle: { fontSize: 12 }
+      subtextStyle: { fontSize: 12 },
     },
     tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
     legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
@@ -592,7 +586,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
         itemStyle: {
           borderRadius: 6,
           borderColor: "var(--color-panel)",
-          borderWidth: 2
+          borderWidth: 2,
         },
         label: { show: false },
         data: analytics.byVerdict.map((v) => ({
@@ -600,11 +594,11 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
           value: v.count,
           itemStyle: {
             color: verdictPalette[v.status] ?? "rgba(100, 116, 139, 0.5)",
-            borderWidth: v.status === "accepted" ? 3 : 2
-          }
-        }))
-      }
-    ]
+            borderWidth: v.status === "accepted" ? 3 : 2,
+          },
+        })),
+      },
+    ],
   });
 
   const tagOption: EChartsOption = $derived({
@@ -615,16 +609,16 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
       type: "category",
       inverse: true,
       data: analytics.byTag.map((g) => g.tag),
-      axisLabel: { fontSize: 12 }
+      axisLabel: { fontSize: 12 },
     },
     series: [
       {
         type: "bar",
         data: analytics.byTag.map((g) => g.acCount),
         itemStyle: { color: "var(--chart-3)", borderRadius: [0, 4, 4, 0] },
-        barMaxWidth: 18
-      }
-    ]
+        barMaxWidth: 18,
+      },
+    ],
   });
 
   function verdictToBadgeVariant(status: string): BadgeVariant {
@@ -737,11 +731,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
       {#if hasTagData}
         <EChart option={tagOption} class="h-64 w-full" />
       {:else}
-        <EmptyState
-          variant="minimal"
-          icon={PieChart}
-          title={m.dashboard_noTagData()}
-        />
+        <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
       {/if}
     </Card>
 
@@ -753,11 +743,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
         {#if hasDifficultyData}
           <EChart option={difficultyOption} class="h-56 w-full" />
         {:else}
-          <EmptyState
-            variant="minimal"
-            icon={PieChart}
-            title={m.dashboard_noTagData()}
-          />
+          <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
         {/if}
       </Card>
 
@@ -768,11 +754,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
         {#if hasVerdictData}
           <EChart option={verdictOption} class="h-56 w-full" />
         {:else}
-          <EmptyState
-            variant="minimal"
-            icon={PieChart}
-            title={m.dashboard_noTagData()}
-          />
+          <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
         {/if}
       </Card>
     </div>
@@ -787,18 +769,13 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
       <ul class="space-y-3">
         {#each data.recentSubmissions.slice(0, 5) as sub (sub.id)}
           <li class="flex items-center gap-3 text-body-sm">
-            <time
-              class="shrink-0 text-caption text-muted-foreground tabular-nums"
-            >
+            <time class="shrink-0 text-caption text-muted-foreground tabular-nums">
               {timeAgo(sub.createdAt)}
             </time>
             <Badge variant={verdictToBadgeVariant(sub.status)} size="sm">
               {formatVerdictLabel(sub.status)}
             </Badge>
-            <a
-              href="/problems/{sub.problem.id}"
-              class="truncate hover:underline"
-            >
+            <a href="/problems/{sub.problem.id}" class="truncate hover:underline">
               {sub.problem.title}
             </a>
             <span class="shrink-0 text-caption text-muted-foreground">

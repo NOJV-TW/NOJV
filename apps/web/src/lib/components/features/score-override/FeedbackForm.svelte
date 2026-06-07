@@ -32,14 +32,14 @@
     problems,
     existing = null,
     onsuccess,
-    oncancel
+    oncancel,
   }: Props = $props();
 
   let studentUserId = $state<string>(
-    ((): string => existing?.studentUserId ?? students[0]?.id ?? "")()
+    ((): string => existing?.studentUserId ?? students[0]?.id ?? "")(),
   );
   let problemId = $state<string>(
-    ((): string => existing?.problemId ?? problems[0]?.id ?? "")()
+    ((): string => existing?.problemId ?? problems[0]?.id ?? "")(),
   );
   let comment = $state<string>(((): string => existing?.comment ?? "")());
   let submitting = $state(false);
@@ -72,7 +72,7 @@
       const res = await fetch("/api/feedback", {
         method: "PUT",
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
-        body: JSON.stringify({ context, studentUserId, problemId, comment })
+        body: JSON.stringify({ context, studentUserId, problemId, comment }),
       });
 
       if (res.ok) {
@@ -81,7 +81,7 @@
           message:
             mode === "create"
               ? m.feedback_staff_toastCreated()
-              : m.feedback_staff_toastUpdated()
+              : m.feedback_staff_toastUpdated(),
         });
         if (mode === "create") {
           studentUserId = students[0]?.id ?? "";
@@ -187,9 +187,7 @@
       </Button>
     {/if}
     <Button type="submit" size="sm" loading={submitting} disabled={submitting}>
-      {mode === "create"
-        ? m.feedback_staff_submitCreate()
-        : m.feedback_staff_submitUpdate()}
+      {mode === "create" ? m.feedback_staff_submitCreate() : m.feedback_staff_submitUpdate()}
     </Button>
   </div>
 </form>

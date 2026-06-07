@@ -32,10 +32,7 @@
     <ul class="flex flex-col divide-y divide-border-subtle">
       {#each problems as p (p.id)}
         <li class="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
-          <a
-            class="text-body-sm font-medium hover:underline"
-            href="/problems/{p.id}"
-          >
+          <a class="text-body-sm font-medium hover:underline" href="/problems/{p.id}">
             {p.title}
           </a>
           <span
@@ -60,10 +57,6 @@
       {/each}
     </ul>
   {:else}
-    <EmptyState
-      variant="minimal"
-      icon={Lightbulb}
-      title={m.dashboard_suggestionsEmpty()}
-    />
+    <EmptyState variant="minimal" icon={Lightbulb} title={m.dashboard_suggestionsEmpty()} />
   {/if}
 </Card>

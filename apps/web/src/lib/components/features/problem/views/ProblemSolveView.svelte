@@ -6,7 +6,7 @@
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
-    ProblemTestcaseSetSummary
+    ProblemTestcaseSetSummary,
   } from "$lib/types";
   import AdvancedModeWorkspace from "../advanced/AdvancedModeWorkspace.svelte";
   import MobileWorkspaceBlocker from "../layouts/MobileWorkspaceBlocker.svelte";
@@ -72,7 +72,7 @@
     virtualContestId,
     dailyAttempts,
     siblingProblems,
-    examContext: _examContext
+    examContext: _examContext,
   }: Props = $props();
 
   let endedNotice = $derived(
@@ -80,15 +80,14 @@
       ? m.assignment_endedNotice()
       : endedKind === "exam"
         ? m.exam_endedNotice()
-        : null
+        : null,
   );
 
   let hasSiblings = $derived((siblingProblems?.length ?? 0) > 0);
 
   let solvedCount = $derived(
-    siblingProblems?.filter(
-      (s) => s.bestScore !== undefined && s.bestScore >= s.maxScore
-    ).length ?? 0
+    siblingProblems?.filter((s) => s.bestScore !== undefined && s.bestScore >= s.maxScore)
+      .length ?? 0,
   );
 
   $effect(() => {
@@ -104,7 +103,7 @@
         handler: () => {
           const target = sibs[activeIndex - 1];
           if (target) void goto(target.href);
-        }
+        },
       }),
       shortcuts.register({
         id: "problem-next",
@@ -114,8 +113,8 @@
         handler: () => {
           const target = sibs[activeIndex + 1];
           if (target) void goto(target.href);
-        }
-      })
+        },
+      }),
     ];
     return () => {
       for (const off of offs) off();
@@ -144,7 +143,6 @@
       <ProblemSwitcherDrawer siblings={siblingProblems} {solvedCount} />
     {/if}
 
-    
     <div class="flex min-h-0 min-w-0 flex-1 {hasSiblings ? 'pl-6' : ''}">
       {#if problem.type === "special_env"}
         <AdvancedModeWorkspace

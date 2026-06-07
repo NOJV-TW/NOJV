@@ -47,14 +47,16 @@
   const totalPoints = $derived(assignment.myStatus?.totalPoints ?? 0);
   const status = $derived(pillStatus(assignment.status));
   const showScore = $derived(
-    assignment.classStats === null && assignment.status !== "upcoming" && assignment.status !== "draft"
+    assignment.classStats === null &&
+      assignment.status !== "upcoming" &&
+      assignment.status !== "draft",
   );
 
   const countdown = $derived(
-    assignment.closesAt ? fmtCountdown(diffMs(assignment.closesAt, new Date(now))) : null
+    assignment.closesAt ? fmtCountdown(diffMs(assignment.closesAt, new Date(now))) : null,
   );
   const urgent = $derived(
-    !!countdown && !countdown.past && countdown.d < 2 && assignment.status === "open"
+    !!countdown && !countdown.past && countdown.d < 2 && assignment.status === "open",
   );
 
   const isManagerRow = $derived(assignment.classStats !== null);
@@ -108,7 +110,10 @@
     </div>
   </div>
 
-  <div class="mt-5 pt-4 border-t flex items-center justify-between" style="border-color: var(--border-subtle);">
+  <div
+    class="mt-5 pt-4 border-t flex items-center justify-between"
+    style="border-color: var(--border-subtle);"
+  >
     <StatusPill {status} type="assignment" />
     <div class="text-right">
       <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">

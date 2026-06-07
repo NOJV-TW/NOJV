@@ -42,7 +42,7 @@
     errors: nameErrors,
     enhance: nameEnhance,
     message: nameMessage,
-    submitting: nameSubmitting
+    submitting: nameSubmitting,
   } = superForm<typeof data.nameForm.data, FormMessage>(
     untrack(() => data.nameForm),
     {
@@ -53,8 +53,8 @@
           toasts.success(m.account_nameUpdated());
           editingName = false;
         }
-      }
-    }
+      },
+    },
   );
 
   function cancelNameEdit() {
@@ -63,7 +63,7 @@
   }
 
   const nameErrorText = $derived(
-    $nameMessage?.kind === "error" ? mapCode($nameMessage.text) : null
+    $nameMessage?.kind === "error" ? mapCode($nameMessage.text) : null,
   );
 
   const {
@@ -71,7 +71,7 @@
     errors: usernameErrors,
     enhance: usernameEnhance,
     message: usernameMessage,
-    submitting: usernameSubmitting
+    submitting: usernameSubmitting,
   } = superForm<typeof data.usernameForm.data, FormMessage>(
     untrack(() => data.usernameForm),
     {
@@ -86,8 +86,8 @@
           }
           editingUsername = false;
         }
-      }
-    }
+      },
+    },
   );
 
   function cancelUsernameEdit() {
@@ -96,7 +96,7 @@
   }
 
   const usernameErrorText = $derived(
-    $usernameMessage?.kind === "error" ? mapCode($usernameMessage.text) : null
+    $usernameMessage?.kind === "error" ? mapCode($usernameMessage.text) : null,
   );
 
   const usernameLockReason = $derived(
@@ -104,7 +104,7 @@
       ? null
       : data.isSchoolVerified
         ? m.account_usernameLockedByVerification()
-        : m.account_usernameLockedByPlaceholder()
+        : m.account_usernameLockedByPlaceholder(),
   );
 </script>
 

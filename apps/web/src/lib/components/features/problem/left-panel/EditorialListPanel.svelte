@@ -37,7 +37,7 @@
 
   const viewerUsername = $derived(page.data.user?.username ?? null);
   const selectedEditorial = $derived(
-    selectedId === null ? null : (editorials.find((e) => e.id === selectedId) ?? null)
+    selectedId === null ? null : (editorials.find((e) => e.id === selectedId) ?? null),
   );
 
   function displayTitle(editorial: ProblemEditorialEntry): string {
@@ -61,7 +61,7 @@
     try {
       const res = await fetchWithCsrf(`/api/editorials/${editorialId}/reports`, {
         method: "POST",
-        body: JSON.stringify({ reason: reportReason.trim() })
+        body: JSON.stringify({ reason: reportReason.trim() }),
       });
       if (res.ok) {
         reportingId = null;
@@ -85,14 +85,14 @@
     try {
       const res = await fetchWithCsrf(`/api/editorials/${editorial.id}/votes`, {
         method: "POST",
-        body: JSON.stringify({ value })
+        body: JSON.stringify({ value }),
       });
       if (res.ok) {
         const result: { score: number; viewerVote: number } = await res.json();
         editorials = editorials.map((e) =>
           e.id === editorial.id
             ? { ...e, voteScore: result.score, viewerVote: result.viewerVote }
-            : e
+            : e,
         );
       } else {
         const body = await res.json().catch(() => null);
@@ -106,11 +106,9 @@
   }
 
   const editorialLanguageId = $derived(
-    `editorial-language${formIdSuffix ? `-${formIdSuffix}` : ""}`
+    `editorial-language${formIdSuffix ? `-${formIdSuffix}` : ""}`,
   );
-  const editorialTitleId = $derived(
-    `editorial-title${formIdSuffix ? `-${formIdSuffix}` : ""}`
-  );
+  const editorialTitleId = $derived(`editorial-title${formIdSuffix ? `-${formIdSuffix}` : ""}`);
 
   async function loadEditorials() {
     if (editorialsLoading) return;
@@ -135,8 +133,8 @@
         body: JSON.stringify({
           title: editorialTitle.trim(),
           content: editorialContent,
-          language: editorialLanguage
-        })
+          language: editorialLanguage,
+        }),
       });
       if (res.ok) {
         showEditorialForm = false;
@@ -169,8 +167,7 @@
     </div>
   {:else if selectedEditorial}
     {@const editorial = selectedEditorial}
-    {@const isOwn =
-      viewerUsername !== null && editorial.user.username === viewerUsername}
+    {@const isOwn = viewerUsername !== null && editorial.user.username === viewerUsername}
     <button
       class="mb-4 inline-flex items-center gap-1.5 text-caption font-medium text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
       onclick={() => (selectedId = null)}
@@ -214,7 +211,8 @@
         <h2 class="text-body-md font-semibold leading-snug">{displayTitle(editorial)}</h2>
         <div class="mt-1 flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
           <span>{m.editorials_by()} {editorial.user.name ?? editorial.user.username}</span>
-          <span class="rounded-full bg-muted px-2 py-0.5 font-medium">{editorial.language}</span>
+          <span class="rounded-full bg-muted px-2 py-0.5 font-medium">{editorial.language}</span
+          >
           <span class="tabular-nums">{formatDate(editorial.createdAt)}</span>
           {#if !isOwn}
             <button
@@ -347,7 +345,9 @@
                 class="flex w-9 shrink-0 flex-col items-center rounded-md bg-muted px-1 py-1.5"
               >
                 <ChevronUp aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />
-                <span class="text-caption font-semibold tabular-nums">{editorial.voteScore}</span>
+                <span class="text-caption font-semibold tabular-nums"
+                  >{editorial.voteScore}</span
+                >
               </span>
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-body-sm font-medium text-foreground">

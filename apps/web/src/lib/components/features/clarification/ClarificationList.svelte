@@ -24,12 +24,14 @@
   const counts = $derived({
     pending: store.items.filter((i) => i.state === "pending").length,
     answered: store.items.filter((i) => i.state === "answered").length,
-    dismissed: store.items.filter((i) => i.state === "dismissed").length
+    dismissed: store.items.filter((i) => i.state === "dismissed").length,
   });
 </script>
 
 <div class="space-y-4">
-  <div class="flex flex-wrap items-center gap-4 text-caption text-muted-foreground tabular-nums">
+  <div
+    class="flex flex-wrap items-center gap-4 text-caption text-muted-foreground tabular-nums"
+  >
     <span>{m.clarification_count_pending({ count: counts.pending })}</span>
     <span>{m.clarification_count_answered({ count: counts.answered })}</span>
     <span>{m.clarification_count_dismissed({ count: counts.dismissed })}</span>

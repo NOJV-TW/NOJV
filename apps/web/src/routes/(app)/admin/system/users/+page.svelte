@@ -25,11 +25,11 @@
 </script>
 
 <PageContainer class="space-y-4">
-<PageHeader
-  eyebrow={m.admin_eyebrow()}
-  title={m.admin_usersTitle()}
-  description={`${m.admin_usersFound({ count: data.totalCount })} · ${m.admin_usersPageOf({ page: data.page, totalPages: data.totalPages })}`}
-/>
+  <PageHeader
+    eyebrow={m.admin_eyebrow()}
+    title={m.admin_usersTitle()}
+    description={`${m.admin_usersFound({ count: data.totalCount })} · ${m.admin_usersPageOf({ page: data.page, totalPages: data.totalPages })}`}
+  />
 
   <FilterBar bind:search={searchValue} bind:role={roleValue} onApply={applyFilters} />
 

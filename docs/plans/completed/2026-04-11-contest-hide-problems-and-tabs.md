@@ -690,11 +690,7 @@ Find the current problems section (`{#each contest.problems as p (p.id)}` at ~li
         </Card>
       </a>
     {:else}
-      <Card
-        variant="flat"
-        size="md"
-        class="flex-row items-center justify-between opacity-60"
-      >
+      <Card variant="flat" size="md" class="flex-row items-center justify-between opacity-60">
         <div class="flex items-center gap-3">
           <span
             class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground"

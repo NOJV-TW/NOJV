@@ -6,7 +6,11 @@
 
   let endedKind = $derived.by(() => {
     const e = page.url.searchParams.get("ended");
-    return e === "exam" ? ("exam" as const) : e === "assignment" ? ("assignment" as const) : undefined;
+    return e === "exam"
+      ? ("exam" as const)
+      : e === "assignment"
+        ? ("assignment" as const)
+        : undefined;
   });
 </script>
 

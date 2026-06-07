@@ -11,7 +11,7 @@
     "SEP",
     "OCT",
     "NOV",
-    "DEC"
+    "DEC",
   ] as const;
 
   function pad2(n: number): string {
@@ -92,14 +92,18 @@
           <span class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
             >{m.examRow_durationLabel()}</span
           >
-          <span class="font-mono">{m.examDetail_durationMinutes({ count: exam.durationMinutes })}</span>
+          <span class="font-mono"
+            >{m.examDetail_durationMinutes({ count: exam.durationMinutes })}</span
+          >
         </span>
         <span class="inline-flex items-baseline gap-1.5">
           <span class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
             >{m.examRow_scoringLabel()}</span
           >
           <span class="font-mono"
-            >{exam.scoringMode === "point_sum" ? m.examRow_scoringPointSum() : m.examRow_scoringProblemCount()}</span
+            >{exam.scoringMode === "point_sum"
+              ? m.examRow_scoringPointSum()
+              : m.examRow_scoringProblemCount()}</span
           >
         </span>
       </div>

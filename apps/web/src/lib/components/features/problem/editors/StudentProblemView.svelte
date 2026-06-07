@@ -48,7 +48,6 @@
 </script>
 
 <div bind:this={layoutContainer} class="absolute inset-0 flex">
-  
   <aside
     class="shrink-0 overflow-y-auto bg-[color:var(--color-panel)] p-2"
     style="width: {filesWidth}px"
@@ -70,7 +69,8 @@
             onclick={() => onselect(index)}
           >
             <span class="truncate font-mono text-caption">
-              {#if file.visibility === 'hidden'}🔒 {/if}{file.path}
+              {#if file.visibility === "hidden"}🔒
+              {/if}{file.path}
             </span>
             <span
               class="ml-2 px-1.5 py-0.5 text-micro font-medium uppercase tracking-wide {file.visibility ===
@@ -80,9 +80,9 @@
                   ? 'bg-warning/15 text-warning'
                   : 'bg-muted text-muted-foreground'}"
             >
-              {file.visibility === 'editable'
+              {file.visibility === "editable"
                 ? m.workspace_visibilityEditable()
-                : file.visibility === 'hidden'
+                : file.visibility === "hidden"
                   ? m.workspace_visibilityHidden()
                   : m.workspace_visibilityReadonly()}
             </span>
@@ -115,18 +115,18 @@
   <div class="flex min-w-0 flex-1 flex-col">
     {#if selectedFile}
       {@const file = selectedFile}
-      {#if file.visibility !== 'hidden' && file.description !== ''}
+      {#if file.visibility !== "hidden" && file.description !== ""}
         <p class="border-b border-border-subtle px-3 py-2 text-caption text-muted-foreground">
           {file.description}
         </p>
       {/if}
       <div class="min-h-0 flex-1">
-        {#if file.visibility === 'hidden'}
+        {#if file.visibility === "hidden"}
           <div class="flex h-full flex-col gap-3 overflow-y-auto px-6 py-6">
             <h3 class="text-body-sm font-semibold text-foreground">
               {m.workspace_fileHidden()}
             </h3>
-            {#if file.description !== ''}
+            {#if file.description !== ""}
               <div
                 class="max-w-prose whitespace-pre-wrap border border-border-subtle bg-muted/40 px-4 py-3 text-body-sm text-muted-foreground"
               >

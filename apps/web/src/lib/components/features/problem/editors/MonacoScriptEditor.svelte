@@ -94,8 +94,4 @@
   });
 </script>
 
-<div
-  bind:this={editorContainer}
-  class="h-full w-full overflow-hidden"
-  style:height
-></div>
+<div bind:this={editorContainer} class="h-full w-full overflow-hidden" style:height></div>

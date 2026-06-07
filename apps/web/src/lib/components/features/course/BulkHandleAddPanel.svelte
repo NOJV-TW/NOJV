@@ -24,13 +24,13 @@
     errors,
     enhance,
     message: formMessage,
-    submitting
+    submitting,
   } = superForm<BulkAddForm, FormMessage>(
     untrack(() => initialForm),
     {
       resetForm: true,
-      invalidateAll: true
-    }
+      invalidateAll: true,
+    },
   );
 
   const previewHandles = $derived.by(() => {
@@ -57,9 +57,7 @@
   ></div>
 
   <div class="relative">
-    <h2
-      class="flex items-center gap-2.5 text-title-sm font-medium tracking-[-0.01em]"
-    >
+    <h2 class="flex items-center gap-2.5 text-title-sm font-medium tracking-[-0.01em]">
       <span class="text-primary" aria-hidden="true">
         <UserPlus aria-hidden="true" class="h-5 w-5" />
       </span>
@@ -108,9 +106,7 @@
           <div
             class="mt-3 flex flex-wrap gap-1.5 rounded-md border border-primary/20 bg-primary/5 p-3"
           >
-            <span
-              class="mb-1 w-full text-caption font-semibold text-muted-foreground"
-            >
+            <span class="mb-1 w-full text-caption font-semibold text-muted-foreground">
               {m.members_previewLabel({ count: previewHandles.length })}
             </span>
             {#each previewHandles as handle (handle)}

@@ -47,7 +47,7 @@
     onAddFile,
     onUpdateFile,
     onDeleteFile,
-    onUploadFile
+    onUploadFile,
   }: Props = $props();
 </script>
 
@@ -64,7 +64,7 @@
     >
       <p class="font-semibold">
         {m.admin_workspaceMissingTemplatesBanner({
-          languages: missingEntryLanguages.join(", ")
+          languages: missingEntryLanguages.join(", "),
         })}
       </p>
       <p class="mt-0.5 text-warning/80">{m.admin_workspaceMissingTemplatesPrompt()}</p>
@@ -78,7 +78,9 @@
       {m.admin_workspaceNoLanguagesSelected()}
     </div>
   {:else}
-    <div class="mt-4 -mx-1 flex flex-wrap items-center gap-1 border-b border-border-subtle pb-2">
+    <div
+      class="mt-4 -mx-1 flex flex-wrap items-center gap-1 border-b border-border-subtle pb-2"
+    >
       {#each allowedLanguages as lang (lang)}
         {@const isActive = lang === activeLang}
         {@const needsTemplate = mode === "multi_file" && !hasEntryFileForLanguage(lang)}
@@ -140,7 +142,7 @@
             {#if mode === "multi_file"}
               {m.admin_workspaceEmptyMultiFile({
                 language: activeLang,
-                filename: activeEntryFileName
+                filename: activeEntryFileName,
               })}
             {:else}
               {m.admin_workspaceEmptyFullSource({ language: activeLang })}

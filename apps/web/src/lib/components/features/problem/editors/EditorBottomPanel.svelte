@@ -25,7 +25,7 @@
     runResult,
     runStatus,
     runError,
-    ontabchange
+    ontabchange,
   }: Props = $props();
 
   const uid = $props.id();
@@ -53,9 +53,7 @@
     selectedResultCase = 0;
   });
 
-  let runVerdictLabel = $derived(
-    runResult ? formatVerdictLabel(runResult.verdict) : undefined
-  );
+  let runVerdictLabel = $derived(runResult ? formatVerdictLabel(runResult.verdict) : undefined);
 </script>
 
 <div class="flex h-full flex-col">
@@ -108,79 +106,79 @@
           {m.editor_runCasesDisabled()}
         </p>
       {:else}
-      <div>
-        <div class="flex items-center gap-1">
-          {#each runCases as _, index (`tab-${index}`)}
-            <div
-              class="group flex items-center rounded-md transition-[background-color] duration-fast ease-out-soft {selectedCase ===
-              index
-                ? 'bg-muted text-foreground'
-                : 'text-muted-foreground'}"
-            >
-              <button
-                class="rounded-md px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
-                onclick={() => (selectedCase = index)}
-                type="button"
+        <div>
+          <div class="flex items-center gap-1">
+            {#each runCases as _, index (`tab-${index}`)}
+              <div
+                class="group flex items-center rounded-md transition-[background-color] duration-fast ease-out-soft {selectedCase ===
+                index
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground'}"
               >
-                {m.editor_case({ index: index + 1 })}
-              </button>
-              {#if runCases.length > 1}
                 <button
-                  class="mr-1 rounded text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                  class="rounded-md px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
+                  onclick={() => (selectedCase = index)}
                   type="button"
-                  aria-label={m.editor_removeCase({ index: index + 1 })}
-                  onclick={() => {
-                    runCases = runCases.filter((_, i) => i !== index);
-                    selectedCase = Math.min(selectedCase, runCases.length - 1);
-                  }}
                 >
-                  &times;
+                  {m.editor_case({ index: index + 1 })}
                 </button>
-              {/if}
-            </div>
-          {/each}
-          <button
-            class="rounded-md px-2 py-1 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
-            onclick={() => {
-              runCases = [...runCases, { input: "", expectedOutput: "" }];
-              selectedCase = runCases.length - 1;
-            }}
-            type="button"
-          >
-            +
-          </button>
-        </div>
+                {#if runCases.length > 1}
+                  <button
+                    class="mr-1 rounded text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                    type="button"
+                    aria-label={m.editor_removeCase({ index: index + 1 })}
+                    onclick={() => {
+                      runCases = runCases.filter((_, i) => i !== index);
+                      selectedCase = Math.min(selectedCase, runCases.length - 1);
+                    }}
+                  >
+                    &times;
+                  </button>
+                {/if}
+              </div>
+            {/each}
+            <button
+              class="rounded-md px-2 py-1 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
+              onclick={() => {
+                runCases = [...runCases, { input: "", expectedOutput: "" }];
+                selectedCase = runCases.length - 1;
+              }}
+              type="button"
+            >
+              +
+            </button>
+          </div>
 
-        <div class="mt-3">
-          <p class="text-caption text-muted-foreground">{m.editor_input()}</p>
-          <textarea
-            class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
-            oninput={(e) => {
-              const val = (e.target as HTMLTextAreaElement).value;
-              runCases = runCases.map((tc, i) =>
-                i === selectedCase ? { ...tc, input: val } : tc
-              );
-            }}
-            rows={3}
-            value={runCases[selectedCase]?.input ?? ""}
-          ></textarea>
-        </div>
+          <div class="mt-3">
+            <p class="text-caption text-muted-foreground">{m.editor_input()}</p>
+            <textarea
+              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
+              oninput={(e) => {
+                const val = (e.target as HTMLTextAreaElement).value;
+                runCases = runCases.map((tc, i) =>
+                  i === selectedCase ? { ...tc, input: val } : tc,
+                );
+              }}
+              rows={3}
+              value={runCases[selectedCase]?.input ?? ""}
+            ></textarea>
+          </div>
 
-        <div class="mt-3">
-          <p class="text-caption text-muted-foreground">{m.editor_expectLabel()}</p>
-          <textarea
-            class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
-            oninput={(e) => {
-              const val = (e.target as HTMLTextAreaElement).value;
-              runCases = runCases.map((tc, i) =>
-                i === selectedCase ? { ...tc, expectedOutput: val } : tc
-              );
-            }}
-            rows={2}
-            value={runCases[selectedCase]?.expectedOutput ?? ""}
-          ></textarea>
+          <div class="mt-3">
+            <p class="text-caption text-muted-foreground">{m.editor_expectLabel()}</p>
+            <textarea
+              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
+              oninput={(e) => {
+                const val = (e.target as HTMLTextAreaElement).value;
+                runCases = runCases.map((tc, i) =>
+                  i === selectedCase ? { ...tc, expectedOutput: val } : tc,
+                );
+              }}
+              rows={2}
+              value={runCases[selectedCase]?.expectedOutput ?? ""}
+            ></textarea>
+          </div>
         </div>
-      </div>
       {/if}
     {:else}
       <div>
@@ -189,7 +187,7 @@
             <div class="flex items-baseline gap-3">
               <span
                 class="inline-block text-body-lg font-semibold motion-safe:animate-[verdict-pop_320ms_var(--ease-spring)_both] {verdictTone(
-                  runResult.verdict
+                  runResult.verdict,
                 )}"
               >
                 {runVerdictLabel}
@@ -223,22 +221,31 @@
               <div class="mt-3 space-y-3">
                 {#if runCases[selectedResultCase]}
                   <div>
-                    <p class="text-caption font-medium text-muted-foreground">{m.editor_input()}</p>
+                    <p class="text-caption font-medium text-muted-foreground">
+                      {m.editor_input()}
+                    </p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.input}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[
+                        selectedResultCase
+                      ]!.input}</pre>
                   </div>
                 {/if}
 
                 {#if runResult.caseResults[selectedResultCase]}
                   {@const caseData = runResult.caseResults[selectedResultCase]!}
                   <div>
-                    <p class="text-caption font-medium text-muted-foreground">{m.editor_outputLabel()}</p>
+                    <p class="text-caption font-medium text-muted-foreground">
+                      {m.editor_outputLabel()}
+                    </p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || m.common_emptyOutput()}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout ||
+                        m.common_emptyOutput()}</pre>
                   </div>
                   {#if caseData.stderr}
                     <div>
-                      <p class="text-caption font-medium text-destructive">{m.submissionDetail_stderr()}</p>
+                      <p class="text-caption font-medium text-destructive">
+                        {m.submissionDetail_stderr()}
+                      </p>
                       <pre
                         class="mt-1 overflow-x-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{caseData.stderr}</pre>
                     </div>
@@ -251,7 +258,9 @@
                       {m.editor_expectLabel()}
                     </p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.expectedOutput}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[
+                        selectedResultCase
+                      ]!.expectedOutput}</pre>
                   </div>
                 {/if}
               </div>

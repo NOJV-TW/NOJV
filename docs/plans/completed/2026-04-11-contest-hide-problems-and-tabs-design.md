@@ -144,7 +144,7 @@ The one tweak to the existing section: where the current code computes
 change to
 
 ```svelte
-{@const href = (isActive || data.isManager) ? `/contests/${contest.slug}/problems/${p.id}` : null}
+{@const href = isActive || data.isManager ? `/contests/${contest.slug}/problems/${p.id}` : null}
 ```
 
 This lets a manager click through to the problem page before start, matching §3.

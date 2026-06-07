@@ -9,7 +9,10 @@
   useGlobalShortcuts();
 
   onNavigate((navigation) => {
-    if (!document.startViewTransition || navigation.to?.route.id === navigation.from?.route.id) {
+    if (
+      !document.startViewTransition ||
+      navigation.to?.route.id === navigation.from?.route.id
+    ) {
       return;
     }
     return new Promise((resolve) => {

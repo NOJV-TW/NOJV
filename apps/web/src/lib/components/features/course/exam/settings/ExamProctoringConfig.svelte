@@ -22,23 +22,17 @@
     {m.examDetail_settingsSectionProctoring()}
   </h3>
   <div class="space-y-4">
-    <label
-      class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}"
-    >
+    <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
       <input type="checkbox" bind:checked={$form.pageLockEnabled} disabled={!editable} />
       {m.examDetail_settingsPageLockLabel()}
     </label>
 
-    <label
-      class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}"
-    >
+    <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
       <input type="checkbox" bind:checked={$form.ipBindingEnabled} disabled={!editable} />
       {m.examDetail_settingsIpBindingLabel()}
     </label>
 
-    <label
-      class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}"
-    >
+    <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
       <input type="checkbox" bind:checked={$form.ipWhitelistEnabled} disabled={!editable} />
       {m.examDetail_settingsIpWhitelistEnabledLabel()}
     </label>

@@ -13,7 +13,9 @@
 
   let { data, children }: Props = $props();
 
-  const activeTabKey = $derived<CourseTabKey>(deriveActiveTab(page.url.pathname, data.course.id));
+  const activeTabKey = $derived<CourseTabKey>(
+    deriveActiveTab(page.url.pathname, data.course.id),
+  );
 
   function deriveActiveTab(pathname: string, courseId: string): CourseTabKey {
     const prefix = `/courses/${courseId}`;
