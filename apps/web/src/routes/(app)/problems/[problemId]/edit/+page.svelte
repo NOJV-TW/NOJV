@@ -39,31 +39,29 @@
 
   let imageRef = $state<string>(untrack(() => data.imageConfig?.ref ?? ""));
   let imageSource = $state<ProblemImageSource>(
-    untrack(() => data.imageConfig?.source ?? "registry")
+    untrack(() => data.imageConfig?.source ?? "registry"),
   );
   let advancedTimeLimitMs = $state<number>(
-    untrack(() => data.imageConfig?.timeLimitMs ?? 30_000)
+    untrack(() => data.imageConfig?.timeLimitMs ?? 30_000),
   );
   let advancedMemoryLimitMb = $state<number>(
-    untrack(() => data.imageConfig?.memoryLimitMb ?? 1_024)
+    untrack(() => data.imageConfig?.memoryLimitMb ?? 1_024),
   );
 
-  let requiredPaths = $state<string[]>(
-    untrack(() => data.problem.advancedRequiredPaths ?? [])
-  );
+  let requiredPaths = $state<string[]>(untrack(() => data.problem.advancedRequiredPaths ?? []));
 
   let isBasicInfoComplete = $derived(
     data.problem.title !== "Untitled Problem" &&
-    data.problem.statement !== "" &&
-    data.problem.inputFormat !== "" &&
-    data.problem.outputFormat !== ""
+      data.problem.statement !== "" &&
+      data.problem.inputFormat !== "" &&
+      data.problem.outputFormat !== "",
   );
 
   let canPublish = $derived(
     data.problem.status === "draft" &&
-    (isAdvanced
-      ? isBasicInfoComplete && (data.imageConfig?.ref ?? "") !== ""
-      : data.testcaseSets.length > 0)
+      (isAdvanced
+        ? isBasicInfoComplete && (data.imageConfig?.ref ?? "") !== ""
+        : data.testcaseSets.length > 0),
   );
 
   const workspaceInitial = untrack(() => {
@@ -73,7 +71,7 @@
       | undefined) ?? {
       timeLimitMs: data.problem.timeLimitMs,
       memoryLimitMb: data.problem.memoryLimitMb,
-      env: {}
+      env: {},
     };
     return {
       runtime,
@@ -85,8 +83,8 @@
         content: f.content,
         description: f.description,
         visibility: f.visibility,
-        orderIndex: f.orderIndex
-      }))
+        orderIndex: f.orderIndex,
+      })),
     };
   });
 
@@ -104,14 +102,11 @@
     fd.set("language", language);
     fd.set("path", file.name);
     fd.set("visibility", "editable");
-    const res = await fetch(
-      `/api/problems/${data.problem.id}/workspace/files`,
-      {
-        method: "POST",
-        headers: { "X-Requested-With": "fetch" },
-        body: fd
-      }
-    );
+    const res = await fetch(`/api/problems/${data.problem.id}/workspace/files`, {
+      method: "POST",
+      headers: { "X-Requested-With": "fetch" },
+      body: fd,
+    });
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { message?: string } | null;
       throw new Error(body?.message ?? m.bundle_uploadFailed());
@@ -129,11 +124,13 @@
     showDeleteConfirm = false;
     isDeleting = true;
     const fd = new FormData();
-    fetch(`?/deleteProblem`, { method: "POST", body: fd, redirect: "follow" }).then(() => {
-      window.location.href = "/problems?tab=mine";
-    }).catch(() => {
-      isDeleting = false;
-    });
+    fetch(`?/deleteProblem`, { method: "POST", body: fd, redirect: "follow" })
+      .then(() => {
+        window.location.href = "/problems?tab=mine";
+      })
+      .catch(() => {
+        isDeleting = false;
+      });
   }
 
   function handlePublishConfirmed() {
@@ -162,8 +159,8 @@
         ref: payload.imageRef,
         source: payload.imageSource,
         timeLimitMs: payload.timeLimitMs,
-        memoryLimitMb: payload.memoryLimitMb
-      })
+        memoryLimitMb: payload.memoryLimitMb,
+      }),
     );
     const res = await fetch("?/updateImage", { method: "POST", body: fd });
     if (res.ok) {
@@ -180,7 +177,7 @@
       message: res.ok
         ? m.advancedRequiredPaths_savedToast()
         : m.advancedRequiredPaths_saveFailedToast(),
-      type: res.ok ? "success" : "error"
+      type: res.ok ? "success" : "error",
     });
   }
 </script>
@@ -208,11 +205,7 @@
     {/if}
     <div class="ml-auto flex items-center gap-2">
       {#if data.problem.status !== "draft"}
-        <Button
-          variant="outline"
-          size="sm"
-          onclick={() => (showRejudgeDialog = true)}
-        >
+        <Button variant="outline" size="sm" onclick={() => (showRejudgeDialog = true)}>
           {m.rejudge_problem_admin_button()}
         </Button>
       {/if}
@@ -248,15 +241,21 @@
   />
 
   {#if isAdvanced}
-    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+    >
       <BasicInfoTab formData={data.form} problemId={data.problem.id} />
     </section>
 
-    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+    >
       <ContainerContractSection />
     </section>
 
-    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+    >
       <ImageSection
         problemId={data.problem.id}
         bind:imageRef
@@ -267,7 +266,9 @@
       />
     </section>
 
-    <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
+    <section
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+    >
       <RequiredPathsSection
         value={requiredPaths}
         onchange={(next) => (requiredPaths = next)}
@@ -288,14 +289,18 @@
       onpublish={handlePublishClick}
     >
       {#snippet basic()}
-        <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => isDirty = d} />
+        <BasicInfoTab
+          formData={data.form}
+          problemId={data.problem.id}
+          ondirtychange={(d) => (isDirty = d)}
+        />
       {/snippet}
 
       {#snippet workspace()}
         {#if workspaceInitial}
           <WorkspaceSection
             initial={workspaceInitial}
-            ondirtychange={(d) => isDirty = d}
+            ondirtychange={(d) => (isDirty = d)}
             onsave={handleWorkspaceSave}
             onUploadFile={handleWorkspaceFileUpload}
           />
@@ -310,7 +315,7 @@
         <JudgeTab
           problem={data.problem}
           validatorScripts={data.validatorScripts}
-          ondirtychange={(d) => isDirty = d}
+          ondirtychange={(d) => (isDirty = d)}
           onuploaded={bumpStorageRefresh}
         />
       {/snippet}

@@ -2,7 +2,15 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { ArrowDownNarrowWide, ArrowUpNarrowWide, FileCode, Pencil, Search, Tags, Trash2 } from "@lucide/svelte";
+  import {
+    ArrowDownNarrowWide,
+    ArrowUpNarrowWide,
+    FileCode,
+    Pencil,
+    Search,
+    Tags,
+    Trash2,
+  } from "@lucide/svelte";
   import { Button, LinkButton } from "$lib/components/primitives/ui/button";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import * as Card from "$lib/components/primitives/ui/card";
@@ -42,7 +50,7 @@
 
   let currentUrl = $derived(page.url);
   let sortDirection = $derived<"asc" | "desc">(
-    currentUrl.searchParams.get("sort") === "desc" ? "desc" : "asc"
+    currentUrl.searchParams.get("sort") === "desc" ? "desc" : "asc",
   );
 
   let mineSearch = $state("");
@@ -50,12 +58,10 @@
   let mineSelectedTags = $state<Set<string>>(new Set());
   let showMineCardTags = $state(false);
 
-  let mineAllTags = $derived(
-    [...new Set(editableProblems.flatMap((p) => p.tags))].sort()
-  );
+  let mineAllTags = $derived([...new Set(editableProblems.flatMap((p) => p.tags))].sort());
 
   let mineFiltered = $derived(
-    filterProblems(editableProblems, mineSearch, mineDifficulty, mineSelectedTags)
+    filterProblems(editableProblems, mineSearch, mineDifficulty, mineSelectedTags),
   );
 
   function toggleSort() {
@@ -82,7 +88,9 @@
     />
     <Input
       class="pl-9 rounded-full"
-      oninput={(e) => { mineSearch = (e.target as HTMLInputElement).value; }}
+      oninput={(e) => {
+        mineSearch = (e.target as HTMLInputElement).value;
+      }}
       placeholder={m.problems_searchProblems()}
       type="text"
       value={mineSearch}
@@ -103,7 +111,9 @@
         d
           ? 'border-primary bg-primary text-white'
           : 'border-border hover:bg-[color:var(--color-panel)]'}"
-        onclick={() => { mineDifficulty = d; }}
+        onclick={() => {
+          mineDifficulty = d;
+        }}
         type="button"
       >
         {d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1)}
@@ -125,7 +135,9 @@
     <button
       class="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
       aria-pressed={showMineCardTags}
-      onclick={() => { showMineCardTags = !showMineCardTags; }}
+      onclick={() => {
+        showMineCardTags = !showMineCardTags;
+      }}
       type="button"
     >
       <Tags aria-hidden="true" class="size-3.5" />
@@ -142,7 +154,7 @@
       {#each mineAllTags as tag (tag)}
         <button
           class="rounded-full border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {mineSelectedTags.has(
-            tag
+            tag,
           )
             ? 'border-primary bg-primary text-white'
             : 'border-border hover:bg-[color:var(--color-panel)]'}"
@@ -158,16 +170,9 @@
 
 <section class="grid gap-4">
   {#if editableProblems.length === 0}
-    <EmptyState
-      icon={FileCode}
-      title={m.problems_myProblemsEmpty()}
-    />
+    <EmptyState icon={FileCode} title={m.problems_myProblemsEmpty()} />
   {:else if mineFiltered.length === 0}
-    <EmptyState
-      icon={Search}
-      variant="minimal"
-      title={m.problems_noResults()}
-    />
+    <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} />
   {/if}
   {#each mineFiltered as problem (problem.id)}
     {@const titleHref =
@@ -180,7 +185,10 @@
       class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
     >
       <div class="min-w-0">
-        <a href={titleHref} class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80">
+        <a
+          href={titleHref}
+          class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80"
+        >
           <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
         </a>
         {#if problem.tags.length > 0}
@@ -208,7 +216,9 @@
       <div class="flex min-w-20 flex-col items-center text-center">
         <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
         <span
-          class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(problem.difficulty)}"
+          class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
+            problem.difficulty,
+          )}"
         >
           {problem.difficulty}
         </span>

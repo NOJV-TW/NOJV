@@ -67,9 +67,7 @@
       {m.examDetail_problemsEditHeading()}
     </h2>
     <span class="text-caption text-muted-foreground">
-      {canEdit
-        ? m.examDetail_problemsHint()
-        : m.examDetail_problemsEditFrozenHint()}
+      {canEdit ? m.examDetail_problemsHint() : m.examDetail_problemsEditFrozenHint()}
     </span>
   </header>
 
@@ -157,11 +155,7 @@
                   </button>
                 </div>
               {:else}
-                <Button
-                  href={`/problems/${problem.id}`}
-                  variant="outline"
-                  size="sm"
-                >
+                <Button href={`/problems/${problem.id}`} variant="outline" size="sm">
                   {m.examDetail_problemPreview()}
                 </Button>
               {/if}
@@ -170,7 +164,6 @@
         {/each}
       </ul>
 
-      
       {#each ids as id (id)}
         <input type="hidden" name="problemIds" value={id} />
       {/each}
@@ -204,14 +197,19 @@
           placeholder="prob_01JA…"
         />
       </div>
-      
+
       {#each ids as id (id)}
         <input type="hidden" name="problemIds" value={id} />
       {/each}
       {#if attachInput.trim().length > 0}
         <input type="hidden" name="problemIds" value={attachInput.trim()} />
       {/if}
-      <Button type="submit" size="sm" variant="outline" disabled={attachInput.trim().length === 0}>
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        disabled={attachInput.trim().length === 0}
+      >
         <Plus class="mr-1 h-4 w-4" aria-hidden="true" />
         {m.examDetail_problemsEditAttachButton()}
       </Button>

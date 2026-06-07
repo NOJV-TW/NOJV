@@ -51,7 +51,9 @@
     transition:fly={{ x: -288, duration: 220, easing: cubicOut }}
     use:trapFocus
   >
-    <header class="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-4">
+    <header
+      class="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-4"
+    >
       <span class="text-title-sm font-bold tracking-tight">NOJV</span>
       <button
         type="button"

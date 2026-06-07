@@ -14,13 +14,13 @@
     {
       id: "full_source" as const,
       title: m.admin_workspaceModeFullSourceTitle(),
-      desc: m.admin_workspaceModeFullSourceDesc()
+      desc: m.admin_workspaceModeFullSourceDesc(),
     },
     {
       id: "multi_file" as const,
       title: m.admin_workspaceModeMultiFileTitle(),
-      desc: m.admin_workspaceModeMultiFileDesc()
-    }
+      desc: m.admin_workspaceModeMultiFileDesc(),
+    },
   ];
 </script>
 

@@ -21,13 +21,16 @@
       case "course_enrolled":
         return m.notification_course_enrolled({ courseName: p.courseName ?? "" });
       case "announcement_published": {
-        const title = getLocale() === "zh-TW" ? (p.titleZhTw ?? p.titleEn) : (p.titleEn ?? p.titleZhTw);
+        const title =
+          getLocale() === "zh-TW" ? (p.titleZhTw ?? p.titleEn) : (p.titleEn ?? p.titleZhTw);
         return m.notification_announcement_published({ title: title ?? "" });
       }
       case "role_changed":
         return m.notification_role_changed({ newRole: p.newRole ?? "" });
       case "clarification_answered":
-        return m.notification_clarification_answered({ questionPreview: p.questionPreview ?? "" });
+        return m.notification_clarification_answered({
+          questionPreview: p.questionPreview ?? "",
+        });
       default:
         return n.type;
     }
@@ -42,8 +45,8 @@
   let commonClass = $derived(
     cn(
       "flex w-full items-start gap-3 border-l-2 px-4 py-3 text-left transition-colors duration-fast ease-out-soft hover:bg-accent",
-      isUnread ? "border-primary" : "border-transparent opacity-60"
-    )
+      isUnread ? "border-primary" : "border-transparent opacity-60",
+    ),
   );
 </script>
 

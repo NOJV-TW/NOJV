@@ -11,7 +11,7 @@
     PYTHON_CHECKER_EXAMPLE,
     PYTHON_INTERACTOR_EXAMPLE,
     CPP_CHECKER_EXAMPLE,
-    CPP_INTERACTOR_EXAMPLE
+    CPP_INTERACTOR_EXAMPLE,
   } from "./judge/script-examples";
 
   interface Props {
@@ -30,13 +30,11 @@
   let checkerScript = $state(untrack(() => validatorScripts.checkerScript));
   let checkerLanguage = $state<JudgeScriptLanguage>(cfg.checkerLanguage ?? "python");
   let interactorScript = $state(untrack(() => validatorScripts.interactorScript));
-  let interactorLanguage = $state<JudgeScriptLanguage>(
-    cfg.interactorLanguage ?? "python"
-  );
+  let interactorLanguage = $state<JudgeScriptLanguage>(cfg.interactorLanguage ?? "python");
 
   function buildJudgeConfig() {
     const config: Record<string, unknown> = {
-      type: judgeType
+      type: judgeType,
     };
 
     if (judgeType === "checker") {
@@ -56,7 +54,7 @@
     return JSON.stringify({
       config: buildJudgeConfig(),
       checkerScript,
-      interactorScript
+      interactorScript,
     });
   }
 
@@ -81,7 +79,7 @@
       }
       const response = await fetch("?/updateJudgeConfig", {
         method: "POST",
-        body: formData
+        body: formData,
       });
       if (response.ok) {
         saveMessage = "saved";
@@ -97,10 +95,10 @@
   }
 
   let checkerExample = $derived(
-    checkerLanguage === "python" ? PYTHON_CHECKER_EXAMPLE : CPP_CHECKER_EXAMPLE
+    checkerLanguage === "python" ? PYTHON_CHECKER_EXAMPLE : CPP_CHECKER_EXAMPLE,
   );
   let interactorExample = $derived(
-    interactorLanguage === "python" ? PYTHON_INTERACTOR_EXAMPLE : CPP_INTERACTOR_EXAMPLE
+    interactorLanguage === "python" ? PYTHON_INTERACTOR_EXAMPLE : CPP_INTERACTOR_EXAMPLE,
   );
 
   function languageFromName(name: string): JudgeScriptLanguage | null {
@@ -111,15 +109,14 @@
 
   async function uploadScript(kind: "checker" | "interactor", file: File) {
     const inferred = languageFromName(file.name.toLowerCase());
-    const language =
-      inferred ?? (kind === "checker" ? checkerLanguage : interactorLanguage);
+    const language = inferred ?? (kind === "checker" ? checkerLanguage : interactorLanguage);
     const form = new FormData();
     form.set("file", file);
     form.set("language", language);
     const res = await fetch(`/api/problems/${problem.id}/${kind}`, {
       method: "POST",
       headers: { "X-Requested-With": "fetch" },
-      body: form
+      body: form,
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { message?: string } | null;
@@ -194,8 +191,7 @@
             class={inputClassName}
             value={checkerLanguage}
             onchange={(e) => {
-              checkerLanguage = (e.target as HTMLSelectElement)
-                .value as JudgeScriptLanguage;
+              checkerLanguage = (e.target as HTMLSelectElement).value as JudgeScriptLanguage;
             }}
           >
             <option value="python">{m.common_language_python()}</option>
@@ -211,7 +207,9 @@
             {m.admin_checkerHelpBody()}
           </p>
           <pre
-            class="mt-2 overflow-x-auto rounded-md bg-[color:var(--color-panel)] p-3 font-mono text-caption"><code>{checkerExample}</code></pre>
+            class="mt-2 overflow-x-auto rounded-md bg-[color:var(--color-panel)] p-3 font-mono text-caption"><code
+              >{checkerExample}</code
+            ></pre>
         </details>
 
         <UploadDropZone
@@ -236,8 +234,7 @@
             class={inputClassName}
             value={interactorLanguage}
             onchange={(e) => {
-              interactorLanguage = (e.target as HTMLSelectElement)
-                .value as JudgeScriptLanguage;
+              interactorLanguage = (e.target as HTMLSelectElement).value as JudgeScriptLanguage;
             }}
           >
             <option value="python">{m.common_language_python()}</option>
@@ -253,7 +250,9 @@
             {m.admin_interactorHelpBody()}
           </p>
           <pre
-            class="mt-2 overflow-x-auto rounded-md bg-[color:var(--color-panel)] p-3 font-mono text-caption"><code>{interactorExample}</code></pre>
+            class="mt-2 overflow-x-auto rounded-md bg-[color:var(--color-panel)] p-3 font-mono text-caption"><code
+              >{interactorExample}</code
+            ></pre>
         </details>
 
         <UploadDropZone

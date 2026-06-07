@@ -43,14 +43,18 @@
   </div>
 
   {#if data.logs.length === 0}
-    <p class="rounded-sm border border-border-subtle bg-muted/20 px-4 py-8 text-center text-body-sm text-muted-foreground">
+    <p
+      class="rounded-sm border border-border-subtle bg-muted/20 px-4 py-8 text-center text-body-sm text-muted-foreground"
+    >
       {m.admin_rejudges_empty()}
     </p>
   {:else}
     <div class="overflow-auto rounded-sm border border-border-subtle">
       <table class="w-full text-body-sm">
         <thead>
-          <tr class="border-b border-border-subtle bg-muted/40 text-left text-caption uppercase tracking-wider text-muted-foreground">
+          <tr
+            class="border-b border-border-subtle bg-muted/40 text-left text-caption uppercase tracking-wider text-muted-foreground"
+          >
             <th class="px-3 py-2 font-medium">{m.admin_rejudges_colTime()}</th>
             <th class="px-3 py-2 font-medium">{m.admin_rejudges_colSubmission()}</th>
             <th class="px-3 py-2 font-medium">{m.admin_rejudges_colProblem()}</th>
@@ -65,7 +69,10 @@
                 {formatDateTime(log.createdAt)}
               </td>
               <td class="px-3 py-2">
-                <a class="font-mono text-caption hover:underline" href="/submissions/{log.submissionId}">
+                <a
+                  class="font-mono text-caption hover:underline"
+                  href="/submissions/{log.submissionId}"
+                >
                   {log.submissionId.slice(0, 8)}
                 </a>
               </td>

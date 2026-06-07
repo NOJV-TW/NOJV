@@ -50,8 +50,14 @@
         scrollBeyondLastLine: false,
       });
 
-      const original = monacoModule.editor.createModel(flattenFiles(data.left.files), "plaintext");
-      const modified = monacoModule.editor.createModel(flattenFiles(data.right.files), "plaintext");
+      const original = monacoModule.editor.createModel(
+        flattenFiles(data.left.files),
+        "plaintext",
+      );
+      const modified = monacoModule.editor.createModel(
+        flattenFiles(data.right.files),
+        "plaintext",
+      );
       diffEditor.setModel({ original, modified });
 
       themeObserver = new MutationObserver(() => {
@@ -127,9 +133,7 @@
     }
   }
 
-  const leftLabel = $derived(
-    data.left.username ?? data.left.displayName ?? data.left.userId,
-  );
+  const leftLabel = $derived(data.left.username ?? data.left.displayName ?? data.left.userId);
   const rightLabel = $derived(
     data.right.username ?? data.right.displayName ?? data.right.userId,
   );
@@ -153,11 +157,21 @@
         >
           {m.plagiarism_flaggedBadge()}
         </span>
-        <Button variant="outline" size="sm" disabled={isLoading} onclick={() => void handleUnmark()}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isLoading}
+          onclick={() => void handleUnmark()}
+        >
           {m.plagiarism_unmark()}
         </Button>
       {:else}
-        <Button variant="default" size="sm" disabled={isLoading} onclick={() => void handleMark()}>
+        <Button
+          variant="default"
+          size="sm"
+          disabled={isLoading}
+          onclick={() => void handleMark()}
+        >
           {m.plagiarism_markFalsePositive()}
         </Button>
       {/if}

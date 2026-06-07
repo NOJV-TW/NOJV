@@ -18,7 +18,7 @@
     search = $bindable(),
     showRoleFilter,
     labels,
-    onExport
+    onExport,
   }: Props = $props();
 </script>
 
@@ -44,7 +44,9 @@
   </select>
 
   <div class="relative max-w-[260px] flex-1">
-    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+    <span
+      class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+    >
       <Search class="size-4" aria-hidden="true" />
     </span>
     <input

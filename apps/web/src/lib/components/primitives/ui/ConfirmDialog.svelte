@@ -40,7 +40,10 @@
         {cancelText}
       </button>
       <button
-        class="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 {variant === 'danger' ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'}"
+        class="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 {variant ===
+        'danger'
+          ? 'bg-destructive hover:bg-destructive/90'
+          : 'bg-primary hover:bg-primary/90'}"
         type="button"
         onclick={() => onconfirm?.()}
       >

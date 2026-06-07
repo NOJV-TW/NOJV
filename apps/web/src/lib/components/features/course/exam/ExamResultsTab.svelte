@@ -72,7 +72,9 @@
             {m.results_avgLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
-            {data.classAvg}<span class="text-body-sm text-muted-foreground"> / {data.maxScore}</span>
+            {data.classAvg}<span class="text-body-sm text-muted-foreground">
+              / {data.maxScore}</span
+            >
           </div>
         </div>
         <div>
@@ -80,7 +82,9 @@
             {m.results_medianLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
-            {data.median}<span class="text-body-sm text-muted-foreground"> / {data.maxScore}</span>
+            {data.median}<span class="text-body-sm text-muted-foreground">
+              / {data.maxScore}</span
+            >
           </div>
         </div>
         <div>
@@ -88,7 +92,9 @@
             {m.results_minMaxLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
-            {data.max} / {data.min}<span class="text-body-sm text-muted-foreground"> / {data.maxScore}</span>
+            {data.max} / {data.min}<span class="text-body-sm text-muted-foreground">
+              / {data.maxScore}</span
+            >
           </div>
         </div>
       </div>
@@ -97,9 +103,7 @@
 
   <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
     <GlassPanel class="overflow-hidden">
-      <div
-        class="flex items-center justify-between border-b border-border-subtle px-5 py-3.5"
-      >
+      <div class="flex items-center justify-between border-b border-border-subtle px-5 py-3.5">
         <h2 class="text-title font-semibold">{m.results_studentScoresHeading()}</h2>
         <div class="text-caption text-muted-foreground">
           {m.results_studentCount({ count: data.rows.length })}
@@ -107,12 +111,8 @@
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-caption">
-          <thead
-            style="background: color-mix(in oklab, var(--muted) 60%, transparent);"
-          >
-            <tr
-              class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
-            >
+          <thead style="background: color-mix(in oklab, var(--muted) 60%, transparent);">
+            <tr class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
               <th class="w-12 px-4 py-2.5 text-left">#</th>
               <th class="px-3 py-2.5 text-left">{m.results_studentColHeader()}</th>
               <th class="px-3 py-2.5 text-left">{m.results_handleColHeader()}</th>
@@ -154,7 +154,9 @@
                   </td>
                 {/each}
                 <td class="px-4 py-2 text-right font-mono font-semibold tabular-nums">
-                  {row.total}<span class="text-[10px] font-normal text-muted-foreground"> / {data.maxScore}</span>
+                  {row.total}<span class="text-[10px] font-normal text-muted-foreground">
+                    / {data.maxScore}</span
+                  >
                 </td>
               </tr>
             {/each}

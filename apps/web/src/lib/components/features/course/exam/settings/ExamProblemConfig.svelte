@@ -1,10 +1,6 @@
 <script lang="ts">
   import type { SuperForm } from "sveltekit-superforms";
-  import {
-    supportedLanguages,
-    type ExamSettingsForm,
-    type Language
-  } from "@nojv/core";
+  import { supportedLanguages, type ExamSettingsForm, type Language } from "@nojv/core";
   import type { FormMessage } from "$lib/types/form-message";
   import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";

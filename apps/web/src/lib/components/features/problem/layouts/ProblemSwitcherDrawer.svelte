@@ -108,7 +108,7 @@
         title="{sibling.letter} · {sibling.title}"
         aria-current={sibling.isActive ? "page" : undefined}
         class="grid size-5 shrink-0 place-items-center rounded-sm text-[length:0.625rem] font-semibold leading-none transition-colors duration-fast ease-out-soft {miniChipClass(
-          sibling
+          sibling,
         )}"
       >
         {sibling.letter}
@@ -118,7 +118,6 @@
 </div>
 
 {#if open}
-  
   <button
     type="button"
     class="absolute inset-0 z-20 cursor-default bg-background/40 backdrop-blur-[1px]"
@@ -127,7 +126,6 @@
     transition:fade={{ duration: 120 }}
   ></button>
 
-  
   <div
     class="absolute inset-y-0 left-6 z-30 flex w-60 flex-col overflow-hidden border-r border-border bg-card shadow-rest"
     role="dialog"
@@ -139,9 +137,7 @@
     <header
       class="flex shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3"
     >
-      <span
-        class="text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-      >
+      <span class="text-caption font-semibold uppercase tracking-wider text-muted-foreground">
         {m.problemSwitcher_drawerHeading()}
       </span>
       <span class="font-mono text-caption tabular-nums text-muted-foreground">

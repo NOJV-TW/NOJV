@@ -44,7 +44,7 @@
           count: problems.length,
           note: isPast
             ? m.contestDetail_problemsSortByDifficulty()
-            : m.contestDetail_problemsUnlockOnStart()
+            : m.contestDetail_problemsUnlockOnStart(),
         })}
       {/if}
     </div>
@@ -79,10 +79,7 @@
           tabindex={enterHref ? 0 : -1}
           aria-disabled={enterHref ? undefined : true}
         >
-          <div
-            class="font-mono text-title font-semibold"
-            style="color: var(--primary);"
-          >
+          <div class="font-mono text-title font-semibold" style="color: var(--primary);">
             {String.fromCharCode(64 + p.ordinal)}
           </div>
           <div class="min-w-0">
@@ -97,9 +94,7 @@
             </div>
           </div>
           <div class="hidden sm:block">
-            <div
-              class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-            >
+            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               {m.contestDetail_problemDifficultyLabel()}
             </div>
             <div
@@ -108,7 +103,10 @@
             >
               <div
                 class="h-full rounded-full"
-                style="width: {Math.min(100, (p.points / 1000) * 100)}%; background: var(--primary);"
+                style="width: {Math.min(
+                  100,
+                  (p.points / 1000) * 100,
+                )}%; background: var(--primary);"
               ></div>
             </div>
           </div>

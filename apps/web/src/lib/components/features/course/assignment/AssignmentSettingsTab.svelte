@@ -39,14 +39,14 @@
     errors,
     enhance,
     message: formMessage,
-    submitting
+    submitting,
   } = superForm<AssessmentSettingsFormData, FormMessage>(
     untrack(() => formProp),
     {
       dataType: "json",
       resetForm: false,
-      invalidateAll: true
-    }
+      invalidateAll: true,
+    },
   );
 
   const isDraft = $derived(liveStatus === "draft");
@@ -167,7 +167,8 @@
             class={inputClassName}
             type="time"
             value={minutesToHHMM($form.attemptResetMinuteOfDay)}
-            oninput={(e) => ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
+            oninput={(e) =>
+              ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
             disabled={!editableBasics}
           />
           <p class="mt-1 text-xs text-muted-foreground">
@@ -189,12 +190,7 @@
     </section>
 
     <div class="flex items-center justify-end gap-2">
-      <Button
-        type="submit"
-        variant="default"
-        size="sm"
-        disabled={$submitting || isClosed}
-      >
+      <Button type="submit" variant="default" size="sm" disabled={$submitting || isClosed}>
         {m.assignmentDetail_settingsSaveButton()}
       </Button>
     </div>

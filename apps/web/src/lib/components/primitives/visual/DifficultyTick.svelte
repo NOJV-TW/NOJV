@@ -17,7 +17,7 @@
   const LABELS: Record<Difficulty, () => string> = {
     easy: m.admin_difficultyEasy,
     medium: m.admin_difficultyMedium,
-    hard: m.admin_difficultyHard
+    hard: m.admin_difficultyHard,
   };
 
   const n = $derived(RANK[level] ?? 1);

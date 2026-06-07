@@ -4,11 +4,11 @@
     entryFileNameFor,
     languageExtension,
     supportedLanguages,
-    type Language
+    type Language,
   } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import WorkspaceModeSection, {
-    type WorkspaceMode
+    type WorkspaceMode,
   } from "$lib/components/features/problem/workspace/WorkspaceModeSection.svelte";
   import WorkspaceRuntimeSection from "$lib/components/features/problem/workspace/WorkspaceRuntimeSection.svelte";
   import WorkspaceLanguagesSection from "$lib/components/features/problem/workspace/WorkspaceLanguagesSection.svelte";
@@ -41,7 +41,7 @@
   let timeLimitMs = $state(untrack(() => initial.runtime.timeLimitMs));
   let memoryLimitMb = $state(untrack(() => initial.runtime.memoryLimitMb));
   let envRows = $state<{ key: string; value: string }[]>(
-    untrack(() => Object.entries(initial.runtime.env).map(([key, value]) => ({ key, value })))
+    untrack(() => Object.entries(initial.runtime.env).map(([key, value]) => ({ key, value }))),
   );
 
   let mode = $state<WorkspaceMode>(untrack(() => initial.type));
@@ -50,15 +50,15 @@
     untrack(() =>
       initial.allowedLanguages.length > 0
         ? [...initial.allowedLanguages]
-        : [...supportedLanguages]
-    )
+        : [...supportedLanguages],
+    ),
   );
 
   let activeLang = $state<Language>(
-    untrack(() => allowedLanguages[0] ?? supportedLanguages[0] ?? "c")
+    untrack(() => allowedLanguages[0] ?? supportedLanguages[0] ?? "c"),
   );
   let files = $state<(WorkspaceFile & { language: Language })[]>(
-    untrack(() => initial.files.map((f) => ({ ...f })))
+    untrack(() => initial.files.map((f) => ({ ...f }))),
   );
   let selectedIndex = $state(0);
 
@@ -73,18 +73,18 @@
   let filesForActiveLang = $derived(
     files
       .map((f, i) => ({ file: f, index: i }))
-      .filter((entry) => entry.file.language === activeLang)
+      .filter((entry) => entry.file.language === activeLang),
   );
 
   function hasEntryFileForLanguage(lang: Language): boolean {
     const entryName = entryFileNameFor(lang);
     return files.some(
-      (f) => f.language === lang && f.path === entryName && f.visibility === "editable"
+      (f) => f.language === lang && f.path === entryName && f.visibility === "editable",
     );
   }
 
   let missingEntryLanguages = $derived(
-    allowedLanguages.filter((lang) => !hasEntryFileForLanguage(lang))
+    allowedLanguages.filter((lang) => !hasEntryFileForLanguage(lang)),
   );
 
   function addFile() {
@@ -100,7 +100,7 @@
       content: "",
       description: "",
       visibility: "editable",
-      orderIndex: files.length
+      orderIndex: files.length,
     };
     files = [...files, newFile];
     selectedIndex = filesForActiveLang.length - 1;
@@ -112,9 +112,7 @@
   }
 
   function updateFile(globalIndex: number, updated: WorkspaceFile) {
-    files = files.map((f, i) =>
-      i === globalIndex ? { ...updated, language: f.language } : f
-    );
+    files = files.map((f, i) => (i === globalIndex ? { ...updated, language: f.language } : f));
   }
 
   let saving = $state(false);
@@ -131,7 +129,7 @@
       runtime: { timeLimitMs, memoryLimitMb, env },
       allowedLanguages,
       files,
-      type: mode
+      type: mode,
     };
   }
 
@@ -147,7 +145,7 @@
       const langFiles = files.filter((f) => f.language === lang);
       if (langFiles.length === 0) continue;
       const editableEntries = langFiles.filter(
-        (f) => f.path === entryName && f.visibility === "editable"
+        (f) => f.path === entryName && f.visibility === "editable",
       );
       if (editableEntries.length !== 1) {
         return m.workspace_mustHaveMainFile({ filename: entryName });
@@ -155,7 +153,7 @@
     }
     if (mode === "multi_file" && missingEntryLanguages.length > 0) {
       return m.admin_workspaceMissingTemplatesBanner({
-        languages: missingEntryLanguages.join(", ")
+        languages: missingEntryLanguages.join(", "),
       });
     }
     return null;
@@ -182,18 +180,18 @@
   }
 
   let activeSelected = $derived(
-    filesForActiveLang[selectedIndex]?.index ?? filesForActiveLang[0]?.index ?? -1
+    filesForActiveLang[selectedIndex]?.index ?? filesForActiveLang[0]?.index ?? -1,
   );
 
   let filesTitle = $derived(
     mode === "multi_file"
       ? m.admin_workspaceFilesTitleMultiFile()
-      : m.admin_workspaceFilesTitleFullSource()
+      : m.admin_workspaceFilesTitleFullSource(),
   );
   let filesHint = $derived(
     mode === "multi_file"
       ? m.admin_workspaceFilesHintMultiFile()
-      : m.admin_workspaceFilesHintFullSource()
+      : m.admin_workspaceFilesHintFullSource(),
   );
 
   let activeEntryFileName = $derived(entryFileNameFor(activeLang));

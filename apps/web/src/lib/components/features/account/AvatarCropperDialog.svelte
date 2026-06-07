@@ -17,7 +17,7 @@
   const VIEW_SIZE = 320;
 
   const fitScale = $derived(
-    Math.max(VIEW_SIZE / img.naturalWidth, VIEW_SIZE / img.naturalHeight)
+    Math.max(VIEW_SIZE / img.naturalWidth, VIEW_SIZE / img.naturalHeight),
   );
 
   let scale = $state(1);
@@ -95,7 +95,7 @@
     const dispH = img.naturalHeight * fitScale * scale * k;
     ctx.drawImage(img, imgX * k, imgY * k, dispW, dispH);
     return await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((b) => resolve(b), "image/webp", 0.9)
+      canvas.toBlob((b) => resolve(b), "image/webp", 0.9),
     );
   }
 

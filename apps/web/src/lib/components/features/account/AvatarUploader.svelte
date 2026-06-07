@@ -138,13 +138,7 @@
         {m.account_avatar_change()}
       </Button>
       {#if image}
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onclick={removeAvatar}
-          disabled={busy}
-        >
+        <Button type="button" size="sm" variant="ghost" onclick={removeAvatar} disabled={busy}>
           {m.account_avatar_remove()}
         </Button>
       {/if}

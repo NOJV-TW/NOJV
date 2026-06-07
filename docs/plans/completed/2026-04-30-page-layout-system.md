@@ -68,11 +68,7 @@ Replaces the `pb-24` / `px-6` / `px-6 py-6` ad-hoc wrappers. ONE source of horiz
 For Index archetype.
 
 ```svelte
-<PageHeader
-  eyebrow="COURSES"
-  title="Courses"
-  description="..."
->
+<PageHeader eyebrow="COURSES" title="Courses" description="...">
   {#snippet actions()}
     <Button>Create</Button>
   {/snippet}

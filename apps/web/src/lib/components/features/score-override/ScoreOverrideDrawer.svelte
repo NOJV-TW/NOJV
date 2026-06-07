@@ -5,11 +5,9 @@
   import ScoreOverrideForm, {
     type OverrideRow,
     type ProblemOption,
-    type StudentOption
+    type StudentOption,
   } from "./ScoreOverrideForm.svelte";
-  import ScoreOverrideList, {
-    type OverrideListRow
-  } from "./ScoreOverrideList.svelte";
+  import ScoreOverrideList, { type OverrideListRow } from "./ScoreOverrideList.svelte";
   import FeedbackForm, { type FeedbackRow } from "./FeedbackForm.svelte";
   import FeedbackList, { type FeedbackListRow } from "./FeedbackList.svelte";
   import { SkeletonTable } from "$lib/components/primitives/ui/skeleton";
@@ -94,10 +92,7 @@
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
-  <Dialog.Content
-    showCloseButton
-    class="max-h-[90vh] overflow-y-auto sm:max-w-3xl"
-  >
+  <Dialog.Content showCloseButton class="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
     <Dialog.Header>
       <Dialog.Title>{m.grading_drawer_title()}</Dialog.Title>
       <Dialog.Description>
@@ -111,7 +106,11 @@
           {m.override_staff_buttonLabel()}
         </h3>
         {#if loading}
-          <div aria-busy="true" aria-live="polite" class="overflow-hidden rounded-md border border-border">
+          <div
+            aria-busy="true"
+            aria-live="polite"
+            class="overflow-hidden rounded-md border border-border"
+          >
             <SkeletonTable rows={3} columns={6} class="px-3" />
           </div>
         {:else}
@@ -128,17 +127,10 @@
       <section class="space-y-3 border-t border-border-subtle pt-5">
         <div class="flex items-center justify-between">
           <h3 class="text-title-sm font-medium">
-            {editTarget
-              ? m.override_staff_editBtn()
-              : m.override_staff_newBtn()}
+            {editTarget ? m.override_staff_editBtn() : m.override_staff_newBtn()}
           </h3>
           {#if editTarget}
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onclick={() => (editTarget = null)}
-            >
+            <Button variant="ghost" size="sm" type="button" onclick={() => (editTarget = null)}>
               {m.rejudge_dialog_cancelBtn()}
             </Button>
           {/if}
@@ -167,7 +159,11 @@
             {m.feedback_staff_sectionTitle()}
           </h3>
           {#if feedbackLoading}
-            <div aria-busy="true" aria-live="polite" class="overflow-hidden rounded-md border border-border">
+            <div
+              aria-busy="true"
+              aria-live="polite"
+              class="overflow-hidden rounded-md border border-border"
+            >
               <SkeletonTable rows={3} columns={5} class="px-3" />
             </div>
           {:else}
@@ -182,9 +178,7 @@
 
           <div class="flex items-center justify-between pt-2">
             <h4 class="text-body-sm font-medium">
-              {feedbackEditTarget
-                ? m.feedback_staff_editBtn()
-                : m.feedback_staff_newBtn()}
+              {feedbackEditTarget ? m.feedback_staff_editBtn() : m.feedback_staff_newBtn()}
             </h4>
             {#if feedbackEditTarget}
               <Button
@@ -209,9 +203,7 @@
                 feedbackEditTarget = null;
                 void reloadFeedback();
               }}
-              oncancel={feedbackEditTarget
-                ? () => (feedbackEditTarget = null)
-                : undefined}
+              oncancel={feedbackEditTarget ? () => (feedbackEditTarget = null) : undefined}
             />
           {/key}
         </section>

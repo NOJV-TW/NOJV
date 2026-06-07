@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { AlertTriangle, BarChart3, ClipboardList, PieChart, TrendingDown } from "@lucide/svelte";
+  import {
+    AlertTriangle,
+    BarChart3,
+    ClipboardList,
+    PieChart,
+    TrendingDown,
+  } from "@lucide/svelte";
   import type { EChartsOption } from "echarts";
   import { m } from "$lib/paraglide/messages.js";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -28,7 +34,7 @@
     info: "#4d6f8f",
     chart2: "#4d6f8f",
     chart3: "#8a6142",
-    mutedFg: "#6b7280"
+    mutedFg: "#6b7280",
   };
   let tokenColors = $state({ ...DEFAULT_VERDICT_COLORS });
 
@@ -43,14 +49,17 @@
       info: read("--info", DEFAULT_VERDICT_COLORS.info),
       chart2: read("--chart-2", DEFAULT_VERDICT_COLORS.chart2),
       chart3: read("--chart-3", DEFAULT_VERDICT_COLORS.chart3),
-      mutedFg: read("--muted-foreground", DEFAULT_VERDICT_COLORS.mutedFg)
+      mutedFg: read("--muted-foreground", DEFAULT_VERDICT_COLORS.mutedFg),
     };
   }
 
   $effect(() => {
     resolveTokenColors();
     const observer = new MutationObserver(resolveTokenColors);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   });
 
@@ -62,7 +71,7 @@
     runtime_error: tokenColors.chart2,
     compile_error: tokenColors.info,
     queued: tokenColors.mutedFg,
-    running: tokenColors.mutedFg
+    running: tokenColors.mutedFg,
   });
 
   const verdictOption: EChartsOption = $derived({
@@ -75,10 +84,10 @@
         data: analytics.verdictDistribution.map((entry) => ({
           name: formatVerdictLabel(entry.status),
           value: entry.count,
-          itemStyle: { color: verdictColors[entry.status] ?? tokenColors.mutedFg }
-        }))
-      }
-    ]
+          itemStyle: { color: verdictColors[entry.status] ?? tokenColors.mutedFg },
+        })),
+      },
+    ],
   });
 
   function acRateTone(acRate: number): "destructive" | "warning" | "muted" {
@@ -89,7 +98,6 @@
 </script>
 
 <PageContainer class="space-y-10">
-  
   <section class="animate-in animate-in-1 space-y-4">
     <h2 class="text-title-sm font-semibold">{m.courseAnalytics_assessmentsTitle()}</h2>
     {#if analytics.assessmentSummaries.length === 0}
@@ -142,7 +150,6 @@
   </section>
 
   <div class="grid gap-8 lg:grid-cols-2">
-    
     <section class="animate-in animate-in-2 space-y-4">
       <h2 class="text-title-sm font-semibold">{m.courseAnalytics_hardestTitle()}</h2>
       <p class="text-caption text-muted-foreground">
@@ -156,7 +163,9 @@
           description={m.courseAnalytics_hardestEmptyDescription()}
         />
       {:else}
-        <div class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]">
+        <div
+          class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]"
+        >
           {#each analytics.hardestProblems as problem (problem.problemId)}
             <a
               href={`/problems/${problem.displayId}`}
@@ -167,7 +176,7 @@
                 <div class="mt-0.5 font-mono text-caption text-muted-foreground tabular-nums">
                   {m.courseAnalytics_hardestSolvers({
                     solvers: problem.solvers,
-                    attempters: problem.attempters
+                    attempters: problem.attempters,
                   })}
                 </div>
               </div>
@@ -180,7 +189,6 @@
       {/if}
     </section>
 
-    
     <section class="animate-in animate-in-2 space-y-4">
       <h2 class="text-title-sm font-semibold">{m.courseAnalytics_verdictsTitle()}</h2>
       <p class="text-caption text-muted-foreground">
@@ -201,7 +209,6 @@
     </section>
   </div>
 
-  
   <section class="animate-in animate-in-3 space-y-4">
     <h2 class="text-title-sm font-semibold">{m.courseAnalytics_atRiskTitle()}</h2>
     <p class="text-caption text-muted-foreground">
@@ -217,7 +224,9 @@
           : m.courseAnalytics_atRiskAllEngaged()}
       />
     {:else}
-      <div class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]">
+      <div
+        class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]"
+      >
         {#each analytics.studentsAtRisk as student (student.userId)}
           <div
             class="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4 last:border-b-0"
@@ -236,7 +245,10 @@
                 </div>
               </div>
             </div>
-            <Badge variant={student.reason === "no_submissions" ? "destructive" : "warning"} size="sm">
+            <Badge
+              variant={student.reason === "no_submissions" ? "destructive" : "warning"}
+              size="sm"
+            >
               {student.reason === "no_submissions"
                 ? m.courseAnalytics_atRiskNoSubmissions()
                 : m.courseAnalytics_atRiskAllZero()}

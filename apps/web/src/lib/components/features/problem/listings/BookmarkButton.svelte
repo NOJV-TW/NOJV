@@ -25,7 +25,9 @@
     const previous = active;
     override = !previous; // optimistic
     try {
-      const res = await fetchWithCsrf(`/api/problems/${problemId}/bookmark`, { method: "POST" });
+      const res = await fetchWithCsrf(`/api/problems/${problemId}/bookmark`, {
+        method: "POST",
+      });
       if (!res.ok) throw new Error("toggle failed");
       const body = (await res.json()) as { bookmarked: boolean };
       override = body.bookmarked;

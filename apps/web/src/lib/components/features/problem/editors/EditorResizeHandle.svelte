@@ -16,7 +16,7 @@
     minHeight = 120,
     maxHeight = 800,
     onMouseDown,
-    onHeightChange
+    onHeightChange,
   }: Props = $props();
 
   function onkeydown(e: KeyboardEvent) {

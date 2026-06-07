@@ -16,73 +16,63 @@
     judgeType,
     difficulty,
     isCompact = false,
-    which = "both"
+    which = "both",
   }: Props = $props();
 
   let showProblemType = $derived(which === "both" || which === "problem-type");
-  let showJudgeMethodRequested = $derived(
-    which === "both" || which === "judge-method"
-  );
+  let showJudgeMethodRequested = $derived(which === "both" || which === "judge-method");
 
   const problemTypeLabel: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceBadge(),
     multi_file: () => m.problemDetail_multiFileBadge(),
-    special_env: () => m.problemDetail_specialEnvBadge()
+    special_env: () => m.problemDetail_specialEnvBadge(),
   };
 
   const problemTypeHelp: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceHelp(),
     multi_file: () => m.problemDetail_multiFileHelp(),
-    special_env: () => m.problemDetail_specialEnvHelp()
+    special_env: () => m.problemDetail_specialEnvHelp(),
   };
 
   const problemTypeColor: Record<ProblemType, string> = {
     full_source: "bg-muted text-muted-foreground",
     multi_file: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
-    special_env: "bg-violet-500/15 text-violet-700 dark:text-violet-400"
+    special_env: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
   };
 
   const judgeTypeLabel: Record<string, () => string> = {
     standard: () => m.problemDetail_standardBadge(),
     checker: () => m.problemDetail_checkerBadge(),
-    interactive: () => m.problemDetail_interactiveBadge()
+    interactive: () => m.problemDetail_interactiveBadge(),
   };
 
   const judgeTypeHelp: Record<string, () => string> = {
     standard: () => m.problemDetail_standardHelp(),
     checker: () => m.problemDetail_checkerHelp(),
-    interactive: () => m.problemDetail_interactiveHelp()
+    interactive: () => m.problemDetail_interactiveHelp(),
   };
 
   const judgeTypeColor: Record<string, string> = {
     standard: "bg-muted text-muted-foreground",
     checker: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-    interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400"
+    interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   };
 
   const difficultyColor: Record<string, string> = {
     easy: "bg-success/15 text-success",
     medium: "bg-warning/15 text-warning",
-    hard: "bg-destructive/15 text-destructive"
+    hard: "bg-destructive/15 text-destructive",
   };
 
   let problemLabel = $derived(problemTypeLabel[problemType]());
   let problemHelp = $derived(problemTypeHelp[problemType]());
   let problemColor = $derived(problemTypeColor[problemType]);
 
-  let judgeLabel = $derived(
-    (judgeTypeLabel[judgeType] ?? judgeTypeLabel["standard"]!)()
-  );
-  let judgeHelp = $derived(
-    (judgeTypeHelp[judgeType] ?? judgeTypeHelp["standard"]!)()
-  );
-  let judgeColor = $derived(
-    judgeTypeColor[judgeType] ?? judgeTypeColor["standard"]!
-  );
+  let judgeLabel = $derived((judgeTypeLabel[judgeType] ?? judgeTypeLabel["standard"]!)());
+  let judgeHelp = $derived((judgeTypeHelp[judgeType] ?? judgeTypeHelp["standard"]!)());
+  let judgeColor = $derived(judgeTypeColor[judgeType] ?? judgeTypeColor["standard"]!);
 
-  let showJudgeMethod = $derived(
-    showJudgeMethodRequested && problemType !== "special_env"
-  );
+  let showJudgeMethod = $derived(showJudgeMethodRequested && problemType !== "special_env");
 </script>
 
 {#if isCompact}
@@ -107,7 +97,11 @@
         <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
           {m.common_difficulty()}
         </span>
-        <span class="rounded-full px-2.5 py-0.5 text-caption font-medium capitalize {difficultyColor[difficulty] ?? 'bg-muted text-muted-foreground'}">
+        <span
+          class="rounded-full px-2.5 py-0.5 text-caption font-medium capitalize {difficultyColor[
+            difficulty
+          ] ?? 'bg-muted text-muted-foreground'}"
+        >
           {difficulty}
         </span>
       </div>

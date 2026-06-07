@@ -24,7 +24,7 @@
     meta,
     actions,
     ribbon,
-    class: className
+    class: className,
   }: Props = $props();
 </script>
 
@@ -34,7 +34,7 @@
   class={cn(
     "animate-in border-b border-border-subtle",
     variant === "hub" ? "pb-7 pt-8" : "pb-9 pt-2",
-    className
+    className,
   )}
 >
   <BreadcrumbBackLink href={breadcrumbHref} label={breadcrumbLabel} />
@@ -42,16 +42,14 @@
   <div class="mt-4 flex flex-wrap items-start justify-between gap-4">
     <div class="min-w-0 flex-1">
       {#if eyebrow}
-        <p
-          class="text-caption font-semibold uppercase tracking-[0.12em] text-primary"
-        >
+        <p class="text-caption font-semibold uppercase tracking-[0.12em] text-primary">
           {eyebrow}
         </p>
       {/if}
       <h1
         class={cn(
           "text-display font-normal leading-none tracking-[-0.025em]",
-          eyebrow ? "mt-2" : ""
+          eyebrow ? "mt-2" : "",
         )}
       >
         {title}

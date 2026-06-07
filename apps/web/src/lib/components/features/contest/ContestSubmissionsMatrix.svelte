@@ -42,6 +42,6 @@
     legendEmpty: m.examDetail_submissionsLegendEmpty,
     paginationLabel: m.examDetail_submissionsPaginationLabel,
     prev: m.examDetail_submissionsPrev,
-    next: m.examDetail_submissionsNext
+    next: m.examDetail_submissionsNext,
   }}
 />

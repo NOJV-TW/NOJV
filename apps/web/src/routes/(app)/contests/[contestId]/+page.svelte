@@ -19,7 +19,7 @@
   import ContestProblemsTab from "$lib/components/features/contest/ContestProblemsTab.svelte";
   import ContestResultsTab from "$lib/components/features/contest/ContestResultsTab.svelte";
   import ContestSettingsTab, {
-    type ContestLiveStatus
+    type ContestLiveStatus,
   } from "$lib/components/features/contest/ContestSettingsTab.svelte";
   import ContestSubmissionsMatrix from "$lib/components/features/contest/ContestSubmissionsMatrix.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
@@ -48,14 +48,14 @@
     ...(data.clarification.canView
       ? [{ key: "clarifications" as const, label: m.contestDetail_subTabClarifications() }]
       : []),
-    { key: "audit", label: m.contestDetail_subTabAudit() }
+    { key: "audit", label: m.contestDetail_subTabAudit() },
   ]);
 
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(data.canSetOverride);
   const overrideStudents = $derived(data.overrideStudents);
   const overrideProblems = $derived(
-    (contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))
+    (contest.problems ?? []).map((p) => ({ id: p.id, title: p.title })),
   );
 
   let now = $state(new Date());
@@ -71,12 +71,12 @@
   const isPast = $derived(status === "ended");
   const isUpcoming = $derived(status === "upcoming");
   const settingsLiveStatus: ContestLiveStatus = $derived(
-    contest.visibility === "draft" ? "draft" : status === "live" ? "running" : status
+    contest.visibility === "draft" ? "draft" : status === "live" ? "running" : status,
   );
   const scoringLabel = $derived(
     contest.scoringMode === "problem_count"
       ? m.contestDetail_scoringProblemCount()
-      : m.contestDetail_scoringPointSum()
+      : m.contestDetail_scoringPointSum(),
   );
   const durationMin = $derived(durationMinutes(contest.startsAt, contest.endsAt));
 
@@ -86,22 +86,22 @@
       ? `/contests/${contest.id}/problems/${firstProblem.id}`
       : isPast
         ? `/contests/${contest.id}/scoreboard`
-        : null
+        : null,
   );
   const primaryLabel = $derived(
     isLive
       ? m.contestDetail_ctaEnter()
       : isPast
         ? m.contestDetail_ctaViewSolutions()
-        : m.contestDetail_ctaNotStarted()
+        : m.contestDetail_ctaNotStarted(),
   );
-
 </script>
 
 <PageContainer class="space-y-6 fade-up">
-  <Crumbs items={[{ label: m.navigation_contests(), href: "/contests" }, { label: contest.id }]} />
+  <Crumbs
+    items={[{ label: m.navigation_contests(), href: "/contests" }, { label: contest.id }]}
+  />
 
-  
   <div
     class="relative overflow-hidden rounded-xl shadow-rest"
     style="border: 1px solid var(--border); background: {isLive
@@ -109,7 +109,9 @@
       : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
   >
     <Marquee
-      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} {m.contestDetail_participantsLabel().toUpperCase()}"
+      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} {m
+        .contestDetail_participantsLabel()
+        .toUpperCase()}"
     />
 
     <div class="relative px-7 py-9 lg:p-10">
@@ -137,7 +139,6 @@
           {/if}
         </div>
 
-        
         <div
           class="rounded-lg border p-3 min-w-[280px]"
           style="border-color: var(--border); background: var(--panel);"
@@ -151,7 +152,13 @@
                 style="background: oklch(0.55 0.2 27);"
               ></span>
             {/if}
-            <span>{isLive ? m.contestDetail_clockRunning() : isPast ? m.contestDetail_clockEnded() : m.contestDetail_clockUntilStart()}</span>
+            <span
+              >{isLive
+                ? m.contestDetail_clockRunning()
+                : isPast
+                  ? m.contestDetail_clockEnded()
+                  : m.contestDetail_clockUntilStart()}</span
+            >
           </div>
           <div class="mt-2">
             {#if isPast}
@@ -177,8 +184,14 @@
               <span>{m.contestDetail_metaDurationMinutes({ count: durationMin })}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.contestDetail_metaParticipantsLabel()}</span>
-              <span>{m.contestDetail_metaParticipantsCount({ count: contest.participantCount })}</span>
+              <span class="text-muted-foreground"
+                >{m.contestDetail_metaParticipantsLabel()}</span
+              >
+              <span
+                >{m.contestDetail_metaParticipantsCount({
+                  count: contest.participantCount,
+                })}</span
+              >
             </div>
           </div>
         </div>
@@ -186,9 +199,12 @@
     </div>
   </div>
 
-  
   <div class="flex flex-wrap items-center gap-3">
-    <TabStrip tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]} activeTabValue="overview" onChange={() => {}} />
+    <TabStrip
+      tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]}
+      activeTabValue="overview"
+      onChange={() => {}}
+    />
 
     <div class="ml-auto flex flex-wrap gap-3">
       {#if canSetOverride}
@@ -227,7 +243,6 @@
   </div>
 
   {#if isManager}
-    
     <div
       role="tablist"
       aria-label={m.contestDetail_subTabsLabel()}
@@ -244,7 +259,7 @@
             "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
             isActive
               ? "bg-[color:var(--color-primary)]/14 text-primary"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {tab.label}
@@ -286,13 +301,13 @@
           problems={(contest.problems ?? []).map((p, i) => ({
             problemId: p.id,
             letter: String.fromCharCode(65 + i),
-            title: p.title
+            title: p.title,
           }))}
           students={data.matrix
             ? data.matrix.rows.map((r) => ({
                 userId: r.userId,
                 displayName: r.displayName,
-                handle: r.handle
+                handle: r.handle,
               }))
             : []}
         />
@@ -321,119 +336,113 @@
       </GlassPanel>
     {/if}
   {:else}
-  <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
-    
-    <ContestProblemsTab
-      problems={contest.problems}
-      problemsHidden={contest.problemsHidden}
-      contestId={contest.id}
-      {isLive}
-      {isPast}
-      {isManager}
-    />
+    <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <ContestProblemsTab
+        problems={contest.problems}
+        problemsHidden={contest.problemsHidden}
+        contestId={contest.id}
+        {isLive}
+        {isPast}
+        {isManager}
+      />
 
-    
-    <div class="space-y-4">
-      {#if (isLive || isPast) && data.topEntries.length > 0}
+      <div class="space-y-4">
+        {#if (isLive || isPast) && data.topEntries.length > 0}
+          <GlassPanel class="p-5">
+            <div class="flex items-center justify-between mb-3">
+              <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+                {m.contestDetail_topRankingsHeading()}
+              </div>
+              <a
+                href="/contests/{contest.id}/scoreboard"
+                class="text-caption font-medium"
+                style="color: var(--primary);"
+              >
+                {m.contestDetail_topRankingsFullLink()}
+              </a>
+            </div>
+            <ul class="space-y-2">
+              {#each data.topEntries as r (r.username)}
+                <li class="flex items-center gap-3 text-body-sm">
+                  <span
+                    class="font-mono text-caption font-bold w-6 {r.rank <= 3
+                      ? ''
+                      : 'text-muted-foreground'}"
+                    style={r.rank === 1
+                      ? "color: #d4a054;"
+                      : r.rank === 2
+                        ? "color: #a0a0a0;"
+                        : r.rank === 3
+                          ? "color: #cd7f32;"
+                          : ""}
+                  >
+                    {r.rank}
+                  </span>
+                  <span
+                    class="flex-1 truncate {r.isMe ? 'font-semibold' : ''}"
+                    style={r.isMe ? "color: var(--primary);" : ""}
+                  >
+                    {r.username}{r.isMe ? m.contestDetail_youSuffix() : ""}
+                  </span>
+                  <span class="font-mono tabular-nums">{r.totalScore}</span>
+                </li>
+              {/each}
+            </ul>
+          </GlassPanel>
+        {/if}
+
         <GlassPanel class="p-5">
-          <div class="flex items-center justify-between mb-3">
-            <div
-              class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
-            >
-              {m.contestDetail_topRankingsHeading()}
-            </div>
-            <a
-              href="/contests/{contest.id}/scoreboard"
-              class="text-caption font-medium"
-              style="color: var(--primary);"
-            >
-              {m.contestDetail_topRankingsFullLink()}
-            </a>
+          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3">
+            {m.contestDetail_formatInfoHeading()}
           </div>
-          <ul class="space-y-2">
-            {#each data.topEntries as r (r.username)}
-              <li class="flex items-center gap-3 text-body-sm">
-                <span
-                  class="font-mono text-caption font-bold w-6 {r.rank <= 3
-                    ? ''
-                    : 'text-muted-foreground'}"
-                  style={r.rank === 1
-                    ? "color: #d4a054;"
-                    : r.rank === 2
-                      ? "color: #a0a0a0;"
-                      : r.rank === 3
-                        ? "color: #cd7f32;"
-                        : ""}
-                >
-                  {r.rank}
-                </span>
-                <span
-                  class="flex-1 truncate {r.isMe ? 'font-semibold' : ''}"
-                  style={r.isMe ? "color: var(--primary);" : ""}
-                >
-                  {r.username}{r.isMe ? m.contestDetail_youSuffix() : ""}
-                </span>
-                <span class="font-mono tabular-nums">{r.totalScore}</span>
-              </li>
-            {/each}
-          </ul>
-        </GlassPanel>
-      {/if}
-
-      <GlassPanel class="p-5">
-        <div
-          class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3"
-        >
-          {m.contestDetail_formatInfoHeading()}
-        </div>
-        <dl class="space-y-2.5 text-body-sm">
-          <div class="flex justify-between">
-            <dt class="text-muted-foreground">{m.contestDetail_scoringLabel()}</dt>
-            <dd class="font-mono">{scoringLabel}</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-muted-foreground">{m.contestDetail_scoreboardLabel()}</dt>
-            <dd class="font-mono">{contest.scoreboardMode}</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-muted-foreground">{m.contestDetail_participantsLabel()}</dt>
-            <dd class="font-mono">{m.contestDetail_participantsCount({ count: contest.participantCount })}</dd>
-          </div>
-          {#if contest.submitCooldownSec > 0}
+          <dl class="space-y-2.5 text-body-sm">
             <div class="flex justify-between">
-              <dt class="text-muted-foreground">{m.contestDetail_submitCooldownLabel()}</dt>
-              <dd class="font-mono">{contest.submitCooldownSec}s</dd>
+              <dt class="text-muted-foreground">{m.contestDetail_scoringLabel()}</dt>
+              <dd class="font-mono">{scoringLabel}</dd>
             </div>
-          {/if}
-          {#if contest.allowedLanguages.length > 0}
-            <div class="flex justify-between gap-3">
-              <dt class="text-muted-foreground">{m.contestDetail_allowedLanguagesLabel()}</dt>
-              <dd class="font-mono text-right truncate">
-                {contest.allowedLanguages.join(", ")}
+            <div class="flex justify-between">
+              <dt class="text-muted-foreground">{m.contestDetail_scoreboardLabel()}</dt>
+              <dd class="font-mono">{contest.scoreboardMode}</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-muted-foreground">{m.contestDetail_participantsLabel()}</dt>
+              <dd class="font-mono">
+                {m.contestDetail_participantsCount({ count: contest.participantCount })}
               </dd>
             </div>
-          {/if}
-        </dl>
-      </GlassPanel>
-    </div>
-  </div>
-
-  {#if data.clarification.canView}
-    <GlassPanel class="p-6">
-      <div
-        class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3"
-      >
-        {m.contestDetail_subTabClarifications()}
+            {#if contest.submitCooldownSec > 0}
+              <div class="flex justify-between">
+                <dt class="text-muted-foreground">{m.contestDetail_submitCooldownLabel()}</dt>
+                <dd class="font-mono">{contest.submitCooldownSec}s</dd>
+              </div>
+            {/if}
+            {#if contest.allowedLanguages.length > 0}
+              <div class="flex justify-between gap-3">
+                <dt class="text-muted-foreground">{m.contestDetail_allowedLanguagesLabel()}</dt>
+                <dd class="font-mono text-right truncate">
+                  {contest.allowedLanguages.join(", ")}
+                </dd>
+              </div>
+            {/if}
+          </dl>
+        </GlassPanel>
       </div>
-      <ClarificationTab
-        contextType="contest"
-        contextId={contest.id}
-        canAsk={data.clarification.canAsk}
-        canAnswer={data.clarification.canAnswer}
-        problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
-      />
-    </GlassPanel>
-  {/if}
+    </div>
+
+    {#if data.clarification.canView}
+      <GlassPanel class="p-6">
+        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3">
+          {m.contestDetail_subTabClarifications()}
+        </div>
+        <ClarificationTab
+          contextType="contest"
+          contextId={contest.id}
+          canAsk={data.clarification.canAsk}
+          canAnswer={data.clarification.canAnswer}
+          problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
+        />
+      </GlassPanel>
+    {/if}
   {/if}
 </PageContainer>
 

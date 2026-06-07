@@ -5,7 +5,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
 
   const description = $derived(
-    page.error?.message ? `${page.status} — ${page.error.message}` : `${page.status}`
+    page.error?.message ? `${page.status} — ${page.error.message}` : `${page.status}`,
   );
 </script>
 

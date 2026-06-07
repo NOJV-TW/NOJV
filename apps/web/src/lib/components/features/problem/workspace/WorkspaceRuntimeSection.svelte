@@ -11,7 +11,7 @@
   let {
     timeLimitMs = $bindable(),
     memoryLimitMb = $bindable(),
-    envRows = $bindable()
+    envRows = $bindable(),
   }: Props = $props();
 
   function addEnvRow() {

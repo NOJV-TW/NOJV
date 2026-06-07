@@ -13,7 +13,9 @@
   let expanded = $state<Record<number, boolean>>({});
 
   const totalWeight = $derived(subtaskResults.reduce((sum, s) => sum + s.weight, 0));
-  const passedWeight = $derived(subtaskResults.reduce((sum, s) => sum + (s.passed ? s.weight : 0), 0));
+  const passedWeight = $derived(
+    subtaskResults.reduce((sum, s) => sum + (s.passed ? s.weight : 0), 0),
+  );
 
   function formatMemory(kb: number): string {
     if (kb >= 1024) {
@@ -53,7 +55,9 @@
         <span class="font-semibold {subtask.passed ? 'text-success' : 'text-destructive'}">
           {subtask.label}
         </span>
-        <span class="text-caption text-muted-foreground tabular-nums">({subtask.weight} pts)</span>
+        <span class="text-caption text-muted-foreground tabular-nums"
+          >({subtask.weight} pts)</span
+        >
         <span
           class="ml-auto rounded-full px-2 py-0.5 text-caption font-medium {subtask.passed
             ? 'bg-success/15 text-success'
@@ -64,14 +68,22 @@
       </button>
 
       {#if isExpanded && subtask.cases.length > 0}
-        <div class="border-t {subtask.passed ? 'border-success/30' : 'border-destructive/30'} px-3 py-2">
+        <div
+          class="border-t {subtask.passed
+            ? 'border-success/30'
+            : 'border-destructive/30'} px-3 py-2"
+        >
           <div class="space-y-1">
             {#each subtask.cases as caseResult, ci (`case-${ci}-${caseResult.testcaseId ?? caseResult.index}`)}
               {@const isLast = ci === subtask.cases.length - 1}
               <div class="flex items-center gap-2 text-caption">
                 <span class="text-muted-foreground">{isLast ? "└─" : "├─"}</span>
-                <span class="w-12 tabular-nums text-muted-foreground">{m.subtask_caseLabel({ ordinal: caseResult.index })}</span>
-                <Badge variant={verdictBadgeVariant(caseResult.verdict)} size="xs">{caseResult.verdict}</Badge>
+                <span class="w-12 tabular-nums text-muted-foreground"
+                  >{m.subtask_caseLabel({ ordinal: caseResult.index })}</span
+                >
+                <Badge variant={verdictBadgeVariant(caseResult.verdict)} size="xs"
+                  >{caseResult.verdict}</Badge
+                >
                 <span class="tabular-nums text-muted-foreground">
                   {String(caseResult.timeMs)}ms
                 </span>

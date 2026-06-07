@@ -44,9 +44,7 @@
       {m.storageBudget_label()}
     </span>
     <span
-      class="font-mono text-caption {isOver
-        ? 'text-destructive'
-        : 'text-muted-foreground'}"
+      class="font-mono text-caption {isOver ? 'text-destructive' : 'text-muted-foreground'}"
     >
       {loaded ? formatBudget(used, limit) : "…"}
     </span>

@@ -33,7 +33,7 @@
   const AUDIENCE_OPTIONS: { value: Audience; label: () => string }[] = [
     { value: "all", label: () => m.admin_announcement_audience_all() },
     { value: "students", label: () => m.admin_announcement_audience_students() },
-    { value: "teachers", label: () => m.admin_announcement_audience_teachers() }
+    { value: "teachers", label: () => m.admin_announcement_audience_teachers() },
   ];
 
   function audienceBadgeVariant(audience: Audience): "muted" | "info" | "secondary" {
@@ -71,13 +71,12 @@
 {/snippet}
 
 <PageContainer class="space-y-6">
-<PageHeader
-  eyebrow={m.admin_eyebrow()}
-  title={m.admin_announcementsTitle()}
-  description={m.admin_announcementsSubtitle()}
-  actions={announcementsActions}
-/>
-
+  <PageHeader
+    eyebrow={m.admin_eyebrow()}
+    title={m.admin_announcementsTitle()}
+    description={m.admin_announcementsSubtitle()}
+    actions={announcementsActions}
+  />
 
   {#if showCreateForm}
     <Card variant="flat" size="md">
@@ -152,11 +151,7 @@
           <Button type="submit" variant="default">
             {m.admin_announcementsCreate()}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onclick={() => (showCreateForm = false)}
-          >
+          <Button type="button" variant="ghost" onclick={() => (showCreateForm = false)}>
             {m.common_cancel()}
           </Button>
         </div>
@@ -181,7 +176,6 @@
             class:py-4={editingId === ann.id}
           >
             {#if editingId === ann.id}
-              
               <form
                 class="space-y-4"
                 method="POST"
@@ -194,13 +188,12 @@
                 }}
               >
                 <input type="hidden" name="id" value={ann.id} />
-                <FormField label={m.admin_announcementsFieldTitle()} for="edit-title-{ann.id}" required>
-                  <Input
-                    id="edit-title-{ann.id}"
-                    name="title"
-                    value={ann.title}
-                    required
-                  />
+                <FormField
+                  label={m.admin_announcementsFieldTitle()}
+                  for="edit-title-{ann.id}"
+                  required
+                >
+                  <Input id="edit-title-{ann.id}" name="title" value={ann.title} required />
                 </FormField>
                 <FormField
                   label={m.admin_announcementsFieldContent()}
@@ -213,8 +206,8 @@
                     class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     name="content"
                     rows="4"
-                    required
-                  >{ann.content}</textarea>
+                    required>{ann.content}</textarea
+                  >
                 </FormField>
                 <FormField
                   label={m.admin_announcement_audience_label()}
@@ -273,17 +266,12 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                   <Button type="submit" variant="default">{m.common_save()}</Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onclick={() => (editingId = null)}
-                  >
+                  <Button type="button" variant="ghost" onclick={() => (editingId = null)}>
                     {m.common_cancel()}
                   </Button>
                 </div>
               </form>
             {:else}
-              
               <div
                 class="cursor-pointer rounded-md px-4 py-3 transition-colors duration-fast ease-out-soft hover:bg-accent/40"
                 onclick={() => openView(ann)}
@@ -299,16 +287,20 @@
               >
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0 flex-1">
-                    <h3 class="flex flex-wrap items-center gap-1.5 text-body-sm font-semibold text-foreground">
+                    <h3
+                      class="flex flex-wrap items-center gap-1.5 text-body-sm font-semibold text-foreground"
+                    >
                       {#if ann.pinned}
-                        <Pin aria-hidden="true"
+                        <Pin
+                          aria-hidden="true"
                           class="size-3.5 shrink-0 text-warning"
                           aria-label={m.admin_announcementsPinned()}
                         />
                       {/if}
                       <span class="truncate">{ann.title}</span>
                       {#if !ann.published}
-                        <Badge variant="outline" size="xs">{m.admin_announcementsDraft()}</Badge>
+                        <Badge variant="outline" size="xs">{m.admin_announcementsDraft()}</Badge
+                        >
                       {/if}
                       <Badge variant={audienceBadgeVariant(ann.audience)} size="xs">
                         {audienceLabel(ann.audience)}

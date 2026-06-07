@@ -27,7 +27,7 @@
     endsAt,
     durationMin,
     participants,
-    delay = 0
+    delay = 0,
   }: Props = $props();
 
   const isLive = $derived(status === "live");
@@ -57,9 +57,7 @@
         <StatusPill {status} type="contest" />
       </div>
 
-      <h3
-        class="mt-2 text-title-lg lg:text-headline font-semibold tracking-tight line-clamp-2"
-      >
+      <h3 class="mt-2 text-title-lg lg:text-headline font-semibold tracking-tight line-clamp-2">
         {title}
       </h3>
       {#if summary}
@@ -73,11 +71,15 @@
         </div>
         <div>
           <span class="text-muted-foreground">{m.contestPoster_durationLabel()}</span>
-          <span class="font-mono tabular-nums">{m.contestPoster_durationMinutes({ count: durationMin })}</span>
+          <span class="font-mono tabular-nums"
+            >{m.contestPoster_durationMinutes({ count: durationMin })}</span
+          >
         </div>
         <div>
           <span class="text-muted-foreground">{m.contestPoster_participantsLabel()}</span>
-          <span class="font-mono tabular-nums">{m.contestPoster_participantsCount({ count: participants })}</span>
+          <span class="font-mono tabular-nums"
+            >{m.contestPoster_participantsCount({ count: participants })}</span
+          >
         </div>
       </div>
     </div>
@@ -97,7 +99,9 @@
         </div>
       </div>
       <div class="mt-4 flex items-center gap-2 text-caption">
-        <span class="font-semibold" style="color: var(--primary);">{m.contestPoster_enter()}</span>
+        <span class="font-semibold" style="color: var(--primary);"
+          >{m.contestPoster_enter()}</span
+        >
       </div>
     </div>
   </div>

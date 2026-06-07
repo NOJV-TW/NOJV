@@ -77,7 +77,6 @@
   <EmptyState icon={History} title={m.audit_emptyTitle()} description={m.audit_emptyBody()} />
 {:else}
   <ol class="border-l border-border">
-    
     {#each events as event, i (i)}
       <li class="relative pb-5 pl-6 last:pb-0">
         <span

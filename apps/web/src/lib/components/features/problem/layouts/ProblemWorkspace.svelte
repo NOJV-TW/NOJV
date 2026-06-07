@@ -4,22 +4,28 @@
   import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { inferDraftContext } from "$lib/stores/code-draft";
-  import type { ProblemDetail, ProblemSubmissionEntry, ProblemTestcaseSetSummary } from "$lib/types";
+  import type {
+    ProblemDetail,
+    ProblemSubmissionEntry,
+    ProblemTestcaseSetSummary,
+  } from "$lib/types";
   import ProblemEditor from "../editors/Editor.svelte";
   import {
     DEFAULT_PANEL_WIDTH,
     clampPanelWidth,
     persistPanelWidth,
-    readPanelWidth
+    readPanelWidth,
   } from "../editors/editor-bindings";
   import ProblemLeftPanel from "./ProblemLeftPanel.svelte";
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
-    assessment?: {
-      assessmentId: string;
-      courseId: string;
-    } | undefined;
+    assessment?:
+      | {
+          assessmentId: string;
+          courseId: string;
+        }
+      | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
@@ -44,7 +50,7 @@
     dailyAttempts,
     initialSubmissions,
     problem,
-    testcaseSets = []
+    testcaseSets = [],
   }: Props = $props();
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
@@ -53,7 +59,7 @@
 
   const initialLanguage = (() => {
     const fromSubmission = languageSchema.safeParse(
-      untrack(() => initialSubmissions)?.[0]?.language
+      untrack(() => initialSubmissions)?.[0]?.language,
     );
     if (fromSubmission.success) return fromSubmission.data;
     const fromCookie = languageSchema.safeParse(untrack(() => page.data.editorLanguage));
@@ -66,9 +72,9 @@
         id: submissionId,
         language,
         submittedAt: new Date().toISOString(),
-        context: draftContext.kind
+        context: draftContext.kind,
       },
-      ...submissions
+      ...submissions,
     ].slice(0, 50);
   }
 
@@ -76,7 +82,7 @@
     submissionId: string,
     result: SubmissionResult,
     language: string,
-    sourceCode: string
+    sourceCode: string,
   ) {
     const index = submissions.findIndex((s) => s.id === submissionId);
     if (index >= 0) {
@@ -90,9 +96,9 @@
         result,
         sourceCode,
         submittedAt: new Date().toISOString(),
-        context: draftContext.kind
+        context: draftContext.kind,
       },
-      ...submissions
+      ...submissions,
     ].slice(0, 50);
   }
 
@@ -202,4 +208,3 @@
     {problem}
   />
 </div>
-

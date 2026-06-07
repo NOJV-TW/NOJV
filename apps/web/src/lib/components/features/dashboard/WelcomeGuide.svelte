@@ -13,7 +13,7 @@
   const title = $derived(
     username
       ? m.dashboard_welcomeGuideTitle({ username })
-      : m.dashboard_welcomeGuideTitleAnon()
+      : m.dashboard_welcomeGuideTitleAnon(),
   );
 </script>
 

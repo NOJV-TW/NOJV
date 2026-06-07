@@ -9,12 +9,12 @@
     submissionOperationSchema,
     submissionResultSchema,
     type Language,
-    type SubmissionResult
+    type SubmissionResult,
   } from "@nojv/core";
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
-    ProblemTestcaseSetSummary
+    ProblemTestcaseSetSummary,
   } from "$lib/types";
   import ProblemLeftPanel from "../layouts/ProblemLeftPanel.svelte";
   import AdvancedUploader, { type StagedFile } from "./AdvancedUploader.svelte";
@@ -22,10 +22,12 @@
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
-    assessment?: {
-      assessmentId: string;
-      courseId: string;
-    } | undefined;
+    assessment?:
+      | {
+          assessmentId: string;
+          courseId: string;
+        }
+      | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
@@ -51,7 +53,7 @@
     initialSubmissions,
     problem,
     requiredPaths = [],
-    testcaseSets = []
+    testcaseSets = [],
   }: Props = $props();
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
@@ -61,7 +63,7 @@
   function handleSubmissionComplete(
     result: SubmissionResult,
     language: string,
-    sourceCode: string
+    sourceCode: string,
   ) {
     submissions = [
       {
@@ -69,9 +71,9 @@
         result,
         sourceCode,
         submittedAt: new Date().toISOString(),
-        context: draftContext.kind
+        context: draftContext.kind,
       },
-      ...submissions
+      ...submissions,
     ].slice(0, 50);
   }
 
@@ -148,7 +150,7 @@
       problemId: problem.id,
       sampleOnly: false,
       sourceCode: placeholderSource,
-      sourceFiles: staged.sourceFiles
+      sourceFiles: staged.sourceFiles,
     };
 
     try {
@@ -156,7 +158,7 @@
         body: JSON.stringify(body),
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         method: "POST",
-        signal
+        signal,
       });
 
       if (!response.ok) {

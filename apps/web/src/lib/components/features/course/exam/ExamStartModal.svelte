@@ -19,7 +19,7 @@
     examTitle,
     problemCount,
     durationMinutes,
-    action = "?/startExam"
+    action = "?/startExam",
   }: Props = $props();
 
   let hasAgreed = $state(false);
@@ -43,7 +43,8 @@
           class="rounded-lg p-2.5"
           style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
         >
-          <AlertTriangle aria-hidden="true"
+          <AlertTriangle
+            aria-hidden="true"
             class="size-5"
             style="color: oklch(0.55 0.2 27);"
             strokeWidth={2}
@@ -57,7 +58,7 @@
             {m.examStartModal_summary({
               title: examTitle,
               count: problemCount,
-              minutes: durationMinutes
+              minutes: durationMinutes,
             })}
           </Dialog.Description>
         </div>
@@ -69,10 +70,18 @@
         {m.examStartModal_checklistHeading()}
       </div>
       <ul class="space-y-1.5 text-body-sm">
-        <li class="flex gap-2"><span class="text-muted-foreground">·</span>{m.examStartModal_rule1()}</li>
-        <li class="flex gap-2"><span class="text-muted-foreground">·</span>{m.examStartModal_rule2()}</li>
-        <li class="flex gap-2"><span class="text-muted-foreground">·</span>{m.examStartModal_rule3()}</li>
-        <li class="flex gap-2"><span class="text-muted-foreground">·</span>{m.examStartModal_rule4()}</li>
+        <li class="flex gap-2">
+          <span class="text-muted-foreground">·</span>{m.examStartModal_rule1()}
+        </li>
+        <li class="flex gap-2">
+          <span class="text-muted-foreground">·</span>{m.examStartModal_rule2()}
+        </li>
+        <li class="flex gap-2">
+          <span class="text-muted-foreground">·</span>{m.examStartModal_rule3()}
+        </li>
+        <li class="flex gap-2">
+          <span class="text-muted-foreground">·</span>{m.examStartModal_rule4()}
+        </li>
       </ul>
     </div>
 

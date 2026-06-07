@@ -35,7 +35,7 @@
     { value: "all", label: m.members_tabAll(), count: counts.all },
     { value: "teacher", label: m.members_tabTeachers(), count: counts.teacher },
     { value: "ta", label: m.members_tabTas(), count: counts.ta },
-    { value: "student", label: m.members_tabStudents(), count: counts.student }
+    { value: "student", label: m.members_tabStudents(), count: counts.student },
   ]);
 
   const filtered = $derived.by(() => {
@@ -86,7 +86,6 @@
     <BulkHandleAddPanel form={bulkAddForm} />
   {/if}
 
-  
   <div class="animate-in animate-in-2 flex flex-wrap items-center gap-4">
     <FilterChips
       options={filterOptions}
@@ -108,7 +107,6 @@
     </div>
   </div>
 
-  
   <div class="animate-in animate-in-3">
     {#if filtered.length === 0}
       <div

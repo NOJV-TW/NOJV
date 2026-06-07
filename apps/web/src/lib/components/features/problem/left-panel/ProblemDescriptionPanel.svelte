@@ -11,9 +11,7 @@
   interface Props {
     problem: ProblemDetail;
     testcaseSets: ProblemTestcaseSetSummary[];
-    dailyAttempts?:
-      | { used: number; max: number | null; resetMinuteOfDay: number }
-      | undefined;
+    dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
   }
 
   let { problem, testcaseSets, dailyAttempts }: Props = $props();
@@ -34,16 +32,17 @@
     {/if}
     {#if dailyAttempts}
       {@const remaining =
-        dailyAttempts.max == null
-          ? null
-          : Math.max(0, dailyAttempts.max - dailyAttempts.used)}
+        dailyAttempts.max == null ? null : Math.max(0, dailyAttempts.max - dailyAttempts.used)}
       <div class="ml-auto flex shrink-0 flex-col items-end gap-1">
         <div class="flex items-center gap-2">
-          <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+          <span
+            class="text-caption font-semibold uppercase tracking-wide text-muted-foreground"
+          >
             {m.problemDetail_dailyAttemptsTitle()}
           </span>
           <span
-            class="rounded-full px-2.5 py-0.5 text-caption font-medium tabular-nums {remaining === 0
+            class="rounded-full px-2.5 py-0.5 text-caption font-medium tabular-nums {remaining ===
+            0
               ? 'bg-destructive/15 text-destructive'
               : remaining !== null && remaining <= 2
                 ? 'bg-warning/15 text-warning'
@@ -53,7 +52,11 @@
           </span>
         </div>
         {#if dailyAttempts.max != null}
-          <span class="text-caption {remaining === 0 ? 'text-destructive' : 'text-muted-foreground'}">
+          <span
+            class="text-caption {remaining === 0
+              ? 'text-destructive'
+              : 'text-muted-foreground'}"
+          >
             {remaining === 0
               ? m.problemDetail_dailyAttemptsExhausted({
                   time: minutesToHHMM(dailyAttempts.resetMinuteOfDay),
@@ -110,16 +113,23 @@
   {#each problem.samples as sample, index (`sample-${index}`)}
     <div class="mt-6 {index > 0 ? 'border-t border-border-subtle pt-6' : ''}">
       <p class="text-body font-semibold">
-        {m.problemDetail_sample()} {index + 1}
+        {m.problemDetail_sample()}
+        {index + 1}
       </p>
       <div class="mt-3 space-y-3 text-caption">
         <div>
-          <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_input()}</p>
-          <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
+          <p class="text-caption font-medium text-muted-foreground">
+            {m.problemDetail_input()}
+          </p>
+          <pre
+            class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
         </div>
         <div>
-          <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_output()}</p>
-          <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
+          <p class="text-caption font-medium text-muted-foreground">
+            {m.problemDetail_output()}
+          </p>
+          <pre
+            class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
         </div>
       </div>
     </div>

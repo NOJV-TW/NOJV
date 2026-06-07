@@ -46,9 +46,7 @@
 
 <div
   class="relative flex items-center justify-between gap-3 rounded-md border border-dashed px-3 py-2 text-caption transition-colors duration-fast ease-out-soft
-    {isDragOver
-      ? 'border-primary bg-primary/5'
-      : 'border-border-subtle bg-muted/30'}
+    {isDragOver ? 'border-primary bg-primary/5' : 'border-border-subtle bg-muted/30'}
     {disabled ? 'opacity-60' : ''}"
   ondrop={onDrop}
   ondragover={(e) => {
@@ -79,11 +77,5 @@
   >
     {isUploading ? m.common_uploading() : m.bundle_chooseFile()}
   </button>
-  <input
-    bind:this={fileInput}
-    type="file"
-    {accept}
-    class="sr-only"
-    onchange={onFileChange}
-  />
+  <input bind:this={fileInput} type="file" {accept} class="sr-only" onchange={onFileChange} />
 </div>

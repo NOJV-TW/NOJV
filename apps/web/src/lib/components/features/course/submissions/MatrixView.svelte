@@ -83,7 +83,7 @@
     dataSlot,
     showRoleFilter = false,
     viewHref,
-    class: className
+    class: className,
   }: Props = $props();
 
   type SortKey = "totalDesc" | "handleAsc" | "nameAsc";
@@ -97,7 +97,7 @@
     const q = search.trim().toLowerCase();
     const base = q
       ? matrix.rows.filter(
-          (r) => r.handle.toLowerCase().includes(q) || r.displayName.toLowerCase().includes(q)
+          (r) => r.handle.toLowerCase().includes(q) || r.displayName.toLowerCase().includes(q),
         )
       : [...matrix.rows];
     switch (sortKey) {
@@ -131,14 +131,12 @@
       labels.student(),
       "handle",
       ...matrix.problems.map((p) => `${p.letter}`),
-      labels.total()
+      labels.total(),
     ].map(csvEscape);
     const lines = [header.join(",")];
     for (const row of filteredRows) {
       const cells = matrix.problems.map((_p, idx) => row.cells[idx]?.score ?? "");
-      lines.push(
-        [row.displayName, row.handle, ...cells, row.total].map(csvEscape).join(",")
-      );
+      lines.push([row.displayName, row.handle, ...cells, row.total].map(csvEscape).join(","));
     }
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -173,18 +171,12 @@
       {labels.meta({
         students: matrix.studentCount,
         problems: matrix.problems.length,
-        total: matrix.totalPoints
+        total: matrix.totalPoints,
       })}
     </span>
   </div>
 
-  <MatrixToolbar
-    bind:sortKey
-    bind:search
-    {showRoleFilter}
-    {labels}
-    onExport={exportCsv}
-  />
+  <MatrixToolbar bind:sortKey bind:search {showRoleFilter} {labels} onExport={exportCsv} />
 
   {#if totalRows === 0}
     <div
