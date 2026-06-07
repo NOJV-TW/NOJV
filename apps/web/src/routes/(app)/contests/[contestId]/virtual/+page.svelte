@@ -22,11 +22,10 @@
     items={[
       { label: m.navigation_contests(), href: "/contests" },
       { label: data.contestId, href: `/contests/${data.contestId}` },
-      { label: m.virtualContest_badge() }
+      { label: m.virtualContest_badge() },
     ]}
   />
 
-  
   <div class="glass rounded-xl shadow-rest p-5 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
@@ -71,7 +70,6 @@
   </div>
 
   {#if !virtual}
-    
     <GlassPanel class="p-8 text-center space-y-4">
       <p class="text-body text-muted-foreground">
         {m.virtualContest_startBlurb()}
@@ -102,8 +100,6 @@
       {/if}
     </GlassPanel>
   {:else}
-    
-    
     <GlassPanel class="overflow-hidden">
       <div
         class="flex items-center justify-between px-6 py-4 border-b"
@@ -149,9 +145,7 @@
                   ? "background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success);"
                   : "background: var(--muted); color: var(--muted-foreground);"}
               >
-                {p.solved
-                  ? m.virtualContest_statusSolved()
-                  : m.virtualContest_statusUnsolved()}
+                {p.solved ? m.virtualContest_statusSolved() : m.virtualContest_statusUnsolved()}
               </span>
               <span class="font-mono tabular-nums text-caption text-muted-foreground">
                 {p.bestScore}
@@ -162,7 +156,6 @@
       {/if}
     </GlassPanel>
 
-    
     {#if scoreboard}
       <GlassPanel class="overflow-hidden">
         <div

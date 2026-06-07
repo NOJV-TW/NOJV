@@ -39,9 +39,7 @@
 
   const startsAtMs = $derived(new Date(detail.startsAt).getTime());
   const endsAtMs = $derived(new Date(detail.endsAt).getTime());
-  const durationMinutes = $derived(
-    Math.max(0, Math.round((endsAtMs - startsAtMs) / 60_000))
-  );
+  const durationMinutes = $derived(Math.max(0, Math.round((endsAtMs - startsAtMs) / 60_000)));
 
   type LiveStatus = "draft" | "upcoming" | "running" | "ended";
   const liveStatus: LiveStatus = $derived.by(() => {
@@ -63,7 +61,7 @@
   const examCode = $derived(`EX-${detail.id.slice(-6).toUpperCase()}`);
 
   const allowedLanguages = $derived(
-    detail.manager?.allowedLanguages ?? ["cpp17", "python311", "java17"]
+    detail.manager?.allowedLanguages ?? ["cpp17", "python311", "java17"],
   );
 
   const rules = $derived.by(() => {
@@ -79,7 +77,7 @@
       list.push(
         detail.ipViolationMode === "block"
           ? m.examDetail_ruleIpBindingBlock()
-          : m.examDetail_ruleIpBindingNotify()
+          : m.examDetail_ruleIpBindingNotify(),
       );
     }
     if (detail.ipWhitelistEnabled) {
@@ -103,11 +101,11 @@
   let activeSubTabKey = $state<SubTab>("problems");
 
   const clarificationProblems = $derived(
-    detail.problems.map((p) => ({ id: p.id, title: p.title }))
+    detail.problems.map((p) => ({ id: p.id, title: p.title })),
   );
 
   const feedbackByProblem = $derived(
-    new Map((data.feedback ?? []).map((f) => [f.problemId, f.comment]))
+    new Map((data.feedback ?? []).map((f) => [f.problemId, f.comment])),
   );
 
   let showOverrideDrawer = $state(false);
@@ -117,13 +115,11 @@
       ? data.matrix.rows.map((r) => ({
           id: r.userId,
           username: r.handle,
-          name: r.displayName
+          name: r.displayName,
         }))
-      : []
+      : [],
   );
-  const overrideProblems = $derived(
-    detail.problems.map((p) => ({ id: p.id, title: p.title }))
-  );
+  const overrideProblems = $derived(detail.problems.map((p) => ({ id: p.id, title: p.title })));
 
   function rowTint(state: "ac" | "partial" | "zero" | "empty" | null): string {
     if (state === "ac") return "bg-success/[0.06]";
@@ -134,11 +130,8 @@
 </script>
 
 <PageContainer class="space-y-6 fade-up">
-  <Crumbs
-    items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]}
-  />
+  <Crumbs items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]} />
 
-  
   <div
     class="relative overflow-hidden rounded-xl border-2 shadow-rest"
     style="border-color: var(--border); background: var(--panel);"
@@ -167,7 +160,9 @@
                 class="flex items-baseline gap-1.5 rounded-full px-3 py-1 font-mono text-caption tabular-nums"
                 style="background: color-mix(in oklab, var(--primary) 10%, transparent);"
               >
-                <span class="text-micro uppercase tracking-wider text-muted-foreground">{m.examDetail_scoreLabel()}</span>
+                <span class="text-micro uppercase tracking-wider text-muted-foreground"
+                  >{m.examDetail_scoreLabel()}</span
+                >
                 <span class="font-semibold" style="color: var(--primary);">
                   {detail.viewerScore}
                 </span>
@@ -175,9 +170,7 @@
               </div>
             {/if}
           </div>
-          <h1
-            class="mt-3 text-headline font-semibold tracking-tight lg:text-display"
-          >
+          <h1 class="mt-3 text-headline font-semibold tracking-tight lg:text-display">
             {detail.title}
           </h1>
           {#if detail.summary}
@@ -185,15 +178,16 @@
           {/if}
         </div>
 
-        
         <div
           class="min-w-[260px] rounded-lg border border-dashed p-3"
           style="border-color: var(--border-strong);"
         >
-          <div
-            class="font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            {past ? m.examDetail_clockHeld() : liveStatus === "running" ? m.examDetail_clockRunning() : m.examDetail_clockUntilStart()}
+          <div class="font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground">
+            {past
+              ? m.examDetail_clockHeld()
+              : liveStatus === "running"
+                ? m.examDetail_clockRunning()
+                : m.examDetail_clockUntilStart()}
           </div>
           <div class="mt-2">
             {#if past}
@@ -204,9 +198,7 @@
               <Countdown iso={detail.startsAt} />
             {/if}
           </div>
-          <div
-            class="mt-3 space-y-1 border-t border-border-subtle pt-3 font-mono text-caption"
-          >
+          <div class="mt-3 space-y-1 border-t border-border-subtle pt-3 font-mono text-caption">
             <div class="flex justify-between">
               <span class="text-muted-foreground">{m.examDetail_clockStartsLabel()}</span>
               <span>{fmtDate(detail.startsAt)}</span>
@@ -222,7 +214,6 @@
           </div>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -235,10 +226,8 @@
     </div>
   {/if}
 
-  
   {#if !isManager}
     {#if past}
-      
       <GlassPanel class="p-5">
         <div class="mb-2 flex items-center justify-between">
           <div
@@ -253,23 +242,19 @@
             problems: detail.problems.length,
             minutes: durationMinutes,
             points: detail.totalPoints,
-            languages: allowedLanguages.join(" / ")
+            languages: allowedLanguages.join(" / "),
           })}
         </p>
       </GlassPanel>
 
       <GlassPanel class="overflow-hidden">
-        <div
-          class="flex items-center justify-between border-b border-border-subtle px-6 py-4"
-        >
+        <div class="flex items-center justify-between border-b border-border-subtle px-6 py-4">
           <h2 class="text-title font-semibold">{m.examDetail_studentProblemsHeading()}</h2>
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-micro uppercase tracking-wider"
             style="background: var(--muted); color: var(--muted-foreground);"
           >
-            <span
-              class="size-1.5 rounded-full"
-              style="background: var(--muted-foreground);"
+            <span class="size-1.5 rounded-full" style="background: var(--muted-foreground);"
             ></span>
             {m.examDetail_endedPill()}
           </span>
@@ -282,7 +267,7 @@
               href={`/problems/${p.id}`}
               class={cn(
                 "grid grid-cols-[60px_1fr_auto_auto_auto] items-center gap-4 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
-                rowTint(p.viewerState)
+                rowTint(p.viewerState),
               )}
             >
               <div class="font-mono text-body font-semibold text-muted-foreground">
@@ -335,9 +320,7 @@
             {#if feedbackComment}
               <div class="px-6 pb-3.5 pt-1">
                 <div class="rounded-md border border-info/30 bg-info/5 px-3 py-2">
-                  <div
-                    class="font-mono text-micro uppercase tracking-wider text-info"
-                  >
+                  <div class="font-mono text-micro uppercase tracking-wider text-info">
                     {m.feedback_student_label()}
                   </div>
                   <p class="mt-1 whitespace-pre-wrap break-words text-body-sm text-foreground">
@@ -365,13 +348,12 @@
         </GlassPanel>
       {/if}
     {:else}
-      
       <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
-        
         <GlassPanel class="p-7">
           <div class="flex items-start justify-between gap-3">
             <h2 class="flex items-center gap-2 text-title font-semibold">
-              <span class="size-1.5 rounded-full bg-primary"></span> {m.examDetail_studentRulesHeading()}
+              <span class="size-1.5 rounded-full bg-primary"></span>
+              {m.examDetail_studentRulesHeading()}
             </h2>
           </div>
           <ul class="mt-4 space-y-2.5">
@@ -404,12 +386,9 @@
           </div>
         </GlassPanel>
 
-        
         <GlassPanel class="flex flex-col gap-4 p-6">
           <div>
-            <div
-              class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
-            >
+            <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
               {m.examDetail_studentPrepEyebrow()}
             </div>
             <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
@@ -420,7 +399,14 @@
                 class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
                 style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+                >
               </span>
               <span>{m.examDetail_studentPrepRule1()}</span>
             </li>
@@ -429,7 +415,14 @@
                 class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
                 style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+                >
               </span>
               <span>{m.examDetail_studentPrepRule2()}</span>
             </li>
@@ -438,7 +431,14 @@
                 class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
                 style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+                >
               </span>
               <span>{m.examDetail_studentPrepRule3()}</span>
             </li>
@@ -479,8 +479,6 @@
       {/if}
     {/if}
   {:else}
-    
-    
     <GlassPanel class="p-5">
       <div class="mb-2 flex items-center justify-between">
         <div
@@ -494,7 +492,8 @@
           onclick={() => (activeSubTabKey = "settings")}
           class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium transition-colors hover:border-border"
         >
-          <Pencil aria-hidden="true" class="size-3" /> {m.examDetail_managerEditButton()}
+          <Pencil aria-hidden="true" class="size-3" />
+          {m.examDetail_managerEditButton()}
         </button>
       </div>
       <p class="text-body-sm text-muted-foreground">
@@ -502,23 +501,22 @@
           problems: detail.problems.length,
           minutes: durationMinutes,
           points: detail.totalPoints,
-          languages: allowedLanguages.join(" / ")
+          languages: allowedLanguages.join(" / "),
         })}
         {#if detail.pageLockEnabled || detail.ipBindingEnabled || detail.ipWhitelistEnabled}
           {m.examDetail_rulesNoteEnabledFeatures({
             features: [
               detail.pageLockEnabled ? m.examDetail_featurePageLock() : null,
               detail.ipBindingEnabled ? m.examDetail_featureIpBinding() : null,
-              detail.ipWhitelistEnabled ? m.examDetail_featureIpWhitelist() : null
+              detail.ipWhitelistEnabled ? m.examDetail_featureIpWhitelist() : null,
             ]
               .filter(Boolean)
-              .join(m.examDetail_featuresSeparator())
+              .join(m.examDetail_featuresSeparator()),
           })}
         {/if}
       </p>
     </GlassPanel>
 
-    
     <div class="flex flex-wrap gap-2">
       <button
         type="button"
@@ -551,7 +549,6 @@
       {/if}
     </div>
 
-    
     <div
       role="tablist"
       aria-label={m.examDetail_subTabsLabel()}
@@ -674,13 +671,13 @@
           problems={detail.problems.map((p) => ({
             problemId: p.id,
             letter: p.letter,
-            title: p.title
+            title: p.title,
           }))}
           students={data.matrix
             ? data.matrix.rows.map((r) => ({
                 userId: r.userId,
                 displayName: r.displayName,
-                handle: r.handle
+                handle: r.handle,
               }))
             : []}
         />

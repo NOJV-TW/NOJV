@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { ArrowDownNarrowWide, ArrowUpNarrowWide, Check, RotateCcw, Search } from "@lucide/svelte";
+  import {
+    ArrowDownNarrowWide,
+    ArrowUpNarrowWide,
+    Check,
+    RotateCcw,
+    Search,
+  } from "@lucide/svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
@@ -91,13 +97,16 @@
   let difficultyOptions = $derived<FilterChipOption[]>(
     difficulties.map((d) => ({
       value: d,
-      label: d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1),
+      label:
+        d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1),
     })),
   );
 </script>
 
 {#snippet heading(text: string)}
-  <p class="mb-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">{text}</p>
+  <p class="mb-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
+    {text}
+  </p>
 {/snippet}
 
 {#snippet checkRow(checked: boolean, label: string, onclick: () => void)}
@@ -126,7 +135,6 @@
 {/snippet}
 
 <div class="flex flex-col gap-6">
-  
   <div class="relative">
     <Search
       class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -141,7 +149,6 @@
     />
   </div>
 
-  
   {#if loggedIn}
     <div>
       {@render heading(m.problems_filterStatus())}
@@ -154,7 +161,6 @@
     </div>
   {/if}
 
-  
   <div>
     {@render heading(m.common_difficulty())}
     <FilterChips
@@ -165,7 +171,6 @@
     />
   </div>
 
-  
   <div>
     {@render heading(m.problems_filterProblemType())}
     <div class="flex flex-col gap-2">
@@ -177,7 +182,6 @@
     </div>
   </div>
 
-  
   <div>
     {@render heading(m.problems_filterJudgeMethod())}
     <div class="flex flex-col gap-2">
@@ -189,7 +193,6 @@
     </div>
   </div>
 
-  
   {#if allTags.length > 0}
     <div>
       {@render heading(m.problems_filterTags())}
@@ -213,7 +216,6 @@
     </div>
   {/if}
 
-  
   <div class="flex items-center gap-2 border-t border-border-subtle pt-4">
     <button
       type="button"

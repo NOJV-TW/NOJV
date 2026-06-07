@@ -38,12 +38,15 @@
     errors,
     enhance,
     message: formMessage,
-    submitting
-  } = superForm<ExamSettingsForm, FormMessage>(untrack(() => formProp), {
-    dataType: "json",
-    resetForm: false,
-    invalidateAll: true
-  });
+    submitting,
+  } = superForm<ExamSettingsForm, FormMessage>(
+    untrack(() => formProp),
+    {
+      dataType: "json",
+      resetForm: false,
+      invalidateAll: true,
+    },
+  );
 
   const isDraft = $derived(liveStatus === "draft");
   const isUpcoming = $derived(liveStatus === "upcoming");
@@ -121,7 +124,9 @@
     </div>
   </form>
 
-  <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest">
+  <section
+    class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+  >
     <h3 class="mb-4 text-title-sm font-medium">
       {m.examDetail_settingsSectionLifecycle()}
     </h3>

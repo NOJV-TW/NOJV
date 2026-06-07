@@ -91,7 +91,7 @@
     loading = true;
 
     const { error: updateError } = await authClient.updateUser({
-      username: normalized
+      username: normalized,
     });
 
     loading = false;
@@ -174,7 +174,9 @@
                   cooldown = RESEND_COOLDOWN;
                 } else if (result.type === "failure") {
                   const parsed = actionErrorSchema.safeParse(result.data);
-                  error = parsed.success ? parsed.data.error : m.onboarding_failedToSendVerification();
+                  error = parsed.success
+                    ? parsed.data.error
+                    : m.onboarding_failedToSendVerification();
                 } else {
                   await update();
                 }
@@ -262,7 +264,14 @@
             {error}
           </div>
         {/if}
-        <Button type="submit" variant="default" size="lg" class="w-full" {loading} disabled={loading}>
+        <Button
+          type="submit"
+          variant="default"
+          size="lg"
+          class="w-full"
+          {loading}
+          disabled={loading}
+        >
           {loading ? m.onboarding_saving() : m.onboarding_continue()}
         </Button>
         <Button

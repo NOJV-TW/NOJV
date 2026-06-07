@@ -17,7 +17,7 @@
     isSpecialEnvProblem,
     isWorkspaceProblem,
     persistLanguage,
-    workspaceDraftKey
+    workspaceDraftKey,
   } from "./editor-bindings";
   import { createDraftController } from "./use-draft.svelte";
   import { createEditorRunController } from "./use-editor-run.svelte";
@@ -41,7 +41,7 @@
           submissionId: string,
           result: SubmissionResult,
           language: string,
-          sourceCode: string
+          sourceCode: string,
         ) => void)
       | undefined;
     attemptsExhausted?: boolean | undefined;
@@ -58,7 +58,7 @@
     onSubmissionDispatched,
     onSubmissionComplete,
     attemptsExhausted = false,
-    problem
+    problem,
   }: Props = $props();
   const initialProblem = untrack(() => problem);
 
@@ -80,13 +80,13 @@
   let isSpecialEnv = $derived(isSpecialEnvProblem(problem.type));
 
   let workspaceFilesForLanguage = $derived(
-    problem.workspaceFiles.filter((f) => f.language === language)
+    problem.workspaceFiles.filter((f) => f.language === language),
   );
 
   const workspaceFiles = createWorkspaceFilesController({
     initialFiles: initialProblem.workspaceFiles,
     filesForLanguage: () => workspaceFilesForLanguage,
-    language: () => language
+    language: () => language,
   });
 
   function handleReset() {
@@ -115,7 +115,7 @@
     language: () => language,
     currentCode: () => drafts[language] ?? "",
     starterFor: (lang) => initialProblem.starterByLanguage[lang] ?? "",
-    applyCode: (lang, code) => (drafts[lang] = code)
+    applyCode: (lang, code) => (drafts[lang] = code),
   });
 
   $effect(() => {
@@ -144,7 +144,7 @@
         .some(
           (f) =>
             (workspaceFiles.drafts[workspaceDraftKey(f.language, f.path)] ?? f.content).trim()
-              .length > 0
+              .length > 0,
         );
     }
     return (drafts[language] ?? "").trim().length > 0;
@@ -164,7 +164,7 @@
     virtualContestId: () => virtualContestId,
     onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
     onSubmissionComplete: (id, result, lang, src) =>
-      onSubmissionComplete?.(id, result, lang, src)
+      onSubmissionComplete?.(id, result, lang, src),
   });
 
   $effect(() => () => runController.markDestroyed());
@@ -178,8 +178,8 @@
       allowInInputs: true,
       handler: () => {
         if (!runController.isSubmitting && hasSubmittableSource) void runController.submit();
-      }
-    })
+      },
+    }),
   );
 
   let bottomPanelHeight = $state(260);
@@ -189,7 +189,7 @@
   const startBottomResize = createBottomResizeHandler({
     getContainer: () => outerContainer,
     onHeightChange: (next) => (bottomPanelHeight = next),
-    onResizingChange: (active) => (isBottomResizing = active)
+    onResizingChange: (active) => (isBottomResizing = active),
   });
 </script>
 
@@ -213,7 +213,6 @@
     onToggleFullscreen={() => (isFullscreen = !isFullscreen)}
   />
 
-  
   <div class="relative min-h-0 flex-1">
     <EditorCore
       {language}

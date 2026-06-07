@@ -43,7 +43,7 @@
     try {
       const res = await fetch(`/api/editorials/${pendingDeleteId}`, {
         method: "DELETE",
-        headers: { "X-Requested-With": "fetch" }
+        headers: { "X-Requested-With": "fetch" },
       });
       if (res.ok) {
         toasts.add({ type: "success", message: m.editorial_deletedToast() });
@@ -84,9 +84,13 @@
         {#each data.editorials as editorial (editorial.id)}
           <article class="rounded-md border border-border-subtle p-4">
             <header class="flex flex-wrap items-baseline justify-between gap-3">
-              <div class="flex flex-wrap items-baseline gap-2 text-caption text-muted-foreground">
+              <div
+                class="flex flex-wrap items-baseline gap-2 text-caption text-muted-foreground"
+              >
                 <span class="font-medium text-foreground">
-                  {editorial.author.name ?? editorial.author.username ?? m.editorial_unknownAuthor()}
+                  {editorial.author.name ??
+                    editorial.author.username ??
+                    m.editorial_unknownAuthor()}
                 </span>
                 <span class="rounded-full bg-muted px-2 py-0.5 text-micro font-medium">
                   {editorial.language}
@@ -121,7 +125,10 @@
       </div>
 
       {#if totalPages > 1}
-        <nav class="mt-6 flex items-center justify-center gap-2" aria-label={m.problems_pagination()}>
+        <nav
+          class="mt-6 flex items-center justify-center gap-2"
+          aria-label={m.problems_pagination()}
+        >
           <button
             class="rounded-md border border-border px-3 py-1 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             type="button"

@@ -32,7 +32,7 @@
     assignmentId,
     canEdit = false,
     candidateProblems = [],
-    class: className
+    class: className,
   }: Props = $props();
 
   function difficultyClass(difficulty: "easy" | "medium" | "hard"): string {
@@ -53,7 +53,7 @@
       problemId: p.problemId,
       title: p.title,
       points: p.points,
-      letter: p.letter
+      letter: p.letter,
     }));
   }
 
@@ -72,7 +72,7 @@
         (c) =>
           c.title.toLowerCase().includes(q) ||
           c.id.toLowerCase().includes(q) ||
-          c.tags.some((t) => t.toLowerCase().includes(q))
+          c.tags.some((t) => t.toLowerCase().includes(q)),
       )
       .slice(0, 20);
   });
@@ -96,8 +96,8 @@
         problemId: candidate.id,
         title: candidate.title,
         points: 100,
-        letter: letterFor(editRows.length + 1)
-      }
+        letter: letterFor(editRows.length + 1),
+      },
     ];
   }
 
@@ -123,7 +123,7 @@
     errorMsg = null;
     const payload = {
       problemIds: editRows.map((r) => r.problemId),
-      points: Object.fromEntries(editRows.map((r) => [r.problemId, Math.trunc(r.points)]))
+      points: Object.fromEntries(editRows.map((r) => [r.problemId, Math.trunc(r.points)])),
     };
     const fd = new FormData();
     fd.set("payload", JSON.stringify(payload));
@@ -167,11 +167,13 @@
             <h4 class="truncate text-body-lg font-semibold text-foreground">
               {problem.title}
             </h4>
-            <div class="mt-1 flex flex-wrap items-center gap-3 text-caption text-muted-foreground">
+            <div
+              class="mt-1 flex flex-wrap items-center gap-3 text-caption text-muted-foreground"
+            >
               <span
                 class={cn(
                   "font-semibold uppercase tracking-[0.08em]",
-                  difficultyClass(problem.difficulty)
+                  difficultyClass(problem.difficulty),
                 )}
               >
                 {problem.difficulty}
@@ -189,7 +191,9 @@
     </div>
   {:else}
     {#if errorMsg}
-      <p class="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-body-sm text-destructive">
+      <p
+        class="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
+      >
         {errorMsg}
       </p>
     {/if}
@@ -261,9 +265,7 @@
       </div>
     {/if}
 
-    <div
-      class="mt-4 rounded-md border border-border bg-[color:var(--color-panel-strong)]/40"
-    >
+    <div class="mt-4 rounded-md border border-border bg-[color:var(--color-panel-strong)]/40">
       <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
         <Search class="size-4 text-muted-foreground" aria-hidden="true" />
         <input
@@ -292,7 +294,7 @@
               <span
                 class={cn(
                   "text-micro font-semibold uppercase tracking-wider",
-                  difficultyClass(candidate.difficulty)
+                  difficultyClass(candidate.difficulty),
                 )}
               >
                 {candidate.difficulty}

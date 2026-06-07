@@ -104,9 +104,7 @@
                 cooldown = RESEND_COOLDOWN;
               } else if (result.type === "failure") {
                 const parsed = actionErrorSchema.safeParse(result.data);
-                error = parsed.success
-                  ? parsed.data.error
-                  : m.account_sendVerificationFailed();
+                error = parsed.success ? parsed.data.error : m.account_sendVerificationFailed();
               } else {
                 await update();
               }
@@ -116,7 +114,7 @@
           <FormField
             label={m.account_schoolEmailLabel()}
             hint={m.account_acceptedDomains()}
-            error={error}
+            {error}
             for="school-email"
             required
           >

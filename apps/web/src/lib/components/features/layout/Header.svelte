@@ -9,7 +9,7 @@
     LayoutDashboard,
     Menu,
     Shield,
-    Trophy
+    Trophy,
   } from "@lucide/svelte";
   import type { Component } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
@@ -38,16 +38,20 @@
           { href: "/courses", label: m.navigation_courses(), icon: GraduationCap },
           ...(user.platformRole === "student"
             ? [
-                { href: "/assignments", label: m.navigation_assignments(), icon: ClipboardList },
-                { href: "/exams", label: m.navigation_exams(), icon: FileCheck }
+                {
+                  href: "/assignments",
+                  label: m.navigation_assignments(),
+                  icon: ClipboardList,
+                },
+                { href: "/exams", label: m.navigation_exams(), icon: FileCheck },
               ]
             : []),
           { href: "/contests", label: m.navigation_contests(), icon: Trophy },
           ...(user.platformRole === "admin"
             ? [{ href: "/admin", label: m.navigation_admin(), icon: Shield }]
-            : [])
+            : []),
         ]
-      : []
+      : [],
   );
 
   function isActive(href: string): boolean {
@@ -84,10 +88,7 @@
       </button>
     {/if}
 
-    <a
-      class="transition-colors duration-fast ease-out-soft hover:text-primary"
-      href="/"
-    >
+    <a class="transition-colors duration-fast ease-out-soft hover:text-primary" href="/">
       <BrandLogo />
     </a>
 
@@ -100,7 +101,7 @@
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors duration-fast ease-out-soft",
               item.active
                 ? "text-foreground bg-accent/60"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/40",
             )}
             href={item.href}
             aria-current={item.active ? "page" : undefined}
@@ -124,7 +125,7 @@
               "rounded-full px-2.5 py-1 transition-colors duration-fast ease-out-soft",
               entry === currentLocale
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
             onclick={() => setLocale(entry)}
             type="button"

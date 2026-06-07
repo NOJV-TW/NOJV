@@ -14,7 +14,7 @@
 
   const widthClass: Record<Width, string> = {
     full: "w-full",
-    form: "mx-auto w-full max-w-3xl"
+    form: "mx-auto w-full max-w-3xl",
   };
 </script>
 

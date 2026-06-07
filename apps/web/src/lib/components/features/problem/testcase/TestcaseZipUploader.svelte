@@ -3,7 +3,11 @@
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
-  import { detectSubtasksFromFiles, type ParsedCase, type SubtaskConfig } from "../detect-subtasks";
+  import {
+    detectSubtasksFromFiles,
+    type ParsedCase,
+    type SubtaskConfig,
+  } from "../detect-subtasks";
   import { postProblemAction } from "$lib/utils/actions";
 
   interface Props {
@@ -96,7 +100,7 @@
         name: `Subtask ${String(i + 1)}`,
         description: "",
         points: Math.round(100 / count),
-        caseIndices: indices
+        caseIndices: indices,
       });
     }
     subtasks = newSubtasks;
@@ -114,13 +118,13 @@
               data: JSON.stringify({
                 cases: subtask.caseIndices.map((idx) => ({
                   input: parsedCases[idx]?.input ?? "",
-                  output: parsedCases[idx]?.output ?? ""
+                  output: parsedCases[idx]?.output ?? "",
                 })),
                 name: subtask.name,
-                weight: subtask.points
-              })
-            })
-          )
+                weight: subtask.points,
+              }),
+            }),
+          ),
       );
       parsedCases = [];
       subtasks = [];
@@ -135,9 +139,12 @@
   }
 </script>
 
-<section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+<section
+  class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm"
+>
   <p class="text-body-sm font-bold">
-    {m.testcases_uploadZip()} <HelpTooltip text={m.testcases_zipFormatHelp()} />
+    {m.testcases_uploadZip()}
+    <HelpTooltip text={m.testcases_zipFormatHelp()} />
   </p>
   <p class="mt-1 text-caption text-muted-foreground">
     {m.testcases_uploadZipHint()}
@@ -149,11 +156,15 @@
     <div class="flex flex-wrap items-end gap-3">
       <div class="grid gap-1">
         <span class="text-caption text-muted-foreground">
-          {m.testcases_regex()} <HelpTooltip text={m.testcases_zipStructureHint()} />
+          {m.testcases_regex()}
+          <HelpTooltip text={m.testcases_zipStructureHint()} />
         </span>
         <input
           class="{smallInputClassName} w-48"
-          oninput={(e) => { regexPattern = (e.target as HTMLInputElement).value; reparse(); }}
+          oninput={(e) => {
+            regexPattern = (e.target as HTMLInputElement).value;
+            reparse();
+          }}
           placeholder="(\d\d)(\d\d)"
           value={regexPattern}
         />
@@ -162,7 +173,10 @@
         <span class="text-caption text-muted-foreground">{m.testcases_inputExtension()}</span>
         <input
           class="{smallInputClassName} w-16"
-          oninput={(e) => { inExt = (e.target as HTMLInputElement).value; reparse(); }}
+          oninput={(e) => {
+            inExt = (e.target as HTMLInputElement).value;
+            reparse();
+          }}
           value={inExt}
         />
       </div>
@@ -170,7 +184,10 @@
         <span class="text-caption text-muted-foreground">{m.testcases_outputExtension()}</span>
         <input
           class="{smallInputClassName} w-16"
-          oninput={(e) => { outExt = (e.target as HTMLInputElement).value; reparse(); }}
+          oninput={(e) => {
+            outExt = (e.target as HTMLInputElement).value;
+            reparse();
+          }}
           value={outExt}
         />
       </div>
@@ -197,7 +214,10 @@
         <span
           class="rounded-full bg-success/15 px-3 py-1.5 text-caption font-medium text-success"
         >
-          {m.testcases_casesUploaded({ fileName: zipFileName ?? "", count: parsedCases.length })}
+          {m.testcases_casesUploaded({
+            fileName: zipFileName ?? "",
+            count: parsedCases.length,
+          })}
         </span>
         <span class="text-caption text-muted-foreground">
           {m.testcases_subtasksDetected({ count: subtasks.length })}
@@ -244,7 +264,9 @@
           >
             <div class="flex flex-wrap items-center gap-3">
               <label class="grid gap-1">
-                <span class="text-caption font-medium text-muted-foreground">{m.testcases_subtaskLabel()}</span>
+                <span class="text-caption font-medium text-muted-foreground"
+                  >{m.testcases_subtaskLabel()}</span
+                >
                 <input
                   class="rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm font-semibold"
                   oninput={(e) =>
@@ -253,14 +275,16 @@
                 />
               </label>
               <label class="grid gap-1">
-                <span class="text-caption font-medium text-muted-foreground">{m.testcases_subtaskWeight()}</span>
+                <span class="text-caption font-medium text-muted-foreground"
+                  >{m.testcases_subtaskWeight()}</span
+                >
                 <div class="flex items-center gap-1">
                   <input
                     class="w-20 rounded-lg border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-body-sm font-bold text-primary tabular-nums"
                     min="0"
                     oninput={(e) =>
                       updateSubtask(si, {
-                        points: Number((e.target as HTMLInputElement).value) || 0
+                        points: Number((e.target as HTMLInputElement).value) || 0,
                       })}
                     type="number"
                     value={subtask.points}
@@ -293,7 +317,9 @@
         disabled={uploadSaving || subtasks.length === 0}
         type="button"
       >
-        {uploadSaving ? m.testcases_saving() : m.testcases_uploadSubtasks({ count: subtasks.length })}
+        {uploadSaving
+          ? m.testcases_saving()
+          : m.testcases_uploadSubtasks({ count: subtasks.length })}
       </button>
     </div>
   {/if}

@@ -11,7 +11,7 @@
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import LatePenaltyRuleBuilder, {
-    type LatePenaltyRule
+    type LatePenaltyRule,
   } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import { toggleArrayItem } from "$lib/utils";
@@ -24,18 +24,16 @@
     errors,
     enhance,
     message: formMessage,
-    submitting
+    submitting,
   } = superForm<typeof data.form.data, FormMessage>(
     untrack(() => data.form),
-    { dataType: "json", resetForm: false }
+    { dataType: "json", resetForm: false },
   );
 
   let searchQuery = $state("");
   let advancedOpen = $state(true);
 
-  const problemById = $derived(
-    new Map(data.candidateProblems?.map((p) => [p.id, p]) ?? [])
-  );
+  const problemById = $derived(new Map(data.candidateProblems?.map((p) => [p.id, p]) ?? []));
 
   const filteredProblems = $derived.by(() => {
     const rows = data.candidateProblems ?? [];
@@ -48,13 +46,13 @@
         (p) =>
           p.title.toLowerCase().includes(q) ||
           p.id.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q))
+          p.tags.some((t) => t.toLowerCase().includes(q)),
       )
       .slice(0, 30);
   });
 
   const selectedProblems = $derived(
-    $form.problemIds.map((id) => problemById.get(id)).filter((p) => p !== undefined)
+    $form.problemIds.map((id) => problemById.get(id)).filter((p) => p !== undefined),
   );
 
   function addProblem(id: string) {
@@ -132,7 +130,6 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    
     <div
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -172,7 +169,6 @@
       </div>
     </div>
 
-    
     <div
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -193,7 +189,6 @@
         </div>
       </div>
 
-      
       <div class="rounded-md border border-border bg-[color:var(--color-panel-strong)]/40">
         <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
           <Search class="size-4 text-muted-foreground" aria-hidden="true" />
@@ -219,15 +214,13 @@
                 onclick={() => addProblem(problem.id)}
                 class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors duration-fast hover:bg-muted"
               >
-                <span
-                  class="min-w-[80px] font-mono text-caption text-muted-foreground"
-                >
+                <span class="min-w-[80px] font-mono text-caption text-muted-foreground">
                   #{problem.displayId}
                 </span>
                 <span class="flex-1 text-body-sm font-medium">{problem.title}</span>
                 <span
                   class="text-micro font-semibold uppercase tracking-wider {difficultyClass(
-                    problem.difficulty
+                    problem.difficulty,
                   )}"
                 >
                   {difficultyLabel(problem.difficulty)}
@@ -243,7 +236,6 @@
         </div>
       </div>
 
-      
       {#if selectedProblems.length > 0}
         <div class="mt-4">
           <div
@@ -266,9 +258,7 @@
               <span class="cursor-grab text-muted-foreground hover:text-foreground">
                 <GripVertical class="size-4" aria-hidden="true" />
               </span>
-              <span
-                class="min-w-[20px] text-center text-title-sm text-muted-foreground"
-              >
+              <span class="min-w-[20px] text-center text-title-sm text-muted-foreground">
                 {index + 1}
               </span>
               <div class="min-w-0">
@@ -279,7 +269,7 @@
               </div>
               <span
                 class="text-micro font-semibold uppercase tracking-wider {difficultyClass(
-                  problem.difficulty
+                  problem.difficulty,
                 )}"
               >
                 {difficultyLabel(problem.difficulty)}
@@ -298,7 +288,6 @@
         </div>
       {/if}
 
-      
       <div
         class="mt-4 flex items-start gap-3.5 rounded-md border border-dashed border-info/30 bg-info/5 px-5 py-4 text-body-sm leading-relaxed text-muted-foreground"
       >
@@ -316,7 +305,6 @@
       {/if}
     </div>
 
-    
     <div
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -387,7 +375,6 @@
       </div>
     </div>
 
-    
     <div
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -412,7 +399,6 @@
 
       {#if advancedOpen}
         <div class="mt-6 space-y-6 border-t border-border-subtle pt-6">
-          
           <div>
             <label class="text-body-sm font-medium" for="allowedLanguages">
               {m.assignmentCreate_languagesLabel()}
@@ -436,7 +422,6 @@
             </div>
           </div>
 
-          
           <div>
             <label class="text-body-sm font-medium" for="maxAttemptsPerDay">
               {m.assignmentCreate_maxAttemptsLabel()}
@@ -469,7 +454,8 @@
               id="attemptResetTime"
               type="time"
               value={minutesToHHMM($form.attemptResetMinuteOfDay)}
-              oninput={(e) => ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
+              oninput={(e) =>
+                ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
               class="mt-2 {inputClass} max-w-[200px]"
             />
             <input
@@ -482,7 +468,6 @@
             </p>
           </div>
 
-          
           <div>
             <label class="text-body-sm font-medium" for="latePenalty">
               {m.assignmentCreate_latePenaltyLabel()}
@@ -499,10 +484,8 @@
       {/if}
     </div>
 
-    
     <input type="hidden" name="courseId" value={$form.courseId} />
 
-    
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >
@@ -512,12 +495,7 @@
       <Button href={`/courses/${courseId}/assignments`} variant="ghost">
         {m.assignmentCreate_cancel()}
       </Button>
-      <Button
-        type="submit"
-        variant="outline"
-        formaction="?/saveDraft"
-        disabled={$submitting}
-      >
+      <Button type="submit" variant="outline" formaction="?/saveDraft" disabled={$submitting}>
         {m.assignmentCreate_saveDraft()}
       </Button>
       <Button type="submit" formaction="?/publish" disabled={$submitting}>

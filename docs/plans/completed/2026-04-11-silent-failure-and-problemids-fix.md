@@ -315,16 +315,16 @@ git commit -m "fix(core): accept raw problem ids in contestCreateSchema"
 Read lines 280-295 of `apps/web/src/lib/components/manage/Contests.svelte`. Confirm the checkbox block currently reads:
 
 ```svelte
-          {#each supportedLanguages as lang (lang)}
-            <label class="flex items-center gap-1.5 text-body-sm">
-              <input
-                type="checkbox"
-                checked={($form.allowedLanguages ?? []).includes(lang)}
-                onchange={() => toggleLanguage(lang)}
-              />
-              {lang}
-            </label>
-          {/each}
+{#each supportedLanguages as lang (lang)}
+  <label class="flex items-center gap-1.5 text-body-sm">
+    <input
+      type="checkbox"
+      checked={($form.allowedLanguages ?? []).includes(lang)}
+      onchange={() => toggleLanguage(lang)}
+    />
+    {lang}
+  </label>
+{/each}
 ```
 
 The `<input>` is missing `name="allowedLanguages"` and `value={lang}`, which is the root cause.
@@ -334,13 +334,13 @@ The `<input>` is missing `name="allowedLanguages"` and `value={lang}`, which is 
 Replace the `<input>` element above with:
 
 ```svelte
-              <input
-                type="checkbox"
-                name="allowedLanguages"
-                value={lang}
-                checked={($form.allowedLanguages ?? []).includes(lang)}
-                onchange={() => toggleLanguage(lang)}
-              />
+<input
+  type="checkbox"
+  name="allowedLanguages"
+  value={lang}
+  checked={($form.allowedLanguages ?? []).includes(lang)}
+  onchange={() => toggleLanguage(lang)}
+/>
 ```
 
 This mirrors the equivalent block in `Assessments.svelte:331-337` (which already has `name="allowedLanguages"`).
@@ -504,17 +504,17 @@ const {
 Locate lines 397-399:
 
 ```svelte
-    {#if $formMessage}
-      <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
-    {/if}
+{#if $formMessage}
+  <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
+{/if}
 ```
 
 Replace with:
 
 ```svelte
-    {#if $formMessage?.kind === "success"}
-      <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
-    {/if}
+{#if $formMessage?.kind === "success"}
+  <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
+{/if}
 ```
 
 - [ ] **Step 8: Mount FormError at the top of the form**
@@ -617,17 +617,17 @@ const {
 Locate lines 336-338:
 
 ```svelte
-    {#if $formMessage}
-      <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
-    {/if}
+{#if $formMessage}
+  <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
+{/if}
 ```
 
 Replace with:
 
 ```svelte
-    {#if $formMessage?.kind === "success"}
-      <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
-    {/if}
+{#if $formMessage?.kind === "success"}
+  <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
+{/if}
 ```
 
 - [ ] **Step 4: Mount FormError at the top of the contest form**
@@ -635,7 +635,7 @@ Replace with:
 Find the `<form>` tag for the contest creation form (the one with `action="?/createContest"`). Insert as its first child:
 
 ```svelte
-      <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
+<FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 ```
 
 - [ ] **Step 5: Typecheck**
@@ -741,7 +741,7 @@ The component currently renders `{#if $formMessage}` somewhere below the form wi
 Add as the first child of the `<form>` element:
 
 ```svelte
-  <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
+<FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 ```
 
 - [ ] **Step 8: Typecheck**

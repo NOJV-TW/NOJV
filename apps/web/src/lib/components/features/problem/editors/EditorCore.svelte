@@ -25,7 +25,7 @@
     overviewRulerBorder: false,
     padding: { top: 16 },
     scrollBeyondLastLine: false,
-    wordWrap: "on" as const
+    wordWrap: "on" as const,
   };
 
   const languageIdMap: Record<string, string> = {
@@ -36,7 +36,7 @@
     javascript: "javascript",
     python: "python",
     rust: "rust",
-    typescript: "typescript"
+    typescript: "typescript",
   };
 
   let editorContainer: HTMLDivElement = $state(null!);
@@ -57,7 +57,7 @@
         ...editorOptions,
         language: languageIdMap[language] ?? language,
         theme: getNojvThemeName(isDark),
-        value: drafts[language] ?? ""
+        value: drafts[language] ?? "",
       });
 
       const editor = monacoEditor;
@@ -71,7 +71,7 @@
       });
       themeObserver.observe(document.documentElement, {
         attributes: true,
-        attributeFilter: ["class"]
+        attributeFilter: ["class"],
       });
     })();
 

@@ -44,12 +44,12 @@
     problems,
     existing = null,
     onsuccess,
-    oncancel
+    oncancel,
   }: Props = $props();
 
   let userId = $state<string>(((): string => existing?.userId ?? students[0]?.id ?? "")());
   let problemId = $state<string>(
-    ((): string => existing?.problemId ?? problems[0]?.id ?? "")()
+    ((): string => existing?.problemId ?? problems[0]?.id ?? "")(),
   );
   let overrideScore = $state<number>(((): number => existing?.overrideScore ?? 0)());
   let reason = $state<string>(((): string => existing?.reason ?? "")());
@@ -96,8 +96,8 @@
             problemId,
             context,
             overrideScore,
-            reason
-          })
+            reason,
+          }),
         });
       } else {
         if (!existing) {
@@ -108,7 +108,7 @@
         res = await fetch(`/api/overrides/${existing.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
-          body: JSON.stringify({ overrideScore, reason })
+          body: JSON.stringify({ overrideScore, reason }),
         });
       }
 
@@ -118,7 +118,7 @@
           message:
             mode === "create"
               ? m.override_staff_toastCreated()
-              : m.override_staff_toastUpdated()
+              : m.override_staff_toastUpdated(),
         });
         if (mode === "create") {
           userId = students[0]?.id ?? "";
@@ -239,9 +239,7 @@
       </Button>
     {/if}
     <Button type="submit" size="sm" loading={submitting} disabled={submitting}>
-      {mode === "create"
-        ? m.override_staff_submitCreate()
-        : m.override_staff_submitUpdate()}
+      {mode === "create" ? m.override_staff_submitCreate() : m.override_staff_submitUpdate()}
     </Button>
   </div>
 </form>

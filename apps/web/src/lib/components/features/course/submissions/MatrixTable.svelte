@@ -70,10 +70,12 @@
             <td
               class={cn(
                 "border-b border-r border-border-subtle px-3 py-3 text-center text-body-sm",
-                cell.state === "ac" && "bg-[color:rgba(77,141,91,0.14)] font-semibold text-success",
+                cell.state === "ac" &&
+                  "bg-[color:rgba(77,141,91,0.14)] font-semibold text-success",
                 cell.state === "partial" && "bg-[color:rgba(184,55,42,0.1)] text-destructive",
-                cell.state === "zero" && "bg-[color:rgba(184,55,42,0.18)] font-semibold text-destructive",
-                cell.state === "empty" && "text-muted-foreground"
+                cell.state === "zero" &&
+                  "bg-[color:rgba(184,55,42,0.18)] font-semibold text-destructive",
+                cell.state === "empty" && "text-muted-foreground",
               )}
               style={cell.state === "empty"
                 ? "background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(79, 52, 35, 0.04) 4px, rgba(79, 52, 35, 0.04) 8px);"

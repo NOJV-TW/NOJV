@@ -4,7 +4,7 @@
     languageSchema,
     supportedLanguages,
     type Language,
-    type ProblemType
+    type ProblemType,
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
 
@@ -23,7 +23,7 @@
     problemType,
     workspaceFiles,
     onchange,
-    onavailablechange
+    onavailablechange,
   }: Props = $props();
 
   let availableLanguages = $derived.by(() => {
@@ -35,8 +35,7 @@
       langs = langs.filter((l) => {
         const entry = entryFileNameFor(l);
         return workspaceFiles.some(
-          (f) =>
-            f.language === l && f.path === entry && f.visibility === "editable"
+          (f) => f.language === l && f.path === entry && f.visibility === "editable",
         );
       });
     }

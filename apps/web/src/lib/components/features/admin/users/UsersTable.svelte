@@ -59,12 +59,18 @@
       <tr class="border-b border-border-subtle text-left">
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <User aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersUsername()}
+            <User
+              aria-hidden="true"
+              class="h-3.5 w-3.5 text-muted-foreground"
+            />{m.admin_usersUsername()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <Mail aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersEmail()}
+            <Mail
+              aria-hidden="true"
+              class="h-3.5 w-3.5 text-muted-foreground"
+            />{m.admin_usersEmail()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">{m.admin_usersName()}</th>
@@ -72,12 +78,18 @@
         <th class="px-5 py-3 font-medium">{m.admin_usersStatus()}</th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <CalendarClock aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersCreated()}
+            <CalendarClock
+              aria-hidden="true"
+              class="h-3.5 w-3.5 text-muted-foreground"
+            />{m.admin_usersCreated()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <UserCog aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersActions()}
+            <UserCog
+              aria-hidden="true"
+              class="h-3.5 w-3.5 text-muted-foreground"
+            />{m.admin_usersActions()}
           </span>
         </th>
       </tr>
@@ -108,8 +120,8 @@
                     const ok = confirm(
                       m.admin_usersRoleDemoteConfirm({
                         username: targetUsername,
-                        to: submittedRole
-                      })
+                        to: submittedRole,
+                      }),
                     );
                     if (!ok) {
                       cancel();
@@ -122,8 +134,8 @@
                       toasts.success(
                         m.admin_usersRoleUpdateSuccess({
                           username: targetUsername,
-                          to: submittedRole
-                        })
+                          to: submittedRole,
+                        }),
                       );
                       editingUserId = null;
                       await update();
@@ -153,7 +165,7 @@
                     {m.admin_usersRoleChangeDiff({
                       username: user.username ?? user.name,
                       from: user.platformRole,
-                      to: draftRole
+                      to: draftRole,
                     })}
                   </p>
                 {/if}
@@ -166,12 +178,7 @@
                   >
                     {m.common_save()}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onclick={cancelEditRole}
-                  >
+                  <Button type="button" variant="ghost" size="sm" onclick={cancelEditRole}>
                     {m.common_cancel()}
                   </Button>
                 </div>
@@ -214,9 +221,7 @@
                 }
 
                 if (willDisable) {
-                  const ok = confirm(
-                    m.admin_usersDisableConfirm({ username: targetUsername })
-                  );
+                  const ok = confirm(m.admin_usersDisableConfirm({ username: targetUsername }));
                   if (!ok) {
                     cancel();
                     return;
@@ -228,7 +233,7 @@
                     toasts.success(
                       willDisable
                         ? m.admin_usersDisableSuccess({ username: targetUsername })
-                        : m.admin_usersEnableSuccess({ username: targetUsername })
+                        : m.admin_usersEnableSuccess({ username: targetUsername }),
                     );
                     await update();
                   } else if (result.type === "failure") {

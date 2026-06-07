@@ -115,7 +115,9 @@
 </script>
 
 <div class="flex gap-6">
-  <nav class="w-52 shrink-0 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-rest">
+  <nav
+    class="w-52 shrink-0 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-rest"
+  >
     <ul class="space-y-1">
       {#each sections as section (section.id)}
         {@const locked = isLocked(section.id)}
@@ -125,17 +127,20 @@
               <Tooltip.Trigger
                 class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft
                   {locked
-                    ? 'cursor-not-allowed text-muted-foreground/40'
-                    : activeSection === section.id
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
-                onclick={() => { if (!locked) handleSectionClick(section.id); }}
+                  ? 'cursor-not-allowed text-muted-foreground/40'
+                  : activeSection === section.id
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
+                onclick={() => {
+                  if (!locked) handleSectionClick(section.id);
+                }}
                 type="button"
                 disabled={locked}
               >
                 <span class="text-body">{section.icon}</span>
                 <span class="flex-1 text-left">{section.label}</span>
-                <span class="text-caption text-muted-foreground">{statusBadge(section.id)}</span>
+                <span class="text-caption text-muted-foreground">{statusBadge(section.id)}</span
+                >
               </Tooltip.Trigger>
               {#if locked}
                 <Tooltip.Portal>
@@ -242,7 +247,9 @@
           <p class="text-muted-foreground">
             {m.admin_convertToAdvancedDesc()}
           </p>
-          <div class="rounded-md border border-warning/40 bg-warning/10 p-3 text-caption text-warning">
+          <div
+            class="rounded-md border border-warning/40 bg-warning/10 p-3 text-caption text-warning"
+          >
             <p class="font-semibold">{m.admin_convertToAdvancedWarningHeader()}</p>
             <ul class="mt-2 list-disc space-y-1 pl-4">
               <li>{m.admin_convertToAdvancedWarningItem1()}</li>
@@ -279,18 +286,15 @@
             disabled={converting || convertConfirmText !== "CONVERT"}
             onclick={submitConvert}
           >
-            {converting ? m.admin_convertToAdvancedConverting() : m.admin_convertToAdvancedConfirm()}
+            {converting
+              ? m.admin_convertToAdvancedConverting()
+              : m.admin_convertToAdvancedConfirm()}
           </button>
         </Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>
 
-    <form
-      bind:this={convertFormEl}
-      method="POST"
-      action="?/convertToAdvanced"
-      class="hidden"
-    >
+    <form bind:this={convertFormEl} method="POST" action="?/convertToAdvanced" class="hidden">
       <input type="hidden" name="confirm" value="yes" />
     </form>
   {/if}

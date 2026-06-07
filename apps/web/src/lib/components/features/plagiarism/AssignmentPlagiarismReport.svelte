@@ -57,7 +57,14 @@
     class?: string;
   }
 
-  let { report, problems, students, flags = [], diffContext, class: className }: Props = $props();
+  let {
+    report,
+    problems,
+    students,
+    flags = [],
+    diffContext,
+    class: className,
+  }: Props = $props();
 
   let showFlagged = $state(false);
 
@@ -231,7 +238,9 @@
     {#if totalPairs > 0}
       <div class="rounded-md border border-border bg-[color:var(--color-panel)]/60 px-5 py-5">
         <div class="mb-3 flex items-baseline justify-between">
-          <h4 class="text-body-sm font-semibold">{m.assignmentDetail_plagHistogramHeading()}</h4>
+          <h4 class="text-body-sm font-semibold">
+            {m.assignmentDetail_plagHistogramHeading()}
+          </h4>
           <span class="text-caption text-muted-foreground">
             {m.assignmentDetail_plagHistogramHint()}
           </span>

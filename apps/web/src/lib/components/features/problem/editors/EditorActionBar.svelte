@@ -24,7 +24,7 @@
     isDirty = false,
     lastSavedAt = null,
     onRun,
-    onSubmit
+    onSubmit,
   }: Props = $props();
 
   let disabled = $derived(availableLanguageCount === 0 || !hasSubmittableSource);

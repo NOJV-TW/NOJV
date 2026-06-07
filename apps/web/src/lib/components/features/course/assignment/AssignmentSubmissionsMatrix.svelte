@@ -49,6 +49,6 @@
     filterAll: m.assignmentDetail_matrixFilterAll,
     filterStudents: m.assignmentDetail_matrixFilterStudents,
     roleFilterTooltip: m.matrix_roleFilterTooltip,
-    viewAction: m.assignmentDetail_matrixView
+    viewAction: m.assignmentDetail_matrixView,
   }}
 />

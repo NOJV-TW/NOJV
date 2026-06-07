@@ -29,11 +29,14 @@
     errors,
     enhance,
     message: formMessage,
-    submitting
-  } = superForm<typeof data.form.data, FormMessage>(untrack(() => data.form), {
-    dataType: "json",
-    resetForm: false
-  });
+    submitting,
+  } = superForm<typeof data.form.data, FormMessage>(
+    untrack(() => data.form),
+    {
+      dataType: "json",
+      resetForm: false,
+    },
+  );
 
   let advancedOpen = $state(false);
   let problemSearch = $state("");
@@ -108,10 +111,8 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    
     <input type="hidden" name="courseId" value={$form.courseId} />
 
-    
     <section
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -165,7 +166,6 @@
       </div>
     </section>
 
-    
     <section
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -184,11 +184,8 @@
         </div>
       </header>
 
-      
       <div class="rounded-md border border-border bg-[color:var(--color-panel)]/60">
-        <div
-          class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5"
-        >
+        <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
           <Search class="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input
             type="text"
@@ -213,7 +210,7 @@
               <span class="flex-1 text-body-sm font-medium">{problem.title}</span>
               <span
                 class="text-micro font-semibold uppercase tracking-[0.08em] {difficultyClass(
-                  problem.difficulty
+                  problem.difficulty,
                 )}"
               >
                 {problem.difficulty}
@@ -232,7 +229,6 @@
         </div>
       </div>
 
-      
       {#if selectedDetails.length > 0}
         <div class="mt-4">
           <div
@@ -240,7 +236,7 @@
           >
             <span
               >{m.examCreate_selectedProblemsCount({
-                count: selectedDetails.length
+                count: selectedDetails.length,
               })}</span
             >
             <span>{m.examCreate_selectedProblemsReorderHint()}</span>
@@ -250,8 +246,7 @@
               <div
                 class="flex items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3 transition-colors hover:border-border-strong"
               >
-                <span
-                  class="text-title-sm text-muted-foreground min-w-[20px] text-center"
+                <span class="text-title-sm text-muted-foreground min-w-[20px] text-center"
                   >{index + 1}</span
                 >
                 <div class="min-w-0 flex-1">
@@ -262,7 +257,7 @@
                 </div>
                 <span
                   class="text-micro font-semibold uppercase tracking-[0.08em] {difficultyClass(
-                    problem.difficulty
+                    problem.difficulty,
                   )}"
                 >
                   {problem.difficulty}
@@ -312,7 +307,6 @@
       {/if}
     </section>
 
-    
     <section
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -365,7 +359,6 @@
       </div>
     </section>
 
-    
     <section
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -375,7 +368,8 @@
         onclick={() => (advancedOpen = !advancedOpen)}
         aria-expanded={advancedOpen}
       >
-        <ChevronRight aria-hidden="true"
+        <ChevronRight
+          aria-hidden="true"
           class="h-4 w-4 transition-transform {advancedOpen ? 'rotate-90' : ''}"
         />
         <div>
@@ -415,7 +409,6 @@
       {/if}
     </section>
 
-    
     <section
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -435,7 +428,6 @@
       </header>
 
       <div class="space-y-3">
-        
         <div
           class="flex items-start justify-between gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.pageLockEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -452,18 +444,12 @@
             <div class="font-semibold tracking-[-0.005em]">
               {m.examCreate_pageLockLabel()}
             </div>
-            <p
-              class="mt-1 text-caption leading-relaxed text-muted-foreground"
-            >
+            <p class="mt-1 text-caption leading-relaxed text-muted-foreground">
               {m.examCreate_pageLockDesc()}
             </p>
           </div>
           <label class="flex cursor-pointer items-center">
-            <input
-              type="checkbox"
-              class="peer sr-only"
-              bind:checked={$form.pageLockEnabled}
-            />
+            <input type="checkbox" class="peer sr-only" bind:checked={$form.pageLockEnabled} />
             <span
               class="relative mt-2 block h-5 w-10 flex-shrink-0 rounded-full border border-border bg-muted transition-colors peer-checked:border-primary peer-checked:bg-primary"
               aria-hidden="true"
@@ -475,7 +461,6 @@
           </label>
         </div>
 
-        
         <div
           class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.ipBindingEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -493,9 +478,7 @@
               <div class="font-semibold tracking-[-0.005em]">
                 {m.examCreate_ipBindingLabel()}
               </div>
-              <p
-                class="mt-1 text-caption leading-relaxed text-muted-foreground"
-              >
+              <p class="mt-1 text-caption leading-relaxed text-muted-foreground">
                 {m.examCreate_ipBindingDesc()}
               </p>
             </div>
@@ -549,7 +532,6 @@
           {/if}
         </div>
 
-        
         <div
           class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4.5 transition-colors {$form.ipWhitelistEnabled
             ? 'border-[color:var(--color-primary)]/28'
@@ -567,9 +549,7 @@
               <div class="font-semibold tracking-[-0.005em]">
                 {m.examCreate_ipWhitelistLabel()}
               </div>
-              <p
-                class="mt-1 text-caption leading-relaxed text-muted-foreground"
-              >
+              <p class="mt-1 text-caption leading-relaxed text-muted-foreground">
                 {m.examCreate_ipWhitelistDesc()}
                 <span class="text-warning">
                   {m.examCreate_ipWhitelistWarning()}
@@ -612,7 +592,6 @@
       </div>
     </section>
 
-    
     <section
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
@@ -637,11 +616,7 @@
             <label class="text-sm font-medium" for="scoringMode">
               {m.examCreate_scoringModeLabel()} <span class="text-destructive">*</span>
             </label>
-            <select
-              id="scoringMode"
-              class={inputClassName}
-              bind:value={$form.scoringMode}
-            >
+            <select id="scoringMode" class={inputClassName} bind:value={$form.scoringMode}>
               <option value="problem_count">
                 {m.examCreate_scoringModeProblemCount()}
               </option>
@@ -691,7 +666,6 @@
       </div>
     </section>
 
-    
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >
@@ -701,12 +675,7 @@
       <Button variant="ghost" href={`/courses/${courseId}/exams`} disabled={$submitting}>
         {m.examCreate_cancel()}
       </Button>
-      <Button
-        type="submit"
-        variant="outline"
-        formaction="?/saveDraft"
-        disabled={$submitting}
-      >
+      <Button type="submit" variant="outline" formaction="?/saveDraft" disabled={$submitting}>
         {m.examCreate_saveDraft()}
       </Button>
       <Button type="submit" formaction="?/publish" disabled={$submitting}>

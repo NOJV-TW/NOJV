@@ -22,7 +22,8 @@
         class="inline-flex items-center gap-1.5 ml-2 rounded-full px-2.5 py-0.5 text-micro font-mono uppercase tracking-wider"
         style="background: color-mix(in oklab, var(--destructive) 14%, transparent); color: oklch(0.55 0.2 27);"
       >
-        <span class="size-1.5 rounded-full live-dot" style="background: oklch(0.55 0.2 27);"></span>
+        <span class="size-1.5 rounded-full live-dot" style="background: oklch(0.55 0.2 27);"
+        ></span>
         {badge}
       </span>
     {/if}

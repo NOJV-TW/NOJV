@@ -46,7 +46,6 @@
 </div>
 
 {#if showStatement}
-  
   <div
     class="fixed inset-0 z-[var(--z-modal,80)] flex flex-col bg-background"
     role="dialog"
@@ -94,7 +93,8 @@
       {#each problem.samples as sample, index (`sample-${index}`)}
         <div class="mt-6 {index > 0 ? 'border-t border-border-subtle pt-6' : ''}">
           <p class="text-body font-semibold">
-            {m.problemDetail_sample()} {index + 1}
+            {m.problemDetail_sample()}
+            {index + 1}
           </p>
           <div class="mt-3 space-y-3 text-body-sm">
             <div>

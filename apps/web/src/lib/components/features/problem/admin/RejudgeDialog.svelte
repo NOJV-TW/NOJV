@@ -43,7 +43,7 @@
     if (!workflowId) return;
     try {
       const res = await fetch(`/api/rejudges/${workflowId}`, {
-        headers: { "X-Requested-With": "fetch" }
+        headers: { "X-Requested-With": "fetch" },
       });
       if (res.ok) {
         const body = (await res.json()) as { completed: number; total: number; done: boolean };
@@ -69,7 +69,7 @@
     try {
       const res = await fetch(`/api/rejudges/${workflowId}/cancel`, {
         method: "POST",
-        headers: { "X-Requested-With": "fetch" }
+        headers: { "X-Requested-With": "fetch" },
       });
       if (res.ok) {
         toasts.add({ type: "success", message: m.rejudge_toast_cancelled() });
@@ -111,7 +111,7 @@
       return "Context id is required when a context type is selected.";
     }
     if (since !== "" && until !== "") {
-      if (since >= until) return "\"Since\" must be earlier than \"Until\".";
+      if (since >= until) return '"Since" must be earlier than "Until".';
     }
     return null;
   }
@@ -140,7 +140,7 @@
       .filter((s) => s.length > 0);
 
     const payload: Record<string, unknown> = {
-      problemId
+      problemId,
     };
     if (contextType === "contest") payload.contestId = contextId.trim();
     if (contextType === "assignment") payload.assessmentId = contextId.trim();
@@ -156,7 +156,7 @@
       const res = await fetch("/api/rejudges", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const body = (await res.json()) as { workflowId: string };
@@ -184,7 +184,7 @@
   }
 
   let percent = $derived(
-    progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
+    progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0,
   );
 </script>
 
@@ -206,7 +206,7 @@
           <span class="tabular-nums text-muted-foreground">
             {m.rejudge_progress_status({
               completed: progress.completed,
-              total: progress.total
+              total: progress.total,
             })}
           </span>
         </div>

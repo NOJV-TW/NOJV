@@ -163,7 +163,9 @@ export function validateRequiredPaths(
 2. In the page Svelte file, after the `ImageSection` block (line ~201), add:
 
    ```svelte
-   <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+   <section
+     class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
+   >
      <RequiredPathsSection
        value={requiredPaths}
        onchange={(next) => (requiredPaths = next)}

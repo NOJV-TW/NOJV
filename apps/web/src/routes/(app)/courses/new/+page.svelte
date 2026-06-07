@@ -16,15 +16,14 @@
     errors,
     enhance,
     message: formMessage,
-    submitting
+    submitting,
   } = superForm<typeof data.form.data, FormMessage>(
     untrack(() => data.form),
-    { resetForm: false }
+    { resetForm: false },
   );
 </script>
 
 <PageContainer width="form">
-
   <section class="animate-in mb-8">
     <a
       href="/courses"
@@ -44,7 +43,6 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    
     <div
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
@@ -101,12 +99,13 @@
             class="mt-2 min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
           ></textarea>
           {#if $errors.description}
-            <p id="description-error" class="mt-1 text-caption text-destructive">{$errors.description}</p>
+            <p id="description-error" class="mt-1 text-caption text-destructive">
+              {$errors.description}
+            </p>
           {/if}
         </div>
       </div>
 
-      
       <div class="mt-5 space-y-5 border-t border-border-subtle pt-5">
         <p class="text-body-sm font-medium">{m.coursesNew_termTitle()}</p>
         <p class="-mt-4 text-caption text-muted-foreground">{m.coursesNew_termSubtitle()}</p>
@@ -128,7 +127,9 @@
               class="mt-2 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
             />
             {#if $errors.academicYear}
-              <p id="academicYear-error" class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
+              <p id="academicYear-error" class="mt-1 text-caption text-destructive">
+                {$errors.academicYear}
+              </p>
             {/if}
           </div>
           <div>
@@ -149,13 +150,14 @@
               <option value={3}>{m.coursesNew_semesterOption3()}</option>
             </select>
             {#if $errors.semester}
-              <p id="semester-error" class="mt-1 text-caption text-destructive">{$errors.semester}</p>
+              <p id="semester-error" class="mt-1 text-caption text-destructive">
+                {$errors.semester}
+              </p>
             {/if}
           </div>
         </div>
       </div>
 
-      
       <div
         class="mt-5 flex items-start gap-3 rounded-md border border-info/20 border-l-4 border-l-info bg-info/5 px-4 py-3.5 text-body-sm leading-snug text-muted-foreground"
       >
@@ -169,7 +171,6 @@
       </div>
     </div>
 
-    
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >

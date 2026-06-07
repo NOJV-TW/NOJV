@@ -5,5 +5,9 @@
   "type": "module",
   "exports": {
     "./base": "./base.mjs"
+  },
+  "dependencies": {
+    "prettier-plugin-svelte": "^4.1.0",
+    "svelte": "^5.56.0"
   }
 }

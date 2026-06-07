@@ -20,7 +20,7 @@
     goto(`?${url.searchParams.toString()}`, {
       keepFocus: true,
       replaceState: true,
-      noScroll: true
+      noScroll: true,
     });
   }
 
@@ -31,14 +31,14 @@
       const ob = order[b.status];
       if (oa !== ob) return oa - ob;
       return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
-    })
+    }),
   );
 
   const tabs = $derived([
     { key: "all", label: m.examsTop_filterAll(), count: counts.all },
     { key: "running", label: m.examsTop_filterRunning(), count: counts.running },
     { key: "upcoming", label: m.examsTop_filterUpcoming(), count: counts.upcoming },
-    { key: "ended", label: m.examsTop_filterEnded(), count: counts.ended }
+    { key: "ended", label: m.examsTop_filterEnded(), count: counts.ended },
   ]);
 </script>
 
@@ -54,7 +54,6 @@
       {/snippet}
     </PageHeader>
 
-    
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
       <div
         role="tablist"

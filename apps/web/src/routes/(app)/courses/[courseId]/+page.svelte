@@ -7,7 +7,7 @@
     Pencil,
     Pin,
     Plus,
-    Trash2
+    Trash2,
   } from "@lucide/svelte";
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
@@ -56,9 +56,11 @@
     deleteFormEl?.requestSubmit();
   }
 
-  function assignmentStatusBadge(
-    status: "draft" | "upcoming" | "open" | "closed"
-  ): { variant: "default" | "info" | "muted"; label: string; dot: boolean } {
+  function assignmentStatusBadge(status: "draft" | "upcoming" | "open" | "closed"): {
+    variant: "default" | "info" | "muted";
+    label: string;
+    dot: boolean;
+  } {
     switch (status) {
       case "open":
         return { variant: "default", label: m.courseOverview_statusOpen(), dot: true };
@@ -72,9 +74,11 @@
     }
   }
 
-  function examStatusBadge(
-    status: "draft" | "upcoming" | "running" | "ended"
-  ): { variant: "default" | "info" | "muted"; label: string; dot: boolean } {
+  function examStatusBadge(status: "draft" | "upcoming" | "running" | "ended"): {
+    variant: "default" | "info" | "muted";
+    label: string;
+    dot: boolean;
+  } {
     switch (status) {
       case "running":
         return { variant: "default", label: m.courseOverview_examStatusRunning(), dot: true };
@@ -96,23 +100,16 @@
 </script>
 
 <PageContainer class="grid gap-10 lg:grid-cols-[2fr_3fr]">
-  
   <section class="animate-in animate-in-1">
     <header class="mb-4 flex items-center justify-between gap-4">
-      <h2
-        class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
-      >
+      <h2 class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]">
         <span class="text-primary" aria-hidden="true">
           <Megaphone aria-hidden="true" class="h-5 w-5" />
         </span>
         {m.courseOverview_announcementsHeading()}
       </h2>
       {#if isManager}
-        <Button
-          variant="outline"
-          size="sm"
-          onclick={openCreate}
-        >
+        <Button variant="outline" size="sm" onclick={openCreate}>
           <Plus aria-hidden="true" class="h-4 w-4" />
           {m.courseOverview_newAnnouncement()}
         </Button>
@@ -143,9 +140,12 @@
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
-                <h3 class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
+                <h3
+                  class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground"
+                >
                   {#if announcement.pinned}
-                    <Pin aria-hidden="true"
+                    <Pin
+                      aria-hidden="true"
                       class="size-3.5 shrink-0 text-warning"
                       aria-label={m.admin_announcementsPinned()}
                     />
@@ -228,245 +228,213 @@
   </section>
 
   <div class="space-y-10">
-    
     <section class="animate-in animate-in-2">
-    <header class="mb-4 flex items-center justify-between gap-4">
-      <h2
-        class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
-      >
-        <span class="text-primary" aria-hidden="true">
-          <ClipboardList aria-hidden="true" class="h-5 w-5" />
-        </span>
-        {m.courseOverview_assignmentsHeading()}
-      </h2>
-      <div class="flex items-center gap-3">
-        {#if isManager}
-          <Button
-            variant="outline"
-            size="sm"
-            href={`/courses/${course.id}/assignments/new`}
-          >
-            <Plus aria-hidden="true" class="h-4 w-4" />
-            {m.courseOverview_newAssignment()}
-          </Button>
-        {/if}
-        <a
-          href={`/courses/${course.id}/assignments`}
-          class="text-body-sm text-muted-foreground transition-colors duration-fast hover:text-foreground"
-        >
-          {m.courseOverview_viewAll()}
-        </a>
-      </div>
-    </header>
-
-    {#if assignments.length === 0}
-      <div
-        class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
-      >
-        {m.courseOverview_noAssignments()}
-      </div>
-    {:else}
-      <div class="grid gap-3">
-        {#each assignments as assignment (assignment.id)}
-          {@const badge = assignmentStatusBadge(assignment.status)}
+      <header class="mb-4 flex items-center justify-between gap-4">
+        <h2 class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]">
+          <span class="text-primary" aria-hidden="true">
+            <ClipboardList aria-hidden="true" class="h-5 w-5" />
+          </span>
+          {m.courseOverview_assignmentsHeading()}
+        </h2>
+        <div class="flex items-center gap-3">
+          {#if isManager}
+            <Button variant="outline" size="sm" href={`/courses/${course.id}/assignments/new`}>
+              <Plus aria-hidden="true" class="h-4 w-4" />
+              {m.courseOverview_newAssignment()}
+            </Button>
+          {/if}
           <a
-            href={`/assignments/${assignment.id}`}
-            class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
-            'draft'
-              ? 'border-dashed bg-transparent'
-              : 'border-border'}"
+            href={`/courses/${course.id}/assignments`}
+            class="text-body-sm text-muted-foreground transition-colors duration-fast hover:text-foreground"
           >
-            <div class="min-w-0">
-              <div class="font-semibold tracking-[-0.005em]">{assignment.title}</div>
-              <div
-                class="mt-1.5 flex items-center gap-2.5 font-mono text-caption text-muted-foreground tabular-nums"
-              >
-                {#if assignment.opensAt && assignment.closesAt}
-                  <span>{formatTimeRangeCompact(assignment.opensAt, assignment.closesAt)}</span>
+            {m.courseOverview_viewAll()}
+          </a>
+        </div>
+      </header>
+
+      {#if assignments.length === 0}
+        <div
+          class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
+        >
+          {m.courseOverview_noAssignments()}
+        </div>
+      {:else}
+        <div class="grid gap-3">
+          {#each assignments as assignment (assignment.id)}
+            {@const badge = assignmentStatusBadge(assignment.status)}
+            <a
+              href={`/assignments/${assignment.id}`}
+              class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
+              'draft'
+                ? 'border-dashed bg-transparent'
+                : 'border-border'}"
+            >
+              <div class="min-w-0">
+                <div class="font-semibold tracking-[-0.005em]">{assignment.title}</div>
+                <div
+                  class="mt-1.5 flex items-center gap-2.5 font-mono text-caption text-muted-foreground tabular-nums"
+                >
+                  {#if assignment.opensAt && assignment.closesAt}
+                    <span
+                      >{formatTimeRangeCompact(assignment.opensAt, assignment.closesAt)}</span
+                    >
+                  {:else}
+                    <span class="opacity-60">{m.courseOverview_draftNoSchedule()}</span>
+                  {/if}
+                </div>
+                <div class="mt-2 flex items-center gap-3 text-caption text-muted-foreground">
+                  {#if isManager}
+                    <span
+                      >{m.courseOverview_problemCount({ count: assignment.problemCount })}</span
+                    >
+                    <span
+                      class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
+                      aria-hidden="true"
+                    ></span>
+                  {/if}
+                  <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
+                </div>
+              </div>
+
+              <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
+                {#if assignment.status === "draft"}
+                  <span class="block text-body-lg font-medium text-foreground">—</span>
+                  {m.courseOverview_classStatsDraftHint()}
+                {:else if assignment.status === "upcoming"}
+                  <span class="block text-body-lg font-medium text-foreground">—</span>
+                  {m.courseOverview_classStatsUpcomingHint()}
+                {:else if isManager && assignment.classStats}
+                  <span class="block text-body-lg font-medium text-foreground">
+                    {assignment.classStats.submittedUsers}/{assignment.classStats.totalStudents}
+                  </span>
+                  {m.courseOverview_avgScore({ score: assignment.classStats.avgScore })}
+                {:else if !isManager && assignment.myStatus}
+                  <span class="block text-body-lg font-medium text-foreground">
+                    {assignment.myStatus.score}/{assignment.myStatus.totalPoints}
+                  </span>
+                  {m.courseOverview_scoreCaption()}
                 {:else}
-                  <span class="opacity-60">{m.courseOverview_draftNoSchedule()}</span>
+                  <span class="block text-body-lg font-medium text-foreground">—</span>
                 {/if}
               </div>
-              <div
-                class="mt-2 flex items-center gap-3 text-caption text-muted-foreground"
-              >
-                {#if isManager}
-                  <span
-                    >{m.courseOverview_problemCount({ count: assignment.problemCount })}</span
-                  >
+              <ChevronRight class="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+            </a>
+          {/each}
+        </div>
+      {/if}
+    </section>
+
+    <section class="animate-in animate-in-3">
+      <header class="mb-4 flex items-center justify-between gap-4">
+        <h2 class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]">
+          <span class="text-primary" aria-hidden="true">
+            <CalendarClock aria-hidden="true" class="h-5 w-5" />
+          </span>
+          {m.courseOverview_examsHeading()}
+        </h2>
+        <div class="flex items-center gap-3">
+          {#if isManager}
+            <Button variant="outline" size="sm" href={`/courses/${course.id}/exams/new`}>
+              <Plus aria-hidden="true" class="h-4 w-4" />
+              {m.courseOverview_newExam()}
+            </Button>
+          {/if}
+          <a
+            href={`/courses/${course.id}/exams`}
+            class="text-body-sm text-muted-foreground transition-colors duration-fast hover:text-foreground"
+          >
+            {m.courseOverview_viewAll()}
+          </a>
+        </div>
+      </header>
+
+      {#if exams.length === 0}
+        <div
+          class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
+        >
+          {m.courseOverview_noExams()}
+        </div>
+      {:else}
+        <div class="grid gap-3">
+          {#each exams as exam (exam.id)}
+            {@const badge = examStatusBadge(exam.status)}
+            <a
+              href={`/exams/${exam.id}`}
+              class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {exam.status ===
+              'draft'
+                ? 'border-dashed bg-transparent'
+                : 'border-border'}"
+            >
+              <div class="min-w-0">
+                <div class="font-semibold tracking-[-0.005em]">{exam.title}</div>
+                <div
+                  class="mt-1.5 flex items-center gap-2.5 font-mono text-caption text-muted-foreground tabular-nums"
+                >
+                  {#if exam.startsAt && exam.endsAt}
+                    <span>{formatTimeRangeCompact(exam.startsAt, exam.endsAt)}</span>
+                    {#if exam.durationMinutes !== null}
+                      <span class="opacity-60">·</span>
+                      <span
+                        >{m.courseOverview_durationMinutes({
+                          count: exam.durationMinutes,
+                        })}</span
+                      >
+                    {/if}
+                  {:else}
+                    <span class="opacity-60">{m.courseOverview_draftNoSchedule()}</span>
+                  {/if}
+                </div>
+                <div class="mt-2 flex items-center gap-3 text-caption text-muted-foreground">
+                  <span>
+                    {#if isManager}
+                      {m.courseOverview_problemCount({ count: exam.problemCount })} ·
+                    {/if}
+                    {scoringLabel(exam.scoringMode)}
+                  </span>
                   <span
                     class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
                     aria-hidden="true"
                   ></span>
-                {/if}
-                <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
+                  <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
+                </div>
               </div>
-            </div>
-            
-            <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
-              {#if assignment.status === "draft"}
-                <span class="block text-body-lg font-medium text-foreground">—</span>
-                {m.courseOverview_classStatsDraftHint()}
-              {:else if assignment.status === "upcoming"}
-                <span class="block text-body-lg font-medium text-foreground">—</span>
-                {m.courseOverview_classStatsUpcomingHint()}
-              {:else if isManager && assignment.classStats}
-                <span class="block text-body-lg font-medium text-foreground">
-                  {assignment.classStats.submittedUsers}/{assignment.classStats.totalStudents}
-                </span>
-                {m.courseOverview_avgScore({ score: assignment.classStats.avgScore })}
-              {:else if !isManager && assignment.myStatus}
-                <span class="block text-body-lg font-medium text-foreground">
-                  {assignment.myStatus.score}/{assignment.myStatus.totalPoints}
-                </span>
-                {m.courseOverview_scoreCaption()}
-              {:else}
-                <span class="block text-body-lg font-medium text-foreground">—</span>
-              {/if}
-            </div>
-            <ChevronRight
-              class="h-5 w-5 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </a>
-        {/each}
-      </div>
-    {/if}
-  </section>
-
-  
-  <section class="animate-in animate-in-3">
-    <header class="mb-4 flex items-center justify-between gap-4">
-      <h2
-        class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
-      >
-        <span class="text-primary" aria-hidden="true">
-          <CalendarClock aria-hidden="true" class="h-5 w-5" />
-        </span>
-        {m.courseOverview_examsHeading()}
-      </h2>
-      <div class="flex items-center gap-3">
-        {#if isManager}
-          <Button
-            variant="outline"
-            size="sm"
-            href={`/courses/${course.id}/exams/new`}
-          >
-            <Plus aria-hidden="true" class="h-4 w-4" />
-            {m.courseOverview_newExam()}
-          </Button>
-        {/if}
-        <a
-          href={`/courses/${course.id}/exams`}
-          class="text-body-sm text-muted-foreground transition-colors duration-fast hover:text-foreground"
-        >
-          {m.courseOverview_viewAll()}
-        </a>
-      </div>
-    </header>
-
-    {#if exams.length === 0}
-      <div
-        class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
-      >
-        {m.courseOverview_noExams()}
-      </div>
-    {:else}
-      <div class="grid gap-3">
-        {#each exams as exam (exam.id)}
-          {@const badge = examStatusBadge(exam.status)}
-          <a
-            href={`/exams/${exam.id}`}
-            class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {exam.status ===
-            'draft'
-              ? 'border-dashed bg-transparent'
-              : 'border-border'}"
-          >
-            <div class="min-w-0">
-              <div class="font-semibold tracking-[-0.005em]">{exam.title}</div>
-              <div
-                class="mt-1.5 flex items-center gap-2.5 font-mono text-caption text-muted-foreground tabular-nums"
-              >
-                {#if exam.startsAt && exam.endsAt}
-                  <span>{formatTimeRangeCompact(exam.startsAt, exam.endsAt)}</span>
-                  {#if exam.durationMinutes !== null}
-                    <span class="opacity-60">·</span>
-                    <span
-                      >{m.courseOverview_durationMinutes({
-                        count: exam.durationMinutes
-                      })}</span
-                    >
-                  {/if}
+              <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
+                {#if isManager && exam.registeredCount !== null && exam.totalStudents !== null}
+                  <span class="block text-body-lg font-medium text-foreground">
+                    {exam.registeredCount}/{exam.totalStudents}
+                  </span>
+                  {m.courseOverview_registered()}
+                {:else if !isManager && exam.myStatus}
+                  <span class="block text-body-lg font-medium text-foreground">
+                    {exam.myStatus.score}/{exam.myStatus.totalPoints}
+                  </span>
+                  {m.courseOverview_scoreCaption()}
                 {:else}
-                  <span class="opacity-60">{m.courseOverview_draftNoSchedule()}</span>
-                {/if}
-              </div>
-              <div
-                class="mt-2 flex items-center gap-3 text-caption text-muted-foreground"
-              >
-                <span>
-                  {#if isManager}
-                    {m.courseOverview_problemCount({ count: exam.problemCount })} ·
+                  <span class="block text-body-lg font-medium text-foreground"> — </span>
+                  {#if exam.status === "upcoming"}
+                    {m.courseOverview_examUpcomingHint()}
+                  {:else if exam.status === "running"}
+                    {m.courseOverview_examRunningHint()}
+                  {:else if exam.status === "draft"}
+                    {m.courseOverview_classStatsDraftHint()}
+                  {:else}
+                    {m.courseOverview_examEndedHint()}
                   {/if}
-                  {scoringLabel(exam.scoringMode)}
-                </span>
-                <span
-                  class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
-                  aria-hidden="true"
-                ></span>
-                <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
-              </div>
-            </div>
-            <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
-              {#if isManager && exam.registeredCount !== null && exam.totalStudents !== null}
-                <span
-                  class="block text-body-lg font-medium text-foreground"
-                >
-                  {exam.registeredCount}/{exam.totalStudents}
-                </span>
-                {m.courseOverview_registered()}
-              {:else if !isManager && exam.myStatus}
-                <span class="block text-body-lg font-medium text-foreground">
-                  {exam.myStatus.score}/{exam.myStatus.totalPoints}
-                </span>
-                {m.courseOverview_scoreCaption()}
-              {:else}
-                <span
-                  class="block text-body-lg font-medium text-foreground"
-                >
-                  —
-                </span>
-                {#if exam.status === "upcoming"}
-                  {m.courseOverview_examUpcomingHint()}
-                {:else if exam.status === "running"}
-                  {m.courseOverview_examRunningHint()}
-                {:else if exam.status === "draft"}
-                  {m.courseOverview_classStatsDraftHint()}
-                {:else}
-                  {m.courseOverview_examEndedHint()}
                 {/if}
-              {/if}
-            </div>
-            <ChevronRight
-              class="h-5 w-5 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </a>
-        {/each}
-      </div>
-    {/if}
-  </section>
+              </div>
+              <ChevronRight class="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+            </a>
+          {/each}
+        </div>
+      {/if}
+    </section>
   </div>
 </PageContainer>
 
 <AnnouncementViewDialog bind:open={viewOpen} announcement={viewingAnnouncement} />
 
 {#if isManager}
-  <CourseAnnouncementDialog
-    bind:open={dialogOpen}
-    mode={dialogMode}
-    initial={dialogInitial}
-  />
+  <CourseAnnouncementDialog bind:open={dialogOpen} mode={dialogMode} initial={dialogInitial} />
 
   <form
     bind:this={deleteFormEl}

@@ -9,7 +9,7 @@
     persistThemeMode,
     readThemeMode,
     resolveIsDark,
-    type ThemeMode
+    type ThemeMode,
   } from "$lib/stores/theme";
 
   let mode = $state<ThemeMode>("system");
@@ -45,7 +45,7 @@
       ? m.theme_modeSystem()
       : mode === "dark"
         ? m.theme_modeDark()
-        : m.theme_modeLight()
+        : m.theme_modeLight(),
   );
 </script>
 

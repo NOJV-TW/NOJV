@@ -14,10 +14,7 @@
   let dropdownEl: HTMLDivElement | undefined = $state();
 
   function handleClickOutside(e: MouseEvent) {
-    if (
-      btnEl?.contains(e.target as Node) ||
-      dropdownEl?.contains(e.target as Node)
-    ) {
+    if (btnEl?.contains(e.target as Node) || dropdownEl?.contains(e.target as Node)) {
       return;
     }
     open = false;

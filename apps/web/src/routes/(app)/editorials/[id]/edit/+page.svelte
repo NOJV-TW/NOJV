@@ -16,7 +16,7 @@
   let saving = $state(false);
 
   const dirty = $derived(
-    content !== data.editorial.content || language !== data.editorial.language
+    content !== data.editorial.content || language !== data.editorial.language,
   );
   const valid = $derived(content.length >= 10 && content.length <= 50000);
 
@@ -27,7 +27,7 @@
       const res = await fetch(`/api/editorials/${data.editorial.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
-        body: JSON.stringify({ content, language })
+        body: JSON.stringify({ content, language }),
       });
       if (res.ok) {
         toasts.add({ type: "success", message: m.editorial_savedToast() });

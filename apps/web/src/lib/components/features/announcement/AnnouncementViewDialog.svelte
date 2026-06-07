@@ -3,10 +3,7 @@
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
-  import {
-    formatDateTimeCompact,
-    formatRelativeFromNow,
-  } from "$lib/utils/datetime";
+  import { formatDateTimeCompact, formatRelativeFromNow } from "$lib/utils/datetime";
 
   interface AnnouncementView {
     title: string;

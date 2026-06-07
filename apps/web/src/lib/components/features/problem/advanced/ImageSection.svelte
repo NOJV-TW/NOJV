@@ -75,7 +75,8 @@
   async function save() {
     saveError = null;
     if (imageRef.trim() === "") {
-      saveError = imageSource === "tarball" ? m.admin_tarballRequired() : m.admin_imageRefRequired();
+      saveError =
+        imageSource === "tarball" ? m.admin_tarballRequired() : m.admin_imageRefRequired();
       return;
     }
     saving = true;
@@ -139,7 +140,9 @@
         spellcheck="false"
       />
       <p class="mt-2 text-caption text-muted-foreground">
-        {@html m.admin_imageRefHint({ example: '<code>ghcr.io/your-org/your-judge:tag</code>' })}
+        {@html m.admin_imageRefHint({
+          example: "<code>ghcr.io/your-org/your-judge:tag</code>",
+        })}
       </p>
     </label>
   {:else}
@@ -176,7 +179,9 @@
             : (uploadedFileName ?? m.admin_tarballDropHint())}
         </p>
         <p class="mt-1 text-caption text-muted-foreground">
-          {@html m.admin_tarballBuildHint({ command: '<code>docker save your-image:tag -o judge.tar</code>' })}
+          {@html m.admin_tarballBuildHint({
+            command: "<code>docker save your-image:tag -o judge.tar</code>",
+          })}
         </p>
         <input
           id={`tarball-${problemId}`}

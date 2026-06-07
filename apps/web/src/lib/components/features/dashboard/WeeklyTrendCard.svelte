@@ -55,10 +55,6 @@
   {#if hasData}
     <EChart {option} class="h-40 w-full" />
   {:else}
-    <EmptyState
-      variant="minimal"
-      icon={LineChart}
-      title={m.dashboard_weeklyTrendNoData()}
-    />
+    <EmptyState variant="minimal" icon={LineChart} title={m.dashboard_weeklyTrendNoData()} />
   {/if}
 </Card>

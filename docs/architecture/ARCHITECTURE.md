@@ -56,7 +56,7 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 ```
 packages/
   core/             Zod schemas, DTO types, enums, contracts (zero deps)
-  db/               Prisma schema, migrations, repositories (depends: core)
+  db/               Prisma schema, migrations, repositories (depends: core; +redis, storage in seed/ops scripts only)
   redis/            Connection, key registry, pub/sub, cache (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
   temporal/         Temporal client + dispatch API + workflows + task queue constants (depends: core)
@@ -87,7 +87,7 @@ No cycles. `domain` → `temporal` for dispatch helpers and Temporal client. `wo
 | Package          | May import                                               | Must NOT import                                                           |
 | ---------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `core`           | (nothing)                                                | everything                                                                |
-| `db`             | `core`                                                   | domain, redis, temporal                                                   |
+| `db`             | `core` ¶                                                 | domain, temporal; redis/storage from `src/`                               |
 | `redis`          | `core`                                                   | domain, db, temporal                                                      |
 | `domain`         | `core`, `db`, `redis`, `storage` \*, `temporal`          | `@nojv/temporal/workflows`, web, worker                                   |
 | `temporal`       | `core`                                                   | db, redis, domain, web, worker (must stay self-contained to avoid cycles) |
@@ -125,6 +125,15 @@ actions must call those adapters or go through `@nojv/domain` (e.g.
 `advanced-mode-executor.ts`. Adding a domain hop would require moving
 the cache logic into `@nojv/domain`, which is not worth it for one
 caller.
+
+¶ `@nojv/db` declares `@nojv/redis` and `@nojv/storage` as runtime
+dependencies, but only its seed and one-off ops scripts
+(`prisma/seed.ts`, `prisma/seeds/*`, `prisma/scripts/*`) import them —
+to seed Redis scoreboards and upload demo problem blobs. The shipped
+library (`src/` → `dist/`) imports neither, so the layer graph above
+holds for everything that runs in production request paths. They stay
+in `dependencies` (not `devDependencies`) because the seed runs inside
+the minimal `migrator` image, which installs `@nojv/db` only.
 
 ## Runtime Entry Points
 

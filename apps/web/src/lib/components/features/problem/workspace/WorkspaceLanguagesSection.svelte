@@ -9,11 +9,7 @@
     hasEntryFileForLanguage: (lang: Language) => boolean;
   }
 
-  let {
-    allowedLanguages = $bindable(),
-    mode,
-    hasEntryFileForLanguage
-  }: Props = $props();
+  let { allowedLanguages = $bindable(), mode, hasEntryFileForLanguage }: Props = $props();
 
   function toggleLanguage(lang: Language) {
     allowedLanguages = allowedLanguages.includes(lang)

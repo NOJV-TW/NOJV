@@ -30,7 +30,7 @@
     onLanguageChange,
     onAvailableChange,
     onReset,
-    onToggleFullscreen
+    onToggleFullscreen,
   }: Props = $props();
 </script>
 
@@ -50,7 +50,9 @@
   </div>
   <div class="flex items-center gap-2">
     {#if contestId}
-      <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
+      <span
+        class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning"
+      >
         {m.editor_contestMode()}
       </span>
     {:else if assessment}

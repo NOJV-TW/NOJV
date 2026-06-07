@@ -32,7 +32,7 @@
     total = null,
     heading,
     showHeader = true,
-    class: className = ""
+    class: className = "",
   }: Props = $props();
 
   const headingText = $derived(heading ?? m.results_distributionHeading());
@@ -42,7 +42,7 @@
     "var(--chart-1)",
     "var(--chart-2)",
     "var(--chart-4)",
-    "var(--destructive)"
+    "var(--destructive)",
   ];
 </script>
 
@@ -51,9 +51,7 @@
     <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
       {#if total !== null}
         <div>
-          <div
-            class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
-          >
+          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.results_submittedLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
@@ -63,9 +61,7 @@
       {/if}
       {#if classAvg !== null}
         <div>
-          <div
-            class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
-          >
+          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.results_avgLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">{classAvg}</div>
@@ -73,9 +69,7 @@
       {/if}
       {#if median !== null}
         <div>
-          <div
-            class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
-          >
+          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.results_medianLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">{median}</div>
@@ -83,9 +77,7 @@
       {/if}
       {#if max !== null && min !== null}
         <div>
-          <div
-            class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
-          >
+          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.results_minMaxLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">{max} / {min}</div>
@@ -102,10 +94,7 @@
       {@const pct = submitted > 0 ? (b.count / submitted) * 100 : 0}
       <div class="flex items-center gap-2 text-caption">
         <div class="w-14 font-mono text-muted-foreground">{b.label}</div>
-        <div
-          class="h-4 flex-1 overflow-hidden rounded-sm"
-          style="background: var(--muted);"
-        >
+        <div class="h-4 flex-1 overflow-hidden rounded-sm" style="background: var(--muted);">
           <div
             class="h-full"
             style:width={`${pct}%`}

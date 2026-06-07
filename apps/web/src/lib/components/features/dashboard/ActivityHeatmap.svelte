@@ -19,7 +19,7 @@
     zero: "bg-[color:var(--muted)]/40",
     low: "bg-[color:color-mix(in_oklch,var(--chart-5)_30%,transparent)]",
     mid: "bg-[color:color-mix(in_oklch,var(--chart-5)_60%,transparent)]",
-    high: "bg-[color:var(--chart-5)]"
+    high: "bg-[color:var(--chart-5)]",
   } as const;
 
   function intensityClass(acCount: number): string {
@@ -33,7 +33,7 @@
     return m.dashboard_heatmapDayTooltip({
       date: day.date,
       ac: day.acCount,
-      submissions: day.submissionCount
+      submissions: day.submissionCount,
     });
   }
 
@@ -80,7 +80,7 @@
       {:else}
         <div
           class="h-4 w-full rounded-[3px] transition-colors duration-fast sm:h-5 {intensityClass(
-            cell.acCount
+            cell.acCount,
           )}"
           aria-hidden="true"
           title={formatLabel(cell)}

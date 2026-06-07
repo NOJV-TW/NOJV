@@ -3,12 +3,12 @@
   import { SSE_CLARIFICATION, type SSEEvent } from "@nojv/core";
   import {
     createClarificationsStore,
-    type ClarificationsStore
+    type ClarificationsStore,
   } from "$lib/stores/clarifications.svelte";
   import {
     onSSEEvent,
     subscribeClarificationChannel,
-    unsubscribeClarificationChannel
+    unsubscribeClarificationChannel,
   } from "$lib/stores/sse";
   import ClarificationAskForm from "./ClarificationAskForm.svelte";
   import ClarificationList from "./ClarificationList.svelte";

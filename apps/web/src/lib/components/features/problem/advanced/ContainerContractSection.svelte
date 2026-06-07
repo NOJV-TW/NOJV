@@ -90,11 +90,13 @@ OUTPUT.write_text(json.dumps({
           <code class="rounded bg-muted px-1 py-0.5 text-caption">/workspace/meta.json</code>
           ← {m.admin_metaJson()}
         </li>
-        <li>env <code class="rounded bg-muted px-1 py-0.5 text-caption">SUBMISSION_ID</code></li>
+        <li>
+          env <code class="rounded bg-muted px-1 py-0.5 text-caption">SUBMISSION_ID</code>
+        </li>
         <li>env <code class="rounded bg-muted px-1 py-0.5 text-caption">LANGUAGE</code></li>
       </ul>
       <p class="mt-3 text-caption text-muted-foreground">
-        {m.admin_noNetwork({ flag: '--network=none' })}
+        {m.admin_noNetwork({ flag: "--network=none" })}
       </p>
     </div>
 
@@ -102,7 +104,9 @@ OUTPUT.write_text(json.dumps({
       <p class="font-semibold">{m.admin_mustOutput()}</p>
       <ul class="mt-2 space-y-1 text-body-sm text-muted-foreground">
         <li>
-          <code class="rounded bg-muted px-1 py-0.5 text-caption">/workspace/output/result.json</code>
+          <code class="rounded bg-muted px-1 py-0.5 text-caption"
+            >/workspace/output/result.json</code
+          >
         </li>
       </ul>
       <pre
@@ -118,7 +122,7 @@ OUTPUT.write_text(json.dumps({
         {m.admin_verdictNamingNote()}
       </p>
       <p class="mt-3 text-caption text-muted-foreground">
-        {@html m.admin_exitCodeWarning({ file: '<code>result.json</code>' })}
+        {@html m.admin_exitCodeWarning({ file: "<code>result.json</code>" })}
       </p>
     </div>
   </div>

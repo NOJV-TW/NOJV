@@ -39,17 +39,19 @@
   let activeSubTab = $state<SubTabKey>("submissions");
 
   const clarificationProblems = $derived(
-    detail.problems.map((p) => ({ id: p.problemId, title: p.title }))
+    detail.problems.map((p) => ({ id: p.problemId, title: p.title })),
   );
   const clarificationEnabled = $derived(data.clarification.canView);
 
   const feedbackByProblem = $derived(
-    new Map((data.mode === "student" ? data.feedback : []).map((f) => [f.problemId, f.comment]))
+    new Map(
+      (data.mode === "student" ? data.feedback : []).map((f) => [f.problemId, f.comment]),
+    ),
   );
 
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(
-    data.mode === "teacher" ? (data.canSetOverride ?? false) : false
+    data.mode === "teacher" ? (data.canSetOverride ?? false) : false,
   );
   const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
@@ -57,14 +59,14 @@
       ? data.matrix.rows.map((r) => ({
           id: r.userId,
           username: r.handle,
-          name: r.displayName
+          name: r.displayName,
         }))
-      : []
+      : [],
   );
   const overrideProblems = $derived(
     data.mode === "teacher"
       ? detail.problems.map((p) => ({ id: p.problemId, title: p.title }))
-      : []
+      : [],
   );
 
   const subTabs: { key: SubTabKey; label: string; count?: number }[] = $derived([
@@ -73,7 +75,7 @@
       ? {
           key: "submissions",
           label: m.assignmentDetail_tabSubmissions(),
-          count: data.matrix.studentCount
+          count: data.matrix.studentCount,
         }
       : { key: "submissions", label: m.assignmentDetail_tabSubmissions() },
     { key: "results", label: m.assignmentDetail_tabResults() },
@@ -82,7 +84,7 @@
     ...(clarificationEnabled
       ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
       : []),
-    { key: "audit", label: m.assignmentDetail_tabAudit() }
+    { key: "audit", label: m.assignmentDetail_tabAudit() },
   ]);
 
   function verdictLabel(status: string): string {
@@ -112,14 +114,12 @@
     return "";
   }
 
-  const solved = $derived(
-    detail.problems.filter((p) => p.myStatus?.state === "ac").length
-  );
+  const solved = $derived(detail.problems.filter((p) => p.myStatus?.state === "ac").length);
   const myScore = $derived(
-    detail.problems.reduce((sum, p) => sum + (p.myStatus?.bestScore ?? 0), 0)
+    detail.problems.reduce((sum, p) => sum + (p.myStatus?.bestScore ?? 0), 0),
   );
   const pct = $derived(
-    detail.problemCount > 0 ? Math.round((solved / detail.problemCount) * 100) : 0
+    detail.problemCount > 0 ? Math.round((solved / detail.problemCount) * 100) : 0,
   );
 
   const status = $derived.by(() => {
@@ -150,12 +150,11 @@
   <Crumbs
     items={[
       { label: m.navigation_assignments(), href: "/assignments" },
-      { label: detail.title }
+      { label: detail.title },
     ]}
   />
 
   <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
-    
     <GlassPanel class="relative overflow-hidden p-7 lg:p-9">
       <DotGrid opacity={0.18} />
       <div class="relative">
@@ -208,14 +207,14 @@
       </div>
     </GlassPanel>
 
-    
     <div class="space-y-4">
       <GlassPanel class="p-5">
         <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
           {detail.dueAt ? m.assignmentDetail_metaDueAt() : m.assignmentDetail_metaClosesAt()}
         </div>
         <div class="mt-1 text-title font-semibold">
-          {fmtDate(targetIso)} {m.coursework_weekdayPrefix({ day: fmtWeekday(targetIso) })}
+          {fmtDate(targetIso)}
+          {m.coursework_weekdayPrefix({ day: fmtWeekday(targetIso) })}
         </div>
         <div class="mt-3"><Countdown iso={targetIso} /></div>
         {#if detail.dueAt && detail.dueAt !== detail.closesAt}
@@ -228,19 +227,17 @@
       <GlassPanel class="p-5">
         <div class="grid grid-cols-2 gap-y-3 text-body-sm">
           <div>
-            <div
-              class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-            >
+            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               {m.assignmentDetail_metaProgress()}
             </div>
             <div class="mt-0.5 font-mono">
-              <span class="font-semibold">{solved}</span> / {m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}
+              <span class="font-semibold">{solved}</span> / {m.assignmentDetail_problemsCountWithUnit(
+                { count: detail.problemCount },
+              )}
             </div>
           </div>
           <div>
-            <div
-              class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-            >
+            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               {m.assignmentDetail_metaScore()}
             </div>
             <div class="mt-0.5 font-mono">
@@ -248,9 +245,7 @@
             </div>
           </div>
           <div>
-            <div
-              class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-            >
+            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               {m.assignmentDetail_metaDailyAttempts()}
             </div>
             <div class="mt-0.5">
@@ -262,9 +257,7 @@
             </div>
           </div>
           <div>
-            <div
-              class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-            >
+            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               {m.assignmentDetail_metaAllowedLanguages()}
             </div>
             <div class="mt-0.5">
@@ -281,8 +274,6 @@
   </div>
 
   {#if data.mode === "student"}
-    
-
     <GlassPanel class="overflow-hidden">
       <div
         class="flex items-center justify-between px-6 py-4 border-b"
@@ -301,7 +292,7 @@
           </p>
           <p class="mt-2 text-body-sm text-muted-foreground">
             {m.assignmentDetail_studentProblemsLockedHint({
-              when: formatDateTimeCompact(detail.opensAt)
+              when: formatDateTimeCompact(detail.opensAt),
             })}
           </p>
         </div>
@@ -359,7 +350,9 @@
                 <span
                   class="text-caption font-medium text-muted-foreground inline-flex items-center gap-1"
                 >
-                  {isSolved ? m.assignmentDetail_problemView() : m.assignmentDetail_problemSolve()}
+                  {isSolved
+                    ? m.assignmentDetail_problemView()
+                    : m.assignmentDetail_problemSolve()}
                   <ChevronRight aria-hidden="true" class="size-3.5" />
                 </span>
               {/if}
@@ -368,7 +361,7 @@
               <div
                 class={cn(
                   "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 px-6 py-3.5",
-                  rowTint(state)
+                  rowTint(state),
                 )}
               >
                 {@render rowBody()}
@@ -378,7 +371,7 @@
                 href={problemHref(problem.problemId)}
                 class={cn(
                   "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
-                  rowTint(state)
+                  rowTint(state),
                 )}
               >
                 {@render rowBody()}
@@ -386,12 +379,8 @@
             {/if}
             {#if feedbackComment}
               <div class="px-6 pb-3.5 pt-1">
-                <div
-                  class="rounded-md border border-info/30 bg-info/5 px-3 py-2"
-                >
-                  <div
-                    class="text-micro font-mono uppercase tracking-wider text-info"
-                  >
+                <div class="rounded-md border border-info/30 bg-info/5 px-3 py-2">
+                  <div class="text-micro font-mono uppercase tracking-wider text-info">
                     {m.feedback_student_label()}
                   </div>
                   <p class="mt-1 whitespace-pre-wrap break-words text-body-sm text-foreground">
@@ -441,7 +430,7 @@
               <span
                 class={cn(
                   "inline-flex min-w-14 items-center justify-center rounded-full px-2.5 py-1 text-micro uppercase tracking-wider font-mono",
-                  verdictClass(entry.status)
+                  verdictClass(entry.status),
                 )}
               >
                 {verdictLabel(entry.status)}
@@ -474,7 +463,6 @@
       </GlassPanel>
     {/if}
   {:else}
-    
     <GlassPanel class="overflow-hidden">
       <nav
         aria-label={m.assignmentDetail_sectionsNavLabel()}
@@ -492,7 +480,7 @@
                 "-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3 text-body-sm font-medium transition-colors duration-fast ease-out-soft",
                 isActive
                   ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               <span>{tab.label}</span>
@@ -502,7 +490,7 @@
                     "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums",
                     isActive
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
+                      : "bg-muted text-muted-foreground",
                   )}
                 >
                   {tab.count}
@@ -537,12 +525,12 @@
             problems={detail.problems.map((p) => ({
               problemId: p.problemId,
               letter: p.letter,
-              title: p.title
+              title: p.title,
             }))}
             students={data.matrix.rows.map((r) => ({
               userId: r.userId,
               displayName: r.displayName,
-              handle: r.handle
+              handle: r.handle,
             }))}
           />
         {:else if activeSubTab === "settings" && data.mode === "teacher"}
@@ -552,7 +540,7 @@
             liveStatus={deriveAssignmentLiveStatus(
               data.assignment.status,
               detail.opensAt,
-              detail.closesAt
+              detail.closesAt,
             )}
           />
         {:else if activeSubTab === "clarifications"}

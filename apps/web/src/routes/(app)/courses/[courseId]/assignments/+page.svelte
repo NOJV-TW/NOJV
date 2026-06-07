@@ -13,9 +13,11 @@
   const { assignments, canCreate } = $derived(data);
   const courseId = $derived(page.params.courseId ?? "");
 
-  function statusBadge(
-    status: "draft" | "upcoming" | "open" | "closed"
-  ): { variant: "default" | "info" | "muted"; label: string; dot: boolean } {
+  function statusBadge(status: "draft" | "upcoming" | "open" | "closed"): {
+    variant: "default" | "info" | "muted";
+    label: string;
+    dot: boolean;
+  } {
     switch (status) {
       case "open":
         return { variant: "default", label: m.courseAssignments_statusOpen(), dot: true };
@@ -25,7 +27,7 @@
         return {
           variant: "muted",
           label: m.courseAssignments_statusDraftTaVisible(),
-          dot: false
+          dot: false,
         };
       case "closed":
       default:
@@ -36,7 +38,7 @@
   function urgencyHint(
     status: "draft" | "upcoming" | "open" | "closed",
     opensAt: string | null,
-    closesAt: string | null
+    closesAt: string | null,
   ): string | null {
     const now = Date.now();
     if (status === "open" && closesAt) {
@@ -67,7 +69,6 @@
     </div>
   {/if}
 
-  
   {#if assignments.length === 0}
     <div
       class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
@@ -86,7 +87,6 @@
             ? 'border-dashed bg-transparent'
             : 'border-border'}"
         >
-          
           <span
             class="pointer-events-none absolute left-[-1px] top-[10px] bottom-[10px] w-[3px] rounded-full transition-colors duration-fast ease-out-soft {assignment.status ===
             'draft'
@@ -107,7 +107,8 @@
               {/if}
             </div>
             <div class="mt-2 flex items-center gap-3 text-caption text-muted-foreground">
-              <span>{m.courseAssignments_problemCount({ count: assignment.problemCount })}</span>
+              <span>{m.courseAssignments_problemCount({ count: assignment.problemCount })}</span
+              >
               <span
                 class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
                 aria-hidden="true"
@@ -155,9 +156,7 @@
             {:else}
               {@const myStatus = assignment.myStatus}
               {@const showScore =
-                myStatus &&
-                assignment.status !== "upcoming" &&
-                assignment.status !== "draft"}
+                myStatus && assignment.status !== "upcoming" && assignment.status !== "draft"}
               <div
                 class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
               >
@@ -194,10 +193,7 @@
                 </span>
               {/if}
             {/if}
-            <ChevronRight
-              class="h-5 w-5 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <ChevronRight class="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
           </div>
         </a>
       {/each}

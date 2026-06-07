@@ -31,7 +31,7 @@
     problemLetter,
     problemTitle,
     diffHrefFor,
-    onTogglePair
+    onTogglePair,
   }: Props = $props();
 
   let isHigh = $derived(variant === "high");
@@ -48,21 +48,19 @@
         "rounded-md px-6 py-5",
         isHigh && "border border-destructive/40 bg-destructive/[0.04]",
         !isHigh && "border border-warning/30 bg-warning/[0.04]",
-        flagged && "opacity-50"
+        flagged && "opacity-50",
       )}
     >
       <div
         class={cn(
           "grid items-center gap-4",
-          isHigh
-            ? "grid-cols-[auto_1fr_auto_auto_auto]"
-            : "grid-cols-[auto_1fr_auto_auto]"
+          isHigh ? "grid-cols-[auto_1fr_auto_auto_auto]" : "grid-cols-[auto_1fr_auto_auto]",
         )}
       >
         <div
           class={cn(
             "min-w-[100px] text-display font-medium leading-[0.9] tracking-[-0.03em]",
-            isHigh ? "text-destructive" : "text-warning"
+            isHigh ? "text-destructive" : "text-warning",
           )}
         >
           {pair.similarity}<span
@@ -107,9 +105,7 @@
             size="sm"
             onclick={() => onTogglePair(pair)}
           >
-            {expanded
-              ? m.assignmentDetail_plagCollapse()
-              : m.assignmentDetail_plagExpand()}
+            {expanded ? m.assignmentDetail_plagCollapse() : m.assignmentDetail_plagExpand()}
           </Button>
         {/if}
       </div>

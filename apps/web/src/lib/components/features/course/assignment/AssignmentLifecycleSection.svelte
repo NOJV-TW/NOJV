@@ -106,9 +106,7 @@
         </Button>
       </div>
     {:else}
-      <div
-        class="rounded-md border border-destructive/40 bg-destructive/[0.06] px-4 py-3"
-      >
+      <div class="rounded-md border border-destructive/40 bg-destructive/[0.06] px-4 py-3">
         <div class="font-semibold text-destructive">
           {m.assignmentDetail_settingsDeleteConfirmTitle()}
         </div>

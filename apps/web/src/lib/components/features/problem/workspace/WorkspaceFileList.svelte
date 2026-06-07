@@ -49,7 +49,11 @@
             onclick={() => onselect(index)}
           >
             <span class="truncate font-mono text-caption">{file.path || "(unnamed)"}</span>
-            <span class="ml-2 text-caption" aria-label={file.visibility} title={file.visibility}>
+            <span
+              class="ml-2 text-caption"
+              aria-label={file.visibility}
+              title={file.visibility}
+            >
               {iconFor(file.visibility)}
             </span>
           </button>

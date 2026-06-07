@@ -9,7 +9,7 @@
     Info,
     Save,
     Settings,
-    Trash2
+    Trash2,
   } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
@@ -29,10 +29,10 @@
     errors,
     enhance,
     message: updateMessage,
-    submitting: updateSubmitting
+    submitting: updateSubmitting,
   } = superForm<typeof data.form.data, FormMessage>(
     untrack(() => data.form),
-    { resetForm: false, taintedMessage: null }
+    { resetForm: false, taintedMessage: null },
   );
 
   let typedConfirmation = $state("");
@@ -55,7 +55,7 @@
   const canDelete = $derived(typedConfirmation === courseTitle && courseTitle.length > 0);
 
   const updateErrorText = $derived(
-    $updateMessage?.kind === "error" ? $updateMessage.text : null
+    $updateMessage?.kind === "error" ? $updateMessage.text : null,
   );
   const updateSuccess = $derived($updateMessage?.kind === "success");
 
@@ -71,7 +71,6 @@
 </script>
 
 <PageContainer width="form" class="space-y-6">
-  
   <section
     class="animate-in animate-in-1 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
@@ -151,7 +150,9 @@
             class="min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
           ></textarea>
           {#if $errors.description}
-            <p id="description-error" class="mt-1 text-caption text-destructive">{$errors.description}</p>
+            <p id="description-error" class="mt-1 text-caption text-destructive">
+              {$errors.description}
+            </p>
           {/if}
         </div>
       </div>
@@ -183,7 +184,9 @@
               class="mt-1 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive"
             />
             {#if $errors.academicYear}
-              <p id="academicYear-error" class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
+              <p id="academicYear-error" class="mt-1 text-caption text-destructive">
+                {$errors.academicYear}
+              </p>
             {/if}
           </div>
           <div>
@@ -204,7 +207,9 @@
               <option value={3}>{m.coursesNew_semesterOption3()}</option>
             </select>
             {#if $errors.semester}
-              <p id="semester-error" class="mt-1 text-caption text-destructive">{$errors.semester}</p>
+              <p id="semester-error" class="mt-1 text-caption text-destructive">
+                {$errors.semester}
+              </p>
             {/if}
           </div>
         </div>
@@ -219,7 +224,6 @@
     </form>
   </section>
 
-  
   <section
     class="animate-in animate-in-2 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
   >
@@ -261,7 +265,7 @@
             toasts.success(
               archivedLocal
                 ? m.courseSettings_archiveSuccess()
-                : m.courseSettings_unarchiveSuccess()
+                : m.courseSettings_unarchiveSuccess(),
             );
           }
           await applyAction(result);
@@ -270,7 +274,12 @@
       }}
     >
       <input type="hidden" name="archived" value={String(!archivedLocal)} />
-      <Button type="submit" variant="outline" loading={archiveSubmitting} disabled={archiveSubmitting}>
+      <Button
+        type="submit"
+        variant="outline"
+        loading={archiveSubmitting}
+        disabled={archiveSubmitting}
+      >
         {#if archivedLocal}
           <ArchiveRestore class="h-4 w-4" aria-hidden="true" />
           {m.courseSettings_unarchiveButton()}
@@ -282,7 +291,6 @@
     </form>
   </section>
 
-  
   <section
     class="animate-in animate-in-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-5"
   >
@@ -314,7 +322,6 @@
       </div>
     {/if}
 
-    
     <div
       class="grid grid-cols-1 items-start gap-4 border-b border-destructive/20 py-5 md:grid-cols-[1fr_auto] md:gap-6"
     >
@@ -332,7 +339,6 @@
       </Button>
     </div>
 
-    
     <div class="grid grid-cols-1 items-start gap-4 py-5 md:grid-cols-[1fr_auto] md:gap-6">
       <div>
         <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
@@ -358,10 +364,7 @@
           }}
           class="mt-3 rounded-md border border-dashed border-destructive/30 bg-[color:var(--color-panel)] px-4 py-3.5"
         >
-          <label
-            for="typedConfirmation"
-            class="text-caption font-medium text-muted-foreground"
-          >
+          <label for="typedConfirmation" class="text-caption font-medium text-muted-foreground">
             {m.courseSettings_deleteConfirmLabel({ title: courseTitle })}
           </label>
           <input
@@ -441,7 +444,7 @@
                 total: a.total,
                 draft: a.byStatus.draft,
                 published: a.byStatus.published,
-                archived: a.byStatus.archived
+                archived: a.byStatus.archived,
               })}
             </li>
             <li>
@@ -449,12 +452,12 @@
                 total: e.total,
                 draft: e.byStatus.draft,
                 published: e.byStatus.published,
-                archived: e.byStatus.archived
+                archived: e.byStatus.archived,
               })}
             </li>
             <li>
               {m.courseSettings_copyPreviewProblemLinks({
-                count: a.problemLinks + e.problemLinks
+                count: a.problemLinks + e.problemLinks,
               })}
             </li>
           </ul>

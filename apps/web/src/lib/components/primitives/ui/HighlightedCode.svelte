@@ -11,7 +11,7 @@
 
   let lines = $derived(code.split("\n"));
   let displayLines = $derived(
-    lines.length > 1 && lines[lines.length - 1] === "" ? lines.slice(0, -1) : lines
+    lines.length > 1 && lines[lines.length - 1] === "" ? lines.slice(0, -1) : lines,
   );
   let gutterWidth = $derived(String(displayLines.length).length);
 
@@ -50,7 +50,8 @@
             {i + 1}
           </td>
           <td class="px-4 font-mono text-sm text-foreground">
-            <pre class="whitespace-pre">{#if tokenLines && tokenLines[i] && tokenLines[i].length > 0}{#each tokenLines[i] as tok, ti (ti)}<span
+            <pre
+              class="whitespace-pre">{#if tokenLines && tokenLines[i] && tokenLines[i].length > 0}{#each tokenLines[i] as tok, ti (ti)}<span
                     class="tok"
                     style="--sl:{tok.light};--sd:{tok.dark}">{tok.content}</span
                   >{/each}{:else}{line || " "}{/if}</pre>

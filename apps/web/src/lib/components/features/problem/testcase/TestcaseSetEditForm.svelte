@@ -11,20 +11,17 @@
     onWeightChange: (v: number) => void;
   }
 
-  let {
-    editName,
-    editWeight,
-    saving,
-    onSave,
-    onCancel,
-    onNameChange,
-    onWeightChange
-  }: Props = $props();
+  let { editName, editWeight, saving, onSave, onCancel, onNameChange, onWeightChange }: Props =
+    $props();
 </script>
 
-<div class="mt-3 flex flex-wrap items-end gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)] p-3">
+<div
+  class="mt-3 flex flex-wrap items-end gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)] p-3"
+>
   <label class="grid gap-1">
-    <span class="text-caption font-medium text-muted-foreground">{m.testcases_editSetName()}</span>
+    <span class="text-caption font-medium text-muted-foreground"
+      >{m.testcases_editSetName()}</span
+    >
     <input
       class="rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
       value={editName}
@@ -32,7 +29,9 @@
     />
   </label>
   <label class="grid gap-1">
-    <span class="text-caption font-medium text-muted-foreground">{m.testcases_editSetWeight()}</span>
+    <span class="text-caption font-medium text-muted-foreground"
+      >{m.testcases_editSetWeight()}</span
+    >
     <input
       class="w-20 rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm tabular-nums"
       type="number"

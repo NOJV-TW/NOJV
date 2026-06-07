@@ -3,7 +3,7 @@
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
-    ProblemTestcaseSetSummary
+    ProblemTestcaseSetSummary,
   } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
   import ProblemDescriptionPanel from "../left-panel/ProblemDescriptionPanel.svelte";
@@ -35,16 +35,16 @@
     viewingIndex: initialViewingIndex = null,
     problem,
     testcaseSets = [],
-    editorialFormIdSuffix = ""
+    editorialFormIdSuffix = "",
   }: ProblemLeftPanelProps = $props();
 
   let leftTab = $state<"description" | "editorials" | "submissions">(
-    untrack(() => initialLeftTab)
+    untrack(() => initialLeftTab),
   );
   let viewingIndex = $state<number | null>(untrack(() => initialViewingIndex));
 
   let lastKnownHead = $state<string | null>(
-    untrack(() => submissions[0]?.id ?? submissions[0]?.submittedAt ?? null)
+    untrack(() => submissions[0]?.id ?? submissions[0]?.submittedAt ?? null),
   );
   $effect(() => {
     const head = submissions[0]?.id ?? submissions[0]?.submittedAt ?? null;
@@ -58,7 +58,7 @@
   });
 
   let hasAc = $derived(
-    canViewEditorials || submissions.some((s) => s.result?.verdict === "accepted")
+    canViewEditorials || submissions.some((s) => s.result?.verdict === "accepted"),
   );
 
   const uid = $props.id();
@@ -67,7 +67,9 @@
   let tabDefs = $derived<{ key: LeftTab; label: string }[]>([
     { key: "description", label: m.problemDetail_description() },
     { key: "submissions", label: m.problemDetail_submissions() },
-    ...(editorialsEnabled ? [{ key: "editorials" as LeftTab, label: m.editorials_title() }] : [])
+    ...(editorialsEnabled
+      ? [{ key: "editorials" as LeftTab, label: m.editorials_title() }]
+      : []),
   ]);
 
   function onTabKeydown(e: KeyboardEvent) {
@@ -96,7 +98,9 @@
       class="px-3 py-1.5 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
       href={backLink.href}
     >
-      &larr; {backLink.type === 'contest' ? m.problemDetail_backToContest() : m.problemDetail_backToAssignment()}
+      &larr; {backLink.type === "contest"
+        ? m.problemDetail_backToContest()
+        : m.problemDetail_backToAssignment()}
     </a>
   {/if}
   <div role="tablist" aria-label={m.problemDetail_panelTabsLabel()} class="flex items-center">

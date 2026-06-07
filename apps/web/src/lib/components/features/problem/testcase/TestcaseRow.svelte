@@ -40,7 +40,7 @@
     onConfirmDelete,
     onCancelDelete,
     onInputChange,
-    onOutputChange
+    onOutputChange,
   }: Props = $props();
 
   function truncate(text: string, maxLen: number = 80): string {

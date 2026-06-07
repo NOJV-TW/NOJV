@@ -11,14 +11,7 @@
     delay?: number;
   }
 
-  let {
-    href,
-    scoringLabel,
-    title,
-    startsAt,
-    participants,
-    delay = 0
-  }: Props = $props();
+  let { href, scoringLabel, title, startsAt, participants, delay = 0 }: Props = $props();
 </script>
 
 <a

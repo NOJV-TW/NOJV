@@ -4,14 +4,14 @@
     "var(--chart-2)",
     "var(--chart-3)",
     "var(--chart-4)",
-    "var(--chart-5)"
+    "var(--chart-5)",
   ];
 
   export function buildChartPaths(
     series: { username: string; points: { time: number; score: number }[] }[],
     width: number,
     height: number,
-    padding: number
+    padding: number,
   ): { color: string; username: string; points: string }[] {
     if (series.length === 0) return [];
     let maxTime = 0;
@@ -39,7 +39,7 @@
       return {
         color: chartColors[i % chartColors.length] ?? "var(--chart-1)",
         username: s.username,
-        points
+        points,
       };
     });
   }
@@ -100,7 +100,7 @@
   const myRow = $derived(
     myUsername == null
       ? null
-      : scoreboard.entries.find((e) => e.username === myUsername) ?? null
+      : (scoreboard.entries.find((e) => e.username === myUsername) ?? null),
   );
 
   function avatarBg(name: string): string {
@@ -116,11 +116,10 @@
     items={[
       { label: m.navigation_contests(), href: "/contests" },
       { label: contestId, href: `/contests/${contestId}` },
-      { label: m.contestDetail_scoreboard() }
+      { label: m.contestDetail_scoreboard() },
     ]}
   />
 
-  
   <div class="glass rounded-xl shadow-rest p-4 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
@@ -141,11 +140,19 @@
           <path d="M10 11v4M14 11v4" />
           <path d="M8 20h8M9 20l1-3h4l1 3" />
         </svg>
-        <span>Scoreboard · {isSolveCount ? m.contestScoreboard_formatSolveCount() : m.contestScoreboard_formatPointSum()}</span>
+        <span
+          >Scoreboard · {isSolveCount
+            ? m.contestScoreboard_formatSolveCount()
+            : m.contestScoreboard_formatPointSum()}</span
+        >
       </div>
-      <h1 class="mt-2 text-headline font-semibold tracking-tight">{m.contestScoreboard_heroHeading()}</h1>
+      <h1 class="mt-2 text-headline font-semibold tracking-tight">
+        {m.contestScoreboard_heroHeading()}
+      </h1>
       <p class="text-caption text-muted-foreground">
-        {isSolveCount ? m.contestScoreboard_heroHintSolveCount() : m.contestScoreboard_heroHintPointSum()}
+        {isSolveCount
+          ? m.contestScoreboard_heroHintSolveCount()
+          : m.contestScoreboard_heroHintPointSum()}
       </p>
     </div>
 
@@ -157,9 +164,7 @@
         <div
           class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
         >
-          <span
-            class="size-1.5 rounded-full live-dot"
-            style="background: oklch(0.55 0.2 27);"
+          <span class="size-1.5 rounded-full live-dot" style="background: oklch(0.55 0.2 27);"
           ></span>
           <span>{m.contestDetail_frozen().toUpperCase()}</span>
         </div>
@@ -171,30 +176,32 @@
 
     <div class="grid grid-cols-3 gap-5 text-center">
       <div>
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">{m.contestScoreboard_kpiEntries()}</div>
+        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          {m.contestScoreboard_kpiEntries()}
+        </div>
         <div class="mt-1 text-title font-semibold tabular-nums">
           {scoreboard.entries.length}
         </div>
       </div>
       <div>
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">{m.contestScoreboard_kpiProblems()}</div>
+        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          {m.contestScoreboard_kpiProblems()}
+        </div>
         <div class="mt-1 text-title font-semibold tabular-nums">
           {scoreboard.problems.length}
         </div>
       </div>
       <div>
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">{m.contestScoreboard_kpiYourRank()}</div>
-        <div
-          class="mt-1 text-title font-semibold tabular-nums"
-          style="color: var(--primary);"
-        >
+        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          {m.contestScoreboard_kpiYourRank()}
+        </div>
+        <div class="mt-1 text-title font-semibold tabular-nums" style="color: var(--primary);">
           #{myRow?.rank ?? "—"}
         </div>
       </div>
     </div>
   </div>
 
-  
   <GlassPanel class="overflow-hidden">
     <div
       class="flex items-center justify-between px-6 py-4 border-b gap-4 flex-wrap"
@@ -210,10 +217,14 @@
             ? '#c4682d'
             : 'oklch(0.45 0.13 245)'};"
         >
-          {isSolveCount ? m.contestScoreboard_formatSolveCount() : m.contestScoreboard_formatPointSum()}
+          {isSolveCount
+            ? m.contestScoreboard_formatSolveCount()
+            : m.contestScoreboard_formatPointSum()}
         </span>
         <span class="text-caption text-muted-foreground hidden sm:inline">
-          {isSolveCount ? m.contestScoreboard_sortHintSolveCount() : m.contestScoreboard_sortHintPointSum()}
+          {isSolveCount
+            ? m.contestScoreboard_sortHintSolveCount()
+            : m.contestScoreboard_sortHintPointSum()}
         </span>
       </div>
       <div class="flex items-center gap-3">
@@ -240,7 +251,7 @@
           tabs={[
             { value: "all", label: m.contestScoreboard_filterAll() },
             { value: "friends", label: m.contestScoreboard_filterFriends() },
-            { value: "around", label: m.contestScoreboard_filterAround() }
+            { value: "around", label: m.contestScoreboard_filterAround() },
           ]}
           activeTabValue="all"
           onChange={() => {}}
@@ -249,7 +260,9 @@
     </div>
 
     {#if scoreboard.entries.length === 0}
-      <div class="px-6 py-16 text-center text-body-sm text-muted-foreground">{m.contestScoreboard_empty()}</div>
+      <div class="px-6 py-16 text-center text-body-sm text-muted-foreground">
+        {m.contestScoreboard_empty()}
+      </div>
     {:else if isSolveCount}
       <div class="overflow-x-auto">
         <table class="w-full text-body-sm">
@@ -280,7 +293,9 @@
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
             {#each scoreboard.entries as r (r.username)}
               <tr
-                class="transition-colors {r.userId === myRow?.userId ? '' : 'hover:bg-muted/40'}"
+                class="transition-colors {r.userId === myRow?.userId
+                  ? ''
+                  : 'hover:bg-muted/40'}"
                 style={r.userId === myRow?.userId
                   ? "background: color-mix(in oklab, var(--primary) 8%, transparent); outline: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);"
                   : ""}
@@ -315,9 +330,7 @@
                 >
                   {r.totalScore}
                 </td>
-                <td
-                  class="px-3 py-3 text-center font-mono tabular-nums text-muted-foreground"
-                >
+                <td class="px-3 py-3 text-center font-mono tabular-nums text-muted-foreground">
                   {Math.round(r.totalPenalty / 60)}
                 </td>
                 {#each r.problems as ps, pi (pi)}
@@ -363,7 +376,9 @@
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
             {#each scoreboard.entries as r (r.username)}
               <tr
-                class="transition-colors {r.userId === myRow?.userId ? '' : 'hover:bg-muted/40'}"
+                class="transition-colors {r.userId === myRow?.userId
+                  ? ''
+                  : 'hover:bg-muted/40'}"
                 style={r.userId === myRow?.userId
                   ? "background: color-mix(in oklab, var(--primary) 8%, transparent); outline: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);"
                   : ""}
@@ -415,7 +430,6 @@
       </div>
     {/if}
 
-    
     {#if scoreboard.entries.length > 0}
       <div
         class="px-6 py-3 border-t flex flex-wrap items-center gap-x-5 gap-y-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
@@ -475,7 +489,6 @@
     {/if}
   </GlassPanel>
 
-  
   {#if chart.series.length > 0}
     <GlassPanel class="p-6">
       <div class="flex items-baseline justify-between mb-3">
@@ -493,14 +506,7 @@
             stroke="currentColor"
             stroke-opacity="0.15"
           />
-          <line
-            x1="40"
-            y1="40"
-            x2="40"
-            y2="260"
-            stroke="currentColor"
-            stroke-opacity="0.15"
-          />
+          <line x1="40" y1="40" x2="40" y2="260" stroke="currentColor" stroke-opacity="0.15" />
           {#each chartPaths as path (path.username)}
             <polyline
               points={path.points}

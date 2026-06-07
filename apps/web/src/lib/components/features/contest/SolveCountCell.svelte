@@ -56,7 +56,9 @@
     style="background: color-mix(in oklab, var(--info) 14%, transparent);"
   >
     <span class="font-mono text-caption font-semibold" style="color: var(--info);">?</span>
-    <span class="font-mono text-[10px]" style="color: var(--info);">{m.scoreboard_pendingShort()}</span>
+    <span class="font-mono text-[10px]" style="color: var(--info);"
+      >{m.scoreboard_pendingShort()}</span
+    >
   </div>
 {:else if attempts > 0}
   <div
@@ -66,7 +68,9 @@
     <span class="font-mono text-caption font-semibold" style="color: oklch(0.5 0.18 27);">
       −{attempts}
     </span>
-    <span class="font-mono text-[10px]" style="color: oklch(0.55 0.18 27);">{m.scoreboard_wa()}</span>
+    <span class="font-mono text-[10px]" style="color: oklch(0.55 0.18 27);"
+      >{m.scoreboard_wa()}</span
+    >
   </div>
 {:else}
   <span class="text-muted-foreground font-mono opacity-40">·</span>

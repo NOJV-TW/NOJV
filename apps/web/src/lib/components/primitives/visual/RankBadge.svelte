@@ -6,13 +6,7 @@
   let { rank }: Props = $props();
 
   const bg = $derived(
-    rank === 1
-      ? "#d4a054"
-      : rank === 2
-        ? "#9a9a9a"
-        : rank === 3
-          ? "#cd7f32"
-          : "var(--muted)"
+    rank === 1 ? "#d4a054" : rank === 2 ? "#9a9a9a" : rank === 3 ? "#cd7f32" : "var(--muted)",
   );
 </script>
 

@@ -16,14 +16,14 @@
     success: CheckCircle2,
     error: AlertCircle,
     warning: AlertTriangle,
-    info: Info
+    info: Info,
   } as const;
 
   const iconTint: Record<ToastType, string> = {
     success: "bg-success/15 text-success",
     error: "bg-destructive/15 text-destructive",
     warning: "bg-warning/15 text-warning",
-    info: "bg-info/15 text-info"
+    info: "bg-info/15 text-info",
   };
 
   const Icon = $derived(icons[toast.type]);
@@ -49,13 +49,12 @@
       toasts.remove(toast.id);
     }
   }
-
 </script>
 
 {#if prefersReducedMotion}
   <div
     class={cn(
-      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm"
+      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm",
     )}
     role={isError ? "alert" : "status"}
     aria-live={isError ? "assertive" : "polite"}
@@ -67,7 +66,7 @@
 {:else}
   <div
     class={cn(
-      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm"
+      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm",
     )}
     role={isError ? "alert" : "status"}
     aria-live={isError ? "assertive" : "polite"}
@@ -82,7 +81,7 @@
   <span
     class={cn(
       "flex size-8 shrink-0 items-center justify-center rounded-sm",
-      iconTint[toast.type]
+      iconTint[toast.type],
     )}
     aria-hidden="true"
   >

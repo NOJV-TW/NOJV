@@ -22,7 +22,7 @@
     value = $bindable(""),
     onChange,
     class: className,
-    ariaLabel
+    ariaLabel,
   }: Props = $props();
 
   function select(next: string) {
@@ -50,7 +50,7 @@
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         active
           ? "border-foreground bg-foreground text-background"
-          : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground"
+          : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground",
       )}
     >
       <span>{option.label}</span>
@@ -58,9 +58,7 @@
         <span
           class={cn(
             "inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums",
-            active
-              ? "bg-background/18 text-background"
-              : "bg-muted text-muted-foreground"
+            active ? "bg-background/18 text-background" : "bg-muted text-muted-foreground",
           )}
         >
           {option.count}

@@ -10,11 +10,11 @@
     { href: "/admin/system/users", key: "users" as const },
     { href: "/admin/content/announcements", key: "announcements" as const },
     { href: "/admin/content/editorial-reports", key: "editorialReports" as const },
-    { href: "/admin/rejudges", key: "rejudges" as const }
+    { href: "/admin/rejudges", key: "rejudges" as const },
   ];
 
   function tabLabel(
-    key: "overview" | "users" | "announcements" | "editorialReports" | "rejudges"
+    key: "overview" | "users" | "announcements" | "editorialReports" | "rejudges",
   ): string {
     if (key === "overview") return m.admin_tabOverview();
     if (key === "users") return m.admin_tabUsers();

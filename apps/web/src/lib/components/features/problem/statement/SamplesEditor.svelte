@@ -41,7 +41,9 @@
         {m.admin_sampleIOHint()}
       </p>
     </div>
-    <span class="text-caption text-muted-foreground tabular-nums">{samples.length} / {MAX_SAMPLES}</span>
+    <span class="text-caption text-muted-foreground tabular-nums"
+      >{samples.length} / {MAX_SAMPLES}</span
+    >
   </div>
 
   {#if samples.length === 0}

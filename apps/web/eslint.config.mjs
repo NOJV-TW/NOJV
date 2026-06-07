@@ -12,7 +12,7 @@ import baseConfig from "../../eslint.config.mjs";
 const componentSandboxRule = [
   "error",
   {
-    paths: ["@nojv/temporal", "@nojv/job-dispatch"].map((name) => ({
+    paths: ["@nojv/temporal"].map((name) => ({
       name,
       message: `${name} is server-only — do not import from Svelte components. Move the call to a +page.server.ts / +layout.server.ts / API route and pass data via the load function.`,
     })),
@@ -73,7 +73,7 @@ const layerBoundaryRule = [
 const primitivesNoFeaturesRule = [
   "error",
   {
-    paths: ["@nojv/temporal", "@nojv/job-dispatch"].map((name) => ({
+    paths: ["@nojv/temporal"].map((name) => ({
       name,
       message: `${name} is server-only — do not import from Svelte components. Move the call to a +page.server.ts / +layout.server.ts / API route and pass data via the load function.`,
     })),

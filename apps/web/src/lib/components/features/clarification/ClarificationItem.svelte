@@ -35,22 +35,22 @@
   }
 
   const problemTitle = $derived(
-    item.problemId ? (problems.find((p) => p.id === item.problemId)?.title ?? null) : null
+    item.problemId ? (problems.find((p) => p.id === item.problemId)?.title ?? null) : null,
   );
 
   const stateVariant = $derived<"info" | "success" | "muted">(
-    item.state === "pending" ? "info" : item.state === "answered" ? "success" : "muted"
+    item.state === "pending" ? "info" : item.state === "answered" ? "success" : "muted",
   );
   const stateLabel = $derived(
     item.state === "pending"
       ? m.clarification_state_pending()
       : item.state === "answered"
         ? m.clarification_state_answered()
-        : m.clarification_state_dismissed()
+        : m.clarification_state_dismissed(),
   );
 
   const askerLabel = $derived(
-    item.askedBy ? `@${item.askedBy.username}` : m.clarification_author_anonymous()
+    item.askedBy ? `@${item.askedBy.username}` : m.clarification_author_anonymous(),
   );
 </script>
 
@@ -58,7 +58,7 @@
   id={`clarification-${item.id}`}
   class={cn(
     "rounded-xl border border-border bg-[color:var(--color-panel)] p-3",
-    item.state === "dismissed" && "opacity-60"
+    item.state === "dismissed" && "opacity-60",
   )}
 >
   <header class="flex flex-wrap items-center gap-3">
@@ -97,7 +97,9 @@
   </p>
 
   {#if item.answerText}
-    <div class="mt-4 rounded-lg border border-border-subtle bg-[color:var(--color-panel-strong)] p-2">
+    <div
+      class="mt-4 rounded-lg border border-border-subtle bg-[color:var(--color-panel-strong)] p-2"
+    >
       <p class="whitespace-pre-wrap text-body text-foreground">{item.answerText}</p>
       {#if item.answeredBy}
         <p class="mt-2 text-caption text-muted-foreground">
