@@ -303,3 +303,10 @@ export async function finalizeRejudgeLog(
 ): Promise<void> {
   return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
 }
+
+export async function restoreSubmissionForCancelledRejudge(
+  submissionId: string,
+  oldStatus: string,
+): Promise<void> {
+  return submissionDomain.restoreSubmissionAfterCancelledRejudge(submissionId, oldStatus);
+}

@@ -411,7 +411,7 @@ export async function listActiveSessions(examId: string): Promise<ActiveSessionR
 export async function releaseAllSessionsAsInstructor(
   actor: ActorContext,
   { examId }: { examId: string },
-): Promise<{ released: number }> {
+): Promise<{ released: number; releasedUserIds: string[] }> {
   return runTransaction(async (tx) => {
     const exam = await examRepo.withTx(tx).findById(examId);
     if (!exam) {
@@ -442,7 +442,7 @@ export async function releaseAllSessionsAsInstructor(
       });
     }
 
-    return { released: active.length };
+    return { released: active.length, releasedUserIds: active.map((s) => s.userId) };
   });
 }
 

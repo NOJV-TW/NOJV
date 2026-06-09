@@ -29,9 +29,10 @@ const webEnvSchema = z
       val.BETTER_AUTH_SECRET ?? (val.NODE_ENV === "production" ? undefined : devAuthSecret()),
   }))
   .refine(
-    (val) => typeof val.BETTER_AUTH_SECRET === "string" && val.BETTER_AUTH_SECRET.length > 0,
+    (val) => typeof val.BETTER_AUTH_SECRET === "string" && val.BETTER_AUTH_SECRET.length >= 32,
     {
-      message: "BETTER_AUTH_SECRET is required in production",
+      message:
+        "BETTER_AUTH_SECRET is required in production and must be at least 32 characters",
       path: ["BETTER_AUTH_SECRET"],
     },
   );

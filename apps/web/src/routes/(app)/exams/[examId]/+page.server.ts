@@ -240,9 +240,15 @@ export const actions = {
   releaseAllSessions: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
-      await examDomain.session.releaseAllSessionsAsInstructor(actor, {
-        examId: event.params.examId,
-      });
+      const { releasedUserIds } = await examDomain.session.releaseAllSessionsAsInstructor(
+        actor,
+        {
+          examId: event.params.examId,
+        },
+      );
+      for (const releasedUserId of releasedUserIds) {
+        invalidateExamContextCaches(releasedUserId);
+      }
     } catch (err) {
       if (err instanceof HttpError) {
         return fail(err.status, { error: err.message });
@@ -264,6 +270,7 @@ export const actions = {
         examId: event.params.examId,
         targetUserId,
       });
+      invalidateExamContextCaches(targetUserId);
     } catch (err) {
       if (err instanceof HttpError) {
         return fail(err.status, { error: err.message });

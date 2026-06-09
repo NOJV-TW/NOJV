@@ -8,7 +8,18 @@ export const testcaseInputFileKey = (
   problemId: string,
   testcaseId: string,
   filename: string,
-): string => `problems/${problemId}/testcases/${testcaseId}/files/${filename}`;
+): string => {
+  if (
+    filename.length === 0 ||
+    filename === "." ||
+    filename === ".." ||
+    // eslint-disable-next-line no-control-regex -- control chars are exactly what we're rejecting
+    /[/\\\0\x01-\x1f\x7f]/.test(filename)
+  ) {
+    throw new Error("testcaseInputFileKey: unsafe filename");
+  }
+  return `problems/${problemId}/testcases/${testcaseId}/files/${filename}`;
+};
 
 export const workspaceFileKey = (problemId: string, fileId: string): string =>
   `problems/${problemId}/workspace/${fileId}`;

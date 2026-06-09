@@ -27,14 +27,18 @@ const failClosedLimiter: RateLimiterLike = {
   },
 };
 
-function createRateLimiter(points: number, duration: number): RateLimiterLike {
+function createRateLimiter(
+  keyPrefix: string,
+  points: number,
+  duration: number,
+): RateLimiterLike {
   try {
     const redis = getRedis();
     return new RateLimiterRedis({
       storeClient: redis,
       points: points * multiplier,
       duration,
-      keyPrefix: "rl",
+      keyPrefix,
     });
   } catch (err) {
     if (dev) {
@@ -51,11 +55,11 @@ function createRateLimiter(points: number, duration: number): RateLimiterLike {
   }
 }
 
-export const apiRateLimiter = createRateLimiter(60, 60);
-export const writeApiRateLimiter = createRateLimiter(10, 60);
-const formActionRateLimiter = createRateLimiter(20, 60);
+export const apiRateLimiter = createRateLimiter("rl:api", 60, 60);
+export const writeApiRateLimiter = createRateLimiter("rl:write", 10, 60);
+const formActionRateLimiter = createRateLimiter("rl:form", 20, 60);
 
-export const signInRateLimiter = createRateLimiter(5, 900);
+export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
 
 export async function consumeFormRateLimitInternal(
   event: RequestEvent,

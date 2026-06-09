@@ -6,6 +6,7 @@ export {
   fetchSingleSubmissionForRejudge,
   snapshotSubmissionForRejudge,
   finalizeRejudgeLog,
+  restoreSubmissionForCancelledRejudge,
 } from "./judge";
 
 export {
@@ -13,6 +14,7 @@ export {
   publishContestEvent,
   publishAssessmentDeadline,
   updateContestScores,
+  updateExamScores,
 } from "./lifecycle";
 
 export { getRedis, updateScoreboard, getScoreboard } from "./utils";

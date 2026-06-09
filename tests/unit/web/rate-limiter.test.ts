@@ -77,3 +77,21 @@ describe("rate limiter fail-closed in production", () => {
     expect(failObj.data.error).toMatch(/too many requests/i);
   });
 });
+
+describe("rate limiter key prefixes", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("gives each limiter its own Redis keyPrefix so per-IP counters never collide", async () => {
+    vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
+    vi.doMock("@nojv/redis", () => ({ getRedis: () => ({}) }));
+    mockClientIp();
+
+    const mod = await import("$lib/server/shared/rate-limiter");
+    const prefixes = [mod.apiRateLimiter, mod.writeApiRateLimiter, mod.signInRateLimiter].map(
+      (limiter) => (limiter as { keyPrefix?: string }).keyPrefix,
+    );
+    expect(prefixes).toEqual(["rl:api", "rl:write", "rl:signin"]);
+  });
+});

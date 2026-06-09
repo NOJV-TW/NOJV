@@ -47,6 +47,12 @@ const componentSandboxRule = [
 const layerBoundaryRule = [
   "error",
   {
+    // @nojv/temporal has no .server suffix, so SvelteKit's native guard
+    // would not stop it from being bundled into the browser.
+    paths: ["@nojv/temporal"].map((name) => ({
+      name,
+      message: `${name} is server-only and reached through @nojv/domain (dispatch helpers). Do not import it from apps/web.`,
+    })),
     patterns: [
       {
         group: ["@nojv/db", "@nojv/db/*"],

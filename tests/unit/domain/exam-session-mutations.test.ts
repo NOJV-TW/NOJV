@@ -61,11 +61,15 @@ describe("releaseAllSessionsAsInstructor", () => {
 
   it("releases every active session and returns the count", async () => {
     membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
-    sessionFindAllActive.mockResolvedValue([{ id: "s1" }, { id: "s2" }, { id: "s3" }]);
+    sessionFindAllActive.mockResolvedValue([
+      { id: "s1", userId: "u1" },
+      { id: "s2", userId: "u2" },
+      { id: "s3", userId: "u3" },
+    ]);
 
     const result = await releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" });
 
-    expect(result).toEqual({ released: 3 });
+    expect(result).toEqual({ released: 3, releasedUserIds: ["u1", "u2", "u3"] });
     expect(sessionUpdate).toHaveBeenCalledTimes(3);
     expect(sessionRecordEvent).toHaveBeenCalledTimes(3);
     expect(sessionUpdate).toHaveBeenCalledWith("s1", {
@@ -80,7 +84,7 @@ describe("releaseAllSessionsAsInstructor", () => {
 
     const result = await releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" });
 
-    expect(result).toEqual({ released: 0 });
+    expect(result).toEqual({ released: 0, releasedUserIds: [] });
     expect(sessionUpdate).not.toHaveBeenCalled();
   });
 
