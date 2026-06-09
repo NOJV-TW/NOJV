@@ -524,6 +524,11 @@ export function buildAdvancedJobManifest(params: AdvancedJobManifestParams): k8s
               effect: "NoSchedule",
             },
           ],
+          // No runAsNonRoot here — the TA grader image is trusted and may
+          // need root, matching the Docker advanced path (no --user).
+          securityContext: {
+            seccompProfile: { type: "RuntimeDefault" },
+          },
           initContainers: [
             {
               name: ADVANCED_INIT_NAME,

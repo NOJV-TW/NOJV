@@ -20,6 +20,7 @@ export {
   createQueuedSubmissionRecord,
   deriveVerdictSummary,
   finalizeRejudgeLog,
+  restoreSubmissionAfterCancelledRejudge,
   snapshotForRejudge,
   updateSubmissionStatus,
   type ActorContext as SubmissionActorContext,

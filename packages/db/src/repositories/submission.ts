@@ -649,6 +649,13 @@ export const submissionRepo = {
     });
   },
 
+  updateStatusIfIn(id: string, fromStatuses: string[], status: string) {
+    return prisma.submission.updateMany({
+      data: { status } as Prisma.SubmissionUncheckedUpdateInput,
+      where: { id, status: { in: fromStatuses as SubmissionStatus[] } },
+    });
+  },
+
   complete(id: string, data: Prisma.SubmissionUpdateInput) {
     return prisma.submission.update({
       data,

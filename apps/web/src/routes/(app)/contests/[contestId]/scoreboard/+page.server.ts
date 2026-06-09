@@ -33,7 +33,7 @@ export const load: PageServerLoad = handleLoad(async (event) => {
 
   const [scoreboard, chart] = await Promise.all([
     getScoreboard(contestId, { canSeeLive }),
-    getScoreboardChart(contestId, 10),
+    getScoreboardChart(contestId, 10, { canSeeLive }),
   ]);
 
   return {

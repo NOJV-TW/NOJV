@@ -10,6 +10,7 @@ Keyed state uses the prefix `nojv:{domain}:{identifier}` (applies to keyed state
 | ------------------------------------ | --------------------- | ------ | ---------------------------------- |
 | `nojv:scoreboard:{contestId}`        | Sorted Set            | 90 d   | Live contest scoreboard            |
 | `nojv:scoreboard:{contestId}:frozen` | Sorted Set            | 90 d   | Frozen scoreboard snapshot         |
+| `nojv:cache:admin-dashboard`         | String (JSON)         | 300 s  | Admin dashboard read-through cache |
 | `rl:*` (no `nojv:` prefix)           | rate-limiter-flexible | varies | API / form / sign-in rate limiting |
 
 The scoreboard 90-day TTL is refreshed on every write (see `SCOREBOARD_TTL_SECONDS` in `packages/redis/src/scoreboard.ts:8`): active contests stay alive indefinitely, ended ones release memory after the grace window.
