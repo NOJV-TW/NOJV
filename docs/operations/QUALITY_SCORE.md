@@ -20,8 +20,24 @@ ledger. **Not a changelog** — for batch-by-batch detail see git log and
 
 ## Outstanding Drift
 
-_None known._ Add an entry here when code lands without its
-documentation, or vice versa. Clear the entry once the gap closes.
+Add an entry here when code lands without its documentation, or vice
+versa. Clear the entry once the gap closes.
+
+- **Redis scoreboard last-writer-wins window** — `updateScoreboard`
+  (`packages/redis/src/scoreboard.ts`) is a plain `ZADD` with no version
+  guard. Under concurrent batch rejudge, an older score computation can
+  overwrite a newer one in Redis (DB stays correct via the optimistic
+  lock); the next score update self-corrects. Accepted: a versioned Lua
+  write isn't worth the complexity at current scale.
+- **`SubmissionStatus.compiling` enum drift** — the Prisma enum has
+  `compiling` but `@nojv/core` `submissionOperationStatuses` does not.
+  Never persisted today (the judge workflow keeps it workflow-local), so
+  latent only. Resolution when touched next: drop the Prisma value or
+  add it to core.
+- **`verify-school` consumes its token in a GET load** — mail-scanner
+  prefetch can burn the link before the user clicks (self-affecting
+  only; token is 32-byte single-use, 30 min). Fix when touched: confirm
+  via a form POST.
 
 ## Recent Milestones
 

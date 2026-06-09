@@ -270,8 +270,11 @@ export async function getScoreboard(
 export async function getScoreboardChart(
   contestId: string,
   topN: number,
+  options?: { canSeeLive?: boolean },
 ): Promise<ScoreboardChart> {
-  const scoreboardData = await getScoreboard(contestId, { canSeeLive: false });
+  const scoreboardData = await getScoreboard(contestId, {
+    canSeeLive: options?.canSeeLive === true,
+  });
 
   const topEntries = scoreboardData.entries.slice(0, topN);
   if (topEntries.length === 0) {
@@ -291,8 +294,14 @@ export async function getScoreboardChart(
   const participationIds = contest.participations.map((p) => p.id);
   const submissions = await submissionRepo.findForContestChart(participationIds);
 
+  const frozenCutoff =
+    scoreboardData.isFrozen && scoreboardData.frozenAt
+      ? new Date(scoreboardData.frozenAt)
+      : null;
+
   const submissionsByUser = new Map<string, SubmissionRow[]>();
   for (const sub of submissions) {
+    if (frozenCutoff && sub.createdAt > frozenCutoff) continue;
     const userId = participationUserMap.get(sub.contestParticipationId ?? "");
     if (!userId) continue;
     const row: SubmissionRow = {

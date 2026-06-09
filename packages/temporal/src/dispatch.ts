@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { SubmissionJudgeJob } from "@nojv/core";
 import { submissionJudgeJobSchema } from "@nojv/core";
 
@@ -37,7 +39,7 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
       ? input.submissionId
       : (input.examId ?? input.contestId ?? input.assessmentId ?? input.problemId);
 
-  const workflowId = `rejudge-${suffix}-${String(Date.now())}`;
+  const workflowId = `rejudge-${suffix}-${randomUUID()}`;
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId,

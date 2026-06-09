@@ -326,6 +326,13 @@ export async function updateSubmissionStatus(
   await submissionRepo.updateStatus(submissionId, status);
 }
 
+export async function restoreSubmissionAfterCancelledRejudge(
+  submissionId: string,
+  oldStatus: string,
+): Promise<void> {
+  await submissionRepo.updateStatusIfIn(submissionId, ["queued", "running"], oldStatus);
+}
+
 const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
 
 export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {

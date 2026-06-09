@@ -11,7 +11,6 @@ import { scoreboard } from "@nojv/redis";
 import { ConflictError, NotFoundError } from "../shared/errors";
 import {
   buildScoreboard,
-  buildScoreboardChartSeries,
   computeProblemCountPenalty,
   type ParticipantRow,
   type ScoreboardEntry,
@@ -267,73 +266,4 @@ export async function getExamScoreboard(
     scoreboardMode,
     scoringMode,
   };
-}
-
-export interface ExamScoreboardChart {
-  series: {
-    userId: string;
-    username: string;
-    points: { time: number; score: number }[];
-  }[];
-}
-
-export async function getExamScoreboardChart(
-  examId: string,
-  topN: number,
-): Promise<ExamScoreboardChart> {
-  const scoreboardData = await getExamScoreboard(examId);
-
-  const topEntries = scoreboardData.entries.slice(0, topN);
-  if (topEntries.length === 0) {
-    return { series: [] };
-  }
-
-  const topUserIds = new Set(topEntries.map((e) => e.userId));
-
-  const pointsMap = new Map(scoreboardData.problems.map((p) => [p.id, p.points]));
-
-  const exam = await examRepo.findInfoById(examId);
-
-  const rawSubmissions = await submissionRepo.findMany({
-    where: {
-      examId,
-      sampleOnly: false,
-      userId: { in: [...topUserIds] },
-    },
-    orderBy: { createdAt: "asc" },
-    select: {
-      createdAt: true,
-      problemId: true,
-      score: true,
-      status: true,
-      userId: true,
-    },
-  });
-
-  const submissionsByUser = new Map<string, SubmissionRow[]>();
-  for (const sub of rawSubmissions) {
-    const row: SubmissionRow = {
-      createdAt: sub.createdAt,
-      problemId: sub.problemId,
-      score: sub.score,
-      status: sub.status,
-      userId: sub.userId,
-    };
-    const existing = submissionsByUser.get(sub.userId);
-    if (existing) existing.push(row);
-    else submissionsByUser.set(sub.userId, [row]);
-  }
-
-  const usernameMap = new Map(topEntries.map((e) => [e.userId, e.username]));
-
-  const series = buildScoreboardChartSeries(
-    exam.startsAt,
-    scoreboardData.scoringMode,
-    [...topUserIds],
-    submissionsByUser,
-    usernameMap,
-    pointsMap,
-  );
-
-  return { series };
 }

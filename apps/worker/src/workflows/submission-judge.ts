@@ -1,4 +1,10 @@
-import { proxyActivities, defineQuery, setHandler } from "@temporalio/workflow";
+import {
+  CancellationScope,
+  defineQuery,
+  isCancellation,
+  proxyActivities,
+  setHandler,
+} from "@temporalio/workflow";
 import type { SubmissionJudgeInput, SubmissionJudgeStatus } from "@nojv/temporal";
 
 import type * as judgeActivities from "../activities/judge";
@@ -26,44 +32,56 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   setHandler(getStatusQuery, () => status);
 
   let rejudgeLogId: string | null = null;
+  let rejudgeOldStatus: string | null = null;
   if (input.forRejudge) {
     const snap = await judge.snapshotSubmissionForRejudge(
       input.submissionId,
       input.forRejudge.triggeredByUserId,
     );
     rejudgeLogId = snap?.logId ?? null;
+    rejudgeOldStatus = snap?.oldStatus ?? null;
   }
 
-  status = "compiling";
-  const judgeContext = await judge.fetchJudgeContext(input.submissionId);
+  try {
+    status = "compiling";
+    const judgeContext = await judge.fetchJudgeContext(input.submissionId);
 
-  status = "running";
-  const result = await judgeSandbox.executeSandbox(
-    input.submissionId,
-    input.draft,
-    judgeContext,
-  );
-
-  const mode: "standard" | "advanced" =
-    judgeContext.problemType === "special_env" && judgeContext.advanced !== null
-      ? "advanced"
-      : "standard";
-  const submission = await judge.completeSubmission(input.submissionId, result, mode);
-
-  if (submission.contestParticipationId) {
-    await contest.updateContestScores(submission.contestParticipationId);
-  } else if (submission.examId) {
-    await contest.updateExamScores(submission.examId, submission.userId);
-  }
-
-  status = "completed";
-  await notification.publishVerdict(submission);
-
-  if (rejudgeLogId) {
-    await judge.finalizeRejudgeLog(
+    status = "running";
+    const result = await judgeSandbox.executeSandbox(
       input.submissionId,
-      input.forRejudge?.triggeredByUserId ?? null,
-      rejudgeLogId,
+      input.draft,
+      judgeContext,
     );
+
+    const mode: "standard" | "advanced" =
+      judgeContext.problemType === "special_env" && judgeContext.advanced !== null
+        ? "advanced"
+        : "standard";
+    const submission = await judge.completeSubmission(input.submissionId, result, mode);
+
+    if (submission.contestParticipationId) {
+      await contest.updateContestScores(submission.contestParticipationId);
+    } else if (submission.examId) {
+      await contest.updateExamScores(submission.examId, submission.userId);
+    }
+
+    status = "completed";
+    await notification.publishVerdict(submission);
+
+    if (rejudgeLogId) {
+      await judge.finalizeRejudgeLog(
+        input.submissionId,
+        input.forRejudge?.triggeredByUserId ?? null,
+        rejudgeLogId,
+      );
+    }
+  } catch (err) {
+    const restoreTo = rejudgeOldStatus;
+    if (restoreTo !== null && isCancellation(err)) {
+      await CancellationScope.nonCancellable(() =>
+        judge.restoreSubmissionForCancelledRejudge(input.submissionId, restoreTo),
+      );
+    }
+    throw err;
   }
 }
