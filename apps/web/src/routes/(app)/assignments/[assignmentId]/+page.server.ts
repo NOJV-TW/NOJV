@@ -27,6 +27,10 @@ import {
 
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import {
+  serializePlagiarismFlags,
+  serializePlagiarismReport,
+} from "$lib/server/shared/plagiarism-view";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import {
@@ -121,22 +125,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         canAnswer: canAnswerClar,
         canView: canViewClar,
       },
-      plagiarism: plagiarism
-        ? {
-            status: plagiarism.status,
-            reportUrl: plagiarism.reportUrl,
-            triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
-            completedAt: plagiarism.completedAt?.toISOString() ?? null,
-            results: plagiarism.results as unknown,
-          }
-        : null,
-      plagiarismFlags: plagiarismFlags.map((f) => ({
-        id: f.id,
-        pairKey: f.pairKey,
-        flaggedBy: f.flaggedBy,
-        flaggedAt: f.flaggedAt.toISOString(),
-        note: f.note,
-      })),
+      plagiarism: serializePlagiarismReport(plagiarism),
+      plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
       auditEvents,
       auditActorNames,
     };
