@@ -69,19 +69,14 @@ export async function createProblemTestcaseSetRecord(
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    const existingCount = await tx.testcaseSet.count({
-      where: { problemId: problem.id },
-    });
+    const existingCount = await testcaseSetRepo.withTx(tx).countByProblem(problem.id);
     if (existingCount >= MAX_TESTCASE_SETS_PER_PROBLEM) {
       throw new ConflictError(
         `A problem can have at most ${String(MAX_TESTCASE_SETS_PER_PROBLEM)} testcase sets.`,
       );
     }
 
-    const { _max } = await tx.testcaseSet.aggregate({
-      where: { problemId: problem.id },
-      _max: { ordinal: true },
-    });
+    const { _max } = await testcaseSetRepo.withTx(tx).maxOrdinalByProblem(problem.id);
     const nextOrdinal = (_max.ordinal ?? -1) + 1;
 
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({

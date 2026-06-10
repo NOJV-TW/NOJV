@@ -44,6 +44,9 @@ vi.mock("@nojv/db", () => {
         recordEvent: sessionRecordEvent,
       }),
     },
+    courseRepo: {
+      withTx: () => ({ findArchivedById: txCourseFindUnique }),
+    },
     courseMembershipRepo: {
       withTx: () => ({ findByComposite: membershipFindByComposite }),
     },
@@ -53,15 +56,9 @@ vi.mock("@nojv/db", () => {
         findByExamAndUser: participationFindByExamAndUser,
       }),
     },
-    // assertEnrolledInExamCourse now reads `tx.course` directly to check
-    // course.archived alongside membership; provide a tx mock that exposes it.
     runTransaction: async <T>(
-      fn: (tx: {
-        course: { findUnique: typeof txCourseFindUnique };
-        $executeRaw: (...args: unknown[]) => Promise<number>;
-      }) => Promise<T>,
-    ): Promise<T> =>
-      fn({ course: { findUnique: txCourseFindUnique }, $executeRaw: async () => 0 }),
+      fn: (tx: { $executeRaw: (...args: unknown[]) => Promise<number> }) => Promise<T>,
+    ): Promise<T> => fn({ $executeRaw: async () => 0 }),
   };
 });
 

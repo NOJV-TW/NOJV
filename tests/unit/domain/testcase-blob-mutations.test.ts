@@ -84,6 +84,8 @@ vi.mock("@nojv/db", () => {
       delete: testcaseSetDelete,
       withTx: () => ({
         create: testcaseSetCreate,
+        countByProblem: testcaseSetCount,
+        maxOrdinalByProblem: testcaseSetMaxOrdinal,
       }),
     },
     testcaseRepo: {

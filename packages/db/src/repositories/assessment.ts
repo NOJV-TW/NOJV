@@ -365,6 +365,13 @@ export const assessmentProblemRepo = {
         return tx.assessmentProblem.create({ data });
       },
 
+      findLink(assessmentId: string, problemId: string) {
+        return tx.assessmentProblem.findFirst({
+          where: { assessmentId, problemId },
+          select: { id: true },
+        });
+      },
+
       deleteByAssessmentId(assessmentId: string) {
         return tx.assessmentProblem.deleteMany({
           where: { assessmentId },

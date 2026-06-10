@@ -27,6 +27,7 @@ const {
 vi.mock("@nojv/db", () => ({
   Prisma: {},
   examRepo: { withTx: () => ({ findById: examFindById }) },
+  courseRepo: { withTx: () => ({ findArchivedById: courseFindUnique }) },
   courseMembershipRepo: { withTx: () => ({ findByComposite: membershipFindByComposite }) },
   examSessionRepo: {
     withTx: () => ({

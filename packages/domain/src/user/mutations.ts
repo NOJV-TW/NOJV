@@ -1,4 +1,9 @@
-import { runTransaction, userRepo, type TransactionClient } from "@nojv/db";
+import {
+  courseMembershipRepo,
+  runTransaction,
+  userRepo,
+  type TransactionClient,
+} from "@nojv/db";
 import { isReservedUsername } from "@nojv/core";
 
 import { ConflictError, ForbiddenError, ValidationError } from "../shared/errors";
@@ -124,10 +129,9 @@ export async function renameUsername(
     }
 
     if (conflict.status === "pending_first_login") {
-      const elevatedMembership = await tx.courseMembership.findFirst({
-        where: { userId: conflict.id, role: { in: ["teacher", "ta"] } },
-        select: { id: true },
-      });
+      const elevatedMembership = await courseMembershipRepo
+        .withTx(tx)
+        .findElevatedMembership(conflict.id);
       if (elevatedMembership) {
         throw new ConflictError("TAKEN");
       }

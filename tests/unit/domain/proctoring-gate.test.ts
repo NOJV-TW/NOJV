@@ -23,19 +23,17 @@ vi.mock("@nojv/db", () => ({
   contestRepo: {
     withTx: () => ({ findById: contestFindById }),
   },
+  courseRepo: {
+    withTx: () => ({ findArchivedById: txCourseFindUnique }),
+  },
   courseMembershipRepo: {
     withTx: () => ({ findByComposite: membershipFindByComposite }),
   },
-  runTransaction: async <T>(
-    fn: (tx: {
-      course: { findUnique: typeof txCourseFindUnique };
-      examParticipation: { findUnique: typeof txExamParticipationFindUnique };
-    }) => Promise<T>,
-  ): Promise<T> =>
-    fn({
-      course: { findUnique: txCourseFindUnique },
-      examParticipation: { findUnique: txExamParticipationFindUnique },
-    }),
+  examParticipationRepo: {
+    withTx: () => ({ findIpPinByExamAndUser: txExamParticipationFindUnique }),
+  },
+  runTransaction: async <T>(fn: (tx: Record<string, never>) => Promise<T>): Promise<T> =>
+    fn({}),
 }));
 
 vi.mock("../../../packages/domain/src/shared/ip", () => ({

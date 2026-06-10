@@ -93,6 +93,10 @@ export const courseRepo = {
         return tx.course.findUnique({ where: { id } });
       },
 
+      findArchivedById(id: string) {
+        return tx.course.findUnique({ select: { archived: true }, where: { id } });
+      },
+
       create(data: Prisma.CourseUncheckedCreateInput) {
         return tx.course.create({ data });
       },
@@ -196,6 +200,17 @@ export const courseMembershipRepo = {
 
       create(data: Prisma.CourseMembershipUncheckedCreateInput) {
         return tx.courseMembership.create({ data });
+      },
+
+      updateById(id: string, data: Prisma.CourseMembershipUncheckedUpdateInput) {
+        return tx.courseMembership.update({ where: { id }, data });
+      },
+
+      findElevatedMembership(userId: string) {
+        return tx.courseMembership.findFirst({
+          where: { userId, role: { in: ["teacher", "ta"] } },
+          select: { id: true },
+        });
       },
 
       upsert(

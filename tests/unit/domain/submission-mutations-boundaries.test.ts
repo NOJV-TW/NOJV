@@ -61,8 +61,14 @@ vi.mock("@nojv/db", () => ({
   assessmentRepo: {
     withTx: () => ({ findByCompositeId: vi.fn() }),
   },
+  assessmentProblemRepo: {
+    withTx: () => ({ findLink: vi.fn() }),
+  },
   contestRepo: {
     withTx: () => ({ findById: contestRepoFindById }),
+  },
+  contestProblemRepo: {
+    withTx: () => ({ findLink: txContestProblemFindFirst }),
   },
   contestParticipationRepo: {
     withTx: () => ({ upsert: contestParticipationUpsert }),
@@ -85,17 +91,8 @@ vi.mock("@nojv/db", () => ({
     updateStatus: submissionUpdateStatus,
   },
   runTransaction: async <T>(
-    fn: (tx: {
-      $executeRaw: typeof vi.fn;
-      contestProblem: { findFirst: typeof txContestProblemFindFirst };
-      assessmentProblem: { findFirst: typeof vi.fn };
-    }) => Promise<T>,
-  ): Promise<T> =>
-    fn({
-      $executeRaw: vi.fn().mockResolvedValue(0),
-      contestProblem: { findFirst: txContestProblemFindFirst },
-      assessmentProblem: { findFirst: vi.fn() },
-    }),
+    fn: (tx: { $executeRaw: typeof vi.fn }) => Promise<T>,
+  ): Promise<T> => fn({ $executeRaw: vi.fn().mockResolvedValue(0) }),
 }));
 
 vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({

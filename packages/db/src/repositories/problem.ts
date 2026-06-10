@@ -312,6 +312,14 @@ export const testcaseSetRepo = {
         return tx.testcaseSet.create({ data });
       },
 
+      countByProblem(problemId: string) {
+        return tx.testcaseSet.count({ where: { problemId } });
+      },
+
+      maxOrdinalByProblem(problemId: string) {
+        return tx.testcaseSet.aggregate({ where: { problemId }, _max: { ordinal: true } });
+      },
+
       deleteByProblemId(problemId: string) {
         return tx.testcaseSet.deleteMany({ where: { problemId } });
       },

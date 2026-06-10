@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  assessmentProblemRepo,
+  contestProblemRepo,
   courseMembershipRepo,
   examRepo,
   examSessionRepo,
@@ -108,10 +110,7 @@ async function assertCourseSubmissionAllowed(
     }
   }
 
-  const link = await tx.assessmentProblem.findFirst({
-    where: { assessmentId: assignment.id, problemId: problem.id },
-    select: { id: true },
-  });
+  const link = await assessmentProblemRepo.withTx(tx).findLink(assignment.id, problem.id);
   if (!link) {
     throw new ForbiddenError("This problem is not part of the assignment.");
   }
@@ -247,10 +246,9 @@ export async function createQueuedSubmissionRecord(
     const contestParticipation = contestResult?.participation ?? null;
 
     if (contestResult) {
-      const link = await tx.contestProblem.findFirst({
-        where: { contestId: contestResult.contest.id, problemId: problem.id },
-        select: { id: true },
-      });
+      const link = await contestProblemRepo
+        .withTx(tx)
+        .findLink(contestResult.contest.id, problem.id);
       if (!link) {
         throw new ForbiddenError("This problem is not part of the contest.");
       }

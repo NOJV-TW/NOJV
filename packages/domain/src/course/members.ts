@@ -2,6 +2,7 @@ import {
   courseMembershipAdminRepo,
   courseMembershipRepo,
   runTransaction,
+  userRepo,
   type TransactionClient,
 } from "@nojv/db";
 import type { CourseRole, EffectiveCourseRole } from "@nojv/core";
@@ -97,16 +98,16 @@ export async function bulkAddByHandle(
     let reactivated = 0;
 
     for (const handle of uniqueHandles) {
-      let user = await tx.user.findUnique({ where: { username: handle } });
+      let user = await userRepo.withTx(tx).findByUsername(handle);
 
       if (!user) {
         user = await createPlaceholderInTx(tx, handle);
         placeholdersCreated += 1;
       }
 
-      const existing = await tx.courseMembership.findUnique({
-        where: { courseId_userId: { courseId: course.id, userId: user.id } },
-      });
+      const existing = await courseMembershipRepo
+        .withTx(tx)
+        .findByComposite(course.id, user.id);
 
       if (existing?.status === "active") {
         skipped += 1;
@@ -114,30 +115,25 @@ export async function bulkAddByHandle(
       }
 
       if (existing?.status === "removed") {
-        await tx.courseMembership.update({
-          where: { id: existing.id },
-          data: {
-            role: payload.role,
-            status: "active",
-            joinedAt: now,
-            removedAt: null,
-            addedByUserId: actor.userId,
-          },
+        await courseMembershipRepo.withTx(tx).updateById(existing.id, {
+          role: payload.role,
+          status: "active",
+          joinedAt: now,
+          removedAt: null,
+          addedByUserId: actor.userId,
         });
         reactivated += 1;
         added += 1;
         continue;
       }
 
-      await tx.courseMembership.create({
-        data: {
-          courseId: course.id,
-          userId: user.id,
-          role: payload.role,
-          status: "active",
-          joinedAt: now,
-          addedByUserId: actor.userId,
-        },
+      await courseMembershipRepo.withTx(tx).create({
+        courseId: course.id,
+        userId: user.id,
+        role: payload.role,
+        status: "active",
+        joinedAt: now,
+        addedByUserId: actor.userId,
       });
       added += 1;
     }
@@ -187,16 +183,14 @@ export async function removeMember(actor: ActorContext, courseId: string, userId
 }
 
 async function createPlaceholderInTx(tx: TransactionClient, username: string) {
-  return tx.user.create({
-    data: {
-      email: `placeholder+${username}@placeholder.nojv.local`,
-      username,
-      displayUsername: username,
-      name: username,
-      emailVerified: false,
-      status: "pending_first_login",
-      disabled: false,
-      platformRole: "student",
-    },
+  return userRepo.withTx(tx).create({
+    email: `placeholder+${username}@placeholder.nojv.local`,
+    username,
+    displayUsername: username,
+    name: username,
+    emailVerified: false,
+    status: "pending_first_login",
+    disabled: false,
+    platformRole: "student",
   });
 }

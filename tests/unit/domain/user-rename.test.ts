@@ -17,23 +17,21 @@ const {
   courseMembershipFindFirst: vi.fn(),
 }));
 
-vi.mock("@nojv/db", () => {
-  // The tx passed to callers exposes the Prisma delegates the domain code
-  // actually touches — here only `courseMembership.findFirst`.
-  const tx = { courseMembership: { findFirst: courseMembershipFindFirst } };
-  return {
-    userRepo: {
-      update: userUpdate,
-      withTx: () => ({
-        findById: userWithTxFindById,
-        findByUsername: userWithTxFindByUsername,
-        update: userWithTxUpdate,
-      }),
-      attachPlaceholderInTx,
-    },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn(tx),
-  };
-});
+vi.mock("@nojv/db", () => ({
+  userRepo: {
+    update: userUpdate,
+    withTx: () => ({
+      findById: userWithTxFindById,
+      findByUsername: userWithTxFindByUsername,
+      update: userWithTxUpdate,
+    }),
+    attachPlaceholderInTx,
+  },
+  courseMembershipRepo: {
+    withTx: () => ({ findElevatedMembership: courseMembershipFindFirst }),
+  },
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+}));
 
 import { ConflictError, ForbiddenError, ValidationError, userDomain } from "@nojv/domain";
 
@@ -173,10 +171,7 @@ describe("renameUsername", () => {
     const result = await renameUsername("usr_actor", "newname");
 
     expect(result).toEqual({ merged: true });
-    expect(courseMembershipFindFirst).toHaveBeenCalledWith({
-      where: { userId: "usr_placeholder", role: { in: ["teacher", "ta"] } },
-      select: { id: true },
-    });
+    expect(courseMembershipFindFirst).toHaveBeenCalledWith("usr_placeholder");
     expect(attachPlaceholderInTx).toHaveBeenCalledWith(
       expect.anything(),
       "usr_placeholder",
