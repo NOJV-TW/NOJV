@@ -286,6 +286,27 @@
       </Card>
 
       <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+
+      <Card variant="surface" size="md">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-title-sm">{m.account_securityTitle()}</h2>
+          <p class="text-body-sm text-muted-foreground">{m.account_securityHint()}</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <a
+            href="/account/change-password"
+            class="text-body-sm text-foreground underline-offset-4 hover:underline"
+          >
+            {m.account_changePassword_title()}
+          </a>
+          <a
+            href="/account/two-factor"
+            class="text-body-sm text-foreground underline-offset-4 hover:underline"
+          >
+            {m.account_2fa_title()}
+          </a>
+        </div>
+      </Card>
     </div>
   </Section>
 </PageContainer>
