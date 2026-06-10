@@ -97,6 +97,8 @@ model Submission {
   @@index([contestId, problemId, createdAt])
   @@index([examId, problemId, createdAt])
   @@index([virtualContestId, problemId, createdAt])
+  @@index([assessmentId, problemId, createdAt])
+  @@index([status, updatedAt])
 }
 
 /// Audit log for rejudge runs. Written in two passes by
