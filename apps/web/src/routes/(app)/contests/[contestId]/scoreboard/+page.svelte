@@ -72,15 +72,28 @@
 
   const AUTO_REFRESH_MS = 30_000;
   onMount(() => {
-    const interval = setInterval(async () => {
+    async function refresh() {
       await invalidateAll();
       lastRefreshed = Date.now();
       justRefreshed = true;
       setTimeout(() => {
         justRefreshed = false;
       }, 1200);
+    }
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
     }, AUTO_REFRESH_MS);
-    return () => clearInterval(interval);
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") void refresh();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   });
 
   async function handleUnfreeze() {
