@@ -186,6 +186,7 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
     cpuLimit: "1",
     memoryRequest: "128Mi",
     memoryLimit: "256Mi",
+    activeDeadlineSeconds: 120,
   };
 
   it.each([

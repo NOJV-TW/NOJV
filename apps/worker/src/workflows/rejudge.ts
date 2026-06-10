@@ -1,4 +1,11 @@
-import { proxyActivities, defineQuery, setHandler, executeChild } from "@temporalio/workflow";
+import {
+  proxyActivities,
+  defineQuery,
+  setHandler,
+  executeChild,
+  isCancellation,
+  log,
+} from "@temporalio/workflow";
 import type { SubmissionDraft } from "@nojv/core";
 import type { RejudgeInput, RejudgeProgress } from "@nojv/temporal";
 import type * as judgeActivities from "../activities/judge";
@@ -32,11 +39,20 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
     const batch = targets.slice(i, i + BATCH_SIZE);
     await Promise.all(
       batch.map(async (sub) => {
-        await executeChild(submissionJudgeWorkflow, {
-          workflowId: `rejudge-${sub.submissionId}-${String(Date.now())}`,
-          args: [{ submissionId: sub.submissionId, draft: sub.draft, forRejudge }],
-        });
-        completed++;
+        try {
+          await executeChild(submissionJudgeWorkflow, {
+            workflowId: `rejudge-${sub.submissionId}-${String(Date.now())}`,
+            args: [{ submissionId: sub.submissionId, draft: sub.draft, forRejudge }],
+          });
+        } catch (err) {
+          if (isCancellation(err)) throw err;
+          log.warn("rejudge child failed; continuing batch", {
+            submissionId: sub.submissionId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } finally {
+          completed++;
+        }
       }),
     );
   }
