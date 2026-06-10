@@ -70,6 +70,11 @@ export async function getSubmissionById(id: string) {
   return submissionRepo.findById(id);
 }
 
+export async function getSubmissionStatus(id: string): Promise<string | null> {
+  const row = await submissionRepo.findStatusById(id);
+  return row?.status ?? null;
+}
+
 export async function getSubmissionSources(submissionId: string): Promise<SubmissionSource[]> {
   return storageGetSubmissionSources(storage(), submissionId);
 }

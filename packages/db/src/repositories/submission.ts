@@ -34,6 +34,10 @@ export const submissionRepo = {
     return prisma.submission.findUnique({ where: { id } });
   },
 
+  findStatusById(id: string) {
+    return prisma.submission.findUnique({ where: { id }, select: { status: true } });
+  },
+
   findByIdWithProblemId(id: string) {
     return prisma.submission.findUnique({
       select: {
