@@ -1,16 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findAllActiveForExam, update, recordEvent } = vi.hoisted(() => ({
-  findAllActiveForExam: vi.fn(),
-  update: vi.fn(),
-  recordEvent: vi.fn(),
-}));
+const { findAllActiveForExam, update, recordEvent, updateManyById, recordEvents } = vi.hoisted(
+  () => ({
+    findAllActiveForExam: vi.fn(),
+    update: vi.fn(),
+    recordEvent: vi.fn(),
+    updateManyById: vi.fn(),
+    recordEvents: vi.fn(),
+  }),
+);
 
 vi.mock("@nojv/db", () => {
   const txRepo = {
     findAllActiveForExam,
     update,
     recordEvent,
+    updateManyById,
+    recordEvents,
     findByUserAndExam: vi.fn(),
     findActiveForUser: vi.fn(),
     create: vi.fn(),
@@ -46,11 +52,11 @@ describe("examDomain.session.autoCloseForExam", () => {
     const result = await session.autoCloseForExam("exam_abc");
 
     expect(result).toEqual({ closed: 0 });
-    expect(update).not.toHaveBeenCalled();
-    expect(recordEvent).not.toHaveBeenCalled();
+    expect(updateManyById).not.toHaveBeenCalled();
+    expect(recordEvents).not.toHaveBeenCalled();
   });
 
-  it("closes each active session with reason 'time_up' and records an auto_close event", async () => {
+  it("closes all active sessions in one batch with reason 'time_up' and records auto_close events", async () => {
     findAllActiveForExam.mockResolvedValue([
       { id: "sess_a", examId: "exam_abc", userId: "usr_1", endedAt: null },
       { id: "sess_b", examId: "exam_abc", userId: "usr_2", endedAt: null },
@@ -61,36 +67,18 @@ describe("examDomain.session.autoCloseForExam", () => {
 
     expect(result).toEqual({ closed: 3 });
 
-    expect(update).toHaveBeenCalledTimes(3);
-    expect(update).toHaveBeenNthCalledWith(
-      1,
-      "sess_a",
-      expect.objectContaining({ releaseReason: "time_up" }),
-    );
-    expect(update).toHaveBeenNthCalledWith(
-      2,
-      "sess_b",
-      expect.objectContaining({ releaseReason: "time_up" }),
-    );
-    expect(update).toHaveBeenNthCalledWith(
-      3,
-      "sess_c",
+    expect(updateManyById).toHaveBeenCalledTimes(1);
+    expect(updateManyById).toHaveBeenCalledWith(
+      ["sess_a", "sess_b", "sess_c"],
       expect.objectContaining({ releaseReason: "time_up" }),
     );
 
-    expect(recordEvent).toHaveBeenCalledTimes(3);
-    expect(recordEvent).toHaveBeenNthCalledWith(1, {
-      sessionId: "sess_a",
-      eventType: "auto_close",
-    });
-    expect(recordEvent).toHaveBeenNthCalledWith(2, {
-      sessionId: "sess_b",
-      eventType: "auto_close",
-    });
-    expect(recordEvent).toHaveBeenNthCalledWith(3, {
-      sessionId: "sess_c",
-      eventType: "auto_close",
-    });
+    expect(recordEvents).toHaveBeenCalledTimes(1);
+    expect(recordEvents).toHaveBeenCalledWith([
+      { sessionId: "sess_a", eventType: "auto_close" },
+      { sessionId: "sess_b", eventType: "auto_close" },
+      { sessionId: "sess_c", eventType: "auto_close" },
+    ]);
   });
 
   it("queries only sessions belonging to the given exam id", async () => {
