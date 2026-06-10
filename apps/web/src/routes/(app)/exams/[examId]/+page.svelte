@@ -113,6 +113,12 @@
     { key: "audit", label: m.examDetail_subTabAudit() },
   ]);
 
+  const studentPrepRules = $derived([
+    m.examDetail_studentPrepRule1(),
+    m.examDetail_studentPrepRule2(),
+    m.examDetail_studentPrepRule3(),
+  ]);
+
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.id, title: p.title })),
   );
@@ -407,54 +413,24 @@
             <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
           </div>
           <ul class="space-y-2 text-body-sm">
-            <li class="flex items-start gap-2">
-              <span
-                class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+            {#each studentPrepRules as rule (rule)}
+              <li class="flex items-start gap-2">
+                <span
+                  class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
+                  style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
                 >
-              </span>
-              <span>{m.examDetail_studentPrepRule1()}</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span
-                class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
-                >
-              </span>
-              <span>{m.examDetail_studentPrepRule2()}</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span
-                class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
-                >
-              </span>
-              <span>{m.examDetail_studentPrepRule3()}</span>
-            </li>
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+                  >
+                </span>
+                <span>{rule}</span>
+              </li>
+            {/each}
           </ul>
           <button
             type="button"
