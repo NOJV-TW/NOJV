@@ -24,13 +24,27 @@ export class WorkerApp {
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
   private shutdownPromise: Promise<void> | null = null;
+  private connection: NativeConnection | null = null;
 
   constructor(env: WorkerEnv) {
     this.env = env;
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
-      isTemporalConnected: () =>
-        this.workers.length > 0 && this.workers.every((w) => w.getState() === "RUNNING"),
+      checkTemporal: async () => {
+        if (
+          this.workers.length === 0 ||
+          !this.workers.every((w) => w.getState() === "RUNNING")
+        ) {
+          return false;
+        }
+        if (!this.connection) return false;
+        try {
+          await this.connection.ensureConnected();
+          return true;
+        } catch {
+          return false;
+        }
+      },
     });
   }
 
@@ -39,6 +53,7 @@ export class WorkerApp {
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
     const connection = await NativeConnection.connect({ address });
+    this.connection = connection;
 
     if (mode === "all" || mode === "judge") {
       const { setExecutor } = await import("./activities/judge.js");

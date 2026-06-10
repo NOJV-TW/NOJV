@@ -5,7 +5,7 @@ import { closeServerSafely } from "../../../apps/worker/src/server-lifecycle";
 
 const mockDeps = {
   redisUrl: "redis://localhost:6379",
-  isTemporalConnected: () => true,
+  checkTemporal: () => Promise.resolve(true),
 };
 
 const servers: { close: () => void }[] = [];

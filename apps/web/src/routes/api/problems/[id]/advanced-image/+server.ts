@@ -13,7 +13,7 @@ const logger = createLogger("advanced-image-upload");
 
 const { updateProblemRecord } = problemDomain;
 
-const MAX_SIZE = 2 * 1024 * 1024 * 1024;
+const MAX_SIZE = 64 * 1024 * 1024;
 
 function looksLikeTar(buffer: Buffer): boolean {
   if (buffer.length < 512) return false;
@@ -42,7 +42,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "No tarball provided");
   }
   if (file.size > MAX_SIZE) {
-    error(400, `Tarball too large (max ${String(MAX_SIZE / (1024 * 1024 * 1024))} GB)`);
+    error(400, `Tarball too large (max ${String(MAX_SIZE / (1024 * 1024))} MB)`);
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

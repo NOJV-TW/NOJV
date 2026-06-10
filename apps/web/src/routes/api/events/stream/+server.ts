@@ -80,17 +80,23 @@ export const GET: RequestHandler = async (event) => {
     return new Response("Too many concurrent connections", { status: 429 });
   }
 
-  const requestedSubs = parseClarificationSubs(event.url);
   const authorizedClarChannels: string[] = [];
-  for (const sub of requestedSubs) {
-    const [canAsk, canAnswer] = await Promise.all([
-      clarificationDomain.canAskClarification(actor, sub),
-      clarificationDomain.canAnswerInContext(actor, sub),
-    ]);
-    if (canAsk || canAnswer) {
-      const { contextType, contextId } = clarificationDomain.toContextDbFields(sub);
-      authorizedClarChannels.push(keys.clarificationChannel(contextType, contextId));
+  try {
+    const requestedSubs = parseClarificationSubs(event.url);
+    for (const sub of requestedSubs) {
+      const [canAsk, canAnswer] = await Promise.all([
+        clarificationDomain.canAskClarification(actor, sub),
+        clarificationDomain.canAnswerInContext(actor, sub),
+      ]);
+      if (canAsk || canAnswer) {
+        const { contextType, contextId } = clarificationDomain.toContextDbFields(sub);
+        authorizedClarChannels.push(keys.clarificationChannel(contextType, contextId));
+      }
     }
+  } catch (err) {
+    releaseSseSlot("events", userId);
+    logger.warn("SSE clarification authorization failed", { userId, err });
+    return new Response("Internal error", { status: 500 });
   }
 
   let released = false;

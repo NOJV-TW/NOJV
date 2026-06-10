@@ -57,7 +57,12 @@ export function connectSSE() {
   };
 
   eventSource.onerror = () => {
-    disconnectSSE();
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    eventSource?.close();
+    eventSource = null;
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
     const delay = Math.min(5000 * 2 ** reconnectAttempts, 60_000);
     reconnectAttempts++;
