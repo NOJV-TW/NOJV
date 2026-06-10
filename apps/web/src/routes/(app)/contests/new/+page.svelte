@@ -52,7 +52,7 @@
 
   <Card variant="surface" size="hero" class="max-w-2xl">
     <form method="POST" action="?/create" use:enhance class="space-y-5">
-      <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
+      <FormError message={$formMessage?.kind === "error" ? m.contestCreate_error() : null} />
       <div>
         <label class="text-sm font-medium" for="id">{m.contestCreate_slug()}</label>
         <input

@@ -694,6 +694,7 @@
   "contestCreate_slugPlaceholder": "spring-2026-contest",
   "contestCreate_startsAt": "Starts at",
   "contestCreate_submitCooldown": "Submit cooldown (seconds)",
+  "contestCreate_error": "Could not create the contest. Check your input (the slug may already be taken) and try again.",
   "contestCreate_success": "Contest created",
   "contestCreate_summary": "Summary",
   "contestCreate_summaryPlaceholder": "Contest description...",

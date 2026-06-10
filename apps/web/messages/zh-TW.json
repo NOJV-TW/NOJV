@@ -694,6 +694,7 @@
   "contestCreate_slugPlaceholder": "spring-2026-contest",
   "contestCreate_startsAt": "開始時間",
   "contestCreate_submitCooldown": "提交冷卻時間（秒）",
+  "contestCreate_error": "無法建立比賽。請檢查輸入(slug 可能已被使用)後再試一次。",
   "contestCreate_success": "比賽已建立",
   "contestCreate_summary": "摘要",
   "contestCreate_summaryPlaceholder": "競賽說明...",
