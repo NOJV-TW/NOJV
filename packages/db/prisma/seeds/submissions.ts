@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { entryFileNameFor } from "@nojv/core";
-import { scoreboard } from "@nojv/redis";
 import {
   createStorageClient,
   putSubmissionSources,
@@ -389,8 +388,7 @@ async function seedContestSubmissions(
     tc: (pid: string) => ProblemTestcases;
   },
 ): Promise<void> {
-  const { contestId, problems, students, startsAt, endsAt, submissionTimeFor, rngBase, tc } =
-    args;
+  const { contestId, problems, students, startsAt, submissionTimeFor, rngBase, tc } = args;
 
   for (const [idx, s] of students.entries()) {
     const rng = new SeededRng(rngBase + idx);
@@ -461,20 +459,5 @@ async function seedContestSubmissions(
       where: { id: participation.id },
       data: { score: solvedCount, penaltySeconds: totalPenalty },
     });
-
-    try {
-      const packedScore = solvedCount * 1e9 - totalPenalty;
-      await scoreboard.updateScoreboard(
-        contestId,
-        participation.id,
-        packedScore,
-        "icpc",
-        scoreboard.scoreboardTtlForEndsAt(endsAt),
-      );
-    } catch (err) {
-      console.warn(
-        `  [scoreboard] skipped Redis write for ${contestId}/${participation.id}: ${String(err)}`,
-      );
-    }
   }
 }

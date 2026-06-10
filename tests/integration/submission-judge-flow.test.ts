@@ -1,38 +1,13 @@
-// End-to-end coverage of the core submit → judge → scoreboard flow.
+// End-to-end coverage of the core submit → judge → score-persist flow.
 //
 // We DO NOT spin up a Temporal worker or a sandbox container here.
 // What we want to verify is the _domain contract_ that the judge worker
 // relies on: a queued contest submission, when "completed" with a final
-// verdict + score and pushed through `updateContestScores`, must land
-// on the Redis scoreboard with the right score.
-//
-// Mocking the scoreboard side-effect (rather than using real Redis)
-// keeps the test fast and self-contained. The Redis scoreboard module
-// has its own dedicated integration coverage in
-// `tests/integration/redis/scoreboard.test.ts`.
+// verdict + score and pushed through `updateContestScores`, must persist
+// the right score onto the ContestParticipation row (the source of truth
+// the scoreboard is computed from on read).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const { updateScoreboardMock, freezeScoreboardMock, unfreezeScoreboardMock } = vi.hoisted(
-  () => ({
-    updateScoreboardMock: vi.fn(),
-    freezeScoreboardMock: vi.fn(),
-    unfreezeScoreboardMock: vi.fn(),
-  }),
-);
-
-vi.mock("@nojv/redis", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@nojv/redis")>();
-  return {
-    ...original,
-    scoreboard: {
-      ...original.scoreboard,
-      updateScoreboard: updateScoreboardMock,
-      freezeScoreboard: freezeScoreboardMock,
-      unfreezeScoreboard: unfreezeScoreboardMock,
-    },
-  };
-});
 
 import { contestDomain, submissionDomain } from "@nojv/domain";
 import { submissionRepo } from "@nojv/db";
@@ -96,7 +71,7 @@ async function createQueuedContestSubmission(opts: {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard)", () => {
+describe("submit → judge → score-persist end-to-end (real DB)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -105,7 +80,7 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
     vi.clearAllMocks();
   });
 
-  it("AC submission updates participation.score and pushes the score to the scoreboard", async () => {
+  it("AC submission persists participation.score = 100", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const student = await createTestUser();
     const problem = await createTestProblem({ authorId: teacher.id });
@@ -154,19 +129,9 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       where: { id: participation.id },
     });
     expect(updatedParticipation?.score).toBe(100);
-
-    // Scoreboard write: must reach Redis with (contestId, participationId, score).
-    expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      contest.id,
-      participation.id,
-      100,
-      "ioi",
-      expect.any(Number),
-    );
   });
 
-  it("WA submission keeps participation.score at 0 and writes 0 to the scoreboard", async () => {
+  it("WA submission keeps participation.score at 0", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const student = await createTestUser();
     const problem = await createTestProblem({ authorId: teacher.id });
@@ -200,16 +165,9 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       where: { id: participation.id },
     });
     expect(updated?.score).toBe(0);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      contest.id,
-      participation.id,
-      0,
-      "ioi",
-      expect.any(Number),
-    );
   });
 
-  it("two participants get distinct scoreboard rows after judging completes", async () => {
+  it("two participants get distinct persisted scores after judging completes", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const studentA = await createTestUser();
     const studentB = await createTestUser();
@@ -256,19 +214,15 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
     await contestDomain.updateContestScores(partA.id);
     await contestDomain.updateContestScores(partB.id);
 
-    const calls = updateScoreboardMock.mock.calls;
-    const byParticipation = new Map(
-      calls.map(
-        ([contestId, partId, score]) =>
-          [partId, { contestId, score }] as [string, { contestId: string; score: number }],
-      ),
-    );
-
-    expect(byParticipation.get(partA.id)).toEqual({ contestId: contest.id, score: 100 });
-    expect(byParticipation.get(partB.id)).toEqual({ contestId: contest.id, score: 30 });
+    const [rowA, rowB] = await Promise.all([
+      testPrisma.contestParticipation.findUnique({ where: { id: partA.id } }),
+      testPrisma.contestParticipation.findUnique({ where: { id: partB.id } }),
+    ]);
+    expect(rowA?.score).toBe(100);
+    expect(rowB?.score).toBe(30);
   });
 
-  it("rejudging a submission upward replays the new score onto the scoreboard", async () => {
+  it("rejudging a submission upward replays the new score onto the participation row", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const student = await createTestUser();
     const problem = await createTestProblem({ authorId: teacher.id });
@@ -297,13 +251,10 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       verdict: "wrong_answer",
     });
     await contestDomain.updateContestScores(participation.id);
-    expect(updateScoreboardMock).toHaveBeenLastCalledWith(
-      contest.id,
-      participation.id,
-      0,
-      "ioi",
-      expect.any(Number),
-    );
+    expect(
+      (await testPrisma.contestParticipation.findUnique({ where: { id: participation.id } }))
+        ?.score,
+    ).toBe(0);
 
     // Rejudge: same row gets overwritten with AC, score 100.
     await submissionDomain.completeJudge(submission.id, {
@@ -315,15 +266,8 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       verdict: "accepted",
     });
     await contestDomain.updateContestScores(participation.id);
-    expect(updateScoreboardMock).toHaveBeenLastCalledWith(
-      contest.id,
-      participation.id,
-      100,
-      "ioi",
-      expect.any(Number),
-    );
 
-    // Final scoreboard sees the higher score.
+    // Final participation row sees the higher score.
     const updated = await testPrisma.contestParticipation.findUnique({
       where: { id: participation.id },
     });

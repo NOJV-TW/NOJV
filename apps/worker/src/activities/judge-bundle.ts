@@ -17,4 +17,4 @@ export {
   updateExamScores,
 } from "./lifecycle";
 
-export { getRedis, updateScoreboard, getScoreboard } from "./utils";
+export { getRedis } from "./utils";
