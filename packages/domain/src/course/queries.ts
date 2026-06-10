@@ -22,7 +22,7 @@ export interface CourseMemberRecord {
   userId: string;
 }
 
-export interface CourseAssessmentRecord {
+export interface AssessmentRecord {
   allowedLanguages: Language[];
   closesAt: string;
   dueAt: string | null;

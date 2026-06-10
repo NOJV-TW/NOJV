@@ -34,7 +34,7 @@ export async function listAssignmentProblemSiblings(options: {
   const problemIds = ordered.map((r) => r.problemId);
 
   const bestRows = await submissionRepo.groupByUserAndProblem({
-    courseAssessmentId: options.assignmentId,
+    assessmentId: options.assignmentId,
     userId: options.actorUserId,
     problemId: { in: problemIds },
     sampleOnly: false,

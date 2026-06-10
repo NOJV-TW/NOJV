@@ -39,6 +39,12 @@ export const submissionRejudgeLogRepo = {
     });
   },
 
+  deleteOlderThan(cutoff: Date) {
+    return prisma.submissionRejudgeLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
+  },
+
   listBySubmission(submissionId: string) {
     return prisma.submissionRejudgeLog.findMany({
       where: { submissionId },

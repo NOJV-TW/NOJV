@@ -51,7 +51,7 @@ model AnnouncementTranslation {
   @@unique([announcementId, locale])
 }
 
-// Plagiarism reports are inlined on Exam and CourseAssessment as
+// Plagiarism reports are inlined on Exam and Assessment as
 // `plagiarism*` columns; re-running upserts the row in place.
 
 model PlatformSetting {

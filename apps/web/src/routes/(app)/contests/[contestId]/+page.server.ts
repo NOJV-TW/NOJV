@@ -6,7 +6,6 @@ import {
   contestSettingsFormSchema,
   contestUpdateSchema,
   type ContestSettingsForm,
-  type ContestUpdate,
 } from "@nojv/core";
 import {
   auditDomain,
@@ -22,6 +21,10 @@ import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import {
+  serializePlagiarismFlags,
+  serializePlagiarismReport,
+} from "$lib/server/shared/plagiarism-view";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
 import { buildContestResults, type ContestResults } from "$lib/server/results/contest";
 import type { FormMessage } from "$lib/types/form-message";
@@ -163,22 +166,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     results,
     matrix,
     settingsForm,
-    plagiarism: plagiarism
-      ? {
-          status: plagiarism.status,
-          reportUrl: plagiarism.reportUrl,
-          triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
-          completedAt: plagiarism.completedAt?.toISOString() ?? null,
-          results: plagiarism.results as unknown,
-        }
-      : null,
-    plagiarismFlags: plagiarismFlags.map((f) => ({
-      id: f.id,
-      pairKey: f.pairKey,
-      flaggedBy: f.flaggedBy,
-      flaggedAt: f.flaggedAt.toISOString(),
-      note: f.note,
-    })),
+    plagiarism: serializePlagiarismReport(plagiarism),
+    plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
@@ -200,7 +189,7 @@ export const actions: Actions = {
       return fail(400, { form });
     }
 
-    const payload: ContestUpdate = contestUpdateSchema.parse({
+    const parsed = contestUpdateSchema.safeParse({
       title: form.data.title,
       summary: form.data.summary ? form.data.summary : undefined,
       startsAt: toIsoOrUndefined(form.data.startsAt),
@@ -210,9 +199,16 @@ export const actions: Actions = {
       allowedLanguages: form.data.allowedLanguages,
       submitCooldownSec: form.data.submitCooldownSec,
     });
+    if (!parsed.success) {
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: parsed.error.issues[0]?.message ?? "validation_failed" },
+        { status: 400 },
+      );
+    }
 
     try {
-      await updateContestRecord(actor, event.params.contestId, payload);
+      await updateContestRecord(actor, event.params.contestId, parsed.data);
     } catch (err) {
       const classified = classifyError(err);
       return message<FormMessage>(

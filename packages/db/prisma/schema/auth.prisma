@@ -42,9 +42,11 @@ model User {
   image           String?
 
   // additionalFields (ours)
-  platformRole PlatformRole @default(student)
-  disabled     Boolean      @default(false)
-  status       UserStatus   @default(active)
+  platformRole       PlatformRole @default(student)
+  disabled           Boolean      @default(false)
+  status             UserStatus   @default(active)
+  mustChangePassword Boolean      @default(false)
+  twoFactorEnabled   Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -55,40 +57,53 @@ model User {
   schoolVerifications            SchoolVerificationToken[]
   submissions                    Submission[]
   contestParticipations          ContestParticipation[]
-  examParticipations             ExamParticipation[]       @relation("ExamParticipationUser")
+  examParticipations             ExamParticipation[]          @relation("ExamParticipationUser")
   virtualContests                VirtualContest[]
-  authoredProblems               Problem[]                 @relation("ProblemAuthor")
-  ownedCourses                   Course[]                  @relation("CourseOwner")
-  courseMemberships              CourseMembership[]        @relation("CourseMembershipUser")
-  createdMemberships             CourseMembership[]        @relation("CourseMembershipCreator")
-  createdCourseAssessments       CourseAssessment[]        @relation("CourseAssessmentCreator")
-  createdContests                Contest[]                 @relation("ContestCreator")
-  createdExams                   Exam[]                    @relation("ExamCreator")
-  createdAnnouncements           Announcement[]            @relation("AnnouncementCreator")
-  triggeredExamPlagiarisms       Exam[]                    @relation("ExamPlagiarismTriggerer")
-  triggeredContestPlagiarisms    Contest[]                 @relation("ContestPlagiarismTriggerer")
-  triggeredAssessmentPlagiarisms CourseAssessment[]        @relation("AssessmentPlagiarismTriggerer")
+  authoredProblems               Problem[]                    @relation("ProblemAuthor")
+  ownedCourses                   Course[]                     @relation("CourseOwner")
+  courseMemberships              CourseMembership[]           @relation("CourseMembershipUser")
+  createdMemberships             CourseMembership[]           @relation("CourseMembershipCreator")
+  createdAssessments             Assessment[]                 @relation("AssessmentCreator")
+  createdContests                Contest[]                    @relation("ContestCreator")
+  createdExams                   Exam[]                       @relation("ExamCreator")
+  createdAnnouncements           Announcement[]               @relation("AnnouncementCreator")
+  triggeredExamPlagiarisms       Exam[]                       @relation("ExamPlagiarismTriggerer")
+  triggeredContestPlagiarisms    Contest[]                    @relation("ContestPlagiarismTriggerer")
+  triggeredAssessmentPlagiarisms Assessment[]                 @relation("AssessmentPlagiarismTriggerer")
   editorials                     Editorial[]
   editorialVotes                 EditorialVote[]
   ipViolationLogs                IpViolationLog[]
-  activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
+  activeExamSessions             ActiveExamSession[]          @relation("ActiveExamSessionUser")
   notifications                  Notification[]
   triggeredRejudgeLogs           SubmissionRejudgeLog[]
-  asOverrideStudent              ScoreOverride[]           @relation("ScoreOverrideUser")
-  createdScoreOverrides          ScoreOverride[]           @relation("ScoreOverrideCreator")
-  editedScoreOverrides           ScoreOverride[]           @relation("ScoreOverrideEditor")
-  scoreOverrideAuditChanges      ScoreOverrideAuditLog[]   @relation("ScoreOverrideAuditChanger")
-  clarificationsAsked            Clarification[]           @relation("ClarificationAsker")
-  plagiarismPairFlags            PlagiarismPairFlag[]      @relation("PlagiarismPairFlagFlagger")
-  clarificationsAnswered         Clarification[]           @relation("ClarificationAnswerer")
-  assessmentAuditLogs            AssessmentAuditLog[]      @relation("AssessmentAuditActor")
-  editorialReportsFiled          EditorialReport[]         @relation("EditorialReportReporter")
-  editorialReportsResolved       EditorialReport[]         @relation("EditorialReportResolver")
-  submissionFeedbackReceived     SubmissionFeedback[]      @relation("SubmissionFeedbackStudent")
-  submissionFeedbackAuthored     SubmissionFeedback[]      @relation("SubmissionFeedbackAuthor")
+  asOverrideStudent              ScoreOverride[]              @relation("ScoreOverrideUser")
+  createdScoreOverrides          ScoreOverride[]              @relation("ScoreOverrideCreator")
+  editedScoreOverrides           ScoreOverride[]              @relation("ScoreOverrideEditor")
+  scoreOverrideAuditChanges      ScoreOverrideAuditLog[]      @relation("ScoreOverrideAuditChanger")
+  clarificationsAsked            Clarification[]              @relation("ClarificationAsker")
+  plagiarismPairFlags            PlagiarismPairFlag[]         @relation("PlagiarismPairFlagFlagger")
+  clarificationsAnswered         Clarification[]              @relation("ClarificationAnswerer")
+  assessmentAuditLogs            AssessmentAuditLog[]         @relation("AssessmentAuditActor")
+  editorialReportsFiled          EditorialReport[]            @relation("EditorialReportReporter")
+  editorialReportsResolved       EditorialReport[]            @relation("EditorialReportResolver")
+  submissionFeedbackReceived     SubmissionFeedback[]         @relation("SubmissionFeedbackStudent")
+  submissionFeedbackAuthored     SubmissionFeedback[]         @relation("SubmissionFeedbackAuthor")
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")
-  triggeredPlagiarismLogs        PlagiarismTriggerLog[]    @relation("PlagiarismTriggerLogTriggerer")
+  triggeredPlagiarismLogs        PlagiarismTriggerLog[]       @relation("PlagiarismTriggerLogTriggerer")
   problemBookmarks               ProblemBookmark[]
+  twoFactors                     TwoFactor[]
+}
+
+model TwoFactor {
+  id          String  @id
+  secret      String
+  backupCodes String
+  userId      String
+  verified    Boolean @default(true)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
 }
 
 model Session {

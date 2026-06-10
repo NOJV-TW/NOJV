@@ -21,7 +21,6 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-import { scoreboard } from "@nojv/redis";
 import { dispatchContestLifecycle } from "@nojv/temporal";
 
 export const contestFormSchema = z.object({
@@ -331,13 +330,9 @@ export async function deleteContestDraft(
 }
 
 export async function freezeContestBoard(contestId: string): Promise<void> {
-  const contest = await contestRepo.findById(contestId);
-  const ttl = contest ? scoreboard.scoreboardTtlForEndsAt(contest.endsAt) : undefined;
-  await scoreboard.freezeScoreboard(contestId, ttl);
   await contestRepo.update(contestId, { frozenBoard: true });
 }
 
 export async function finalizeContest(contestId: string): Promise<void> {
-  await scoreboard.unfreezeScoreboard(contestId);
   await contestRepo.update(contestId, { frozenBoard: false });
 }

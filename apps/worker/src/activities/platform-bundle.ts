@@ -17,4 +17,4 @@ export {
 
 export { runPlagiarismCheck } from "./plagiarism";
 
-export { getRedis, updateScoreboard, getScoreboard } from "./utils";
+export { getRedis } from "./utils";

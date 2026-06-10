@@ -25,7 +25,7 @@ export interface ActorContext {
 
 export type CompletedActorContext = ActorContext & { username: string };
 
-export function getActorContext(event: RequestEvent): ActorContext | null {
+export function getActorContext(event: Pick<RequestEvent, "locals">): ActorContext | null {
   const sessionUser = event.locals.sessionUser;
 
   if (!sessionUser) {
@@ -48,14 +48,17 @@ export function hasActorUsername<T extends { username: string | null }>(
   return typeof actor.username === "string" && actor.username.length > 0;
 }
 
-export function requireApiAuth(event: RequestEvent): CompletedActorContext {
+export function requireApiAuth(event: Pick<RequestEvent, "locals">): CompletedActorContext {
   const actor = getActorContext(event);
   if (!actor) throw new HttpError("Authentication required.", 401);
   if (!hasActorUsername(actor)) throw new HttpError("Complete your profile first.", 403);
   return actor;
 }
 
-export function requireAuth(event: RequestEvent, redirectTo?: string): CompletedActorContext {
+export function requireAuth(
+  event: Pick<RequestEvent, "locals">,
+  redirectTo?: string,
+): CompletedActorContext {
   const actor = getActorContext(event);
 
   if (!actor) {

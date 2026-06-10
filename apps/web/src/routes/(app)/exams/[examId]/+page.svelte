@@ -100,6 +100,25 @@
     | "audit";
   let activeSubTabKey = $state<SubTab>("problems");
 
+  const subTabs = $derived<{ key: SubTab; label: string }[]>([
+    { key: "problems", label: m.examDetail_subTabProblems() },
+    { key: "submissions", label: m.examDetail_subTabSubmissions() },
+    { key: "results", label: m.examDetail_subTabResults() },
+    { key: "plagiarism", label: m.examDetail_subTabPlagiarism() },
+    { key: "proctoring", label: m.examDetail_subTabProctoring() },
+    { key: "settings", label: m.examDetail_subTabSettings() },
+    ...(data.clarification.canView
+      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
+      : []),
+    { key: "audit", label: m.examDetail_subTabAudit() },
+  ]);
+
+  const studentPrepRules = $derived([
+    m.examDetail_studentPrepRule1(),
+    m.examDetail_studentPrepRule2(),
+    m.examDetail_studentPrepRule3(),
+  ]);
+
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.id, title: p.title })),
   );
@@ -394,54 +413,24 @@
             <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
           </div>
           <ul class="space-y-2 text-body-sm">
-            <li class="flex items-start gap-2">
-              <span
-                class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+            {#each studentPrepRules as rule (rule)}
+              <li class="flex items-start gap-2">
+                <span
+                  class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
+                  style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
                 >
-              </span>
-              <span>{m.examDetail_studentPrepRule1()}</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span
-                class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
-                >
-              </span>
-              <span>{m.examDetail_studentPrepRule2()}</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span
-                class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
-                >
-              </span>
-              <span>{m.examDetail_studentPrepRule3()}</span>
-            </li>
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+                  >
+                </span>
+                <span>{rule}</span>
+              </li>
+            {/each}
           </ul>
           <button
             type="button"
@@ -554,104 +543,20 @@
       aria-label={m.examDetail_subTabsLabel()}
       class="inline-flex items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeSubTabKey === "problems"}
-        onclick={() => (activeSubTabKey = "problems")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-        'problems'
-          ? 'bg-[color:var(--color-primary)]/14 text-primary'
-          : 'text-muted-foreground hover:text-foreground'}"
-      >
-        {m.examDetail_subTabProblems()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeSubTabKey === "submissions"}
-        onclick={() => (activeSubTabKey = "submissions")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-        'submissions'
-          ? 'bg-[color:var(--color-primary)]/14 text-primary'
-          : 'text-muted-foreground hover:text-foreground'}"
-      >
-        {m.examDetail_subTabSubmissions()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeSubTabKey === "results"}
-        onclick={() => (activeSubTabKey = "results")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-        'results'
-          ? 'bg-[color:var(--color-primary)]/14 text-primary'
-          : 'text-muted-foreground hover:text-foreground'}"
-      >
-        {m.examDetail_subTabResults()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeSubTabKey === "plagiarism"}
-        onclick={() => (activeSubTabKey = "plagiarism")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-        'plagiarism'
-          ? 'bg-[color:var(--color-primary)]/14 text-primary'
-          : 'text-muted-foreground hover:text-foreground'}"
-      >
-        {m.examDetail_subTabPlagiarism()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeSubTabKey === "proctoring"}
-        onclick={() => (activeSubTabKey = "proctoring")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-        'proctoring'
-          ? 'bg-[color:var(--color-primary)]/14 text-primary'
-          : 'text-muted-foreground hover:text-foreground'}"
-      >
-        {m.examDetail_subTabProctoring()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeSubTabKey === "settings"}
-        onclick={() => (activeSubTabKey = "settings")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-        'settings'
-          ? 'bg-[color:var(--color-primary)]/14 text-primary'
-          : 'text-muted-foreground hover:text-foreground'}"
-      >
-        {m.examDetail_subTabSettings()}
-      </button>
-      {#if data.clarification.canView}
+      {#each subTabs as tab (tab.key)}
         <button
           type="button"
           role="tab"
-          aria-selected={activeSubTabKey === "clarifications"}
-          onclick={() => (activeSubTabKey = "clarifications")}
+          aria-selected={activeSubTabKey === tab.key}
+          onclick={() => (activeSubTabKey = tab.key)}
           class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-          'clarifications'
+          tab.key
             ? 'bg-[color:var(--color-primary)]/14 text-primary'
             : 'text-muted-foreground hover:text-foreground'}"
         >
-          {m.clarification_tab_title()}
+          {tab.label}
         </button>
-      {/if}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeSubTabKey === "audit"}
-        onclick={() => (activeSubTabKey = "audit")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-        'audit'
-          ? 'bg-[color:var(--color-primary)]/14 text-primary'
-          : 'text-muted-foreground hover:text-foreground'}"
-      >
-        {m.examDetail_subTabAudit()}
-      </button>
+      {/each}
     </div>
 
     {#if activeSubTabKey === "submissions" && data.matrix}

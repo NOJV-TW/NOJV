@@ -35,17 +35,9 @@ import {
   testcaseInputKey,
   testcaseOutputKey,
   workspaceFileKey,
-  createStorageClient,
 } from "@nojv/storage";
 
-type StorageClient = ReturnType<typeof createStorageClient>;
-
-let cachedClient: StorageClient | null = null;
-
-function getClient(): StorageClient {
-  cachedClient ??= createStorageClient();
-  return cachedClient;
-}
+import { storage, type StorageClient } from "../shared/storage-singleton";
 
 const MAX_BUNDLE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
 const MAX_BUNDLE_ENTRIES = 200;
@@ -397,7 +389,7 @@ export async function importBundle(
 
   assertNoDuplicateWorkspaceFiles(preparedWorkspace);
 
-  const client = getClient();
+  const client = storage();
 
   const newKeySet = collectNewKeySet(preparedTestcases, preparedWorkspace);
   const oldStandardKeys: string[] = [];
@@ -542,7 +534,7 @@ export async function exportBundle(
 
   void (async () => {
     try {
-      const client = getClient();
+      const client = storage();
       for (const [i, tc] of flatTestcases.entries()) {
         const input = await getText(client, tc.inputKey);
         archive.append(input, { name: `testcases/${String(i)}/input.txt` });

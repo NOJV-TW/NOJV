@@ -9,6 +9,7 @@ export {
   getSubmissionDetail,
   getSubmissionForUser,
   getSubmissionSources,
+  getSubmissionStatus,
   getVerdictDetail,
   listForRejudge,
   listProblemSubmissions,

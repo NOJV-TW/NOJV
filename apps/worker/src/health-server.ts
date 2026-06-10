@@ -45,19 +45,39 @@ async function checkRedis(redisUrl: string): Promise<string> {
 
 export interface HealthDeps {
   redisUrl: string;
-  isTemporalConnected: () => boolean;
+  checkTemporal: () => Promise<boolean>;
+}
+
+async function probeTemporal(deps: HealthDeps): Promise<boolean> {
+  try {
+    return await withTimeout(deps.checkTemporal(), CHECK_TIMEOUT_MS);
+  } catch {
+    return false;
+  }
 }
 
 async function handleHealthz(deps: HealthDeps, response: ServerResponse): Promise<void> {
-  const [postgres, redis] = await Promise.all([checkPostgres(), checkRedis(deps.redisUrl)]);
+  const [postgres, redis, temporalOk] = await Promise.all([
+    checkPostgres(),
+    checkRedis(deps.redisUrl),
+    probeTemporal(deps),
+  ]);
 
-  const temporal = deps.isTemporalConnected() ? "ok" : "error: not connected";
+  const temporal = temporalOk ? "ok" : "error: not connected";
   const checks = { postgres, redis, temporal };
-  const healthy = postgres === "ok" && redis === "ok" && temporal === "ok";
+  const healthy = postgres === "ok" && redis === "ok" && temporalOk;
 
   writeJson(response, healthy ? 200 : 503, {
     status: healthy ? "healthy" : "unhealthy",
     checks,
+  });
+}
+
+async function handleReadyz(deps: HealthDeps, response: ServerResponse): Promise<void> {
+  const ready = await probeTemporal(deps);
+  writeJson(response, ready ? 200 : 503, {
+    ready,
+    ...(ready ? {} : { reason: "temporal not connected" }),
   });
 }
 
@@ -69,11 +89,7 @@ export function createWorkerHealthServer(deps: HealthDeps): Server {
     }
 
     if (request.url === "/readyz" && request.method === "GET") {
-      const ready = deps.isTemporalConnected();
-      writeJson(response, ready ? 200 : 503, {
-        ready,
-        ...(ready ? {} : { reason: "temporal not connected" }),
-      });
+      void handleReadyz(deps, response);
       return;
     }
 

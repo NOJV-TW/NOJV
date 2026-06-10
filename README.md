@@ -5,12 +5,12 @@ Production-oriented Online Judge platform. Supports competitive programming cont
 ## What Ships Today
 
 - **8 languages**: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
-- **3 judge types**: Standard (diff), Checker (custom script), Interactive (bidirectional I/O)
-- **Extensible pipeline**: Static analysis, custom scoring, artifact collection, network access
+- **3 standard judge types**: Standard (diff), Checker (DOMjudge validator), Interactive (DOMjudge interactor)
+- **Advanced Mode escape hatch**: TA-provided Docker image owns grading for problems Standard Mode can't express (network-isolated, read-only rootfs; no static-analysis / artifact-collection / network-access stages — the pipeline is fixed)
 - **Contests**: ICPC/IOI scoring, real-time scoreboard, freeze, IP lock, page lock
-- **Courses**: Membership management, join tokens, assessments with deadlines
+- **Courses**: Teacher-driven membership management (no self-serve join token), assessments with deadlines
 - **Plagiarism detection**: Dolos AST similarity (self-hosted, in-process)
-- **Auth**: Email/password, GitHub OAuth, Google OAuth
+- **Auth**: GitHub OAuth + Google OAuth for general users; password sign-in reserved for the seeded admin account (no public email/password registration)
 - **i18n**: English + Traditional Chinese (zh-TW)
 - **Real-time**: SSE streaming for submission verdicts and contest events
 - **Orchestration**: Temporal workflows with durable timers and queries
@@ -21,7 +21,7 @@ Production-oriented Online Judge platform. Supports competitive programming cont
 Browser ──→ SvelteKit (web) ──→ Temporal Server ──→ Worker ──→ Sandbox
                 │                                      │
                 ├── PostgreSQL (source of truth)        │
-                └── Redis (pub/sub, cache, scoreboard)  │
+                └── Redis (pub/sub)                    │
                                                         ├── Docker (local)
                                                         └── Kubernetes (prod)
 ```
@@ -40,9 +40,9 @@ packages/
   core/             Shared Zod schemas, types, pipeline definitions
   db/               Prisma 7 schema, migrations, seed script
   domain/           Business logic — queries, commands, scoring, stats
-  redis/            Redis connection, key registry, pub/sub, scoreboards
+  redis/            Redis connection, key registry, pub/sub
   storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal client + dispatch API + workflows + activities
+  temporal/         Temporal client + dispatch API + task queue constants + types (workflows/activities live in apps/worker)
 
 tooling/
   eslint/           Shared ESLint 9 flat config
@@ -73,7 +73,7 @@ docs/
 - **Auth**: better-auth (email/password, GitHub, Google)
 - **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 18, Prisma 7
-- **Cache**: Redis 8 (pub/sub, scoreboards, connection/keys/metrics)
+- **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
 - **Validation**: Zod 4
 - **Testing**: Vitest, Playwright
 - **Build**: Turborepo, pnpm workspaces, tsdown, esbuild
@@ -224,7 +224,7 @@ See [Deployment Guide](docs/operations/DEPLOYMENT.md) for full operational detai
 | [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                    |
 | [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                  |
 | [Database Schema](docs/architecture/DATABASE.md)      | Models, relationships, enums                        |
-| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub, scoreboard                     |
+| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub                                 |
 | [Security](docs/operations/SECURITY.md)               | Auth, trust boundaries, sandbox isolation           |
 | [Reliability](docs/operations/RELIABILITY.md)         | Invariants, failure modes, operational expectations |
 | [Deployment](docs/operations/DEPLOYMENT.md)           | Docker Compose, CI/CD rollout, microservice modes   |

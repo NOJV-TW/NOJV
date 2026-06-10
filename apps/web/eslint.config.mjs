@@ -36,6 +36,12 @@ const componentSandboxRule = [
         message:
           "apps/web components must not touch @nojv/db, @nojv/redis, or @nojv/storage. Move the call to a server load/action and pass typed data through.",
       },
+      {
+        group: ["@nojv/domain", "@nojv/domain/*"],
+        allowTypeImports: true,
+        message:
+          "@nojv/domain value-imports pull Prisma/ioredis into the client bundle. Svelte components may only `import type` from it — move runtime calls to a +page.server.ts / API route and pass data through.",
+      },
     ],
   },
 ];
@@ -100,6 +106,12 @@ const primitivesNoFeaturesRule = [
         ],
         message:
           "apps/web components must not touch @nojv/db, @nojv/redis, or @nojv/storage. Move the call to a server load/action and pass typed data through.",
+      },
+      {
+        group: ["@nojv/domain", "@nojv/domain/*"],
+        allowTypeImports: true,
+        message:
+          "@nojv/domain value-imports pull Prisma/ioredis into the client bundle. Svelte components may only `import type` from it — move runtime calls to a +page.server.ts / API route and pass data through.",
       },
       {
         group: ["$lib/components/features/*", "**/components/features/**"],
@@ -176,7 +188,8 @@ export default [
       "src/lib/components/**/*.svelte",
     ],
     rules: {
-      "no-restricted-imports": componentSandboxRule,
+      "no-restricted-imports": "off",
+      "@typescript-eslint/no-restricted-imports": componentSandboxRule,
     },
   },
   // Primitives layer guard. Now extended to *.svelte so the
@@ -189,7 +202,8 @@ export default [
       "src/lib/components/primitives/**/*.svelte",
     ],
     rules: {
-      "no-restricted-imports": primitivesNoFeaturesRule,
+      "no-restricted-imports": "off",
+      "@typescript-eslint/no-restricted-imports": primitivesNoFeaturesRule,
     },
   },
   {
@@ -214,8 +228,11 @@ export default [
       "src/lib/server/storage/**/*.ts",
       // RateLimiterRedis needs the raw ioredis client.
       "src/lib/server/shared/rate-limiter.ts",
+      // Process-level shared SSE subscriber (one Redis connection, fan-out).
+      "src/lib/server/shared/sse-hub.ts",
       // SSE endpoint owns a per-request Redis subscriber.
       "src/routes/api/events/stream/+server.ts",
+      "src/routes/**/scoreboard/stream/+server.ts",
     ],
     rules: {
       "no-restricted-imports": "off",

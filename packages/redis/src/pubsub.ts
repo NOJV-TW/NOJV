@@ -3,6 +3,7 @@ import {
   SSE_CONTEST_ENDING,
   SSE_CONTEST_STARTING,
   SSE_NOTIFICATION,
+  SSE_SCOREBOARD,
   SSE_SUBMISSION_VERDICT,
   type ClarificationSSEEvent,
   type NotificationSSEEvent,
@@ -12,8 +13,26 @@ import {
 import { getRedis } from "./connection";
 import { keys } from "./keys";
 
+const SCOREBOARD_UPDATE_THROTTLE_SECONDS = 10;
+
 function publishEvent(channel: string, event: SSEEvent): Promise<number> {
   return getRedis().publish(channel, JSON.stringify(event));
+}
+
+export async function publishScoreboardUpdate(contestId: string): Promise<void> {
+  try {
+    const acquired = await getRedis().set(
+      keys.scoreboardUpdateThrottle(contestId),
+      "1",
+      "EX",
+      SCOREBOARD_UPDATE_THROTTLE_SECONDS,
+      "NX",
+    );
+    if (acquired !== "OK") return;
+    await publishEvent(keys.contestChannel(contestId), { type: SSE_SCOREBOARD });
+  } catch {
+    /* see module header */
+  }
 }
 
 export async function publishVerdict(submission: {

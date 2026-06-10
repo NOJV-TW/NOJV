@@ -61,7 +61,7 @@ when working on a specific area, open the listed doc first.
 - **Auth**: better-auth (email/password, GitHub, Google)
 - **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 18, Prisma 7
-- **Cache**: Redis 8 (pub/sub, rate limiting, scoreboards, cooldown, hot cache)
+- **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
 - **Object Storage**: S3-compatible (MinIO local, GCS/R2/S3 production) via `@nojv/storage`
 - **Validation**: Zod 4 everywhere (schemas in `@nojv/core`)
 - **Testing**: Vitest (unit/integration), Playwright (E2E)
@@ -99,9 +99,9 @@ packages/
   core/             Shared Zod schemas, types, pipeline definitions
   db/               Prisma 7 schema, migrations, repositories
   domain/           Business logic — queries, commands, scoring, stats
-  redis/            Redis connection, key registry, pub/sub, cache, cooldown
+  redis/            Redis connection, key registry, pub/sub
   storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal client + dispatch API + workflows + activities
+  temporal/         Temporal client + dispatch API + task queues + workflow I/O types (workflows/activities live in apps/worker)
 
 tooling/
   eslint/           Shared ESLint 9 flat config

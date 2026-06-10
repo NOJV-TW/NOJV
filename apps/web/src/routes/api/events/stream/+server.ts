@@ -1,6 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
-import { createSubscriber, keys } from "@nojv/redis";
+import { keys } from "@nojv/redis";
+import { subscribeSse } from "$lib/server/shared/sse-hub";
 import { clarificationDomain } from "@nojv/domain";
 type ClarificationContext = clarificationDomain.ClarificationContext;
 import { createLogger } from "$lib/server/logger";
@@ -80,17 +81,23 @@ export const GET: RequestHandler = async (event) => {
     return new Response("Too many concurrent connections", { status: 429 });
   }
 
-  const requestedSubs = parseClarificationSubs(event.url);
   const authorizedClarChannels: string[] = [];
-  for (const sub of requestedSubs) {
-    const [canAsk, canAnswer] = await Promise.all([
-      clarificationDomain.canAskClarification(actor, sub),
-      clarificationDomain.canAnswerInContext(actor, sub),
-    ]);
-    if (canAsk || canAnswer) {
-      const { contextType, contextId } = clarificationDomain.toContextDbFields(sub);
-      authorizedClarChannels.push(keys.clarificationChannel(contextType, contextId));
+  try {
+    const requestedSubs = parseClarificationSubs(event.url);
+    for (const sub of requestedSubs) {
+      const [canAsk, canAnswer] = await Promise.all([
+        clarificationDomain.canAskClarification(actor, sub),
+        clarificationDomain.canAnswerInContext(actor, sub),
+      ]);
+      if (canAsk || canAnswer) {
+        const { contextType, contextId } = clarificationDomain.toContextDbFields(sub);
+        authorizedClarChannels.push(keys.clarificationChannel(contextType, contextId));
+      }
     }
+  } catch (err) {
+    releaseSseSlot("events", userId);
+    logger.warn("SSE clarification authorization failed", { userId, err });
+    return new Response("Internal error", { status: 500 });
   }
 
   let released = false;
@@ -104,7 +111,6 @@ export const GET: RequestHandler = async (event) => {
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
-      const subscriber = createSubscriber(redisUrl);
       const channels = [
         keys.userChannel(userId),
         keys.notificationChannel(userId),
@@ -113,7 +119,6 @@ export const GET: RequestHandler = async (event) => {
 
       const startMs = performance.now();
       let closed = false;
-      let droppedFault = false;
 
       function send(data: string) {
         try {
@@ -123,15 +128,7 @@ export const GET: RequestHandler = async (event) => {
         }
       }
 
-      subscriber.subscribe(...channels).catch((err: unknown) => {
-        if (!droppedFault) {
-          droppedFault = true;
-          sseConnectionDroppedTotal.add(1);
-        }
-        logger.warn("Redis subscribe failed", { userId, err });
-      });
-
-      subscriber.on("message", (_channel: string, message: string) => {
+      const unsubscribe = subscribeSse(redisUrl, channels, (_channel, message) => {
         send(message);
       });
 
@@ -153,19 +150,17 @@ export const GET: RequestHandler = async (event) => {
         releaseOnce();
         clearInterval(keepalive);
         clearTimeout(timeout);
-        subscriber.unsubscribe().catch(() => undefined);
-        subscriber.quit().catch(() => undefined);
+        unsubscribe();
         try {
           controller.close();
         } catch {
           // ignore: controller already closed
         }
 
-        const finalReason: SseCloseReason = droppedFault ? "subscribe_failed" : reason;
         sseConnectionDuration.record((performance.now() - startMs) / 1000, {
-          close_reason: finalReason,
+          close_reason: reason,
         });
-        if (reason === "controller_error" && !droppedFault) {
+        if (reason === "controller_error") {
           sseConnectionDroppedTotal.add(1);
         }
       }

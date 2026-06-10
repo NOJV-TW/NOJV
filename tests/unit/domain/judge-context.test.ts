@@ -82,7 +82,7 @@ function mkSubmissionRow(
   return {
     id: "sub_1",
     createdAt: new Date("2026-04-20T12:00:00Z"),
-    courseAssessment: null,
+    assessment: null,
     contestParticipation: null,
     problem: mkProblemRow(problemOverrides),
     ...overrides,
@@ -365,7 +365,7 @@ describe("getJudgeContext", () => {
       const dueAt = new Date("2026-04-19T12:00:00Z");
       const closesAt = new Date("2026-04-21T12:00:00Z");
       const row = mkSubmissionRow({
-        courseAssessment: {
+        assessment: {
           adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 10, startFrom: "due" }],
           dueAt,
           closesAt,

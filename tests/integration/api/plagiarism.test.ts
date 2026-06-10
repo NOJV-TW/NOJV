@@ -84,7 +84,7 @@ async function addCourseMember(
 }
 
 async function makeAssignment(courseId: string, createdByUserId: string) {
-  return testPrisma.courseAssessment.create({
+  return testPrisma.assessment.create({
     data: {
       courseId,
       createdByUserId,

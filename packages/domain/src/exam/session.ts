@@ -1,5 +1,6 @@
 import {
   courseMembershipRepo,
+  courseRepo,
   examParticipationIpRepo,
   examParticipationRepo,
   examRepo,
@@ -50,7 +51,7 @@ async function assertEnrolledInExamCourse(
 
   const [membership, course] = await Promise.all([
     courseMembershipRepo.withTx(tx).findByComposite(exam.courseId, userId),
-    tx.course.findUnique({ where: { id: exam.courseId }, select: { archived: true } }),
+    courseRepo.withTx(tx).findArchivedById(exam.courseId),
   ]);
 
   if (membership?.status !== "active") {
@@ -196,17 +197,17 @@ export async function heartbeat(userId: string, examId: string) {
 export async function autoCloseForExam(examId: string): Promise<{ closed: number }> {
   return runTransaction(async (tx) => {
     const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
+    if (active.length === 0) return { closed: 0 };
+
     const now = new Date();
-    for (const session of active) {
-      await examSessionRepo.withTx(tx).update(session.id, {
-        endedAt: now,
-        releaseReason: "time_up",
-      });
-      await examSessionRepo.withTx(tx).recordEvent({
-        sessionId: session.id,
-        eventType: "auto_close",
-      });
-    }
+    const ids = active.map((session) => session.id);
+    await examSessionRepo.withTx(tx).updateManyById(ids, {
+      endedAt: now,
+      releaseReason: "time_up",
+    });
+    await examSessionRepo
+      .withTx(tx)
+      .recordEvents(ids.map((sessionId) => ({ sessionId, eventType: "auto_close" })));
     return { closed: active.length };
   });
 }

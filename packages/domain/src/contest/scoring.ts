@@ -6,7 +6,6 @@ import {
   submissionRepo,
 } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
-import { scoreboard } from "@nojv/redis";
 
 import { ConflictError, NotFoundError } from "../shared/errors";
 import {
@@ -85,15 +84,6 @@ async function persistContestProblemCountScore(
     penaltySeconds: totalPenalty,
     score: solvedCount,
   });
-
-  const packedScore = solvedCount * 1e9 - totalPenalty;
-  await scoreboard.updateScoreboard(
-    contest.id,
-    participation.id,
-    packedScore,
-    "icpc",
-    scoreboard.scoreboardTtlForEndsAt(contest.endsAt),
-  );
 }
 
 async function persistContestBestScore(
@@ -102,7 +92,6 @@ async function persistContestBestScore(
   contestProblems: ContestProblemMap,
   overrideRows: ContestOverrideRows,
 ): Promise<void> {
-  const { contest } = participation;
   const bestByProblem = new Map<string, number>();
   for (const sub of allSubmissions) {
     if (!contestProblems.has(sub.problemId)) continue;
@@ -127,24 +116,18 @@ async function persistContestBestScore(
     score: totalScore,
     subtaskScores,
   });
-
-  await scoreboard.updateScoreboard(
-    contest.id,
-    participation.id,
-    totalScore,
-    "ioi",
-    scoreboard.scoreboardTtlForEndsAt(contest.endsAt),
-  );
 }
 
-export async function updateContestScores(contestParticipationId: string): Promise<void> {
+export async function updateContestScores(
+  contestParticipationId: string,
+): Promise<string | null> {
   let overrideRows: ContestOverrideRows | undefined;
 
   for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
     const participation =
       await contestParticipationRepo.findByIdWithContest(contestParticipationId);
 
-    if (!participation) return;
+    if (!participation) return null;
 
     const { contest } = participation;
 
@@ -165,7 +148,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
         );
       }
 
-      return;
+      return contest.id;
     } catch (err) {
       if (err instanceof ParticipationVersionConflict) {
         continue;

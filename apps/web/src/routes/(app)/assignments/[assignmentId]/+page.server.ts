@@ -6,7 +6,7 @@ import { z } from "zod";
 import {
   assessmentSettingsFormSchema,
   type AssessmentSettingsFormData,
-  type CourseAssessmentUpdate,
+  type AssessmentUpdate,
 } from "@nojv/core";
 
 const updateProblemsPayloadSchema = z.object({
@@ -27,6 +27,10 @@ import {
 
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import {
+  serializePlagiarismFlags,
+  serializePlagiarismReport,
+} from "$lib/server/shared/plagiarism-view";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import {
@@ -75,7 +79,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         isManager: true,
       }),
       buildSubmissionsMatrix(courseId, assignmentId),
-      findPlagiarismReport({ type: "courseAssessment", id: assignmentId }).catch(() => null),
+      findPlagiarismReport({ type: "assessment", id: assignmentId }).catch(() => null),
       listFlagsForContext("assessment", assignmentId).catch(() => []),
       listEditableProblems(actor.userId),
       scoreOverrideDomain.canSetScoreOverride(actor, {
@@ -121,22 +125,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         canAnswer: canAnswerClar,
         canView: canViewClar,
       },
-      plagiarism: plagiarism
-        ? {
-            status: plagiarism.status,
-            reportUrl: plagiarism.reportUrl,
-            triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
-            completedAt: plagiarism.completedAt?.toISOString() ?? null,
-            results: plagiarism.results as unknown,
-          }
-        : null,
-      plagiarismFlags: plagiarismFlags.map((f) => ({
-        id: f.id,
-        pairKey: f.pairKey,
-        flaggedBy: f.flaggedBy,
-        flaggedAt: f.flaggedAt.toISOString(),
-        note: f.note,
-      })),
+      plagiarism: serializePlagiarismReport(plagiarism),
+      plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
       auditEvents,
       auditActorNames,
     };
@@ -175,7 +165,7 @@ export const actions = {
     const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
     if (!form.valid) return fail(400, { form });
 
-    const payload: CourseAssessmentUpdate = {
+    const payload: AssessmentUpdate = {
       title: form.data.title,
       summary: form.data.summary,
       allowedLanguages: form.data.allowedLanguages,
@@ -206,7 +196,7 @@ export const actions = {
     if (!parsed.ok) return fail(400, { error: "invalid_payload" });
     const { problemIds, points: pointsMap } = parsed.data;
 
-    const payload: CourseAssessmentUpdate = {
+    const payload: AssessmentUpdate = {
       problemIds,
       problemOrdinals: problemIds.map((id) => {
         const raw = pointsMap[id];

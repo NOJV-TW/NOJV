@@ -1,6 +1,8 @@
 import {
   contestRepo,
   courseMembershipRepo,
+  courseRepo,
+  examParticipationRepo,
   examRepo,
   runTransaction,
   type TransactionClient,
@@ -86,10 +88,7 @@ async function checkExamGate(
 
   const [membership, course] = await Promise.all([
     courseMembershipRepo.withTx(tx).findByComposite(exam.courseId, input.userId),
-    tx.course.findUnique({
-      select: { archived: true },
-      where: { id: exam.courseId },
-    }),
+    courseRepo.withTx(tx).findArchivedById(exam.courseId),
   ]);
 
   if (membership?.status !== "active") {
@@ -107,10 +106,9 @@ async function checkExamGate(
   }
 
   if (input.ip) {
-    const participation = await tx.examParticipation.findUnique({
-      select: { id: true, ipPin: true, ipGateExemptUntil: true },
-      where: { examId_userId: { examId: input.entityId, userId: input.userId } },
-    });
+    const participation = await examParticipationRepo
+      .withTx(tx)
+      .findIpPinByExamAndUser(input.entityId, input.userId);
 
     const ipResult: IpCheckResult = await checkIpLock(
       tx,

@@ -12,9 +12,10 @@ export {
 export {
   publishVerdict,
   publishContestEvent,
+  publishScoreboardUpdate,
   publishAssessmentDeadline,
   updateContestScores,
   updateExamScores,
 } from "./lifecycle";
 
-export { getRedis, updateScoreboard, getScoreboard } from "./utils";
+export { getRedis } from "./utils";

@@ -53,7 +53,7 @@ export async function aggregateAssignmentClassStats(
 
   const perAssignment = new Map<string, Map<string, number>>();
   for (const g of scoreGroups) {
-    const aid = g.courseAssessmentId;
+    const aid = g.assessmentId;
     if (!aid) continue;
     let userTotals = perAssignment.get(aid);
     if (!userTotals) {
@@ -91,7 +91,7 @@ export async function aggregateAssignmentMyStatus(
 
   const solvedByAssignment = new Map<string, Set<string>>();
   for (const g of accepted) {
-    const aid = g.courseAssessmentId;
+    const aid = g.assessmentId;
     if (!aid) continue;
     let solved = solvedByAssignment.get(aid);
     if (!solved) {
@@ -103,7 +103,7 @@ export async function aggregateAssignmentMyStatus(
 
   const scoreByAssignment = new Map<string, number>();
   for (const g of scores) {
-    const aid = g.courseAssessmentId;
+    const aid = g.assessmentId;
     if (!aid) continue;
     const score = g._max.score ?? 0;
     scoreByAssignment.set(aid, (scoreByAssignment.get(aid) ?? 0) + score);

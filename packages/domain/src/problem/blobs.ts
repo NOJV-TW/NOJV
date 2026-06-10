@@ -1,6 +1,5 @@
 import {
   checkerKey,
-  createStorageClient,
   deleteBlob,
   deleteBlobsByPrefix,
   getText,
@@ -13,14 +12,7 @@ import {
   workspaceFileKey,
 } from "@nojv/storage";
 
-type StorageClient = ReturnType<typeof createStorageClient>;
-
-let cachedClient: StorageClient | null = null;
-
-function getClient(): StorageClient {
-  cachedClient ??= createStorageClient();
-  return cachedClient;
-}
+import { storage } from "../shared/storage-singleton";
 
 export interface TestcaseBlobInputs {
   problemId: string;
@@ -37,7 +29,7 @@ export interface TestcaseBlobKeys {
 }
 
 export async function writeTestcaseBlobs(input: TestcaseBlobInputs): Promise<TestcaseBlobKeys> {
-  const client = getClient();
+  const client = storage();
   const inputKey = testcaseInputKey(input.problemId, input.testcaseId);
   const outputKey =
     input.output === undefined ? null : testcaseOutputKey(input.problemId, input.testcaseId);
@@ -77,7 +69,7 @@ export async function readTestcaseBlobs(row: {
   output: string | undefined;
   inputFiles: Record<string, string> | undefined;
 }> {
-  const client = getClient();
+  const client = storage();
   const fileEntries = Object.entries(row.inputFileKeys ?? {});
 
   const [input, output, fileContents] = await Promise.all([
@@ -111,12 +103,12 @@ export async function overwriteTestcaseField(
     field === "input"
       ? testcaseInputKey(problemId, testcaseId)
       : testcaseOutputKey(problemId, testcaseId);
-  await putText(getClient(), key, content);
+  await putText(storage(), key, content);
 }
 
 export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<void> {
   try {
-    await deleteBlobsByPrefix(getClient(), problemPrefix(problemId));
+    await deleteBlobsByPrefix(storage(), problemPrefix(problemId));
   } catch (err) {
     console.warn(
       `[problem-blobs] orphan S3 blobs after problem delete: problemId=${problemId}`,
@@ -126,7 +118,7 @@ export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<v
 }
 
 export async function bestEffortDeleteProblemStandardBlobs(problemId: string): Promise<void> {
-  const client = getClient();
+  const client = storage();
   const prefixes = [`problems/${problemId}/testcases/`, `problems/${problemId}/workspace/`];
   for (const prefix of prefixes) {
     try {
@@ -145,7 +137,7 @@ export async function bestEffortDeleteTestcaseBlobs(
   testcaseId: string,
 ): Promise<void> {
   try {
-    await deleteBlobsByPrefix(getClient(), `problems/${problemId}/testcases/${testcaseId}/`);
+    await deleteBlobsByPrefix(storage(), `problems/${problemId}/testcases/${testcaseId}/`);
   } catch (err) {
     console.warn(
       `[problem-blobs] orphan S3 blobs after testcase delete: problemId=${problemId} testcaseId=${testcaseId}`,
@@ -159,7 +151,7 @@ export async function bestEffortDeleteWorkspaceBlob(
   fileId: string,
 ): Promise<void> {
   try {
-    await deleteBlob(getClient(), workspaceFileKey(problemId, fileId));
+    await deleteBlob(storage(), workspaceFileKey(problemId, fileId));
   } catch (err) {
     console.warn(
       `[problem-blobs] orphan S3 blob after workspace file delete: problemId=${problemId} fileId=${fileId}`,
@@ -174,21 +166,21 @@ export async function writeWorkspaceFileBlob(
   content: string,
 ): Promise<string> {
   const key = workspaceFileKey(problemId, fileId);
-  await putText(getClient(), key, content);
+  await putText(storage(), key, content);
   return key;
 }
 
 export async function readWorkspaceFileBlob(contentKey: string): Promise<string> {
-  return getText(getClient(), contentKey);
+  return getText(storage(), contentKey);
 }
 
 export async function readValidatorScriptBlob(key: string): Promise<string> {
-  return getText(getClient(), key);
+  return getText(storage(), key);
 }
 
 export async function writeCheckerScriptBlob(problemId: string, body: string): Promise<string> {
   const key = checkerKey(problemId);
-  await putText(getClient(), key, body);
+  await putText(storage(), key, body);
   return key;
 }
 
@@ -197,13 +189,13 @@ export async function writeInteractorScriptBlob(
   body: string,
 ): Promise<string> {
   const key = interactorKey(problemId);
-  await putText(getClient(), key, body);
+  await putText(storage(), key, body);
   return key;
 }
 
 export async function bestEffortDeleteCheckerScriptBlob(problemId: string): Promise<void> {
   try {
-    await deleteBlob(getClient(), checkerKey(problemId));
+    await deleteBlob(storage(), checkerKey(problemId));
   } catch (err) {
     console.warn(`[problem-blobs] orphan checker script blob: problemId=${problemId}`, err);
   }
@@ -211,7 +203,7 @@ export async function bestEffortDeleteCheckerScriptBlob(problemId: string): Prom
 
 export async function bestEffortDeleteInteractorScriptBlob(problemId: string): Promise<void> {
   try {
-    await deleteBlob(getClient(), interactorKey(problemId));
+    await deleteBlob(storage(), interactorKey(problemId));
   } catch (err) {
     console.warn(`[problem-blobs] orphan interactor script blob: problemId=${problemId}`, err);
   }
@@ -221,7 +213,7 @@ export async function hydrateValidatorScripts(keys: {
   checkerKey?: string | null | undefined;
   interactorKey?: string | null | undefined;
 }): Promise<{ checkerScript: string; interactorScript: string }> {
-  const client = getClient();
+  const client = storage();
   const [checkerScript, interactorScript] = await Promise.all([
     keys.checkerKey ? getText(client, keys.checkerKey) : Promise.resolve(""),
     keys.interactorKey ? getText(client, keys.interactorKey) : Promise.resolve(""),
@@ -250,7 +242,7 @@ type HydratedTestcaseSetOf<T extends TestcaseSetRowLike> = Omit<T, "testcases"> 
 export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
   sets: readonly T[],
 ): Promise<HydratedTestcaseSetOf<T>[]> {
-  const client = getClient();
+  const client = storage();
   return Promise.all(
     sets.map(async (set) => {
       const testcases = await Promise.all(
@@ -278,7 +270,7 @@ type HydratedWorkspaceFileOf<T extends WorkspaceFileRowLike> = Omit<T, "contentK
 export async function hydrateWorkspaceFiles<T extends WorkspaceFileRowLike>(
   files: readonly T[],
 ): Promise<HydratedWorkspaceFileOf<T>[]> {
-  const client = getClient();
+  const client = storage();
   return Promise.all(
     files.map(async (f) => {
       const content = await getText(client, f.contentKey);

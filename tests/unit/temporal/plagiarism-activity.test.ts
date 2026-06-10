@@ -28,7 +28,7 @@ vi.mock("@nojv/domain", () => ({
 
 import { runPlagiarismCheck } from "../../../apps/worker/src/activities/plagiarism";
 
-const target = { type: "courseAssessment" as const, id: "asg_1" };
+const target = { type: "assessment" as const, id: "asg_1" };
 
 const IDENTICAL_PY = `def solve(n):
     total = 0

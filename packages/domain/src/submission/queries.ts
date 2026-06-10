@@ -70,6 +70,11 @@ export async function getSubmissionById(id: string) {
   return submissionRepo.findById(id);
 }
 
+export async function getSubmissionStatus(id: string): Promise<string | null> {
+  const row = await submissionRepo.findStatusById(id);
+  return row?.status ?? null;
+}
+
 export async function getSubmissionSources(submissionId: string): Promise<SubmissionSource[]> {
   return storageGetSubmissionSources(storage(), submissionId);
 }
@@ -123,20 +128,20 @@ export type SubmissionContextKind = "exam" | "contest" | "assignment" | "practic
 
 export function deriveSubmissionContextKind(fks: {
   contestId: string | null;
-  courseAssessmentId: string | null;
+  assessmentId: string | null;
   examId: string | null;
 }): SubmissionContextKind {
   if (fks.examId) return "exam";
   if (fks.contestId) return "contest";
-  if (fks.courseAssessmentId) return "assignment";
+  if (fks.assessmentId) return "assignment";
   return "practice";
 }
 
 function buildSubmissionContext(submission: {
   contestId: string | null;
   contest: { id: string; title: string } | null;
-  courseAssessmentId: string | null;
-  courseAssessment: {
+  assessmentId: string | null;
+  assessment: {
     id: string;
     title: string;
     courseId: string;
@@ -157,13 +162,13 @@ function buildSubmissionContext(submission: {
       contestTitle: submission.contest.title,
     };
   }
-  if (submission.courseAssessment) {
+  if (submission.assessment) {
     return {
       kind: "assignment" as const,
-      assignmentId: submission.courseAssessment.id,
-      assignmentTitle: submission.courseAssessment.title,
-      courseId: submission.courseAssessment.course.id,
-      courseTitle: submission.courseAssessment.course.title,
+      assignmentId: submission.assessment.id,
+      assignmentTitle: submission.assessment.title,
+      courseId: submission.assessment.course.id,
+      courseTitle: submission.assessment.course.title,
     };
   }
   if (submission.exam) {
@@ -245,7 +250,7 @@ export async function listProblemSubmissions(
   if (!problem) return [];
   if (isAssignmentFilter && !assignment) return [];
 
-  const courseAssessmentId = assignment?.id;
+  const assessmentId = assignment?.id;
   const contestId =
     context !== undefined && "contestId" in context ? context.contestId : undefined;
 
@@ -253,7 +258,7 @@ export async function listProblemSubmissions(
     problemId: problem.id,
     userId,
     statusIn: [...submissionVerdicts],
-    ...(courseAssessmentId ? { courseAssessmentId } : {}),
+    ...(assessmentId ? { assessmentId } : {}),
     ...(contestId ? { contestId } : {}),
   });
 
@@ -296,10 +301,10 @@ export function fallbackResultForRow(
 
 export function deriveSubmissionMode(s: {
   contestId: string | null;
-  courseAssessmentId: string | null;
+  assessmentId: string | null;
 }): SubmissionMode {
   if (s.contestId) return "contest";
-  if (s.courseAssessmentId) return "assignment";
+  if (s.assessmentId) return "assignment";
   return "practice";
 }
 
@@ -406,7 +411,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     ),
   );
 
-  const assignment = submission.courseAssessment;
+  const assignment = submission.assessment;
 
   const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
@@ -486,7 +491,7 @@ export async function listForRejudge(input: {
     where.contestId = input.contestId;
   }
   if (input.assignmentId) {
-    where.courseAssessmentId = input.assignmentId;
+    where.assessmentId = input.assignmentId;
   }
   if (input.examId) {
     where.examId = input.examId;

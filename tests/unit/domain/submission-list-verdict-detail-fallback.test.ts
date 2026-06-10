@@ -96,7 +96,7 @@ function row(overrides: Partial<{ id: string; status: string }> = {}) {
     status: overrides.status ?? "wrong_answer",
     verdictDetailStorageKey: "submissions/sub_1/verdict-detail.json",
     contestId: null,
-    courseAssessmentId: null,
+    assessmentId: null,
     examId: null,
   };
 }

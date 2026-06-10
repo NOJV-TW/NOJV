@@ -38,7 +38,7 @@ practice-after-close route at `/problems/[id]`.
 ### In scope
 
 - `Exam` CRUD — create, partial update, publish, delete-draft. Parallel
-  shape to `CourseAssessment`. Persistent `status` is `draft | published`
+  shape to `Assessment`. Persistent `status` is `draft | published`
   only — there is no `archived` enum value. "Ended" is purely time-
   derived from `endsAt < now`.
 - Publish validation: ≥1 problem, ≥1 allowed language, `startsAt < endsAt`,

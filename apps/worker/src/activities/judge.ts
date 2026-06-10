@@ -165,10 +165,9 @@ export async function executeSandbox(
   const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
   if (studentSources.length === 0) {
-    await submissionDomain.updateSubmissionStatus(submissionId, "system_error");
     return {
       accepted: false,
-      verdict: "runtime_error",
+      verdict: "system_error",
       score: 0,
       runtimeMs: 0,
       caseResults: [],

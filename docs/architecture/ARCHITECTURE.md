@@ -30,7 +30,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │ Infrastructure (cross-cutting, any layer may use)                   │
 │                                                                     │
 │  @nojv/core          Zod schemas, DTO types, enums, contracts       │
-│  @nojv/redis         Pub/sub, cache, key registry, TTL policies     │
+│  @nojv/redis         Pub/sub, key registry, connection              │
 │  @nojv/temporal      Temporal client + dispatch API + types         │
 │  @nojv/storage       S3-compatible object storage (images)          │
 │  tooling/            ESLint, Prettier, TypeScript configs           │
@@ -57,7 +57,7 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 packages/
   core/             Zod schemas, DTO types, enums, contracts (zero deps)
   db/               Prisma schema, migrations, repositories (depends: core; +redis, storage in seed/ops scripts only)
-  redis/            Connection, key registry, pub/sub, cache (depends: core)
+  redis/            Connection, key registry, pub/sub (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
   temporal/         Temporal client + dispatch API + workflows + task queue constants (depends: core)
   domain/           Business logic (depends: core, db, redis, temporal)
@@ -129,7 +129,8 @@ caller.
 ¶ `@nojv/db` declares `@nojv/redis` and `@nojv/storage` as runtime
 dependencies, but only its seed and one-off ops scripts
 (`prisma/seed.ts`, `prisma/seeds/*`, `prisma/scripts/*`) import them —
-to seed Redis scoreboards and upload demo problem blobs. The shipped
+to open a Redis connection (closed at the end of the seed) and upload
+demo problem blobs. The shipped
 library (`src/` → `dist/`) imports neither, so the layer graph above
 holds for everything that runs in production request paths. They stay
 in `dependencies` (not `devDependencies`) because the seed runs inside
@@ -195,7 +196,7 @@ Zod schemas and TypeScript types shared across all apps. Zero dependencies. Cont
 - Judge pipeline stage definitions and configuration schemas
 - Sandbox request/result interfaces and executor contract
 - SSE event types and Redis connection parsing
-- Shared event config schema (used by both Contest and CourseAssessment)
+- Shared event config schema (used by both Contest and Assessment)
 
 ### @nojv/db
 
@@ -211,11 +212,12 @@ See [Database Schema](./DATABASE.md).
 
 Centralized Redis operations. Contains:
 
+- Connection — shared `ioredis` client factory and SSE subscriber factory
 - Key registry — all Redis key patterns defined as functions
 - Pub/sub — SSE event publishing and subscription
-- Cache — domain-scoped get/set/del with TTL policies
-- Cooldown — rate limiting for submissions and actions
-- Scoreboard — contest ranking storage and retrieval
+
+Rate limiting lives in `apps/web/src/lib/server/shared/rate-limiter.ts`
+(`RateLimiterRedis` against the raw client), not in this package.
 
 ### @nojv/storage
 
@@ -248,15 +250,26 @@ Dispatch helpers exposed at the root entry:
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                   | Task Queue | Workflow ID pattern                                                               | Signal / Query                                |
-| -------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| `submissionJudgeWorkflow`  | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                            |
-| `rejudgeWorkflow`          | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{timestamp}`  | Query: `getProgress`                          |
-| `contestLifecycleWorkflow` | `platform` | `contest-lifecycle-{contestId}`                                                   | Signal: `adminOverride` (`earlyEnd`/`extend`) |
-| `plagiarismCheckWorkflow`  | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                  |
-| `examAutoCloseWorkflow`    | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                             |
+| Workflow                    | Task Queue | Workflow ID pattern                                                               | Signal / Query                                |
+| --------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| `submissionJudgeWorkflow`   | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                            |
+| `rejudgeWorkflow`           | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                          |
+| `contestLifecycleWorkflow`  | `platform` | `contest-lifecycle-{contestId}`                                                   | Signal: `adminOverride` (`earlyEnd`/`extend`) |
+| `plagiarismCheckWorkflow`   | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                  |
+| `examAutoCloseWorkflow`     | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                             |
+| `submissionSweeperWorkflow` | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                             |
 
-Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
+The parent `rejudgeWorkflow` ID carries a `randomUUID()` suffix (not a
+timestamp) so concurrent rejudges of the same scope never collide; each
+spawned child judge uses `rejudge-{submissionId}-{Date.now()}`.
+
+The `submissionSweeperWorkflow` is a singleton cron started once via
+`ensureSubmissionSweeper()`; every minute it runs the
+`sweepStaleSubmissions` activity, which terminates submissions stuck in
+`queued`/`running` past the configured timeout and returns the daily
+attempt (see [Reliability Invariants](../operations/RELIABILITY.md)).
+
+Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, the stale-submission sweeper, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
 
 ### @nojv/domain
 
@@ -270,7 +283,7 @@ Single source of all business logic. Organized by domain:
 
 ## Key Flows
 
-The three sequence diagrams below walk through the most load-bearing runtime paths. Actor names are consistent across diagrams: `Browser` is the SvelteKit client, `Web` is the SvelteKit server (apps/web), `Temporal` is the Temporal service, `Worker` is a Temporal worker process (apps/worker) running judge or platform activities, `Sandbox` is the isolated sandbox-runner container, `Redis` is the shared Redis instance (pub/sub + scoreboard ZSETs), and `Postgres` is the primary database.
+The three sequence diagrams below walk through the most load-bearing runtime paths. Actor names are consistent across diagrams: `Browser` is the SvelteKit client, `Web` is the SvelteKit server (apps/web), `Temporal` is the Temporal service, `Worker` is a Temporal worker process (apps/worker) running judge or platform activities, `Sandbox` is the isolated sandbox-runner container, `Redis` is the shared Redis instance (pub/sub), and `Postgres` is the primary database.
 
 ### Submission Judging Lifecycle
 
@@ -302,8 +315,7 @@ sequenceDiagram
     Worker->>Postgres: completeSubmission (verdict + score)
 
     alt contest/exam submission
-        Worker->>Postgres: updateContestScores (recompute)
-        Worker->>Redis: scoreboard.updateScoreboard (ZADD + EXPIRE)
+        Worker->>Postgres: updateContestScores (recompute participation row)
     end
 
     Worker->>Postgres: updateUserStats
@@ -358,7 +370,7 @@ Edge cases: if Temporal is down at publish time, the auto-close workflow is neve
 
 ### Contest Scoreboard Update
 
-A successful judge in contest context triggers `updateContestScores`, which recomputes the participant's score in Postgres and writes the packed score (for ICPC: `solved * 1e9 - penalty`) into a Redis ZSET keyed `nojv:scoreboard:{contestId}`. The public scoreboard page does **not** subscribe to a Redis pub/sub channel for live updates — it polls with `invalidateAll()` on a 30 s `setInterval`, and the server-side endpoint reads either the live ZSET or a frozen snapshot.
+A successful judge in contest context triggers `updateContestScores`, which recomputes the participant's score in Postgres. There is no separate scoreboard store: the scoreboard is computed on read, directly from Postgres. The public scoreboard page does **not** subscribe to a Redis pub/sub channel for live updates — it polls with `invalidateAll()` on a 30 s `setInterval`, and the server-side endpoint rebuilds the ranking from the contest's participations and submissions via `buildScoreboard`.
 
 ```mermaid
 sequenceDiagram
@@ -366,29 +378,20 @@ sequenceDiagram
     participant Web as Web (SvelteKit)
     participant Worker
     participant Postgres
-    participant Redis
 
     Note over Worker: submissionJudgeWorkflow reaches completion<br/>(see Submission Judging Lifecycle)
     Worker->>Postgres: updateContestScores (recompute participation row)
-    Worker->>Redis: ZADD nojv:scoreboard:{contestId} packedScore participationId
-    Worker->>Redis: EXPIRE nojv:scoreboard:{contestId} 90d
 
     loop every 30s on scoreboard page
         Browser->>Web: invalidateAll() → GET /api/contests/{id}/scoreboard
-        Web->>Postgres: contestRepo.findForScoreboardById (contest + participations)
-        Web->>Redis: EXISTS nojv:scoreboard:{contestId}:frozen
-        alt frozen snapshot present
-            Web->>Redis: ZREVRANGE frozen key WITHSCORES
-        else live board
-            Web->>Postgres: submissionRepo.findForContestScoreboard (rebuild from DB)
-        end
+        Web->>Postgres: contestRepo.findForScoreboardById (contest + participations + submissions)
+        Web->>Web: buildScoreboard (rank in-process; ICPC packs solved/penalty, IOI sums best subtask scores)
+        Note over Web: when frozenBoard is set, buildScoreboard filters out<br/>submissions after frozenAt so the public board stops at the freeze point
         Web-->>Browser: Scoreboard (entries + problems)
     end
-
-    Note over Web,Redis: freezeScoreboard copies live ZSET → frozen key (ZRANGE + ZADD)<br/>getScoreboard transparently prefers frozen while present
 ```
 
-Edge cases: if Redis is down, `updateScoreboard` throws and propagates back through the activity — Temporal retries up to the activity retry policy, so the ZSET eventually converges. The read path falls back to Postgres (`buildScoreboard` from raw submissions) for the page render, so the scoreboard stays available even if Redis is unreachable. A bulk rejudge writes many `updateScoreboard` calls in a tight loop; each ZADD is idempotent.
+Edge cases: the scoreboard has no separate cache to fall stale or diverge — it is always computed from the current Postgres rows, so it stays available and consistent as long as Postgres is reachable. Freeze is purely a read-time filter driven by the `Contest.frozenBoard` / `Contest.frozenAt` columns: while frozen, `buildScoreboard` ignores submissions newer than `frozenAt`, so the public board holds at the freeze point while staff can still see the live ranking. A bulk rejudge only rewrites participation rows in Postgres; the next scoreboard read recomputes from scratch.
 
 ## Related Docs
 

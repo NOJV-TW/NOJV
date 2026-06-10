@@ -66,7 +66,7 @@ export const assessmentContextSchema = z.object({
   courseId: z.string().trim().min(1),
 });
 
-export const courseAssessmentCreateSchema = z
+export const assessmentCreateSchema = z
   .object({
     adjustmentRules: adjustmentRulesSchema.optional(),
     allowedLanguages: z.array(languageSchema).max(8).default([]),
@@ -160,7 +160,7 @@ export const courseAssignmentFormSchema = z
     }
   });
 
-export const courseAssessmentUpdateSchema = z.object({
+export const assessmentUpdateSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).optional(),
   closesAt: isoDateTimeSchema.optional(),
   dueAt: isoDateTimeSchema.nullish(),
@@ -196,8 +196,8 @@ export const assessmentSettingsFormSchema = z.object({
 
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
 export type AssessmentSettingsFormData = z.infer<typeof assessmentSettingsFormSchema>;
-export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
-export type CourseAssessmentUpdate = z.infer<typeof courseAssessmentUpdateSchema>;
+export type AssessmentCreate = z.infer<typeof assessmentCreateSchema>;
+export type AssessmentUpdate = z.infer<typeof assessmentUpdateSchema>;
 export type CourseAssignmentFormData = z.infer<typeof courseAssignmentFormSchema>;
 export type CopyCourse = z.infer<typeof copyCourseSchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;

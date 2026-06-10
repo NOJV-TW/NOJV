@@ -311,7 +311,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Production secrets stored in GCP Secret Manager
 - Public health endpoint `/api/healthz` returns only `{ ok: boolean }` with 200/503 — internal topology (`postgres`/`redis`/`temporal` status) is admin-only via `/api/admin/healthz`, which requires `requireApiAuth` + `platformRole === "admin"`. Worker `/healthz` returns the full check breakdown but is only exposed inside the cluster.
 - `apiHandler()` catches all errors — unhandled errors logged server-side, only `classified.message` returned to client (no stack traces)
-- Docker Compose services on internal Docker network (Temporal, PostgreSQL, Redis not exposed to public)
+- Docker Compose infra services (PostgreSQL, Redis, MinIO, Temporal, Temporal UI) publish their host ports bound to `127.0.0.1` only (loopback), so they are not reachable from off-host even though the containers share a Docker network. Off-host protection is the operator's firewall (the host must not expose 5432 / 6379 / 9000 / 9001 / 7233 / 8080 publicly). Only the `web` container publishes a public port (`3000`).
 - Cloud Build CI validates formatting, linting, types, and tests before deployment
 - Deployment via CD workflow triggered only on CI success for `main` branch
 - Self-hosted runner uses `.env` loaded during preflight (not committed to repo)
@@ -319,11 +319,11 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Attacker stories:**
 
 - **Secret leakage via error messages**: Application error exposes database URL or auth secret in response. _Mitigation_: `apiHandler()` classifies errors and returns only safe messages. `logger.error()` logs full details server-side only. ZodError responses include validation issues (field paths and messages) but no internal state.
-- **Exposed admin endpoints**: Health check or admin routes accessible without auth. _Mitigation_: `/api/healthz` is intentionally public but returns only `{ ok }` (status code carries the signal). Detailed per-subsystem status is admin-only at `/api/admin/healthz`. Admin routes require `requirePlatformRole(actor, "admin")`. Temporal UI (port 8080) should be firewalled in production.
+- **Exposed admin endpoints**: Health check or admin routes accessible without auth. _Mitigation_: `/api/healthz` is intentionally public but returns only `{ ok }` (status code carries the signal). Detailed per-subsystem status is admin-only at `/api/admin/healthz`. Admin routes require `requirePlatformRole(actor, "admin")`. Temporal UI (port 8080) is published on `127.0.0.1` only and must additionally be kept off any public interface by the host firewall in production (it has no auth of its own).
 - **Misconfigured CORS**: API endpoints accessible from arbitrary origins. _Mitigation_: SvelteKit handles CORS via its built-in mechanisms. Same-origin by default for form actions.
 - **Docker daemon exposure**: Attacker accesses Docker socket to create privileged containers. _Mitigation_: In production, sandbox runs as Kubernetes Jobs with dedicated service account. Worker's K8s RBAC is scoped to sandbox namespace only. In development, Docker socket access is local.
 - **CI/CD pipeline compromise**: Attacker injects malicious code via pull request. _Mitigation_: CD deploys only from `main` branch after CI passes. Self-hosted runner workspace is persistent. Clean checkout uses exact CI-passing SHA.
-- **Redis data poisoning**: Attacker writes to Redis to manipulate scoreboards or bypass cooldown. _Mitigation_: Redis is on internal network only. No public port exposure. In production, Memorystore is VPC-only. _Gap_: No Redis authentication in development — any process on the dev machine can access Redis.
+- **Redis data poisoning**: Attacker writes to Redis to manipulate scoreboards. _Mitigation_: Redis publishes its host port on `127.0.0.1` only (loopback) in the self-hosted compose; in production GCP, Memorystore is VPC-only. (Submission cooldown no longer lives in Redis — it uses PostgreSQL advisory locks — so Redis tampering cannot bypass it.) _Gap_: No Redis authentication in development — any process on the dev machine can access Redis on loopback.
 - **Local MinIO credential exposure**: Development uses MinIO default credentials (`minioadmin/minioadmin`) in `.env`. _Mitigation_: Development only. Production uses GCS/R2/S3 with credentials from Secret Manager.
 
 ## 4. Criticality Calibration

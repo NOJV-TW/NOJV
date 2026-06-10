@@ -337,7 +337,7 @@ export async function seedEngagement(
     data: {
       studentUserId: (demoStudents[0] ?? student).id,
       problemId: "problem_warmup-sum",
-      courseAssessmentId: HW1_ID,
+      assessmentId: HW1_ID,
       comment: "解法正確，但建議加上輸入邊界檢查，整體完成度很好。",
       authorUserId: teacher.id,
       createdAt: new Date(now - 4 * DAY),
@@ -348,7 +348,7 @@ export async function seedEngagement(
     data: {
       studentUserId: (demoStudents[1] ?? student).id,
       problemId: "problem_process-log-parser",
-      courseAssessmentId: HW1_ID,
+      assessmentId: HW1_ID,
       comment: "fork 鏈處理有小瑕疵，請參考題解的巢狀範例再檢查一次。",
       authorUserId: teacher.id,
       createdAt: new Date(now - 4 * DAY + HOUR),

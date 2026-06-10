@@ -75,7 +75,7 @@ export async function seedUsers(prisma: PrismaClient) {
         userId: u.id,
         password: passwordHash,
       },
-      update: { password: passwordHash },
+      update: {},
       where: { id: `acct_${u.username}` },
     });
   }

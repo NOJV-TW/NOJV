@@ -5,7 +5,6 @@ const {
   findForParticipationScoring,
   findAllByContext,
   updateWithVersion,
-  updateScoreboardMock,
   ParticipationVersionConflict,
 } = vi.hoisted(() => {
   class ParticipationVersionConflict extends Error {
@@ -25,7 +24,6 @@ const {
     findForParticipationScoring: vi.fn(),
     findAllByContext: vi.fn(),
     updateWithVersion: vi.fn(),
-    updateScoreboardMock: vi.fn(),
     ParticipationVersionConflict,
   };
 });
@@ -43,15 +41,6 @@ vi.mock("@nojv/db", () => ({
   },
   contestRepo: {},
   ParticipationVersionConflict,
-}));
-
-vi.mock("@nojv/redis", () => ({
-  scoreboard: {
-    updateScoreboard: updateScoreboardMock,
-    // Pure TTL helper — scoring passes its result straight to
-    // updateScoreboard; a fixed number keeps the race assertions stable.
-    scoreboardTtlForEndsAt: () => 604800,
-  },
 }));
 
 import { contestDomain, ConflictError } from "@nojv/domain";
@@ -84,7 +73,6 @@ function participationFixture(version: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   findAllByContext.mockResolvedValue([]);
-  updateScoreboardMock.mockResolvedValue(undefined);
 });
 
 describe("updateContestScores — optimistic locking", () => {
@@ -130,16 +118,6 @@ describe("updateContestScores — optimistic locking", () => {
       1,
       expect.objectContaining({ score: 80 }),
     );
-
-    // Scoreboard reflects the value that actually landed.
-    expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      CONTEST_ID,
-      PARTICIPATION_ID,
-      80,
-      "ioi",
-      expect.any(Number),
-    );
   });
 
   it("throws ConflictError after exhausting all retry attempts", async () => {
@@ -155,7 +133,5 @@ describe("updateContestScores — optimistic locking", () => {
 
     // 3 attempts before giving up.
     expect(updateWithVersion).toHaveBeenCalledTimes(3);
-    // Scoreboard must NOT be touched when no DB write succeeded.
-    expect(updateScoreboardMock).not.toHaveBeenCalled();
   });
 });

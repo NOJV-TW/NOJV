@@ -446,6 +446,13 @@ export const examParticipationRepo = {
           where: { examId_userId: { examId, userId } },
         });
       },
+
+      findIpPinByExamAndUser(examId: string, userId: string) {
+        return tx.examParticipation.findUnique({
+          select: { id: true, ipPin: true, ipGateExemptUntil: true },
+          where: { examId_userId: { examId, userId } },
+        });
+      },
     };
   },
 };
