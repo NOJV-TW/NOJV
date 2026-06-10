@@ -38,6 +38,54 @@ describe("worker health server", () => {
     await expect(response.json()).resolves.toEqual({ ready: true });
   });
 
+  it("reports not-ready on /readyz when Temporal is unreachable", async () => {
+    const server = createWorkerHealthServer({
+      redisUrl: "redis://localhost:6379",
+      checkTemporal: () => Promise.resolve(false),
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", () => {
+        servers.push(server);
+        resolve();
+      });
+    });
+
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Expected a TCP server address.");
+    }
+
+    const response = await fetch(`http://127.0.0.1:${String(address.port)}/readyz`);
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ ready: false });
+  });
+
+  it("reports not-ready on /readyz when the Temporal probe rejects", async () => {
+    const server = createWorkerHealthServer({
+      redisUrl: "redis://localhost:6379",
+      checkTemporal: () => Promise.reject(new Error("connection refused")),
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", () => {
+        servers.push(server);
+        resolve();
+      });
+    });
+
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Expected a TCP server address.");
+    }
+
+    const response = await fetch(`http://127.0.0.1:${String(address.port)}/readyz`);
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ ready: false });
+  });
+
   it("allows repeated shutdown without server-not-running errors", async () => {
     const server = createWorkerHealthServer(mockDeps);
 
