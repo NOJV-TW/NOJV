@@ -374,3 +374,31 @@
 3. **mock 邊界盲區** — 三次「全綠但壞掉」(bundle 註冊、seccomp、漏 migration)失效面都在「註冊/組態/基礎設施參數」這層。Wave 6.2/6.6 是部分對策(migration drift gate、CI 沙箱/workflow 訊號、bundle fitness 自動推導),但完整解需把「組態正確性」系統性地變成可執行 fitness test。
 
 4. **文件誠實度欠帳(結構性根因)** — Wave 8 修的是**症狀**(10 處 doc drift)。**根因**是:文件同步只靠「稽核季」的人肉發作,而非 PR 級機制性檢查——功能型 PR(#86/#94/#95/#100/#106)幾乎一律零 living-doc 更新,且 ARCHITECTURE/RELIABILITY/JUDGE_PIPELINE 等被 agent 當第一手規格的文件已累積到「宣稱與現實落差」會主動誤導後續修改的程度,QUALITY_SCORE 又把這些當 A 級證據。**若不制度化漂移檢查,三個月後同一稽核會得到同一清單。** 防復發對策見 Wave 8 Task 8.x(doc-drift CI gate):把既有的 `openapi-contract.test.ts` + `DATABASE.generated.md` generator 模式**推廣**到 route-map 與關鍵 living docs,讓文件同步變機械式 gate 而非季節性人工。
+
+---
+
+## 附錄 D — 對抗式驗證結果(2026-06-11 收尾)
+
+> 全計劃實作完成後,以 32-agent workflow 逐 wave 對抗式驗證(每個 done-task 由獨立第二位 verifier 回讀程式碼複查,含 live-DB migration replay、revert 實驗證明測試非空殼)。發現一批真實缺口,已全數補完。`ci:verify` 26/26 + 1267 unit + 299 integration 全綠。
+
+**驗證後補完的缺口(原本只做一半或漏做):**
+
+- **scoreboard 文件漂移(Wave 5.1 副作用)** — 移除 Redis scoreboard ZSET 後,7 個 living docs(ARCHITECTURE/REDIS/README/AGENT/redis-README/contests.md/QUALITY_SCORE)仍描述已刪的 `scoreboard.ts`/`metrics.ts`/ZADD/雙 key。全部改為「scoreboard 由 PostgreSQL 即時計算(`buildScoreboard`),freeze 由 `Contest.frozenBoard`/`frozenAt` cutoff」。
+- **6.5 備份 round-trip** — sidecar 產 `.sql.gz`(plain+gzip)但 runbook 還原只有 `pg_restore`(吃 custom-format);補 `gunzip|psql` 路徑。
+- **4.4 healthz** — `probe()` 探測 temporal 卻丟棄;三項 checks 納入回應 body(HTTP 200/503 仍只由 postgres+redis 決定,避免 temporal 抖動拔除 web)。OpenAPI `HealthResponse` 同步補 `checks`。
+- **7.1 packages/db import 守衛** — 補 `src→@nojv/redis|@nojv/storage` 禁令(prisma/ 例外)。
+- **6.8 coverage gate** — CI 整合步驟改跑 `pnpm test:coverage`,死 gate 變實 gate(Stmts 68/Branch 62/Funcs 64/Lines 71,遠超 floor)。
+- **7.4 RejudgeLog reaper retention** — sweeper 末段加 `deleteOlderThan(90d)`。
+- **8.x / 附錄C#4 doc-drift gate** — DATABASE.generated 改 generator 確定性輸出 + `.prettierignore` + CI `db:docs` diff gate;新增 route-map 漂移測試(FRONTEND.md 每條 route 必須對應真實 route 檔)。
+- **測試補洞** — 4.1(短標題非 500,schema 層)、4.2(sse-slot cap/no-leak)、4.3(readyz Temporal 失敗回 503)。
+
+**刻意遞延/不做(驗證確認為正確判斷,非疏漏):**
+
+- **3.1 `parentClosePolicy=ABANDON`** — 不設。批內錯誤隔離已用 `Promise.all` + 逐 child `try/catch` 完成;設 ABANDON 會破壞 `cancelRejudge`(取消靠 cancellation 傳播到 child)。
+- **5.3 GIN 全文 index** — 不加。`to_tsvector` 表達式 GIN 無法用 Prisma schema 宣告,需 raw-SQL migration,與 6.2 的 `migrate diff` 零漂移 gate 衝突。
+- **5.1 前端 `invalidateAll` 30s → SSE**、**5.4 acceptance rate 快取** — 純優化子項,核心已完成,現量小。
+- **7.4 withTx template 去重** — 低價值樣板重構。
+- **1.2 env 三變數未進 zod** — bootstrap 腳本 `requiredEnv` 已驗 prod 必填,行為等價。
+- **7.2 Prisma namespace 匯出保留**、**exam/session.ts `Prisma.TransactionClient`** — better-auth adapter 需要 raw Prisma,刻意保留。
+- **1.1 signup-disabled 端點測試** — 需 SvelteKit HTTP harness(E2E 基建,設計上不進 CI;同 6.6 已知缺口)。功能本身已確認(`disableSignUp: true` 寫死)。
+- **附錄 C #1–3 結構性風險** — 需各開獨立設計計劃,本就 out-of-scope。
