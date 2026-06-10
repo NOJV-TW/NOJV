@@ -325,7 +325,7 @@
 
 ## 附錄 A — 稽核項目 → Wave 完整對照(覆蓋確認)
 
-> 所有「對抗式查證確認屬實」的 findings 皆已對應到 wave。共 51 個 confirmed findings(含 gap),逐條對照如下。
+> 共 71 個 findings:67 個對抗式查證確認屬實(全數對應到 wave),4 個假陽性(見附錄 B,其中 3 個仍以最佳實踐順手修)。逐條對照如下。
 
 **arch(7):** raw TransactionClient→7.2;Prisma namespace 穿透→7.2;ESLint 守衛漏洞→7.1;activity-bundle fitness drift→7.3;ARCHITECTURE.md drift→8;redis key namespace→7.4;core/queue.ts 拆檔→7.4。
 
