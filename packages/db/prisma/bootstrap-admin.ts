@@ -32,7 +32,9 @@ async function main() {
 
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
-    console.log(`Admin "${username}" already exists (id=${existing.id}); leaving credentials untouched.`);
+    console.log(
+      `Admin "${username}" already exists (id=${existing.id}); leaving credentials untouched.`,
+    );
     return;
   }
 

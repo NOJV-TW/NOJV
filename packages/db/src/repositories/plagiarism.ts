@@ -79,9 +79,7 @@ export const plagiarismRepo = {
     return toSummary(row);
   },
 
-  async findByAssessmentId(
-    assessmentId: string,
-  ): Promise<PlagiarismReportSummary | null> {
+  async findByAssessmentId(assessmentId: string): Promise<PlagiarismReportSummary | null> {
     const row = await prisma.assessment.findUnique({
       where: { id: assessmentId },
       select: plagiarismSelect,

@@ -14,15 +14,18 @@
   const { form, errors, enhance, message, submitting } = superForm<
     typeof data.form.data,
     FormMessage
-  >(untrack(() => data.form), {
-    resetForm: false,
-    taintedMessage: null,
-    onUpdated({ form }) {
-      if (form.message?.kind === "success") {
-        toasts.success(m.account_changePassword_success());
-      }
+  >(
+    untrack(() => data.form),
+    {
+      resetForm: false,
+      taintedMessage: null,
+      onUpdated({ form }) {
+        if (form.message?.kind === "success") {
+          toasts.success(m.account_changePassword_success());
+        }
+      },
     },
-  });
+  );
 
   function fieldError(code: string | undefined): string | null {
     if (!code) return null;
@@ -105,7 +108,9 @@
             class={inputClass}
           />
           {#if fieldError($errors.confirmPassword?.[0])}
-            <p class="text-caption text-destructive">{fieldError($errors.confirmPassword?.[0])}</p>
+            <p class="text-caption text-destructive">
+              {fieldError($errors.confirmPassword?.[0])}
+            </p>
           {/if}
         </label>
 

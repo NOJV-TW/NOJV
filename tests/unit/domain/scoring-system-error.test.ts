@@ -32,7 +32,10 @@ const NO_ADJUSTMENT = {
 describe("mapResult — sandbox SE maps to system_error (platform fault)", () => {
   it("maps any SE case to verdict system_error with score 0, not accepted", () => {
     const sandbox: SandboxResult = {
-      testcaseResults: [mkCase({ index: 0, verdict: "AC" }), mkCase({ index: 1, verdict: "SE" })],
+      testcaseResults: [
+        mkCase({ index: 0, verdict: "AC" }),
+        mkCase({ index: 1, verdict: "SE" }),
+      ],
     };
 
     const result = mapResult(sandbox, [], NO_ADJUSTMENT as never);

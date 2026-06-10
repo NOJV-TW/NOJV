@@ -1,8 +1,4 @@
-import {
-  MAX_CASE_STDERR_BYTES,
-  MAX_CASE_STDOUT_BYTES,
-  MAX_FEEDBACK_LEN,
-} from "@nojv/core";
+import { MAX_CASE_STDERR_BYTES, MAX_CASE_STDOUT_BYTES, MAX_FEEDBACK_LEN } from "@nojv/core";
 import type { CaseResult, SandboxResult, SubmissionResult } from "@nojv/core";
 import type { SubtaskScoringStrategy } from "@nojv/db";
 
