@@ -312,6 +312,13 @@
 - `README.md:9` 移除虛構功能(join tokens、network access 等);CLAUDE.md/README temporal 描述對齊。
 - `docs/operations/QUALITY_SCORE.md:19` 測試數據更新、里程碑補 2026-06。
 
+### Task 8.x: doc-drift CI gate(防復發,對應附錄 C #4)
+
+- 推廣既有 `openapi-contract.test.ts` + `DATABASE.generated.md` generator 模式:
+  - DATABASE.generated.md 加「重生後 git diff 必須為空」的 CI 檢查(漏重生即 fail)。
+  - 新增 route-map 漂移測試:從 `apps/web/src/routes` 自動枚舉 endpoint 與 FRONTEND.md route map 比對。
+- 目標:讓文件同步變機械 gate,而非季節性人工(根因見附錄 C #4)。
+
 ---
 
 ## Wave 9 — 全域驗證 + 收尾
@@ -365,3 +372,5 @@
 1. **Contest / Exam / Assessment 三胞胎模型** — `Submission` 扛 4 個 nullable context 外鍵 + XOR CHECK,`contest/scoring.ts` 與 `exam/scoring.ts` 近乎逐函式同構,持久化編排層複製是已出貨 P1 的案發現場。建議收斂成多態 timed-assessment 實體,或至少把 persist-score 編排層收成一份。
 2. **自架 Temporal 拓撲** — 5 個 workflow 換來自架 Server + 專屬 10Gi Postgres StatefulSet + UI,維護人力是一人。建議評估 Temporal Cloud 或降級為 pg-boss 級方案,保留程式模型、外包運維。
 3. **mock 邊界盲區** — 三次「全綠但壞掉」(bundle 註冊、seccomp、漏 migration)失效面都在「註冊/組態/基礎設施參數」這層。Wave 6.2/6.6 是部分對策(migration drift gate、CI 沙箱/workflow 訊號、bundle fitness 自動推導),但完整解需把「組態正確性」系統性地變成可執行 fitness test。
+
+4. **文件誠實度欠帳(結構性根因)** — Wave 8 修的是**症狀**(10 處 doc drift)。**根因**是:文件同步只靠「稽核季」的人肉發作,而非 PR 級機制性檢查——功能型 PR(#86/#94/#95/#100/#106)幾乎一律零 living-doc 更新,且 ARCHITECTURE/RELIABILITY/JUDGE_PIPELINE 等被 agent 當第一手規格的文件已累積到「宣稱與現實落差」會主動誤導後續修改的程度,QUALITY_SCORE 又把這些當 A 級證據。**若不制度化漂移檢查,三個月後同一稽核會得到同一清單。** 防復發對策見 Wave 8 Task 8.x(doc-drift CI gate):把既有的 `openapi-contract.test.ts` + `DATABASE.generated.md` generator 模式**推廣**到 route-map 與關鍵 living docs,讓文件同步變機械式 gate 而非季節性人工。
