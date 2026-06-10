@@ -355,7 +355,7 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
   if (result.subtaskResults && result.subtaskResults.length > 0) {
     summary.subtaskSummary = result.subtaskResults.map((s) => ({
       id: s.testcaseSetId,
-      score: s.passed ? s.weight : 0,
+      score: s.rawScore ?? (s.passed ? s.weight : 0),
     }));
   }
 

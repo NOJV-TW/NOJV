@@ -1693,6 +1693,7 @@
   "submissions_workspaceHint": "Submissions live inside the problem workspace — open a problem to see your verdicts, runtimes and sources.",
   "subtask_caseLabel": "Case {ordinal}",
   "subtask_failed": "FAILED",
+  "subtask_partial": "PARTIAL",
   "subtask_passed": "PASSED",
   "subtask_score": "Score:",
   "testcases_autoSplitInto": "Auto-split into:",

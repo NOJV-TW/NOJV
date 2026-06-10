@@ -12,10 +12,19 @@
 
   let expanded = $state<Record<number, boolean>>({});
 
+  function earnedOf(s: SubtaskResultItem): number {
+    return Math.round(s.rawScore ?? (s.passed ? s.weight : 0));
+  }
+
+  type SubtaskState = "full" | "partial" | "zero";
+  function stateOf(s: SubtaskResultItem): SubtaskState {
+    const earned = earnedOf(s);
+    if (earned >= s.weight) return "full";
+    return earned > 0 ? "partial" : "zero";
+  }
+
   const totalWeight = $derived(subtaskResults.reduce((sum, s) => sum + s.weight, 0));
-  const passedWeight = $derived(
-    subtaskResults.reduce((sum, s) => sum + (s.passed ? s.weight : 0), 0),
-  );
+  const earnedWeight = $derived(subtaskResults.reduce((sum, s) => sum + earnedOf(s), 0));
 
   function formatMemory(kb: number): string {
     if (kb >= 1024) {
@@ -29,22 +38,26 @@
   <div class="flex items-baseline gap-2">
     <span class="text-body-sm font-semibold text-foreground">{m.subtask_score()}</span>
     <span
-      class="text-body-lg font-bold tabular-nums {passedWeight === totalWeight
+      class="text-body-lg font-bold tabular-nums {earnedWeight === totalWeight
         ? 'text-success'
-        : passedWeight > 0
+        : earnedWeight > 0
           ? 'text-warning'
           : 'text-destructive'}"
     >
-      {passedWeight}/{totalWeight}
+      {earnedWeight}/{totalWeight}
     </span>
   </div>
 
   {#each subtaskResults as subtask, index (`subtask-${subtask.testcaseSetId}`)}
     {@const isExpanded = expanded[index] ?? true}
+    {@const state = stateOf(subtask)}
+    {@const earned = earnedOf(subtask)}
     <div
-      class="rounded-md border {subtask.passed
+      class="rounded-md border {state === 'full'
         ? 'border-success/30 bg-success/5'
-        : 'border-destructive/30 bg-destructive/5'}"
+        : state === 'partial'
+          ? 'border-warning/30 bg-warning/5'
+          : 'border-destructive/30 bg-destructive/5'}"
     >
       <button
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-body-sm"
@@ -52,26 +65,40 @@
         type="button"
       >
         <span class="text-caption text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
-        <span class="font-semibold {subtask.passed ? 'text-success' : 'text-destructive'}">
+        <span
+          class="font-semibold {state === 'full'
+            ? 'text-success'
+            : state === 'partial'
+              ? 'text-warning'
+              : 'text-destructive'}"
+        >
           {subtask.label}
         </span>
         <span class="text-caption text-muted-foreground tabular-nums"
-          >({subtask.weight} pts)</span
+          >({earned}/{subtask.weight} pts)</span
         >
         <span
-          class="ml-auto rounded-full px-2 py-0.5 text-caption font-medium {subtask.passed
+          class="ml-auto rounded-full px-2 py-0.5 text-caption font-medium {state === 'full'
             ? 'bg-success/15 text-success'
-            : 'bg-destructive/15 text-destructive'}"
+            : state === 'partial'
+              ? 'bg-warning/15 text-warning'
+              : 'bg-destructive/15 text-destructive'}"
         >
-          {subtask.passed ? m.subtask_passed() : m.subtask_failed()}
+          {state === "full"
+            ? m.subtask_passed()
+            : state === "partial"
+              ? m.subtask_partial()
+              : m.subtask_failed()}
         </span>
       </button>
 
       {#if isExpanded && subtask.cases.length > 0}
         <div
-          class="border-t {subtask.passed
+          class="border-t {state === 'full'
             ? 'border-success/30'
-            : 'border-destructive/30'} px-3 py-2"
+            : state === 'partial'
+              ? 'border-warning/30'
+              : 'border-destructive/30'} px-3 py-2"
         >
           <div class="space-y-1">
             {#each subtask.cases as caseResult, ci (`case-${ci}-${caseResult.testcaseId ?? caseResult.index}`)}

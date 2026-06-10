@@ -82,6 +82,7 @@ export const subtaskResultItemSchema = z.object({
   cases: z.array(caseResultSchema).max(10_000),
   label: z.string().max(MAX_SUBTASK_LABEL_LEN),
   passed: z.boolean(),
+  rawScore: z.number().nonnegative().optional(),
   testcaseSetId: z.string(),
   weight: z.number().int().min(1),
 });

@@ -1693,6 +1693,7 @@
   "submissions_workspaceHint": "提交紀錄顯示在題目工作區內，打開任一題目即可查看判題結果、執行時間與原始碼。",
   "subtask_caseLabel": "案例 {ordinal}",
   "subtask_failed": "未通過",
+  "subtask_partial": "部分",
   "subtask_passed": "通過",
   "subtask_score": "分數：",
   "testcases_autoSplitInto": "自動分成：",
