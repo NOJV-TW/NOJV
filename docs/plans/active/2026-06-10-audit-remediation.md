@@ -14,6 +14,7 @@
 - **Admin 模型:** 專屬 admin 帳號(非 OAuth 白名單)——乾淨特權分離,沿用既有 `/admin-signin` 入口。
 - **Admin 硬化:** 首登強制改密(env bootstrap 密碼為一次性)+ TOTP 2FA(better-auth `twoFactor` plugin)。
 - **Seed:** 拆出 `db:bootstrap-admin`(prod 專用,身分/密碼全來自 env,缺值或 <12 字元即 fail,只在 create 設、永不覆寫);demo seed 維持 `password123` 測試帳號但 `NODE_ENV=production` 硬擋,account upsert `update: {}` 不再重設密碼。**讀任何原始碼/SQL 都得不到 prod admin 密碼。**
+- **命名:** `CourseAssessment` → `Assessment`(去掉 Course 前綴),連帶 `CourseAssessmentProblem` → `AssessmentProblem`、enum `CourseAssessmentStatus` → `AssessmentStatus`、欄位 `courseAssessmentId` → `assessmentId`。全域重命名 + 手寫 RENAME migration(見 Wave R)。
 
 ---
 
@@ -62,6 +63,33 @@
 - 強制策略:admin 帳號未啟用 2FA 時,hooks 在進入 `/admin/**` 前 redirect 至 2FA 設定(可與 1.5 同一守衛)。
 
 **Wave 1 驗證:** `pnpm --filter @nojv/web check`、相關 integration 測試、`pnpm db:generate`。
+
+---
+
+## Wave R — CourseAssessment → Assessment 全域重命名
+
+> **執行時機:緊接 Wave 1 之後、其他 schema-touching wave 之前**,讓後續 wave 全用新命名,避免來回 churn。單一原子 commit。
+
+### Task R.1: schema 重命名
+
+- Modify: `packages/db/prisma/schema/course.prisma:77,122,129`、`submission.prisma:60,89,95,203,212,223,238,249`、`problem.prisma:95`
+- `model CourseAssessment` → `model Assessment`;`CourseAssessmentProblem` → `AssessmentProblem`;`enum CourseAssessmentStatus` → `AssessmentStatus`;所有 `courseAssessmentId` 欄位/relation/`@@index`/`@@unique` → `assessmentId`。
+- relation 名 `courseAssessment` → `assessment`。
+
+### Task R.2: RENAME migration(手寫,非 db push)
+
+- Create: `packages/db/prisma/migrations/20260610120000_rename_course_assessment_to_assessment/migration.sql`
+- `ALTER TABLE "CourseAssessment" RENAME TO "Assessment";`、`"CourseAssessmentProblem"` → `"AssessmentProblem"`、`ALTER TYPE "CourseAssessmentStatus" RENAME TO "AssessmentStatus";`、各表 `RENAME COLUMN "courseAssessmentId" TO "assessmentId"`、RENAME 對應 constraint/index/pkey 名稱、修正 Submission CHECK constraint 內的欄位引用。
+- dev:資料可拋,migration 為 prod 正確性而寫。
+
+### Task R.3: TS 全域重命名
+
+- 全 `packages/{db,domain,core}/src`、`apps/web/src`、`apps/worker/src`、`tests/`:
+  - 識別子 `CourseAssessment`→`Assessment`、`CourseAssessmentProblem`→`AssessmentProblem`、`courseAssessmentId`→`assessmentId`、`courseAssessment`→`assessment`(注意不要誤傷無關 `course` 字)。
+  - 用 grep 逐檔確認(~44+74+48+10 命中),非無腦 sed。
+- `pnpm db:generate` 重生 client,typecheck 全綠。
+
+**Wave R 驗證:** 全 repo typecheck、`pnpm db:generate`、unit。
 
 ---
 
@@ -158,6 +186,10 @@
 - `lib/utils/datetime.ts:94` 重複實作合一。
 - `problems/[problemId]/edit/+page.server.ts:72` 偽造 RequestEvent → 用正規 loader auth helper。
 
+### Task 4.7: advanced-image 上傳上限對齊(security P3)
+
+- Modify: `apps/web/src/routes/api/problems/[id]/advanced-image/+server.ts:16` — 宣告的 2GB 上限為死碼(web 映像 baked `BODY_SIZE_LIMIT=64MiB` 在 adapter 層先攔)。把宣告上限改成與實際 `BODY_SIZE_LIMIT` 一致,並在文件列明此限制。
+
 **Wave 4 驗證:** `pnpm --filter @nojv/web check`、lint。
 
 ---
@@ -176,7 +208,8 @@
 
 ### Task 5.3: 索引補齊(migration)
 
-- `packages/db/prisma/schema/submission.prisma` 加 `@@index([courseAssessmentId, createdAt])`(目前只有複合次欄位)。
+- `packages/db/prisma/schema/submission.prisma` 加 `@@index([assessmentId, createdAt])`(rename 後;目前只有複合次欄位)。
+- 加 `@@index([status, updatedAt])`(stale sweeper cron 每分鐘掃 status IN (queued,running) AND updatedAt < cutoff;對抗式查證雖以「現量小」降級,但最佳實踐應補,成本零)。
 - 題目全文搜尋 GIN expression index(`packages/db/src/repositories/problem.ts:167`);加後零結果 fallback ILIKE 邏輯檢視。
 - migration + `pnpm db:generate`。
 
@@ -184,6 +217,10 @@
 
 - `submission.ts:238` 的 `COUNT(DISTINCT userId)` 加快取或覆蓋索引。
 - `exam/session.ts:196` 批次關閉改 `updateMany`/批次 insert,減少持鎖序列 round trip。
+
+### Task 5.5: SSE 連線共享(perf P2)
+
+- Modify: `apps/web/src/routes/api/events/stream/+server.ts:107` — 每客戶端各開一條 Redis 連線改 process 級共享 subscriber(單一連線多路分發),加全域連線上限。與 4.2 的 slot 生命週期一併處理。
 
 **Wave 5 驗證:** integration(真打 PG)、migration apply dev。
 
@@ -212,10 +249,13 @@
 
 - Create: `infra/` pg_dump cron(compose sidecar 或 runner cron 範本);`docs/runbooks/backup-restore.md` 補 self-hosted 章節。
 
-### Task 6.6: CI 沙箱 + workflow 測試訊號
+### Task 6.6: CI 沙箱 + workflow + 邊界測試訊號
 
 - `.github/workflows/ci.yml` 加 sandbox image build + 跑沙箱隔離回歸測試(可 nightly job);submission-judge workflow 分支邏輯加可執行測試(@temporalio/testing)。
 - 移除 CI 重複跑同一 unit suite(`ci.yml:71-77`)。
+- apps/web HTTP 邊界(route handler + hooks 守衛鏈)補可在 CI 跑的測試(目前 vitest.config 委派給永不進 CI 的 Playwright)。
+- `tests/e2e/editorials.test.ts:53` 移除硬 sleep 1.5s + 鏈式相依(改 wait-for 條件);前置失敗不再 silent skip。
+- `tests/fixtures/seed-test-db.ts:5-34` 的 `truncateAllTables` 手動 TABLES 清單改自動推導(從 Prisma DMMF/information_schema),或加漂移防護測試。
 
 ### Task 6.7: compose 周界
 
@@ -253,6 +293,7 @@
 - repo `withTx` 區塊 template 去重。
 - `course/members.ts:149` 權限讀寫包同一交易(消 TOCTOU)。
 - `SubmissionRejudgeLog` old/newResultJson 改存 verdictSummary 摘要(或 S3 key),不存整份 detail;reaper 掛點加保留期清理。
+- `packages/redis/src/connection.ts:9` 全 ioredis 實例掛 `'error'` 監聽器(對抗式查證列 not-an-issue,但掛 listener 是零成本縱深防禦,避免未來 unhandled error 風險)。
 
 **Wave 7 驗證:** 全 repo typecheck、lint、unit。
 
@@ -279,3 +320,48 @@
 - `pnpm test:integration`(真打 PG/Redis)。
 - `pnpm test:e2e`(本機,sandbox image)。
 - 移除本計劃中 wave 已完成項對應的 QUALITY_SCORE Outstanding Drift;本計劃移至 `completed/`。
+
+---
+
+## 附錄 A — 稽核項目 → Wave 完整對照(覆蓋確認)
+
+> 所有「對抗式查證確認屬實」的 findings 皆已對應到 wave。共 51 個 confirmed findings(含 gap),逐條對照如下。
+
+**arch(7):** raw TransactionClient→7.2;Prisma namespace 穿透→7.2;ESLint 守衛漏洞→7.1;activity-bundle fitness drift→7.3;ARCHITECTURE.md drift→8;redis key namespace→7.4;core/queue.ts 拆檔→7.4。
+
+**web(10):** 設定表單 .parse() 500→4.1;form action 三套錯誤處理→4.6;SSE backoff 死碼→4.5;SSE slot 洩漏→4.2;三胞胎 load 複製→4.6;exams 738 行→4.6;examFormSchema→core→4.1;action i18n→4.6;datetime 重複→4.6;偽造 RequestEvent→4.6。
+
+**backend(6):** testcase 物件授權→3.4;Redis 計分板死碼→5.1;ioredis error listener→7.4;4 份 storage 單例→7.4;withTx template 重複→7.4;members TOCTOU→7.4。
+
+**perf(9):** 記分板全量重建→5.1;Redis ZSET write-only→5.1;Submission status 索引→5.3;assessmentId 無 leading 索引→5.3;全文搜尋 GIN→5.3;SSE per-client 連線→5.5;submission stream 1Hz→5.2;acceptance rate COUNT(DISTINCT)→5.4;exam batch close→5.4。
+
+**judge(9):** 大輸出 ZodError→2.2;SE→runtime_error→2.1;sources-missing 矛盾→3.3;rejudge 無隔離→3.1;K8s deadline 120s+ConfigMap→3.2;runner→worker 16MB→2.2;PROPORTIONAL/MINIMUM 銷毀→2.3;JUDGE_PIPELINE.md 相反→8;記憶體 fork 繞過→2.4。
+
+**security(4 confirmed):** email/password 註冊→1.1;worker readyz/healthz→4.3;/api/healthz 無限流→4.4;advanced-image 死碼上限→4.7。(proctoring gate fail-open → 見附錄 B,查證為刻意設計不修。)
+
+**testing(7):** 沙箱測試 CI silent skip→6.6;workflow 分支零測試→6.6;coverage 死 gate→6.8;web HTTP 邊界零覆蓋→6.6;CI 重複跑 unit→6.6;editorials e2e 硬 sleep→6.6;truncateAllTables drift→6.6。
+
+**docs(10):** active 殭屍計劃→8;PRODUCT_SENSE Non-Goals→8;RELIABILITY 幽靈 workflow/表→8;assignments.md attempt-limit→8;stale reaper 無文件→8;DATABASE.md 幽靈/漏表→8;FRONTEND route map→8;建題權限→8;README 虛構→8;QUALITY_SCORE 時效→8。
+
+**gap(8):** compose S3→6.1;CI migration→6.2;compose 周界→6.7;seed admin 密碼→1.3/1.4;Grafana OTel→6.4;restart policy→6.3;RejudgeLog 整份 detail→7.4;self-hosted 備份→6.5。
+
+**使用者追加:** CourseAssessment→Assessment 重命名→Wave R。
+
+---
+
+## 附錄 B — 對抗式查證駁回的假陽性(不修,附理由)
+
+- **ioredis 連線無 error listener 會崩潰行程**(backend)— 查證 not-an-issue。但仍在 7.4 以零成本縱深防禦補上 listener(非因 finding 成立)。
+- **Submission 無 status/updatedAt 索引→sweeper 全表掃**(perf)— 查證 not-an-issue(現量小)。仍在 5.3 補索引(最佳實踐)。
+- **exam proctoring gate fail-open 不一致**(security)— 查證為**刻意設計**(註解明示、觸發窗口窄 30s 快取 + 攻擊者不可控),**不修**。
+- **submission stream 1Hz 輪詢** 嚴重度 — 查證部分降為 P3,但仍在 5.2 改 pub/sub(最佳實踐)。
+
+---
+
+## 附錄 C — 結構性建議(設計級,需獨立計劃,不在本 defect-remediation 範圍)
+
+> 首席架構師指出的三個結構性風險。它們需要的是**設計決策**而非補丁,規模遠超本計劃;列此追蹤,建議各開獨立計劃。本計劃的 Wave R(命名統一)是朝風險一收斂的第一步,但非完整解。
+
+1. **Contest / Exam / Assessment 三胞胎模型** — `Submission` 扛 4 個 nullable context 外鍵 + XOR CHECK,`contest/scoring.ts` 與 `exam/scoring.ts` 近乎逐函式同構,持久化編排層複製是已出貨 P1 的案發現場。建議收斂成多態 timed-assessment 實體,或至少把 persist-score 編排層收成一份。
+2. **自架 Temporal 拓撲** — 5 個 workflow 換來自架 Server + 專屬 10Gi Postgres StatefulSet + UI,維護人力是一人。建議評估 Temporal Cloud 或降級為 pg-boss 級方案,保留程式模型、外包運維。
+3. **mock 邊界盲區** — 三次「全綠但壞掉」(bundle 註冊、seccomp、漏 migration)失效面都在「註冊/組態/基礎設施參數」這層。Wave 6.2/6.6 是部分對策(migration drift gate、CI 沙箱/workflow 訊號、bundle fitness 自動推導),但完整解需把「組態正確性」系統性地變成可執行 fitness test。
