@@ -679,7 +679,18 @@ export const submissionRepo = {
         courseAssessmentId,
         problemId,
         sampleOnly: false,
+        status: { not: "system_error" },
         createdAt: { gte: sinceTime },
+      },
+    });
+  },
+
+  findStalePendingIds(before: Date) {
+    return prisma.submission.findMany({
+      select: { id: true },
+      where: {
+        status: { in: ["queued", "compiling", "running"] },
+        updatedAt: { lt: before },
       },
     });
   },
@@ -706,6 +717,7 @@ export const submissionRepo = {
             courseAssessmentId,
             problemId,
             sampleOnly: false,
+            status: { not: "system_error" },
             createdAt: { gte: sinceTime },
           },
         });

@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  WorkflowExecutionAlreadyStartedError,
+  WorkflowNotFoundError,
+} from "@temporalio/client";
+
 import type { SubmissionJudgeJob } from "@nojv/core";
 import { submissionJudgeJobSchema } from "@nojv/core";
 
@@ -30,6 +35,37 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
     workflowId: `judge-${validated.submissionId}`,
     args: [input],
   });
+}
+
+export async function terminateSubmissionJudge(
+  submissionId: string,
+  reason: string,
+): Promise<void> {
+  const client = await getTemporalClient();
+  const handle = client.workflow.getHandle(`judge-${submissionId}`);
+  try {
+    await handle.terminate(reason);
+  } catch (err) {
+    if (err instanceof WorkflowNotFoundError) return;
+    throw err;
+  }
+}
+
+export const SUBMISSION_SWEEPER_WORKFLOW_ID = "submission-pending-sweeper";
+
+export async function ensureSubmissionSweeper(): Promise<void> {
+  const client = await getTemporalClient();
+  try {
+    await client.workflow.start("submissionSweeperWorkflow", {
+      taskQueue: PLATFORM_TASK_QUEUE,
+      workflowId: SUBMISSION_SWEEPER_WORKFLOW_ID,
+      cronSchedule: "* * * * *",
+      args: [],
+    });
+  } catch (err) {
+    if (err instanceof WorkflowExecutionAlreadyStartedError) return;
+    throw err;
+  }
 }
 
 export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
