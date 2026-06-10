@@ -91,8 +91,9 @@ vi.mock("@nojv/db", () => {
       }),
       updateStatus: submissionUpdateStatus,
     },
-    runTransaction: async <T>(fn: (tx: { $executeRaw: typeof txExecuteRaw }) => Promise<T>): Promise<T> =>
-      fn({ $executeRaw: txExecuteRaw }),
+    runTransaction: async <T>(
+      fn: (tx: { $executeRaw: typeof txExecuteRaw }) => Promise<T>,
+    ): Promise<T> => fn({ $executeRaw: txExecuteRaw }),
   };
 });
 
