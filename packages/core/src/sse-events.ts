@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { submissionDraftSchema } from "./schemas/submission";
-
 export const SSE_SUBMISSION_VERDICT = "submission:verdict" as const;
 export const SSE_CONTEST_STARTING = "contest:starting" as const;
 export const SSE_CONTEST_ENDING = "contest:ending" as const;
@@ -82,35 +80,3 @@ export const sseEventSchema = z.discriminatedUnion("type", [
 
 export type ClarificationSSEEvent = z.infer<typeof clarificationEventSchema>;
 export type SSEEvent = z.infer<typeof sseEventSchema>;
-
-export const submissionJudgeJobSchema = z.object({
-  draft: submissionDraftSchema,
-  submissionId: z.string().trim().min(1),
-});
-
-export type SubmissionJudgeJob = z.infer<typeof submissionJudgeJobSchema>;
-
-interface RedisConnectionOptions {
-  host: string;
-  password: string | undefined;
-  port: number;
-}
-
-export function parseRedisConnection(redisUrl: string): RedisConnectionOptions {
-  const url = new URL(redisUrl);
-  if (url.protocol !== "redis:") {
-    throw new Error(
-      `parseRedisConnection: unsupported protocol "${url.protocol}" — only redis:// is wired up (no TLS / rediss support)`,
-    );
-  }
-  if (url.pathname !== "" && url.pathname !== "/" && url.pathname !== "/0") {
-    throw new Error(
-      `parseRedisConnection: DB index "${url.pathname}" is not supported — connections always use DB 0`,
-    );
-  }
-  return {
-    host: url.hostname,
-    password: url.password || undefined,
-    port: Number(url.port || "6379"),
-  };
-}
