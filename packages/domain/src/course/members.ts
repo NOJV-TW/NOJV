@@ -21,9 +21,29 @@ async function resolveActorCourseRole(
   return resolveEffectiveCourseRole(actor.platformRole, courseRole);
 }
 
-async function activeMemberRole(courseId: string, userId: string): Promise<CourseRole | null> {
-  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
+async function resolveActorCourseRoleTx(
+  tx: TransactionClient,
+  actor: ActorContext,
+  courseId: string,
+): Promise<EffectiveCourseRole | null> {
+  const membership = await courseMembershipRepo
+    .withTx(tx)
+    .findByComposite(courseId, actor.userId);
+  const courseRole = membership?.status === "active" ? membership.role : null;
+  return resolveEffectiveCourseRole(actor.platformRole, courseRole);
+}
+
+async function activeMemberRoleTx(
+  tx: TransactionClient,
+  courseId: string,
+  userId: string,
+): Promise<CourseRole | null> {
+  const membership = await courseMembershipRepo.withTx(tx).findByComposite(courseId, userId);
   return membership?.status === "active" ? membership.role : null;
+}
+
+async function lockCourseMembers(tx: TransactionClient, courseId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`course-members:${courseId}`}, 0))`;
 }
 
 export interface CourseMemberRow {
@@ -148,38 +168,44 @@ export async function changeMemberRole(
   userId: string,
   role: CourseRole,
 ) {
-  const actorRole = await resolveActorCourseRole(actor, courseId);
-  if (actorRole !== "admin" && actorRole !== "teacher") {
-    throw new ForbiddenError("Only teachers or admins can change member roles.");
-  }
-  if (actorRole === "teacher") {
-    if (userId === actor.userId) {
-      throw new ForbiddenError("You cannot change your own role.");
+  return runTransaction(async (tx) => {
+    await lockCourseMembers(tx, courseId);
+    const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
+    if (actorRole !== "admin" && actorRole !== "teacher") {
+      throw new ForbiddenError("Only teachers or admins can change member roles.");
     }
-    if (role === "teacher") {
-      throw new ForbiddenError("Only an admin can promote a member to teacher.");
+    if (actorRole === "teacher") {
+      if (userId === actor.userId) {
+        throw new ForbiddenError("You cannot change your own role.");
+      }
+      if (role === "teacher") {
+        throw new ForbiddenError("Only an admin can promote a member to teacher.");
+      }
+      if ((await activeMemberRoleTx(tx, courseId, userId)) === "teacher") {
+        throw new ForbiddenError("Teachers cannot change another teacher's role.");
+      }
     }
-    if ((await activeMemberRole(courseId, userId)) === "teacher") {
-      throw new ForbiddenError("Teachers cannot change another teacher's role.");
-    }
-  }
-  return courseMembershipAdminRepo.updateRole(courseId, userId, role);
+    return courseMembershipAdminRepo.withTx(tx).updateRole(courseId, userId, role);
+  });
 }
 
 export async function removeMember(actor: ActorContext, courseId: string, userId: string) {
-  const actorRole = await resolveActorCourseRole(actor, courseId);
-  if (actorRole !== "admin" && actorRole !== "teacher") {
-    throw new ForbiddenError("Only teachers or admins can remove members.");
-  }
-  if (actorRole === "teacher") {
-    if (userId === actor.userId) {
-      throw new ForbiddenError("You cannot remove yourself.");
+  return runTransaction(async (tx) => {
+    await lockCourseMembers(tx, courseId);
+    const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
+    if (actorRole !== "admin" && actorRole !== "teacher") {
+      throw new ForbiddenError("Only teachers or admins can remove members.");
     }
-    if ((await activeMemberRole(courseId, userId)) === "teacher") {
-      throw new ForbiddenError("Teachers cannot remove another teacher.");
+    if (actorRole === "teacher") {
+      if (userId === actor.userId) {
+        throw new ForbiddenError("You cannot remove yourself.");
+      }
+      if ((await activeMemberRoleTx(tx, courseId, userId)) === "teacher") {
+        throw new ForbiddenError("Teachers cannot remove another teacher.");
+      }
     }
-  }
-  return courseMembershipAdminRepo.removeFromCourse(courseId, userId);
+    return courseMembershipAdminRepo.withTx(tx).removeFromCourse(courseId, userId);
+  });
 }
 
 async function createPlaceholderInTx(tx: TransactionClient, username: string) {
