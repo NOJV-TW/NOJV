@@ -63,74 +63,73 @@ const advancedRequiredPathsSavePayloadSchema = z.object({
   paths: requiredPathsSchema,
 });
 
-export const load: PageServerLoad = handleLoad(
-  async ({ params, locals }: PageServerLoadEvent) => {
-    if (!locals.user) {
-      redirect(302, `/problems/${params.problemId}`);
-    }
+export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  const { params, locals } = event;
+  if (!locals.user) {
+    redirect(302, `/problems/${params.problemId}`);
+  }
 
-    const actor = requireAuth({ locals, params } as RequestEvent);
-    await problemDomain.assertProblemEditAccess(actor, params.problemId);
+  const actor = requireAuth(event);
+  await problemDomain.assertProblemEditAccess(actor, params.problemId);
 
-    const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
-      getProblemPageData(params.problemId),
-      getProblemTestcaseSets(params.problemId),
-      listProblemWorkspaceFiles(params.problemId),
-    ]);
+  const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
+    getProblemPageData(params.problemId),
+    getProblemTestcaseSets(params.problemId),
+    listProblemWorkspaceFiles(params.problemId),
+  ]);
 
-    const [testcaseSets, workspaceFiles, validatorScripts] = await Promise.all([
-      hydrateTestcaseSets(rawTestcaseSets),
-      hydrateWorkspaceFiles(rawWorkspaceFiles),
-      hydrateValidatorScripts({
-        checkerKey: problem.judgeConfig.checkerKey,
-        interactorKey: problem.judgeConfig.interactorKey,
-      }),
-    ]);
+  const [testcaseSets, workspaceFiles, validatorScripts] = await Promise.all([
+    hydrateTestcaseSets(rawTestcaseSets),
+    hydrateWorkspaceFiles(rawWorkspaceFiles),
+    hydrateValidatorScripts({
+      checkerKey: problem.judgeConfig.checkerKey,
+      interactorKey: problem.judgeConfig.interactorKey,
+    }),
+  ]);
 
-    const isAdvanced = problem.type === "special_env";
-    const form = await superValidate(
-      {
-        difficulty: problem.difficulty,
-        inputFormat: problem.inputFormat,
-        judgeConfig: problem.judgeConfig,
-        memoryLimitMb: problem.memoryLimitMb,
-        outputFormat: problem.outputFormat,
-        samples: problem.samples,
-        statement: problem.statement,
-        status: problem.status,
-        tags: problem.tags,
-        timeLimitMs: problem.timeLimitMs,
-        title: problem.title,
-        type: problem.type satisfies ProblemType,
-        visibility: problem.visibility,
-        ...(isAdvanced
-          ? {
-              advancedImageRef: problem.advancedImageRef ?? "",
-              advancedImageSource: problem.advancedImageSource ?? "registry",
-            }
-          : {}),
-      },
-      zod4(problemCreateSchema),
-    );
-
-    return {
-      problem,
-      form,
-      testcaseSets,
-      workspaceFiles,
-      validatorScripts,
-      imageConfig: isAdvanced
+  const isAdvanced = problem.type === "special_env";
+  const form = await superValidate(
+    {
+      difficulty: problem.difficulty,
+      inputFormat: problem.inputFormat,
+      judgeConfig: problem.judgeConfig,
+      memoryLimitMb: problem.memoryLimitMb,
+      outputFormat: problem.outputFormat,
+      samples: problem.samples,
+      statement: problem.statement,
+      status: problem.status,
+      tags: problem.tags,
+      timeLimitMs: problem.timeLimitMs,
+      title: problem.title,
+      type: problem.type satisfies ProblemType,
+      visibility: problem.visibility,
+      ...(isAdvanced
         ? {
-            source: problem.advancedImageSource ?? "registry",
-            ref: problem.advancedImageRef ?? "",
-            timeLimitMs: problem.timeLimitMs,
-            memoryLimitMb: problem.memoryLimitMb,
+            advancedImageRef: problem.advancedImageRef ?? "",
+            advancedImageSource: problem.advancedImageSource ?? "registry",
           }
-        : null,
-      advancedModeSupported: isAdvancedModeSupported(),
-    };
-  },
-);
+        : {}),
+    },
+    zod4(problemCreateSchema),
+  );
+
+  return {
+    problem,
+    form,
+    testcaseSets,
+    workspaceFiles,
+    validatorScripts,
+    imageConfig: isAdvanced
+      ? {
+          source: problem.advancedImageSource ?? "registry",
+          ref: problem.advancedImageRef ?? "",
+          timeLimitMs: problem.timeLimitMs,
+          memoryLimitMb: problem.memoryLimitMb,
+        }
+      : null,
+    advancedModeSupported: isAdvancedModeSupported(),
+  };
+});
 
 function problemEditAction<T>(
   handler: (ctx: {
