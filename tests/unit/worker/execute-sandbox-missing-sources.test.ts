@@ -66,15 +66,12 @@ describe("executeSandbox — missing sources guard (A7)", () => {
     const result = await executeSandbox("sub_missing", draft, judgeContext);
 
     expect(executor.execute).not.toHaveBeenCalled();
-    // Status: first the `running` flip, then the `system_error` bail.
-    expect(updateStatusMock).toHaveBeenCalledTimes(2);
+    // Only the `running` flip; the bail returns a system_error verdict and lets
+    // completeJudge persist the status, instead of writing it then overwriting it.
+    expect(updateStatusMock).toHaveBeenCalledTimes(1);
     expect(updateStatusMock).toHaveBeenNthCalledWith(1, "sub_missing", "running");
-    expect(updateStatusMock).toHaveBeenNthCalledWith(2, "sub_missing", "system_error");
 
-    // The result blob's verdict cannot be `system_error` (not in
-    // submissionVerdictSchema), so the activity falls back to runtime_error.
-    // The row status is the authoritative signal.
-    expect(result.verdict).toBe("runtime_error");
+    expect(result.verdict).toBe("system_error");
     expect(result.score).toBe(0);
     expect(result.accepted).toBe(false);
     expect(result.caseResults).toEqual([]);

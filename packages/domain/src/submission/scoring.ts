@@ -24,7 +24,7 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   TLE: "time_limit_exceeded",
   MLE: "memory_limit_exceeded",
   RE: "runtime_error",
-  SE: "runtime_error",
+  SE: "system_error",
 };
 
 export function buildSubtaskResults(
@@ -135,6 +135,20 @@ export function mapResult(
       ...memoryField,
       score: 0,
       verdict: "compile_error",
+    };
+  }
+
+  if (result.testcaseResults.some((t) => t.verdict === "SE")) {
+    return {
+      accepted: false,
+      caseResults,
+      feedback:
+        result.scoringFeedback ??
+        "Judging failed due to a platform error. This submission was not counted; please resubmit.",
+      runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
+      ...memoryField,
+      score: 0,
+      verdict: "system_error",
     };
   }
 

@@ -6,7 +6,7 @@ import {
   sourceCodeSchema,
   submissionModeSchema,
   submissionOperationStatusSchema,
-  submissionVerdictSchema,
+  submissionResultVerdictSchema,
 } from "../types";
 import { assessmentContextSchema } from "./course";
 import { safeRelativePath } from "./path";
@@ -94,7 +94,7 @@ export const submissionResultSchema = z.object({
   memoryKb: z.number().int().nonnegative().optional(),
   score: z.number().int().min(0).max(100),
   subtaskResults: z.array(subtaskResultItemSchema).max(1_000).optional(),
-  verdict: submissionVerdictSchema,
+  verdict: submissionResultVerdictSchema,
 });
 
 export const submissionDispatchResponseSchema = z.object({
