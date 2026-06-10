@@ -228,6 +228,8 @@ export default [
       "src/lib/server/storage/**/*.ts",
       // RateLimiterRedis needs the raw ioredis client.
       "src/lib/server/shared/rate-limiter.ts",
+      // Process-level shared SSE subscriber (one Redis connection, fan-out).
+      "src/lib/server/shared/sse-hub.ts",
       // SSE endpoint owns a per-request Redis subscriber.
       "src/routes/api/events/stream/+server.ts",
     ],
