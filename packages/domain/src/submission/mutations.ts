@@ -21,7 +21,6 @@ import {
 } from "@nojv/core";
 import {
   deleteSubmissionStorage,
-  getVerdictDetail as storageGetVerdictDetail,
   putSubmissionSources,
   putVerdictDetail,
   submissionSourcePrefix,
@@ -402,16 +401,12 @@ export async function snapshotForRejudge(
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
-  const oldDetail = current.verdictDetailStorageKey
-    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
-    : null;
-
   const row = await submissionRejudgeLogRepo.create({
     submissionId,
     rejudgedByUserId: triggeredByUserId,
     oldVerdict: current.status,
     oldScore: current.score,
-    oldResultJson: oldDetail === null ? null : toJsonValue(oldDetail),
+    oldResultJson: current.verdictSummary === null ? null : toJsonValue(current.verdictSummary),
   });
 
   return { logId: row.id, oldStatus: current.status };
@@ -425,13 +420,9 @@ export async function finalizeRejudgeLog(
   const updated = await submissionRepo.findById(submissionId);
   if (!updated) return;
 
-  const newDetail = updated.verdictDetailStorageKey
-    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
-    : null;
-
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,
-    newResultJson: newDetail === null ? null : toJsonValue(newDetail),
+    newResultJson: updated.verdictSummary === null ? null : toJsonValue(updated.verdictSummary),
   });
 }
