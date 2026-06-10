@@ -5,11 +5,8 @@ PostgreSQL 18 with Prisma 7. Schema split across `packages/db/prisma/schema/*.pr
 > **Field-level reference:** [`DATABASE.generated.md`](./DATABASE.generated.md)
 > is an auto-generated, exhaustive table of every model, field, and enum.
 > Regenerate it with `pnpm db:docs` after any schema change. This doc keeps
-> the curated prose and diagrams.
->
-> **Drift note (2026-06-10):** the generated file is missing the recently
-> added `EditorialVote`, `ProblemBookmark`, `TwoFactor`, and `PlatformSetting`
-> models — rerun `pnpm db:docs` to regenerate it.
+> the curated prose and diagrams. CI fails if the generated file drifts from
+> the schema (see the `db:docs` diff gate), so it stays in sync mechanically.
 
 ## Domain Model Overview
 

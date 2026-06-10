@@ -76,6 +76,11 @@ jobs:
           pnpm --filter @nojv/db exec prisma migrate diff \
             --from-config-datasource --to-schema prisma/schema --exit-code
 
+      - name: Verify generated DB schema docs are in sync (no drift)
+        run: |
+          pnpm db:docs
+          git diff --exit-code docs/architecture/DATABASE.generated.md
+
       - name: Verify monorepo (build, lint, typecheck, unit tests)
         run: pnpm ci:verify
         env:
