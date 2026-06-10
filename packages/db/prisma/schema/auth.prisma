@@ -42,9 +42,11 @@ model User {
   image           String?
 
   // additionalFields (ours)
-  platformRole PlatformRole @default(student)
-  disabled     Boolean      @default(false)
-  status       UserStatus   @default(active)
+  platformRole       PlatformRole @default(student)
+  disabled           Boolean      @default(false)
+  status             UserStatus   @default(active)
+  mustChangePassword Boolean      @default(false)
+  twoFactorEnabled   Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -89,6 +91,19 @@ model User {
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")
   triggeredPlagiarismLogs        PlagiarismTriggerLog[]       @relation("PlagiarismTriggerLogTriggerer")
   problemBookmarks               ProblemBookmark[]
+  twoFactors                     TwoFactor[]
+}
+
+model TwoFactor {
+  id          String  @id
+  secret      String
+  backupCodes String
+  userId      String
+  verified    Boolean @default(true)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
 }
 
 model Session {

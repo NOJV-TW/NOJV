@@ -76,6 +76,10 @@ export async function setUserAvatar(userId: string, imageUrl: string | null): Pr
   await userRepo.update(userId, { image: imageUrl });
 }
 
+export async function markPasswordChanged(userId: string): Promise<void> {
+  await userRepo.update(userId, { mustChangePassword: false });
+}
+
 export async function renameUsername(
   userId: string,
   newUsername: string,

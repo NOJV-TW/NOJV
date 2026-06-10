@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { username } from "better-auth/plugins";
+import { twoFactor, username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
@@ -96,6 +96,7 @@ function createAuth() {
     },
     emailAndPassword: {
       enabled: true,
+      disableSignUp: true,
       password: {
         hash: async (plain) => bcrypt.hash(plain, 10),
         verify: async ({ hash, password }) => bcrypt.compare(password, hash),
@@ -107,6 +108,7 @@ function createAuth() {
         disabled: { type: "boolean", defaultValue: false, input: false },
         platformRole: { type: "string", defaultValue: "student", input: false },
         status: { type: "string", defaultValue: "active", input: false },
+        mustChangePassword: { type: "boolean", defaultValue: false, input: false },
       },
     },
     account: {
@@ -130,6 +132,7 @@ function createAuth() {
           return /^[a-z0-9._-]+$/.test(candidate);
         },
       }),
+      twoFactor({ issuer: "NOJV" }),
     ],
   });
 }

@@ -255,6 +255,18 @@ function enforceAccountState(event: HandleEvent, cleanPath: string): void {
   }
 }
 
+function enforcePasswordChange(event: HandleEvent, cleanPath: string): void {
+  if (
+    event.locals.sessionUser?.mustChangePassword &&
+    !cleanPath.startsWith("/api/") &&
+    !cleanPath.startsWith("/account/change-password") &&
+    !cleanPath.startsWith("/complete-profile") &&
+    !cleanPath.startsWith("/signin")
+  ) {
+    redirect(302, "/account/change-password");
+  }
+}
+
 async function enforcePageLock(event: HandleEvent, cleanPath: string): Promise<void> {
   if (!event.locals.sessionUser || isPageLockExempt(cleanPath)) {
     return;
@@ -390,6 +402,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   await loadSession(event);
   enforceAccountState(event, cleanPath);
+  enforcePasswordChange(event, cleanPath);
   await enforcePageLock(event, cleanPath);
 
   const examResponse = await enforceExamGate(event, cleanPath);

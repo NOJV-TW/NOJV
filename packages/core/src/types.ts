@@ -133,6 +133,8 @@ export const sessionUserSchema = z.object({
   name: z.string(),
   platformRole: platformRoleSchema,
   status: userStatusSchema.default("active"),
+  mustChangePassword: z.boolean().default(false),
+  twoFactorEnabled: z.boolean().default(false),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;
