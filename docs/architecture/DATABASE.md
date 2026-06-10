@@ -6,6 +6,10 @@ PostgreSQL 18 with Prisma 7. Schema split across `packages/db/prisma/schema/*.pr
 > is an auto-generated, exhaustive table of every model, field, and enum.
 > Regenerate it with `pnpm db:docs` after any schema change. This doc keeps
 > the curated prose and diagrams.
+>
+> **Drift note (2026-06-10):** the generated file is missing the recently
+> added `EditorialVote`, `ProblemBookmark`, `TwoFactor`, and `PlatformSetting`
+> models — rerun `pnpm db:docs` to regenerate it.
 
 ## Domain Model Overview
 
@@ -106,7 +110,7 @@ erDiagram
 | `UserStatus`                 | active, disabled, pending_first_login                                                                                                         |
 | `CourseRole`                 | teacher, ta, student                                                                                                                          |
 | `CourseMembershipStatus`     | active, removed                                                                                                                               |
-| `AssessmentStatus`     | draft, published                                                                                                                              |
+| `AssessmentStatus`           | draft, published                                                                                                                              |
 | `AssessmentAuditAction`      | publish, revert_to_draft, delete_draft                                                                                                        |
 | `ContestVisibility`          | draft, published                                                                                                                              |
 | `ContestScoringMode`         | problem_count, point_sum                                                                                                                      |
@@ -179,7 +183,7 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 | `examId`                  | String?          | FK to `Exam` when the submission was made inside an exam                                                                                                                  |
 | `contestId`               | String?          | FK to `Contest` when the submission was made inside a contest                                                                                                             |
 | `virtualContestId`        | String?          | FK to `VirtualContest` when the submission was made inside a virtual contest replay                                                                                       |
-| `assessmentId`      | String?          | FK to `Assessment` when the submission was made for a homework assignment                                                                                           |
+| `assessmentId`            | String?          | FK to `Assessment` when the submission was made for a homework assignment                                                                                                 |
 | `sampleOnly`              | Boolean          | `true` for in-editor sample runs — never graded                                                                                                                           |
 | `sourceStoragePrefix`     | String           | `@nojv/storage` prefix for the per-file source blobs (`submissions/<id>/sources/`). One S3 object per submitted file. There is no `sourceCode` column                     |
 | `verdictSummary`          | Json?            | Small (< 4 KB) summary: `{ caseSummary: { ac, wa, tle, mle, re, other }, subtaskSummary?: { id, score }[], compilerErrorTruncated?: string }`. Safe to load in list views |
@@ -217,7 +221,7 @@ Course-embedded proctored assessment (`courseId` NOT NULL). This is where the pr
 Course-scoped homework only (no proctoring, no scoreboard). Fields:
 
 - Timeline: `opensAt` → `dueAt` (soft, drives late-penalty adjustment rules) → `closesAt` (hard close)
-- `maxAttemptsPerDay` per-UTC-day cap, `allowedLanguages` whitelist
+- `maxAttemptsPerDay` per-problem daily cap with a configurable Taipei reset time (`attemptResetMinuteOfDay`, default 300 = 05:00), `allowedLanguages` whitelist
 - `adjustmentRules` JSON for late penalty / time bonus / memory penalty
 
 ### TestcaseSet / Testcase
@@ -247,7 +251,7 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 
 ## Complete Model Index
 
-39 models in total. The sections above detail the high-traffic / core models; everything else lives here for navigation. For exact column definitions, open the schema file — this table is deliberately one-line-per-model so it stays easy to keep in sync.
+43 models in total. The sections above detail the high-traffic / core models; everything else lives here for navigation. For exact column definitions, open the schema file — this table is deliberately one-line-per-model so it stays easy to keep in sync.
 
 | Model                        | Purpose                                                                                                       | Schema file                   |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------- |
@@ -269,8 +273,8 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `VirtualContest`             | Per-user time-shifted replay of an ended contest (score, penalty, version)                                    | `schema/contest.prisma`       |
 | `Course`                     | Course container (title, owner, `academicYear` / `semester`, archived flag)                                   | `schema/course.prisma`        |
 | `CourseMembership`           | `(course, user, role)` with `active` / `removed` status + audit trail                                         | `schema/course.prisma`        |
-| `Assessment`           | Homework assignment (opens / due / close, adjustment rules, no proctoring)                                    | `schema/course.prisma`        |
-| `AssessmentProblem`    | Join table: problems attached to an assessment with ordinal + points                                          | `schema/course.prisma`        |
+| `Assessment`                 | Homework assignment (opens / due / close, adjustment rules, no proctoring)                                    | `schema/course.prisma`        |
+| `AssessmentProblem`          | Join table: problems attached to an assessment with ordinal + points                                          | `schema/course.prisma`        |
 | `AssessmentAuditLog`         | Append-only publish / revert / delete-draft trail for course assessments                                      | `schema/course.prisma`        |
 | `Notification`               | Per-recipient event row (type + params JSON, `readAt` for unread state)                                       | `schema/notification.prisma`  |
 | `Announcement`               | Platform / course announcement (pinned, audience, published window)                                           | `schema/ops.prisma`           |
@@ -290,7 +294,10 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `EditorialReport`            | User-filed report against an editorial (reason, open / resolved / dismissed)                                  | `schema/submission.prisma`    |
 | `SubmissionFeedback`         | Per-`(context, problem, student)` grader comment on a submission                                              | `schema/submission.prisma`    |
 | `SubmissionFeedbackAuditLog` | Append-only create / update / delete trail for `SubmissionFeedback`                                           | `schema/submission.prisma`    |
-| `UserDailyActivity`          | Per-`(user, UTC day)` aggregate for streaks / heatmaps                                                        | `schema/submission.prisma`    |
+| `EditorialVote`              | Per-`(editorial, user)` up/down vote (`value`)                                                                | `schema/submission.prisma`    |
+| `ProblemBookmark`            | Per-`(user, problem)` bookmark on the practice problem list                                                   | `schema/problem.prisma`       |
+| `TwoFactor`                  | better-auth TOTP secret + backup codes per user                                                               | `schema/auth.prisma`          |
+| `PlatformSetting`            | Key/value platform settings store (e.g. stale-submission pending timeout)                                     | `schema/ops.prisma`           |
 
 Deep field-level detail intentionally stays in the Prisma schema files themselves — treat the `.prisma` file as the source of truth for column types, defaults, indexes, and FK cascade rules.
 
@@ -300,10 +307,10 @@ Deep field-level detail intentionally stays in the Prisma schema files themselve
 | ------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `Problem.judgeConfig`                | `JudgeConfig`         | type / compare / checker / interactor / runtime / subtaskStrategies                                                        |
 | `Problem.samples`                    | `{ input, output }[]` | Sample I/O pairs rendered on the student problem page                                                                      |
-| `Assessment.adjustmentRules`   | `AdjustmentRule[]`    | Late penalty / time bonus / memory penalty rules (applied post-judge)                                                      |
+| `Assessment.adjustmentRules`         | `AdjustmentRule[]`    | Late penalty / time bonus / memory penalty rules (applied post-judge)                                                      |
 | `Submission.verdictSummary`          | `VerdictSummary`      | Small case-counter + per-subtask summary + truncated compiler error (full detail lives in S3 at `verdictDetailStorageKey`) |
 | `ContestParticipation.subtaskScores` | Score breakdown       | Per-subtask contest scores                                                                                                 |
-| `*.plagiarismResults`                | Dolos result array    | Similarity pairs (similarity, longest, overlap) on Assessment / Exam / Contest                                       |
+| `*.plagiarismResults`                | Dolos result array    | Similarity pairs (similarity, longest, overlap) on Assessment / Exam / Contest                                             |
 
 ## Seed Data
 

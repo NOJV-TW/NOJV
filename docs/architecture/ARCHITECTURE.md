@@ -30,7 +30,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │ Infrastructure (cross-cutting, any layer may use)                   │
 │                                                                     │
 │  @nojv/core          Zod schemas, DTO types, enums, contracts       │
-│  @nojv/redis         Pub/sub, cache, key registry, TTL policies     │
+│  @nojv/redis         Pub/sub, key registry, scoreboard, metrics     │
 │  @nojv/temporal      Temporal client + dispatch API + types         │
 │  @nojv/storage       S3-compatible object storage (images)          │
 │  tooling/            ESLint, Prettier, TypeScript configs           │
@@ -57,7 +57,7 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 packages/
   core/             Zod schemas, DTO types, enums, contracts (zero deps)
   db/               Prisma schema, migrations, repositories (depends: core; +redis, storage in seed/ops scripts only)
-  redis/            Connection, key registry, pub/sub, cache (depends: core)
+  redis/            Connection, key registry, pub/sub, scoreboard, metrics (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
   temporal/         Temporal client + dispatch API + workflows + task queue constants (depends: core)
   domain/           Business logic (depends: core, db, redis, temporal)
@@ -211,11 +211,14 @@ See [Database Schema](./DATABASE.md).
 
 Centralized Redis operations. Contains:
 
+- Connection — shared `ioredis` client factory and SSE subscriber factory
 - Key registry — all Redis key patterns defined as functions
 - Pub/sub — SSE event publishing and subscription
-- Cache — domain-scoped get/set/del with TTL policies
-- Cooldown — rate limiting for submissions and actions
-- Scoreboard — contest ranking storage and retrieval
+- Scoreboard — contest ranking storage and retrieval (ZSET)
+- Metrics — scoreboard-update latency histogram
+
+Rate limiting lives in `apps/web/src/lib/server/shared/rate-limiter.ts`
+(`RateLimiterRedis` against the raw client), not in this package.
 
 ### @nojv/storage
 
@@ -248,15 +251,26 @@ Dispatch helpers exposed at the root entry:
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                   | Task Queue | Workflow ID pattern                                                               | Signal / Query                                |
-| -------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| `submissionJudgeWorkflow`  | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                            |
-| `rejudgeWorkflow`          | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{timestamp}`  | Query: `getProgress`                          |
-| `contestLifecycleWorkflow` | `platform` | `contest-lifecycle-{contestId}`                                                   | Signal: `adminOverride` (`earlyEnd`/`extend`) |
-| `plagiarismCheckWorkflow`  | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                  |
-| `examAutoCloseWorkflow`    | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                             |
+| Workflow                    | Task Queue | Workflow ID pattern                                                               | Signal / Query                                |
+| --------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| `submissionJudgeWorkflow`   | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                            |
+| `rejudgeWorkflow`           | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                          |
+| `contestLifecycleWorkflow`  | `platform` | `contest-lifecycle-{contestId}`                                                   | Signal: `adminOverride` (`earlyEnd`/`extend`) |
+| `plagiarismCheckWorkflow`   | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                  |
+| `examAutoCloseWorkflow`     | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                             |
+| `submissionSweeperWorkflow` | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                             |
 
-Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
+The parent `rejudgeWorkflow` ID carries a `randomUUID()` suffix (not a
+timestamp) so concurrent rejudges of the same scope never collide; each
+spawned child judge uses `rejudge-{submissionId}-{Date.now()}`.
+
+The `submissionSweeperWorkflow` is a singleton cron started once via
+`ensureSubmissionSweeper()`; every minute it runs the
+`sweepStaleSubmissions` activity, which terminates submissions stuck in
+`queued`/`running` past the configured timeout and returns the daily
+attempt (see [Reliability Invariants](../operations/RELIABILITY.md)).
+
+Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, the stale-submission sweeper, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
 
 ### @nojv/domain
 

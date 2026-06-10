@@ -5,12 +5,12 @@ Production-oriented Online Judge platform. Supports competitive programming cont
 ## What Ships Today
 
 - **8 languages**: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
-- **3 judge types**: Standard (diff), Checker (custom script), Interactive (bidirectional I/O)
-- **Extensible pipeline**: Static analysis, custom scoring, artifact collection, network access
+- **3 standard judge types**: Standard (diff), Checker (DOMjudge validator), Interactive (DOMjudge interactor)
+- **Advanced Mode escape hatch**: TA-provided Docker image owns grading for problems Standard Mode can't express (network-isolated, read-only rootfs; no static-analysis / artifact-collection / network-access stages — the pipeline is fixed)
 - **Contests**: ICPC/IOI scoring, real-time scoreboard, freeze, IP lock, page lock
-- **Courses**: Membership management, join tokens, assessments with deadlines
+- **Courses**: Teacher-driven membership management (no self-serve join token), assessments with deadlines
 - **Plagiarism detection**: Dolos AST similarity (self-hosted, in-process)
-- **Auth**: Email/password, GitHub OAuth, Google OAuth
+- **Auth**: GitHub OAuth + Google OAuth for general users; password sign-in reserved for the seeded admin account (no public email/password registration)
 - **i18n**: English + Traditional Chinese (zh-TW)
 - **Real-time**: SSE streaming for submission verdicts and contest events
 - **Orchestration**: Temporal workflows with durable timers and queries
@@ -21,7 +21,7 @@ Production-oriented Online Judge platform. Supports competitive programming cont
 Browser ──→ SvelteKit (web) ──→ Temporal Server ──→ Worker ──→ Sandbox
                 │                                      │
                 ├── PostgreSQL (source of truth)        │
-                └── Redis (pub/sub, cache, scoreboard)  │
+                └── Redis (pub/sub, scoreboard)         │
                                                         ├── Docker (local)
                                                         └── Kubernetes (prod)
 ```
@@ -42,7 +42,7 @@ packages/
   domain/           Business logic — queries, commands, scoring, stats
   redis/            Redis connection, key registry, pub/sub, scoreboards
   storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal client + dispatch API + workflows + activities
+  temporal/         Temporal client + dispatch API + task queue constants + types (workflows/activities live in apps/worker)
 
 tooling/
   eslint/           Shared ESLint 9 flat config

@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_39 models and 38 enums across 9 schema files._
+_43 models and 38 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -73,6 +73,19 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `userId`    | `String`   | —                                                                  |
 | `user`      | `User`     | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
+#### `TwoFactor`
+
+| Field         | Type      | Attributes                                                         |
+| ------------- | --------- | ------------------------------------------------------------------ |
+| `id`          | `String`  | `@id`                                                              |
+| `secret`      | `String`  | —                                                                  |
+| `backupCodes` | `String`  | —                                                                  |
+| `userId`      | `String`  | —                                                                  |
+| `verified`    | `Boolean` | `@default(true)`                                                   |
+| `user`        | `User`    | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([secret])`, `@@index([userId])`
+
 #### `User`
 
 | Field                            | Type                           | Attributes                                    |
@@ -87,6 +100,8 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `platformRole`                   | `PlatformRole`                 | `@default(student)`                           |
 | `disabled`                       | `Boolean`                      | `@default(false)`                             |
 | `status`                         | `UserStatus`                   | `@default(active)`                            |
+| `mustChangePassword`             | `Boolean`                      | `@default(false)`                             |
+| `twoFactorEnabled`               | `Boolean`                      | `@default(false)`                             |
 | `createdAt`                      | `DateTime`                     | `@default(now())`                             |
 | `updatedAt`                      | `DateTime`                     | `@updatedAt`                                  |
 | `sessions`                       | `Session[]`                    | —                                             |
@@ -100,14 +115,15 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `ownedCourses`                   | `Course[]`                     | `@relation("CourseOwner")`                    |
 | `courseMemberships`              | `CourseMembership[]`           | `@relation("CourseMembershipUser")`           |
 | `createdMemberships`             | `CourseMembership[]`           | `@relation("CourseMembershipCreator")`        |
-| `createdAssessments`       | `Assessment[]`           | `@relation("AssessmentCreator")`        |
+| `createdAssessments`             | `Assessment[]`                 | `@relation("AssessmentCreator")`              |
 | `createdContests`                | `Contest[]`                    | `@relation("ContestCreator")`                 |
 | `createdExams`                   | `Exam[]`                       | `@relation("ExamCreator")`                    |
 | `createdAnnouncements`           | `Announcement[]`               | `@relation("AnnouncementCreator")`            |
 | `triggeredExamPlagiarisms`       | `Exam[]`                       | `@relation("ExamPlagiarismTriggerer")`        |
 | `triggeredContestPlagiarisms`    | `Contest[]`                    | `@relation("ContestPlagiarismTriggerer")`     |
-| `triggeredAssessmentPlagiarisms` | `Assessment[]`           | `@relation("AssessmentPlagiarismTriggerer")`  |
+| `triggeredAssessmentPlagiarisms` | `Assessment[]`                 | `@relation("AssessmentPlagiarismTriggerer")`  |
 | `editorials`                     | `Editorial[]`                  | —                                             |
+| `editorialVotes`                 | `EditorialVote[]`              | —                                             |
 | `ipViolationLogs`                | `IpViolationLog[]`             | —                                             |
 | `activeExamSessions`             | `ActiveExamSession[]`          | `@relation("ActiveExamSessionUser")`          |
 | `notifications`                  | `Notification[]`               | —                                             |
@@ -126,6 +142,8 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `submissionFeedbackAuthored`     | `SubmissionFeedback[]`         | `@relation("SubmissionFeedbackAuthor")`       |
 | `submissionFeedbackAuditChanges` | `SubmissionFeedbackAuditLog[]` | `@relation("SubmissionFeedbackAuditChanger")` |
 | `triggeredPlagiarismLogs`        | `PlagiarismTriggerLog[]`       | `@relation("PlagiarismTriggerLogTriggerer")`  |
+| `problemBookmarks`               | `ProblemBookmark[]`            | —                                             |
+| `twoFactors`                     | `TwoFactor[]`                  | —                                             |
 
 #### `Verification`
 
@@ -375,25 +393,26 @@ Indexes & constraints: `@@index([courseId, status])`
 
 #### `ExamParticipation`
 
-| Field            | Type                      | Attributes                                                                                  |
-| ---------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
-| `id`             | `String`                  | `@id @default(cuid())`                                                                      |
-| `examId`         | `String`                  | —                                                                                           |
-| `userId`         | `String`                  | —                                                                                           |
-| `status`         | `ExamParticipationStatus` | `@default(registered)`                                                                      |
-| `registeredAt`   | `DateTime`                | `@default(now())`                                                                           |
-| `startedAt`      | `DateTime?`               | —                                                                                           |
-| `submittedAt`    | `DateTime?`               | —                                                                                           |
-| `disqualifiedAt` | `DateTime?`               | —                                                                                           |
-| `score`          | `Int`                     | `@default(0)`                                                                               |
-| `penaltySeconds` | `Int`                     | `@default(0)`                                                                               |
-| `subtaskScores`  | `Json?`                   | —                                                                                           |
-| `ipPin`          | `String?`                 | —                                                                                           |
-| `version`        | `Int`                     | `@default(0)`                                                                               |
-| `createdAt`      | `DateTime`                | `@default(now())`                                                                           |
-| `updatedAt`      | `DateTime`                | `@updatedAt`                                                                                |
-| `exam`           | `Exam`                    | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                          |
-| `user`           | `User`                    | `@relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)` |
+| Field               | Type                      | Attributes                                                                                  |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
+| `id`                | `String`                  | `@id @default(cuid())`                                                                      |
+| `examId`            | `String`                  | —                                                                                           |
+| `userId`            | `String`                  | —                                                                                           |
+| `status`            | `ExamParticipationStatus` | `@default(registered)`                                                                      |
+| `registeredAt`      | `DateTime`                | `@default(now())`                                                                           |
+| `startedAt`         | `DateTime?`               | —                                                                                           |
+| `submittedAt`       | `DateTime?`               | —                                                                                           |
+| `disqualifiedAt`    | `DateTime?`               | —                                                                                           |
+| `score`             | `Int`                     | `@default(0)`                                                                               |
+| `penaltySeconds`    | `Int`                     | `@default(0)`                                                                               |
+| `subtaskScores`     | `Json?`                   | —                                                                                           |
+| `ipPin`             | `String?`                 | —                                                                                           |
+| `ipGateExemptUntil` | `DateTime?`               | —                                                                                           |
+| `version`           | `Int`                     | `@default(0)`                                                                               |
+| `createdAt`         | `DateTime`                | `@default(now())`                                                                           |
+| `updatedAt`         | `DateTime`                | `@updatedAt`                                                                                |
+| `exam`              | `Exam`                    | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                          |
+| `user`              | `User`                    | `@relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@unique([examId, userId])`, `@@index([userId, status])`
 
@@ -491,6 +510,40 @@ Indexes & constraints: `@@unique([contestId, userId])`, `@@index([userId, create
 
 ### Models
 
+#### `Assessment`
+
+| Field                     | Type                      | Attributes                                                                                                           |
+| ------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `id`                      | `String`                  | `@id @default(cuid())`                                                                                               |
+| `courseId`                | `String`                  | —                                                                                                                    |
+| `title`                   | `String`                  | —                                                                                                                    |
+| `summary`                 | `String`                  | `@db.Text`                                                                                                           |
+| `status`                  | `AssessmentStatus`        | `@default(draft)`                                                                                                    |
+| `opensAt`                 | `DateTime`                | —                                                                                                                    |
+| `dueAt`                   | `DateTime?`               | —                                                                                                                    |
+| `closesAt`                | `DateTime`                | —                                                                                                                    |
+| `maxAttemptsPerDay`       | `Int?`                    | —                                                                                                                    |
+| `attemptResetMinuteOfDay` | `Int?`                    | —                                                                                                                    |
+| `allowedLanguages`        | `SupportedLanguage[]`     | `@default([])`                                                                                                       |
+| `adjustmentRules`         | `Json?`                   | —                                                                                                                    |
+| `createdByUserId`         | `String`                  | —                                                                                                                    |
+| `createdAt`               | `DateTime`                | `@default(now())`                                                                                                    |
+| `updatedAt`               | `DateTime`                | `@updatedAt`                                                                                                         |
+| `plagiarismStatus`        | `PlagiarismReportStatus?` | —                                                                                                                    |
+| `plagiarismResults`       | `Json?`                   | —                                                                                                                    |
+| `plagiarismReportUrl`     | `String?`                 | —                                                                                                                    |
+| `plagiarismTriggeredAt`   | `DateTime?`               | —                                                                                                                    |
+| `plagiarismCompletedAt`   | `DateTime?`               | —                                                                                                                    |
+| `plagiarismTriggeredById` | `String?`                 | —                                                                                                                    |
+| `course`                  | `Course`                  | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                                                 |
+| `createdBy`               | `User`                    | `@relation("AssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)`                    |
+| `plagiarismTriggeredBy`   | `User?`                   | `@relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
+| `problems`                | `AssessmentProblem[]`     | —                                                                                                                    |
+| `submissions`             | `Submission[]`            | —                                                                                                                    |
+| `submissionFeedback`      | `SubmissionFeedback[]`    | —                                                                                                                    |
+
+Indexes & constraints: `@@index([courseId, status])`
+
 #### `AssessmentAuditLog`
 
 Append-only audit trail for assessment lifecycle transitions. `assessmentId` is intentionally not an FK — `delete_draft` removes the Assessment row and the audit entry must outlive it. `actorUserId` is null for system-initiated transitions (Temporal auto-publish).
@@ -508,6 +561,21 @@ Append-only audit trail for assessment lifecycle transitions. `assessmentId` is 
 
 Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId, createdAt])`
 
+#### `AssessmentProblem`
+
+| Field          | Type         | Attributes                                                               |
+| -------------- | ------------ | ------------------------------------------------------------------------ |
+| `id`           | `String`     | `@id @default(cuid())`                                                   |
+| `assessmentId` | `String`     | —                                                                        |
+| `problemId`    | `String`     | —                                                                        |
+| `ordinal`      | `Int`        | —                                                                        |
+| `points`       | `Int`        | `@default(100)`                                                          |
+| `createdAt`    | `DateTime`   | `@default(now())`                                                        |
+| `assessment`   | `Assessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
+| `problem`      | `Problem`    | `@relation(fields: [problemId], references: [id], onDelete: Cascade)`    |
+
+Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessmentId, ordinal])`
+
 #### `Course`
 
 | Field                 | Type                   | Attributes                                                                          |
@@ -523,59 +591,11 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `updatedAt`           | `DateTime`             | `@updatedAt`                                                                        |
 | `owner`               | `User`                 | `@relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)` |
 | `memberships`         | `CourseMembership[]`   | —                                                                                   |
-| `assessments`         | `Assessment[]`   | —                                                                                   |
+| `assessments`         | `Assessment[]`         | —                                                                                   |
 | `exams`               | `Exam[]`               | —                                                                                   |
 | `submissions`         | `Submission[]`         | —                                                                                   |
 | `announcements`       | `Announcement[]`       | —                                                                                   |
 | `assessmentAuditLogs` | `AssessmentAuditLog[]` | —                                                                                   |
-
-#### `Assessment`
-
-| Field                     | Type                        | Attributes                                                                                                           |
-| ------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `id`                      | `String`                    | `@id @default(cuid())`                                                                                               |
-| `courseId`                | `String`                    | —                                                                                                                    |
-| `title`                   | `String`                    | —                                                                                                                    |
-| `summary`                 | `String`                    | `@db.Text`                                                                                                           |
-| `status`                  | `AssessmentStatus`    | `@default(draft)`                                                                                                    |
-| `opensAt`                 | `DateTime`                  | —                                                                                                                    |
-| `dueAt`                   | `DateTime?`                 | —                                                                                                                    |
-| `closesAt`                | `DateTime`                  | —                                                                                                                    |
-| `maxAttemptsPerDay`       | `Int?`                      | —                                                                                                                    |
-| `allowedLanguages`        | `SupportedLanguage[]`       | `@default([])`                                                                                                       |
-| `adjustmentRules`         | `Json?`                     | —                                                                                                                    |
-| `createdByUserId`         | `String`                    | —                                                                                                                    |
-| `createdAt`               | `DateTime`                  | `@default(now())`                                                                                                    |
-| `updatedAt`               | `DateTime`                  | `@updatedAt`                                                                                                         |
-| `plagiarismStatus`        | `PlagiarismReportStatus?`   | —                                                                                                                    |
-| `plagiarismResults`       | `Json?`                     | —                                                                                                                    |
-| `plagiarismReportUrl`     | `String?`                   | —                                                                                                                    |
-| `plagiarismTriggeredAt`   | `DateTime?`                 | —                                                                                                                    |
-| `plagiarismCompletedAt`   | `DateTime?`                 | —                                                                                                                    |
-| `plagiarismTriggeredById` | `String?`                   | —                                                                                                                    |
-| `course`                  | `Course`                    | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                                                 |
-| `createdBy`               | `User`                      | `@relation("AssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)`              |
-| `plagiarismTriggeredBy`   | `User?`                     | `@relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
-| `problems`                | `AssessmentProblem[]` | —                                                                                                                    |
-| `submissions`             | `Submission[]`              | —                                                                                                                    |
-| `submissionFeedback`      | `SubmissionFeedback[]`      | —                                                                                                                    |
-
-Indexes & constraints: `@@index([courseId, status])`
-
-#### `AssessmentProblem`
-
-| Field          | Type               | Attributes                                                               |
-| -------------- | ------------------ | ------------------------------------------------------------------------ |
-| `id`           | `String`           | `@id @default(cuid())`                                                   |
-| `assessmentId` | `String`           | —                                                                        |
-| `problemId`    | `String`           | —                                                                        |
-| `ordinal`      | `Int`              | —                                                                        |
-| `points`       | `Int`              | `@default(100)`                                                          |
-| `createdAt`    | `DateTime`         | `@default(now())`                                                        |
-| `assessment`   | `Assessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
-| `problem`      | `Problem`          | `@relation(fields: [problemId], references: [id], onDelete: Cascade)`    |
-
-Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessmentId, ordinal])`
 
 #### `CourseMembership`
 
@@ -618,9 +638,10 @@ Indexes & constraints: `@@unique([courseId, userId])`, `@@index([courseId, role,
 | `linkUrl`   | `String?`          | —                                                                  |
 | `readAt`    | `DateTime?`        | —                                                                  |
 | `createdAt` | `DateTime`         | `@default(now())`                                                  |
+| `dedupeKey` | `String?`          | —                                                                  |
 | `user`      | `User`             | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
-Indexes & constraints: `@@index([userId, createdAt(sort: Desc)])`, `@@index([userId, readAt, createdAt(sort: Desc)])`
+Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort: Desc)])`, `@@index([userId, readAt, createdAt(sort: Desc)])`
 
 ## `ops.prisma`
 
@@ -672,6 +693,14 @@ Indexes & constraints: `@@index([status, pinned, publishedAt])`, `@@index([cours
 | `announcement`   | `Announcement` | `@relation(fields: [announcementId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@unique([announcementId, locale])`
+
+#### `PlatformSetting`
+
+| Field       | Type       | Attributes   |
+| ----------- | ---------- | ------------ |
+| `key`       | `String`   | `@id`        |
+| `value`     | `String`   | —            |
+| `updatedAt` | `DateTime` | `@updatedAt` |
 
 ## `plagiarism.prisma`
 
@@ -750,40 +779,56 @@ Single source of truth for "what kind of problem is this". Replaces the old (sub
 
 #### `Problem`
 
-| Field                   | Type                        | Attributes                                                                            |
-| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
-| `id`                    | `String`                    | `@id @default(cuid())`                                                                |
-| `displayId`             | `Int`                       | `@unique @default(autoincrement())`                                                   |
-| `title`                 | `String`                    | —                                                                                     |
-| `authorId`              | `String?`                   | —                                                                                     |
-| `visibility`            | `ProblemVisibility`         | `@default(public)`                                                                    |
-| `status`                | `ProblemStatus`             | `@default(draft)`                                                                     |
-| `difficulty`            | `ProblemDifficulty`         | `@default(medium)`                                                                    |
-| `tags`                  | `String[]`                  | `@default([])`                                                                        |
-| `type`                  | `ProblemType`               | `@default(full_source)`                                                               |
-| `timeLimitMs`           | `Int`                       | —                                                                                     |
-| `memoryLimitMb`         | `Int`                       | —                                                                                     |
-| `judgeConfig`           | `Json?`                     | —                                                                                     |
-| `samples`               | `Json?`                     | —                                                                                     |
-| `advancedImageRef`      | `String?`                   | —                                                                                     |
-| `advancedImageSource`   | `ProblemImageSource?`       | —                                                                                     |
-| `advancedRequiredPaths` | `String[]`                  | `@default([])`                                                                        |
-| `createdAt`             | `DateTime`                  | `@default(now())`                                                                     |
-| `updatedAt`             | `DateTime`                  | `@updatedAt`                                                                          |
-| `author`                | `User?`                     | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)` |
-| `statements`            | `ProblemStatementI18n[]`    | —                                                                                     |
-| `testcaseSets`          | `TestcaseSet[]`             | —                                                                                     |
-| `workspaceFiles`        | `ProblemWorkspaceFile[]`    | —                                                                                     |
-| `submissions`           | `Submission[]`              | —                                                                                     |
-| `contestLinks`          | `ContestProblem[]`          | —                                                                                     |
-| `examLinks`             | `ExamProblem[]`             | —                                                                                     |
-| `assessmentLinks`       | `AssessmentProblem[]` | —                                                                                     |
-| `editorials`            | `Editorial[]`               | —                                                                                     |
-| `scoreOverrides`        | `ScoreOverride[]`           | `@relation("ScoreOverrideProblem")`                                                   |
-| `clarifications`        | `Clarification[]`           | `@relation("ProblemClarifications")`                                                  |
-| `submissionFeedback`    | `SubmissionFeedback[]`      | `@relation("SubmissionFeedbackProblem")`                                              |
+| Field                   | Type                     | Attributes                                                                            |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------- |
+| `id`                    | `String`                 | `@id @default(cuid())`                                                                |
+| `displayId`             | `Int`                    | `@unique @default(autoincrement())`                                                   |
+| `title`                 | `String`                 | —                                                                                     |
+| `authorId`              | `String?`                | —                                                                                     |
+| `visibility`            | `ProblemVisibility`      | `@default(public)`                                                                    |
+| `status`                | `ProblemStatus`          | `@default(draft)`                                                                     |
+| `difficulty`            | `ProblemDifficulty`      | `@default(medium)`                                                                    |
+| `tags`                  | `String[]`               | `@default([])`                                                                        |
+| `type`                  | `ProblemType`            | `@default(full_source)`                                                               |
+| `timeLimitMs`           | `Int`                    | —                                                                                     |
+| `memoryLimitMb`         | `Int`                    | —                                                                                     |
+| `judgeConfig`           | `Json?`                  | —                                                                                     |
+| `samples`               | `Json?`                  | —                                                                                     |
+| `advancedImageRef`      | `String?`                | —                                                                                     |
+| `advancedImageSource`   | `ProblemImageSource?`    | —                                                                                     |
+| `advancedRequiredPaths` | `String[]`               | `@default([])`                                                                        |
+| `createdAt`             | `DateTime`               | `@default(now())`                                                                     |
+| `updatedAt`             | `DateTime`               | `@updatedAt`                                                                          |
+| `author`                | `User?`                  | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)` |
+| `statements`            | `ProblemStatementI18n[]` | —                                                                                     |
+| `testcaseSets`          | `TestcaseSet[]`          | —                                                                                     |
+| `workspaceFiles`        | `ProblemWorkspaceFile[]` | —                                                                                     |
+| `submissions`           | `Submission[]`           | —                                                                                     |
+| `contestLinks`          | `ContestProblem[]`       | —                                                                                     |
+| `examLinks`             | `ExamProblem[]`          | —                                                                                     |
+| `assessmentLinks`       | `AssessmentProblem[]`    | —                                                                                     |
+| `editorials`            | `Editorial[]`            | —                                                                                     |
+| `scoreOverrides`        | `ScoreOverride[]`        | `@relation("ScoreOverrideProblem")`                                                   |
+| `clarifications`        | `Clarification[]`        | `@relation("ProblemClarifications")`                                                  |
+| `submissionFeedback`    | `SubmissionFeedback[]`   | `@relation("SubmissionFeedbackProblem")`                                              |
+| `bookmarks`             | `ProblemBookmark[]`      | —                                                                                     |
 
 Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([authorId])`, `@@index([difficulty])`, `@@index([tags], type: Gin)`
+
+#### `ProblemBookmark`
+
+Per-user bookmark/favourite of a problem. Powers the "Bookmarked" filter on the public library. Plain join row — no extra metadata.
+
+| Field       | Type       | Attributes                                                            |
+| ----------- | ---------- | --------------------------------------------------------------------- |
+| `id`        | `String`   | `@id @default(cuid())`                                                |
+| `userId`    | `String`   | —                                                                     |
+| `problemId` | `String`   | —                                                                     |
+| `createdAt` | `DateTime` | `@default(now())`                                                     |
+| `user`      | `User`     | `@relation(fields: [userId], references: [id], onDelete: Cascade)`    |
+| `problem`   | `Problem`  | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([userId, problemId])`, `@@index([userId, createdAt])`
 
 #### `ProblemStatementI18n`
 
@@ -876,7 +921,7 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 #### `SubmissionStatus`
 
-`queued` · `compiling` · `running` · `accepted` · `wrong_answer` · `time_limit_exceeded` · `memory_limit_exceeded` · `runtime_error` · `compile_error`
+`queued` · `compiling` · `running` · `accepted` · `wrong_answer` · `time_limit_exceeded` · `memory_limit_exceeded` · `runtime_error` · `compile_error` · `system_error`
 
 #### `SupportedLanguage`
 
@@ -891,6 +936,7 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 | `id`        | `String`            | `@id @default(cuid())`                                                |
 | `userId`    | `String`            | —                                                                     |
 | `problemId` | `String`            | —                                                                     |
+| `title`     | `String`            | `@default("")`                                                        |
 | `content`   | `String`            | `@db.Text`                                                            |
 | `language`  | `SupportedLanguage` | —                                                                     |
 | `createdAt` | `DateTime`          | `@default(now())`                                                     |
@@ -899,6 +945,7 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 | `user`      | `User`              | `@relation(fields: [userId], references: [id], onDelete: Cascade)`    |
 | `problem`   | `Problem`           | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
 | `reports`   | `EditorialReport[]` | —                                                                     |
+| `votes`     | `EditorialVote[]`   | —                                                                     |
 
 Indexes & constraints: `@@unique([userId, problemId, language])`, `@@index([problemId, createdAt])`
 
@@ -921,6 +968,23 @@ User-filed report against an editorial (spam, off-topic, etc.). Surfaces in the 
 | `resolvedBy`       | `User?`                 | `@relation("EditorialReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)` |
 
 Indexes & constraints: `@@unique([editorialId, reportedByUserId])`, `@@index([status, createdAt])`
+
+#### `EditorialVote`
+
+One vote per (editorial, user). `value` is +1 (upvote) or -1 (downvote); the net score is the sum. Removing a vote deletes the row rather than storing 0, so the unique index stays meaningful.
+
+| Field         | Type        | Attributes                                                              |
+| ------------- | ----------- | ----------------------------------------------------------------------- |
+| `id`          | `String`    | `@id @default(cuid())`                                                  |
+| `editorialId` | `String`    | —                                                                       |
+| `userId`      | `String`    | —                                                                       |
+| `value`       | `Int`       | —                                                                       |
+| `createdAt`   | `DateTime`  | `@default(now())`                                                       |
+| `updatedAt`   | `DateTime`  | `@updatedAt`                                                            |
+| `editorial`   | `Editorial` | `@relation(fields: [editorialId], references: [id], onDelete: Cascade)` |
+| `user`        | `User`      | `@relation(fields: [userId], references: [id], onDelete: Cascade)`      |
+
+Indexes & constraints: `@@unique([editorialId, userId])`, `@@index([editorialId])`
 
 #### `ScoreOverride`
 
@@ -975,36 +1039,38 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". Domain helper `deriveSubmissionMode` lives in `@nojv/domain`. A submission carries at most one of `assessmentId` / `examId` / `contestId` — the xor is enforced by the `Submission_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). `virtualContestId` sits outside that mutual exclusion: a virtual-contest submission is practice-like (it does not count toward any real contest scoreboard) but carries the `virtualContestId` tag so the personal re-run can aggregate its own score. It is therefore valid for a row to have only `virtualContestId` set with all three context columns null.
 
-| Field                    | Type                     | Attributes                                                                         |
-| ------------------------ | ------------------------ | ---------------------------------------------------------------------------------- |
-| `id`                     | `String`                 | `@id @default(cuid())`                                                             |
-| `userId`                 | `String`                 | —                                                                                  |
-| `problemId`              | `String`                 | —                                                                                  |
-| `contestParticipationId` | `String?`                | —                                                                                  |
-| `examId`                 | `String?`                | —                                                                                  |
-| `contestId`              | `String?`                | —                                                                                  |
-| `virtualContestId`       | `String?`                | —                                                                                  |
-| `courseId`               | `String?`                | —                                                                                  |
-| `assessmentId`     | `String?`                | —                                                                                  |
-| `sampleOnly`             | `Boolean`                | `@default(false)`                                                                  |
-| `language`               | `SupportedLanguage`      | —                                                                                  |
-| `sourceCode`             | `String`                 | `@db.Text`                                                                         |
-| `status`                 | `SubmissionStatus`       | `@default(queued)`                                                                 |
-| `score`                  | `Int`                    | `@default(0)`                                                                      |
-| `runtimeMs`              | `Int?`                   | —                                                                                  |
-| `memoryKb`               | `Int?`                   | —                                                                                  |
-| `verdictDetail`          | `Json?`                  | —                                                                                  |
-| `createdAt`              | `DateTime`               | `@default(now())`                                                                  |
-| `updatedAt`              | `DateTime`               | `@updatedAt`                                                                       |
-| `user`                   | `User`                   | `@relation(fields: [userId], references: [id], onDelete: Cascade)`                 |
-| `problem`                | `Problem`                | `@relation(fields: [problemId], references: [id], onDelete: Cascade)`              |
-| `contestParticipation`   | `ContestParticipation?`  | `@relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)` |
-| `exam`                   | `Exam?`                  | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                 |
-| `contest`                | `Contest?`               | `@relation(fields: [contestId], references: [id], onDelete: Cascade)`              |
-| `virtualContest`         | `VirtualContest?`        | `@relation(fields: [virtualContestId], references: [id], onDelete: Cascade)`       |
-| `course`                 | `Course?`                | `@relation(fields: [courseId], references: [id], onDelete: SetNull)`               |
-| `assessment`       | `Assessment?`      | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)`     |
-| `rejudgeLogs`            | `SubmissionRejudgeLog[]` | —                                                                                  |
+| Field                     | Type                     | Attributes                                                                         |
+| ------------------------- | ------------------------ | ---------------------------------------------------------------------------------- |
+| `id`                      | `String`                 | `@id @default(cuid())`                                                             |
+| `userId`                  | `String`                 | —                                                                                  |
+| `problemId`               | `String`                 | —                                                                                  |
+| `contestParticipationId`  | `String?`                | —                                                                                  |
+| `examId`                  | `String?`                | —                                                                                  |
+| `contestId`               | `String?`                | —                                                                                  |
+| `virtualContestId`        | `String?`                | —                                                                                  |
+| `courseId`                | `String?`                | —                                                                                  |
+| `assessmentId`            | `String?`                | —                                                                                  |
+| `sampleOnly`              | `Boolean`                | `@default(false)`                                                                  |
+| `language`                | `SupportedLanguage`      | —                                                                                  |
+| `sourceStoragePrefix`     | `String`                 | —                                                                                  |
+| `status`                  | `SubmissionStatus`       | `@default(queued)`                                                                 |
+| `score`                   | `Int`                    | `@default(0)`                                                                      |
+| `runtimeMs`               | `Int?`                   | —                                                                                  |
+| `memoryKb`                | `Int?`                   | —                                                                                  |
+| `verdictSummary`          | `Json?`                  | —                                                                                  |
+| `verdictDetailStorageKey` | `String?`                | —                                                                                  |
+| `ipAddress`               | `String?`                | —                                                                                  |
+| `createdAt`               | `DateTime`               | `@default(now())`                                                                  |
+| `updatedAt`               | `DateTime`               | `@updatedAt`                                                                       |
+| `user`                    | `User`                   | `@relation(fields: [userId], references: [id], onDelete: Cascade)`                 |
+| `problem`                 | `Problem`                | `@relation(fields: [problemId], references: [id], onDelete: Cascade)`              |
+| `contestParticipation`    | `ContestParticipation?`  | `@relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)` |
+| `exam`                    | `Exam?`                  | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                 |
+| `contest`                 | `Contest?`               | `@relation(fields: [contestId], references: [id], onDelete: Cascade)`              |
+| `virtualContest`          | `VirtualContest?`        | `@relation(fields: [virtualContestId], references: [id], onDelete: Cascade)`       |
+| `course`                  | `Course?`                | `@relation(fields: [courseId], references: [id], onDelete: SetNull)`               |
+| `assessment`              | `Assessment?`            | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)`           |
+| `rejudgeLogs`             | `SubmissionRejudgeLog[]` | —                                                                                  |
 
 Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`
 
@@ -1012,43 +1078,43 @@ Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, crea
 
 Teacher-authored, student-visible grading comment per (student, problem, assessment-or-exam). Sibling of ScoreOverride; `comment` is feedback prose with no effect on the computed score. Exactly one of `assessmentId` / `examId` is non-null — enforced by the `SubmissionFeedback_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). Contest context is intentionally excluded.
 
-| Field                | Type                           | Attributes                                                                                             |
-| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `id`                 | `String`                       | `@id @default(cuid())`                                                                                 |
-| `studentUserId`      | `String`                       | —                                                                                                      |
-| `problemId`          | `String`                       | —                                                                                                      |
-| `assessmentId` | `String?`                      | —                                                                                                      |
-| `examId`             | `String?`                      | —                                                                                                      |
-| `comment`            | `String`                       | `@db.Text`                                                                                             |
-| `authorUserId`       | `String?`                      | —                                                                                                      |
-| `createdAt`          | `DateTime`                     | `@default(now())`                                                                                      |
-| `updatedAt`          | `DateTime`                     | `@updatedAt`                                                                                           |
-| `student`            | `User`                         | `@relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)` |
-| `problem`            | `Problem`                      | `@relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)`     |
-| `assessment`         | `Assessment?`            | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)`                         |
-| `exam`               | `Exam?`                        | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                                     |
-| `author`             | `User?`                        | `@relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)`   |
-| `auditLogs`          | `SubmissionFeedbackAuditLog[]` | —                                                                                                      |
+| Field           | Type                           | Attributes                                                                                             |
+| --------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `id`            | `String`                       | `@id @default(cuid())`                                                                                 |
+| `studentUserId` | `String`                       | —                                                                                                      |
+| `problemId`     | `String`                       | —                                                                                                      |
+| `assessmentId`  | `String?`                      | —                                                                                                      |
+| `examId`        | `String?`                      | —                                                                                                      |
+| `comment`       | `String`                       | `@db.Text`                                                                                             |
+| `authorUserId`  | `String?`                      | —                                                                                                      |
+| `createdAt`     | `DateTime`                     | `@default(now())`                                                                                      |
+| `updatedAt`     | `DateTime`                     | `@updatedAt`                                                                                           |
+| `student`       | `User`                         | `@relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)` |
+| `problem`       | `Problem`                      | `@relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)`     |
+| `assessment`    | `Assessment?`                  | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)`                               |
+| `exam`          | `Exam?`                        | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                                     |
+| `author`        | `User?`                        | `@relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)`   |
+| `auditLogs`     | `SubmissionFeedbackAuditLog[]` | —                                                                                                      |
 
 Indexes & constraints: `@@unique([assessmentId, problemId, studentUserId])`, `@@unique([examId, problemId, studentUserId])`
 
 #### `SubmissionFeedbackAuditLog`
 
-| Field                | Type                       | Attributes                                                                                                    |
-| -------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `id`                 | `String`                   | `@id @default(cuid())`                                                                                        |
-| `feedbackId`         | `String?`                  | —                                                                                                             |
-| `studentUserId`      | `String`                   | —                                                                                                             |
-| `problemId`          | `String`                   | —                                                                                                             |
-| `assessmentId` | `String?`                  | —                                                                                                             |
-| `examId`             | `String?`                  | —                                                                                                             |
-| `action`             | `SubmissionFeedbackAction` | —                                                                                                             |
-| `oldComment`         | `String?`                  | `@db.Text`                                                                                                    |
-| `newComment`         | `String?`                  | `@db.Text`                                                                                                    |
-| `changedByUserId`    | `String?`                  | —                                                                                                             |
-| `createdAt`          | `DateTime`                 | `@default(now())`                                                                                             |
-| `feedback`           | `SubmissionFeedback?`      | `@relation(fields: [feedbackId], references: [id], onDelete: SetNull)`                                        |
-| `changedBy`          | `User?`                    | `@relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
+| Field             | Type                       | Attributes                                                                                                    |
+| ----------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `id`              | `String`                   | `@id @default(cuid())`                                                                                        |
+| `feedbackId`      | `String?`                  | —                                                                                                             |
+| `studentUserId`   | `String`                   | —                                                                                                             |
+| `problemId`       | `String`                   | —                                                                                                             |
+| `assessmentId`    | `String?`                  | —                                                                                                             |
+| `examId`          | `String?`                  | —                                                                                                             |
+| `action`          | `SubmissionFeedbackAction` | —                                                                                                             |
+| `oldComment`      | `String?`                  | `@db.Text`                                                                                                    |
+| `newComment`      | `String?`                  | `@db.Text`                                                                                                    |
+| `changedByUserId` | `String?`                  | —                                                                                                             |
+| `createdAt`       | `DateTime`                 | `@default(now())`                                                                                             |
+| `feedback`        | `SubmissionFeedback?`      | `@relation(fields: [feedbackId], references: [id], onDelete: SetNull)`                                        |
+| `changedBy`       | `User?`                    | `@relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
 
 Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`
 

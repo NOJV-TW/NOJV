@@ -64,7 +64,7 @@ holds no student code) makes the AC/WA decision.
 - **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`). The run container produces `rawRuns` (no answer present); the worker then launches a **second isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) per clean case. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Partial credit and feedback travel through files in `feedback_dir`: `score.txt` (0–100 integer) and `teammessage.txt` (shown to the student); an optional `judgemessage.txt` is operator-only. Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `set_score()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface. The parsed score flows into the per-case `score` field that `PROPORTIONAL` subtask scoring averages over (see [score](#score)).
 - **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`apps/sandbox-runner/assets/wrappers/python-interactor-domjudge.py`).
 
-On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` and `advanced` remain **Docker-backend-only** — their live-pipe / TA-tarball topologies are not expressible through the K8s Job API, so `K8sExecutor.execute()` fail-fasts them with a system error. See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
+On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` **also runs on K8s** (`K8sExecutor.executeInteractive` → `runInteractiveCase`): one Job per testcase with two containers (solution + interactor) wired over a `socat` TCP bridge on port 7777, the secret input/answer mounted only into the interactor side. Only **tarball-source `advanced`** stays Docker-backend-only (the cluster cannot `docker load` a TA-supplied tarball); **registry-source `advanced`** runs as a K8s Job. See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
 
 ### score
 
@@ -72,7 +72,7 @@ Per-case results are aggregated into a 0–100 raw score using `TestcaseSet.scor
 
 - `ALL_OR_NOTHING` — set weight if every case in the subtask is AC, else 0. Default.
 - `PROPORTIONAL` — `weight * (Σ caseScore) / (total * 100)`. Each `caseScore` is the per-case 0–100 score: 100 for AC and 0 for any other verdict under `standard`, or the validator/interactor `score.txt` value under `checker`/`interactive` (so partial credit on a single case flows through).
-- `MINIMUM` — accepted by the schema but behaves identically to `ALL_OR_NOTHING` today. The runner has no separate signal to take a minimum over after the per-case score is already produced, so `buildSubtaskResults()` collapses it to the binary case.
+- `MINIMUM` — `weight * min(caseScore) / 100`. The subtask is awarded its weight scaled by the **lowest** per-case score, so a single failing case (score 0) zeroes the subtask while a uniformly-90 set keeps 90% of the weight. Distinct from both `ALL_OR_NOTHING` (binary) and `PROPORTIONAL` (average).
 
 The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/domain/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
 
@@ -130,11 +130,10 @@ The TA provides an image via two columns on `Problem`:
 
 For `tarball` sources, the worker streams the tarball out of object storage and `docker load`s it on first use. The loaded ref is cached per storage key for the worker's lifetime.
 
-Resource limits come from `Problem.timeLimitMs` / `Problem.memoryLimitMb`:
+Resource limits come from `Problem.timeLimitMs` / `Problem.memoryLimitMb` — the same fields and the same validation bounds as standard mode (there is no separate advanced limit field):
 
-- `timeLimitMs` — 1 s to 300 s wall clock for the entire container
-- `memoryLimitMb` — 16 MB to 4096 MB cgroup limit (advanced judge images may
-  need more headroom than standard mode's 1024 MB ceiling)
+- `timeLimitMs` — 100 ms to 30 s, used as the container wall-clock budget (`advanced.totalTimeMs`)
+- `memoryLimitMb` — 16 MB to 1024 MB cgroup limit (`advanced.memoryMb`)
 
 Advanced Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs (`--read-only`), and the same `--memory` / `--cpus` / `--pids-limit` bounds as standard mode. Writes are permitted only to two places: `/tmp` (a 64m `tmpfs`, for scratch the TA image needs) and `/workspace` (the host bind mount where the TA image writes `output/result.json`). The `/workspace` mount has no `tmpfs` size cap — the host disk is instead protected by a watchdog that polls the directory size every 2 s and force-removes the container if it exceeds **1 GiB**, failing the submission with a System Error (`advancedFallbackResult`). Unlike standard mode, advanced containers do **not** run with `--user`: the TA image is trusted and manages its own user. Any packages or test data the TA image needs must be baked into the image at build time — runtime fetches are not allowed. Advanced Mode also always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
 
@@ -251,11 +250,17 @@ The judge pipeline is driven by `submissionJudgeWorkflow` (`apps/worker/src/work
 
 Timeouts and retry policy applied to the judge activities proxy:
 
-| Activity proxy                         | `startToCloseTimeout` | `maximumAttempts` |
-| -------------------------------------- | --------------------- | ----------------- |
-| `judge.*` (judging activities)         | `5m`                  | 3                 |
-| `lifecycle.*` short (stats, contest)   | `30s`                 | 3                 |
-| `lifecycle.publishVerdict` (SSE/Redis) | `10s`                 | 2                 |
+| Activity proxy                              | `startToCloseTimeout` | `heartbeatTimeout` | `maximumAttempts` |
+| ------------------------------------------- | --------------------- | ------------------ | ----------------- |
+| `judge.*` (context / complete / rejudge)    | `5m`                  | —                  | 3                 |
+| `judgeSandbox.executeSandbox` (sandbox run) | `10m`                 | `60s`              | 3                 |
+| `lifecycle.*` short (stats, contest)        | `30s`                 | —                  | 3                 |
+| `lifecycle.publishVerdict` (SSE/Redis)      | `10s`                 | —                  | 2                 |
+
+`executeSandbox` runs on its own `judgeSandbox` proxy with a longer
+`10m` ceiling and a `60s` heartbeat (the sandbox-runner heartbeats so a
+hung container is detected before the start-to-close timeout); the rest
+of the judge activities use the shorter `5m` `judge` proxy.
 
 `deriveJudgeMode` is deliberately **inlined into the workflow file** (`submission-judge.ts:48-53`) instead of imported from `@nojv/domain`. Pulling the domain package into the workflow bundle would drag Prisma into the workflow sandbox, which Temporal forbids (workflow code must be deterministic and self-contained). The inlined two-line check mirrors `submissionDomain.deriveJudgeMode`; a unit test on the domain helper exercises the same condition to keep the two copies in sync.
 
@@ -272,7 +277,7 @@ Timeouts and retry policy applied to the judge activities proxy:
 - Isolated checker validator executor (Docker) — `apps/worker/src/services/validator-executor.ts`
 - Isolated interactive two-container executor (Docker) — `apps/worker/src/services/interactive-executor.ts`
 - Advanced Mode executor (Docker only) — `apps/worker/src/services/advanced-mode-executor.ts`
-- Kubernetes executor (Standard + checker via a two-Job pipeline; rejects Advanced and interactive) — `apps/worker/src/services/k8s-executor.ts`
+- Kubernetes executor (Standard + checker via two-Job pipeline, interactive via per-case two-container Job, registry-source advanced via Job; rejects only tarball-source advanced) — `apps/worker/src/services/k8s-executor.ts`
 - Sandbox plan / config builder — `apps/worker/src/services/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/services/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`

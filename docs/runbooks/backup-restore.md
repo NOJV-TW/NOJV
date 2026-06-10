@@ -20,6 +20,104 @@ traffic.** Restoring in place over a corrupt primary loses the only forensic
 copy of the corrupt data and risks compounding the problem. Every procedure
 below produces a parallel target first.
 
+> **Two deployment shapes.** The shipped CD path (README → "CD To Remote
+> Server") is a **self-hosted Docker Compose** rollout on a single Linux
+> host — covered in the next section. The GCP sections below
+> (Cloud SQL / Memorystore / GCS) document the managed-cloud posture for
+> environments deployed that way. Use the section matching how the target
+> environment actually runs.
+
+---
+
+## Self-hosted Docker Compose — primary user data
+
+This is the posture for the default self-hosted rollout, where PostgreSQL,
+Redis, and MinIO run as Compose services with named Docker volumes
+(`postgres_data`, `redis_data`, `minio_data`) on one host.
+
+### Backup posture
+
+- **PostgreSQL** (`postgres` service, database `nojv`, volume
+  `postgres_data`) holds every durable record and is the only layer that
+  _must_ be backed up. Take a logical dump on a cron schedule (e.g. hourly
+  or daily depending on RPO) with `pg_dump`, and copy the dumps off-host
+  (another machine, an object store, or cloud bucket) — a backup that lives
+  only on the same disk as the data does not survive disk loss.
+- **Redis** (`redis_data`) and **MinIO** (`minio_data`) follow the same
+  rebuild / re-upload stories as the Memorystore and GCS sections below:
+  Redis is derived/ephemeral (rebuilds from Postgres), MinIO holds
+  author-provided assets (re-uploadable). Snapshotting their volumes is
+  optional; the Postgres dump is the load-bearing backup.
+
+### Taking a dump
+
+A `pg_dump` against the running container is enough; run it from the host
+(generic — adjust the service/db/user names if your `.env` overrides
+`POSTGRES_USER` / `POSTGRES_DB`). The repo ships a helper script under
+`infra/` for this; the manual equivalent is:
+
+```bash
+# Compressed custom-format dump (best for selective restore)
+docker compose exec -T postgres \
+  pg_dump -U "${POSTGRES_USER:-postgres}" -Fc nojv \
+  > "nojv-$(date -u +%Y%m%dT%H%M%SZ).dump"
+
+# then copy the dump off-host (scp / rclone / aws s3 cp ...)
+```
+
+Keep a rolling window (e.g. 30 daily dumps) and delete older ones. Verify
+a dump is non-empty and restorable, not just that the file exists.
+
+### Restore procedure
+
+Restore into a **fresh** database, validate, then cut over — never restore
+in place over a live primary.
+
+1. Stop the app tiers so nothing writes mid-restore:
+
+   ```bash
+   docker compose stop web worker
+   ```
+
+2. Create a parallel database and restore into it (keeps the original for
+   forensics):
+
+   ```bash
+   docker compose exec -T postgres \
+     createdb -U "${POSTGRES_USER:-postgres}" nojv_restore
+
+   docker compose exec -T postgres \
+     pg_restore -U "${POSTGRES_USER:-postgres}" -d nojv_restore --no-owner \
+     < nojv-<timestamp>.dump
+   ```
+
+3. Validate: connect to `nojv_restore`, spot-check high-volume tables
+   (`User`, `Problem`, `Submission`, `ContestParticipation`,
+   `ExamParticipation`) and confirm the row that triggered the restore is
+   present.
+
+4. Cut over by renaming (the original stays as `nojv_broken_<date>` for
+   forensics):
+
+   ```bash
+   docker compose exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -c \
+     "ALTER DATABASE nojv RENAME TO nojv_broken_$(date -u +%Y%m%d);"
+   docker compose exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -c \
+     "ALTER DATABASE nojv_restore RENAME TO nojv;"
+   ```
+
+5. Restart the app tiers — they reconnect with the unchanged
+   `DATABASE_URL` (it points at the `nojv` database name):
+
+   ```bash
+   docker compose start web worker
+   ```
+
+6. Keep `nojv_broken_<date>` for at least 7 days before dropping it.
+
+If validation fails after cutover, reverse the rename in step 4 and
+restart the app tiers.
+
 ---
 
 ## Cloud SQL (PostgreSQL) — primary user data
@@ -122,7 +220,7 @@ primary, and that you have already paged the on-call channel.
    ```
 
    Spot-check the affected tables (`Course`, `Submission`,
-   `AssessmentParticipation`, etc.). Run `SELECT count(*)` against each
+   `ContestParticipation`, `ExamParticipation`, etc.). Run `SELECT count(*)` against each
    high-volume table and compare against expectations. Verify the row that
    triggered the restore is present.
 
@@ -159,11 +257,15 @@ This is why we did not delete the original in step 6.
 Redis is **not** the durable store for any feature — every Redis key is
 either:
 
-- a cache (`HotCache`, problem metadata) that rebuilds on miss,
-- a derived projection (`scoreboard:*`) that rebuilds from
+- a derived projection (`nojv:scoreboard:*`) that rebuilds from
   `ContestParticipation` / `Submission` rows in Postgres on the next write,
-- a transient cooldown / rate-limit counter,
+- a transient rate-limit counter,
+- a one-off cache snapshot (e.g. `nojv:cache:admin-dashboard`) that
+  rebuilds on miss,
 - a pub/sub channel (no persistence by design).
+
+(Submission cooldown is enforced with PostgreSQL advisory locks, not Redis,
+so it is unaffected by Redis loss.)
 
 For the strict definition of "if Redis vanishes, can the platform continue
 operating?", the answer is yes. Submissions still process, auth still works,

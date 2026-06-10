@@ -2,7 +2,7 @@
 
 ## Users And Outcomes
 
-- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, view editorials after AC; course enrollment is teacher-driven (no self-serve join token)
+- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, view editorials after AC; once their email is verified they may also create and own problems; course enrollment is teacher-driven (no self-serve join token)
 - **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments and exams (publish / archive / delete-draft lifecycle), duplicate existing courses, monitor student progress matrix, trigger plagiarism detection
 - **Admin**: full platform management, user role assignment (promote/disable), system announcements, all teacher capabilities
 - **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, page lock, submit cooldown
@@ -13,7 +13,7 @@
 ### Problems
 
 - Problem listing with filters (difficulty, tags, solved status)
-- Problem creation and editing (admin/teacher)
+- Problem creation: any email-verified user (including students) may create and own problems; editing existing problems beyond ownership stays admin/teacher (`canCreateProblem` vs `canEditProblem`)
 - i18n problem statements (en, zh-TW) with markdown + KaTeX rendering
 - Image upload via drag-and-drop / paste into markdown textareas (S3-compatible storage)
 - Monaco Editor code workspace with multi-language support
@@ -80,7 +80,7 @@
 - Exam Settings tab: basic info, scoring mode, scoreboard mode, allowed languages, submit cooldown, proctoring (page lock / IP binding / IP whitelist / violation mode), lifecycle (publish / archive / delete-draft) with status-aware field locks
 - Editable Problems tab: attach / detach / reorder / per-problem points (locked once exam starts)
 - Submissions sub-tab: students × problems matrix with best score + attempt count, CSV export, search, sort, pagination
-- Session-based proctoring: `?/startExam` form action binds the student IP pin; `/api/exam-sessions/[examId]/heartbeat` records visibility events; `?/releaseSession` form action closes the session
+- Session-based proctoring: `?/startExam` form action binds the student IP pin; `/api/exam-sessions/[examId]/heartbeat` records visibility events; `?/releaseSession` form action closes the session; `?/releaseAllSessions` lets an instructor release every active session at once
 - Page lock confines the student to `/exams/[examId]/*` while the session is active
 - Student post-close review block on the detail page — links fall back to ordinary practice URLs
 
@@ -100,6 +100,8 @@
 - Create / read / edit / soft-delete via API; soft-deleted rows filtered from every read path
 - Dedicated paginated list page (`/(app)/problems/[problemId]/editorials`)
 - Per-editorial edit page; author or admin only
+- Up/down voting per editorial (`EditorialVote`, one vote per user)
+- User-filed reports against editorials (`EditorialReport`) feeding an admin moderation queue at `/admin/content/editorial-reports` (resolve soft-deletes the editorial; dismiss closes the report)
 
 ### User Dashboard
 
@@ -144,8 +146,7 @@
 - No mobile-native application
 - No mobile workspace — phones can browse the site (statements, scoreboards, lists, editorials, dashboard) but the Monaco editor + submission form are hidden below `md` and replaced by `<MobileWorkspaceBlocker>` directing users to the desktop
 - No public email/password registration or self-serve password reset; admin uses seeded credentials only, all other users sign in via GitHub or Google
-- No bulk operations (no bulk session release, no CSV user import, no submission zip export)
-- No editorial voting / comments / moderation queue beyond admin soft-delete
+- No CSV user import, no submission zip export
 
 ## Related Docs
 

@@ -41,7 +41,7 @@ Six manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_
 
 PostgreSQL is the single durable store. All other systems derive from it:
 
-- **Redis**: Cache-aside with TTL. Scoreboard sorted sets rebuilt from DB on cache miss.
+- **Redis**: Scoreboard sorted sets rebuilt from DB on miss; pub/sub for SSE events. No general domain cache layer (the only `nojv:cache:*` key is the admin dashboard snapshot).
 - **Temporal**: Workflow state is durable within Temporal, but final verdicts are persisted to PostgreSQL.
 - **SSE events**: Ephemeral notifications. Clients reconnect and read latest state from DB/Temporal.
 
@@ -57,9 +57,9 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ### Redis Unavailable
 
-**Impact**: Degraded — no real-time events, no cache, no scoreboards, no cooldown enforcement.
+**Impact**: Degraded — no real-time SSE events and no live scoreboard ZSET; the scoreboard read path falls back to rebuilding from PostgreSQL. Submission cooldown enforcement is unaffected (it uses PostgreSQL advisory locks, not Redis).
 **Mitigation**: Memorystore HA (automatic failover).
-**Recovery**: Automatic failover. Scoreboards rebuild on first write. Cache refills on read.
+**Recovery**: Automatic failover. Scoreboard ZSETs rebuild on first write.
 **Note**: Submissions still process (Temporal handles orchestration). SSE clients reconnect.
 
 ### Temporal Unavailable
@@ -90,6 +90,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 3. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
 4. User stats and contest scores are updated after the verdict is committed.
 5. SSE notification is best-effort — the client falls back to polling Temporal/DB.
+6. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
 
 ### Contest Lifecycle
 
@@ -100,16 +101,16 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ### Assessment Lifecycle
 
-1. `assessmentLifecycleWorkflow` manages open → due → close transitions.
+1. Assessments have no dedicated lifecycle workflow. Open → due → close is purely time-driven: submission acceptance is gated by the `closesAt` timestamp, checked server-side in the domain layer on every submit.
 2. Deadline notifications are best-effort (SSE via Redis pub/sub).
-3. Submission acceptance is gated by `closesAt` timestamp, checked server-side.
+3. Exam timing is the exception — exams use `examAutoCloseWorkflow` (a durable Temporal timer keyed on `examId`) to force-close active sessions at `endsAt`.
 
 ### Plagiarism Detection
 
-1. `PlagiarismReport` record created in DB before Temporal workflow starts.
-2. Report ID passed to workflow to avoid duplicate record creation.
-3. Dolos runs entirely in-process; retries are idempotent and produce the same pair set on the same input.
-4. Results stored in `PlagiarismReport.results` JSON column.
+1. `plagiarismCheckWorkflow` takes `(targetType, targetId)` directly; the workflow is keyed `plagiarism-{targetType}-{targetId}` with `TERMINATE_EXISTING` id-reuse, so a re-trigger replaces any in-flight run rather than duplicating it. There is no separate report record created up front.
+2. Dolos runs entirely in-process; retries are idempotent and produce the same pair set on the same input.
+3. The Dolos report itself is inlined on the `Exam` / `Assessment` row as `plagiarism*` columns and is wiped on each re-trigger.
+4. Pair-level staff review state (false-positive marking) survives re-runs in the `PlagiarismPairFlag` table, keyed `(contextType, contextId, pairKey)`. Each run is recorded in `PlagiarismTriggerLog`.
 
 ## Validation Requirements
 

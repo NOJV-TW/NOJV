@@ -99,9 +99,9 @@ packages/
   core/             Shared Zod schemas, types, pipeline definitions
   db/               Prisma 7 schema, migrations, repositories
   domain/           Business logic — queries, commands, scoring, stats
-  redis/            Redis connection, key registry, pub/sub, cache, cooldown
+  redis/            Redis connection, key registry, pub/sub, scoreboard, metrics
   storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal client + dispatch API + workflows + activities
+  temporal/         Temporal client + dispatch API + task queues + workflow I/O types (workflows/activities live in apps/worker)
 
 tooling/
   eslint/           Shared ESLint 9 flat config

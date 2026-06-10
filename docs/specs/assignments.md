@@ -3,7 +3,7 @@
 Acceptance spec for course-embedded homework assessments (`Assessment` /
 `/courses/[courseId]/assignments/...`). Assignments are un-proctored
 take-home work — no session gate, no IP lock, no page lock. Deadlines and
-per-day attempt caps are the only controls; practice-after-close grants
+per-problem per-day attempt caps are the only controls; practice-after-close grants
 viewing + un-scored submission to past participants.
 
 ## User Stories
@@ -51,7 +51,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   - `open` → `opensAt` frozen; `closesAt`/`dueAt` extend-only.
   - `closed` → no field edits (only delete-draft is meaningful, and only
     for never-published rows).
-- Per-assignment `maxAttemptsPerDay` (UTC midnight boundary).
+- Per-assignment `maxAttemptsPerDay` counted **per problem**, with a configurable daily reset time `attemptResetMinuteOfDay` (minutes since Taipei midnight, default 300 = 05:00 Asia/Taipei). Each `(student, assignment, problem)` gets its own daily allowance; sample-only runs never count, and any `system_error` verdict is refunded (see stale reaper).
 - Per-assignment `allowedLanguages` subset of platform-supported list.
 - `adjustmentRules` (e.g. late penalty decay) applied at submission score
   computation.
@@ -213,6 +213,37 @@ is only available after it closes.")` (shared post-close gate; see
 - The view is read-only — no new audit rows are written when the tab
   is loaded.
 
+### Rejudge progress & cancel
+
+- GIVEN a staff actor triggers a batch rejudge of an assignment's
+  submissions, WHEN the rejudge workflow runs, THEN it exposes a
+  `getProgress` query returning `{ completed, total }` that the manage
+  page polls to render a progress bar; children are spawned in batches
+  of 10.
+- GIVEN a running batch rejudge, WHEN a staff actor cancels it
+  (`cancelRejudge(workflowId)`), THEN the parent workflow is cancelled
+  and in-flight child judges propagate the cancellation; affected
+  submissions are restored to their prior verdict
+  (`restoreSubmissionForCancelledRejudge`).
+- GIVEN any rejudge (single or batch), WHEN it runs, THEN a
+  `SubmissionRejudgeLog` row records who triggered it and the
+  before/after verdict, surfaced in the audit timeline and in the
+  admin-wide list at `/admin/rejudges` (paged, filterable by problem).
+
+### Stale-submission reaper (attempt refund)
+
+- GIVEN a submission stuck in `queued` / `compiling` / `running` past
+  the configured pending timeout (default 30 min, set by an admin at
+  `/admin/rejudges` via `updatePendingTimeout`, bounded 10–1440 min),
+  WHEN the `submissionSweeperWorkflow` cron fires (every minute), THEN
+  `sweepStaleSubmissions` terminates the stuck judge workflow and only
+  then flips the row to `system_error` (terminate-before-mark so a
+  still-alive workflow cannot overwrite the verdict).
+- GIVEN a submission swept to `system_error`, THEN it does **not** count
+  against `maxAttemptsPerDay` — the daily attempt is effectively
+  refunded (all `system_error` verdicts are non-counting platform
+  faults, not student errors).
+
 ### Practice-after-close (submission gate)
 
 - GIVEN an ended assignment (`closesAt < now`, `status = 'published'`) that
@@ -240,10 +271,14 @@ is only available after it closes.")` (shared post-close gate; see
   reads `status === 'published'` and throws
   `ValidationError("Only draft assignments can be published.")` — no race
   hazard because the check and write are in the same transaction.
-- **`maxAttemptsPerDay` boundary.** The UTC-midnight window is exclusive of
-  the new day's 00:00:00 (a `createdAt >= start-of-day` filter), so a
-  student submitting at 23:59:59 on day N and 00:00:00 on day N+1 gets two
-  attempts, not one.
+- **`maxAttemptsPerDay` boundary.** The window starts at the configured
+  `attemptResetMinuteOfDay` Taipei wall-clock time (default 05:00 Asia/Taipei,
+  computed by `attemptWindowStart` as a real UTC instant — Taipei is fixed
+  UTC+8, no DST). Counting is `createdAt >= windowStart` and is scoped to the
+  specific `(student, assignment, problem)`, so the reset rolls over at the
+  configured time rather than midnight, and each problem has an independent
+  counter. The count is taken under a per-window advisory lock
+  (`pg_advisory_xact_lock`) so concurrent submits cannot exceed the cap.
 - **Archived course, published assignment.** When the parent
   `Course.archived` flips true, the assignment hides from student list
   views and submissions to it are rejected by the submissions path. The
