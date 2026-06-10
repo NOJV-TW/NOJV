@@ -1072,7 +1072,7 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`
 
 #### `SubmissionFeedback`
 
