@@ -11,7 +11,14 @@ export function startOtel(): void {
   const endpoint = process.env.GRAFANA_OTLP_ENDPOINT;
   const instanceId = process.env.GRAFANA_OTLP_INSTANCE_ID;
   const token = process.env.GRAFANA_OTLP_TOKEN;
-  if (!endpoint || !instanceId || !token) return;
+  if (!endpoint || !instanceId || !token) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "[otel] GRAFANA_OTLP_{ENDPOINT,INSTANCE_ID,TOKEN} not all set — metrics export disabled in production.",
+      );
+    }
+    return;
+  }
 
   if (!URL.canParse(endpoint)) {
     console.warn(`[otel] Invalid GRAFANA_OTLP_ENDPOINT: ${endpoint}`);

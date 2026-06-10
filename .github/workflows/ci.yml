@@ -68,13 +68,18 @@ jobs:
       - name: Validate problem seed definitions (dry-run)
         run: pnpm db:seed:validate
 
-      - name: Verify monorepo (build, lint, per-package tests)
+      - name: Verify migrations apply cleanly and match schema (no drift)
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE nojv_migrate_check;'
+          export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nojv_migrate_check
+          pnpm --filter @nojv/db exec prisma migrate deploy
+          pnpm --filter @nojv/db exec prisma migrate diff \
+            --from-config-datasource --to-schema prisma/schema --exit-code
+
+      - name: Verify monorepo (build, lint, typecheck, unit tests)
         run: pnpm ci:verify
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
-
-      - name: Run unit tests
-        run: pnpm test:unit
 
       - name: Run integration tests
         run: pnpm test:integration
