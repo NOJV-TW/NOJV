@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { z } from "zod";
 
 import { PrismaClient } from "../generated/prisma/client";
 
@@ -9,26 +10,34 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 const MIN_PASSWORD_LENGTH = 12;
+const isProd = process.env.NODE_ENV === "production";
 
-function requiredEnv(name: string, fallbackDev?: string): string {
-  const value = process.env[name];
+const adminEnvSchema = z.object({
+  username: z
+    .string()
+    .min(1, "SEED_ADMIN_USERNAME is required to bootstrap the admin account."),
+  email: z.string().min(1, "SEED_ADMIN_EMAIL is required to bootstrap the admin account."),
+  password: z
+    .string()
+    .min(
+      isProd ? MIN_PASSWORD_LENGTH : 1,
+      isProd
+        ? `SEED_ADMIN_PASSWORD must be at least ${String(MIN_PASSWORD_LENGTH)} characters in production.`
+        : "SEED_ADMIN_PASSWORD is required to bootstrap the admin account.",
+    ),
+});
+
+function withDevFallback(value: string | undefined, fallback: string): string {
   if (value && value.length > 0) return value;
-  if (process.env.NODE_ENV !== "production" && fallbackDev !== undefined) {
-    return fallbackDev;
-  }
-  throw new Error(`${name} is required to bootstrap the admin account.`);
+  return isProd ? "" : fallback;
 }
 
 async function main() {
-  const username = requiredEnv("SEED_ADMIN_USERNAME", "admin");
-  const email = requiredEnv("SEED_ADMIN_EMAIL", "admin@nojv.local");
-  const password = requiredEnv("SEED_ADMIN_PASSWORD", "password123");
-
-  if (password.length < MIN_PASSWORD_LENGTH && process.env.NODE_ENV === "production") {
-    throw new Error(
-      `SEED_ADMIN_PASSWORD must be at least ${String(MIN_PASSWORD_LENGTH)} characters in production.`,
-    );
-  }
+  const { username, email, password } = adminEnvSchema.parse({
+    username: withDevFallback(process.env.SEED_ADMIN_USERNAME, "admin"),
+    email: withDevFallback(process.env.SEED_ADMIN_EMAIL, "admin@nojv.local"),
+    password: withDevFallback(process.env.SEED_ADMIN_PASSWORD, "password123"),
+  });
 
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
