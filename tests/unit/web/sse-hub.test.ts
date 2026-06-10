@@ -35,11 +35,9 @@ describe("sse-hub — process-level shared subscriber with refcounted channels",
     const offA = subscribeSse("redis://x", [ch], a);
     const offB = subscribeSse("redis://x", [ch], b);
 
-    // Redis subscribe issued only for the first client of the channel.
     expect(subscribeMock).toHaveBeenCalledTimes(1);
     expect(subscribeMock).toHaveBeenCalledWith(ch);
 
-    // A message fans out to every handler registered for the channel.
     emit(ch, "hello");
     expect(a).toHaveBeenCalledWith(ch, "hello");
     expect(b).toHaveBeenCalledWith(ch, "hello");
@@ -57,16 +55,13 @@ describe("sse-hub — process-level shared subscriber with refcounted channels",
     vi.clearAllMocks();
 
     offA();
-    // Still one client → no Redis unsubscribe yet.
     expect(unsubscribeMock).not.toHaveBeenCalled();
 
-    // Removed handler no longer receives messages.
     emit(ch, "after-A-left");
     expect(a).not.toHaveBeenCalled();
     expect(b).toHaveBeenCalledWith(ch, "after-A-left");
 
     offB();
-    // Last client left → Redis unsubscribe issued.
     expect(unsubscribeMock).toHaveBeenCalledWith(ch);
   });
 });

@@ -81,8 +81,10 @@ jobs:
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Run integration tests
-        run: pnpm test:integration
+      - name: Run integration tests with coverage gate
+        run: pnpm test:coverage
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
   security-audit:
     name: Dependency Audit

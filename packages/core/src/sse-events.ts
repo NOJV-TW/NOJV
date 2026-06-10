@@ -30,11 +30,11 @@ const assignmentDeadlineEventSchema = z.object({ type: z.literal(SSE_ASSIGNMENT_
 
 const notificationEventSchema = z.object({
   type: z.literal(SSE_NOTIFICATION),
-  id: z.string().optional(), // omitted on batch signals
+  id: z.string().optional(),
   notificationType: z.string(),
   params: z.unknown(),
   linkUrl: z.string().nullable(),
-  createdAt: z.string().optional(), // omitted on batch signals
+  createdAt: z.string().optional(),
 });
 
 const clarificationEventSchema = z.object({

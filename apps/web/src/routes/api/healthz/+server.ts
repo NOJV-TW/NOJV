@@ -3,12 +3,15 @@ import type { RequestHandler } from "./$types";
 import { adminDomain } from "@nojv/domain";
 
 const CACHE_TTL_MS = 5000;
-let cached: { at: number; ok: boolean } | null = null;
-let inflight: Promise<boolean> | null = null;
 
-async function probe(): Promise<boolean> {
+type HealthChecks = Awaited<ReturnType<typeof adminDomain.checkSystemHealth>>;
+let cached: { at: number; ok: boolean; checks: HealthChecks } | null = null;
+let inflight: Promise<{ ok: boolean; checks: HealthChecks }> | null = null;
+
+async function probe(): Promise<{ ok: boolean; checks: HealthChecks }> {
   const checks = await adminDomain.checkSystemHealth();
-  return checks.postgres === "ok" && checks.redis === "ok";
+  const ok = checks.postgres === "ok" && checks.redis === "ok";
+  return { ok, checks };
 }
 
 export const GET: RequestHandler = async () => {
@@ -17,8 +20,8 @@ export const GET: RequestHandler = async () => {
     inflight ??= probe().finally(() => {
       inflight = null;
     });
-    const ok = await inflight;
-    cached = { at: Date.now(), ok };
+    const result = await inflight;
+    cached = { at: Date.now(), ...result };
   }
-  return json({ ok: cached.ok }, { status: cached.ok ? 200 : 503 });
+  return json({ ok: cached.ok, checks: cached.checks }, { status: cached.ok ? 200 : 503 });
 };
