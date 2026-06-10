@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  assessmentProblemRepo,
+  contestProblemRepo,
   courseMembershipRepo,
   examRepo,
   examSessionRepo,
@@ -19,7 +21,6 @@ import {
 } from "@nojv/core";
 import {
   deleteSubmissionStorage,
-  getVerdictDetail as storageGetVerdictDetail,
   putSubmissionSources,
   putVerdictDetail,
   submissionSourcePrefix,
@@ -108,10 +109,7 @@ async function assertCourseSubmissionAllowed(
     }
   }
 
-  const link = await tx.courseAssessmentProblem.findFirst({
-    where: { assessmentId: assignment.id, problemId: problem.id },
-    select: { id: true },
-  });
+  const link = await assessmentProblemRepo.withTx(tx).findLink(assignment.id, problem.id);
   if (!link) {
     throw new ForbiddenError("This problem is not part of the assignment.");
   }
@@ -247,10 +245,9 @@ export async function createQueuedSubmissionRecord(
     const contestParticipation = contestResult?.participation ?? null;
 
     if (contestResult) {
-      const link = await tx.contestProblem.findFirst({
-        where: { contestId: contestResult.contest.id, problemId: problem.id },
-        select: { id: true },
-      });
+      const link = await contestProblemRepo
+        .withTx(tx)
+        .findLink(contestResult.contest.id, problem.id);
       if (!link) {
         throw new ForbiddenError("This problem is not part of the contest.");
       }
@@ -284,7 +281,7 @@ export async function createQueuedSubmissionRecord(
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
       virtualContestId: payload.virtualContestId ?? null,
-      courseAssessmentId: courseContext?.assignment.id ?? null,
+      assessmentId: courseContext?.assignment.id ?? null,
       examId: activeExamSession?.examId ?? null,
       courseId: courseContext?.course.id ?? null,
       ipAddress: clientIp,
@@ -355,7 +352,7 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
   if (result.subtaskResults && result.subtaskResults.length > 0) {
     summary.subtaskSummary = result.subtaskResults.map((s) => ({
       id: s.testcaseSetId,
-      score: s.passed ? s.weight : 0,
+      score: s.rawScore ?? (s.passed ? s.weight : 0),
     }));
   }
 
@@ -404,16 +401,12 @@ export async function snapshotForRejudge(
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
-  const oldDetail = current.verdictDetailStorageKey
-    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
-    : null;
-
   const row = await submissionRejudgeLogRepo.create({
     submissionId,
     rejudgedByUserId: triggeredByUserId,
     oldVerdict: current.status,
     oldScore: current.score,
-    oldResultJson: oldDetail === null ? null : toJsonValue(oldDetail),
+    oldResultJson: current.verdictSummary === null ? null : toJsonValue(current.verdictSummary),
   });
 
   return { logId: row.id, oldStatus: current.status };
@@ -427,13 +420,9 @@ export async function finalizeRejudgeLog(
   const updated = await submissionRepo.findById(submissionId);
   if (!updated) return;
 
-  const newDetail = updated.verdictDetailStorageKey
-    ? await storageGetVerdictDetail<unknown>(storage(), submissionId)
-    : null;
-
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,
-    newResultJson: newDetail === null ? null : toJsonValue(newDetail),
+    newResultJson: updated.verdictSummary === null ? null : toJsonValue(updated.verdictSummary),
   });
 }

@@ -12,14 +12,14 @@ type TxClient = TransactionClient;
 
 export const assessmentRepo = {
   findByIdWithCourseId(id: string) {
-    return prisma.courseAssessment.findUnique({
+    return prisma.assessment.findUnique({
       where: { id },
       include: { course: { select: { id: true } } },
     });
   },
 
   findByCourseAndId(courseId: string, assessmentId: string) {
-    return prisma.courseAssessment.findFirst({
+    return prisma.assessment.findFirst({
       where: {
         id: assessmentId,
         courseId,
@@ -29,7 +29,7 @@ export const assessmentRepo = {
   },
 
   findPublishedContextById(courseId: string, assessmentId: string) {
-    return prisma.courseAssessment.findFirst({
+    return prisma.assessment.findFirst({
       select: {
         id: true,
         allowedLanguages: true,
@@ -46,7 +46,7 @@ export const assessmentRepo = {
   },
 
   listByUser(userId: string) {
-    return prisma.courseAssessment.findMany({
+    return prisma.assessment.findMany({
       include: {
         _count: { select: { problems: true } },
         course: { select: courseMiniSelect },
@@ -66,7 +66,7 @@ export const assessmentRepo = {
   groupOpenCountsByCourse(courseIds: string[], now: Date) {
     if (courseIds.length === 0)
       return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
-    return prisma.courseAssessment.groupBy({
+    return prisma.assessment.groupBy({
       by: ["courseId"],
       where: {
         courseId: { in: courseIds },
@@ -81,7 +81,7 @@ export const assessmentRepo = {
   groupDraftCountsByCourse(courseIds: string[]) {
     if (courseIds.length === 0)
       return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
-    return prisma.courseAssessment.groupBy({
+    return prisma.assessment.groupBy({
       by: ["courseId"],
       where: {
         courseId: { in: courseIds },
@@ -92,7 +92,7 @@ export const assessmentRepo = {
   },
 
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
-    return prisma.courseAssessment.findMany({
+    return prisma.assessment.findMany({
       include: {
         _count: { select: { problems: true } },
       },
@@ -106,7 +106,7 @@ export const assessmentRepo = {
   },
 
   listForCourse(courseId: string, includeDrafts: boolean, take: number) {
-    return prisma.courseAssessment.findMany({
+    return prisma.assessment.findMany({
       include: {
         _count: { select: { problems: true } },
       },
@@ -120,7 +120,7 @@ export const assessmentRepo = {
   },
 
   listAcrossCourses(allCourseIds: string[], managerCourseIds: string[], take: number) {
-    return prisma.courseAssessment.findMany({
+    return prisma.assessment.findMany({
       include: {
         _count: { select: { problems: true } },
         course: { select: courseMiniSelect },
@@ -137,7 +137,7 @@ export const assessmentRepo = {
   },
 
   listUpcoming(userId: string, now: Date, take: number) {
-    return prisma.courseAssessment.findMany({
+    return prisma.assessment.findMany({
       include: {
         course: { select: courseMiniSelect },
       },
@@ -156,7 +156,7 @@ export const assessmentRepo = {
   },
 
   findWithProblemsById(courseId: string, assessmentId: string) {
-    return prisma.courseAssessment.findFirst({
+    return prisma.assessment.findFirst({
       where: { courseId, id: assessmentId, status: "published" },
       select: {
         id: true,
@@ -172,7 +172,7 @@ export const assessmentRepo = {
   },
 
   findInfoById(id: string) {
-    return prisma.courseAssessment.findUniqueOrThrow({
+    return prisma.assessment.findUniqueOrThrow({
       select: {
         closesAt: true,
         dueAt: true,
@@ -183,7 +183,7 @@ export const assessmentRepo = {
   },
 
   listPublishedWithProblemsByCourse(courseId: string) {
-    return prisma.courseAssessment.findMany({
+    return prisma.assessment.findMany({
       where: { courseId, status: "published" },
       orderBy: { opensAt: "asc" },
       select: {
@@ -201,7 +201,7 @@ export const assessmentRepo = {
   },
 
   findDetailById(courseId: string, assessmentId: string) {
-    return prisma.courseAssessment.findFirst({
+    return prisma.assessment.findFirst({
       where: { id: assessmentId, courseId },
       select: {
         id: true,
@@ -229,11 +229,11 @@ export const assessmentRepo = {
   },
 
   count() {
-    return prisma.courseAssessment.count();
+    return prisma.assessment.count();
   },
 
   async copyPreviewByCourseId(courseId: string) {
-    const rows = await prisma.courseAssessment.findMany({
+    const rows = await prisma.assessment.findMany({
       where: { courseId },
       select: { status: true, _count: { select: { problems: true } } },
     });
@@ -246,31 +246,31 @@ export const assessmentRepo = {
     return { total: rows.length, byStatus, problemLinks };
   },
 
-  update(id: string, data: Prisma.CourseAssessmentUpdateInput) {
-    return prisma.courseAssessment.update({
+  update(id: string, data: Prisma.AssessmentUpdateInput) {
+    return prisma.assessment.update({
       data,
       where: { id },
     });
   },
 
   delete(id: string) {
-    return prisma.courseAssessment.delete({ where: { id } });
+    return prisma.assessment.delete({ where: { id } });
   },
 
   withTx(tx: TxClient) {
     return {
       findById(id: string) {
-        return tx.courseAssessment.findUnique({ where: { id } });
+        return tx.assessment.findUnique({ where: { id } });
       },
 
       findByCompositeId(courseId: string, assessmentId: string) {
-        return tx.courseAssessment.findFirst({
+        return tx.assessment.findFirst({
           where: { id: assessmentId, courseId },
         });
       },
 
       listByCourseIdAllWithProblems(courseId: string) {
-        return tx.courseAssessment.findMany({
+        return tx.assessment.findMany({
           where: { courseId },
           orderBy: { opensAt: "asc" },
           include: {
@@ -282,19 +282,19 @@ export const assessmentRepo = {
         });
       },
 
-      create(data: Prisma.CourseAssessmentUncheckedCreateInput) {
-        return tx.courseAssessment.create({ data });
+      create(data: Prisma.AssessmentUncheckedCreateInput) {
+        return tx.assessment.create({ data });
       },
 
-      update(id: string, data: Prisma.CourseAssessmentUncheckedUpdateInput) {
-        return tx.courseAssessment.update({
+      update(id: string, data: Prisma.AssessmentUncheckedUpdateInput) {
+        return tx.assessment.update({
           data,
           where: { id },
         });
       },
 
       delete(id: string) {
-        return tx.courseAssessment.delete({ where: { id } });
+        return tx.assessment.delete({ where: { id } });
       },
     };
   },
@@ -302,21 +302,21 @@ export const assessmentRepo = {
 
 export const assessmentProblemRepo = {
   findByAssessmentId(assessmentId: string) {
-    return prisma.courseAssessmentProblem.findMany({
+    return prisma.assessmentProblem.findMany({
       where: { assessmentId },
       include: { problem: { select: problemMiniSelect } },
     });
   },
 
   exists(assessmentId: string, problemId: string) {
-    return prisma.courseAssessmentProblem
+    return prisma.assessmentProblem
       .findFirst({ where: { assessmentId, problemId }, select: { id: true } })
       .then((row) => row !== null);
   },
 
   sumPointsByAssessment(assessmentIds: string[]) {
     if (assessmentIds.length === 0) return Promise.resolve([]);
-    return prisma.courseAssessmentProblem.groupBy({
+    return prisma.assessmentProblem.groupBy({
       by: ["assessmentId"],
       _sum: { points: true },
       where: { assessmentId: { in: assessmentIds } },
@@ -324,7 +324,7 @@ export const assessmentProblemRepo = {
   },
 
   hasEndedAssessmentForUser(problemId: string, userId: string, now: Date) {
-    return prisma.courseAssessmentProblem
+    return prisma.assessmentProblem
       .findFirst({
         where: {
           problemId,
@@ -342,7 +342,7 @@ export const assessmentProblemRepo = {
   },
 
   findActiveAssessmentsForUser(problemId: string, userId: string, now: Date) {
-    return prisma.courseAssessmentProblem.findMany({
+    return prisma.assessmentProblem.findMany({
       where: {
         problemId,
         assessment: {
@@ -361,12 +361,19 @@ export const assessmentProblemRepo = {
 
   withTx(tx: TxClient) {
     return {
-      create(data: Prisma.CourseAssessmentProblemUncheckedCreateInput) {
-        return tx.courseAssessmentProblem.create({ data });
+      create(data: Prisma.AssessmentProblemUncheckedCreateInput) {
+        return tx.assessmentProblem.create({ data });
+      },
+
+      findLink(assessmentId: string, problemId: string) {
+        return tx.assessmentProblem.findFirst({
+          where: { assessmentId, problemId },
+          select: { id: true },
+        });
       },
 
       deleteByAssessmentId(assessmentId: string) {
-        return tx.courseAssessmentProblem.deleteMany({
+        return tx.assessmentProblem.deleteMany({
           where: { assessmentId },
         });
       },

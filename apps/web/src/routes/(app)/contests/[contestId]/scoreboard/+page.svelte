@@ -71,16 +71,44 @@
   let justRefreshed = $state(false);
 
   const AUTO_REFRESH_MS = 30_000;
+  const SSE_DEBOUNCE_MS = 1500;
   onMount(() => {
-    const interval = setInterval(async () => {
+    async function refresh() {
       await invalidateAll();
       lastRefreshed = Date.now();
       justRefreshed = true;
       setTimeout(() => {
         justRefreshed = false;
       }, 1200);
+    }
+
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    function debouncedRefresh() {
+      if (debounce) return;
+      debounce = setTimeout(() => {
+        debounce = null;
+        if (document.visibilityState === "visible") void refresh();
+      }, SSE_DEBOUNCE_MS);
+    }
+
+    const source = new EventSource(`/contests/${contestId}/scoreboard/stream`);
+    source.onmessage = () => debouncedRefresh();
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
     }, AUTO_REFRESH_MS);
-    return () => clearInterval(interval);
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") void refresh();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      source.close();
+      clearInterval(interval);
+      if (debounce) clearTimeout(debounce);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   });
 
   async function handleUnfreeze() {

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { entryFileNameFor } from "@nojv/core";
-import { scoreboard } from "@nojv/redis";
 import {
   createStorageClient,
   putSubmissionSources,
@@ -80,7 +79,7 @@ function makeSubmission(args: {
   sampleOnly?: boolean;
   context?:
     | { kind: "practice" }
-    | { kind: "assignment"; courseAssessmentId: string }
+    | { kind: "assignment"; assessmentId: string }
     | { kind: "exam"; examId: string }
     | { kind: "contest"; contestId: string; contestParticipationId: string };
 }): SeedSubmission {
@@ -117,7 +116,7 @@ function makeSubmission(args: {
   const ctx = args.context ?? { kind: "practice" };
   if (ctx.kind === "assignment") {
     row.courseId = COURSE_ID;
-    row.courseAssessmentId = ctx.courseAssessmentId;
+    row.assessmentId = ctx.assessmentId;
   } else if (ctx.kind === "exam") {
     row.courseId = COURSE_ID;
     row.examId = ctx.examId;
@@ -262,7 +261,7 @@ export async function seedSubmissions(
             testcases: tc(problemId),
             verdict,
             createdAt: new Date(when),
-            context: { kind: "assignment", courseAssessmentId: HW1_ID },
+            context: { kind: "assignment", assessmentId: HW1_ID },
           }),
         );
       }
@@ -282,7 +281,7 @@ export async function seedSubmissions(
           verdict,
           createdAt: new Date(when),
           language: rng.pick(HW2_LANGS),
-          context: { kind: "assignment", courseAssessmentId: HW2_ID },
+          context: { kind: "assignment", assessmentId: HW2_ID },
         }),
       );
     }
@@ -389,8 +388,7 @@ async function seedContestSubmissions(
     tc: (pid: string) => ProblemTestcases;
   },
 ): Promise<void> {
-  const { contestId, problems, students, startsAt, endsAt, submissionTimeFor, rngBase, tc } =
-    args;
+  const { contestId, problems, students, startsAt, submissionTimeFor, rngBase, tc } = args;
 
   for (const [idx, s] of students.entries()) {
     const rng = new SeededRng(rngBase + idx);
@@ -461,20 +459,5 @@ async function seedContestSubmissions(
       where: { id: participation.id },
       data: { score: solvedCount, penaltySeconds: totalPenalty },
     });
-
-    try {
-      const packedScore = solvedCount * 1e9 - totalPenalty;
-      await scoreboard.updateScoreboard(
-        contestId,
-        participation.id,
-        packedScore,
-        "icpc",
-        scoreboard.scoreboardTtlForEndsAt(endsAt),
-      );
-    } catch (err) {
-      console.warn(
-        `  [scoreboard] skipped Redis write for ${contestId}/${participation.id}: ${String(err)}`,
-      );
-    }
   }
 }

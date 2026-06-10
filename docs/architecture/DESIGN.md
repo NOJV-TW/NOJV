@@ -215,7 +215,7 @@ Legitimate nullable patterns (the only cases where `T | null` is still allowed):
 
 Supporting infrastructure:
 
-- [`packages/domain/src/shared/require.ts`](../packages/domain/src/shared/require.ts) -- pure "exists-else-throw" helpers (`requireProblem`, `requireContest`, `requireCourse`, `requireUser`, `requireCourseAssessment`).
+- [`packages/domain/src/shared/require.ts`](../packages/domain/src/shared/require.ts) -- pure "exists-else-throw" helpers (`requireProblem`, `requireContest`, `requireCourse`, `requireUser`, `requireAssessment`).
 - [`apps/web/src/lib/server/shared/load-wrapper.ts`](../apps/web/src/lib/server/shared/load-wrapper.ts) -- `handleLoad()` wraps `+page.server.ts` / `+layout.server.ts` loaders so thrown `HttpError`s turn into the correct SvelteKit `error(status, message)` response.
 
 Example -- a load function composed from a throwing query:

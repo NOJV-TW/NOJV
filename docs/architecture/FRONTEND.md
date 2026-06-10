@@ -46,7 +46,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/admin`                                             | Admin dashboard (platform admin only)                                                                                                           |
 | `/admin/content/announcements`                       | Manage announcements                                                                                                                            |
 | `/admin/content/editorial-reports`                   | Review reported editorials                                                                                                                      |
-| `/admin/system`                                      | System settings landing                                                                                                                         |
+| `/admin/rejudges`                                    | Rejudge log (paged, filterable by problem) + stale-submission pending-timeout setting                                                           |
 | `/admin/system/users`                                | User management (role assignment, disable)                                                                                                      |
 | `/account`                                           | User account settings (display name, locale, avatar)                                                                                            |
 
@@ -84,6 +84,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/submissions/[id]/stream`                                | GET                | SSE: poll Temporal workflow query for status                                                   |
 | `/api/submissions/[id]/rejudge`                               | POST               | Rejudge a single submission (admin/teacher)                                                    |
 | `/api/rejudges`                                               | POST               | Batch rejudge by problem/context filters                                                       |
+| `/api/rejudges/[workflowId]`                                  | GET                | Rejudge progress `{ completed, total }` (Temporal `getProgress` query) for the progress bar    |
+| `/api/rejudges/[workflowId]/cancel`                           | POST               | Cancel an in-flight batch rejudge (cancels the parent workflow)                                |
 | `/api/events/stream`                                          | GET                | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
 | `/api/contests/[id]/scoreboard`                               | GET                | Scoreboard data from Redis (or DB rebuild fallback)                                            |
 | `/api/contests/[id]/scoreboard/chart`                         | GET                | Scoreboard chart data                                                                          |
@@ -92,7 +94,15 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]` | GET                | Fetch a participant's submission source for a flagged pair                                     |
 | `/api/plagiarism-flags`                                       | POST               | Flag a plagiarism pair (admin/teacher)                                                         |
 | `/api/plagiarism-flags/[id]`                                  | DELETE             | Remove a plagiarism flag                                                                       |
-| `/api/problems`                                               | POST               | Create problem (admin/teacher)                                                                 |
+| `/api/problems`                                               | POST               | Create problem (email-verified users)                                                          |
+| `/api/problems/[id]`                                          | DELETE             | Delete a problem (owner / staff)                                                               |
+| `/api/problems/advanced-scaffold`                             | GET                | Stream the advanced-mode starter project zip                                                   |
+| `/api/problems/[id]/bookmark`                                 | POST               | Toggle the practice-list bookmark for a problem                                                |
+| `/api/problems/[id]/bundle`                                   | GET, POST          | Download / upload the problem testcase + workspace bundle (zip)                                |
+| `/api/problems/[id]/checker`                                  | POST               | Upload the checker (DOMjudge validator) script                                                 |
+| `/api/problems/[id]/interactor`                               | POST               | Upload the interactor script                                                                   |
+| `/api/problems/[id]/workspace/files`                          | POST               | Upload / replace a workspace file                                                              |
+| `/api/problems/[id]/storage-usage`                            | GET                | Per-problem object-storage usage                                                               |
 | `/api/problems/[id]/editorials`                               | GET, POST          | Problem editorials (AC-gated)                                                                  |
 | `/api/problems/[id]/images`                                   | POST               | Upload problem image (magic-number validated)                                                  |
 | `/api/problems/[id]/advanced-image`                           | POST               | Upload advanced-mode judge image tarball                                                       |
@@ -105,6 +115,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/clarifications/[id]`                                    | PATCH              | Answer or dismiss a clarification                                                              |
 | `/api/clarifications/[id]/replies`                            | POST               | Canned-reply / templated answer                                                                |
 | `/api/editorials/[id]`                                        | PATCH, DELETE      | Edit / soft-delete editorial                                                                   |
+| `/api/editorials/[id]/votes`                                  | POST               | Cast / change an up-or-down vote on an editorial                                               |
+| `/api/editorials/[id]/reports`                                | POST               | File a report against an editorial (feeds the admin moderation queue)                          |
 | `/api/overrides`                                              | GET, POST          | List / create score overrides (writes gated post-close, admin bypass)                          |
 | `/api/overrides/[id]`                                         | PATCH, DELETE      | Update / remove score override (writes gated post-close, admin bypass)                         |
 | `/api/feedback`                                               | GET, PUT           | List / upsert per-cell grading feedback (assignment + exam; writes gated post-close)           |

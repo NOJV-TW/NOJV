@@ -77,7 +77,7 @@ describe("course queries (real DB)", () => {
       });
 
       // Published assessment
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -166,7 +166,7 @@ describe("course queries (real DB)", () => {
       const now = Date.now();
 
       // Open assignment: opensAt <= now <= closesAt.
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -180,7 +180,7 @@ describe("course queries (real DB)", () => {
       });
 
       // Draft assignment.
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -232,7 +232,7 @@ describe("course queries (real DB)", () => {
       });
 
       const now = Date.now();
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,

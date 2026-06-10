@@ -226,6 +226,13 @@ export const contestProblemRepo = {
         return tx.contestProblem.count({ where: { contestId } });
       },
 
+      findLink(contestId: string, problemId: string) {
+        return tx.contestProblem.findFirst({
+          where: { contestId, problemId },
+          select: { id: true },
+        });
+      },
+
       deleteByContestId(contestId: string) {
         return tx.contestProblem.deleteMany({
           where: { contestId },

@@ -34,9 +34,19 @@ export interface K8sExecutorConfig {
   memoryLimit: string;
 }
 
-const JOB_DEADLINE_SECONDS = 120;
+const JOB_DEADLINE_FLOOR_SECONDS = 120;
+const JOB_DEADLINE_CAP_SECONDS = 1_800;
+const JOB_DEADLINE_BUFFER_SECONDS = 60;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
+const CONFIGMAP_MAX_BYTES = 1_000_000;
+
+export function computeJobDeadlineSeconds(request: SandboxRequest): number {
+  const numCases = Math.max(1, request.testcases.length);
+  const compute =
+    Math.ceil((request.limits.timeoutMs * numCases) / 1000) + JOB_DEADLINE_BUFFER_SECONDS;
+  return Math.min(Math.max(compute, JOB_DEADLINE_FLOOR_SECONDS), JOB_DEADLINE_CAP_SECONDS);
+}
 
 export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {
   const data: Record<string, string> = {};
@@ -127,6 +137,7 @@ export interface SandboxJobManifestParams {
   cpuLimit: string;
   memoryRequest: string;
   memoryLimit: string;
+  activeDeadlineSeconds: number;
 }
 
 export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V1Job {
@@ -140,7 +151,7 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
     },
     spec: {
       ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
-      activeDeadlineSeconds: JOB_DEADLINE_SECONDS,
+      activeDeadlineSeconds: params.activeDeadlineSeconds,
       backoffLimit: 0,
       template: {
         metadata: {
@@ -699,7 +710,7 @@ export class K8sExecutor implements SandboxExecutor {
         }),
       });
 
-      await this.waitForJobCompletion(jobName, ns);
+      await this.waitForJobCompletion(jobName, ns, Math.ceil(advanced.totalTimeMs / 1000) + 30);
       const podName = await this.findPodName(jobName, ns);
       if (!podName) {
         return advancedFallbackResult(request, "Advanced sandbox produced no pod.");
@@ -819,7 +830,7 @@ export class K8sExecutor implements SandboxExecutor {
         }),
       });
 
-      const outcome = await this.waitForJobCompletion(jobName, namespace);
+      const outcome = await this.waitForJobCompletion(jobName, namespace, deadlineSeconds);
       const podName = await this.findPodName(jobName, namespace);
       if (!podName) {
         if (outcome === "failed") return seCase("Interactive sandbox job failed or timed out.");
@@ -898,10 +909,11 @@ export class K8sExecutor implements SandboxExecutor {
     const ns = this.config.namespace;
 
     try {
+      const deadlineSeconds = computeJobDeadlineSeconds(request);
       await this.createConfigMap(jobName, ns, buildRunConfigMapData(request));
-      await this.createJob(jobName, ns, jobName);
+      await this.createJob(jobName, ns, jobName, deadlineSeconds);
 
-      const outcome = await this.waitForJobCompletion(jobName, ns);
+      const outcome = await this.waitForJobCompletion(jobName, ns, deadlineSeconds);
       if (outcome === "failed") {
         return sandboxSystemError("Sandbox job failed or timed out.");
       }
@@ -921,10 +933,11 @@ export class K8sExecutor implements SandboxExecutor {
     const ns = this.config.namespace;
 
     try {
+      const deadlineSeconds = computeJobDeadlineSeconds(request);
       await this.createConfigMap(baseName, ns, buildRunConfigMapData(request));
-      await this.createJob(baseName, ns, baseName);
+      await this.createJob(baseName, ns, baseName, deadlineSeconds);
 
-      const runOutcome = await this.waitForJobCompletion(baseName, ns);
+      const runOutcome = await this.waitForJobCompletion(baseName, ns, deadlineSeconds);
       if (runOutcome === "failed") {
         return sandboxSystemError("Sandbox job failed or timed out.");
       }
@@ -957,14 +970,15 @@ export class K8sExecutor implements SandboxExecutor {
     rawRuns: RawCaseRun[],
   ): Promise<Map<number, ValidatorOutcome>> {
     try {
+      const deadlineSeconds = computeJobDeadlineSeconds(request);
       await this.createConfigMap(
         jobName,
         namespace,
         buildValidateConfigMapData(request, rawRuns),
       );
-      await this.createJob(jobName, namespace, jobName);
+      await this.createJob(jobName, namespace, jobName, deadlineSeconds);
 
-      const outcome = await this.waitForJobCompletion(jobName, namespace);
+      const outcome = await this.waitForJobCompletion(jobName, namespace, deadlineSeconds);
       if (outcome === "failed") return validatorOutcomesSeForAll(rawRuns);
 
       const logs = await this.getPodLogs(jobName, namespace);
@@ -986,6 +1000,15 @@ export class K8sExecutor implements SandboxExecutor {
     namespace: string,
     data: Record<string, string>,
   ): Promise<void> {
+    const totalBytes = Object.entries(data).reduce(
+      (sum, [key, value]) => sum + Buffer.byteLength(key) + Buffer.byteLength(value),
+      0,
+    );
+    if (totalBytes > CONFIGMAP_MAX_BYTES) {
+      throw new Error(
+        `ConfigMap ${name} payload is ${String(totalBytes)} bytes, exceeding the ${String(CONFIGMAP_MAX_BYTES)}-byte limit; testcase data is too large for ConfigMap delivery.`,
+      );
+    }
     await this.coreApi.createNamespacedConfigMap({
       namespace,
       body: {
@@ -999,6 +1022,7 @@ export class K8sExecutor implements SandboxExecutor {
     jobName: string,
     namespace: string,
     configMapName: string,
+    deadlineSeconds: number,
   ): Promise<void> {
     await this.batchApi.createNamespacedJob({
       namespace,
@@ -1011,6 +1035,7 @@ export class K8sExecutor implements SandboxExecutor {
         cpuLimit: this.config.cpuLimit,
         memoryRequest: this.config.memoryRequest,
         memoryLimit: this.config.memoryLimit,
+        activeDeadlineSeconds: deadlineSeconds,
       }),
     });
   }
@@ -1018,8 +1043,9 @@ export class K8sExecutor implements SandboxExecutor {
   private async waitForJobCompletion(
     jobName: string,
     namespace: string,
+    deadlineSeconds: number,
   ): Promise<"succeeded" | "failed"> {
-    const deadline = Date.now() + JOB_DEADLINE_SECONDS * 1_000;
+    const deadline = Date.now() + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
 
     while (Date.now() < deadline) {
       const job = await this.batchApi.readNamespacedJob({

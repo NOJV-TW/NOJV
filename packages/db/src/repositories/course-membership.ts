@@ -1,4 +1,5 @@
 import { prisma } from "../client";
+import type { TransactionClient } from "../transaction";
 import type { CourseRole } from "../../generated/prisma/enums";
 
 export const courseMembershipAdminRepo = {
@@ -35,5 +36,23 @@ export const courseMembershipAdminRepo = {
       where: { courseId_userId: { courseId, userId } },
       data: { role },
     });
+  },
+
+  withTx(tx: TransactionClient) {
+    return {
+      removeFromCourse(courseId: string, userId: string) {
+        return tx.courseMembership.update({
+          where: { courseId_userId: { courseId, userId } },
+          data: { status: "removed", removedAt: new Date() },
+        });
+      },
+
+      updateRole(courseId: string, userId: string, role: CourseRole) {
+        return tx.courseMembership.update({
+          where: { courseId_userId: { courseId, userId } },
+          data: { role },
+        });
+      },
+    };
   },
 };

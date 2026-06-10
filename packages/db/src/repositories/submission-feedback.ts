@@ -5,8 +5,8 @@ import type { TransactionClient } from "../transaction";
 type TxClient = TransactionClient;
 
 export type SubmissionFeedbackContext =
-  | { courseAssessmentId: string; examId?: undefined }
-  | { examId: string; courseAssessmentId?: undefined };
+  | { assessmentId: string; examId?: undefined }
+  | { examId: string; assessmentId?: undefined };
 
 export type SubmissionFeedbackUpsertData = SubmissionFeedbackContext & {
   studentUserId: string;
@@ -19,7 +19,7 @@ export interface SubmissionFeedbackAuditCreateData {
   feedbackId: string | null;
   studentUserId: string;
   problemId: string;
-  courseAssessmentId: string | null;
+  assessmentId: string | null;
   examId: string | null;
   action: SubmissionFeedbackAction;
   oldComment: string | null;
@@ -33,18 +33,18 @@ const feedbackInclude = {
 } satisfies Prisma.SubmissionFeedbackInclude;
 
 function contextWhere(context: SubmissionFeedbackContext): Prisma.SubmissionFeedbackWhereInput {
-  return context.courseAssessmentId !== undefined
-    ? { courseAssessmentId: context.courseAssessmentId }
+  return context.assessmentId !== undefined
+    ? { assessmentId: context.assessmentId }
     : { examId: context.examId };
 }
 
 export const submissionFeedbackRepo = {
   upsert(tx: TxClient, data: SubmissionFeedbackUpsertData) {
     const where: Prisma.SubmissionFeedbackWhereUniqueInput =
-      data.courseAssessmentId !== undefined
+      data.assessmentId !== undefined
         ? {
-            courseAssessmentId_problemId_studentUserId: {
-              courseAssessmentId: data.courseAssessmentId,
+            assessmentId_problemId_studentUserId: {
+              assessmentId: data.assessmentId,
               problemId: data.problemId,
               studentUserId: data.studentUserId,
             },
@@ -61,7 +61,7 @@ export const submissionFeedbackRepo = {
       create: {
         studentUserId: data.studentUserId,
         problemId: data.problemId,
-        courseAssessmentId: data.courseAssessmentId ?? null,
+        assessmentId: data.assessmentId ?? null,
         examId: data.examId ?? null,
         comment: data.comment,
         authorUserId: data.authorUserId,
@@ -99,10 +99,10 @@ export const submissionFeedbackRepo = {
 
   findExistingForUpsert(tx: TxClient, data: SubmissionFeedbackUpsertData) {
     const where: Prisma.SubmissionFeedbackWhereUniqueInput =
-      data.courseAssessmentId !== undefined
+      data.assessmentId !== undefined
         ? {
-            courseAssessmentId_problemId_studentUserId: {
-              courseAssessmentId: data.courseAssessmentId,
+            assessmentId_problemId_studentUserId: {
+              assessmentId: data.assessmentId,
               problemId: data.problemId,
               studentUserId: data.studentUserId,
             },

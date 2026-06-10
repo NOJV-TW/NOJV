@@ -60,7 +60,7 @@ export async function buildSubmissionsMatrix(
 
   const scoreIndex = new Map<string, { best: number; count: number }>();
   const grouped = await submissionRepo.groupByUserAndProblem({
-    courseAssessmentId: assignmentId,
+    assessmentId: assignmentId,
     userId: { in: studentIds },
     problemId: { in: problemIds },
     sampleOnly: false,

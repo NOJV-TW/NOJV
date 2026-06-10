@@ -1,8 +1,16 @@
+import { MAX_CASE_STDERR_BYTES, MAX_CASE_STDOUT_BYTES, MAX_FEEDBACK_LEN } from "@nojv/core";
 import type { CaseResult, SandboxResult, SubmissionResult } from "@nojv/core";
 import type { SubtaskScoringStrategy } from "@nojv/db";
 
 import { applyAdjustmentRules } from "./adjustments";
 import type { SubmissionJudgeContext, TestcaseSetGroup, SubtaskStrategyMap } from "./types";
+
+const TRUNCATION_MARKER = "…[truncated]";
+
+function truncate(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return value.slice(0, Math.max(0, max - TRUNCATION_MARKER.length)) + TRUNCATION_MARKER;
+}
 
 export interface SubtaskResultItem {
   cases: {
@@ -24,7 +32,7 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   TLE: "time_limit_exceeded",
   MLE: "memory_limit_exceeded",
   RE: "runtime_error",
-  SE: "runtime_error",
+  SE: "system_error",
 };
 
 export function buildSubtaskResults(
@@ -102,11 +110,13 @@ export function mapResult(
   const caseResults = result.testcaseResults.map((t) => ({
     index: t.index,
     verdict: t.verdict,
-    ...(t.stderr ? { stderr: t.stderr } : {}),
-    stdout: t.stdout,
+    ...(t.stderr ? { stderr: truncate(t.stderr, MAX_CASE_STDERR_BYTES) } : {}),
+    stdout: truncate(t.stdout, MAX_CASE_STDOUT_BYTES),
     timeMs: t.timeMs,
     ...(t.memoryKb !== undefined && t.memoryKb > 0 ? { memoryKb: t.memoryKb } : {}),
-    ...(t.staffFeedback !== undefined ? { staffFeedback: t.staffFeedback } : {}),
+    ...(t.staffFeedback !== undefined
+      ? { staffFeedback: truncate(t.staffFeedback, MAX_FEEDBACK_LEN) }
+      : {}),
   }));
 
   const peakMemoryKb = result.testcaseResults.reduce(
@@ -119,7 +129,7 @@ export function mapResult(
     return {
       accepted: false,
       caseResults: [],
-      feedback: result.compilationError,
+      feedback: truncate(result.compilationError, MAX_FEEDBACK_LEN),
       runtimeMs: 0,
       score: 0,
       verdict: "compile_error",
@@ -130,11 +140,27 @@ export function mapResult(
     return {
       accepted: false,
       caseResults,
-      feedback: `[Pipeline Error] ${result.pipelineError}`,
+      feedback: truncate(`[Pipeline Error] ${result.pipelineError}`, MAX_FEEDBACK_LEN),
       runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
       ...memoryField,
       score: 0,
       verdict: "compile_error",
+    };
+  }
+
+  if (result.testcaseResults.some((t) => t.verdict === "SE")) {
+    return {
+      accepted: false,
+      caseResults,
+      feedback: truncate(
+        result.scoringFeedback ??
+          "Judging failed due to a platform error. This submission was not counted; please resubmit.",
+        MAX_FEEDBACK_LEN,
+      ),
+      runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
+      ...memoryField,
+      score: 0,
+      verdict: "system_error",
     };
   }
 
@@ -173,7 +199,7 @@ export function mapResult(
     return {
       accepted: true,
       caseResults,
-      feedback: result.scoringFeedback ?? "All testcases passed",
+      feedback: truncate(result.scoringFeedback ?? "All testcases passed", MAX_FEEDBACK_LEN),
       runtimeMs,
       ...memoryField,
       score: result.customScore ?? score,
@@ -186,8 +212,10 @@ export function mapResult(
     return {
       accepted: true,
       caseResults,
-      feedback:
+      feedback: truncate(
         result.scoringFeedback ?? `All testcases passed (score adjusted to ${String(score)})`,
+        MAX_FEEDBACK_LEN,
+      ),
       runtimeMs,
       ...memoryField,
       score,
@@ -199,10 +227,12 @@ export function mapResult(
   for (const tc of result.testcaseResults) {
     if (tc.verdict !== "AC") {
       const verdict = verdictMap[tc.verdict] ?? "runtime_error";
-      const feedback =
+      const feedback = truncate(
         result.scoringFeedback ??
-        tc.feedback ??
-        `Failed on testcase ${String(tc.index + 1)}: ${verdict.replaceAll("_", " ")}`;
+          tc.feedback ??
+          `Failed on testcase ${String(tc.index + 1)}: ${verdict.replaceAll("_", " ")}`,
+        MAX_FEEDBACK_LEN,
+      );
       return {
         accepted: false,
         caseResults,

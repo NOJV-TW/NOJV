@@ -8,7 +8,7 @@ import {
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
-import type { CourseAssessmentUpdate, Language } from "@nojv/core";
+import type { AssessmentUpdate, Language } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
@@ -59,7 +59,7 @@ function deriveLiveStatus(
 function assertFieldsAllowedForStatus(
   liveStatus: AssignmentLiveStatus,
   current: { opensAt: Date; dueAt: Date | null; closesAt: Date },
-  payload: CourseAssessmentUpdate,
+  payload: AssessmentUpdate,
 ): void {
   if (liveStatus === "closed") {
     throw new ValidationError("Closed assignments are read-only.");
@@ -129,7 +129,7 @@ async function replaceAssignmentProblems(
 export async function updateAssignmentRecord(
   actor: ActorContext,
   assignmentId: string,
-  payload: CourseAssessmentUpdate,
+  payload: AssessmentUpdate,
 ): Promise<{ id: string }> {
   return runTransaction(async (tx) => {
     const assignment = await requireAssignment(tx, assignmentId);
@@ -146,7 +146,7 @@ export async function updateAssignmentRecord(
       payload,
     );
 
-    const updateData: Prisma.CourseAssessmentUncheckedUpdateInput = stripUndefined({
+    const updateData: Prisma.AssessmentUncheckedUpdateInput = stripUndefined({
       title: payload.title,
       summary: payload.summary,
       allowedLanguages: payload.allowedLanguages,

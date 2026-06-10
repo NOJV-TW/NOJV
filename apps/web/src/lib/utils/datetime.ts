@@ -93,10 +93,8 @@ export interface FmtDateOptions {
 
 export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  if (opts.dateOnly) return `${String(m)}/${String(day)}`;
-  return `${String(m)}/${String(day)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  if (opts.dateOnly) return `${String(d.getMonth() + 1)}/${String(d.getDate())}`;
+  return formatPart(d);
 }
 
 const WEEKDAY_MESSAGES = [

@@ -9,7 +9,7 @@ import {
 } from "@nojv/db";
 import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
 
-import { ConflictError, ValidationError } from "../shared/errors";
+import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 
@@ -26,6 +26,22 @@ import {
 } from "./permissions";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
+
+async function requireSetInProblem(setId: string, problemId: string) {
+  const set = await testcaseSetRepo.findById(setId);
+  if (set?.problemId !== problemId) {
+    throw new NotFoundError("Testcase set not found for this problem.");
+  }
+  return set;
+}
+
+async function requireTestcaseInProblem(testcaseId: string, problemId: string) {
+  const testcase = await testcaseRepo.findById(testcaseId);
+  if (testcase?.testcaseSet.problemId !== problemId) {
+    throw new NotFoundError("Testcase not found for this problem.");
+  }
+  return testcase;
+}
 
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,
@@ -53,19 +69,14 @@ export async function createProblemTestcaseSetRecord(
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    const existingCount = await tx.testcaseSet.count({
-      where: { problemId: problem.id },
-    });
+    const existingCount = await testcaseSetRepo.withTx(tx).countByProblem(problem.id);
     if (existingCount >= MAX_TESTCASE_SETS_PER_PROBLEM) {
       throw new ConflictError(
         `A problem can have at most ${String(MAX_TESTCASE_SETS_PER_PROBLEM)} testcase sets.`,
       );
     }
 
-    const { _max } = await tx.testcaseSet.aggregate({
-      where: { problemId: problem.id },
-      _max: { ordinal: true },
-    });
+    const { _max } = await testcaseSetRepo.withTx(tx).maxOrdinalByProblem(problem.id);
     const nextOrdinal = (_max.ordinal ?? -1) + 1;
 
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
@@ -107,6 +118,7 @@ export async function updateTestcaseSetRecord(
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
+    await requireSetInProblem(setId, problem.id);
 
     return testcaseSetRepo.update(setId, stripUndefined(payload));
   });
@@ -117,8 +129,8 @@ export async function deleteTestcaseSetRecord(
   problemId: string,
   setId: string,
 ) {
-  const existing = await testcaseSetRepo.findById(setId);
-  const testcaseIds = existing?.testcases.map((tc) => tc.id) ?? [];
+  const existing = await requireSetInProblem(setId, problemId);
+  const testcaseIds = existing.testcases.map((tc) => tc.id);
 
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
@@ -139,6 +151,7 @@ export async function updateTestcaseRecord(
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
+    await requireTestcaseInProblem(testcaseId, problem.id);
   });
 
   const writes: Promise<unknown>[] = [];
@@ -161,6 +174,7 @@ export async function deleteTestcaseRecord(
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
+    await requireTestcaseInProblem(testcaseId, problem.id);
 
     await testcaseRepo.delete(testcaseId);
   });
@@ -182,5 +196,6 @@ export async function setTestcaseSetScoringStrategy(
     throw new ValidationError("Invalid scoring strategy");
   }
   await assertProblemEditAccess(actor, problemId);
+  await requireSetInProblem(setId, problemId);
   await testcaseSetRepo.updateScoringStrategy(setId, rawStrategy);
 }

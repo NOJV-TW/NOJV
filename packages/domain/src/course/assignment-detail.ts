@@ -217,14 +217,14 @@ export async function getAssignmentDetail(
     const problemIds = problems.map((p) => p.problemId);
     const [grouped, recent] = await Promise.all([
       submissionRepo.groupByUserAndProblem({
-        courseAssessmentId: assignmentId,
+        assessmentId: assignmentId,
         userId: options.viewerUserId,
         problemId: { in: problemIds },
         sampleOnly: false,
       }),
       submissionRepo.findMany({
         where: {
-          courseAssessmentId: assignmentId,
+          assessmentId: assignmentId,
           userId: options.viewerUserId,
           sampleOnly: false,
         },

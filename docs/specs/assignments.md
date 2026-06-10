@@ -1,9 +1,9 @@
 # Feature: Course Assignments
 
-Acceptance spec for course-embedded homework assessments (`CourseAssessment` /
+Acceptance spec for course-embedded homework assessments (`Assessment` /
 `/courses/[courseId]/assignments/...`). Assignments are un-proctored
 take-home work — no session gate, no IP lock, no page lock. Deadlines and
-per-day attempt caps are the only controls; practice-after-close grants
+per-problem per-day attempt caps are the only controls; practice-after-close grants
 viewing + un-scored submission to past participants.
 
 ## User Stories
@@ -36,7 +36,7 @@ viewing + un-scored submission to past participants.
 
 ### In scope
 
-- `CourseAssessment` CRUD — create, partial update (status-aware), publish,
+- `Assessment` CRUD — create, partial update (status-aware), publish,
   delete-draft, revert-to-draft (only while `upcoming`).
 - Persistent `status` is `draft | published` only. Lifecycle derivation
   `draft | upcoming | open | closed` from `(status, opensAt, closesAt,
@@ -51,7 +51,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   - `open` → `opensAt` frozen; `closesAt`/`dueAt` extend-only.
   - `closed` → no field edits (only delete-draft is meaningful, and only
     for never-published rows).
-- Per-assignment `maxAttemptsPerDay` (UTC midnight boundary).
+- Per-assignment `maxAttemptsPerDay` counted **per problem**, with a configurable daily reset time `attemptResetMinuteOfDay` (minutes since Taipei midnight, default 300 = 05:00 Asia/Taipei). Each `(student, assignment, problem)` gets its own daily allowance; sample-only runs never count, and any `system_error` verdict is refunded (see stale reaper).
 - Per-assignment `allowedLanguages` subset of platform-supported list.
 - `adjustmentRules` (e.g. late penalty decay) applied at submission score
   computation.
@@ -60,7 +60,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - Practice-after-close read/write access via `assertProblemViewAccess`
   historical-participant gate.
 - Problem attachment re-bind (wipe-and-recreate the
-  `CourseAssessmentProblem` rows) with per-problem `points` override.
+  `AssessmentProblem` rows) with per-problem `points` override.
 - Post-close grading drawer on the submissions matrix — score
   overrides + per-cell student-visible feedback comments
   (`SubmissionFeedback`). Writes gated post-close (`closesAt < now`),
@@ -115,7 +115,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 - GIVEN a `draft` assignment, WHEN `deleteAssignmentDraft` is called,
   THEN the row is hard-deleted (cascade drops
-  `CourseAssessmentProblem` rows).
+  `AssessmentProblem` rows).
 - GIVEN a non-`draft` assignment, WHEN delete is attempted,
   THEN `ValidationError("Only draft assignments can be deleted.")`.
 
@@ -126,7 +126,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   commits, THEN an append-only `AssessmentAuditLog` row is written in the
   same transaction: `{ assessmentId, courseId, actorUserId, action }`.
 - GIVEN a `delete_draft`, THEN the audit row is written BEFORE the
-  `CourseAssessment` row is removed; `assessmentId` is stored as a plain
+  `Assessment` row is removed; `assessmentId` is stored as a plain
   string (not an FK) so the entry survives the deletion.
 - WHEN the assignment settings tab loads, THEN
   `assessmentAuditLogRepo.listByAssessment(assessmentId, take)` returns
@@ -158,7 +158,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 ### Problem attachment
 
 - WHEN `updateAssignmentRecord` includes `problemIds`, THEN all existing
-  `CourseAssessmentProblem` rows are deleted, then re-created preserving the
+  `AssessmentProblem` rows are deleted, then re-created preserving the
   submitted order as `ordinal = index + 1` with per-row `points` (default 100).
 - GIVEN `allowedLanguages` is non-empty and any attached problem is
   missing an editable `main.<ext>` for one of those languages,
@@ -189,7 +189,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - GIVEN a `closed` assignment, WHEN a manager opens a matrix cell,
   THEN the grading drawer shows two sections — score override
   (staff-only `reason`) + student-visible feedback comment — keyed
-  on `(studentUserId, problemId, courseAssessmentId)`.
+  on `(studentUserId, problemId, assessmentId)`.
 - GIVEN a non-admin manager actor with `now < closesAt`, WHEN
   `createOverride` / `updateOverride` / `deleteOverride` or
   `upsertFeedback` / `deleteFeedback` is called against the
@@ -213,6 +213,37 @@ is only available after it closes.")` (shared post-close gate; see
 - The view is read-only — no new audit rows are written when the tab
   is loaded.
 
+### Rejudge progress & cancel
+
+- GIVEN a staff actor triggers a batch rejudge of an assignment's
+  submissions, WHEN the rejudge workflow runs, THEN it exposes a
+  `getProgress` query returning `{ completed, total }` that the manage
+  page polls to render a progress bar; children are spawned in batches
+  of 10.
+- GIVEN a running batch rejudge, WHEN a staff actor cancels it
+  (`cancelRejudge(workflowId)`), THEN the parent workflow is cancelled
+  and in-flight child judges propagate the cancellation; affected
+  submissions are restored to their prior verdict
+  (`restoreSubmissionForCancelledRejudge`).
+- GIVEN any rejudge (single or batch), WHEN it runs, THEN a
+  `SubmissionRejudgeLog` row records who triggered it and the
+  before/after verdict, surfaced in the audit timeline and in the
+  admin-wide list at `/admin/rejudges` (paged, filterable by problem).
+
+### Stale-submission reaper (attempt refund)
+
+- GIVEN a submission stuck in `queued` / `compiling` / `running` past
+  the configured pending timeout (default 30 min, set by an admin at
+  `/admin/rejudges` via `updatePendingTimeout`, bounded 10–1440 min),
+  WHEN the `submissionSweeperWorkflow` cron fires (every minute), THEN
+  `sweepStaleSubmissions` terminates the stuck judge workflow and only
+  then flips the row to `system_error` (terminate-before-mark so a
+  still-alive workflow cannot overwrite the verdict).
+- GIVEN a submission swept to `system_error`, THEN it does **not** count
+  against `maxAttemptsPerDay` — the daily attempt is effectively
+  refunded (all `system_error` verdicts are non-counting platform
+  faults, not student errors).
+
 ### Practice-after-close (submission gate)
 
 - GIVEN an ended assignment (`closesAt < now`, `status = 'published'`) that
@@ -222,7 +253,7 @@ is only available after it closes.")` (shared post-close gate; see
   participant clause (no context query params needed).
 - WHEN the user POSTs to `/api/submissions` with NO assignment context on
   the same problem after close, THEN the submission is accepted as a
-  practice submission (no `courseAssessmentId`, no `maxAttemptsPerDay`
+  practice submission (no `assessmentId`, no `maxAttemptsPerDay`
   decrement, no class-stats contribution).
 - GIVEN the same user POSTs with an EXPIRED `assessment` context,
   THEN the createSubmission mutation still throws `ForbiddenError` — the
@@ -240,10 +271,14 @@ is only available after it closes.")` (shared post-close gate; see
   reads `status === 'published'` and throws
   `ValidationError("Only draft assignments can be published.")` — no race
   hazard because the check and write are in the same transaction.
-- **`maxAttemptsPerDay` boundary.** The UTC-midnight window is exclusive of
-  the new day's 00:00:00 (a `createdAt >= start-of-day` filter), so a
-  student submitting at 23:59:59 on day N and 00:00:00 on day N+1 gets two
-  attempts, not one.
+- **`maxAttemptsPerDay` boundary.** The window starts at the configured
+  `attemptResetMinuteOfDay` Taipei wall-clock time (default 05:00 Asia/Taipei,
+  computed by `attemptWindowStart` as a real UTC instant — Taipei is fixed
+  UTC+8, no DST). Counting is `createdAt >= windowStart` and is scoped to the
+  specific `(student, assignment, problem)`, so the reset rolls over at the
+  configured time rather than midnight, and each problem has an independent
+  counter. The count is taken under a per-window advisory lock
+  (`pg_advisory_xact_lock`) so concurrent submits cannot exceed the cap.
 - **Archived course, published assignment.** When the parent
   `Course.archived` flips true, the assignment hides from student list
   views and submissions to it are rejected by the submissions path. The
@@ -261,7 +296,7 @@ is only available after it closes.")` (shared post-close gate; see
 - `packages/db/src/repositories/assessment-audit.ts` —
   `assessmentAuditLogRepo` (`withTx().create`, `listByAssessment`).
 - `packages/domain/src/course/mutations.ts` —
-  `createCourseAssessmentRecord` (initial insert; generates slug-style id).
+  `createAssessmentRecord` (initial insert; generates slug-style id).
 - `packages/domain/src/course/overview.ts` —
   `listAssignmentOverviewForCourse`, `listAssignmentsForCourse`,
   `mapAssignmentToOverviewRow` (internal helper), rank function.
@@ -286,11 +321,11 @@ is only available after it closes.")` (shared post-close gate; see
 
 ### Schema
 
-- `packages/core/src/schemas/course.ts` — `courseAssessmentCreateSchema`,
-  `courseAssessmentUpdateSchema`, `courseAssignmentFormSchema`,
+- `packages/core/src/schemas/course.ts` — `assessmentCreateSchema`,
+  `assessmentUpdateSchema`, `courseAssignmentFormSchema`,
   `assessmentSettingsFormSchema`.
-- `packages/db/prisma/schema/course.prisma` — `CourseAssessment`,
-  `CourseAssessmentProblem`, `AssessmentAuditLog`, enum
+- `packages/db/prisma/schema/course.prisma` — `Assessment`,
+  `AssessmentProblem`, `AssessmentAuditLog`, enum
   `AssessmentAuditAction`.
 - `packages/db/prisma/schema/submission.prisma` —
   `SubmissionFeedback` (assignment + exam contexts; CHECK enforces

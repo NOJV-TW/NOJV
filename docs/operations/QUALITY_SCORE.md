@@ -16,19 +16,13 @@ ledger. **Not a changelog** — for batch-by-batch detail see git log and
 | Reliability guidance       | A     | SLO table (8 targets), failure modes, invariants, health checks, incident-recovery runbook. Grafana dashboards + 6 alert rules live.                                                                           | Tune SLO alert thresholds against real production traffic.                             |
 | Security guidance          | B+    | Handling rules, sensitive data, threat model cover all surfaces. CI runs CodeQL SAST + blocking `pnpm audit` gate (0 high/critical). Moderate/low transitives triaged with a documented cadence (SECURITY.md). | Re-clear the moderate transitives when monaco-editor / kit / prisma take a major bump. |
 | Schema documentation       | B     | Domain model overview, enums, relationships documented; `pnpm db:docs` emits exhaustive field-level reference (`DATABASE.generated.md`).                                                                       | Add an entity-relationship diagram.                                                    |
-| Test coverage              | B-    | Vitest unit + integration + Playwright E2E (87 unit files / 793 tests + integration suite). v8 coverage thresholds ratchet domain + core.                                                                      | Raise the coverage ratchet; expand route-level integration.                            |
+| Test coverage              | B-    | Vitest unit + integration + Playwright E2E (149 unit files / ~1246 tests + integration suite). v8 coverage thresholds ratchet domain + core.                                                                   | Raise the coverage ratchet; expand route-level integration.                            |
 
 ## Outstanding Drift
 
 Add an entry here when code lands without its documentation, or vice
 versa. Clear the entry once the gap closes.
 
-- **Redis scoreboard last-writer-wins window** — `updateScoreboard`
-  (`packages/redis/src/scoreboard.ts`) is a plain `ZADD` with no version
-  guard. Under concurrent batch rejudge, an older score computation can
-  overwrite a newer one in Redis (DB stays correct via the optimistic
-  lock); the next score update self-corrects. Accepted: a versioned Lua
-  write isn't worth the complexity at current scale.
 - **`SubmissionStatus.compiling` enum drift** — the Prisma enum has
   `compiling` but `@nojv/core` `submissionOperationStatuses` does not.
   Never persisted today (the judge workflow keeps it workflow-local), so
@@ -43,6 +37,20 @@ versa. Clear the entry once the gap closes.
 
 One line each — full detail in `docs/plans/completed/` and git log.
 
+- **2026-06-10** — Audit-remediation batch (in progress on
+  `fix/audit-remediation-2026-06-10`): `CourseAssessment` → `Assessment`
+  global rename (model / enum / `assessmentId` column + RENAME
+  migration); auth hardening (public sign-up disabled, prod admin
+  credentials out of source, first-login forced password change, TOTP
+  2FA); judge correctness (sandbox `SE` → `system_error` non-counting
+  verdict, large-output truncation before `submissionResultSchema`).
+  Wave 8 living-doc drift sweep landed this entry.
+- **2026-06-09** — Stale-submission reaper (PR #106): per-minute cron
+  sweeper terminates submissions stuck past the configurable pending
+  timeout and refunds the daily attempt (all `system_error` non-counting).
+- **2026-06-08** — Security/correctness audit batch (PR #105): exam
+  judging activity-bundle registration fix, `attemptResetMinuteOfDay`
+  migration, freeze-bypass scoreboard chart, rate-limiter key isolation.
 - **2026-05-28** — Storage unification + audit fixes (HIGH findings
   resolved): editorial API-layer bypass closed by server-side context
   resolution (commits `f1994619`, `fd2f7884`); multi-file MOSS
@@ -59,17 +67,6 @@ One line each — full detail in `docs/plans/completed/` and git log.
   `SubmissionFeedback`, Audit Timeline tab on assignment / exam /
   contest, dashboard `WelcomeGuide`, datetime helpers, post-close
   write-gate split from view-gate.
-- **2026-05-19** — Quality-ledger follow-ups (PR #30): spec drift
-  cleanup across 5 specs, `editorialSubmitSchema` → `@nojv/core`,
-  Grafana SLO alert rules + contact point + notification policy,
-  CodeQL + blocking `pnpm audit` gate.
-- **2026-05-18** — Feature-completion batch (PR #28): D2 retention,
-  D3 dashboard local timezone, D4 bulk session release, D5
-  copy-course validation, D6 assessment audit log, D7 editorial
-  moderation. `UserDailyActivity` removed.
-- **2026-05-16** — Class analytics + virtual contest + upsolve (PR #27).
-- **2026-05-06** — Grafana observability wired (5 dashboards, 6 SLO
-  metrics, OTel SDK in web + worker).
 
 ## Notes
 

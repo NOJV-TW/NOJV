@@ -3,12 +3,14 @@ import {
   SUBMISSION_PENDING_TIMEOUT_SETTING_KEY,
   submissionPendingTimeoutMinutesSchema,
 } from "@nojv/core";
-import { platformSettingRepo, submissionRepo } from "@nojv/db";
+import { platformSettingRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 import { terminateSubmissionJudge } from "@nojv/temporal";
 
 import { ValidationError } from "../shared/errors";
 
 const PENDING_STATUSES = ["queued", "compiling", "running"];
+
+const REJUDGE_LOG_RETENTION_DAYS = 90;
 
 export async function getSubmissionPendingTimeoutMinutes(): Promise<number> {
   const row = await platformSettingRepo.get(SUBMISSION_PENDING_TIMEOUT_SETTING_KEY);
@@ -29,6 +31,7 @@ export interface SweepStaleSubmissionsResult {
   scanned: number;
   killed: number;
   failed: number;
+  rejudgeLogsPruned: number;
 }
 
 export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResult> {
@@ -53,5 +56,10 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
     }
   }
 
-  return { scanned: stale.length, killed, failed };
+  const rejudgeRetentionCutoff = new Date(
+    Date.now() - REJUDGE_LOG_RETENTION_DAYS * 24 * 60 * 60_000,
+  );
+  const pruned = await submissionRejudgeLogRepo.deleteOlderThan(rejudgeRetentionCutoff);
+
+  return { scanned: stale.length, killed, failed, rejudgeLogsPruned: pruned.count };
 }

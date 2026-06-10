@@ -45,7 +45,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     userId: actor.userId,
     problemId,
     contestId,
-    courseAssessmentId: null,
+    assessmentId: null,
     examId: null,
   });
 

@@ -141,24 +141,24 @@ model ContestProblem {
 }
 
 model ContestParticipation {
-  id               String                     @id @default(cuid())
-  contestId        String
-  userId           String
-  status           ContestParticipationStatus @default(registered)
-  startedAt        DateTime?
-  submittedAt      DateTime?
-  score            Int                        @default(0)
-  penaltySeconds   Int                        @default(0)
-  subtaskScores    Json?
+  id             String                     @id @default(cuid())
+  contestId      String
+  userId         String
+  status         ContestParticipationStatus @default(registered)
+  startedAt      DateTime?
+  submittedAt    DateTime?
+  score          Int                        @default(0)
+  penaltySeconds Int                        @default(0)
+  subtaskScores  Json?
   /// Optimistic-lock counter — bumped on every score recompute so
   /// concurrent `updateContestScores` calls cannot silently overwrite
   /// each other. See packages/domain/src/contest/scoring.ts.
-  version          Int                        @default(0)
-  createdAt        DateTime                   @default(now())
-  updatedAt        DateTime                   @updatedAt
-  contest          Contest                    @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  user             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  submissions      Submission[]
+  version        Int                        @default(0)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  contest        Contest                    @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissions    Submission[]
 
   @@unique([contestId, userId])
 }
@@ -203,9 +203,9 @@ model Exam {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  course                Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdBy             User?               @relation("ExamCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  plagiarismTriggeredBy User?               @relation("ExamPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  course                Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy             User?                @relation("ExamCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  plagiarismTriggeredBy User?                @relation("ExamPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
   problems              ExamProblem[]
   participations        ExamParticipation[]
   submissions           Submission[]
@@ -231,29 +231,29 @@ model ExamProblem {
 }
 
 model ExamParticipation {
-  id                 String                  @id @default(cuid())
-  examId             String
-  userId             String
-  status             ExamParticipationStatus @default(registered)
-  registeredAt       DateTime                @default(now())
-  startedAt          DateTime?
-  submittedAt        DateTime?
-  disqualifiedAt     DateTime?
-  score              Int                     @default(0)
-  penaltySeconds     Int                     @default(0)
-  subtaskScores      Json?
-  ipPin              String?
+  id                String                  @id @default(cuid())
+  examId            String
+  userId            String
+  status            ExamParticipationStatus @default(registered)
+  registeredAt      DateTime                @default(now())
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  disqualifiedAt    DateTime?
+  score             Int                     @default(0)
+  penaltySeconds    Int                     @default(0)
+  subtaskScores     Json?
+  ipPin             String?
   /// Teacher-granted grace window: while now < this, the IP gate is skipped for
   /// this student (e.g. mid-exam machine swap) but still re-pins on first access.
-  ipGateExemptUntil  DateTime?
+  ipGateExemptUntil DateTime?
   /// Optimistic-lock counter — bumped on every score recompute so
   /// concurrent `updateExamScores` calls cannot silently overwrite
   /// each other. Mirrors `ContestParticipation.version`.
-  version            Int                     @default(0)
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  exam               Exam                    @relation(fields: [examId], references: [id], onDelete: Cascade)
-  user               User                    @relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
+  version           Int                     @default(0)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  exam              Exam                    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user              User                    @relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([examId, userId])
   @@index([userId, status])

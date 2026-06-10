@@ -10,7 +10,7 @@ vi.mock("@nojv/temporal", async (importOriginal) => {
 });
 
 import { SUBMISSION_PENDING_TIMEOUT_SETTING_KEY } from "@nojv/core";
-import { platformSettingRepo, submissionRepo } from "@nojv/db";
+import { platformSettingRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 import { submissionDomain, ValidationError } from "@nojv/domain";
 
 import {
@@ -36,7 +36,7 @@ describe("attempt count excludes system_error (real DB)", () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const problem = await createTestProblem({ authorId: teacher.id });
     const course = await createTestCourse({ ownerId: teacher.id });
-    const assignment = await testPrisma.courseAssessment.create({
+    const assignment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -54,7 +54,7 @@ describe("attempt count excludes system_error (real DB)", () => {
       userId: student.id,
       problemId: problem.id,
       courseId: course.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
     };
     await createTestSubmission({ ...common, status: "wrong_answer", score: 30 });
     await createTestSubmission({ ...common, status: "system_error", score: 0 });
@@ -116,6 +116,36 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(result.failed).toBeGreaterThanOrEqual(1);
     const row = await submissionRepo.findById(stale.id);
     expect(row?.status).toBe("compiling");
+  });
+
+  it("prunes rejudge logs past the retention window and keeps recent ones", async () => {
+    const submission = await createTestSubmission({ status: "accepted" });
+    const oldLog = await submissionRejudgeLogRepo.create({
+      submissionId: submission.id,
+      rejudgedByUserId: null,
+      oldVerdict: "accepted",
+      oldScore: 100,
+      oldResultJson: null,
+    });
+    const recentLog = await submissionRejudgeLogRepo.create({
+      submissionId: submission.id,
+      rejudgedByUserId: null,
+      oldVerdict: "wrong_answer",
+      oldScore: 0,
+      oldResultJson: null,
+    });
+    const past = new Date(Date.now() - 100 * 24 * 60 * 60_000);
+    await testPrisma.$executeRaw`UPDATE "SubmissionRejudgeLog" SET "createdAt" = ${past} WHERE "id" = ${oldLog.id}`;
+
+    const result = await submissionDomain.sweepStaleSubmissions();
+
+    expect(result.rejudgeLogsPruned).toBeGreaterThanOrEqual(1);
+    const [oldRow, recentRow] = await Promise.all([
+      testPrisma.submissionRejudgeLog.findUnique({ where: { id: oldLog.id } }),
+      testPrisma.submissionRejudgeLog.findUnique({ where: { id: recentLog.id } }),
+    ]);
+    expect(oldRow).toBeNull();
+    expect(recentRow).not.toBeNull();
   });
 });
 

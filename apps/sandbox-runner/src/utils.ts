@@ -1,5 +1,5 @@
 import * as fs from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -18,23 +18,70 @@ export interface MemoryPoller {
   stop(): number;
 }
 
+function readPpid(pid: number): number | null {
+  try {
+    const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf-8");
+    const afterComm = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    const ppid = Number.parseInt(afterComm[1]!, 10);
+    return Number.isFinite(ppid) ? ppid : null;
+  } catch {
+    return null;
+  }
+}
+
+function readVmRssKb(pid: number): number {
+  try {
+    const status = readFileSync(`/proc/${String(pid)}/status`, "utf-8");
+    const match = status.match(/^VmRSS:\s+(\d+)\s+kB/m);
+    return match ? Number.parseInt(match[1]!, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function processSubtree(root: number): number[] {
+  let entries: string[];
+  try {
+    entries = readdirSync("/proc");
+  } catch {
+    return [root];
+  }
+
+  const childrenOf = new Map<number, number[]>();
+  for (const entry of entries) {
+    const pid = Number(entry);
+    if (!Number.isInteger(pid)) continue;
+    const ppid = readPpid(pid);
+    if (ppid === null) continue;
+    const siblings = childrenOf.get(ppid) ?? [];
+    siblings.push(pid);
+    childrenOf.set(ppid, siblings);
+  }
+
+  const out: number[] = [];
+  const seen = new Set<number>();
+  const stack = [root];
+  while (stack.length > 0) {
+    const pid = stack.pop()!;
+    if (seen.has(pid)) continue;
+    seen.add(pid);
+    out.push(pid);
+    for (const child of childrenOf.get(pid) ?? []) stack.push(child);
+  }
+  return out;
+}
+
 export function createMemoryPoller(pid: number): MemoryPoller {
   let peakKb = 0;
   let stopped = false;
 
   function sample(): void {
     if (stopped) return;
-    try {
-      const status = readFileSync(`/proc/${String(pid)}/status`, "utf-8");
-      const match = status.match(/^VmHWM:\s+(\d+)\s+kB/m);
-      if (match) {
-        const kb = Number.parseInt(match[1]!, 10);
-        if (Number.isFinite(kb) && kb > peakKb) peakKb = kb;
-      }
-    } catch {
-      // Process gone, or /proc unavailable on this host. Either way, just
-      // stop accumulating — the last known peak is still valid.
+    let sumKb = 0;
+    for (const member of processSubtree(pid)) {
+      sumKb += readVmRssKb(member);
     }
+    if (Number.isFinite(sumKb) && sumKb > peakKb) peakKb = sumKb;
   }
 
   sample();

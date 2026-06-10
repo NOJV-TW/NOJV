@@ -6,7 +6,7 @@ import {
   sourceCodeSchema,
   submissionModeSchema,
   submissionOperationStatusSchema,
-  submissionVerdictSchema,
+  submissionResultVerdictSchema,
 } from "../types";
 import { assessmentContextSchema } from "./course";
 import { safeRelativePath } from "./path";
@@ -62,10 +62,10 @@ export const submissionDraftSchema = z
     },
   );
 
-const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
-const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
+export const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
+export const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
 const MAX_SUBTASK_LABEL_LEN = 200;
-const MAX_FEEDBACK_LEN = 10_000;
+export const MAX_FEEDBACK_LEN = 10_000;
 
 export const caseResultSchema = z.object({
   index: z.number().int().nonnegative(),
@@ -82,6 +82,7 @@ export const subtaskResultItemSchema = z.object({
   cases: z.array(caseResultSchema).max(10_000),
   label: z.string().max(MAX_SUBTASK_LABEL_LEN),
   passed: z.boolean(),
+  rawScore: z.number().nonnegative().optional(),
   testcaseSetId: z.string(),
   weight: z.number().int().min(1),
 });
@@ -94,7 +95,7 @@ export const submissionResultSchema = z.object({
   memoryKb: z.number().int().nonnegative().optional(),
   score: z.number().int().min(0).max(100),
   subtaskResults: z.array(subtaskResultItemSchema).max(1_000).optional(),
-  verdict: submissionVerdictSchema,
+  verdict: submissionResultVerdictSchema,
 });
 
 export const submissionDispatchResponseSchema = z.object({

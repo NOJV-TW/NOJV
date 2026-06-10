@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assessmentContextSchema,
-  courseAssessmentCreateSchema,
+  assessmentCreateSchema,
   courseCreateSchema,
 } from "../../../packages/core/src/index";
 
@@ -17,9 +17,9 @@ describe("courseCreateSchema", () => {
   });
 });
 
-describe("courseAssessmentCreateSchema", () => {
+describe("assessmentCreateSchema", () => {
   it("rejects invalid assignment windows when dueAt is before opensAt", () => {
-    const result = courseAssessmentCreateSchema.safeParse({
+    const result = assessmentCreateSchema.safeParse({
       closesAt: "2026-03-20T12:00:00.000Z",
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
@@ -34,7 +34,7 @@ describe("courseAssessmentCreateSchema", () => {
   });
 
   it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
-    const result = courseAssessmentCreateSchema.safeParse({
+    const result = assessmentCreateSchema.safeParse({
       closesAt: "2026-03-30T12:00:00.000Z",
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
@@ -49,7 +49,7 @@ describe("courseAssessmentCreateSchema", () => {
   });
 
   it("rejects empty problemIds array", () => {
-    const result = courseAssessmentCreateSchema.safeParse({
+    const result = assessmentCreateSchema.safeParse({
       closesAt: "2026-03-30T12:00:00.000Z",
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
@@ -63,7 +63,7 @@ describe("courseAssessmentCreateSchema", () => {
   });
 
   it("rejects problemIds whose entries are empty strings", () => {
-    const result = courseAssessmentCreateSchema.safeParse({
+    const result = assessmentCreateSchema.safeParse({
       closesAt: "2026-03-30T12:00:00.000Z",
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",

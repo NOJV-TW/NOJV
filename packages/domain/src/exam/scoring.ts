@@ -6,7 +6,6 @@ import {
   submissionRepo,
 } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
-import { scoreboard } from "@nojv/redis";
 
 import { ConflictError, NotFoundError } from "../shared/errors";
 import {
@@ -66,15 +65,6 @@ async function persistProblemCountScore(
     penaltySeconds: totalPenalty,
     score: solvedCount,
   });
-
-  const packedScore = solvedCount * 1e9 - totalPenalty;
-  await scoreboard.updateScoreboard(
-    exam.id,
-    participation.id,
-    packedScore,
-    "icpc",
-    scoreboard.scoreboardTtlForEndsAt(exam.endsAt),
-  );
 }
 
 async function persistBestScore(
@@ -83,7 +73,6 @@ async function persistBestScore(
   examProblems: ExamProblemMap,
   overrideRows: OverrideRows,
 ): Promise<void> {
-  const { exam } = participation;
   const bestByProblem = new Map<string, number>();
   for (const sub of allSubmissions) {
     if (!examProblems.has(sub.problemId)) continue;
@@ -108,14 +97,6 @@ async function persistBestScore(
     score: totalScore,
     subtaskScores,
   });
-
-  await scoreboard.updateScoreboard(
-    exam.id,
-    participation.id,
-    totalScore,
-    "ioi",
-    scoreboard.scoreboardTtlForEndsAt(exam.endsAt),
-  );
 }
 
 export async function updateExamScores(examParticipationId: string): Promise<void> {

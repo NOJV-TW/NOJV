@@ -34,6 +34,8 @@ export const submissionVerdicts = [
   "time_limit_exceeded",
   "memory_limit_exceeded",
 ] as const;
+
+export const submissionResultVerdicts = [...submissionVerdicts, "system_error"] as const;
 export const submissionOperationStatuses = [
   "queued",
   "running",
@@ -68,6 +70,7 @@ export const announcementStatusSchema = z.enum(announcementStatuses);
 export const announcementAudienceSchema = z.enum(announcementAudiences);
 export const localeCodeSchema = z.enum(localeCodes);
 export const submissionVerdictSchema = z.enum(submissionVerdicts);
+export const submissionResultVerdictSchema = z.enum(submissionResultVerdicts);
 export const submissionOperationStatusSchema = z.enum(submissionOperationStatuses);
 export const slugSchema = z
   .string()
@@ -133,6 +136,8 @@ export const sessionUserSchema = z.object({
   name: z.string(),
   platformRole: platformRoleSchema,
   status: userStatusSchema.default("active"),
+  mustChangePassword: z.boolean().default(false),
+  twoFactorEnabled: z.boolean().default(false),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;

@@ -6,7 +6,6 @@ const {
   findMany,
   findAllByContext,
   updateWithVersion,
-  updateScoreboardMock,
   ExamParticipationVersionConflict,
 } = vi.hoisted(() => {
   class ExamParticipationVersionConflict extends Error {
@@ -25,7 +24,6 @@ const {
     findMany: vi.fn(),
     findAllByContext: vi.fn(),
     updateWithVersion: vi.fn(),
-    updateScoreboardMock: vi.fn(),
     ExamParticipationVersionConflict,
   };
 });
@@ -44,15 +42,6 @@ vi.mock("@nojv/db", () => ({
     findAllByContext,
   },
   ExamParticipationVersionConflict,
-}));
-
-vi.mock("@nojv/redis", () => ({
-  scoreboard: {
-    updateScoreboard: updateScoreboardMock,
-    // Pure TTL helper — scoring passes its result straight to
-    // updateScoreboard; a fixed number keeps the race assertions stable.
-    scoreboardTtlForEndsAt: () => 604800,
-  },
 }));
 
 import { examDomain, ConflictError } from "@nojv/domain";
@@ -85,7 +74,6 @@ function participationFixture(version: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   findAllByContext.mockResolvedValue([]);
-  updateScoreboardMock.mockResolvedValue(undefined);
 });
 
 describe("updateExamScores — optimistic locking", () => {
@@ -131,16 +119,6 @@ describe("updateExamScores — optimistic locking", () => {
       1,
       expect.objectContaining({ score: 80 }),
     );
-
-    // Scoreboard reflects the value that actually landed.
-    expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      EXAM_ID,
-      PARTICIPATION_ID,
-      80,
-      "ioi",
-      expect.any(Number),
-    );
   });
 
   it("uses optimistic locking on the problem_count (ICPC) path too", async () => {
@@ -169,13 +147,6 @@ describe("updateExamScores — optimistic locking", () => {
       0,
       expect.objectContaining({ score: 1 }),
     );
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      EXAM_ID,
-      PARTICIPATION_ID,
-      expect.any(Number),
-      "icpc",
-      expect.any(Number),
-    );
   });
 
   it("throws ConflictError after exhausting all retry attempts", async () => {
@@ -191,8 +162,6 @@ describe("updateExamScores — optimistic locking", () => {
 
     // 3 attempts before giving up.
     expect(updateWithVersion).toHaveBeenCalledTimes(3);
-    // Scoreboard must NOT be touched when no DB write succeeded.
-    expect(updateScoreboardMock).not.toHaveBeenCalled();
   });
 
   it("returns early without writing when the participation does not exist", async () => {
@@ -201,7 +170,6 @@ describe("updateExamScores — optimistic locking", () => {
     await updateExamScores(PARTICIPATION_ID);
 
     expect(updateWithVersion).not.toHaveBeenCalled();
-    expect(updateScoreboardMock).not.toHaveBeenCalled();
   });
 });
 

@@ -65,8 +65,14 @@ vi.mock("@nojv/db", () => {
     assessmentRepo: {
       withTx: () => ({ findByCompositeId: assessmentFindByCompositeId }),
     },
+    assessmentProblemRepo: {
+      withTx: () => ({ findLink: txAssessmentProblemFindFirst }),
+    },
     contestRepo: {
       withTx: () => ({ findById: vi.fn() }),
+    },
+    contestProblemRepo: {
+      withTx: () => ({ findLink: txContestProblemFindFirst }),
     },
     examSessionRepo: {
       withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
@@ -85,20 +91,9 @@ vi.mock("@nojv/db", () => {
       }),
       updateStatus: submissionUpdateStatus,
     },
-    // createQueuedSubmissionRecord now does direct prisma reads against
-    // the assessment/contest problem-link tables for problem-in-context
-    // checks; expose those on the mock tx.
     runTransaction: async <T>(
-      fn: (tx: {
-        courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
-        contestProblem: { findFirst: typeof txContestProblemFindFirst };
-      }) => Promise<T>,
-    ): Promise<T> =>
-      fn({
-        courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
-        contestProblem: { findFirst: txContestProblemFindFirst },
-        $executeRaw: txExecuteRaw,
-      }),
+      fn: (tx: { $executeRaw: typeof txExecuteRaw }) => Promise<T>,
+    ): Promise<T> => fn({ $executeRaw: txExecuteRaw }),
   };
 });
 

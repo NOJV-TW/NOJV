@@ -1,13 +1,11 @@
 # @nojv/redis
 
-> Redis 8 連線、key 註冊、pub/sub、scoreboard、metrics。
+> Redis 8 連線、key 註冊、pub/sub。
 
 ## 職責
 
 - 集中管理 Redis 連線（singleton client + subscriber）與 key naming（`keys` registry）
 - 提供 pub/sub helper 給 SSE 與 worker 之間溝通
-- 維護 contest scoreboard（live + frozen 雙 key 機制，皆有 TTL）
-- 提供 scoreboard 更新延遲 metrics
 - **不負責**：業務規則（誰能更新、何時 freeze 在 `@nojv/domain`）
 
 ## 主要 API
@@ -15,8 +13,6 @@
 - `src/connection.ts` — `getRedis()`、`createSubscriber()`
 - `src/keys.ts` — `keys` registry（所有 Redis key 命名集中於此）
 - `src/pubsub.ts` — `publish` / `subscribe` helper
-- `src/scoreboard.ts` — `updateScoreboard` / `freezeScoreboard` / `getScoreboard`
-- `src/metrics.ts` — `scoreboardUpdateLatency`
 
 ## 依賴
 

@@ -67,7 +67,7 @@ type AuditCall = {
   feedbackId: string | null;
   studentUserId: string;
   problemId: string;
-  courseAssessmentId: string | null;
+  assessmentId: string | null;
   examId: string | null;
   action: "create" | "update" | "delete";
   oldComment: string | null;
@@ -104,7 +104,7 @@ describe("upsertFeedback audit trail", () => {
     expect(call.feedbackId).toBe("fb_1");
     expect(call.studentUserId).toBe("usr_student");
     expect(call.problemId).toBe("prob_1");
-    expect(call.courseAssessmentId).toBe("ca_hw1");
+    expect(call.assessmentId).toBe("ca_hw1");
     expect(call.examId).toBeNull();
     expect(call.oldComment).toBeNull();
     expect(call.newComment).toBe(baseInput.comment);
@@ -146,14 +146,14 @@ describe("upsertFeedback audit trail", () => {
     expect(call.newComment).toBe(baseInput.comment);
   });
 
-  it("routes exam-context fields onto examId, leaving courseAssessmentId null", async () => {
+  it("routes exam-context fields onto examId, leaving assessmentId null", async () => {
     feedbackFindExistingForUpsert.mockResolvedValue(null);
 
     await upsertFeedback(actor("usr_t"), { context: examContext, input: baseInput });
 
     const call = auditCreate.mock.calls[0]?.[1] as AuditCall;
     expect(call.examId).toBe("ex_mid");
-    expect(call.courseAssessmentId).toBeNull();
+    expect(call.assessmentId).toBeNull();
     expect(call.action).toBe("create");
   });
 });
@@ -164,7 +164,7 @@ describe("deleteFeedback audit trail", () => {
       id: "fb_1",
       studentUserId: "usr_student",
       problemId: "prob_1",
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
       examId: null,
       comment: "Old comment",
     });
@@ -180,7 +180,7 @@ describe("deleteFeedback audit trail", () => {
     expect(call.feedbackId).toBe("fb_1");
     expect(call.studentUserId).toBe("usr_student");
     expect(call.problemId).toBe("prob_1");
-    expect(call.courseAssessmentId).toBe("ca_hw1");
+    expect(call.assessmentId).toBe("ca_hw1");
     expect(call.examId).toBeNull();
     expect(call.oldComment).toBe("Old comment");
     expect(call.newComment).toBeNull();

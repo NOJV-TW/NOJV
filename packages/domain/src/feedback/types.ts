@@ -11,18 +11,18 @@ export type FeedbackContextType = FeedbackContext["type"];
 export function toContextDbFields(ctx: FeedbackContext): SubmissionFeedbackContext {
   switch (ctx.type) {
     case "assignment":
-      return { courseAssessmentId: ctx.assignmentId };
+      return { assessmentId: ctx.assignmentId };
     case "exam":
       return { examId: ctx.examId };
   }
 }
 
 export function fromContextDbFields(row: {
-  courseAssessmentId: string | null;
+  assessmentId: string | null;
   examId: string | null;
 }): FeedbackContext {
-  if (row.courseAssessmentId !== null) {
-    return { type: "assignment", assignmentId: row.courseAssessmentId };
+  if (row.assessmentId !== null) {
+    return { type: "assignment", assignmentId: row.assessmentId };
   }
   if (row.examId !== null) {
     return { type: "exam", examId: row.examId };

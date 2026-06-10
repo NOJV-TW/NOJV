@@ -63,7 +63,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       userId,
       problemId,
       contestId: null,
-      courseAssessmentId: null,
+      assessmentId: null,
       examId: null,
     }),
     canViewEditorials(userId, problemId, editorialContext),

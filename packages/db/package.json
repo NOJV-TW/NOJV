@@ -19,6 +19,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "node --env-file=../../.env --import tsx prisma/seed.ts",
+    "db:bootstrap-admin": "node --env-file=../../.env --import tsx prisma/bootstrap-admin.ts",
     "db:seed:validate": "node --import tsx prisma/seeds/validate.ts",
     "migrate:validator-scripts": "node --env-file=../../.env --import tsx prisma/scripts/migrate-validator-scripts-to-storage.ts",
     "lint": "eslint .",

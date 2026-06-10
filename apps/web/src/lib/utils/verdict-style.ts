@@ -27,6 +27,7 @@ const SHORT_CODE_TO_VERDICT: Record<string, string> = {
   MLE: "memory_limit_exceeded",
   RE: "runtime_error",
   CE: "compile_error",
+  SE: "system_error",
 };
 
 function normalizeVerdict(verdict: string): string {
@@ -40,6 +41,7 @@ const VERDICT_VARIANT: Record<string, VerdictBadgeVariant> = {
   compile_error: "destructive",
   time_limit_exceeded: "warning",
   memory_limit_exceeded: "warning",
+  system_error: "warning",
   queued: "verdict-pending",
   running: "verdict-pending",
   compiling: "verdict-pending",
@@ -52,6 +54,7 @@ const VERDICT_TONE: Record<string, string> = {
   compile_error: "text-destructive",
   time_limit_exceeded: "text-warning",
   memory_limit_exceeded: "text-warning",
+  system_error: "text-warning",
   queued: "text-muted-foreground",
   running: "text-muted-foreground",
   compiling: "text-muted-foreground",

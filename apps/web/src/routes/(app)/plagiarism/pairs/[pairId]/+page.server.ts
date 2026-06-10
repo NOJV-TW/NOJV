@@ -107,7 +107,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     await assertAssignmentManager(actor, contextId);
     return await loadPlagiarismPair({
       pairId: pairKey,
-      target: { type: "courseAssessment", id: contextId },
+      target: { type: "assessment", id: contextId },
       flagContext: "assessment",
     });
   }

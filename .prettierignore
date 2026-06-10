@@ -13,3 +13,4 @@ apps/web/src/lib/paraglide
 apps/web/project.inlang
 pnpm-lock.yaml
 docs/design
+docs/architecture/DATABASE.generated.md

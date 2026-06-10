@@ -80,11 +80,11 @@ describe("getCourseAnalytics", () => {
       student("u4", "Dave", "dave"), // never submitted -> at risk
     ]);
     groupBestScoresByAssessment.mockResolvedValue([
-      { courseAssessmentId: "a1", userId: "u1", problemId: "p1", _max: { score: 100 } },
-      { courseAssessmentId: "a1", userId: "u1", problemId: "p2", _max: { score: 100 } },
-      { courseAssessmentId: "a1", userId: "u2", problemId: "p1", _max: { score: 100 } },
-      { courseAssessmentId: "a1", userId: "u2", problemId: "p2", _max: { score: 40 } },
-      { courseAssessmentId: "a1", userId: "u3", problemId: "p1", _max: { score: 0 } },
+      { assessmentId: "a1", userId: "u1", problemId: "p1", _max: { score: 100 } },
+      { assessmentId: "a1", userId: "u1", problemId: "p2", _max: { score: 100 } },
+      { assessmentId: "a1", userId: "u2", problemId: "p1", _max: { score: 100 } },
+      { assessmentId: "a1", userId: "u2", problemId: "p2", _max: { score: 40 } },
+      { assessmentId: "a1", userId: "u3", problemId: "p1", _max: { score: 0 } },
     ]);
     groupStatusByAssessments.mockResolvedValue([
       { status: "accepted", _count: { _all: 5 } },
