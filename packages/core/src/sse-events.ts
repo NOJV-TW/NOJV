@@ -6,6 +6,7 @@ export const SSE_CONTEST_ENDING = "contest:ending" as const;
 export const SSE_ASSIGNMENT_DEADLINE = "assignment:deadline" as const;
 export const SSE_NOTIFICATION = "notification" as const;
 export const SSE_CLARIFICATION = "clarification" as const;
+export const SSE_SCOREBOARD = "scoreboard:update" as const;
 
 export interface NotificationSSEEvent {
   type: typeof SSE_NOTIFICATION;
@@ -27,6 +28,7 @@ const submissionVerdictEventSchema = z.object({
 const contestStartingEventSchema = z.object({ type: z.literal(SSE_CONTEST_STARTING) });
 const contestEndingEventSchema = z.object({ type: z.literal(SSE_CONTEST_ENDING) });
 const assignmentDeadlineEventSchema = z.object({ type: z.literal(SSE_ASSIGNMENT_DEADLINE) });
+const scoreboardEventSchema = z.object({ type: z.literal(SSE_SCOREBOARD) });
 
 const notificationEventSchema = z.object({
   type: z.literal(SSE_NOTIFICATION),
@@ -76,6 +78,7 @@ export const sseEventSchema = z.discriminatedUnion("type", [
   assignmentDeadlineEventSchema,
   notificationEventSchema,
   clarificationEventSchema,
+  scoreboardEventSchema,
 ]);
 
 export type ClarificationSSEEvent = z.infer<typeof clarificationEventSchema>;

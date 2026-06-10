@@ -118,14 +118,16 @@ async function persistContestBestScore(
   });
 }
 
-export async function updateContestScores(contestParticipationId: string): Promise<void> {
+export async function updateContestScores(
+  contestParticipationId: string,
+): Promise<string | null> {
   let overrideRows: ContestOverrideRows | undefined;
 
   for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
     const participation =
       await contestParticipationRepo.findByIdWithContest(contestParticipationId);
 
-    if (!participation) return;
+    if (!participation) return null;
 
     const { contest } = participation;
 
@@ -146,7 +148,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
         );
       }
 
-      return;
+      return contest.id;
     } catch (err) {
       if (err instanceof ParticipationVersionConflict) {
         continue;

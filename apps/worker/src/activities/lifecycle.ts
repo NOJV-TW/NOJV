@@ -23,8 +23,10 @@ export async function finalizeContest(contestId: string): Promise<void> {
   await contestDomain.finalizeContest(contestId);
 }
 
-export async function updateContestScores(contestParticipationId: string): Promise<void> {
-  await contestDomain.updateContestScores(contestParticipationId);
+export async function updateContestScores(
+  contestParticipationId: string,
+): Promise<string | null> {
+  return contestDomain.updateContestScores(contestParticipationId);
 }
 
 export async function updateExamScores(examId: string, userId: string): Promise<void> {
@@ -45,6 +47,7 @@ export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepSta
 
 export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;
+export const publishScoreboardUpdate = pubsub.publishScoreboardUpdate;
 export const publishAssessmentDeadline = pubsub.publishAssessmentDeadline;
 
 export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {

@@ -12,6 +12,7 @@ export {
 export {
   publishVerdict,
   publishContestEvent,
+  publishScoreboardUpdate,
   publishAssessmentDeadline,
   updateContestScores,
   updateExamScores,

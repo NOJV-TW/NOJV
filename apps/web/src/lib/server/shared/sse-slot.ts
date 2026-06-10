@@ -1,7 +1,7 @@
 const MAX_SSE_PER_USER = 5;
 const MAX_SSE_GLOBAL = 2000;
 
-export type SseStreamType = "submission" | "events";
+export type SseStreamType = "submission" | "events" | "scoreboard";
 
 const sseConnectionCounts = new Map<string, number>();
 let globalCount = 0;

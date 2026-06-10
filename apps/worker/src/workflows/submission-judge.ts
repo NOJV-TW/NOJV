@@ -60,7 +60,10 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
     const submission = await judge.completeSubmission(input.submissionId, result, mode);
 
     if (submission.contestParticipationId) {
-      await contest.updateContestScores(submission.contestParticipationId);
+      const contestId = await contest.updateContestScores(submission.contestParticipationId);
+      if (contestId) {
+        await notification.publishScoreboardUpdate(contestId);
+      }
     } else if (submission.examId) {
       await contest.updateExamScores(submission.examId, submission.userId);
     }

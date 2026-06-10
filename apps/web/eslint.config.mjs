@@ -232,6 +232,7 @@ export default [
       "src/lib/server/shared/sse-hub.ts",
       // SSE endpoint owns a per-request Redis subscriber.
       "src/routes/api/events/stream/+server.ts",
+      "src/routes/**/scoreboard/stream/+server.ts",
     ],
     rules: {
       "no-restricted-imports": "off",
