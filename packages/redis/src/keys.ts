@@ -4,10 +4,10 @@ export const keys = {
 
   adminDashboard: () => "nojv:cache:admin-dashboard",
 
-  userChannel: (userId: string) => `user:${userId}`,
-  notificationChannel: (userId: string) => `notification:${userId}`,
-  contestChannel: (contestId: string) => `contest:${contestId}`,
-  assessmentChannel: (assessmentId: string) => `assessment:${assessmentId}`,
+  userChannel: (userId: string) => `nojv:user:${userId}`,
+  notificationChannel: (userId: string) => `nojv:notification:${userId}`,
+  contestChannel: (contestId: string) => `nojv:contest:${contestId}`,
+  assessmentChannel: (assessmentId: string) => `nojv:assessment:${assessmentId}`,
   clarificationChannel: (contextType: string, contextId: string) =>
-    `clarification:${contextType}:${contextId}`,
+    `nojv:clarification:${contextType}:${contextId}`,
 } as const;
