@@ -62,10 +62,10 @@ export const submissionDraftSchema = z
     },
   );
 
-const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
-const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
+export const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
+export const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
 const MAX_SUBTASK_LABEL_LEN = 200;
-const MAX_FEEDBACK_LEN = 10_000;
+export const MAX_FEEDBACK_LEN = 10_000;
 
 export const caseResultSchema = z.object({
   index: z.number().int().nonnegative(),
