@@ -21,7 +21,7 @@ Production-oriented Online Judge platform. Supports competitive programming cont
 Browser ──→ SvelteKit (web) ──→ Temporal Server ──→ Worker ──→ Sandbox
                 │                                      │
                 ├── PostgreSQL (source of truth)        │
-                └── Redis (pub/sub, scoreboard)         │
+                └── Redis (pub/sub)                    │
                                                         ├── Docker (local)
                                                         └── Kubernetes (prod)
 ```
@@ -40,7 +40,7 @@ packages/
   core/             Shared Zod schemas, types, pipeline definitions
   db/               Prisma 7 schema, migrations, seed script
   domain/           Business logic — queries, commands, scoring, stats
-  redis/            Redis connection, key registry, pub/sub, scoreboards
+  redis/            Redis connection, key registry, pub/sub
   storage/          S3-compatible object storage (problem images)
   temporal/         Temporal client + dispatch API + task queue constants + types (workflows/activities live in apps/worker)
 
@@ -73,7 +73,7 @@ docs/
 - **Auth**: better-auth (email/password, GitHub, Google)
 - **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 18, Prisma 7
-- **Cache**: Redis 8 (pub/sub, scoreboards, connection/keys/metrics)
+- **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
 - **Validation**: Zod 4
 - **Testing**: Vitest, Playwright
 - **Build**: Turborepo, pnpm workspaces, tsdown, esbuild
@@ -224,7 +224,7 @@ See [Deployment Guide](docs/operations/DEPLOYMENT.md) for full operational detai
 | [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                    |
 | [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                  |
 | [Database Schema](docs/architecture/DATABASE.md)      | Models, relationships, enums                        |
-| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub, scoreboard                     |
+| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub                                 |
 | [Security](docs/operations/SECURITY.md)               | Auth, trust boundaries, sandbox isolation           |
 | [Reliability](docs/operations/RELIABILITY.md)         | Invariants, failure modes, operational expectations |
 | [Deployment](docs/operations/DEPLOYMENT.md)           | Docker Compose, CI/CD rollout, microservice modes   |

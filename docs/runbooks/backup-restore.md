@@ -51,13 +51,29 @@ Redis, and MinIO run as Compose services with named Docker volumes
 
 ### Taking a dump
 
-A `pg_dump` against the running container is enough; run it from the host
-(generic — adjust the service/db/user names if your `.env` overrides
-`POSTGRES_USER` / `POSTGRES_DB`). The repo ships a helper script under
-`infra/` for this; the manual equivalent is:
+The repo ships a helper script — `infra/scripts/backup-postgres.sh`, wired
+as the optional `postgres-backup` Compose sidecar (`--profile backup`). It
+writes **plain-SQL gzipped** dumps named `nojv-<stamp>.sql.gz` to
+`${BACKUP_DIR:-./backups}` on a `BACKUP_INTERVAL_SECONDS` loop and prunes
+files older than `BACKUP_RETENTION_DAYS`. Match the restore command to this
+format (`gunzip … | psql`, see step 2 below).
 
 ```bash
-# Compressed custom-format dump (best for selective restore)
+# Automated: run the sidecar (one-shot or looping)
+docker compose --profile backup run --rm postgres-backup once   # single dump
+docker compose --profile backup up -d postgres-backup           # cron loop
+```
+
+A manual `pg_dump` against the running container works too. Pick the format
+that matches the restore command you intend to use:
+
+```bash
+# Plain-SQL gzipped — same format as the sidecar; restore with gunzip | psql
+docker compose exec -T postgres \
+  pg_dump -U "${POSTGRES_USER:-postgres}" --no-owner --no-privileges nojv \
+  | gzip -c > "nojv-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+
+# OR custom-format — restore with pg_restore (allows selective restore)
 docker compose exec -T postgres \
   pg_dump -U "${POSTGRES_USER:-postgres}" -Fc nojv \
   > "nojv-$(date -u +%Y%m%dT%H%M%SZ).dump"
@@ -80,12 +96,20 @@ in place over a live primary.
    ```
 
 2. Create a parallel database and restore into it (keeps the original for
-   forensics):
+   forensics). **Match the command to the dump format** — the sidecar and
+   the gzipped manual dump produce `.sql.gz` (plain SQL); only the `-Fc`
+   manual dump produces a `.dump` (custom format):
 
    ```bash
    docker compose exec -T postgres \
      createdb -U "${POSTGRES_USER:-postgres}" nojv_restore
 
+   # For the sidecar / plain-SQL gzipped artifact (nojv-<timestamp>.sql.gz):
+   gunzip -c nojv-<timestamp>.sql.gz \
+     | docker compose exec -T postgres \
+       psql -U "${POSTGRES_USER:-postgres}" -d nojv_restore
+
+   # OR for a custom-format dump (nojv-<timestamp>.dump):
    docker compose exec -T postgres \
      pg_restore -U "${POSTGRES_USER:-postgres}" -d nojv_restore --no-owner \
      < nojv-<timestamp>.dump
