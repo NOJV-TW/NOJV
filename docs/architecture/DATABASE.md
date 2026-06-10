@@ -24,7 +24,7 @@ Problem ──┬── ProblemStatementI18n (locale-specific content)
           ├── ProblemWorkspaceFile (per-language files with visibility + editable regions)
           ├── ContestProblem ──→ Contest
           ├── ExamProblem ──→ Exam
-          ├── CourseAssessmentProblem ──→ CourseAssessment
+          ├── AssessmentProblem ──→ Assessment
           └── Editorial
 
 Contest ──┬── ContestProblem
@@ -38,7 +38,7 @@ Exam ──┬── ExamProblem
        └── IpViolationLog
 
 Course ──┬── CourseMembership
-         ├── CourseAssessment ──┬── CourseAssessmentProblem
+         ├── Assessment ──┬── AssessmentProblem
          │                     └── Submission
          ├── Exam (course-embedded)
          └── Submission
@@ -60,14 +60,14 @@ erDiagram
     User ||--o{ ScoreOverride : grades
 
     Course ||--o{ CourseMembership : has
-    Course ||--o{ CourseAssessment : owns
+    Course ||--o{ Assessment : owns
     Course ||--o{ Exam : embeds
 
-    CourseAssessment ||--o{ CourseAssessmentProblem : links
-    CourseAssessment ||--o{ Submission : scopes
+    Assessment ||--o{ AssessmentProblem : links
+    Assessment ||--o{ Submission : scopes
 
     Problem ||--o{ Submission : "judged in"
-    Problem ||--o{ CourseAssessmentProblem : "attached to"
+    Problem ||--o{ AssessmentProblem : "attached to"
     Problem ||--o{ ContestProblem : "attached to"
     Problem ||--o{ ExamProblem : "attached to"
     Problem ||--o{ Editorial : explains
@@ -106,7 +106,7 @@ erDiagram
 | `UserStatus`                 | active, disabled, pending_first_login                                                                                                         |
 | `CourseRole`                 | teacher, ta, student                                                                                                                          |
 | `CourseMembershipStatus`     | active, removed                                                                                                                               |
-| `CourseAssessmentStatus`     | draft, published                                                                                                                              |
+| `AssessmentStatus`     | draft, published                                                                                                                              |
 | `AssessmentAuditAction`      | publish, revert_to_draft, delete_draft                                                                                                        |
 | `ContestVisibility`          | draft, published                                                                                                                              |
 | `ContestScoringMode`         | problem_count, point_sum                                                                                                                      |
@@ -179,15 +179,15 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 | `examId`                  | String?          | FK to `Exam` when the submission was made inside an exam                                                                                                                  |
 | `contestId`               | String?          | FK to `Contest` when the submission was made inside a contest                                                                                                             |
 | `virtualContestId`        | String?          | FK to `VirtualContest` when the submission was made inside a virtual contest replay                                                                                       |
-| `courseAssessmentId`      | String?          | FK to `CourseAssessment` when the submission was made for a homework assignment                                                                                           |
+| `assessmentId`      | String?          | FK to `Assessment` when the submission was made for a homework assignment                                                                                           |
 | `sampleOnly`              | Boolean          | `true` for in-editor sample runs — never graded                                                                                                                           |
 | `sourceStoragePrefix`     | String           | `@nojv/storage` prefix for the per-file source blobs (`submissions/<id>/sources/`). One S3 object per submitted file. There is no `sourceCode` column                     |
 | `verdictSummary`          | Json?            | Small (< 4 KB) summary: `{ caseSummary: { ac, wa, tle, mle, re, other }, subtaskSummary?: { id, score }[], compilerErrorTruncated?: string }`. Safe to load in list views |
 | `verdictDetailStorageKey` | String?          | `@nojv/storage` key for the full `SubmissionResult` blob (`submissions/<id>/verdict-detail.json`). Null until the judge writes detail                                     |
 
-"Mode" is not a stored column — it's derived from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `courseAssessmentId` ? "assignment" : "practice". A DB-level CHECK constraint (`Submission_single_context_chk`, added in migration `20260416180001_submission_single_context_check`) enforces that at most one of `examId` / `contestId` / `courseAssessmentId` is non-null per row. `virtualContestId` sits OUTSIDE this xor — a virtual-contest submission has only `virtualContestId` set (none of the three xor columns).
+"Mode" is not a stored column — it's derived from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". A DB-level CHECK constraint (`Submission_single_context_chk`, added in migration `20260416180001_submission_single_context_check`) enforces that at most one of `examId` / `contestId` / `assessmentId` is non-null per row. `virtualContestId` sits OUTSIDE this xor — a virtual-contest submission has only `virtualContestId` set (none of the three xor columns).
 
-Indexed on: `[problemId, createdAt]`, `[userId, createdAt]`, `[courseId, courseAssessmentId, createdAt]`, `[contestParticipationId, problemId, createdAt]`, `[contestId, problemId, createdAt]`, `[examId, problemId, createdAt]`, `[virtualContestId, problemId, createdAt]`.
+Indexed on: `[problemId, createdAt]`, `[userId, createdAt]`, `[courseId, assessmentId, createdAt]`, `[contestParticipationId, problemId, createdAt]`, `[contestId, problemId, createdAt]`, `[examId, problemId, createdAt]`, `[virtualContestId, problemId, createdAt]`.
 
 **Source code and verdict detail live in `@nojv/storage`, not the DB.** Submission create writes per-file sources to S3 via `putSubmissionSources(client, submissionId, sources)` after the DB row commits; the key shape is built by `submissionSourceKey(submissionId, path)` under the `submissions/<id>/sources/` prefix. The full `SubmissionResult` is written by `putVerdictDetail` at `submissionVerdictDetailKey(submissionId)` = `submissions/<id>/verdict-detail.json` and the small `verdictSummary` JSON + the storage key are persisted on the row. The post-commit write order is deliberate: a storage failure flips the row to `system_error` instead of leaving the worker pointed at a non-existent source prefix. See `packages/storage/src/keys.ts` + `packages/storage/src/submission.ts`.
 
@@ -212,7 +212,7 @@ Course-embedded proctored assessment (`courseId` NOT NULL). This is where the pr
 - `ActiveExamSession` + `ExamSessionEvent` drive the Phase 4 exam lock in `hooks.server.ts`
 - `ScoreboardMode`, `submitCooldownSec`, `allowedLanguages` — same shape as Contest
 
-### CourseAssessment
+### Assessment
 
 Course-scoped homework only (no proctoring, no scoreboard). Fields:
 
@@ -234,7 +234,7 @@ Advanced Mode (`Problem.type === "special_env"`) does not use `TestcaseSet` / `T
 
 Two-part structure:
 
-- **Inline columns on the parent row** (`CourseAssessment`, `Exam`, `Contest`): the six `plagiarism*` columns (`plagiarismStatus`, `plagiarismResults`, `plagiarismReportUrl`, `plagiarismTriggeredAt`, `plagiarismCompletedAt`, `plagiarismTriggeredById`) hold the latest report — one run per parent row, re-running upserts in place. Created by the web endpoint, processed by the Temporal plagiarism activity.
+- **Inline columns on the parent row** (`Assessment`, `Exam`, `Contest`): the six `plagiarism*` columns (`plagiarismStatus`, `plagiarismResults`, `plagiarismReportUrl`, `plagiarismTriggeredAt`, `plagiarismCompletedAt`, `plagiarismTriggeredById`) hold the latest report — one run per parent row, re-running upserts in place. Created by the web endpoint, processed by the Temporal plagiarism activity.
 - **`PlagiarismPairFlag` table** (`schema/plagiarism.prisma`): per-pair staff review state — flag a similarity pair as confirmed cheating or false positive, with reviewer + note. Unique key is `(contextType, contextId, pairKey)` where `pairKey` is a server-built deterministic `"${userA}|${userB}|${problemId}"` string with `userA < userB` (sorting prevents inverted-pair double-flagging).
 
 ### Clarification
@@ -269,8 +269,8 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `VirtualContest`             | Per-user time-shifted replay of an ended contest (score, penalty, version)                                    | `schema/contest.prisma`       |
 | `Course`                     | Course container (title, owner, `academicYear` / `semester`, archived flag)                                   | `schema/course.prisma`        |
 | `CourseMembership`           | `(course, user, role)` with `active` / `removed` status + audit trail                                         | `schema/course.prisma`        |
-| `CourseAssessment`           | Homework assignment (opens / due / close, adjustment rules, no proctoring)                                    | `schema/course.prisma`        |
-| `CourseAssessmentProblem`    | Join table: problems attached to an assessment with ordinal + points                                          | `schema/course.prisma`        |
+| `Assessment`           | Homework assignment (opens / due / close, adjustment rules, no proctoring)                                    | `schema/course.prisma`        |
+| `AssessmentProblem`    | Join table: problems attached to an assessment with ordinal + points                                          | `schema/course.prisma`        |
 | `AssessmentAuditLog`         | Append-only publish / revert / delete-draft trail for course assessments                                      | `schema/course.prisma`        |
 | `Notification`               | Per-recipient event row (type + params JSON, `readAt` for unread state)                                       | `schema/notification.prisma`  |
 | `Announcement`               | Platform / course announcement (pinned, audience, published window)                                           | `schema/ops.prisma`           |
@@ -300,10 +300,10 @@ Deep field-level detail intentionally stays in the Prisma schema files themselve
 | ------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `Problem.judgeConfig`                | `JudgeConfig`         | type / compare / checker / interactor / runtime / subtaskStrategies                                                        |
 | `Problem.samples`                    | `{ input, output }[]` | Sample I/O pairs rendered on the student problem page                                                                      |
-| `CourseAssessment.adjustmentRules`   | `AdjustmentRule[]`    | Late penalty / time bonus / memory penalty rules (applied post-judge)                                                      |
+| `Assessment.adjustmentRules`   | `AdjustmentRule[]`    | Late penalty / time bonus / memory penalty rules (applied post-judge)                                                      |
 | `Submission.verdictSummary`          | `VerdictSummary`      | Small case-counter + per-subtask summary + truncated compiler error (full detail lives in S3 at `verdictDetailStorageKey`) |
 | `ContestParticipation.subtaskScores` | Score breakdown       | Per-subtask contest scores                                                                                                 |
-| `*.plagiarismResults`                | Dolos result array    | Similarity pairs (similarity, longest, overlap) on CourseAssessment / Exam / Contest                                       |
+| `*.plagiarismResults`                | Dolos result array    | Similarity pairs (similarity, longest, overlap) on Assessment / Exam / Contest                                       |
 
 ## Seed Data
 

@@ -100,13 +100,13 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `ownedCourses`                   | `Course[]`                     | `@relation("CourseOwner")`                    |
 | `courseMemberships`              | `CourseMembership[]`           | `@relation("CourseMembershipUser")`           |
 | `createdMemberships`             | `CourseMembership[]`           | `@relation("CourseMembershipCreator")`        |
-| `createdCourseAssessments`       | `CourseAssessment[]`           | `@relation("CourseAssessmentCreator")`        |
+| `createdAssessments`       | `Assessment[]`           | `@relation("AssessmentCreator")`        |
 | `createdContests`                | `Contest[]`                    | `@relation("ContestCreator")`                 |
 | `createdExams`                   | `Exam[]`                       | `@relation("ExamCreator")`                    |
 | `createdAnnouncements`           | `Announcement[]`               | `@relation("AnnouncementCreator")`            |
 | `triggeredExamPlagiarisms`       | `Exam[]`                       | `@relation("ExamPlagiarismTriggerer")`        |
 | `triggeredContestPlagiarisms`    | `Contest[]`                    | `@relation("ContestPlagiarismTriggerer")`     |
-| `triggeredAssessmentPlagiarisms` | `CourseAssessment[]`           | `@relation("AssessmentPlagiarismTriggerer")`  |
+| `triggeredAssessmentPlagiarisms` | `Assessment[]`           | `@relation("AssessmentPlagiarismTriggerer")`  |
 | `editorials`                     | `Editorial[]`                  | —                                             |
 | `ipViolationLogs`                | `IpViolationLog[]`             | —                                             |
 | `activeExamSessions`             | `ActiveExamSession[]`          | `@relation("ActiveExamSessionUser")`          |
@@ -477,7 +477,7 @@ Indexes & constraints: `@@unique([contestId, userId])`, `@@index([userId, create
 
 `publish` · `revert_to_draft` · `delete_draft`
 
-#### `CourseAssessmentStatus`
+#### `AssessmentStatus`
 
 `draft` · `published`
 
@@ -493,7 +493,7 @@ Indexes & constraints: `@@unique([contestId, userId])`, `@@index([userId, create
 
 #### `AssessmentAuditLog`
 
-Append-only audit trail for assessment lifecycle transitions. `assessmentId` is intentionally not an FK — `delete_draft` removes the CourseAssessment row and the audit entry must outlive it. `actorUserId` is null for system-initiated transitions (Temporal auto-publish).
+Append-only audit trail for assessment lifecycle transitions. `assessmentId` is intentionally not an FK — `delete_draft` removes the Assessment row and the audit entry must outlive it. `actorUserId` is null for system-initiated transitions (Temporal auto-publish).
 
 | Field          | Type                    | Attributes                                                                                      |
 | -------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
@@ -523,13 +523,13 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `updatedAt`           | `DateTime`             | `@updatedAt`                                                                        |
 | `owner`               | `User`                 | `@relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)` |
 | `memberships`         | `CourseMembership[]`   | —                                                                                   |
-| `assessments`         | `CourseAssessment[]`   | —                                                                                   |
+| `assessments`         | `Assessment[]`   | —                                                                                   |
 | `exams`               | `Exam[]`               | —                                                                                   |
 | `submissions`         | `Submission[]`         | —                                                                                   |
 | `announcements`       | `Announcement[]`       | —                                                                                   |
 | `assessmentAuditLogs` | `AssessmentAuditLog[]` | —                                                                                   |
 
-#### `CourseAssessment`
+#### `Assessment`
 
 | Field                     | Type                        | Attributes                                                                                                           |
 | ------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -537,7 +537,7 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `courseId`                | `String`                    | —                                                                                                                    |
 | `title`                   | `String`                    | —                                                                                                                    |
 | `summary`                 | `String`                    | `@db.Text`                                                                                                           |
-| `status`                  | `CourseAssessmentStatus`    | `@default(draft)`                                                                                                    |
+| `status`                  | `AssessmentStatus`    | `@default(draft)`                                                                                                    |
 | `opensAt`                 | `DateTime`                  | —                                                                                                                    |
 | `dueAt`                   | `DateTime?`                 | —                                                                                                                    |
 | `closesAt`                | `DateTime`                  | —                                                                                                                    |
@@ -554,15 +554,15 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `plagiarismCompletedAt`   | `DateTime?`                 | —                                                                                                                    |
 | `plagiarismTriggeredById` | `String?`                   | —                                                                                                                    |
 | `course`                  | `Course`                    | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                                                 |
-| `createdBy`               | `User`                      | `@relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)`              |
+| `createdBy`               | `User`                      | `@relation("AssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)`              |
 | `plagiarismTriggeredBy`   | `User?`                     | `@relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
-| `problems`                | `CourseAssessmentProblem[]` | —                                                                                                                    |
+| `problems`                | `AssessmentProblem[]` | —                                                                                                                    |
 | `submissions`             | `Submission[]`              | —                                                                                                                    |
 | `submissionFeedback`      | `SubmissionFeedback[]`      | —                                                                                                                    |
 
 Indexes & constraints: `@@index([courseId, status])`
 
-#### `CourseAssessmentProblem`
+#### `AssessmentProblem`
 
 | Field          | Type               | Attributes                                                               |
 | -------------- | ------------------ | ------------------------------------------------------------------------ |
@@ -572,7 +572,7 @@ Indexes & constraints: `@@index([courseId, status])`
 | `ordinal`      | `Int`              | —                                                                        |
 | `points`       | `Int`              | `@default(100)`                                                          |
 | `createdAt`    | `DateTime`         | `@default(now())`                                                        |
-| `assessment`   | `CourseAssessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
+| `assessment`   | `Assessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
 | `problem`      | `Problem`          | `@relation(fields: [problemId], references: [id], onDelete: Cascade)`    |
 
 Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessmentId, ordinal])`
@@ -777,7 +777,7 @@ Single source of truth for "what kind of problem is this". Replaces the old (sub
 | `submissions`           | `Submission[]`              | —                                                                                     |
 | `contestLinks`          | `ContestProblem[]`          | —                                                                                     |
 | `examLinks`             | `ExamProblem[]`             | —                                                                                     |
-| `assessmentLinks`       | `CourseAssessmentProblem[]` | —                                                                                     |
+| `assessmentLinks`       | `AssessmentProblem[]` | —                                                                                     |
 | `editorials`            | `Editorial[]`               | —                                                                                     |
 | `scoreOverrides`        | `ScoreOverride[]`           | `@relation("ScoreOverrideProblem")`                                                   |
 | `clarifications`        | `Clarification[]`           | `@relation("ProblemClarifications")`                                                  |
@@ -973,7 +973,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 #### `Submission`
 
-Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `courseAssessmentId` ? "assignment" : "practice". Domain helper `deriveSubmissionMode` lives in `@nojv/domain`. A submission carries at most one of `courseAssessmentId` / `examId` / `contestId` — the xor is enforced by the `Submission_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). `virtualContestId` sits outside that mutual exclusion: a virtual-contest submission is practice-like (it does not count toward any real contest scoreboard) but carries the `virtualContestId` tag so the personal re-run can aggregate its own score. It is therefore valid for a row to have only `virtualContestId` set with all three context columns null.
+Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". Domain helper `deriveSubmissionMode` lives in `@nojv/domain`. A submission carries at most one of `assessmentId` / `examId` / `contestId` — the xor is enforced by the `Submission_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). `virtualContestId` sits outside that mutual exclusion: a virtual-contest submission is practice-like (it does not count toward any real contest scoreboard) but carries the `virtualContestId` tag so the personal re-run can aggregate its own score. It is therefore valid for a row to have only `virtualContestId` set with all three context columns null.
 
 | Field                    | Type                     | Attributes                                                                         |
 | ------------------------ | ------------------------ | ---------------------------------------------------------------------------------- |
@@ -985,7 +985,7 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 | `contestId`              | `String?`                | —                                                                                  |
 | `virtualContestId`       | `String?`                | —                                                                                  |
 | `courseId`               | `String?`                | —                                                                                  |
-| `courseAssessmentId`     | `String?`                | —                                                                                  |
+| `assessmentId`     | `String?`                | —                                                                                  |
 | `sampleOnly`             | `Boolean`                | `@default(false)`                                                                  |
 | `language`               | `SupportedLanguage`      | —                                                                                  |
 | `sourceCode`             | `String`                 | `@db.Text`                                                                         |
@@ -1003,21 +1003,21 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 | `contest`                | `Contest?`               | `@relation(fields: [contestId], references: [id], onDelete: Cascade)`              |
 | `virtualContest`         | `VirtualContest?`        | `@relation(fields: [virtualContestId], references: [id], onDelete: Cascade)`       |
 | `course`                 | `Course?`                | `@relation(fields: [courseId], references: [id], onDelete: SetNull)`               |
-| `courseAssessment`       | `CourseAssessment?`      | `@relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)`     |
+| `assessment`       | `Assessment?`      | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)`     |
 | `rejudgeLogs`            | `SubmissionRejudgeLog[]` | —                                                                                  |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, courseAssessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`
 
 #### `SubmissionFeedback`
 
-Teacher-authored, student-visible grading comment per (student, problem, assessment-or-exam). Sibling of ScoreOverride; `comment` is feedback prose with no effect on the computed score. Exactly one of `courseAssessmentId` / `examId` is non-null — enforced by the `SubmissionFeedback_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). Contest context is intentionally excluded.
+Teacher-authored, student-visible grading comment per (student, problem, assessment-or-exam). Sibling of ScoreOverride; `comment` is feedback prose with no effect on the computed score. Exactly one of `assessmentId` / `examId` is non-null — enforced by the `SubmissionFeedback_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). Contest context is intentionally excluded.
 
 | Field                | Type                           | Attributes                                                                                             |
 | -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
 | `id`                 | `String`                       | `@id @default(cuid())`                                                                                 |
 | `studentUserId`      | `String`                       | —                                                                                                      |
 | `problemId`          | `String`                       | —                                                                                                      |
-| `courseAssessmentId` | `String?`                      | —                                                                                                      |
+| `assessmentId` | `String?`                      | —                                                                                                      |
 | `examId`             | `String?`                      | —                                                                                                      |
 | `comment`            | `String`                       | `@db.Text`                                                                                             |
 | `authorUserId`       | `String?`                      | —                                                                                                      |
@@ -1025,12 +1025,12 @@ Teacher-authored, student-visible grading comment per (student, problem, assessm
 | `updatedAt`          | `DateTime`                     | `@updatedAt`                                                                                           |
 | `student`            | `User`                         | `@relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)` |
 | `problem`            | `Problem`                      | `@relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)`     |
-| `assessment`         | `CourseAssessment?`            | `@relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)`                         |
+| `assessment`         | `Assessment?`            | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)`                         |
 | `exam`               | `Exam?`                        | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                                     |
 | `author`             | `User?`                        | `@relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)`   |
 | `auditLogs`          | `SubmissionFeedbackAuditLog[]` | —                                                                                                      |
 
-Indexes & constraints: `@@unique([courseAssessmentId, problemId, studentUserId])`, `@@unique([examId, problemId, studentUserId])`
+Indexes & constraints: `@@unique([assessmentId, problemId, studentUserId])`, `@@unique([examId, problemId, studentUserId])`
 
 #### `SubmissionFeedbackAuditLog`
 
@@ -1040,7 +1040,7 @@ Indexes & constraints: `@@unique([courseAssessmentId, problemId, studentUserId])
 | `feedbackId`         | `String?`                  | —                                                                                                             |
 | `studentUserId`      | `String`                   | —                                                                                                             |
 | `problemId`          | `String`                   | —                                                                                                             |
-| `courseAssessmentId` | `String?`                  | —                                                                                                             |
+| `assessmentId` | `String?`                  | —                                                                                                             |
 | `examId`             | `String?`                  | —                                                                                                             |
 | `action`             | `SubmissionFeedbackAction` | —                                                                                                             |
 | `oldComment`         | `String?`                  | `@db.Text`                                                                                                    |
@@ -1050,7 +1050,7 @@ Indexes & constraints: `@@unique([courseAssessmentId, problemId, studentUserId])
 | `feedback`           | `SubmissionFeedback?`      | `@relation(fields: [feedbackId], references: [id], onDelete: SetNull)`                                        |
 | `changedBy`          | `User?`                    | `@relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([courseAssessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`
+Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`
 
 #### `SubmissionRejudgeLog`
 

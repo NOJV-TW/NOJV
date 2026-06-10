@@ -17,7 +17,7 @@ async function createTestAssignment(opts: {
   maxAttemptsPerDay?: number;
   attemptResetMinuteOfDay?: number;
 }) {
-  return testPrisma.courseAssessment.create({
+  return testPrisma.assessment.create({
     data: {
       courseId: opts.courseId,
       createdByUserId: opts.createdByUserId,
@@ -53,7 +53,7 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
     const submission = await createTestSubmission({
       userId: student.id,
       problemId: problem.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
       status: "wrong_answer",
       score: 30,
     });

@@ -124,12 +124,12 @@ export async function getPlagiarismTarget(
   if (!assignment) throw new NotFoundError("Assignment not found.");
   return {
     courseId: assignment.course.id,
-    target: { id: assignment.id, type: "courseAssessment" },
+    target: { id: assignment.id, type: "assessment" },
   };
 }
 
 function targetToContextType(target: PlagiarismTarget): PlagiarismContext {
-  if (target.type === "courseAssessment") return "assessment";
+  if (target.type === "assessment") return "assessment";
   if (target.type === "contest") return "contest";
   return "exam";
 }
@@ -175,7 +175,7 @@ export async function createPlagiarismReport(
 export async function findPlagiarismReport(
   target: PlagiarismTarget,
 ): Promise<PlagiarismReportSummary | null> {
-  if (target.type === "courseAssessment") {
+  if (target.type === "assessment") {
     return plagiarismRepo.findByAssessmentId(target.id);
   }
   if (target.type === "contest") {

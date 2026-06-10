@@ -27,7 +27,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
 
     // Assessment closes in 48h — two 10-point problems, max 20.
     const closesAt = new Date(Date.now() + 48 * 3600_000);
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -38,7 +38,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
         closesAt,
       },
     });
-    await testPrisma.courseAssessmentProblem.createMany({
+    await testPrisma.assessmentProblem.createMany({
       data: [
         { assessmentId: assessment.id, problemId: problemA.id, ordinal: 1, points: 10 },
         { assessmentId: assessment.id, problemId: problemB.id, ordinal: 2, points: 10 },
@@ -64,7 +64,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       userId: studentA.id,
       problemId: problemA.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "accepted",
       score: 10,
     });
@@ -72,7 +72,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       userId: studentA.id,
       problemId: problemB.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "accepted",
       score: 10,
     });
@@ -81,7 +81,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       userId: studentB.id,
       problemId: problemA.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "accepted",
       score: 10,
     });
@@ -89,7 +89,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       userId: studentB.id,
       problemId: problemB.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "wrong_answer",
       score: 5,
     });
@@ -128,7 +128,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -155,7 +155,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -181,7 +181,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,

@@ -134,7 +134,7 @@ export const courseMembershipRepo = {
   },
 
   countActiveAssessments(courseIds: string[], now: Date) {
-    return prisma.courseAssessment.count({
+    return prisma.assessment.count({
       where: {
         courseId: { in: courseIds },
         status: "published",

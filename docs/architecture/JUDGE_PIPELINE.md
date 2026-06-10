@@ -175,7 +175,7 @@ Visibility is enforced on the server: `mergeSandboxSources()` rebuilds the sandb
 
 ## Adjustment rules
 
-Late penalties and time bonuses are applied at the `CourseAssessment` level via the `adjustmentRules` JSON column, **not per-problem and not on contests** — contests do not carry adjustment rules. The post-judge step in `mapResult()` calls `applyAdjustmentRules()` from `packages/domain/src/submission/adjustments.ts` with the raw 0–100 score and the submission context (runtime, `submittedAt`, `dueAt`, `finalDay`).
+Late penalties and time bonuses are applied at the `Assessment` level via the `adjustmentRules` JSON column, **not per-problem and not on contests** — contests do not carry adjustment rules. The post-judge step in `mapResult()` calls `applyAdjustmentRules()` from `packages/domain/src/submission/adjustments.ts` with the raw 0–100 score and the submission context (runtime, `submittedAt`, `dueAt`, `finalDay`).
 
 Rule types, defined in `packages/core/src/schemas/assessment-adjustments.ts`:
 

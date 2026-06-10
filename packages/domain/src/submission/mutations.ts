@@ -108,7 +108,7 @@ async function assertCourseSubmissionAllowed(
     }
   }
 
-  const link = await tx.courseAssessmentProblem.findFirst({
+  const link = await tx.assessmentProblem.findFirst({
     where: { assessmentId: assignment.id, problemId: problem.id },
     select: { id: true },
   });
@@ -284,7 +284,7 @@ export async function createQueuedSubmissionRecord(
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
       virtualContestId: payload.virtualContestId ?? null,
-      courseAssessmentId: courseContext?.assignment.id ?? null,
+      assessmentId: courseContext?.assignment.id ?? null,
       examId: activeExamSession?.examId ?? null,
       courseId: courseContext?.course.id ?? null,
       ipAddress: clientIp,

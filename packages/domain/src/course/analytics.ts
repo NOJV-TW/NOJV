@@ -74,7 +74,7 @@ export async function getCourseAnalytics(courseId: string): Promise<CourseAnalyt
 
   const bestScore = new Map<string, number>();
   for (const g of scoreGroups) {
-    const aid = g.courseAssessmentId;
+    const aid = g.assessmentId;
     if (!aid) continue;
     bestScore.set(`${aid}::${g.userId}::${g.problemId}`, g._max.score ?? 0);
   }

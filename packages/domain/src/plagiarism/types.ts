@@ -12,12 +12,12 @@ export interface PlagiarismResults {
 }
 
 export type PlagiarismTarget =
-  | { type: "courseAssessment"; id: string }
+  | { type: "assessment"; id: string }
   | { type: "exam"; id: string }
   | { type: "contest"; id: string };
 
 export function plagiarismTargetFilter(target: PlagiarismTarget) {
-  if (target.type === "courseAssessment") return { courseAssessmentId: target.id };
+  if (target.type === "assessment") return { assessmentId: target.id };
   if (target.type === "exam") return { examId: target.id };
   return { contestId: target.id };
 }

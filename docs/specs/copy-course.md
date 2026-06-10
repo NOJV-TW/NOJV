@@ -36,12 +36,12 @@ into a fresh one without dragging history along.
   `ownerId = actor.userId`, `archived = false` (defaults).
 - `CourseMembership` — exactly one row: actor → `teacher`, `status:
 'active'`. No other members copied.
-- `CourseAssessment` rows — every assessment of the source is cloned,
+- `Assessment` rows — every assessment of the source is cloned,
   each reset to `status: 'draft'`. (Assessments themselves no longer
   have an `archived` status; the parent course is what gets archived.)
   Carried fields: `title`, `summary`, `allowedLanguages`, `opensAt`,
   `closesAt`, `dueAt`, `maxAttemptsPerDay`, `adjustmentRules`.
-- `CourseAssessmentProblem` rows — every attached problem on every
+- `AssessmentProblem` rows — every attached problem on every
   cloned assessment, preserving `ordinal` and `points`. Problem rows
   themselves are shared by reference (same `problemId`).
 - `Exam` rows — every exam of the source is cloned, each reset to
@@ -58,7 +58,7 @@ into a fresh one without dragging history along.
 
 - Other `CourseMembership` rows (students, other teachers, TAs).
 - `Submission` rows (tied to the source course via
-  `courseAssessmentId` / `examId`).
+  `assessmentId` / `examId`).
 - `ContestParticipation` / `ExamParticipation` / `ActiveExamSession`
   rows.
 - `IpViolationLog` rows.
@@ -108,7 +108,7 @@ addedByUserId: actor.userId)`.
 
 ### Assessment clones
 
-- For each `CourseAssessment` in the source (status is `draft` or
+- For each `Assessment` in the source (status is `draft` or
   `published` — there is no `archived` at this level), a new row exists
   on the new course with:
   - Same `title`, `summary`, `allowedLanguages`, `opensAt`, `closesAt`,
@@ -117,7 +117,7 @@ addedByUserId: actor.userId)`.
   - `createdByUserId: actor.userId` (not the original author).
   - Fresh `id` (slug regeneration — the domain code does NOT preserve
     the source id; assessmentRepo's `create` generates one).
-- For each cloned assessment, every source `CourseAssessmentProblem`
+- For each cloned assessment, every source `AssessmentProblem`
   becomes a new row preserving `ordinal`, `points`, `problemId`.
 
 ### Exam clones
@@ -155,7 +155,7 @@ addedByUserId: actor.userId)`.
 - **Source has assessments pointing to `draft` problems.** Problem rows
   are shared (same `problemId`), so the new assessment references the
   same draft problem. The `assertCourseProblemAccess` gate in
-  `createCourseAssessmentRecord` is NOT re-checked during `copyCourse`;
+  `createAssessmentRecord` is NOT re-checked during `copyCourse`;
   since the actor already has manager access to the source course they
   implicitly passed that gate when the assessment was first attached.
 - **Source has 10000 assessments.** The clone uses sequential `await`

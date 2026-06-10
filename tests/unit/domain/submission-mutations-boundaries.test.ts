@@ -88,13 +88,13 @@ vi.mock("@nojv/db", () => ({
     fn: (tx: {
       $executeRaw: typeof vi.fn;
       contestProblem: { findFirst: typeof txContestProblemFindFirst };
-      courseAssessmentProblem: { findFirst: typeof vi.fn };
+      assessmentProblem: { findFirst: typeof vi.fn };
     }) => Promise<T>,
   ): Promise<T> =>
     fn({
       $executeRaw: vi.fn().mockResolvedValue(0),
       contestProblem: { findFirst: txContestProblemFindFirst },
-      courseAssessmentProblem: { findFirst: vi.fn() },
+      assessmentProblem: { findFirst: vi.fn() },
     }),
 }));
 
@@ -335,7 +335,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     const arg = submissionCreate.mock.calls[0]![0] as Record<string, unknown>;
     expect(arg.examId).toBe("exam_42");
     expect(arg.contestId).toBeNull();
-    expect(arg.courseAssessmentId).toBeNull();
+    expect(arg.assessmentId).toBeNull();
   });
 
   it("with no active exam session, examId is null on the created submission", async () => {

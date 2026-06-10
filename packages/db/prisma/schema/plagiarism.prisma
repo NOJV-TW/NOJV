@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // Plagiarism pair flags (false-positive marking)
 //
-// The Dolos report itself is inlined on Exam / CourseAssessment as
+// The Dolos report itself is inlined on Exam / Assessment as
 // `plagiarism*` columns and gets wiped on each re-trigger. Pair-level
 // staff review state needs to survive re-runs, so it lives here keyed
 // by `(contextType, contextId, pairKey)`.

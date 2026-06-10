@@ -118,7 +118,7 @@ export async function loadProblemSolveData(
         userId: actor.userId,
         problemId,
         contestId: context.kind === "contest" ? context.contestId : null,
-        courseAssessmentId: context.kind === "assignment" ? context.assignmentId : null,
+        assessmentId: context.kind === "assignment" ? context.assignmentId : null,
         examId: null,
       },
     ),

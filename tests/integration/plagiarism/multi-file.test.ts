@@ -33,7 +33,7 @@ import {
  * could not reach.
  */
 async function makeAssignment(courseId: string, createdByUserId: string) {
-  return testPrisma.courseAssessment.create({
+  return testPrisma.assessment.create({
     data: {
       courseId,
       createdByUserId,
@@ -60,7 +60,7 @@ describe("plagiarism — multi-file detection (real DB + Dolos)", () => {
     const subA = await createTestSubmission({
       userId: userA.id,
       problemId: problem.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
       language: "cpp",
       status: "accepted",
       score: 100,
@@ -103,7 +103,7 @@ int main() {
     const subB = await createTestSubmission({
       userId: userB.id,
       problemId: problem.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
       language: "cpp",
       status: "accepted",
       score: 100,
@@ -141,14 +141,14 @@ int main() {
     // target to write to (matches the production flow where the route
     // calls createPlagiarismReport before dispatching the workflow).
     await plagiarismDomain.createPlagiarismReport(
-      { type: "courseAssessment", id: assignment.id },
+      { type: "assessment", id: assignment.id },
       teacher.id,
     );
 
-    await runPlagiarismCheck(assignment.id, "courseAssessment");
+    await runPlagiarismCheck(assignment.id, "assessment");
 
     const report = await plagiarismDomain.findPlagiarismReport({
-      type: "courseAssessment",
+      type: "assessment",
       id: assignment.id,
     });
     expect(report).not.toBeNull();

@@ -56,7 +56,7 @@ describe("feedback API domain layer (real DB)", () => {
       const problem = await createTestProblem({ authorId: teacher.id });
 
       // closesAt in the future → context is OPEN.
-      const assignment = await testPrisma.courseAssessment.create({
+      const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -83,7 +83,7 @@ describe("feedback API domain layer (real DB)", () => {
       const problem = await createTestProblem({ authorId: teacher.id });
 
       // closesAt in the past → context is CLOSED.
-      const assignment = await testPrisma.courseAssessment.create({
+      const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -116,7 +116,7 @@ describe("feedback API domain layer (real DB)", () => {
       const student = await createTestUser({ platformRole: "student" });
       const problem = await createTestProblem({ authorId: teacher.id });
 
-      const assignment = await testPrisma.courseAssessment.create({
+      const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -208,7 +208,7 @@ describe("feedback API domain layer (real DB)", () => {
       const student = await createTestUser({ platformRole: "student" });
       const problem = await createTestProblem({ authorId: teacher.id });
 
-      const assignment = await testPrisma.courseAssessment.create({
+      const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -243,7 +243,7 @@ describe("feedback API domain layer (real DB)", () => {
       const teacher = await makeCourseTeacher(course.id);
 
       // closesAt in the future → context is OPEN.
-      const assignment = await testPrisma.courseAssessment.create({
+      const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,

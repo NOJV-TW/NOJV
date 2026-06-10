@@ -90,12 +90,12 @@ vi.mock("@nojv/db", () => {
     // checks; expose those on the mock tx.
     runTransaction: async <T>(
       fn: (tx: {
-        courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
+        assessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
         contestProblem: { findFirst: typeof txContestProblemFindFirst };
       }) => Promise<T>,
     ): Promise<T> =>
       fn({
-        courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
+        assessmentProblem: { findFirst: txAssessmentProblemFindFirst },
         contestProblem: { findFirst: txContestProblemFindFirst },
         $executeRaw: txExecuteRaw,
       }),

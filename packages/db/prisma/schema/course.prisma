@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // Course + homework assessment domain
 //
-// CourseAssessment is strictly for homework now (no IP lock, no
+// Assessment is strictly for homework now (no IP lock, no
 // page lock, no scoreboard). Exams live in their own `Exam` model
 // (see contest.prisma) and are the only course-embedded timed
 // scored activity that carries proctoring.
@@ -18,7 +18,7 @@ enum CourseMembershipStatus {
   removed // Soft-delete preserving audit trail
 }
 
-enum CourseAssessmentStatus {
+enum AssessmentStatus {
   draft
   published
 }
@@ -30,24 +30,24 @@ enum AssessmentAuditAction {
 }
 
 model Course {
-  id           String             @id @default(cuid())
-  title        String
-  description  String             @db.Text
-  ownerId      String
+  id                  String               @id @default(cuid())
+  title               String
+  description         String               @db.Text
+  ownerId             String
   /// ROC calendar year (e.g. 113, 114). Null when term is unspecified.
-  academicYear Int?
+  academicYear        Int?
   /// 1 = first semester, 2 = second semester, 3 = summer session.
-  semester     Int?
+  semester            Int?
   /// When true, students keep read-only access to scores and the
   /// course landing page but lose click-through into assignment /
   /// problem details. Toggled by course managers (teachers, TAs,
   /// owner) — there is no time-based auto-archive yet.
-  archived    Boolean            @default(false)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  owner       User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  archived            Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  owner               User                 @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   memberships         CourseMembership[]
-  assessments         CourseAssessment[]
+  assessments         Assessment[]
   exams               Exam[]
   submissions         Submission[]
   announcements       Announcement[]
@@ -74,12 +74,12 @@ model CourseMembership {
   @@index([userId, status])
 }
 
-model CourseAssessment {
-  id       String                 @id @default(cuid())
+model Assessment {
+  id       String           @id @default(cuid())
   courseId String
   title    String
-  summary  String                 @db.Text
-  status   CourseAssessmentStatus @default(draft)
+  summary  String           @db.Text
+  status   AssessmentStatus @default(draft)
 
   // Homework window
   opensAt  DateTime
@@ -92,17 +92,17 @@ model CourseAssessment {
   /// Per-window attempt cap for (user, assessment, problem) — counted
   /// independently per problem. Null = unlimited.
   /// Enforced at submit time in packages/domain/src/submission/mutations.ts.
-  maxAttemptsPerDay Int?
+  maxAttemptsPerDay       Int?
   /// Daily reset time as minutes-of-day (0–1439) on the Asia/Taipei wall clock
   /// (e.g. 300 = 05:00). Defines the start of each per-day attempt window.
   /// Null = treated as 300 (05:00), matching the teacher form default.
-  attemptResetMinuteOfDay  Int?
+  attemptResetMinuteOfDay Int?
   /// Empty array = all languages allowed. Adding a problem is
   /// application-gated: every listed language must have an editable
   /// main.<ext> workspace file on the problem.
-  allowedLanguages SupportedLanguage[] @default([])
+  allowedLanguages        SupportedLanguage[] @default([])
   /// Late-submission penalty rules etc.
-  adjustmentRules  Json?
+  adjustmentRules         Json?
 
   createdByUserId String
   createdAt       DateTime @default(now())
@@ -116,25 +116,25 @@ model CourseAssessment {
   plagiarismCompletedAt   DateTime?
   plagiarismTriggeredById String?
 
-  course                 Course                    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdBy              User                      @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  plagiarismTriggeredBy  User?                     @relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
-  problems               CourseAssessmentProblem[]
-  submissions            Submission[]
-  submissionFeedback     SubmissionFeedback[]
+  course                Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy             User                 @relation("AssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  plagiarismTriggeredBy User?                @relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  problems              AssessmentProblem[]
+  submissions           Submission[]
+  submissionFeedback    SubmissionFeedback[]
 
   @@index([courseId, status])
 }
 
-model CourseAssessmentProblem {
-  id           String           @id @default(cuid())
+model AssessmentProblem {
+  id           String     @id @default(cuid())
   assessmentId String
   problemId    String
   ordinal      Int
-  points       Int              @default(100)
-  createdAt    DateTime         @default(now())
-  assessment   CourseAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  problem      Problem          @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  points       Int        @default(100)
+  createdAt    DateTime   @default(now())
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  problem      Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
 
   @@unique([assessmentId, problemId])
   @@unique([assessmentId, ordinal])
@@ -142,7 +142,7 @@ model CourseAssessmentProblem {
 
 /// Append-only audit trail for assessment lifecycle transitions.
 /// `assessmentId` is intentionally not an FK — `delete_draft` removes
-/// the CourseAssessment row and the audit entry must outlive it.
+/// the Assessment row and the audit entry must outlive it.
 /// `actorUserId` is null for system-initiated transitions (Temporal
 /// auto-publish).
 model AssessmentAuditLog {

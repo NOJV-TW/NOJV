@@ -112,14 +112,14 @@ describe("upsertFeedback", () => {
     expect(firstData).toMatchObject({
       studentUserId: "usr_student",
       problemId: "prob_1",
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
       comment: baseInput.comment,
       authorUserId: "usr_t",
     });
     expect(secondData).toMatchObject({
       studentUserId: "usr_student",
       problemId: "prob_1",
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
       comment: "Updated comment after re-grade.",
       authorUserId: "usr_t",
     });
@@ -160,7 +160,7 @@ describe("deleteFeedback", () => {
       id: "fb_1",
       studentUserId: "usr_student",
       problemId: "prob_1",
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
       examId: null,
       comment: "Old comment",
     });
@@ -200,7 +200,7 @@ describe("listFeedbackForContext", () => {
     feedbackFindForContext.mockResolvedValue([{ id: "fb_1" }, { id: "fb_2" }]);
     const rows = await listFeedbackForContext(assignmentContext);
     expect(rows).toHaveLength(2);
-    expect(feedbackFindForContext).toHaveBeenCalledWith({ courseAssessmentId: "ca_hw1" });
+    expect(feedbackFindForContext).toHaveBeenCalledWith({ assessmentId: "ca_hw1" });
   });
 });
 
@@ -226,7 +226,7 @@ describe("getFeedbackForStudent", () => {
     const rows = await getFeedbackForStudent("usr_student", assignmentContext);
     expect(rows).toHaveLength(1);
     expect(feedbackFindForStudentInContext).toHaveBeenCalledWith("usr_student", {
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
     });
   });
 });

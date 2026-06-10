@@ -1,6 +1,6 @@
 # Feature: Course Assignments
 
-Acceptance spec for course-embedded homework assessments (`CourseAssessment` /
+Acceptance spec for course-embedded homework assessments (`Assessment` /
 `/courses/[courseId]/assignments/...`). Assignments are un-proctored
 take-home work — no session gate, no IP lock, no page lock. Deadlines and
 per-day attempt caps are the only controls; practice-after-close grants
@@ -36,7 +36,7 @@ viewing + un-scored submission to past participants.
 
 ### In scope
 
-- `CourseAssessment` CRUD — create, partial update (status-aware), publish,
+- `Assessment` CRUD — create, partial update (status-aware), publish,
   delete-draft, revert-to-draft (only while `upcoming`).
 - Persistent `status` is `draft | published` only. Lifecycle derivation
   `draft | upcoming | open | closed` from `(status, opensAt, closesAt,
@@ -60,7 +60,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - Practice-after-close read/write access via `assertProblemViewAccess`
   historical-participant gate.
 - Problem attachment re-bind (wipe-and-recreate the
-  `CourseAssessmentProblem` rows) with per-problem `points` override.
+  `AssessmentProblem` rows) with per-problem `points` override.
 - Post-close grading drawer on the submissions matrix — score
   overrides + per-cell student-visible feedback comments
   (`SubmissionFeedback`). Writes gated post-close (`closesAt < now`),
@@ -115,7 +115,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 - GIVEN a `draft` assignment, WHEN `deleteAssignmentDraft` is called,
   THEN the row is hard-deleted (cascade drops
-  `CourseAssessmentProblem` rows).
+  `AssessmentProblem` rows).
 - GIVEN a non-`draft` assignment, WHEN delete is attempted,
   THEN `ValidationError("Only draft assignments can be deleted.")`.
 
@@ -126,7 +126,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   commits, THEN an append-only `AssessmentAuditLog` row is written in the
   same transaction: `{ assessmentId, courseId, actorUserId, action }`.
 - GIVEN a `delete_draft`, THEN the audit row is written BEFORE the
-  `CourseAssessment` row is removed; `assessmentId` is stored as a plain
+  `Assessment` row is removed; `assessmentId` is stored as a plain
   string (not an FK) so the entry survives the deletion.
 - WHEN the assignment settings tab loads, THEN
   `assessmentAuditLogRepo.listByAssessment(assessmentId, take)` returns
@@ -158,7 +158,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 ### Problem attachment
 
 - WHEN `updateAssignmentRecord` includes `problemIds`, THEN all existing
-  `CourseAssessmentProblem` rows are deleted, then re-created preserving the
+  `AssessmentProblem` rows are deleted, then re-created preserving the
   submitted order as `ordinal = index + 1` with per-row `points` (default 100).
 - GIVEN `allowedLanguages` is non-empty and any attached problem is
   missing an editable `main.<ext>` for one of those languages,
@@ -189,7 +189,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - GIVEN a `closed` assignment, WHEN a manager opens a matrix cell,
   THEN the grading drawer shows two sections — score override
   (staff-only `reason`) + student-visible feedback comment — keyed
-  on `(studentUserId, problemId, courseAssessmentId)`.
+  on `(studentUserId, problemId, assessmentId)`.
 - GIVEN a non-admin manager actor with `now < closesAt`, WHEN
   `createOverride` / `updateOverride` / `deleteOverride` or
   `upsertFeedback` / `deleteFeedback` is called against the
@@ -222,7 +222,7 @@ is only available after it closes.")` (shared post-close gate; see
   participant clause (no context query params needed).
 - WHEN the user POSTs to `/api/submissions` with NO assignment context on
   the same problem after close, THEN the submission is accepted as a
-  practice submission (no `courseAssessmentId`, no `maxAttemptsPerDay`
+  practice submission (no `assessmentId`, no `maxAttemptsPerDay`
   decrement, no class-stats contribution).
 - GIVEN the same user POSTs with an EXPIRED `assessment` context,
   THEN the createSubmission mutation still throws `ForbiddenError` — the
@@ -261,7 +261,7 @@ is only available after it closes.")` (shared post-close gate; see
 - `packages/db/src/repositories/assessment-audit.ts` —
   `assessmentAuditLogRepo` (`withTx().create`, `listByAssessment`).
 - `packages/domain/src/course/mutations.ts` —
-  `createCourseAssessmentRecord` (initial insert; generates slug-style id).
+  `createAssessmentRecord` (initial insert; generates slug-style id).
 - `packages/domain/src/course/overview.ts` —
   `listAssignmentOverviewForCourse`, `listAssignmentsForCourse`,
   `mapAssignmentToOverviewRow` (internal helper), rank function.
@@ -286,11 +286,11 @@ is only available after it closes.")` (shared post-close gate; see
 
 ### Schema
 
-- `packages/core/src/schemas/course.ts` — `courseAssessmentCreateSchema`,
-  `courseAssessmentUpdateSchema`, `courseAssignmentFormSchema`,
+- `packages/core/src/schemas/course.ts` — `assessmentCreateSchema`,
+  `assessmentUpdateSchema`, `courseAssignmentFormSchema`,
   `assessmentSettingsFormSchema`.
-- `packages/db/prisma/schema/course.prisma` — `CourseAssessment`,
-  `CourseAssessmentProblem`, `AssessmentAuditLog`, enum
+- `packages/db/prisma/schema/course.prisma` — `Assessment`,
+  `AssessmentProblem`, `AssessmentAuditLog`, enum
   `AssessmentAuditAction`.
 - `packages/db/prisma/schema/submission.prisma` —
   `SubmissionFeedback` (assignment + exam contexts; CHECK enforces

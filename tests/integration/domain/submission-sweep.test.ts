@@ -36,7 +36,7 @@ describe("attempt count excludes system_error (real DB)", () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const problem = await createTestProblem({ authorId: teacher.id });
     const course = await createTestCourse({ ownerId: teacher.id });
-    const assignment = await testPrisma.courseAssessment.create({
+    const assignment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -54,7 +54,7 @@ describe("attempt count excludes system_error (real DB)", () => {
       userId: student.id,
       problemId: problem.id,
       courseId: course.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
     };
     await createTestSubmission({ ...common, status: "wrong_answer", score: 30 });
     await createTestSubmission({ ...common, status: "system_error", score: 0 });

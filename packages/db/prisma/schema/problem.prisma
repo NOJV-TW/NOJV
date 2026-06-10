@@ -61,8 +61,8 @@ model Problem {
 
   /// Per-testcase limit for standard mode; total-per-invocation for
   /// special_env (the TA image runs all cases in one call).
-  timeLimitMs    Int
-  memoryLimitMb  Int
+  timeLimitMs   Int
+  memoryLimitMb Int
 
   /// Judge config JSON: `{ type: "standard"|"checker"|"interactive", ... }`.
   /// Ignored when type = special_env (TA image decides everything).
@@ -85,19 +85,19 @@ model Problem {
   updatedAt DateTime @updatedAt
 
   // Relations
-  author          User?                     @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-  statements      ProblemStatementI18n[]
-  testcaseSets    TestcaseSet[]
-  workspaceFiles  ProblemWorkspaceFile[]
-  submissions     Submission[]
-  contestLinks    ContestProblem[]
-  examLinks       ExamProblem[]
-  assessmentLinks CourseAssessmentProblem[]
-  editorials      Editorial[]
-  scoreOverrides  ScoreOverride[]           @relation("ScoreOverrideProblem")
-  clarifications  Clarification[]           @relation("ProblemClarifications")
+  author             User?                  @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  statements         ProblemStatementI18n[]
+  testcaseSets       TestcaseSet[]
+  workspaceFiles     ProblemWorkspaceFile[]
+  submissions        Submission[]
+  contestLinks       ContestProblem[]
+  examLinks          ExamProblem[]
+  assessmentLinks    AssessmentProblem[]
+  editorials         Editorial[]
+  scoreOverrides     ScoreOverride[]        @relation("ScoreOverrideProblem")
+  clarifications     Clarification[]        @relation("ProblemClarifications")
   submissionFeedback SubmissionFeedback[]   @relation("SubmissionFeedbackProblem")
-  bookmarks       ProblemBookmark[]
+  bookmarks          ProblemBookmark[]
 
   @@index([status, visibility, createdAt])
   @@index([authorId])

@@ -80,7 +80,7 @@ function makeSubmission(args: {
   sampleOnly?: boolean;
   context?:
     | { kind: "practice" }
-    | { kind: "assignment"; courseAssessmentId: string }
+    | { kind: "assignment"; assessmentId: string }
     | { kind: "exam"; examId: string }
     | { kind: "contest"; contestId: string; contestParticipationId: string };
 }): SeedSubmission {
@@ -117,7 +117,7 @@ function makeSubmission(args: {
   const ctx = args.context ?? { kind: "practice" };
   if (ctx.kind === "assignment") {
     row.courseId = COURSE_ID;
-    row.courseAssessmentId = ctx.courseAssessmentId;
+    row.assessmentId = ctx.assessmentId;
   } else if (ctx.kind === "exam") {
     row.courseId = COURSE_ID;
     row.examId = ctx.examId;
@@ -262,7 +262,7 @@ export async function seedSubmissions(
             testcases: tc(problemId),
             verdict,
             createdAt: new Date(when),
-            context: { kind: "assignment", courseAssessmentId: HW1_ID },
+            context: { kind: "assignment", assessmentId: HW1_ID },
           }),
         );
       }
@@ -282,7 +282,7 @@ export async function seedSubmissions(
           verdict,
           createdAt: new Date(when),
           language: rng.pick(HW2_LANGS),
-          context: { kind: "assignment", courseAssessmentId: HW2_ID },
+          context: { kind: "assignment", assessmentId: HW2_ID },
         }),
       );
     }

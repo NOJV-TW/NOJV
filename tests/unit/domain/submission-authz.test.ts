@@ -48,7 +48,7 @@ const baseSubmission = {
   userId: "usr_student",
   problemId: "prob_1",
   contestId: null as string | null,
-  courseAssessmentId: null as string | null,
+  assessmentId: null as string | null,
   examId: null as string | null,
 };
 
@@ -87,7 +87,7 @@ describe("canOperateOnSubmission — admin", () => {
   it("returns true for an admin on an assignment submission", async () => {
     const result = await canOperateOnSubmission(actor({ platformRole: "admin" }), {
       ...baseSubmission,
-      courseAssessmentId: "ca_1",
+      assessmentId: "ca_1",
     });
     expect(result).toBe(true);
   });
@@ -123,7 +123,7 @@ describe("canOperateOnSubmission — practice context", () => {
 });
 
 describe("canOperateOnSubmission — assignment context", () => {
-  const sub = { ...baseSubmission, courseAssessmentId: "ca_hw1" };
+  const sub = { ...baseSubmission, assessmentId: "ca_hw1" };
 
   it("allows a teacher of the assignment's course", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_hw1", courseId: "crs_1" });

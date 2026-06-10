@@ -36,10 +36,10 @@ enum SubmissionStatus {
 
 /// Submission "mode" is derived on-demand from the FK shape:
 /// `examId` ? "exam" : `contestId` ? "contest" :
-/// `courseAssessmentId` ? "assignment" : "practice".
+/// `assessmentId` ? "assignment" : "practice".
 /// Domain helper `deriveSubmissionMode` lives in `@nojv/domain`.
 ///
-/// A submission carries at most one of `courseAssessmentId` / `examId` /
+/// A submission carries at most one of `assessmentId` / `examId` /
 /// `contestId` — the xor is enforced by the `Submission_single_context_chk`
 /// CHECK constraint (Prisma cannot express multi-column CHECKs natively).
 ///
@@ -57,7 +57,7 @@ model Submission {
   contestId               String?
   virtualContestId        String?
   courseId                String?
-  courseAssessmentId      String?
+  assessmentId            String?
   sampleOnly              Boolean           @default(false)
   language                SupportedLanguage
   /// Prefix under @nojv/storage for this submission's source files,
@@ -86,13 +86,13 @@ model Submission {
   contest              Contest?              @relation(fields: [contestId], references: [id], onDelete: Cascade)
   virtualContest       VirtualContest?       @relation(fields: [virtualContestId], references: [id], onDelete: Cascade)
   course               Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  courseAssessment     CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+  assessment           Assessment?           @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
 
   rejudgeLogs SubmissionRejudgeLog[]
 
   @@index([problemId, createdAt])
   @@index([userId, createdAt])
-  @@index([courseId, courseAssessmentId, createdAt])
+  @@index([courseId, assessmentId, createdAt])
   @@index([contestParticipationId, problemId, createdAt])
   @@index([contestId, problemId, createdAt])
   @@index([examId, problemId, createdAt])
@@ -192,26 +192,26 @@ model ScoreOverrideAuditLog {
 /// Teacher-authored, student-visible grading comment per
 /// (student, problem, assessment-or-exam). Sibling of ScoreOverride;
 /// `comment` is feedback prose with no effect on the computed score.
-/// Exactly one of `courseAssessmentId` / `examId` is non-null —
+/// Exactly one of `assessmentId` / `examId` is non-null —
 /// enforced by the `SubmissionFeedback_single_context_chk` CHECK
 /// constraint (Prisma cannot express multi-column CHECKs natively).
 /// Contest context is intentionally excluded.
 model SubmissionFeedback {
-  id                 String   @id @default(cuid())
-  studentUserId      String
-  problemId          String
-  courseAssessmentId String?
-  examId             String?
-  comment            String   @db.Text
-  authorUserId       String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id            String   @id @default(cuid())
+  studentUserId String
+  problemId     String
+  assessmentId  String?
+  examId        String?
+  comment       String   @db.Text
+  authorUserId  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  student    User              @relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
-  problem    Problem           @relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)
-  assessment CourseAssessment? @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
-  exam       Exam?             @relation(fields: [examId], references: [id], onDelete: Cascade)
-  author     User?             @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  student    User        @relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  problem    Problem     @relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)
+  assessment Assessment? @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  exam       Exam?       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  author     User?       @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
 
   auditLogs SubmissionFeedbackAuditLog[]
 
@@ -220,7 +220,7 @@ model SubmissionFeedback {
   /// correct only because the CHECK guarantees exactly one context is
   /// non-null; the unused column is always NULL so its composite never
   /// collides. Do not collapse these into a single unique index.
-  @@unique([courseAssessmentId, problemId, studentUserId])
+  @@unique([assessmentId, problemId, studentUserId])
   @@unique([examId, problemId, studentUserId])
 }
 
@@ -231,22 +231,22 @@ enum SubmissionFeedbackAction {
 }
 
 model SubmissionFeedbackAuditLog {
-  id                 String                   @id @default(cuid())
-  feedbackId         String?
-  studentUserId      String
-  problemId          String
-  courseAssessmentId String?
-  examId             String?
-  action             SubmissionFeedbackAction
-  oldComment         String?                  @db.Text
-  newComment         String?                  @db.Text
-  changedByUserId    String?
-  createdAt          DateTime                 @default(now())
+  id              String                   @id @default(cuid())
+  feedbackId      String?
+  studentUserId   String
+  problemId       String
+  assessmentId    String?
+  examId          String?
+  action          SubmissionFeedbackAction
+  oldComment      String?                  @db.Text
+  newComment      String?                  @db.Text
+  changedByUserId String?
+  createdAt       DateTime                 @default(now())
 
   feedback  SubmissionFeedback? @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
   changedBy User?               @relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)
 
-  @@index([courseAssessmentId, problemId, createdAt(sort: Desc)])
+  @@index([assessmentId, problemId, createdAt(sort: Desc)])
   @@index([examId, problemId, createdAt(sort: Desc)])
   @@index([studentUserId, problemId, createdAt(sort: Desc)])
 }

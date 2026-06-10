@@ -24,7 +24,7 @@ export async function canOperateOnSubmission(
     userId: string;
     problemId: string;
     contestId?: string | null;
-    courseAssessmentId?: string | null;
+    assessmentId?: string | null;
     examId?: string | null;
   },
 ): Promise<boolean> {
@@ -35,8 +35,8 @@ export async function canOperateOnSubmission(
     return contest?.createdByUserId === actor.userId;
   }
 
-  if (submission.courseAssessmentId) {
-    const assignment = await assessmentRepo.findByIdWithCourseId(submission.courseAssessmentId);
+  if (submission.assessmentId) {
+    const assignment = await assessmentRepo.findByIdWithCourseId(submission.assessmentId);
     if (!assignment) return false;
     return isCourseTeacherOrTa(actor.userId, assignment.courseId);
   }
@@ -58,7 +58,7 @@ export async function assertCanOperateOnSubmission(
     userId: string;
     problemId: string;
     contestId?: string | null;
-    courseAssessmentId?: string | null;
+    assessmentId?: string | null;
     examId?: string | null;
   },
 ): Promise<void> {

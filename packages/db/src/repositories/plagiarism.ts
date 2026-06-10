@@ -80,10 +80,10 @@ export const plagiarismRepo = {
   },
 
   async findByAssessmentId(
-    courseAssessmentId: string,
+    assessmentId: string,
   ): Promise<PlagiarismReportSummary | null> {
-    const row = await prisma.courseAssessment.findUnique({
-      where: { id: courseAssessmentId },
+    const row = await prisma.assessment.findUnique({
+      where: { id: assessmentId },
       select: plagiarismSelect,
     });
     return toSummary(row);
@@ -105,9 +105,9 @@ export const plagiarismRepo = {
     });
   },
 
-  upsertForAssessment(courseAssessmentId: string, input: PlagiarismUpsertInput) {
-    return prisma.courseAssessment.update({
-      where: { id: courseAssessmentId },
+  upsertForAssessment(assessmentId: string, input: PlagiarismUpsertInput) {
+    return prisma.assessment.update({
+      where: { id: assessmentId },
       data: buildPlagiarismUpdate(input),
       select: plagiarismSelect,
     });
@@ -135,9 +135,9 @@ export const plagiarismRepo = {
     });
   },
 
-  clearForAssessment(courseAssessmentId: string) {
-    return prisma.courseAssessment.update({
-      where: { id: courseAssessmentId },
+  clearForAssessment(assessmentId: string) {
+    return prisma.assessment.update({
+      where: { id: assessmentId },
       data: buildPlagiarismUpdate(clearInput),
     });
   },

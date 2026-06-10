@@ -1,7 +1,7 @@
 # Feature: Plagiarism Detection
 
 Acceptance spec for Dolos-based plagiarism detection on Exam and
-CourseAssessment. Triggered by course staff; report state is inlined on
+Assessment. Triggered by course staff; report state is inlined on
 the parent row (no dedicated `PlagiarismReport` table). Runs as a
 Temporal workflow keyed on target id — re-running terminates any
 in-flight check for the same target.
@@ -34,7 +34,7 @@ for staff.
 
 ### In scope
 
-- Inline report state on `CourseAssessment.plagiarism*`,
+- Inline report state on `Assessment.plagiarism*`,
   `Exam.plagiarism*`, and `Contest.plagiarism*` fields — six columns:
   `plagiarismStatus`, `plagiarismResults` (Json), `plagiarismReportUrl`,
   `plagiarismTriggeredAt`, `plagiarismCompletedAt`,
@@ -121,7 +121,7 @@ for staff.
 - GIVEN `?type=contest` with an unknown id,
   WHEN the route resolves,
   THEN it throws 404 `Contest not found.`.
-- GIVEN no `?type` query param (default `courseAssessment`) with an
+- GIVEN no `?type` query param (default `assessment`) with an
   unknown id,
   WHEN the route resolves,
   THEN it throws 404 `Assignment not found.`.
@@ -269,7 +269,7 @@ for staff.
 - `packages/db/prisma/schema/ops.prisma` — `PlagiarismReportStatus`
   enum.
 - `packages/db/prisma/schema/course.prisma` —
-  `CourseAssessment.plagiarism*` columns.
+  `Assessment.plagiarism*` columns.
 - `packages/db/prisma/schema/contest.prisma` — `Exam.plagiarism*` plus
   `Contest.plagiarism*` columns (both wired through the UI now).
 - `packages/db/src/repositories/plagiarism.ts` — per-target
@@ -281,7 +281,7 @@ for staff.
   unique `(contextType, contextId, pairKey)`.
 - Migration `20260420000000_rename_plagiarism_report_url` renamed the
   legacy `plagiarismMossReportUrl` column to `plagiarismReportUrl` on
-  `CourseAssessment`, `Exam`, and `Contest`.
+  `Assessment`, `Exam`, and `Contest`.
 - Migration `20260430000000_add_plagiarism_pair_flag` introduces the
   pair-flag table.
 
@@ -322,7 +322,7 @@ for staff.
 ### Tests
 
 - `tests/unit/domain/plagiarism-queries.test.ts` — covers
-  `getPlagiarismTarget` (exam / courseAssessment / legacy-contest
+  `getPlagiarismTarget` (exam / assessment / legacy-contest
   remap / not-found paths) and `createPlagiarismReport` (pre-wipe
   contract + persistence-failure throw).
 - `tests/unit/temporal/plagiarism-activity.test.ts` — real-Dolos
@@ -337,7 +337,7 @@ for staff.
   non-staff / teacher branches; list delegation.
 - `tests/unit/domain/plagiarism-trigger-log.test.ts` — `priorPairCount`
   computed from prior summary; contextType mapping
-  (courseAssessment / contest / exam); ordering (log written before
+  (assessment / contest / exam); ordering (log written before
   overwrite); audit row persists even if `writePlagiarismFields` fails.
 - `tests/integration/api/plagiarism.test.ts` — route-level permission
   gate for trigger / view / source fetch / flag / unflag against real

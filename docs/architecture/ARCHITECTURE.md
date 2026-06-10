@@ -195,7 +195,7 @@ Zod schemas and TypeScript types shared across all apps. Zero dependencies. Cont
 - Judge pipeline stage definitions and configuration schemas
 - Sandbox request/result interfaces and executor contract
 - SSE event types and Redis connection parsing
-- Shared event config schema (used by both Contest and CourseAssessment)
+- Shared event config schema (used by both Contest and Assessment)
 
 ### @nojv/db
 

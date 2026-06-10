@@ -58,12 +58,12 @@ vi.mock("@nojv/db", () => ({
   },
   runTransaction: async <T>(
     fn: (tx: {
-      courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
+      assessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
       contestProblem: { findFirst: typeof txContestProblemFindFirst };
     }) => Promise<T>,
   ): Promise<T> =>
     fn({
-      courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
+      assessmentProblem: { findFirst: txAssessmentProblemFindFirst },
       contestProblem: { findFirst: txContestProblemFindFirst },
     }),
 }));
