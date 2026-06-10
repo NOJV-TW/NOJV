@@ -53,3 +53,9 @@ model AnnouncementTranslation {
 
 // Plagiarism reports are inlined on Exam and CourseAssessment as
 // `plagiarism*` columns; re-running upserts the row in place.
+
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

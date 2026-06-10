@@ -2,7 +2,12 @@ import { createRequire } from "node:module";
 
 import { NativeConnection, Worker } from "@temporalio/worker";
 
-import { closeTemporalClient, JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "@nojv/temporal";
+import {
+  closeTemporalClient,
+  ensureSubmissionSweeper,
+  JUDGE_TASK_QUEUE,
+  PLATFORM_TASK_QUEUE,
+} from "@nojv/temporal";
 
 const require = createRequire(import.meta.url);
 
@@ -61,6 +66,7 @@ export class WorkerApp {
         maxConcurrentActivityTaskExecutions: 10,
       });
       this.workers.push(platformWorker);
+      await ensureSubmissionSweeper();
     }
 
     await new Promise<void>((resolve) => {

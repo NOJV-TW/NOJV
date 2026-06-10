@@ -26,6 +26,7 @@ const TABLES = [
   "ProblemBookmark",
   "Problem",
   "Announcement",
+  "PlatformSetting",
   "Verification",
   "Session",
   "Account",

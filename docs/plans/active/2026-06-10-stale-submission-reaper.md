@@ -46,7 +46,8 @@ Migration 檔 + dev `db push` 都要做(PR #105 教訓:不能只 push)。
 
 ## 邊界情況
 
-- **Rejudge 中卡死**:`SubmissionRejudgeLog` 留下未 finalize 紀錄(只有 old*)——接受,代表該次 rejudge 未完成,可再重判。
+- **Rejudge 中卡死**:`SubmissionRejudgeLog` 留下未 finalize 紀錄(只有 old\*)——接受,代表該次 rejudge 未完成,可再重判。
+- **Rejudge child workflowId 不可反查**:rejudge 的 child workflow 用 `rejudge-<submissionId>-<timestamp>`,sweeper 只 terminate `judge-<submissionId>`(找不到就忽略)。若 child 其實還活著(極罕見:>門檻仍在跑),sweeper 會先標 `system_error`,child 完成時無條件覆寫成真 verdict——自我修正,接受。
 - **考試/比賽中被 kill**:`system_error` 不觸發計分,等同從未完成判題;學生可立即重交。
 
 ## 測試計畫
