@@ -204,9 +204,9 @@ export async function autoCloseForExam(examId: string): Promise<{ closed: number
       endedAt: now,
       releaseReason: "time_up",
     });
-    await examSessionRepo.withTx(tx).recordEvents(
-      ids.map((sessionId) => ({ sessionId, eventType: "auto_close" })),
-    );
+    await examSessionRepo
+      .withTx(tx)
+      .recordEvents(ids.map((sessionId) => ({ sessionId, eventType: "auto_close" })));
     return { closed: active.length };
   });
 }
