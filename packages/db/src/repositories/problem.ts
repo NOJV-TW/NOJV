@@ -320,6 +320,13 @@ export const testcaseSetRepo = {
 };
 
 export const testcaseRepo = {
+  findById(id: string) {
+    return prisma.testcase.findUnique({
+      where: { id },
+      include: { testcaseSet: { select: { problemId: true } } },
+    });
+  },
+
   update(id: string, data: Prisma.TestcaseUpdateInput) {
     return prisma.testcase.update({ where: { id }, data });
   },

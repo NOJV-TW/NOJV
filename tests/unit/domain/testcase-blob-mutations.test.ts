@@ -19,6 +19,7 @@ const {
   deleteBlob,
   deleteBlobsByPrefix,
   testcaseFindById,
+  testcaseRowFindById,
   testcaseSetCreate,
   testcaseCreateMany,
   testcaseDelete,
@@ -32,6 +33,7 @@ const {
   deleteBlob: vi.fn(),
   deleteBlobsByPrefix: vi.fn(),
   testcaseFindById: vi.fn(),
+  testcaseRowFindById: vi.fn(),
   testcaseSetCreate: vi.fn(),
   testcaseCreateMany: vi.fn(),
   testcaseDelete: vi.fn(),
@@ -85,6 +87,7 @@ vi.mock("@nojv/db", () => {
       }),
     },
     testcaseRepo: {
+      findById: testcaseRowFindById,
       delete: testcaseDelete,
       withTx: () => ({
         createMany: testcaseCreateMany,
@@ -129,6 +132,16 @@ beforeEach(() => {
   deleteBlobsByPrefix.mockResolvedValue(undefined);
   testcaseDelete.mockResolvedValue({ id: "tc_1" });
   testcaseSetDelete.mockResolvedValue({ id: "set_1" });
+  // Object-level authz reads: set / testcase belong to the route problem.
+  testcaseFindById.mockResolvedValue({
+    id: "set_1",
+    problemId: "prob_1",
+    testcases: [],
+  });
+  testcaseRowFindById.mockResolvedValue({
+    id: "tc_1",
+    testcaseSet: { problemId: "prob_1" },
+  });
 });
 
 describe("createProblemTestcaseSetRecord", () => {
@@ -274,10 +287,50 @@ describe("deleteTestcaseRecord", () => {
   });
 });
 
+describe("object-level authorization — set/testcase must belong to the route problem", () => {
+  it("rejects deleting a testcase whose set belongs to another problem (IDOR)", async () => {
+    testcaseRowFindById.mockResolvedValueOnce({
+      id: "tc_other",
+      testcaseSet: { problemId: "prob_OTHER" },
+    });
+
+    await expect(deleteTestcaseRecord(actor, "prob_1", "tc_other")).rejects.toThrow(
+      /not found for this problem/i,
+    );
+    expect(testcaseDelete).not.toHaveBeenCalled();
+  });
+
+  it("rejects deleting a testcase set that belongs to another problem (IDOR)", async () => {
+    testcaseFindById.mockResolvedValueOnce({
+      id: "set_other",
+      problemId: "prob_OTHER",
+      testcases: [{ id: "tc_x" }],
+    });
+
+    await expect(deleteTestcaseSetRecord(actor, "prob_1", "set_other")).rejects.toThrow(
+      /not found for this problem/i,
+    );
+    expect(testcaseSetDelete).not.toHaveBeenCalled();
+  });
+
+  it("rejects overwriting a testcase blob across problems (no S3 write)", async () => {
+    testcaseRowFindById.mockResolvedValueOnce({
+      id: "tc_other",
+      testcaseSet: { problemId: "prob_OTHER" },
+    });
+
+    await expect(
+      updateTestcaseRecord(actor, "prob_1", "tc_other", { input: "x" }),
+    ).rejects.toThrow(/not found for this problem/i);
+    expect(putText).not.toHaveBeenCalled();
+  });
+});
+
 describe("deleteTestcaseSetRecord", () => {
   it("sweeps S3 prefixes for every testcase in the set after the DB delete commits", async () => {
     testcaseFindById.mockResolvedValueOnce({
       id: "set_1",
+      problemId: "prob_1",
       testcases: [{ id: "tc_a" }, { id: "tc_b" }, { id: "tc_c" }],
     });
 
