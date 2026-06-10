@@ -155,8 +155,16 @@ export const examSessionRepo = {
         });
       },
 
+      updateManyById(ids: string[], data: Prisma.ActiveExamSessionUncheckedUpdateManyInput) {
+        return tx.activeExamSession.updateMany({ where: { id: { in: ids } }, data });
+      },
+
       recordEvent(data: Prisma.ExamSessionEventUncheckedCreateInput) {
         return tx.examSessionEvent.create({ data });
+      },
+
+      recordEvents(data: Prisma.ExamSessionEventCreateManyInput[]) {
+        return tx.examSessionEvent.createMany({ data });
       },
 
       findLatestEventOfType(sessionId: string, eventType: ExamSessionEventType) {
