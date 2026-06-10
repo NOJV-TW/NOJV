@@ -50,6 +50,7 @@ export {
   testcaseSetRepo,
   testcaseRepo,
 } from "./problem";
+export { platformSettingRepo } from "./platform-setting";
 export { problemBookmarkRepo } from "./problem-bookmark";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export {

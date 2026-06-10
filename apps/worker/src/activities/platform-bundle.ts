@@ -6,6 +6,7 @@ export {
   updateContestScores,
   updateExamScores,
   closeActiveSessionsForExam,
+  sweepStaleSubmissions,
   publishVerdict,
   publishContestEvent,
   publishAssessmentDeadline,

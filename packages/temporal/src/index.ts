@@ -7,8 +7,11 @@ export {
   dispatchContestLifecycle,
   dispatchExamAutoClose,
   dispatchPlagiarismCheck,
+  ensureSubmissionSweeper,
+  terminateSubmissionJudge,
   querySubmissionStatus,
   queryRejudgeProgress,
   cancelRejudge,
   queryPlagiarismStatus,
+  SUBMISSION_SWEEPER_WORKFLOW_ID,
 } from "./dispatch";

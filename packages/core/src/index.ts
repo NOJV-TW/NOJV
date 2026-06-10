@@ -12,6 +12,7 @@ export * from "./schemas/advanced-mode";
 export * from "./schemas/user";
 export * from "./schemas/required-paths";
 export * from "./schemas/path";
+export * from "./schemas/platform-settings";
 export * from "./validation/required-paths";
 export * from "./queue";
 export * from "./sandbox";

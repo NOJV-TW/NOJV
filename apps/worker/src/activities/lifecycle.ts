@@ -1,5 +1,9 @@
-import { contestDomain, examDomain, notificationDomain } from "@nojv/domain";
+import { contestDomain, examDomain, notificationDomain, submissionDomain } from "@nojv/domain";
 import { pubsub } from "@nojv/redis";
+
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("sweeper");
 
 export type ContestInfo = contestDomain.ContestLifecycleSnapshot;
 
@@ -29,6 +33,14 @@ export async function updateExamScores(examId: string, userId: string): Promise<
 
 export async function closeActiveSessionsForExam(examId: string): Promise<{ closed: number }> {
   return examDomain.session.autoCloseForExam(examId);
+}
+
+export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepStaleSubmissionsResult> {
+  const result = await submissionDomain.sweepStaleSubmissions();
+  if (result.scanned > 0) {
+    logger.info("stale submission sweep", { ...result });
+  }
+  return result;
 }
 
 export const publishVerdict = pubsub.publishVerdict;

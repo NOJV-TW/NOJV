@@ -1,16 +1,21 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
-  import type { PageData } from "./$types";
+  import { enhance } from "$app/forms";
+  import type { ActionData, PageData } from "./$types";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
+  import { Card } from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
   import { Button } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { toasts } from "$lib/stores/toast";
 
-  let { data }: { data: PageData } = $props();
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let problemFilter = $state(untrack(() => data.problemId));
+  let pendingTimeout = $state(untrack(() => String(data.pendingTimeoutMinutes)));
+  let savingTimeout = $state(false);
 
   function applyFilter(e: Event) {
     e.preventDefault();
@@ -41,6 +46,48 @@
       <Button type="submit" size="sm" variant="outline">{m.admin_rejudges_filterBtn()}</Button>
     </form>
   </div>
+
+  <Card class="space-y-3 p-4">
+    <div>
+      <h2 class="text-body font-semibold">{m.admin_rejudges_timeoutTitle()}</h2>
+      <p class="text-body-sm text-muted-foreground">{m.admin_rejudges_timeoutHint()}</p>
+    </div>
+    <form
+      class="flex flex-wrap items-end gap-3"
+      method="POST"
+      action="?/updatePendingTimeout"
+      use:enhance={() => {
+        savingTimeout = true;
+        return async ({ result, update }) => {
+          savingTimeout = false;
+          await update({ reset: false });
+          if (result.type === "success") {
+            toasts.success(m.admin_rejudges_timeoutSaved());
+          }
+        };
+      }}
+    >
+      <label class="space-y-1">
+        <span class="block text-caption text-muted-foreground">
+          {m.admin_rejudges_timeoutLabel()}
+        </span>
+        <Input
+          type="number"
+          name="pendingTimeoutMinutes"
+          class="h-9 w-32"
+          min="10"
+          max="1440"
+          step="1"
+          required
+          bind:value={pendingTimeout}
+        />
+      </label>
+      <Button type="submit" size="sm" disabled={savingTimeout}>{m.common_save()}</Button>
+    </form>
+    {#if form?.error}
+      <p class="text-body-sm text-destructive">{form.error}</p>
+    {/if}
+  </Card>
 
   {#if data.logs.length === 0}
     <p

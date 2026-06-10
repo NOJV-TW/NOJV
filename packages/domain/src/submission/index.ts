@@ -49,6 +49,12 @@ export {
   type SubtaskResultItem,
 } from "./scoring";
 export {
+  getSubmissionPendingTimeoutMinutes,
+  setSubmissionPendingTimeoutMinutes,
+  sweepStaleSubmissions,
+  type SweepStaleSubmissionsResult,
+} from "./sweep";
+export {
   dispatchRejudge,
   dispatchSubmissionJudge,
   querySubmissionStatus,
