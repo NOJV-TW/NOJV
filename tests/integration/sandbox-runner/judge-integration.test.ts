@@ -20,8 +20,6 @@ import type { SandboxInput, TestcaseFiles } from "../../../apps/sandbox-runner/s
 const TIMEOUT_MS = 10_000;
 const SHORT_TIMEOUT_MS = 500;
 
-// go + rust cold-compile on a shared CI runner can exceed the default 30s
-// per-test budget; give the slow compilers headroom to avoid flaky timeouts.
 const SLOW_COMPILE_LANGUAGES = new Set(["go", "rust"]);
 const compileTestTimeout = (name: string) =>
   SLOW_COMPILE_LANGUAGES.has(name) ? 90_000 : 30_000;

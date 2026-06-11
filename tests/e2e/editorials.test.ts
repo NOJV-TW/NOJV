@@ -180,9 +180,6 @@ test.describe("Editorials — happy path (AC required)", () => {
     const page = await context.newPage();
 
     const verdict = await submitAcAndAwait(page.request, PROBLEM_ID);
-    // Opting in via NOJV_E2E_RUN_JUDGE=1 asserts a working Temporal worker +
-    // sandbox image, so anything other than AC is a real regression — fail
-    // loud here instead of silently skipping the editorial CRUD chain below.
     expect(
       verdict,
       `judge did not accept the warmup-sum AC solution (final verdict: ${verdict})`,
