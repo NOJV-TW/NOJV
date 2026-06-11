@@ -6,6 +6,11 @@ Live SLO dashboards are at <https://takalawang.grafana.net> (see [Observability 
 
 Every SLO is stated as an end-to-end user-visible metric (not a component internal), so a regression in any tier (app / Temporal / sandbox / DB) shows up in the same table.
 
+> The targets below are **provisional, conservative heuristics** — they alert
+> (they don't cap functionality), and they are deliberately lenient so they
+> only fire on genuine regressions. Validate and tighten them against measured
+> p95/p99 distributions once the platform carries sustained production traffic.
+
 | SLO                                                         | Target      | Window              | Notes                                                                                                                                                                             |
 | ----------------------------------------------------------- | ----------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days      | Measured from `submission.createdAt` to verdict visible via API / SSE. Dashboard: [NOJV — Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency)                     |
