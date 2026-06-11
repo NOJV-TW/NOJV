@@ -10,6 +10,7 @@ import type { SubmissionJudgeInput, SubmissionJudgeStatus } from "@nojv/temporal
 import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
+import { resolveScoringDispatch } from "./submission-judge-helpers";
 
 const judge = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "5m",
@@ -59,13 +60,14 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
         : "standard";
     const submission = await judge.completeSubmission(input.submissionId, result, mode);
 
-    if (submission.contestParticipationId) {
-      const contestId = await contest.updateContestScores(submission.contestParticipationId);
+    const dispatch = resolveScoringDispatch(submission);
+    if (dispatch.kind === "contest") {
+      const contestId = await contest.updateContestScores(dispatch.contestParticipationId);
       if (contestId) {
         await notification.publishScoreboardUpdate(contestId);
       }
-    } else if (submission.examId) {
-      await contest.updateExamScores(submission.examId, submission.userId);
+    } else if (dispatch.kind === "exam") {
+      await contest.updateExamScores(dispatch.examId, dispatch.userId);
     }
 
     status = "completed";

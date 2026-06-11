@@ -14,18 +14,18 @@
 
 本計劃的 Phase 1/2 + 風險 #1 第一步 + 風險 #3 第一步**已於本 PR 實作並驗證**(`ci:verify` 26/26 + 1285 unit + 1591 integration 全綠)。逐項:
 
-| 項目                                    | 狀態        | 落地處                                                                                         |
-| --------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
-| 風險 #1 — scoring 純核心抽取            | ✅ 已實作   | `packages/domain/src/scoring/persist-core.ts` + contest/exam scoring.ts + persist-core.test.ts |
-| 1.1 HTTP harness                        | ✅ 已實作   | `tests/integration/http/_harness.ts` + `tests/setup/stubs/*` + vitest.config alias             |
-| 1.2 signup-disabled 端點測試            | ✅ 已實作   | `tests/integration/http/auth-signup.test.ts`                                                   |
-| 1.3 守衛鏈 request 層測試               | ✅ 已實作   | `tests/integration/http/{hooks-guards,notifications,healthz}.test.ts`                          |
-| 2.1 editorials e2e fail-loud            | ✅ 已實作   | `tests/e2e/editorials.test.ts`(opt-in 後非 AC 改 explicit assert)                              |
-| 2.2 seed TABLES 漂移防護                | ✅ 已實作   | `tests/unit/db/seed-tables-complete.test.ts`(T5)+ 補齊 15 個漏列 table                         |
-| 2.3 workflow `@temporalio/testing` 測試 | ⏸️ 保留     | 需新增重量級 dep + 下載 Temporal test server 二進位(CI flakiness 風險),待決策 — 見該節         |
-| 2.4 nightly 沙箱隔離 CI                 | ✅ 已實作   | `.github/workflows/nightly-sandbox.yml`(schedule + manual,不阻塞 PR)                           |
-| 風險 #3 — config fitness 盤點           | ✅ 已實作   | T1/T2/T5 測試 + 缺口 A/B/C 修復(見該節)                                                        |
-| 風險 #2 — Temporal 拓撲                 | ⏸️ 只列方向 | 設計級決策,不寫程式(見該節)                                                                    |
+| 項目                              | 狀態        | 落地處                                                                                                |
+| --------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------- |
+| 風險 #1 — scoring 純核心抽取      | ✅ 已實作   | `packages/domain/src/scoring/persist-core.ts` + contest/exam scoring.ts + persist-core.test.ts        |
+| 1.1 HTTP harness                  | ✅ 已實作   | `tests/integration/http/_harness.ts` + `tests/setup/stubs/*` + vitest.config alias                    |
+| 1.2 signup-disabled 端點測試      | ✅ 已實作   | `tests/integration/http/auth-signup.test.ts`                                                          |
+| 1.3 守衛鏈 request 層測試         | ✅ 已實作   | `tests/integration/http/{hooks-guards,notifications,healthz}.test.ts`                                 |
+| 2.1 editorials e2e fail-loud      | ✅ 已實作   | `tests/e2e/editorials.test.ts`(opt-in 後非 AC 改 explicit assert)                                     |
+| 2.2 seed TABLES 漂移防護          | ✅ 已實作   | `tests/unit/db/seed-tables-complete.test.ts`(T5)+ 補齊 15 個漏列 table                                |
+| 2.3 workflow 分支選擇測試(輕路線) | ✅ 已實作   | 抽 `resolveScoringDispatch` 純函式 + `submission-judge-helpers.test.ts`(免 `@temporalio/testing` dep) |
+| 2.4 nightly 沙箱隔離 CI           | ✅ 已實作   | `.github/workflows/nightly-sandbox.yml`(schedule + manual,不阻塞 PR)                                  |
+| 風險 #3 — config fitness 盤點     | ✅ 已實作   | T1/T2/T5 測試 + 缺口 A/B/C 修復(見該節)                                                               |
+| 風險 #2 — Temporal 拓撲           | ⏸️ 只列方向 | 設計級決策,不寫程式(見該節)                                                                           |
 
 ---
 
@@ -85,11 +85,11 @@
 
 - `tests/unit/db/seed-tables-complete.test.ts`(T5):靜態讀 `prisma/schema/*.prisma` 全 model vs `seed-test-db.ts` 的 `TABLES`,**漏列即 fail**。同時補齊先前 15 個漏列 table(原本靠 `TRUNCATE CASCADE` 僥倖兜住,脆弱)。
 
-### Task 2.3: workflow 分支 `@temporalio/testing` 測試 — ⏸️ 保留(待決策)
+### Task 2.3: workflow 分支選擇測試 — ✅ 已實作(輕路線,免 dep)
 
-- **為何保留:**`@temporalio/testing` **不是現有 dep**,要新增到 catalog + lockfile(觸發 Dependency Audit job);`TestWorkflowEnvironment` 會**下載 Temporal test server 二進位 + 起一個測試伺服器**,在 CI 是已知的 flakiness / 慢來源,且無法在本機可靠驗證其 CI 行為。
-- **建議:** 當作獨立 follow-up,先在隔離環境驗證 test-server 啟動穩定 + 速度可接受,再決定是否引入。屆時覆蓋 submission-judge 的 contest/exam/practice 分支 + rejudge 取消還原。
-- **過渡覆蓋:** workflow 啟動名 / query 名的註冊漂移已由 T1(`tests/unit/worker/workflow-registration.test.ts`)守住;branch 邏輯的計分部分由 persist-core + contest/exam-scoring-race 守住。
+- **決策(2026-06-11):** 不引入 `@temporalio/testing`(會新增重量級 dep + 下載 Temporal test server 二進位 + CI flakiness)。改採**既有慣例**(`exam-auto-close-workflow.test.ts` 把決策邏輯抽純函式直接測,不跑 `TestWorkflowEnvironment`)。
+- **落地:** 把 submission-judge workflow 的 **context → 計分路徑分支**抽成純函式 `resolveScoringDispatch(submission) -> {kind:"contest"|"exam"|"none", ...}`(`apps/worker/src/workflows/submission-judge-helpers.ts`);workflow 改用它分派。`tests/unit/worker/submission-judge-helpers.test.ts` 鎖住:contest 路徑、**exam 路徑(正是 PR #83 漏掉的分支)**、practice=none、兩 FK 都在時 contest 優先。
+- **未覆蓋(本就需 Temporal,不在輕路線):** 活動實際呼叫(`updateContestScores`/`updateExamScores`/`publishScoreboardUpdate`)的編排、rejudge 取消還原。其註冊面由 T1 守住、計分內部由 persist-core + race 測試守住。
 
 ### Task 2.4: nightly 沙箱隔離 CI — ✅ 已實作
 
