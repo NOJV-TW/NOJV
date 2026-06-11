@@ -12,6 +12,8 @@ const webEnvSchema = z
     DATABASE_URL: z.url().default("postgresql://postgres:postgres@localhost:5432/nojv"),
     REDIS_URL: z.url().default("redis://localhost:6379"),
 
+    EXECUTION_BACKEND: z.enum(["docker", "kubernetes"]).default("docker"),
+
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),
 

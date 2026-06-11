@@ -58,6 +58,8 @@ spec:
               value: nojv-sandbox
             - name: SANDBOX_IMAGE
               value: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/sandbox:latest
+            - name: WORKER_CONCURRENCY
+              value: "4"
             - name: K8S_CPU_REQUEST
               value: "500m"
             - name: K8S_CPU_LIMIT

@@ -10,7 +10,8 @@ import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 import { ConflictError, NotFoundError } from "../shared/errors";
 import {
   buildScoreboard,
-  computeProblemCountPenalty,
+  computeBestScoreState,
+  computeProblemCountState,
   type ParticipantRow,
   type ScoreboardEntry,
   type ScoreboardProblem,
@@ -41,29 +42,15 @@ async function persistProblemCountScore(
   allSubmissions: ExamSubmissionRows,
   examProblems: ExamProblemMap,
 ): Promise<void> {
-  const { exam } = participation;
-  let solvedCount = 0;
-  let totalPenalty = 0;
-
-  const byProblem = new Map<string, ExamSubmissionRows>();
-  for (const sub of allSubmissions) {
-    if (!examProblems.has(sub.problemId)) continue;
-    const existing = byProblem.get(sub.problemId) ?? [];
-    existing.push(sub);
-    byProblem.set(sub.problemId, existing);
-  }
-
-  for (const [, problemSubs] of byProblem) {
-    const { solved, penaltySeconds } = computeProblemCountPenalty(problemSubs, exam.startsAt);
-    if (solved) {
-      solvedCount++;
-      totalPenalty += penaltySeconds;
-    }
-  }
+  const { score, penaltySeconds } = computeProblemCountState({
+    submissions: allSubmissions,
+    problemIds: new Set(examProblems.keys()),
+    startsAt: participation.exam.startsAt,
+  });
 
   await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
-    penaltySeconds: totalPenalty,
-    score: solvedCount,
+    penaltySeconds,
+    score,
   });
 }
 
@@ -73,25 +60,12 @@ async function persistBestScore(
   examProblems: ExamProblemMap,
   overrideRows: OverrideRows,
 ): Promise<void> {
-  const bestByProblem = new Map<string, number>();
-  for (const sub of allSubmissions) {
-    if (!examProblems.has(sub.problemId)) continue;
-    const current = bestByProblem.get(sub.problemId) ?? 0;
-    if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
-  }
-
-  for (const row of overrideRows) {
-    if (row.userId !== participation.userId) continue;
-    if (!examProblems.has(row.problemId)) continue;
-    bestByProblem.set(row.problemId, row.overrideScore);
-  }
-
-  let totalScore = 0;
-  const subtaskScores: Record<string, number> = {};
-  for (const [problemId, best] of bestByProblem) {
-    totalScore += best;
-    subtaskScores[problemId] = best;
-  }
+  const { totalScore, subtaskScores } = computeBestScoreState({
+    submissions: allSubmissions,
+    problemIds: new Set(examProblems.keys()),
+    overrides: overrideRows,
+    userId: participation.userId,
+  });
 
   await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
     score: totalScore,

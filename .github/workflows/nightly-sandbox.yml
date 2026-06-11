@@ -1,0 +1,65 @@
+name: Nightly Sandbox Isolation
+
+# Builds the sandbox image (never built in PR CI) and runs the container
+# under the exact hardening flags the worker's docker executor uses, so an
+# isolation regression (seccomp/cap-drop/read-only/network/pids drift) is
+# caught out-of-band. Scheduled + manual only — does NOT gate pull requests.
+on:
+  schedule:
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox-isolation:
+    name: Build sandbox image + isolation regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
+
+      - name: Build sandbox image
+        run: pnpm sandbox:build
+
+      - name: Sandbox executor + isolation unit tests
+        run: pnpm vitest run tests/unit/worker
+
+      - name: Isolation — sandbox process runs as non-root (uid 10001)
+        run: |
+          uid=$(docker run --rm --user 10001:10001 nojv-sandbox:local \
+            node -e 'process.stdout.write(String(process.getuid()))')
+          echo "sandbox uid=$uid"
+          test "$uid" = "10001"
+
+      - name: Isolation — root filesystem is read-only
+        run: |
+          if docker run --rm --read-only \
+            --tmpfs /tmp:rw,exec,nosuid,nodev,size=64m \
+            --user 10001:10001 nojv-sandbox:local \
+            node -e 'require("fs").writeFileSync("/breakout","x")'; then
+            echo "::error::write to read-only rootfs unexpectedly succeeded"
+            exit 1
+          fi
+          echo "read-only rootfs enforced"
+
+      - name: Isolation — no network egress (--network none)
+        run: |
+          if docker run --rm --network none nojv-sandbox:local \
+            node -e 'require("dns").lookup("example.com",(e)=>process.exit(e?1:0))'; then
+            echo "::error::DNS resolved under --network none"
+            exit 1
+          fi
+          echo "network isolation enforced"
+
+      - name: Isolation — dropped caps + no-new-privileges run cleanly
+        run: |
+          docker run --rm --network none --cap-drop ALL \
+            --security-opt no-new-privileges --user 10001:10001 \
+            --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=64m \
+            nojv-sandbox:local node -e 'process.exit(0)'

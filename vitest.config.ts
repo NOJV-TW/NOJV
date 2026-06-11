@@ -12,6 +12,9 @@ const sharedAliases = {
   "@nojv/redis": path.resolve(__dirname, "packages/redis/src/index.ts"),
   "@nojv/temporal": path.resolve(__dirname, "packages/temporal/src/index.ts"),
   "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
+  "$env/dynamic/private": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-private.ts"),
+  "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
+  "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
 };
 
 export default defineConfig({
