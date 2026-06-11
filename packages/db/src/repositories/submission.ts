@@ -373,6 +373,14 @@ export const submissionRepo = {
     });
   },
 
+  findForContestScoreboardByContestId(contestId: string) {
+    return prisma.submission.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { ...scoringBaseSelect, userId: true },
+      where: { contestId, sampleOnly: false },
+    });
+  },
+
   findForVirtualContestScoreboard(virtualContestId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },

@@ -9,7 +9,9 @@ const {
   vcCreate,
   submissionGroupByUserAndProblem,
   submissionFindForContestScoreboard,
+  submissionFindForContestScoreboardByContestId,
   submissionFindForVirtualContestScoreboard,
+  participationFindContestScoreboardParticipants,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   contestFindDetailById: vi.fn(),
@@ -19,7 +21,9 @@ const {
   vcCreate: vi.fn(),
   submissionGroupByUserAndProblem: vi.fn(),
   submissionFindForContestScoreboard: vi.fn(),
+  submissionFindForContestScoreboardByContestId: vi.fn(),
   submissionFindForVirtualContestScoreboard: vi.fn(),
+  participationFindContestScoreboardParticipants: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -36,7 +40,11 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {
     groupByUserAndProblem: submissionGroupByUserAndProblem,
     findForContestScoreboard: submissionFindForContestScoreboard,
+    findForContestScoreboardByContestId: submissionFindForContestScoreboardByContestId,
     findForVirtualContestScoreboard: submissionFindForVirtualContestScoreboard,
+  },
+  participationRepo: {
+    findContestScoreboardParticipants: participationFindContestScoreboardParticipants,
   },
   // getScoreboard imports `scoreOverrideRepo` indirectly via contest/scoring's
   // module graph; supplying an empty stub keeps the mock total.
@@ -272,6 +280,21 @@ describe("getVirtualContestScoreboard", () => {
         score: 100,
         status: "accepted",
         contestParticipation: { userId: "u_ghost" },
+      },
+    ]);
+    participationFindContestScoreboardParticipants.mockResolvedValue([
+      {
+        userId: "u_ghost",
+        user: { username: "ghost", displayUsername: "ghost", name: "Ghost" },
+      },
+    ]);
+    submissionFindForContestScoreboardByContestId.mockResolvedValue([
+      {
+        createdAt: new Date("2026-01-01T01:00:00.000Z"),
+        problemId: "p1",
+        score: 100,
+        status: "accepted",
+        userId: "u_ghost",
       },
     ]);
 
