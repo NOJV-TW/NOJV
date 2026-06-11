@@ -1,8 +1,33 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { mirrorParticipation } from "./participation-mirror";
 
 type TxClient = TransactionClient;
+
+function virtualMirrorSource(row: {
+  userId: string;
+  contestId: string;
+  score: number;
+  penaltySeconds: number;
+  subtaskScores: Prisma.JsonValue;
+  status: string;
+  startedAt: Date;
+  endsAt: Date;
+}) {
+  return {
+    type: "virtual" as const,
+    userId: row.userId,
+    contestId: row.contestId,
+    score: row.score,
+    penaltySeconds: row.penaltySeconds,
+    subtaskScores: row.subtaskScores as Prisma.InputJsonValue | null,
+    status: row.status,
+    startedAt: row.startedAt,
+    submittedAt: null,
+    typeData: { endsAt: row.endsAt.toISOString() },
+  };
+}
 
 export class VirtualContestVersionConflict extends Error {
   readonly virtualContestId: string;
@@ -29,8 +54,10 @@ export const virtualContestRepo = {
     });
   },
 
-  create(data: Prisma.VirtualContestUncheckedCreateInput) {
-    return prisma.virtualContest.create({ data });
+  async create(data: Prisma.VirtualContestUncheckedCreateInput) {
+    const row = await prisma.virtualContest.create({ data });
+    await mirrorParticipation(prisma, virtualMirrorSource(row));
+    return row;
   },
 
   update(id: string, data: Prisma.VirtualContestUpdateInput) {
@@ -70,8 +97,10 @@ export const virtualContestRepo = {
         });
       },
 
-      create(data: Prisma.VirtualContestUncheckedCreateInput) {
-        return tx.virtualContest.create({ data });
+      async create(data: Prisma.VirtualContestUncheckedCreateInput) {
+        const row = await tx.virtualContest.create({ data });
+        await mirrorParticipation(tx, virtualMirrorSource(row));
+        return row;
       },
 
       update(id: string, data: Prisma.VirtualContestUncheckedUpdateInput) {

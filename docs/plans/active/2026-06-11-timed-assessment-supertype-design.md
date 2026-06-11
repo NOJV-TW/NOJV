@@ -64,9 +64,9 @@ model Participation {
 > 用 expand/contract 模式:先加新結構並雙寫,backfill,切讀,最後才拆舊。任一階段可停、可回退。
 
 - **Stage 0 — 設計收斂(本 doc)** + 決策點拍板。
-- **Stage 1 — 新表 + repo(不接線)**:加 `Participation` 表 + migration(**raw-SQL CHECK 需處理 6.2 migrate-diff gate**:CHECK 用 migration SQL,schema 端用註解,同 `Submission_single_context_chk` 模式)。寫 `participationRepo`(含單一 `updateWithVersion` + 單一 `ParticipationVersionConflict`)。新表暫無人寫,純加法,零風險。
-- **Stage 2 — 雙寫**:建立/更新 contest/exam/virtual participation 時,同步寫 `Participation`。backfill script 把現有三表資料搬進 `Participation`。此時兩套並存,讀仍走舊表。
-- **Stage 3 — 切計分寫入**:`runScoreUpdate` 的 adapter 改用 `participationRepo`;**exam submission 的 `examId`→`participationId` 連結 backfill**(把 exam submission 的 participationId 補上,改 scoring 查詢走 participationId)。race 測試 + persist-core 測試守門。
+- **Stage 1 — 新表 + repo(不接線)— ✅ 已實作(PR #121)**:加 `Participation` 表 + migration(`Participation_single_context_chk` CHECK 走 migration SQL,`migrate diff` 對 CHECK 無感→無漂移,同 `Submission_single_context_chk`)。`participationRepo` + `UnifiedParticipationVersionConflict`(Stage 5 收掉舊三個後正名)。純加法零風險。
+- **Stage 2 — 雙寫 + backfill — ✅ 已實作(細化:create-only)**:**只在 create 點雙寫**(`contest/exam` upsert、`virtual` create 的 repo 層 chokepoint,經 `mirrorParticipation` find-or-create——刻意不用 upsert 以避開「nullable 欄 unique + NULLS NOT DISTINCT」與「同 contest 可同時有 contest+virtual」的陷阱)。**score 更新不雙寫**——`Participation` 分數可暫時 stale,因為讀仍走舊表(Stage 4 才切讀),Stage 3 切寫入時會 re-backfill。`backfillParticipation()`(`pnpm --filter @nojv/db backfill:participation`)把現有三表搬進 `Participation`(冪等 find-or-create)。對帳測試 `participation-mirror.test.ts`。
+- **Stage 3 — 切計分寫入 + score re-sync**:(a) **re-backfill 所有 score**(消除 Stage 2 的 stale 窗口);(b) `runScoreUpdate` 的 adapter `persist`/`load` 改走 `participationRepo`(寫 `Participation` 分數);(c) **exam submission 的 `examId`→`participationId` 連結 backfill**(最高風險,單獨對帳)。race 測試 + persist-core 守門。
 - **Stage 4 — 切讀**:scoreboard / 各頁的 participation 讀取改走 `Participation`;移除三表的 domain 讀取。
 - **Stage 5 — contract**:Submission 的 `contestParticipationId`/`examId`(participation 用途)/`virtualContestId` 收斂到 `participationId`;drop 三張舊表 + 三個舊 conflict class + 三個 updateWithVersion。
 
