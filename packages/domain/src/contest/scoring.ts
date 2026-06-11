@@ -2,6 +2,7 @@ import {
   contestRepo,
   contestParticipationRepo,
   mirrorParticipationScore,
+  participationRepo,
   ParticipationVersionConflict,
   scoreOverrideRepo,
   submissionRepo,
@@ -113,7 +114,12 @@ export async function getScoreboard(
     };
   }
 
-  if (contest.participations.length === 0) {
+  // Stage 5 decouple: participant list + submissions now resolve off the unified
+  // Participation table / Submission.contestId instead of ContestParticipation.
+  const participants: ParticipantRow[] =
+    await participationRepo.findContestScoreboardParticipants(contestId);
+
+  if (participants.length === 0) {
     return {
       entries: [],
       frozenAt: contest.frozenAt?.toISOString() ?? null,
@@ -124,18 +130,15 @@ export async function getScoreboard(
     };
   }
 
-  const participationIds = contest.participations.map((p) => p.id);
-  const allSubmissions = await submissionRepo.findForContestScoreboard(participationIds);
+  const allSubmissions = await submissionRepo.findForContestScoreboardByContestId(contestId);
 
   const submissions: SubmissionRow[] = allSubmissions.map((s) => ({
     createdAt: s.createdAt,
     problemId: s.problemId,
     score: s.score,
     status: s.status,
-    userId: s.contestParticipation?.userId ?? "",
+    userId: s.userId,
   }));
-
-  const participants: ParticipantRow[] = contest.participations;
 
   const session: TimedSession = {
     id: contest.id,

@@ -4,12 +4,16 @@ const {
   findForScoreboardById,
   findForChartById,
   findForContestScoreboard,
+  findForContestScoreboardByContestId,
   findForContestChart,
+  findContestScoreboardParticipants,
 } = vi.hoisted(() => ({
   findForScoreboardById: vi.fn(),
   findForChartById: vi.fn(),
   findForContestScoreboard: vi.fn(),
+  findForContestScoreboardByContestId: vi.fn(),
   findForContestChart: vi.fn(),
+  findContestScoreboardParticipants: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -19,7 +23,11 @@ vi.mock("@nojv/db", () => ({
   },
   submissionRepo: {
     findForContestScoreboard,
+    findForContestScoreboardByContestId,
     findForContestChart,
+  },
+  participationRepo: {
+    findContestScoreboardParticipants,
   },
   contestParticipationRepo: {},
   scoreOverrideRepo: {},
@@ -51,6 +59,7 @@ function mkSub(
   return {
     contestParticipation: { userId: participationId.replace("part-", "") },
     contestParticipationId: participationId,
+    userId: participationId.replace("part-", ""),
     createdAt: minutes(minutesAfterStart),
     problemId,
     score,
@@ -96,12 +105,18 @@ beforeEach(() => {
     startsAt: START,
   });
 
+  findContestScoreboardParticipants.mockResolvedValue([
+    { userId: "u1", user: { displayUsername: null, name: "u1", username: "u1" } },
+    { userId: "u2", user: { displayUsername: null, name: "u2", username: "u2" } },
+  ]);
+
   const submissions = [
     mkSub("part-u2", "P1", 100, 20),
     mkSub("part-u1", "P1", 100, 30),
     mkSub("part-u1", "P2", 100, 130),
   ];
   findForContestScoreboard.mockResolvedValue(submissions);
+  findForContestScoreboardByContestId.mockResolvedValue(submissions);
   findForContestChart.mockResolvedValue(submissions);
 });
 
