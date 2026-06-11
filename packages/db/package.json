@@ -23,6 +23,7 @@
     "db:seed:validate": "node --import tsx prisma/seeds/validate.ts",
     "migrate:validator-scripts": "node --env-file=../../.env --import tsx prisma/scripts/migrate-validator-scripts-to-storage.ts",
     "backfill:participation": "node --env-file=../../.env --import tsx prisma/scripts/backfill-participation.ts",
+    "reconcile:participation": "node --env-file=../../.env --import tsx prisma/scripts/reconcile-participation.ts",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc -p tsconfig.json --noEmit"
