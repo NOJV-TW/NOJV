@@ -24,6 +24,9 @@ jobs:
       - name: Setup monorepo
         uses: ./.github/actions/setup
 
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
       - name: Build sandbox image
         run: pnpm sandbox:build
 
