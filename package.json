@@ -38,7 +38,8 @@
     "overrides": {
       "kysely": "0.28.17",
       "protobufjs": "7.6.0",
-      "monaco-editor>dompurify": "^3.4.9"
+      "monaco-editor>dompurify": "^3.4.9",
+      "@prisma/dev>@hono/node-server": "^1.19.13"
     },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
