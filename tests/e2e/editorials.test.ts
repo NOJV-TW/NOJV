@@ -180,17 +180,14 @@ test.describe("Editorials — happy path (AC required)", () => {
     const page = await context.newPage();
 
     const verdict = await submitAcAndAwait(page.request, PROBLEM_ID);
-    if (verdict === "accepted") {
-      acReached = true;
-    } else {
-      // Local e2e runs without a Temporal worker / sandbox image will
-      // never reach `accepted`. Record that and let downstream tests
-      // skip cleanly via `test.skip(!acReached, ...)` — do not fail.
-      test.info().annotations.push({
-        type: "skip-reason",
-        description: `judge did not reach accepted (final: ${verdict}); editorial AC-gated tests will skip`,
-      });
-    }
+    // Opting in via NOJV_E2E_RUN_JUDGE=1 asserts a working Temporal worker +
+    // sandbox image, so anything other than AC is a real regression — fail
+    // loud here instead of silently skipping the editorial CRUD chain below.
+    expect(
+      verdict,
+      `judge did not accept the warmup-sum AC solution (final verdict: ${verdict})`,
+    ).toBe("accepted");
+    acReached = true;
     await context.close();
   });
 

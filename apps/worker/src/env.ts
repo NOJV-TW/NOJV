@@ -6,19 +6,19 @@ const baseEnvSchema = z.object({
   REDIS_URL: z.url(),
   TEMPORAL_ADDRESS: z.string().default("localhost:7233"),
   TEMPORAL_NAMESPACE: z.string().default("default"),
-  SANDBOX_CPU_LIMIT: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d+)?$/),
   SANDBOX_IMAGE: z.string().trim().min(1),
-  SANDBOX_MEMORY_MB: z.coerce.number().int().min(128).max(4096),
-  SANDBOX_PIDS_LIMIT: z.coerce.number().int().min(16).max(512),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64),
   WORKER_MODE: z.enum(["all", "judge", "platform"]).default("all"),
 });
 
 const dockerEnvSchema = baseEnvSchema.extend({
   EXECUTION_BACKEND: z.literal("docker"),
+  SANDBOX_CPU_LIMIT: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d+)?$/),
+  SANDBOX_MEMORY_MB: z.coerce.number().int().min(128).max(4096),
+  SANDBOX_PIDS_LIMIT: z.coerce.number().int().min(16).max(512),
   K8S_NAMESPACE: z.string().trim().min(1).optional(),
   K8S_CPU_REQUEST: z.string().trim().optional(),
   K8S_CPU_LIMIT: z.string().trim().optional(),

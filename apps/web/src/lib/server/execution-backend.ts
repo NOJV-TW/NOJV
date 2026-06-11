@@ -1,5 +1,5 @@
-import { env } from "$env/dynamic/private";
+import { getWebEnv } from "./env";
 
 export function isAdvancedModeSupported(): boolean {
-  return env.EXECUTION_BACKEND !== "kubernetes";
+  return getWebEnv().EXECUTION_BACKEND !== "kubernetes";
 }
