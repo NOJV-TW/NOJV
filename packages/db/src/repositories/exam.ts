@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { mirrorParticipation } from "./participation-mirror";
 import {
   courseMiniSelect,
   problemMiniSelect,
@@ -426,19 +427,37 @@ export const examParticipationRepo = {
 
   withTx(tx: TxClient) {
     return {
-      upsert(
+      async upsert(
         examId: string,
         userId: string,
         createData: Prisma.ExamParticipationUncheckedCreateInput,
         updateData: Prisma.ExamParticipationUncheckedUpdateInput,
       ) {
-        return tx.examParticipation.upsert({
+        const row = await tx.examParticipation.upsert({
           create: createData,
           update: updateData,
           where: {
             examId_userId: { examId, userId },
           },
         });
+        await mirrorParticipation(tx, {
+          type: "exam",
+          userId,
+          examId,
+          score: row.score,
+          penaltySeconds: row.penaltySeconds,
+          subtaskScores: row.subtaskScores,
+          status: row.status,
+          startedAt: row.startedAt,
+          submittedAt: row.submittedAt,
+          typeData: {
+            ipPin: row.ipPin,
+            ipGateExemptUntil: row.ipGateExemptUntil?.toISOString() ?? null,
+            disqualifiedAt: row.disqualifiedAt?.toISOString() ?? null,
+            registeredAt: row.registeredAt.toISOString(),
+          },
+        });
+        return row;
       },
 
       findByExamAndUser(examId: string, userId: string) {
