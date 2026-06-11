@@ -39,7 +39,9 @@
       "kysely": "0.28.17",
       "protobufjs": "7.6.0",
       "monaco-editor>dompurify": "^3.4.9",
-      "@prisma/dev>@hono/node-server": "^1.19.13"
+      "@prisma/dev>@hono/node-server": "^1.19.13",
+      "@sveltejs/kit>cookie": "^0.7.0",
+      "sveltekit-superforms>joi": "^18.2.1"
     },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
