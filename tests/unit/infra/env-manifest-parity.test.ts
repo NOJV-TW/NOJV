@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { workerEnvSchema } from "../../../apps/worker/src/env";
+import { storageEnvSchema } from "../../../packages/storage/src/env";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
@@ -81,4 +82,44 @@ describe("env schema ↔ deployment manifest parity", () => {
     const manifest = readFileSync(join(repoRoot, "infra/gcp/web.cloudrun.yaml"), "utf8");
     expect(containerEnvNames(manifest, /\0/).has("EXECUTION_BACKEND")).toBe(true);
   });
+});
+
+const validStorageEnv: Record<string, string> = {
+  NODE_ENV: "production",
+  S3_ENDPOINT: "https://storage.googleapis.com",
+  S3_ACCESS_KEY: "a",
+  S3_SECRET_KEY: "s",
+};
+
+function requiredProductionStorageKeys(): string[] {
+  const required: string[] = [];
+  for (const key of Object.keys(validStorageEnv)) {
+    if (key === "NODE_ENV") continue;
+    const without = { ...validStorageEnv };
+    delete without[key];
+    if (!storageEnvSchema.safeParse(without).success) required.push(key);
+  }
+  return required;
+}
+
+describe("storage env schema ↔ deployment manifest parity", () => {
+  it("the production storage baseline parses (sanity check for the drop-one probe)", () => {
+    expect(storageEnvSchema.safeParse(validStorageEnv).success).toBe(true);
+  });
+
+  it.each([
+    ["GKE worker", "infra/gcp/gke/worker.deployment.yaml", /^\s+- name: cloudsql-proxy\b/],
+    ["web Cloud Run", "infra/gcp/web.cloudrun.yaml", /\0/],
+  ])(
+    "%s manifest provides every storage credential required in production",
+    (_name, path, stop) => {
+      const manifest = readFileSync(join(repoRoot, path), "utf8");
+      const provided = containerEnvNames(manifest, stop as RegExp);
+      const missing = requiredProductionStorageKeys().filter((k) => !provided.has(k));
+      expect(
+        missing,
+        `${path} is missing storage env (judging / image storage would fail in production): ${missing.join(", ")}`,
+      ).toEqual([]);
+    },
+  );
 });

@@ -24,8 +24,9 @@
 | 2.2 seed TABLES 漂移防護          | ✅ 已實作 | `tests/unit/db/seed-tables-complete.test.ts`(T5)+ 補齊 15 個漏列 table                                |
 | 2.3 workflow 分支選擇測試(輕路線) | ✅ 已實作 | 抽 `resolveScoringDispatch` 純函式 + `submission-judge-helpers.test.ts`(免 `@temporalio/testing` dep) |
 | 2.4 nightly 沙箱隔離 CI           | ✅ 已實作 | `.github/workflows/nightly-sandbox.yml`(schedule + manual,不阻塞 PR)                                  |
-| 風險 #3 — config fitness 盤點     | ✅ 已實作 | T1/T2/T5 測試 + 缺口 A/B/C 修復(見該節)                                                               |
+| 風險 #3 — config fitness 盤點     | ✅ 已完成 | T1–T6 fitness 測試全補(T3/T4/T6 於第二輪)+ 缺口 A/B/C 修復(見該節)                                    |
 | 風險 #2 — Temporal 拓撲           | ✅ 已決   | 維持自架(2026-06-11 拍板,不採 Temporal Cloud / pg-boss;不改 infra)                                    |
+| 風險 #1 — 三胞胎模型完整收斂      | ✅ 已完成 | Participation 超型統一(PR #128),Submission FK 收斂、3 表 drop                                         |
 
 ---
 
@@ -153,17 +154,17 @@
 
 **組態/註冊表面清單(逐項標記)**:
 
-| #   | 表面                                         | fitness test? | 落地處                                                   |
-| --- | -------------------------------------------- | ------------- | -------------------------------------------------------- |
-| 1   | activity bundle ↔ workflow proxyActivities   | ✅ 既有       | `tests/unit/worker/activity-bundle-registration.test.ts` |
-| 2   | route-map ↔ FRONTEND.md                      | ✅ 既有       | `tests/unit/web/frontend-route-map.test.ts`              |
-| 3   | schema ↔ migration ↔ DATABASE.generated      | ✅ 既有       | CI migrate-diff + db:docs diff gate                      |
-| 4   | **workflow 啟動字串名 / query 名 ↔ 註冊**    | ✅ **新增**   | **T1** `tests/unit/worker/workflow-registration.test.ts` |
-| 5   | **worker env schema ↔ GKE manifest**         | ✅ **新增**   | **T2** `tests/unit/infra/env-manifest-parity.test.ts`    |
-| 6   | **seed TABLES ↔ schema models**              | ✅ **新增**   | **T5** `tests/unit/db/seed-tables-complete.test.ts`      |
-| 7   | sandbox 跨進程契約(worker plan ↔ runner Zod) | ❌ 待補       | **T3**(下方 future)                                      |
-| 8   | K8s NetworkPolicy selector ↔ pod label       | ❌ 待補       | **T4**(下方 future)                                      |
-| 9   | S3/raw-env(無 schema)                        | ❌ 待補       | **T6**(下方 future)                                      |
+| #   | 表面                                         | fitness test? | 落地處                                                                      |
+| --- | -------------------------------------------- | ------------- | --------------------------------------------------------------------------- |
+| 1   | activity bundle ↔ workflow proxyActivities   | ✅ 既有       | `tests/unit/worker/activity-bundle-registration.test.ts`                    |
+| 2   | route-map ↔ FRONTEND.md                      | ✅ 既有       | `tests/unit/web/frontend-route-map.test.ts`                                 |
+| 3   | schema ↔ migration ↔ DATABASE.generated      | ✅ 既有       | CI migrate-diff + db:docs diff gate                                         |
+| 4   | **workflow 啟動字串名 / query 名 ↔ 註冊**    | ✅ **新增**   | **T1** `tests/unit/worker/workflow-registration.test.ts`                    |
+| 5   | **worker env schema ↔ GKE manifest**         | ✅ **新增**   | **T2** `tests/unit/infra/env-manifest-parity.test.ts`                       |
+| 6   | **seed TABLES ↔ schema models**              | ✅ **新增**   | **T5** `tests/unit/db/seed-tables-complete.test.ts`                         |
+| 7   | sandbox 跨進程契約(worker plan ↔ runner Zod) | ✅ 已補       | **T3** `tests/unit/worker/sandbox-config-contract.test.ts`                  |
+| 8   | K8s NetworkPolicy selector ↔ pod label       | ✅ 已補       | **T4** `tests/unit/infra/network-policy-parity.test.ts`                     |
+| 9   | S3/raw-env(無 schema)                        | ✅ 已補       | **T6** storageEnvSchema prod fail-fast + `env-manifest-parity` 擴及 storage |
 
 **盤點時查實並修復的 3 個缺口(本 PR 一併修)**:
 
@@ -171,11 +172,11 @@
 - **缺口 B【邏輯漂移,已修】** `execution-backend.ts` 直讀 `$env` 的 `EXECUTION_BACKEND`(不在 webEnvSchema、cloudrun 未設)→ k8s 後端時 `isAdvancedModeSupported()` 誤回 true。**修法**:納入 `webEnvSchema`(default `docker`)、改走 `getWebEnv()`、`web.cloudrun.yaml` 設 `kubernetes` 對齊 worker。
 - **缺口 C【現況靠 CASCADE 僥倖,已修】** seed-test-db `TABLES` 漏 15 個 model(見 2.2 / T5)。
 
-**Future(本 PR 未做,留下一輪)**:
+**T3 / T4 / T6 — ✅ 全部補完(2026-06-11 第二輪)**:
 
-- **T3** sandbox 跨進程契約:`sandbox-plan.ts buildSandboxConfigJson()` 回 `Record<string,unknown>`、runner `SandboxInputSchema` 是獨立第二份 Zod —— 對代表性 request 斷言 `SandboxInputSchema.safeParse(buildSandboxConfigJson(...)).success`。
-- **T4** NetworkPolicy `podSelector.matchLabels` ⊆ k8s-executor 產生的 pod labels(目前一致但無守衛;漂移=靜默沙箱逃逸)。
-- **T6** 把 `packages/storage` 的 `S3_*` raw-env 收進 `storageEnvSchema`,開機 fail-fast 取代 runtime 才炸。
+- **T3 ✅** `tests/unit/worker/sandbox-config-contract.test.ts`:對 5 種代表 request(standard/checker/interactive/multi_file+entryFile+sourceFileMap/special_env)斷言 `SandboxInputSchema.safeParse(buildSandboxConfigJson(...)).success`,並逐欄檢查 producer→schema rename 不會默默掉欄。
+- **T4 ✅** `tests/unit/infra/network-policy-parity.test.ts`:解析 `network-policy.yaml` 的 `matchLabels` 與 k8s-executor 所有 `labels:{...}` 區塊,斷言每個 pod label set ⊇ deny-all selector(漂移=沙箱可達網路)。
+- **T6 ✅** `storageEnvSchema` 加 `NODE_ENV` + prod-required `superRefine`(`S3_ENDPOINT`/`S3_ACCESS_KEY`/`S3_SECRET_KEY` 缺即 fail);worker `index.ts` boot 顯式 `getStorageEnv()` fail-fast;`env-manifest-parity.test.ts` 擴及 storage——drop-one 推導 prod-required 鍵 ⊆ **GKE worker + web Cloud Run 兩個 manifest**。**盤點時查實:`web.cloudrun.yaml` 也缺 S3 env**(web 用 storage 做題目圖/avatar,同 #129 worker 缺口)→ 一併補上,parity test 即兩者的防回歸守衛。
 
 ---
 

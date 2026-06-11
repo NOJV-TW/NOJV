@@ -1,5 +1,7 @@
 import { shutdownOtel } from "./otel.js"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
 
+import { getStorageEnv } from "@nojv/storage";
+
 import { parseWorkerEnv } from "./env";
 import { createLogger } from "./logger.js";
 import { WorkerApp } from "./worker-app";
@@ -22,6 +24,7 @@ process.on("uncaughtException", (err) => {
 });
 
 const env = parseWorkerEnv(process.env);
+getStorageEnv();
 const app = new WorkerApp(env);
 
 const gracefulShutdown = async (signal: string) => {
