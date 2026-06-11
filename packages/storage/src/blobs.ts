@@ -7,7 +7,9 @@ import {
 } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 
-const BUCKET = process.env.S3_BUCKET ?? "nojv";
+import { getStorageEnv } from "./env";
+
+const BUCKET = getStorageEnv().S3_BUCKET;
 
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 
