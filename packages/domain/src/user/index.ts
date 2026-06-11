@@ -5,7 +5,9 @@ export type { SuggestedProblem } from "./analytics";
 export { getSubmissionActivity, type SubmissionActivityEvent } from "./activity";
 export {
   initiateSchoolVerification,
+  peekSchoolVerification,
   processSchoolVerification,
   type InitiateVerificationResult,
+  type PeekSchoolResult,
   type VerifySchoolResult,
 } from "./verification";

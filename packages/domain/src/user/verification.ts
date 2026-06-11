@@ -28,6 +28,25 @@ export async function initiateSchoolVerification(
   return { status: "success", token, expiresAt };
 }
 
+export type PeekSchoolResult =
+  | { status: "error"; detail: string }
+  | { status: "valid"; username: string };
+
+export async function peekSchoolVerification(token: string): Promise<PeekSchoolResult> {
+  const record = await schoolVerificationTokenRepo.findById(token);
+
+  if (!record || record.expiresAt < new Date()) {
+    return { status: "error", detail: "驗證連結已過期或無效" };
+  }
+
+  const existing = await userRepo.findByUsername(record.username);
+  if (existing && existing.id !== record.userId) {
+    return { status: "error", detail: "此學號已被其他帳號使用" };
+  }
+
+  return { status: "valid", username: record.username };
+}
+
 export type VerifySchoolResult =
   | { status: "error"; detail: string }
   | { status: "success"; username: string };
