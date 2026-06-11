@@ -65,6 +65,35 @@ export async function mirrorParticipation(
   });
 }
 
+export interface ParticipationScoreKey {
+  type: "contest" | "exam" | "virtual";
+  userId: string;
+  contestId?: string | null;
+  examId?: string | null;
+}
+
+// Stage 3 score dual-write: mirror a recomputed score onto the Participation
+// row. updateMany is a no-op when the row is absent, so it stays safe before
+// the backfill has populated every row.
+export async function mirrorParticipationScore(
+  key: ParticipationScoreKey,
+  fields: { score: number; penaltySeconds?: number; subtaskScores?: Record<string, number> },
+): Promise<void> {
+  await prisma.participation.updateMany({
+    where: {
+      type: key.type,
+      userId: key.userId,
+      contestId: key.contestId ?? null,
+      examId: key.examId ?? null,
+    },
+    data: {
+      score: fields.score,
+      ...(fields.penaltySeconds !== undefined ? { penaltySeconds: fields.penaltySeconds } : {}),
+      ...(fields.subtaskScores !== undefined ? { subtaskScores: fields.subtaskScores } : {}),
+    },
+  });
+}
+
 export async function backfillParticipation(): Promise<{
   contest: number;
   exam: number;

@@ -16,7 +16,7 @@ export {
 } from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
 export { participationRepo, UnifiedParticipationVersionConflict } from "./participation";
-export { backfillParticipation } from "./participation-mirror";
+export { backfillParticipation, mirrorParticipationScore } from "./participation-mirror";
 export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";
 export { editorialReportRepo } from "./editorial-report";

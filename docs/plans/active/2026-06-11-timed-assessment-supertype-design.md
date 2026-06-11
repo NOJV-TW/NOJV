@@ -66,9 +66,9 @@ model Participation {
 - **Stage 0 — 設計收斂(本 doc)** + 決策點拍板。
 - **Stage 1 — 新表 + repo(不接線)— ✅ 已實作(PR #121)**:加 `Participation` 表 + migration(`Participation_single_context_chk` CHECK 走 migration SQL,`migrate diff` 對 CHECK 無感→無漂移,同 `Submission_single_context_chk`)。`participationRepo` + `UnifiedParticipationVersionConflict`(Stage 5 收掉舊三個後正名)。純加法零風險。
 - **Stage 2 — 雙寫 + backfill — ✅ 已實作(細化:create-only)**:**只在 create 點雙寫**(`contest/exam` upsert、`virtual` create 的 repo 層 chokepoint,經 `mirrorParticipation` find-or-create——刻意不用 upsert 以避開「nullable 欄 unique + NULLS NOT DISTINCT」與「同 contest 可同時有 contest+virtual」的陷阱)。**score 更新不雙寫**——`Participation` 分數可暫時 stale,因為讀仍走舊表(Stage 4 才切讀),Stage 3 切寫入時會 re-backfill。`backfillParticipation()`(`pnpm --filter @nojv/db backfill:participation`)把現有三表搬進 `Participation`(冪等 find-or-create)。對帳測試 `participation-mirror.test.ts`。
-- **Stage 3 — 切計分寫入 + score re-sync**:(a) **re-backfill 所有 score**(消除 Stage 2 的 stale 窗口);(b) `runScoreUpdate` 的 adapter `persist`/`load` 改走 `participationRepo`(寫 `Participation` 分數);(c) **exam submission 的 `examId`→`participationId` 連結 backfill**(最高風險,單獨對帳)。race 測試 + persist-core 守門。
+- **Stage 3 — score dual-write — ✅ 已實作(細化:降風險)**:`runScoreUpdate` 的兩個 adapter(contest/exam)`persist` 改成 **dual-write**——舊表 `updateWithVersion` 後再 `mirrorParticipationScore`(`updateMany`,row 不存在 no-op)把分數寫到 `Participation`。舊表仍是讀來源(Stage 4 才切讀),故 dual-write 而非切換。部署時跑 `backfill:participation` re-sync 既有分數消除 Stage 2 窗口。**原 Stage 3 的「exam submission `examId`→`participationId` backfill」移到 Stage 5**(那是 Submission FK 收斂的事;runScoreUpdate 讀 exam submission 走 examId 本來就能用,Stage 3 不需要動 FK 語意)。race 測試含 dual-write 斷言。
 - **Stage 4 — 切讀**:scoreboard / 各頁的 participation 讀取改走 `Participation`;移除三表的 domain 讀取。
-- **Stage 5 — contract**:Submission 的 `contestParticipationId`/`examId`(participation 用途)/`virtualContestId` 收斂到 `participationId`;drop 三張舊表 + 三個舊 conflict class + 三個 updateWithVersion。
+- **Stage 5 — contract**:**exam submission `examId`→`participationId` backfill(最高風險,單獨對帳)** + Submission 的 `contestParticipationId`/`virtualContestId` 收斂到 `participationId`;drop 三張舊表 + 三個舊 conflict class + 三個 updateWithVersion。
 
 每階段都跑 `ci:verify` + integration;Stage 2–5 每階段先在 dev `db push` 驗證再寫 migration。
 
