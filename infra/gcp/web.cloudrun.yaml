@@ -25,6 +25,8 @@ spec:
           env:
             - name: NODE_ENV
               value: production
+            - name: EXECUTION_BACKEND
+              value: kubernetes
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

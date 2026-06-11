@@ -80,21 +80,36 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Worker
 
-| Variable             | Default              | Purpose                                           |
-| -------------------- | -------------------- | ------------------------------------------------- |
-| `EXECUTION_BACKEND`  | `docker`             | Sandbox executor: `docker` or `kubernetes`        |
-| `SANDBOX_IMAGE`      | `nojv-sandbox:local` | Sandbox container image                           |
-| `SANDBOX_CPU_LIMIT`  | `1`                  | CPU limit per sandbox                             |
-| `SANDBOX_MEMORY_MB`  | `256`                | Memory limit per sandbox (MB)                     |
-| `SANDBOX_PIDS_LIMIT` | `64`                 | PID limit per sandbox                             |
-| `PORT`               | `8080`               | Worker health server port (`/healthz`, `/readyz`) |
-| `WORKER_CONCURRENCY` | `4`                  | Activity concurrency per task queue               |
-| `WORKER_MODE`        | `all`                | Task queues: `all`, `judge`, `platform`           |
+`parseWorkerEnv` validates these at boot and throws on any missing **required**
+key — there are no implicit defaults for the required ones below, so the
+deployment manifest must set every one. `tests/unit/infra/env-manifest-parity.test.ts`
+is a fitness test that fails CI if the GKE manifest omits a required worker env.
+
+| Variable             | Required / Default                   | Purpose                                           |
+| -------------------- | ------------------------------------ | ------------------------------------------------- |
+| `EXECUTION_BACKEND`  | **required** (`docker`/`kubernetes`) | Sandbox executor backend                          |
+| `SANDBOX_IMAGE`      | **required**                         | Sandbox container image                           |
+| `PORT`               | **required**                         | Worker health server port (`/healthz`, `/readyz`) |
+| `WORKER_CONCURRENCY` | **required**                         | Activity concurrency per task queue               |
+| `WORKER_MODE`        | `all`                                | Task queues: `all`, `judge`, `platform`           |
+| `SANDBOX_CPU_LIMIT`  | **required** (Docker backend)        | CPU limit per sandbox                             |
+| `SANDBOX_MEMORY_MB`  | **required** (Docker backend)        | Memory limit per sandbox (MB)                     |
+| `SANDBOX_PIDS_LIMIT` | **required** (Docker backend)        | PID limit per sandbox                             |
+| `K8S_NAMESPACE`      | **required** (Kubernetes backend)    | Namespace for sandbox pods                        |
+| `K8S_CPU_REQUEST`    | **required** (Kubernetes backend)    | Sandbox pod CPU request                           |
+| `K8S_CPU_LIMIT`      | **required** (Kubernetes backend)    | Sandbox pod CPU limit                             |
+| `K8S_MEMORY_REQUEST` | **required** (Kubernetes backend)    | Sandbox pod memory request                        |
+| `K8S_MEMORY_LIMIT`   | **required** (Kubernetes backend)    | Sandbox pod memory limit                          |
+
+> The `SANDBOX_*` resource limits are read only by the Docker backend; the
+> `K8S_*` limits only by the Kubernetes backend. The schema enforces this split,
+> so each backend requires exactly the keys it actually uses.
 
 > Advanced-mode (`special_env`) judging runs only on the Docker backend. When
 > `EXECUTION_BACKEND=kubernetes`, also set the same value on the **web** service
-> so it hides advanced-problem creation/conversion (the guard defaults to
-> "supported" when unset, leaving Docker deployments unaffected).
+> (`EXECUTION_BACKEND` is part of the web env schema, default `docker`) so it
+> hides advanced-problem creation/conversion. The web Cloud Run manifest sets it
+> to `kubernetes` to match the GKE worker.
 
 ### Object Storage (S3-Compatible)
 

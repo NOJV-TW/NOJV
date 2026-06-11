@@ -10,6 +10,25 @@
 
 ---
 
+## 實作狀態(2026-06-11)
+
+本計劃的 Phase 1/2 + 風險 #1 第一步 + 風險 #3 第一步**已於本 PR 實作並驗證**(`ci:verify` 26/26 + 1285 unit + 1591 integration 全綠)。逐項:
+
+| 項目                                    | 狀態        | 落地處                                                                                         |
+| --------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| 風險 #1 — scoring 純核心抽取            | ✅ 已實作   | `packages/domain/src/scoring/persist-core.ts` + contest/exam scoring.ts + persist-core.test.ts |
+| 1.1 HTTP harness                        | ✅ 已實作   | `tests/integration/http/_harness.ts` + `tests/setup/stubs/*` + vitest.config alias             |
+| 1.2 signup-disabled 端點測試            | ✅ 已實作   | `tests/integration/http/auth-signup.test.ts`                                                   |
+| 1.3 守衛鏈 request 層測試               | ✅ 已實作   | `tests/integration/http/{hooks-guards,notifications,healthz}.test.ts`                          |
+| 2.1 editorials e2e fail-loud            | ✅ 已實作   | `tests/e2e/editorials.test.ts`(opt-in 後非 AC 改 explicit assert)                              |
+| 2.2 seed TABLES 漂移防護                | ✅ 已實作   | `tests/unit/db/seed-tables-complete.test.ts`(T5)+ 補齊 15 個漏列 table                         |
+| 2.3 workflow `@temporalio/testing` 測試 | ⏸️ 保留     | 需新增重量級 dep + 下載 Temporal test server 二進位(CI flakiness 風險),待決策 — 見該節         |
+| 2.4 nightly 沙箱隔離 CI                 | ✅ 已實作   | `.github/workflows/nightly-sandbox.yml`(schedule + manual,不阻塞 PR)                           |
+| 風險 #3 — config fitness 盤點           | ✅ 已實作   | T1/T2/T5 測試 + 缺口 A/B/C 修復(見該節)                                                        |
+| 風險 #2 — Temporal 拓撲                 | ⏸️ 只列方向 | 設計級決策,不寫程式(見該節)                                                                    |
+
+---
+
 ## 不做清單(查證後判定為「做了會更糟/框架要求」,別重啟)
 
 > 這些在稽核時被點出、也曾排入計劃,但實作前查證發現**不該做**。列此避免下一輪稽核重提。
@@ -25,41 +44,57 @@
 
 **為什麼先做:** 1.1(signup-disabled 端點測試)與 6.6(route handler + hooks 守衛鏈 request 層測試)都卡在「沒有能在 vitest/CI 內呼叫 SvelteKit route handler 與 hooks 的 harness」。`auth.server.ts` 用 `$env/dynamic/private`,vitest 無法直接 import。這也是首席架構師「mock 邊界盲區」(結構性風險 #3)在 web 層的具體缺口。
 
-### Task 1.1: 建 in-process SvelteKit handler 測試 harness
+### Task 1.1: 建 in-process SvelteKit handler 測試 harness — ✅ 已實作(2026-06-11)
 
-- 評估方案:(a) `@sveltejs/kit` 的 `Server` + `installPolyfills` 在 vitest 內建一個可 `server.respond(new Request(...))` 的實例;(b) 直接對 build 後的 node adapter server 起一個 ephemeral port 跑 supertest 式請求(較重但最真實);(c) 為 `$env/dynamic/private` 提供 vitest mock,讓 `auth.server.ts`/route handler 可被 import。
-- 產出:一個 `tests/integration/http/` 套件 + 共用 harness fixture,能對 `+server.ts` 與經過 `hooks.server.ts` 守衛鏈的請求發測試。
-- 驗收:harness 能成功對一個既有 GET endpoint 發請求並斷言狀態碼/body。
+> **已落地:**`tests/integration/http/_harness.ts`(`callRoute(opts)`)+ `tests/setup/stubs/{env-dynamic-private,env-dynamic-public,app-environment}.ts` + `vitest.config.ts` 的 `$env/*`、`$app/environment` alias。harness 動態 import 真 `handle`、組 `RequestEvent`、用結構性偵測把守衛拋出的 redirect/error 轉成 `Response`(type-only import `@sveltejs/kit`,避免從 repo 根解析不到 kit)。HTTP 整合測試標 `30_000ms` timeout(首次 import 冷啟動 ~6s)。
 
-### Task 1.2: 補 1.1 — 公開註冊停用端點測試
+**結論:採方案 (c)** — import 真實 `handle` + 真實 handler fn,用手建 `RequestEvent` 驅動,只 stub vitest 解析不了的三樣(`$env/dynamic/private`、`$app/environment`、auth cookie seam)。(a) `new Server(manifest)`/`installPolyfills` 在 `@sveltejs/kit` 2.61.1 **無公開穩定 export**(只在 `./internal/server`,需 `vite build` 生成 manifest,patch bump 即碎)——**否決**;(b) build node adapter + ephemeral port 最真實但重、且與既有 serial-Postgres + storage-mock 模型衝突,**那一層已由 Playwright E2E 覆蓋**——否決。
 
-- `POST /api/auth/sign-up/email` → 4xx;`POST /api/auth/sign-in/email` 對 seeded 帳號 → 200。
-- 驗收:測試在 CI 跑,改回 `disableSignUp:false` 會讓測試紅。
+**為什麼 (c) 阻礙比預期小**:全 repo 只有 3 檔 import `$env/dynamic/private`(都經 `$lib/server/env.ts` 的 `getWebEnv()` 單一 wrapper),只有 1 檔(`rate-limiter.ts`)import `$app/environment`,兩者都能在 `vitest.config.ts` 用 alias 指到 stub。
 
-### Task 1.3: 補 6.6 — 守衛鏈 request 層邊界測試
+**具體步驟:**
 
-- 涵蓋 hooks 守衛鏈關鍵分支:未登入存取 `(app)` → redirect /signin;`mustChangePassword` → redirect 改密頁;admin 未開 2FA 進 `/admin/**` → redirect 2FA 設定;exam IP gate 對 `/api` 的擋法。
-- 驗收:每條守衛各至少一個 request 層測試。
+1. **Alias stub**(`vitest.config.ts` 的 `sharedAliases`):`$env/dynamic/private` → `tests/setup/stubs/env-dynamic-private.ts`(body:`export const env = process.env;`,讓 `env.ts` 的真 zod 驗證跑在 global-setup 已載入的真 `.env` 上;`BETTER_AUTH_SECRET` 非 prod 會自動生成);`$app/environment` → stub(`export const dev = true/false; browser=false; building=false;`,`dev=true` 取 rate-limiter ×1000 budget 給測試 headroom)。
+2. **Session factory**(`tests/fixtures/factories.ts`):`createTestSession(userId)` 插一筆真 `Session` row(`Session` 已在 seed-test-db TABLES,不會跨測洩漏)。
+3. **Harness**(`tests/integration/http/_harness.ts`):`callRoute(pathname, {method, body, user, ip, headers})` → 動態 import `apps/web/src/hooks.server` 的真 `handle`,組 `RequestEvent`(`x-test-user-id` 驅動 stubbed `getSession`、`x-dev-ip` 驅動 `getClientIp` dev 分支、非 GET 自動補 `x-requested-with: fetch` 過 CSRF),`resolve` 內動態 import 對應 `+server.ts` 呼叫真 handler。用 `vi.mock("$lib/auth.server")` 讓 `getAuth().api.getSession` 用 `x-test-user-id` 撈真 `User` row → 驅動**整條真實守衛鏈**(`enforceAccountState`→`enforcePasswordChange`→`enforceAdminTwoFactor`→`enforcePageLock`→`enforceExamGate`),繞過 cookie 加密(那是 better-auth 自己的事,不是受測標的)。
+4. **放在 `tests/integration/http/**.test.ts`**,自動繼承既有 `global-setup`(db push)、`integration-setup`(storage mock + truncate beforeEach)、`fileParallelism:false`。
+
+**驗收/最小範例:**`GET /api/healthz` 斷言 200 + `body.ok===true`;`GET /api/notifications` 未登入斷言 **401**(端到端證明 `requireApiAuth`→`HttpError(401)`→`api-handler.ts` `classifyError`→`json(...,{status:401})`,目前零覆蓋),登入斷言 200 + `items[]`。
+
+**Gotcha:**(1) Redis 必跑(rate-limiter module-load 建 `RateLimiterRedis`,每 request `.consume(ip)`)——測試間用不同 `x-dev-ip` 或 stub `dev=true` 避免互相 429;(2) 寫入路由要 `x-requested-with: fetch` 過 `enforceApiCsrf`(`/api/auth` 除外);(3) `hooks.server.ts:1` 首行 `import "$lib/server/otel"`,若測試噪音大再 alias 到 noop(無 OTLP endpoint 時可能本就 inert,先驗再 stub)。
+
+### Task 1.2: 補 1.1 — 公開註冊停用端點測試 — ✅ 已實作
+
+- `tests/integration/http/auth-signup.test.ts`:`POST /api/auth/sign-up/email` 走真實 `handle`→`handleApiAuthRoute`→真 better-auth handler → 斷言 4xx。改回 `disableSignUp:false` 會讓測試紅。
+
+### Task 1.3: 補 6.6 — 守衛鏈 request 層邊界測試 — ✅ 已實作
+
+- `tests/integration/http/hooks-guards.test.ts`:`mustChangePassword` → 302 `/account/change-password`、admin 未開 2FA 進 `/admin` → 302 `/account/two-factor`、disabled 帳號 → 清 session + 302 `/signin`。
+- `tests/integration/http/notifications.test.ts`:未登入 → 401(端到端證明 `requireApiAuth`→`HttpError(401)`→`api-handler` status mapping)、登入 → 200 + `items[]`。
+- **範圍說明**:harness 驅動 `hooks.server.handle` 的守衛鏈;「未登入存取 `(app)` → /signin」與「exam IP gate /api」由 layout load / exam participation 驅動,前者非 hooks 責任、後者需 active exam 設置,留待擴充。
 
 ---
 
 ## Phase 2 — 可直接做的測試品質項(6.6 殘留,無基建阻礙)
 
-### Task 2.1: editorials e2e 去硬 sleep
+### Task 2.1: editorials e2e fail-loud — ✅ 已實作
 
-- `tests/e2e/editorials.test.ts:53` 的硬 `sleep(1.5s)` + 鏈式相依改 wait-for 條件;前置失敗不再 silent skip(改 explicit assertion/fixture)。
+- `tests/e2e/editorials.test.ts`:原本 opt-in(`NOJV_E2E_RUN_JUDGE=1`)後判題沒到 `accepted` 仍 **silent skip** 整條 CRUD 鏈;改成 explicit `expect(verdict).toBe("accepted")`——opt-in 即斷言判題環境可用,非 AC 是真 regression。(行 53 的 1.5s 是帶 deadline 的輪詢間隔、本就是 wait-for,保留。)
 
-### Task 2.2: `truncateAllTables` 自動推導 / 漂移防護
+### Task 2.2: seed TABLES 漂移防護 — ✅ 已實作
 
-- `tests/fixtures/seed-test-db.ts` 的手動 TABLES 清單改從 Prisma DMMF 或 `information_schema` 自動推導;或加一個「漏列即 fail」的漂移防護測試(對齊 7.3 activity-bundle、8.x doc-drift 的 fitness 模式)。
+- `tests/unit/db/seed-tables-complete.test.ts`(T5):靜態讀 `prisma/schema/*.prisma` 全 model vs `seed-test-db.ts` 的 `TABLES`,**漏列即 fail**。同時補齊先前 15 個漏列 table(原本靠 `TRUNCATE CASCADE` 僥倖兜住,脆弱)。
 
-### Task 2.3: workflow 分支 `@temporalio/testing` 測試
+### Task 2.3: workflow 分支 `@temporalio/testing` 測試 — ⏸️ 保留(待決策)
 
-- 用 `@temporalio/testing` 的 TestWorkflowEnvironment 對 submission-judge workflow 的分支(contest vs exam vs practice、rejudge 取消、sweeper)寫可執行測試。涵蓋 3.1 計劃原本要的「single child reject 不影響其餘」與 contest/exam 分支。
+- **為何保留:**`@temporalio/testing` **不是現有 dep**,要新增到 catalog + lockfile(觸發 Dependency Audit job);`TestWorkflowEnvironment` 會**下載 Temporal test server 二進位 + 起一個測試伺服器**,在 CI 是已知的 flakiness / 慢來源,且無法在本機可靠驗證其 CI 行為。
+- **建議:** 當作獨立 follow-up,先在隔離環境驗證 test-server 啟動穩定 + 速度可接受,再決定是否引入。屆時覆蓋 submission-judge 的 contest/exam/practice 分支 + rejudge 取消還原。
+- **過渡覆蓋:** workflow 啟動名 / query 名的註冊漂移已由 T1(`tests/unit/worker/workflow-registration.test.ts`)守住;branch 邏輯的計分部分由 persist-core + contest/exam-scoring-race 守住。
 
-### Task 2.4: CI 沙箱 image build + 隔離回歸(nightly)
+### Task 2.4: nightly 沙箱隔離 CI — ✅ 已實作
 
-- `.github/workflows/` 加 nightly job:build sandbox image + 跑沙箱隔離回歸(seccomp/cap-drop/記憶體 fork);標註 nightly 不阻塞 PR。
+- `.github/workflows/nightly-sandbox.yml`(schedule + `workflow_dispatch`,**獨立 workflow 不阻塞 PR**):`pnpm sandbox:build` → 跑 `tests/unit/worker` → 用 executor 的真實硬化旗標(`--network none` / `--cap-drop ALL` / `no-new-privileges` / `--read-only` / `--user 10001`)`docker run` 斷言非 root uid、read-only rootfs、network none、caps dropped。
+- **注意:** 本機無法實跑(需 build image + 跑容器),correct-by-construction(鏡像 `standard-mode-executor.ts` 旗標);首次真實驗證在第一次 nightly 排程。
 
 ---
 
@@ -71,7 +106,37 @@
 
 - **現狀痛點:** `Submission` 扛 `contestId`/`examId`/`assessmentId`/`virtualContestId` 多個 nullable context FK + XOR CHECK;`contest/scoring.ts` 與 `exam/scoring.ts` 近乎逐函式同構;persist-score 編排層複製(正是已出貨 P1「exam 判題沒呼叫 updateExamScores」的案發現場)。Wave R 的命名統一只是表面第一步。
 - **方向:** 收斂成多態 timed-assessment 實體,或至少把 persist-best-score 編排層收成單一實作 + 薄 adapter。
-- **第一步 spike:** 比對 `persistContestBestScore` / `persistContestProblemCountScore` 與 exam 對應函式,抽出可共用的純計分核心 + 各自的 context adapter;評估 `Submission` 多型 FK 的 migration 成本。
+
+#### 第一步 spike — ✅ 已調查完成並**已實作**(2026-06-11)
+
+> **已落地:**`packages/domain/src/scoring/persist-core.ts` 匯出 `computeBestScoreState` / `computeProblemCountState` 兩個無 I/O 純函式;contest/exam 兩邊 `persist*Score` 已改呼叫它們。新增 `tests/unit/domain/scoring/persist-core.test.ts`(8 例,含 override 無條件覆蓋回歸),`contest/exam-scoring-race` 行為等價守門全綠。**out-of-scope 部分(updateXScores 外層、updateWithVersion 泛型化、Submission FK 多型化)未動,留待獨立計劃。**
+
+**調查結論:唯讀計分核心已收斂得很好沒重複(`scoring/scoreboard-builder.ts`、`scoring/problem-count.ts`、`scoring/rank-util.ts` 三方共用);真正的重複在 persist 路徑。**
+
+| `contest/scoring.ts`              | `exam/scoring.ts`          | 差異                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `persistContestBestScore`         | `persistBestScore`         | **body 幾乎逐字相同**;bestByProblem 取 max + override merge + totalScore/subtaskScores 累加 + `updateWithVersion`。唯一差別是 `contestProblems` vs `examProblems` map 名稱。                                                                                                                                                                                                         |
+| `persistContestProblemCountScore` | `persistProblemCountScore` | 逐行幾乎相同;只差 `participation.contest` vs `participation.exam`、型別名。                                                                                                                                                                                                                                                                                                          |
+| `updateContestScores`             | `updateExamScores`         | 同構 retry loop;**但外層有真實 context 差異**:(a) 回傳值不同(contest 回 `contestId` 給 `publishScoreboardUpdate`,exam 回 `void`);(b) submission 抓法不同(contest 走 `findForParticipationScoring(participationId)`,exam 走 inline `findMany({examId,userId})`——FK 模型差異,不是巧合);(c) conflict class 不同(`ParticipationVersionConflict` vs `ExamParticipationVersionConflict`)。 |
+
+**最小、低風險、可獨立 PR 的第一步抽取點 = persist 計分純核心**(因 `persistContestBestScore`/`persistBestScore` body 幾乎逐字相同):
+
+1. 新增 `packages/domain/src/scoring/persist-core.ts`,匯出兩個**無 I/O 純函式**:
+   - `computeBestScoreState({ submissions, problemIds: Set, overrides, userId }) -> { totalScore, subtaskScores: Record<string,number> }`(搬 `persistContestBestScore` 計分核心)
+   - `computeProblemCountState({ submissions, problemIds: Set, sessionStartsAt }) -> { score, penaltySeconds }`(內部已共用 `computeProblemCountPenalty`,只剩 byProblem 分組 + 累加重複)
+   - 入參用**結構型別**(只取 `problemId`/`score`),別綁 Prisma 生成型別以免耦合。
+2. `scoring/index.ts` 加 `export * from "./persist-core"`。
+3. contest/exam 兩邊的 `persist*Score` body 改成呼叫純函式算 state,再各自 `await xParticipationRepo.updateWithVersion(...)`。**保留** override 過濾(`row.userId === participation.userId`)、`xProblems.has` 過濾。
+4. 新增 `tests/unit/domain/scoring/persist-core.test.ts`:涵蓋 **override 無條件覆蓋(可低於 best)**、score=0 邊界、不在 problemIds 的 submission 被忽略、subtaskScores 對應。現有 `contest-scoring-race`/`exam-scoring-race` 測試是行為等價的回歸守門。
+5. 跑 `pnpm test:unit`(scoring/\* + 兩個 race 測試全綠)+ `pnpm typecheck` + `pnpm lint`。
+
+**明確 out-of-scope(寫進 PR 描述):** 合併 `updateXScores` 外層(FK query shape + 回傳值 + conflict class 不同)、抽 `updateWithVersion`/conflict class 泛型 helper(會犧牲 Prisma 型別安全)、`Submission` FK 多型化、修 migration `20260416180001` 的 `courseAssessmentId` vs schema `assessmentId` 欄名漂移(可單獨記 note,不在計分 PR 動 migration)。
+
+**陷阱:** override 是**無條件 `.set` 覆蓋**(可低於 best),不是取 max——抽函式時必須保留此語意,否則悄改計分;現有 race 測試只跑 point_sum 單題、override=[],不會抓到 override 合併回歸,**新單測必須補 override case**。
+
+**多型化 Submission FK 的衝擊面(屬風險 #1 後段,第一步 spike 不動)**:重寫 XOR CHECK、7 條複合 `@@index`、~90 檔 FK 引用、且 `contestParticipation`/`course`/`assessment` 是 `onDelete: SetNull` 而 `exam`/`contest`/`virtualContest` 是 `Cascade`——多型化會失去 DB 級 FK 級聯(**真正的功能性降級**,需 trigger/應用層補,風險最高)。應在純函式抽取站穩後另開獨立計劃。
+
+- **不要被「四路統一」誘惑**:virtual-contest 讀時用 `buildScoreboard` 算不落地、assignment 用 Prisma `_max` aggregate,都不是同一 persist pattern。
 
 ### 風險 #2 — 自架 Temporal 拓撲
 
@@ -82,8 +147,35 @@
 ### 風險 #3 — 把「組態正確性」系統化為可執行 fitness test
 
 - **現狀:** 三次「全綠但壞掉」(bundle 註冊、seccomp、漏 migration)失效面都在「註冊/組態/基礎設施參數」層。已有局部對策:6.2 migrate-diff gate、7.3 activity-bundle 自動推導、8.x doc-drift gate。
-- **方向:** 盤點所有「組態/註冊/infra-param」表面(activity bundles、env schema、seccomp profile、K8s manifest 參數、queue 對應、seed TABLES 清單…),為每個缺 fitness test 的補上「從單一真實來源自動推導 + 漂移即 fail」的測試。
-- **第一步:** 列出組態表面清單 + 標記哪些已有 fitness test、哪些沒有。
+- **方向:** 盤點所有「組態/註冊/infra-param」表面,為每個缺 fitness test 的補上「從單一真實來源自動推導 + 漂移即 fail」的測試。
+
+#### 第一步 — ✅ 已盤點 + 補 fitness test + 修 3 個查實缺口(2026-06-11)
+
+**組態/註冊表面清單(逐項標記)**:
+
+| #   | 表面                                         | fitness test? | 落地處                                                   |
+| --- | -------------------------------------------- | ------------- | -------------------------------------------------------- |
+| 1   | activity bundle ↔ workflow proxyActivities   | ✅ 既有       | `tests/unit/worker/activity-bundle-registration.test.ts` |
+| 2   | route-map ↔ FRONTEND.md                      | ✅ 既有       | `tests/unit/web/frontend-route-map.test.ts`              |
+| 3   | schema ↔ migration ↔ DATABASE.generated      | ✅ 既有       | CI migrate-diff + db:docs diff gate                      |
+| 4   | **workflow 啟動字串名 / query 名 ↔ 註冊**    | ✅ **新增**   | **T1** `tests/unit/worker/workflow-registration.test.ts` |
+| 5   | **worker env schema ↔ GKE manifest**         | ✅ **新增**   | **T2** `tests/unit/infra/env-manifest-parity.test.ts`    |
+| 6   | **seed TABLES ↔ schema models**              | ✅ **新增**   | **T5** `tests/unit/db/seed-tables-complete.test.ts`      |
+| 7   | sandbox 跨進程契約(worker plan ↔ runner Zod) | ❌ 待補       | **T3**(下方 future)                                      |
+| 8   | K8s NetworkPolicy selector ↔ pod label       | ❌ 待補       | **T4**(下方 future)                                      |
+| 9   | S3/raw-env(無 schema)                        | ❌ 待補       | **T6**(下方 future)                                      |
+
+**盤點時查實並修復的 3 個缺口(本 PR 一併修)**:
+
+- **缺口 A【prod 開機即死,已修】** `apps/worker/src/env.ts` 的 `SANDBOX_CPU_LIMIT`/`MEMORY_MB`/`PIDS_LIMIT`/`WORKER_CONCURRENCY` 為 required-no-default,但 GKE `worker.deployment.yaml` 四個全缺、kustomization 無注入 → `parseWorkerEnv` 開機 throw → crashloop。**修法(已採)**:3 個 docker-only 的 `SANDBOX_*` 移到 `dockerEnvSchema`(k8s 不再要求死 env)、`WORKER_CONCURRENCY` 留 base 並加進 manifest;`DEPLOYMENT.md` 原謊報「有 default」一併更正;**T2 即此缺口的防復發守衛**。
+- **缺口 B【邏輯漂移,已修】** `execution-backend.ts` 直讀 `$env` 的 `EXECUTION_BACKEND`(不在 webEnvSchema、cloudrun 未設)→ k8s 後端時 `isAdvancedModeSupported()` 誤回 true。**修法**:納入 `webEnvSchema`(default `docker`)、改走 `getWebEnv()`、`web.cloudrun.yaml` 設 `kubernetes` 對齊 worker。
+- **缺口 C【現況靠 CASCADE 僥倖,已修】** seed-test-db `TABLES` 漏 15 個 model(見 2.2 / T5)。
+
+**Future(本 PR 未做,留下一輪)**:
+
+- **T3** sandbox 跨進程契約:`sandbox-plan.ts buildSandboxConfigJson()` 回 `Record<string,unknown>`、runner `SandboxInputSchema` 是獨立第二份 Zod —— 對代表性 request 斷言 `SandboxInputSchema.safeParse(buildSandboxConfigJson(...)).success`。
+- **T4** NetworkPolicy `podSelector.matchLabels` ⊆ k8s-executor 產生的 pod labels(目前一致但無守衛;漂移=靜默沙箱逃逸)。
+- **T6** 把 `packages/storage` 的 `S3_*` raw-env 收進 `storageEnvSchema`,開機 fail-fast 取代 runtime 才炸。
 
 ---
 
