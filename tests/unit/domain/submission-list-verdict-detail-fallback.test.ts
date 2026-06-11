@@ -46,8 +46,11 @@ vi.mock("@nojv/db", () => ({
     groupByUserAndProblem: submissionGroupByUserAndProblem,
   },
   examRepo: { findDetailById: examFindDetailById },
-  virtualContestRepo: { findByContestAndUser: vi.fn() },
   contestRepo: { findDetailById: vi.fn() },
+  participationRepo: {
+    findVirtual: vi.fn(),
+    findVirtualById: vi.fn(),
+  },
 }));
 
 vi.mock("@nojv/storage", () => ({

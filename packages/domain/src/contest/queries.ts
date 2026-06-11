@@ -1,9 +1,4 @@
-import {
-  contestParticipationRepo,
-  contestRepo,
-  participationRepo,
-  submissionRepo,
-} from "@nojv/db";
+import { contestRepo, participationRepo, submissionRepo } from "@nojv/db";
 import {
   submissionVerdicts,
   type ContestScoringMode,
@@ -203,7 +198,7 @@ export async function getContestWorkspaceData(
   userId: string,
   options: { now: Date; platformRole?: PlatformRole | null },
 ): Promise<ContestWorkspaceDetail> {
-  const contest = await contestRepo.findWorkspaceById(contestId, userId);
+  const contest = await contestRepo.findWorkspaceById(contestId);
   if (contest?.visibility !== "published") {
     throw new NotFoundError(`Contest not found: ${contestId}`);
   }
@@ -302,7 +297,7 @@ export async function unfreezeContest(contestId: string) {
 }
 
 export async function listContestParticipantsWithUser(contestId: string) {
-  return contestParticipationRepo.listParticipantsWithUser(contestId);
+  return participationRepo.listContestParticipantsWithUser(contestId);
 }
 
 export interface ContestProblemSibling {

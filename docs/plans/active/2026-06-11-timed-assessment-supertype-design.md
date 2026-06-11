@@ -71,10 +71,13 @@ model Participation {
   - **已查實 mirror 對 score/status/startedAt 忠實**:contest/exam 的 status/startedAt 只走已鏡像的 `upsert`,score 走 Stage 3 dual-write;`*ParticipationRepo.update`(plain)在 domain 全無呼叫。**唯一未鏡像 = exam `ipPin`/`ipGateExemptUntil`**(走 `ip-violation` repo 直寫,屬 IP-gate 操作欄、非 standings,留 Stage 5)。
   - **standings read-switch 已完成(就一個 site)**:全 codebase 直接讀 `participation.score/penalty/startedAt/status` 的消費點**只有 `getContestWorkspaceData` 一處**(分數幾乎都從 submissions 重算),已改讀 `participationRepo.findContestParticipation`(新讀取 primitive)。平行驗證測試 + contests API 測試改走 mirror 路徑。`exam/session.ts` 的 `status==='registered'` 是寫入路徑內的操作判斷(同 tx),非 standings,不切。
   - **⚠️ 其餘 participation 讀取耦合 Stage 5,Stage 4 切不了**:scoreboard 的 participant list 來自 `contest.participations` include,但**同一查詢用 `findForContestScoreboard(participationIds)` 以舊 `contestParticipationId` 抓 submissions**——participant list 與 submission 連結都綁在舊 `ContestParticipation` id 上。切到 `Participation` 需 Submission FK 先收斂到 `participationId`(= Stage 5)。所以 scoreboard / 管理頁 participant-list **不是獨立小 PR,是 Stage 5 的一部分**。
-- **Stage 5 — contract(進行中,prod 無重要資料故可不可逆)**:逐個解耦舊三表的讀寫,最後 drop。
-  - **5a ✅ contest scoreboard 解耦**:`getScoreboard` 的 participant list 改讀 `participationRepo.findContestScoreboardParticipants`(type=contest),submissions 改用 `submissionRepo.findForContestScoreboardByContestId(contestId)`(submissions 本就有 `contestId`+`userId`,不需 `contestParticipationId`)。**這解開了 Stage 4 卡住的 participant-list**。chart/exam scoreboard 同模式待續。
-  - **剩餘**:getScoreboardChart、exam scoreboard、各管理頁 participant list 同樣解耦 → participation 的 create/update 改以 `participationRepo` 為主寫(換掉 3 個舊 repo)→ exam submission 的 participation 對應 + Submission 的 `contestParticipationId`/`virtualContestId` 收斂(或直接 drop,因改用 `contestId`/`examId`+`userId` 對應 Participation)→ **drop 三張舊表 + 三 conflict class + 三 updateWithVersion**。
-  - 每步先用平行驗證測試守門;mock-based unit test 凡呼叫 `getScoreboard` 的都要補新 repo 方法到 mock。
+- **Stage 5 — contract(✅ 完成,prod 無重要資料故可不可逆 drop)**:
+  - **5a ✅ contest scoreboard 解耦**:`getScoreboard` 的 participant list 改讀 `participationRepo.findContestScoreboardParticipants`(type=contest),submissions 改用 `submissionRepo.findForContestScoreboardByContestId(contestId)`(submissions 本就有 `contestId`+`userId`,不需 `contestParticipationId`)。
+  - **5b ✅ drop 三表(單一 PR)**:`ContestParticipation`/`ExamParticipation`/`VirtualContest` + 三 enum 全 drop,migration `20260611160000_drop_participation_triplet`。`participationRepo` 收成單一統一面(contest/exam/virtual 方法 + `withTx` 寫入 + IP-pin)。3 個舊 repo + `participation-mirror`(backfill/reconcile/mirrorScore)+ `virtual-contest` repo 全刪;三 conflict class → 單一 `UnifiedParticipationVersionConflict`。
+  - **scoring 對稱化**:`updateContestScores(contestId, userId)` / `updateExamScores(examId, userId)`(load 走 `findContestForScoring`/`findExamForScoring`,submissions 走 `(contestId|examId, userId)`,persist 走 `participationRepo.updateWithVersion`)。getScoreboardChart 改走 `contestId`+`userId`(去 participation 間接層)。
+  - **Submission FK 收斂**:`contestParticipationId` 欄 drop(contest 走 `contestId`+`userId`);`virtualContestId` → `participationId`(FK→Participation,僅 virtual 設;core schema + web 鏈一併 rename)。
+  - **uniqueness**:兩個完整 `@@unique([type, contestId, userId])` / `([type, examId, userId])`——不相關欄恆 NULL,Postgres 預設 NULLS DISTINCT 跳過,語意剛好正確且可當 Prisma upsert target(免 partial index + find-or-create)。
+  - **exam IP gate**:`ipPin`/`ipGateExemptUntil` 提升為 Participation 真實欄(熱路徑每 request 讀、首 pin/reset 寫,放 JSON 太笨重);virtual `endsAt` 同。`typeData` 棄用。`disqualifiedAt`/`registeredAt` 證實 domain 從不讀(僅排序用 `registeredAt`→改 `createdAt`),drop。
 
 每階段都跑 `ci:verify` + integration;Stage 2–5 每階段先在 dev `db push` 驗證再寫 migration。
 
@@ -92,7 +95,7 @@ model Participation {
 ## 需要你拍板的決策點
 
 1. **VirtualContest 納不納入?** — 它語意不同(個人重玩、有 `endsAt`、不落地原賽)。**建議:納入**(它就是 type=virtual 的 participation,`endsAt` 進 typeData),但若想縮小範圍可先只統一 contest+exam、virtual 留後。
-2. **型別專屬欄用 `typeData Json` 還是 sparse 欄?** — 建議 JSON(`ipPin` 等只在少數路徑讀);若 exam IP gate 的 query 需要索引 `ipPin` 則改 sparse 欄。
+2. **型別專屬欄用 `typeData Json` 還是 sparse 欄?** — **拍板:sparse 欄**。`ipPin`/`ipGateExemptUntil` 是 IP-gate 熱路徑(每 request 讀、首 pin/reset 寫),virtual `endsAt` 在 submit gate/scoreboard 讀,放 JSON 讀寫太笨重 → 三者皆真實 nullable 欄。`typeData` 棄用。
 3. **status:統一字串 + 應用層 enum vs 保留三 enum?** — 建議統一字串集合(union)+ 由 `type` 約束哪些值合法。
 4. **Submission 端收斂到哪一步?** — Stage 5 把 `contestParticipationId`/`virtualContestId`/(exam 的)`examId` 收成單一 `participationId`;或保留現有 Submission FK、只統一 participation 表(較小)。**建議:Stage 5 收斂**(否則 Submission 仍扛多欄)。
 5. **何時開始?** — 這是 5 階段、多 PR 的工程。確認排程 / 要不要先做 Stage 1(純加法零風險)試水溫。

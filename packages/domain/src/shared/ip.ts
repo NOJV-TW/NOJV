@@ -1,6 +1,6 @@
 import { BlockList, isIPv4, isIPv6 } from "node:net";
 
-import { examParticipationIpRepo, type TransactionClient } from "@nojv/db";
+import { participationRepo, type TransactionClient } from "@nojv/db";
 
 import { logViolationThrottledInTx } from "../proctoring/violation-logger";
 
@@ -106,7 +106,7 @@ export async function checkIpLock(
   });
 
   if (decision.shouldPin && participation) {
-    await examParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
+    await participationRepo.withTx(tx).updateExamIpPin(participation.id, clientIp);
   }
 
   if (decision.violationType) {

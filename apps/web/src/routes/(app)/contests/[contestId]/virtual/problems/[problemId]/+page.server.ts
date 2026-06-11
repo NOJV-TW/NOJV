@@ -29,7 +29,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const [problem, submissions] = await Promise.all([
     getProblemPageData(problemId),
-    listVirtualContestProblemSubmissions(virtual.virtualContestId, actor.userId, problemId),
+    listVirtualContestProblemSubmissions(virtual.participationId, actor.userId, problemId),
   ]);
 
   const siblingProblems = virtual.problems.map((p) => ({

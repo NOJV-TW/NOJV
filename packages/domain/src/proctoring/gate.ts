@@ -2,8 +2,8 @@ import {
   contestRepo,
   courseMembershipRepo,
   courseRepo,
-  examParticipationRepo,
   examRepo,
+  participationRepo,
   runTransaction,
   type TransactionClient,
 } from "@nojv/db";
@@ -106,9 +106,9 @@ async function checkExamGate(
   }
 
   if (input.ip) {
-    const participation = await examParticipationRepo
+    const participation = await participationRepo
       .withTx(tx)
-      .findIpPinByExamAndUser(input.entityId, input.userId);
+      .findExamIpPin(input.entityId, input.userId);
 
     const ipResult: IpCheckResult = await checkIpLock(
       tx,

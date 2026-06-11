@@ -413,7 +413,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const assignment = submission.assessment;
 
-  const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
+  const contestEnd = submission.contest?.endsAt ?? null;
   const adjustment: AdjustmentContext = {
     assignmentAdjustmentRules: assignment
       ? parseAdjustmentRules(assignment.adjustmentRules, submissionId)

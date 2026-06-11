@@ -30,8 +30,9 @@ async function seedContestWithParticipant() {
   // Default createTestContest window is 2026-01-01 → 2026-12-31, which
   // covers today (2026-04-19) so assertContextActiveForAsk passes.
   const contest = await createTestContest({ createdByUserId: organizer.id });
-  await testPrisma.contestParticipation.create({
+  await testPrisma.participation.create({
     data: {
+      type: "contest",
       contestId: contest.id,
       userId: contestant.id,
       status: "active",

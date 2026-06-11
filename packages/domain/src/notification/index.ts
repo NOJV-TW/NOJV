@@ -1,11 +1,10 @@
 import {
   assessmentRepo,
-  contestParticipationRepo,
   contestRepo,
   courseMembershipRepo,
-  examParticipationRepo,
   examRepo,
   notificationRepo,
+  participationRepo,
   type NotificationCreateInput,
 } from "@nojv/db";
 import { pubsub } from "@nojv/redis";
@@ -120,7 +119,7 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
   if (exam.status !== "published") return;
   if (exam.startsAt.getTime() <= Date.now()) return;
 
-  const participantIds = await examParticipationRepo.listParticipantUserIds(examId);
+  const participantIds = await participationRepo.listExamParticipantUserIds(examId);
   if (participantIds.length === 0) return;
 
   const startsAtIso = exam.startsAt.toISOString();
@@ -146,7 +145,7 @@ export async function fanoutContestStartingSoon(contestId: string): Promise<void
   if (contest.visibility !== "published") return;
   if (contest.startsAt.getTime() <= Date.now()) return;
 
-  const participantIds = await contestParticipationRepo.listParticipantUserIds(contestId);
+  const participantIds = await participationRepo.listContestParticipantUserIds(contestId);
   if (participantIds.length === 0) return;
 
   const startsAtIso = contest.startsAt.toISOString();

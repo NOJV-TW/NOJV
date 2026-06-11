@@ -57,7 +57,7 @@ export interface SubmissionJudgeContext {
 }
 
 export interface CompletedSubmission {
-  contestParticipationId: string | null;
+  contestId: string | null;
   examId: string | null;
   createdAt: Date;
   id: string;

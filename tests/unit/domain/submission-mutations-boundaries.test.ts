@@ -19,7 +19,7 @@ const {
   userCreate,
   userUpdate,
   contestRepoFindById,
-  contestParticipationUpsert,
+  participationUpsertContestActive,
   workspaceFindByProblemId,
   submissionFindMostRecent,
   submissionCreate,
@@ -34,7 +34,7 @@ const {
   userCreate: vi.fn(),
   userUpdate: vi.fn(),
   contestRepoFindById: vi.fn(),
-  contestParticipationUpsert: vi.fn(),
+  participationUpsertContestActive: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   submissionCreate: vi.fn(),
@@ -70,8 +70,8 @@ vi.mock("@nojv/db", () => ({
   contestProblemRepo: {
     withTx: () => ({ findLink: txContestProblemFindFirst }),
   },
-  contestParticipationRepo: {
-    withTx: () => ({ upsert: contestParticipationUpsert }),
+  participationRepo: {
+    withTx: () => ({ upsertContestActive: participationUpsertContestActive }),
   },
   examSessionRepo: {
     withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
@@ -168,7 +168,7 @@ describe("createQueuedSubmissionRecord — contest cooldown", () => {
       submitCooldownSec: 30,
       allowedLanguages: [],
     });
-    contestParticipationUpsert.mockResolvedValue({ id: "cp_1" });
+    participationUpsertContestActive.mockResolvedValue({ id: "cp_1" });
   });
 
   afterEach(() => {
@@ -276,7 +276,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
       submitCooldownSec: 0,
       allowedLanguages: [],
     });
-    contestParticipationUpsert.mockResolvedValue({ id: "cp_1" });
+    participationUpsertContestActive.mockResolvedValue({ id: "cp_1" });
   });
 
   afterEach(() => {

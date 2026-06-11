@@ -9,8 +9,8 @@ const {
   sessionCreate,
   sessionUpdate,
   sessionRecordEvent,
-  participationUpsert,
-  participationFindByExamAndUser,
+  participationUpsertExamActive,
+  participationFindExamParticipation,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
@@ -20,8 +20,8 @@ const {
   sessionCreate: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
-  participationUpsert: vi.fn(),
-  participationFindByExamAndUser: vi.fn(),
+  participationUpsertExamActive: vi.fn(),
+  participationFindExamParticipation: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -38,13 +38,12 @@ vi.mock("@nojv/db", () => ({
       recordEvent: sessionRecordEvent,
     }),
   },
-  examParticipationRepo: {
+  participationRepo: {
     withTx: () => ({
-      upsert: participationUpsert,
-      findByExamAndUser: participationFindByExamAndUser,
+      upsertExamActive: participationUpsertExamActive,
+      findExamParticipation: participationFindExamParticipation,
     }),
   },
-  examParticipationIpRepo: { withTx: () => ({}) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
     fn({
       $executeRaw: async () => undefined,
@@ -64,7 +63,7 @@ const studentActor = {
   platformRole: "student" as const,
 };
 
-describe("startSession — ExamParticipation creation", () => {
+describe("startSession — Participation creation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
@@ -72,17 +71,17 @@ describe("startSession — ExamParticipation creation", () => {
     courseFindUnique.mockResolvedValue({ archived: false });
     sessionFindActiveForUser.mockResolvedValue(null);
     sessionRecordEvent.mockResolvedValue({});
-    participationFindByExamAndUser.mockResolvedValue(null);
+    participationFindExamParticipation.mockResolvedValue(null);
   });
 
-  it("upserts an ExamParticipation row on a fresh session start", async () => {
+  it("upserts a Participation row on a fresh session start", async () => {
     sessionFindByUserAndExam.mockResolvedValue(null);
     sessionCreate.mockResolvedValue({ id: "ses_1", examId: "exm_1", userId: "usr_student" });
 
     await startSession(studentActor, { examId: "exm_1" });
 
-    expect(participationUpsert).toHaveBeenCalledTimes(1);
-    const [examId, userId] = participationUpsert.mock.calls[0];
+    expect(participationUpsertExamActive).toHaveBeenCalledTimes(1);
+    const [examId, userId] = participationUpsertExamActive.mock.calls[0];
     expect(examId).toBe("exm_1");
     expect(userId).toBe("usr_student");
   });
@@ -97,11 +96,11 @@ describe("startSession — ExamParticipation creation", () => {
 
     await startSession(studentActor, { examId: "exm_1" });
 
-    expect(participationUpsert).toHaveBeenCalledTimes(1);
+    expect(participationUpsertExamActive).toHaveBeenCalledTimes(1);
   });
 
   it("does NOT revive a disqualified participation on re-entry", async () => {
-    participationFindByExamAndUser.mockResolvedValue({
+    participationFindExamParticipation.mockResolvedValue({
       id: "ep_1",
       status: "disqualified",
     });
@@ -110,19 +109,19 @@ describe("startSession — ExamParticipation creation", () => {
 
     await startSession(studentActor, { examId: "exm_1" });
 
-    expect(participationUpsert).toHaveBeenCalledTimes(1);
-    const updateData = participationUpsert.mock.calls[0][3];
-    expect(updateData.status).toBeUndefined();
+    expect(participationUpsertExamActive).toHaveBeenCalledTimes(1);
+    const activateOnEntry = participationUpsertExamActive.mock.calls[0][2];
+    expect(activateOnEntry).toBe(false);
   });
 
   it("activates a previously-registered participation on entry", async () => {
-    participationFindByExamAndUser.mockResolvedValue({ id: "ep_1", status: "registered" });
+    participationFindExamParticipation.mockResolvedValue({ id: "ep_1", status: "registered" });
     sessionFindByUserAndExam.mockResolvedValue(null);
     sessionCreate.mockResolvedValue({ id: "ses_1", examId: "exm_1", userId: "usr_student" });
 
     await startSession(studentActor, { examId: "exm_1" });
 
-    const updateData = participationUpsert.mock.calls[0][3];
-    expect(updateData.status).toBe("active");
+    const activateOnEntry = participationUpsertExamActive.mock.calls[0][2];
+    expect(activateOnEntry).toBe(true);
   });
 });

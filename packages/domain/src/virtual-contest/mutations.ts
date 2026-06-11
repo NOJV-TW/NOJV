@@ -1,4 +1,4 @@
-import { contestRepo, virtualContestRepo } from "@nojv/db";
+import { contestRepo, participationRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
@@ -10,7 +10,7 @@ export async function startVirtualContest(
   contestId: string,
   now: Date = new Date(),
 ) {
-  const existing = await virtualContestRepo.findByContestAndUser(contestId, actor.userId);
+  const existing = await participationRepo.findVirtual(contestId, actor.userId);
   if (existing) return existing;
 
   const contest = await contestRepo.findById(contestId);
@@ -26,7 +26,7 @@ export async function startVirtualContest(
   const endsAt = new Date(startedAt.getTime() + durationMs);
 
   try {
-    return await virtualContestRepo.create({
+    return await participationRepo.createVirtual({
       contestId,
       userId: actor.userId,
       startedAt,
@@ -34,7 +34,7 @@ export async function startVirtualContest(
     });
   } catch (err) {
     if (err instanceof Error && (err as { code?: string }).code === "P2002") {
-      const row = await virtualContestRepo.findByContestAndUser(contestId, actor.userId);
+      const row = await participationRepo.findVirtual(contestId, actor.userId);
       if (row) return row;
     }
     throw err;

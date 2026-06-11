@@ -137,7 +137,8 @@ describe("completeJudge — storage + DB write", () => {
     });
     submissionComplete.mockResolvedValue({
       id: "sub_1",
-      contestParticipationId: null,
+      contestId: null,
+      examId: null,
       createdAt: new Date(),
       language: "python",
       problemId: "prob_1",
@@ -194,7 +195,8 @@ describe("completeJudge — storage + DB write", () => {
     const result = makeResult({ verdict: "wrong_answer", score: 30 });
     submissionComplete.mockResolvedValue({
       id: "sub_3",
-      contestParticipationId: null,
+      contestId: null,
+      examId: null,
       createdAt: new Date(),
       language: "python",
       problemId: "prob_3",

@@ -24,13 +24,14 @@ export async function finalizeContest(contestId: string): Promise<void> {
 }
 
 export async function updateContestScores(
-  contestParticipationId: string,
+  contestId: string,
+  userId: string,
 ): Promise<string | null> {
-  return contestDomain.updateContestScores(contestParticipationId);
+  return contestDomain.updateContestScores(contestId, userId);
 }
 
 export async function updateExamScores(examId: string, userId: string): Promise<void> {
-  await examDomain.updateExamScoresForUser(examId, userId);
+  await examDomain.updateExamScores(examId, userId);
 }
 
 export async function closeActiveSessionsForExam(examId: string): Promise<{ closed: number }> {

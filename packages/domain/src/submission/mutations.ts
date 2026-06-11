@@ -62,7 +62,7 @@ async function assertActiveExamSubmissionAllowed(
   },
 ): Promise<void> {
   const { activeExamSession, courseContext, payload, problem, user } = ctx;
-  if (courseContext || payload.contestId || payload.virtualContestId) {
+  if (courseContext || payload.contestId || payload.participationId) {
     throw new ForbiddenError(
       "You are in an active exam — submissions cannot carry an external assignment or contest context.",
     );
@@ -226,13 +226,13 @@ export async function createQueuedSubmissionRecord(
       });
     }
 
-    if (payload.virtualContestId) {
+    if (payload.participationId) {
       if (courseContext || payload.contestId) {
         throw new ForbiddenError(
           "A virtual-contest submission cannot also carry a contest or assignment context.",
         );
       }
-      await assertCanSubmitToVirtualContest(payload.virtualContestId, actor.userId, problem.id);
+      await assertCanSubmitToVirtualContest(payload.participationId, actor.userId, problem.id);
     }
 
     if (courseContext) {
@@ -242,7 +242,6 @@ export async function createQueuedSubmissionRecord(
     const contestResult = payload.contestId
       ? await ensureContestParticipation(tx, user.id, payload.contestId)
       : null;
-    const contestParticipation = contestResult?.participation ?? null;
 
     if (contestResult) {
       const link = await contestProblemRepo
@@ -279,8 +278,7 @@ export async function createQueuedSubmissionRecord(
     const created = await submissionRepo.withTx(tx).create({
       id: submissionId,
       contestId: contestResult?.contest.id ?? null,
-      contestParticipationId: contestParticipation?.id ?? null,
-      virtualContestId: payload.virtualContestId ?? null,
+      participationId: payload.participationId ?? null,
       assessmentId: courseContext?.assignment.id ?? null,
       examId: activeExamSession?.examId ?? null,
       courseId: courseContext?.course.id ?? null,
@@ -381,7 +379,7 @@ export async function completeJudge(
   });
 
   return {
-    contestParticipationId: submission.contestParticipationId,
+    contestId: submission.contestId,
     examId: submission.examId,
     createdAt: submission.createdAt,
     id: submission.id,
