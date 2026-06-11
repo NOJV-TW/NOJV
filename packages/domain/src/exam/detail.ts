@@ -1,9 +1,4 @@
-import {
-  courseMembershipRepo,
-  examParticipationRepo,
-  examRepo,
-  submissionRepo,
-} from "@nojv/db";
+import { courseMembershipRepo, examRepo, participationRepo, submissionRepo } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { getOverridesForContext } from "../scoring/resolve-final-score";
@@ -157,7 +152,7 @@ export async function getExamDetailPage(
 
   const [roster, students] = await Promise.all([
     options.isManager
-      ? examParticipationRepo.listForExamWithUser(examId)
+      ? participationRepo.listExamParticipantsWithUser(examId)
       : Promise.resolve(null),
     courseMembershipRepo.findStudents(exam.courseId),
   ]);
@@ -201,7 +196,7 @@ export async function getExamDetailPage(
           userId: p.user.id,
           name: p.user.name,
           handle: p.user.username,
-          status: p.status,
+          status: p.status as ExamRosterEntry["status"],
         }));
 
   const manager: ExamDetailManagerFields | null = options.isManager

@@ -12,8 +12,8 @@ const {
   sessionRecordEvent,
   membershipFindByComposite,
   txCourseFindUnique,
-  participationUpsert,
-  participationFindByExamAndUser,
+  participationUpsertExamActive,
+  participationFindExamParticipation,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examFindByIdOrThrow: vi.fn(),
@@ -24,8 +24,8 @@ const {
   sessionRecordEvent: vi.fn(),
   membershipFindByComposite: vi.fn(),
   txCourseFindUnique: vi.fn(),
-  participationUpsert: vi.fn(),
-  participationFindByExamAndUser: vi.fn(),
+  participationUpsertExamActive: vi.fn(),
+  participationFindExamParticipation: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -50,10 +50,10 @@ vi.mock("@nojv/db", () => {
     courseMembershipRepo: {
       withTx: () => ({ findByComposite: membershipFindByComposite }),
     },
-    examParticipationRepo: {
+    participationRepo: {
       withTx: () => ({
-        upsert: participationUpsert,
-        findByExamAndUser: participationFindByExamAndUser,
+        upsertExamActive: participationUpsertExamActive,
+        findExamParticipation: participationFindExamParticipation,
       }),
     },
     runTransaction: async <T>(

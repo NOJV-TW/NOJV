@@ -5,14 +5,14 @@ const {
   contestFindById,
   membershipFindByComposite,
   txCourseFindUnique,
-  txExamParticipationFindUnique,
+  findExamIpPinMock,
   checkIpLockMock,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   contestFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
   txCourseFindUnique: vi.fn(),
-  txExamParticipationFindUnique: vi.fn(),
+  findExamIpPinMock: vi.fn(),
   checkIpLockMock: vi.fn(),
 }));
 
@@ -29,8 +29,8 @@ vi.mock("@nojv/db", () => ({
   courseMembershipRepo: {
     withTx: () => ({ findByComposite: membershipFindByComposite }),
   },
-  examParticipationRepo: {
-    withTx: () => ({ findIpPinByExamAndUser: txExamParticipationFindUnique }),
+  participationRepo: {
+    withTx: () => ({ findExamIpPin: findExamIpPinMock }),
   },
   runTransaction: async <T>(fn: (tx: Record<string, never>) => Promise<T>): Promise<T> =>
     fn({}),
@@ -69,7 +69,7 @@ const baseContest = {
 beforeEach(() => {
   vi.clearAllMocks();
   checkIpLockMock.mockResolvedValue({ allowed: true });
-  txExamParticipationFindUnique.mockResolvedValue(null);
+  findExamIpPinMock.mockResolvedValue(null);
 });
 
 describe("checkProctoringGate — exam", () => {

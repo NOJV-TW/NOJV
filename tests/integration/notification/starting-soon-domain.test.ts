@@ -35,8 +35,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
     const studentA = await createTestUser({ platformRole: "student" });
     const studentB = await createTestUser({ platformRole: "student" });
     for (const s of [studentA, studentB]) {
-      await testPrisma.examParticipation.create({
-        data: { examId: exam.id, userId: s.id, status: "registered" },
+      await testPrisma.participation.create({
+        data: { type: "exam", examId: exam.id, userId: s.id, status: "registered" },
       });
     }
     // A third student has no participation row — must not be notified.
@@ -78,8 +78,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
     const student = await createTestUser({ platformRole: "student" });
-    await testPrisma.examParticipation.create({
-      data: { examId: exam.id, userId: student.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -101,8 +101,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       startsAt: new Date(Date.now() - 60 * 60_000),
       endsAt: new Date(Date.now() + 60 * 60_000),
     });
-    await testPrisma.examParticipation.create({
-      data: { examId: exam.id, userId: student.id, status: "active" },
+    await testPrisma.participation.create({
+      data: { type: "exam", examId: exam.id, userId: student.id, status: "active" },
     });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -123,8 +123,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       startsAt: new Date(Date.now() + 60 * 60_000),
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
-    await testPrisma.examParticipation.create({
-      data: { examId: exam.id, userId: student.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -167,8 +167,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
     const userA = await createTestUser();
     const userB = await createTestUser();
     for (const u of [userA, userB]) {
-      await testPrisma.contestParticipation.create({
-        data: { contestId: contest.id, userId: u.id, status: "registered" },
+      await testPrisma.participation.create({
+        data: { type: "contest", contestId: contest.id, userId: u.id, status: "registered" },
       });
     }
     const userC = await createTestUser();
@@ -203,8 +203,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
     const user = await createTestUser();
-    await testPrisma.contestParticipation.create({
-      data: { contestId: contest.id, userId: user.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
     await notificationDomain.fanoutContestStartingSoon(contest.id);
@@ -221,8 +221,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       endsAt: new Date(Date.now() + 60 * 60_000),
     });
     const user = await createTestUser();
-    await testPrisma.contestParticipation.create({
-      data: { contestId: contest.id, userId: user.id, status: "active" },
+    await testPrisma.participation.create({
+      data: { type: "contest", contestId: contest.id, userId: user.id, status: "active" },
     });
 
     await notificationDomain.fanoutContestStartingSoon(contest.id);
@@ -238,8 +238,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
     const user = await createTestUser();
-    await testPrisma.contestParticipation.create({
-      data: { contestId: contest.id, userId: user.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
     await notificationDomain.fanoutContestStartingSoon(contest.id);

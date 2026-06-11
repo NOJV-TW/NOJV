@@ -1,8 +1,7 @@
 import {
   examRepo,
-  examParticipationRepo,
-  ExamParticipationVersionConflict,
-  mirrorParticipationScore,
+  participationRepo,
+  UnifiedParticipationVersionConflict,
   scoreOverrideRepo,
   submissionRepo,
 } from "@nojv/db";
@@ -29,12 +28,12 @@ export interface ExamScoreboard {
 }
 
 type ExamParticipationWithExam = NonNullable<
-  Awaited<ReturnType<typeof examParticipationRepo.findByIdWithExam>>
+  Awaited<ReturnType<typeof participationRepo.findExamForScoring>>
 >;
 
-export async function updateExamScores(examParticipationId: string): Promise<void> {
-  await runScoreUpdate<ExamParticipationWithExam>(examParticipationId, {
-    load: () => examParticipationRepo.findByIdWithExam(examParticipationId),
+export async function updateExamScores(examId: string, userId: string): Promise<void> {
+  await runScoreUpdate<ExamParticipationWithExam>(`${examId}:${userId}`, {
+    load: () => participationRepo.findExamForScoring(examId, userId),
     submissions: (p) =>
       submissionRepo.findMany({
         where: { examId: p.exam.id, userId: p.userId, sampleOnly: false },
@@ -46,29 +45,9 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
     scoringMode: (p) => p.exam.scoringMode,
     startsAt: (p) => p.exam.startsAt,
     userId: (p) => p.userId,
-    persist: async (p, fields) => {
-      const result = await examParticipationRepo.updateWithVersion(p.id, p.version, fields);
-      await mirrorParticipationScore(
-        { type: "exam", examId: p.exam.id, userId: p.userId },
-        fields,
-      );
-      return result;
-    },
-    isConflict: (err) => err instanceof ExamParticipationVersionConflict,
+    persist: (p, fields) => participationRepo.updateWithVersion(p.id, p.version, fields),
+    isConflict: (err) => err instanceof UnifiedParticipationVersionConflict,
   });
-}
-
-/**
- * Recompute persisted exam scores for a (exam, user) pair after their submission
- * is judged. Mirrors the contest path (`updateContestScores`): the judge workflow
- * knows the examId + userId but not the participation id, so resolve it here.
- * No-ops if the user has no participation row yet.
- */
-export async function updateExamScoresForUser(examId: string, userId: string): Promise<void> {
-  const participationId = await examParticipationRepo.findIdByExamAndUser(examId, userId);
-  if (participationId) {
-    await updateExamScores(participationId);
-  }
 }
 
 export async function getExamScoreboard(
@@ -101,7 +80,10 @@ export async function getExamScoreboard(
     };
   }
 
-  if (exam.participations.length === 0) {
+  const participants: ParticipantRow[] =
+    await participationRepo.findExamScoreboardParticipants(examId);
+
+  if (participants.length === 0) {
     return {
       entries: [],
       problems,
@@ -132,8 +114,6 @@ export async function getExamScoreboard(
     status: s.status,
     userId: s.userId,
   }));
-
-  const participants: ParticipantRow[] = exam.participations;
 
   const session: TimedSession = {
     id: exam.id,

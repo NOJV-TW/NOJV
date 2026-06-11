@@ -19,7 +19,7 @@ interface EditorRunArgs {
   workspaceFiles: () => WorkspaceFile[];
   assessment?: (() => { assessmentId: string; courseId: string } | undefined) | undefined;
   contestId?: (() => string | undefined) | undefined;
-  virtualContestId?: (() => string | undefined) | undefined;
+  participationId?: (() => string | undefined) | undefined;
   onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
   onSubmissionComplete?:
     | ((
@@ -77,7 +77,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       workspaceFiles: args.workspaceFiles(),
       ...(args.assessment?.() ? { assessment: args.assessment() } : {}),
       ...(args.contestId?.() ? { contestId: args.contestId() } : {}),
-      ...(args.virtualContestId?.() ? { virtualContestId: args.virtualContestId() } : {}),
+      ...(args.participationId?.() ? { participationId: args.participationId() } : {}),
       ...(runCases ? { runCases } : {}),
     });
 
@@ -126,7 +126,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       workspaceFiles: args.workspaceFiles(),
       ...(args.assessment?.() ? { assessment: args.assessment() } : {}),
       ...(args.contestId?.() ? { contestId: args.contestId() } : {}),
-      ...(args.virtualContestId?.() ? { virtualContestId: args.virtualContestId() } : {}),
+      ...(args.participationId?.() ? { participationId: args.participationId() } : {}),
     });
 
     const dispatched: { submissionId: string | null } = { submissionId: null };

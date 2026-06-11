@@ -1,4 +1,4 @@
-import { contestRepo, submissionRepo, virtualContestRepo } from "@nojv/db";
+import { contestRepo, participationRepo, submissionRepo } from "@nojv/db";
 import {
   languageSchema,
   submissionResultSchema,
@@ -34,7 +34,7 @@ export interface VirtualContestProblem {
 }
 
 export interface VirtualContestView {
-  virtualContestId: string;
+  participationId: string;
   contestId: string;
   contestTitle: string;
   scoringMode: ContestScoringMode;
@@ -73,7 +73,7 @@ export async function getVirtualContestForUser(
   userId: string,
   now: Date = new Date(),
 ): Promise<VirtualContestView | null> {
-  const virtual = await virtualContestRepo.findByContestAndUser(contestId, userId);
+  const virtual = await participationRepo.findVirtual(contestId, userId);
   if (!virtual) return null;
 
   const contest = await contestRepo.findDetailById(contestId);
@@ -88,7 +88,7 @@ export async function getVirtualContestForUser(
       ? []
       : await submissionRepo.groupByUserAndProblem({
           userId,
-          virtualContestId: virtual.id,
+          participationId: virtual.id,
           problemId: { in: problemIds },
           sampleOnly: false,
           status: { in: [...submissionVerdicts] },
@@ -113,7 +113,7 @@ export async function getVirtualContestForUser(
   });
 
   return {
-    virtualContestId: virtual.id,
+    participationId: virtual.id,
     contestId: contest.id,
     contestTitle: contest.title,
     scoringMode: contest.scoringMode,
@@ -129,7 +129,7 @@ export async function getVirtualContestScoreboard(
   contestId: string,
   userId: string,
 ): Promise<VirtualScoreboard | null> {
-  const virtual = await virtualContestRepo.findByContestAndUser(contestId, userId);
+  const virtual = await participationRepo.findVirtual(contestId, userId);
   if (!virtual) return null;
 
   const contest = await contestRepo.findDetailById(contestId);
@@ -219,18 +219,18 @@ export async function getVirtualContestScoreboard(
 }
 
 export interface VirtualSubmitGate {
-  virtualContestId: string;
+  participationId: string;
   contestId: string;
 }
 
 export async function assertCanSubmitToVirtualContest(
-  virtualContestId: string,
+  participationId: string,
   userId: string,
   problemId: string,
   now: Date = new Date(),
 ): Promise<VirtualSubmitGate> {
-  const virtual = await virtualContestRepo.findById(virtualContestId);
-  if (virtual?.userId !== userId) {
+  const virtual = await participationRepo.findVirtualById(participationId);
+  if (virtual?.userId !== userId || virtual.contestId === null) {
     throw new NotFoundError("Virtual contest not found.");
   }
   if (now >= virtual.endsAt) {
@@ -246,7 +246,7 @@ export async function assertCanSubmitToVirtualContest(
     throw new ForbiddenError("This problem is not part of the contest.");
   }
 
-  return { virtualContestId: virtual.id, contestId: virtual.contestId };
+  return { participationId: virtual.id, contestId: virtual.contestId };
 }
 
 export interface VirtualSubmissionEntry {
@@ -257,7 +257,7 @@ export interface VirtualSubmissionEntry {
 }
 
 export async function listVirtualContestProblemSubmissions(
-  virtualContestId: string,
+  participationId: string,
   userId: string,
   problemId: string,
 ): Promise<VirtualSubmissionEntry[]> {
@@ -265,7 +265,7 @@ export async function listVirtualContestProblemSubmissions(
     problemId,
     userId,
     statusIn: [...submissionVerdicts],
-    virtualContestId,
+    participationId,
   });
 
   const detailBlobs = await Promise.all(

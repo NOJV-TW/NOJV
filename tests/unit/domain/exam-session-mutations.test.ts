@@ -7,14 +7,14 @@ const {
   sessionFindAllActive,
   sessionUpdate,
   sessionRecordEvent,
-  clearPinAndExempt,
+  clearExamPinAndExempt,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
   sessionFindAllActive: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
-  clearPinAndExempt: vi.fn(),
+  clearExamPinAndExempt: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -28,7 +28,7 @@ vi.mock("@nojv/db", () => ({
       recordEvent: sessionRecordEvent,
     }),
   },
-  examParticipationIpRepo: { withTx: () => ({ clearPinAndExempt }) },
+  participationRepo: { withTx: () => ({ clearExamPinAndExempt }) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
@@ -112,7 +112,7 @@ describe("resetStudentIpBinding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
-    clearPinAndExempt.mockResolvedValue({});
+    clearExamPinAndExempt.mockResolvedValue({});
   });
 
   it("clears the pin and opens a grace window for staff", async () => {
@@ -126,7 +126,7 @@ describe("resetStudentIpBinding", () => {
 
     // 10-minute grace window.
     const expected = new Date("2026-05-26T10:10:00Z");
-    expect(clearPinAndExempt).toHaveBeenCalledWith("exm_1", "usr_student", expected);
+    expect(clearExamPinAndExempt).toHaveBeenCalledWith("exm_1", "usr_student", expected);
     expect(result).toEqual({ exemptUntil: expected });
   });
 
@@ -139,7 +139,7 @@ describe("resetStudentIpBinding", () => {
       now,
     );
 
-    expect(clearPinAndExempt).toHaveBeenCalledTimes(1);
+    expect(clearExamPinAndExempt).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a non-staff actor", async () => {
@@ -152,7 +152,7 @@ describe("resetStudentIpBinding", () => {
         now,
       ),
     ).rejects.toThrow(/staff/i);
-    expect(clearPinAndExempt).not.toHaveBeenCalled();
+    expect(clearExamPinAndExempt).not.toHaveBeenCalled();
   });
 
   it("throws when the exam does not exist", async () => {

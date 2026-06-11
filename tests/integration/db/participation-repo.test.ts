@@ -8,11 +8,11 @@ describe("participationRepo — unified participation optimistic lock", () => {
     const user = await createTestUser();
     const contest = await createTestContest();
 
-    const created = await participationRepo.create({
-      type: "contest",
-      status: "registered",
-      user: { connect: { id: user.id } },
-      contest: { connect: { id: contest.id } },
+    const created = await participationRepo.createVirtual({
+      contestId: contest.id,
+      userId: user.id,
+      startedAt: new Date(),
+      endsAt: new Date(Date.now() + 3_600_000),
     });
     expect(created.version).toBe(0);
 

@@ -81,7 +81,7 @@ function makeSubmission(args: {
     | { kind: "practice" }
     | { kind: "assignment"; assessmentId: string }
     | { kind: "exam"; examId: string }
-    | { kind: "contest"; contestId: string; contestParticipationId: string };
+    | { kind: "contest"; contestId: string };
 }): SeedSubmission {
   const { rng, userId, problemId, testcases, verdict, createdAt } = args;
   const language = args.language ?? rng.pick(LANGS);
@@ -122,7 +122,6 @@ function makeSubmission(args: {
     row.examId = ctx.examId;
   } else if (ctx.kind === "contest") {
     row.contestId = ctx.contestId;
-    row.contestParticipationId = ctx.contestParticipationId;
   }
 
   return { id, row, sources, detail };
@@ -150,7 +149,7 @@ export async function seedSubmissions(
   const storage = createStorageClient();
 
   await prisma.submission.deleteMany({});
-  await prisma.contestParticipation.deleteMany({});
+  await prisma.participation.deleteMany({});
 
   const problemIds = new Set<string>([
     ...PUBLIC_PRACTICE_PROBLEMS,
@@ -393,8 +392,9 @@ async function seedContestSubmissions(
   for (const [idx, s] of students.entries()) {
     const rng = new SeededRng(rngBase + idx);
 
-    const participation = await prisma.contestParticipation.create({
+    const participation = await prisma.participation.create({
       data: {
+        type: "contest",
         contestId,
         userId: s.id,
         status: "active",
@@ -426,7 +426,7 @@ async function seedContestSubmissions(
             testcases: tc(problemId),
             verdict,
             createdAt: new Date(submissionTimeFor(rng)),
-            context: { kind: "contest", contestId, contestParticipationId: participation.id },
+            context: { kind: "contest", contestId },
           }),
         );
       }
@@ -441,7 +441,7 @@ async function seedContestSubmissions(
             testcases: tc(problemId),
             verdict: "accepted",
             createdAt: new Date(acTime),
-            context: { kind: "contest", contestId, contestParticipationId: participation.id },
+            context: { kind: "contest", contestId },
           }),
         );
         solvedCount++;
@@ -455,7 +455,7 @@ async function seedContestSubmissions(
 
     await persistSeedSubmissions(prisma, storage, contestSubs);
 
-    await prisma.contestParticipation.update({
+    await prisma.participation.update({
       where: { id: participation.id },
       data: { score: solvedCount, penaltySeconds: totalPenalty },
     });

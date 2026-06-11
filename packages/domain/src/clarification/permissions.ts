@@ -1,10 +1,9 @@
 import {
   assessmentRepo,
-  contestParticipationRepo,
   contestRepo,
   courseMembershipRepo,
-  examParticipationRepo,
   examRepo,
+  participationRepo,
 } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -18,12 +17,12 @@ async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<bo
 }
 
 async function hasContestParticipation(userId: string, contestId: string): Promise<boolean> {
-  const ids = await contestParticipationRepo.listParticipantUserIds(contestId);
+  const ids = await participationRepo.listContestParticipantUserIds(contestId);
   return ids.includes(userId);
 }
 
 async function hasExamParticipation(userId: string, examId: string): Promise<boolean> {
-  const ids = await examParticipationRepo.listParticipantUserIds(examId);
+  const ids = await participationRepo.listExamParticipantUserIds(examId);
   return ids.includes(userId);
 }
 

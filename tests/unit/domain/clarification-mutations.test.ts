@@ -32,8 +32,10 @@ vi.mock("@nojv/db", () => ({
   examRepo: { findById: examFindById },
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
-  contestParticipationRepo: { listParticipantUserIds: vi.fn() },
-  examParticipationRepo: { listParticipantUserIds: vi.fn() },
+  participationRepo: {
+    listContestParticipantUserIds: vi.fn(),
+    listExamParticipantUserIds: vi.fn(),
+  },
   assessmentProblemRepo: { exists: vi.fn() },
   contestProblemRepo: { existsById: vi.fn() },
   examProblemRepo: { exists: vi.fn() },

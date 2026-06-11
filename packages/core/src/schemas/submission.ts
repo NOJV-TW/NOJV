@@ -33,7 +33,7 @@ export const runCaseSchema = z.object({
 
 export type SubmissionRunCase = z.infer<typeof runCaseSchema>;
 
-const virtualContestIdSchema = z
+const participationIdSchema = z
   .string()
   .trim()
   .min(1)
@@ -44,7 +44,7 @@ export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
     contestId: slugSchema.optional(),
-    virtualContestId: virtualContestIdSchema.optional(),
+    participationId: participationIdSchema.optional(),
     language: languageSchema,
     mode: submissionModeSchema.optional(),
     problemId: problemIdentifierSchema,
