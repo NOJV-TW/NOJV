@@ -181,6 +181,23 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - **Events**: submission verdict, contest starting/ending, assignment deadline, notifications, clarification updates
 - **Submission polling**: Temporal `workflow.query("getStatus")` with DB fallback
 
+## Accessibility
+
+Component-level a11y is built on accessible primitives plus explicit ARIA on
+the hand-rolled controls. Evidence by surface:
+
+| Concern                        | Pattern (where)                                                                                                                                                                                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accessible primitives          | 21 components build on **Bits UI** (`bits-ui`) — dialogs (`role="dialog"`, `aria-modal`), tabs (`role="tab"`/`"tablist"`, `aria-selected`, `aria-orientation`), selects (`aria-expanded`/`aria-controls`/`aria-haspopup`), giving focus trap + keyboard nav for free.             |
+| Form validation                | Inputs/buttons/select-triggers carry `aria-invalid` (`primitives/ui/{input,button,select}`); the error `<p>` is linked via `aria-describedby` and announced with `role="alert"` (e.g. `AssignmentBasicSection`, `ExamBasicSettings`, `ContestSettingsTab`, `SchoolVerification`). |
+| Toggle / current state         | `aria-pressed` on toggles (language switch in `Header`), `aria-current` on active nav, `aria-checked`/`aria-disabled` where relevant.                                                                                                                                             |
+| Async status (live region)     | `aria-live` + `aria-atomic` announce toasts and judge status without focus change; `aria-busy` marks in-flight controls.                                                                                                                                                          |
+| Icon-only controls             | `aria-label` names icon buttons; decorative icons are `aria-hidden` so they don't pollute the accessibility tree.                                                                                                                                                                 |
+| Color is never the sole signal | Verdicts pair color with text/short codes (`VerdictBadge`, `CaseResultGrid`) so colour-blind users still distinguish AC/WA/TLE/…                                                                                                                                                  |
+
+Bare (non-Bits) `<input>` controls are flagged by `svelte-check`'s a11y lint, so
+missing labels/roles fail `pnpm check` rather than shipping silently.
+
 ## Related Docs
 
 - [Design Rules](./DESIGN.md)

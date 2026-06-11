@@ -221,13 +221,52 @@ Rate limiting lives in `apps/web/src/lib/server/shared/rate-limiter.ts`
 
 ### @nojv/storage
 
-S3-compatible object storage via `@aws-sdk/client-s3`. Contains:
+S3-compatible object storage via `@aws-sdk/client-s3`. Env is centralized in
+`storageEnvSchema` (`src/env.ts`); `createStorageClient()` validates the
+credentials (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) at client
+creation. Contains:
 
-- Client factory — creates S3Client from environment variables
-- Image operations — upload and delete problem images
-- Path convention: `problems/{problemId}/images/{uuid}.{ext}`
+- **Client factory** — `createStorageClient()` + `getStorageBaseUrl()`.
+- **Images** — problem images, user-content images, user avatars (served via the public base URL).
+- **Advanced-mode tarballs** — `special_env` Docker image tarballs (upload / download / delete).
+- **Blobs** — submission sources, judge verdict detail, testcase input/output, workspace files, checker / interactor scripts.
+- **Key registry** — `problemPrefix` / `submissionPrefix` / `submissionSourcePrefix` / `testcase*Key` / `workspaceFileKey` / `checkerKey` / `interactorKey` so producers and consumers agree on paths.
 
 Local dev uses MinIO (Docker). Production uses any S3-compatible service (GCS, R2, S3) — switch via env vars only.
+
+#### Storage data flow
+
+```mermaid
+flowchart LR
+  subgraph web["apps/web (SSR routes)"]
+    imgRoute["/api/problems/[id]/images<br/>/api/problems/[id]/advanced-image"]
+    bundleRoute["problem bundle / workspace<br/>upload routes"]
+    submitRoute["/api/submissions"]
+  end
+  subgraph worker["apps/worker (judge)"]
+    judge["fetchJudgeContext →<br/>executeSandbox → completeSubmission"]
+  end
+  domain["@nojv/domain<br/>(problem/blobs, submission/mutations,<br/>problem/bundle, plagiarism)"]
+  storage["@nojv/storage<br/>(createStorageClient + key registry)"]
+  s3[("S3 / MinIO<br/>GCS / R2")]
+
+  imgRoute -->|"uploadProblemImage / tarball"| domain
+  bundleRoute -->|"testcases / checker / interactor"| domain
+  submitRoute -->|"putSubmissionSources"| domain
+  judge -->|"read sources + testcases<br/>putVerdictDetail"| domain
+  domain --> storage --> s3
+  s3 -->|"getStorageBaseUrl()<br/>(image src URLs)"| web
+```
+
+**Producers** write under stable key prefixes: problem images
+(`problems/{id}/images/{uuid}.{ext}`), submission sources
+(`submissionSourcePrefix`), verdict detail (`verdictDetailStorageKey`),
+testcases / workspace / checker / interactor (`testcase*Key` etc.).
+**Consumers** read the same keys: the worker reads sources + testcases to feed
+the sandbox and writes verdict detail; the web layer reads verdict detail for
+the submission view and resolves image `src` URLs via `getStorageBaseUrl()`;
+plagiarism reads submission sources. The shared key registry is the single
+source of truth that keeps producer and consumer paths aligned.
 
 ### @nojv/temporal
 
