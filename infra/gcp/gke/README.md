@@ -126,7 +126,7 @@ layer itself is a bottleneck.
 
 1. Create the two node pools (see above).
 2. Replace `PROJECT_ID` and image tags in `worker.deployment.yaml`.
-3. Create a real `nojv-runtime-secrets` secret with Cloud SQL and Memorystore connection strings.
+3. Create a real `nojv-runtime-secrets` secret with the Cloud SQL / Memorystore connection strings **and the object-storage credentials** (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the worker reads submission sources and writes verdict blobs through `@nojv/storage`, so judging fails without them.
 4. Apply the worker manifests:
    `kubectl apply -k infra/gcp/gke`
 5. Apply the sandbox namespace manifests:
