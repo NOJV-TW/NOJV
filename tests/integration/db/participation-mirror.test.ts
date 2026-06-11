@@ -2,6 +2,7 @@ import {
   backfillParticipation,
   contestParticipationRepo,
   mirrorParticipationScore,
+  reconcileParticipation,
   runTransaction,
   virtualContestRepo,
 } from "@nojv/db";
@@ -70,6 +71,28 @@ describe("Participation Stage 2 — create dual-write + backfill", () => {
       where: { type: "contest", contestId: contest.id, userId: other.id },
     });
     expect(absent).toBeNull();
+  });
+
+  it("reconcileParticipation reports ok when synced, drift when not, healed by backfill", async () => {
+    const user = await createTestUser();
+    const contest = await createTestContest();
+    await runTransaction((tx) =>
+      contestParticipationRepo
+        .withTx(tx)
+        .upsert(contest.id, user.id, { contestId: contest.id, userId: user.id }, {}),
+    );
+    expect((await reconcileParticipation()).ok).toBe(true);
+
+    const other = await createTestUser();
+    await testPrisma.contestParticipation.create({
+      data: { contestId: contest.id, userId: other.id, status: "registered" },
+    });
+    const drift = await reconcileParticipation();
+    expect(drift.ok).toBe(false);
+    expect(drift.contest.missing).toBeGreaterThanOrEqual(1);
+
+    await backfillParticipation();
+    expect((await reconcileParticipation()).ok).toBe(true);
   });
 
   it("backfillParticipation mirrors pre-existing legacy rows (created bypassing the repo)", async () => {
