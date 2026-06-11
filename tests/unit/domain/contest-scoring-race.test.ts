@@ -5,6 +5,7 @@ const {
   findForParticipationScoring,
   findAllByContext,
   updateWithVersion,
+  mirrorParticipationScore,
   ParticipationVersionConflict,
 } = vi.hoisted(() => {
   class ParticipationVersionConflict extends Error {
@@ -24,6 +25,7 @@ const {
     findForParticipationScoring: vi.fn(),
     findAllByContext: vi.fn(),
     updateWithVersion: vi.fn(),
+    mirrorParticipationScore: vi.fn(),
     ParticipationVersionConflict,
   };
 });
@@ -40,6 +42,7 @@ vi.mock("@nojv/db", () => ({
     findAllByContext,
   },
   contestRepo: {},
+  mirrorParticipationScore,
   ParticipationVersionConflict,
 }));
 
@@ -116,6 +119,12 @@ describe("updateContestScores — optimistic locking", () => {
       2,
       PARTICIPATION_ID,
       1,
+      expect.objectContaining({ score: 80 }),
+    );
+
+    // Stage 3: the successful persist also dual-writes the score onto the mirror.
+    expect(mirrorParticipationScore).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "contest" }),
       expect.objectContaining({ score: 80 }),
     );
   });

@@ -2,6 +2,7 @@ import {
   examRepo,
   examParticipationRepo,
   ExamParticipationVersionConflict,
+  mirrorParticipationScore,
   scoreOverrideRepo,
   submissionRepo,
 } from "@nojv/db";
@@ -45,7 +46,14 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
     scoringMode: (p) => p.exam.scoringMode,
     startsAt: (p) => p.exam.startsAt,
     userId: (p) => p.userId,
-    persist: (p, fields) => examParticipationRepo.updateWithVersion(p.id, p.version, fields),
+    persist: async (p, fields) => {
+      const result = await examParticipationRepo.updateWithVersion(p.id, p.version, fields);
+      await mirrorParticipationScore(
+        { type: "exam", examId: p.exam.id, userId: p.userId },
+        fields,
+      );
+      return result;
+    },
     isConflict: (err) => err instanceof ExamParticipationVersionConflict,
   });
 }

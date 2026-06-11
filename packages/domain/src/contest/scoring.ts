@@ -1,6 +1,7 @@
 import {
   contestRepo,
   contestParticipationRepo,
+  mirrorParticipationScore,
   ParticipationVersionConflict,
   scoreOverrideRepo,
   submissionRepo,
@@ -55,8 +56,18 @@ export async function updateContestScores(
       scoringMode: (p) => p.contest.scoringMode,
       startsAt: (p) => p.contest.startsAt,
       userId: (p) => p.userId,
-      persist: (p, fields) =>
-        contestParticipationRepo.updateWithVersion(p.id, p.version, fields),
+      persist: async (p, fields) => {
+        const result = await contestParticipationRepo.updateWithVersion(
+          p.id,
+          p.version,
+          fields,
+        );
+        await mirrorParticipationScore(
+          { type: "contest", contestId: p.contest.id, userId: p.userId },
+          fields,
+        );
+        return result;
+      },
       isConflict: (err) => err instanceof ParticipationVersionConflict,
     },
   );
