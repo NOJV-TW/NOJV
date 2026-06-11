@@ -1,4 +1,9 @@
-import { contestParticipationRepo, contestRepo, submissionRepo } from "@nojv/db";
+import {
+  contestParticipationRepo,
+  contestRepo,
+  participationRepo,
+  submissionRepo,
+} from "@nojv/db";
 import {
   submissionVerdicts,
   type ContestScoringMode,
@@ -211,7 +216,9 @@ export async function getContestWorkspaceData(
   );
 
   const base = mapContestDetail(contest);
-  const participation = contest.participations[0] ?? null;
+  // Stage 4 read-switch: the persisted participation snapshot now comes from the
+  // unified Participation mirror instead of the bundled ContestParticipation include.
+  const participation = await participationRepo.findContestParticipation(contestId, userId);
 
   return {
     ...base,

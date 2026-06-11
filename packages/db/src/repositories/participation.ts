@@ -24,6 +24,12 @@ export const participationRepo = {
     return prisma.participation.findUnique({ where: { id } });
   },
 
+  findContestParticipation(contestId: string, userId: string) {
+    return prisma.participation.findFirst({
+      where: { type: "contest", contestId, userId },
+    });
+  },
+
   async updateWithVersion(
     id: string,
     expectedVersion: number,
