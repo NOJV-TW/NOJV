@@ -27,14 +27,11 @@ export default defineConfig({
       // to exercise. apps/web UI + routes are covered by Playwright E2E
       // instead and would otherwise dilute the percentages to noise.
       include: ["packages/domain/src/**", "packages/core/src/**"],
-      // Ratchet floor — measured 2026-05-19 against the unit project alone
-      // (the full `test:coverage` run, unit + integration, clears these
-      // comfortably). Raise as coverage improves; never lower.
       thresholds: {
-        lines: 50,
-        statements: 48,
-        functions: 41,
-        branches: 42,
+        lines: 68,
+        statements: 65,
+        functions: 62,
+        branches: 58,
       },
     },
     projects: [
