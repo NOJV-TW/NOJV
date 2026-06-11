@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 
@@ -6,13 +5,10 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { editorialReportSchema } from "@nojv/core";
 import { editorialDomain } from "@nojv/domain";
 
 const { reportEditorial } = editorialDomain;
-
-const editorialReportSchema = z.object({
-  reason: z.string().min(1).max(1000),
-});
 
 function requireId(event: RequestEvent): string {
   const id = event.params.id;

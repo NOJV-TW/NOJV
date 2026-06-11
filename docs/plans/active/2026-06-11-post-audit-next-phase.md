@@ -14,18 +14,18 @@
 
 本計劃的 Phase 1/2 + 風險 #1 第一步 + 風險 #3 第一步**已於本 PR 實作並驗證**(`ci:verify` 26/26 + 1285 unit + 1591 integration 全綠)。逐項:
 
-| 項目                              | 狀態        | 落地處                                                                                                |
-| --------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------- |
-| 風險 #1 — scoring 純核心抽取      | ✅ 已實作   | `packages/domain/src/scoring/persist-core.ts` + contest/exam scoring.ts + persist-core.test.ts        |
-| 1.1 HTTP harness                  | ✅ 已實作   | `tests/integration/http/_harness.ts` + `tests/setup/stubs/*` + vitest.config alias                    |
-| 1.2 signup-disabled 端點測試      | ✅ 已實作   | `tests/integration/http/auth-signup.test.ts`                                                          |
-| 1.3 守衛鏈 request 層測試         | ✅ 已實作   | `tests/integration/http/{hooks-guards,notifications,healthz}.test.ts`                                 |
-| 2.1 editorials e2e fail-loud      | ✅ 已實作   | `tests/e2e/editorials.test.ts`(opt-in 後非 AC 改 explicit assert)                                     |
-| 2.2 seed TABLES 漂移防護          | ✅ 已實作   | `tests/unit/db/seed-tables-complete.test.ts`(T5)+ 補齊 15 個漏列 table                                |
-| 2.3 workflow 分支選擇測試(輕路線) | ✅ 已實作   | 抽 `resolveScoringDispatch` 純函式 + `submission-judge-helpers.test.ts`(免 `@temporalio/testing` dep) |
-| 2.4 nightly 沙箱隔離 CI           | ✅ 已實作   | `.github/workflows/nightly-sandbox.yml`(schedule + manual,不阻塞 PR)                                  |
-| 風險 #3 — config fitness 盤點     | ✅ 已實作   | T1/T2/T5 測試 + 缺口 A/B/C 修復(見該節)                                                               |
-| 風險 #2 — Temporal 拓撲           | ⏸️ 只列方向 | 設計級決策,不寫程式(見該節)                                                                           |
+| 項目                              | 狀態      | 落地處                                                                                                |
+| --------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| 風險 #1 — scoring 純核心抽取      | ✅ 已實作 | `packages/domain/src/scoring/persist-core.ts` + contest/exam scoring.ts + persist-core.test.ts        |
+| 1.1 HTTP harness                  | ✅ 已實作 | `tests/integration/http/_harness.ts` + `tests/setup/stubs/*` + vitest.config alias                    |
+| 1.2 signup-disabled 端點測試      | ✅ 已實作 | `tests/integration/http/auth-signup.test.ts`                                                          |
+| 1.3 守衛鏈 request 層測試         | ✅ 已實作 | `tests/integration/http/{hooks-guards,notifications,healthz}.test.ts`                                 |
+| 2.1 editorials e2e fail-loud      | ✅ 已實作 | `tests/e2e/editorials.test.ts`(opt-in 後非 AC 改 explicit assert)                                     |
+| 2.2 seed TABLES 漂移防護          | ✅ 已實作 | `tests/unit/db/seed-tables-complete.test.ts`(T5)+ 補齊 15 個漏列 table                                |
+| 2.3 workflow 分支選擇測試(輕路線) | ✅ 已實作 | 抽 `resolveScoringDispatch` 純函式 + `submission-judge-helpers.test.ts`(免 `@temporalio/testing` dep) |
+| 2.4 nightly 沙箱隔離 CI           | ✅ 已實作 | `.github/workflows/nightly-sandbox.yml`(schedule + manual,不阻塞 PR)                                  |
+| 風險 #3 — config fitness 盤點     | ✅ 已實作 | T1/T2/T5 測試 + 缺口 A/B/C 修復(見該節)                                                               |
+| 風險 #2 — Temporal 拓撲           | ✅ 已決   | 維持自架(2026-06-11 拍板,不採 Temporal Cloud / pg-boss;不改 infra)                                    |
 
 ---
 
@@ -138,11 +138,11 @@
 
 - **不要被「四路統一」誘惑**:virtual-contest 讀時用 `buildScoreboard` 算不落地、assignment 用 Prisma `_max` aggregate,都不是同一 persist pattern。
 
-### 風險 #2 — 自架 Temporal 拓撲
+### 風險 #2 — 自架 Temporal 拓撲 — ✅ 已決:維持自架(2026-06-11)
 
 - **現狀:** 5 個 workflow 換來自架 Temporal Server + 專屬 Postgres StatefulSet + UI,維運是一人。
-- **方向(需決策):** Temporal Cloud(保留程式模型、外包運維)vs 降級為 pg-boss 級方案(減依賴)vs 維持自架。
-- **第一步:** 寫一份 cost + ops + 風險比較 doc,讓你/團隊拍板;在決策前不動程式。
+- **決策:** **維持自架**。已評估的替代(Temporal Cloud 外包運維 / 降級 pg-boss 級減依賴)不採;不寫程式、不改 infra(`infra/gcp/gke/temporal/*` 原封保留)。此項自此結案,非未決缺口。
+- **若未來重啟:** 觸發點是維運負擔或成本變化,屆時再開獨立評估;現階段不行動。
 
 ### 風險 #3 — 把「組態正確性」系統化為可執行 fitness test
 

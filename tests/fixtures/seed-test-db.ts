@@ -2,7 +2,6 @@
 import { testPrisma } from "./factories";
 
 // Order does not matter — TRUNCATE ... CASCADE handles FK dependencies.
-// Completeness is enforced by tests/unit/db/seed-tables-complete.test.ts.
 export const TABLES = [
   "Clarification",
   "SubmissionFeedbackAuditLog",

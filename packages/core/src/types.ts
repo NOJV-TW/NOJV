@@ -38,6 +38,7 @@ export const submissionVerdicts = [
 export const submissionResultVerdicts = [...submissionVerdicts, "system_error"] as const;
 export const submissionOperationStatuses = [
   "queued",
+  "compiling",
   "running",
   "accepted",
   "wrong_answer",
