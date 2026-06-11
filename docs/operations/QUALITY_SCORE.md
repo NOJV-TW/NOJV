@@ -8,7 +8,7 @@ ledger. **Not a changelog** — for batch-by-batch detail see git log and
 
 | Area                       | Grade | Evidence                                                                                                                                                                                                       | Next Upgrade                                                                                                                 |
 | -------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Knowledge-store navigation | B+    | CLAUDE.md maps all required docs with reading order.                                                                                                                                                           | Add runbook index and reference catalog.                                                                                     |
+| Knowledge-store navigation | A-    | CLAUDE.md maps all required docs with reading order; runbook index + reference catalog (`docs/runbooks/README.md`); a doc-link gate fails CI on dangling index links.                                          | Keep the task-driven doc index in step with new surfaces.                                                                    |
 | Product specification      | A-    | PRODUCT_SENSE.md + per-feature acceptance specs under `docs/specs/`.                                                                                                                                           | Request schemas centralized in `@nojv/core` (`editorialReportSchema` promoted). Keep new endpoints importing shared schemas. |
 | Architecture docs          | A     | Multi-tier diagram, dependency graph, package descriptions, sequence diagrams for submission / exam / scoreboard, storage data-flow diagram.                                                                   | Keep the diagrams in step with package boundary changes.                                                                     |
 | Frontend guidance          | A-    | Route map, API endpoints, component contracts, runtime boundaries, component-level accessibility evidence (ARIA patterns + Bits UI primitives).                                                                | Add visual reference snapshots (needs a Playwright baseline run).                                                            |
@@ -23,10 +23,8 @@ ledger. **Not a changelog** — for batch-by-batch detail see git log and
 Add an entry here when code lands without its documentation, or vice
 versa. Clear the entry once the gap closes.
 
-- **`verify-school` consumes its token in a GET load** — mail-scanner
-  prefetch can burn the link before the user clicks (self-affecting
-  only; token is 32-byte single-use, 30 min). Fix when touched: confirm
-  via a form POST.
+_None outstanding._ (The `verify-school` GET-token consumption was fixed by
+moving the token consume to a form POST; see git history.)
 
 ## Recent Milestones
 
