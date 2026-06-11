@@ -2,6 +2,7 @@ import {
   backfillParticipation,
   contestParticipationRepo,
   mirrorParticipationScore,
+  participationRepo,
   reconcileParticipation,
   runTransaction,
   virtualContestRepo,
@@ -93,6 +94,27 @@ describe("Participation Stage 2 — create dual-write + backfill", () => {
 
     await backfillParticipation();
     expect((await reconcileParticipation()).ok).toBe(true);
+  });
+
+  it("findContestParticipation (Stage 4 read) returns the mirror matching the legacy row", async () => {
+    const user = await createTestUser();
+    const contest = await createTestContest();
+    const legacy = await runTransaction((tx) =>
+      contestParticipationRepo
+        .withTx(tx)
+        .upsert(
+          contest.id,
+          user.id,
+          { contestId: contest.id, userId: user.id, status: "active", startedAt: new Date() },
+          { status: "active" },
+        ),
+    );
+
+    const mirror = await participationRepo.findContestParticipation(contest.id, user.id);
+    expect(mirror).not.toBeNull();
+    expect(mirror?.status).toBe(legacy.status);
+    expect(mirror?.score).toBe(legacy.score);
+    expect(mirror?.startedAt?.getTime()).toBe(legacy.startedAt?.getTime());
   });
 
   it("backfillParticipation mirrors pre-existing legacy rows (created bypassing the repo)", async () => {

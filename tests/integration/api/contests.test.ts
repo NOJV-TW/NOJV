@@ -7,6 +7,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
+import { contestParticipationRepo, runTransaction } from "@nojv/db";
 import { contestDomain } from "@nojv/domain";
 
 const { listPublicContests, getContestDetail, getContestWorkspaceData, getScoreboard } =
@@ -153,14 +154,18 @@ describe("contest queries (real DB)", () => {
       });
       const user = await createTestUser();
 
-      await testPrisma.contestParticipation.create({
-        data: {
-          contestId: contest.id,
-          userId: user.id,
-          status: "active",
-          startedAt: new Date(),
-        },
-      });
+      // Use the repo upsert so the unified Participation mirror is written too
+      // (getContestWorkspaceData reads the mirror as of the Stage 4 read-switch).
+      await runTransaction((tx) =>
+        contestParticipationRepo
+          .withTx(tx)
+          .upsert(
+            contest.id,
+            user.id,
+            { contestId: contest.id, userId: user.id, status: "active", startedAt: new Date() },
+            { status: "active" },
+          ),
+      );
 
       const data = await getContestWorkspaceData(contest.id, user.id, {
         now: new Date(),
