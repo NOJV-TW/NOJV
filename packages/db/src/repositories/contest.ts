@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { mirrorParticipation } from "./participation-mirror";
 import { problemMiniSelect, userMiniSelect, userScoreboardSelect } from "./selects";
 
 type TxClient = TransactionClient;
@@ -306,19 +307,31 @@ export const contestParticipationRepo = {
 
   withTx(tx: TxClient) {
     return {
-      upsert(
+      async upsert(
         contestId: string,
         userId: string,
         createData: Prisma.ContestParticipationUncheckedCreateInput,
         updateData: Prisma.ContestParticipationUncheckedUpdateInput,
       ) {
-        return tx.contestParticipation.upsert({
+        const row = await tx.contestParticipation.upsert({
           create: createData,
           update: updateData,
           where: {
             contestId_userId: { contestId, userId },
           },
         });
+        await mirrorParticipation(tx, {
+          type: "contest",
+          userId,
+          contestId,
+          score: row.score,
+          penaltySeconds: row.penaltySeconds,
+          subtaskScores: row.subtaskScores,
+          status: row.status,
+          startedAt: row.startedAt,
+          submittedAt: row.submittedAt,
+        });
+        return row;
       },
 
       findByContestAndUser(contestId: string, userId: string) {
