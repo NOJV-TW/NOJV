@@ -37,3 +37,4 @@ export {
   deleteSubmissionStorage,
 } from "./submission";
 export type { SubmissionSource } from "./submission";
+export { getStorageEnv, storageEnvSchema, STORAGE_REQUIRED_IN_PRODUCTION } from "./env";
