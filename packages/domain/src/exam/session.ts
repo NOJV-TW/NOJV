@@ -1,10 +1,9 @@
 import {
   courseMembershipRepo,
   courseRepo,
-  examParticipationIpRepo,
-  examParticipationRepo,
   examRepo,
   examSessionRepo,
+  participationRepo,
   runTransaction,
   type Prisma,
 } from "@nojv/db";
@@ -77,19 +76,14 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
       throw new ConflictError("You already have an active session on a different exam.");
     }
 
-    const existingParticipation = await examParticipationRepo
+    const existingParticipation = await participationRepo
       .withTx(tx)
-      .findByExamAndUser(examId, actor.userId);
+      .findExamParticipation(examId, actor.userId);
     const activateOnEntry =
       !existingParticipation || existingParticipation.status === "registered";
-    await examParticipationRepo
+    await participationRepo
       .withTx(tx)
-      .upsert(
-        examId,
-        actor.userId,
-        { examId, startedAt: new Date(), status: "active", userId: actor.userId },
-        activateOnEntry ? { status: "active" } : {},
-      );
+      .upsertExamActive(examId, actor.userId, activateOnEntry, new Date());
 
     const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
 
@@ -380,9 +374,7 @@ export async function resetStudentIpBinding(
     }
 
     const exemptUntil = new Date(now.getTime() + IP_BINDING_RESET_GRACE_MINUTES * 60_000);
-    await examParticipationIpRepo
-      .withTx(tx)
-      .clearPinAndExempt(examId, targetUserId, exemptUntil);
+    await participationRepo.withTx(tx).clearExamPinAndExempt(examId, targetUserId, exemptUntil);
     return { exemptUntil };
   });
 }

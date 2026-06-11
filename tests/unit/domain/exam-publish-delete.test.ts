@@ -36,9 +36,6 @@ vi.mock("@nojv/db", () => {
       findByExamId: vi.fn(),
       countByExamId: examProblemCount,
     },
-    examParticipationRepo: {
-      withTx: () => ({ upsert: vi.fn(), findByExamAndUser: vi.fn() }),
-    },
     problemRepo: {
       withTx: () => ({ findMany: vi.fn() }),
     },

@@ -7,7 +7,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { contestParticipationRepo, runTransaction } from "@nojv/db";
+import { participationRepo, runTransaction } from "@nojv/db";
 import { contestDomain } from "@nojv/domain";
 
 const { listPublicContests, getContestDetail, getContestWorkspaceData, getScoreboard } =
@@ -46,8 +46,9 @@ describe("contest queries (real DB)", () => {
       });
 
       const user = await createTestUser();
-      await testPrisma.contestParticipation.create({
+      await testPrisma.participation.create({
         data: {
+          type: "contest",
           contestId: contest.id,
           userId: user.id,
           status: "active",
@@ -154,17 +155,8 @@ describe("contest queries (real DB)", () => {
       });
       const user = await createTestUser();
 
-      // Use the repo upsert so the unified Participation mirror is written too
-      // (getContestWorkspaceData reads the mirror as of the Stage 4 read-switch).
       await runTransaction((tx) =>
-        contestParticipationRepo
-          .withTx(tx)
-          .upsert(
-            contest.id,
-            user.id,
-            { contestId: contest.id, userId: user.id, status: "active", startedAt: new Date() },
-            { status: "active" },
-          ),
+        participationRepo.withTx(tx).upsertContestActive(contest.id, user.id, new Date()),
       );
 
       const data = await getContestWorkspaceData(contest.id, user.id, {
@@ -221,30 +213,15 @@ describe("contest queries (real DB)", () => {
       });
 
       const user = await createTestUser();
-      // Use the repo upsert so the unified Participation mirror exists
-      // (getScoreboard reads participants from Participation as of Stage 5).
-      const participation = await runTransaction((tx) =>
-        contestParticipationRepo.withTx(tx).upsert(
-          contest.id,
-          user.id,
-          {
-            contestId: contest.id,
-            userId: user.id,
-            status: "active",
-            startedAt: new Date("2026-01-01T00:00:00Z"),
-          },
-          { status: "active" },
-        ),
+      await runTransaction((tx) =>
+        participationRepo.withTx(tx).upsertContestActive(contest.id, user.id, new Date()),
       );
 
-      // Create an accepted submission. Sources live in object storage but the
-      // scoreboard test doesn't read them — just stamp a prefix.
       const subId = "sub_problem_count_sb_1";
       await testPrisma.submission.create({
         data: {
           id: subId,
           contestId: contest.id,
-          contestParticipationId: participation.id,
           language: "python",
           problemId: problem.id,
           sampleOnly: false,

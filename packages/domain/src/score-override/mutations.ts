@@ -1,7 +1,5 @@
 import {
-  contestParticipationRepo,
   contestRepo,
-  examParticipationRepo,
   examRepo,
   runTransaction,
   scoreOverrideAuditLogRepo,
@@ -21,21 +19,9 @@ async function invalidateScoreboardForOverride(
 ): Promise<void> {
   try {
     if (context.type === "contest") {
-      const participationId = await contestParticipationRepo.findIdByContestAndUser(
-        context.contestId,
-        userId,
-      );
-      if (participationId) {
-        await updateContestScores(participationId);
-      }
+      await updateContestScores(context.contestId, userId);
     } else if (context.type === "exam") {
-      const participationId = await examParticipationRepo.findIdByExamAndUser(
-        context.examId,
-        userId,
-      );
-      if (participationId) {
-        await updateExamScores(participationId);
-      }
+      await updateExamScores(context.examId, userId);
     }
   } catch {
     // best-effort; see docstring

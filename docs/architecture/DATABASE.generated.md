@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_44 models and 39 enums across 9 schema files._
+_41 models and 36 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -108,10 +108,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `accounts` | `Account[]` | — |
 | `schoolVerifications` | `SchoolVerificationToken[]` | — |
 | `submissions` | `Submission[]` | — |
-| `contestParticipations` | `ContestParticipation[]` | — |
-| `examParticipations` | `ExamParticipation[]` | `@relation("ExamParticipationUser")` |
-| `virtualContests` | `VirtualContest[]` | — |
-| `unifiedParticipations` | `Participation[]` | `@relation("UnifiedParticipationUser")` |
+| `participations` | `Participation[]` | `@relation("UnifiedParticipationUser")` |
 | `authoredProblems` | `Problem[]` | `@relation("ProblemAuthor")` |
 | `ownedCourses` | `Course[]` | `@relation("CourseOwner")` |
 | `courseMemberships` | `CourseMembership[]` | `@relation("CourseMembershipUser")` |
@@ -198,10 +195,6 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 ### Enums
 
-#### `ContestParticipationStatus`
-
-`registered` · `active` · `submitted` · `disqualified`
-
 #### `ContestScoringMode`
 
 `problem_count` · `point_sum`
@@ -209,10 +202,6 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 #### `ContestVisibility`
 
 `draft` · `published`
-
-#### `ExamParticipationStatus`
-
-`registered` · `active` · `submitted` · `disqualified`
 
 #### `ExamScoringMode`
 
@@ -253,10 +242,6 @@ Exam lifecycle — mirrors ContestVisibility but named for the course-embedded f
 Shared by Contest and Exam.
 
 `hidden` · `live` · `frozen`
-
-#### `VirtualContestStatus`
-
-`active` · `finished`
 
 ### Models
 
@@ -312,32 +297,8 @@ Standalone contest — public / invite-only competition with no course binding. 
 | `createdBy` | `User?` | `@relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
 | `plagiarismTriggeredBy` | `User?` | `@relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
 | `problems` | `ContestProblem[]` | — |
-| `participations` | `ContestParticipation[]` | — |
 | `submissions` | `Submission[]` | — |
-| `virtualContests` | `VirtualContest[]` | — |
-| `unifiedParticipations` | `Participation[]` | `@relation("ContestUnifiedParticipation")` |
-
-#### `ContestParticipation`
-
-| Field | Type | Attributes |
-| ----- | ---- | ---------- |
-| `id` | `String` | `@id @default(cuid())` |
-| `contestId` | `String` | — |
-| `userId` | `String` | — |
-| `status` | `ContestParticipationStatus` | `@default(registered)` |
-| `startedAt` | `DateTime?` | — |
-| `submittedAt` | `DateTime?` | — |
-| `score` | `Int` | `@default(0)` |
-| `penaltySeconds` | `Int` | `@default(0)` |
-| `subtaskScores` | `Json?` | — |
-| `version` | `Int` | `@default(0)` |
-| `createdAt` | `DateTime` | `@default(now())` |
-| `updatedAt` | `DateTime` | `@updatedAt` |
-| `contest` | `Contest` | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
-| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
-| `submissions` | `Submission[]` | — |
-
-Indexes & constraints: `@@unique([contestId, userId])`
+| `participations` | `Participation[]` | `@relation("ContestUnifiedParticipation")` |
 
 #### `ContestProblem`
 
@@ -389,39 +350,13 @@ Course-embedded exam. Always tied to a course (`courseId` NOT NULL) and carries 
 | `createdBy` | `User?` | `@relation("ExamCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
 | `plagiarismTriggeredBy` | `User?` | `@relation("ExamPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
 | `problems` | `ExamProblem[]` | — |
-| `participations` | `ExamParticipation[]` | — |
 | `submissions` | `Submission[]` | — |
 | `ipViolationLogs` | `IpViolationLog[]` | — |
 | `activeSessions` | `ActiveExamSession[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
-| `unifiedParticipations` | `Participation[]` | `@relation("ExamUnifiedParticipation")` |
+| `participations` | `Participation[]` | `@relation("ExamUnifiedParticipation")` |
 
 Indexes & constraints: `@@index([courseId, status])`
-
-#### `ExamParticipation`
-
-| Field | Type | Attributes |
-| ----- | ---- | ---------- |
-| `id` | `String` | `@id @default(cuid())` |
-| `examId` | `String` | — |
-| `userId` | `String` | — |
-| `status` | `ExamParticipationStatus` | `@default(registered)` |
-| `registeredAt` | `DateTime` | `@default(now())` |
-| `startedAt` | `DateTime?` | — |
-| `submittedAt` | `DateTime?` | — |
-| `disqualifiedAt` | `DateTime?` | — |
-| `score` | `Int` | `@default(0)` |
-| `penaltySeconds` | `Int` | `@default(0)` |
-| `subtaskScores` | `Json?` | — |
-| `ipPin` | `String?` | — |
-| `ipGateExemptUntil` | `DateTime?` | — |
-| `version` | `Int` | `@default(0)` |
-| `createdAt` | `DateTime` | `@default(now())` |
-| `updatedAt` | `DateTime` | `@updatedAt` |
-| `exam` | `Exam` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
-| `user` | `User` | `@relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)` |
-
-Indexes & constraints: `@@unique([examId, userId])`, `@@index([userId, status])`
 
 #### `ExamProblem`
 
@@ -473,7 +408,7 @@ Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, created
 
 #### `Participation`
 
-Unified timed-assessment participation supertype — Stage 1 of the triplet convergence (docs/plans/active/2026-06-11-timed-assessment-supertype-design.md). Additive only: nothing writes or reads this yet. `type` selects which FK is set; the `Participation_single_context_chk` CHECK (in the migration, not expressible in Prisma schema) enforces exactly one. `typeData` holds type-specific fields (exam: ipPin/ipGateExemptUntil/disqualifiedAt/registeredAt; virtual: endsAt).
+Unified timed-assessment participation (contest / exam / virtual). The `Participation_single_context_chk` CHECK and the two partial UNIQUE indexes live only in the migration SQL — Prisma cannot express either, so `migrate diff` is blind to them and db-push dev/test DBs do not get them.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -489,38 +424,17 @@ Unified timed-assessment participation supertype — Stage 1 of the triplet conv
 | `version` | `Int` | `@default(0)` |
 | `startedAt` | `DateTime?` | — |
 | `submittedAt` | `DateTime?` | — |
-| `typeData` | `Json?` | — |
+| `ipPin` | `String?` | — |
+| `ipGateExemptUntil` | `DateTime?` | — |
+| `endsAt` | `DateTime?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `user` | `User` | `@relation("UnifiedParticipationUser", fields: [userId], references: [id], onDelete: Cascade)` |
 | `contest` | `Contest?` | `@relation("ContestUnifiedParticipation", fields: [contestId], references: [id], onDelete: Cascade)` |
 | `exam` | `Exam?` | `@relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)` |
-
-Indexes & constraints: `@@index([userId])`, `@@index([contestId])`, `@@index([examId])`
-
-#### `VirtualContest`
-
-One user's time-shifted personal re-run of a past contest. Lets a user replay an already-ended contest on their own clock — the original contest is untouched; scores/penalty here are private to the virtual run. At most one per (contest, user).
-
-| Field | Type | Attributes |
-| ----- | ---- | ---------- |
-| `id` | `String` | `@id @default(cuid())` |
-| `contestId` | `String` | — |
-| `userId` | `String` | — |
-| `startedAt` | `DateTime` | `@default(now())` |
-| `endsAt` | `DateTime` | — |
-| `status` | `VirtualContestStatus` | `@default(active)` |
-| `score` | `Int` | `@default(0)` |
-| `penaltySeconds` | `Int` | `@default(0)` |
-| `subtaskScores` | `Json?` | — |
-| `version` | `Int` | `@default(0)` |
-| `createdAt` | `DateTime` | `@default(now())` |
-| `updatedAt` | `DateTime` | `@updatedAt` |
-| `contest` | `Contest` | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
-| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 | `submissions` | `Submission[]` | — |
 
-Indexes & constraints: `@@unique([contestId, userId])`, `@@index([userId, createdAt])`
+Indexes & constraints: `@@unique([type, contestId, userId])`, `@@unique([type, examId, userId])`, `@@index([userId])`
 
 ## `course.prisma`
 
@@ -1071,17 +985,16 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 #### `Submission`
 
-Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". Domain helper `deriveSubmissionMode` lives in `@nojv/domain`.  A submission carries at most one of `assessmentId` / `examId` / `contestId` — the xor is enforced by the `Submission_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively).  `virtualContestId` sits outside that mutual exclusion: a virtual-contest submission is practice-like (it does not count toward any real contest scoreboard) but carries the `virtualContestId` tag so the personal re-run can aggregate its own score. It is therefore valid for a row to have only `virtualContestId` set with all three context columns null.
+Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". Domain helper `deriveSubmissionMode` lives in `@nojv/domain`.  A submission carries at most one of `assessmentId` / `examId` / `contestId` — the xor is enforced by the `Submission_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively).  `participationId` sits outside that mutual exclusion: a virtual-contest submission is practice-like (it does not count toward any real contest scoreboard) but carries the `participationId` tag pointing at its `type: virtual` Participation so the personal re-run can aggregate its own score. It is therefore valid for a row to have only `participationId` set with all three context columns null.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
 | `userId` | `String` | — |
 | `problemId` | `String` | — |
-| `contestParticipationId` | `String?` | — |
 | `examId` | `String?` | — |
 | `contestId` | `String?` | — |
-| `virtualContestId` | `String?` | — |
+| `participationId` | `String?` | — |
 | `courseId` | `String?` | — |
 | `assessmentId` | `String?` | — |
 | `sampleOnly` | `Boolean` | `@default(false)` |
@@ -1098,15 +1011,14 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
-| `contestParticipation` | `ContestParticipation?` | `@relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)` |
 | `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 | `contest` | `Contest?` | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
-| `virtualContest` | `VirtualContest?` | `@relation(fields: [virtualContestId], references: [id], onDelete: Cascade)` |
+| `participation` | `Participation?` | `@relation(fields: [participationId], references: [id], onDelete: Cascade)` |
 | `course` | `Course?` | `@relation(fields: [courseId], references: [id], onDelete: SetNull)` |
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`
 
 #### `SubmissionFeedback`
 

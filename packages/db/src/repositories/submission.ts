@@ -51,7 +51,6 @@ export const submissionRepo = {
         sampleOnly: true,
         userId: true,
         createdAt: true,
-        contestParticipationId: true,
         assessmentId: true,
         courseId: true,
         verdictSummary: true,
@@ -108,13 +107,8 @@ export const submissionRepo = {
   findByIdWithJudgeContext(id: string) {
     return prisma.submission.findUnique({
       include: {
-        contestParticipation: {
-          select: {
-            contestId: true,
-            contest: {
-              select: { endsAt: true, startsAt: true },
-            },
-          },
+        contest: {
+          select: { endsAt: true, startsAt: true },
         },
         assessment: {
           select: { adjustmentRules: true, closesAt: true, dueAt: true, opensAt: true },
@@ -147,7 +141,7 @@ export const submissionRepo = {
     statusIn: SubmissionStatus[];
     contestId?: string;
     assessmentId?: string;
-    virtualContestId?: string;
+    participationId?: string;
     take?: number;
   }) {
     return prisma.submission.findMany({
@@ -158,7 +152,7 @@ export const submissionRepo = {
         status: { in: opts.statusIn },
         ...(opts.contestId ? { contestId: opts.contestId } : {}),
         ...(opts.assessmentId ? { assessmentId: opts.assessmentId } : {}),
-        ...(opts.virtualContestId ? { virtualContestId: opts.virtualContestId } : {}),
+        ...(opts.participationId ? { participationId: opts.participationId } : {}),
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -359,20 +353,6 @@ export const submissionRepo = {
     });
   },
 
-  findForContestScoreboard(participationIds: string[]) {
-    return prisma.submission.findMany({
-      orderBy: { createdAt: "asc" },
-      select: {
-        ...scoringBaseSelect,
-        contestParticipation: { select: { userId: true } },
-      },
-      where: {
-        contestParticipationId: { in: participationIds },
-        sampleOnly: false,
-      },
-    });
-  },
-
   findForContestScoreboardByContestId(contestId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
@@ -381,7 +361,7 @@ export const submissionRepo = {
     });
   },
 
-  findForVirtualContestScoreboard(virtualContestId: string) {
+  findForVirtualContestScoreboard(participationId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: {
@@ -389,32 +369,31 @@ export const submissionRepo = {
         userId: true,
       },
       where: {
-        virtualContestId,
+        participationId,
         sampleOnly: false,
       },
     });
   },
 
-  findForContestChart(participationIds: string[]) {
+  findForContestChartByContestId(contestId: string, userIds: string[]) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
-      select: {
-        ...scoringBaseSelect,
-        contestParticipationId: true,
-      },
+      select: { ...scoringBaseSelect, userId: true },
       where: {
-        contestParticipationId: { in: participationIds },
+        contestId,
+        userId: { in: userIds },
         sampleOnly: false,
       },
     });
   },
 
-  findForParticipationScoring(participationId: string) {
+  findForContestScoring(contestId: string, userId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: scoringBaseSelect,
       where: {
-        contestParticipationId: participationId,
+        contestId,
+        userId,
         sampleOnly: false,
       },
     });

@@ -62,7 +62,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
 
     const dispatch = resolveScoringDispatch(submission);
     if (dispatch.kind === "contest") {
-      const contestId = await contest.updateContestScores(dispatch.contestParticipationId);
+      const contestId = await contest.updateContestScores(dispatch.contestId, dispatch.userId);
       if (contestId) {
         await notification.publishScoreboardUpdate(contestId);
       }

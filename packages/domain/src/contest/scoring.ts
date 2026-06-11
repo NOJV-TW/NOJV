@@ -1,9 +1,7 @@
 import {
   contestRepo,
-  contestParticipationRepo,
-  mirrorParticipationScore,
   participationRepo,
-  ParticipationVersionConflict,
+  UnifiedParticipationVersionConflict,
   scoreOverrideRepo,
   submissionRepo,
 } from "@nojv/db";
@@ -41,35 +39,25 @@ export interface ScoreboardChart {
 }
 
 type ContestParticipationWithContest = NonNullable<
-  Awaited<ReturnType<typeof contestParticipationRepo.findByIdWithContest>>
+  Awaited<ReturnType<typeof participationRepo.findContestForScoring>>
 >;
 
 export async function updateContestScores(
-  contestParticipationId: string,
+  contestId: string,
+  userId: string,
 ): Promise<string | null> {
   const participation = await runScoreUpdate<ContestParticipationWithContest>(
-    contestParticipationId,
+    `${contestId}:${userId}`,
     {
-      load: () => contestParticipationRepo.findByIdWithContest(contestParticipationId),
-      submissions: (p) => submissionRepo.findForParticipationScoring(p.id),
+      load: () => participationRepo.findContestForScoring(contestId, userId),
+      submissions: (p) => submissionRepo.findForContestScoring(p.contest.id, p.userId),
       overrides: (p) => scoreOverrideRepo.findAllByContext("contest", p.contest.id),
       problemIds: (p) => new Set(p.contest.problems.map((cp) => cp.problemId)),
       scoringMode: (p) => p.contest.scoringMode,
       startsAt: (p) => p.contest.startsAt,
       userId: (p) => p.userId,
-      persist: async (p, fields) => {
-        const result = await contestParticipationRepo.updateWithVersion(
-          p.id,
-          p.version,
-          fields,
-        );
-        await mirrorParticipationScore(
-          { type: "contest", contestId: p.contest.id, userId: p.userId },
-          fields,
-        );
-        return result;
-      },
-      isConflict: (err) => err instanceof ParticipationVersionConflict,
+      persist: (p, fields) => participationRepo.updateWithVersion(p.id, p.version, fields),
+      isConflict: (err) => err instanceof UnifiedParticipationVersionConflict,
     },
   );
 
@@ -114,8 +102,6 @@ export async function getScoreboard(
     };
   }
 
-  // Stage 5 decouple: participant list + submissions now resolve off the unified
-  // Participation table / Submission.contestId instead of ContestParticipation.
   const participants: ParticipantRow[] =
     await participationRepo.findContestScoreboardParticipants(contestId);
 
@@ -184,14 +170,11 @@ export async function getScoreboardChart(
 
   const pointsMap = new Map(scoreboardData.problems.map((p) => [p.id, p.points]));
 
-  const contest = await contestRepo.findForChartById(contestId, [...topUserIds]);
+  const contest = await contestRepo.findInfoById(contestId);
 
-  if (!contest) return { series: [] };
-
-  const participationUserMap = new Map(contest.participations.map((p) => [p.id, p.userId]));
-
-  const participationIds = contest.participations.map((p) => p.id);
-  const submissions = await submissionRepo.findForContestChart(participationIds);
+  const submissions = await submissionRepo.findForContestChartByContestId(contestId, [
+    ...topUserIds,
+  ]);
 
   const frozenCutoff =
     scoreboardData.isFrozen && scoreboardData.frozenAt
@@ -201,18 +184,16 @@ export async function getScoreboardChart(
   const submissionsByUser = new Map<string, SubmissionRow[]>();
   for (const sub of submissions) {
     if (frozenCutoff && sub.createdAt > frozenCutoff) continue;
-    const userId = participationUserMap.get(sub.contestParticipationId ?? "");
-    if (!userId) continue;
     const row: SubmissionRow = {
       createdAt: sub.createdAt,
       problemId: sub.problemId,
       score: sub.score,
       status: sub.status,
-      userId,
+      userId: sub.userId,
     };
-    const existing = submissionsByUser.get(userId);
+    const existing = submissionsByUser.get(sub.userId);
     if (existing) existing.push(row);
-    else submissionsByUser.set(userId, [row]);
+    else submissionsByUser.set(sub.userId, [row]);
   }
 
   const usernameMap = new Map(topEntries.map((e) => [e.userId, e.username]));

@@ -12,6 +12,7 @@ const {
   overrideDelete,
   overrideFindById,
   auditCreate,
+  UnifiedParticipationVersionConflict,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   contestFindInfoById: vi.fn(() => Promise.resolve({ scoringMode: "point_sum" })),
@@ -24,6 +25,7 @@ const {
   overrideDelete: vi.fn(),
   overrideFindById: vi.fn(),
   auditCreate: vi.fn(),
+  UnifiedParticipationVersionConflict: class extends Error {},
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -31,13 +33,22 @@ vi.mock("@nojv/db", () => ({
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   examRepo: { findById: examFindById, findInfoById: examFindInfoById },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
-  contestParticipationRepo: { findIdByContestAndUser: vi.fn(() => Promise.resolve(null)) },
-  examParticipationRepo: { findIdByExamAndUser: vi.fn(() => Promise.resolve(null)) },
+  participationRepo: {
+    findContestForScoring: vi.fn(() => Promise.resolve(null)),
+    findExamForScoring: vi.fn(() => Promise.resolve(null)),
+    updateWithVersion: vi.fn(() => Promise.resolve(undefined)),
+  },
+  UnifiedParticipationVersionConflict,
   scoreOverrideRepo: {
     create: overrideCreate,
     update: overrideUpdate,
     delete: overrideDelete,
     findById: overrideFindById,
+    findAllByContext: vi.fn(() => Promise.resolve([])),
+  },
+  submissionRepo: {
+    findForContestScoring: vi.fn(() => Promise.resolve([])),
+    findMany: vi.fn(() => Promise.resolve([])),
   },
   scoreOverrideAuditLogRepo: {
     create: auditCreate,

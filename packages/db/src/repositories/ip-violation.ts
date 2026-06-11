@@ -75,22 +75,3 @@ async function findLastViolationAt(
   });
   return row?.createdAt ?? null;
 }
-
-export const examParticipationIpRepo = {
-  withTx(tx: TxClient) {
-    return {
-      updateIpPin(id: string, ip: string) {
-        return tx.examParticipation.update({
-          where: { id },
-          data: { ipPin: ip },
-        });
-      },
-      clearPinAndExempt(examId: string, userId: string, exemptUntil: Date) {
-        return tx.examParticipation.update({
-          where: { examId_userId: { examId, userId } },
-          data: { ipPin: null, ipGateExemptUntil: exemptUntil },
-        });
-      },
-    };
-  },
-};

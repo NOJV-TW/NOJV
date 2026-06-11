@@ -21,13 +21,6 @@ enum ContestScoringMode {
   point_sum // IOI-style: score = weighted sum of subtask partial credit
 }
 
-enum ContestParticipationStatus {
-  registered
-  active
-  submitted
-  disqualified
-}
-
 /// Exam lifecycle — mirrors ContestVisibility but named for the
 /// course-embedded flow so the two stay decoupled if either side
 /// grows extra states.
@@ -39,13 +32,6 @@ enum ExamStatus {
 enum ExamScoringMode {
   problem_count
   point_sum
-}
-
-enum ExamParticipationStatus {
-  registered
-  active
-  submitted
-  disqualified
 }
 
 /// Shared by Contest and Exam.
@@ -118,13 +104,11 @@ model Contest {
   plagiarismCompletedAt   DateTime?
   plagiarismTriggeredById String?
 
-  createdBy             User?                  @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  plagiarismTriggeredBy User?                  @relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  createdBy             User?            @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  plagiarismTriggeredBy User?            @relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
   problems              ContestProblem[]
-  participations        ContestParticipation[]
   submissions           Submission[]
-  virtualContests       VirtualContest[]
-  unifiedParticipations Participation[]        @relation("ContestUnifiedParticipation")
+  participations        Participation[]  @relation("ContestUnifiedParticipation")
 }
 
 model ContestProblem {
@@ -139,29 +123,6 @@ model ContestProblem {
 
   @@unique([contestId, problemId])
   @@unique([contestId, ordinal])
-}
-
-model ContestParticipation {
-  id             String                     @id @default(cuid())
-  contestId      String
-  userId         String
-  status         ContestParticipationStatus @default(registered)
-  startedAt      DateTime?
-  submittedAt    DateTime?
-  score          Int                        @default(0)
-  penaltySeconds Int                        @default(0)
-  subtaskScores  Json?
-  /// Optimistic-lock counter — bumped on every score recompute so
-  /// concurrent `updateContestScores` calls cannot silently overwrite
-  /// each other. See packages/domain/src/contest/scoring.ts.
-  version        Int                        @default(0)
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
-  contest        Contest                    @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  submissions    Submission[]
-
-  @@unique([contestId, userId])
 }
 
 /// Course-embedded exam. Always tied to a course (`courseId` NOT NULL)
@@ -208,12 +169,11 @@ model Exam {
   createdBy             User?                @relation("ExamCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   plagiarismTriggeredBy User?                @relation("ExamPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
   problems              ExamProblem[]
-  participations        ExamParticipation[]
   submissions           Submission[]
   ipViolationLogs       IpViolationLog[]
   activeSessions        ActiveExamSession[]
   submissionFeedback    SubmissionFeedback[]
-  unifiedParticipations Participation[]      @relation("ExamUnifiedParticipation")
+  participations        Participation[]      @relation("ExamUnifiedParticipation")
 
   @@index([courseId, status])
 }
@@ -230,35 +190,6 @@ model ExamProblem {
 
   @@unique([examId, problemId])
   @@unique([examId, ordinal])
-}
-
-model ExamParticipation {
-  id                String                  @id @default(cuid())
-  examId            String
-  userId            String
-  status            ExamParticipationStatus @default(registered)
-  registeredAt      DateTime                @default(now())
-  startedAt         DateTime?
-  submittedAt       DateTime?
-  disqualifiedAt    DateTime?
-  score             Int                     @default(0)
-  penaltySeconds    Int                     @default(0)
-  subtaskScores     Json?
-  ipPin             String?
-  /// Teacher-granted grace window: while now < this, the IP gate is skipped for
-  /// this student (e.g. mid-exam machine swap) but still re-pins on first access.
-  ipGateExemptUntil DateTime?
-  /// Optimistic-lock counter — bumped on every score recompute so
-  /// concurrent `updateExamScores` calls cannot silently overwrite
-  /// each other. Mirrors `ContestParticipation.version`.
-  version           Int                     @default(0)
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  exam              Exam                    @relation(fields: [examId], references: [id], onDelete: Cascade)
-  user              User                    @relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([examId, userId])
-  @@index([userId, status])
 }
 
 /// Audit log for IP whitelist / IP binding violations. Exams and
@@ -325,75 +256,43 @@ model ExamSessionEvent {
   @@index([sessionId, occurredAt])
 }
 
-enum VirtualContestStatus {
-  active
-  finished
-}
-
-/// One user's time-shifted personal re-run of a past contest. Lets a
-/// user replay an already-ended contest on their own clock — the
-/// original contest is untouched; scores/penalty here are private to
-/// the virtual run. At most one per (contest, user).
-model VirtualContest {
-  id             String               @id @default(cuid())
-  contestId      String
-  userId         String
-  startedAt      DateTime             @default(now())
-  endsAt         DateTime
-  status         VirtualContestStatus @default(active)
-  score          Int                  @default(0)
-  penaltySeconds Int                  @default(0)
-  subtaskScores  Json?
-  /// Optimistic-lock counter — bumped on every score recompute so
-  /// concurrent score updates cannot silently overwrite each other.
-  /// Mirrors `ContestParticipation.version`.
-  version        Int                  @default(0)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-
-  contest     Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  submissions Submission[]
-
-  @@unique([contestId, userId])
-  @@index([userId, createdAt])
-}
-
 enum ParticipationType {
   contest
   exam
   virtual
 }
 
-/// Unified timed-assessment participation supertype — Stage 1 of the triplet
-/// convergence (docs/plans/active/2026-06-11-timed-assessment-supertype-design.md).
-/// Additive only: nothing writes or reads this yet. `type` selects which FK is
-/// set; the `Participation_single_context_chk` CHECK (in the migration, not
-/// expressible in Prisma schema) enforces exactly one. `typeData` holds
-/// type-specific fields (exam: ipPin/ipGateExemptUntil/disqualifiedAt/registeredAt;
-/// virtual: endsAt).
+/// Unified timed-assessment participation (contest / exam / virtual). The
+/// `Participation_single_context_chk` CHECK and the two partial UNIQUE indexes
+/// live only in the migration SQL — Prisma cannot express either, so `migrate
+/// diff` is blind to them and db-push dev/test DBs do not get them.
 model Participation {
-  id             String            @id @default(cuid())
-  type           ParticipationType
-  userId         String
-  contestId      String?
-  examId         String?
-  score          Int               @default(0)
-  penaltySeconds Int               @default(0)
-  subtaskScores  Json?
-  status         String
-  version        Int               @default(0)
-  startedAt      DateTime?
-  submittedAt    DateTime?
-  typeData       Json?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id                String            @id @default(cuid())
+  type              ParticipationType
+  userId            String
+  contestId         String?
+  examId            String?
+  score             Int               @default(0)
+  penaltySeconds    Int               @default(0)
+  subtaskScores     Json?
+  status            String
+  version           Int               @default(0)
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  ipPin             String?
+  /// Teacher-granted grace window: while now < this, the IP gate is skipped for
+  /// this student (e.g. mid-exam machine swap) but still re-pins on first access.
+  ipGateExemptUntil DateTime?
+  endsAt            DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  user    User     @relation("UnifiedParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
-  contest Contest? @relation("ContestUnifiedParticipation", fields: [contestId], references: [id], onDelete: Cascade)
-  exam    Exam?    @relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)
+  user        User         @relation("UnifiedParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
+  contest     Contest?     @relation("ContestUnifiedParticipation", fields: [contestId], references: [id], onDelete: Cascade)
+  exam        Exam?        @relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)
+  submissions Submission[]
 
+  @@unique([type, contestId, userId])
+  @@unique([type, examId, userId])
   @@index([userId])
-  @@index([contestId])
-  @@index([examId])
 }

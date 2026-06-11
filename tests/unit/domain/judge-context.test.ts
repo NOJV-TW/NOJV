@@ -83,7 +83,7 @@ function mkSubmissionRow(
     id: "sub_1",
     createdAt: new Date("2026-04-20T12:00:00Z"),
     assessment: null,
-    contestParticipation: null,
+    contest: null,
     problem: mkProblemRow(problemOverrides),
     ...overrides,
   };
@@ -384,12 +384,9 @@ describe("getJudgeContext", () => {
     it("falls back to contest.endsAt when the submission belongs to a contest (no assessment)", async () => {
       const endsAt = new Date("2026-04-20T18:00:00Z");
       const row = mkSubmissionRow({
-        contestParticipation: {
-          contestId: "ct_1",
-          contest: {
-            startsAt: new Date("2026-04-20T10:00:00Z"),
-            endsAt,
-          },
+        contest: {
+          startsAt: new Date("2026-04-20T10:00:00Z"),
+          endsAt,
         },
       });
       findByIdWithJudgeContext.mockResolvedValue(row);

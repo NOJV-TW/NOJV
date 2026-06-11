@@ -2,36 +2,32 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   findForScoreboardById,
-  findForChartById,
-  findForContestScoreboard,
+  findInfoById,
   findForContestScoreboardByContestId,
-  findForContestChart,
+  findForContestChartByContestId,
   findContestScoreboardParticipants,
 } = vi.hoisted(() => ({
   findForScoreboardById: vi.fn(),
-  findForChartById: vi.fn(),
-  findForContestScoreboard: vi.fn(),
+  findInfoById: vi.fn(),
   findForContestScoreboardByContestId: vi.fn(),
-  findForContestChart: vi.fn(),
+  findForContestChartByContestId: vi.fn(),
   findContestScoreboardParticipants: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   contestRepo: {
     findForScoreboardById,
-    findForChartById,
+    findInfoById,
   },
   submissionRepo: {
-    findForContestScoreboard,
     findForContestScoreboardByContestId,
-    findForContestChart,
+    findForContestChartByContestId,
   },
   participationRepo: {
     findContestScoreboardParticipants,
   },
-  contestParticipationRepo: {},
   scoreOverrideRepo: {},
-  ParticipationVersionConflict: class extends Error {},
+  UnifiedParticipationVersionConflict: class extends Error {},
 }));
 
 vi.mock("@nojv/redis", () => ({
@@ -50,16 +46,9 @@ function minutes(n: number): Date {
   return new Date(START.getTime() + n * 60 * 1000);
 }
 
-function mkSub(
-  participationId: string,
-  problemId: string,
-  score: number,
-  minutesAfterStart: number,
-) {
+function mkSub(userId: string, problemId: string, score: number, minutesAfterStart: number) {
   return {
-    contestParticipation: { userId: participationId.replace("part-", "") },
-    contestParticipationId: participationId,
-    userId: participationId.replace("part-", ""),
+    userId,
     createdAt: minutes(minutesAfterStart),
     problemId,
     score,
@@ -75,18 +64,6 @@ beforeEach(() => {
     frozenAt: FROZEN_AT,
     frozenBoard: true,
     id: "contest-1",
-    participations: [
-      {
-        id: "part-u1",
-        user: { displayUsername: null, name: "u1", username: "u1" },
-        userId: "u1",
-      },
-      {
-        id: "part-u2",
-        user: { displayUsername: null, name: "u2", username: "u2" },
-        userId: "u2",
-      },
-    ],
     problems: [
       { ordinal: 1, points: 100, problem: { title: "P1" }, problemId: "P1" },
       { ordinal: 2, points: 100, problem: { title: "P2" }, problemId: "P2" },
@@ -97,11 +74,10 @@ beforeEach(() => {
     visibility: "public",
   });
 
-  findForChartById.mockResolvedValue({
-    participations: [
-      { id: "part-u1", userId: "u1" },
-      { id: "part-u2", userId: "u2" },
-    ],
+  findInfoById.mockResolvedValue({
+    endsAt: END,
+    frozenAt: FROZEN_AT,
+    scoringMode: "problem_count",
     startsAt: START,
   });
 
@@ -111,13 +87,12 @@ beforeEach(() => {
   ]);
 
   const submissions = [
-    mkSub("part-u2", "P1", 100, 20),
-    mkSub("part-u1", "P1", 100, 30),
-    mkSub("part-u1", "P2", 100, 130),
+    mkSub("u2", "P1", 100, 20),
+    mkSub("u1", "P1", 100, 30),
+    mkSub("u1", "P2", 100, 130),
   ];
-  findForContestScoreboard.mockResolvedValue(submissions);
   findForContestScoreboardByContestId.mockResolvedValue(submissions);
-  findForContestChart.mockResolvedValue(submissions);
+  findForContestChartByContestId.mockResolvedValue(submissions);
 });
 
 describe("getScoreboardChart freeze cutoff", () => {

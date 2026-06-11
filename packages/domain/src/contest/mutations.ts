@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
 
 import {
-  contestParticipationRepo,
   contestProblemRepo,
   contestRepo,
+  participationRepo,
   problemRepo,
   runTransaction,
   submissionRepo,
@@ -108,19 +108,9 @@ export async function ensureContestParticipation(
     throw new ForbiddenError("Contest has ended.");
   }
 
-  const participation = await contestParticipationRepo.withTx(tx).upsert(
-    contest.id,
-    userId,
-    {
-      contestId: contest.id,
-      startedAt: new Date(),
-      status: "active",
-      userId,
-    },
-    {
-      status: "active",
-    },
-  );
+  const participation = await participationRepo
+    .withTx(tx)
+    .upsertContestActive(contest.id, userId, new Date());
 
   return { contest, participation };
 }
@@ -140,10 +130,8 @@ export async function checkSubmitCooldown(
   const cutoff = new Date(Date.now() - cooldownSec * 1000);
 
   const recentSubmission = await submissionRepo.withTx(tx).findMostRecent({
-    contestParticipation: {
-      contestId,
-      userId,
-    },
+    contestId,
+    userId,
     problemId,
     sampleOnly: false,
     createdAt: { gte: cutoff },

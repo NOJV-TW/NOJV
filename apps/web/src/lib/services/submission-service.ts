@@ -23,7 +23,7 @@ export interface SubmissionWorkspaceFile {
 export interface SubmissionRequest {
   assessment?: SubmissionAssessmentContext | undefined;
   contestId?: string | undefined;
-  virtualContestId?: string | undefined;
+  participationId?: string | undefined;
   language: Language;
   problemId: string;
   runCases?: SubmissionRunCase[];
@@ -48,7 +48,7 @@ function resolveSubmissionMode(
   request: SubmissionRequest,
 ): "contest" | "assignment" | "practice" | "virtual" {
   if (request.contestId) return "contest";
-  if (request.virtualContestId) return "virtual";
+  if (request.participationId) return "virtual";
   if (request.assessment) return "assignment";
   return "practice";
 }
@@ -59,7 +59,7 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
   const commonFields: Record<string, unknown> = {
     assessment: request.assessment,
     contestId: request.contestId,
-    virtualContestId: request.virtualContestId,
+    participationId: request.participationId,
     language: request.language,
     mode,
     problemId: request.problemId,
