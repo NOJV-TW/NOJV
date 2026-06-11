@@ -6,6 +6,7 @@ const {
   findMany,
   findAllByContext,
   updateWithVersion,
+  mirrorParticipationScore,
   ExamParticipationVersionConflict,
 } = vi.hoisted(() => {
   class ExamParticipationVersionConflict extends Error {
@@ -24,6 +25,7 @@ const {
     findMany: vi.fn(),
     findAllByContext: vi.fn(),
     updateWithVersion: vi.fn(),
+    mirrorParticipationScore: vi.fn(),
     ExamParticipationVersionConflict,
   };
 });
@@ -41,6 +43,7 @@ vi.mock("@nojv/db", () => ({
   scoreOverrideRepo: {
     findAllByContext,
   },
+  mirrorParticipationScore,
   ExamParticipationVersionConflict,
 }));
 
