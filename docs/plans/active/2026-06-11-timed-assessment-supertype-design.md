@@ -71,7 +71,10 @@ model Participation {
   - **已查實 mirror 對 score/status/startedAt 忠實**:contest/exam 的 status/startedAt 只走已鏡像的 `upsert`,score 走 Stage 3 dual-write;`*ParticipationRepo.update`(plain)在 domain 全無呼叫。**唯一未鏡像 = exam `ipPin`/`ipGateExemptUntil`**(走 `ip-violation` repo 直寫,屬 IP-gate 操作欄、非 standings,留 Stage 5)。
   - **standings read-switch 已完成(就一個 site)**:全 codebase 直接讀 `participation.score/penalty/startedAt/status` 的消費點**只有 `getContestWorkspaceData` 一處**(分數幾乎都從 submissions 重算),已改讀 `participationRepo.findContestParticipation`(新讀取 primitive)。平行驗證測試 + contests API 測試改走 mirror 路徑。`exam/session.ts` 的 `status==='registered'` 是寫入路徑內的操作判斷(同 tx),非 standings,不切。
   - **⚠️ 其餘 participation 讀取耦合 Stage 5,Stage 4 切不了**:scoreboard 的 participant list 來自 `contest.participations` include,但**同一查詢用 `findForContestScoreboard(participationIds)` 以舊 `contestParticipationId` 抓 submissions**——participant list 與 submission 連結都綁在舊 `ContestParticipation` id 上。切到 `Participation` 需 Submission FK 先收斂到 `participationId`(= Stage 5)。所以 scoreboard / 管理頁 participant-list **不是獨立小 PR,是 Stage 5 的一部分**。
-- **Stage 5 — contract**:**exam submission `examId`→`participationId` backfill(最高風險,單獨對帳)** + Submission 的 `contestParticipationId`/`virtualContestId` 收斂到 `participationId`;drop 三張舊表 + 三個舊 conflict class + 三個 updateWithVersion。
+- **Stage 5 — contract(進行中,prod 無重要資料故可不可逆)**:逐個解耦舊三表的讀寫,最後 drop。
+  - **5a ✅ contest scoreboard 解耦**:`getScoreboard` 的 participant list 改讀 `participationRepo.findContestScoreboardParticipants`(type=contest),submissions 改用 `submissionRepo.findForContestScoreboardByContestId(contestId)`(submissions 本就有 `contestId`+`userId`,不需 `contestParticipationId`)。**這解開了 Stage 4 卡住的 participant-list**。chart/exam scoreboard 同模式待續。
+  - **剩餘**:getScoreboardChart、exam scoreboard、各管理頁 participant list 同樣解耦 → participation 的 create/update 改以 `participationRepo` 為主寫(換掉 3 個舊 repo)→ exam submission 的 participation 對應 + Submission 的 `contestParticipationId`/`virtualContestId` 收斂(或直接 drop,因改用 `contestId`/`examId`+`userId` 對應 Participation)→ **drop 三張舊表 + 三 conflict class + 三 updateWithVersion**。
+  - 每步先用平行驗證測試守門;mock-based unit test 凡呼叫 `getScoreboard` 的都要補新 repo 方法到 mock。
 
 每階段都跑 `ci:verify` + integration;Stage 2–5 每階段先在 dev `db push` 驗證再寫 migration。
 

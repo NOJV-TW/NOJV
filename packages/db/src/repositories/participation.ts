@@ -1,5 +1,6 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
+import { userScoreboardSelect } from "./selects";
 
 export class UnifiedParticipationVersionConflict extends Error {
   readonly participationId: string;
@@ -27,6 +28,13 @@ export const participationRepo = {
   findContestParticipation(contestId: string, userId: string) {
     return prisma.participation.findFirst({
       where: { type: "contest", contestId, userId },
+    });
+  },
+
+  findContestScoreboardParticipants(contestId: string) {
+    return prisma.participation.findMany({
+      where: { type: "contest", contestId, status: { in: ["active", "submitted"] } },
+      select: { userId: true, user: { select: userScoreboardSelect } },
     });
   },
 

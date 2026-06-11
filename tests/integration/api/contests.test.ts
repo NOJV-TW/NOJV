@@ -221,14 +221,21 @@ describe("contest queries (real DB)", () => {
       });
 
       const user = await createTestUser();
-      const participation = await testPrisma.contestParticipation.create({
-        data: {
-          contestId: contest.id,
-          userId: user.id,
-          status: "active",
-          startedAt: new Date("2026-01-01T00:00:00Z"),
-        },
-      });
+      // Use the repo upsert so the unified Participation mirror exists
+      // (getScoreboard reads participants from Participation as of Stage 5).
+      const participation = await runTransaction((tx) =>
+        contestParticipationRepo.withTx(tx).upsert(
+          contest.id,
+          user.id,
+          {
+            contestId: contest.id,
+            userId: user.id,
+            status: "active",
+            startedAt: new Date("2026-01-01T00:00:00Z"),
+          },
+          { status: "active" },
+        ),
+      );
 
       // Create an accepted submission. Sources live in object storage but the
       // scoreboard test doesn't read them — just stamp a prefix.
