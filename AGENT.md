@@ -39,6 +39,7 @@ when working on a specific area, open the listed doc first.
 | Cloud Run / GKE config, env vars, Cloud Build        | [Deployment Guide](docs/operations/DEPLOYMENT.md)                             |
 | Feature scope, product direction, shipped vs planned | [Product Sense](docs/product/PRODUCT_SENSE.md)                                |
 | Multi-step work needing checkpoints                  | [Planning System](docs/product/PLANS.md) → write plan in `docs/plans/active/` |
+| Which runbook for an operational task                | [Runbooks Index](docs/runbooks/README.md)                                     |
 | Local dev setup, first run, troubleshooting          | [Getting Started](docs/runbooks/getting-started.md)                           |
 | Outage response, SLO breach, recovery steps          | [Incident Recovery](docs/runbooks/incident-recovery.md)                       |
 | Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                           |
