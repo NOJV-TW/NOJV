@@ -45,7 +45,7 @@
 
 ## 建議
 
-1. **做槓桿 1**(編排 adapter)——這捕捉了**大部分維護效益**(「改一處漏改另一處」那類 P1 漂移從此結構性不可能),風險低、可獨立 PR、現有測試守門。
+1. **做槓桿 1**(編排 adapter)——✅ **已實作(2026-06-11)**:`scoring/run-score-update.ts` 的 `runScoreUpdate(participationId, adapter)` 把 retry loop + scoringMode 分支 + persist-core 呼叫收成一份;`updateContestScores`/`updateExamScores` 各剩 ~12 行的 adapter(`load`/`submissions`/`overrides`/`persist`/`isConflict`)。刪掉 `persistContest*`/`persist*` 四個重複函式。`run-score-update.test.ts`(6 例)+ 既有 race 測試行為等價守門全綠。「改一處漏改另一處」那類 P1 漂移從此結構性不可能。
 2. **不做 / 無限期遞延槓桿 2**(FK 多型化)——級聯降級 + ~90 檔 blast radius 的成本**高於效益**;nullable-FK + XOR CHECK + 複合 index 的現行模型已**安全且夠快**,多型化不會簡化 participation 端(participation 仍是三份)。**只在新增第 4+ 種 context 型別時才重新評估。**
 3. VirtualContest / Assignment **別硬拉進統一**:virtual 讀時用 `buildScoreboard` 不落地、assignment 用 Prisma `_max` aggregate,是不同計分形態。
 
@@ -65,6 +65,6 @@
 
 ## 需要你拍板的決策點
 
-1. **槓桿 1(編排 adapter)** — 批准做嗎?(建議:是)
-2. **槓桿 2(Submission FK 多型化)** — 無限期遞延(建議)vs 仍要先做衝擊 spike?
-3. **槓桿 1 的 Task 4(updateWithVersion 泛型化)** — 只在型別安全可保時做,否則維持三份由 adapter 包起來——接受這個條件式範圍嗎?
+1. ~~**槓桿 1(編排 adapter)** — 批准做嗎?~~ ✅ **已做(2026-06-11)**,見上。
+2. **槓桿 2(Submission FK 多型化)** — 無限期遞延(建議)vs 仍要先做衝擊 spike?**仍待拍板**。
+3. **Task 4(`updateWithVersion` 泛型化)** — 三份 `updateWithVersion` + conflict class 仍各自存在(由 adapter 的 `persist`/`isConflict` 包起來),**刻意未泛型化**(跨三 Prisma model 參數化會犧牲型別安全)。如要再收斂需先做型別安全 spike。
