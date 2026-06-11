@@ -59,6 +59,7 @@ model User {
   contestParticipations          ContestParticipation[]
   examParticipations             ExamParticipation[]          @relation("ExamParticipationUser")
   virtualContests                VirtualContest[]
+  unifiedParticipations          Participation[]              @relation("UnifiedParticipationUser")
   authoredProblems               Problem[]                    @relation("ProblemAuthor")
   ownedCourses                   Course[]                     @relation("CourseOwner")
   courseMemberships              CourseMembership[]           @relation("CourseMembershipUser")

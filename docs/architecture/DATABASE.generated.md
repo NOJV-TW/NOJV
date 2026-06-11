@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_43 models and 38 enums across 9 schema files._
+_44 models and 39 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -111,6 +111,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `contestParticipations` | `ContestParticipation[]` | — |
 | `examParticipations` | `ExamParticipation[]` | `@relation("ExamParticipationUser")` |
 | `virtualContests` | `VirtualContest[]` | — |
+| `unifiedParticipations` | `Participation[]` | `@relation("UnifiedParticipationUser")` |
 | `authoredProblems` | `Problem[]` | `@relation("ProblemAuthor")` |
 | `ownedCourses` | `Course[]` | `@relation("CourseOwner")` |
 | `courseMemberships` | `CourseMembership[]` | `@relation("CourseMembershipUser")` |
@@ -243,6 +244,10 @@ Exam lifecycle — mirrors ContestVisibility but named for the course-embedded f
 
 `whitelist` · `binding`
 
+#### `ParticipationType`
+
+`contest` · `exam` · `virtual`
+
 #### `ScoreboardMode`
 
 Shared by Contest and Exam.
@@ -310,6 +315,7 @@ Standalone contest — public / invite-only competition with no course binding. 
 | `participations` | `ContestParticipation[]` | — |
 | `submissions` | `Submission[]` | — |
 | `virtualContests` | `VirtualContest[]` | — |
+| `unifiedParticipations` | `Participation[]` | `@relation("ContestUnifiedParticipation")` |
 
 #### `ContestParticipation`
 
@@ -388,6 +394,7 @@ Course-embedded exam. Always tied to a course (`courseId` NOT NULL) and carries 
 | `ipViolationLogs` | `IpViolationLog[]` | — |
 | `activeSessions` | `ActiveExamSession[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
+| `unifiedParticipations` | `Participation[]` | `@relation("ExamUnifiedParticipation")` |
 
 Indexes & constraints: `@@index([courseId, status])`
 
@@ -463,6 +470,33 @@ Audit log for IP whitelist / IP binding violations. Exams and standalone contest
 | `exam` | `Exam` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, createdAt])`
+
+#### `Participation`
+
+Unified timed-assessment participation supertype — Stage 1 of the triplet convergence (docs/plans/active/2026-06-11-timed-assessment-supertype-design.md). Additive only: nothing writes or reads this yet. `type` selects which FK is set; the `Participation_single_context_chk` CHECK (in the migration, not expressible in Prisma schema) enforces exactly one. `typeData` holds type-specific fields (exam: ipPin/ipGateExemptUntil/disqualifiedAt/registeredAt; virtual: endsAt).
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `type` | `ParticipationType` | — |
+| `userId` | `String` | — |
+| `contestId` | `String?` | — |
+| `examId` | `String?` | — |
+| `score` | `Int` | `@default(0)` |
+| `penaltySeconds` | `Int` | `@default(0)` |
+| `subtaskScores` | `Json?` | — |
+| `status` | `String` | — |
+| `version` | `Int` | `@default(0)` |
+| `startedAt` | `DateTime?` | — |
+| `submittedAt` | `DateTime?` | — |
+| `typeData` | `Json?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `user` | `User` | `@relation("UnifiedParticipationUser", fields: [userId], references: [id], onDelete: Cascade)` |
+| `contest` | `Contest?` | `@relation("ContestUnifiedParticipation", fields: [contestId], references: [id], onDelete: Cascade)` |
+| `exam` | `Exam?` | `@relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([userId])`, `@@index([contestId])`, `@@index([examId])`
 
 #### `VirtualContest`
 
