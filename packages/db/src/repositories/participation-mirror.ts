@@ -153,3 +153,62 @@ export async function backfillParticipation(): Promise<{
 
   return { contest: contests.length, exam: exams.length, virtual: virtuals.length };
 }
+
+export interface ReconcileReport {
+  contest: { total: number; missing: number; scoreMismatch: number };
+  exam: { total: number; missing: number; scoreMismatch: number };
+  virtual: { total: number; missing: number };
+  ok: boolean;
+}
+
+// Stage 4 gate: read-only check that the Participation mirror matches the legacy
+// tables before any read is switched over. virtual score is intentionally not
+// dual-written (it is recomputed on read), so virtual is checked by presence only.
+export async function reconcileParticipation(): Promise<ReconcileReport> {
+  const contests = await prisma.contestParticipation.findMany({
+    select: { contestId: true, userId: true, score: true },
+  });
+  let cMissing = 0;
+  let cMismatch = 0;
+  for (const p of contests) {
+    const m = await prisma.participation.findFirst({
+      where: { type: "contest", contestId: p.contestId, userId: p.userId },
+      select: { score: true },
+    });
+    if (!m) cMissing++;
+    else if (m.score !== p.score) cMismatch++;
+  }
+
+  const exams = await prisma.examParticipation.findMany({
+    select: { examId: true, userId: true, score: true },
+  });
+  let eMissing = 0;
+  let eMismatch = 0;
+  for (const p of exams) {
+    const m = await prisma.participation.findFirst({
+      where: { type: "exam", examId: p.examId, userId: p.userId },
+      select: { score: true },
+    });
+    if (!m) eMissing++;
+    else if (m.score !== p.score) eMismatch++;
+  }
+
+  const virtuals = await prisma.virtualContest.findMany({
+    select: { contestId: true, userId: true },
+  });
+  let vMissing = 0;
+  for (const p of virtuals) {
+    const m = await prisma.participation.findFirst({
+      where: { type: "virtual", contestId: p.contestId, userId: p.userId },
+      select: { id: true },
+    });
+    if (!m) vMissing++;
+  }
+
+  return {
+    contest: { total: contests.length, missing: cMissing, scoreMismatch: cMismatch },
+    exam: { total: exams.length, missing: eMissing, scoreMismatch: eMismatch },
+    virtual: { total: virtuals.length, missing: vMissing },
+    ok: cMissing + cMismatch + eMissing + eMismatch + vMissing === 0,
+  };
+}
