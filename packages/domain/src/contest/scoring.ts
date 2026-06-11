@@ -7,12 +7,11 @@ import {
 } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 
-import { ConflictError, NotFoundError } from "../shared/errors";
+import { NotFoundError } from "../shared/errors";
 import {
   buildScoreboard,
   buildScoreboardChartSeries,
-  computeBestScoreState,
-  computeProblemCountState,
+  runScoreUpdate,
   type ParticipantRow,
   type ScoreboardEntry,
   type ScoreboardProblem,
@@ -39,98 +38,30 @@ export interface ScoreboardChart {
   }[];
 }
 
-const SCORE_UPDATE_MAX_ATTEMPTS = 3;
-
 type ContestParticipationWithContest = NonNullable<
   Awaited<ReturnType<typeof contestParticipationRepo.findByIdWithContest>>
 >;
-type ContestSubmissionRows = Awaited<
-  ReturnType<typeof submissionRepo.findForParticipationScoring>
->;
-type ContestProblemMap = Map<
-  string,
-  ContestParticipationWithContest["contest"]["problems"][number]
->;
-type ContestOverrideRows = Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>>;
-
-async function persistContestProblemCountScore(
-  participation: ContestParticipationWithContest,
-  allSubmissions: ContestSubmissionRows,
-  contestProblems: ContestProblemMap,
-): Promise<void> {
-  const { score, penaltySeconds } = computeProblemCountState({
-    submissions: allSubmissions,
-    problemIds: new Set(contestProblems.keys()),
-    startsAt: participation.contest.startsAt,
-  });
-
-  await contestParticipationRepo.updateWithVersion(participation.id, participation.version, {
-    penaltySeconds,
-    score,
-  });
-}
-
-async function persistContestBestScore(
-  participation: ContestParticipationWithContest,
-  allSubmissions: ContestSubmissionRows,
-  contestProblems: ContestProblemMap,
-  overrideRows: ContestOverrideRows,
-): Promise<void> {
-  const { totalScore, subtaskScores } = computeBestScoreState({
-    submissions: allSubmissions,
-    problemIds: new Set(contestProblems.keys()),
-    overrides: overrideRows,
-    userId: participation.userId,
-  });
-
-  await contestParticipationRepo.updateWithVersion(participation.id, participation.version, {
-    score: totalScore,
-    subtaskScores,
-  });
-}
 
 export async function updateContestScores(
   contestParticipationId: string,
 ): Promise<string | null> {
-  let overrideRows: ContestOverrideRows | undefined;
-
-  for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
-    const participation =
-      await contestParticipationRepo.findByIdWithContest(contestParticipationId);
-
-    if (!participation) return null;
-
-    const { contest } = participation;
-
-    const allSubmissions = await submissionRepo.findForParticipationScoring(participation.id);
-
-    const contestProblems = new Map(contest.problems.map((p) => [p.problemId, p]));
-
-    try {
-      if (contest.scoringMode === "problem_count") {
-        await persistContestProblemCountScore(participation, allSubmissions, contestProblems);
-      } else {
-        overrideRows ??= await scoreOverrideRepo.findAllByContext("contest", contest.id);
-        await persistContestBestScore(
-          participation,
-          allSubmissions,
-          contestProblems,
-          overrideRows,
-        );
-      }
-
-      return contest.id;
-    } catch (err) {
-      if (err instanceof ParticipationVersionConflict) {
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  throw new ConflictError(
-    `Could not persist score for participation ${contestParticipationId} after ${String(SCORE_UPDATE_MAX_ATTEMPTS)} attempts.`,
+  const participation = await runScoreUpdate<ContestParticipationWithContest>(
+    contestParticipationId,
+    {
+      load: () => contestParticipationRepo.findByIdWithContest(contestParticipationId),
+      submissions: (p) => submissionRepo.findForParticipationScoring(p.id),
+      overrides: (p) => scoreOverrideRepo.findAllByContext("contest", p.contest.id),
+      problemIds: (p) => new Set(p.contest.problems.map((cp) => cp.problemId)),
+      scoringMode: (p) => p.contest.scoringMode,
+      startsAt: (p) => p.contest.startsAt,
+      userId: (p) => p.userId,
+      persist: (p, fields) =>
+        contestParticipationRepo.updateWithVersion(p.id, p.version, fields),
+      isConflict: (err) => err instanceof ParticipationVersionConflict,
+    },
   );
+
+  return participation ? participation.contest.id : null;
 }
 
 export async function getScoreboard(

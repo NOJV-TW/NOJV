@@ -4,3 +4,4 @@ export * from "./point-sum";
 export * from "./scoreboard-builder";
 export * from "./resolve-final-score";
 export * from "./persist-core";
+export * from "./run-score-update";

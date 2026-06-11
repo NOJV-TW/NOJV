@@ -7,11 +7,10 @@ import {
 } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 
-import { ConflictError, NotFoundError } from "../shared/errors";
+import { NotFoundError } from "../shared/errors";
 import {
   buildScoreboard,
-  computeBestScoreState,
-  computeProblemCountState,
+  runScoreUpdate,
   type ParticipantRow,
   type ScoreboardEntry,
   type ScoreboardProblem,
@@ -28,98 +27,27 @@ export interface ExamScoreboard {
   scoreboardMode: ScoreboardMode;
 }
 
-const SCORE_UPDATE_MAX_ATTEMPTS = 3;
-
 type ExamParticipationWithExam = NonNullable<
   Awaited<ReturnType<typeof examParticipationRepo.findByIdWithExam>>
 >;
-type ExamSubmissionRows = Awaited<ReturnType<typeof submissionRepo.findMany>>;
-type ExamProblemMap = Map<string, ExamParticipationWithExam["exam"]["problems"][number]>;
-type OverrideRows = Awaited<ReturnType<typeof scoreOverrideRepo.findAllByContext>>;
-
-async function persistProblemCountScore(
-  participation: ExamParticipationWithExam,
-  allSubmissions: ExamSubmissionRows,
-  examProblems: ExamProblemMap,
-): Promise<void> {
-  const { score, penaltySeconds } = computeProblemCountState({
-    submissions: allSubmissions,
-    problemIds: new Set(examProblems.keys()),
-    startsAt: participation.exam.startsAt,
-  });
-
-  await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
-    penaltySeconds,
-    score,
-  });
-}
-
-async function persistBestScore(
-  participation: ExamParticipationWithExam,
-  allSubmissions: ExamSubmissionRows,
-  examProblems: ExamProblemMap,
-  overrideRows: OverrideRows,
-): Promise<void> {
-  const { totalScore, subtaskScores } = computeBestScoreState({
-    submissions: allSubmissions,
-    problemIds: new Set(examProblems.keys()),
-    overrides: overrideRows,
-    userId: participation.userId,
-  });
-
-  await examParticipationRepo.updateWithVersion(participation.id, participation.version, {
-    score: totalScore,
-    subtaskScores,
-  });
-}
 
 export async function updateExamScores(examParticipationId: string): Promise<void> {
-  let overrideRows: OverrideRows | undefined;
-
-  for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
-    const participation = await examParticipationRepo.findByIdWithExam(examParticipationId);
-
-    if (!participation) return;
-
-    const { exam } = participation;
-
-    const allSubmissions = await submissionRepo.findMany({
-      where: {
-        examId: exam.id,
-        userId: participation.userId,
-        sampleOnly: false,
-      },
-      orderBy: { createdAt: "asc" },
-      select: {
-        createdAt: true,
-        problemId: true,
-        score: true,
-        status: true,
-      },
-    });
-
-    const examProblems = new Map(exam.problems.map((p) => [p.problemId, p]));
-
-    try {
-      if (exam.scoringMode === "problem_count") {
-        await persistProblemCountScore(participation, allSubmissions, examProblems);
-      } else {
-        overrideRows ??= await scoreOverrideRepo.findAllByContext("exam", exam.id);
-        await persistBestScore(participation, allSubmissions, examProblems, overrideRows);
-      }
-
-      return;
-    } catch (err) {
-      if (err instanceof ExamParticipationVersionConflict) {
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  throw new ConflictError(
-    `Could not persist score for exam participation ${examParticipationId} after ${String(SCORE_UPDATE_MAX_ATTEMPTS)} attempts.`,
-  );
+  await runScoreUpdate<ExamParticipationWithExam>(examParticipationId, {
+    load: () => examParticipationRepo.findByIdWithExam(examParticipationId),
+    submissions: (p) =>
+      submissionRepo.findMany({
+        where: { examId: p.exam.id, userId: p.userId, sampleOnly: false },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true, problemId: true, score: true, status: true },
+      }),
+    overrides: (p) => scoreOverrideRepo.findAllByContext("exam", p.exam.id),
+    problemIds: (p) => new Set(p.exam.problems.map((ep) => ep.problemId)),
+    scoringMode: (p) => p.exam.scoringMode,
+    startsAt: (p) => p.exam.startsAt,
+    userId: (p) => p.userId,
+    persist: (p, fields) => examParticipationRepo.updateWithVersion(p.id, p.version, fields),
+    isConflict: (err) => err instanceof ExamParticipationVersionConflict,
+  });
 }
 
 /**
