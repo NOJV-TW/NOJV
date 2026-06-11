@@ -2,8 +2,9 @@ import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 
 import { getStorageBaseUrl } from "./client";
+import { getStorageEnv } from "./env";
 
-const BUCKET = process.env.S3_BUCKET ?? "nojv";
+const BUCKET = getStorageEnv().S3_BUCKET;
 
 function avatarKey(userId: string): string {
   return `avatars/${userId}.webp`;

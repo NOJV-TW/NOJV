@@ -3,8 +3,9 @@ import type { S3Client } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 
 import { getStorageBaseUrl } from "./client";
+import { getStorageEnv } from "./env";
 
-const BUCKET = process.env.S3_BUCKET ?? "nojv";
+const BUCKET = getStorageEnv().S3_BUCKET;
 
 export async function uploadProblemImage(
   client: S3Client,
