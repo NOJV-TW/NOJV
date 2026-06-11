@@ -20,6 +20,12 @@ import type { SandboxInput, TestcaseFiles } from "../../../apps/sandbox-runner/s
 const TIMEOUT_MS = 10_000;
 const SHORT_TIMEOUT_MS = 500;
 
+// go + rust cold-compile on a shared CI runner can exceed the default 30s
+// per-test budget; give the slow compilers headroom to avoid flaky timeouts.
+const SLOW_COMPILE_LANGUAGES = new Set(["go", "rust"]);
+const compileTestTimeout = (name: string) =>
+  SLOW_COMPILE_LANGUAGES.has(name) ? 90_000 : 30_000;
+
 // ─── Utilities ──────────────────────────────────────────────────────
 
 const commandVersionFlags: Record<string, string> = {
@@ -274,7 +280,7 @@ describe("standard judge", () => {
         const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
         expect(verdict.verdict).toBe("AC");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -293,7 +299,7 @@ describe("standard judge", () => {
         );
         expect(verdict.verdict).toBe("WA");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -308,7 +314,7 @@ describe("standard judge", () => {
         const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
         expect(verdict.verdict).toBe("RE");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -327,7 +333,7 @@ describe("standard judge", () => {
         );
         expect(verdict.verdict).toBe("TLE");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -352,7 +358,7 @@ describe("standard judge", () => {
         const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
         expectMleVerdict(name, verdict.verdict);
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
