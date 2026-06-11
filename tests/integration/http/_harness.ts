@@ -39,7 +39,9 @@ export async function callRoute(opts: CallRouteOptions): Promise<Response> {
 
   const headers = new Headers(opts.headers);
   if (opts.user) headers.set("x-test-user-id", opts.user.id);
-  if (opts.ip) headers.set("x-dev-ip", opts.ip);
+  const clientIp = opts.ip ?? "127.0.0.1";
+  headers.set("x-dev-ip", clientIp);
+  headers.set("cf-connecting-ip", clientIp);
   if (
     !["GET", "HEAD", "OPTIONS"].includes(method) &&
     !url.pathname.startsWith("/api/auth") &&
