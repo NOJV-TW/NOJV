@@ -235,7 +235,7 @@ async function runContainer(
   });
 
   const outerTimeoutMs = Math.min(
-    request.limits.timeoutMs * request.testcases.length + 30_000,
+    request.limits.timeoutMs * 2 * request.testcases.length + 30_000,
     MAX_OUTER_TIMEOUT_MS,
   );
 

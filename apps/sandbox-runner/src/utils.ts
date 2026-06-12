@@ -10,6 +10,36 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+export function parseCgroupCpuUsageUsec(
+  v2Stat: string | null,
+  v1Nanos: string | null,
+): number | null {
+  if (v2Stat) {
+    const match = /^usage_usec\s+(\d+)/m.exec(v2Stat);
+    if (match) return Number(match[1]);
+  }
+  if (v1Nanos) {
+    const nanos = Number(v1Nanos.trim());
+    if (Number.isFinite(nanos) && nanos >= 0) return Math.round(nanos / 1000);
+  }
+  return null;
+}
+
+function safeReadFile(filePath: string): string | null {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+export function readCgroupCpuUsageUsec(): number | null {
+  return parseCgroupCpuUsageUsec(
+    safeReadFile("/sys/fs/cgroup/cpu.stat"),
+    safeReadFile("/sys/fs/cgroup/cpuacct/cpuacct.usage"),
+  );
+}
+
 export function cleanupTempDir(dir: string): Promise<void> {
   return fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
