@@ -57,7 +57,7 @@ export function runProcess(
     );
     const isWrapped = wrapped[0] === "bash";
     const [wrappedCmd, ...wrappedArgs] = wrapped;
-    const proc = spawn(wrappedCmd!, wrappedArgs, {
+    const proc = spawn(wrappedCmd, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
       timeout: wallBudgetMs,
       ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
@@ -68,17 +68,19 @@ export function runProcess(
     const memoryPoller = typeof proc.pid === "number" ? createMemoryPoller(proc.pid) : null;
     let forceKilledViaFallbackTimer = false;
 
-    proc.stdout!.on("data", (chunk: Buffer) => {
+    proc.stdout?.on("data", (chunk: Buffer) => {
       stdoutBuf.push(chunk);
     });
-    proc.stderr!.on("data", (chunk: Buffer) => {
+    proc.stderr?.on("data", (chunk: Buffer) => {
       stderrBuf.push(chunk);
     });
 
     if (useStdin) {
-      proc.stdin!.on("error", () => {}); // Ignore EPIPE when process exits before stdin is consumed
-      proc.stdin!.write(options.stdin);
-      proc.stdin!.end();
+      proc.stdin?.on("error", () => {
+        /* ignore EPIPE when the process exits before stdin is consumed */
+      });
+      proc.stdin?.write(options.stdin);
+      proc.stdin?.end();
     }
 
     const timer = setTimeout(() => {

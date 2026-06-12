@@ -151,7 +151,7 @@ function compileWithCommand(
     }
 
     const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
-    const proc = spawn(wrappedCmd!, wrappedArgs, {
+    const proc = spawn(wrappedCmd, wrappedArgs, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
       timeout: 90_000,

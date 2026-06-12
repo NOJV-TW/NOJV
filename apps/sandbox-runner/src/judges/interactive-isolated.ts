@@ -35,7 +35,7 @@ export function runInteractiveSolution(
     }
 
     const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
-    const child = spawn(wrappedCmd!, wrappedArgs, {
+    const child = spawn(wrappedCmd, wrappedArgs, {
       stdio: ["inherit", "inherit", "pipe"],
       ...(env ? { env: { ...process.env, ...env } } : {}),
     });
@@ -141,7 +141,7 @@ export function runInteractiveValidator(
 
     const fullArgs = [...args, files.inputFile, files.answerFile, files.feedbackDir];
     const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...fullArgs]);
-    const child = spawn(wrappedCmd!, wrappedArgs, {
+    const child = spawn(wrappedCmd, wrappedArgs, {
       stdio: ["inherit", "inherit", "pipe"],
     });
 
@@ -163,28 +163,30 @@ export function runInteractiveValidator(
       resolve();
     });
 
-    child.on("close", async (code, signal) => {
-      clearTimeout(timer);
+    child.on("close", (code, signal) => {
+      void (async () => {
+        clearTimeout(timer);
 
-      if (forceKilled || signal) {
-        emitValidateReport({
-          verdict: "SE",
-          judgeMessage: `Interactor terminated (${signal ?? "timeout"}).`,
-        });
+        if (forceKilled || signal) {
+          emitValidateReport({
+            verdict: "SE",
+            judgeMessage: `Interactor terminated (${signal ?? "timeout"}).`,
+          });
+          resolve();
+          return;
+        }
+
+        const feedback: ValidatorFeedbackFiles = {};
+        const scoreTxt = await readFeedbackFile(files.feedbackDir, "score.txt");
+        if (scoreTxt !== undefined) feedback.scoreTxt = scoreTxt;
+        const judgeMessage = await readFeedbackFile(files.feedbackDir, "judgemessage.txt");
+        if (judgeMessage !== undefined) feedback.judgeMessage = judgeMessage;
+        const teamMessage = await readFeedbackFile(files.feedbackDir, "teammessage.txt");
+        if (teamMessage !== undefined) feedback.teamMessage = teamMessage;
+
+        emitValidateReport(parseValidatorFeedback(code ?? -1, feedback));
         resolve();
-        return;
-      }
-
-      const feedback: ValidatorFeedbackFiles = {};
-      const scoreTxt = await readFeedbackFile(files.feedbackDir, "score.txt");
-      if (scoreTxt !== undefined) feedback.scoreTxt = scoreTxt;
-      const judgeMessage = await readFeedbackFile(files.feedbackDir, "judgemessage.txt");
-      if (judgeMessage !== undefined) feedback.judgeMessage = judgeMessage;
-      const teamMessage = await readFeedbackFile(files.feedbackDir, "teammessage.txt");
-      if (teamMessage !== undefined) feedback.teamMessage = teamMessage;
-
-      emitValidateReport(parseValidatorFeedback(code ?? -1, feedback));
-      resolve();
+      })();
     });
   });
 }
