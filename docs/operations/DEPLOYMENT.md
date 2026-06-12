@@ -287,6 +287,26 @@ gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
    - `worker-rbac.yaml`, `worker.deployment.yaml`, `worker.pdb.yaml` — RBAC, Deployment (with the Cloud SQL Auth Proxy sidecar — `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0` on `127.0.0.1:5432`, Workload Identity), and PodDisruptionBudget. Sets `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` for the in-cluster Temporal.
 3. Apply the sandbox namespace guardrails: `kubectl apply -f infra/k8s/sandbox`
    (namespace, NetworkPolicy, ResourceQuota, LimitRange).
+4. **Verify egress isolation is actually enforced** (a NetworkPolicy is inert
+   unless the CNI enforces it — on GKE that requires Dataplane V2 / network
+   policy enabled). Launch a throwaway pod carrying the sandbox's
+   `app=nojv-sandbox` label so the `sandbox-deny-egress` policy applies, and
+   confirm it cannot reach the internet:
+
+   ```bash
+   kubectl run egress-check -n nojv-sandbox --rm -i --restart=Never \
+     --image=curlimages/curl --labels=app=nojv-sandbox \
+     --overrides='{"spec":{"tolerations":[{"key":"nojv-role","value":"sandbox","effect":"NoSchedule"}],"nodeSelector":{"nojv-role":"sandbox"}}}' \
+     --command -- curl -sS --max-time 5 https://cloudflare.com
+   ```
+
+   **Expected:** the `curl` times out and the pod exits non-zero — egress is
+   blocked. If it returns a response, NetworkPolicy enforcement is OFF: **halt
+   the rollout** and enable Dataplane V2 on the cluster before judging any
+   submissions, otherwise sandboxed code can exfiltrate over the network. The
+   same isolation is asserted in CI by `tests/integration/k8s/judge-k8s.test.ts`
+   and `tests/unit/infra/network-policy-parity.test.ts`, but those run against
+   dev infra — this step confirms the live cluster's CNI honors it.
 
 Pre-requisites: two GKE node pools `pool-worker` (untainted) and
 `pool-sandbox` (tainted `nojv-role=sandbox:NoSchedule`). The worker pins to
