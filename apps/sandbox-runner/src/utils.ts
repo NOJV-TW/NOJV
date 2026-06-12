@@ -48,6 +48,8 @@ export interface MemoryPoller {
   stop(): number;
 }
 
+export const MEMORY_POLL_INTERVAL_MS = 10;
+
 function readPpid(pid: number): number | null {
   try {
     const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf-8");
@@ -115,7 +117,7 @@ export function createMemoryPoller(pid: number): MemoryPoller {
   }
 
   sample();
-  const interval = setInterval(sample, 50);
+  const interval = setInterval(sample, MEMORY_POLL_INTERVAL_MS);
 
   return {
     stop(): number {
