@@ -114,6 +114,7 @@ jobs:
           # workflow console. Start it manually only behind a firewall/VPN.
           docker compose up -d --wait postgres redis temporal minio
           docker compose up minio-init
+          docker compose --profile backup up -d postgres-backup
 
       - name: Build runtime images for this commit
         shell: bash
@@ -155,6 +156,22 @@ jobs:
             -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
             -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
             migrator sh -lc 'pnpm -C packages/db exec node --import tsx prisma/bootstrap-admin.ts'
+
+      - name: Record pre-rollout image IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for service in web worker; do
+            container_id="$(docker compose --profile prod ps -q "$service" 2>/dev/null || true)"
+            if [[ -n "$container_id" ]]; then
+              image_id="$(docker inspect --format '{{.Image}}' "$container_id")"
+              echo "PREV_IMAGE_${service^^}=$image_id" >> "$GITHUB_ENV"
+              echo "Previous $service image: $image_id"
+            else
+              echo "PREV_IMAGE_${service^^}=" >> "$GITHUB_ENV"
+              echo "No running $service container before rollout"
+            fi
+          done
 
       - name: Roll out web and worker
         shell: bash
@@ -205,6 +222,43 @@ jobs:
               docker inspect "$container_id"
             fi
           done
+
+      - name: Rollback on health failure
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          rolled_back=false
+          for service in web worker; do
+            var="PREV_IMAGE_${service^^}"
+            prev_image="${!var:-}"
+            if [[ -z "$prev_image" ]]; then
+              echo "No previous image recorded for $service — cannot roll back"
+              continue
+            fi
+            rollback_tag="nojv-${service}:rollback"
+            docker tag "$prev_image" "$rollback_tag" 2>/dev/null || {
+              echo "Cannot tag previous image for $service (may have been pruned)"
+              continue
+            }
+            # Override the image used by compose by setting COMPOSE_IMAGE env var
+            # is not portable; instead we start the container directly from the old image.
+            docker stop "$(docker compose --profile prod ps -q "$service" 2>/dev/null)" 2>/dev/null || true
+            docker run -d \
+              --name "nojv-${service}-rollback" \
+              --network host \
+              "$rollback_tag" && rolled_back=true \
+              && echo "Rolled back $service to $prev_image"
+          done
+          if [[ "$rolled_back" == "true" ]]; then
+            echo "::warning::One or more services were rolled back to the previous image."
+            echo "::warning::Run 'docker compose --profile prod up -d --force-recreate web worker' to restore compose-managed state after fixing the issue."
+          else
+            echo "::error::Health check failed and no automatic rollback was possible."
+            echo "::error::Manual recovery: identify the last known-good image tag and run:"
+            echo "::error::  docker tag <good-image-id> nojv-web:latest && docker compose --profile prod up -d --force-recreate web"
+            echo "::error::  docker tag <good-image-id> nojv-worker:latest && docker compose --profile prod up -d --force-recreate worker"
+          fi
 
       - name: Clean up old Docker images
         if: always()
