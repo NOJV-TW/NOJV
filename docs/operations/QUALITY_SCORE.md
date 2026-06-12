@@ -24,8 +24,8 @@ Add an entry here when code lands without its documentation, or vice
 versa. Clear the entry once the gap closes.
 
 The 2026-06-12 full-codebase audit surfaced a documentation-drift cluster
-(this ledger's own `_None outstanding._` was itself drift). Remediation is
-tracked in `docs/plans/active/2026-06-12-full-audit-remediation.md`.
+(this ledger's own `_None outstanding._` was itself drift). Remediation
+completed in `docs/plans/completed/2026-06-12-full-audit-remediation.md`.
 
 **Cleared (2026-06-12):**
 
