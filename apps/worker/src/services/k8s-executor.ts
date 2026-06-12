@@ -6,8 +6,6 @@ const require = createRequire(import.meta.url);
 
 import {
   advancedResultSchema,
-  normalizeRelativePath,
-  sourceFileNames,
   type RawCaseRun,
   type SandboxExecutor,
   type SandboxRequest,
@@ -16,6 +14,7 @@ import {
   type SandboxTestcaseResult,
   type ValidatorOutcome,
 } from "@nojv/core";
+import { resolveSourceFiles } from "./source-files.js";
 import { createLogger } from "../logger.js";
 import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
@@ -65,26 +64,11 @@ export function buildTestcaseConfigMapData(request: SandboxRequest): Record<stri
 export function buildRunConfigMapData(request: SandboxRequest): Record<string, string> {
   const data: Record<string, string> = {};
   const sourceFileMap: { path: string; key: string }[] = [];
-  const mainSourceName = sourceFileNames[request.language];
-  let wroteMainSource = false;
 
-  for (const sourceFile of request.sourceFiles ?? []) {
-    const normalizedPath = normalizeRelativePath(sourceFile.path);
-    if (!normalizedPath) {
-      continue;
-    }
-
-    if (normalizedPath === mainSourceName) {
-      wroteMainSource = true;
-    }
-
+  for (const sf of resolveSourceFiles(request)) {
     const key = `source-file-${String(sourceFileMap.length)}`;
-    data[key] = sourceFile.content;
-    sourceFileMap.push({ path: normalizedPath, key });
-  }
-
-  if (!wroteMainSource) {
-    data[mainSourceName] = request.sourceCode;
+    data[key] = sf.content;
+    sourceFileMap.push({ path: sf.path, key });
   }
 
   data["config.json"] = JSON.stringify(buildSandboxConfigJson(request, sourceFileMap));
@@ -228,20 +212,11 @@ export function buildInteractiveSolutionConfigMapData(
 ): Record<string, string> {
   const data: Record<string, string> = {};
   const sourceFileMap: { path: string; key: string }[] = [];
-  const mainSourceName = sourceFileNames[request.language];
-  let wroteMainSource = false;
 
-  for (const sourceFile of request.sourceFiles ?? []) {
-    const normalizedPath = normalizeRelativePath(sourceFile.path);
-    if (!normalizedPath) continue;
-    if (normalizedPath === mainSourceName) wroteMainSource = true;
+  for (const sf of resolveSourceFiles(request)) {
     const key = `source-file-${String(sourceFileMap.length)}`;
-    data[key] = sourceFile.content;
-    sourceFileMap.push({ path: normalizedPath, key });
-  }
-
-  if (!wroteMainSource) {
-    data[mainSourceName] = request.sourceCode;
+    data[key] = sf.content;
+    sourceFileMap.push({ path: sf.path, key });
   }
 
   data["config.json"] = JSON.stringify({
@@ -413,19 +388,7 @@ const ADVANCED_TMP_SIZE_LIMIT = "64Mi";
 
 export function buildAdvancedConfigMapData(request: SandboxRequest): Record<string, string> {
   const advanced = request.advanced;
-  const submissionFiles: { path: string; content: string }[] = [];
-  const mainSourceName = sourceFileNames[request.language];
-  let wroteMain = false;
-
-  for (const sf of request.sourceFiles ?? []) {
-    const normalized = normalizeRelativePath(sf.path);
-    if (!normalized) continue;
-    if (normalized === mainSourceName) wroteMain = true;
-    submissionFiles.push({ path: normalized, content: sf.content });
-  }
-  if (!wroteMain && request.sourceCode) {
-    submissionFiles.push({ path: mainSourceName, content: request.sourceCode });
-  }
+  const submissionFiles = resolveSourceFiles(request, { requireSourceCode: true });
 
   const payload = {
     meta: {

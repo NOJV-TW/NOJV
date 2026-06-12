@@ -4,8 +4,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
-  normalizeRelativePath,
-  sourceFileNames,
   type RawCaseRun,
   type SandboxRequest,
   type SandboxResult,
@@ -14,6 +12,7 @@ import {
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
+import { resolveSourceFiles } from "./source-files.js";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
@@ -116,31 +115,15 @@ export async function writeSubmissionFiles(
   const fileWrites: Promise<void>[] = [];
   const sourceFileMap: { path: string; key: string }[] = [];
 
-  const defaultSourcePath = sourceFileNames[request.language];
-  let wroteDefaultSource = false;
-
-  for (const sourceFile of request.sourceFiles ?? []) {
-    const normalizedPath = normalizeRelativePath(sourceFile.path);
-    if (!normalizedPath) {
-      continue;
-    }
-
-    if (normalizedPath === defaultSourcePath) {
-      wroteDefaultSource = true;
-    }
-
-    const destination = join(tempDir, normalizedPath);
-    sourceFileMap.push({ path: normalizedPath, key: normalizedPath });
+  for (const sf of resolveSourceFiles(request)) {
+    const destination = join(tempDir, sf.path);
+    sourceFileMap.push({ path: sf.path, key: sf.path });
     fileWrites.push(
       (async () => {
         await mkdir(dirname(destination), { recursive: true });
-        await writeFile(destination, sourceFile.content, "utf8");
+        await writeFile(destination, sf.content, "utf8");
       })(),
     );
-  }
-
-  if (!wroteDefaultSource) {
-    fileWrites.push(writeFile(join(tempDir, defaultSourcePath), request.sourceCode, "utf8"));
   }
 
   fileWrites.push(

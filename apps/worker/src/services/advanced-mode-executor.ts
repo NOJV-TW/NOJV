@@ -4,8 +4,6 @@ import { dirname, join } from "node:path";
 
 import {
   advancedResultSchema,
-  normalizeRelativePath,
-  sourceFileNames,
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
@@ -14,6 +12,7 @@ import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { sandboxSystemError } from "./sandbox-plan";
+import { resolveSourceFiles } from "./source-files.js";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
 
 export interface AdvancedModeConfig {
@@ -121,23 +120,17 @@ export class AdvancedModeExecutor {
     const workspaceDir = join(tempDir, "workspace");
     const submissionDir = join(workspaceDir, "submission");
     const outputDir = join(workspaceDir, "output");
-    const defaultSourcePath = sourceFileNames[request.language];
 
     const prepareWorkspace = async (): Promise<void> => {
       await mkdir(workspaceDir, { mode: 0o777, recursive: true });
       await mkdir(submissionDir, { mode: 0o777, recursive: true });
       await mkdir(outputDir, { mode: 0o777, recursive: true });
 
+      const resolved = resolveSourceFiles(request, { requireSourceCode: true });
       const fileWrites: Promise<void>[] = [];
-      const writtenPaths: string[] = [];
-      let wroteDefault = false;
 
-      for (const sf of request.sourceFiles ?? []) {
-        const normalized = normalizeRelativePath(sf.path);
-        if (!normalized) continue;
-        if (normalized === defaultSourcePath) wroteDefault = true;
-        writtenPaths.push(normalized);
-        const dest = join(submissionDir, normalized);
+      for (const sf of resolved) {
+        const dest = join(submissionDir, sf.path);
         fileWrites.push(
           (async () => {
             await mkdir(dirname(dest), { recursive: true });
@@ -145,17 +138,11 @@ export class AdvancedModeExecutor {
           })(),
         );
       }
-      if (!wroteDefault && request.sourceCode) {
-        writtenPaths.push(defaultSourcePath);
-        fileWrites.push(
-          writeFile(join(submissionDir, defaultSourcePath), request.sourceCode, "utf8"),
-        );
-      }
 
       const meta = {
         submissionId: request.submissionId,
         language: request.language,
-        submissionFiles: writtenPaths,
+        submissionFiles: resolved.map((f) => f.path),
         resourceLimits: {
           totalTimeMs: advanced.totalTimeMs,
           memoryMb: advanced.memoryMb,

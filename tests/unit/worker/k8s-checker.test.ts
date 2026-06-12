@@ -71,8 +71,12 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
 
   it("still writes source + config.json + input keys for the run", () => {
     const data = buildRunConfigMapData(makeCheckerRequest());
-    expect(data["main.py"]).toBe("print(1)");
-    expect(data["config.json"]).toBeDefined();
+    const config = JSON.parse(data["config.json"]!) as {
+      sourceFileMap?: { path: string; key: string }[];
+    };
+    const mainEntry = config.sourceFileMap?.find((e) => e.path === "main.py");
+    expect(mainEntry).toBeDefined();
+    expect(data[mainEntry!.key]).toBe("print(1)");
     expect(data["testcase-0-input.txt"]).toBe("1\n");
   });
 
