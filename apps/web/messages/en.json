@@ -1113,6 +1113,7 @@
   "editorials_language": "Language",
   "editorials_solveFirst": "Solve this problem first to view editorials",
   "editorials_submit": "Submit Editorial",
+  "editorials_submitError": "Could not submit the editorial.",
   "editorials_submitting": "Submitting...",
   "editorials_title": "Editorials",
   "editorials_titleLabel": "Title",

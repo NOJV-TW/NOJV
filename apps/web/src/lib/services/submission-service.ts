@@ -39,7 +39,7 @@ export interface ExecuteSubmissionOptions {
   onOperationUpdate?: (operation: ReturnType<typeof submissionOperationSchema.parse>) => void;
 }
 
-const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 600_000;
 const INITIAL_POLL_DELAY_MS = 500;
 const MAX_POLL_DELAY_MS = 3_000;
 const POLL_BACKOFF_FACTOR = 1.5;
@@ -172,7 +172,7 @@ export async function executeSubmission(
     pollDelay = Math.min(pollDelay * POLL_BACKOFF_FACTOR, MAX_POLL_DELAY_MS);
   }
 
-  throw new Error("Submission polling timed out.");
+  return null;
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<boolean> {

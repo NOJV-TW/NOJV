@@ -29,15 +29,19 @@
 
   interface Props {
     submissions?: ProblemSubmissionEntry[];
-    viewingIndex?: number | null;
+    viewingId?: string | null;
     canRejudge?: boolean;
   }
 
   let {
     submissions = $bindable([]),
-    viewingIndex = $bindable(null),
+    viewingId = $bindable(null),
     canRejudge = false,
   }: Props = $props();
+
+  const viewingEntry = $derived(
+    viewingId === null ? null : (submissions.find((s) => s.id === viewingId) ?? null),
+  );
 
   let loadingSourceId = $state<string | null>(null);
   let loadingDetailId = $state<string | null>(null);
@@ -64,10 +68,7 @@
   }
 
   $effect(() => {
-    const idx = viewingIndex;
-    if (idx === null) return;
-
-    const entry = submissions[idx];
+    const entry = viewingEntry;
     if (!entry || !entry.result || entry.sourceCode !== undefined || !entry.id) return;
 
     const entryId = entry.id;
@@ -105,10 +106,7 @@
   });
 
   $effect(() => {
-    const idx = viewingIndex;
-    if (idx === null) return;
-
-    const entry = submissions[idx];
+    const entry = viewingEntry;
     if (!entry || !entry.result || !entry.id) return;
 
     const entryId = entry.id;
@@ -154,12 +152,12 @@
     <p class="py-8 text-center text-body-sm text-muted-foreground">
       {m.problemDetail_noSubmissions()}
     </p>
-  {:else if viewingIndex !== null && submissions[viewingIndex]}
-    {@const entry = submissions[viewingIndex]!}
+  {:else if viewingEntry}
+    {@const entry = viewingEntry}
     <div>
       <button
         class="mb-4 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
-        onclick={() => (viewingIndex = null)}
+        onclick={() => (viewingId = null)}
         type="button"
       >
         &larr; {m.problemDetail_allSubmissions()}
@@ -244,10 +242,10 @@
     </div>
   {:else}
     <div class="grid gap-3">
-      {#each submissions as entry, index (`sub-${index}`)}
+      {#each submissions as entry (entry.id)}
         <button
           class="rounded-md border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
-          onclick={() => (viewingIndex = index)}
+          onclick={() => (viewingId = entry.id ?? null)}
           type="button"
         >
           <div class="flex items-baseline justify-between gap-3">

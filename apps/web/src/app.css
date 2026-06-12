@@ -100,6 +100,11 @@
   --chart-4: #d4a054; /* amber */
   --chart-5: #7a8f6d; /* sage */
 
+  /* Leaderboard medal ranks */
+  --rank-gold: #d4a054;
+  --rank-silver: #a0a0a0;
+  --rank-bronze: #cd7f32;
+
   /* Sidebar */
   --sidebar: #efe5d8;
   --sidebar-foreground: #1f1916;
@@ -202,6 +207,10 @@
   --chart-3: #b48664;
   --chart-4: #e4b878;
   --chart-5: #9cb086;
+
+  --rank-gold: #e0b56a;
+  --rank-silver: #b4b4b4;
+  --rank-bronze: #d98f48;
 
   --sidebar: #2a201a;
   --sidebar-foreground: #f5ede4;

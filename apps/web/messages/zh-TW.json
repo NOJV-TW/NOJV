@@ -1113,6 +1113,7 @@
   "editorials_language": "語言",
   "editorials_solveFirst": "請先解決此題才能查看題解",
   "editorials_submit": "提交題解",
+  "editorials_submitError": "無法提交題解。",
   "editorials_submitting": "提交中...",
   "editorials_title": "題解",
   "editorials_titleLabel": "標題",

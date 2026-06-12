@@ -362,11 +362,11 @@
                       ? ''
                       : 'text-muted-foreground'}"
                     style={r.rank === 1
-                      ? "color: #d4a054;"
+                      ? "color: var(--rank-gold);"
                       : r.rank === 2
-                        ? "color: #a0a0a0;"
+                        ? "color: var(--rank-silver);"
                         : r.rank === 3
-                          ? "color: #cd7f32;"
+                          ? "color: var(--rank-bronze);"
                           : ""}
                   >
                     {r.rank}

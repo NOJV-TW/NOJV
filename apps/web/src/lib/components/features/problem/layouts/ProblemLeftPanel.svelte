@@ -18,7 +18,7 @@
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     submissions?: ProblemSubmissionEntry[];
     leftTab?: "description" | "editorials" | "submissions";
-    viewingIndex?: number | null;
+    viewingId?: string | null;
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
     editorialFormIdSuffix?: string;
@@ -32,7 +32,7 @@
     dailyAttempts,
     submissions = $bindable([]),
     leftTab: initialLeftTab = "description",
-    viewingIndex: initialViewingIndex = null,
+    viewingId: initialViewingId = null,
     problem,
     testcaseSets = [],
     editorialFormIdSuffix = "",
@@ -41,18 +41,19 @@
   let leftTab = $state<"description" | "editorials" | "submissions">(
     untrack(() => initialLeftTab),
   );
-  let viewingIndex = $state<number | null>(untrack(() => initialViewingIndex));
+  let viewingId = $state<string | null>(untrack(() => initialViewingId));
 
   let lastKnownHead = $state<string | null>(
     untrack(() => submissions[0]?.id ?? submissions[0]?.submittedAt ?? null),
   );
   $effect(() => {
-    const head = submissions[0]?.id ?? submissions[0]?.submittedAt ?? null;
+    const headEntry = submissions[0];
+    const head = headEntry?.id ?? headEntry?.submittedAt ?? null;
     if (head !== lastKnownHead) {
       lastKnownHead = head;
       if (head !== null) {
         leftTab = "submissions";
-        viewingIndex = 0;
+        viewingId = headEntry?.id ?? null;
       }
     }
   });
@@ -140,7 +141,7 @@
   {#if leftTab === "description"}
     <ProblemDescriptionPanel {problem} {testcaseSets} {dailyAttempts} />
   {:else if leftTab === "submissions"}
-    <SubmissionHistoryPanel bind:submissions bind:viewingIndex {canRejudge} />
+    <SubmissionHistoryPanel bind:submissions bind:viewingId {canRejudge} />
   {:else if editorialsEnabled && leftTab === "editorials"}
     <EditorialListPanel
       problemId={problem.id}
