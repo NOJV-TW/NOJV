@@ -48,7 +48,7 @@ export interface MemoryPoller {
   stop(): number;
 }
 
-export const MEMORY_POLL_INTERVAL_MS = 10;
+export const MEMORY_POLL_INTERVAL_MS = 25;
 
 function readPpid(pid: number): number | null {
   try {
