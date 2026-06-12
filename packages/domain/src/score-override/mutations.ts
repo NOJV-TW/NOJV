@@ -1,6 +1,12 @@
 import {
+  assessmentProblemRepo,
+  assessmentRepo,
+  contestProblemRepo,
   contestRepo,
+  courseMembershipRepo,
+  examProblemRepo,
   examRepo,
+  participationRepo,
   runTransaction,
   scoreOverrideAuditLogRepo,
   scoreOverrideRepo,
@@ -48,6 +54,58 @@ async function assertScoringModeSupportsOverride(context: ScoreOverrideContext):
   }
 }
 
+async function assertProblemAndUserInContext(
+  context: ScoreOverrideContext,
+  problemId: string,
+  userId: string,
+): Promise<void> {
+  switch (context.type) {
+    case "contest": {
+      const [problemInContext, participation] = await Promise.all([
+        contestProblemRepo.existsById(context.contestId, problemId),
+        participationRepo.findContestParticipation(context.contestId, userId),
+      ]);
+      if (!problemInContext) {
+        throw new NotFoundError("Problem is not part of this contest.");
+      }
+      if (!participation) {
+        throw new NotFoundError("User is not a participant in this contest.");
+      }
+      break;
+    }
+    case "exam": {
+      const [problemInContext, participation] = await Promise.all([
+        examProblemRepo.exists(context.examId, problemId),
+        participationRepo.findExamParticipation(context.examId, userId),
+      ]);
+      if (!problemInContext) {
+        throw new NotFoundError("Problem is not part of this exam.");
+      }
+      if (!participation) {
+        throw new NotFoundError("User is not a participant in this exam.");
+      }
+      break;
+    }
+    case "assignment": {
+      const assessment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
+      if (!assessment) {
+        throw new NotFoundError("Assignment not found.");
+      }
+      const [problemInContext, membership] = await Promise.all([
+        assessmentProblemRepo.exists(context.assignmentId, problemId),
+        courseMembershipRepo.findByComposite(assessment.courseId, userId),
+      ]);
+      if (!problemInContext) {
+        throw new NotFoundError("Problem is not part of this assignment.");
+      }
+      if (!membership || membership.status !== "active") {
+        throw new NotFoundError("User is not enrolled in this course.");
+      }
+      break;
+    }
+  }
+}
+
 export interface OverrideInput {
   userId: string;
   problemId: string;
@@ -79,6 +137,7 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
   validateScore(input.overrideScore);
   validateReason(input.reason);
   await assertScoringModeSupportsOverride(input.context);
+  await assertProblemAndUserInContext(input.context, input.problemId, input.userId);
 
   const db = toContextDbFields(input.context);
   const row = await runTransaction(async (tx) => {
