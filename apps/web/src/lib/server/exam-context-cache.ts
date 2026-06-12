@@ -17,7 +17,7 @@ export function createTtlCache<T>(ttlMs: number, maxEntries: number, nullTtlMs =
         const oldest = store.keys().next().value;
         if (oldest != null) store.delete(oldest);
       }
-      const ttl = value === null ? nullTtlMs : ttlMs;
+      const ttl = (value as unknown) === null ? nullTtlMs : ttlMs;
       store.set(key, { value, expiresAt: now + ttl });
       return value;
     },
