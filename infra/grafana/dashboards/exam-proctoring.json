@@ -1,7 +1,7 @@
 {
   "uid": "nojv-exam-proctoring",
   "title": "NOJV — Exam Proctoring",
-  "description": "Exam heartbeat health and SSE liveness for proctored sessions. SLO target: heartbeat miss rate < 1% (see docs/operations/RELIABILITY.md).",
+  "description": "SSE liveness for proctored exam sessions — connection churn, close reasons, and server-fault drops (see docs/operations/RELIABILITY.md).",
   "tags": ["nojv", "slo", "exam", "sse"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -30,36 +30,6 @@
   },
   "panels": [
     {
-      "id": 1,
-      "type": "timeseries",
-      "title": "Heartbeat misses per minute by gap bucket",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "targets": [
-        {
-          "expr": "sum by (gap_bucket) (rate(exam_heartbeat_miss_total[1m])) * 60",
-          "legendFormat": "{{gap_bucket}}",
-          "refId": "A"
-        }
-      ],
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 60,
-            "stacking": { "mode": "normal" }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "sum"] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      }
-    },
-    {
       "id": 2,
       "type": "timeseries",
       "title": "SSE close events per minute (proxy for connection churn)",
@@ -71,7 +41,7 @@
           "refId": "A"
         }
       ],
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -96,7 +66,7 @@
           "refId": "A"
         }
       ],
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": []
@@ -124,7 +94,7 @@
           "refId": "A"
         }
       ],
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -135,17 +105,6 @@
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom" },
         "tooltip": { "mode": "single" }
-      }
-    },
-    {
-      "id": 5,
-      "type": "text",
-      "title": "Heartbeat miss rate (SLO target < 1%)",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
-      "options": {
-        "mode": "markdown",
-        "content": "### Heartbeat miss rate — SLO target `< 1%`\n\nWe currently emit `exam_heartbeat_miss_total` (counter) but do **not** emit a matching `exam_heartbeat_total` counter for successful heartbeats. To compute miss-rate-as-fraction we need both numerator and denominator.\n\n**Workaround until a denominator metric is added:**\n\n- The expected heartbeat cadence is one per active session per ~30s.\n- Cross-reference active session count from `apps/web` logs (`session.heartbeat`) and divide by `exam_heartbeat_miss_total` over the same window.\n\n**Action item:** instrument `exam_heartbeat_received_total` in `apps/web` so we can render this as a single PromQL expression. See `docs/operations/RELIABILITY.md` SLO catalog."
       }
     }
   ]
