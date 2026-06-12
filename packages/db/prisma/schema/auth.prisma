@@ -114,6 +114,8 @@ model Session {
   userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Account {
@@ -131,6 +133,9 @@ model Account {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
 }
 
 model Verification {
@@ -140,6 +145,8 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime? @default(now())
   updatedAt  DateTime? @updatedAt
+
+  @@index([identifier])
 }
 
 /// Dedicated store for school-email verification tokens.

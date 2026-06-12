@@ -50,13 +50,13 @@
     "summary": "Server-side SSE connection drop rate has exceeded the 0.5% SLO."
   },
   {
-    "uid": "nojv-slo-heartbeat-miss",
-    "title": "Exam heartbeat miss volume elevated",
-    "slo": "Exam session heartbeat miss rate - < 1%",
-    "expr": "sum(rate(exam_heartbeat_miss_total[5m]))",
-    "threshold": 0.05,
-    "for": "10m",
-    "severity": "warning",
-    "summary": "Exam heartbeat misses are elevated (volume proxy - no total-heartbeat denominator metric exists yet to compute the exact rate)."
+    "uid": "nojv-slo-http-error-rate-critical",
+    "title": "HTTP 5xx error rate above availability SLO",
+    "slo": "API availability - 5xx error rate < 1% over 5m",
+    "expr": "sum(rate(api_request_duration_seconds_count{status=~\"5..\"}[5m])) / sum(rate(api_request_duration_seconds_count[5m]))",
+    "threshold": 0.01,
+    "for": "5m",
+    "severity": "critical",
+    "summary": "HTTP 5xx error rate has exceeded 1% for 5 minutes — service availability SLO is breached. Page on-call immediately."
   }
 ]

@@ -54,13 +54,13 @@ export async function canViewEditorials(
   problemId: string,
   context?: EditorialViewContext,
 ): Promise<boolean> {
+  const gateOpen = await contextGateOpen(context ?? { kind: "practice" });
+  if (!gateOpen) return false;
+
   const authored = await editorialRepo.existsForUserProblem(userId, problemId);
   if (authored) return true;
 
-  const ac = await hasUserAcProblem(userId, problemId);
-  if (!ac) return false;
-
-  return contextGateOpen(context ?? { kind: "practice" });
+  return hasUserAcProblem(userId, problemId);
 }
 
 export async function resolveActiveContextForUser(

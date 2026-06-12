@@ -12,7 +12,6 @@
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import Marquee from "$lib/components/primitives/visual/Marquee.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
-  import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
@@ -200,12 +199,6 @@
   </div>
 
   <div class="flex flex-wrap items-center gap-3">
-    <TabStrip
-      tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]}
-      activeTabValue="overview"
-      onChange={() => {}}
-    />
-
     <div class="ml-auto flex flex-wrap gap-3">
       {#if canSetOverride}
         {#if isPast}
@@ -369,11 +362,11 @@
                       ? ''
                       : 'text-muted-foreground'}"
                     style={r.rank === 1
-                      ? "color: #d4a054;"
+                      ? "color: var(--rank-gold);"
                       : r.rank === 2
-                        ? "color: #a0a0a0;"
+                        ? "color: var(--rank-silver);"
                         : r.rank === 3
-                          ? "color: #cd7f32;"
+                          ? "color: var(--rank-bronze);"
                           : ""}
                   >
                     {r.rank}

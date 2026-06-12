@@ -155,11 +155,11 @@ export async function getScoreboard(
 export async function getScoreboardChart(
   contestId: string,
   topN: number,
-  options?: { canSeeLive?: boolean },
+  options?: { canSeeLive?: boolean; precomputed?: Scoreboard },
 ): Promise<ScoreboardChart> {
-  const scoreboardData = await getScoreboard(contestId, {
-    canSeeLive: options?.canSeeLive === true,
-  });
+  const scoreboardData =
+    options?.precomputed ??
+    (await getScoreboard(contestId, { canSeeLive: options?.canSeeLive === true }));
 
   const topEntries = scoreboardData.entries.slice(0, topN);
   if (topEntries.length === 0) {

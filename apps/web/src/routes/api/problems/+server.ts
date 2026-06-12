@@ -2,13 +2,14 @@ import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 import { canCreateProblem, problemDomain } from "@nojv/domain";
 
 const { createProblemRecord } = problemDomain;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
 
   if (!canCreateProblem(actor.platformRole, actor.emailVerified)) {

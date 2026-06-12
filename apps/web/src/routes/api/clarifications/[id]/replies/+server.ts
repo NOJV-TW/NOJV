@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/domain";
 
 const CANNED_TEMPLATES = {
@@ -26,6 +26,7 @@ function requireId(event: RequestEvent): string {
 }
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const id = requireId(event);
   const body = cannedSchema.parse(await event.request.json());

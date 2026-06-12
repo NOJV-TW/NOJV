@@ -359,27 +359,6 @@ export const internalSchemas = {
     },
     required: ["flag"],
   },
-  ExamHeartbeatResponse: {
-    oneOf: [
-      {
-        type: "object",
-        properties: {
-          ok: { type: "boolean", enum: [true] },
-          released: { type: "boolean", enum: [false] },
-          lastHeartbeatAt: { type: "string", format: "date-time" },
-        },
-        required: ["ok", "released", "lastHeartbeatAt"],
-      },
-      {
-        type: "object",
-        properties: {
-          ok: { type: "boolean", enum: [true] },
-          released: { type: "boolean", enum: [true] },
-        },
-        required: ["ok", "released"],
-      },
-    ],
-  },
   ExamIpViolationUser: {
     type: "object",
     properties: {

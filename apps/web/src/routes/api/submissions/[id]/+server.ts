@@ -12,7 +12,8 @@ const { getSubmissionForUser, getVerdictDetail, stripStaffFeedback } = submissio
 function sanitizeVerdictDetail(raw: unknown): unknown {
   if (raw === null || raw === undefined) return raw;
   const parsed = submissionResultSchema.safeParse(raw);
-  return parsed.success ? stripStaffFeedback(parsed.data) : raw;
+  // Fail closed: an unparseable blob (e.g. schema drift) must NOT pass through raw — it can carry staffFeedback.
+  return parsed.success ? stripStaffFeedback(parsed.data) : null;
 }
 
 export const GET: RequestHandler = apiHandler(async (event) => {

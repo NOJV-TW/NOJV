@@ -4,6 +4,7 @@ import {
   isCancellation,
   proxyActivities,
   setHandler,
+  workflowInfo,
 } from "@temporalio/workflow";
 import type { SubmissionJudgeInput, SubmissionJudgeStatus } from "@nojv/temporal";
 
@@ -38,6 +39,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
     const snap = await judge.snapshotSubmissionForRejudge(
       input.submissionId,
       input.forRejudge.triggeredByUserId,
+      workflowInfo().workflowId,
     );
     rejudgeLogId = snap?.logId ?? null;
     rejudgeOldStatus = snap?.oldStatus ?? null;

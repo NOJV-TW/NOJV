@@ -13,7 +13,7 @@ Security requirements are first-class because this system handles authentication
 | Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase`                      | Never exposed to students; only `Problem.samples` is rendered on the problem page |
 | Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)  | Filtered out server-side before `ProblemDetail` leaves the domain layer           |
 | Problem images          | S3-compatible storage                                      | Public read for problem paths                                                     |
-| Advanced judge tarballs | S3-compatible storage (`problems/*/advanced-images/*.tar`) | Private, streamed to worker via signed URL at judge time                          |
+| Advanced judge tarballs | S3-compatible storage (`problems/*/advanced-images/*.tar`) | Private, read in-process by the worker using its S3 credentials at judge time     |
 | S3 credentials          | Environment variables                                      | .env untracked, Secret Manager in prod                                            |
 | Database credentials    | Environment variables                                      | .env untracked, Secret Manager in prod                                            |
 
@@ -30,7 +30,10 @@ Security requirements are first-class because this system handles authentication
 - Session cookies are pinned by `apps/web/src/lib/auth.server.ts` `advanced.defaultCookieAttributes` to `{ httpOnly: true, secure: NODE_ENV === "production", sameSite: "lax" }`. This is explicit rather than relying on better-auth defaults so a future library upgrade can't silently relax the posture; `sameSite: lax` is required for the top-level OAuth callback nav.
 - Rate-limit submission and plagiarism endpoints via Redis-backed `rate-limiter-flexible` (`RateLimiterRedis`). The limiter is keyed on `getClientIp(event)` so a single IP shares one counter across all SvelteKit replicas. If Redis is unreachable in production, the limiter falls back to a `failClosedLimiter` that rejects every request — never a per-instance in-memory counter (see `apps/web/src/lib/server/shared/rate-limiter.ts`).
 - A dedicated `signInRateLimiter` (5 attempts / 15 min per IP) gates `POST /api/auth/sign-in/email` and `/api/auth/sign-in/username` in `hooks.server.ts`. OAuth flows do not hit this limiter — they're handled by the upstream provider's own anti-abuse.
+- Account linking (`account.accountLinking`) sets `trustedProviders: ["github", "google"]` explicitly rather than relying on better-auth defaults: both providers return a verified primary email, so auto-linking a social login to an existing account by email is safe. Unlisted providers would require the existing account's email to already be verified before linking.
+- **Signup-channel asymmetry (evaluated, accepted):** `emailAndPassword.disableSignUp: true` blocks self-service email/password registration, but social OAuth can still create a fresh account (better-auth's `disableSignUp` is email/password-scoped). This is acceptable because an account by itself grants no access to protected resources — course/contest/exam **enrollment** (teacher-driven, no self-join token) and resource ownership are the real authorization boundaries. A self-registered OAuth user with no enrollment sees only public surfaces. The `databaseHooks.user.create.after` placeholder merge (`mergePlaceholderIfAny`) lets a teacher pre-provision a roster by email that an OAuth login then claims.
 - Image uploads must validate file type (png/jpeg/gif/webp), enforce 5MB size limit, require `canEditProblem` permission, AND run `detectImageMime(buffer)` magic-number validation server-side after the body is read — the client-reported `file.type` is never trusted alone (`apps/web/src/routes/api/problems/[id]/images/+server.ts`).
+- **Request body size posture.** The global `BODY_SIZE_LIMIT` (64MB, adapter-node) exists for the legitimately-large upload routes (problem images, checker/interactor scripts, advanced-mode tarballs) — each of which self-guards on `Content-Length` before reading and validates its payload. The one high-volume, student-facing JSON route, `POST /api/submissions`, pre-rejects bodies over `SUBMISSION_BODY_LIMIT` (2MB) on `Content-Length` (413) before parsing. The remaining JSON mutation routes call `assertJsonBodyWithinLimit(event)` (`$lib/server/shared/api-handler.ts`, default `JSON_BODY_LIMIT_BYTES` = 1MB) as their first statement, so a compromised staff token can't post a 64MB JSON bomb into them either. The upload routes (problem images, checker/interactor scripts, advanced-mode tarballs, bundles) self-guard on their own larger `Content-Length` limits and are deliberately left off the 1MB helper. Do not lower the global cap without re-checking the largest legitimate upload (advanced tarball / 60MB bundle).
 - Sandbox containers must run with `cap-drop ALL`, `no-new-privileges`, read-only rootfs, `--network none`, and resource limits. On Kubernetes the pod and container both set `runAsNonRoot: true` (`apps/worker/src/services/k8s-executor.ts`).
 - The Kubernetes executor refuses **tarball-source** Advanced Mode requests with a System Error verdict — the K8s path cannot `docker load` a TA-supplied tarball. **Registry-source** advanced images do run on K8s, as a Job with `cap-drop ALL`, `allowPrivilegeEscalation: false`, read-only rootfs, and pod-level `seccompProfile: RuntimeDefault`, but **without** `runAsNonRoot` — the TA grader image is trusted and may run as root inside its container, matching the Docker advanced path (no `--user`).
 - Exam IP binding, page lock, and submit cooldown are server-side enforced (contests have no proctoring). Never trust client-side checks alone.
@@ -126,24 +129,17 @@ tokenization fidelity because every Dolos-supported language treats
 CI runs `pnpm audit --audit-level high` as a **blocking gate** — any
 high/critical advisory fails the build (currently 0).
 
-Moderate/low advisories are tracked but not gated. As of the last sweep all
-10 remaining are **transitive, with no real exposure**:
+The previously-tracked moderate/low transitive advisories are now pinned to
+patched versions through `pnpm.overrides` in the root `package.json`
+(`monaco-editor > dompurify`, `@prisma/dev > @hono/node-server`,
+`@sveltejs/kit > cookie`, `sveltekit-superforms > joi`); `pnpm audit` reports
+**zero** known vulnerabilities (prod + dev).
 
-- **`dompurify` (8× moderate)** — pulled only via `monaco-editor`'s bundled
-  copy, used for the editor's own internal rendering (never to sanitize
-  untrusted HTML). Our markdown sanitizer uses a separate, patched
-  `isomorphic-dompurify` (`$lib/markdown.ts`), which is **not** affected.
-- **`@hono/node-server` (1× moderate)** — reached only through
-  `prisma > @prisma/dev`, a local development tool that never ships in the
-  production runtime.
-- **`cookie` (1× low)** — internal to `@sveltejs/kit`.
+**Gate decision:** keep the threshold at `high`.
 
-**Gate decision:** keep the threshold at `high`. Raising it to `moderate`
-would only force blanket dismissals of upstream-unfixed transitives.
-
-**Cadence:** review `pnpm audit` monthly; clear these transitives
-opportunistically when `monaco-editor`, `@sveltejs/kit`, or `prisma` take a
-major bump that carries the patched dependency.
+**Cadence:** review `pnpm audit` monthly and prune the override list as the
+upstreams (`monaco-editor`, `@sveltejs/kit`, `prisma`, `sveltekit-superforms`)
+ship the patched dependency natively.
 
 ## Review Expectations
 

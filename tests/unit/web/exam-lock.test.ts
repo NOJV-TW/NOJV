@@ -32,8 +32,8 @@ describe("isAllowedPathForExam", () => {
   const ctx = makeCtx();
 
   describe("allow list", () => {
-    it("allows every /api/* path (heartbeat, release, submit, etc.)", () => {
-      expect(isAllowedPathForExam("/api/exam-sessions/exam-1/heartbeat", ctx)).toBe(true);
+    it("allows every /api/* path (submissions, release, clarifications, etc.)", () => {
+      expect(isAllowedPathForExam("/api/clarifications", ctx)).toBe(true);
       expect(isAllowedPathForExam("/api/exam-sessions/exam-1/release", ctx)).toBe(true);
       expect(isAllowedPathForExam("/api/submissions", ctx)).toBe(true);
       expect(isAllowedPathForExam("/api/", ctx)).toBe(true);
@@ -103,7 +103,7 @@ describe("isExamForbiddenApiPath", () => {
     expect(isExamForbiddenApiPath("/api/editorials/e1")).toBe(false);
     expect(isExamForbiddenApiPath("/api/events/stream")).toBe(false);
     expect(isExamForbiddenApiPath("/api/clarifications")).toBe(false);
-    expect(isExamForbiddenApiPath("/api/exam-sessions/exam-1/heartbeat")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/exam-sessions/exam-1/release")).toBe(false);
     expect(isExamForbiddenApiPath("/api/notifications")).toBe(false);
   });
 

@@ -61,9 +61,11 @@ gcloud container node-pools create pool-sandbox \
 - `worker.pdb.yaml`: PodDisruptionBudget — keep ≥1 alive during voluntary disruptions
 - `temporal/`: self-hosted Temporal Server + dedicated Postgres + Web UI
 
-Sandbox per-pod resource limits (ResourceQuota, LimitRange) still live under
-`infra/k8s/sandbox/`; the namespace itself is declared here so a single
-`kubectl apply -k infra/gcp/gke` brings everything up.
+Sandbox per-pod resource limits (ResourceQuota, LimitRange) live under
+`infra/k8s/sandbox/` and are applied as a **separate second step** (see the
+Apply Flow below). `kubectl apply -k infra/gcp/gke` brings up the namespace,
+NetworkPolicy, worker RBAC/deployment/PDB, and Temporal — but **not** the
+sandbox ResourceQuota/LimitRange; those need `kubectl apply -f infra/k8s/sandbox`.
 
 ## Cloud SQL Auth Proxy
 

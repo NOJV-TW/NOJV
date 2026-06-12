@@ -17,6 +17,22 @@ jobs:
     name: Build sandbox image + isolation regression
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nojv_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -32,6 +48,11 @@ jobs:
 
       - name: Sandbox executor + isolation unit tests
         run: pnpm vitest run tests/unit/worker
+
+      - name: Adversarial isolation suite (real sandbox image, must not skip)
+        env:
+          REQUIRE_SANDBOX_IMAGE: "1"
+        run: pnpm vitest run tests/integration/judge
 
       - name: Isolation — sandbox process runs as non-root (uid 10001)
         run: |

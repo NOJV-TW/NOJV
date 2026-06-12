@@ -291,8 +291,9 @@ export async function fetchSingleSubmissionForRejudge(
 export async function snapshotSubmissionForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
+  rejudgeRunId: string | null,
 ): Promise<{ logId: string; oldStatus: string } | null> {
-  return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId);
+  return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId, rejudgeRunId);
 }
 
 export async function finalizeRejudgeLog(

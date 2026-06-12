@@ -107,7 +107,7 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
       .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10));
 
     if (dirs.length > 0) {
-      return loadTestcasesFromDirs(testcasesDir, dirs);
+      return await loadTestcasesFromDirs(testcasesDir, dirs);
     }
   } catch {
     // testcases/ directory doesn't exist — try flat ConfigMap layout
@@ -159,17 +159,17 @@ async function loadTestcasesFromDirs(
 async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
   const entries = await fs.readdir(SUBMISSION_DIR);
   const inputFiles = entries
-    .filter((e) => e.match(/^testcase-\d+-input\.txt$/))
+    .filter((e) => /^testcase-\d+-input\.txt$/.test(e))
     .sort((a, b) => {
-      const ai = Number.parseInt(a.split("-")[1]!, 10);
-      const bi = Number.parseInt(b.split("-")[1]!, 10);
+      const ai = Number.parseInt(a.split("-")[1] ?? "", 10);
+      const bi = Number.parseInt(b.split("-")[1] ?? "", 10);
       return ai - bi;
     });
 
   const testcases: TestcaseFiles[] = [];
 
   for (const inputFile of inputFiles) {
-    const index = Number.parseInt(inputFile.split("-")[1]!, 10);
+    const index = Number.parseInt(inputFile.split("-")[1] ?? "", 10);
     const input = await fs.readFile(path.join(SUBMISSION_DIR, inputFile), "utf-8");
 
     let expected: string | undefined;
@@ -270,7 +270,8 @@ async function compileSubmission(
 }
 
 async function runInteractive(workDir: string, config: SandboxInput): Promise<void> {
-  const interactive = config.interactive!;
+  const { interactive } = config;
+  if (!interactive) throw new Error("runInteractive called without an interactive config.");
 
   if (interactive.role === "solution") {
     const compileResult = await compileSubmission(workDir, config);

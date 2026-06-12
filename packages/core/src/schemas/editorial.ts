@@ -38,6 +38,22 @@ export const editorialReportSchema = z.object({
   reason: z.string().min(REASON_MIN).max(REASON_MAX),
 });
 
+export const editorialEntrySchema = z.looseObject({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  language: z.string(),
+  createdAt: z.string(),
+  voteScore: z.number(),
+  viewerVote: z.number(),
+  user: z.object({
+    username: z.string().nullable(),
+    name: z.string(),
+  }),
+});
+
+export const editorialListResponseSchema = z.array(editorialEntrySchema);
+
 export type EditorialSubmitInput = z.infer<typeof editorialSubmitSchema>;
 export type EditorialUpdateInput = z.infer<typeof editorialUpdateSchema>;
 export type EditorialVoteInput = z.infer<typeof editorialVoteSchema>;

@@ -4,6 +4,7 @@ import {
   assessmentProblemRepo,
   contestProblemRepo,
   courseMembershipRepo,
+  examProblemRepo,
   examRepo,
   examSessionRepo,
   problemWorkspaceFileRepo,
@@ -71,6 +72,11 @@ async function assertActiveExamSubmissionAllowed(
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
   if (exam && new Date() >= exam.endsAt) {
     throw new ForbiddenError("Exam has ended.");
+  }
+
+  const inExam = await examProblemRepo.withTx(tx).exists(activeExamSession.examId, problem.id);
+  if (!inExam) {
+    throw new ForbiddenError("This problem is not part of the exam.");
   }
 
   if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
@@ -395,19 +401,21 @@ export async function completeJudge(
 export async function snapshotForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
+  rejudgeRunId: string | null,
 ): Promise<{ logId: string; oldStatus: string } | null> {
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
-  const row = await submissionRejudgeLogRepo.create({
+  const row = await submissionRejudgeLogRepo.upsertSnapshot({
     submissionId,
     rejudgedByUserId: triggeredByUserId,
+    rejudgeRunId,
     oldVerdict: current.status,
     oldScore: current.score,
     oldResultJson: current.verdictSummary === null ? null : toJsonValue(current.verdictSummary),
   });
 
-  return { logId: row.id, oldStatus: current.status };
+  return { logId: row.id, oldStatus: row.oldVerdict };
 }
 
 export async function finalizeRejudgeLog(

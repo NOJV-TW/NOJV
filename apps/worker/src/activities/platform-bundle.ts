@@ -9,7 +9,6 @@ export {
   sweepStaleSubmissions,
   publishVerdict,
   publishContestEvent,
-  publishAssessmentDeadline,
   fanoutAssignmentDueSoon,
   fanoutExamStartingSoon,
   fanoutContestStartingSoon,

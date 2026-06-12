@@ -50,6 +50,7 @@
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
+  import { entriesAroundUser } from "$lib/utils/scoreboard";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
@@ -129,6 +130,14 @@
     myUsername == null
       ? null
       : (scoreboard.entries.find((e) => e.username === myUsername) ?? null),
+  );
+
+  const AROUND_ME_RADIUS = 5;
+  let scoreboardFilter = $state<"all" | "around">("all");
+  const displayEntries = $derived(
+    scoreboardFilter === "around"
+      ? entriesAroundUser(scoreboard.entries, myRow?.userId ?? null, AROUND_ME_RADIUS)
+      : scoreboard.entries,
   );
 
   function avatarBg(name: string): string {
@@ -275,15 +284,16 @@
             {m.contestScoreboard_unfreezeButton()}
           </Button>
         {/if}
-        <TabStrip
-          tabs={[
-            { value: "all", label: m.contestScoreboard_filterAll() },
-            { value: "friends", label: m.contestScoreboard_filterFriends() },
-            { value: "around", label: m.contestScoreboard_filterAround() },
-          ]}
-          activeTabValue="all"
-          onChange={() => {}}
-        />
+        {#if myRow}
+          <TabStrip
+            tabs={[
+              { value: "all", label: m.contestScoreboard_filterAll() },
+              { value: "around", label: m.contestScoreboard_filterAround() },
+            ]}
+            activeTabValue={scoreboardFilter}
+            onChange={(v) => (scoreboardFilter = v === "around" ? "around" : "all")}
+          />
+        {/if}
       </div>
     </div>
 
@@ -319,7 +329,7 @@
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
-            {#each scoreboard.entries as r (r.username)}
+            {#each displayEntries as r (r.username)}
               <tr
                 class="transition-colors {r.userId === myRow?.userId
                   ? ''
@@ -402,7 +412,7 @@
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
-            {#each scoreboard.entries as r (r.username)}
+            {#each displayEntries as r (r.username)}
               <tr
                 class="transition-colors {r.userId === myRow?.userId
                   ? ''

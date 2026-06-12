@@ -1,7 +1,7 @@
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
 import { submissionPendingTimeoutMinutesSchema } from "@nojv/core";
 import { submissionDomain } from "@nojv/domain";
@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions = {
-  updatePendingTimeout: withRateLimit(async (event) => {
+  updatePendingTimeout: withAction(async (event) => {
     const actor = requireAuth(event);
     if (actor.platformRole !== "admin") {
       return fail(403, { error: "Admin access required." });

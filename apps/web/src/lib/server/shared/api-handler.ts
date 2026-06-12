@@ -1,4 +1,4 @@
-import { json, isRedirect, isHttpError as isSvelteKitError } from "@sveltejs/kit";
+import { json, error, isRedirect, isHttpError as isSvelteKitError } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { ZodError } from "zod";
 
@@ -10,6 +10,18 @@ import { getClientIp } from "./client-ip";
 const logger = createLogger("api");
 
 type ApiHandler = (event: RequestEvent) => Promise<Response>;
+
+export const JSON_BODY_LIMIT_BYTES = 1024 * 1024;
+
+export function assertJsonBodyWithinLimit(
+  event: RequestEvent,
+  maxBytes: number = JSON_BODY_LIMIT_BYTES,
+): void {
+  const declared = Number(event.request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    error(413, "Request body too large");
+  }
+}
 
 function zodErrorResponse(error: ZodError, event: RequestEvent): Response {
   logger.warn("API validation failed", {

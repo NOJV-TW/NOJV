@@ -6,7 +6,7 @@
 - **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments and exams (publish / archive / delete-draft lifecycle), duplicate existing courses, monitor student progress matrix, trigger plagiarism detection
 - **Admin**: full platform management, user role assignment (promote/disable), system announcements, all teacher capabilities
 - **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, page lock, submit cooldown
-- **Exam proctor**: session-based course exams with start/heartbeat/end lifecycle, IP pinning, page-lock visibility enforcement, submissions matrix for grading review
+- **Exam proctor**: session-based course exams with start/end lifecycle, IP pinning, page-lock visibility enforcement, submissions matrix for grading review
 
 ## Shipped Scope
 
@@ -80,7 +80,7 @@
 - Exam Settings tab: basic info, scoring mode, scoreboard mode, allowed languages, submit cooldown, proctoring (page lock / IP binding / IP whitelist / violation mode), lifecycle (publish / archive / delete-draft) with status-aware field locks
 - Editable Problems tab: attach / detach / reorder / per-problem points (locked once exam starts)
 - Submissions sub-tab: students × problems matrix with best score + attempt count, CSV export, search, sort, pagination
-- Session-based proctoring: `?/startExam` form action binds the student IP pin; `/api/exam-sessions/[examId]/heartbeat` records visibility events; `?/releaseSession` form action closes the session; `?/releaseAllSessions` lets an instructor release every active session at once
+- Session-based proctoring: `?/startExam` form action binds the student IP pin; the page-lock handle hook records `visibility_lost` events on off-path navigation; `?/releaseSession` form action closes the session; `?/releaseAllSessions` lets an instructor release every active session at once
 - Page lock confines the student to `/exams/[examId]/*` while the session is active
 - Student post-close review block on the detail page — links fall back to ordinary practice URLs
 

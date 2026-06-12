@@ -169,25 +169,6 @@ export async function recordEvent(
   });
 }
 
-export async function heartbeat(userId: string, examId: string) {
-  return runTransaction(async (tx) => {
-    const session = await examSessionRepo.withTx(tx).findByUserAndExam(userId, examId);
-    if (session?.endedAt !== null) {
-      throw new NotFoundError("No active exam session to heartbeat.");
-    }
-
-    await examSessionRepo.withTx(tx).update(session.id, {
-      lastHeartbeatAt: new Date(),
-    });
-    await examSessionRepo.withTx(tx).recordEvent({
-      sessionId: session.id,
-      eventType: "heartbeat",
-    });
-
-    return session;
-  });
-}
-
 export async function autoCloseForExam(examId: string): Promise<{ closed: number }> {
   return runTransaction(async (tx) => {
     const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
@@ -245,8 +226,6 @@ export async function requireActiveSessionForUserExam(userId: string, examId: st
 }
 
 export const START_GRACE_MS = 5 * 60 * 1000;
-
-export const HEARTBEAT_EVENT_THROTTLE_MS = 60 * 1000;
 
 export interface StartSessionResult {
   session: {
@@ -436,51 +415,5 @@ export async function releaseAllSessionsAsInstructor(
     }
 
     return { released: active.length, releasedUserIds: active.map((s) => s.userId) };
-  });
-}
-
-export async function heartbeatWithThrottle(
-  userId: string,
-  examId: string,
-  options: { throttleMs?: number; now?: Date } = {},
-): Promise<{
-  session: { id: string; lastHeartbeatAt: Date };
-  previousHeartbeatAt: Date;
-  recordedEvent: boolean;
-}> {
-  const throttleMs = options.throttleMs ?? HEARTBEAT_EVENT_THROTTLE_MS;
-  const now = options.now ?? new Date();
-
-  return runTransaction(async (tx) => {
-    const session = await examSessionRepo.withTx(tx).findByUserAndExam(userId, examId);
-    if (session?.endedAt !== null) {
-      throw new NotFoundError("No active exam session to heartbeat.");
-    }
-
-    const previousHeartbeatAt = session.lastHeartbeatAt;
-
-    const updated = await examSessionRepo.withTx(tx).update(session.id, {
-      lastHeartbeatAt: now,
-    });
-
-    const lastEvent = await examSessionRepo
-      .withTx(tx)
-      .findLatestEventOfType(session.id, "heartbeat");
-
-    const shouldRecord =
-      !lastEvent || now.getTime() - lastEvent.occurredAt.getTime() >= throttleMs;
-
-    if (shouldRecord) {
-      await examSessionRepo.withTx(tx).recordEvent({
-        sessionId: session.id,
-        eventType: "heartbeat",
-      });
-    }
-
-    return {
-      session: { id: updated.id, lastHeartbeatAt: updated.lastHeartbeatAt },
-      previousHeartbeatAt,
-      recordedEvent: shouldRecord,
-    };
   });
 }

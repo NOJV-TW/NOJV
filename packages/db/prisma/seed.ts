@@ -1,4 +1,3 @@
-import { getRedis } from "@nojv/redis";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma/client";
@@ -97,5 +96,4 @@ try {
   process.exitCode = 1;
 } finally {
   await prisma.$disconnect();
-  await getRedis().quit();
 }

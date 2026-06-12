@@ -1,15 +1,6 @@
 import { browser } from "$app/environment";
-import {
-  SSE_CONTEST_STARTING,
-  SSE_CONTEST_ENDING,
-  SSE_ASSIGNMENT_DEADLINE,
-  SSE_NOTIFICATION,
-  sseEventSchema,
-  type SSEEvent,
-} from "@nojv/core";
-import { m } from "$lib/paraglide/messages.js";
+import { SSE_NOTIFICATION, sseEventSchema, type SSEEvent } from "@nojv/core";
 import { notifications } from "./notifications.svelte";
-import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;
 const listeners = new Map<string, Set<(data: SSEEvent) => void>>();
@@ -32,6 +23,10 @@ export function connectSSE() {
   if (!browser || eventSource) return;
 
   eventSource = new EventSource(buildStreamUrl());
+
+  eventSource.onopen = () => {
+    reconnectAttempts = 0;
+  };
 
   eventSource.onmessage = (event) => {
     try {
@@ -122,15 +117,6 @@ export function unsubscribeClarificationChannel(
 }
 
 function handleDefaultEvent(data: SSEEvent) {
-  if (data.type === SSE_CONTEST_STARTING) {
-    toasts.add({ message: m.sse_contestStartingSoon(), type: "info" });
-  }
-  if (data.type === SSE_CONTEST_ENDING) {
-    toasts.add({ message: m.sse_contestEndingSoon(), type: "info" });
-  }
-  if (data.type === SSE_ASSIGNMENT_DEADLINE) {
-    toasts.add({ message: m.sse_assignmentDeadlineApproaching(), type: "info" });
-  }
   if (data.type === SSE_NOTIFICATION) {
     notifications.handleSseEvent({
       notificationType: data.notificationType,

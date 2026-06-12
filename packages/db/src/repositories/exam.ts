@@ -31,6 +31,7 @@ export const examRepo = {
 
   listByCourseId(courseId: string) {
     return prisma.exam.findMany({
+      omit: { plagiarismResults: true },
       include: examListInclude,
       orderBy: { startsAt: "desc" },
       where: {
@@ -310,6 +311,12 @@ export const examProblemRepo = {
 
       countByExamId(examId: string) {
         return tx.examProblem.count({ where: { examId } });
+      },
+
+      exists(examId: string, problemId: string) {
+        return tx.examProblem
+          .findFirst({ where: { examId, problemId }, select: { id: true } })
+          .then((row) => row !== null);
       },
 
       deleteByExamId(examId: string) {

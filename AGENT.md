@@ -133,3 +133,4 @@ docs/
 - Keep this file short and navigational.
 - Keep durable product, architecture, reliability, and security detail in the linked docs.
 - Keep the linked docs aligned with landed code instead of preserving speculative or stale future-tense guidance.
+- Do not add any unnecessary comments.

@@ -37,17 +37,3 @@ export type SseCloseReason =
   | "timeout"
   | "subscribe_failed"
   | "controller_error";
-
-export const examHeartbeatMissTotal = meter.createCounter("exam_heartbeat_miss_total", {
-  description:
-    "Heartbeats received after a gap longer than the expected 30s cadence (client missed at least one cycle)",
-});
-
-export type HeartbeatGapBucket = "30s_to_60s" | "60s_to_120s" | "over_120s";
-
-export function heartbeatGapBucket(gapSec: number): HeartbeatGapBucket | null {
-  if (gapSec <= 30) return null;
-  if (gapSec < 60) return "30s_to_60s";
-  if (gapSec < 120) return "60s_to_120s";
-  return "over_120s";
-}

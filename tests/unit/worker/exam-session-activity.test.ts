@@ -18,7 +18,6 @@ vi.mock("@nojv/redis", () => ({
   pubsub: {
     publishVerdict: vi.fn(),
     publishContestEvent: vi.fn(),
-    publishAssessmentDeadline: vi.fn(),
   },
 }));
 

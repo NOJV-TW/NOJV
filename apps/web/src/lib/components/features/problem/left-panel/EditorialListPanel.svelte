@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ArrowLeft, ChevronDown, ChevronUp } from "@lucide/svelte";
-  import { supportedLanguages, type Language } from "@nojv/core";
+  import { editorialListResponseSchema, supportedLanguages, type Language } from "@nojv/core";
   import { page } from "$app/state";
   import type { ProblemEditorialEntry } from "$lib/types";
   import { formatDate } from "$lib/utils/datetime";
@@ -116,7 +116,8 @@
     try {
       const res = await fetch(`/api/problems/${problemId}/editorials`);
       if (res.ok) {
-        editorials = await res.json();
+        const parsed = editorialListResponseSchema.safeParse(await res.json());
+        editorials = parsed.success ? (parsed.data as ProblemEditorialEntry[]) : [];
         editorialsLoaded = true;
       }
     } finally {
@@ -141,7 +142,12 @@
         editorialTitle = "";
         editorialContent = "";
         await loadEditorials();
+      } else {
+        const body = await res.json().catch(() => null);
+        toasts.error(body?.message ?? m.editorials_submitError());
       }
+    } catch {
+      toasts.error(m.editorials_submitError());
     } finally {
       editorialSubmitting = false;
     }

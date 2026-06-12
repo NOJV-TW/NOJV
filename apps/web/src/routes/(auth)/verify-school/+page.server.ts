@@ -4,6 +4,7 @@ import { userDomain } from "@nojv/domain";
 import { m } from "$lib/paraglide/messages.js";
 
 import type { Actions, PageServerLoad } from "./$types";
+import { withAction } from "$lib/server/shared/action-handlers";
 
 const { peekSchoolVerification, processSchoolVerification } = userDomain;
 
@@ -23,11 +24,11 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-  default: async ({ request }) => {
+  default: withAction(async ({ request }) => {
     const token = (await request.formData()).get("token");
     if (typeof token !== "string" || !token) {
       return fail(400, { status: "error" as const, detail: m.auth_missingVerifyToken() });
     }
     return processSchoolVerification(token);
-  },
+  }),
 };

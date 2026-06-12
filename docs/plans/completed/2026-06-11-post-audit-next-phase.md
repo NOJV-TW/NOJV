@@ -4,7 +4,7 @@
 
 **Goal:** 收尾 2026-06-10 全 codebase 稽核**修復後仍未做**的工作——分三類:(A) 需要測試基建才能補的測試、(B) 可直接做但先前遞延的測試品質項、(C) 首席架構師三個結構性風險(需設計決策、各自規模大)。
 
-**Context:** 稽核缺陷修復已完成並驗證,見 [`docs/plans/completed/2026-06-10-audit-remediation.md`](../completed/2026-06-10-audit-remediation.md)(含附錄 D 對抗式驗證結果)。本計劃只涵蓋**那份計劃刻意未做、或查證後判定需另開計劃**的剩餘項。
+**Context:** 稽核缺陷修復已完成並驗證,見 [`docs/plans/completed/2026-06-10-audit-remediation.md`](./2026-06-10-audit-remediation.md)(含附錄 D 對抗式驗證結果)。本計劃只涵蓋**那份計劃刻意未做、或查證後判定需另開計劃**的剩餘項。
 
 **Tech Stack:** SvelteKit + better-auth + Temporal + Prisma 7 + Redis + Vitest。
 

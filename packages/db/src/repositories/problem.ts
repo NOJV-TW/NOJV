@@ -40,6 +40,22 @@ export const problemRepo = {
     return prisma.problem.delete({ where: { id } });
   },
 
+  hasContextLinks(id: string) {
+    return prisma.problem
+      .findFirst({
+        where: {
+          id,
+          OR: [
+            { contestLinks: { some: {} } },
+            { examLinks: { some: {} } },
+            { assessmentLinks: { some: {} } },
+          ],
+        },
+        select: { id: true },
+      })
+      .then((row) => row !== null);
+  },
+
   countPublic() {
     return prisma.problem.count({ where: { visibility: "public", status: "published" } });
   },
