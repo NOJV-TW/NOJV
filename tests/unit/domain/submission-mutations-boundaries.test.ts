@@ -273,8 +273,6 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     vi.useFakeTimers();
     setupCommonProblemDefaults();
     txContestProblemFindFirst.mockResolvedValue({ id: "cp_1" });
-    // Default: the submitted problem IS part of the active exam. The
-    // confinement test below flips this to false.
     examProblemExists.mockResolvedValue(true);
     contestRepoFindById.mockResolvedValue({
       id: "ct_1",
@@ -349,9 +347,6 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
       examId: "exam_42",
       userId: fakeActor.userId,
     });
-    // The warm-up problem is public but NOT attached to the active exam:
-    // a locked-down exam taker must not be able to use the judge as an
-    // oracle for arbitrary problems.
     examProblemExists.mockResolvedValue(false);
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 

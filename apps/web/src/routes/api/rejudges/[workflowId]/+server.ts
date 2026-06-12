@@ -6,11 +6,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/domain";
 
-// The workflowId is a capability token: it is returned only to the staff member
-// who started the batch (POST /api/rejudges) and carries a 128-bit randomUUID,
-// so any authenticated caller holding it may poll progress. queryRejudgeProgress
-// rejects any workflowId without the `rejudge-` prefix, so this cannot probe
-// sweeper / contest-lifecycle / exam-auto-close / judge workflows.
 export const GET: RequestHandler = apiHandler(async (event) => {
   requireApiAuth(event);
   const { workflowId } = event.params;

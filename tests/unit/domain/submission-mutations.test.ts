@@ -462,7 +462,6 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       userId: fakeActor.userId,
       endedAt: null,
     });
-    // The submitted problem is part of the exam (confinement check passes).
     examProblemExists.mockResolvedValue(true);
     examFindById.mockResolvedValue({
       id: "exam_window",
