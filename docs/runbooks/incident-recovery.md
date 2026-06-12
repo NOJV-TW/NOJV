@@ -58,30 +58,28 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ### Symptoms
 
-- `/api/scoreboard/*` returns 500.
-- SSE clients receive keepalives but no real events (no verdict notifications, no lifecycle signals).
-- Submit cooldown silently fails open (cooldown module uses Redis; degrades to "allow" on error).
-- Rate limit module also fails open.
-- Hot caches (problem metadata, session lookups) miss, pushing load onto Postgres.
+- SSE clients receive keepalives but no real events (no verdict notifications, no lifecycle signals, no scoreboard-update nudges).
+- The contest scoreboard page still loads — it is computed from Postgres, not Redis — but live updates stop, so it relies on its 30 s polling fallback.
+- **Rate limiting fails closed**: in production the limiters reject requests when Redis is unreachable, so writes / sign-ins start returning 429 (this is the main user-facing impact). Cooldown is unaffected — it uses Postgres advisory locks, not Redis.
+- The admin-dashboard read-through cache (`nojv:cache:admin-dashboard`) misses and recomputes from Postgres (fail-open).
 
 ### Detection
 
 - `/api/healthz` reports degraded (Redis probe failing).
 - Web app logs: spike of `Redis ECONNREFUSED`, `MOVED`, or `READONLY` errors.
-- Scoreboard page returns 500; SSE-dependent pages show no live updates.
+- Write / sign-in routes return 429 (rate limiter fail-closed); SSE-dependent pages show no live updates.
 - Memorystore / Redis monitoring: connection count → 0 or memory at eviction threshold.
 
 ### Immediate Mitigation
 
 1. **Check Memorystore / Redis instance state** (GCP console or equivalent). If it is failing over automatically, wait 30–60s for the standby to promote.
 2. If the instance is stuck, restart / recreate it (managed Redis UI or `gcloud redis instances failover`).
-3. **During an active contest, do NOT clear Redis.** Scoreboards are rebuilt from `ContestParticipation` in Postgres on first write after recovery, but freeze snapshots in a separate frozen key will be lost. If a contest is in its frozen window, coordinate with the contest admin first.
-4. If out of contest and data loss is acceptable: flushing Redis is safe — scoreboards rebuild on the next submission verdict; cache refills lazily.
-5. Platform stays **partially up** through the outage: submissions still process (Temporal is independent), auth still works (Postgres-backed). Users lose real-time features only.
+3. **Flushing Redis is essentially harmless to data, even during a contest.** Leaderboards are computed from Postgres on read, submit cooldown uses Postgres advisory locks, and scoreboard freeze is gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns (no Redis snapshot). The only loss is in-flight pub/sub nudges, which clients recover via the 30 s poll / SSE reconnect. The admin-dashboard cache refills lazily.
+4. Platform stays **partially up** through the outage: submissions still process (Temporal is independent), auth still works (Postgres-backed). Users lose real-time push only, and writes/sign-ins are rate-limited closed until Redis returns.
 
 ### Root-Cause Investigation
 
-- Memory pressure: scoreboard sorted sets have a 90-day TTL (see `SCOREBOARD_TTL_SECONDS` in `packages/redis/src/scoreboard.ts`), but long-running contests with many participants can push usage high. Check `INFO memory`.
+- Memory pressure: Redis holds only rate-limiter keys (`rl:*`), the admin-dashboard cache, the 10 s `nojv:sb-throttle:*` keys, and transient pub/sub — there are no scoreboard sorted sets. A leak here usually means a new key pattern skipped its TTL. Check `INFO memory`.
 - Recent changes to Redis key registry (`packages/redis/src/keys.ts`) — did a new key pattern skip TTL?
 - Network policy / firewall: did a recent `infra/k8s/` or Cloud Run ingress change block egress?
 - rate-limiter-flexible internal leak: unlikely (library manages TTLs) but verify key count against expectations.
