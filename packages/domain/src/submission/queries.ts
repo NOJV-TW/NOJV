@@ -10,11 +10,12 @@ import {
   adjustmentRulesSchema,
   judgeConfigSchema,
   languageSchema,
-  submissionResultSchema,
   submissionVerdicts,
   submissionVerdictSchema,
+  verdictSummarySchema,
   type AdjustmentRules,
   type JudgeConfig,
+  type Language,
   type ProblemJudgeTestcase,
   type ProblemSample,
   type Runtime,
@@ -262,20 +263,20 @@ export async function listProblemSubmissions(
     ...(contestId ? { contestId } : {}),
   });
 
-  const detailBlobs = await Promise.all(
-    submissions.map((s) =>
-      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
-    ),
-  );
-
-  return submissions.map((s, idx) => {
-    const verdict = submissionVerdictSchema.parse(s.status);
-    const raw = detailBlobs[idx];
-    const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
-    const result = parsed?.success
-      ? stripStaffFeedback(parsed.data)
-      : fallbackResultForRow(verdict);
-    const language = languageSchema.parse(s.language);
+  return submissions.map((s) => {
+    const { verdict, language } = narrowSubmissionRow(s);
+    const parsedSummary =
+      s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
+    const summary = parsedSummary?.success ? parsedSummary.data : null;
+    const result: SubmissionResult = {
+      accepted: verdict === "accepted",
+      verdict,
+      score: s.score ?? (verdict === "accepted" ? 100 : 0),
+      runtimeMs: s.runtimeMs ?? 0,
+      feedback:
+        summary?.compilerErrorTruncated ??
+        (verdict === "accepted" ? "Accepted." : "Verdict details unavailable."),
+    };
 
     return {
       id: s.id,
@@ -285,6 +286,16 @@ export async function listProblemSubmissions(
       context: deriveSubmissionContextKind(s),
     };
   });
+}
+
+export function narrowSubmissionRow(row: { status: string; language: string }): {
+  verdict: ReturnType<typeof submissionVerdictSchema.parse>;
+  language: Language;
+} {
+  return {
+    verdict: submissionVerdictSchema.parse(row.status),
+    language: languageSchema.parse(row.language),
+  };
 }
 
 export function fallbackResultForRow(

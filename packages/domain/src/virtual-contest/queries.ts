@@ -3,13 +3,16 @@ import {
   languageSchema,
   submissionResultSchema,
   submissionVerdicts,
-  submissionVerdictSchema,
   type ContestScoringMode,
 } from "@nojv/core";
 
 import { problemLetter } from "../shared/problem-letter";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
-import { fallbackResultForRow, getVerdictDetail } from "../submission/queries";
+import {
+  fallbackResultForRow,
+  getVerdictDetail,
+  narrowSubmissionRow,
+} from "../submission/queries";
 import { stripStaffFeedback } from "../submission/scoring";
 import {
   buildScoreboard,
@@ -275,13 +278,12 @@ export async function listVirtualContestProblemSubmissions(
   );
 
   return submissions.map((s, idx) => {
-    const verdict = submissionVerdictSchema.parse(s.status);
+    const { verdict, language } = narrowSubmissionRow(s);
     const raw = detailBlobs[idx];
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);
-    const language = languageSchema.parse(s.language);
     return {
       id: s.id,
       language,

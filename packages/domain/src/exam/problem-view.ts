@@ -1,9 +1,7 @@
 import { examRepo, submissionRepo } from "@nojv/db";
 import {
-  languageSchema,
   submissionResultSchema,
   submissionVerdicts,
-  submissionVerdictSchema,
   type Language,
   type SubmissionResult,
 } from "@nojv/core";
@@ -11,7 +9,11 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
-import { fallbackResultForRow, getVerdictDetail } from "../submission/queries";
+import {
+  fallbackResultForRow,
+  getVerdictDetail,
+  narrowSubmissionRow,
+} from "../submission/queries";
 import { stripStaffFeedback } from "../submission/scoring";
 
 function letterForIndex(index: number): string {
@@ -110,13 +112,12 @@ export async function getExamProblemView(options: {
   );
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
-    const verdict = submissionVerdictSchema.parse(s.status);
+    const { verdict, language } = narrowSubmissionRow(s);
     const raw = detailBlobs[idx];
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);
-    const language = languageSchema.parse(s.language);
     return {
       id: s.id,
       language,
@@ -213,13 +214,12 @@ export async function getExamProblemViewByProblemId(options: {
   );
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
-    const verdict = submissionVerdictSchema.parse(s.status);
+    const { verdict, language } = narrowSubmissionRow(s);
     const raw = detailBlobs[idx];
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
       : fallbackResultForRow(verdict);
-    const language = languageSchema.parse(s.language);
     return {
       id: s.id,
       language,

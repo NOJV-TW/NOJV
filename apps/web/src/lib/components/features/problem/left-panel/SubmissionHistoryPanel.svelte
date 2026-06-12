@@ -39,6 +39,8 @@
   }: Props = $props();
 
   let loadingSourceId = $state<string | null>(null);
+  let loadingDetailId = $state<string | null>(null);
+  let detailLoadedIds = $state(new Set<string>());
   let rejudgingId = $state<string | null>(null);
 
   async function handleRejudge(submissionId: string) {
@@ -94,6 +96,50 @@
       })
       .finally(() => {
         if (!cancelled && loadingSourceId === entryId) loadingSourceId = null;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  $effect(() => {
+    const idx = viewingIndex;
+    if (idx === null) return;
+
+    const entry = submissions[idx];
+    if (!entry || !entry.result || !entry.id) return;
+
+    const entryId = entry.id;
+    if (detailLoadedIds.has(entryId)) return;
+    if (entry.result.caseResults !== undefined || entry.result.subtaskResults !== undefined) {
+      detailLoadedIds = new Set([...detailLoadedIds, entryId]);
+      return;
+    }
+
+    let cancelled = false;
+    loadingDetailId = entryId;
+
+    fetch(`/api/submissions/${entryId}`)
+      .then((res) => {
+        if (!res.ok) return;
+        return res.json() as Promise<{
+          result: import("@nojv/core").SubmissionResult | null;
+          status: string;
+        }>;
+      })
+      .then((data) => {
+        if (cancelled || !data?.result) return;
+        const currentIdx = submissions.findIndex((s) => s.id === entryId);
+        if (currentIdx === -1) return;
+        submissions[currentIdx] = { ...submissions[currentIdx]!, result: data.result };
+        detailLoadedIds = new Set([...detailLoadedIds, entryId]);
+      })
+      .catch(() => {
+        detailLoadedIds = new Set([...detailLoadedIds, entryId]);
+      })
+      .finally(() => {
+        if (!cancelled && loadingDetailId === entryId) loadingDetailId = null;
       });
 
     return () => {
