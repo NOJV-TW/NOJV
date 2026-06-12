@@ -3,11 +3,12 @@ import { log } from "@temporalio/activity";
 import { Dolos } from "@dodona/dolos-lib";
 import { File } from "@dodona/dolos-core";
 
+import type { Language } from "@nojv/core";
 import { plagiarismDomain } from "@nojv/domain";
 
 type PlagiarismTargetType = "assessment" | "exam" | "contest";
 
-const DOLOS_LANGUAGE_MAP: Record<string, string> = {
+const DOLOS_LANGUAGE_MAP = {
   c: "c",
   cpp: "cpp",
   go: "go",
@@ -16,20 +17,30 @@ const DOLOS_LANGUAGE_MAP: Record<string, string> = {
   python: "python",
   rust: "rust",
   typescript: "typescript",
-};
+} satisfies Record<Language, string>;
+
+const LANGUAGE_EXTENSIONS = {
+  c: "c",
+  cpp: "cpp",
+  go: "go",
+  java: "java",
+  javascript: "js",
+  python: "py",
+  rust: "rs",
+  typescript: "ts",
+} satisfies Record<Language, string>;
+
+function assertPlagiarismLanguage(language: string): Language {
+  if (language in DOLOS_LANGUAGE_MAP) return language as Language;
+  throw new Error(`Unsupported plagiarism language: ${language}`);
+}
+
+function dolosLanguageFor(language: string): string {
+  return DOLOS_LANGUAGE_MAP[assertPlagiarismLanguage(language)];
+}
 
 function extensionForLang(language: string): string {
-  const map: Record<string, string> = {
-    c: "c",
-    cpp: "cpp",
-    go: "go",
-    java: "java",
-    javascript: "js",
-    python: "py",
-    rust: "rs",
-    typescript: "ts",
-  };
-  return map[language] ?? "txt";
+  return LANGUAGE_EXTENSIONS[assertPlagiarismLanguage(language)];
 }
 
 interface PlagiarismGroup {
@@ -57,8 +68,7 @@ function groupSubmissionsByLanguage(
 ): Map<string, PlagiarismGroup> {
   const groups = new Map<string, PlagiarismGroup>();
   for (const sub of bestSubmissions.values()) {
-    const dolosLang = DOLOS_LANGUAGE_MAP[sub.language];
-    if (!dolosLang) continue;
+    const dolosLang = dolosLanguageFor(sub.language);
 
     const groupKey = `${sub.problemId}::${dolosLang}`;
     let group = groups.get(groupKey);
@@ -80,18 +90,7 @@ async function analyzeGroup(
     (sub) => new File(`${sub.userId}.${extensionForLang(sub.language)}`, sub.sourceCode),
   );
 
-  let report;
-  try {
-    report = await new Dolos({ language: group.dolosLang }).analyze(files);
-  } catch (err) {
-    log.warn("Dolos analyze failed, skipping group", {
-      problemId: group.problemId,
-      language: group.dolosLang,
-      submissions: group.subs.length,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    return [];
-  }
+  const report = await new Dolos({ language: group.dolosLang }).analyze(files);
 
   return report.allPairs().map((pair) => ({
     problemId: group.problemId,

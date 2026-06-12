@@ -60,7 +60,8 @@ for staff.
   teacher, course TA) on both trigger and view paths.
 - Per-language native tree-sitter parser via Dolos: every
   `SupportedLanguage` (c, cpp, go, java, javascript, python, rust,
-  typescript) maps to its own dedicated parser. No shared buckets.
+  typescript) maps to its own dedicated parser. No shared buckets, no
+  secondary backend, and no unsupported-language fallback.
 - Pre-analysis deduplication: per `(userId, problemId)` keep only the
   highest-scoring `accepted` submission.
 - Cross-group pairing is forbidden: submissions only compare against
@@ -164,9 +165,10 @@ for staff.
 - GIVEN `cpp` submissions,
   WHEN grouping runs,
   THEN they land in their own `cpp` group with a dedicated C++ parser.
-- GIVEN submissions in an unsupported `SupportedLanguage` value,
+- GIVEN submissions in an unsupported language value,
   WHEN grouping runs,
-  THEN those submissions are silently skipped (no error, no failure).
+  THEN the activity throws, marks the report `failed`, and lets Temporal
+  retry. Unknown language values are not skipped.
 - GIVEN only one submission survives a `(problem, language)` group after
   dedup,
   WHEN the activity iterates groups,
@@ -218,10 +220,13 @@ for staff.
   construction; the activity's catch block marks the report `failed`,
   Temporal retries up to 3 times, then gives up. Operator fix: rebuild
   the worker image for the deploy target.
+- **No fallback backend**: parser regression or Dolos failure is an
+  operational failure. The activity must fail the report instead of
+  silently skipping affected groups or trying an unverified secondary
+  engine.
 - **Single Dolos instance per group**: each `(problemId, language)`
   group gets a fresh `Dolos` instance; parser state is not shared
-  across groups. This isolates parser crashes to a single group but
-  does mean a problem with many languages spawns several instances.
+  across groups. A parser failure still fails the report.
 - **Re-trigger mid-flight**: `createPlagiarismReport` wipes prior
   results before the new workflow starts; no merging with a prior run.
 - **Assessment deleted while workflow running**: parent row cascade
@@ -329,7 +334,8 @@ for staff.
   integration test of `runPlagiarismCheck` with the domain layer
   mocked: status bookkeeping, empty-submission short-circuit,
   best-score dedup, per-language grouping, single-submission skip, and
-  the failure path that calls `markReportFailed` + rethrows.
+  failure paths that call `markReportFailed` + rethrow, including
+  unmapped language values.
 - `tests/unit/domain/plagiarism-flags.test.ts` — pair-key sorting +
   validation; admin / teacher / TA / student / inactive permission for
   each context type; organizer / non-organizer for contest; missing
@@ -343,9 +349,3 @@ for staff.
   gate for trigger / view / source fetch / flag / unflag against real
   DB (22 cases across student / other-course teacher / same-course TA /
   admin / contest organizer / non-organizer).
-
-## Open Questions / TODO
-
-- Dolos is self-hosted and in-process, so there is no external
-  dependency to fall back from. If a tree-sitter grammar regresses on
-  a future upgrade, JPlag remains a plausible secondary backend.
