@@ -50,6 +50,7 @@
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
+  import { entriesAroundUser } from "$lib/utils/scoreboard";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
@@ -133,13 +134,11 @@
 
   const AROUND_ME_RADIUS = 5;
   let scoreboardFilter = $state<"all" | "around">("all");
-  const displayEntries = $derived.by(() => {
-    if (scoreboardFilter !== "around" || myRow == null) return scoreboard.entries;
-    const myIndex = scoreboard.entries.findIndex((e) => e.userId === myRow.userId);
-    if (myIndex < 0) return scoreboard.entries;
-    const start = Math.max(0, myIndex - AROUND_ME_RADIUS);
-    return scoreboard.entries.slice(start, myIndex + AROUND_ME_RADIUS + 1);
-  });
+  const displayEntries = $derived(
+    scoreboardFilter === "around"
+      ? entriesAroundUser(scoreboard.entries, myRow?.userId ?? null, AROUND_ME_RADIUS)
+      : scoreboard.entries,
+  );
 
   function avatarBg(name: string): string {
     const code = name.charCodeAt(0) || 65;
