@@ -23,15 +23,27 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       reportsDirectory: "./coverage",
-      // Scope coverage to the business-logic layers the suites are designed
-      // to exercise. apps/web UI + routes are covered by Playwright E2E
-      // instead and would otherwise dilute the percentages to noise.
-      include: ["packages/domain/src/**", "packages/core/src/**"],
+      // worker/sandbox-runner floor is lower than domain/core because their
+      // docker/k8s paths only run in the nightly real-image suite, not this gate.
+      include: [
+        "packages/domain/src/**",
+        "packages/core/src/**",
+        "apps/worker/src/**",
+        "apps/sandbox-runner/src/**",
+      ],
       thresholds: {
-        lines: 68,
-        statements: 65,
-        functions: 62,
-        branches: 58,
+        "packages/{domain,core}/src/**": {
+          lines: 68,
+          statements: 65,
+          functions: 62,
+          branches: 58,
+        },
+        "apps/{worker,sandbox-runner}/src/**": {
+          lines: 30,
+          statements: 30,
+          functions: 30,
+          branches: 30,
+        },
       },
     },
     projects: [
