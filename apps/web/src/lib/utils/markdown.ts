@@ -4,7 +4,7 @@ import markedKatex from "marked-katex-extension";
 
 marked.use(markedKatex({ throwOnError: false, nonStandard: true }));
 
-const KATEX_TAGS = new Set([
+const KATEX_TAGS = [
   "math",
   "maction",
   "maligngroup",
@@ -41,7 +41,7 @@ const KATEX_TAGS = new Set([
   "annotation",
   "annotation-xml",
   "span",
-]);
+];
 
 const KATEX_ATTRS = [
   "accent",
@@ -83,16 +83,28 @@ const KATEX_ATTRS = [
   "xmlns",
 ];
 
+const PURIFY_CONFIG = {
+  ADD_TAGS: KATEX_TAGS,
+  ADD_ATTR: KATEX_ATTRS,
+};
+
+function isInsideKatexSubtree(node: Element | null): boolean {
+  for (let el: Element | null = node; el != null; el = el.parentElement) {
+    for (const cls of el.classList) {
+      if (cls.startsWith("katex")) return true;
+    }
+  }
+  return false;
+}
+
 DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
-  if (data.attrName === "style" && !KATEX_TAGS.has(node.tagName.toLowerCase())) {
-    data.forceKeepAttr = false;
-    data.keepAttr = false;
+  if (data.attrName === "style") {
+    data.keepAttr = isInsideKatexSubtree(node);
   }
 });
 
-export const PURIFY_CONFIG = {
-  ADD_TAGS: [...KATEX_TAGS],
-  ADD_ATTR: [...KATEX_ATTRS, "style"],
-};
+export function renderMarkdown(content: string): string {
+  return DOMPurify.sanitize(marked.parse(content, { async: false }), PURIFY_CONFIG);
+}
 
 export { marked };
