@@ -312,6 +312,12 @@ export const examProblemRepo = {
         return tx.examProblem.count({ where: { examId } });
       },
 
+      exists(examId: string, problemId: string) {
+        return tx.examProblem
+          .findFirst({ where: { examId, problemId }, select: { id: true } })
+          .then((row) => row !== null);
+      },
+
       deleteByExamId(examId: string) {
         return tx.examProblem.deleteMany({
           where: { examId },

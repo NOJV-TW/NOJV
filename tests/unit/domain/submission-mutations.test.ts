@@ -19,6 +19,7 @@ const {
   submissionFindMostRecent,
   examSessionFindActiveForUser,
   examFindById,
+  examProblemExists,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
   txExecuteRaw,
@@ -38,6 +39,7 @@ const {
   submissionFindMostRecent: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
+  examProblemExists: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   txExecuteRaw: vi.fn(),
@@ -79,6 +81,9 @@ vi.mock("@nojv/db", () => {
     },
     examRepo: {
       withTx: () => ({ findById: examFindById }),
+    },
+    examProblemRepo: {
+      withTx: () => ({ exists: examProblemExists }),
     },
     problemWorkspaceFileRepo: {
       findByProblemId: workspaceFindByProblemId,
@@ -457,6 +462,8 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       userId: fakeActor.userId,
       endedAt: null,
     });
+    // The submitted problem is part of the exam (confinement check passes).
+    examProblemExists.mockResolvedValue(true);
     examFindById.mockResolvedValue({
       id: "exam_window",
       startsAt: new Date("2026-04-14T09:00:00.000Z"),

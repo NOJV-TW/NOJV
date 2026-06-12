@@ -26,6 +26,7 @@ const {
   submissionUpdateStatus,
   examSessionFindActiveForUser,
   examFindById,
+  examProblemExists,
   txContestProblemFindFirst,
   storageRef,
 } = vi.hoisted(() => ({
@@ -41,6 +42,7 @@ const {
   submissionUpdateStatus: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
+  examProblemExists: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
@@ -78,6 +80,9 @@ vi.mock("@nojv/db", () => ({
   },
   examRepo: {
     withTx: () => ({ findById: examFindById }),
+  },
+  examProblemRepo: {
+    withTx: () => ({ exists: examProblemExists }),
   },
   problemWorkspaceFileRepo: {
     findByProblemId: workspaceFindByProblemId,
@@ -268,6 +273,9 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     vi.useFakeTimers();
     setupCommonProblemDefaults();
     txContestProblemFindFirst.mockResolvedValue({ id: "cp_1" });
+    // Default: the submitted problem IS part of the active exam. The
+    // confinement test below flips this to false.
+    examProblemExists.mockResolvedValue(true);
     contestRepoFindById.mockResolvedValue({
       id: "ct_1",
       visibility: "published",
@@ -319,11 +327,12 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 
-  it("free-practice submission writes the active exam's id onto the new submission", async () => {
+  it("exam-problem submission writes the active exam's id onto the new submission", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
       userId: fakeActor.userId,
     });
+    examProblemExists.mockResolvedValue(true);
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 
     await createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "127.0.0.1");
@@ -333,6 +342,37 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     expect(arg.examId).toBe("exam_42");
     expect(arg.contestId).toBeNull();
     expect(arg.assessmentId).toBeNull();
+  });
+
+  it("forbids submitting a problem that is NOT part of the active exam (confinement, P1)", async () => {
+    examSessionFindActiveForUser.mockResolvedValue({
+      examId: "exam_42",
+      userId: fakeActor.userId,
+    });
+    // The warm-up problem is public but NOT attached to the active exam:
+    // a locked-down exam taker must not be able to use the judge as an
+    // oracle for arbitrary problems.
+    examProblemExists.mockResolvedValue(false);
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("admin bypasses the exam problem-membership check (operational recovery)", async () => {
+    examSessionFindActiveForUser.mockResolvedValue({
+      examId: "exam_42",
+      userId: adminActor.userId,
+    });
+    examProblemExists.mockResolvedValue(false);
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(baseFreePracticeDraft, adminActor, "127.0.0.1"),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 
   it("with no active exam session, examId is null on the created submission", async () => {

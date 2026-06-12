@@ -4,6 +4,7 @@ import {
   assessmentProblemRepo,
   contestProblemRepo,
   courseMembershipRepo,
+  examProblemRepo,
   examRepo,
   examSessionRepo,
   problemWorkspaceFileRepo,
@@ -71,6 +72,15 @@ async function assertActiveExamSubmissionAllowed(
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
   if (exam && new Date() >= exam.endsAt) {
     throw new ForbiddenError("Exam has ended.");
+  }
+
+  // Confinement: a locked-down exam taker may only submit to problems that are
+  // part of the active exam. Without this, the judge becomes an oracle for any
+  // public problem during the exam (the contest/assignment paths enforce the
+  // analogous problem-link check; the exam path must too).
+  const inExam = await examProblemRepo.withTx(tx).exists(activeExamSession.examId, problem.id);
+  if (!inExam) {
+    throw new ForbiddenError("This problem is not part of the exam.");
   }
 
   if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
