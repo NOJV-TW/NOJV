@@ -22,19 +22,19 @@
 - **Phase 1(全部)** — 1.1 隔離測試進 nightly、1.2 docker-arg golden、1.3 TLE 改 cgroup CPU-time、1.4 workflow versioning doc、1.5 coverage 納 worker/sandbox、1.6 e2e 終態斷言、1.7 getTemporalClient single-flight(snapshotForRejudge 冪等 + memory poller 列遞延,見下)。
 - **Phase 2(全部)** — 2.1 QUALITY_SCORE 誠實帳本、2.2 scoreboard 四文件統一、2.3 THREAT_MODEL phantom 清除、2.4 a–i(ARCHITECTURE / DATABASE prose / SECURITY advisory / incident-recovery / JUDGE_PIPELINE / gke+gcp README)。
 - **Phase 3(部分)** — 3.1 scoreboard chart 重用、3.3a problem loader 並行化、3.4 plagiarism omit、3.5 索引 migration + point-sum 分桶。
-- **Phase 4(部分)** — 4.1e notification dedupeKey。
+- **Phase 4(部分)** — 4.1a adminOverrideSignal 死契約移除(方案 A,使用者確認 prod 未對外、無 in-flight 比賽,故直接乾淨移除;behavior 等價)、4.1c sse.ts 三個死 toast handler + i18n key、4.1e notification dedupeKey。
 - **Phase 5(大部分)** — 5.1 temporal/sandbox-runner 補 lint(修 21 既存違規,含一個 `return await` 真 bug 傾向)+ lint-coverage fitness test、5.2 workflow 名稱契約(確認既有 `workflow-registration.test.ts` 已覆蓋)、5.5 exam-context cache null 短 TTL、5.7 web prod env fail-fast + seed Redis 死碼 + pubsub 孤兒註解、5.8 SSE reconnect onopen 重置、5.10 verdict sanitizer fail-closed + avatar magic-byte。
 
 **⏸️ 遞延(有具體理由,非遺漏)**
 
-- **4.1a adminOverrideSignal 程式碼移除** — `contestLifecycleWorkflow` 是長壽 workflow;移除 `condition`/signal 會改 command sequence,in-flight 執行 replay 撞 non-determinism。依本輪新增的 DEPLOYMENT「Workflow Versioning」紀律,需 worker drain 或 `patched()` 協調部署才能安全移除。**等使用者裁示 A(完整刪+drain)/B(replay-safe 部分刪)**。文件側已改正(ARCHITECTURE/RELIABILITY)。
 - **1.7 snapshotForRejudge 冪等 / memory poller 精度** — 需 schema migration + 5 處改動換 P3 orphan-log;不成比例,遞延。
+- **未來 workflow 編排改動** — A 已乾淨移除 adminOverride,但下次再改 `workflows/` 的 command 序列且有 in-flight 比賽時,仍需依 DEPLOYMENT「Workflow Versioning」紀律(patched / 挑無比賽時部署 / replay test)。長期保險可加 Temporal replay test(需歷史 fixture)。
 
 **🔲 待做(P2/P3 polish,多檔/前端/重構)**
 
 - **3.2 listProblemSubmissions S3 扇出** — 需前端 master-detail 改 lazy-load 完整 verdict(列表只需 verdict,可改用 `verdictSummary`);**需可視驗證**。
 - **3.3b** problems 列表 9 查詢 / computeStatusCounts 4 子查詢合併。
-- **4.1b/c/d** 死契約(publishAssessmentDeadline 死 activity、sse.ts 3 死 toast handler、scoreboard Friends/Around 死 UI)— 多檔且 SSE event schema 有 fitness test。
+- **4.1b/d** 死契約(publishAssessmentDeadline 死 activity 鏈=schema/bundle/openapi 多檔、scoreboard Friends/Around 死 UI=前端視覺)。
 - **4.2** context 概念 6 份 → core schema、**4.3** form action 錯誤 wrapper、**4.4** sandbox executor source-file 去重、**4.5** EditorCore/MonacoScriptEditor 等去重。
 - **5.3** CHECK 重放進測試 DB(test-harness)、**5.4** Participation status enum(migration)、**5.6** rate limiter offline-queue(需獨立連線)、**5.9** CD backup/SLO/rollback(infra)、**5.10 殘餘**(BODY_SIZE_LIMIT、markdown ADD_ATTR 需 KaTeX 視覺驗證、editorial early-return、heartbeat 孤兒端點、createOverride 驗證、bundle 守衛)、**5.11** 前端 a11y/i18n 批次(視覺)。
 
