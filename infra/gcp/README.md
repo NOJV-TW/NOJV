@@ -43,6 +43,13 @@ The sandbox namespace guardrails now live under `infra/k8s/sandbox/`.
 - `PROJECT_ID`
 - `DATABASE_URL`
 - `REDIS_URL`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `S3_ENDPOINT`
+- `S3_ACCESS_KEY`
+- `S3_SECRET_KEY`
+- `S3_BUCKET`
+- `S3_REGION`
 - `REGION` optional, default `asia-east1`
 - `REPOSITORY` optional, default `nojv`
 - `SERVICE_PREFIX` optional, default `nojv`

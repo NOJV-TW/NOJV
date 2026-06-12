@@ -122,7 +122,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 - Long-running queries: check `pg_stat_activity` for queries > 30s. Common culprits: plagiarism report aggregations, scoreboard rebuilds, `listSubmissions` without index hits.
 - Lock contention: look for `idle in transaction` sessions — a hung web request holding a row lock can cascade.
 - Recent migrations: did a migration add an index that caused a lock-heavy rewrite?
-- IOPS ceiling: large contests generate bursts of `Submission` / `ContestParticipation` writes.
+- IOPS ceiling: large contests generate bursts of `Submission` / `Participation` writes.
 
 ### Prevention
 

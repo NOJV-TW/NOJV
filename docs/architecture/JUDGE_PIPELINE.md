@@ -262,12 +262,12 @@ Timeouts and retry policy applied to the judge activities proxy:
 hung container is detected before the start-to-close timeout); the rest
 of the judge activities use the shorter `5m` `judge` proxy.
 
-`deriveJudgeMode` is deliberately **inlined into the workflow file** (`submission-judge.ts:48-53`) instead of imported from `@nojv/domain`. Pulling the domain package into the workflow bundle would drag Prisma into the workflow sandbox, which Temporal forbids (workflow code must be deterministic and self-contained). The inlined two-line check mirrors `submissionDomain.deriveJudgeMode`; a unit test on the domain helper exercises the same condition to keep the two copies in sync.
+The standard-vs-advanced mode is decided by a small **inline expression in the workflow** (`apps/worker/src/workflows/submission-judge.ts`): `problemType === "special_env" && advanced !== null ? "advanced" : "standard"`. It is inlined rather than imported from `@nojv/domain` because pulling the domain package into the workflow bundle would drag Prisma into the workflow sandbox, which Temporal forbids (workflow code must be deterministic and self-contained). The domain layer's own `deriveJudgeMode` (`packages/domain/src/submission/queries.ts`, used by the judge activity) encodes the same rule, and its unit test exercises the condition to keep the two copies in sync.
 
 ## Reliability notes
 
 - **Bounded stdout/stderr buffers** — both the worker (`apps/worker/src/services/bounded-buffer.ts`) and the sandbox runner (`apps/sandbox-runner/src/utils.ts` → `createBoundedBuffer`) cap captured output at 16 MB per stream. A runaway submission that prints infinite output will hit the cap, get a `[output truncated — exceeded N bytes]` marker, and continue to the per-case timeout instead of OOM-killing the runner or worker. The two buffers are intentionally kept as separate copies — pnpm workspace deps don't allow cross-app imports.
-- **Sandbox temp-dir cleanup** — the runner wraps the main judging step in try/finally and `rm -rf`s its `mkdtemp` work directory on exit (`apps/sandbox-runner/src/index.ts:333-338`), so a container restart between runs does not leak workspace state.
+- **Sandbox temp-dir cleanup** — the runner wraps the main judging step in try/finally and calls `cleanupTempDir(workDir)` (from `apps/sandbox-runner/src/utils.ts`) on its `mkdtemp` work directory on exit, so a container restart between runs does not leak workspace state.
 - **Outer container timeout** — Standard Mode uses `request.limits.timeoutMs * testcases.length + 30 s` as the docker-level kill timeout; Advanced Mode uses `advanced.totalTimeMs + 30 s`. The 30 s grace covers Docker startup/teardown overhead.
 
 ## Where the code lives
