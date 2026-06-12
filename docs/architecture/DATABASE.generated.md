@@ -311,7 +311,7 @@ Standalone contest — public / invite-only competition with no course binding. 
 | `points` | `Int` | `@default(100)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `contest` | `Contest` | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
-| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |
 
 Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId, ordinal])`
 
@@ -520,7 +520,7 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `points` | `Int` | `@default(100)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `assessment` | `Assessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
-| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |
 
 Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessmentId, ordinal])`
 

@@ -102,6 +102,12 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   assertProblemOwnership(problem, actor);
 
+  if (await problemRepo.hasContextLinks(problemId)) {
+    throw new ConflictError(
+      "This problem is used in a contest, exam, or assignment and cannot be deleted. Remove it from those first.",
+    );
+  }
+
   const deleted = await problemRepo.delete(problemId);
   await bestEffortDeleteProblemBlobs(problemId);
   return deleted;

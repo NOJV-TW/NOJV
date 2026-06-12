@@ -119,7 +119,7 @@ model ContestProblem {
   points    Int      @default(100)
   createdAt DateTime @default(now())
   contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Restrict)
 
   @@unique([contestId, problemId])
   @@unique([contestId, ordinal])

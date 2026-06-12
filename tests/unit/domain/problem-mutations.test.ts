@@ -10,6 +10,8 @@ const {
   problemFindById,
   problemUpdate,
   problemUpdateAdvancedRequiredPaths,
+  problemDelete,
+  problemHasContextLinks,
   PRISMA_JSON_NULL,
 } = vi.hoisted(() => ({
   problemCreate: vi.fn(),
@@ -19,6 +21,8 @@ const {
   problemFindById: vi.fn(),
   problemUpdate: vi.fn(),
   problemUpdateAdvancedRequiredPaths: vi.fn(),
+  problemDelete: vi.fn(),
+  problemHasContextLinks: vi.fn(),
   // Sentinel for Prisma.JsonNull — we only need identity equality in assertions.
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
@@ -67,7 +71,8 @@ vi.mock("@nojv/db", () => {
     problemRepo: {
       withTx: () => withTx,
       findById: problemFindById,
-      delete: vi.fn(),
+      delete: problemDelete,
+      hasContextLinks: problemHasContextLinks,
       updateAdvancedRequiredPaths: problemUpdateAdvancedRequiredPaths,
     },
     problemStatementRepo: {
@@ -85,8 +90,12 @@ vi.mock("@nojv/db", () => {
 
 import { ConflictError, problemDomain } from "@nojv/domain";
 
-const { createProblemDefinition, updateProblemWorkspace, updateAdvancedRequiredPaths } =
-  problemDomain;
+const {
+  createProblemDefinition,
+  updateProblemWorkspace,
+  updateAdvancedRequiredPaths,
+  deleteProblemRecord,
+} = problemDomain;
 
 const fakeTx = {} as never;
 
@@ -342,5 +351,36 @@ describe("updateAdvancedRequiredPaths — special_env type guard", () => {
 
     await expect(updateAdvancedRequiredPaths(actor, "prob_full", [])).resolves.toBeUndefined();
     expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledWith("prob_full", []);
+  });
+});
+
+describe("deleteProblemRecord — context-link guard (P1)", () => {
+  const actor = {
+    userId: "usr_author",
+    username: "author",
+    platformRole: "teacher" as const,
+    displayName: "Author",
+    email: "author@example.com",
+  };
+  const ownedProblem = { id: "prob_1", authorId: "usr_author", visibility: "private" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemFindById.mockResolvedValue(ownedProblem);
+    problemDelete.mockResolvedValue(ownedProblem);
+  });
+
+  it("refuses to delete a problem still linked to a contest/exam/assignment", async () => {
+    problemHasContextLinks.mockResolvedValue(true);
+
+    await expect(deleteProblemRecord(actor, "prob_1")).rejects.toBeInstanceOf(ConflictError);
+    expect(problemDelete).not.toHaveBeenCalled();
+  });
+
+  it("deletes a problem with no context links", async () => {
+    problemHasContextLinks.mockResolvedValue(false);
+
+    await expect(deleteProblemRecord(actor, "prob_1")).resolves.toBeDefined();
+    expect(problemDelete).toHaveBeenCalledWith("prob_1");
   });
 });
