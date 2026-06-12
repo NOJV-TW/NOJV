@@ -33,6 +33,10 @@ export function connectSSE() {
 
   eventSource = new EventSource(buildStreamUrl());
 
+  eventSource.onopen = () => {
+    reconnectAttempts = 0;
+  };
+
   eventSource.onmessage = (event) => {
     try {
       reconnectAttempts = 0;
