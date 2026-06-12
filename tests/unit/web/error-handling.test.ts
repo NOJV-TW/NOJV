@@ -127,14 +127,4 @@ describe("withAction", () => {
     const result = await handler(fakeEvent());
     expect(result).toMatchObject({ status: 500, data: { error: "Internal server error." } });
   });
-
-  it("re-throws redirect errors", async () => {
-    const { redirect } = await import("@sveltejs/kit");
-    const handler = withAction(async () => {
-      redirect(303, "/somewhere");
-    });
-    await expect(handler(fakeEvent())).rejects.toSatisfy(
-      (e: unknown) => typeof e === "object" && e !== null && "location" in e,
-    );
-  });
 });

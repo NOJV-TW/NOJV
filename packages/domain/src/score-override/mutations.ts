@@ -98,7 +98,7 @@ async function assertProblemAndUserInContext(
       if (!problemInContext) {
         throw new NotFoundError("Problem is not part of this assignment.");
       }
-      if (!membership || membership.status !== "active") {
+      if (membership?.status !== "active") {
         throw new NotFoundError("User is not enrolled in this course.");
       }
       break;
