@@ -289,14 +289,14 @@ Dispatch helpers exposed at the root entry:
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                    | Task Queue | Workflow ID pattern                                                               | Signal / Query                                |
-| --------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| `submissionJudgeWorkflow`   | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                            |
-| `rejudgeWorkflow`           | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                          |
-| `contestLifecycleWorkflow`  | `platform` | `contest-lifecycle-{contestId}`                                                   | Signal: `adminOverride` (`earlyEnd`/`extend`) |
-| `plagiarismCheckWorkflow`   | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                  |
-| `examAutoCloseWorkflow`     | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                             |
-| `submissionSweeperWorkflow` | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                             |
+| Workflow                    | Task Queue | Workflow ID pattern                                                               | Signal / Query                                    |
+| --------------------------- | ---------- | --------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `submissionJudgeWorkflow`   | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                                |
+| `rejudgeWorkflow`           | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                              |
+| `contestLifecycleWorkflow`  | `platform` | `contest-lifecycle-{contestId}`                                                   | Reschedule via re-dispatch (`TERMINATE_EXISTING`) |
+| `plagiarismCheckWorkflow`   | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                      |
+| `examAutoCloseWorkflow`     | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                                 |
+| `submissionSweeperWorkflow` | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                                 |
 
 The parent `rejudgeWorkflow` ID carries a `randomUUID()` suffix (not a
 timestamp) so concurrent rejudges of the same scope never collide; each
