@@ -43,6 +43,8 @@
     legendPartial: m.assignmentDetail_legendPartial,
     legendZero: m.assignmentDetail_legendZero,
     legendEmpty: m.assignmentDetail_legendEmpty,
+    legendPractice: m.assignmentDetail_legendPractice,
+    practiceSummary: m.assignmentDetail_matrixPracticeSummary,
     paginationLabel: m.assignmentDetail_matrixPaginationLabel,
     prev: m.assignmentDetail_matrixPrev,
     next: m.assignmentDetail_matrixNext,

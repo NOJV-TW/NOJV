@@ -27,9 +27,14 @@ export interface SubmissionsMatrix {
   studentCount: number;
 }
 
+export interface BuildSubmissionsMatrixOptions {
+  now?: Date;
+}
+
 export async function buildSubmissionsMatrix(
   courseId: string,
   assignmentId: string,
+  options: BuildSubmissionsMatrixOptions = {},
 ): Promise<SubmissionsMatrix> {
   const [assignment, students] = await Promise.all([
     assessmentRepo.findDetailById(courseId, assignmentId),
@@ -57,16 +62,39 @@ export async function buildSubmissionsMatrix(
 
   const studentIds = students.map((s) => s.userId);
   const problemIds = problems.map((p) => p.problemId);
+  const closed = assignment.closesAt < (options.now ?? new Date());
 
   const scoreIndex = new Map<string, { best: number; count: number }>();
-  const grouped = await submissionRepo.groupByUserAndProblem({
-    assessmentId: assignmentId,
-    userId: { in: studentIds },
-    problemId: { in: problemIds },
-    sampleOnly: false,
-  });
+  const practiceIndex = new Map<string, { best: number; count: number }>();
+  const [grouped, practiceGrouped] = await Promise.all([
+    submissionRepo.groupByUserAndProblem({
+      assessmentId: assignmentId,
+      userId: { in: studentIds },
+      problemId: { in: problemIds },
+      sampleOnly: false,
+    }),
+    closed
+      ? submissionRepo.groupByUserAndProblem({
+          assessmentId: null,
+          contestId: null,
+          courseId: null,
+          examId: null,
+          participationId: null,
+          userId: { in: studentIds },
+          problemId: { in: problemIds },
+          sampleOnly: false,
+          createdAt: { gt: assignment.closesAt },
+        })
+      : Promise.resolve([]),
+  ]);
   for (const g of grouped) {
     scoreIndex.set(`${g.userId}::${g.problemId}`, {
+      best: g._max.score ?? 0,
+      count: g._count.id,
+    });
+  }
+  for (const g of practiceGrouped) {
+    practiceIndex.set(`${g.userId}::${g.problemId}`, {
       best: g._max.score ?? 0,
       count: g._count.id,
     });
@@ -83,6 +111,7 @@ export async function buildSubmissionsMatrix(
       problems,
       scoreIndex,
       overrides,
+      practiceIndex,
     });
     return {
       userId: student.userId,

@@ -34,4 +34,13 @@
     ></span>
     {labels.legendEmpty()}
   </span>
+  {#if labels.legendPractice}
+    <span class="inline-flex items-center gap-1.5">
+      <span
+        class="inline-flex h-[14px] w-[18px] items-center justify-center rounded-[2px] border border-border-subtle text-[9px] font-semibold text-muted-foreground"
+        >P</span
+      >
+      {labels.legendPractice()}
+    </span>
+  {/if}
 </div>
