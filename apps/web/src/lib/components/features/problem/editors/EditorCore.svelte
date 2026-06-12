@@ -2,7 +2,12 @@
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
   import type { Language } from "@nojv/core";
-  import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
+  import {
+    defineNojvThemes,
+    getNojvThemeName,
+    MONACO_CODE_EDITOR_OPTIONS,
+    watchThemeChanges,
+  } from "$lib/utils/monaco-themes";
   import { registerCompletionProviders } from "../editor-completions";
 
   interface Props {
@@ -15,17 +20,8 @@
   let { language, drafts, isHidden = false, onchange }: Props = $props();
 
   const editorOptions = {
-    automaticLayout: true,
+    ...MONACO_CODE_EDITOR_OPTIONS,
     fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: 12,
-    hideCursorInOverviewRuler: true,
-    lineDecorationsWidth: 0,
-    lineNumbersMinChars: 2,
-    minimap: { enabled: false },
-    overviewRulerBorder: false,
-    padding: { top: 16 },
-    scrollBeyondLastLine: false,
-    wordWrap: "on" as const,
   };
 
   const languageIdMap: Record<string, string> = {
@@ -44,7 +40,7 @@
   let monacoModule: typeof Monaco | undefined;
 
   onMount(() => {
-    let themeObserver: MutationObserver | undefined;
+    let disposeTheme: (() => void) | undefined;
 
     void (async () => {
       const { loadMonaco } = await import("$lib/utils/monaco-loader");
@@ -65,18 +61,11 @@
         onchange(editor.getValue());
       });
 
-      themeObserver = new MutationObserver(() => {
-        const dark = document.documentElement.classList.contains("dark");
-        monacoModule!.editor.setTheme(getNojvThemeName(dark));
-      });
-      themeObserver.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["class"],
-      });
+      disposeTheme = watchThemeChanges(monacoModule);
     })();
 
     return () => {
-      themeObserver?.disconnect();
+      disposeTheme?.();
       monacoEditor?.dispose();
     };
   });

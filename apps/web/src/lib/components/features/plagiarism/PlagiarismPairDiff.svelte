@@ -5,7 +5,11 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
-  import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
+  import {
+    defineNojvThemes,
+    getNojvThemeName,
+    watchThemeChanges,
+  } from "$lib/utils/monaco-themes";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
@@ -31,7 +35,7 @@
   }
 
   onMount(() => {
-    let themeObserver: MutationObserver | undefined;
+    let disposeTheme: (() => void) | undefined;
 
     void (async () => {
       const { loadMonaco } = await import("$lib/utils/monaco-loader");
@@ -60,18 +64,11 @@
       );
       diffEditor.setModel({ original, modified });
 
-      themeObserver = new MutationObserver(() => {
-        const dark = document.documentElement.classList.contains("dark");
-        monacoModule!.editor.setTheme(getNojvThemeName(dark));
-      });
-      themeObserver.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["class"],
-      });
+      disposeTheme = watchThemeChanges(monacoModule);
     })();
 
     return () => {
-      themeObserver?.disconnect();
+      disposeTheme?.();
       const m = diffEditor?.getModel();
       m?.original.dispose();
       m?.modified.dispose();
