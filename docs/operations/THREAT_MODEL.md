@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-NOJV is an Online Judge platform supporting competitive programming contests (ICPC/IOI scoring), course-based assessments, practice submissions, and plagiarism detection. The runtime consists of a SvelteKit BFF (server-rendered frontend), a Temporal-backed worker for submission judging and lifecycle orchestration, Docker/Kubernetes sandbox containers for untrusted code execution, PostgreSQL as the durable source of truth, Redis for cache/pub-sub/scoreboards/rate-limiting, and S3-compatible object storage for problem images.
+NOJV is an Online Judge platform supporting competitive programming contests (ICPC/IOI scoring), course-based assessments, practice submissions, and plagiarism detection. The runtime consists of a SvelteKit BFF (server-rendered frontend), a Temporal-backed worker for submission judging and lifecycle orchestration, Docker/Kubernetes sandbox containers for untrusted code execution, PostgreSQL as the durable source of truth, Redis for cache/pub-sub/rate-limiting, and S3-compatible object storage for problem images.
 
 ### Core Security Objectives
 
@@ -32,8 +32,7 @@ NOJV is an Online Judge platform supporting competitive programming contests (IC
 | S3 credentials          | `S3_ACCESS_KEY`, `S3_SECRET_KEY` env vars                       | High — storage read/write                                     |
 | `BETTER_AUTH_SECRET`    | Environment variable                                            | Critical — session forgery if leaked                          |
 | OAuth client secrets    | `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` env vars         | High — OAuth impersonation                                    |
-| Plagiarism reports      | PostgreSQL `PlagiarismReport.results` JSON                      | Medium — academic integrity data                              |
-| Course join tokens      | PostgreSQL `CourseJoinToken`                                    | Medium — unauthorized enrollment                              |
+| Plagiarism reports      | PostgreSQL inline `plagiarism*` columns + `PlagiarismPairFlag`  | Medium — academic integrity data                              |
 
 ### Primary Trust Boundaries
 
@@ -104,7 +103,6 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 | URL slugs             | Route params (`[slug]`, `[id]`)           | `slugSchema` (3+ chars, `[a-z0-9-]+`)           |
 | OAuth callback params | `/api/auth/[...path]`                     | better-auth validates state/code                |
 | Contest invite codes  | Form action on contest join               | Zod validation                                  |
-| Course join tokens    | `/courses/[slug]/join/[token]` URL param  | Token lookup in DB                              |
 | Editorial content     | `POST /api/problems/[id]/editorials`      | Zod, 10-50,000 chars                            |
 | IP addresses          | `getClientIp(event)` (`CF-Connecting-IP`) | Production trusts only CF header; missing = 403 |
 | User-Agent / headers  | HTTP headers                              | Logged per session, not validated               |
@@ -225,7 +223,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Mitigations:**
 
-- **IP binding (exam only)**: When `Exam.ipBindingEnabled`, first request records `ExamParticipation.ipPin`. Subsequent requests from different IPs are blocked or logged based on violation mode (`block`/`notify`). Violations stored in `IpViolationLog` table. Contests have no IP binding — they're public CP events.
+- **IP binding (exam only)**: When `Exam.ipBindingEnabled`, first request records `Participation.ipPin` (the unified participation row, `type = exam`). Subsequent requests from different IPs are blocked or logged based on violation mode (`block`/`notify`). Violations stored in `IpViolationLog` table. Contests have no IP binding — they're public CP events.
 - **IP whitelist**: When `ipWhitelistEnabled`, only whitelisted IPs can participate.
 - **Page lock**: When `pageLockEnabled`, JavaScript visibility API prevents opening new tabs. Violations detected client-side.
 - **Submit cooldown**: A recent-submission check in PostgreSQL, serialized by a `pg_advisory_xact_lock` within the submission transaction, prevents both rapid-fire and concurrent-race submissions. Configurable per-contest (`submitCooldownSec`). Cross-instance consistent (shared DB).
@@ -270,7 +268,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Problem creation/editing: `requirePlatformRole(actor, "admin", "teacher")` or `canEditProblem(platformRole)`
 - Course management: `canManageCourse(effectiveRole)` requires admin, teacher, or TA effective role
 - All input validated with Zod schemas from `@nojv/core`
-- Course join via token: token must exist in `CourseJoinToken` table and be valid
+- Enrollment is manual: teachers add members directly (`canManageMembers`); there is no self-service join token.
 - Assessment lifecycle: Temporal workflow manages `opensAt` -> `dueAt` -> `closesAt` transitions server-side
 - Grade export: restricted to course staff via `canManageCourse`
 
@@ -280,7 +278,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Graded testcase leak**: Student accesses graded testcase content. _Mitigation_: `TestcaseSet` / `Testcase` rows are never included in student-facing responses — only `Problem.samples` (a separate JSON column scoped to presentation) is rendered on the problem page. `ProblemDetail` in the domain layer deliberately excludes testcase set content before returning to the web layer.
 - **Hidden workspace file leak**: Student reads a `ProblemWorkspaceFile` whose `visibility = hidden` (e.g., internal test harness). _Mitigation_: `mapPersistedProblemDetail` in `packages/domain/src/problem/queries.ts` filters out `visibility === "hidden"` before the row leaves the domain layer. Hidden files are only merged into the sandbox workspace by the worker at judge time.
 - **Assessment manipulation**: Student modifies assessment deadlines or configuration. _Mitigation_: Assessment mutations require `canManageCourse(role)`. Deadline enforcement is server-side (`closesAt` checked before accepting submissions).
-- **Course join token brute force**: Attacker guesses join tokens to enroll in courses. _Mitigation_: Tokens are generated server-side with sufficient entropy. URL path `/courses/[slug]/join/[token]` requires the exact token. _Gap_: No explicit rate limit on join token attempts beyond the general form rate limiter (20/min per IP).
+- **Unauthorized enrollment**: Student adds themselves (or escalates their role) in a course. _Mitigation_: Membership changes require `canManageMembers`; TAs cannot change memberships and teachers cannot act on other teachers (see `changeMemberRole` / `removeMember`). There is no join-token path to brute-force.
 - **Grade export data exposure**: Student accesses another course's grade export. _Mitigation_: `resolveCoursePermission(courseSlug, actor)` checks course membership and role before allowing export.
 
 ### 3.8 Plagiarism Detection
@@ -293,7 +291,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - `canManageCourse(role)` restricts to admin, teacher, or TA
 - `writeApiRateLimiter` (10/min per IP) on POST
 - Temporal workflow processes detection asynchronously
-- `PlagiarismReport` record created in DB before workflow dispatch (duplicate-safe)
+- Run state is recorded inline on the target (status/triggeredAt columns) before workflow dispatch; re-runs use `workflowIdConflictPolicy: TERMINATE_EXISTING` (duplicate-safe)
 
 **Attacker stories:**
 
@@ -323,7 +321,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Misconfigured CORS**: API endpoints accessible from arbitrary origins. _Mitigation_: SvelteKit handles CORS via its built-in mechanisms. Same-origin by default for form actions.
 - **Docker daemon exposure**: Attacker accesses Docker socket to create privileged containers. _Mitigation_: In production, sandbox runs as Kubernetes Jobs with dedicated service account. Worker's K8s RBAC is scoped to sandbox namespace only. In development, Docker socket access is local.
 - **CI/CD pipeline compromise**: Attacker injects malicious code via pull request. _Mitigation_: CD deploys only from `main` branch after CI passes. Self-hosted runner workspace is persistent. Clean checkout uses exact CI-passing SHA.
-- **Redis data poisoning**: Attacker writes to Redis to manipulate scoreboards. _Mitigation_: Redis publishes its host port on `127.0.0.1` only (loopback) in the self-hosted compose; in production GCP, Memorystore is VPC-only. (Submission cooldown no longer lives in Redis — it uses PostgreSQL advisory locks — so Redis tampering cannot bypass it.) _Gap_: No Redis authentication in development — any process on the dev machine can access Redis on loopback.
+- **Redis data poisoning**: Attacker writes to Redis to tamper with cached data or spam scoreboard-update nudges. _Mitigation_: Redis publishes its host port on `127.0.0.1` only (loopback) in the self-hosted compose; in production GCP, Memorystore is VPC-only. Scoreboards and cooldowns are not stored in Redis — leaderboards are computed from Postgres on read and cooldowns use PostgreSQL advisory locks — so Redis tampering cannot poison scores or bypass cooldown; at worst it forces extra scoreboard re-fetches. _Gap_: No Redis authentication in development — any process on the dev machine can access Redis on loopback.
 - **Local MinIO credential exposure**: Development uses MinIO default credentials (`minioadmin/minioadmin`) in `.env`. _Mitigation_: Development only. Production uses GCS/R2/S3 with credentials from Secret Manager.
 
 ## 4. Criticality Calibration
@@ -351,15 +349,14 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### Medium
 
-| Threat                                         | Justification                                                                                                        |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| DoS via submission flooding                    | Rate limiters and Temporal backpressure mitigate, but sustained attack could degrade service.                        |
-| SSE connection exhaustion                      | Per-user cap (`acquireSseSlot`, 5) + per-IP rate limit exist; the cap is in-memory so it is per-replica, not global. |
-| Image storage exhaustion                       | No per-problem/per-user storage quota. Teachers could fill storage with large uploads.                               |
-| Information leakage from Zod validation errors | Validation issue responses include field paths — reveals internal schema structure.                                  |
-| Plagiarism detection abuse (worker load)       | Repeated triggers load tree-sitter parsers and consume worker CPU/memory in-process.                                 |
-| Redis data manipulation (development)          | No Redis auth in dev. Any local process can read/write cache, scoreboards, cooldowns.                                |
-| Course join token brute force                  | General rate limiter (20/min) but no token-specific lockout.                                                         |
+| Threat                                         | Justification                                                                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| DoS via submission flooding                    | Rate limiters and Temporal backpressure mitigate, but sustained attack could degrade service.                            |
+| SSE connection exhaustion                      | Per-user cap (`acquireSseSlot`, 5) + per-IP rate limit exist; the cap is in-memory so it is per-replica, not global.     |
+| Image storage exhaustion                       | No per-problem/per-user storage quota. Teachers could fill storage with large uploads.                                   |
+| Information leakage from Zod validation errors | Validation issue responses include field paths — reveals internal schema structure.                                      |
+| Plagiarism detection abuse (worker load)       | Repeated triggers load tree-sitter parsers and consume worker CPU/memory in-process.                                     |
+| Redis data manipulation (development)          | No Redis auth in dev. Any local process can read/write cache + pub-sub channels (scoreboards/cooldowns are in Postgres). |
 
 ### Low
 
