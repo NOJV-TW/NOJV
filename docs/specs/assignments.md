@@ -232,13 +232,14 @@ is only available after it closes.")` (shared post-close gate; see
 
 ### Stale-submission reaper (attempt refund)
 
-- GIVEN a submission stuck in `queued` / `compiling` / `running` past
-  the configured pending timeout (default 30 min, set by an admin at
-  `/admin/rejudges` via `updatePendingTimeout`, bounded 10–1440 min),
-  WHEN the `submissionSweeperWorkflow` cron fires (every minute), THEN
-  `sweepStaleSubmissions` terminates the stuck judge workflow and only
-  then flips the row to `system_error` (terminate-before-mark so a
-  still-alive workflow cannot overwrite the verdict).
+- GIVEN a submission stuck in `pending_upload` / `queued` / `compiling`
+  / `running` past the configured pending timeout (default 30 min, set
+  by an admin at `/admin/rejudges` via `updatePendingTimeout`, bounded
+  10–1440 min), WHEN the `submissionSweeperWorkflow` cron fires (every
+  minute), THEN `sweepStaleSubmissions` terminates the stuck judge
+  workflow when one may exist and only then flips the row to
+  `system_error` (terminate-before-mark so a still-alive workflow cannot
+  overwrite the verdict).
 - GIVEN a submission swept to `system_error`, THEN it does **not** count
   against `maxAttemptsPerDay` — the daily attempt is effectively
   refunded (all `system_error` verdicts are non-counting platform
