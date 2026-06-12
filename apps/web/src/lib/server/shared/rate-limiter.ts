@@ -2,13 +2,14 @@ import { dev } from "$app/environment";
 import { fail } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { RateLimiterRedis, RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
-import { getRedis } from "@nojv/redis";
+import { createRateLimiterConnection } from "@nojv/redis";
 
 import { getClientIp } from "./client-ip";
 
 const multiplier = dev ? 1000 : 1;
 
 interface RateLimiterLike {
+  keyPrefix?: string;
   consume: (key: string) => Promise<unknown>;
 }
 
@@ -21,38 +22,33 @@ class RateLimiterFailClosedError extends Error {
   }
 }
 
-const failClosedLimiter: RateLimiterLike = {
-  consume() {
-    return Promise.reject(new RateLimiterFailClosedError());
-  },
-};
-
 function createRateLimiter(
   keyPrefix: string,
   points: number,
   duration: number,
 ): RateLimiterLike {
-  try {
-    const redis = getRedis();
-    return new RateLimiterRedis({
-      storeClient: redis,
+  if (dev) {
+    return new RateLimiterMemory({
       points: points * multiplier,
       duration,
-      keyPrefix,
     });
-  } catch (err) {
-    if (dev) {
-      return new RateLimiterMemory({
-        points: points * multiplier,
-        duration,
-      });
-    }
-    console.error(
-      "[rate-limiter] Redis unavailable in production — failing closed for all requests until Redis recovers.",
-      err,
-    );
-    return failClosedLimiter;
   }
+  const redis = createRateLimiterConnection();
+  const redisLimiter = new RateLimiterRedis({
+    storeClient: redis,
+    points: points * multiplier,
+    duration,
+    keyPrefix,
+  });
+  return {
+    keyPrefix,
+    consume(key: string) {
+      return redisLimiter.consume(key).catch((err: unknown) => {
+        if (err instanceof RateLimiterRes) throw err;
+        throw new RateLimiterFailClosedError();
+      });
+    },
+  };
 }
 
 export const apiRateLimiter = createRateLimiter("rl:api", 60, 60);

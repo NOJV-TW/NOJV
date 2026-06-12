@@ -35,10 +35,6 @@ export interface ContestLifecycleInput {
   contestId: string;
 }
 
-export type AdminOverrideSignal =
-  | { action: "earlyEnd" }
-  | { action: "extend"; newEndsAt: string };
-
 export interface ExamAutoCloseInput {
   examId: string;
   startsAt: string;

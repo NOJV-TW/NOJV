@@ -35,13 +35,19 @@ export function buildPointSumScoreboard(
 
   const entries: ScoreboardEntry[] = participants.map((p) => {
     const userSubs = subsByUser.get(p.userId) ?? [];
+    const subsByProblem = new Map<string, SubmissionRow[]>();
+    for (const s of userSubs) {
+      const bucket = subsByProblem.get(s.problemId);
+      if (bucket) bucket.push(s);
+      else subsByProblem.set(s.problemId, [s]);
+    }
     let totalScore = 0;
     let lastImprovementTime = 0;
     const problemScores: ProblemScore[] = [];
     const isFirstBlood: boolean[] = [];
 
     for (const prob of problems) {
-      const probSubs = userSubs.filter((s) => s.problemId === prob.id);
+      const probSubs = subsByProblem.get(prob.id) ?? [];
       const { visibleSubs, isFrozen } = splitFrozenVisible(probSubs, frozenAt, showFrozen);
 
       let bestScore = 0;

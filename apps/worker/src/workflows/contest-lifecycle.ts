@@ -1,11 +1,5 @@
-import {
-  proxyActivities,
-  defineSignal,
-  setHandler,
-  sleep,
-  condition,
-} from "@temporalio/workflow";
-import type { ContestLifecycleInput, AdminOverrideSignal } from "@nojv/temporal";
+import { proxyActivities, sleep } from "@temporalio/workflow";
+import type { ContestLifecycleInput } from "@nojv/temporal";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
@@ -14,20 +8,9 @@ const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_AC
 
 const START_REMINDER_MINUTES = 15;
 
-export const adminOverrideSignal = defineSignal<[AdminOverrideSignal]>("adminOverride");
-
 export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Promise<void> {
   const contestInfo = await contest.getContestInfo(input.contestId);
-  let endsAt = new Date(contestInfo.endsAt).getTime();
-  let earlyEnd = false;
-
-  setHandler(adminOverrideSignal, (signal) => {
-    if (signal.action === "earlyEnd") {
-      earlyEnd = true;
-    } else {
-      endsAt = new Date(signal.newEndsAt).getTime();
-    }
-  });
+  const endsAt = new Date(contestInfo.endsAt).getTime();
 
   const startsAtMs = new Date(contestInfo.startsAt).getTime();
   const reminderAtMs = startsAtMs - START_REMINDER_MINUTES * 60_000;
@@ -48,20 +31,14 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
   if (contestInfo.freezeTime) {
     const msUntilFreeze = new Date(contestInfo.freezeTime).getTime() - Date.now();
     if (msUntilFreeze > 0) {
-      const shouldContinue = await condition(() => earlyEnd, msUntilFreeze);
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (!shouldContinue && !earlyEnd) {
-        await contest.freezeScoreboard(input.contestId);
-      }
+      await sleep(msUntilFreeze);
+      await contest.freezeScoreboard(input.contestId);
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (!earlyEnd) {
-    const msUntilEnd = endsAt - Date.now();
-    if (msUntilEnd > 0) {
-      await condition(() => earlyEnd, msUntilEnd);
-    }
+  const msUntilEnd = endsAt - Date.now();
+  if (msUntilEnd > 0) {
+    await sleep(msUntilEnd);
   }
 
   await contest.finalizeContest(input.contestId);

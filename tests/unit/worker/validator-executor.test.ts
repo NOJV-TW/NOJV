@@ -46,6 +46,15 @@ describe("buildValidatorDockerArgs", () => {
     expect(args).toContain("/tmp/job:/submission:ro");
     expect(args.slice(-3)).toEqual(["nojv-sandbox:local", "node", "/runner/index.js"]);
   });
+
+  it("caps swap at the memory limit so MLE is independent of host swap config", () => {
+    const args = buildValidatorDockerArgs(base);
+    const memVal = args[args.indexOf("--memory") + 1];
+    const swapIdx = args.indexOf("--memory-swap");
+    expect(swapIdx).toBeGreaterThan(-1);
+    expect(args[swapIdx + 1]).toBe(memVal);
+    expect(memVal).toBe("256m");
+  });
 });
 
 describe("writeValidatorFiles", () => {

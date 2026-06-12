@@ -158,6 +158,30 @@ describe("startVirtualContest", () => {
       /not found/i,
     );
   });
+
+  it("recovers from a create race — on P2002 returns the now-existing row", async () => {
+    const existing = { id: "vc_race", contestId: "ctst_1", userId: "u_me" };
+    participationFindVirtual.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    contestFindById.mockResolvedValue(publishedContest());
+    participationCreateVirtual.mockRejectedValue(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+
+    const result = await startVirtualContest(ACTOR, "ctst_1", AFTER_C_END);
+    expect(result).toBe(existing);
+  });
+
+  it("throws a clear integrity error (not raw P2002) when the conflicting row has no window", async () => {
+    participationFindVirtual.mockResolvedValue(null);
+    contestFindById.mockResolvedValue(publishedContest());
+    participationCreateVirtual.mockRejectedValue(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+
+    await expect(startVirtualContest(ACTOR, "ctst_1", AFTER_C_END)).rejects.toThrow(
+      /missing its start\/end window/i,
+    );
+  });
 });
 
 describe("assertCanSubmitToVirtualContest", () => {

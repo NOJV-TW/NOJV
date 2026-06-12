@@ -44,6 +44,14 @@ export type WebEnv = z.output<typeof webEnvSchema>;
 let _webEnv: WebEnv | undefined;
 
 export function getWebEnv(): WebEnv {
-  _webEnv ??= webEnvSchema.parse(env);
+  if (_webEnv) return _webEnv;
+  if (env.NODE_ENV === "production") {
+    for (const key of ["DATABASE_URL", "REDIS_URL"] as const) {
+      if (!env[key]) {
+        throw new Error(`${key} is required in production (refusing the localhost default).`);
+      }
+    }
+  }
+  _webEnv = webEnvSchema.parse(env);
   return _webEnv;
 }

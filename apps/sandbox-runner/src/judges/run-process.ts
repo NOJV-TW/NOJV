@@ -1,6 +1,13 @@
 import { spawn } from "node:child_process";
 import type { TestcaseResult } from "../types.js";
-import { createBoundedBuffer, createMemoryPoller, withProcessLimit } from "../utils.js";
+import {
+  createBoundedBuffer,
+  createMemoryPoller,
+  readCgroupCpuUsageUsec,
+  withProcessLimit,
+} from "../utils.js";
+
+const WALL_GRACE_FACTOR = 2;
 
 export interface RunProcessResult {
   stdout: string;
@@ -23,7 +30,9 @@ export function runProcess(
   },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
+    const startCpuUsec = readCgroupCpuUsageUsec();
     const startTime = performance.now();
+    const wallBudgetMs = options.timeoutMs * WALL_GRACE_FACTOR;
     const [cmd, ...args] = command;
 
     if (!cmd) {
@@ -48,9 +57,9 @@ export function runProcess(
     );
     const isWrapped = wrapped[0] === "bash";
     const [wrappedCmd, ...wrappedArgs] = wrapped;
-    const proc = spawn(wrappedCmd!, wrappedArgs, {
+    const proc = spawn(wrappedCmd, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
-      timeout: options.timeoutMs,
+      timeout: wallBudgetMs,
       ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
     });
 
@@ -59,27 +68,35 @@ export function runProcess(
     const memoryPoller = typeof proc.pid === "number" ? createMemoryPoller(proc.pid) : null;
     let forceKilledViaFallbackTimer = false;
 
-    proc.stdout!.on("data", (chunk: Buffer) => {
+    proc.stdout?.on("data", (chunk: Buffer) => {
       stdoutBuf.push(chunk);
     });
-    proc.stderr!.on("data", (chunk: Buffer) => {
+    proc.stderr?.on("data", (chunk: Buffer) => {
       stderrBuf.push(chunk);
     });
 
     if (useStdin) {
-      proc.stdin!.on("error", () => {}); // Ignore EPIPE when process exits before stdin is consumed
-      proc.stdin!.write(options.stdin);
-      proc.stdin!.end();
+      proc.stdin?.on("error", () => {
+        /* ignore EPIPE when the process exits before stdin is consumed */
+      });
+      proc.stdin?.write(options.stdin);
+      proc.stdin?.end();
     }
 
     const timer = setTimeout(() => {
       forceKilledViaFallbackTimer = true;
       proc.kill("SIGKILL");
-    }, options.timeoutMs + 500);
+    }, wallBudgetMs + 500);
 
     proc.on("close", (code, signal) => {
       clearTimeout(timer);
       const elapsedMs = performance.now() - startTime;
+      const endCpuUsec = readCgroupCpuUsageUsec();
+      const cpuMs =
+        startCpuUsec !== null && endCpuUsec !== null
+          ? Math.max(0, Math.round((endCpuUsec - startCpuUsec) / 1000))
+          : null;
+      const judgedMs = cpuMs ?? elapsedMs;
       const memoryKb = memoryPoller?.stop() ?? 0;
       const rawStderr = stderrBuf.toString();
       const execFailed =
@@ -94,10 +111,13 @@ export function runProcess(
         stdout: stdoutBuf.toString(),
         stderr,
         exitCode: code ?? -1,
-        timeMs: Math.round(elapsedMs),
+        timeMs: Math.round(judgedMs),
         memoryKb,
         timedOut:
-          forceKilledViaFallbackTimer || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
+          forceKilledViaFallbackTimer ||
+          signal === "SIGTERM" ||
+          signal === "SIGXCPU" ||
+          judgedMs > options.timeoutMs,
         signal,
         spawnError: execFailed,
       });

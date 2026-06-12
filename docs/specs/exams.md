@@ -44,7 +44,6 @@ practice-after-close route at `/problems/[id]`.
 - Publish validation: ≥1 problem, ≥1 allowed language, `startsAt < endsAt`,
   `endsAt > now`.
 - Session lifecycle (`ActiveExamSession`): `startSessionWithGate`,
-  `heartbeat` + `heartbeatWithThrottle` (audit throttle 60s),
   `recordEvent` (`enter | leave | visibility_lost | release | auto_close
 | heartbeat`), `endSession`, `releaseSessionAsInstructor`.
 - Global mutual exclusion: a user can have at most one active session
@@ -137,16 +136,6 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - GIVEN the parent course is `archived: true`,
   WHEN start runs,
   THEN `ForbiddenError("This course is archived; new exam sessions are not allowed.")`.
-
-### Session — heartbeat
-
-- WHEN `heartbeatWithThrottle` is called and the last `heartbeat` event
-  was >60s ago, THEN `lastHeartbeatAt` is bumped AND a new audit event is
-  recorded (`recordedEvent: true`).
-- WHEN the last event was <60s ago, THEN `lastHeartbeatAt` is still
-  bumped BUT no audit event is inserted (`recordedEvent: false`).
-- GIVEN the session has already ended, WHEN heartbeat is called,
-  THEN `NotFoundError("No active exam session to heartbeat.")`.
 
 ### Session — page lock (hooks.server.ts)
 
@@ -304,12 +293,10 @@ available after it closes.")` (shared post-close gate via
   `updateExamRecord`, `publishExam`, `deleteExamDraft`,
   `assertExamManagePermission`.
 - `packages/domain/src/exam/session.ts` — `startSession`,
-  `startSessionWithGate`, `heartbeat`, `heartbeatWithThrottle`,
-  `endSession`, `recordEvent`, `autoCloseForExam`,
+  `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`,
   `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`,
   `countActiveSessions`, `getActiveSessionContext`,
-  `requireActiveSessionForUserExam`, `START_GRACE_MS`,
-  `HEARTBEAT_EVENT_THROTTLE_MS`.
+  `requireActiveSessionForUserExam`, `START_GRACE_MS`.
 - `packages/domain/src/exam/submissions-matrix.ts` —
   `getExamSubmissionsMatrix`.
 - `packages/domain/src/exam/detail.ts` — `getExamDetailPage`.
@@ -378,8 +365,7 @@ available after it closes.")` (shared post-close gate via
 
 ### Tests
 
-- `tests/unit/domain/exam-session.test.ts` — start/end/heartbeat/
-  release paths.
+- `tests/unit/domain/exam-session.test.ts` — start/end/release paths.
 - `tests/unit/domain/exam-publish-delete.test.ts` — lifecycle
   transitions (publish + delete-draft).
 - `tests/unit/domain/exam-auto-close.test.ts` — auto-close workflow +

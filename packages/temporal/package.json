@@ -15,6 +15,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

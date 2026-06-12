@@ -39,11 +39,14 @@ function makeInteractiveRequest(overrides?: {
 describe("buildInteractiveSolutionConfigMapData — solution container must NOT see any secret", () => {
   it("writes source + config.json with role=solution", () => {
     const data = buildInteractiveSolutionConfigMapData(makeInteractiveRequest());
-    expect(data["main.py"]).toBe(STUDENT_SOURCE);
     const config = JSON.parse(data["config.json"]!) as {
       interactive: { role: string };
       judgeType: string;
+      sourceFileMap?: { path: string; key: string }[];
     };
+    const mainEntry = config.sourceFileMap?.find((e) => e.path === "main.py");
+    expect(mainEntry).toBeDefined();
+    expect(data[mainEntry!.key]).toBe(STUDENT_SOURCE);
     expect(config.interactive).toEqual({ role: "solution" });
     expect(config.judgeType).toBe("interactive");
   });

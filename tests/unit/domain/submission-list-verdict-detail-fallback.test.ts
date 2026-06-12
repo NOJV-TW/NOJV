@@ -91,12 +91,17 @@ const { listProblemSubmissions } = submissionDomain;
 const { getExamProblemView, getExamProblemViewByProblemId } = examDomain;
 const { listVirtualContestProblemSubmissions } = virtualContestDomain;
 
-function row(overrides: Partial<{ id: string; status: string }> = {}) {
+function row(overrides: Partial<{ id: string; status: string; score: number }> = {}) {
+  const status = overrides.status ?? "wrong_answer";
   return {
     id: overrides.id ?? "sub_1",
     createdAt: new Date("2026-05-29T00:00:00Z"),
     language: "cpp",
-    status: overrides.status ?? "wrong_answer",
+    status,
+    // `listByUserAndProblem` selects `score` (non-null Int column), so a row
+    // always carries it — the synthesized fallback only omits the case
+    // breakdown, never the score.
+    score: overrides.score ?? (status === "accepted" ? 100 : 0),
     verdictDetailStorageKey: "submissions/sub_1/verdict-detail.json",
     contestId: null,
     assessmentId: null,

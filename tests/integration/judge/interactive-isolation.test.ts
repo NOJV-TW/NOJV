@@ -17,28 +17,14 @@
  * Requires a real Docker daemon and the locally-built sandbox image
  * (`pnpm sandbox:build` → `nojv-sandbox:local`). Skips cleanly otherwise.
  */
-import { execFile } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
 import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
+import { requireSandboxImage } from "./_sandbox-image";
 
 const SANDBOX_IMAGE = "nojv-sandbox:local";
-
-function exec(cmd: string, args: string[]): Promise<{ ok: boolean; stdout: string }> {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 10_000 }, (err, stdout) => {
-      resolve({ ok: !err, stdout: stdout.toString() });
-    });
-  });
-}
-
-async function dockerImageAvailable(): Promise<boolean> {
-  if (!(await exec("docker", ["info"])).ok) return false;
-  const { ok, stdout } = await exec("docker", ["images", "-q", SANDBOX_IMAGE]);
-  return ok && stdout.trim().length > 0;
-}
 
 // DOMjudge interactor (TA code appended after the python-interactor-domjudge
 // wrapper). The secret number is the first line of judge_input. It answers each
@@ -139,7 +125,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     "grades a correct binary-search solution as AC with a partial score",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         interactiveRequest({
@@ -164,7 +150,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     "grades a solution that never finds the number as WA",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         interactiveRequest({
@@ -185,7 +171,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     "splits interactor messages: teammessage → student feedback, judgemessage → staffFeedback",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         interactiveRequest({
@@ -213,7 +199,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     "does not expose the secret input to the solution container",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         interactiveRequest({

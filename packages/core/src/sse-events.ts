@@ -3,7 +3,6 @@ import { z } from "zod";
 export const SSE_SUBMISSION_VERDICT = "submission:verdict" as const;
 export const SSE_CONTEST_STARTING = "contest:starting" as const;
 export const SSE_CONTEST_ENDING = "contest:ending" as const;
-export const SSE_ASSIGNMENT_DEADLINE = "assignment:deadline" as const;
 export const SSE_NOTIFICATION = "notification" as const;
 export const SSE_CLARIFICATION = "clarification" as const;
 export const SSE_SCOREBOARD = "scoreboard:update" as const;
@@ -27,7 +26,6 @@ const submissionVerdictEventSchema = z.object({
 
 const contestStartingEventSchema = z.object({ type: z.literal(SSE_CONTEST_STARTING) });
 const contestEndingEventSchema = z.object({ type: z.literal(SSE_CONTEST_ENDING) });
-const assignmentDeadlineEventSchema = z.object({ type: z.literal(SSE_ASSIGNMENT_DEADLINE) });
 const scoreboardEventSchema = z.object({ type: z.literal(SSE_SCOREBOARD) });
 
 const notificationEventSchema = z.object({
@@ -75,7 +73,6 @@ export const sseEventSchema = z.discriminatedUnion("type", [
   submissionVerdictEventSchema,
   contestStartingEventSchema,
   contestEndingEventSchema,
-  assignmentDeadlineEventSchema,
   notificationEventSchema,
   clarificationEventSchema,
   scoreboardEventSchema,

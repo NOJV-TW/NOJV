@@ -211,6 +211,8 @@ services:
       GRAFANA_OTLP_INSTANCE_ID: ${GRAFANA_OTLP_INSTANCE_ID:-}
       GRAFANA_OTLP_TOKEN: ${GRAFANA_OTLP_TOKEN:-}
       OTEL_SERVICE_NAME_WORKER: ${OTEL_SERVICE_NAME_WORKER:-nojv-worker}
+    group_add:
+      - ${DOCKER_GID:-999}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:

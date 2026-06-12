@@ -394,17 +394,20 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       await page.waitForTimeout(1500);
     }
 
-    // Whatever the outcome, the submission must have a valid operation status.
-    expect([
-      "queued",
-      "running",
+    const terminalStatuses = [
       "accepted",
       "wrong_answer",
       "compile_error",
       "runtime_error",
       "time_limit_exceeded",
       "memory_limit_exceeded",
-    ]).toContain(lastStatus);
+    ];
+
+    if (process.env.NOJV_E2E_RUN_JUDGE === "1") {
+      expect(terminalStatuses).toContain(lastStatus);
+    } else {
+      expect([...terminalStatuses, "queued", "running"]).toContain(lastStatus);
+    }
 
     await context.close();
   });

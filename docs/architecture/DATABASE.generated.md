@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_41 models and 36 enums across 9 schema files._
+_41 models and 37 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -44,6 +44,8 @@ Tri-state user lifecycle flag. `disabled: Boolean` is retained as an admin-visib
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
+Indexes & constraints: `@@unique([providerId, accountId])`, `@@index([userId])`
+
 #### `SchoolVerificationToken`
 
 Dedicated store for school-email verification tokens. Decoupled from better-auth's Verification table so neither side interferes with the other's cleanup sweeps.
@@ -72,6 +74,8 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `userAgent` | `String?` | — |
 | `userId` | `String` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([userId])`
 
 #### `TwoFactor`
 
@@ -154,6 +158,8 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `createdAt` | `DateTime?` | `@default(now())` |
 | `updatedAt` | `DateTime?` | `@updatedAt` |
 
+Indexes & constraints: `@@index([identifier])`
+
 ## `clarification.prisma`
 
 ### Enums
@@ -233,6 +239,10 @@ Exam lifecycle — mirrors ContestVisibility but named for the course-embedded f
 
 `whitelist` · `binding`
 
+#### `ParticipationStatus`
+
+`registered` · `active` · `submitted` · `disqualified`
+
 #### `ParticipationType`
 
 `contest` · `exam` · `virtual`
@@ -247,7 +257,7 @@ Shared by Contest and Exam.
 
 #### `ActiveExamSession`
 
-One row per student per active exam. Drives the Phase 4 exam lock in hooks.server.ts: while `endedAt IS NULL` the student is routed back to the exam landing page on every navigation. IP binding is enforced via `ExamParticipation.ipPin` — the session row does not carry a pin of its own.
+One row per student per active exam. Drives the Phase 4 exam lock in hooks.server.ts: while `endedAt IS NULL` the student is routed back to the exam landing page on every navigation. IP binding is enforced via the exam-type `Participation.ipPin` — the session row does not carry a pin of its own.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -311,7 +321,7 @@ Standalone contest — public / invite-only competition with no course binding. 
 | `points` | `Int` | `@default(100)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `contest` | `Contest` | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
-| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |
 
 Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId, ordinal])`
 
@@ -390,7 +400,7 @@ Indexes & constraints: `@@index([sessionId, occurredAt])`
 
 #### `IpViolationLog`
 
-Audit log for IP whitelist / IP binding violations. Exams and standalone contests both log through this table; the application layer (shared proctoring helper) enforces the invariant that exactly one of `examId` / `contestId` is non-null per row. Homework assessments still do not have IP lock. Audit log for IP whitelist / IP binding violations. Only exams carry proctoring, so every row must be tied to an exam — contests are public and do not log IP events.
+Audit log for IP whitelist / IP binding violations. Only exams carry proctoring, so every row must be tied to an exam — contests are public and do not log IP events.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -408,7 +418,7 @@ Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, created
 
 #### `Participation`
 
-Unified timed-assessment participation (contest / exam / virtual). The `Participation_single_context_chk` CHECK and the two partial UNIQUE indexes live only in the migration SQL — Prisma cannot express either, so `migrate diff` is blind to them and db-push dev/test DBs do not get them.
+Unified timed-assessment participation (contest / exam / virtual). The two `@@unique` indexes below ARE expressed in Prisma (full uniques, NULLS DISTINCT — each context's null column lets the other context's unique govern). Only the CHECK constraints live in migration SQL — Prisma cannot express CHECKs, so `migrate diff` is blind to them and db-push dev/test DBs do not get them unless the test harness replays them.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -420,7 +430,7 @@ Unified timed-assessment participation (contest / exam / virtual). The `Particip
 | `score` | `Int` | `@default(0)` |
 | `penaltySeconds` | `Int` | `@default(0)` |
 | `subtaskScores` | `Json?` | — |
-| `status` | `String` | — |
+| `status` | `ParticipationStatus` | — |
 | `version` | `Int` | `@default(0)` |
 | `startedAt` | `DateTime?` | — |
 | `submittedAt` | `DateTime?` | — |
@@ -520,7 +530,7 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `points` | `Int` | `@default(100)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `assessment` | `Assessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
-| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |
 
 Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessmentId, ordinal])`
 
@@ -1018,7 +1028,7 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
 
 #### `SubmissionFeedback`
 
@@ -1073,6 +1083,7 @@ Audit log for rejudge runs. Written in two passes by submissionJudgeWorkflow whe
 | `id` | `String` | `@id @default(cuid())` |
 | `submissionId` | `String` | — |
 | `rejudgedByUserId` | `String?` | — |
+| `rejudgeRunId` | `String?` | — |
 | `oldVerdict` | `String` | — |
 | `oldScore` | `Int` | — |
 | `oldResultJson` | `Json?` | — |
@@ -1083,5 +1094,5 @@ Audit log for rejudge runs. Written in two passes by submissionJudgeWorkflow whe
 | `submission` | `Submission` | `@relation(fields: [submissionId], references: [id], onDelete: Cascade)` |
 | `rejudgedBy` | `User?` | `@relation(fields: [rejudgedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`
+Indexes & constraints: `@@unique([submissionId, rejudgeRunId])`, `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`, `@@index([createdAt(sort: Desc)])`
 

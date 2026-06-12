@@ -16,10 +16,11 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │ 2nd Tier                                                            │
 │                                                                     │
 │  Service           @nojv/domain                                     │
-│                    admin/ announcement/ assignment/ clarification/  │
-│                    contest/ course/ editorial/ exam/ notification/  │
-│                    plagiarism/ problem/ proctoring/ score-override/ │
-│                    scoring/ shared/ submission/ user/               │
+│                    admin/ announcement/ assignment/ audit/          │
+│                    clarification/ contest/ course/ editorial/        │
+│                    exam/ feedback/ notification/ plagiarism/         │
+│                    problem/ proctoring/ score-override/ scoring/     │
+│                    shared/ submission/ user/ virtual-contest/        │
 ├─────────────────────────────────────────────────────────────────────┤
 │ 3rd Tier                                                            │
 │                                                                     │
@@ -46,7 +47,7 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 | **Problems**    | Problem statements (i18n), testcase sets, templates, judge configuration |
 | **Submissions** | Code submission, sandbox execution, verdict computation                  |
 | **Contests**    | Timed competitions with scoreboard, freeze, IP lock, page lock           |
-| **Courses**     | Course management, memberships, join tokens, assessments                 |
+| **Courses**     | Course management, teacher-managed memberships, assessments              |
 | **Auth**        | Email/password + OAuth (GitHub, Google), session management, roles       |
 | **Plagiarism**  | Dolos-based AST similarity detection for assessments and contests        |
 | **Stats**       | Per-user statistics: AC count, language distribution, daily activity     |
@@ -59,7 +60,7 @@ packages/
   db/               Prisma schema, migrations, repositories (depends: core; +redis, storage in seed/ops scripts only)
   redis/            Connection, key registry, pub/sub (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
-  temporal/         Temporal client + dispatch API + workflows + task queue constants (depends: core)
+  temporal/         Temporal client + dispatch API + workflow I/O types + task queue constants (depends: core)
   domain/           Business logic (depends: core, db, redis, temporal)
 
 apps/
@@ -100,13 +101,14 @@ No cycles. `domain` → `temporal` for dispatch helpers and Temporal client. `wo
 problem image blobs alongside the DB row inside the same transaction.
 The transaction would lose atomicity if storage writes lived in `web`.
 
-† `web` uses `@nojv/redis` directly for the SSE subscriber
-(`api/events/stream`) and for `RateLimiterRedis` in
-`shared/rate-limiter.ts`. Both want the raw Redis client, not a
-domain-shaped wrapper. These two files are the only exceptions —
-everything else goes through `@nojv/domain`. The
-`no-restricted-imports` ESLint rule in `apps/web/eslint.config.mjs`
-enforces this and lists the exact allow-list of files.
+† `web` uses `@nojv/redis` directly in four files that want the raw
+Redis client rather than a domain-shaped wrapper: the SSE subscriber
+(`api/events/stream`), the contest scoreboard SSE stream
+(`contests/[contestId]/scoreboard/stream`), the shared SSE hub
+(`shared/sse-hub.ts`), and `RateLimiterRedis` (`shared/rate-limiter.ts`).
+Everything else goes through `@nojv/domain`. The `no-restricted-imports`
+ESLint rule in `apps/web/eslint.config.mjs` is the single source of truth —
+it enforces this and lists the exact allow-list of files.
 
 ‡ `web` uses `@nojv/db` only via `prismaAdapterClient` from
 `src/lib/auth.server.ts`, where the better-auth Prisma adapter
@@ -289,14 +291,14 @@ Dispatch helpers exposed at the root entry:
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                    | Task Queue | Workflow ID pattern                                                               | Signal / Query                                |
-| --------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| `submissionJudgeWorkflow`   | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                            |
-| `rejudgeWorkflow`           | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                          |
-| `contestLifecycleWorkflow`  | `platform` | `contest-lifecycle-{contestId}`                                                   | Signal: `adminOverride` (`earlyEnd`/`extend`) |
-| `plagiarismCheckWorkflow`   | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                  |
-| `examAutoCloseWorkflow`     | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                             |
-| `submissionSweeperWorkflow` | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                             |
+| Workflow                    | Task Queue | Workflow ID pattern                                                               | Signal / Query                                    |
+| --------------------------- | ---------- | --------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `submissionJudgeWorkflow`   | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                                |
+| `rejudgeWorkflow`           | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                              |
+| `contestLifecycleWorkflow`  | `platform` | `contest-lifecycle-{contestId}`                                                   | Reschedule via re-dispatch (`TERMINATE_EXISTING`) |
+| `plagiarismCheckWorkflow`   | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                      |
+| `examAutoCloseWorkflow`     | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                                 |
+| `submissionSweeperWorkflow` | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                                 |
 
 The parent `rejudgeWorkflow` ID carries a `randomUUID()` suffix (not a
 timestamp) so concurrent rejudges of the same scope never collide; each
@@ -383,11 +385,6 @@ sequenceDiagram
     Web->>Postgres: ExamSession upsert (ipPin, startedAt) + event "enter"
     Web-->>Browser: 201 (fresh) or 200 (idempotent re-entry)
 
-    loop every ~30s while tab open
-        Browser->>Web: POST /api/exam-sessions/{examId}/heartbeat
-        Web->>Postgres: heartbeatWithThrottle (bump lastHeartbeatAt, throttle event insert)
-    end
-
     Note over Browser,Web: handle hook blocks navigation outside /exams/{id}/**;<br/>attempted off-path request records "visibility_lost" event
     Browser->>Web: GET /courses/... (disallowed)
     Web->>Postgres: recordEvent("visibility_lost", {attemptedPath})
@@ -409,19 +406,23 @@ Edge cases: if Temporal is down at publish time, the auto-close workflow is neve
 
 ### Contest Scoreboard Update
 
-A successful judge in contest context triggers `updateContestScores`, which recomputes the participant's score in Postgres. There is no separate scoreboard store: the scoreboard is computed on read, directly from Postgres. The public scoreboard page does **not** subscribe to a Redis pub/sub channel for live updates — it polls with `invalidateAll()` on a 30 s `setInterval`, and the server-side endpoint rebuilds the ranking from the contest's participations and submissions via `buildScoreboard`.
+A successful judge in contest context triggers `updateContestScores`, which recomputes the participant's score in Postgres. There is no separate scoreboard store: the ranking is computed on read, directly from Postgres via `buildScoreboard`. For live updates the page opens an SSE stream (`/contests/{id}/scoreboard/stream`, which subscribes to the Redis `nojv:contest:{id}` channel); a successful contest judge calls `publishScoreboardUpdate` — throttled to once per 10 s per contest via the `nojv:sb-throttle:{id}` key — to nudge connected viewers to re-fetch. A 30 s `invalidateAll()` poll runs as the fallback when SSE is unavailable, and the server-side endpoint always rebuilds the ranking from the contest's participations and submissions.
 
 ```mermaid
 sequenceDiagram
     participant Browser
     participant Web as Web (SvelteKit)
     participant Worker
+    participant Redis
     participant Postgres
 
     Note over Worker: submissionJudgeWorkflow reaches completion<br/>(see Submission Judging Lifecycle)
     Worker->>Postgres: updateContestScores (recompute participation row)
+    Worker->>Redis: publishScoreboardUpdate (nojv:contest channel, 10s throttle)
+    Redis-->>Browser: SSE scoreboard:update nudge (via /scoreboard/stream)
+    Browser->>Web: invalidateAll() → GET /api/contests/{id}/scoreboard
 
-    loop every 30s on scoreboard page
+    loop every 30s on scoreboard page (SSE-unavailable fallback)
         Browser->>Web: invalidateAll() → GET /api/contests/{id}/scoreboard
         Web->>Postgres: contestRepo.findForScoreboardById (contest + participations + submissions)
         Web->>Web: buildScoreboard (rank in-process; ICPC packs solved/penalty, IOI sums best subtask scores)

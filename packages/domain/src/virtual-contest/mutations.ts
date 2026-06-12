@@ -1,7 +1,7 @@
 import { contestRepo, participationRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { ForbiddenError, IntegrityError, NotFoundError } from "../shared/errors";
 
 export type { ActorContext };
 
@@ -36,6 +36,9 @@ export async function startVirtualContest(
     if (err instanceof Error && (err as { code?: string }).code === "P2002") {
       const row = await participationRepo.findVirtual(contestId, actor.userId);
       if (row) return row;
+      throw new IntegrityError(
+        "Virtual participation row exists but is missing its start/end window and cannot be resumed.",
+      );
     }
     throw err;
   }

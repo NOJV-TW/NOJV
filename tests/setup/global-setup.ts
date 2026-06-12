@@ -3,9 +3,14 @@ import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { PrismaPg } from "@prisma/adapter-pg";
+
+import { PrismaClient } from "../../packages/db/generated/prisma/client";
+import { collectReplayStatements } from "./replay-constraints";
+
 const DEFAULT_TEST_DB_URL = "postgresql://postgres:postgres@localhost:5432/nojv_test";
 
-export default function globalSetup() {
+export default async function globalSetup() {
   // Pull S3_*, REDIS_URL, etc. from repo-root `.env` so integration tests
   // can reach the local MinIO/Postgres/Redis without hand-duplication.
   // Node 21+ has process.loadEnvFile built-in; repo requires Node 24+.
@@ -25,4 +30,18 @@ export default function globalSetup() {
     stdio: "inherit",
     env: { ...process.env },
   });
+
+  // db push omits CHECK constraints + expression indexes (migration-only DDL).
+  // Replay them so integration tests enforce the same invariants as prod.
+  const statements = collectReplayStatements();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  });
+  try {
+    for (const stmt of statements) {
+      await prisma.$executeRawUnsafe(stmt);
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
 }

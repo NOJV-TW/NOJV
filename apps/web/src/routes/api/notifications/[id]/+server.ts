@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 import { notificationDomain } from "@nojv/domain";
 
 const patchSchema = z.object({
@@ -12,6 +12,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
 
   const { id } = event.params;
@@ -23,6 +24,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
 
   const { id } = event.params;

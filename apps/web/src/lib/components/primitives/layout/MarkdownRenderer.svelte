@@ -1,12 +1,9 @@
 <script lang="ts">
-  import DOMPurify from "isomorphic-dompurify";
-  import { marked, PURIFY_CONFIG } from "$lib/utils/markdown";
+  import { renderMarkdown } from "$lib/utils/markdown";
   import "katex/dist/katex.min.css";
 
   let { content = "" }: { content: string } = $props();
-  let html = $derived(
-    DOMPurify.sanitize(marked.parse(content, { async: false }) as string, PURIFY_CONFIG),
-  );
+  let html = $derived(renderMarkdown(content));
 </script>
 
 <div class="markdown-content">

@@ -25,28 +25,50 @@ export const notificationRepo = {
   },
 
   async createAndCap(input: NotificationCreateInput) {
-    return prisma.$transaction(async (tx) => {
-      const row = await tx.notification.create({
-        data: {
-          userId: input.userId,
-          type: input.type,
-          params: input.params,
-          linkUrl: input.linkUrl ?? null,
-        },
+    if (input.dedupeKey != null) {
+      const existing = await prisma.notification.findUnique({
+        where: { dedupeKey: input.dedupeKey },
       });
+      if (existing) return existing;
+    }
 
-      await tx.$executeRaw`
-        DELETE FROM "Notification"
-        WHERE "id" IN (
-          SELECT "id" FROM "Notification"
-          WHERE "userId" = ${input.userId}
-          ORDER BY "createdAt" DESC
-          OFFSET ${NOTIFICATION_RETENTION_PER_USER}
-        )
-      `;
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const row = await tx.notification.create({
+          data: {
+            userId: input.userId,
+            type: input.type,
+            params: input.params,
+            linkUrl: input.linkUrl ?? null,
+            dedupeKey: input.dedupeKey ?? null,
+          },
+        });
 
-      return row;
-    });
+        await tx.$executeRaw`
+          DELETE FROM "Notification"
+          WHERE "id" IN (
+            SELECT "id" FROM "Notification"
+            WHERE "userId" = ${input.userId}
+            ORDER BY "createdAt" DESC
+            OFFSET ${NOTIFICATION_RETENTION_PER_USER}
+          )
+        `;
+
+        return row;
+      });
+    } catch (err) {
+      if (
+        input.dedupeKey != null &&
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        const existing = await prisma.notification.findUnique({
+          where: { dedupeKey: input.dedupeKey },
+        });
+        if (existing) return existing;
+      }
+      throw err;
+    }
   },
 
   async createManyAndCap(inputs: NotificationCreateInput[]) {

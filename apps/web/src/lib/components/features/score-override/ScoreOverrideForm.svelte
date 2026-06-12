@@ -20,6 +20,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Input } from "$lib/components/primitives/ui/input";
   import { m } from "$lib/paraglide/messages.js";
@@ -47,12 +48,10 @@
     oncancel,
   }: Props = $props();
 
-  let userId = $state<string>(((): string => existing?.userId ?? students[0]?.id ?? "")());
-  let problemId = $state<string>(
-    ((): string => existing?.problemId ?? problems[0]?.id ?? "")(),
-  );
-  let overrideScore = $state<number>(((): number => existing?.overrideScore ?? 0)());
-  let reason = $state<string>(((): string => existing?.reason ?? "")());
+  let userId = $state(untrack(() => existing?.userId ?? students[0]?.id ?? ""));
+  let problemId = $state(untrack(() => existing?.problemId ?? problems[0]?.id ?? ""));
+  let overrideScore = $state(untrack(() => existing?.overrideScore ?? 0));
+  let reason = $state(untrack(() => existing?.reason ?? ""));
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
@@ -195,6 +194,8 @@
       step={1}
       bind:value={overrideScore}
       disabled={submitting}
+      aria-invalid={error != null}
+      aria-describedby={error != null ? "ov-error" : undefined}
     />
   </div>
 
@@ -216,6 +217,8 @@
       class="min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-body-sm"
       bind:value={reason}
       disabled={submitting}
+      aria-invalid={error != null}
+      aria-describedby={error != null ? "ov-error" : undefined}
     ></textarea>
     <p class="text-caption text-muted-foreground">
       {m.override_staff_reasonHint()}
@@ -223,7 +226,7 @@
   </div>
 
   {#if error}
-    <p class="text-caption text-destructive" role="alert">{error}</p>
+    <p id="ov-error" class="text-caption text-destructive" role="alert">{error}</p>
   {/if}
 
   <div class="flex items-center justify-end gap-2 pt-2">
@@ -235,7 +238,7 @@
         onclick={() => oncancel?.()}
         disabled={submitting}
       >
-        {m.rejudge_dialog_cancelBtn()}
+        {m.common_cancel()}
       </Button>
     {/if}
     <Button type="submit" size="sm" loading={submitting} disabled={submitting}>

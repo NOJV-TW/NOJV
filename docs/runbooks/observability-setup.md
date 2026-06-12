@@ -206,9 +206,9 @@ busy day can produce tens of thousands of series in a single label and
 push you past the cap. If you need per-entity drill-down, use logs (Cloud
 Logging) or traces, not metrics.
 
-Bucketed labels are fine — `gap_bucket` on
-`exam_heartbeat_miss_total` (e.g. `30-60s`, `60-120s`, `>120s`) keeps
-cardinality low while preserving signal.
+Bucketed labels are fine — `close_reason` on
+`sse_connection_duration_seconds_count` (a small, fixed set of reasons)
+keeps cardinality low while preserving signal.
 
 ## Updating dashboards
 
@@ -255,9 +255,9 @@ Grafana UI (or `GET /api/datasources`); create a folder for the rules and
 read its UID from the folder URL. When either var is unset the script
 prints `[skip] alert rules` and provisions dashboards only.
 
-Six rules are provisioned — judge latency (simple + advanced), API p99,
-scoreboard p95, SSE drop rate, and exam heartbeat-miss volume. Thresholds
-mirror the SLO table in `RELIABILITY.md`.
+Five rules are provisioned — judge latency (simple + advanced), API p99,
+scoreboard p95, and SSE drop rate. Thresholds mirror the SLO table in
+`RELIABILITY.md`.
 
 **Contact point + notification policy.** Set `GRAFANA_ALERT_EMAIL` in
 `.env` and `pnpm grafana:provision` also provisions an email contact
@@ -271,10 +271,6 @@ NOJV-dedicated Grafana stack. On a shared stack, leave
 `GRAFANA_ALERT_EMAIL` unset and add the contact point as a child route
 in the Grafana UI instead. Non-email channels (Slack, PagerDuty) are
 likewise configured in the UI under **Alerting → Contact points**.
-
-**Known gap.** The heartbeat-miss rule alerts on miss _volume_, not the
-true miss _rate_ — there is no exported "heartbeat received" counter to
-divide by. Add one before tightening this rule to the `< 1%` SLO.
 
 ## Token rotation
 
@@ -376,7 +372,6 @@ expression map below mirrors `infra/grafana/dashboards/*.json` exactly.
 
 | Panel                                                    | Expression                                                                |
 | -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Heartbeat misses per minute by gap bucket                | `sum by (gap_bucket) (rate(exam_heartbeat_miss_total[1m])) * 60`          |
 | SSE close events per minute (proxy for connection churn) | `sum(rate(sse_connection_duration_seconds_count[1m])) * 60`               |
 | SSE close reasons (last 1h)                              | `sum by (close_reason) (rate(sse_connection_duration_seconds_count[1h]))` |
 | SSE drops (server fault) per hour                        | `sum(rate(sse_connection_dropped_total[1h])) * 3600`                      |

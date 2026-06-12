@@ -1,10 +1,9 @@
 import type { SubmissionFeedbackContext } from "@nojv/db";
 
 import { ValidationError } from "../shared/errors";
+import type { GradedContext } from "../shared/graded-context";
 
-export type FeedbackContext =
-  | { type: "assignment"; assignmentId: string }
-  | { type: "exam"; examId: string };
+export type FeedbackContext = Extract<GradedContext, { type: "assignment" | "exam" }>;
 
 export type FeedbackContextType = FeedbackContext["type"];
 

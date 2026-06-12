@@ -62,6 +62,15 @@ describe("buildAdvancedDockerArgs", () => {
     const args = buildAdvancedDockerArgs(base);
     expect(args).not.toContain("--user");
   });
+
+  it("caps swap at the memory limit so MLE is independent of host swap config", () => {
+    const args = buildAdvancedDockerArgs(base);
+    const memVal = args[args.indexOf("--memory") + 1];
+    const swapIdx = args.indexOf("--memory-swap");
+    expect(swapIdx).toBeGreaterThan(-1);
+    expect(args[swapIdx + 1]).toBe(memVal);
+    expect(memVal).toBe("512m");
+  });
 });
 
 describe("dirSizeBytes (disk-cap watchdog)", () => {

@@ -18,7 +18,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
@@ -138,7 +138,7 @@ function problemEditAction<T>(
     event: RequestEvent;
   }) => Promise<T>,
 ) {
-  return withRateLimit(async (event: RequestEvent) => {
+  return withAction(async (event: RequestEvent) => {
     const actor = requireAuth(event);
     const problemId = event.params.problemId;
     if (!problemId) error(400, "Missing problem id");

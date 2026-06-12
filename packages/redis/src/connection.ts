@@ -29,3 +29,16 @@ export function createSubscriber(redisUrl: string): Redis {
     new Redis({ host: opts.host, port: opts.port, password: opts.password }),
   );
 }
+
+export function createRateLimiterConnection(): Redis {
+  const opts = parseRedisConnection(process.env.REDIS_URL ?? "redis://localhost:6379");
+  return withErrorHandler(
+    new Redis({
+      host: opts.host,
+      port: opts.port,
+      password: opts.password,
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+    }),
+  );
+}

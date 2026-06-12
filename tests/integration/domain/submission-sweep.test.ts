@@ -123,6 +123,7 @@ describe("sweepStaleSubmissions (real DB)", () => {
     const oldLog = await submissionRejudgeLogRepo.create({
       submissionId: submission.id,
       rejudgedByUserId: null,
+      rejudgeRunId: null,
       oldVerdict: "accepted",
       oldScore: 100,
       oldResultJson: null,
@@ -130,6 +131,7 @@ describe("sweepStaleSubmissions (real DB)", () => {
     const recentLog = await submissionRejudgeLogRepo.create({
       submissionId: submission.id,
       rejudgedByUserId: null,
+      rejudgeRunId: null,
       oldVerdict: "wrong_answer",
       oldScore: 0,
       oldResultJson: null,

@@ -30,6 +30,7 @@ export const contestRepo = {
 
   listPublished() {
     return prisma.contest.findMany({
+      omit: { plagiarismResults: true },
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
       where: { visibility: "published" },

@@ -112,7 +112,7 @@ function createAuth() {
       },
     },
     account: {
-      accountLinking: { enabled: true },
+      accountLinking: { enabled: true, trustedProviders: ["github", "google"] },
     },
     databaseHooks: {
       user: {
