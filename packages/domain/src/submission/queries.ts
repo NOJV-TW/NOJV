@@ -36,7 +36,7 @@ import {
   readWorkspaceFileBlob,
 } from "../problem/blobs";
 import type { ActorContext } from "../shared/actor-context";
-import { NotFoundError } from "../shared/errors";
+import { IntegrityError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
 import { stripStaffFeedback } from "./scoring";
@@ -327,33 +327,33 @@ function parseJudgeConfig(raw: unknown, submissionId: string): JudgeConfig {
   if (raw == null) return DEFAULT_JUDGE_CONFIG;
   const result = judgeConfigSchema.safeParse(raw);
   if (result.success) return result.data;
-  console.warn(
-    `[submission.queries] Invalid judgeConfig for submission ${submissionId}; falling back to default.`,
-    result.error.issues,
+  throw new IntegrityError(
+    `Invalid judgeConfig for submission ${submissionId}: ${result.error.issues
+      .map((issue) => issue.path.join(".") || issue.code)
+      .join(", ")}`,
   );
-  return DEFAULT_JUDGE_CONFIG;
 }
 
 function parseAdjustmentRules(raw: unknown, submissionId: string): AdjustmentRules | null {
   if (raw == null) return null;
   const result = adjustmentRulesSchema.safeParse(raw);
   if (result.success) return result.data;
-  console.warn(
-    `[submission.queries] Invalid adjustmentRules on assignment for submission ${submissionId}; ignoring.`,
-    result.error.issues,
+  throw new IntegrityError(
+    `Invalid adjustmentRules for submission ${submissionId}: ${result.error.issues
+      .map((issue) => issue.path.join(".") || issue.code)
+      .join(", ")}`,
   );
-  return null;
 }
 
 function parseInputFileKeys(raw: unknown, testcaseId: string): Record<string, string> | null {
   if (raw == null) return null;
   const result = inputFileKeysSchema.safeParse(raw);
   if (result.success) return result.data;
-  console.warn(
-    `[submission.queries] Invalid inputFileKeys for testcase ${testcaseId}; treating as empty.`,
-    result.error.issues,
+  throw new IntegrityError(
+    `Invalid inputFileKeys for testcase ${testcaseId}: ${result.error.issues
+      .map((issue) => issue.path.join(".") || issue.code)
+      .join(", ")}`,
   );
-  return null;
 }
 
 export function deriveJudgeMode(

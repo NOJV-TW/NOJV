@@ -23,8 +23,7 @@
       limit = json.limit;
       loaded = true;
     } catch {
-      // Soft failure — render a neutral bar; uploads still work, the
-      // server enforces the budget.
+      return;
     }
   }
 

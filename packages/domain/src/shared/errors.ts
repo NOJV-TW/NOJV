@@ -37,3 +37,9 @@ export class IntegrityError extends HttpError {
     super(message, 500);
   }
 }
+
+export class ConfigurationError extends HttpError {
+  constructor(message = "Server configuration error.") {
+    super(message, 500);
+  }
+}

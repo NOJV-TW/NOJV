@@ -6,7 +6,7 @@ import {
   problemRepo,
   submissionRepo,
 } from "@nojv/db";
-import type { RejudgeInput } from "@nojv/temporal";
+import type { RejudgeInput } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";

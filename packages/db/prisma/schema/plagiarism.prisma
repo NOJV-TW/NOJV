@@ -1,16 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Plagiarism pair flags (false-positive marking)
-//
-// The Dolos report itself is inlined on Exam / Assessment as
-// `plagiarism*` columns and gets wiped on each re-trigger. Pair-level
-// staff review state needs to survive re-runs, so it lives here keyed
-// by `(contextType, contextId, pairKey)`.
-//
-// `pairKey` is a sorted, deterministic string built server-side as
-// `${userA}|${userB}|${problemId}` with `userA < userB`. Sorting is
-// done in the domain layer so clients can never invert the pair to
-// double-flag.
-// ═══════════════════════════════════════════════════════════════
 
 enum PlagiarismContext {
   assessment
@@ -22,7 +9,6 @@ model PlagiarismPairFlag {
   id          String            @id @default(cuid())
   contextType PlagiarismContext
   contextId   String
-  /// Sorted "${userA}|${userB}|${problemId}" with userA < userB. Server-built.
   pairKey     String
   flaggedBy   String
   flaggedAt   DateTime          @default(now())

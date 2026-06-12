@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted mock handles for the three repo existence checks the 5th
-// (historical-participant) gate consults. The first four gates in
-// `assertProblemViewAccess` are synchronous and do not touch these.
 const { hasEndedAssessmentForUser, hasEndedContestForUser, hasEndedExamForUser } = vi.hoisted(
   () => ({
     hasEndedAssessmentForUser: vi.fn(),
@@ -15,8 +12,6 @@ vi.mock("@nojv/db", () => ({
   assessmentProblemRepo: { hasEndedAssessmentForUser },
   contestProblemRepo: { hasEndedContestForUser },
   examProblemRepo: { hasEndedExamForUser },
-  // Unused by the tests below, but the real module exports these —
-  // stub them so the import resolves cleanly.
   problemRepo: {},
   problemWorkspaceFileRepo: {},
 }));
@@ -44,7 +39,6 @@ beforeEach(() => {
   hasEndedAssessmentForUser.mockReset();
   hasEndedContestForUser.mockReset();
   hasEndedExamForUser.mockReset();
-  // Default: no historical context. Individual tests override as needed.
   hasEndedAssessmentForUser.mockResolvedValue(false);
   hasEndedContestForUser.mockResolvedValue(false);
   hasEndedExamForUser.mockResolvedValue(false);
@@ -122,10 +116,6 @@ describe("assertProblemViewAccess — historical participant (practice-after-clo
   });
 
   it("blocks BEFORE endsAt/closesAt: the repos drive time semantics, so when none return true the viewer is denied", async () => {
-    // The repos themselves filter on `endsAt < now` / `closesAt < now`; from
-    // the helper's point of view "not yet ended" just means the repo returns
-    // false. We assert that the helper honors that by denying when the repo
-    // answer is false, even if the viewer is otherwise a participant.
     hasEndedAssessmentForUser.mockResolvedValue(false);
     hasEndedContestForUser.mockResolvedValue(false);
     hasEndedExamForUser.mockResolvedValue(false);
@@ -135,8 +125,6 @@ describe("assertProblemViewAccess — historical participant (practice-after-clo
   });
 
   it("blocks when the context is unpublished/draft (repos filter on published status and will return false)", async () => {
-    // Same shape as the "before endsAt" case — the repo contract is that
-    // draft/unpublished contexts are never returned; helper just trusts that.
     hasEndedAssessmentForUser.mockResolvedValue(false);
     hasEndedContestForUser.mockResolvedValue(false);
     hasEndedExamForUser.mockResolvedValue(false);

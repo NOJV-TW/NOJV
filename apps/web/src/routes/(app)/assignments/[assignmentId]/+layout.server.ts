@@ -46,11 +46,6 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       throw new NotFoundError("Assignment not found.");
     }
     const now = new Date();
-    if (now < assignment.opensAt) {
-      // Upcoming: the detail page may still render in "upcoming" mode,
-      // but child problem pages are locked.  Shell stays visible so the
-      // student can read the title / opens-at.
-    }
     if (now > assignment.closesAt && course.archived) {
       throw new ForbiddenError("This assignment is closed.");
     }

@@ -11,19 +11,6 @@ import {
 
 import type { ActorContext } from "../../../packages/domain/src/shared/actor-context";
 
-/**
- * Integration coverage for the `/api/feedback` route's domain layer.
- *
- * No HTTP-route test harness exists in `tests/integration/` — every file
- * here exercises `@nojv/domain` functions against a real Postgres. This
- * test follows that convention and drives the exact functions the route
- * delegates to (`upsertFeedback`, `listFeedbackForContext`), so it verifies
- * the same behaviour the route exposes:
- *   - PUT on an OPEN context  → ConflictError (the wrapper maps to HTTP 409)
- *   - PUT on a CLOSED context → succeeds (HTTP 200)
- *   - the upserted row is then readable via the GET path.
- */
-
 function actorOf(user: {
   id: string;
   email: string;
@@ -55,7 +42,6 @@ describe("feedback API domain layer (real DB)", () => {
       const student = await createTestUser({ platformRole: "student" });
       const problem = await createTestProblem({ authorId: teacher.id });
 
-      // closesAt in the future → context is OPEN.
       const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
@@ -82,7 +68,6 @@ describe("feedback API domain layer (real DB)", () => {
       const student = await createTestUser({ platformRole: "student" });
       const problem = await createTestProblem({ authorId: teacher.id });
 
-      // closesAt in the past → context is CLOSED.
       const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
@@ -220,7 +205,6 @@ describe("feedback API domain layer (real DB)", () => {
         },
       });
 
-      // `student` is not a course teacher/TA — actor built with their identity.
       await expect(
         feedbackDomain.upsertFeedback(
           {
@@ -242,7 +226,6 @@ describe("feedback API domain layer (real DB)", () => {
       const course = await createTestCourse();
       const teacher = await makeCourseTeacher(course.id);
 
-      // closesAt in the future → context is OPEN.
       const assignment = await testPrisma.assessment.create({
         data: {
           courseId: course.id,
@@ -256,13 +239,10 @@ describe("feedback API domain layer (real DB)", () => {
       });
       const context = { type: "assignment" as const, assignmentId: assignment.id };
 
-      // The GET path: role-only assert must succeed while the context is open.
       await expect(
         feedbackDomain.assertCanViewFeedback(actorOf(teacher), context),
       ).resolves.toBeUndefined();
 
-      // The write path still rejects the same open context with ConflictError
-      // (→ HTTP 409). Asserting both pins the read/write split.
       await expect(
         feedbackDomain.assertCanWriteFeedback(actorOf(teacher), context),
       ).rejects.toThrow(/still open/i);

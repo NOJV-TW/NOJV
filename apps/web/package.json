@@ -27,6 +27,7 @@
     "@nojv/domain": "workspace:*",
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
+    "@nojv/temporal": "workspace:*",
     "@opentelemetry/api": "catalog:",
     "@opentelemetry/auto-instrumentations-node": "^0.76.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.218.0",

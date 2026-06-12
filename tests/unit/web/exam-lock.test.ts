@@ -77,8 +77,6 @@ describe("isAllowedPathForExam", () => {
     });
 
     it("denies paths that merely share a prefix with the exam path", () => {
-      // `/exams/exam-1` is the prefix; "/exam-10" must not be considered a
-      // child of "/exam-1".
       expect(isAllowedPathForExam("/exams/exam-10", ctx)).toBe(false);
       expect(isAllowedPathForExam("/exams/exam-10/problems/0", ctx)).toBe(false);
     });

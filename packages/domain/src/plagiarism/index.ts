@@ -18,7 +18,7 @@ export {
   type PlagiarismSubmission,
   type ResolvedPlagiarismTarget,
 } from "./queries";
-export { dispatchPlagiarismCheck } from "@nojv/temporal";
+export { dispatchPlagiarismCheck } from "./dispatch";
 export {
   buildPairKey,
   flagPair,

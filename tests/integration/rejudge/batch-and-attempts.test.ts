@@ -34,9 +34,6 @@ async function createTestAssignment(opts: {
   });
 }
 
-// D — the invariant the user asked us to pin: a staff-triggered rejudge
-// re-grades an EXISTING submission row (it never inserts a new one), so it
-// must not consume the student's per-problem daily attempt quota.
 describe("rejudge — attempt-quota invariant (real DB)", () => {
   it("re-judging an existing submission does not consume the student's attempt quota", async () => {
     const student = await createTestUser();
@@ -67,7 +64,6 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
     );
     expect(before).toBe(1);
 
-    // Simulate the rejudge round trip: snapshot → re-grade existing row → finalize.
     const snap = await submissionDomain.snapshotForRejudge(
       submission.id,
       teacher.id,
@@ -83,12 +79,10 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
       problem.id,
       windowStart,
     );
-    // Unchanged — the rejudge updated the row in place, did not add one.
     expect(after).toBe(1);
   });
 });
 
-// B — admin rejudge-log listing: cursor pagination + problem filter.
 describe("listRejudgeLogsPaged (real DB)", () => {
   async function makeRejudgeLog(opts: {
     problemId: string;

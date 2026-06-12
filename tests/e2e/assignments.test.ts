@@ -2,10 +2,6 @@ import { test, expect } from "@playwright/test";
 
 import { studentAuth, teacherAuth } from "./_shared";
 
-// Seeded assignments live under `course_os-lab-spring-2026`:
-//   hw1-process-trace      — published, due 2026-03-23 → past, late penalty 20%
-//   hw2-signal-handling    — published, due 2026-04-28, attempt cap 3/day
-//   hw3-scheduler-draft    — draft, no problems linked
 const HW1_ID = "hw1-process-trace";
 const HW2_ID = "hw2-signal-handling";
 const HW3_ID = "hw3-scheduler-draft";
@@ -72,10 +68,6 @@ test.describe("Assignments — list + detail", () => {
   test("student visiting a problem under a closed assignment lands on bare practice", async ({
     browser,
   }) => {
-    // Practice-after-close: once an assignment is past its close time the
-    // in-assignment problem URL redirects to the ordinary practice page,
-    // where the problem stays solvable but is no longer attributed to the
-    // assignment context.
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     await page.goto(`/assignments/${HW2_ID}/problems/problem_add-two-numbers`);

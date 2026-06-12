@@ -78,7 +78,15 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         } catch {
-          // ignore: controller already closed
+          return;
+        }
+      }
+
+      function closeController() {
+        try {
+          controller.close();
+        } catch {
+          return;
         }
       }
 
@@ -109,11 +117,7 @@ export const GET: RequestHandler = async (event) => {
         clearInterval(keepalive);
         clearTimeout(timeout);
         unsubscribe();
-        try {
-          controller.close();
-        } catch {
-          // ignore: controller already closed
-        }
+        closeController();
 
         sseConnectionDuration.record((performance.now() - startMs) / 1000, {
           close_reason: reason,

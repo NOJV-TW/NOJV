@@ -16,15 +16,10 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(403, "Not authorized to create problems");
   }
 
-  let mode: unknown;
-  try {
-    const body = (await event.request.json().catch(() => null)) as {
-      mode?: unknown;
-    } | null;
-    mode = body?.mode;
-  } catch {
-    // missing/invalid body falls through to the default ProblemType
-  }
+  const body = (await event.request.json().catch(() => null)) as {
+    mode?: unknown;
+  } | null;
+  const mode = body?.mode;
 
   let type: ProblemType = "full_source";
   if (mode === "advanced") {

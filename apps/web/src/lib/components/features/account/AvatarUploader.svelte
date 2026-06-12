@@ -40,7 +40,7 @@
   function onFileChange(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
-    input.value = ""; // allow picking the same file again
+    input.value = "";
     if (!file) return;
 
     if (!ALLOWED_TYPES.has(file.type)) {

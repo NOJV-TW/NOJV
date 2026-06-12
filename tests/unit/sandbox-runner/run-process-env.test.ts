@@ -20,8 +20,6 @@ describe("runProcess env forwarding", () => {
   });
 
   it("reports a launch failure (spawnError) when a bash-wrapped command cannot exec", async () => {
-    // cpuSeconds forces the bash ulimit wrapper; a missing binary fails inside
-    // it (exit 126/127) rather than at spawn(). Must still surface as SE-able.
     const result = await runProcess(["/nonexistent/binary"], {
       timeoutMs: 5_000,
       cpuSeconds: 3,
@@ -30,9 +28,6 @@ describe("runProcess env forwarding", () => {
   });
 
   it("keeps a genuine RE when a program spoofs the exec-failure stderr but exits non-126/127", async () => {
-    // Adversarial student: print bash's exec-failure phrase and exit 1. The
-    // exit code is not 126/127, so the reclassification gate must NOT fire —
-    // this stays a runtime error, not a downgraded SE.
     const result = await runProcess(
       [
         "node",

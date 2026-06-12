@@ -3,9 +3,6 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-// A proxied activity missing from its queue's bundle only fails at runtime
-// ("Activity function not registered"), which mocked tests never reach.
-
 const WORKER_SRC = new URL("../../../apps/worker/src/", import.meta.url);
 
 const QUEUE_BUNDLES = [

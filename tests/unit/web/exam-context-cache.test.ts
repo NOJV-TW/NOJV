@@ -20,7 +20,6 @@ describe("createTtlCache", () => {
     expect(await cache.getOrLoad("user-1", load)).toBe("before");
     expect(load).toHaveBeenCalledTimes(1);
 
-    // Simulate the state changing (session started) without waiting for TTL.
     value = "after";
     cache.invalidate("user-1");
 

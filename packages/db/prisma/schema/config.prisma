@@ -1,6 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Generator + datasource (exactly one file in schema/ owns these)
-// ═══════════════════════════════════════════════════════════════
 
 generator client {
   provider   = "prisma-client"

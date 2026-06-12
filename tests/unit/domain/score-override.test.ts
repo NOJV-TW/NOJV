@@ -111,7 +111,6 @@ const baseInput = {
   reason: "Manual adjustment after grading dispute.",
 };
 
-/** Score overrides are a post-close action: gate fixtures need a closed context. */
 const CLOSED_AT = new Date("2020-01-01T00:00:00Z");
 const OPEN_AT = new Date("2999-01-01T00:00:00Z");
 
@@ -209,7 +208,6 @@ describe("read vs write authorization split", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_hw1",
       courseId: "crs_1",
-      // OPEN context — closesAt in the far future.
       closesAt: OPEN_AT,
     });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });

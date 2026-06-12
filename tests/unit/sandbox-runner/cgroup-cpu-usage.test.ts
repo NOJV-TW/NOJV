@@ -13,7 +13,6 @@ describe("parseCgroupCpuUsageUsec — CPU-time source for TLE/reporting", () => 
   });
 
   it("converts cgroup v1 nanoseconds to microseconds", () => {
-    // 9_000_000 ns = 9_000 us
     expect(parseCgroupCpuUsageUsec(null, "9000000")).toBe(9000);
   });
 

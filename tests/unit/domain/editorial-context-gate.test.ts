@@ -36,8 +36,6 @@ beforeEach(() => {
   contestFindById.mockReset();
   assessmentFindInfoById.mockReset();
   examFindById.mockReset();
-  // By default, the user is NOT an editorial author. Each test that needs
-  // the grandfather rule sets this to true explicitly.
   editorialExistsForUserProblem.mockResolvedValue(false);
 });
 
@@ -79,8 +77,6 @@ describe("canViewEditorials — context gate", () => {
   });
 
   it("M3 fix: denies AC + contest missing (fail-closed)", async () => {
-    // A transient Prisma flap or a stale contestId must NOT leak the
-    // editorial. The gate fails closed on a null lookup.
     submissionCount.mockResolvedValue(1);
     contestFindById.mockResolvedValue(null);
     await expect(
@@ -129,8 +125,6 @@ describe("canViewEditorials — context gate", () => {
   });
 
   it("M3 fix: denies AC + assignment missing (fail-closed)", async () => {
-    // findInfoById throws on a missing row; the gate must fail closed
-    // rather than leak the editorial during a transient lookup failure.
     submissionCount.mockResolvedValue(1);
     assessmentFindInfoById.mockRejectedValue(new Error("not found"));
     await expect(

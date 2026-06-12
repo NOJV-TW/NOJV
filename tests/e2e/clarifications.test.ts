@@ -3,9 +3,6 @@ import { test, expect } from "@playwright/test";
 import { apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
 
 const HW1_ID = "hw1-process-trace";
-// Seeded assignment that is still open (closesAt in the future) and
-// carries `problem_warmup-sum` — needed to exercise the "ask" path,
-// which is rejected once an assignment has closed.
 const HW_ACTIVE_ID = "hw-demo-active";
 const PROBLEM_ID = "problem_warmup-sum";
 
@@ -74,10 +71,6 @@ test.describe("Clarifications API", () => {
       },
       headers: apiWriteHeaders,
     });
-    // The seeded student is enrolled in the os-lab course, so this should
-    // succeed (200/201). 409 is also acceptable when the domain enforces
-    // a uniqueness rule (e.g. duplicate-question dedupe across runs). The
-    // contract: no 5xx, and on success we get a stable id back.
     expect([200, 201, 409]).toContain(res.status());
     if (res.ok()) {
       const body = await res.json();

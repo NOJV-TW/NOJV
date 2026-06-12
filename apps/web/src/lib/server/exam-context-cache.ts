@@ -27,7 +27,6 @@ export function createTtlCache<T>(ttlMs: number, maxEntries: number, nullTtlMs =
   };
 }
 
-// Short TTL for `null`: caching "no active exam" across instances would skip the gate for a user who just started an exam elsewhere.
 const NULL_CACHE_TTL_MS = 2_000;
 export const pageLockCache = createTtlCache<PageLockedContext | null>(
   30_000,

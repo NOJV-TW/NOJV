@@ -60,7 +60,7 @@ export async function shutdownOtel(): Promise<void> {
   try {
     await sdk.shutdown();
   } catch {
-    // best-effort flush; swallow errors so caller's shutdown sequence isn't blocked
+    return;
   }
 }
 

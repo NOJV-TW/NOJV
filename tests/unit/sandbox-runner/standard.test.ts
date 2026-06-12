@@ -1,11 +1,3 @@
-/**
- * Unit tests for the standard-judge canonical output normalization.
- *
- * The standard judge applies a single, fixed comparison: CRLF→LF,
- * per-line trailing whitespace stripped, trailing blank lines stripped,
- * exact equality afterward. Float tolerance, case-insensitive matching,
- * and any other comparison semantics belong in a checker, not here.
- */
 import { describe, it, expect } from "vitest";
 
 import { compareStandard } from "@nojv/core";

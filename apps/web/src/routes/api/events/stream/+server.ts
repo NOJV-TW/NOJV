@@ -53,7 +53,7 @@ const sseEnvSchema = z.object({
   REDIS_URL: z.url(),
 });
 
-const MAX_DURATION_MS = 600_000; // 10 min
+const MAX_DURATION_MS = 600_000;
 const KEEPALIVE_MS = 30_000;
 
 export const GET: RequestHandler = async (event) => {
@@ -124,7 +124,15 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         } catch {
-          // ignore: controller already closed
+          return;
+        }
+      }
+
+      function closeController() {
+        try {
+          controller.close();
+        } catch {
+          return;
         }
       }
 
@@ -151,11 +159,7 @@ export const GET: RequestHandler = async (event) => {
         clearInterval(keepalive);
         clearTimeout(timeout);
         unsubscribe();
-        try {
-          controller.close();
-        } catch {
-          // ignore: controller already closed
-        }
+        closeController();
 
         sseConnectionDuration.record((performance.now() - startMs) / 1000, {
           close_reason: reason,

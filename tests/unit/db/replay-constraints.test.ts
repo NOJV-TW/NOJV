@@ -24,16 +24,12 @@ describe("collectReplayStatements", () => {
   it("replays the FTS expression GIN but skips the schema-expressible array GIN", () => {
     const joined = creates.join("\n");
     expect(joined).toContain("ProblemStatementI18n_fts_idx");
-    // `Problem_tags_idx` is a bare-column array GIN — db push builds it from
-    // the `@@index([tags], type: Gin)` schema declaration, so we must not
-    // re-create it (that would duplicate / conflict).
     expect(joined).not.toContain("Problem_tags_idx");
   });
 
   it("emits an idempotent DROP IF EXISTS before each CREATE", () => {
     expect(drops.length).toBe(creates.length);
     expect(drops.every((s) => /IF EXISTS/i.test(s))).toBe(true);
-    // Ordered drop-then-create so a re-run is clean.
     for (let i = 0; i < stmts.length; i += 2) {
       expect(stmts[i]).toMatch(/DROP (CONSTRAINT|INDEX) IF EXISTS/i);
       expect(stmts[i + 1]).toMatch(/ADD CONSTRAINT|CREATE INDEX/i);

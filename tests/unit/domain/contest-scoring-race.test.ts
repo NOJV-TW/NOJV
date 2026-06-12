@@ -77,9 +77,6 @@ beforeEach(() => {
 
 describe("updateContestScores — optimistic locking", () => {
   it("retries after a P2025/version conflict and persists the latest computed score", async () => {
-    // First read: version 0, submissions show score 60.
-    // Second read (after retry): version 1 (someone else wrote), submissions
-    //   now show score 80. We must end up persisting 80, not 60.
     findContestForScoring
       .mockResolvedValueOnce(participationFixture(0))
       .mockResolvedValueOnce(participationFixture(1));
@@ -103,7 +100,6 @@ describe("updateContestScores — optimistic locking", () => {
     expect(findContestForScoring).toHaveBeenCalledTimes(2);
     expect(updateWithVersion).toHaveBeenCalledTimes(2);
 
-    // First call used version 0 with the stale score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       1,
       PARTICIPATION_ID,
@@ -111,7 +107,6 @@ describe("updateContestScores — optimistic locking", () => {
       expect.objectContaining({ score: 60 }),
     );
 
-    // Retry used the freshly read version 1 with the recomputed score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       2,
       PARTICIPATION_ID,
@@ -133,7 +128,6 @@ describe("updateContestScores — optimistic locking", () => {
       ConflictError,
     );
 
-    // 3 attempts before giving up.
     expect(updateWithVersion).toHaveBeenCalledTimes(3);
   });
 });

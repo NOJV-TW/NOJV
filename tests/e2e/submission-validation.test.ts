@@ -5,7 +5,6 @@ import { apiWriteHeaders } from "./_shared";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
-// Use a known seeded problem with testcases
 const PROBLEM_ID = "problem_warmup-sum";
 
 test.describe("Submission Validation", () => {
@@ -62,7 +61,6 @@ test.describe("Submission Validation", () => {
       },
       headers: apiWriteHeaders,
     });
-    // Should be 404 or 500 (problem not found)
     expect(res.status()).toBeGreaterThanOrEqual(400);
     await context.close();
   });
@@ -80,9 +78,6 @@ test.describe("Submission Validation", () => {
     const page = await context.newPage();
     await page.goto(`/problems/${PROBLEM_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    // Editor should be visible (with code area and run/submit buttons).
-    // Anchored regex to avoid matching HelpTooltip aria-labels that contain
-    // "runs" or "submit a complete program" as substrings.
     await expect(page.getByRole("button", { name: /^(run|執行)$/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /^(submit|繳交)$/i })).toBeVisible();
     await context.close();

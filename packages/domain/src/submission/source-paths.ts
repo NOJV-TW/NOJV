@@ -3,7 +3,7 @@ import { submissionSourceKey, type SubmissionSource } from "@nojv/storage";
 
 import { ConflictError } from "../shared/errors";
 
-const MAX_SUBMISSION_BYTES = 1 * 1024 * 1024; // 1 MB total
+const MAX_SUBMISSION_BYTES = 1 * 1024 * 1024;
 
 export function normalizeSubmissionSources(
   payload: SubmissionDraft,

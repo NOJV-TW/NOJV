@@ -1,20 +1,5 @@
 import { vi } from "vitest";
 
-/**
- * In-memory S3Client stub for tests. Implements only the subset of the
- * S3 surface our storage helpers actually exercise:
- *   - PutObjectCommand
- *   - GetObjectCommand
- *   - ListObjectsV2Command
- *   - DeleteObjectCommand
- *   - DeleteObjectsCommand
- *
- * Returned object exposes:
- *   - `client`: cast to whatever S3Client-shaped param the helper expects
- *   - `store`: the underlying Map for direct assertions
- *   - `send`: the vi.fn for call-count assertions
- *   - `failNext` / `failOnPut`: hooks for simulating storage failure
- */
 export function createInMemoryStorage() {
   const store = new Map<string, string>();
   const fails: ((commandName: string) => boolean)[] = [];
@@ -23,7 +8,6 @@ export function createInMemoryStorage() {
     const name = command.constructor.name;
     const input = command.input as Record<string, unknown>;
 
-    // Apply queued failure predicates (consume on match).
     for (let i = 0; i < fails.length; i += 1) {
       const pred = fails[i];
       if (pred?.(name)) {
@@ -80,11 +64,9 @@ export function createInMemoryStorage() {
   return {
     send,
     store,
-    /** Make the next matching command throw a SimulatedError. */
     failNext(predicate: (commandName: string) => boolean) {
       fails.push(predicate);
     },
-    /** Make the Nth (0-indexed) PutObjectCommand throw. */
     failOnPut(occurrence: number) {
       let seen = -1;
       fails.push((name) => {

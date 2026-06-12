@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted mocks for the repos `checkIpLock` orchestrates. `findLastViolationAt`
-// drives the log throttle (null = nothing logged recently = log is due).
 const { violationLogCreate, findLastViolationAt, updateExamIpPin } = vi.hoisted(() => ({
   violationLogCreate: vi.fn(),
   findLastViolationAt: vi.fn(),
@@ -100,8 +98,6 @@ describe("checkIpLock — whitelist", () => {
   });
 
   it("block mode denies AND records the violation (audit trail)", async () => {
-    // Fix: previously block mode returned without ever writing IpViolationLog,
-    // so a teacher using block mode got zero audit trail.
     const result = await checkIpLock(fakeTx, whitelistBlock, "1.2.3.4", null, fakeContext);
     expect(result).toEqual({ allowed: false, violationType: "whitelist" });
     expect(violationLogCreate).toHaveBeenCalledTimes(1);

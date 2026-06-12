@@ -30,9 +30,6 @@ export const CPP_CHECKER_EXAMPLE = `#include <cstdio>
 #include <iostream>
 #include <string>
 
-// DOMjudge output validator: argv[1]=input, argv[2]=judge answer,
-// argv[3]=feedback dir. Team output arrives on stdin. Exit 42 = accept,
-// 43 = wrong; write feedback to <feedback_dir>/teammessage.txt.
 int main(int argc, char* argv[]) {
     std::ifstream ans(argv[2]);
     std::string feedback_dir = argv[3];
@@ -61,9 +58,6 @@ export const CPP_INTERACTOR_EXAMPLE = `#include <cstdio>
 #include <iostream>
 #include <string>
 
-// DOMjudge interactor: argv[1]=input, argv[2]=judge answer,
-// argv[3]=feedback dir. stdin reads from the solution, stdout writes to it.
-// Exit 42 = accept, 43 = wrong; optional score in <feedback_dir>/score.txt.
 int main(int argc, char* argv[]) {
     std::ifstream in(argv[1]);
     std::string feedback_dir = argv[3];

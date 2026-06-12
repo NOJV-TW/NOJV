@@ -46,7 +46,6 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
       expect(data[`testcase-${String(i)}-input.txt`]).toBe(`in-${String(i)}\n`);
       expect(data[`testcase-${String(i)}-expected.txt`]).toBeUndefined();
     }
-    // Defense-in-depth: no value in the run ConfigMap may carry the secret answer.
     for (const value of Object.values(data)) {
       expect(value).not.toContain("secret-answer-");
     }

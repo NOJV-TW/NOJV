@@ -26,9 +26,6 @@ vi.mock("$app/environment", () => ({
   building: false,
 }));
 
-// Stub @nojv/storage so domain code can resolve `getText` without an S3
-// backend. The fake `getText` returns the key it was called with so the
-// content assertions below can use known values via `contentKey`.
 vi.mock("@nojv/storage", () => {
   const blobStore = new Map<string, string>();
   return {
@@ -178,13 +175,10 @@ describe("DB-backed read model", () => {
     expect(detail?.samples[0]?.output).toBe("3\n");
     expect(detail?.starterByLanguage).toBeDefined();
     expect(detail?.starterByLanguage.python).toBeDefined();
-    // Without workspace files, the field is an empty array.
     expect(detail?.workspaceFiles).toEqual([]);
   });
 
   it("exposes hidden workspace files as metadata-only (blank content) and uses editable ones for starter code", async () => {
-    // Pre-populate the fake S3 store so the read path can `getText` the
-    // workspace contents using the keys the rows point at.
     const storage = (await import("@nojv/storage")) as unknown as {
       __blobStore: Map<string, string>;
     };
@@ -251,25 +245,19 @@ describe("DB-backed read model", () => {
     const detail = await getProblemPageData("prob_blanks", "en");
 
     expect(detail).not.toBeNull();
-    // All three files are exposed — hidden ones keep their metadata so the
-    // UI can render them, but their raw content is blanked.
     expect(detail?.workspaceFiles).toHaveLength(3);
     expect(detail?.workspaceFiles.map((f) => f.path)).toEqual([
       "solution.cpp",
       "helpers.h",
       "grader.cpp",
     ]);
-    // Hidden file's raw content must never leave the server.
     const hidden = detail?.workspaceFiles.find((f) => f.visibility === "hidden");
     expect(hidden?.content).toBe("");
     expect(hidden?.description).toBe("Hidden server-side grader.");
-    // Non-hidden files keep their content and descriptions.
     expect(detail?.workspaceFiles[0]?.content).toBe("int solve() { return 42; }\n");
     expect(detail?.workspaceFiles[0]?.description).toBe("Your solution goes here.");
     expect(detail?.workspaceFiles[1]?.description).toBe("");
-    // Starter code for cpp now reflects the editable workspace file.
     expect(detail?.starterByLanguage.cpp).toBe("int solve() { return 42; }\n");
-    // Other languages still fall back to the hardcoded stub.
     expect(detail?.starterByLanguage.python).toBeDefined();
   });
 

@@ -14,13 +14,6 @@ import {
 
 import type { ActorContext } from "../../../packages/domain/src/shared/actor-context";
 
-/**
- * Route-level permission gate coverage for the 4 plagiarism HTTP endpoints
- * (per `docs/specs/plagiarism.md`). The HTTP wrappers are thin — testing
- * `assertCanManagePlagiarism` (web helper) + `flagPair`/`unflagPair`
- * (domain) hits the exact production gate the route delegates to.
- */
-
 type SessionRole = ActorContext["platformRole"];
 
 interface SessionLike {
@@ -220,7 +213,6 @@ describe("plagiarism API permission gates (real DB)", () => {
   });
 
   describe("GET /api/plagiarism/[assignmentId]/sources gate", () => {
-    // Same gate as trigger; cover the same actor matrix to pin the contract.
     it("rejects a same-course student with ForbiddenError", async () => {
       const teacher = await createTestUser({ platformRole: "teacher" });
       const course = await createTestCourse({ ownerId: teacher.id });

@@ -109,8 +109,8 @@ export async function answer(
   await publishClarificationEvent("updated", updated);
 
   if (wasPending) {
-    try {
-      await notificationDomain.createNotification({
+    await notificationDomain
+      .createNotification({
         userId: row.askedByUserId,
         type: "clarification_answered",
         params: {
@@ -120,11 +120,8 @@ export async function answer(
           questionPreview: row.questionText.slice(0, 80),
         },
         linkUrl: buildClarificationLink(context, row.id),
-      });
-    } catch {
-      // Notification delivery is best-effort; the answer has already
-      // landed and the asker can see it via the public board.
-    }
+      })
+      .catch(() => undefined);
   }
   return projectRow(updated, true);
 }
@@ -166,31 +163,27 @@ async function publishClarificationEvent(
   action: ClarificationSSEEvent["action"],
   row: ClarificationRow,
 ): Promise<void> {
-  try {
-    const masked = projectRow(row, false);
-    const event: ClarificationSSEEvent = {
-      type: SSE_CLARIFICATION,
-      action,
-      payload: {
-        id: masked.id,
-        contextType: masked.contextType,
-        contextId: masked.contextId,
-        problemId: masked.problemId,
-        questionText: masked.questionText,
-        answerText: masked.answerText,
-        state: masked.state,
-        askedByUserId: masked.askedByUserId,
-        askedBy: masked.askedBy,
-        answeredByUserId: masked.answeredByUserId,
-        answeredBy: masked.answeredBy,
-        answeredAt: masked.answeredAt ? masked.answeredAt.toISOString() : null,
-        createdAt: masked.createdAt.toISOString(),
-      },
-    };
-    await pubsub.publishClarification(row.contextType, row.contextId, event);
-  } catch {
-    // Best-effort; the DB write has already happened.
-  }
+  const masked = projectRow(row, false);
+  const event: ClarificationSSEEvent = {
+    type: SSE_CLARIFICATION,
+    action,
+    payload: {
+      id: masked.id,
+      contextType: masked.contextType,
+      contextId: masked.contextId,
+      problemId: masked.problemId,
+      questionText: masked.questionText,
+      answerText: masked.answerText,
+      state: masked.state,
+      askedByUserId: masked.askedByUserId,
+      askedBy: masked.askedBy,
+      answeredByUserId: masked.answeredByUserId,
+      answeredBy: masked.answeredBy,
+      answeredAt: masked.answeredAt ? masked.answeredAt.toISOString() : null,
+      createdAt: masked.createdAt.toISOString(),
+    },
+  };
+  await pubsub.publishClarification(row.contextType, row.contextId, event);
 }
 
 async function assertProblemInContext(

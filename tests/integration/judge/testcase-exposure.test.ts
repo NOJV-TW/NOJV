@@ -1,16 +1,3 @@
-/**
- * Phase 1 security regression: a standard-mode student program must NOT be
- * able to read the expected answers from inside the sandbox.
- *
- * Before the fix, the worker shipped `testcases/{i}/expected.txt` into the
- * read-only `/submission` mount alongside `input.txt`, so a program could
- * locate its own input and echo back the sibling expected output for a
- * guaranteed AC. The fix stops shipping `expected.txt` for standard mode and
- * compares output worker-side, so the exploit reads nothing useful → WA.
- *
- * Requires a real Docker daemon and the locally-built sandbox image
- * (`pnpm sandbox:build` → `nojv-sandbox:local`). Skips cleanly otherwise.
- */
 import { describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
@@ -20,9 +7,6 @@ import { requireSandboxImage } from "./_sandbox-image";
 
 const SANDBOX_IMAGE = "nojv-sandbox:local";
 
-// The exploit: locate the testcase whose input matches our stdin, then print
-// its sibling expected.txt. With the fix, expected.txt is absent → OSError →
-// we print nothing.
 const EXPLOIT_SOURCE = `import sys, glob, os
 mine = sys.stdin.read()
 for d in glob.glob("/submission/testcases/*"):
@@ -71,8 +55,6 @@ describe("standard-mode testcase exposure (isolation)", () => {
     },
   );
 
-  // Positive control: the run/check separation must still grade a genuinely
-  // correct solution as AC end-to-end (runner emits rawRuns → worker compares).
   it("still grades a correct solution as AC end-to-end", { timeout: 120_000 }, async (ctx) => {
     if (!(await requireSandboxImage(ctx))) return;
 

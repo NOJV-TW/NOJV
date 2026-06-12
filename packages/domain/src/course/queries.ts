@@ -56,7 +56,7 @@ export interface CopyCoursePreview {
   };
 }
 
-// intentional-nullable: settings-page caller hides the copy dialog when the source row is missing (race vs. another teacher deleting the course mid-load).
+// intentional-nullable: caller needs absence for missing source course.
 export async function getCopyCoursePreview(
   courseId: string,
 ): Promise<CopyCoursePreview | null> {
@@ -229,7 +229,7 @@ export interface AssignmentContextResult {
   viewerIsManager: boolean;
 }
 
-// intentional-nullable: the /problems/[id] loader is shared by practice, assignment, and contest modes — a missing or unauthorized assignment must silently fall back to practice-mode, not throw.
+// intentional-nullable: caller needs absence for inaccessible assignment context.
 export async function getAssignmentContext(
   courseId: string,
   assignmentId: string,

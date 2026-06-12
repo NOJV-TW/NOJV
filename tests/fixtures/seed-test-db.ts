@@ -1,7 +1,5 @@
-// tests/fixtures/seed-test-db.ts
 import { testPrisma } from "./factories";
 
-// Order does not matter — TRUNCATE ... CASCADE handles FK dependencies.
 export const TABLES = [
   "Clarification",
   "SubmissionFeedbackAuditLog",
@@ -47,10 +45,8 @@ export const TABLES = [
 ] as const;
 
 export async function truncateAllTables() {
-  // Use raw SQL TRUNCATE CASCADE for speed
   const tableNames = TABLES.map((t) => `"${t}"`).join(", ");
   await testPrisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableNames} CASCADE`);
-  // Reset sequences so test IDs start from 1 in each test
   await testPrisma.$executeRawUnsafe(`ALTER SEQUENCE "Problem_displayId_seq" RESTART WITH 1`);
 }
 

@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 
 import { NativeConnection, Worker } from "@temporalio/worker";
+import "./domain-orchestration";
 
 import {
   closeTemporalClient,

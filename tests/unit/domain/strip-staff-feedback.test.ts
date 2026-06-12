@@ -29,7 +29,6 @@ describe("stripStaffFeedback", () => {
 
     expect(stripped.caseResults![0]).not.toHaveProperty("staffFeedback");
     expect(stripped.caseResults![1]).not.toHaveProperty("staffFeedback");
-    // The serialized payload that goes to the client must not contain the field.
     expect(JSON.stringify(stripped)).not.toContain("staffFeedback");
   });
 

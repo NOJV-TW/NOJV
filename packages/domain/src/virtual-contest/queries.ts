@@ -70,7 +70,7 @@ function rowsTied(a: VirtualScoreboardRow, b: VirtualScoreboardRow): boolean {
   return a.totalScore === b.totalScore && a.totalPenalty === b.totalPenalty;
 }
 
-// intentional-nullable: "not started" is a normal state — the dashboard route renders the start CTA instead of a 404.
+// intentional-nullable: caller needs absence when no virtual session exists.
 export async function getVirtualContestForUser(
   contestId: string,
   userId: string,
@@ -127,7 +127,7 @@ export async function getVirtualContestForUser(
   };
 }
 
-// intentional-nullable: paired with getVirtualContestForUser — a user with no run gets the start CTA, not a 404.
+// intentional-nullable: caller needs absence when no virtual session exists.
 export async function getVirtualContestScoreboard(
   contestId: string,
   userId: string,

@@ -8,6 +8,7 @@ import {
 } from "../utils.js";
 
 const WALL_GRACE_FACTOR = 2;
+const ignoreStreamError = () => undefined;
 
 export interface RunProcessResult {
   stdout: string;
@@ -76,9 +77,7 @@ export function runProcess(
     });
 
     if (useStdin) {
-      proc.stdin?.on("error", () => {
-        /* ignore EPIPE when the process exits before stdin is consumed */
-      });
+      proc.stdin?.on("error", ignoreStreamError);
       proc.stdin?.write(options.stdin);
       proc.stdin?.end();
     }

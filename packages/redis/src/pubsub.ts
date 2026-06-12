@@ -14,12 +14,54 @@ import { keys } from "./keys";
 
 const SCOREBOARD_UPDATE_THROTTLE_SECONDS = 10;
 
+export type PubsubOperation =
+  | "scoreboard"
+  | "verdict"
+  | "contest"
+  | "notification"
+  | "clarification"
+  | "notification_batch";
+
+export interface PubsubError {
+  operation: PubsubOperation;
+  channel: string;
+  err: unknown;
+}
+
+export type PubsubErrorHandler = (error: PubsubError) => void;
+
+let pubsubErrorHandler: PubsubErrorHandler = ({ operation, channel, err }) => {
+  console.error("[redis.pubsub] publish failed", {
+    operation,
+    channel,
+    err: err instanceof Error ? err.message : String(err),
+  });
+};
+
+export function setPubsubErrorHandler(handler: PubsubErrorHandler): void {
+  pubsubErrorHandler = handler;
+}
+
 function publishEvent(channel: string, event: SSEEvent): Promise<number> {
   return getRedis().publish(channel, JSON.stringify(event));
 }
 
+function bestEffort(
+  operation: PubsubOperation,
+  channel: string,
+  task: () => Promise<unknown>,
+): Promise<void> {
+  return task().then(
+    () => undefined,
+    (err: unknown) => {
+      pubsubErrorHandler({ operation, channel, err });
+    },
+  );
+}
+
 export async function publishScoreboardUpdate(contestId: string): Promise<void> {
-  try {
+  const channel = keys.contestChannel(contestId);
+  await bestEffort("scoreboard", channel, async () => {
     const acquired = await getRedis().set(
       keys.scoreboardUpdateThrottle(contestId),
       "1",
@@ -28,10 +70,8 @@ export async function publishScoreboardUpdate(contestId: string): Promise<void> 
       "NX",
     );
     if (acquired !== "OK") return;
-    await publishEvent(keys.contestChannel(contestId), { type: SSE_SCOREBOARD });
-  } catch {
-    /* best-effort SSE publish; clients recover via poll / reconnect */
-  }
+    await publishEvent(channel, { type: SSE_SCOREBOARD });
+  });
 }
 
 export async function publishVerdict(submission: {
@@ -41,17 +81,16 @@ export async function publishVerdict(submission: {
   status: string;
   userId: string;
 }): Promise<void> {
-  try {
-    await publishEvent(keys.userChannel(submission.userId), {
+  const channel = keys.userChannel(submission.userId);
+  await bestEffort("verdict", channel, async () => {
+    await publishEvent(channel, {
       type: SSE_SUBMISSION_VERDICT,
       submissionId: submission.id,
       verdict: submission.status,
       score: submission.score,
       problemId: submission.problemId,
     });
-  } catch {
-    /* best-effort SSE publish; clients recover via poll / reconnect */
-  }
+  });
 }
 
 export async function publishContestEvent(
@@ -61,22 +100,20 @@ export async function publishContestEvent(
   const event: SSEEvent =
     eventType === "starting" ? { type: SSE_CONTEST_STARTING } : { type: SSE_CONTEST_ENDING };
 
-  try {
-    await publishEvent(keys.contestChannel(contestId), event);
-  } catch {
-    /* best-effort SSE publish; clients recover via poll / reconnect */
-  }
+  const channel = keys.contestChannel(contestId);
+  await bestEffort("contest", channel, async () => {
+    await publishEvent(channel, event);
+  });
 }
 
 export async function publishNotification(
   userId: string,
   event: NotificationSSEEvent,
 ): Promise<void> {
-  try {
-    await publishEvent(keys.notificationChannel(userId), event);
-  } catch {
-    /* best-effort SSE publish; clients recover via poll / reconnect */
-  }
+  const channel = keys.notificationChannel(userId);
+  await bestEffort("notification", channel, async () => {
+    await publishEvent(channel, event);
+  });
 }
 
 export async function publishClarification(
@@ -84,25 +121,23 @@ export async function publishClarification(
   contextId: string,
   event: ClarificationSSEEvent,
 ): Promise<void> {
-  try {
-    await publishEvent(keys.clarificationChannel(contextType, contextId), event);
-  } catch {
-    // Clarifications: clients also reconcile on reconnect via `since` query param.
-  }
+  const channel = keys.clarificationChannel(contextType, contextId);
+  await bestEffort("clarification", channel, async () => {
+    await publishEvent(channel, event);
+  });
 }
 
 export async function publishNotificationBatchSignal(
   userId: string,
   detail: { notificationType: string; params: unknown; linkUrl: string | null },
 ): Promise<void> {
-  try {
-    await publishEvent(keys.notificationChannel(userId), {
+  const channel = keys.notificationChannel(userId);
+  await bestEffort("notification_batch", channel, async () => {
+    await publishEvent(channel, {
       type: SSE_NOTIFICATION,
       notificationType: detail.notificationType,
       params: detail.params,
       linkUrl: detail.linkUrl,
     });
-  } catch {
-    /* best-effort SSE publish; clients recover via poll / reconnect */
-  }
+  });
 }

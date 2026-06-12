@@ -137,8 +137,6 @@ describe("checkProctoringGate — exam", () => {
 });
 
 describe("checkProctoringGate — contest", () => {
-  // Contests have no proctoring — the gate only covers existence,
-  // visibility, and the time window. `checkIpLock` is never called.
   it("returns ok when published and within window (no enrollment check, no IP check)", async () => {
     contestFindById.mockResolvedValue(baseContest);
 

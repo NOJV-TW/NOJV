@@ -190,6 +190,9 @@ importers:
       '@nojv/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@nojv/temporal':
+        specifier: workspace:*
+        version: link:../../packages/temporal
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.1
@@ -452,9 +455,6 @@ importers:
       '@nojv/storage':
         specifier: workspace:*
         version: link:../storage
-      '@nojv/temporal':
-        specifier: workspace:*
-        version: link:../temporal
       archiver:
         specifier: ^7.0.1
         version: 7.0.1

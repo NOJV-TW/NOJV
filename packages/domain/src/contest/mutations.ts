@@ -21,8 +21,6 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-import { dispatchContestLifecycle } from "@nojv/temporal";
-
 export const contestFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: z.string().min(1),
@@ -49,6 +47,7 @@ import { requireContest, requireUser } from "../shared/require";
 import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
+import { getDomainOrchestration } from "../shared/orchestration";
 
 export type { ActorContext };
 
@@ -188,7 +187,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
     return contest;
   });
 
-  await dispatchContestLifecycle({ contestId: contest.id });
+  await getDomainOrchestration().dispatchContestLifecycle({ contestId: contest.id });
   return contest;
 }
 
@@ -299,7 +298,7 @@ export async function publishContest(actor: ActorContext, contestId: string): Pr
     await contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
   });
 
-  await dispatchContestLifecycle({ contestId });
+  await getDomainOrchestration().dispatchContestLifecycle({ contestId });
 }
 
 export async function deleteContestDraft(

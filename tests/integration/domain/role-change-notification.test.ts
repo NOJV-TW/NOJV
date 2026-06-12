@@ -39,7 +39,6 @@ describe("updateUserRole notifications", () => {
 
     const rows = await notificationRepo.listRecent(target.id, 10);
     expect(rows).toHaveLength(2);
-    // listRecent is DESC; most recent first.
     const latest = rows[0]!.params as { oldRole: string; newRole: string };
     expect(latest.oldRole).toBe("teacher");
     expect(latest.newRole).toBe("admin");

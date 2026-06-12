@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
 
-// Hoisted repo stubs — referenced inside the vi.mock factory below.
 const {
   problemFindById,
   userFindById,
@@ -118,6 +117,10 @@ function setupPracticeDefaults() {
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
   }));
+  submissionUpdateStatus.mockImplementation(async (id: string, status: string) => ({
+    id,
+    status,
+  }));
 }
 
 const baseDraft = {
@@ -182,9 +185,6 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
   });
 
   it("ignores advancedRequiredPaths on a non-special_env problem (type guard)", async () => {
-    // Schema's superRefine forbids this state on create, but the column
-    // could still hold values via direct DB mutation. The mutation MUST
-    // only enforce the contract on special_env problems.
     problemFindById.mockResolvedValue({
       id: "prob_full",
       authorId: "usr_teacher",
@@ -198,8 +198,6 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
         {
           ...baseDraft,
           problemId: "prob_full",
-          // full_source with no workspace files submits a single source
-          // file directly; sourceFiles is irrelevant for the entry-file check.
           sourceFiles: [{ path: "main.cpp", content: "int main(){}" }],
         },
         fakeActor,

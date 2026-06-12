@@ -63,7 +63,7 @@
       if (val === undefined || val === "" || val === "all") params.delete(key);
       else params.set(key, val);
     }
-    params.delete("page"); // any filter change resets pagination
+    params.delete("page");
     const qs = params.toString();
     void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
   }

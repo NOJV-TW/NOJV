@@ -498,9 +498,11 @@ export function buildAdvancedJobManifest(params: AdvancedJobManifestParams): k8s
               effect: "NoSchedule",
             },
           ],
-          // No runAsNonRoot here — the TA grader image is trusted and may
-          // need root, matching the Docker advanced path (no --user).
           securityContext: {
+            runAsUser: 10001,
+            runAsGroup: 10001,
+            fsGroup: 10001,
+            runAsNonRoot: true,
             seccompProfile: { type: "RuntimeDefault" },
           },
           initContainers: [
@@ -541,6 +543,9 @@ export function buildAdvancedJobManifest(params: AdvancedJobManifestParams): k8s
                 allowPrivilegeEscalation: false,
                 capabilities: { drop: ["ALL"] },
                 readOnlyRootFilesystem: true,
+                runAsNonRoot: true,
+                runAsUser: 10001,
+                runAsGroup: 10001,
               },
               volumeMounts: [sharedWorkspaceMount, { name: "tmp", mountPath: "/tmp" }],
             },
@@ -836,15 +841,13 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async cleanupJob(name: string, namespace: string): Promise<void> {
-    try {
-      await this.batchApi.deleteNamespacedJob({
+    await this.batchApi
+      .deleteNamespacedJob({
         name,
         namespace,
         propagationPolicy: "Background",
-      });
-    } catch {
-      // best-effort
-    }
+      })
+      .catch(() => undefined);
   }
 
   private async findPodName(jobName: string, namespace: string): Promise<string | null> {
@@ -860,11 +863,7 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async cleanupConfigMap(name: string, namespace: string): Promise<void> {
-    try {
-      await this.coreApi.deleteNamespacedConfigMap({ name, namespace });
-    } catch {
-      // best-effort
-    }
+    await this.coreApi.deleteNamespacedConfigMap({ name, namespace }).catch(() => undefined);
   }
 
   private async executeRunOnly(request: SandboxRequest): Promise<SandboxResult> {
@@ -1057,7 +1056,7 @@ export class K8sExecutor implements SandboxExecutor {
         const parsed = parseSandboxResult(JSON.parse(trimmed));
         if (parsed.success) return parsed.data;
       } catch {
-        // Not valid JSON, keep searching
+        continue;
       }
     }
 
@@ -1065,23 +1064,19 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async cleanup(jobName: string, namespace: string): Promise<void> {
-    try {
-      await this.coreApi.deleteNamespacedConfigMap({
+    await this.coreApi
+      .deleteNamespacedConfigMap({
         name: jobName,
         namespace,
-      });
-    } catch {
-      // Best-effort cleanup; ignore errors
-    }
+      })
+      .catch(() => undefined);
 
-    try {
-      await this.batchApi.deleteNamespacedJob({
+    await this.batchApi
+      .deleteNamespacedJob({
         name: jobName,
         namespace,
         propagationPolicy: "Background",
-      });
-    } catch {
-      // Best-effort cleanup; ignore errors
-    }
+      })
+      .catch(() => undefined);
   }
 }

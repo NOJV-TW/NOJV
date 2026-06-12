@@ -2,9 +2,7 @@ import { defineConfig } from "prisma/config";
 
 try {
   process.loadEnvFile("../../.env");
-} catch (_) {
-  // .env file is optional — production uses injected env vars
-}
+} catch (_) {}
 
 export default defineConfig({
   datasource: {

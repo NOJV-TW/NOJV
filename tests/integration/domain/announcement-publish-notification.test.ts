@@ -100,7 +100,6 @@ describe("announcement publish fan-out", () => {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(1);
     }
 
-    // Edit without changing status — title/content tweak on a live announcement.
     await announcementDomain.updateAnnouncement(published.id, {
       title: "Hello (edited)",
       content: "World",
@@ -149,7 +148,6 @@ describe("announcement publish fan-out", () => {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(1);
     }
 
-    // Toggle back to draft → no new fan-out, total stays at 1.
     await announcementDomain.toggleAnnouncementPublish(draft.id);
     for (const user of users) {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(1);

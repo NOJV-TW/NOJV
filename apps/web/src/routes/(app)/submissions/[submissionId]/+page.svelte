@@ -17,7 +17,10 @@
   const verdictLabel = $derived(formatVerdictLabel(verdict));
   const verdictClass = $derived(verdictTone(verdict));
   const isPending = $derived(
-    verdict === "queued" || verdict === "compiling" || verdict === "running",
+    verdict === "pending_upload" ||
+      verdict === "queued" ||
+      verdict === "compiling" ||
+      verdict === "running",
   );
 
   const submittedAt = $derived(formatDateTime(submission.createdAt));

@@ -1,12 +1,3 @@
-/**
- * Comprehensive integration tests: 8 languages × standard judge × all verdicts.
- *
- * Verdicts: AC, WA, RE, TLE, CE, MLE, SE
- * Languages: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
- *
- * Checker and interactive judging are run/check-separated across isolated
- * containers — their integration coverage lives in tests/integration/judge/.
- */
 import { execFile } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -23,8 +14,6 @@ const SHORT_TIMEOUT_MS = 500;
 const SLOW_COMPILE_LANGUAGES = new Set(["go", "rust"]);
 const compileTestTimeout = (name: string) =>
   SLOW_COMPILE_LANGUAGES.has(name) ? 90_000 : 30_000;
-
-// ─── Utilities ──────────────────────────────────────────────────────
 
 const commandVersionFlags: Record<string, string> = {
   gcc: "--version",
@@ -67,8 +56,6 @@ async function skipIfMissing(name: string): Promise<boolean> {
   if (compiler && !(await commandExists(compiler))) return true;
   return false;
 }
-
-// ─── Program data ───────────────────────────────────────────────────
 
 const correctPrograms: Record<string, LangEntry> = {
   c: {
@@ -178,7 +165,6 @@ const invalidSources: Record<string, LangEntry> = {
   rust: { language: "rust", source: "not valid" },
 };
 
-/** Programs that self-SIGKILL to simulate OOM kill → MLE */
 const mlePrograms: Record<string, LangEntry> = {
   c: {
     language: "c",
@@ -231,8 +217,6 @@ fn main() {
   typescript: { language: "typescript", source: `process.kill(process.pid, 'SIGKILL');` },
 };
 
-// ─── Helpers ────────────────────────────────────────────────────────
-
 let workDir: string;
 
 beforeEach(async () => {
@@ -263,8 +247,6 @@ async function compileProgram(lang: SandboxInput["language"], source: string) {
   await writeFile(srcFile, source);
   return compile(input, srcFile, workDir);
 }
-
-// ─── Standard judge ─────────────────────────────────────────────────
 
 describe("standard judge", () => {
   for (const [name, prog] of Object.entries(correctPrograms)) {
@@ -378,7 +360,6 @@ describe("standard judge edge cases", () => {
   }, 30_000);
 
   it("CRLF output matches LF expected → AC", async () => {
-    // Python program that outputs CRLF
     const result = await compileProgram(
       "python",
       `import sys\nsys.stdout.write("hello\\r\\n")`,
@@ -392,7 +373,6 @@ describe("standard judge edge cases", () => {
   }, 30_000);
 
   it("trailing whitespace in output still matches if trimEnd matches", async () => {
-    // Output with trailing newlines
     const result = await compileProgram("python", String.raw`print("8\n\n")`);
     expect(result.success).toBe(true);
     if (!result.success) return;

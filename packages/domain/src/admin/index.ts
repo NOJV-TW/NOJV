@@ -8,7 +8,8 @@ import {
   userRepo,
 } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
-import { getTemporalClient } from "@nojv/temporal";
+
+import { getDomainOrchestration } from "../shared/orchestration";
 
 const ADMIN_DASHBOARD_CACHE_TTL_SECONDS = 300;
 
@@ -30,26 +31,27 @@ function subDays(date: Date, days: number): Date {
   return next;
 }
 
+function reviveCachedAdminDashboard(raw: string | null): AdminDashboard | null {
+  if (!raw) return null;
+  try {
+    return reviveAdminDashboard(JSON.parse(raw) as AdminDashboardSerialized);
+  } catch {
+    return null;
+  }
+}
+
 export async function getAdminDashboard(): Promise<AdminDashboard> {
   const cacheKey = keys.adminDashboard();
   const redis = getRedis();
 
-  try {
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return reviveAdminDashboard(JSON.parse(cached) as AdminDashboardSerialized);
-    }
-  } catch {
-    // fall through to live computation
-  }
+  const cached = reviveCachedAdminDashboard(await redis.get(cacheKey).catch(() => null));
+  if (cached) return cached;
 
   const result = await computeAdminDashboard();
 
-  try {
-    await redis.set(cacheKey, JSON.stringify(result), "EX", ADMIN_DASHBOARD_CACHE_TTL_SECONDS);
-  } catch {
-    // best-effort; caller still gets the live result
-  }
+  await redis
+    .set(cacheKey, JSON.stringify(result), "EX", ADMIN_DASHBOARD_CACHE_TTL_SECONDS)
+    .catch(() => undefined);
 
   return result;
 }
@@ -202,8 +204,7 @@ export async function checkSystemHealth(timeoutMs = 3000): Promise<SystemHealth>
   const TEMPORAL_TIMEOUT_MS = Math.min(timeoutMs, 2000);
 
   async function probeTemporal(): Promise<void> {
-    const client = await getTemporalClient();
-    await client.connection.workflowService.getSystemInfo({});
+    await getDomainOrchestration().probeTemporal();
   }
 
   const [postgres, redis, temporal] = await Promise.all([

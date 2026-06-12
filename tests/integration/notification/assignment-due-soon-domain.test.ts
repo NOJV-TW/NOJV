@@ -11,8 +11,6 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-// Notification is NOT in the shared TABLES list truncated by integration-setup,
-// so clear it locally (same pattern as notification-domain.test.ts).
 describe("notificationDomain.fanoutAssignmentDueSoon", () => {
   beforeEach(async () => {
     await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
@@ -25,7 +23,6 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
     const problemA = await createTestProblem({ authorId: teacher.id });
     const problemB = await createTestProblem({ authorId: teacher.id });
 
-    // Assessment closes in 48h — two 10-point problems, max 20.
     const closesAt = new Date(Date.now() + 48 * 3600_000);
     const assessment = await testPrisma.assessment.create({
       data: {
@@ -59,7 +56,6 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       });
     }
 
-    // Student A maxes out (10 + 10 = 20).
     await createTestSubmission({
       userId: studentA.id,
       problemId: problemA.id,
@@ -76,7 +72,6 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       status: "accepted",
       score: 10,
     });
-    // Student B partially scores (10 + 5 = 15).
     await createTestSubmission({
       userId: studentB.id,
       problemId: problemA.id,
@@ -93,7 +88,6 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       status: "wrong_answer",
       score: 5,
     });
-    // Student C makes no submissions (score 0).
 
     await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
 

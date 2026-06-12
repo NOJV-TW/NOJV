@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Shared repo stubs — hoisted so the `vi.mock` factory below can
-// reference them. `vi.mock` is hoisted above regular imports.
 const {
   examFindById,
   examFindByIdOrThrow,

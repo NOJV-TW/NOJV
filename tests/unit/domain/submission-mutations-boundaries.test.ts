@@ -1,14 +1,3 @@
-// Boundary-condition coverage for createQueuedSubmissionRecord that
-// complements `submission-mutations.test.ts` (per-day attempt limit).
-//
-// Focus: contest cooldown rejection + active-exam lockout.
-//
-// IP-mismatch / IP-lock rejection lives on the dedicated exam submit
-// endpoint, NOT inside `createQueuedSubmissionRecord` — the mutation
-// code explicitly does `void clientIp` and only enforces the active-
-// exam lockout (assessment/contest payload disallowed while in an
-// exam). We therefore pin _that_ behavior here.
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
@@ -142,9 +131,6 @@ function setupCommonProblemDefaults() {
   userUpdate.mockResolvedValue(user);
   userCreate.mockResolvedValue(user);
   workspaceFindByProblemId.mockResolvedValue([]);
-  // Active-exam tests run with the clock pinned to 2026-04-14; a far-future
-  // endsAt keeps the exam "running" so the new time-window check is a no-op
-  // here (window enforcement is covered in submission-mutations.test.ts).
   examFindById.mockResolvedValue({
     id: "exam_default",
     startsAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -154,9 +140,11 @@ function setupCommonProblemDefaults() {
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
   }));
+  submissionUpdateStatus.mockImplementation(async (id: string, status: string) => ({
+    id,
+    status,
+  }));
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("createQueuedSubmissionRecord — contest cooldown", () => {
   beforeEach(() => {
@@ -213,7 +201,6 @@ describe("createQueuedSubmissionRecord — contest cooldown", () => {
 
   it("skips the cooldown check on sampleOnly runs", async () => {
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
-    // Even if there's a recent submission, sampleOnly bypasses.
     submissionFindMostRecent.mockResolvedValue({
       id: "sub_recent",
       createdAt: new Date("2026-04-14T09:59:50.000Z"),
@@ -264,8 +251,6 @@ describe("createQueuedSubmissionRecord — contest cooldown", () => {
     expect(submissionCreate).not.toHaveBeenCalled();
   });
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("createQueuedSubmissionRecord — active exam lockout", () => {
   beforeEach(() => {
@@ -380,11 +365,6 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     expect(arg.examId).toBeNull();
   });
 
-  // The IP-mismatch enforcement for exam submissions is owned by the
-  // dedicated exam submit endpoint, not by `createQueuedSubmissionRecord`.
-  // This test pins that contract: passing an arbitrary client IP must not
-  // affect the result of the regular create path. (If you need to enforce
-  // IP at this layer, see `domain/exam` instead.)
   it("does NOT reject based on clientIp at this layer (exam IP gating lives elsewhere)", async () => {
     examSessionFindActiveForUser.mockResolvedValue(null);
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
@@ -400,5 +380,4 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   });
 });
 
-// Sanity import to make sure the type re-export still works.
 void ConflictError;
