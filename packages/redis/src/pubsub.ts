@@ -31,7 +31,7 @@ export async function publishScoreboardUpdate(contestId: string): Promise<void> 
     if (acquired !== "OK") return;
     await publishEvent(keys.contestChannel(contestId), { type: SSE_SCOREBOARD });
   } catch {
-    /* see module header */
+    /* best-effort SSE publish; clients recover via poll / reconnect */
   }
 }
 
@@ -51,7 +51,7 @@ export async function publishVerdict(submission: {
       problemId: submission.problemId,
     });
   } catch {
-    /* see module header */
+    /* best-effort SSE publish; clients recover via poll / reconnect */
   }
 }
 
@@ -65,7 +65,7 @@ export async function publishContestEvent(
   try {
     await publishEvent(keys.contestChannel(contestId), event);
   } catch {
-    /* see module header */
+    /* best-effort SSE publish; clients recover via poll / reconnect */
   }
 }
 
@@ -75,7 +75,7 @@ export async function publishAssessmentDeadline(assessmentId: string): Promise<v
       type: SSE_ASSIGNMENT_DEADLINE,
     });
   } catch {
-    /* see module header */
+    /* best-effort SSE publish; clients recover via poll / reconnect */
   }
 }
 
@@ -86,7 +86,7 @@ export async function publishNotification(
   try {
     await publishEvent(keys.notificationChannel(userId), event);
   } catch {
-    /* see module header */
+    /* best-effort SSE publish; clients recover via poll / reconnect */
   }
 }
 
@@ -114,6 +114,6 @@ export async function publishNotificationBatchSignal(
       linkUrl: detail.linkUrl,
     });
   } catch {
-    /* see module header */
+    /* best-effort SSE publish; clients recover via poll / reconnect */
   }
 }
