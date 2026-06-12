@@ -23,13 +23,47 @@ ledger. **Not a changelog** — for batch-by-batch detail see git log and
 Add an entry here when code lands without its documentation, or vice
 versa. Clear the entry once the gap closes.
 
-_None outstanding._ (The `verify-school` GET-token consumption was fixed by
-moving the token consume to a form POST; see git history.)
+The 2026-06-12 full-codebase audit surfaced a documentation-drift cluster
+(this ledger's own `_None outstanding._` was itself drift). Remediation is
+tracked in `docs/plans/active/2026-06-12-full-audit-remediation.md`.
+
+**Cleared (2026-06-12):**
+
+- Scoreboard live-update mechanism — unified across ARCHITECTURE / REDIS /
+  FRONTEND / RELIABILITY (SSE-nudge via `nojv:contest` + 10 s throttle, data
+  computed from Postgres). Was contradictory and wrong in all four.
+- THREAT_MODEL phantom models — removed `CourseJoinToken` /
+  `PlagiarismReport` / course-join-token threat scenarios; `ExamParticipation`
+  → `Participation`.
+- SECURITY Dependency Advisory Posture — now reflects the `pnpm.overrides`
+  that cleared the transitives (was "tracked but not gated"); advanced
+  tarball "signed URL" corrected to in-process GetObject.
+
+**Still outstanding (doc):**
+
+- `DATABASE.md` curated prose post-Participation-supertype still names the
+  dropped triplet tables / `virtualContestId` column / removed enums (the
+  generated `DATABASE.generated.md` is correct).
+- `incident-recovery.md` Scenario B describes a removed Redis architecture
+  (deleted `scoreboard.ts`, fail-open rate limiter, Redis cooldown).
+- `JUDGE_PIPELINE.md` has stale line-number references for `deriveJudgeMode`
+  / cleanup; `DATABASE.md` Seed Data counts predate the demo-seed revamp;
+  `gke/README.md` "single kubectl apply" contradicts the two-step flow.
+
+Code-level audit findings (security, performance, dead contracts) are tracked
+as phases in the remediation plan, not here.
 
 ## Recent Milestones
 
 One line each — full detail in `docs/plans/completed/` and git log.
 
+- **2026-06-12** — Full-codebase audit remediation (in progress on
+  `fix/full-audit-remediation-2026-06-12`): closed P0 rejudge-cancel
+  workflow-id confinement, P1 exam-confinement problem-membership check, P1
+  problem-delete onDelete asymmetry, P1 docker `--memory-swap` (MLE
+  correctness); judge-layer guardrails (isolation suite in nightly, docker-arg
+  golden tests, CPU-time TLE, coverage on worker/sandbox-runner); living-doc
+  honesty sweep (scoreboard / threat-model / security advisory).
 - **2026-06-11** — Participation supertype Stage 5 (PR #128): the
   `ContestParticipation`/`ExamParticipation`/`VirtualContest` triplet
   dropped into a single `Participation` model. Audit-backlog closeout:
