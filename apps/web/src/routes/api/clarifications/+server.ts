@@ -4,7 +4,11 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
+import {
+  apiHandler,
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+} from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/domain";
 
 const contextSchema = z.discriminatedUnion("type", [
@@ -53,6 +57,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const body = askSchema.parse(await event.request.json());
   const row = await clarificationDomain.ask(actor, {

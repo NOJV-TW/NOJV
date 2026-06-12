@@ -5,7 +5,7 @@ import { editorialUpdateSchema, type Language } from "@nojv/core";
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 import { editorialDomain } from "@nojv/domain";
 
 const { updateEditorial, softDeleteEditorial } = editorialDomain;
@@ -17,6 +17,7 @@ function requireId(event: RequestEvent): string {
 }
 
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const id = requireId(event);
   const payload = editorialUpdateSchema.parse(await event.request.json());
@@ -29,6 +30,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const id = requireId(event);
 

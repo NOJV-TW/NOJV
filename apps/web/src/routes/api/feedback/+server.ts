@@ -4,7 +4,11 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
+import {
+  apiHandler,
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+} from "$lib/server/shared/api-handler";
 import { feedbackUpsertSchema } from "@nojv/core";
 import { feedbackDomain } from "@nojv/domain";
 
@@ -40,6 +44,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 });
 
 export const PUT: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const { context, ...input } = upsertSchema.parse(await event.request.json());
 
