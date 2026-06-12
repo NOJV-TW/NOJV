@@ -12,6 +12,7 @@
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
   import ExamProblemPicker from "$lib/components/features/course/exam/ExamProblemPicker.svelte";
   import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
@@ -374,15 +375,18 @@
             <div
               class="mt-3.5 rounded-r-md border-l-[3px] border-primary bg-[color:var(--color-primary)]/4 px-4 py-3.5"
             >
-              <label class="text-sm font-medium" for="ipWhitelistText">
-                {m.examCreate_ipWhitelistCidrLabel()}
-              </label>
-              <textarea
+              <IpWhitelistField
                 id="ipWhitelistText"
-                class="{inputClassName} mt-2 min-h-24 resize-y font-mono"
+                label={m.examCreate_ipWhitelistCidrLabel()}
                 placeholder={m.examCreate_ipWhitelistPlaceholder()}
                 bind:value={$form.ipWhitelistText}
-              ></textarea>
+                importLabel={m.examCreate_ipWhitelistImport()}
+                fileTooLargeMessage={m.examCreate_ipWhitelistFileTooLarge()}
+                ariaInvalid={$errors.ipWhitelistText ? "true" : undefined}
+              />
+              {#if $errors.ipWhitelistText}
+                <p class="mt-1 text-xs text-destructive">{$errors.ipWhitelistText}</p>
+              {/if}
             </div>
           {/if}
         </div>

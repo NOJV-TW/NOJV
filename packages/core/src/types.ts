@@ -108,16 +108,28 @@ export const ipViolationTypes = ["whitelist", "binding"] as const;
 export const ipViolationTypeSchema = z.enum(ipViolationTypes);
 export type IpViolationType = z.infer<typeof ipViolationTypeSchema>;
 
-const MAX_CIDR_LEN = 50;
-const MAX_WHITELIST_ENTRIES = 1000;
-const MAX_WHITELIST_TEXT_LEN = 50_000;
+export const IP_WHITELIST_MAX_CIDR_LENGTH = 50;
+export const IP_WHITELIST_MAX_ENTRIES = 1000;
+export const IP_WHITELIST_MAX_TEXT_LENGTH = 50_000;
+
+export function parseIpWhitelistText(text: string): string[] {
+  const seen = new Set<string>();
+  const entries: string[] = [];
+  for (const entry of text.split(/[\s,;]+/u)) {
+    const trimmed = entry.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    entries.push(trimmed);
+  }
+  return entries;
+}
 
 export const ipLockFields = {
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),
   ipWhitelist: z
-    .array(z.string().trim().min(1).max(MAX_CIDR_LEN))
-    .max(MAX_WHITELIST_ENTRIES)
+    .array(z.string().trim().min(1).max(IP_WHITELIST_MAX_CIDR_LENGTH))
+    .max(IP_WHITELIST_MAX_ENTRIES)
     .default([]),
   ipWhitelistEnabled: z.boolean().default(false),
 } as const;
@@ -126,7 +138,7 @@ export const ipLockFormFields = {
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),
   ipWhitelistEnabled: z.boolean().default(false),
-  ipWhitelistText: z.string().max(MAX_WHITELIST_TEXT_LEN).default(""),
+  ipWhitelistText: z.string().max(IP_WHITELIST_MAX_TEXT_LENGTH).default(""),
 } as const;
 
 export const sessionUserSchema = z.object({
