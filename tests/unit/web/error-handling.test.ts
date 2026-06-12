@@ -17,9 +17,14 @@ vi.mock("@nojv/core", async (importOriginal) => {
   };
 });
 
+vi.mock("$lib/server/shared/rate-limiter", () => ({
+  consumeFormRateLimitInternal: vi.fn().mockResolvedValue(null),
+}));
+
 import { z } from "zod";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { HttpError, NotFoundError, ForbiddenError } from "$lib/server/auth";
+import { withAction } from "$lib/server/shared/action-handlers";
 
 describe("classifyError", () => {
   it("classifies ZodError as validation", () => {
@@ -81,5 +86,55 @@ describe("classifyError", () => {
       message: "Internal server error.",
       type: "unknown",
     });
+  });
+});
+
+describe("withAction", () => {
+  function fakeEvent() {
+    return {} as Parameters<typeof withAction>[0] extends (event: infer E) => unknown
+      ? E
+      : never;
+  }
+
+  it("returns handler result on success", async () => {
+    const handler = withAction(async () => ({ success: true }));
+    const result = await handler(fakeEvent());
+    expect(result).toEqual({ success: true });
+  });
+
+  it("converts ZodError to fail(400) with error message", async () => {
+    const schema = z.object({ title: z.string().max(5) });
+    const handler = withAction(async () => {
+      schema.parse({ title: "this title is too long" });
+      return { success: true };
+    });
+    const result = await handler(fakeEvent());
+    expect(result).toMatchObject({ status: 400, data: { error: expect.any(String) } });
+  });
+
+  it("converts HttpError to fail with its status and message", async () => {
+    const handler = withAction(async () => {
+      throw new HttpError("Not allowed", 403);
+    });
+    const result = await handler(fakeEvent());
+    expect(result).toMatchObject({ status: 403, data: { error: "Not allowed" } });
+  });
+
+  it("converts unknown error to fail(500)", async () => {
+    const handler = withAction(async () => {
+      throw new Error("db exploded");
+    });
+    const result = await handler(fakeEvent());
+    expect(result).toMatchObject({ status: 500, data: { error: "Internal server error." } });
+  });
+
+  it("re-throws redirect errors", async () => {
+    const { redirect } = await import("@sveltejs/kit");
+    const handler = withAction(async () => {
+      redirect(303, "/somewhere");
+    });
+    await expect(handler(fakeEvent())).rejects.toSatisfy(
+      (e: unknown) => typeof e === "object" && e !== null && "location" in e,
+    );
   });
 });
