@@ -58,7 +58,7 @@ Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in 
   - `formActionRateLimiter` — 20 req / 60 s (consumed via `withRateLimit` → `consumeFormRateLimitInternal`)
   - `signInRateLimiter` — 5 attempts / 15 min (password sign-in)
 - Dev / test multiply points by 1000× to avoid E2E flakiness.
-- In production, if Redis is unreachable at limiter construction time, the limiter fails closed (rejects every request) rather than falling back to per-instance memory.
+- In production, each limiter holds a dedicated ioredis connection (`enableOfflineQueue: false`, `maxRetriesPerRequest: 1`). If Redis is unreachable, `consume()` rejects quickly and the wrapper converts the error to `RateLimiterFailClosedError`, which the caller maps to HTTP 429. Dev mode uses `RateLimiterMemory` instead.
 
 ## Observability
 
