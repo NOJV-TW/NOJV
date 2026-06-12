@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   contestSessionSchema,
+  parseIpWhitelistText,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
   safeRelativePath,
@@ -95,6 +96,25 @@ describe("contestSessionSchema", () => {
     });
 
     expect(result.frozenScoreboard).toBe(true);
+  });
+});
+
+describe("parseIpWhitelistText", () => {
+  it("parses line-separated and CSV CIDR entries into a deduplicated list", () => {
+    expect(
+      parseIpWhitelistText(`
+        10.0.0.0/8, 192.168.0.0/16
+        2001:db8::/32;10.0.0.0/8
+        203.0.113.4/32
+      `),
+    ).toEqual(["10.0.0.0/8", "192.168.0.0/16", "2001:db8::/32", "203.0.113.4/32"]);
+  });
+
+  it("drops empty cells from copied spreadsheets", () => {
+    expect(parseIpWhitelistText(" 10.0.0.0/8,\t,\n\n192.168.1.0/24 ")).toEqual([
+      "10.0.0.0/8",
+      "192.168.1.0/24",
+    ]);
   });
 });
 
