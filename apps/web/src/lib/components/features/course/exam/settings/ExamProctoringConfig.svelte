@@ -2,7 +2,8 @@
   import type { SuperForm } from "sveltekit-superforms";
   import type { ExamSettingsForm } from "@nojv/core";
   import type { FormMessage } from "$lib/types/form-message";
-  import { inputClassName, monoTextareaClassName } from "$lib/utils/css";
+  import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
+  import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
 
   type Sf = SuperForm<ExamSettingsForm, FormMessage>;
@@ -38,18 +39,15 @@
     </label>
 
     {#if $form.ipWhitelistEnabled}
-      <div>
-        <label class="text-sm font-medium" for="settings-ipWhitelist">
-          {m.examDetail_settingsIpWhitelistLabel()}
-        </label>
-        <textarea
-          id="settings-ipWhitelist"
-          class={monoTextareaClassName}
-          bind:value={$form.ipWhitelistText}
-          disabled={!editable}
-          placeholder="10.0.0.0/24&#10;192.168.1.5/32&#10;2001:db8::/32"
-        ></textarea>
-      </div>
+      <IpWhitelistField
+        id="settings-ipWhitelist"
+        label={m.examDetail_settingsIpWhitelistLabel()}
+        bind:value={$form.ipWhitelistText}
+        disabled={!editable}
+        placeholder={m.examCreate_ipWhitelistPlaceholder()}
+        importLabel={m.examCreate_ipWhitelistImport()}
+        fileTooLargeMessage={m.examCreate_ipWhitelistFileTooLarge()}
+      />
     {/if}
 
     <div>

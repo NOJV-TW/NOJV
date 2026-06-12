@@ -2,7 +2,12 @@ import { error, fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
-import { examSettingsFormSchema, examUpdateSchema, type ExamSettingsForm } from "@nojv/core";
+import {
+  examSettingsFormSchema,
+  examUpdateSchema,
+  parseIpWhitelistText,
+  type ExamSettingsForm,
+} from "@nojv/core";
 import {
   auditDomain,
   clarificationDomain,
@@ -41,13 +46,6 @@ const {
 } = examDomain;
 
 const logger = createLogger("exam-page-action");
-
-function parseWhitelist(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const parent = await event.parent();
@@ -310,7 +308,7 @@ export const actions = {
       ipViolationMode: form.data.ipViolationMode,
       ipWhitelistEnabled: form.data.ipWhitelistEnabled,
       ipWhitelist: form.data.ipWhitelistEnabled
-        ? parseWhitelist(form.data.ipWhitelistText)
+        ? parseIpWhitelistText(form.data.ipWhitelistText)
         : [],
     });
     if (!parsed.success) {

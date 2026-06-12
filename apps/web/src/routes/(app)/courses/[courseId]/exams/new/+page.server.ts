@@ -6,8 +6,10 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import {
   contestScoringModeSchema,
   examCreateSchema,
+  IP_WHITELIST_MAX_TEXT_LENGTH,
   ipViolationModeSchema,
   languageSchema,
+  parseIpWhitelistText,
   scoreboardModeSchema,
   type ExamCreate,
   type ExamPublishStatus,
@@ -36,7 +38,7 @@ const examFormSchema = z.object({
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),
   ipWhitelistEnabled: z.boolean().default(false),
-  ipWhitelistText: z.string().max(50_000).default(""),
+  ipWhitelistText: z.string().max(IP_WHITELIST_MAX_TEXT_LENGTH).default(""),
   scoringMode: contestScoringModeSchema.default("point_sum"),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
   submitCooldownSec: z.coerce.number().int().min(0).max(3_600).default(0),
@@ -80,13 +82,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   return { form, candidateProblems };
 });
 
-function parseWhitelist(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
 function toIsoOrEmpty(local: string): string {
   if (!local) return "";
   const date = new Date(local);
@@ -101,7 +96,7 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
     endsAt: toIsoOrEmpty(form.endsAt),
     ipBindingEnabled: form.ipBindingEnabled,
     ipViolationMode: form.ipViolationMode,
-    ipWhitelist: form.ipWhitelistEnabled ? parseWhitelist(form.ipWhitelistText) : [],
+    ipWhitelist: form.ipWhitelistEnabled ? parseIpWhitelistText(form.ipWhitelistText) : [],
     ipWhitelistEnabled: form.ipWhitelistEnabled,
     pageLockEnabled: form.pageLockEnabled,
     problemIds: form.problemIds,
