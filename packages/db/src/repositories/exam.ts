@@ -31,6 +31,7 @@ export const examRepo = {
 
   listByCourseId(courseId: string) {
     return prisma.exam.findMany({
+      omit: { plagiarismResults: true },
       include: examListInclude,
       orderBy: { startsAt: "desc" },
       where: {

@@ -47,6 +47,7 @@ export const assessmentRepo = {
 
   listByUser(userId: string) {
     return prisma.assessment.findMany({
+      omit: { plagiarismResults: true },
       include: {
         _count: { select: { problems: true } },
         course: { select: courseMiniSelect },
@@ -121,6 +122,7 @@ export const assessmentRepo = {
 
   listAcrossCourses(allCourseIds: string[], managerCourseIds: string[], take: number) {
     return prisma.assessment.findMany({
+      omit: { plagiarismResults: true },
       include: {
         _count: { select: { problems: true } },
         course: { select: courseMiniSelect },
@@ -138,6 +140,7 @@ export const assessmentRepo = {
 
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.assessment.findMany({
+      omit: { plagiarismResults: true },
       include: {
         course: { select: courseMiniSelect },
       },
