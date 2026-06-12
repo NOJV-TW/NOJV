@@ -49,6 +49,17 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { username: "student" },
   });
 
+  const newStudent = await prisma.user.upsert({
+    create: {
+      name: "New Student",
+      email: "new-student@nojv.local",
+      username: "new-student",
+      platformRole: "student",
+    },
+    update: {},
+    where: { username: "new-student" },
+  });
+
   const placeholderUsername = "b11902999";
   const placeholder = await prisma.user.upsert({
     create: {
@@ -64,7 +75,7 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { username: placeholderUsername },
   });
 
-  const credentialedUsers = [admin, teacher, taStudent, student];
+  const credentialedUsers = [admin, teacher, taStudent, student, newStudent];
 
   for (const u of credentialedUsers) {
     await prisma.account.upsert({
@@ -84,5 +95,5 @@ export async function seedUsers(prisma: PrismaClient) {
     `  Users: ${credentialedUsers.length} credentialed + 1 pending_first_login placeholder upserted`,
   );
 
-  return { admin, teacher, taStudent, student, placeholder };
+  return { admin, teacher, taStudent, student, newStudent, placeholder };
 }

@@ -280,5 +280,6 @@ timezone. There is no pre-aggregated daily-activity table.
   group-row flattening, and byTag top-8 cut.
 - `tests/unit/domain/user-analytics-helpers.test.ts` — covers
   `aggregateByTag` including the stable-sort-on-ties invariant.
-- **Still missing**: an E2E test for empty-state rendering on a
-  brand-new user.
+- `tests/e2e/dashboard.test.ts` — covers auth redirect, seeded dashboard
+  rendering for student / teacher / admin, and brand-new-user onboarding
+  empty-state rendering.

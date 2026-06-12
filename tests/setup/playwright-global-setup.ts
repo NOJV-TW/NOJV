@@ -7,6 +7,7 @@ const roles = [
   { name: "admin", email: "admin@nojv.local", password: "password123" },
   { name: "teacher", email: "teacher@nojv.local", password: "password123" },
   { name: "student", email: "student@nojv.local", password: "password123" },
+  { name: "new-student", email: "new-student@nojv.local", password: "password123" },
 ] as const;
 
 export default async function globalSetup(config: FullConfig) {
