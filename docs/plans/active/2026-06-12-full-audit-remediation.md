@@ -30,11 +30,20 @@
 - **1.7 snapshotForRejudge 冪等 / memory poller 精度** — 需 schema migration + 5 處改動換 P3 orphan-log;不成比例,遞延。
 - **未來 workflow 編排改動** — A 已乾淨移除 adminOverride,但下次再改 `workflows/` 的 command 序列且有 in-flight 比賽時,仍需依 DEPLOYMENT「Workflow Versioning」紀律(patched / 挑無比賽時部署 / replay test)。長期保險可加 Temporal replay test(需歷史 fixture)。
 
-**🔲 待做(P2/P3 polish,多檔/前端/重構)**
+**✅ 查證後確認「早已完成」(計劃文字過時,先前 session 已修)**
 
-- **3.3b** problems 列表 9 查詢 / computeStatusCounts 4 子查詢合併(純效能 P3)。
-- **4.1d** scoreboard Friends/Around 死 UI(前端視覺,**需可視驗證**)、**4.2** context 概念 6 份 → core schema、**4.4** sandbox executor source-file 去重、**4.5** EditorCore/MonacoScriptEditor 等去重(低價值,遞延)。
-- **5.6** rate limiter offline-queue(需獨立連線)、**5.10 殘餘**(BODY_SIZE_LIMIT、markdown ADD_ATTR 需 KaTeX 視覺驗證、editorial early-return、heartbeat 孤兒端點、createOverride 驗證、bundle 守衛)、**5.11** 前端 a11y/i18n 批次(視覺)。
+- **5.6 rate limiter offline-queue** — `createRateLimiterConnection()` 已用專用連線 `enableOfflineQueue:false`+`maxRetriesPerRequest:1`,`RateLimiterFailClosedError`→429,REDIS.md:59 描述正確,`rate-limiter.test.ts` 已覆蓋「runtime Redis 斷線→reject→429」。
+- **5.10 createOverride 驗證** — `score-override/mutations.ts` 對 contest/exam/assignment 三型皆已驗 problem-in-context + participation/membership。
+- **5.10 editorial early-return** — `canViewEditorials` 已先 `contextGateOpen` 再 authored 早回傳(gate 在前,無繞過)。
+- **5.10 bundle 守衛** — `api/problems/[id]/bundle/+server.ts` 兩 handler 皆有 `canCreateProblem` 前置。
+- **5.10 avatar magic-byte** — `detectImageMime(buffer)!=="image/webp"` 已對齊。
+
+**🔲 待做(P3 polish / 前端視覺 / 需產品裁決)**
+
+- **純重構(無需裁決,低價值)**:3.3b problems 列表查詢合併(效能 P3)、4.2 context 概念 6 份→core schema、4.4 sandbox executor source-file 去重、4.5 EditorCore/MonacoScriptEditor 去重。
+- **需可視驗證(前端)**:4.1d scoreboard Friends/Around 死 UI、markdown ADD_ATTR(KaTeX 子樹 scope)、5.11 a11y/i18n 批次。
+- **需產品裁決**:exam heartbeat 端點孤兒(刪 or 接前端定時呼叫)、better-auth `trustedProviders`(顯式設 + 評估 social 繞 `disableSignUp` 不對稱)、BODY_SIZE_LIMIT 64MB(提交/編輯 JSON 路由縮上限,注意 source 已有 512K cap 歷史)。
+- **ops doc**:sandbox 隔離上線後驗證步(臨時 pod curl 外網應 timeout)寫進部署 runbook。
 
 ---
 
