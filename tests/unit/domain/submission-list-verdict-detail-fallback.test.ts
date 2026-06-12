@@ -1,21 +1,3 @@
-/**
- * Regression for M1 from PR #73 review.
- *
- * The four "list submissions for a problem" surfaces (`listProblemSubmissions`,
- * the two exam `getExamProblemView*` variants, and `listVirtualContestProblemSubmissions`)
- * read verdict-detail blobs from object storage. A previous `schema.parse` call
- * would throw and 500 the entire list when the blob was missing or had drifted
- * from the current `submissionResultSchema` shape — a real risk during a
- * partial purge or a read-after-write window.
- *
- * The fix swaps `.parse` for `safeParse` and degrades to a synthesized
- * row-status-only `SubmissionResult` (`fallbackResultForRow`) instead of
- * throwing. The row stays in the list, the verdict is preserved from the DB
- * column, and case breakdowns are simply omitted.
- *
- * Tests assert that null and malformed blobs do NOT throw, that the row is
- * still returned, and that the synthesized result carries the row's verdict.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -73,9 +55,6 @@ vi.mock("@nojv/storage", () => ({
   interactorKey: vi.fn(),
 }));
 
-// `getExamProblemView*` calls `problemDomain.getProblemPageData` which itself
-// fans out to many repos; stubbing the helper keeps the test focused on the
-// safeParse/fallback path under test.
 vi.mock("../../../packages/domain/src/problem/queries", async () => {
   const actual: typeof import("../../../packages/domain/src/problem/queries") =
     await vi.importActual("../../../packages/domain/src/problem/queries");
@@ -98,9 +77,6 @@ function row(overrides: Partial<{ id: string; status: string; score: number }> =
     createdAt: new Date("2026-05-29T00:00:00Z"),
     language: "cpp",
     status,
-    // `listByUserAndProblem` selects `score` (non-null Int column), so a row
-    // always carries it — the synthesized fallback only omits the case
-    // breakdown, never the score.
     score: overrides.score ?? (status === "accepted" ? 100 : 0),
     verdictDetailStorageKey: "submissions/sub_1/verdict-detail.json",
     contestId: null,

@@ -1,16 +1,3 @@
-/**
- * Unit tests for the S3 + DB write/delete flow that backs the testcase
- * blob storage migration. We mock both `@nojv/storage` and `@nojv/db` so
- * the test exercises the real `createProblemTestcaseSetRecord`,
- * `updateTestcaseRecord`, and `deleteTestcaseRecord` code paths without
- * touching network or Postgres.
- *
- * Key invariants under test:
- * - S3 writes happen BEFORE the DB transaction (no nested IO + locks).
- * - S3 failure short-circuits the DB write entirely.
- * - DB failure leaves S3 orphans (acceptable; never rethrows).
- * - Delete path: DB first, then best-effort S3 cleanup that swallows errors.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -115,7 +102,6 @@ const actor = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: ownership check passes (problem belongs to actor).
   problemFindById.mockResolvedValue({
     id: "prob_1",
     authorId: "usr_author",
@@ -134,7 +120,6 @@ beforeEach(() => {
   deleteBlobsByPrefix.mockResolvedValue(undefined);
   testcaseDelete.mockResolvedValue({ id: "tc_1" });
   testcaseSetDelete.mockResolvedValue({ id: "set_1" });
-  // Object-level authz reads: set / testcase belong to the route problem.
   testcaseFindById.mockResolvedValue({
     id: "set_1",
     problemId: "prob_1",
@@ -167,9 +152,7 @@ describe("createProblemTestcaseSetRecord", () => {
       ],
     });
 
-    // Two cases × two fields (input + output) = four putText calls.
     expect(putText).toHaveBeenCalledTimes(4);
-    // All puts must run before createMany.
     expect(sequence.filter((s) => s === "put")).toHaveLength(4);
     expect(sequence.indexOf("createMany")).toBeGreaterThan(sequence.lastIndexOf("put"));
     expect(testcaseCreateMany).toHaveBeenCalledTimes(1);
@@ -203,7 +186,6 @@ describe("createProblemTestcaseSetRecord", () => {
       }),
     ).rejects.toThrow(/unique constraint/);
 
-    // S3 puts ran (the orphans the design accepts).
     expect(putText).toHaveBeenCalled();
   });
 
@@ -252,8 +234,6 @@ describe("updateTestcaseRecord", () => {
   it("does not touch the DB row (key columns are stable for the lifetime of the row)", async () => {
     await updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "x" });
 
-    // testcaseRepo.update is not called — there's no DB column to change.
-    // The test would fail loudly if the implementation accidentally hit the DB.
     expect(testcaseCreateMany).not.toHaveBeenCalled();
   });
 });

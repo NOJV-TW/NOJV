@@ -47,7 +47,7 @@ export function connectSSE() {
         handleDefaultEvent(data);
       }
     } catch {
-      // ignore malformed messages
+      return;
     }
   };
 

@@ -1,11 +1,13 @@
+import { existsSync } from "node:fs";
+
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type UserConfig } from "vite";
 
-try {
+if (existsSync("../../.env")) {
   process.loadEnvFile("../../.env");
-} catch {}
+}
 
 const allowedHostsEnv = process.env.ALLOWED_HOSTS?.trim();
 const allowedHosts =

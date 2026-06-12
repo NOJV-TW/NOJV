@@ -55,7 +55,6 @@ describe("submission storage key builders", () => {
   });
 });
 
-// In-memory S3Client stub — implements only the surface our helpers exercise.
 function createFakeS3() {
   const store = new Map<string, string>();
 
@@ -144,7 +143,6 @@ describe("submission storage helpers", () => {
     ]);
     await putVerdictDetail(client, "sub_1", { ok: true });
 
-    // Unrelated submission should survive.
     await putSubmissionSources(client, "sub_2", [{ path: "main.cpp", content: "z" }]);
 
     await deleteSubmissionStorage(client, "sub_1");

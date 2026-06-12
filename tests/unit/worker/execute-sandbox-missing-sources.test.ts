@@ -1,8 +1,3 @@
-// A7: executeSandbox must bail with a system_error status when storage
-// returns zero sources (a system_error row from createQueuedSubmissionRecord
-// that got rejudged). Without the guard, mergeSandboxSources returns an empty
-// sourceCode and the verdict comes back as wrong_answer — masking the cause.
-
 import type { SandboxExecutor, SubmissionDraft } from "@nojv/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,8 +61,6 @@ describe("executeSandbox — missing sources guard (A7)", () => {
     const result = await executeSandbox("sub_missing", draft, judgeContext);
 
     expect(executor.execute).not.toHaveBeenCalled();
-    // Only the `running` flip; the bail returns a system_error verdict and lets
-    // completeJudge persist the status, instead of writing it then overwriting it.
     expect(updateStatusMock).toHaveBeenCalledTimes(1);
     expect(updateStatusMock).toHaveBeenNthCalledWith(1, "sub_missing", "running");
 

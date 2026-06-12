@@ -97,7 +97,6 @@ function clarificationRow(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default contest: organizer is usr_organizer.
   contestFindById.mockResolvedValue({
     id: "ctst_1",
     createdByUserId: "usr_organizer",

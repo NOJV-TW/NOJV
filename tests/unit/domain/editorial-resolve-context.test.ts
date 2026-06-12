@@ -7,8 +7,6 @@ const { findActiveContests, findActiveAssessments, findActiveExams } = vi.hoiste
 }));
 
 vi.mock("@nojv/db", () => ({
-  // Mocks only what queries.ts imports — repos that aren't used by the
-  // resolver still need to be present so the module-level import succeeds.
   submissionRepo: { count: vi.fn() },
   editorialRepo: { existsForUserProblem: vi.fn() },
   contestRepo: { findById: vi.fn() },
@@ -29,7 +27,6 @@ beforeEach(() => {
   findActiveContests.mockReset();
   findActiveAssessments.mockReset();
   findActiveExams.mockReset();
-  // Default to "no active event" — each test overrides as needed.
   findActiveContests.mockResolvedValue([]);
   findActiveAssessments.mockResolvedValue([]);
   findActiveExams.mockResolvedValue([]);
@@ -53,8 +50,6 @@ describe("resolveActiveContextForUser", () => {
   });
 
   it("picks the latest-ending (strictest) candidate when two contests overlap", async () => {
-    // Two active contests: the later-ending one keeps the gate closed
-    // longest, so it's the strictest pick.
     const earlier = new Date("2026-05-28T13:00:00.000Z");
     const later = new Date("2026-05-28T15:00:00.000Z");
     findActiveContests.mockResolvedValue([
@@ -69,9 +64,6 @@ describe("resolveActiveContextForUser", () => {
   });
 
   it("skips events where the user is not enrolled / not participating", async () => {
-    // Each repo helper is responsible for filtering by enrollment — the
-    // resolver trusts an empty array means "user not in any active event"
-    // and falls back to practice context.
     findActiveContests.mockResolvedValue([]);
     findActiveAssessments.mockResolvedValue([]);
     findActiveExams.mockResolvedValue([]);
@@ -81,10 +73,6 @@ describe("resolveActiveContextForUser", () => {
   });
 
   it("skips active events whose problem list does NOT include this problem", async () => {
-    // The repo helpers filter by problemId server-side, so when the
-    // problem isn't in any active event the resolver sees empty arrays
-    // and degrades to practice — even if the user is in other active
-    // events for unrelated problems.
     findActiveContests.mockResolvedValue([]);
     await expect(resolveActiveContextForUser("usr_1", "prob_unrelated", NOW)).resolves.toEqual({
       kind: "practice",
@@ -92,12 +80,6 @@ describe("resolveActiveContextForUser", () => {
   });
 
   it("H1 fix: course-enrolled student with no participation yet is still gated by live contest", async () => {
-    // ContestParticipation is created lazily on first submission. A
-    // student who has past-AC'd the problem and faces a live contest
-    // that reuses it must still resolve to contest context — not
-    // practice — even though no participation row exists yet. The
-    // repo helper (mocked here) is expected to surface the contest
-    // based on eligibility (published + live), not participation.
     const endsAt = new Date("2026-05-28T14:00:00.000Z");
     findActiveContests.mockResolvedValue([{ contest: { id: "ctx_live", endsAt } }]);
     await expect(resolveActiveContextForUser("usr_no_part", "prob_1", NOW)).resolves.toEqual({
@@ -108,11 +90,6 @@ describe("resolveActiveContextForUser", () => {
   });
 
   it("H1 fix: course-enrolled student with no participation yet is still gated by live exam", async () => {
-    // Same pattern for exams: ExamParticipation is created lazily on
-    // first submission. The repo helper keys eligibility on active
-    // course membership (exams are always course-embedded), so an
-    // enrolled-but-unsubmitted student gets the exam context, not
-    // a practice downgrade.
     const endsAt = new Date("2026-05-28T14:00:00.000Z");
     findActiveExams.mockResolvedValue([{ exam: { id: "exm_live", endsAt } }]);
     await expect(resolveActiveContextForUser("usr_no_part", "prob_1", NOW)).resolves.toEqual({
@@ -123,7 +100,6 @@ describe("resolveActiveContextForUser", () => {
   });
 
   it("picks the strictest gate across heterogeneous event types", async () => {
-    // assignment ends latest → must win over contest + exam.
     const contestEnds = new Date("2026-05-28T13:30:00.000Z");
     const assignmentCloses = new Date("2026-05-28T16:00:00.000Z");
     const examEnds = new Date("2026-05-28T15:00:00.000Z");

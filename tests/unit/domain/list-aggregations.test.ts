@@ -64,10 +64,8 @@ describe("aggregateAssignmentClassStats", () => {
 
   it("computes submittedUsers / avgScore by summing best scores per user", async () => {
     groupBestScoresByAssessment.mockResolvedValue([
-      // user A: 80 + 60 = 140
       { assessmentId: "a1", userId: "uA", problemId: "p1", _max: { score: 80 } },
       { assessmentId: "a1", userId: "uA", problemId: "p2", _max: { score: 60 } },
-      // user B: 100 + 0 = 100
       { assessmentId: "a1", userId: "uB", problemId: "p1", _max: { score: 100 } },
       { assessmentId: "a1", userId: "uB", problemId: "p2", _max: { score: 0 } },
     ]);

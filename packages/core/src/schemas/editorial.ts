@@ -29,7 +29,6 @@ export const editorialUpdateSchema = z
     },
   );
 
-/// `value` of 1 = upvote, -1 = downvote, 0 = clear the viewer's vote.
 export const editorialVoteSchema = z.object({
   value: z.union([z.literal(1), z.literal(-1), z.literal(0)]),
 });

@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted repo stubs — `vi.mock` is hoisted above regular imports, so the
-// factory below needs references that exist at module-eval time.
 const {
   courseFindById,
   courseCreate,
@@ -82,8 +80,6 @@ vi.mock("@nojv/db", () => {
         deleteByExamId: vi.fn(),
       }),
     },
-    // `ensureUser` calls `problemRepo` transitively nowhere in this flow,
-    // but the mutations.ts module top-level imports it so it has to resolve.
     problemRepo: {
       withTx: () => ({}),
     },
@@ -129,7 +125,6 @@ const sourceCourse = {
   updatedAt: new Date("2025-09-01T00:00:00Z"),
 };
 
-// A single assessment with two problems.
 const assessmentRow = {
   id: "asm_hw1",
   courseId: "course_source",
@@ -149,7 +144,6 @@ const assessmentRow = {
   ],
 };
 
-// A single exam exercising every proctoring field so we catch drops.
 const examRow = {
   id: "exam_mid",
   courseId: "course_source",
@@ -171,7 +165,6 @@ const examRow = {
 };
 
 function primeSuccessPath() {
-  // actor is an active teacher of the source course → canManageCourse passes.
   courseFindById.mockResolvedValue(sourceCourse);
   membershipFindByComposite.mockResolvedValue({
     userId: teacherActor.userId,
@@ -179,8 +172,6 @@ function primeSuccessPath() {
     role: "teacher",
     status: "active",
   });
-  // ensureUser finds the existing row and issues an update because the
-  // ActorContext carries displayName/email/username/platformRole.
   userFindById.mockResolvedValue({
     id: teacherActor.userId,
     username: teacherActor.username,
@@ -220,7 +211,6 @@ describe("copyCourse — happy path", () => {
     const newCourse = courseCreate.mock.calls[0][0];
     expect(newCourse.title).toBe("Algorithms 101 (copy)");
     expect(newCourse.description).toBe(sourceCourse.description);
-    // archived falls back to the schema default (false); the caller does not set it.
     expect(newCourse.archived).toBeUndefined();
     expect(newCourse.ownerId).toBe(teacherActor.userId);
   });
@@ -297,8 +287,6 @@ describe("copyCourse — happy path", () => {
 
   it("allows platform admins regardless of course membership", async () => {
     primeSuccessPath();
-    // Admin is not a member — assertCourseManager short-circuits before the
-    // membership lookup, so this simulates "admin with no membership row".
     membershipFindByComposite.mockResolvedValue(null);
     userFindById.mockResolvedValue({
       id: adminActor.userId,

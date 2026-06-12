@@ -90,7 +90,6 @@ describe("mergeInteractiveCase", () => {
     );
     expect(result.feedback).toBe("wrong guess");
     expect(result.staffFeedback).toBe("secret answer was 7");
-    // The raw key name from the validator outcome must not leak through.
     expect(JSON.stringify(result)).not.toContain("judgeMessage");
   });
 
@@ -182,7 +181,6 @@ describe("interactive container file layout", () => {
     expect(await readFile(join(solDir, "main.py"), "utf8")).toBe("print('hi')\n");
     const config = JSON.parse(await readFile(join(solDir, "config.json"), "utf8"));
     expect(config.interactive).toEqual({ role: "solution" });
-    // The secret must NOT be present in the solution container.
     expect(await exists(join(solDir, "cases"))).toBe(false);
     expect(await exists(join(solDir, "interactor.py"))).toBe(false);
   });
@@ -194,7 +192,6 @@ describe("interactive container file layout", () => {
     expect(await readFile(join(intDir, "cases", "2", "answer.txt"), "utf8")).toBe("answer 7\n");
     const config = JSON.parse(await readFile(join(intDir, "config.json"), "utf8"));
     expect(config.interactive).toEqual({ role: "validator", language: "python", index: 2 });
-    // No student source in the interactor container.
     expect(await exists(join(intDir, "main.py"))).toBe(false);
   });
 });

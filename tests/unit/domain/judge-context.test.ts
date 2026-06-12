@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// vi.hoisted handles need to live above the vi.mock that references them.
 const {
   findByIdWithJudgeContext,
   readTestcaseBlobs,
@@ -19,20 +18,15 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-// `getJudgeContext` calls `readTestcaseBlobs` / `readWorkspaceFileBlob`
-// from the sibling problem/blobs module. Mock the module so the in-memory
-// stub doesn't need to talk to S3.
 vi.mock("../../../packages/domain/src/problem/blobs", () => ({
   readTestcaseBlobs,
   readWorkspaceFileBlob,
   readValidatorScriptBlob,
 }));
 
-import { submissionDomain, NotFoundError } from "@nojv/domain";
+import { submissionDomain, IntegrityError, NotFoundError } from "@nojv/domain";
 
 const { getJudgeContext, deriveJudgeMode } = submissionDomain;
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -88,8 +82,6 @@ function mkSubmissionRow(
     ...overrides,
   };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("getJudgeContext", () => {
   beforeEach(() => {
@@ -197,6 +189,53 @@ describe("getJudgeContext", () => {
     expect(ctx.checkerScript).toBeNull();
     expect(ctx.interactorScript).toBeNull();
     expect(readValidatorScriptBlob).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when persisted judgeConfig is invalid", async () => {
+    const row = mkSubmissionRow({}, { judgeConfig: { type: "not-a-judge" } });
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
+  });
+
+  it("fails closed when persisted testcase inputFileKeys is invalid", async () => {
+    const row = mkSubmissionRow(
+      {},
+      {
+        testcaseSets: [
+          {
+            id: "ts_1",
+            name: "main",
+            weight: 100,
+            scoringStrategy: "ALL_OR_NOTHING",
+            testcases: [
+              {
+                id: "tc_bad",
+                inputKey: "in",
+                outputKey: "out",
+                inputFileKeys: { "a.txt": 42 },
+              },
+            ],
+          },
+        ],
+      },
+    );
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
+  });
+
+  it("fails closed when persisted assignment adjustmentRules is invalid", async () => {
+    const row = mkSubmissionRow({
+      assessment: {
+        dueAt: new Date("2026-04-20T00:00:00Z"),
+        closesAt: new Date("2026-04-21T00:00:00Z"),
+        adjustmentRules: { late: "not-an-array" },
+      },
+    });
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
   });
 
   it("falls back to problem time/memory limits when judgeConfig.runtime is missing", async () => {
@@ -394,10 +433,6 @@ describe("getJudgeContext", () => {
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.adjustment.dueAt).toEqual(endsAt);
       expect(ctx.adjustment.finalDay).toEqual(endsAt);
-      // Contests carry no assessment-style adjustment rules.
-      // (Implementation pins to `assessment?.adjustmentRules`, so without
-      //  an assessment row this is undefined — adjustments.ts treats
-      //  undefined and null identically.)
       expect(ctx.adjustment.assignmentAdjustmentRules).toBeFalsy();
     });
 

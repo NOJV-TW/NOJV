@@ -41,13 +41,10 @@ vi.mock("@nojv/db", () => ({
     createVirtual: participationCreateVirtual,
     findContestScoreboardParticipants: participationFindContestScoreboardParticipants,
   },
-  // getScoreboard imports `scoreOverrideRepo` indirectly via contest/scoring's
-  // module graph; supplying an empty stub keeps the mock total.
   scoreOverrideRepo: {},
   UnifiedParticipationVersionConflict: class extends Error {},
 }));
 
-// contest/scoring.ts imports `scoreboard` from @nojv/redis at module load.
 vi.mock("@nojv/redis", () => ({
   scoreboard: {},
 }));
@@ -65,7 +62,6 @@ const ACTOR = {
   platformRole: "user" as const,
 };
 
-// Original contest: starts 2026-01-01 00:00, ends 03:00 (3h duration).
 const C_START = new Date("2026-01-01T00:00:00.000Z");
 const C_END = new Date("2026-01-01T03:00:00.000Z");
 const AFTER_C_END = new Date("2026-01-02T00:00:00.000Z");
@@ -118,7 +114,6 @@ describe("startVirtualContest", () => {
       startedAt: Date;
       endsAt: Date;
     };
-    // 3h duration → endsAt = startedAt + 3h.
     expect(arg.endsAt.getTime() - arg.startedAt.getTime()).toBe(3 * 60 * 60 * 1000);
     expect(arg.startedAt).toEqual(AFTER_C_END);
     expect(result.id).toBe("vc_1");
@@ -277,7 +272,6 @@ describe("getVirtualContestScoreboard", () => {
       contestDetail([{ id: "p1", ordinal: 1, points: 100, title: "Alpha" }]),
     );
 
-    // getScoreboard → original contest final board (one ghost participant).
     contestFindForScoreboardById.mockResolvedValue({
       id: "ctst_1",
       visibility: "published",
@@ -305,7 +299,6 @@ describe("getVirtualContestScoreboard", () => {
       },
     ]);
 
-    // The viewer's own virtual-tagged submission — full score 30min in.
     submissionFindForVirtualContestScoreboard.mockResolvedValue([
       {
         createdAt: new Date("2026-02-01T00:30:00.000Z"),
@@ -320,7 +313,6 @@ describe("getVirtualContestScoreboard", () => {
 
     expect(board).not.toBeNull();
     const rows = board!.rows;
-    // One ghost + the viewer.
     expect(rows).toHaveLength(2);
     const me = rows.find((r) => r.isMe);
     const ghost = rows.find((r) => r.isGhost);

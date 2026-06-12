@@ -48,8 +48,6 @@ function actor(
   };
 }
 
-// Shorthand factories so the tests stay readable after the move to the
-// discriminated `ClarificationContext` union.
 const contestCtx = (id = "ctst_1") => ({ type: "contest" as const, contestId: id });
 const examCtx = (id = "exm_1") => ({ type: "exam" as const, examId: id });
 const assignmentCtx = (id = "ca_1") => ({ type: "assignment" as const, assignmentId: id });

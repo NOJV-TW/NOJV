@@ -15,15 +15,12 @@ describe("examSessionRepo (real DB)", () => {
     const course = await createTestCourse();
     const exam = await createTestExam({ courseId: course.id });
 
-    // Start a session.
     const started = await examSessionRepo.startSession({
       userId: user.id,
       examId: exam.id,
     });
     expect(started.endedAt).toBeNull();
 
-    // Append the enter event + a few audit events out-of-order in
-    // wall-clock terms, then assert the list-by-occurredAt ordering.
     await examSessionRepo.recordEvent({
       sessionId: started.id,
       eventType: "enter",
@@ -38,7 +35,6 @@ describe("examSessionRepo (real DB)", () => {
       eventType: "heartbeat",
     });
 
-    // End the session.
     const ended = await examSessionRepo.endSession({
       sessionId: started.id,
       reason: "submitted",
@@ -53,9 +49,6 @@ describe("examSessionRepo (real DB)", () => {
     });
 
     const events = await examSessionRepo.listEventsForSession(started.id);
-    // Each event above has a monotonically-later default `occurredAt`
-    // timestamp (Postgres CURRENT_TIMESTAMP). The 4 inserts in order
-    // should come back in the same order.
     expect(events.map((e) => e.eventType)).toEqual([
       "enter",
       "visibility_lost",
@@ -122,7 +115,6 @@ describe("examSessionRepo (real DB)", () => {
     });
     const firstBeat = started.lastHeartbeatAt;
 
-    // Sleep 5ms so the TIMESTAMP(3) column has room to change.
     await new Promise((r) => setTimeout(r, 5));
     const updated = await examSessionRepo.updateHeartbeat(started.id);
 
@@ -142,7 +134,6 @@ describe("examSessionRepo (real DB)", () => {
     await examSessionRepo.recordEvent({ sessionId: started.id, eventType: "enter" });
     await examSessionRepo.recordEvent({ sessionId: started.id, eventType: "heartbeat" });
 
-    // Sanity: rows exist.
     expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(1);
     expect(await testPrisma.examSessionEvent.count({ where: { sessionId: started.id } })).toBe(
       2,

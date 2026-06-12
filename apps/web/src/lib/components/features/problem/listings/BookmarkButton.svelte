@@ -23,7 +23,7 @@
     if (pending) return;
     pending = true;
     const previous = active;
-    override = !previous; // optimistic
+    override = !previous;
     try {
       const res = await fetchWithCsrf(`/api/problems/${problemId}/bookmark`, {
         method: "POST",
@@ -32,7 +32,7 @@
       const body = (await res.json()) as { bookmarked: boolean };
       override = body.bookmarked;
     } catch {
-      override = previous; // revert
+      override = previous;
     } finally {
       pending = false;
     }

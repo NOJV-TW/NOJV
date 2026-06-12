@@ -56,12 +56,9 @@ export {
   type SweepStaleSubmissionsResult,
 } from "./sweep";
 export {
-  dispatchRejudge,
-  dispatchSubmissionJudge,
-  querySubmissionStatus,
-} from "@nojv/temporal";
-export {
   assertRejudgeWorkflowId,
   cancelRejudge,
+  dispatchRejudge,
+  dispatchSubmissionJudge,
   queryRejudgeProgress,
 } from "./rejudge-control";

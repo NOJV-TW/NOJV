@@ -12,7 +12,6 @@ vi.mock("@nojv/db", () => ({
   problemWorkspaceFileRepo: {
     findByProblemId: workspaceFindByProblemId,
   },
-  // The other repos imported by problem/helpers.ts are not exercised here.
   assessmentProblemRepo: {},
   contestProblemRepo: {},
   examProblemRepo: {},
@@ -22,8 +21,6 @@ import { problemDomain, NotFoundError, ValidationError } from "@nojv/domain";
 
 const { assertProblemHasWorkspaceForLanguages } = problemDomain;
 
-// The helper only reads from `tx` via `problemRepo.withTx(tx)`, which the
-// mock above ignores. An empty object is enough to satisfy the parameter.
 const tx = {} as Parameters<typeof assertProblemHasWorkspaceForLanguages>[0];
 
 beforeEach(() => {

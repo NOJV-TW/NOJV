@@ -36,7 +36,7 @@ export async function dirSizeBytes(dir: string): Promise<number> {
         total += (await stat(full)).size;
       }
     } catch {
-      // Entry vanished mid-walk (container churning files) — skip it.
+      continue;
     }
   }
   return total;
@@ -65,6 +65,8 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
     "ALL",
     "--security-opt",
     "no-new-privileges",
+    "--user",
+    "10001:10001",
     "--read-only",
     "--tmpfs",
     "/tmp:rw,exec,nosuid,nodev,size=64m",

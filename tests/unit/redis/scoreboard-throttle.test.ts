@@ -1,18 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { setMock, publishMock } = vi.hoisted(() => ({
+const { setMock, publishMock, pubsubErrorHandler } = vi.hoisted(() => ({
   setMock: vi.fn(),
   publishMock: vi.fn(() => Promise.resolve(1)),
+  pubsubErrorHandler: vi.fn(),
 }));
 
 vi.mock("../../../packages/redis/src/connection", () => ({
   getRedis: () => ({ set: setMock, publish: publishMock }),
 }));
 
-import { publishScoreboardUpdate } from "../../../packages/redis/src/pubsub";
+import {
+  publishScoreboardUpdate,
+  setPubsubErrorHandler,
+} from "../../../packages/redis/src/pubsub";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setPubsubErrorHandler(pubsubErrorHandler);
 });
 
 describe("publishScoreboardUpdate — throttled contest scoreboard signal", () => {
@@ -48,5 +53,10 @@ describe("publishScoreboardUpdate — throttled contest scoreboard signal", () =
 
     await expect(publishScoreboardUpdate("ctst_1")).resolves.toBeUndefined();
     expect(publishMock).not.toHaveBeenCalled();
+    expect(pubsubErrorHandler).toHaveBeenCalledWith({
+      operation: "scoreboard",
+      channel: expect.stringContaining("ctst_1"),
+      err: expect.any(Error),
+    });
   });
 });

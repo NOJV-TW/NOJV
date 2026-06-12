@@ -1,7 +1,3 @@
-// Read-path coverage for getSubmissionSources — the domain wrapper resolves
-// the storage singleton, so any caller using it (worker, source API, staff
-// plagiarism endpoint) sees a sorted-by-path list of {path, content}.
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { putSubmissionSources } from "../../../packages/storage/src/submission";

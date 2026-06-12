@@ -1,14 +1,3 @@
-/**
- * Unit tests for saveProblemJudgeConfig — the write path that moves the
- * checker/interactor script body to object storage and persists only the
- * storage key in judgeConfig.
- *
- * Invariants under test:
- * - Script body is uploaded to the canonical key (putText), never inlined.
- * - judgeConfig persisted to the DB carries the key + language, never the body.
- * - The blob for the now-unused judge type is best-effort deleted.
- * - Clearing a script (empty body) drops the key and deletes the blob.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { putText, deleteBlob, problemFindById, problemUpdate } = vi.hoisted(() => ({
@@ -91,7 +80,6 @@ describe("saveProblemJudgeConfig", () => {
       checkerLanguage: "python",
     });
     expect(persisted.judgeConfig).not.toHaveProperty("checkerScript");
-    // Unused interactor blob swept.
     expect(deleteBlob).toHaveBeenCalledWith({}, "problems/prob_1/validator/interactor");
   });
 

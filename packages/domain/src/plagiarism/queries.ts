@@ -184,7 +184,7 @@ export async function findPlagiarismReport(
   return plagiarismRepo.findByExamId(target.id);
 }
 
-// intentional-nullable: pair-diff view renders an empty side when a user has no submission for the problem (MOSS sometimes flags pairs where one side was later deleted); throwing would 500 the whole report.
+// intentional-nullable: caller needs absence when the user has no target submission.
 export async function getPlagiarismSourceCode(
   target: PlagiarismTarget,
   userId: string,

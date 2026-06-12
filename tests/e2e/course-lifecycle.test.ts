@@ -8,9 +8,6 @@ const adminAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/adm
 const timestamp = Date.now();
 const COURSE_TITLE = `E2E Course ${timestamp}`;
 
-// Course id is server-assigned (cuid) on create; the legacy slug knob
-// was removed during the schema redesign. We capture it from the redirect
-// location in the create step and reuse it across the rest of the spec.
 let createdCourseId = "";
 
 test.describe("Course Lifecycle", () => {
@@ -20,8 +17,6 @@ test.describe("Course Lifecycle", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
-    // Action lives at /courses/new (no named action — `default`). Schema is
-    // { title, description } only.
     const res = await page.request.post("/courses/new", {
       form: {
         title: COURSE_TITLE,

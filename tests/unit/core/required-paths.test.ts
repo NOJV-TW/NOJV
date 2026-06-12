@@ -60,8 +60,6 @@ describe("validateRequiredPaths", () => {
   });
 
   it("folder requirement is NOT satisfied by a literal directory entry", () => {
-    // JSZip and similar tools sometimes emit standalone directory markers.
-    // A required folder must contain at least one real file under it.
     const result = validateRequiredPaths(["src/"], ["src/"]);
 
     expect(result.ok).toBe(false);

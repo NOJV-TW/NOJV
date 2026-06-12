@@ -9,8 +9,6 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
     const res = await page.request.get(`/api/contests/${CONTEST_ID}/scoreboard`);
     expect(res.ok()).toBe(true);
     const body = await res.json();
-    // Frozen contest fixture; private callers see whatever the public
-    // view publishes. We just assert a sane top-level object.
     expect(typeof body).toBe("object");
     expect(body).not.toBeNull();
   });
@@ -19,8 +17,6 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.request.get(`/api/contests/${CONTEST_ID}/scoreboard/chart`);
-    // Chart payload is allowed to be 200 with an array, OR 4xx if the
-    // contest hasn't started — either is correct, the contract is "no 5xx".
     expect(res.status()).toBeLessThan(500);
     await context.close();
   });
@@ -30,9 +26,6 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
       form: {},
       headers: apiWriteHeaders,
     });
-    // A SvelteKit form action invoked over raw HTTP always answers 200;
-    // the real outcome is the JSON envelope. An anon caller is bounced by
-    // the auth gate — never a success.
     const body = await res.json();
     expect(body.type).not.toBe("success");
   });
@@ -89,8 +82,6 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.request.get(`/api/contests/${CONTEST_ID}/scoreboard?unfrozen=true`);
-    // Endpoint ignores the flag for non-staff and returns the public board;
-    // it should not 4xx the read.
     expect(res.ok()).toBe(true);
     await context.close();
   });

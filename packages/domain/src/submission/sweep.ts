@@ -4,11 +4,11 @@ import {
   submissionPendingTimeoutMinutesSchema,
 } from "@nojv/core";
 import { platformSettingRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
-import { terminateSubmissionJudge } from "@nojv/temporal";
 
 import { ValidationError } from "../shared/errors";
+import { getDomainOrchestration } from "../shared/orchestration";
 
-const PENDING_STATUSES = ["queued", "compiling", "running"];
+const PENDING_STATUSES = ["pending_upload", "queued", "compiling", "running"];
 
 const REJUDGE_LOG_RETENTION_DAYS = 90;
 
@@ -43,8 +43,10 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
   let failed = 0;
   for (const { id } of stale) {
     try {
-      // Terminate before marking so a still-alive workflow can't overwrite the verdict later.
-      await terminateSubmissionJudge(id, "submission pending timeout exceeded");
+      await getDomainOrchestration().terminateSubmissionJudge(
+        id,
+        "submission pending timeout exceeded",
+      );
       const updated = await submissionRepo.updateStatusIfIn(
         id,
         PENDING_STATUSES,

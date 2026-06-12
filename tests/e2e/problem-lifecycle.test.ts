@@ -37,7 +37,6 @@ test.describe("Problem Lifecycle", () => {
     const page = await context.newPage();
     await page.goto(`/problems/${problemId}/edit`);
 
-    // Fill required fields
     await page.locator("input[name='title']").clear();
     await page.locator("input[name='title']").fill("E2E Lifecycle Problem");
     await page
@@ -46,10 +45,8 @@ test.describe("Problem Lifecycle", () => {
     await page.locator("textarea[name='inputFormat']").fill("Two integers a and b");
     await page.locator("textarea[name='outputFormat']").fill("Print a + b");
 
-    // Save
     await page.getByRole("button", { name: /save|儲存/i }).click();
 
-    // Wait for success
     await page.waitForTimeout(2000);
     await context.close();
   });
@@ -85,8 +82,6 @@ test.describe("Problem Lifecycle", () => {
   });
 
   test("published problem detail heading shows displayId prefix", async ({ browser }) => {
-    // The lifecycle problem keeps default `private` visibility, so view it
-    // as its author (the teacher) — a student cannot reach a private problem.
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     await page.goto(`/problems/${problemId}`);
@@ -99,14 +94,12 @@ test.describe("Problem Lifecycle", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
-    // Create a throwaway problem
     const createRes = await page.request.post("/api/problems", {
       headers: apiWriteHeaders,
     });
     const { id: deleteId } = await createRes.json();
     expect(deleteId).toBeTruthy();
 
-    // Delete via form action (must send as form data with origin header)
     const deleteRes = await page.request.post(`/problems/${deleteId}/edit?/deleteProblem`, {
       form: {},
       headers: { origin: "http://localhost:5173" },

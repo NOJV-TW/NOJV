@@ -16,7 +16,7 @@ export async function initiateSchoolVerification(
   }
 
   const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
   await schoolVerificationTokenRepo.create({
     token,

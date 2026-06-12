@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { runSolution } from "../../../apps/sandbox-runner/src/judges/standard.js";
 import type { TestcaseFiles } from "../../../apps/sandbox-runner/src/types.js";
 
-// Phase 2B: checker mode runs the solution exactly like standard mode and
-// reports a raw run — the runner never sees the validator or expected answer
-// and never decides AC/WA. This asserts the run-phase output is a `RawCaseRun`
-// (no verdict), which is the contract the worker's validate phase relies on.
 describe("checker run phase (raw, no in-container checker)", () => {
   it("emits a raw run with no verdict on a clean solution run", async () => {
     const tc: TestcaseFiles = { index: 0, input: "hello\n", weight: 1, isSample: false };

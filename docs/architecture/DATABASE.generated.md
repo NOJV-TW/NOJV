@@ -19,8 +19,6 @@ _41 models and 37 enums across 9 schema files._
 
 #### `UserStatus`
 
-Tri-state user lifecycle flag. `disabled: Boolean` is retained as an admin-visible soft-lock and stays the source of truth for sign-in checks via better-auth. `status` adds the third `pending_first_login` state used by the placeholder-user mechanism (spec §5.3): teachers bulk-paste course-member handles, unknown handles become `User` rows in `pending_first_login` so the student can auto-merge into that row on first OAuth login.
-
 `active` · `disabled` · `pending_first_login`
 
 ### Models
@@ -47,8 +45,6 @@ Tri-state user lifecycle flag. `disabled: Boolean` is retained as an admin-visib
 Indexes & constraints: `@@unique([providerId, accountId])`, `@@index([userId])`
 
 #### `SchoolVerificationToken`
-
-Dedicated store for school-email verification tokens. Decoupled from better-auth's Verification table so neither side interferes with the other's cleanup sweeps.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -215,19 +211,13 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 #### `ExamSessionEventType`
 
-Append-only audit log event types for ActiveExamSession.
-
 `enter` · `leave` · `visibility_lost` · `release` · `auto_close` · `heartbeat`
 
 #### `ExamSessionReleaseReason`
 
-Why a student's exam session ended — drives the Phase 4 lock.
-
 `submitted` · `time_up` · `released_by_instructor`
 
 #### `ExamStatus`
-
-Exam lifecycle — mirrors ContestVisibility but named for the course-embedded flow so the two stay decoupled if either side grows extra states.
 
 `draft` · `published`
 
@@ -249,15 +239,11 @@ Exam lifecycle — mirrors ContestVisibility but named for the course-embedded f
 
 #### `ScoreboardMode`
 
-Shared by Contest and Exam.
-
 `hidden` · `live` · `frozen`
 
 ### Models
 
 #### `ActiveExamSession`
-
-One row per student per active exam. Drives the Phase 4 exam lock in hooks.server.ts: while `endedAt IS NULL` the student is routed back to the exam landing page on every navigation. IP binding is enforced via the exam-type `Participation.ipPin` — the session row does not carry a pin of its own.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -277,8 +263,6 @@ One row per student per active exam. Drives the Phase 4 exam lock in hooks.serve
 Indexes & constraints: `@@unique([userId, examId])`, `@@index([examId, endedAt])`, `@@index([userId, endedAt])`
 
 #### `Contest`
-
-Standalone contest — public / invite-only competition with no course binding. Contests do NOT have proctoring (page lock, IP whitelist, IP binding). Those controls live on `Exam` only — contest = public CP event, exam = proctored classroom assessment.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -326,8 +310,6 @@ Standalone contest — public / invite-only competition with no course binding. 
 Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId, ordinal])`
 
 #### `Exam`
-
-Course-embedded exam. Always tied to a course (`courseId` NOT NULL) and carries all the proctoring controls (page lock, IP whitelist, IP binding). Participation is implicit via course membership — Phase 4's ActiveExamSession will gate entry; for now an ExamParticipation row is created on first submit, mirroring the contest flow.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -385,8 +367,6 @@ Indexes & constraints: `@@unique([examId, problemId])`, `@@unique([examId, ordin
 
 #### `ExamSessionEvent`
 
-Append-only audit log for exam session lifecycle events. One row per {enter, leave, visibility_lost, release, auto_close, heartbeat} observation against an ActiveExamSession. `metadata` is a free-form Json blob — callers in Phase 4 / Phase 6 decide the shape.
-
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
@@ -399,8 +379,6 @@ Append-only audit log for exam session lifecycle events. One row per {enter, lea
 Indexes & constraints: `@@index([sessionId, occurredAt])`
 
 #### `IpViolationLog`
-
-Audit log for IP whitelist / IP binding violations. Only exams carry proctoring, so every row must be tied to an exam — contests are public and do not log IP events.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -417,8 +395,6 @@ Audit log for IP whitelist / IP binding violations. Only exams carry proctoring,
 Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, createdAt])`
 
 #### `Participation`
-
-Unified timed-assessment participation (contest / exam / virtual). The two `@@unique` indexes below ARE expressed in Prisma (full uniques, NULLS DISTINCT — each context's null column lets the other context's unique govern). Only the CHECK constraints live in migration SQL — Prisma cannot express CHECKs, so `migrate diff` is blind to them and db-push dev/test DBs do not get them unless the test harness replays them.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -503,8 +479,6 @@ Indexes & constraints: `@@unique([type, contestId, userId])`, `@@unique([type, e
 Indexes & constraints: `@@index([courseId, status])`
 
 #### `AssessmentAuditLog`
-
-Append-only audit trail for assessment lifecycle transitions. `assessmentId` is intentionally not an FK — `delete_draft` removes the Assessment row and the audit entry must outlive it. `actorUserId` is null for system-initiated transitions (Temporal auto-publish).
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -717,8 +691,6 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 
 #### `ProblemType`
 
-Single source of truth for "what kind of problem is this". Replaces the old (submissionType × mode) matrix.
-
 `full_source` · `multi_file` · `special_env`
 
 #### `ProblemVisibility`
@@ -774,8 +746,6 @@ Single source of truth for "what kind of problem is this". Replaces the old (sub
 Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([authorId])`, `@@index([difficulty])`, `@@index([tags], type: Gin)`
 
 #### `ProblemBookmark`
-
-Per-user bookmark/favourite of a problem. Powers the "Bookmarked" filter on the public library. Plain join row — no extra metadata.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -879,7 +849,7 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 #### `SubmissionStatus`
 
-`queued` · `compiling` · `running` · `accepted` · `wrong_answer` · `time_limit_exceeded` · `memory_limit_exceeded` · `runtime_error` · `compile_error` · `system_error`
+`pending_upload` · `queued` · `compiling` · `running` · `accepted` · `wrong_answer` · `time_limit_exceeded` · `memory_limit_exceeded` · `runtime_error` · `compile_error` · `system_error`
 
 #### `SupportedLanguage`
 
@@ -909,8 +879,6 @@ Indexes & constraints: `@@unique([userId, problemId, language])`, `@@index([prob
 
 #### `EditorialReport`
 
-User-filed report against an editorial (spam, off-topic, etc.). Surfaces in the admin moderation queue. One report per (editorial, reporter); `resolve` soft-deletes the editorial.
-
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
@@ -929,8 +897,6 @@ Indexes & constraints: `@@unique([editorialId, reportedByUserId])`, `@@index([st
 
 #### `EditorialVote`
 
-One vote per (editorial, user). `value` is +1 (upvote) or -1 (downvote); the net score is the sum. Removing a vote deletes the row rather than storing 0, so the unique index stays meaningful.
-
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
@@ -945,8 +911,6 @@ One vote per (editorial, user). `value` is +1 (upvote) or -1 (downvote); the net
 Indexes & constraints: `@@unique([editorialId, userId])`, `@@index([editorialId])`
 
 #### `ScoreOverride`
-
-Staff-only per-(user, problem, context) manual score override. `getFinalScore` short-circuits the best-submission aggregate when a matching row is present. Practice context is not a valid target — `OverrideContextType` makes that unrepresentable at the type level.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -971,8 +935,6 @@ Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, 
 
 #### `ScoreOverrideAuditLog`
 
-Append-only audit trail for every score-override create/update/delete. `overrideId` is nullable so audit rows survive the cascade when the override is deleted (delete action sets it to null up-front).
-
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
@@ -994,8 +956,6 @@ Append-only audit trail for every score-override create/update/delete. `override
 Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])`, `@@index([userId, problemId, createdAt(sort: Desc)])`
 
 #### `Submission`
-
-Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". Domain helper `deriveSubmissionMode` lives in `@nojv/domain`.  A submission carries at most one of `assessmentId` / `examId` / `contestId` — the xor is enforced by the `Submission_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively).  `participationId` sits outside that mutual exclusion: a virtual-contest submission is practice-like (it does not count toward any real contest scoreboard) but carries the `participationId` tag pointing at its `type: virtual` Participation so the personal re-run can aggregate its own score. It is therefore valid for a row to have only `participationId` set with all three context columns null.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -1031,8 +991,6 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
 
 #### `SubmissionFeedback`
-
-Teacher-authored, student-visible grading comment per (student, problem, assessment-or-exam). Sibling of ScoreOverride; `comment` is feedback prose with no effect on the computed score. Exactly one of `assessmentId` / `examId` is non-null — enforced by the `SubmissionFeedback_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). Contest context is intentionally excluded.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -1075,8 +1033,6 @@ Indexes & constraints: `@@unique([assessmentId, problemId, studentUserId])`, `@@
 Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`
 
 #### `SubmissionRejudgeLog`
-
-Audit log for rejudge runs. Written in two passes by submissionJudgeWorkflow when invoked with `forRejudge`: a snapshot before `executeSandbox` captures the pre-rejudge state (old* fields), and a follow-up update after `completeSubmission` fills in the new* fields. new* are nullable so the snapshot row is valid on its own if the second pass never runs (replay-safety).
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |

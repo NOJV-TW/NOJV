@@ -44,8 +44,6 @@ test.describe("Rejudge API", () => {
       },
       headers: apiWriteHeaders,
     });
-    // Student must be denied before any dispatch happens — anything in
-    // [400,500) is acceptable; nothing 2xx, nothing 5xx.
     expect(res.status()).toBeGreaterThanOrEqual(400);
     expect(res.status()).toBeLessThan(500);
     await context.close();

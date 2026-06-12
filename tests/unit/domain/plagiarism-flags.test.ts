@@ -170,9 +170,6 @@ describe("flagPair permissions", () => {
   });
 
   it("upsert is keyed on (contextType, contextId, pairKey) so re-flagging dedupes", async () => {
-    // The unique constraint is enforced at the DB layer; the domain just calls
-    // upsert. We assert here that the same arguments would produce a single
-    // upsert call shape — repeated calls do not double-create.
     assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",

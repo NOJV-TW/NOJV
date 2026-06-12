@@ -51,7 +51,7 @@ async function readSourceCode(
     try {
       return await fs.readFile(path.join(SUBMISSION_DIR, fileName), "utf-8");
     } catch {
-      // try next candidate
+      continue;
     }
   }
 
@@ -91,7 +91,7 @@ async function materializeConfiguredSources(
       const content = await fs.readFile(path.join(SUBMISSION_DIR, normalizedKey), "utf-8");
       await writeWorkFile(workDir, normalizedPath, content);
     } catch {
-      // Ignore missing mapped entries and continue with available files.
+      continue;
     }
   }
 }
@@ -110,7 +110,7 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
       return await loadTestcasesFromDirs(testcasesDir, dirs);
     }
   } catch {
-    // testcases/ directory doesn't exist — try flat ConfigMap layout
+    return loadTestcasesFromFlatKeys();
   }
 
   return loadTestcasesFromFlatKeys();
@@ -132,7 +132,7 @@ async function loadTestcasesFromDirs(
     try {
       expected = await fs.readFile(path.join(tcDir, "expected.txt"), "utf-8");
     } catch {
-      // expected is optional (e.g., for interactive/checker judges)
+      expected = undefined;
     }
 
     let meta: TestcaseMeta = {};
@@ -141,7 +141,7 @@ async function loadTestcasesFromDirs(
       const parsed = TestcaseMetaSchema.safeParse(JSON.parse(metaRaw));
       if (parsed.success) meta = parsed.data;
     } catch {
-      // meta.json is optional, defaults below
+      meta = {};
     }
 
     testcases.push({
@@ -179,7 +179,7 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
         "utf-8",
       );
     } catch {
-      // expected is optional
+      expected = undefined;
     }
 
     testcases.push({ index, input, expected, ...DEFAULT_TESTCASE_META });

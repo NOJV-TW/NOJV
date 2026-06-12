@@ -63,7 +63,6 @@
 
   let mobileNavOpen = $state(false);
 
-  // Close the drawer whenever navigation lands on a new path.
   $effect(() => {
     void currentPath;
     mobileNavOpen = false;

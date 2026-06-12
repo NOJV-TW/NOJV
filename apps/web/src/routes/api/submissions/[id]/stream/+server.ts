@@ -12,7 +12,6 @@ const { getSubmissionForUser, getVerdictDetail, getSubmissionStatus, stripStaffF
 function sanitizeVerdictDetail(raw: unknown): unknown {
   if (raw === null || raw === undefined) return raw;
   const parsed = submissionResultSchema.safeParse(raw);
-  // Fail closed: an unparseable blob (e.g. schema drift) must NOT pass through raw — it can carry staffFeedback.
   return parsed.success ? stripStaffFeedback(parsed.data) : null;
 }
 
@@ -25,7 +24,7 @@ async function loadDetail(
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
-const NON_TERMINAL_STATUSES = new Set(["queued", "compiling", "running"]);
+const NON_TERMINAL_STATUSES = new Set(["pending_upload", "queued", "compiling", "running"]);
 
 export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);
@@ -72,7 +71,7 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.close();
         } catch {
-          // ignore: controller already closed
+          return;
         }
       });
 

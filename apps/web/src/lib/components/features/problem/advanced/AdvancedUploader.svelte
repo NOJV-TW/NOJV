@@ -3,7 +3,7 @@
   import { m as messages } from "$lib/paraglide/messages.js";
 
   const MAX_FILES = 200;
-  const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MB aggregate
+  const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
   const PLAIN_EXTENSIONS = [
     ".c",
     ".cpp",

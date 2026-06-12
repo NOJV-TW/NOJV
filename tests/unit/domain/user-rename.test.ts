@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted repo stubs so the vi.mock factory can reference them.
 const {
   userUpdate,
   userWithTxFindById,
@@ -41,8 +40,6 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// Shape of the User row the mutations read. We only care about `id`,
-// `username`, and `status` — other fields are irrelevant to the logic.
 function fakeUser(overrides: { id?: string; username?: string | null; status?: string } = {}) {
   return {
     id: overrides.id ?? "usr_actor",
@@ -130,8 +127,6 @@ describe("renameUsername", () => {
   });
 
   it("format violations (uppercase, whitespace, special chars) throw INVALID_FORMAT", async () => {
-    // Uppercase input is normalized to lowercase first and therefore accepted —
-    // only chars that remain invalid after .toLowerCase() should throw.
     const rejections = ["has space", "bang!name", "", "a".repeat(65)];
     for (const bad of rejections) {
       userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
@@ -183,10 +178,6 @@ describe("renameUsername", () => {
     });
   });
 
-  // Regression: without this guard, any enrolled student could rename to a
-  // pre-invited TA/teacher handle and inherit the CourseMembership.role ==
-  // "ta"/"teacher", escalating to course-manager privileges. We surface the
-  // generic TAKEN error so privileged placeholders cannot be fingerprinted.
   it("placeholder with a TA course membership — refuses to merge and throws TAKEN", async () => {
     userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
     userWithTxFindByUsername.mockResolvedValueOnce({

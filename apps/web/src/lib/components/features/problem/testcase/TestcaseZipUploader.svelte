@@ -31,7 +31,7 @@
 
   let totalPoints = $derived(subtasks.reduce((sum, s) => sum + s.points, 0));
 
-  const MAX_ZIP_SIZE = 50 * 1024 * 1024; // 50 MB
+  const MAX_ZIP_SIZE = 50 * 1024 * 1024;
 
   function translateDetectError(code: string): string {
     switch (code) {

@@ -15,8 +15,6 @@ const { listPublicContests, getContestDetail, getContestWorkspaceData, getScoreb
 import { NotFoundError } from "$lib/server/auth";
 
 describe("contest queries (real DB)", () => {
-  // --- listPublicContests ---
-
   describe("listPublicContests", () => {
     it("returns published contests", async () => {
       await createTestContest({ visibility: "published", title: "Public Contest" });
@@ -62,8 +60,6 @@ describe("contest queries (real DB)", () => {
       expect(contests[0]!.participantCount).toBe(1);
     });
   });
-
-  // --- getContestDetail ---
 
   describe("getContestDetail", () => {
     it("returns contest detail with linked problems", async () => {
@@ -131,8 +127,6 @@ describe("contest queries (real DB)", () => {
     });
   });
 
-  // --- getContestWorkspaceData ---
-
   describe("getContestWorkspaceData", () => {
     it("returns null participation when user has not joined", async () => {
       const contest = await createTestContest({
@@ -167,8 +161,6 @@ describe("contest queries (real DB)", () => {
       expect(data!.participation!.status).toBe("active");
     });
   });
-
-  // --- getScoreboard ---
 
   describe("getScoreboard", () => {
     it("throws NotFoundError for nonexistent contest", async () => {

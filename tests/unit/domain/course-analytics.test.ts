@@ -58,7 +58,6 @@ describe("getCourseAnalytics", () => {
       { userId: "u1", name: "Alice", username: "alice", reason: "no_submissions" },
       { userId: "u2", name: "Bob", username: "bob", reason: "no_submissions" },
     ]);
-    // No assignments means the three submission queries are never issued.
     expect(groupBestScoresByAssessment).not.toHaveBeenCalled();
   });
 
@@ -103,22 +102,17 @@ describe("getCourseAnalytics", () => {
     const summary = result.assessmentSummaries[0];
     expect(summary.assessmentId).toBe("a1");
     expect(summary.problemCount).toBe(2);
-    // submitters u1 (200) + u2 (140) + u3 (0) -> 340 / 3 submitters = 113
     expect(summary.avgScore).toBe(113);
-    // only u1 solved everything -> 1 / 4 students
     expect(summary.completionRate).toBeCloseTo(0.25);
 
-    // p2 (50%) is harder than p1 (67%) -> sorted ascending by acRate
     expect(result.hardestProblems.map((p) => p.problemId)).toEqual(["p2", "p1"]);
     expect(result.hardestProblems[0].acRate).toBeCloseTo(0.5);
 
-    // verdict distribution sorted by count descending
     expect(result.verdictDistribution).toEqual([
       { status: "wrong_answer", count: 9 },
       { status: "accepted", count: 5 },
     ]);
 
-    // u3 submitted only zeros; u4 never submitted
     expect(result.studentsAtRisk).toEqual([
       { userId: "u3", name: "Carol", username: "carol", reason: "all_zero" },
       { userId: "u4", name: "Dave", username: "dave", reason: "no_submissions" },

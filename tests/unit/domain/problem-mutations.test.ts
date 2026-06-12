@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Shared repo stubs — hoisted so they can be referenced in the vi.mock
-// factory below (vi.mock is hoisted above regular imports).
 const {
   problemCreate,
   problemStatementCreate,
@@ -23,14 +21,10 @@ const {
   problemUpdateAdvancedRequiredPaths: vi.fn(),
   problemDelete: vi.fn(),
   problemHasContextLinks: vi.fn(),
-  // Sentinel for Prisma.JsonNull — we only need identity equality in assertions.
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
 
 vi.mock("@nojv/storage", () => {
-  // Lazy stub: domain code only uses these primitives. We don't care about
-  // the actual values here — `updateProblemWorkspace` writes blobs before
-  // INSERT and the test only asserts the DB-side effects.
   return {
     createStorageClient: vi.fn(() => ({})),
     putText: vi.fn(() => Promise.resolve()),
@@ -199,11 +193,7 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
   });
 
   it("rejects when a single language exceeds 1 MB across multiple files", async () => {
-    // main.py (required) + two big python files → > 1 MB total for python.
     const chunk = "a".repeat(600_000);
-    // Round 4 regression: this threw plain `new Error(...)` which became
-    // HTTP 500 instead of 409. Assert the error class explicitly so a
-    // future change back to `Error` fails loudly.
     await expect(
       updateProblemWorkspace(actor, "prob_1", {
         files: [
@@ -255,7 +245,6 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
   });
 
   it("rejects only the offending language when another language fits", async () => {
-    // Python stays well under budget, cpp goes over.
     const pythonChunk = "p".repeat(10);
     const cppBig = "c".repeat(1_100_000);
     await expect(
@@ -308,9 +297,6 @@ describe("updateAdvancedRequiredPaths — special_env type guard", () => {
   });
 
   it("rejects non-empty paths on a non-special_env problem with ConflictError", async () => {
-    // problemUpdateSchema.partial() drops the create-time superRefine arm,
-    // so the canonical guard for partial updates lives in the mutation
-    // itself. This is the regression test for that guard.
     problemFindById.mockResolvedValue({
       id: "prob_full",
       authorId: "usr_author",
@@ -341,8 +327,6 @@ describe("updateAdvancedRequiredPaths — special_env type guard", () => {
   });
 
   it("allows clearing (empty array) on a non-special_env problem — idempotent", async () => {
-    // Clearing must always succeed regardless of type so that callers can
-    // safely call this on any problem to reset the column.
     problemFindById.mockResolvedValue({
       id: "prob_full",
       authorId: "usr_author",

@@ -1,4 +1,5 @@
-import "$lib/server/otel"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
+import "$lib/server/otel"; // Must stay first for auto-instrumentation.
+import "$lib/server/domain-orchestration";
 
 import {
   error,
@@ -329,15 +330,22 @@ async function enforceExamGate(
     return null;
   }
 
-  let examCtx: ActiveExamContext | null = null;
+  let examCtx: ActiveExamContext | null;
   try {
     examCtx = await examContextCache.getOrLoad(sessionUser.id, () =>
       getActiveExamContext(sessionUser.id),
     );
   } catch (err) {
-    examLockLogger.warn("getActiveExamContext failed — failing open", {
+    examLockLogger.error("getActiveExamContext failed — failing closed", {
       userId: sessionUser.id,
       err: err instanceof Error ? err.message : String(err),
+    });
+    return denyExamGate({
+      cleanPath,
+      requestId: event.locals.requestId,
+      status: 503,
+      message: m.examShell_ipGateUnavailable(),
+      code: "exam_context_unavailable",
     });
   }
 
@@ -345,7 +353,7 @@ async function enforceExamGate(
     return null;
   }
 
-  const ip = getClientIp(event); // prod: throws 403 if the request bypassed Cloudflare
+  const ip = getClientIp(event);
   let verdict;
   try {
     verdict = await proctoringDomain.checkProctoringGate({

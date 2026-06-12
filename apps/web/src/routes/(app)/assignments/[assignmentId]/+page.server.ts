@@ -105,7 +105,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         closesAt: toDateTimeLocal(detail.closesAt),
         allowedLanguages: detail.allowedLanguages,
         maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
-        // Null → 05:00 (300) so the time picker shows the default reset time.
         attemptResetMinuteOfDay: detail.attemptResetMinuteOfDay ?? 300,
         latePenalty: detail.latePenalty,
       },

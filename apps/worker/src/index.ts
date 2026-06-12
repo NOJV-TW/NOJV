@@ -1,4 +1,4 @@
-import { shutdownOtel } from "./otel.js"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
+import { shutdownOtel } from "./otel.js"; // Must stay first for auto-instrumentation.
 
 import { getStorageEnv } from "@nojv/storage";
 

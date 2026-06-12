@@ -13,8 +13,6 @@ const { listProblemCards, getProblemPageData } = problemDomain;
 const { listCourseCards } = courseDomain;
 
 describe("read model (real DB)", () => {
-  // --- listProblemCards ---
-
   describe("listProblemCards", () => {
     it("returns public problems only", async () => {
       await createTestProblem({ visibility: "public", title: "Public P" });
@@ -103,12 +101,9 @@ describe("read model (real DB)", () => {
       expect(result.problems).toHaveLength(1);
       expect(result.problems[0]!.id).toBe("two-sum");
       expect(result.problems[0]!.difficulty).toBe("hard");
-      // Difficulty is a dedicated column; tags are topic-only.
       expect(result.problems[0]!.tags).toEqual(["array", "hash-table"]);
     });
   });
-
-  // --- getProblemPageData ---
 
   describe("getProblemPageData", () => {
     it("throws NotFoundError for nonexistent id", async () => {
@@ -142,9 +137,6 @@ describe("read model (real DB)", () => {
         visibility: "public",
       });
 
-      // The factory writes a default `samples` pair on `Problem` matching
-      // the default testcase — samples live on `Problem.samples` directly,
-      // not on a specially-flagged testcase set.
       const detail = await getProblemPageData("samples-problem", "en");
       expect(detail).not.toBeNull();
       expect(detail!.samples.length).toBeGreaterThanOrEqual(1);
@@ -202,8 +194,6 @@ describe("read model (real DB)", () => {
       expect(detail!.acceptanceRate).toBeCloseTo(2 / 3, 5);
     });
   });
-
-  // --- listCourseCards (read model) ---
 
   describe("listCourseCards (read model)", () => {
     it("returns cards keyed by course id", async () => {

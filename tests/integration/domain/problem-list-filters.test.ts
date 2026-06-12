@@ -1,9 +1,3 @@
-// Sidebar filter coverage for listProblemCards: problem-type, judge-method
-// (incl. the null-judgeConfig => "standard" rule and special_env exclusion),
-// per-user status, statusCounts, and the per-card `bookmarked` flag.
-//
-// These exercise real Prisma `where` clauses (relation filters + JSON path)
-// against Postgres — the kind of thing unit mocks can't validate.
 import { describe, expect, it } from "vitest";
 
 import { problemDomain } from "@nojv/domain";

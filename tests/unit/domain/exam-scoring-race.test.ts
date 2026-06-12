@@ -75,9 +75,6 @@ beforeEach(() => {
 
 describe("updateExamScores — optimistic locking", () => {
   it("retries after a version conflict and persists the latest computed score (point_sum)", async () => {
-    // First read: version 0, submissions show best score 60.
-    // Retry read: version 1 (a concurrent writer landed), submissions now
-    //   show best score 80 — we must persist 80, not 60.
     findExamForScoring
       .mockResolvedValueOnce(participationFixture(0))
       .mockResolvedValueOnce(participationFixture(1));
@@ -101,7 +98,6 @@ describe("updateExamScores — optimistic locking", () => {
     expect(findExamForScoring).toHaveBeenCalledTimes(2);
     expect(updateWithVersion).toHaveBeenCalledTimes(2);
 
-    // First call used the stale version 0 with the stale score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       1,
       PARTICIPATION_ID,
@@ -109,7 +105,6 @@ describe("updateExamScores — optimistic locking", () => {
       expect.objectContaining({ score: 60 }),
     );
 
-    // Retry used the freshly read version 1 with the recomputed score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       2,
       PARTICIPATION_ID,
@@ -125,7 +120,6 @@ describe("updateExamScores — optimistic locking", () => {
       return f;
     };
     findExamForScoring.mockResolvedValue(icpcFixture(0));
-    // One accepted submission → 1 problem solved.
     findMany.mockResolvedValue([
       {
         problemId: PROBLEM_ID,
@@ -157,7 +151,6 @@ describe("updateExamScores — optimistic locking", () => {
 
     await expect(updateExamScores(EXAM_ID, USER_ID)).rejects.toBeInstanceOf(ConflictError);
 
-    // 3 attempts before giving up.
     expect(updateWithVersion).toHaveBeenCalledTimes(3);
   });
 

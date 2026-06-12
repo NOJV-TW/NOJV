@@ -23,22 +23,14 @@ async function invalidateScoreboardForOverride(
   context: ScoreOverrideContext,
   userId: string,
 ): Promise<void> {
-  try {
-    if (context.type === "contest") {
-      await updateContestScores(context.contestId, userId);
-    } else if (context.type === "exam") {
-      await updateExamScores(context.examId, userId);
-    }
-  } catch {
-    // best-effort; see docstring
+  if (context.type === "contest") {
+    await updateContestScores(context.contestId, userId).catch(() => undefined);
+  } else if (context.type === "exam") {
+    await updateExamScores(context.examId, userId).catch(() => undefined);
   }
 }
 
 async function assertScoringModeSupportsOverride(context: ScoreOverrideContext): Promise<void> {
-  // ICPC-style (problem_count) scoreboards rank by solved-count + penalty, so a
-  // per-problem point override has no defined meaning and is silently dropped by
-  // the scoring pipeline (only the point_sum branch merges overrides). Reject it
-  // loudly here instead of persisting a no-op the teacher believes took effect.
   let scoringMode: string;
   if (context.type === "contest") {
     ({ scoringMode } = await contestRepo.findInfoById(context.contestId));

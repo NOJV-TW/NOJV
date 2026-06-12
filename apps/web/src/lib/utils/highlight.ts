@@ -49,11 +49,6 @@ export interface HighlightToken {
   dark: string;
 }
 
-/**
- * Tokenize `code` into per-line colored tokens for both light and dark themes.
- * Runs client-side only (loads the WASM grammar engine on demand). Unknown
- * languages fall back to a single uncolored token per line.
- */
 export async function highlightToLines(
   code: string,
   language: string,

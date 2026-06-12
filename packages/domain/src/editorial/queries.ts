@@ -133,7 +133,7 @@ export async function listEditorialsPage({
   return { items, total, page: safePage, pageSize: safeSize };
 }
 
-// intentional-nullable: edit-page loader maps null to the standard 404; mutations promote it to NotFoundError. Caller chooses the error so this stays a plain "row not visible" signal.
+// intentional-nullable: deleted or missing editorials are rendered as absent.
 export async function getEditorialById(id: string) {
   const row = await editorialRepo.findById(id);
   if (!row || row.deletedAt) return null;
