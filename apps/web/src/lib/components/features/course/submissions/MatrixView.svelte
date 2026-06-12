@@ -14,6 +14,8 @@
     score: number | null;
     attempts: number;
     state: MatrixCellState;
+    practiceScore: number | null;
+    practiceAttempts: number;
   }
 
   export interface MatrixRow {
@@ -49,6 +51,8 @@
     legendPartial: () => string;
     legendZero: () => string;
     legendEmpty: () => string;
+    legendPractice?: () => string;
+    practiceSummary?: (args: { score: number; count: number }) => string;
     paginationLabel: (args: { from: number; to: number; total: number }) => string;
     prev: () => string;
     next: () => string;
