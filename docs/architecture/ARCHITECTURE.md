@@ -409,19 +409,23 @@ Edge cases: if Temporal is down at publish time, the auto-close workflow is neve
 
 ### Contest Scoreboard Update
 
-A successful judge in contest context triggers `updateContestScores`, which recomputes the participant's score in Postgres. There is no separate scoreboard store: the scoreboard is computed on read, directly from Postgres. The public scoreboard page does **not** subscribe to a Redis pub/sub channel for live updates — it polls with `invalidateAll()` on a 30 s `setInterval`, and the server-side endpoint rebuilds the ranking from the contest's participations and submissions via `buildScoreboard`.
+A successful judge in contest context triggers `updateContestScores`, which recomputes the participant's score in Postgres. There is no separate scoreboard store: the ranking is computed on read, directly from Postgres via `buildScoreboard`. For live updates the page opens an SSE stream (`/contests/{id}/scoreboard/stream`, which subscribes to the Redis `nojv:contest:{id}` channel); a successful contest judge calls `publishScoreboardUpdate` — throttled to once per 10 s per contest via the `nojv:sb-throttle:{id}` key — to nudge connected viewers to re-fetch. A 30 s `invalidateAll()` poll runs as the fallback when SSE is unavailable, and the server-side endpoint always rebuilds the ranking from the contest's participations and submissions.
 
 ```mermaid
 sequenceDiagram
     participant Browser
     participant Web as Web (SvelteKit)
     participant Worker
+    participant Redis
     participant Postgres
 
     Note over Worker: submissionJudgeWorkflow reaches completion<br/>(see Submission Judging Lifecycle)
     Worker->>Postgres: updateContestScores (recompute participation row)
+    Worker->>Redis: publishScoreboardUpdate (nojv:contest channel, 10s throttle)
+    Redis-->>Browser: SSE scoreboard:update nudge (via /scoreboard/stream)
+    Browser->>Web: invalidateAll() → GET /api/contests/{id}/scoreboard
 
-    loop every 30s on scoreboard page
+    loop every 30s on scoreboard page (SSE-unavailable fallback)
         Browser->>Web: invalidateAll() → GET /api/contests/{id}/scoreboard
         Web->>Postgres: contestRepo.findForScoreboardById (contest + participations + submissions)
         Web->>Web: buildScoreboard (rank in-process; ICPC packs solved/penalty, IOI sums best subtask scores)

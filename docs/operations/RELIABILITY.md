@@ -46,7 +46,7 @@ Six manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_
 
 PostgreSQL is the single durable store. All other systems derive from it:
 
-- **Redis**: Scoreboard sorted sets rebuilt from DB on miss; pub/sub for SSE events. No general domain cache layer (the only `nojv:cache:*` key is the admin dashboard snapshot).
+- **Redis**: pub/sub for SSE events (including 10 s-throttled scoreboard-update nudges); rate limiting. Leaderboards are computed from Postgres on read, not stored in Redis. No general domain cache layer (the only `nojv:cache:*` key is the admin dashboard snapshot).
 - **Temporal**: Workflow state is durable within Temporal, but final verdicts are persisted to PostgreSQL.
 - **SSE events**: Ephemeral notifications. Clients reconnect and read latest state from DB/Temporal.
 
@@ -100,8 +100,8 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 ### Contest Lifecycle
 
 1. `contestLifecycleWorkflow` manages the full contest timeline with durable timers.
-2. Admin override signals (early end, extend) are processed atomically within the workflow.
-3. Scoreboard freeze creates a Redis snapshot in a separate frozen key (copy via `ZRANGE`+`ZADD`). The live key keeps updating so admins see real-time scores; `getScoreboard` prefers the frozen key when it exists, so public viewers see the snapshot until `unfreezeScoreboard` deletes it.
+2. Early-end / reschedule is applied by re-dispatching the lifecycle workflow with `workflowIdConflictPolicy: TERMINATE_EXISTING` (not via a signal), so the new schedule supersedes the old one.
+3. Scoreboard freeze is a read-time filter gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns: while frozen, `buildScoreboard` ignores submissions newer than `frozenAt`, so the public board holds at the freeze point while staff can still see the live ranking. No Redis snapshot is involved.
 4. Final scores are always computed from PostgreSQL, not Redis.
 
 ### Assessment Lifecycle

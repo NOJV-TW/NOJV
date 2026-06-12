@@ -87,7 +87,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/rejudges/[workflowId]`                                  | GET                | Rejudge progress `{ completed, total }` (Temporal `getProgress` query) for the progress bar    |
 | `/api/rejudges/[workflowId]/cancel`                           | POST               | Cancel an in-flight batch rejudge (cancels the parent workflow)                                |
 | `/api/events/stream`                                          | GET                | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
-| `/api/contests/[id]/scoreboard`                               | GET                | Scoreboard data from Redis (or DB rebuild fallback)                                            |
+| `/api/contests/[id]/scoreboard`                               | GET                | Scoreboard data (computed on read from Postgres via `buildScoreboard`)                         |
 | `/api/contests/[id]/scoreboard/chart`                         | GET                | Scoreboard chart data                                                                          |
 | `/api/exam-sessions/[examId]/heartbeat`                       | POST               | Record page-lock heartbeat / visibility events                                                 |
 | `/api/plagiarism/[assignmentId]/reports`                      | GET, POST          | List plagiarism reports (GET) / trigger detection (POST)                                       |
