@@ -13,7 +13,7 @@ Security requirements are first-class because this system handles authentication
 | Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase`                      | Never exposed to students; only `Problem.samples` is rendered on the problem page |
 | Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)  | Filtered out server-side before `ProblemDetail` leaves the domain layer           |
 | Problem images          | S3-compatible storage                                      | Public read for problem paths                                                     |
-| Advanced judge tarballs | S3-compatible storage (`problems/*/advanced-images/*.tar`) | Private, streamed to worker via signed URL at judge time                          |
+| Advanced judge tarballs | S3-compatible storage (`problems/*/advanced-images/*.tar`) | Private, read in-process by the worker using its S3 credentials at judge time     |
 | S3 credentials          | Environment variables                                      | .env untracked, Secret Manager in prod                                            |
 | Database credentials    | Environment variables                                      | .env untracked, Secret Manager in prod                                            |
 
@@ -126,24 +126,17 @@ tokenization fidelity because every Dolos-supported language treats
 CI runs `pnpm audit --audit-level high` as a **blocking gate** — any
 high/critical advisory fails the build (currently 0).
 
-Moderate/low advisories are tracked but not gated. As of the last sweep all
-10 remaining are **transitive, with no real exposure**:
+The previously-tracked moderate/low transitive advisories are now pinned to
+patched versions through `pnpm.overrides` in the root `package.json`
+(`monaco-editor > dompurify`, `@prisma/dev > @hono/node-server`,
+`@sveltejs/kit > cookie`, `sveltekit-superforms > joi`); `pnpm audit` reports
+**zero** known vulnerabilities (prod + dev).
 
-- **`dompurify` (8× moderate)** — pulled only via `monaco-editor`'s bundled
-  copy, used for the editor's own internal rendering (never to sanitize
-  untrusted HTML). Our markdown sanitizer uses a separate, patched
-  `isomorphic-dompurify` (`$lib/markdown.ts`), which is **not** affected.
-- **`@hono/node-server` (1× moderate)** — reached only through
-  `prisma > @prisma/dev`, a local development tool that never ships in the
-  production runtime.
-- **`cookie` (1× low)** — internal to `@sveltejs/kit`.
+**Gate decision:** keep the threshold at `high`.
 
-**Gate decision:** keep the threshold at `high`. Raising it to `moderate`
-would only force blanket dismissals of upstream-unfixed transitives.
-
-**Cadence:** review `pnpm audit` monthly; clear these transitives
-opportunistically when `monaco-editor`, `@sveltejs/kit`, or `prisma` take a
-major bump that carries the patched dependency.
+**Cadence:** review `pnpm audit` monthly and prune the override list as the
+upstreams (`monaco-editor`, `@sveltejs/kit`, `prisma`, `sveltekit-superforms`)
+ship the patched dependency natively.
 
 ## Review Expectations
 
