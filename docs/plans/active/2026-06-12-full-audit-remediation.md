@@ -25,9 +25,19 @@
 - **Phase 4(部分)** — 4.1a adminOverrideSignal 死契約移除(方案 A,使用者確認 prod 未對外、無 in-flight 比賽,故直接乾淨移除;behavior 等價)、4.1b publishAssessmentDeadline/assignment:deadline 死鏈移除(無 producer)、4.1c sse.ts 三個死 toast handler + i18n key、4.1e notification dedupeKey、4.3 form action 錯誤 wrapper(`withAction`)。
 - **Phase 5(大部分)** — 5.1 temporal/sandbox-runner 補 lint(修 21 既存違規,含一個 `return await` 真 bug 傾向)+ lint-coverage fitness test、5.2 workflow 名稱契約(確認既有 `workflow-registration.test.ts` 已覆蓋)、**5.3 CHECK/expression-GIN 重放進測試 DB**(`replay-constraints.ts` 從 migration 抽淨效果+重放 RENAME COLUMN;整合測試證明違規寫入被擋)、**5.4 Participation status enum + virtual-window/ip-exam-only CHECK + startVirtualContest P2002 死鎖修復**、5.5 exam-context cache null 短 TTL、5.7 web prod env fail-fast + seed Redis 死碼 + pubsub 孤兒註解、5.8 SSE reconnect onopen 重置、5.9 CD backup/SLO/rollback(infra)、5.10 verdict sanitizer fail-closed + avatar magic-byte。
 
-**⏸️ 遞延(有具體理由,非遺漏)**
+**✅ 最終批次「7 項全做完整」(使用者要求,逐項驗證)**
 
-- **1.7 snapshotForRejudge 冪等 / memory poller 精度** — 需 schema migration + 5 處改動換 P3 orphan-log;不成比例,遞延。
+- **1.7a snapshotForRejudge 冪等** — 加 `rejudgeRunId`(workflow workflowId)+ `@@unique([submissionId, rejudgeRunId])` + `upsertSnapshot`(retry 重用首拍、回傳 row.oldVerdict);migration `20260612030000` 零漂移 + idempotency 整合測試。
+- **1.7b memory poller 精度** — 取樣 50ms→10ms(無副作用純改善);**不採 cgroup memory.peak**:shared 容器 cgroup 會把 judge 峰值與 runner output buffer(≤16MB)混報,專屬 cgroup 被 non-root+cap-drop 擋(計劃「不成比例」成立)。
+- **ops sandbox egress 驗證** — DEPLOYMENT GKE rollout 加 step 4(臨時 `app=nojv-sandbox` pod curl 外網應 timeout,否則 Dataplane V2 未開→halt)。
+- **BODY_SIZE_LIMIT** — 15 條 JSON 寫入路由加 `assertJsonBodyWithinLimit`(1MB,api-handler);上傳路由自有更大 self-guard 刻意不套;+4 unit。
+- **4.5 Monaco 去重** — 抽 `MONACO_CODE_EDITOR_OPTIONS` + `watchThemeChanges`,去重 EditorCore/MonacoScriptEditor/PlagiarismPairDiff 三份相同 observer。
+- **4.2 context 收斂** — `shared/graded-context.ts` 單一 `GradedContext` + 共用轉換;score-override/clarification re-export、gradable alias、feedback `Extract` 子集(消 2 份 byte-identical converter)。
+- **Around-me 鎖定** — 抽 `entriesAroundUser` 純函式 +5 unit(each-key 靠 `viewingId:string` 型別 + Playwright E2E)。
+- **3.3b streaming** — 查證後**不做**:`listProblemSubmissions` 已快(3.2 去 S3 扇出)+ 已並行化 + 非 critical-path query → streaming 近零 TTFB 增益,且需改 ProblemWorkspace 的 one-time `untrack` seed(保護 in-session 列表變更)有風險;不成比例。
+
+**⏸️ 仍遞延(有具體理由,非遺漏)**
+
 - **未來 workflow 編排改動** — A 已乾淨移除 adminOverride,但下次再改 `workflows/` 的 command 序列且有 in-flight 比賽時,仍需依 DEPLOYMENT「Workflow Versioning」紀律(patched / 挑無比賽時部署 / replay test)。長期保險可加 Temporal replay test(需歷史 fixture)。
 
 **✅ 查證後確認「早已完成」(計劃文字過時,先前 session 已修)**
@@ -52,10 +62,7 @@
   `countProblemStatusSummaryForUser` 單查詢)、4.4(`resolveSourceFiles` 已抽且 4 executor 已用)、
   5.11 ScoreOverrideForm a11y(已有 `aria-invalid`)。
 
-**🔲 仍遞延(低價值純重構 / ops)**
-
-- **4.2** context 概念 6 份→core schema、**4.5** EditorCore/MonacoScriptEditor 去重(churny、低價值)。
-- **ops doc**:sandbox 隔離上線後驗證步(臨時 pod curl 外網應 timeout)寫進部署 runbook。
+**🔲 全部待做項已清空** — 4.2 / 4.5 / ops 與 1.7a/b / BODY_SIZE_LIMIT 已於最終批次完成(見上);3.3b streaming 查證後判定不做(理由見上)。僅剩「未來 workflow 編排改動」的長期紀律提醒(非任務)。
 
 ---
 
