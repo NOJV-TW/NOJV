@@ -309,6 +309,7 @@ answer." Content is markdown, rendered through the shared
 - `tests/integration/domain/editorial-reports.test.ts` — the same
   moderation flow against a real DB, exercising the unique-constraint
   `ConflictError` and the resolve-time soft-delete.
-- **Still missing**: route-level AC gate tests (403 for GET and POST
-  without AC) and an integration test that round-trips an XSS payload
+- `tests/e2e/editorials.test.ts` — covers route-level AC gates for API
+  GET/POST and the problem editorial list page.
+- **Still missing**: an integration test that round-trips an XSS payload
   through `MarkdownRenderer` to confirm DOMPurify strips it.

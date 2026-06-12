@@ -61,6 +61,9 @@ test.describe("Editorials — auth + permissions", () => {
     const page = await context.newPage();
     const res = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
     expect(res.status()).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      message: "Solve this problem first to view editorials.",
+    });
     await context.close();
   });
 
@@ -75,6 +78,9 @@ test.describe("Editorials — auth + permissions", () => {
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      message: "Solve this problem first to post an editorial.",
+    });
     await context.close();
   });
 
@@ -135,7 +141,7 @@ test.describe("Editorials — auth + permissions", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.goto(`/problems/${PROBLEM_ID}/editorials`);
-    expect([200, 403, 404]).toContain(res?.status() ?? 0);
+    expect(res?.status()).toBe(403);
     await context.close();
   });
 });
