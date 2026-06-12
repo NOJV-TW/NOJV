@@ -279,6 +279,58 @@ export async function seedCourses(
     },
   });
 
+  const activeAdvancedExam = await prisma.exam.upsert({
+    create: {
+      id: "exam_demo_advanced_active",
+      allowedLanguages: ["cpp"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now - DAY),
+      endsAt: new Date(now + 7 * DAY),
+      pageLockEnabled: false,
+      ipBindingEnabled: false,
+      ipWhitelistEnabled: false,
+      scoreboardMode: "hidden",
+      status: "published",
+      summary: "Active advanced-mode exam fixture used by e2e tests.",
+      title: "Demo: Advanced Mode Exam",
+    },
+    update: {
+      allowedLanguages: ["cpp"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now - DAY),
+      endsAt: new Date(now + 7 * DAY),
+      pageLockEnabled: false,
+      ipBindingEnabled: false,
+      ipWhitelistEnabled: false,
+      scoreboardMode: "hidden",
+      status: "published",
+      summary: "Active advanced-mode exam fixture used by e2e tests.",
+      title: "Demo: Advanced Mode Exam",
+    },
+    where: { id: "exam_demo_advanced_active" },
+  });
+
+  await prisma.examProblem.upsert({
+    create: {
+      examId: activeAdvancedExam.id,
+      ordinal: 1,
+      points: 100,
+      problemId: "problem_shell-scripting-lab",
+    },
+    update: {
+      ordinal: 1,
+      points: 100,
+    },
+    where: {
+      examId_problemId: {
+        examId: activeAdvancedExam.id,
+        problemId: "problem_shell-scripting-lab",
+      },
+    },
+  });
+
   const upcomingDemo = await prisma.exam.upsert({
     create: {
       courseId: osLabCourse.id,

@@ -41,7 +41,8 @@
       "monaco-editor>dompurify": "^3.4.9",
       "@prisma/dev>@hono/node-server": "^1.19.13",
       "@sveltejs/kit>cookie": "^0.7.0",
-      "sveltekit-superforms>joi": "^18.2.1"
+      "sveltekit-superforms>joi": "^18.2.1",
+      "tsx>esbuild": "^0.28.1"
     },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
