@@ -14,6 +14,33 @@
 
 ---
 
+## 執行進度(branch `fix/full-audit-remediation-2026-06-12`,1344 unit + 全 lint 綠)
+
+**✅ 完成**
+
+- **Phase 0(全部)** — 0.1 rejudge-cancel 前綴守衛(P0)、0.2 exam confinement、0.3 onDelete 對稱化+migration、0.4 docker `--memory-swap`、0.5 docker.sock group_add。
+- **Phase 1(全部)** — 1.1 隔離測試進 nightly、1.2 docker-arg golden、1.3 TLE 改 cgroup CPU-time、1.4 workflow versioning doc、1.5 coverage 納 worker/sandbox、1.6 e2e 終態斷言、1.7 getTemporalClient single-flight(snapshotForRejudge 冪等 + memory poller 列遞延,見下)。
+- **Phase 2(全部)** — 2.1 QUALITY_SCORE 誠實帳本、2.2 scoreboard 四文件統一、2.3 THREAT_MODEL phantom 清除、2.4 a–i(ARCHITECTURE / DATABASE prose / SECURITY advisory / incident-recovery / JUDGE_PIPELINE / gke+gcp README)。
+- **Phase 3(部分)** — 3.1 scoreboard chart 重用、3.3a problem loader 並行化、3.4 plagiarism omit、3.5 索引 migration + point-sum 分桶。
+- **Phase 4(部分)** — 4.1e notification dedupeKey。
+- **Phase 5(部分)** — 5.7 web prod env fail-fast + seed Redis 死碼 + pubsub 孤兒註解。
+
+**⏸️ 遞延(有具體理由,非遺漏)**
+
+- **4.1a adminOverrideSignal 程式碼移除** — `contestLifecycleWorkflow` 是長壽 workflow;移除 `condition`/signal 會改 command sequence,in-flight 執行 replay 撞 non-determinism。依本輪新增的 DEPLOYMENT「Workflow Versioning」紀律,需 worker drain 或 `patched()` 協調部署才能安全移除。文件側已改正(ARCHITECTURE/RELIABILITY)。
+- **5.1 temporal/sandbox-runner 補 lint** — 加 lint script 會浮現 **21 個既存違規**(safety-critical sandbox 碼的 non-null assertion 等);需逐一審查(加 guard / justified disable)才能不破 CI,屬獨立聚焦任務。
+- **1.7 snapshotForRejudge 冪等 / memory poller 精度** — 需 schema migration + 5 處改動換 P3 orphan-log;不成比例,遞延。
+
+**🔲 待做(P2/P3 polish,多檔/前端/重構)**
+
+- **3.2 listProblemSubmissions S3 扇出** — 需前端 master-detail 改 lazy-load 完整 verdict(列表只需 verdict,可改用 `verdictSummary`);**需可視驗證**。
+- **3.3b** problems 列表 9 查詢 / computeStatusCounts 4 子查詢合併。
+- **4.1b/c/d** 死契約(publishAssessmentDeadline 死 activity、sse.ts 3 死 toast handler、scoreboard Friends/Around 死 UI)— 多檔且 SSE event schema 有 fitness test。
+- **4.2** context 概念 6 份 → core schema、**4.3** form action 錯誤 wrapper、**4.4** sandbox executor source-file 去重、**4.5** EditorCore/MonacoScriptEditor 等去重。
+- **5.2** workflow 名稱常數、**5.3** CHECK 重放進測試 DB、**5.4** Participation status enum、**5.5** exam-context cache 跨實例、**5.6** rate limiter fail-closed offline-queue、**5.8** SSE reconnect、**5.9** CD backup/SLO/rollback、**5.10** 安全深度防禦批次、**5.11** 前端 a11y/i18n 批次。
+
+---
+
 ## 不做清單(查證後判定刻意/不該做,別重啟)
 
 > 對抗式驗證**推翻或下修**的 finding,列此避免下一輪重提。
@@ -33,10 +60,12 @@
 **問題(已複驗):** `apps/web/src/routes/api/rejudges/[workflowId]/cancel/+server.ts:12-18` 只有 `requireApiAuth`,把 URL `workflowId` 直接餵給 `cancelRejudge` → `packages/temporal/src/dispatch.ts:141-145` 的 `getHandle(workflowId).cancel()`,**無前綴檢查**。`rejudge-{suffix}-{randomUUID()}` 雖不可猜,但其餘 workflow ID 全可預測:`submission-pending-sweeper`(常數)、`contest-lifecycle-{contestId}`、`exam-auto-close-{examId}`、`judge-{submissionId}`、`plagiarism-{type}-{id}`。任何已驗證學生可取消全平台 sweeper cron / 任一比賽 lifecycle / 任一考試 auto-close / 別人或自己的判題(卡 running→reaper 標 system_error→返還每日次數=次數上限繞過)。程式碼註解「workflowId 是 capability token…embeds a millisecond timestamp」是**過時且錯誤**(實為 randomUUID)。
 
 **修法:**
+
 1. 在 **domain 層**(非 route)`packages/domain/src/submission/` 加守衛:`cancelRejudge`/`queryRejudgeProgress` 先斷言 `workflowId.startsWith("rejudge-")`,否則丟 `ForbiddenError`。
 2. 進一步:持久化發起者(`SubmissionRejudgeLog` 已有 `rejudgedByUserId`),cancel 時要求 actor = 發起者 ∨ 該 context staff ∨ admin。最小版先做前綴檢查 + staff 守衛。
 3. 修正 `cancel/+server.ts:9-11` 與 GET route 的誤導註解。
 4. **Fitness test:** `tests/integration/http/rejudge-cancel.test.ts` — 學生對 `contest-lifecycle-x` / `submission-pending-sweeper` POST cancel 必須 403;對自己發起的 `rejudge-...` 成功。
+
 - **verify:** integration 測試紅→綠;`cancelRejudge("submission-pending-sweeper")` 被擋。
 
 ### Task 0.2 — 🔴 P1:考試 confinement 不及於判題 API
@@ -44,8 +73,10 @@
 **問題(已複驗):** `packages/domain/src/submission/mutations.ts:198-315` 的提交建立流程,exam 路徑的 `assertActiveExamSubmissionAllowed`(:54-79)只檢查「無外部 context / 未結束 / cooldown」,**無題目歸屬檢查**;:256 的 `assertProblemViewAccess` 對 public 題放行。對照 contest 路徑(:246-253 `contestProblemRepo.findLink`)與 assignment 路徑(:112-115 `assessmentProblemRepo.findLink`)都有,**exam 漏了**。鎖屏中的考生可對任意 public 題提交、取得完整 verdict,submission 還被標 examId(卻不進老師 exam matrix,難察覺)。
 
 **修法:**
+
 1. `assertActiveExamSubmissionAllowed` 內加 `examProblemRepo.withTx(tx).findLink(exam.id, problem.id)` 檢查;非考題(且非該考題的 sampleOnly)一律 `ForbiddenError("This problem is not part of the exam.")`。
 2. **integration 測試:** active exam session 下對非考題 `POST /api/submissions` 必須 403;對考題正常。
+
 - **verify:** 測試紅→綠;與 contest/assignment 路徑行為對稱。
 
 ### Task 0.3 — 🔴 P1:題目刪除 onDelete 不對稱 → 跨使用者資料毀滅
@@ -53,10 +84,12 @@
 **問題(已複驗):** `ExamProblem.problem` 是 `onDelete: Restrict`(`contest.prisma:189`),但 `ContestProblem.problem`(:122)、`AssessmentProblem.problem`(`course.prisma:137`)、`Submission.problem`(`submission.prisma:83`)是 `Cascade`。app 層唯一守衛「只能刪 draft」可被作者 `published→draft`(`problem/mutations.ts:143` 允許改 status)繞過;`deleteProblemRecord`(:100-108)不檢查 context 連結。作者(email 已驗證學生可建題)可在比賽進行中刪題,Cascade 同時銷毀 ContestProblem 連結與全體參賽者 Submission,Participation 持久化 score 變幽靈;對 exam 因 Restrict 變未處理 P2003 → 500。
 
 **修法(二擇一,建議 a + b 都做):**
+
 1. **(a) Schema 對稱化:** `ContestProblem.problem`、`AssessmentProblem.problem` 改 `onDelete: Restrict` 對齊 ExamProblem。新增 migration。
 2. **(b) Domain 守衛:** `deleteProblemRecord` 先查 contest/assessment/exam links(`anyWithContextForProblem`),有連結則 `ConflictError` friendly message(取代 Restrict 的裸 P2003→500)。
 3. **(c) 限制回退:** `buildProblemUpdateData` 在題目有 context 連結時禁止 `published→draft`。
 4. **測試:** 有 context 連結的題刪除被擋並回 friendly error;`published→draft` 在有連結時被拒。
+
 - **verify:** migration `migrate diff` 乾淨;測試覆蓋三條路徑。
 
 ### Task 0.4 — 🔴 P1:Docker 沙箱 `--memory` 無 `--memory-swap` → MLE 誤判
@@ -64,8 +97,10 @@
 **問題(已複驗,grep `--memory-swap` 全 worker 零命中):** `standard-mode-executor.ts:202`、`validator-executor.ts:68`、`interactive-executor.ts:66`、`advanced-mode-executor.ts:80` 都只下 `--memory ${memoryMb}m`。Docker 預設 `--memory-swap` = 2×`--memory`,在啟用 swap 的宿主(自架 docker-compose 生產、開發機)上,提交可用到 **2× 記憶體**才被 OOM-kill;`run-process.ts` 的 `SIGKILL→MLE` 不觸發,需精準記憶體上限的題誤判成 AC/TLE。K8s 因 kubelet 預設關 swap 而安全。
 
 **修法:**
+
 1. 四個 docker executor 的 arg 陣列在 `--memory` 後加 `--memory-swap` `${memoryMb}m`(= 關閉容器 swap,讓 MLE 與宿主 swap 設定無關)。
 2. 與 Task 1.2 合併:抽 `buildDockerRunArgs()` 純函式後,golden 測試斷言含 `--memory-swap` = `--memory`。
+
 - **verify:** golden arg 測試;nightly 實機判題對記憶體超限題目得到 MLE。
 
 ### Task 0.5 — 🔴 P1(條件性):docker-compose CD 路徑 worker EACCES 判題全壞
@@ -73,8 +108,10 @@
 **問題(已驗證):** `worker.Dockerfile:50,88` 以 `appuser`(uid 1001,僅 nodejs group)`USER appuser`;`docker-compose.yml:193,215` 設 `EXECUTION_BACKEND: docker` 並 mount `/var/run/docker.sock`,無 `group_add`。host docker.sock 通常 `root:docker 0660`,appuser 不在 host docker group → `docker run` EACCES → 每筆提交 system_error。`deploy.yml` health check 只 `curl` 首頁,測不到。**條件:** 僅影響實際使用 docker-compose CD 路徑者(GCP/GKE 路徑用 k8s backend 不受影響)。
 
 **修法:**
+
 1. `docker-compose.yml` worker 服務加 `group_add` 對齊 host docker GID(或 Dockerfile 用 build arg `DOCKER_GID` 把 appuser 加進對應 gid)。
 2. `deploy.yml` health 階段加端到端 smoke:送一題已知 AC 提交、輪詢 verdict,讓判題鏈真的被 CD 驗證(而非只看首頁 200)。
+
 - **verify:** 自架路徑第一筆提交不再 EACCES;CD smoke 抓得到判題壞掉。
 
 ---
@@ -88,8 +125,10 @@
 **問題(已驗證 True/True):** `tests/integration/judge/{testcase-exposure,checker-isolation,interactive-isolation}.test.ts`(含真實 exploit:讀 `/submission/testcases/*/expected.txt`)靠 `dockerImageAvailable()→ctx.skip`;PR CI 不 build image、nightly 只跑 `tests/unit/worker`。綠燈 CI 對「學生能否偷讀測資答案」零訊號。
 
 **修法:**
+
 1. `.github/workflows/nightly-sandbox.yml` 在既有 `pnpm sandbox:build` 後加 `pnpm vitest run tests/integration/judge`(image 已 build,不會 skip)。
 2. `dockerImageAvailable()→skip` 在 `process.env.CI` 時改 **hard fail**(該跑卻 skip 不該被當通過)。
+
 - **verify:** nightly 真的執行三個 exploit 測試;移除 image 時 CI fail loud。
 
 ### Task 1.2 — 🟠 P2:docker hardening flags 無 arg 比對測試
@@ -97,9 +136,11 @@
 **問題:** `standard-mode-executor.ts:181-211` 構造 `--cap-drop ALL`/`no-new-privileges`/`--read-only`/`--network none`/`--pids-limit`/tmpfs 等;唯一驗證是 nightly YAML **另抄一份字串**。K8s 路徑有 `buildSandboxJobManifest` 完整斷言,docker 路徑沒有 → 漏改某 flag,unit/nightly 全綠。
 
 **修法:**
+
 1. 把 `runContainer` 的 arg 構造抽成純函式 `buildDockerRunArgs(config, ...)`(四個 executor 共用同一構造器)。
 2. `tests/unit/worker/docker-run-args.test.ts` 斷言完整 hardening profile（含 Task 0.4 的 `--memory-swap`、`--network none`、`--cap-drop ALL`、`no-new-privileges`、`--read-only`、`--user 10001`、`--pids-limit`）。
 3. nightly 隔離步驟改從同一函式取 flag(而非 YAML 硬抄)。
+
 - **verify:** 改任一 flag 立即測試紅。
 
 ### Task 1.3 — 🟠 P2:TLE 用 wall-clock 而非 CPU time
@@ -107,8 +148,10 @@
 **問題(critic):** `run-process.ts` 用 `performance.now()` 量 elapsedMs,TLE 判定與顯示時間全是牆鐘;`ulimit -t`(`utils.ts:119`)只設 CPU-second 硬殺底線。多容器並發/noisy-neighbor 下正確解可能因排程延遲被誤判 TLE,判題不可重現、不公平。
 
 **修法(需設計決策,先 brainstorm):**
+
 1. 評估改用 cgroup `cpuacct`/`cpu.stat` 的 CPU time 作為 TLE 判定與顯示,wall-clock 僅作 outer watchdog 上限。
 2. 或文件化「本平台 TLE 採 wall-clock + 單核釘選(`--cpus`)」的取捨,並在 JUDGE_PIPELINE.md 明記其公平性限制與緩解(隔離 node pool、`--cpus 1`)。
+
 - **verify:** 決策落地 + JUDGE_PIPELINE.md 記載;若改 CPU time,補並發競爭下不誤判 TLE 的測試。
 - **注意:** 這是 online judge 核心方法論,動 verdict 邏輯前先寫設計 doc。
 
@@ -117,9 +160,11 @@
 **問題(critic):** 6 個 workflow 全無 `patched`/`getVersion`。長壽 workflow(contest-lifecycle 跑整場比賽、exam-auto-close 跨整場考試)在改 workflow 程式碼重部署後,執行中的舊 workflow replay 撞 non-determinism error 卡死。自架 Temporal 的真實運維風險。
 
 **修法:**
+
 1. 在 RELIABILITY.md / DEPLOYMENT.md 記載「改 workflow 程式碼必須用 `patched()`/`getVersion()` 守護 + 部署前確認無 in-flight 舊版」的運維紀律。
 2. 對既有長壽 workflow(contest-lifecycle、exam-auto-close)的下一次修改起導入 patch 守衛範式。
 3. 評估 worker 部署策略:長壽 workflow 在版本切換時的 drain/排空步驟。
+
 - **verify:** runbook 有可操作的 workflow 演進步驟;下次改 workflow 帶 patch 守衛。
 
 ### Task 1.5 — 🟡 P2:coverage threshold 排除 worker + sandbox-runner
@@ -127,6 +172,7 @@
 **問題:** `vitest.config.ts:29-35` 的 coverage include 只有 `packages/domain` + `packages/core`,把 `apps/worker`(4140 行)+ `apps/sandbox-runner`(1398 行,含 docker/k8s arg 構造)排除。歷史高風險區(mocked sandbox 抓不到 docker-arg bug)無覆蓋率門檻。
 
 **修法:** coverage include 納入 `apps/worker/src` + `apps/sandbox-runner/src`(可設務實門檻如 lines 70),或至少對 `services/*-executor.ts` 設 per-file 門檻。
+
 - **verify:** coverage 報告涵蓋兩層;低於門檻 fail。
 
 ### Task 1.6 — 🟡 P2:e2e submission-lifecycle 把 queued/running 當成功終態
@@ -134,15 +180,16 @@
 **問題:** `tests/e2e/submission-lifecycle.test.ts:397-407` 最終斷言把 `queued`/`running` 也列通過值,判題從未跑也綠;唯一 assert `accepted` 的 `editorials.test.ts:186` 被 `NOJV_E2E_RUN_JUDGE` 預設 skip。
 
 **修法:** submission-lifecycle 判題步驟在本機/有 image 時 assert 真正終態(accepted/WA/...);否則 explicit `test.skip` 標「需 worker+image」(對齊 Task 2.1 編輯題解的做法),不留永遠綠卻沒驗的測試。
+
 - **verify:** opt-in 後非終態是真 regression。
 
 ### Task 1.7 — 🟢 P3:判題 idempotency / 量測殘渣(批次)
 
-| 項 | 檔 | 修法 |
-|---|---|---|
+| 項                                        | 檔                                | 修法                                            |
+| ----------------------------------------- | --------------------------------- | ----------------------------------------------- |
 | snapshotForRejudge 非冪等(重試插重複 log) | `submission/mutations.ts:395-411` | 以 `(submissionId, rejudgeRunId)` 冪等鍵 upsert |
-| getTemporalClient 單例 race | `temporal/src/client.ts:6-13` | 快取「建立中的 Promise」而非建好的 client |
-| 記憶體量測 50ms /proc 輪詢峰值低估 | `sandbox-runner` `utils.ts:74-98` | 文件化量測精度限制;或縮短輪詢/用 cgroup peak |
+| getTemporalClient 單例 race               | `temporal/src/client.ts:6-13`     | 快取「建立中的 Promise」而非建好的 client       |
+| 記憶體量測 50ms /proc 輪詢峰值低估        | `sandbox-runner` `utils.ts:74-98` | 文件化量測精度限制;或縮短輪詢/用 cgroup peak    |
 
 - **verify:** 各項 unit 測試;低優先,可併 Phase 1 尾段。
 
@@ -169,17 +216,17 @@
 
 ### Task 2.4 — 🟡 P2:其餘文件漂移(批次,以 code 為準重寫)
 
-| # | 文件 | 漂移 | 修法 |
-|---|---|---|---|
-| a | `ARCHITECTURE.md:62,103-109,19-22,412` | temporal「含 workflows」自相矛盾、redis 例外「兩檔」實四檔、domain 目錄漏列 audit/feedback/virtual-contest、scoreboard 同 2.2 | 對齊 code;redis 檔案清單改引用 eslint allowlist 為單一事實源 |
-| b | `REDIS.md:16,39-41,7-12` | channel「無 nojv: 前綴」實際全有、scoreboard pub/sub 全活著卻說已移除、漏列 `nojv:sb-throttle`、誤指 scoreboard SSE 由 `/api/events/stream` 消費 | channel 表加 `nojv:` 前綴、補 sb-throttle、區分兩個 SSE endpoint |
-| c | `incident-recovery.md` Scenario B | 描述已不存在架構(指向已刪 `scoreboard.ts`、把 fail-closed rate limiter 寫成 fail-open、把 PG cooldown 寫成 Redis) | 重寫對齊現況(Redis 僅剩 pub/sub/rate-limit/admin-cache/sb-throttle;flush 幾乎無害) |
-| d | `RELIABILITY.md:49,104` | 「Scoreboard sorted sets rebuilt from DB」「ZRANGE+ZADD」殘留 | 刪除(scoreboard 不在 Redis) |
-| e | `DATABASE.md:17,114-118,182,189-191,263-270,316` | curated prose 仍描述已 drop 三表 + `virtualContestId` 欄 + 三 enum;seed 數字過時 | 改述單一 Participation 超型;seed 數字對齊 getting-started.md 或 link 過去 |
-| f | `SECURITY.md:16,124-146` | 「signed URL」實為 in-process GetObject;dependency advisory 與 QUALITY_SCORE 對 transitive 矛盾 | 改「read in-process by worker S3 creds」;更新 advisory posture(overrides 已清、audit 為零) |
-| g | `JUDGE_PIPELINE.md:265,270` | `deriveJudgeMode` inline 位置與行號 stale、rm -rf 清理行號錯 | 改用符號引用(函式名+檔)不釘行號 |
-| h | `gke/README.md:64-66` | 「single kubectl apply -k」與正式兩步 flow 矛盾 | 統一為兩步 apply(quota 在第二步是刻意設計) |
-| i | `gcp/README.md:41-49` | deploy.sh 必填 env 清單漏 BETTER_AUTH_*/S3_* | 補齊對齊 `deploy.sh:77-86` 的 `require_env` |
+| #   | 文件                                             | 漂移                                                                                                                                             | 修法                                                                                       |
+| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| a   | `ARCHITECTURE.md:62,103-109,19-22,412`           | temporal「含 workflows」自相矛盾、redis 例外「兩檔」實四檔、domain 目錄漏列 audit/feedback/virtual-contest、scoreboard 同 2.2                    | 對齊 code;redis 檔案清單改引用 eslint allowlist 為單一事實源                               |
+| b   | `REDIS.md:16,39-41,7-12`                         | channel「無 nojv: 前綴」實際全有、scoreboard pub/sub 全活著卻說已移除、漏列 `nojv:sb-throttle`、誤指 scoreboard SSE 由 `/api/events/stream` 消費 | channel 表加 `nojv:` 前綴、補 sb-throttle、區分兩個 SSE endpoint                           |
+| c   | `incident-recovery.md` Scenario B                | 描述已不存在架構(指向已刪 `scoreboard.ts`、把 fail-closed rate limiter 寫成 fail-open、把 PG cooldown 寫成 Redis)                                | 重寫對齊現況(Redis 僅剩 pub/sub/rate-limit/admin-cache/sb-throttle;flush 幾乎無害)         |
+| d   | `RELIABILITY.md:49,104`                          | 「Scoreboard sorted sets rebuilt from DB」「ZRANGE+ZADD」殘留                                                                                    | 刪除(scoreboard 不在 Redis)                                                                |
+| e   | `DATABASE.md:17,114-118,182,189-191,263-270,316` | curated prose 仍描述已 drop 三表 + `virtualContestId` 欄 + 三 enum;seed 數字過時                                                                 | 改述單一 Participation 超型;seed 數字對齊 getting-started.md 或 link 過去                  |
+| f   | `SECURITY.md:16,124-146`                         | 「signed URL」實為 in-process GetObject;dependency advisory 與 QUALITY_SCORE 對 transitive 矛盾                                                  | 改「read in-process by worker S3 creds」;更新 advisory posture(overrides 已清、audit 為零) |
+| g   | `JUDGE_PIPELINE.md:265,270`                      | `deriveJudgeMode` inline 位置與行號 stale、rm -rf 清理行號錯                                                                                     | 改用符號引用(函式名+檔)不釘行號                                                            |
+| h   | `gke/README.md:64-66`                            | 「single kubectl apply -k」與正式兩步 flow 矛盾                                                                                                  | 統一為兩步 apply(quota 在第二步是刻意設計)                                                 |
+| i   | `gcp/README.md:41-49`                            | deploy.sh 必填 env 清單漏 BETTER*AUTH*_/S3\__                                                                                                    | 補齊對齊 `deploy.sh:77-86` 的 `require_env`                                                |
 
 - **verify:** doc-link gate 綠;隨機抽 3 條技術宣稱到 code 驗證一致。
 
@@ -193,37 +240,41 @@
 
 **問題(機制已驗證):** `contest/scoring.ts:160` `getScoreboardChart` 內部又呼叫 `getScoreboard`,而 `scoreboard/+page.server.ts:34` 又 `Promise.all([getScoreboard, getScoreboardChart])` → 單次頁面載入撈兩次、重建兩次榜,全程無快取;前端每 SSE/30s `invalidateAll()` 全量重跑 loader。
 **修法:**
+
 1. `getScoreboardChart` 不再呼叫 `getScoreboard`;改由 `+page.server.ts` 算一次 scoreboard,把 entries/problems 傳進 chart builder(立刻砍一次全量撈+重建)。
 2. 對 live(非 frozen/override 變動)情況引入短 TTL 快取(contest channel 版本號 + 進程內或 Redis 1–3s),使同窗口內多次 `invalidateAll` 只觸發一次實算。
+
 - **verify:** 單次 load 只撈一次 submission;快取命中測試。
 
 ### Task 3.2 — 🟠 P2:problem 頁 submission 列表 S3 扇出,verdictSummary 形同虛設
 
 **問題(已驗證 True/True):** `submission/queries.ts:265` `listProblemSubmissions` 對最多 50 筆 submission 逐筆 `getVerdictDetail`(各一次 S3 GET),而 `submission.prisma:70-73` 註解明寫 `verdictSummary`(<4KB)「safe to load in list views」且查詢已 select 它。
 **修法:** 列表渲染改用 row 內 `verdictSummary` 組 result,移除 :265-269 的 S3 扇出;單筆展開時才 lazy `getVerdictDetail`。單頁 S3 GET 從最多 50 降到 0。
+
 - **verify:** 列表 loader 不打 S3;展開仍取完整 detail。
 
 ### Task 3.3 — 🟡 P2:problem 頁 SSR load 串行 await + problems 列表多查詢
 
-| 項 | 檔 | 修法 |
-|---|---|---|
-| problem 頁串行 await 鏈疊 TTFB | `problems/[problemId]/+page.server.ts:27,33,43,57,59` | 彼此獨立的 `getProblemPageData`/`listProblemSubmissions`/`resolveActiveContextForUser` 合進同一 `Promise.all`;submissions 改 streamed promise(同 dashboard) |
-| problems 列表 ~9 查詢、computeStatusCounts 4 子查詢 | `problem/queries.ts:323,331,390-404` | statusCounts 與 filter/分頁無關 → 短 TTL 快取或切 filter 才算;或 4 條合併單一 GROUP BY |
+| 項                                                  | 檔                                                    | 修法                                                                                                                                                        |
+| --------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| problem 頁串行 await 鏈疊 TTFB                      | `problems/[problemId]/+page.server.ts:27,33,43,57,59` | 彼此獨立的 `getProblemPageData`/`listProblemSubmissions`/`resolveActiveContextForUser` 合進同一 `Promise.all`;submissions 改 streamed promise(同 dashboard) |
+| problems 列表 ~9 查詢、computeStatusCounts 4 子查詢 | `problem/queries.ts:323,331,390-404`                  | statusCounts 與 filter/分頁無關 → 短 TTL 快取或切 filter 才算;或 4 條合併單一 GROUP BY                                                                      |
 
 ### Task 3.4 — 🟡 P2:plagiarismResults O(N²) JSON 行內 over-fetch
 
 **問題:** `PlagiarismResults.pairs`(O(N²×題數))整包 JSON 行內存於 Exam/Assessment/Contest,但 `assessmentRepo.listByUser`/`listAcrossCourses`/`examRepo.listByCourseId`/`contestRepo.listPublished` 等學生面 list 全用 `include`(抓全 scalar),每次列作業/考試把完整 plagiarism JSON 從 TOAST 拉出再丟。
 **修法:** list 查詢改顯式 `select` 排除 `plagiarism*` 欄(仿 `selects.ts` 加 `assessmentListSelect`/`examListSelect`);中期把 pairs 移 S3(已有 `plagiarismReportUrl` 前例)或獨立表。
+
 - **verify:** list 查詢不再 select plagiarism 欄。
 
 ### Task 3.5 — 🟢 P3:索引與演算法(批次)
 
-| 項 | 檔 | 修法 |
-|---|---|---|
-| Submission 缺 createdAt 索引(admin 三查詢 seq scan) | `submission.prisma` | 加 `@@index([createdAt])`(或 `[sampleOnly, createdAt]`);SubmissionRejudgeLog 加 `@@index([createdAt])` |
-| better-auth 表缺索引 | `auth.prisma` | Session/Account 加 `@@index([userId])`、Account 加 `@@unique([providerId, accountId])`、Verification 加 `@@index([identifier])` |
-| point-sum builder O(P·Q·S) 重複 filter | `scoring/point-sum.ts:43-44` | 重建前把 userSubs 依 problemId 分桶(Map),內層改 O(1) |
-| findDistinctAcByUser in-memory distinct | `submission.ts:482-491` | 改 `groupBy(["problemId"])` 或 raw `SELECT DISTINCT` 下推 DB |
+| 項                                                  | 檔                           | 修法                                                                                                                            |
+| --------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Submission 缺 createdAt 索引(admin 三查詢 seq scan) | `submission.prisma`          | 加 `@@index([createdAt])`(或 `[sampleOnly, createdAt]`);SubmissionRejudgeLog 加 `@@index([createdAt])`                          |
+| better-auth 表缺索引                                | `auth.prisma`                | Session/Account 加 `@@index([userId])`、Account 加 `@@unique([providerId, accountId])`、Verification 加 `@@index([identifier])` |
+| point-sum builder O(P·Q·S) 重複 filter              | `scoring/point-sum.ts:43-44` | 重建前把 userSubs 依 problemId 分桶(Map),內層改 O(1)                                                                            |
+| findDistinctAcByUser in-memory distinct             | `submission.ts:482-491`      | 改 `groupBy(["problemId"])` 或 raw `SELECT DISTINCT` 下推 DB                                                                    |
 
 ---
 
@@ -234,18 +285,19 @@
 
 ### Task 4.1 — 死契約清除(批次,跨 arch/judge/redis/frontend/database 四維)
 
-| # | 死契約 | 檔 | 修法 |
-|---|---|---|---|
-| a | `adminOverrideSignal`(無 sender,3 維獨立指認)+ `newEndsAt` 設計 bug | `contest-lifecycle.ts:17-30,48-67`、`temporal/types.ts:39` | 刪 signal/handler/`AdminOverrideSignal` 型別/re-export(兩個 eslint-disable 一併消);ARCHITECTURE.md 表改記「re-dispatch with TERMINATE_EXISTING」 |
-| b | `publishAssessmentDeadline`(無 producer 死 activity) | `redis/pubsub.ts:72-80` + bundle 註冊 | 刪 activity/`assessmentChannel`/`SSE_ASSIGNMENT_DEADLINE`/client handler(或記 plans TODO) |
-| c | sse.ts 三個 contest/deadline toast handler(從不訂閱該 channel) | `stores/sse.ts:125-133` | 刪三分支 + i18n key,或讓 `/api/events/stream` 訂閱 contestChannel |
-| d | Scoreboard Friends/Around-me 死 UI(`onChange={()=>{}}`) | `scoreboard/+page.svelte:278-286`、`contests/[id]/+page.svelte:203` | 實作前端過濾(資料已在 client),或拆掉假分頁 |
-| e | `notificationRepo.createAndCap` 丟棄 dedupeKey | `notification.ts:29-36` | 補 `dedupeKey: input.dedupeKey ?? null` + 處理 P2002;或從共用 input 型別移出 |
+| #   | 死契約                                                              | 檔                                                                  | 修法                                                                                                                                             |
+| --- | ------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| a   | `adminOverrideSignal`(無 sender,3 維獨立指認)+ `newEndsAt` 設計 bug | `contest-lifecycle.ts:17-30,48-67`、`temporal/types.ts:39`          | 刪 signal/handler/`AdminOverrideSignal` 型別/re-export(兩個 eslint-disable 一併消);ARCHITECTURE.md 表改記「re-dispatch with TERMINATE_EXISTING」 |
+| b   | `publishAssessmentDeadline`(無 producer 死 activity)                | `redis/pubsub.ts:72-80` + bundle 註冊                               | 刪 activity/`assessmentChannel`/`SSE_ASSIGNMENT_DEADLINE`/client handler(或記 plans TODO)                                                        |
+| c   | sse.ts 三個 contest/deadline toast handler(從不訂閱該 channel)      | `stores/sse.ts:125-133`                                             | 刪三分支 + i18n key,或讓 `/api/events/stream` 訂閱 contestChannel                                                                                |
+| d   | Scoreboard Friends/Around-me 死 UI(`onChange={()=>{}}`)             | `scoreboard/+page.svelte:278-286`、`contests/[id]/+page.svelte:203` | 實作前端過濾(資料已在 client),或拆掉假分頁                                                                                                       |
+| e   | `notificationRepo.createAndCap` 丟棄 dedupeKey                      | `notification.ts:29-36`                                             | 補 `dedupeKey: input.dedupeKey ?? null` + 處理 P2002;或從共用 input 型別移出                                                                     |
 
 ### Task 4.2 — 🟡 P2:context 概念複製 6 份 → 收斂 core schema
 
 **問題:** assessment context(assignment/exam/contest 三態聯集)在 domain 寫 3 份(`clarification/types.ts` 與 `score-override/types.ts` 逐字元相同的 `toContextDbFields`/`fromContextDbFields`)、API route 又手刻第 4-6 份(`overrides`/`clarifications`/`feedback` 的 `contextSchema`+`parseContextQuery`)。
 **修法:**
+
 1. `@nojv/core` 定義 canonical `assessmentContextSchema`(discriminatedUnion)+ generic `toContextDbFields`/`fromContextDbFields`。
 2. domain clarification/score-override 共用;feedback 因儲存欄不同保留 map 但重用 context 型別。
 3. 三個 route 共用 `parseContextQuery`(提到 `$lib/server/shared/` 或 import core);feedback 用 `.pick`/變體表達「不含 contest」而非整段複製。
@@ -254,24 +306,26 @@
 
 **問題:** `action-handlers.ts` 的 `withRateLimit` 只限流不捕錯;對比 API 入口 `apiHandler` / loader 入口 `handleLoad` 都自動 catch。domain throw 在 12 個 action 變裸 500(例:`announcements` create 通過 null-check 但超 `.max()` 的 title → 未捕 ZodError → 500 而非 400 fail)。
 **修法:** 提供 `withAction`(或讓 `withRateLimit` 組合 catch 層)把 domain HttpError/ZodError 統一轉 `fail(status, {error})`,三條入口錯誤處理對稱;補齊另外 12 個 action。
+
 - **verify:** 超長 title 的 action 回 400 帶欄位訊息。
 
 ### Task 4.4 — 🟡 P2:sandbox executors 重複「寫 source files + 主檔回退」邏輯 ×7
 
 **問題:** k8s/standard/interactive/advanced 四 executor 各自貼一份「遍歷 sourceFiles→正規化→主檔回退 sourceCode」,3 種變數名(`wroteMainSource`/`wroteDefaultSource`/`wroteDefault`)。主檔回退規則改一次要改 7 處。
 **修法:** 抽 `resolveSourceFiles(request): {path, content}[]`(已正規化、已含主檔回退);k8s 折成 ConfigMap、docker 折成 fileWrites。
+
 - **verify:** 主檔回退單一真相 + 測試。
 
 ### Task 4.5 — 🟢 P2/P3:其餘重複與整潔(批次)
 
-| 項 | 檔 | 修法 |
-|---|---|---|
-| EditorCore vs MonacoScriptEditor 重複包裝器 | `editors/MonacoScriptEditor.svelte`、`EditorCore.svelte` | 抽共用 `createMonacoEditor` 控制器或 base 元件,差異只留 completion/readOnly |
-| plagiarism results JSON 兩處手寫鬆散解析 | `server/plagiarism-pair.ts:44-70`、`domain queries.ts:138-141` | domain 定義 `plagiarismResultsSchema`(zod)回傳已解析 pairs,刪 web 的 parsePairs |
-| DEFAULT_ATTEMPT_RESET_MINUTE 註解 mirror 兩份 | `utils/attempt-reset-time.ts:3`、`domain attempt-window.ts:6` | 移到 `@nojv/core`(零依賴雙端可 import),消除複製 |
-| verdict/language narrowing idiom ×9 | `submission/queries.ts` 等 | 抽 `narrowSubmissionRow(s)` helper |
-| buildStarterByLanguage 過度 export | `problem/queries.ts:78` | 移除 export 改檔內 private;評估導入 knip |
-| ScoreOverrideForm $state IIFE 包裝 | `ScoreOverrideForm.svelte:50-55` | 直接運算式初始化 |
+| 項                                            | 檔                                                             | 修法                                                                            |
+| --------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| EditorCore vs MonacoScriptEditor 重複包裝器   | `editors/MonacoScriptEditor.svelte`、`EditorCore.svelte`       | 抽共用 `createMonacoEditor` 控制器或 base 元件,差異只留 completion/readOnly     |
+| plagiarism results JSON 兩處手寫鬆散解析      | `server/plagiarism-pair.ts:44-70`、`domain queries.ts:138-141` | domain 定義 `plagiarismResultsSchema`(zod)回傳已解析 pairs,刪 web 的 parsePairs |
+| DEFAULT_ATTEMPT_RESET_MINUTE 註解 mirror 兩份 | `utils/attempt-reset-time.ts:3`、`domain attempt-window.ts:6`  | 移到 `@nojv/core`(零依賴雙端可 import),消除複製                                 |
+| verdict/language narrowing idiom ×9           | `submission/queries.ts` 等                                     | 抽 `narrowSubmissionRow(s)` helper                                              |
+| buildStarterByLanguage 過度 export            | `problem/queries.ts:78`                                        | 移除 export 改檔內 private;評估導入 knip                                        |
+| ScoreOverrideForm $state IIFE 包裝            | `ScoreOverrideForm.svelte:50-55`                               | 直接運算式初始化                                                                |
 
 ---
 
@@ -286,12 +340,14 @@
 
 **問題:** `dispatch.ts` 以字串 `"submissionJudgeWorkflow"`/`"getStatus"` 啟動/查詢,對側 worker `defineQuery("getStatus")` 是獨立字面值;改名只在 runtime 失敗。
 **修法:** 名稱常數收進 `@nojv/temporal`(`SUBMISSION_JUDGE_WORKFLOW`/`QUERY_GET_STATUS`),兩側共用(temporal 仍零依賴 domain);或加讀 workflows index export 名 vs dispatch 字串集合比對的 fitness test。
+
 - **注意:** 上輪 T1 `workflow-registration.test.ts` 已部分覆蓋——查證後若已足則只補常數收斂。
 
 ### Task 5.3 — 🟡 P2:CHECK constraint + FTS GIN 只在 migration SQL,測試 DB 沒有
 
 **問題:** `global-setup.ts:24` 用 `db push` 建測試 DB,`Submission_single_context_chk`/`Participation_single_context_chk` 等 CHECK 與 `ProblemStatementI18n_fts_idx` 是 raw-SQL migration 產物 → 測試 DB 從未擁有;違反 CHECK 的路徑整合測試全綠、prod 才炸。
 **修法:** global-setup 在 db push 後加一步:從 migrations 抽 `ALTER TABLE ... ADD CONSTRAINT`/`CREATE INDEX ... USING GIN` 重放進測試 DB(或維護 `constraints.sql` + parity 測試比對 `pg_constraint`)。
+
 - **verify:** 違反 single-context 的寫入在 integration 被 CHECK 擋。
 
 ### Task 5.4 — 🟡 P2:Participation status 降級裸 TEXT + per-type 欄 nullable
@@ -311,12 +367,12 @@
 
 ### Task 5.7 — 🟢 P3:Redis/env 殘渣與不對稱(批次)
 
-| 項 | 檔 | 修法 |
-|---|---|---|
-| web REDIS_URL prod 默認 localhost(與 worker fail-fast 不對稱) | `web env.ts:13` | NODE_ENV=production 時 REDIS_URL/DATABASE_URL 不得落 default,getWebEnv() fail-fast |
-| seed.ts 殘留 Redis 連線(import 只為 finally quit) | `prisma/seed.ts:1,100` | 刪 import 與 quit;若 @nojv/db→@nojv/redis runtime dep 歸零連 package.json + ARCHITECTURE footnote 一併清 |
-| pubsub.ts 五處 `/* see module header */` 孤兒註解 | `redis/pubsub.ts:34,54,67,77,89,117` | 每個 catch 補一行實際理由(best-effort SSE,client 有 reconnect fallback) |
-| EXECUTION_BACKEND 在 deploy.sh 未顯式設 | `cloud-build/deploy.sh` | `--set-env-vars` 顯式設 EXECUTION_BACKEND/NODE_ENV 對齊 reference manifest |
+| 項                                                            | 檔                                   | 修法                                                                                                     |
+| ------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| web REDIS_URL prod 默認 localhost(與 worker fail-fast 不對稱) | `web env.ts:13`                      | NODE_ENV=production 時 REDIS_URL/DATABASE_URL 不得落 default,getWebEnv() fail-fast                       |
+| seed.ts 殘留 Redis 連線(import 只為 finally quit)             | `prisma/seed.ts:1,100`               | 刪 import 與 quit;若 @nojv/db→@nojv/redis runtime dep 歸零連 package.json + ARCHITECTURE footnote 一併清 |
+| pubsub.ts 五處 `/* see module header */` 孤兒註解             | `redis/pubsub.ts:34,54,67,77,89,117` | 每個 catch 補一行實際理由(best-effort SSE,client 有 reconnect fallback)                                  |
+| EXECUTION_BACKEND 在 deploy.sh 未顯式設                       | `cloud-build/deploy.sh`              | `--set-env-vars` 顯式設 EXECUTION_BACKEND/NODE_ENV 對齊 reference manifest                               |
 
 ### Task 5.8 — 🟡 P2:SSE client 重連永久放棄 + reconnect 計數設計缺陷
 
@@ -325,41 +381,41 @@
 
 ### Task 5.9 — 🟡 P2:CD postgres-backup 從未啟動 + SLO 無 page-able 告警
 
-| 項 | 檔 | 修法 |
-|---|---|---|
-| 自架 CD 路徑無備份(postgres-backup sidecar 從不啟動) | `docker-compose.yml:229`、`deploy.yml:109` | deploy.yml 基礎設施步驟加 `--profile backup`,BACKUP_DIR 指 off-box;或文件明標此路徑非備援 |
-| SLO 告警全 warning 全 latency,無 availability/crashloop page | `grafana/alerts/slo-alerts.json` | 加 critical 級 availability/error-rate 告警(5xx 比率、judge system_error 比率、worker ready replica<1、Temporal schedule-to-start 暴增)導 page-able |
-| CD health 失敗無回滾 | `deploy.yml:126-188` | health 失敗回滾上個 image tag;runbook 標 migration 須 expand-then-contract |
+| 項                                                           | 檔                                         | 修法                                                                                                                                                |
+| ------------------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 自架 CD 路徑無備份(postgres-backup sidecar 從不啟動)         | `docker-compose.yml:229`、`deploy.yml:109` | deploy.yml 基礎設施步驟加 `--profile backup`,BACKUP_DIR 指 off-box;或文件明標此路徑非備援                                                           |
+| SLO 告警全 warning 全 latency,無 availability/crashloop page | `grafana/alerts/slo-alerts.json`           | 加 critical 級 availability/error-rate 告警(5xx 比率、judge system_error 比率、worker ready replica<1、Temporal schedule-to-start 暴增)導 page-able |
+| CD health 失敗無回滾                                         | `deploy.yml:126-188`                       | health 失敗回滾上個 image tag;runbook 標 migration 須 expand-then-contract                                                                          |
 
 ### Task 5.10 — 安全深度防禦(批次)
 
-| 項 | 檔 | 修法 |
-|---|---|---|
-| 🟡 P2 sandbox 隔離依賴運維手動套用,程式層不自證 | `k8s/sandbox/network-policy.yaml`、`SECURITY.md:43` | 部署 runbook 加上線後驗證步(臨時 pod curl 外網應 timeout、確認 CNI NetworkPolicy enforcement 啟用);Cloud Armor allowlist↔client-ip.ts header 一致性檢查 |
-| 🟢 P3 better-auth accountLinking 無 trustedProviders | `auth.server.ts:114-116` | 顯式設 `trustedProviders` + 評估 social 註冊繞過 `disableSignUp` 的不對稱;文件化「已評估可接受」 |
-| 🟢 P3 markdown ADD_ATTR 全域開 style/class/href | `utils/markdown.ts:45` | tag-scoped 屬性允許把 style/class 限縮在 KaTeX 子樹;或從 ADD_ATTR 移除 style |
-| 🟢 P3 BODY_SIZE_LIMIT 64MB vs 50KB source | `docker-compose.yml:150`、`submissions/+server.ts:14` | 提交/編輯類純 JSON 路由設遠小於 64MB 上限;解析前以 Content-Length 預擋 |
-| 🟢 P3 avatar 上傳只信 client MIME | `account/avatar/+server.ts:20` | 過 `detectImageMime` 對齊其他兩條上傳路徑 |
-| 🟢 P3 verdict sanitizer fail-open(parse 失敗回原始 blob) | `submissions/[id]/+server.ts:12`、stream 版 | parse 失敗改回 null 或跑寬鬆 stripStaffFeedback;收斂兩份 route-local 複本到 domain 單一出口 |
-| 🟢 P3 editorial authored 早回傳繞 context gate | `editorial/queries.ts:52` | authored 早回傳移到 `contextGateOpen` 之後,或 authored 時只看自己的題解 |
-| 🟢 P3 exam heartbeat 端點孤兒(前端無呼叫者) | `api/exam-sessions/[examId]/heartbeat/+server.ts` | 確認產品意圖:要監控就補 exam shell 定時呼叫(注意 rate limit);否則刪端點+domain throttle+metrics+openapi |
-| 🟢 P3 createOverride 不驗 target 屬於 context | `score-override/mutations.ts:77` | 加 assertProblemInContext + assertUserParticipatesInContext 給明確 4xx |
-| 🟢 P3 bundle route 缺 canCreateProblem 守衛(守衛不對稱) | `api/problems/[id]/bundle/+server.ts` | 補對齊的 canCreateProblem 前置檢查(ownership 仍是真邊界,純一致性) |
+| 項                                                       | 檔                                                    | 修法                                                                                                                                                    |
+| -------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🟡 P2 sandbox 隔離依賴運維手動套用,程式層不自證          | `k8s/sandbox/network-policy.yaml`、`SECURITY.md:43`   | 部署 runbook 加上線後驗證步(臨時 pod curl 外網應 timeout、確認 CNI NetworkPolicy enforcement 啟用);Cloud Armor allowlist↔client-ip.ts header 一致性檢查 |
+| 🟢 P3 better-auth accountLinking 無 trustedProviders     | `auth.server.ts:114-116`                              | 顯式設 `trustedProviders` + 評估 social 註冊繞過 `disableSignUp` 的不對稱;文件化「已評估可接受」                                                        |
+| 🟢 P3 markdown ADD_ATTR 全域開 style/class/href          | `utils/markdown.ts:45`                                | tag-scoped 屬性允許把 style/class 限縮在 KaTeX 子樹;或從 ADD_ATTR 移除 style                                                                            |
+| 🟢 P3 BODY_SIZE_LIMIT 64MB vs 50KB source                | `docker-compose.yml:150`、`submissions/+server.ts:14` | 提交/編輯類純 JSON 路由設遠小於 64MB 上限;解析前以 Content-Length 預擋                                                                                  |
+| 🟢 P3 avatar 上傳只信 client MIME                        | `account/avatar/+server.ts:20`                        | 過 `detectImageMime` 對齊其他兩條上傳路徑                                                                                                               |
+| 🟢 P3 verdict sanitizer fail-open(parse 失敗回原始 blob) | `submissions/[id]/+server.ts:12`、stream 版           | parse 失敗改回 null 或跑寬鬆 stripStaffFeedback;收斂兩份 route-local 複本到 domain 單一出口                                                             |
+| 🟢 P3 editorial authored 早回傳繞 context gate           | `editorial/queries.ts:52`                             | authored 早回傳移到 `contextGateOpen` 之後,或 authored 時只看自己的題解                                                                                 |
+| 🟢 P3 exam heartbeat 端點孤兒(前端無呼叫者)              | `api/exam-sessions/[examId]/heartbeat/+server.ts`     | 確認產品意圖:要監控就補 exam shell 定時呼叫(注意 rate limit);否則刪端點+domain throttle+metrics+openapi                                                 |
+| 🟢 P3 createOverride 不驗 target 屬於 context            | `score-override/mutations.ts:77`                      | 加 assertProblemInContext + assertUserParticipatesInContext 給明確 4xx                                                                                  |
+| 🟢 P3 bundle route 缺 canCreateProblem 守衛(守衛不對稱)  | `api/problems/[id]/bundle/+server.ts`                 | 補對齊的 canCreateProblem 前置檢查(ownership 仍是真邊界,純一致性)                                                                                       |
 
 ### Task 5.11 — 前端 a11y / i18n / 一致性(批次)
 
-| 項 | 檔 | 修法 |
-|---|---|---|
-| 🟡 P2 教師 detail 頁全量 eager 載入 + invalidateAll 粗刷 | `assignments/[id]/+page.server.ts:64`、`exams/[id]` | 重 tab 改 streamed promise 或切 tab 才打子端點;各資料源加 `depends()` key |
-| 🟡 P2 problem picker 三重實作 + difficultyClass 4 份副本 | `exams/new`、`assignments/new`、`AssignmentProblemsTab` | 抽 `ProblemPicker.svelte`;difficultyClass 收斂回 `verdict-style.ts`;統一 updateProblems wire format |
-| 🟡 P2 server action 回傳英文字串繞 i18n + FormMessage 三套慣例 | `exams/[id]/+page.server.ts:337` 等 | 統一 sentinel/error-code + client paraglide 對映;硬編碼字串補進 catalog |
-| 🟡 P2 tab 導航三套實作 ARIA 各自為政 + 狀態不進 URL | `exams/[id]`、`assignments/[id]` | 抽正確 APG tabs(或 Bits UI Tabs)共用元件,tab key 同步 URL `?tab=` |
-| 🟡 P2 submission polling 30s 硬上限誤報失敗 + 歷史永久卡 pending | `services/submission-service.ts:42`、`use-editor-run` | dispatch 成功後改背景無上限(或 5-10 分)輪詢持續更新 entry;逾時改中性「仍在評測中」 |
-| 🟡 P2 SubmissionHistoryPanel 用索引當 each key,prepend 時詳情錯位 | `SubmissionHistoryPanel.svelte:200` | each key 改 `entry.id`,viewing 狀態存 submission id |
-| 🟢 P3 獎牌金銀銅裸 hex 散落 + 銀色不一致 + ECharts token 三份複製 | `RankBadge.svelte` 等 | 加 `--rank-gold/silver/bronze` token;ECharts theme 抽 `chart-theme.svelte.ts` |
-| 🟢 P3 表單缺 aria-invalid/describedby(橫向缺口) | `ScoreOverrideForm.svelte` 等 | 共用 Input 層統一 aria-invalid + 錯誤 `<p>` id 綁定 |
-| 🟢 P3 EditorialListPanel submit 失敗無回饋 + 未 Zod 驗證 | `EditorialListPanel.svelte:127` | 補 toast 錯誤路徑;`res.json()` 過 schema |
-| 🟢 P3 建立頁步驟編號跳號 + 假 label for + 搜尋框無 aria-label | `exams/new`、`assignments/new` | 編號迴圈產生;假 label 改 fieldset/legend;搜尋框補 aria-label |
+| 項                                                                | 檔                                                      | 修法                                                                                                |
+| ----------------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 🟡 P2 教師 detail 頁全量 eager 載入 + invalidateAll 粗刷          | `assignments/[id]/+page.server.ts:64`、`exams/[id]`     | 重 tab 改 streamed promise 或切 tab 才打子端點;各資料源加 `depends()` key                           |
+| 🟡 P2 problem picker 三重實作 + difficultyClass 4 份副本          | `exams/new`、`assignments/new`、`AssignmentProblemsTab` | 抽 `ProblemPicker.svelte`;difficultyClass 收斂回 `verdict-style.ts`;統一 updateProblems wire format |
+| 🟡 P2 server action 回傳英文字串繞 i18n + FormMessage 三套慣例    | `exams/[id]/+page.server.ts:337` 等                     | 統一 sentinel/error-code + client paraglide 對映;硬編碼字串補進 catalog                             |
+| 🟡 P2 tab 導航三套實作 ARIA 各自為政 + 狀態不進 URL               | `exams/[id]`、`assignments/[id]`                        | 抽正確 APG tabs(或 Bits UI Tabs)共用元件,tab key 同步 URL `?tab=`                                   |
+| 🟡 P2 submission polling 30s 硬上限誤報失敗 + 歷史永久卡 pending  | `services/submission-service.ts:42`、`use-editor-run`   | dispatch 成功後改背景無上限(或 5-10 分)輪詢持續更新 entry;逾時改中性「仍在評測中」                  |
+| 🟡 P2 SubmissionHistoryPanel 用索引當 each key,prepend 時詳情錯位 | `SubmissionHistoryPanel.svelte:200`                     | each key 改 `entry.id`,viewing 狀態存 submission id                                                 |
+| 🟢 P3 獎牌金銀銅裸 hex 散落 + 銀色不一致 + ECharts token 三份複製 | `RankBadge.svelte` 等                                   | 加 `--rank-gold/silver/bronze` token;ECharts theme 抽 `chart-theme.svelte.ts`                       |
+| 🟢 P3 表單缺 aria-invalid/describedby(橫向缺口)                   | `ScoreOverrideForm.svelte` 等                           | 共用 Input 層統一 aria-invalid + 錯誤 `<p>` id 綁定                                                 |
+| 🟢 P3 EditorialListPanel submit 失敗無回饋 + 未 Zod 驗證          | `EditorialListPanel.svelte:127`                         | 補 toast 錯誤路徑;`res.json()` 過 schema                                                            |
+| 🟢 P3 建立頁步驟編號跳號 + 假 label for + 搜尋框無 aria-label     | `exams/new`、`assignments/new`                          | 編號迴圈產生;假 label 改 fieldset/legend;搜尋框補 aria-label                                        |
 
 ---
 
