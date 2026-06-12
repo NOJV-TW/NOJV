@@ -196,7 +196,7 @@ export async function getExamDetailPage(
           userId: p.user.id,
           name: p.user.name,
           handle: p.user.username,
-          status: p.status as ExamRosterEntry["status"],
+          status: p.status,
         }));
 
   const manager: ExamDetailManagerFields | null = options.isManager

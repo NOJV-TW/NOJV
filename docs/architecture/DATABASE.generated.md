@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_41 models and 36 enums across 9 schema files._
+_41 models and 37 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -239,6 +239,10 @@ Exam lifecycle — mirrors ContestVisibility but named for the course-embedded f
 
 `whitelist` · `binding`
 
+#### `ParticipationStatus`
+
+`registered` · `active` · `submitted` · `disqualified`
+
 #### `ParticipationType`
 
 `contest` · `exam` · `virtual`
@@ -253,7 +257,7 @@ Shared by Contest and Exam.
 
 #### `ActiveExamSession`
 
-One row per student per active exam. Drives the Phase 4 exam lock in hooks.server.ts: while `endedAt IS NULL` the student is routed back to the exam landing page on every navigation. IP binding is enforced via `ExamParticipation.ipPin` — the session row does not carry a pin of its own.
+One row per student per active exam. Drives the Phase 4 exam lock in hooks.server.ts: while `endedAt IS NULL` the student is routed back to the exam landing page on every navigation. IP binding is enforced via the exam-type `Participation.ipPin` — the session row does not carry a pin of its own.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -396,7 +400,7 @@ Indexes & constraints: `@@index([sessionId, occurredAt])`
 
 #### `IpViolationLog`
 
-Audit log for IP whitelist / IP binding violations. Exams and standalone contests both log through this table; the application layer (shared proctoring helper) enforces the invariant that exactly one of `examId` / `contestId` is non-null per row. Homework assessments still do not have IP lock. Audit log for IP whitelist / IP binding violations. Only exams carry proctoring, so every row must be tied to an exam — contests are public and do not log IP events.
+Audit log for IP whitelist / IP binding violations. Only exams carry proctoring, so every row must be tied to an exam — contests are public and do not log IP events.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -414,7 +418,7 @@ Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, created
 
 #### `Participation`
 
-Unified timed-assessment participation (contest / exam / virtual). The `Participation_single_context_chk` CHECK and the two partial UNIQUE indexes live only in the migration SQL — Prisma cannot express either, so `migrate diff` is blind to them and db-push dev/test DBs do not get them.
+Unified timed-assessment participation (contest / exam / virtual). The two `@@unique` indexes below ARE expressed in Prisma (full uniques, NULLS DISTINCT — each context's null column lets the other context's unique govern). Only the CHECK constraints live in migration SQL — Prisma cannot express CHECKs, so `migrate diff` is blind to them and db-push dev/test DBs do not get them unless the test harness replays them.
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
@@ -426,7 +430,7 @@ Unified timed-assessment participation (contest / exam / virtual). The `Particip
 | `score` | `Int` | `@default(0)` |
 | `penaltySeconds` | `Int` | `@default(0)` |
 | `subtaskScores` | `Json?` | — |
-| `status` | `String` | — |
+| `status` | `ParticipationStatus` | — |
 | `version` | `Int` | `@default(0)` |
 | `startedAt` | `DateTime?` | — |
 | `submittedAt` | `DateTime?` | — |

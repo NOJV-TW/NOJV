@@ -192,11 +192,6 @@ model ExamProblem {
   @@unique([examId, ordinal])
 }
 
-/// Audit log for IP whitelist / IP binding violations. Exams and
-/// standalone contests both log through this table; the application
-/// layer (shared proctoring helper) enforces the invariant that
-/// exactly one of `examId` / `contestId` is non-null per row.
-/// Homework assessments still do not have IP lock.
 /// Audit log for IP whitelist / IP binding violations. Only exams carry
 /// proctoring, so every row must be tied to an exam — contests are
 /// public and do not log IP events.
@@ -218,8 +213,8 @@ model IpViolationLog {
 /// One row per student per active exam. Drives the Phase 4 exam lock
 /// in hooks.server.ts: while `endedAt IS NULL` the student is routed
 /// back to the exam landing page on every navigation. IP binding is
-/// enforced via `ExamParticipation.ipPin` — the session row does not
-/// carry a pin of its own.
+/// enforced via the exam-type `Participation.ipPin` — the session row
+/// does not carry a pin of its own.
 model ActiveExamSession {
   id              String                    @id @default(cuid())
   userId          String
@@ -262,21 +257,30 @@ enum ParticipationType {
   virtual
 }
 
-/// Unified timed-assessment participation (contest / exam / virtual). The
-/// `Participation_single_context_chk` CHECK and the two partial UNIQUE indexes
-/// live only in the migration SQL — Prisma cannot express either, so `migrate
-/// diff` is blind to them and db-push dev/test DBs do not get them.
+enum ParticipationStatus {
+  registered
+  active
+  submitted
+  disqualified
+}
+
+/// Unified timed-assessment participation (contest / exam / virtual). The two
+/// `@@unique` indexes below ARE expressed in Prisma (full uniques, NULLS
+/// DISTINCT — each context's null column lets the other context's unique
+/// govern). Only the CHECK constraints live in migration SQL — Prisma cannot
+/// express CHECKs, so `migrate diff` is blind to them and db-push dev/test DBs
+/// do not get them unless the test harness replays them.
 model Participation {
-  id                String            @id @default(cuid())
+  id                String              @id @default(cuid())
   type              ParticipationType
   userId            String
   contestId         String?
   examId            String?
-  score             Int               @default(0)
-  penaltySeconds    Int               @default(0)
+  score             Int                 @default(0)
+  penaltySeconds    Int                 @default(0)
   subtaskScores     Json?
-  status            String
-  version           Int               @default(0)
+  status            ParticipationStatus
+  version           Int                 @default(0)
   startedAt         DateTime?
   submittedAt       DateTime?
   ipPin             String?
@@ -284,8 +288,8 @@ model Participation {
   /// this student (e.g. mid-exam machine swap) but still re-pins on first access.
   ipGateExemptUntil DateTime?
   endsAt            DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   user        User         @relation("UnifiedParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
   contest     Contest?     @relation("ContestUnifiedParticipation", fields: [contestId], references: [id], onDelete: Cascade)
