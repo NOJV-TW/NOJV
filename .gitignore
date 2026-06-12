@@ -57,3 +57,6 @@ tests/fixtures/auth-states/
 
 .github/prompts/
 test-results
+
+# Stray tsc artifacts emitted next to TS sources (ESM build outputs to dist/)
+packages/*/src/**/*.js
