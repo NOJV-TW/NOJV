@@ -39,16 +39,17 @@ tracked in `docs/plans/active/2026-06-12-full-audit-remediation.md`.
   that cleared the transitives (was "tracked but not gated"); advanced
   tarball "signed URL" corrected to in-process GetObject.
 
-**Still outstanding (doc):**
+- `DATABASE.md` curated prose realigned to the Participation supertype
+  (dropped triplet tables / `virtualContestId` / removed enums); Seed Data
+  now links to Getting Started instead of duplicating counts.
+- `incident-recovery.md` Scenario B rewritten to the current Redis posture
+  (Postgres scoreboards, fail-closed rate limiter, PG cooldown, no
+  `scoreboard.ts`).
+- `JUDGE_PIPELINE.md` line-number refs replaced with stable symbolic refs;
+  `gke/README.md` two-step apply clarified; `gcp/README.md` deploy.sh env
+  list completed.
 
-- `DATABASE.md` curated prose post-Participation-supertype still names the
-  dropped triplet tables / `virtualContestId` column / removed enums (the
-  generated `DATABASE.generated.md` is correct).
-- `incident-recovery.md` Scenario B describes a removed Redis architecture
-  (deleted `scoreboard.ts`, fail-open rate limiter, Redis cooldown).
-- `JUDGE_PIPELINE.md` has stale line-number references for `deriveJudgeMode`
-  / cleanup; `DATABASE.md` Seed Data counts predate the demo-seed revamp;
-  `gke/README.md` "single kubectl apply" contradicts the two-step flow.
+**Still outstanding (doc):** none — the audit doc-drift cluster is cleared.
 
 Code-level audit findings (security, performance, dead contracts) are tracked
 as phases in the remediation plan, not here.
