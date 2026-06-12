@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { assertJsonBodyWithinLimit, JSON_BODY_LIMIT_BYTES } from "$lib/server/shared/api-handler";
+import {
+  assertJsonBodyWithinLimit,
+  JSON_BODY_LIMIT_BYTES,
+} from "$lib/server/shared/api-handler";
 
 function eventWithContentLength(value: string | null) {
   return {
