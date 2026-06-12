@@ -55,7 +55,6 @@
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import RankBadge from "$lib/components/primitives/visual/RankBadge.svelte";
-  import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import SolveCountCell from "$lib/components/features/contest/SolveCountCell.svelte";
   import PointSumCell from "$lib/components/features/contest/PointSumCell.svelte";
 
@@ -275,15 +274,6 @@
             {m.contestScoreboard_unfreezeButton()}
           </Button>
         {/if}
-        <TabStrip
-          tabs={[
-            { value: "all", label: m.contestScoreboard_filterAll() },
-            { value: "friends", label: m.contestScoreboard_filterFriends() },
-            { value: "around", label: m.contestScoreboard_filterAround() },
-          ]}
-          activeTabValue="all"
-          onChange={() => {}}
-        />
       </div>
     </div>
 

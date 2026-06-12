@@ -1,9 +1,10 @@
+import DOMPurify from "isomorphic-dompurify";
 import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
 
 marked.use(markedKatex({ throwOnError: false, nonStandard: true }));
 
-const KATEX_TAGS = [
+const KATEX_TAGS = new Set([
   "math",
   "maction",
   "maligngroup",
@@ -40,7 +41,7 @@ const KATEX_TAGS = [
   "annotation",
   "annotation-xml",
   "span",
-];
+]);
 
 const KATEX_ATTRS = [
   "accent",
@@ -76,16 +77,22 @@ const KATEX_ATTRS = [
   "separator",
   "separators",
   "stretchy",
-  "style",
   "symmetric",
   "voffset",
   "width",
   "xmlns",
 ];
 
+DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+  if (data.attrName === "style" && !KATEX_TAGS.has(node.tagName.toLowerCase())) {
+    data.forceKeepAttr = false;
+    data.keepAttr = false;
+  }
+});
+
 export const PURIFY_CONFIG = {
-  ADD_TAGS: KATEX_TAGS,
-  ADD_ATTR: KATEX_ATTRS,
+  ADD_TAGS: [...KATEX_TAGS],
+  ADD_ATTR: [...KATEX_ATTRS, "style"],
 };
 
 export { marked };
