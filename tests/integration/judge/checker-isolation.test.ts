@@ -15,28 +15,14 @@
  * Requires a real Docker daemon and the locally-built sandbox image
  * (`pnpm sandbox:build` → `nojv-sandbox:local`). Skips cleanly otherwise.
  */
-import { execFile } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
 import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
+import { requireSandboxImage } from "./_sandbox-image";
 
 const SANDBOX_IMAGE = "nojv-sandbox:local";
-
-function exec(cmd: string, args: string[]): Promise<{ ok: boolean; stdout: string }> {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 10_000 }, (err, stdout) => {
-      resolve({ ok: !err, stdout: stdout.toString() });
-    });
-  });
-}
-
-async function dockerImageAvailable(): Promise<boolean> {
-  if (!(await exec("docker", ["info"])).ok) return false;
-  const { ok, stdout } = await exec("docker", ["images", "-q", SANDBOX_IMAGE]);
-  return ok && stdout.trim().length > 0;
-}
 
 // DOMjudge validator (TA code appended after the python-validator wrapper).
 // Whitespace-insensitive equality; awards a partial 50 when the team output is
@@ -87,7 +73,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "grades a correct solution as AC via the isolated validator",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         checkerRequest({
@@ -110,7 +96,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "grades a wrong solution as WA via the isolated validator",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         checkerRequest({
@@ -127,7 +113,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
   );
 
   it("flows a partial score set by the validator", { timeout: 180_000 }, async (ctx) => {
-    if (!(await dockerImageAvailable())) return ctx.skip();
+    if (!(await requireSandboxImage(ctx))) return;
 
     const result = await makeExecutor().execute(
       checkerRequest({
@@ -148,7 +134,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "splits validator messages: teammessage → student feedback, judgemessage → staffFeedback",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       // Wrong solution exercises the validator's `wrong(...)` + `judge_log(...)`
       // path. The merged result must carry the student message in `feedback` and
@@ -176,7 +162,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "does not expose the validator script or the answer to the run container",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       // The exploit: try to echo the validator source AND any answer file it can
       // find (new cases/ layout + old testcases/expected.txt layout). If any of
