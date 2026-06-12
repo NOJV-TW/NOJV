@@ -14,6 +14,10 @@ export const studentAuth = path.resolve(
   import.meta.dirname,
   "../fixtures/auth-states/student.json",
 );
+export const newStudentAuth = path.resolve(
+  import.meta.dirname,
+  "../fixtures/auth-states/new-student.json",
+);
 
 export const apiWriteHeaders = {
   origin: ORIGIN,
