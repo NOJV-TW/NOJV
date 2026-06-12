@@ -164,6 +164,19 @@ See [Observability Setup Runbook](runbooks/observability-setup.md).
 
 `apps/worker/src/index.ts` `gracefulShutdown` awaits `shutdownOtel()` after `app.shutdown()` so the last 30s metric interval is flushed before `process.exit(0)`. Web relies on adapter-node lifecycle and may lose 0–30s on shutdown (accepted trade-off).
 
+### Temporal Workflow Versioning (REQUIRED before editing any workflow)
+
+Temporal replays a running workflow's full event history against the **current** workflow code on every worker poll. Long-lived workflows in this repo — `contestLifecycleWorkflow` (runs an entire contest), `examAutoCloseWorkflow` (spans a whole exam), the `submissionSweeperWorkflow` cron — can be mid-flight when a new worker version deploys. Any change to a workflow's command sequence (new/removed/reordered activity, signal, timer, or `condition`) makes replay of an in-flight execution diverge → non-determinism error → the workflow gets stuck or fails.
+
+Rules when changing code under `apps/worker/src/workflows/`:
+
+1. Guard every behavioral change with `patched(patchId)` / `deprecatePatch(patchId)` (TypeScript SDK) so old histories replay the old path and new executions take the new one. Never silently reorder or add activity calls.
+2. Pure refactors that do not change the command sequence (renaming locals, extracting non-activity helpers) are safe without a patch.
+3. Short-lived workflows (`submissionJudgeWorkflow`, `rejudgeWorkflow`, `plagiarismCheckWorkflow`) usually drain within minutes; for those, draining in-flight executions before rollout is an acceptable alternative to patching — confirm none are running (`temporal workflow list`) before deploying a breaking change.
+4. Workflow / query / signal **names** are a separate cross-package contract — see the registration fitness test under `tests/unit/worker/`.
+
+There is intentionally **no** `patched()` usage in the tree today because no workflow has yet needed a backward-incompatible change; the first such change must introduce it.
+
 ## GCP Production Architecture
 
 ```
