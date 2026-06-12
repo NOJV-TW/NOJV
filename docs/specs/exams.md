@@ -375,4 +375,6 @@ available after it closes.")` (shared post-close gate via
 - `tests/unit/domain/ip-utils.test.ts` — CIDR matching + fail-closed.
 - `tests/integration/api/exam-session.test.ts` — session start / end /
   heartbeat / single + bulk instructor release against a real DB.
-- `tests/e2e/advanced-mode-lifecycle.test.ts` — (skipped) WIP E2E.
+- `tests/e2e/advanced-mode-lifecycle.test.ts` — advanced-mode problem
+  creation/editor lifecycle plus active exam session, workspace upload,
+  submission dispatch, and session release for an advanced-mode problem.
