@@ -32,7 +32,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │                                                                     │
 │  @nojv/core          Zod schemas, DTO types, enums, contracts       │
 │  @nojv/redis         Pub/sub, key registry, connection              │
-│  @nojv/temporal      Temporal client + dispatch API + types         │
+│  @nojv/temporal      Temporal client + dispatch API                 │
 │  @nojv/storage       S3-compatible object storage (images)          │
 │  tooling/            ESLint, Prettier, TypeScript configs           │
 └─────────────────────────────────────────────────────────────────────┘
@@ -61,10 +61,10 @@ packages/
   redis/            Connection, key registry, pub/sub (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
   temporal/         Temporal client + dispatch API + workflow I/O types + task queue constants (depends: core)
-  domain/           Business logic (depends: core, db, redis, temporal)
+  domain/           Business logic (depends: core, db, redis, storage)
 
 apps/
-  web/              SvelteKit BFF (depends: core, domain)
+  web/              SvelteKit BFF (depends: core, domain, temporal, db, redis, storage)
   worker/           Temporal worker boot + activity implementations (depends: core, temporal, domain, db, redis, storage)
   sandbox-runner/   Isolated sandbox (depends: core only)
 ```
@@ -75,27 +75,29 @@ apps/
                     core
                    ↗  ↑  ↖↘
                  db  redis  temporal   storage
-                  ↖   ↑   ↗            ↑
+                  ↖   ↑                ↑
                    domain ─────────────┤
-                  ↗       ↘            │
-              web          worker ─────┘
+                  ↗  ↑   ↖             │
+              web ───┘    worker ─────┘
+               ↖           ↗
+                temporal
 ```
 
-No cycles. `domain` → `temporal` for dispatch helpers and Temporal client. `worker` → `domain` for activity business logic. Activities live in `apps/worker/src/activities/` so `temporal` does NOT need to depend on `domain` — that's what previously forced the `@nojv/job-dispatch` split.
+No cycles. `domain` exposes orchestration-shaped functions, but reaches Temporal only through the configured `DomainOrchestrationAdapter`; `web` and `worker` wire that adapter to the `@nojv/temporal` root dispatch/query helpers at startup. `worker` → `domain` remains the path for activity business logic. Activities live in `apps/worker/src/activities/` so `temporal` does NOT need to depend on `domain` — that's what previously forced the `@nojv/job-dispatch` split.
 
 ### Dependency Rules
 
-| Package          | May import                                               | Must NOT import                                                           |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `core`           | (nothing)                                                | everything                                                                |
-| `db`             | `core` ¶                                                 | domain, temporal; redis/storage from `src/`                               |
-| `redis`          | `core`                                                   | domain, db, temporal                                                      |
-| `domain`         | `core`, `db`, `redis`, `storage` \*, `temporal`          | `@nojv/temporal/workflows`, web, worker                                   |
-| `temporal`       | `core`                                                   | db, redis, domain, web, worker (must stay self-contained to avoid cycles) |
-| `storage`        | (none of `@nojv/*`)                                      | everything `@nojv/*`                                                      |
-| `web`            | `core`, `domain`, `storage` ‖, `redis` †, `db` ‡         | temporal/workflows                                                        |
-| `worker`         | `core`, `temporal`, `domain`, `db`, `redis`, `storage` § | web                                                                       |
-| `sandbox-runner` | `core`                                                   | everything else                                                           |
+| Package          | May import                                                     | Must NOT import                                                           |
+| ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `core`           | (nothing)                                                      | everything                                                                |
+| `db`             | `core` ¶                                                       | domain, temporal; redis/storage from `src/`                               |
+| `redis`          | `core`                                                         | domain, db, temporal                                                      |
+| `domain`         | `core`, `db`, `redis`, `storage` \*                            | temporal, `@nojv/temporal/workflows`, web, worker                         |
+| `temporal`       | `core`                                                         | db, redis, domain, web, worker (must stay self-contained to avoid cycles) |
+| `storage`        | (none of `@nojv/*`)                                            | everything `@nojv/*`                                                      |
+| `web`            | `core`, `domain`, `temporal` ‖, `storage` ※, `redis` †, `db` ‡ | temporal/workflows                                                        |
+| `worker`         | `core`, `temporal`, `domain`, `db`, `redis`, `storage` §       | web                                                                       |
+| `sandbox-runner` | `core`                                                         | everything else                                                           |
 
 \* `domain` reaches into `storage` from `problem/blobs.ts` to write
 problem image blobs alongside the DB row inside the same transaction.
@@ -116,7 +118,13 @@ requires a raw `PrismaClient`. All other route / loader / action code
 goes through `@nojv/domain`; the ESLint rule above blocks new direct
 `@nojv/db` imports outside `auth.server.ts`.
 
-‖ `web` may use `@nojv/storage` from inside `src/lib/server/storage/*`
+‖ `web` imports the `@nojv/temporal` root entry only in
+`src/lib/server/domain-orchestration.ts`, where it adapts Temporal
+dispatch/query helpers into `@nojv/domain`'s orchestration port. Routes,
+loaders, and actions should call domain functions rather than raw
+Temporal helpers.
+
+※ `web` may use `@nojv/storage` from inside `src/lib/server/storage/*`
 adapters (currently `avatar.ts`, `problem-image.ts`,
 `user-content-image.ts`, `advanced-image.ts`). Routes, loaders, and
 actions must call those adapters or go through `@nojv/domain` (e.g.
@@ -154,9 +162,9 @@ Responsibilities:
 - Serves OpenAPI 3.1 documents (`/api/openapi.{public,internal}.json`) and Scalar reference pages (`/docs`, `/docs/internal`) describing the existing API surface — documentation-only, assembled in `src/lib/server/openapi/` (internal paths split per-tag under `openapi/internal/`); a unit test (`tests/unit/openapi-contract.test.ts`) guards the docs against route drift
 
 Directly accesses: Redis (SSE subscriber + `RateLimiterRedis`), DB
-(better-auth adapter + a few repository-direct routes). See the table
-above for why. Does NOT directly access Temporal — everything goes
-through `@nojv/domain`, which re-exports the dispatch helpers from `@nojv/temporal`.
+(better-auth adapter + a few repository-direct routes), and Temporal
+only through `src/lib/server/domain-orchestration.ts`, which configures
+`@nojv/domain`'s orchestration adapter. See the table above for why.
 
 ### apps/worker — Temporal Worker
 
@@ -272,7 +280,7 @@ source of truth that keeps producer and consumer paths aligned.
 
 ### @nojv/temporal
 
-Temporal client, dispatch API, task queue constants, and Temporal input/output types. Intentionally lean: zero `@nojv/domain` import so `@nojv/domain` can depend on it without forming a cycle.
+Temporal client, dispatch API, task queue constants, and Temporal input/output types. Intentionally lean: zero `@nojv/domain` import. The web and worker apps adapt this package into `@nojv/domain`'s orchestration port at startup.
 
 - Exports `getTemporalClient` / `closeTemporalClient`, `dispatch*` functions, workflow `query*` helpers, task queue constants, and Temporal input/output types.
 - Workflow definitions live in `apps/worker/src/workflows/` (loaded into Temporal's workflow sandbox at worker start-up).
@@ -280,7 +288,7 @@ Temporal client, dispatch API, task queue constants, and Temporal input/output t
 - Activities never dispatch workflows (no accidental recursion).
 - `domain/admin/index.ts` is the only file outside `apps/worker` that touches the raw `getTemporalClient`, to expose Temporal connection state on the admin healthz endpoint.
 
-Dispatch helpers exposed at the root entry:
+Dispatch helpers exposed at the root entry and wired into `DomainOrchestrationAdapter` by `apps/web/src/lib/server/domain-orchestration.ts` and `apps/worker/src/domain-orchestration.ts`:
 
 - `dispatchSubmissionJudge()` — submission judge workflow
 - `dispatchContestLifecycle()` — contest lifecycle workflow
@@ -307,7 +315,7 @@ spawned child judge uses `rejudge-{submissionId}-{Date.now()}`.
 The `submissionSweeperWorkflow` is a singleton cron started once via
 `ensureSubmissionSweeper()`; every minute it runs the
 `sweepStaleSubmissions` activity, which terminates submissions stuck in
-`queued`/`running` past the configured timeout and returns the daily
+`pending_upload`/`queued`/`compiling`/`running` past the configured timeout and returns the daily
 attempt (see [Reliability Invariants](../operations/RELIABILITY.md)).
 
 Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, the stale-submission sweeper, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
@@ -319,7 +327,7 @@ Single source of all business logic. Organized by domain:
 - Each domain has `queries.ts` (read) and `commands.ts` (write)
 - All functions return DTO types defined in `@nojv/core`
 - Two function categories:
-  - **Orchestration functions** — called by web, may dispatch workflows via the `@nojv/temporal` root entry (dispatch helpers)
+  - **Orchestration functions** — called by web, dispatch workflows through the configured `DomainOrchestrationAdapter`
   - **Data functions** — called by temporal activities, pure DB + event operations
 
 ## Key Flows
@@ -328,20 +336,23 @@ The three sequence diagrams below walk through the most load-bearing runtime pat
 
 ### Submission Judging Lifecycle
 
-This is the end-to-end path from clicking "Submit" to seeing a verdict. The web layer only writes the queued row and dispatches a workflow — all real judging happens inside the Temporal workflow, which calls domain data functions through activities. The browser learns the final verdict by polling the submission workflow's `getStatus` query over SSE; a separate user-scoped SSE pub/sub channel (`user:{userId}`) also receives a best-effort verdict notification that the header toast listens to.
+This is the end-to-end path from clicking "Submit" to seeing a verdict. The web layer creates a `pending_upload` row, durably writes the source blobs, promotes the row to `queued`, and dispatches a workflow — all real judging happens inside the Temporal workflow, which calls domain data functions through activities. The browser learns the final verdict by polling the submission workflow's `getStatus` query over SSE; a separate user-scoped SSE pub/sub channel (`user:{userId}`) also receives a best-effort verdict notification that the header toast listens to.
 
 ```mermaid
 sequenceDiagram
     participant Browser
     participant Web as Web (SvelteKit)
     participant Postgres
+    participant Storage as Object Storage
     participant Temporal
     participant Worker
     participant Sandbox
     participant Redis
 
     Browser->>Web: POST /api/submissions (SubmissionDraft)
-    Web->>Postgres: createQueuedSubmissionRecord (status=queued)
+    Web->>Postgres: createQueuedSubmissionRecord (status=pending_upload)
+    Web->>Storage: putSubmissionSources(submissions/{id}/sources/*)
+    Web->>Postgres: updateSubmissionStatus(queued)
     Web->>Temporal: dispatchSubmissionJudge (workflowId judge-{id}, queue "judge")
     Web-->>Browser: 202 { submissionId, pollUrl }
 
@@ -364,7 +375,7 @@ sequenceDiagram
     Web-->>Browser: SSE { status: "completed", result }
 ```
 
-Edge cases: if the Temporal service is down, `dispatchSubmissionJudge` rejects and the submission stays in `queued` (no rollback); `createQueuedSubmissionRecord` has already committed. If the worker crashes mid-execution, Temporal retries the workflow up to `maximumAttempts: 3` from the last durable activity boundary. If Redis is down, `publishVerdict` swallows the error (best-effort), so the header toast never fires but the per-submission SSE stream still converges via the direct DB read.
+Edge cases: if source upload fails after the row commits, any partial source blobs are deleted best-effort and the row is marked `system_error`. If the Temporal service is down during dispatch, `dispatchSubmissionJudge` rejects and the web route marks the already-created row `system_error` before rethrowing. If the worker crashes mid-execution, Temporal retries the workflow up to `maximumAttempts: 3` from the last durable activity boundary. If Redis is down, `publishVerdict` swallows the error (best-effort), so the header toast never fires but the per-submission SSE stream still converges via the direct DB read.
 
 ### Exam Session Lifecycle
 

@@ -71,7 +71,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 **Impact**: No new workflows start. In-flight workflows pause.
 **Mitigation**: Temporal auto-setup with PostgreSQL backend provides persistence.
 **Recovery**: Temporal resumes all paused workflows when it comes back. No data loss.
-**Note**: Submissions already in DB with `queued` status will be picked up when Temporal recovers.
+**Note**: If Temporal is unavailable while the web layer dispatches a new submission, the already-created row is marked `system_error` before the API rethrows. Submissions whose workflows had already started resume when Temporal recovers.
 
 ### Worker Unavailable
 
@@ -94,7 +94,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 3. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
 4. User stats and contest scores are updated after the verdict is committed.
 5. SSE notification is best-effort — the client falls back to polling Temporal/DB.
-6. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
+6. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `pending_upload`/`queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip when a workflow may exist, so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
 
 ### Contest Lifecycle
 
