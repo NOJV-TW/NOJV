@@ -676,6 +676,36 @@ export const submissionRepo = {
     });
   },
 
+  async countProblemStatusSummaryForUser(userId: string): Promise<{
+    all: number;
+    solved: number;
+    attempted: number;
+    bookmarked: number;
+  }> {
+    const rows = await prisma.$queryRaw<
+      { all: number; solved: number; attempted: number; bookmarked: number }[]
+    >`
+      SELECT
+        COUNT(DISTINCT p.id)::int AS all,
+        COUNT(DISTINCT CASE WHEN s.has_accepted THEN p.id END)::int AS solved,
+        COUNT(DISTINCT CASE WHEN s.has_any AND NOT s.has_accepted THEN p.id END)::int AS attempted,
+        COUNT(DISTINCT CASE WHEN b."userId" IS NOT NULL THEN p.id END)::int AS bookmarked
+      FROM "Problem" p
+      LEFT JOIN (
+        SELECT
+          "problemId",
+          bool_or(status = 'accepted' AND "sampleOnly" = false) AS has_accepted,
+          bool_or("sampleOnly" = false) AS has_any
+        FROM "Submission"
+        WHERE "userId" = ${userId}
+        GROUP BY "problemId"
+      ) s ON s."problemId" = p.id
+      LEFT JOIN "ProblemBookmark" b ON b."problemId" = p.id AND b."userId" = ${userId}
+      WHERE p.visibility = 'public' AND p.status = 'published'
+    `;
+    return rows[0] ?? { all: 0, solved: 0, attempted: 0, bookmarked: 0 };
+  },
+
   findStalePendingIds(before: Date) {
     return prisma.submission.findMany({
       select: { id: true },

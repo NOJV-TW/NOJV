@@ -386,22 +386,8 @@ async function computeStatusCounts(
   userId: string | null | undefined,
 ): Promise<ProblemStatusCounts | null> {
   if (!userId) return null;
-  const base: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
-  const [all, solved, attempted, bookmarked] = await Promise.all([
-    problemRepo.count(base),
-    problemRepo.count({
-      ...base,
-      submissions: { some: { userId, sampleOnly: false, status: "accepted" } },
-    }),
-    problemRepo.count({
-      ...base,
-      AND: [
-        { submissions: { some: { userId, sampleOnly: false } } },
-        { submissions: { none: { userId, sampleOnly: false, status: "accepted" } } },
-      ],
-    }),
-    problemRepo.count({ ...base, bookmarks: { some: { userId } } }),
-  ]);
+  const { all, solved, attempted, bookmarked } =
+    await submissionRepo.countProblemStatusSummaryForUser(userId);
   return { all, solved, attempted, untried: all - solved - attempted, bookmarked };
 }
 
