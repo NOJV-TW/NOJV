@@ -32,7 +32,7 @@ export interface InteractiveExecutorConfig {
 
 type PipedChild = ChildProcessByStdio<Writable, Readable, Readable>;
 
-function buildContainerArgs(params: {
+export function buildContainerArgs(params: {
   containerName: string;
   tempDir: string;
   cpuLimit: string;

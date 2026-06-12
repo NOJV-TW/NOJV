@@ -169,21 +169,23 @@ export async function writeSubmissionFiles(
   await chmod(tempDir, 0o755);
 }
 
-async function runContainer(
-  tempDir: string,
-  request: SandboxRequest,
-  config: StandardModeConfig,
-): Promise<SandboxResult> {
-  const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
+export interface StandardDockerArgsParams {
+  containerName: string;
+  networkArgs: string[];
+  tempDir: string;
+  cpuLimit: string;
+  memoryMb: number;
+  pidsLimit: number;
+  image: string;
+}
 
-  const networkArgs = ["--network", "none"];
-
-  const args = [
+export function buildStandardDockerArgs(params: StandardDockerArgsParams): string[] {
+  return [
     "run",
     "--rm",
     "--name",
-    containerName,
-    ...networkArgs,
+    params.containerName,
+    ...params.networkArgs,
     "--user",
     "10001:10001",
     "--cap-drop",
@@ -196,21 +198,41 @@ async function runContainer(
     "--tmpfs",
     "/workspace:rw,exec,nosuid,nodev,size=128m",
     "-v",
-    `${tempDir}:/submission:ro`,
+    `${params.tempDir}:/submission:ro`,
     "--cpus",
-    config.cpuLimit,
+    params.cpuLimit,
     "--memory",
-    `${String(config.memoryMb)}m`,
+    `${String(params.memoryMb)}m`,
     "--memory-swap",
-    `${String(config.memoryMb)}m`,
+    `${String(params.memoryMb)}m`,
     "--pids-limit",
-    String(config.pidsLimit),
+    String(params.pidsLimit),
     "--env",
     "HOME=/tmp",
-    config.image,
+    params.image,
     "node",
     "/runner/index.js",
   ];
+}
+
+async function runContainer(
+  tempDir: string,
+  request: SandboxRequest,
+  config: StandardModeConfig,
+): Promise<SandboxResult> {
+  const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
+
+  const networkArgs = ["--network", "none"];
+
+  const args = buildStandardDockerArgs({
+    containerName,
+    networkArgs,
+    tempDir,
+    cpuLimit: config.cpuLimit,
+    memoryMb: config.memoryMb,
+    pidsLimit: config.pidsLimit,
+    image: config.image,
+  });
 
   const outerTimeoutMs = Math.min(
     request.limits.timeoutMs * request.testcases.length + 30_000,
