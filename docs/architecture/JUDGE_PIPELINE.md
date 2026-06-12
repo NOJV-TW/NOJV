@@ -209,11 +209,12 @@ prefix / key references and a small JSON summary. The full flow:
 1. **Create** — `submission/mutations.ts` opens a Prisma tx, validates +
    normalizes the per-file sources, writes the `Submission` row with
    `sourceStoragePrefix = submissions/<id>/sources/` and status
-   `queued`, and commits. **After** the tx commits, it calls
+   `pending_upload`, and commits. **After** the tx commits, it calls
    `putSubmissionSources(storage(), id, sources)` to write one S3 object
-   per file. If that storage write fails, the row is flipped to
-   `system_error` so the worker won't try to grade a row with no
-   sources.
+   per file, then promotes the row to `queued`. If either the storage
+   write or the `queued` update fails, partial source blobs are deleted
+   best-effort and the row is flipped to `system_error` so the worker
+   won't try to grade a row with missing or incomplete sources.
 2. **Judge** — `executeSandbox` (in `apps/worker/src/activities/judge.ts`)
    loads sources via `submissionDomain.getSubmissionSources(id)` at the
    start of the activity rather than trusting the dispatch draft. Both
@@ -239,9 +240,11 @@ prefix / key references and a small JSON summary. The full flow:
 | `Submission.verdictSummary` (< 4 KB: case counters, subtask summary, truncated compiler error) |                                                                 |
 | `Submission.verdictDetailStorageKey` (pointer, null until judge writes detail)                 |                                                                 |
 
-`SubmissionStatus.system_error` is the terminal verdict for storage-side
-failures — surfaced to the student as a non-graded platform fault so they
-can resubmit. See `packages/db/prisma/schema/submission.prisma` and
+`SubmissionStatus.pending_upload` is the non-terminal staging state between
+the DB commit and durable source upload. `SubmissionStatus.system_error` is
+the terminal verdict for storage-side and dispatch-side platform failures —
+surfaced to the student as a non-graded fault so they can resubmit. See
+`packages/db/prisma/schema/submission.prisma` and
 `packages/storage/src/{keys,submission}.ts`.
 
 ## Activity / workflow boundary
