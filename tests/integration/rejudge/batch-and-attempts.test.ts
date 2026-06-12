@@ -68,7 +68,11 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
     expect(before).toBe(1);
 
     // Simulate the rejudge round trip: snapshot → re-grade existing row → finalize.
-    const snap = await submissionDomain.snapshotForRejudge(submission.id, teacher.id);
+    const snap = await submissionDomain.snapshotForRejudge(
+      submission.id,
+      teacher.id,
+      `run-${submission.id}`,
+    );
     expect(snap).not.toBeNull();
     await submissionRepo.complete(submission.id, { status: "accepted", score: 100 });
     await submissionDomain.finalizeRejudgeLog(submission.id, teacher.id, snap!.logId);
@@ -97,7 +101,11 @@ describe("listRejudgeLogsPaged (real DB)", () => {
       status: "wrong_answer",
       score: 0,
     });
-    const snap = await submissionDomain.snapshotForRejudge(sub.id, opts.teacherId);
+    const snap = await submissionDomain.snapshotForRejudge(
+      sub.id,
+      opts.teacherId,
+      `run-${sub.id}`,
+    );
     await submissionRepo.complete(sub.id, { status: "accepted", score: 100 });
     await submissionDomain.finalizeRejudgeLog(sub.id, opts.teacherId, snap!.logId);
     return sub;

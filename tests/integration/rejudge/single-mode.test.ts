@@ -34,7 +34,11 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
     });
 
     // Step 1: snapshot pre-rejudge state.
-    const snap = await submissionDomain.snapshotForRejudge(submission.id, teacher.id);
+    const snap = await submissionDomain.snapshotForRejudge(
+      submission.id,
+      teacher.id,
+      `run-${submission.id}`,
+    );
     expect(snap).not.toBeNull();
 
     // Step 2: simulate the judge pipeline re-running and updating the
@@ -55,6 +59,39 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
     expect(log.oldScore).toBe(30);
     expect(log.newVerdict).toBe("accepted");
     expect(log.newScore).toBe(100);
+  });
+
+  it("snapshotForRejudge is idempotent per run id — a retry reuses the first capture", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const problem = await createTestProblem({ authorId: teacher.id });
+    const submission = await createTestSubmission({
+      problemId: problem.id,
+      status: "wrong_answer",
+      score: 30,
+    });
+
+    const first = await submissionDomain.snapshotForRejudge(
+      submission.id,
+      teacher.id,
+      "run-retry",
+    );
+    expect(first?.oldStatus).toBe("wrong_answer");
+
+    await submissionRepo.complete(submission.id, { status: "accepted", score: 100 });
+
+    const retry = await submissionDomain.snapshotForRejudge(
+      submission.id,
+      teacher.id,
+      "run-retry",
+    );
+
+    expect(retry!.logId).toBe(first!.logId);
+    expect(retry!.oldStatus).toBe("wrong_answer");
+
+    const logs = await submissionRejudgeLogRepo.listBySubmission(submission.id);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]!.oldVerdict).toBe("wrong_answer");
+    expect(logs[0]!.oldScore).toBe(30);
   });
 
   it("rejects rejudge when actor lacks operate permission", async () => {

@@ -1083,6 +1083,7 @@ Audit log for rejudge runs. Written in two passes by submissionJudgeWorkflow whe
 | `id` | `String` | `@id @default(cuid())` |
 | `submissionId` | `String` | — |
 | `rejudgedByUserId` | `String?` | — |
+| `rejudgeRunId` | `String?` | — |
 | `oldVerdict` | `String` | — |
 | `oldScore` | `Int` | — |
 | `oldResultJson` | `Json?` | — |
@@ -1093,5 +1094,5 @@ Audit log for rejudge runs. Written in two passes by submissionJudgeWorkflow whe
 | `submission` | `Submission` | `@relation(fields: [submissionId], references: [id], onDelete: Cascade)` |
 | `rejudgedBy` | `User?` | `@relation(fields: [rejudgedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`, `@@index([createdAt(sort: Desc)])`
+Indexes & constraints: `@@unique([submissionId, rejudgeRunId])`, `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`, `@@index([createdAt(sort: Desc)])`
 

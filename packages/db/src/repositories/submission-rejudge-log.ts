@@ -4,6 +4,7 @@ import { Prisma } from "../../generated/prisma/client";
 export interface SubmissionRejudgeLogCreateInput {
   submissionId: string;
   rejudgedByUserId: string | null;
+  rejudgeRunId: string | null;
   oldVerdict: string;
   oldScore: number;
   oldResultJson: Prisma.InputJsonValue | null;
@@ -21,10 +22,32 @@ export const submissionRejudgeLogRepo = {
       data: {
         submissionId: input.submissionId,
         rejudgedByUserId: input.rejudgedByUserId,
+        rejudgeRunId: input.rejudgeRunId,
         oldVerdict: input.oldVerdict,
         oldScore: input.oldScore,
         oldResultJson: input.oldResultJson ?? Prisma.JsonNull,
       },
+    });
+  },
+
+  upsertSnapshot(input: SubmissionRejudgeLogCreateInput) {
+    if (input.rejudgeRunId === null) return this.create(input);
+    return prisma.submissionRejudgeLog.upsert({
+      where: {
+        submissionId_rejudgeRunId: {
+          submissionId: input.submissionId,
+          rejudgeRunId: input.rejudgeRunId,
+        },
+      },
+      create: {
+        submissionId: input.submissionId,
+        rejudgedByUserId: input.rejudgedByUserId,
+        rejudgeRunId: input.rejudgeRunId,
+        oldVerdict: input.oldVerdict,
+        oldScore: input.oldScore,
+        oldResultJson: input.oldResultJson ?? Prisma.JsonNull,
+      },
+      update: {},
     });
   },
 

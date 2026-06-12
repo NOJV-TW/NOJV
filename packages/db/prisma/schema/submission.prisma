@@ -111,6 +111,7 @@ model SubmissionRejudgeLog {
   id               String   @id @default(cuid())
   submissionId     String
   rejudgedByUserId String?
+  rejudgeRunId     String?
   oldVerdict       String
   oldScore         Int
   oldResultJson    Json?
@@ -122,6 +123,7 @@ model SubmissionRejudgeLog {
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   rejudgedBy User?      @relation(fields: [rejudgedByUserId], references: [id], onDelete: SetNull)
 
+  @@unique([submissionId, rejudgeRunId])
   @@index([submissionId, createdAt(sort: Desc)])
   @@index([rejudgedByUserId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
