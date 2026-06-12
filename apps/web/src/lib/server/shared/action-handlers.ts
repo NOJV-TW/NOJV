@@ -1,5 +1,5 @@
 import { fail, isHttpError as isSvelteKitError, isRedirect } from "@sveltejs/kit";
-import type { RequestEvent } from "@sveltejs/kit";
+import type { ActionFailure, RequestEvent } from "@sveltejs/kit";
 import { consumeFormRateLimitInternal } from "./rate-limiter";
 import { classifyError } from "./handle-action-error";
 
@@ -15,10 +15,8 @@ export function withRateLimit<E extends RequestEvent, R>(
   };
 }
 
-export function withAction<E extends RequestEvent, R>(
-  handler: (event: E) => Promise<R>,
-): (event: E) => Promise<R | ReturnType<typeof fail>> {
-  return withRateLimit(async (event) => {
+export function withAction<E extends RequestEvent, R>(handler: (event: E) => Promise<R>) {
+  return withRateLimit(async (event: E): Promise<R | ActionFailure<{ error: string }>> => {
     try {
       return await handler(event);
     } catch (err) {

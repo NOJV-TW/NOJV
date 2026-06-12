@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ProblemSubmissionEntry } from "$lib/types";
+  import type { SubmissionResult } from "@nojv/core";
   import { formatSmartTimestamp } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
@@ -124,7 +125,7 @@
       .then((res) => {
         if (!res.ok) return;
         return res.json() as Promise<{
-          result: import("@nojv/core").SubmissionResult | null;
+          result: SubmissionResult | null;
           status: string;
         }>;
       })

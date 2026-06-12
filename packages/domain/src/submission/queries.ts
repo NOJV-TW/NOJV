@@ -271,7 +271,7 @@ export async function listProblemSubmissions(
     const result: SubmissionResult = {
       accepted: verdict === "accepted",
       verdict,
-      score: s.score ?? (verdict === "accepted" ? 100 : 0),
+      score: s.score,
       runtimeMs: s.runtimeMs ?? 0,
       feedback:
         summary?.compilerErrorTruncated ??

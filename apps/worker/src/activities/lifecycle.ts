@@ -49,7 +49,6 @@ export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepSta
 export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;
 export const publishScoreboardUpdate = pubsub.publishScoreboardUpdate;
-export const publishAssessmentDeadline = pubsub.publishAssessmentDeadline;
 
 export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {
   await notificationDomain.fanoutAssignmentDueSoon(assignmentId);

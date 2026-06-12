@@ -1,5 +1,4 @@
 import {
-  SSE_ASSIGNMENT_DEADLINE,
   SSE_CONTEST_ENDING,
   SSE_CONTEST_STARTING,
   SSE_NOTIFICATION,
@@ -64,16 +63,6 @@ export async function publishContestEvent(
 
   try {
     await publishEvent(keys.contestChannel(contestId), event);
-  } catch {
-    /* best-effort SSE publish; clients recover via poll / reconnect */
-  }
-}
-
-export async function publishAssessmentDeadline(assessmentId: string): Promise<void> {
-  try {
-    await publishEvent(keys.assessmentChannel(assessmentId), {
-      type: SSE_ASSIGNMENT_DEADLINE,
-    });
   } catch {
     /* best-effort SSE publish; clients recover via poll / reconnect */
   }

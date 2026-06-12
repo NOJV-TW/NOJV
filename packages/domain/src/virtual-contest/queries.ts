@@ -1,6 +1,6 @@
 import { contestRepo, participationRepo, submissionRepo } from "@nojv/db";
+import type { languageSchema } from "@nojv/core";
 import {
-  languageSchema,
   submissionResultSchema,
   submissionVerdicts,
   type ContestScoringMode,

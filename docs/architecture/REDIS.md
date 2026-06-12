@@ -21,20 +21,18 @@ Channels are `nojv:`-prefixed like keyed state. The general SSE endpoint `/api/e
 | `nojv:user:{userId}`                           | `publishVerdict`                                  | `/api/events/stream` | Submission verdict toasts to the owner |
 | `nojv:notification:{userId}`                   | `publishNotification` / batch                     | `/api/events/stream` | Durable notification fan-out           |
 | `nojv:contest:{contestId}`                     | `publishContestEvent` / `publishScoreboardUpdate` | `/scoreboard/stream` | Contest lifecycle + scoreboard nudges  |
-| `nojv:assessment:{assessmentId}`               | `publishAssessmentDeadline`                       | (none — see note)    | Assessment deadline reminders          |
 | `nojv:clarification:{contextType}:{contextId}` | `publishClarification`                            | `/api/events/stream` | Clarification thread updates           |
 
 **Event Types** (string constants in `packages/core/src/sse-events.ts`, discriminator field `type`):
 
-| Event                 | Payload                                                             | When                                                                  |
-| --------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `submission:verdict`  | `{ type, submissionId, verdict, score, problemId }`                 | Submission judging completes                                          |
-| `scoreboard:update`   | `{ type }`                                                          | Contest judge completes (10 s-throttled nudge for the scoreboard SSE) |
-| `contest:starting`    | `{ type }`                                                          | Contest becomes active                                                |
-| `contest:ending`      | `{ type }`                                                          | Contest ends                                                          |
-| `assignment:deadline` | `{ type }` (assessmentId carried in the channel name)               | Assessment deadline approaching                                       |
-| `notification`        | `{ type, id?, notificationType, params, linkUrl, createdAt? }`      | New durable notification (id/createdAt omitted on batch-signal pings) |
-| `clarification`       | `{ type, action, payload }` (action: created / updated / dismissed) | Clarification thread mutation                                         |
+| Event                | Payload                                                             | When                                                                  |
+| -------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `submission:verdict` | `{ type, submissionId, verdict, score, problemId }`                 | Submission judging completes                                          |
+| `scoreboard:update`  | `{ type }`                                                          | Contest judge completes (10 s-throttled nudge for the scoreboard SSE) |
+| `contest:starting`   | `{ type }`                                                          | Contest becomes active                                                |
+| `contest:ending`     | `{ type }`                                                          | Contest ends                                                          |
+| `notification`       | `{ type, id?, notificationType, params, linkUrl, createdAt? }`      | New durable notification (id/createdAt omitted on batch-signal pings) |
+| `clarification`      | `{ type, action, payload }` (action: created / updated / dismissed) | Clarification thread mutation                                         |
 
 Events are published by Temporal activities and by domain mutations that emit notifications/clarifications. The full Zod schema lives in `packages/core/src/sse-events.ts` (`sseEventSchema`).
 
