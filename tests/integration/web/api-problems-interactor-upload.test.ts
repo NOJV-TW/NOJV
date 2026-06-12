@@ -1,12 +1,3 @@
-// tests/integration/web/api-problems-interactor-upload.test.ts
-//
-// W3.C coverage — domain-level checks for the interactor upload path driven
-// by `POST /api/problems/[id]/interactor`. Same pattern as the W3.B checker
-// suite: the HTTP wrapper is a thin adapter, the behaviour lives in
-// `setProblemInteractor` + `assertProblemStorageBudget`. Exercising those
-// directly keeps the suite outside the SvelteKit runtime, which the
-// integration project's vitest config does not provide.
-
 import { describe, expect, it } from "vitest";
 
 import { ForbiddenError, problemDomain } from "@nojv/domain";
@@ -67,7 +58,6 @@ describe("POST /api/problems/[id]/interactor (W3.C)", () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
-    // No blob was written under the problem prefix.
     await expect(getText(createStorageClient(), interactorKey(problem.id))).rejects.toThrow(
       /No body returned/,
     );

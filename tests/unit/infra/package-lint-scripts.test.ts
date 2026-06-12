@@ -26,9 +26,6 @@ function workspacePackageJsons(): { name: string; scripts: Record<string, string
 }
 
 describe("workspace lint coverage", () => {
-  // turbo silently skips packages without a lint script, so a package with TS
-  // source (proxied by a typecheck script) must also carry a lint script —
-  // otherwise it is never linted (the @nojv/temporal / sandbox-runner gap).
   it("every package that has a typecheck script also has a lint script", () => {
     const missing = workspacePackageJsons()
       .filter((p) => p.scripts.typecheck && !p.scripts.lint)

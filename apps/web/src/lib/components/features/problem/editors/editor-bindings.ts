@@ -24,7 +24,7 @@ export function readPanelWidth(): number {
     const parsed = Number(raw);
     if (Number.isFinite(parsed)) return clampPanelWidth(parsed);
   } catch {
-    // localStorage may throw under private-mode quotas / SSR; fall through.
+    return DEFAULT_PANEL_WIDTH;
   }
   return DEFAULT_PANEL_WIDTH;
 }
@@ -33,7 +33,7 @@ export function persistPanelWidth(width: number): void {
   try {
     localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(clampPanelWidth(width)));
   } catch {
-    // Quota / disabled storage — silently no-op.
+    return;
   }
 }
 
@@ -47,7 +47,7 @@ export function persistLanguage(lang: Language): void {
   try {
     document.cookie = `${EDITOR_LANGUAGE_COOKIE}=${lang}; path=/; max-age=31536000; samesite=lax`;
   } catch {
-    // Disabled cookies / SSR — silently no-op.
+    return;
   }
 }
 

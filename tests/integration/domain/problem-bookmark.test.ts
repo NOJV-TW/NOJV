@@ -1,5 +1,3 @@
-// Bookmark toggle is a per-user join row; verify the domain mutation flips
-// state idempotently and surfaces a NotFound for missing problems.
 import { describe, expect, it } from "vitest";
 
 import { problemDomain } from "@nojv/domain";

@@ -26,18 +26,15 @@ describe("compileInteractor (python)", () => {
 
     expect(result.runCommand[0]).toBe("python3");
     const wrapped = await readFile(result.runCommand[1]!, "utf8");
-    // Live read/write helpers (talks to the solution over stdin/stdout)
     expect(wrapped).toContain("def read(");
     expect(wrapped).toContain("def write(");
     expect(wrapped).toContain("_sys.stdin.readline()");
     expect(wrapped).toContain("print(msg, flush=True)");
-    // DOMjudge feedback-file helpers and exit codes
     expect(wrapped).toContain("def accept(");
     expect(wrapped).toContain("def wrong(");
     expect(wrapped).toContain("def set_score(");
     expect(wrapped).toContain("_sys.exit(42)");
     expect(wrapped).toContain("_sys.exit(43)");
-    // It must NOT slurp a fixed team-output blob like the output validator does.
     expect(wrapped).not.toContain("team_output = _sys.stdin.read()");
     expect(wrapped).toContain("accept('done')");
   });

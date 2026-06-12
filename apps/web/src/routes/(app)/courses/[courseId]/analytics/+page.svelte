@@ -24,9 +24,6 @@
     return `${Math.round(fraction * 100)}%`;
   }
 
-  // ECharts paints to canvas, so it needs resolved color strings rather than
-  // CSS var() references. Read the design tokens at runtime and re-read them
-  // when the theme class flips so the chart tracks light/dark mode.
   const DEFAULT_VERDICT_COLORS = {
     success: "#7a8f6d",
     destructive: "#c4682d",

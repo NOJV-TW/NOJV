@@ -44,9 +44,6 @@ function mkSub(
 describe("buildScoreboard (dispatcher)", () => {
   const problems = [mkProblem("P1", 1, 100), mkProblem("P2", 2, 100)];
   const participants = [mkParticipant("u1"), mkParticipant("u2")];
-  // Both users solve P1 fully at different times. In ICPC the earlier
-  // solver wins; in IOI both tie at 100 points but the earlier solver
-  // sits at a lower "last improvement" time so they appear first.
   const submissions = [
     mkSub("u1", "P1", 100, 5),
     mkSub("u2", "P1", 100, 15),
@@ -62,23 +59,19 @@ describe("buildScoreboard (dispatcher)", () => {
       problems,
       false,
     );
-    // ICPC scores by problems solved, penalty in seconds.
     expect(board[0]!.userId).toBe("u1");
     expect(board[0]!.totalScore).toBe(100);
     expect(board[0]!.totalPenalty).toBe(5 * 60);
-    // u2 solved only P1 as well (P2 was wrong).
     expect(board[1]!.totalScore).toBe(100);
     expect(board[1]!.totalPenalty).toBe(15 * 60);
   });
 
   it("dispatches to IOI when scoringMode is anything else", () => {
     const board = buildScoreboard(session, "sum", participants, submissions, problems, false);
-    // IOI sums scores including partial credit.
     const u2 = board.find((e) => e.userId === "u2")!;
     expect(u2.totalScore).toBe(150); // 100 (P1) + 50 (P2 partial)
     const u1 = board.find((e) => e.userId === "u1")!;
     expect(u1.totalScore).toBe(100);
-    // u2 has higher score → appears first under IOI rules.
     expect(board[0]!.userId).toBe("u2");
   });
 

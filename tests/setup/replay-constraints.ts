@@ -1,25 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// `prisma db push` builds the test DB straight from the Prisma schema, which
-// cannot express CHECK constraints or expression indexes (e.g. the FTS GIN).
-// Those live only in the migration SQL, so a db-push test DB silently lacks
-// them — a CHECK-violating write passes in integration tests but fails in prod.
-// We replay the net effect of every migration's CHECK + expression-GIN DDL so
-// the test DB enforces the same invariants prod does. Migrations stay the single
-// source of truth — nothing is hand-duplicated here.
-//
-// One subtlety: a `RENAME COLUMN` rewrites a live CHECK in Postgres, but the
-// migration *text* that created the CHECK still names the old column. We replay
-// renames against already-collected DDL so the emitted text matches the column
-// names the current schema (and db-push test DB) actually has.
-
 const MIGRATIONS_DIR = join(process.cwd(), "packages/db/prisma/migrations");
 
 const CHECK_RE = /ALTER TABLE\s+("?\w+"?)\s+ADD CONSTRAINT\s+("?\w+"?)\s+CHECK/is;
-// Only expression GINs (a function call inside the parens) are migration-only;
-// a bare-column array GIN like `USING GIN ("tags")` is schema-expressible and
-// db push already builds it.
 const GIN_EXPR_RE =
   /CREATE INDEX\s+("?\w+"?)\s+ON\s+("?\w+"?)[\s\S]+?USING GIN\s*\(\s*\w+\s*\(/is;
 const DROP_CONSTRAINT_RE = /DROP CONSTRAINT(?:\s+IF EXISTS)?\s+("?\w+"?)/is;
@@ -40,8 +24,6 @@ function splitStatements(sql: string): string[] {
     .filter(Boolean);
 }
 
-// Net-surviving CHECK constraints and expression-GIN indexes, keyed by name so
-// a later DROP cancels an earlier ADD and a RENAME COLUMN updates the text.
 export function collectReplayStatements(): string[] {
   const checks = new Map<string, Ddl>();
   const indexes = new Map<string, Ddl>();

@@ -39,7 +39,6 @@ describe("getClientIp — production", () => {
 
   it("throws 403 when CF-Connecting-IP is missing (no fallback)", () => {
     getWebEnvMock.mockReturnValue({ NODE_ENV: "production" });
-    // SvelteKit `error(403, ...)` throws; we only assert it throws, not the shape.
     expect(() => getClientIp(mockEvent({ socket: "10.0.0.1" }))).toThrow();
   });
 

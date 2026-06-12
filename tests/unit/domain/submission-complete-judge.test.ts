@@ -1,9 +1,3 @@
-// completeJudge — verdictDetail split:
-//   - full SubmissionResult lands in S3 at submissions/<id>/verdict-detail.json
-//   - DB row gets a summary digest + the storage key
-//   - storage write happens BEFORE the DB update so a storage failure leaves
-//     the row in its pre-terminal state (no AC verdict without detail)
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
@@ -17,8 +11,6 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {
     complete: submissionComplete,
   },
-  // The completeJudge path doesn't touch these, but the @nojv/db barrel
-  // export is wide — stub the surface our import graph reaches.
   problemRepo: { withTx: () => ({}) },
   userRepo: { withTx: () => ({}) },
   courseRepo: { withTx: () => ({}) },
@@ -150,12 +142,10 @@ describe("completeJudge — storage + DB write", () => {
 
     await completeJudge("sub_1", result);
 
-    // S3 received exactly one PutObject under the verdict-detail key.
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
     expect([...store.keys()]).toEqual(["submissions/sub_1/verdict-detail.json"]);
     expect(JSON.parse(store.get("submissions/sub_1/verdict-detail.json")!)).toEqual(result);
 
-    // The DB write carries summary + storage key, no longer the full result.
     expect(submissionComplete).toHaveBeenCalledTimes(1);
     const updateArg = submissionComplete.mock.calls[0]![1] as {
       runtimeMs: number;

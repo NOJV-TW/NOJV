@@ -5,9 +5,6 @@ import type { SandboxResult, SandboxTestcaseResult, SandboxVerdict } from "@nojv
 
 const { buildSubtaskResults } = submissionDomain;
 
-// Local re-types so we don't depend on a deep subpath import that the
-// repo's path alias doesn't expose. These shapes mirror the exported
-// `TestcaseSetGroup` / `SubtaskStrategyMap` from `@nojv/domain`.
 type SubtaskStrategyMap = Record<string, "ALL_OR_NOTHING" | "PROPORTIONAL" | "MINIMUM">;
 interface TestcaseSetGroup {
   id: string;
@@ -15,10 +12,6 @@ interface TestcaseSetGroup {
   testcases: { id: string; input: string; output?: string; weight: number }[];
   weight: number;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers — keep test bodies focused on the rule under inspection.
-// ─────────────────────────────────────────────────────────────────────────────
 
 function mkCase(index: number, verdict: SandboxVerdict, timeMs = 5): SandboxTestcaseResult {
   return {
@@ -37,8 +30,6 @@ function mkSandbox(verdicts: SandboxVerdict[]): SandboxResult {
   };
 }
 
-// Like `mkSandbox` but with explicit checker partial-credit scores (0-100)
-// per case — exercises strategies that read `SandboxTestcaseResult.score`.
 function mkScoredSandbox(scores: number[]): SandboxResult {
   return {
     testcaseResults: scores.map((s, i) => ({
@@ -67,8 +58,6 @@ function mkSet(
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 describe("buildSubtaskResults", () => {
   describe("ALL_OR_NOTHING (default)", () => {
     it("awards full weight when every testcase in the subtask is AC", () => {
@@ -93,7 +82,6 @@ describe("buildSubtaskResults", () => {
 
     it("falls back to ALL_OR_NOTHING when strategy map has no entry for the subtask", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"], 50)];
-      // empty strategies map → default
       const result = buildSubtaskResults(mkSandbox(["AC", "WA"]), sets, {});
 
       expect(result[0]!.rawScore).toBe(0);
@@ -104,7 +92,6 @@ describe("buildSubtaskResults", () => {
     it("awards weight * (passed / total) for partial AC", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2", "t3", "t4"], 100)];
       const strategies: SubtaskStrategyMap = { s1: "PROPORTIONAL" };
-      // 3/4 passed
       const result = buildSubtaskResults(mkSandbox(["AC", "AC", "AC", "WA"]), sets, strategies);
       expect(result[0]!.rawScore).toBe(75);
       expect(result[0]!.passed).toBe(false); // not all passed
@@ -138,7 +125,6 @@ describe("buildSubtaskResults", () => {
     it("zeroes the subtask when one case scores 0 (worst case caps it)", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"], 60)];
       const strategies: SubtaskStrategyMap = { s1: "MINIMUM" };
-      // AC→100, WA→0 (no checker score) → min is 0.
       const result = buildSubtaskResults(mkSandbox(["AC", "WA"]), sets, strategies);
       expect(result[0]!.rawScore).toBe(0);
       expect(result[0]!.passed).toBe(false);
@@ -147,14 +133,12 @@ describe("buildSubtaskResults", () => {
     it("reflects checker partial credit — lowest case 40 → weight × 0.4", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2", "t3"], 100)];
       const strategies: SubtaskStrategyMap = { s1: "MINIMUM" };
-      // Checker partial scores: 90, 40, 100 → min 40 → 100 × 40 / 100 = 40.
       const result = buildSubtaskResults(mkScoredSandbox([90, 40, 100]), sets, strategies);
       expect(result[0]!.rawScore).toBe(40);
     });
 
     it("differs from ALL_OR_NOTHING — partial checker credit earns a floor", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"], 80)];
-      // Both cases have non-zero checker partial scores: 70 and 55.
       const sandbox = mkScoredSandbox([70, 55]);
 
       const minResult = buildSubtaskResults(sandbox, sets, { s1: "MINIMUM" });
@@ -162,9 +146,7 @@ describe("buildSubtaskResults", () => {
         s1: "ALL_OR_NOTHING",
       });
 
-      // MINIMUM: 80 × min(70,55) / 100 = 80 × 0.55 = 44.
       expect(minResult[0]!.rawScore).toBe(44);
-      // ALL_OR_NOTHING ignores partial scores — no case is AC → 0.
       expect(allOrNothingResult[0]!.rawScore).toBe(0);
       expect(minResult[0]!.rawScore).not.toBe(allOrNothingResult[0]!.rawScore);
     });
@@ -173,9 +155,6 @@ describe("buildSubtaskResults", () => {
   describe("verdict mapping & per-case shape", () => {
     it("preserves TLE / MLE / RE / OLE-as-RE verdicts on the case payload", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2", "t3", "t4"])];
-      // Sandbox uses "RE" for both runtime and OLE; MapResult-level mapping
-      // is exercised separately. Here we just confirm verdict strings are
-      // copied through onto each case.
       const result = buildSubtaskResults(mkSandbox(["TLE", "MLE", "RE", "RE"]), sets, {
         s1: "ALL_OR_NOTHING",
       });
@@ -185,7 +164,6 @@ describe("buildSubtaskResults", () => {
     });
 
     it("falls back to verdict 'SE' when the sandbox is missing a case slot", () => {
-      // Set declares 3 testcases but sandbox only returned 2 — undefined slot.
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2", "t3"])];
       const partial: SandboxResult = {
         testcaseResults: [mkCase(0, "AC"), mkCase(1, "AC")],
@@ -219,7 +197,6 @@ describe("buildSubtaskResults", () => {
         mkSet("s1", "S1", ["t1", "t2"], 30),
         mkSet("s2", "S2", ["t3", "t4", "t5"], 70),
       ];
-      // s1 = AC,AC (full pass) ; s2 = AC,WA,AC (one fail)
       const result = buildSubtaskResults(mkSandbox(["AC", "AC", "AC", "WA", "AC"]), sets, {
         s1: "ALL_OR_NOTHING",
         s2: "ALL_OR_NOTHING",
@@ -266,9 +243,6 @@ describe("buildSubtaskResults", () => {
   });
 
   describe("empty subtask (0 testcases)", () => {
-    // Pinning current behavior: an empty subtask is treated as "did not pass"
-    // (rawScore 0, passed false). If product wants to flip this to "vacuously
-    // pass" we'd update the test together with the implementation.
     it("returns rawScore=0 and passed=false for a subtask with no testcases", () => {
       const sets = [mkSet("s_empty", "Empty", [], 50)];
       const result = buildSubtaskResults({ testcaseResults: [] }, sets, {

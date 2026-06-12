@@ -15,8 +15,6 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     const progress = await submissionDomain.queryRejudgeProgress(workflowId);
     return json({ ...progress, done: false });
   } catch {
-    // Querying a closed/cancelled/absent workflow throws — treat as finished so
-    // the client stops polling.
     return json({ completed: 0, total: 0, done: true });
   }
 });

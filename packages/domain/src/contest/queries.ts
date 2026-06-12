@@ -211,8 +211,6 @@ export async function getContestWorkspaceData(
   );
 
   const base = mapContestDetail(contest);
-  // Stage 4 read-switch: the persisted participation snapshot now comes from the
-  // unified Participation mirror instead of the bundled ContestParticipation include.
   const participation = await participationRepo.findContestParticipation(contestId, userId);
 
   return {
@@ -262,7 +260,7 @@ function resolveContestTimeStatus(
   return "open";
 }
 
-// intentional-nullable: paired with getAssignmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
+// intentional-nullable: caller needs absence for inaccessible contest context.
 export async function getContestContext(
   contestId: string,
   options: GetContestContextOptions,

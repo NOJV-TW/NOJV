@@ -42,11 +42,8 @@ describe("getSuggestedProblems", () => {
       { problemId: "p2", problem: { tags: ["dp"], difficulty: "medium" } },
     ]);
     findRecommendations.mockResolvedValue([
-      // Two of user's strongest tags → highest overlap
       { id: "p10", title: "DP graph problem", tags: ["dp", "graph"], difficulty: "hard" },
-      // One overlapping tag
       { id: "p11", title: "DP only", tags: ["dp", "math"], difficulty: "easy" },
-      // No overlap — should be filtered
       { id: "p12", title: "Unrelated", tags: ["string"], difficulty: "easy" },
     ]);
 
@@ -54,7 +51,6 @@ describe("getSuggestedProblems", () => {
 
     expect(out.map((p) => p.id)).toEqual(["p10", "p11"]);
     expect(out[0]?.tags).toEqual(["dp", "graph"]);
-    // Sanity — solved IDs were forwarded as exclusion list.
     expect(findRecommendations).toHaveBeenCalledWith(
       expect.objectContaining({ excludeIds: ["p1", "p2"] }),
     );

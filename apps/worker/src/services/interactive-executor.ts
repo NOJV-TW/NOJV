@@ -22,6 +22,14 @@ export { mergeInteractiveCase } from "./check-interactive";
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 const PER_CASE_GRACE_MS = 35_000;
 
+function endStdin(stream: Writable): void {
+  try {
+    stream.end();
+  } catch {
+    return;
+  }
+}
+
 export interface InteractiveExecutorConfig {
   cpuLimit: string;
   image: string;
@@ -245,20 +253,12 @@ async function runCase(
       });
       solChild.on("close", () => {
         solClosed = true;
-        try {
-          intChild.stdin.end();
-        } catch {
-          // already closed
-        }
+        endStdin(intChild.stdin);
         finish();
       });
       intChild.on("close", () => {
         intClosed = true;
-        try {
-          solChild.stdin.end();
-        } catch {
-          // already closed
-        }
+        endStdin(solChild.stdin);
         finish();
       });
     });

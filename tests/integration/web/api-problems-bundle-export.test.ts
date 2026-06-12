@@ -1,17 +1,3 @@
-/**
- * Round-trip coverage for `exportBundle` (GET /api/problems/[id]/bundle).
- *
- * Strategy: seed a problem with workspace files, two testcases, and a
- * checker; export it to a zip buffer; wipe the problem's blob prefix +
- * DB rows; re-import the buffer; assert the resulting problem state is
- * equivalent to the pre-export state along the dimensions the bundle
- * format carries (workspace paths + contents, testcase inputs + answers,
- * checker source + language, judgeConfig type).
- *
- * Domain-direct: we call `exportBundle` / `importBundle` on @nojv/domain
- * the same way the W3.A/B/C/D integration tests do — the +server.ts is a
- * thin wrapper and gets no value from being exercised here.
- */
 import { randomUUID } from "node:crypto";
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -50,12 +36,6 @@ async function seedProblemWithOwner(): Promise<SeededProblem> {
   };
 }
 
-/**
- * Wipe the factory's pre-seeded testcase set + sample testcase and replace
- * with the fixtures the round-trip test wants. The factory always inserts a
- * single "sample" set + one testcase; we drop them so the post-export DB
- * state is exactly the bundle's payload (two testcases + workspace + checker).
- */
 async function seedFixtures(problemId: string): Promise<{
   workspaceFiles: { language: string; path: string; content: string }[];
   testcases: { input: string; answer: string | null }[];
@@ -93,8 +73,6 @@ async function seedFixtures(problemId: string): Promise<{
     checker: { language: "python" as const, source: "import sys\nprint('ok')\n" },
   };
 
-  // Workspace files: random ids; mirror the production write order (S3 put
-  // BEFORE DB insert).
   for (const [i, w] of fixtures.workspaceFiles.entries()) {
     const id = randomUUID();
     const contentKey = workspaceFileKey(problemId, id);
@@ -112,7 +90,6 @@ async function seedFixtures(problemId: string): Promise<{
     });
   }
 
-  // Testcases.
   for (const [i, tc] of fixtures.testcases.entries()) {
     const id = randomUUID();
     const inputKey = testcaseInputKey(problemId, id);
@@ -132,7 +109,6 @@ async function seedFixtures(problemId: string): Promise<{
     });
   }
 
-  // Checker.
   await putText(storage, checkerKeyFor(problemId), fixtures.checker.source);
   await testPrisma.problem.update({
     where: { id: problemId },
@@ -215,11 +191,6 @@ describe("exportBundle round-trip (real Postgres, mocked storage)", () => {
 
     const before = await snapshot(seeded.problemId);
 
-    // `exportBundle` now returns a Web ReadableStream so the route can
-    // hand it straight to `new Response(...)` and avoid buffering the
-    // whole zip in process memory. The round-trip assertion still needs
-    // a concrete Buffer to feed back into `importBundle`, so consume
-    // the stream here.
     const exportedStream = await problemDomain.exportBundle(seeded.actor, seeded.problemId);
     const reader = exportedStream.getReader();
     const chunks: Uint8Array[] = [];
@@ -232,10 +203,6 @@ describe("exportBundle round-trip (real Postgres, mocked storage)", () => {
     expect(exported).toBeInstanceOf(Buffer);
     expect(exported.byteLength).toBeGreaterThan(0);
 
-    // Wipe DB + S3 prefix so the re-import has to repopulate everything from
-    // the zip alone. Bundle import does its own wholesale replace, but
-    // clearing S3 first ensures any pre-existing blob can't satisfy the
-    // post-import reads by accident.
     await testPrisma.testcase.deleteMany({
       where: { testcaseSet: { problemId: seeded.problemId } },
     });
@@ -255,8 +222,6 @@ describe("exportBundle round-trip (real Postgres, mocked storage)", () => {
 
     const after = await snapshot(seeded.problemId);
 
-    // Workspace: paths + contents preserved. The bundle format doesn't
-    // carry orderIndex, so we compare on the (path-sorted) set of pairs.
     const beforeWorkspace = before.workspace
       .map((w) => ({ path: w.path, content: w.content }))
       .sort((a, b) => a.path.localeCompare(b.path));
@@ -265,11 +230,8 @@ describe("exportBundle round-trip (real Postgres, mocked storage)", () => {
       .sort((a, b) => a.path.localeCompare(b.path));
     expect(afterWorkspace).toEqual(beforeWorkspace);
 
-    // Testcases: inputs + answers preserved in order.
     expect(after.testcases).toEqual(before.testcases);
 
-    // Checker source + language preserved; judgeConfig switches back to
-    // `checker`.
     expect(after.checker?.source).toBe(before.checker?.source);
     expect(after.checker?.language).toBe(before.checker?.language);
     expect(after.judgeType).toBe("checker");

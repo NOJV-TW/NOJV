@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted repo stubs — vi.mock is hoisted above regular imports, so these
-// must be declared via vi.hoisted() for the mock factory below to see them.
 const {
   contestFindById,
   assessmentFindByIdWithCourseId,

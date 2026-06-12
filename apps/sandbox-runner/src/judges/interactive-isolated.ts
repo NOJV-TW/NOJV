@@ -203,6 +203,6 @@ function writeSync(fd: number, data: string): void {
   try {
     fsWriteSync(fd, data);
   } catch {
-    // Pipe already closed (e.g. socat torn down) — nothing more we can do.
+    return;
   }
 }

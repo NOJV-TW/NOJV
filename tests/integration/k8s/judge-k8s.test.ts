@@ -1,33 +1,3 @@
-/**
- * K8s judge-pipeline integration suite.
- *
- * Drives the production `K8sExecutor` against a REAL local k3d cluster across
- * all four judge modes (standard / checker / interactive / advanced) and
- * verifies BOTH correctness AND the per-mode isolation invariants end-to-end:
- *
- *   - standard mode: the run pod's ConfigMap excludes
- *     `testcase-{i}-expected.txt` → an exploit that reads the answer off disk
- *     cannot get AC.
- *   - checker mode: the validator script + per-case answer files live in a
- *     SEPARATE validate Job's ConfigMap → the run pod cannot exfiltrate the
- *     answer.
- *   - interactive mode: the per-case secret input is mounted ONLY into the
- *     interactor container's ConfigMap, never the solution container.
- *   - advanced mode (registry source): grader pod produces a schema-valid
- *     result.json (read off the native sidecar's stdout) and customScore
- *     propagates. Tarball source on K8s fail-fasts with no Job created.
- *
- * The suite SKIPS CLEANLY if the cluster is unreachable so it never breaks
- * unrelated CI runs. It assumes:
- *   - KUBECONFIG: ~/.kube/config, context k3d-nojv-judge
- *   - Namespace nojv-sandbox already provisioned with NetworkPolicy,
- *     ResourceQuota, LimitRange (managed out-of-band).
- *   - Images already loaded into the cluster: nojv-sandbox:local +
- *     nojv-demo-judge-shell:local.
- *
- * Run:
- *   pnpm vitest run tests/integration/k8s/judge-k8s.test.ts
- */
 import { createRequire } from "node:module";
 
 import type * as k8s from "@kubernetes/client-node";
@@ -46,8 +16,6 @@ const NAMESPACE = "nojv-sandbox";
 const SANDBOX_IMAGE = "nojv-sandbox:local";
 const DEMO_JUDGE_IMAGE = "nojv-demo-judge-shell:local";
 
-// Smaller than production limits — k3d-on-laptop runs ResourceQuota
-// requests.cpu: 25 / requests.memory: 12Gi across many parallel tests.
 const EXECUTOR_CONFIG: K8sExecutorConfig = {
   namespace: NAMESPACE,
   image: SANDBOX_IMAGE,
@@ -57,9 +25,6 @@ const EXECUTOR_CONFIG: K8sExecutorConfig = {
   memoryLimit: "256Mi",
 };
 
-// Per-test deadline — image pull on a cold k3d node can take ~30s, plus
-// configmap + Job + pod schedule + Node start + runner exec. The interactive
-// path serializes per case so doubles up.
 const STANDARD_TIMEOUT_MS = 180_000;
 const INTERACTIVE_TIMEOUT_MS = 240_000;
 const ADVANCED_TIMEOUT_MS = 180_000;
@@ -67,10 +32,6 @@ const ADVANCED_TIMEOUT_MS = 180_000;
 let clients: { coreApi: k8s.CoreV1Api; batchApi: k8s.BatchV1Api } | null = null;
 let clusterUnreachableReason: string | null = null;
 
-// DOMjudge validator script: float-tolerant integer compare. Wraps the
-// `python-validator.py` runner contract (team_output, judge_answer,
-// accept/wrong/set_score/judge_log). Awards 50 partial when the team's output
-// is a non-empty prefix of the answer (matches the docker checker test).
 const VALIDATOR_SCRIPT = `team = team_output.split()
 ans = judge_answer.split()
 if team == ans:
@@ -82,9 +43,6 @@ else:
     wrong("wrong answer")
 `;
 
-// DOMjudge interactor (1..100 guessing game). Awards 100 - attempt*10.
-// Same shape as interactive-isolation.test.ts so a green run here proves the
-// K8s pod-shared-network bridge matches the Docker per-container bridge.
 const INTERACTOR_SCRIPT = `secret = int(judge_input.split()[0])
 budget = 7
 for attempt in range(budget):
@@ -123,8 +81,6 @@ for _ in range(20):
     sys.stdin.readline()
 `;
 
-// Names we create across tests; afterEach force-deletes any that exist so a
-// failed test never leaks resources into the next.
 const createdJobs = new Set<string>();
 const createdConfigMaps = new Set<string>();
 
@@ -135,12 +91,9 @@ function trackSubmission(
   const base = `judge-${submissionId}`;
   createdJobs.add(base);
   createdConfigMaps.add(base);
-  // checker pipeline adds a -validate Job + ConfigMap
   createdJobs.add(`${base}-validate`);
   createdConfigMaps.add(`${base}-validate`);
-  // advanced uses {base} for the Job and {base}-input for the ConfigMap
   createdConfigMaps.add(`${base}-input`);
-  // interactive uses {base}-int-{i} for jobs and -sol / -int suffixes for cms
   for (const idx of opts.interactiveCases ?? []) {
     const jobName = `${base}-int-${idx}`;
     createdJobs.add(jobName);
@@ -157,18 +110,14 @@ async function deleteJob(name: string): Promise<void> {
       namespace: NAMESPACE,
       propagationPolicy: "Background",
     });
-  } catch {
-    // already gone — fine
-  }
+  } catch {}
 }
 
 async function deleteConfigMap(name: string): Promise<void> {
   if (!clients) return;
   try {
     await clients.coreApi.deleteNamespacedConfigMap({ name, namespace: NAMESPACE });
-  } catch {
-    // already gone — fine
-  }
+  } catch {}
 }
 
 async function sweepNamespace(): Promise<void> {
@@ -198,7 +147,6 @@ beforeAll(async () => {
     kc.loadFromDefault();
     const ctx = kc.getCurrentContext();
     if (ctx !== "k3d-nojv-judge") {
-      // Allow override but warn loudly — we'd otherwise hit a real prod cluster.
       // eslint-disable-next-line no-console
       console.warn(
         `[k8s-judge-integration] current context is "${ctx}", expected "k3d-nojv-judge"`,
@@ -206,8 +154,6 @@ beforeAll(async () => {
     }
     const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
     const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
-    // Cheap ping — if the cluster is down or unreachable this throws and we
-    // skip the whole suite.
     await coreApi.listNamespacedPod({ namespace: NAMESPACE });
     clients = { coreApi, batchApi };
     await sweepNamespace();
@@ -248,10 +194,6 @@ function makeExecutor(): K8sExecutor {
   return new K8sExecutor(EXECUTOR_CONFIG, clients);
 }
 
-// ---------------------------------------------------------------------------
-// Test 1 — Standard mode
-// ---------------------------------------------------------------------------
-
 describe("K8s judge — standard mode", () => {
   it("AC: correct python solution", { timeout: STANDARD_TIMEOUT_MS }, async (ctx) => {
     if (skipIfUnreachable(ctx)) return;
@@ -276,8 +218,6 @@ describe("K8s judge — standard mode", () => {
     const result = await makeExecutor().execute(request);
     expect(result.compilationError).toBeUndefined();
     expect(result.pipelineError).toBeUndefined();
-    // standard mode returns rawRuns from the runner — worker-side
-    // comparison turns those into testcaseResults via resolveSandboxResult.
     expect(result.testcaseResults.length).toBe(2);
     for (const tc of result.testcaseResults) {
       expect(tc.verdict).toBe("AC");
@@ -294,10 +234,6 @@ describe("K8s judge — standard mode", () => {
       const submissionId = `k8s-std-exploit-${Date.now()}`;
       trackSubmission(submissionId);
 
-      // Try every plausible layout: the new k8s flat layout, the docker
-      // testcases/ tree, and the docker cases/ tree. Phase 1 strips
-      // `testcase-{i}-expected.txt` for standard mode, so /submission has only
-      // `testcase-{i}-input.txt` — the glob returns nothing → echo nothing → WA.
       const exploit = `import glob, os
 chunks = []
 for p in (
@@ -328,17 +264,11 @@ print("".join(chunks))
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
-        // SECURITY INVARIANT — if this becomes AC, the run pod ConfigMap is
-        // leaking the answer and Phase 1 has regressed.
         expect(tc.verdict).not.toBe("AC");
       }
     },
   );
 });
-
-// ---------------------------------------------------------------------------
-// Test 2 — Checker mode (DOMjudge validator in a separate Job)
-// ---------------------------------------------------------------------------
 
 function checkerRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
   return {
@@ -412,8 +342,6 @@ describe("K8s judge — checker mode", () => {
       const submissionId = `k8s-chk-partial-${Date.now()}`;
       trackSubmission(submissionId);
 
-      // Print just the two inputs — a non-empty prefix of the expected
-      // "a b a+b" → validator awards set_score(50) on the WA branch.
       const result = await makeExecutor().execute(
         checkerRequest({
           submissionId,
@@ -438,11 +366,6 @@ describe("K8s judge — checker mode", () => {
       const submissionId = `k8s-chk-exploit-${Date.now()}`;
       trackSubmission(submissionId);
 
-      // The validator script + per-case answers live in the SEPARATE validate
-      // Job's ConfigMap, not the run pod's. Glob anything that looks like the
-      // validator or the answer; print it as the team output. With isolation,
-      // the run pod sees neither → echoed text is empty/garbage → validator
-      // takes the wrong-answer branch.
       const exploit = `import glob, os
 chunks = []
 for p in (
@@ -464,16 +387,11 @@ print("".join(chunks))
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
-        // SECURITY INVARIANT.
         expect(tc.verdict).not.toBe("AC");
       }
     },
   );
 });
-
-// ---------------------------------------------------------------------------
-// Test 3 — Interactive mode (DOMjudge interactor, two-container pod)
-// ---------------------------------------------------------------------------
 
 function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
   return {
@@ -532,15 +450,6 @@ describe("K8s judge — interactive mode", () => {
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
-        // The CORRECTNESS invariant: a stubborn solution must NOT be AC. The
-        // exact verdict (WA from the interactor's "budget exhausted" branch
-        // vs. SE from a dropped marker) is intentionally not asserted: on
-        // K8s the interactor's socat closes TCP the moment the interactor
-        // exits with `wrong(...)`, which races with the solution-side
-        // runner's marker emission + containerd's log-file flush. A real
-        // production deploy would surface either WA or SE; both correctly
-        // refuse to award AC. See apps/worker/src/services/k8s-executor.ts
-        // executeInteractive doc for the socat-lifecycle teardown race.
         expect(tc.verdict).not.toBe("AC");
       }
     },
@@ -555,11 +464,6 @@ describe("K8s judge — interactive mode", () => {
       const submissionId = `k8s-int-exploit-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
-      // The per-case secret lives in the INTERACTOR container's ConfigMap
-      // (case-{i}-input.txt). The solution container's ConfigMap has only the
-      // student source + a stripped config.json — no testcase files at all.
-      // The exploit tries every known layout; falls through to "-1" which
-      // cannot satisfy higher/lower against 1..100 → not AC.
       const exploit = `import sys, glob, os
 secret = None
 for p in (
@@ -589,16 +493,11 @@ for _ in range(20):
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
-        // SECURITY INVARIANT.
         expect(tc.verdict).not.toBe("AC");
       }
     },
   );
 });
-
-// ---------------------------------------------------------------------------
-// Test 4 — Advanced mode (registry source + tarball fail-fast)
-// ---------------------------------------------------------------------------
 
 describe("K8s judge — advanced mode", () => {
   it(
@@ -610,13 +509,6 @@ describe("K8s judge — advanced mode", () => {
       const submissionId = `k8s-adv-correct-${Date.now()}`;
       trackSubmission(submissionId);
 
-      // The demo grader (infra/docker/demo-judge-shell/judge.sh):
-      //   - reads /workspace/submission/main.sh
-      //   - bash-runs it; if stdout contains "hello" → score 100, accepted.
-      //   - missing main.sh → runtime_error / score 0.
-      // We supply main.sh via sourceFiles so the path-aware
-      // buildAdvancedConfigMapData drops it at /workspace/submission/main.sh
-      // exactly. (language=python here is just for env vars + a stray main.py.)
       const request: SandboxRequest = {
         submissionId,
         sourceCode: "",
@@ -638,9 +530,6 @@ describe("K8s judge — advanced mode", () => {
       const result = await makeExecutor().execute(request);
       expect(result.compilationError).toBeUndefined();
       expect(result.pipelineError).toBeUndefined();
-      // mapAdvancedResult either synthesises a single result from the
-      // top-level verdict OR returns the image's per-case array. Either way
-      // we expect at least one AC entry and customScore = 100.
       expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
       expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
       expect(result.customScore).toBe(100);
@@ -694,10 +583,8 @@ describe("K8s judge — advanced mode", () => {
       const submissionId = `k8s-adv-tarball-${Date.now()}`;
       const jobName = `judge-${submissionId}`;
       const cmName = `${jobName}-input`;
-      // Track in case the executor unexpectedly creates them — cleanup still runs.
       trackSubmission(submissionId);
 
-      // Snapshot the namespace before/after to prove no resources were created.
       const before = await clients.batchApi.listNamespacedJob({ namespace: NAMESPACE });
       const beforeNames = new Set((before.items ?? []).map((j) => j.metadata?.name));
 
@@ -725,7 +612,6 @@ describe("K8s judge — advanced mode", () => {
       expect(message).toMatch(/registry/i);
       expect(message).toMatch(/tarball/i);
 
-      // SECURITY INVARIANT: tarball source MUST NOT reach the cluster.
       const after = await clients.batchApi.listNamespacedJob({ namespace: NAMESPACE });
       const newJobs = (after.items ?? []).filter(
         (j) => j.metadata?.name && !beforeNames.has(j.metadata.name),

@@ -255,7 +255,6 @@
       action="?/toggleArchive"
       use:kitEnhance={() => {
         archiveSubmitting = true;
-        // Optimistic flip — server response will reconcile via `update()`.
         archivedLocal = !archivedLocal;
         return async ({ result, update }) => {
           archiveSubmitting = false;

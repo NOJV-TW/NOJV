@@ -64,7 +64,6 @@ describe("computeProblemCountPenalty", () => {
     ];
     const r = computeProblemCountPenalty(subs, CONTEST_START);
     expect(r.solved).toBe(true);
-    // Only the one real WA counts — the three in-progress rows must not.
     expect(r.penaltySeconds).toBe(10 * 60 + 1 * PENALTY_PER_WRONG_SEC);
   });
 

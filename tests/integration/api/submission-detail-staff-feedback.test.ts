@@ -1,10 +1,3 @@
-/**
- * Security regression: the operator-only `staffFeedback` channel that the
- * DOMjudge output-validator writes to `judgemessage.txt` must never reach a
- * non-staff viewer. The strip is server-side — a viewer who is the submitter
- * (or any non-staff caller) must receive a payload with NO `staffFeedback`
- * key on any case result, even if the row's verdictDetail JSON has one.
- */
 import { describe, expect, it } from "vitest";
 
 import {
@@ -34,8 +27,6 @@ function asActor(user: {
   };
 }
 
-// verdictDetail shape with a staffFeedback channel — what the worker writes
-// after a checker/interactive judge emits judgemessage.txt content.
 const VERDICT_WITH_STAFF: Prisma.InputJsonValue = {
   accepted: false,
   feedback: "off by one",
@@ -69,8 +60,6 @@ describe("getSubmissionDetail — staffFeedback server-side strip", () => {
 
     expect(detail.viewerIsStaff).toBe(false);
     expect(detail.result).not.toBeNull();
-    // Non-leak invariant: the staffFeedback key must not appear ANYWHERE in
-    // the serialized payload — not on caseResults, not on subtaskResults.
     expect(JSON.stringify(detail.result)).not.toContain("staffFeedback");
     expect(JSON.stringify(detail.result)).not.toContain("OPERATOR_SECRET_DIAGNOSTIC");
     for (const cr of detail.result!.caseResults ?? []) {
@@ -97,10 +86,6 @@ describe("getSubmissionDetail — staffFeedback server-side strip", () => {
   });
 
   it("ADMIN viewing their OWN submission is not 'staff' for this gate → still stripped", async () => {
-    // Even though the viewer is an admin, viewing your own submission does not
-    // count as a staff review surface. Keep parity with the existing
-    // viewerIsStaff = !isOwner && ... contract so admins don't see operator
-    // diagnostics on their own submissions.
     const admin = await createTestUser({ platformRole: "admin" });
     const problem = await createTestProblem({ authorId: admin.id });
     const submission = await createTestSubmission({

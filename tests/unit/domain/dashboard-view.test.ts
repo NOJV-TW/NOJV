@@ -52,7 +52,6 @@ describe("getDashboardView — empty actor", () => {
     expect(view.analytics.byLanguage).toEqual([]);
     expect(view.analytics.byVerdict).toEqual([]);
     expect(view.analytics.byTag).toEqual([]);
-    // byDifficulty always has all three buckets even when empty
     expect(view.analytics.byDifficulty).toEqual([
       { difficulty: "easy", acCount: 0 },
       { difficulty: "medium", acCount: 0 },

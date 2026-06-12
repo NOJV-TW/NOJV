@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";
 
-// Verifies the migration-only CHECK constraints are actually present and
-// enforced in the db-push test DB (replayed by tests/setup/global-setup.ts).
-// Without the replay these writes would silently succeed in tests and only
-// fail in prod.
 describe("replayed CHECK constraints are enforced in the test DB", () => {
   it("has the participation CHECK constraints (parity with migrations)", async () => {
     const rows = await testPrisma.$queryRawUnsafe<{ conname: string }[]>(

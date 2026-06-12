@@ -52,10 +52,6 @@ describe("applyAdjustmentRules", () => {
     ).toBe(0);
   });
 
-  // ────────────────────────────────────────────────────────────────────────
-  // time_bonus — unchanged from the pre-redesign behavior.
-  // ────────────────────────────────────────────────────────────────────────
-
   it("does not apply time_bonus when baselineMs <= 0", () => {
     const result = applyAdjustmentRules({
       rules: [{ type: "time_bonus", baselineMs: 0, maxBonusPercent: 10 }],
@@ -69,7 +65,6 @@ describe("applyAdjustmentRules", () => {
   });
 
   it("applies time_bonus linearly between 0 and baselineMs", () => {
-    // runtimeMs = baselineMs / 2 → ratio = 0.5 → bonus = 0.5 * maxBonusPercent
     const result = applyAdjustmentRules({
       rules: [{ type: "time_bonus", baselineMs: 1000, maxBonusPercent: 10 }],
       submittedAt: onTime,
@@ -80,10 +75,6 @@ describe("applyAdjustmentRules", () => {
     });
     expect(result.score).toBe(85); // 80 + 5
   });
-
-  // ────────────────────────────────────────────────────────────────────────
-  // flat_late_penalty — one-shot percentage deduction.
-  // ────────────────────────────────────────────────────────────────────────
 
   it("does not apply flat_late_penalty when submitted on time", () => {
     const result = applyAdjustmentRules({
@@ -157,7 +148,6 @@ describe("applyAdjustmentRules", () => {
 
   it("flat_late_penalty with startFrom=final_day uses the finalDay anchor", () => {
     const rule = { type: "flat_late_penalty", penaltyPct: 50, startFrom: "final_day" } as const;
-    // submittedAt is past dueAt but before finalDay → no penalty
     expect(
       applyAdjustmentRules({
         rules: [rule],
@@ -168,7 +158,6 @@ describe("applyAdjustmentRules", () => {
         rawScore: 100,
       }).score,
     ).toBe(100);
-    // submittedAt is after finalDay → penalty
     expect(
       applyAdjustmentRules({
         rules: [rule],
@@ -193,10 +182,6 @@ describe("applyAdjustmentRules", () => {
     expect(result.score).toBe(100);
   });
 
-  // ────────────────────────────────────────────────────────────────────────
-  // daily_late_penalty — linear per-day deduction.
-  // ────────────────────────────────────────────────────────────────────────
-
   it("does not apply daily_late_penalty when daysLate < 1", () => {
     const result = applyAdjustmentRules({
       rules: [{ type: "daily_late_penalty", perDayPct: 10, startFrom: "due" }],
@@ -210,7 +195,6 @@ describe("applyAdjustmentRules", () => {
   });
 
   it("applies daily_late_penalty once per full day past the anchor", () => {
-    // floor(24h / 24h) = 1 day → 100 * (1 - 0.10) = 90
     const result = applyAdjustmentRules({
       rules: [{ type: "daily_late_penalty", perDayPct: 10, startFrom: "due" }],
       submittedAt: oneDayLate,
@@ -223,7 +207,6 @@ describe("applyAdjustmentRules", () => {
   });
 
   it("applies daily_late_penalty linearly across multiple days", () => {
-    // 3 days late, 10% per day → 100 * (1 - 0.30) = 70
     const result = applyAdjustmentRules({
       rules: [{ type: "daily_late_penalty", perDayPct: 10, startFrom: "due" }],
       submittedAt: threeDaysLate,
@@ -236,7 +219,6 @@ describe("applyAdjustmentRules", () => {
   });
 
   it("daily_late_penalty clamps to 0 once the cumulative penalty exceeds 100%", () => {
-    // 3 days late * 50% per day = 150% → clamped to 0
     const result = applyAdjustmentRules({
       rules: [{ type: "daily_late_penalty", perDayPct: 50, startFrom: "due" }],
       submittedAt: threeDaysLate,
@@ -259,10 +241,6 @@ describe("applyAdjustmentRules", () => {
     });
     expect(result.score).toBe(100);
   });
-
-  // ────────────────────────────────────────────────────────────────────────
-  // final_day_zero — hard gate.
-  // ────────────────────────────────────────────────────────────────────────
 
   it("does not zero the score strictly before the final day", () => {
     const result = applyAdjustmentRules({

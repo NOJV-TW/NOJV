@@ -10,7 +10,6 @@ test.describe("Course members + settings", () => {
     const page = await context.newPage();
     await page.goto(`/courses/${COURSE_ID}/members`);
     await expect(page.getByRole("main")).toBeVisible();
-    // Seeded teacher membership row.
     await expect(page.getByText("Teacher").first()).toBeVisible({ timeout: 10_000 });
     await context.close();
   });
@@ -24,15 +23,10 @@ test.describe("Course members + settings", () => {
   });
 
   test("members page does not expose manage controls to a student", async ({ browser }) => {
-    // The members page itself is reachable for any enrolled member —
-    // this is intentional so the directory shows up in the course UI.
-    // What MUST be hidden is the manage surface: bulk-add textarea,
-    // change-role button, remove-member action.
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     await page.goto(`/courses/${COURSE_ID}/members`);
     await expect(page.getByRole("main")).toBeVisible();
-    // Any of these locators existing means the manager UI is leaking.
     await expect(page.getByRole("textbox", { name: /handles|帳號/i })).not.toBeVisible();
     await expect(page.getByRole("button", { name: /add members|新增成員/i })).not.toBeVisible();
     await context.close();
@@ -46,9 +40,6 @@ test.describe("Course members + settings", () => {
       headers: formActionHeaders,
     });
     const body = await res.json().catch(() => null);
-    // Form actions return JSON with `type: "failure"` for fail()
-    // responses; the HTTP status is 200 with that envelope, OR the
-    // hook gates upstream and returns a 4xx. Either way: not success.
     if (body) {
       expect(body.type).not.toBe("success");
     } else {

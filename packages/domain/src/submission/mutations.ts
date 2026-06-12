@@ -208,7 +208,7 @@ export async function createQueuedSubmissionRecord(
 ) {
   const submissionId = randomUUID();
 
-  const { row, sources } = await runTransaction(async (tx) => {
+  const { sources } = await runTransaction(async (tx) => {
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
       payload.assessment
@@ -293,7 +293,7 @@ export async function createQueuedSubmissionRecord(
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
       sourceStoragePrefix: submissionSourcePrefix(submissionId),
-      status: "queued",
+      status: "pending_upload",
       userId: user.id,
     });
 
@@ -303,21 +303,16 @@ export async function createQueuedSubmissionRecord(
   try {
     await putSubmissionSources(storage(), submissionId, sources);
   } catch (err) {
-    try {
-      await deleteSubmissionStorage(storage(), submissionId);
-    } catch {
-      // Swallowed; orphan blobs at worst stay in the bucket until a sweep.
-    }
-    try {
-      await submissionRepo.updateStatus(submissionId, "system_error");
-    } catch {
-      // Swallowed: prefer surfacing the original storage failure to the
-      // caller. The row stays in `queued`; the blobs are already wiped.
-    }
+    await deleteSubmissionStorage(storage(), submissionId).catch(() => undefined);
+    await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
     throw err;
   }
 
-  return row;
+  return submissionRepo.updateStatus(submissionId, "queued").catch(async (err: unknown) => {
+    await deleteSubmissionStorage(storage(), submissionId).catch(() => undefined);
+    await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
+    throw err;
+  });
 }
 
 export async function updateSubmissionStatus(

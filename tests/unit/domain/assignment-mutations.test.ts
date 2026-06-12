@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Repo stubs — hoisted so the vi.mock factory below can reference them.
 const {
   assessmentFindById,
   assessmentUpdate,
@@ -199,8 +198,6 @@ describe("updateAssignmentRecord", () => {
   });
 
   it("wipes and recreates attach rows when problemIds is provided", async () => {
-    // Clear allowedLanguages so the workspace-entry check is skipped
-    // (this test isn't about workspace compatibility).
     assessmentFindById.mockResolvedValue(draftAssessment({ allowedLanguages: [] }));
     problemFindMany.mockResolvedValue([{ id: "prob_a" }, { id: "prob_b" }]);
 

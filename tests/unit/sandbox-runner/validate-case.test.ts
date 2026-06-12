@@ -8,9 +8,6 @@ import {
   validatorTimeoutMs,
 } from "../../../apps/sandbox-runner/src/judges/validate.js";
 
-// A node-based DOMjudge validator: reads argv[2..4] = input/answer/feedbackDir,
-// reads team output from stdin, writes feedback files, exits 42/43. Using node
-// (always present) keeps this a true unit test with no python dependency.
 const NODE_VALIDATOR = `const fs = require("fs");
 const [, , inputF, answerF, fbDir] = process.argv;
 const answer = fs.readFileSync(answerF, "utf8").trim();

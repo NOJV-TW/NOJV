@@ -9,15 +9,10 @@ test.describe("/account edit", () => {
     const page = await context.newPage();
 
     await page.goto("/account");
-    // Wait for hydration so the Svelte onclick on the inline Edit toggle
-    // attaches — a pre-hydration click would be a no-op.
     await page.waitForTimeout(1000);
-    // The name field is display-only until that Edit toggle is clicked.
     await page.getByRole("button", { name: "Edit" }).first().click();
     await expect(page.locator("#edit-name")).toBeVisible();
 
-    // Wait for SvelteKit hydration so `use:enhance` attaches. Without this
-    // the Save click triggers a native form POST that bypasses the toast.
     await page.waitForTimeout(1000);
 
     await page.locator("#edit-name").fill(`E2E ${Date.now()}`);

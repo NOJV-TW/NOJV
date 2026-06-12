@@ -6,10 +6,6 @@ import { contestDomain } from "@nojv/domain";
 
 const { listContestsForUser } = contestDomain;
 
-// Standalone-contest listing only. Course-embedded exams moved to
-// the Exam model in the 2026-04-14 split; see exam.test.ts for the
-// equivalent listing tests.
-
 describe("listContestsForUser", () => {
   it("puts user-created standalone contests into managed, not participable", async () => {
     const user = await createTestUser();

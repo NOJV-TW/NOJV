@@ -1,6 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Platform operations (announcements, plagiarism reports)
-// ═══════════════════════════════════════════════════════════════
 
 enum AnnouncementStatus {
   draft
@@ -51,8 +48,6 @@ model AnnouncementTranslation {
   @@unique([announcementId, locale])
 }
 
-// Plagiarism reports are inlined on Exam and Assessment as
-// `plagiarism*` columns; re-running upserts the row in place.
 
 model PlatformSetting {
   key       String   @id

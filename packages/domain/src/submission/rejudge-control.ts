@@ -1,9 +1,7 @@
-import {
-  cancelRejudge as temporalCancelRejudge,
-  queryRejudgeProgress as temporalQueryRejudgeProgress,
-} from "@nojv/temporal";
+import type { RejudgeInput, RejudgeProgress, SubmissionJudgeJob } from "@nojv/core";
 
 import { ForbiddenError } from "../shared/errors";
+import { getDomainOrchestration } from "../shared/orchestration";
 
 const REJUDGE_WORKFLOW_PREFIX = "rejudge-";
 
@@ -15,12 +13,18 @@ export function assertRejudgeWorkflowId(workflowId: string): void {
 
 export async function cancelRejudge(workflowId: string): Promise<void> {
   assertRejudgeWorkflowId(workflowId);
-  await temporalCancelRejudge(workflowId);
+  await getDomainOrchestration().cancelRejudge(workflowId);
 }
 
-export async function queryRejudgeProgress(
-  workflowId: string,
-): ReturnType<typeof temporalQueryRejudgeProgress> {
+export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress> {
   assertRejudgeWorkflowId(workflowId);
-  return temporalQueryRejudgeProgress(workflowId);
+  return getDomainOrchestration().queryRejudgeProgress(workflowId);
+}
+
+export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
+  return getDomainOrchestration().dispatchRejudge(input);
+}
+
+export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
+  await getDomainOrchestration().dispatchSubmissionJudge(payload);
 }

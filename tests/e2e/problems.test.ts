@@ -18,7 +18,6 @@ test.describe("Problems", () => {
   test("can view problem detail page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    // Navigate directly to a known seeded problem
     await page.goto("/problems/problem_warmup-sum");
     await expect(page.getByRole("main")).toBeVisible();
     await context.close();
@@ -27,12 +26,10 @@ test.describe("Problems", () => {
   test("teacher can create a problem via API and access edit page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    // Create via API
     const res = await page.request.post("/api/problems", { headers: apiWriteHeaders });
     expect(res.ok()).toBe(true);
     const { id } = await res.json();
     expect(id).toBeTruthy();
-    // Navigate to edit page
     await page.goto(`/problems/${id}/edit`);
     await expect(page.getByRole("main")).toBeVisible();
     await context.close();

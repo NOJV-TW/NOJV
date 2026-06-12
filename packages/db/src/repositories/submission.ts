@@ -710,7 +710,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       select: { id: true },
       where: {
-        status: { in: ["queued", "compiling", "running"] },
+        status: { in: ["pending_upload", "queued", "compiling", "running"] },
         updatedAt: { lt: before },
       },
     });

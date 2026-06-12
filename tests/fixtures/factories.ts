@@ -1,4 +1,3 @@
-// tests/fixtures/factories.ts
 import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { entryFileNameFor, submissionVerdicts, type Language } from "@nojv/core";
@@ -15,8 +14,6 @@ import {
 } from "@nojv/storage";
 import { PrismaClient, type Prisma } from "../../packages/db/generated/prisma/client";
 
-// Lazy S3 client — one instance per process so parallel factories share
-// the same underlying HTTP agent pool.
 let cachedStorage: ReturnType<typeof createStorageClient> | null = null;
 function storage() {
   cachedStorage ??= createStorageClient();
@@ -51,7 +48,6 @@ function uid() {
   return `test_${Date.now()}_${++counter}`;
 }
 
-// --- User ---
 export async function createTestUser(overrides: Partial<Prisma.UserCreateInput> = {}) {
   const id = uid();
   return testPrisma.user.create({
@@ -66,9 +62,7 @@ export async function createTestUser(overrides: Partial<Prisma.UserCreateInput> 
   });
 }
 
-// --- Problem ---
 type TestProblemOverrides = Partial<Prisma.ProblemUncheckedCreateInput> & {
-  /** Convenience alias accepted by tests that still pass `defaultTitle`. */
   defaultTitle?: string;
 };
 
@@ -106,8 +100,6 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
       timeLimitMs: overrides.timeLimitMs ?? 1000,
       memoryLimitMb: overrides.memoryLimitMb ?? 256,
       visibility: overrides.visibility ?? "public",
-      // Default to published so tests that assert list-visibility Just Work.
-      // Production-facing create flows override this with a draft default.
       status: overrides.status ?? "published",
       samples: overrides.samples ?? [{ input: "1 2", output: "3" }],
       ...rest,
@@ -173,7 +165,6 @@ export async function createTestProblemWorkspaceFile(
   });
 }
 
-// --- Contest (standalone, no course binding) ---
 export async function createTestContest(
   overrides: Partial<Prisma.ContestUncheckedCreateInput> = {},
 ) {
@@ -191,7 +182,6 @@ export async function createTestContest(
   });
 }
 
-// --- Exam (course-embedded) ---
 export async function createTestExam(
   overrides: Omit<Partial<Prisma.ExamUncheckedCreateInput>, "courseId"> & {
     courseId: string;
@@ -211,7 +201,6 @@ export async function createTestExam(
   });
 }
 
-// --- Course ---
 export async function createTestCourse(
   overrides: Partial<Prisma.CourseUncheckedCreateInput> = {},
 ) {
@@ -233,9 +222,6 @@ export async function createTestCourse(
   });
 }
 
-// Test factory accepts the legacy `sourceCode` / `verdictDetail` convenience
-// overrides; these are NOT real columns post-W1 — the factory writes the
-// bytes to object storage and persists the storage prefix / key on the row.
 type CreateTestSubmissionInput = Omit<
   Partial<Prisma.SubmissionUncheckedCreateInput>,
   "sourceCode" | "verdictDetail"
@@ -244,7 +230,6 @@ type CreateTestSubmissionInput = Omit<
   verdictDetail?: Prisma.InputJsonValue;
 };
 
-// --- Submission ---
 export async function createTestSubmission(overrides: CreateTestSubmissionInput = {}) {
   const id = uid();
   let userId = overrides.userId;
@@ -259,9 +244,6 @@ export async function createTestSubmission(overrides: CreateTestSubmissionInput 
   }
 
   const status = overrides.status ?? "accepted";
-  // Tests that don't pass an explicit verdictDetail still need the read path
-  // to parse a sensible SubmissionResult for terminal statuses. Default to a
-  // generated shape so list views don't blow up.
   const verdictDetail: Prisma.InputJsonValue | undefined =
     overrides.verdictDetail ??
     (isTerminalVerdict(status) ? buildDefaultVerdictDetail(status) : undefined);
@@ -293,8 +275,6 @@ export async function createTestSubmission(overrides: CreateTestSubmissionInput 
     },
   });
 
-  // Mirror production write order: sources first, then verdict-detail. Tests
-  // expect both to be available immediately after the factory resolves.
   await putSubmissionSources(storage(), id, [
     { path: entryFileNameFor(row.language as Language), content: sourceCode },
   ]);
@@ -306,11 +286,6 @@ export async function createTestSubmission(overrides: CreateTestSubmissionInput 
 }
 
 function deriveSummaryForFactory(detail: Prisma.InputJsonValue): Prisma.InputJsonValue {
-  // Pull a minimal summary out of the SubmissionResult-shaped detail blob
-  // without pulling @nojv/domain into the factory (which would eagerly drag
-  // in @nojv/redis and force factory consumers to mock it). Mirrors the
-  // tally rule in `deriveVerdictSummary` for the AC/WA/TLE/MLE/RE/other
-  // bucket; everything else falls back to a zeroed summary.
   const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
   if (
     detail &&

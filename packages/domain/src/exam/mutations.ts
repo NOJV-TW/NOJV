@@ -10,13 +10,12 @@ import {
 } from "@nojv/db";
 import type { ExamCreate, ExamUpdate, Language } from "@nojv/core";
 
-import { dispatchExamAutoClose } from "@nojv/temporal";
-
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireCourse, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
+import { getDomainOrchestration } from "../shared/orchestration";
 
 export type { ActorContext };
 
@@ -147,7 +146,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
   });
 
   if (exam.status === "published") {
-    await dispatchExamAutoClose({
+    await getDomainOrchestration().dispatchExamAutoClose({
       examId: exam.id,
       startsAt: exam.startsAt.toISOString(),
       endsAt: exam.endsAt.toISOString(),
@@ -225,7 +224,7 @@ export async function updateExamRecord(
   });
 
   if (result.status === "published" && result.windowChanged) {
-    await dispatchExamAutoClose({
+    await getDomainOrchestration().dispatchExamAutoClose({
       examId: result.id,
       startsAt: result.startsAt.toISOString(),
       endsAt: result.endsAt.toISOString(),
@@ -304,7 +303,7 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
     return { examId: exam.id, startsAt: exam.startsAt, endsAt: exam.endsAt };
   });
 
-  await dispatchExamAutoClose({
+  await getDomainOrchestration().dispatchExamAutoClose({
     examId: committedId,
     startsAt: startsAt.toISOString(),
     endsAt: endsAt.toISOString(),

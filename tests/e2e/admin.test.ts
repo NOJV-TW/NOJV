@@ -12,9 +12,6 @@ test.describe("Admin panel — gating + pages", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     const res = await page.goto("/admin");
-    // Layout gate throws error(403, ...). SvelteKit may serve the bytes
-    // with a 200 inside an error boundary; the canonical contract is
-    // either status >= 400 OR an error message rendered on the page.
     const status = res?.status() ?? 0;
     if (status < 400) {
       await expect(page.getByText(/Admin access required/i)).toBeVisible();
@@ -50,7 +47,6 @@ test.describe("Admin panel — gating + pages", () => {
     const page = await context.newPage();
     await page.goto("/admin/system/users");
     await expect(page.getByRole("main")).toBeVisible();
-    // The seeded teacher / student rows must show up in the table.
     await expect(page.getByText("teacher@nojv.local").first()).toBeVisible({
       timeout: 10_000,
     });

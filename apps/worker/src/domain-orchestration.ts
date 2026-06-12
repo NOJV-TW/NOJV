@@ -1,0 +1,27 @@
+import { configureDomainOrchestration } from "@nojv/domain";
+import {
+  cancelRejudge,
+  dispatchContestLifecycle,
+  dispatchExamAutoClose,
+  dispatchPlagiarismCheck,
+  dispatchRejudge,
+  dispatchSubmissionJudge,
+  getTemporalClient,
+  queryRejudgeProgress,
+  terminateSubmissionJudge,
+} from "@nojv/temporal";
+
+configureDomainOrchestration({
+  cancelRejudge,
+  dispatchContestLifecycle,
+  dispatchExamAutoClose,
+  dispatchPlagiarismCheck,
+  dispatchRejudge,
+  dispatchSubmissionJudge,
+  async probeTemporal() {
+    const client = await getTemporalClient();
+    await client.connection.workflowService.getSystemInfo({});
+  },
+  queryRejudgeProgress,
+  terminateSubmissionJudge,
+});

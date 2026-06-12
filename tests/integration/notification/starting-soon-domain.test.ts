@@ -11,8 +11,6 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-// `Notification` is not in the shared TABLES list truncated by integration-setup,
-// so clear it locally (same pattern as assignment-due-soon-domain.test.ts).
 beforeEach(async () => {
   await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
 });
@@ -39,7 +37,6 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
         data: { type: "exam", examId: exam.id, userId: s.id, status: "registered" },
       });
     }
-    // A third student has no participation row — must not be notified.
     const studentC = await createTestUser({ platformRole: "student" });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -136,7 +133,6 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
   it("is a no-op when the exam has no participants", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
-    // A student exists but has no exam participation row.
     const student = await createTestUser({ platformRole: "student" });
 
     const exam = await createTestExam({

@@ -62,8 +62,8 @@ export const submissionDraftSchema = z
     },
   );
 
-export const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
-export const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
+export const MAX_CASE_STDOUT_BYTES = 1_000_000;
+export const MAX_CASE_STDERR_BYTES = 100_000;
 const MAX_SUBTASK_LABEL_LEN = 200;
 export const MAX_FEEDBACK_LEN = 10_000;
 

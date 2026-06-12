@@ -48,7 +48,6 @@ describe("getUpsolveView", () => {
         { id: "p3", ordinal: 3, points: 300, title: "Charlie" },
       ]),
     );
-    // First call = accepted-only grouping; second = all real attempts.
     groupByUserAndProblem
       .mockResolvedValueOnce([{ userId: "u1", problemId: "p1" }])
       .mockResolvedValueOnce([

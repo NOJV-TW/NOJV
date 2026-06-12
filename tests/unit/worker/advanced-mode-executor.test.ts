@@ -58,9 +58,11 @@ describe("buildAdvancedDockerArgs", () => {
     expect(args[i - 1]).toBe("--tmpfs");
   });
 
-  it("does not pass --user (TA images manage their own user)", () => {
+  it("runs advanced grader images as the sandbox uid instead of root", () => {
     const args = buildAdvancedDockerArgs(base);
-    expect(args).not.toContain("--user");
+    const i = args.indexOf("--user");
+    expect(i).toBeGreaterThan(0);
+    expect(args[i + 1]).toBe("10001:10001");
   });
 
   it("caps swap at the memory limit so MLE is independent of host swap config", () => {
@@ -107,8 +109,6 @@ describe("dirSizeBytes (disk-cap watchdog)", () => {
     await writeFile(small, "0");
     expect(await dirSizeBytes(dir)).toBeLessThanOrEqual(ADVANCED_WORKSPACE_MAX_BYTES);
 
-    // Spoof an oversized total by comparing against a deliberately tiny cap —
-    // mirrors the executor's `bytes > ADVANCED_WORKSPACE_MAX_BYTES` watchdog.
     const measured = await dirSizeBytes(dir);
     const tinyCap = 0;
     expect(measured > tinyCap).toBe(true);

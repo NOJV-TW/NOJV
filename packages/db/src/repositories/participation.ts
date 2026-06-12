@@ -42,8 +42,6 @@ export const participationRepo = {
     }
   },
 
-  // ── Contest ──
-
   findContestParticipation(contestId: string, userId: string) {
     return prisma.participation.findUnique({
       where: { type_contestId_userId: { type: "contest", contestId, userId } },
@@ -80,8 +78,6 @@ export const participationRepo = {
     });
   },
 
-  // ── Exam ──
-
   findExamParticipation(examId: string, userId: string) {
     return prisma.participation.findUnique({
       where: { type_examId_userId: { type: "exam", examId, userId } },
@@ -117,8 +113,6 @@ export const participationRepo = {
       .findMany({ where: { type: "exam", examId }, select: { userId: true } })
       .then((rows) => rows.map((r) => r.userId));
   },
-
-  // ── Virtual ──
 
   async findVirtualById(id: string) {
     const row = await prisma.participation.findFirst({ where: { id, type: "virtual" } });

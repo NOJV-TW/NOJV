@@ -31,7 +31,6 @@ test.describe("Notifications API", () => {
     const res = await page.request.get(`/api/notifications?limit=999999`);
     expect(res.ok()).toBe(true);
     const body = await res.json();
-    // Server clamps to <= 100; we just check the response remains a sane array.
     expect(Array.isArray(body.items)).toBe(true);
     expect(body.items.length).toBeLessThanOrEqual(100);
     await context.close();
@@ -68,8 +67,6 @@ test.describe("Notifications API", () => {
       headers: apiWriteHeaders,
       data: { read: true },
     });
-    // Endpoint reports `updated` count; with an unknown id it should
-    // still be a 2xx with `updated: 0`, never a 5xx.
     expect(res.ok()).toBe(true);
     const body = await res.json();
     expect(body.updated).toBe(0);
@@ -89,7 +86,6 @@ test.describe("Notifications API", () => {
     const page = await context.newPage();
     const res = await page.request.patch(`/api/notifications`, {
       data: { action: "markAllRead" },
-      // Intentionally omit `x-requested-with: fetch` to exercise the CSRF gate.
       headers: { origin: "http://localhost:5173" },
     });
     expect(res.status()).toBe(403);

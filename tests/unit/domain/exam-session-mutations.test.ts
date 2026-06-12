@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Repo stubs — hoisted so the vi.mock factory can reference them.
 const {
   examFindById,
   membershipFindByComposite,
@@ -124,7 +123,6 @@ describe("resetStudentIpBinding", () => {
       now,
     );
 
-    // 10-minute grace window.
     const expected = new Date("2026-05-26T10:10:00Z");
     expect(clearExamPinAndExempt).toHaveBeenCalledWith("exm_1", "usr_student", expected);
     expect(result).toEqual({ exemptUntil: expected });

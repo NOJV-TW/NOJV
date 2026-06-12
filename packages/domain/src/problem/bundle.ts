@@ -147,7 +147,9 @@ function ingestWorkspaceEntry(path: string, text: string, acc: BundleAccumulator
   if (relPath.length === 0) return true;
   const ext = extOf(relPath);
   const lang = WORKSPACE_LANG_BY_EXT[ext];
-  if (!lang) return true; // Drop unknown extensions; can't infer language.
+  if (!lang) {
+    throw new ValidationError(`Unsupported workspace file extension in bundle: ${relPath}`);
+  }
   acc.workspace.push({ language: lang, path: relPath, content: text });
   return true;
 }
@@ -228,22 +230,23 @@ async function readEntryBounded(entry: ZipFile, maxBytes: number): Promise<Buffe
     const chunks: Buffer[] = [];
     let total = 0;
     let settled = false;
+    const drainEntry = (): void => {
+      try {
+        void stream
+          .autodrain()
+          .promise()
+          .catch(() => undefined);
+      } catch {
+        return;
+      }
+    };
 
     const onData = (chunk: Buffer): void => {
       if (settled) return;
       total += chunk.length;
       if (total > maxBytes) {
         settled = true;
-        try {
-          void stream
-            .autodrain()
-            .promise()
-            .catch(() => {
-              // swallow drain errors — we've already rejected the parse
-            });
-        } catch {
-          // autodrain may throw synchronously on a closed stream; ignore.
-        }
+        drainEntry();
         reject(
           new ConflictError(
             `Bundle entry "${entry.path}" pushes inflated total past ${String(MAX_BUNDLE_UNCOMPRESSED_BYTES)} bytes.`,

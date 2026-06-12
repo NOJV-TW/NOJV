@@ -12,7 +12,7 @@ export function readThemeMode(): ThemeMode {
     const raw = localStorage.getItem(THEME_KEY);
     if (isThemeMode(raw)) return raw;
   } catch {
-    // localStorage may throw under private-mode quotas / SSR; fall through.
+    return "system";
   }
   return "system";
 }
@@ -21,7 +21,7 @@ export function persistThemeMode(mode: ThemeMode): void {
   try {
     localStorage.setItem(THEME_KEY, mode);
   } catch {
-    // Quota / disabled storage — silently no-op.
+    return;
   }
 }
 

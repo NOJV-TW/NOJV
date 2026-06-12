@@ -163,7 +163,6 @@ describe("buildAdvancedInitScript", () => {
     expect(script).toContain("/workspace/output");
     expect(script).toContain("/workspace/meta.json");
     expect(script).toMatch(/chmod\s+0?777\s+\/workspace\/output/);
-    // The init reads the packed payload mounted by the prep ConfigMap.
     expect(script).toContain("/init-payload/payload.json");
   });
 });
@@ -174,14 +173,12 @@ describe("buildAdvancedTailScript", () => {
     expect(script).toContain("/workspace/output/result.json");
     expect(script).toContain(ADVANCED_RESULT_MARKER_BEGIN);
     expect(script).toContain(ADVANCED_RESULT_MARKER_END);
-    // 60_000 ms total + 30s headroom → 90 s.
     expect(script).toContain("90");
     expect(script).toContain('{"missing":true}');
   });
 
   it("rounds sub-second time up to at least one second", () => {
     const script = buildAdvancedTailScript(250);
-    // 0.25s + 30s = 30.25s → ceil to 31.
     expect(script).toContain("31");
   });
 });
@@ -328,11 +325,20 @@ describe("buildAdvancedJobManifest — registry-source pod structure", () => {
     expect(volume?.emptyDir).toBeDefined();
   });
 
-  it("grader is permitted to run as the image's user (TA images may need root)", () => {
+  it("grader is forced to run as the sandbox uid instead of root", () => {
     const m = buildAdvancedJobManifest(params);
     const grader = m.spec!.template.spec!.containers[0]!;
-    // runAsNonRoot is NOT enforced on the grader — TA's image owns its user.
-    expect(grader.securityContext?.runAsNonRoot).toBeFalsy();
+    expect(m.spec!.template.spec!.securityContext).toMatchObject({
+      runAsUser: 10001,
+      runAsGroup: 10001,
+      fsGroup: 10001,
+      runAsNonRoot: true,
+    });
+    expect(grader.securityContext).toMatchObject({
+      runAsUser: 10001,
+      runAsGroup: 10001,
+      runAsNonRoot: true,
+    });
   });
 
   it("pod-level: automountServiceAccountToken=false, sandbox node selector + toleration, NetworkPolicy label", () => {
@@ -396,7 +402,6 @@ describe("K8sExecutor.execute(advanced) — registry source orchestration", () =
     expect(record.jobsCreated).toHaveLength(1);
     expect(record.jobsCreated[0]!.name).toBe("judge-sub-adv-1");
 
-    // Logs MUST be read from the sidecar container specifically.
     expect(record.podLogsRead.some((c) => c.container === ADVANCED_SIDECAR_NAME)).toBe(true);
 
     expect(result.testcaseResults).toHaveLength(1);
@@ -469,7 +474,6 @@ describe("K8sExecutor.execute(advanced) — registry source orchestration", () =
     const result = await executor.execute(makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    // ConfigMap was created BEFORE the Job throw, so it must still be cleaned up.
     expect(record.configMapsDeleted).toHaveLength(1);
   });
 });
@@ -478,11 +482,8 @@ describe("DRY: K8s advanced reuses Docker advanced's helpers", () => {
   it("uses the same mapAdvancedResult / advancedFallbackResult symbols as the Docker backend", async () => {
     const k8sMod = await import("../../../apps/worker/src/services/k8s-executor");
     const mapperMod = await import("../../../apps/worker/src/services/sandbox-result-mapper");
-    // The k8s-executor module must import these — assert by re-export reference if exposed,
-    // otherwise this just documents the contract (Docker imports the SAME mapper).
     expect(typeof mapperMod.mapAdvancedResult).toBe("function");
     expect(typeof mapperMod.advancedFallbackResult).toBe("function");
-    // Smoke: k8s module references the mapper module via static import (verified via source).
     expect(k8sMod.K8sExecutor).toBeDefined();
   });
 });

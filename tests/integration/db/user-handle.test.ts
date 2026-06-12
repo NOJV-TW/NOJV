@@ -4,9 +4,6 @@ import { userRepo } from "@nojv/db";
 
 import { createTestCourse, createTestUser, testPrisma } from "../../fixtures/factories";
 
-// Each test creates its own handle to avoid unique-constraint races
-// between cases; `beforeEach` truncate from integration-setup.ts also
-// wipes the User table, so the same string is safe in separate tests.
 function uniqueHandle(): string {
   return `ntu_b${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 1000)
     .toString()
@@ -49,7 +46,6 @@ describe("userRepo.attachPlaceholderToAuth", () => {
   it("transfers course memberships from placeholder to real user and deletes the placeholder", async () => {
     const handle = uniqueHandle();
 
-    // Teacher adds the placeholder to a course.
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
     const placeholder = await userRepo.createPlaceholder({
@@ -66,7 +62,6 @@ describe("userRepo.attachPlaceholderToAuth", () => {
       },
     });
 
-    // Student signs in via OAuth; better-auth creates a real user.
     const realUser = await createTestUser({
       email: "student@example.com",
       username: null,
@@ -75,10 +70,8 @@ describe("userRepo.attachPlaceholderToAuth", () => {
 
     await userRepo.attachPlaceholderToAuth(placeholder.id, realUser.id);
 
-    // Placeholder is gone.
     expect(await testPrisma.user.findUnique({ where: { id: placeholder.id } })).toBeNull();
 
-    // Membership now points at the real user.
     const memberships = await testPrisma.courseMembership.findMany({
       where: { courseId: course.id },
     });
@@ -91,7 +84,6 @@ describe("userRepo.attachPlaceholderToAuth", () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
 
-    // Real user joins the course first.
     const realUser = await createTestUser({ email: "dup@example.com", username: null });
     await testPrisma.courseMembership.create({
       data: {
@@ -102,8 +94,6 @@ describe("userRepo.attachPlaceholderToAuth", () => {
       },
     });
 
-    // Teacher unknowingly pastes the handle too, creating a placeholder
-    // + second membership row.
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
       addedByUserId: teacher.id,
@@ -120,21 +110,15 @@ describe("userRepo.attachPlaceholderToAuth", () => {
 
     await userRepo.attachPlaceholderToAuth(placeholder.id, realUser.id);
 
-    // Exactly one membership for the real user survives.
     const memberships = await testPrisma.courseMembership.findMany({
       where: { courseId: course.id, userId: realUser.id },
     });
     expect(memberships).toHaveLength(1);
-    // Placeholder row is gone.
     expect(await testPrisma.user.findUnique({ where: { id: placeholder.id } })).toBeNull();
   });
 
   it("rewrites `addedBy` back-references so audit history points at the real user", async () => {
     const handle = uniqueHandle();
-    // The placeholder ends up being an adder on some other membership
-    // row. Realistically this only happens if we later grant
-    // `createPlaceholder` a TA role — but the repo helper still needs
-    // to rewrite the FK so we can delete the placeholder cleanly.
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
       addedByUserId: null,

@@ -128,12 +128,8 @@
         onsuccess();
       } else {
         let msg: string = m.override_staff_toastError();
-        try {
-          const body = (await res.json()) as { message?: string };
-          if (body.message) msg = body.message;
-        } catch {
-          // ignore body parse failure
-        }
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        if (body?.message) msg = body.message;
         error = msg;
         toasts.add({ type: "error", message: msg });
       }

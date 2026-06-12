@@ -45,7 +45,6 @@ describe("mergeCheckerResults", () => {
     );
     expect(result!.feedback).toBe("off by one");
     expect(result!.staffFeedback).toBe("secret answer was 42");
-    // The raw key name from the validator outcome must not leak through.
     expect(JSON.stringify(result)).not.toContain("judgeMessage");
   });
 

@@ -169,9 +169,6 @@ describe("runPlagiarismCheck — pair emission", () => {
     await runPlagiarismCheck(target.id, target.type);
 
     const [, payload] = saveResults.mock.calls[0];
-    // Dolos may return no pair below its minSimilarity threshold, OR an
-    // entry with very low similarity. Both are acceptable "no meaningful
-    // match" outcomes.
     if (payload.pairs.length > 0) {
       expect(payload.pairs[0].similarity).toBeLessThan(30);
     }

@@ -1,7 +1,11 @@
 import type Redis from "ioredis";
 import { createSubscriber } from "@nojv/redis";
 
+import { createLogger } from "../logger";
+
 export type SseMessageHandler = (channel: string, message: string) => void;
+
+const logger = createLogger("sse-hub");
 
 let subscriber: Redis | null = null;
 const channelHandlers = new Map<string, Set<SseMessageHandler>>();
@@ -36,7 +40,12 @@ export function subscribeSse(
     handlers.add(handler);
   }
   if (newChannels.length > 0) {
-    void client.subscribe(...newChannels).catch(() => undefined);
+    void client.subscribe(...newChannels).catch((err: unknown) => {
+      logger.error("Redis SSE subscribe failed", {
+        channels: newChannels,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   return () => {
@@ -51,7 +60,12 @@ export function subscribeSse(
       }
     }
     if (idleChannels.length > 0 && subscriber) {
-      void subscriber.unsubscribe(...idleChannels).catch(() => undefined);
+      void subscriber.unsubscribe(...idleChannels).catch((err: unknown) => {
+        logger.warn("Redis SSE unsubscribe failed", {
+          channels: idleChannels,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
   };
 }

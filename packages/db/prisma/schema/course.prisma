@@ -1,11 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Course + homework assessment domain
-//
-// Assessment is strictly for homework now (no IP lock, no
-// page lock, no scoreboard). Exams live in their own `Exam` model
-// (see contest.prisma) and are the only course-embedded timed
-// scored activity that carries proctoring.
-// ═══════════════════════════════════════════════════════════════
 
 enum CourseRole {
   teacher
@@ -15,7 +7,7 @@ enum CourseRole {
 
 enum CourseMembershipStatus {
   active
-  removed // Soft-delete preserving audit trail
+  removed
 }
 
 enum AssessmentStatus {
@@ -34,14 +26,8 @@ model Course {
   title               String
   description         String               @db.Text
   ownerId             String
-  /// ROC calendar year (e.g. 113, 114). Null when term is unspecified.
   academicYear        Int?
-  /// 1 = first semester, 2 = second semester, 3 = summer session.
   semester            Int?
-  /// When true, students keep read-only access to scores and the
-  /// course landing page but lose click-through into assignment /
-  /// problem details. Toggled by course managers (teachers, TAs,
-  /// owner) — there is no time-based auto-archive yet.
   archived            Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
@@ -81,34 +67,19 @@ model Assessment {
   summary  String           @db.Text
   status   AssessmentStatus @default(draft)
 
-  // Homework window
   opensAt  DateTime
-  /// Soft deadline — only consumed by adjustmentRules (late penalty).
-  /// Null = no late penalty configured.
   dueAt    DateTime?
-  /// Hard close — no submissions accepted after this timestamp.
   closesAt DateTime
 
-  /// Per-window attempt cap for (user, assessment, problem) — counted
-  /// independently per problem. Null = unlimited.
-  /// Enforced at submit time in packages/domain/src/submission/mutations.ts.
   maxAttemptsPerDay       Int?
-  /// Daily reset time as minutes-of-day (0–1439) on the Asia/Taipei wall clock
-  /// (e.g. 300 = 05:00). Defines the start of each per-day attempt window.
-  /// Null = treated as 300 (05:00), matching the teacher form default.
   attemptResetMinuteOfDay Int?
-  /// Empty array = all languages allowed. Adding a problem is
-  /// application-gated: every listed language must have an editable
-  /// main.<ext> workspace file on the problem.
   allowedLanguages        SupportedLanguage[] @default([])
-  /// Late-submission penalty rules etc.
   adjustmentRules         Json?
 
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
   plagiarismStatus        PlagiarismReportStatus?
   plagiarismResults       Json?
   plagiarismReportUrl     String?
@@ -140,11 +111,6 @@ model AssessmentProblem {
   @@unique([assessmentId, ordinal])
 }
 
-/// Append-only audit trail for assessment lifecycle transitions.
-/// `assessmentId` is intentionally not an FK — `delete_draft` removes
-/// the Assessment row and the audit entry must outlive it.
-/// `actorUserId` is null for system-initiated transitions (Temporal
-/// auto-publish).
 model AssessmentAuditLog {
   id           String                @id @default(cuid())
   assessmentId String

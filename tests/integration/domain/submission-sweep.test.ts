@@ -4,14 +4,9 @@ const { terminateSubmissionJudge } = vi.hoisted(() => ({
   terminateSubmissionJudge: vi.fn(),
 }));
 
-vi.mock("@nojv/temporal", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@nojv/temporal")>();
-  return { ...actual, terminateSubmissionJudge };
-});
-
 import { SUBMISSION_PENDING_TIMEOUT_SETTING_KEY } from "@nojv/core";
 import { platformSettingRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
-import { submissionDomain, ValidationError } from "@nojv/domain";
+import { configureDomainOrchestration, submissionDomain, ValidationError } from "@nojv/domain";
 
 import {
   createTestCourse,
@@ -28,6 +23,17 @@ async function backdateUpdatedAt(submissionId: string, minutesAgo: number) {
 
 beforeEach(() => {
   terminateSubmissionJudge.mockReset();
+  configureDomainOrchestration({
+    cancelRejudge: vi.fn(async () => {}),
+    dispatchContestLifecycle: vi.fn(async () => {}),
+    dispatchExamAutoClose: vi.fn(async () => {}),
+    dispatchPlagiarismCheck: vi.fn(async () => {}),
+    dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
+    dispatchSubmissionJudge: vi.fn(async () => {}),
+    probeTemporal: vi.fn(async () => {}),
+    queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    terminateSubmissionJudge,
+  });
 });
 
 describe("attempt count excludes system_error (real DB)", () => {

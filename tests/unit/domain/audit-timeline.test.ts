@@ -29,8 +29,6 @@ beforeEach(() => {
 
 describe("listAuditTimelineForContext", () => {
   it("assignment: merges lifecycle, score-override and rejudge events into one reverse-chronological array", async () => {
-    // Three sources, deliberately interleaved in time so a correct merge+sort
-    // must reorder them — not just concatenate.
     assessmentAuditListByAssessment.mockResolvedValue([
       {
         createdAt: new Date("2026-01-01T10:00:00Z"),
@@ -69,9 +67,7 @@ describe("listAuditTimelineForContext", () => {
       assignmentId: "ca_1",
     });
 
-    // All three sources merged.
     expect(timeline).toHaveLength(3);
-    // Reverse-chronological: 01-03 > 01-02 > 01-01.
     expect(timeline.map((e) => e.kind)).toEqual(["score_override", "rejudge", "lifecycle"]);
     expect(timeline.map((e) => e.at.toISOString())).toEqual([
       "2026-01-03T10:00:00.000Z",
@@ -79,7 +75,6 @@ describe("listAuditTimelineForContext", () => {
       "2026-01-01T10:00:00.000Z",
     ]);
 
-    // Lifecycle normalization.
     expect(timeline[2]).toEqual({
       at: new Date("2026-01-01T10:00:00Z"),
       actorUserId: "usr_teacher",
@@ -87,7 +82,6 @@ describe("listAuditTimelineForContext", () => {
       detail: { action: "published" },
     });
 
-    // Score-override normalization (actorUserId from changedByUserId).
     expect(timeline[0]).toEqual({
       at: new Date("2026-01-03T10:00:00Z"),
       actorUserId: "usr_ta",
@@ -103,7 +97,6 @@ describe("listAuditTimelineForContext", () => {
       },
     });
 
-    // Rejudge normalization (actorUserId from rejudgedByUserId, no result blobs).
     expect(timeline[1]).toEqual({
       at: new Date("2026-01-02T10:00:00Z"),
       actorUserId: "usr_teacher",
@@ -117,7 +110,6 @@ describe("listAuditTimelineForContext", () => {
       },
     });
 
-    // Assignment queries all three sources with the right keys.
     expect(assessmentAuditListByAssessment).toHaveBeenCalledWith("ca_1");
     expect(scoreOverrideAuditListForContext).toHaveBeenCalledWith("assignment", "ca_1");
     expect(submissionListIdsForContext).toHaveBeenCalledWith({

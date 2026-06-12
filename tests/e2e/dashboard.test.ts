@@ -14,17 +14,13 @@ test.describe("Dashboard", () => {
     await page.goto("/dashboard");
     await expect(page.getByRole("main")).toBeVisible();
 
-    // Streak card always renders (either with a count or the "broken" copy).
     await expect(page.getByText(/Streak|連續解題/i).first()).toBeVisible({ timeout: 10_000 });
 
-    // Activity / heatmap section is anchored by either the title or the
-    // "no submissions yet" empty-state copy depending on data.
     const activityArea = page.getByText(
       /Daily Activity|每日解題熱圖|No submissions yet|尚無繳交/i,
     );
     await expect(activityArea.first()).toBeVisible({ timeout: 10_000 });
 
-    // Suggested-for-you card.
     await expect(page.getByText(/Suggested for you|為你推薦/i).first()).toBeVisible();
 
     await context.close();

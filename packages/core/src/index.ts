@@ -16,6 +16,7 @@ export * from "./schemas/platform-settings";
 export * from "./validation/required-paths";
 export * from "./sse-events";
 export * from "./judge-job";
+export * from "./workflow-types";
 export * from "./redis-connection";
 export * from "./sandbox";
 export * from "./judge/compare";

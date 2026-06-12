@@ -99,7 +99,6 @@ describe("saveDraft / loadDraft", () => {
 
 describe("saveDraft quota fallback", () => {
   it("evicts oldest draft and retries on QuotaExceededError", () => {
-    // Seed: two existing drafts with known savedAt values.
     const oldKey = "nojv:draft:v1:practice:old_problem:python";
     const newerKey = "nojv:draft:v1:practice:newer_problem:python";
     localStorage.setItem(oldKey, JSON.stringify({ code: "old", savedAt: 1000 }));
