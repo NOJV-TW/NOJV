@@ -59,6 +59,9 @@ export {
   dispatchRejudge,
   dispatchSubmissionJudge,
   querySubmissionStatus,
-  queryRejudgeProgress,
-  cancelRejudge,
 } from "@nojv/temporal";
+export {
+  assertRejudgeWorkflowId,
+  cancelRejudge,
+  queryRejudgeProgress,
+} from "./rejudge-control";
