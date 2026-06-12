@@ -16,10 +16,11 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │ 2nd Tier                                                            │
 │                                                                     │
 │  Service           @nojv/domain                                     │
-│                    admin/ announcement/ assignment/ clarification/  │
-│                    contest/ course/ editorial/ exam/ notification/  │
-│                    plagiarism/ problem/ proctoring/ score-override/ │
-│                    scoring/ shared/ submission/ user/               │
+│                    admin/ announcement/ assignment/ audit/          │
+│                    clarification/ contest/ course/ editorial/        │
+│                    exam/ feedback/ notification/ plagiarism/         │
+│                    problem/ proctoring/ score-override/ scoring/     │
+│                    shared/ submission/ user/ virtual-contest/        │
 ├─────────────────────────────────────────────────────────────────────┤
 │ 3rd Tier                                                            │
 │                                                                     │
@@ -46,7 +47,7 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 | **Problems**    | Problem statements (i18n), testcase sets, templates, judge configuration |
 | **Submissions** | Code submission, sandbox execution, verdict computation                  |
 | **Contests**    | Timed competitions with scoreboard, freeze, IP lock, page lock           |
-| **Courses**     | Course management, memberships, join tokens, assessments                 |
+| **Courses**     | Course management, teacher-managed memberships, assessments              |
 | **Auth**        | Email/password + OAuth (GitHub, Google), session management, roles       |
 | **Plagiarism**  | Dolos-based AST similarity detection for assessments and contests        |
 | **Stats**       | Per-user statistics: AC count, language distribution, daily activity     |
@@ -59,7 +60,7 @@ packages/
   db/               Prisma schema, migrations, repositories (depends: core; +redis, storage in seed/ops scripts only)
   redis/            Connection, key registry, pub/sub (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
-  temporal/         Temporal client + dispatch API + workflows + task queue constants (depends: core)
+  temporal/         Temporal client + dispatch API + workflow I/O types + task queue constants (depends: core)
   domain/           Business logic (depends: core, db, redis, temporal)
 
 apps/
@@ -100,13 +101,14 @@ No cycles. `domain` → `temporal` for dispatch helpers and Temporal client. `wo
 problem image blobs alongside the DB row inside the same transaction.
 The transaction would lose atomicity if storage writes lived in `web`.
 
-† `web` uses `@nojv/redis` directly for the SSE subscriber
-(`api/events/stream`) and for `RateLimiterRedis` in
-`shared/rate-limiter.ts`. Both want the raw Redis client, not a
-domain-shaped wrapper. These two files are the only exceptions —
-everything else goes through `@nojv/domain`. The
-`no-restricted-imports` ESLint rule in `apps/web/eslint.config.mjs`
-enforces this and lists the exact allow-list of files.
+† `web` uses `@nojv/redis` directly in four files that want the raw
+Redis client rather than a domain-shaped wrapper: the SSE subscriber
+(`api/events/stream`), the contest scoreboard SSE stream
+(`contests/[contestId]/scoreboard/stream`), the shared SSE hub
+(`shared/sse-hub.ts`), and `RateLimiterRedis` (`shared/rate-limiter.ts`).
+Everything else goes through `@nojv/domain`. The `no-restricted-imports`
+ESLint rule in `apps/web/eslint.config.mjs` is the single source of truth —
+it enforces this and lists the exact allow-list of files.
 
 ‡ `web` uses `@nojv/db` only via `prismaAdapterClient` from
 `src/lib/auth.server.ts`, where the better-auth Prisma adapter
