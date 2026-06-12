@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,6 +17,10 @@ const sharedAliases = {
   "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
   "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
 };
+
+function svelteTestPlugin() {
+  return svelte({ configFile: path.resolve(__dirname, "apps/web/svelte.config.js") });
+}
 
 export default defineConfig({
   test: {
@@ -48,6 +53,7 @@ export default defineConfig({
     },
     projects: [
       {
+        plugins: [svelteTestPlugin()],
         resolve: { alias: sharedAliases },
         test: {
           name: "unit",
@@ -56,6 +62,7 @@ export default defineConfig({
         },
       },
       {
+        plugins: [svelteTestPlugin()],
         resolve: { alias: sharedAliases },
         test: {
           name: "integration",
