@@ -385,11 +385,6 @@ sequenceDiagram
     Web->>Postgres: ExamSession upsert (ipPin, startedAt) + event "enter"
     Web-->>Browser: 201 (fresh) or 200 (idempotent re-entry)
 
-    loop every ~30s while tab open
-        Browser->>Web: POST /api/exam-sessions/{examId}/heartbeat
-        Web->>Postgres: heartbeatWithThrottle (bump lastHeartbeatAt, throttle event insert)
-    end
-
     Note over Browser,Web: handle hook blocks navigation outside /exams/{id}/**;<br/>attempted off-path request records "visibility_lost" event
     Browser->>Web: GET /courses/... (disallowed)
     Web->>Postgres: recordEvent("visibility_lost", {attemptedPath})

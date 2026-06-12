@@ -89,7 +89,6 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/events/stream`                                          | GET                | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
 | `/api/contests/[id]/scoreboard`                               | GET                | Scoreboard data (computed on read from Postgres via `buildScoreboard`)                         |
 | `/api/contests/[id]/scoreboard/chart`                         | GET                | Scoreboard chart data                                                                          |
-| `/api/exam-sessions/[examId]/heartbeat`                       | POST               | Record page-lock heartbeat / visibility events                                                 |
 | `/api/plagiarism/[assignmentId]/reports`                      | GET, POST          | List plagiarism reports (GET) / trigger detection (POST)                                       |
 | `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]` | GET                | Fetch a participant's submission source for a flagged pair                                     |
 | `/api/plagiarism-flags`                                       | POST               | Flag a plagiarism pair (admin/teacher)                                                         |
