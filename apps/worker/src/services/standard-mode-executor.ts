@@ -201,6 +201,8 @@ async function runContainer(
     config.cpuLimit,
     "--memory",
     `${String(config.memoryMb)}m`,
+    "--memory-swap",
+    `${String(config.memoryMb)}m`,
     "--pids-limit",
     String(config.pidsLimit),
     "--env",

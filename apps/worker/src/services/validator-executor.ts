@@ -67,6 +67,8 @@ export function buildValidatorDockerArgs(params: ValidatorDockerArgsParams): str
     params.cpuLimit,
     "--memory",
     `${String(params.memoryMb)}m`,
+    "--memory-swap",
+    `${String(params.memoryMb)}m`,
     "--pids-limit",
     String(params.pidsLimit),
     "--env",
