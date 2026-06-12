@@ -23,12 +23,11 @@
 - **Phase 2(全部)** — 2.1 QUALITY_SCORE 誠實帳本、2.2 scoreboard 四文件統一、2.3 THREAT_MODEL phantom 清除、2.4 a–i(ARCHITECTURE / DATABASE prose / SECURITY advisory / incident-recovery / JUDGE_PIPELINE / gke+gcp README)。
 - **Phase 3(部分)** — 3.1 scoreboard chart 重用、3.3a problem loader 並行化、3.4 plagiarism omit、3.5 索引 migration + point-sum 分桶。
 - **Phase 4(部分)** — 4.1e notification dedupeKey。
-- **Phase 5(部分)** — 5.7 web prod env fail-fast + seed Redis 死碼 + pubsub 孤兒註解。
+- **Phase 5(大部分)** — 5.1 temporal/sandbox-runner 補 lint(修 21 既存違規,含一個 `return await` 真 bug 傾向)+ lint-coverage fitness test、5.2 workflow 名稱契約(確認既有 `workflow-registration.test.ts` 已覆蓋)、5.5 exam-context cache null 短 TTL、5.7 web prod env fail-fast + seed Redis 死碼 + pubsub 孤兒註解、5.8 SSE reconnect onopen 重置、5.10 verdict sanitizer fail-closed + avatar magic-byte。
 
 **⏸️ 遞延(有具體理由,非遺漏)**
 
-- **4.1a adminOverrideSignal 程式碼移除** — `contestLifecycleWorkflow` 是長壽 workflow;移除 `condition`/signal 會改 command sequence,in-flight 執行 replay 撞 non-determinism。依本輪新增的 DEPLOYMENT「Workflow Versioning」紀律,需 worker drain 或 `patched()` 協調部署才能安全移除。文件側已改正(ARCHITECTURE/RELIABILITY)。
-- **5.1 temporal/sandbox-runner 補 lint** — 加 lint script 會浮現 **21 個既存違規**(safety-critical sandbox 碼的 non-null assertion 等);需逐一審查(加 guard / justified disable)才能不破 CI,屬獨立聚焦任務。
+- **4.1a adminOverrideSignal 程式碼移除** — `contestLifecycleWorkflow` 是長壽 workflow;移除 `condition`/signal 會改 command sequence,in-flight 執行 replay 撞 non-determinism。依本輪新增的 DEPLOYMENT「Workflow Versioning」紀律,需 worker drain 或 `patched()` 協調部署才能安全移除。**等使用者裁示 A(完整刪+drain)/B(replay-safe 部分刪)**。文件側已改正(ARCHITECTURE/RELIABILITY)。
 - **1.7 snapshotForRejudge 冪等 / memory poller 精度** — 需 schema migration + 5 處改動換 P3 orphan-log;不成比例,遞延。
 
 **🔲 待做(P2/P3 polish,多檔/前端/重構)**
@@ -37,7 +36,7 @@
 - **3.3b** problems 列表 9 查詢 / computeStatusCounts 4 子查詢合併。
 - **4.1b/c/d** 死契約(publishAssessmentDeadline 死 activity、sse.ts 3 死 toast handler、scoreboard Friends/Around 死 UI)— 多檔且 SSE event schema 有 fitness test。
 - **4.2** context 概念 6 份 → core schema、**4.3** form action 錯誤 wrapper、**4.4** sandbox executor source-file 去重、**4.5** EditorCore/MonacoScriptEditor 等去重。
-- **5.2** workflow 名稱常數、**5.3** CHECK 重放進測試 DB、**5.4** Participation status enum、**5.5** exam-context cache 跨實例、**5.6** rate limiter fail-closed offline-queue、**5.8** SSE reconnect、**5.9** CD backup/SLO/rollback、**5.10** 安全深度防禦批次、**5.11** 前端 a11y/i18n 批次。
+- **5.3** CHECK 重放進測試 DB(test-harness)、**5.4** Participation status enum(migration)、**5.6** rate limiter offline-queue(需獨立連線)、**5.9** CD backup/SLO/rollback(infra)、**5.10 殘餘**(BODY_SIZE_LIMIT、markdown ADD_ATTR 需 KaTeX 視覺驗證、editorial early-return、heartbeat 孤兒端點、createOverride 驗證、bundle 守衛)、**5.11** 前端 a11y/i18n 批次(視覺)。
 
 ---
 
@@ -226,7 +225,7 @@
 | f   | `SECURITY.md:16,124-146`                         | 「signed URL」實為 in-process GetObject;dependency advisory 與 QUALITY_SCORE 對 transitive 矛盾                                                  | 改「read in-process by worker S3 creds」;更新 advisory posture(overrides 已清、audit 為零) |
 | g   | `JUDGE_PIPELINE.md:265,270`                      | `deriveJudgeMode` inline 位置與行號 stale、rm -rf 清理行號錯                                                                                     | 改用符號引用(函式名+檔)不釘行號                                                            |
 | h   | `gke/README.md:64-66`                            | 「single kubectl apply -k」與正式兩步 flow 矛盾                                                                                                  | 統一為兩步 apply(quota 在第二步是刻意設計)                                                 |
-| i   | `gcp/README.md:41-49`                            | deploy.sh 必填 env 清單漏 BETTER*AUTH*_/S3\__                                                                                                    | 補齊對齊 `deploy.sh:77-86` 的 `require_env`                                                |
+| i   | `gcp/README.md:41-49`                            | deploy.sh 必填 env 清單漏 BETTER*AUTH*\_/S3\_\_                                                                                                  | 補齊對齊 `deploy.sh:77-86` 的 `require_env`                                                |
 
 - **verify:** doc-link gate 綠;隨機抽 3 條技術宣稱到 code 驗證一致。
 
