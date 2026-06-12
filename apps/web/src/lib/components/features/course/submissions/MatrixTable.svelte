@@ -92,6 +92,16 @@
                   {labels.attempts({ count: cell.attempts })}
                 </span>
               {/if}
+              {#if cell.practiceAttempts > 0 && labels.practiceSummary}
+                <span
+                  class="mt-1 block text-micro font-normal text-muted-foreground opacity-90"
+                >
+                  {labels.practiceSummary({
+                    score: cell.practiceScore ?? 0,
+                    count: cell.practiceAttempts,
+                  })}
+                </span>
+              {/if}
             </td>
           {/each}
           <td

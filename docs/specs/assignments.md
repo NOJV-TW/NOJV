@@ -65,6 +65,10 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   overrides + per-cell student-visible feedback comments
   (`SubmissionFeedback`). Writes gated post-close (`closesAt < now`),
   admin bypass.
+- Post-close, context-less practice submissions are visible on the
+  manager submissions matrix as practice metadata. They do not contribute
+  to official cell score, row total, class stats, score overrides, or
+  feedback context.
 - Audit sub-tab — staff-only merged feed of lifecycle, score
   override, and rejudge events
   (`listAuditTimelineForContext({ type: "assignment", id })`).
@@ -256,6 +260,10 @@ is only available after it closes.")` (shared post-close gate; see
   the same problem after close, THEN the submission is accepted as a
   practice submission (no `assessmentId`, no `maxAttemptsPerDay`
   decrement, no class-stats contribution).
+- GIVEN a manager opens the closed assignment submissions matrix, THEN
+  context-less practice submissions from enrolled students after
+  `closesAt` are shown under the matching student/problem cell without
+  changing the official score or total.
 - GIVEN the same user POSTs with an EXPIRED `assessment` context,
   THEN the createSubmission mutation still throws `ForbiddenError` — the
   UI must not emit such URLs but the backend is belt-and-braces.
@@ -346,12 +354,9 @@ is only available after it closes.")` (shared post-close gate; see
 
 - `tests/unit/domain/assignment-mutations.test.ts` — publish / delete /
   revert-to-draft / status-aware field locks + audit-row writes.
+- `tests/unit/domain/assignment-submissions-matrix.test.ts` —
+  post-close context-less practice metadata visibility and official-score
+  isolation.
 - `tests/unit/domain/list-aggregations.test.ts` — class stats + my status
   aggregations.
 - `tests/unit/domain/problem-access.test.ts` — practice-after-close gate.
-
-## Open Questions / TODO
-
-- Teachers currently cannot see practice (post-close, context-less)
-  submissions from their students in any matrix view — this is
-  intentional per the design doc, but may become a feature request.
