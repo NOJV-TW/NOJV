@@ -38,11 +38,23 @@
 - **5.10 bundle 守衛** — `api/problems/[id]/bundle/+server.ts` 兩 handler 皆有 `canCreateProblem` 前置。
 - **5.10 avatar magic-byte** — `detectImageMime(buffer)!=="image/webp"` 已對齊。
 
-**🔲 待做(P3 polish / 前端視覺 / 需產品裁決)**
+**✅ 本輪平行 agent + 產品裁決完成(使用者授權「全部做完」)**
 
-- **純重構(無需裁決,低價值)**:3.3b problems 列表查詢合併(效能 P3)、4.2 context 概念 6 份→core schema、4.4 sandbox executor source-file 去重、4.5 EditorCore/MonacoScriptEditor 去重。
-- **需可視驗證(前端)**:4.1d scoreboard Friends/Around 死 UI、markdown ADD_ATTR(KaTeX 子樹 scope)、5.11 a11y/i18n 批次。
-- **需產品裁決**:exam heartbeat 端點孤兒(刪 or 接前端定時呼叫)、better-auth `trustedProviders`(顯式設 + 評估 social 繞 `disableSignUp` 不對稱)、BODY_SIZE_LIMIT 64MB(提交/編輯 JSON 路由縮上限,注意 source 已有 512K cap 歷史)。
+- **產品裁決(使用者:heartbeat 刪除)**:exam heartbeat 端點孤兒**整條移除**(端點+domain
+  `heartbeat`/`heartbeatWithThrottle`+metrics+openapi+測試+living-doc 同步;保留 enum
+  vocab + lastHeartbeatAt);better-auth **顯式 trustedProviders**;BODY_SIZE_LIMIT **文件化
+  已評估姿態**(critical 路由已 2MB self-guard)。Grafana dashboard/alert/runbook follow-up。
+- **前端視覺(已實作,待使用者目視)**:4.1d scoreboard Friends 移除 + **Around-me 真實作**
+  client 過濾;markdown ADD_ATTR **class-based KaTeX scope**(修我 branch span 全域 style 漏洞,
+  **KaTeX 渲染需瀏覽器目視**);5.11 子集 — submission polling 不誤報 + history each-key 用
+  `entry.id`(prepend 錯位修)+ rank gold/silver/bronze token + EditorialList toast/zod。
+- **查證後「早已在本 branch」(平行 agent 從 main 重做,冗餘未取)**:3.3b(loader 已並行化 +
+  `countProblemStatusSummaryForUser` 單查詢)、4.4(`resolveSourceFiles` 已抽且 4 executor 已用)、
+  5.11 ScoreOverrideForm a11y(已有 `aria-invalid`)。
+
+**🔲 仍遞延(低價值純重構 / ops)**
+
+- **4.2** context 概念 6 份→core schema、**4.5** EditorCore/MonacoScriptEditor 去重(churny、低價值)。
 - **ops doc**:sandbox 隔離上線後驗證步(臨時 pod curl 外網應 timeout)寫進部署 runbook。
 
 ---
