@@ -98,6 +98,7 @@ model Submission {
   @@index([assessmentId, problemId, createdAt])
   @@index([status, updatedAt])
   @@index([problemId, sampleOnly, userId, status])
+  @@index([createdAt])
 }
 
 /// Audit log for rejudge runs. Written in two passes by
@@ -123,6 +124,7 @@ model SubmissionRejudgeLog {
 
   @@index([submissionId, createdAt(sort: Desc)])
   @@index([rejudgedByUserId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
 }
 
 enum OverrideContextType {

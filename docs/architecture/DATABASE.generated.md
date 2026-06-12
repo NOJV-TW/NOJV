@@ -44,6 +44,8 @@ Tri-state user lifecycle flag. `disabled: Boolean` is retained as an admin-visib
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
+Indexes & constraints: `@@unique([providerId, accountId])`, `@@index([userId])`
+
 #### `SchoolVerificationToken`
 
 Dedicated store for school-email verification tokens. Decoupled from better-auth's Verification table so neither side interferes with the other's cleanup sweeps.
@@ -72,6 +74,8 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `userAgent` | `String?` | — |
 | `userId` | `String` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([userId])`
 
 #### `TwoFactor`
 
@@ -153,6 +157,8 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `expiresAt` | `DateTime` | — |
 | `createdAt` | `DateTime?` | `@default(now())` |
 | `updatedAt` | `DateTime?` | `@updatedAt` |
+
+Indexes & constraints: `@@index([identifier])`
 
 ## `clarification.prisma`
 
@@ -1018,7 +1024,7 @@ Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `c
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
 
 #### `SubmissionFeedback`
 
@@ -1083,5 +1089,5 @@ Audit log for rejudge runs. Written in two passes by submissionJudgeWorkflow whe
 | `submission` | `Submission` | `@relation(fields: [submissionId], references: [id], onDelete: Cascade)` |
 | `rejudgedBy` | `User?` | `@relation(fields: [rejudgedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`
+Indexes & constraints: `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`, `@@index([createdAt(sort: Desc)])`
 
