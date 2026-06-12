@@ -123,21 +123,18 @@ describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)"
     expect(payload.pairs).toEqual([]);
   });
 
-  it("silently skips submissions in unmapped languages", async () => {
+  it("fails the report instead of silently skipping unmapped languages", async () => {
     listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, "brainfuck_source", "brainfuck"),
       sub("usr_b", "prob_1", 100, IDENTICAL_PY, "python"),
       sub("usr_c", "prob_1", 100, IDENTICAL_PY, "python"),
     ]);
 
-    await runPlagiarismCheck(target.id, target.type);
-
-    const [, payload] = saveResults.mock.calls[0];
-    expect(payload.pairs).toHaveLength(1);
-    const users = [payload.pairs[0].userId1, payload.pairs[0].userId2].sort(
-      (a, b) => Number(a > b) - Number(a < b),
+    await expect(runPlagiarismCheck(target.id, target.type)).rejects.toThrow(
+      "Unsupported plagiarism language: brainfuck",
     );
-    expect(users).toEqual(["usr_b", "usr_c"]);
+    expect(markReportFailed).toHaveBeenCalledWith(target);
+    expect(saveResults).not.toHaveBeenCalled();
   });
 });
 
