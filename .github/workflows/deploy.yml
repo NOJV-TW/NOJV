@@ -160,6 +160,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
+          export DOCKER_GID
           docker compose --profile prod up -d --wait --remove-orphans web worker
 
       - name: Verify health checks
@@ -184,6 +186,9 @@ jobs:
             fi
             echo "$service: healthy"
           done
+
+          docker compose --profile prod exec -T worker docker version >/dev/null
+          echo "worker: can reach the docker socket (judging will not EACCES)"
 
           docker compose --profile prod ps
 
