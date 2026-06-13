@@ -173,12 +173,20 @@ The worker **must actually populate** `runStatus` (today's executor keeps
 `apps/worker/src/services/advanced-mode-executor.ts`): after run exits the worker
 derives the state (Docker: wall-clock timeout flag + cgroup OOM / exit code;
 K8s: Job status conditions), serializes it into the **grade** meta.json, and
-mounts that read-only into the grade container. Two responsibilities stay on the
-**worker**, not the grade harness: (1) if `/output` is missing or empty after run,
-fail the submission as SE directly; (2) `runStatus` derivation. The grade meta.json
+mounts that read-only into the grade container. The grade meta.json
 schema is exactly `{ submissionId, language, runStatus }` — it deliberately does
 **not** carry `network.mode` (a proxy denial is just a connection error to the
 student program, so grade never needs to know the network mode).
+
+**Verdict ownership (refined during Phase 1 implementation).** The worker does
+**not** SE on an empty `/output`. An empty run output is a legitimate outcome (a
+student program that printed nothing → the grade harness should render WA/RE using
+`runStatus`), not a system fault. So after any run that did not *infrastructurally*
+fail, the worker **always proceeds to grade**, funneling the run outcome through
+`runStatus`. The worker SEs only on infrastructure failures: run container spawn
+error, run size-cap exceeded, grade container spawn error, grade timeout, and
+missing/unreadable/invalid `result.json`. The grade harness (TA code) owns the
+TLE/MLE/RE/WA verdict. This supersedes the earlier "empty `/output` → SE" wording.
 
 ### service container (optional, trusted: no student code)
 
@@ -427,8 +435,10 @@ own migration.
   `totalTimeMs` large enough to blow the activity budget is rejected at problem
   save time rather than failing mysteriously at judge time.
 - Failure modes → System Error (`advancedFallbackResult`): sidecar fails to
-  start; run produces no `/output`; grade produces no/invalid `result.json`.
-  In `allowlist` mode a proxy denial surfaces to the student program as an
+  start; run/grade container **spawn** error; run size-cap exceeded; grade
+  timeout; grade produces no/invalid `result.json`. An **empty `/output` is NOT
+  an SE** — it flows to grade via `runStatus` (see Verdict ownership). In
+  `allowlist` mode a proxy denial surfaces to the student program as an
   ordinary connection error — **not** SE.
 
 ## Backend implementation map

@@ -159,11 +159,21 @@ Split `AdvancedModeExecutor` into two phases. No network sidecar yet.
 
 Unit-test: run-then-grade ordering; `runStatus` reflects a simulated timeout; grade reads result. Commit: `feat(worker): orchestrate advanced run then grade phases`.
 
-### Task 1.3: worker-side SE on missing/empty output
+### Task 1.3: ~~worker-side SE on missing/empty output~~ — SUPERSEDED
 
-**Steps (TDD):** If `/output` is absent/empty after run, return `advancedFallbackResult()` (SE) **without** starting grade. Test the empty-output path. Commit: `feat(worker): fail advanced submission as SE when run produces no output`.
+**Decision (Phase 1):** An empty `/output` is NOT an SE. It is a legitimate
+outcome (student printed nothing → grade renders WA/RE via `runStatus`), so the
+worker **always proceeds to grade** after a non-infrastructure-failing run and
+funnels the outcome through `runStatus`. The worker SEs only on infrastructure
+failures (run/grade spawn error, run size-cap, grade timeout, missing/invalid
+`result.json`). See the design doc "Verdict ownership" note. No separate
+empty-output SE code. ✅ Done as part of Task 1.2.
 
-**Phase 1 gate:** integration test — a dual-image fixture (run echoes input to `/output`, grade compares to a baked answer) judges AC end-to-end on Docker with `mode:"none"`. `pnpm test:integration` green.
+**Phase 1 status:** ✅ DONE (`f7d85da9`). Real-docker dual-image end-to-end is a
+**Phase 8 smoke** item (the executor's `run()` is not exercised by `ci:verify` —
+only the pure helpers are unit-tested; real judging is local-e2e / nightly). The
+Phase 1 unit tests cover run-vs-grade args, `deriveRunStatus`, and the meta-field
+split.
 
 ---
 
@@ -188,7 +198,7 @@ Commit: `feat(worker): capture advanced /output via in-container --dereference t
 **Files:**
 - Modify: `apps/worker/src/services/advanced-mode-executor.ts` (`dirSizeBytes` ~22–43, `WORKSPACE_POLL_INTERVAL_MS`)
 
-**Steps (TDD):** Add a file-count accumulator next to the byte sum; force-remove + SE when either the 1 GiB byte cap or the file-count cap (e.g. 100k) is exceeded. Test with a synthetic directory. Commit: `feat(worker): bound advanced /workspace by file count, not just bytes`.
+**Steps (TDD):** Add a file-count accumulator next to the byte sum; force-remove + SE when either the 1 GiB byte cap or the file-count cap (e.g. 100k) is exceeded. Test with a synthetic directory. **Also close the Phase 1 test gap:** the existing `dirSizeBytes` cap test (`tests/unit/worker/advanced-mode-executor.test.ts`) is a near-tautology (never exceeds the 1 GiB cap); add a real cap-exceeded assertion (e.g. inject a lowered cap / count threshold) so the watchdog trigger is genuinely exercised. Commit: `feat(worker): bound advanced /workspace by file count, not just bytes`.
 
 ### Task 2.3: mount run-output read-only into grade
 
