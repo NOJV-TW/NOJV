@@ -491,7 +491,6 @@ export class K8sExecutor implements SandboxExecutor {
       stderr: message,
       exitCode: -1,
       timeMs: 0,
-      score: 0,
       feedback: message,
     });
 
@@ -609,7 +608,7 @@ export class K8sExecutor implements SandboxExecutor {
       const logs = await this.getPodLogs(jobName, ns);
       const parsed = this.parseRunnerOutput(logs);
       if (!parsed) return sandboxSystemError("Failed to parse sandbox runner output.", logs);
-      return resolveSandboxResult(parsed, request.testcases);
+      return resolveSandboxResult(parsed, request.testcases, request.judgeConfig.compare);
     } finally {
       await this.cleanup(jobName, ns);
     }

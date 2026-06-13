@@ -1,6 +1,6 @@
-import type { SubtaskScoringStrategy } from "@nojv/db";
 import type {
   AdjustmentRules,
+  CompareConfig,
   JudgeType,
   ProblemImageSource,
   ProblemJudgeTestcase,
@@ -24,8 +24,6 @@ export interface WorkspaceFileEntry {
   visibility: WorkspaceFileVisibility;
 }
 
-export type SubtaskStrategyMap = Record<string, SubtaskScoringStrategy>;
-
 export interface AdjustmentContext {
   assignmentAdjustmentRules: AdjustmentRules | null;
   dueAt: Date | null;
@@ -46,11 +44,11 @@ export interface SubmissionJudgeContext {
   adjustment: AdjustmentContext;
   checkerScript: string | null;
   interactorScript: string | null;
+  compareOptions: CompareConfig | null;
   judgeType: JudgeType;
   runtime: Runtime;
   samples: ProblemSample[];
   problemType: ProblemType;
-  subtaskStrategies: SubtaskStrategyMap;
   testcaseSets: TestcaseSetGroup[];
   workspaceFiles: WorkspaceFileEntry[];
   advanced: AdvancedModeContext | null;

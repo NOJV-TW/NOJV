@@ -41,7 +41,6 @@ const {
   deleteTestcaseRecord,
   deleteProblemRecord,
   convertProblemToAdvancedMode,
-  setTestcaseSetScoringStrategy,
   updateAdvancedRequiredPaths,
 } = problemDomain;
 
@@ -207,14 +206,6 @@ export const actions: Actions = {
 
   updateJudgeConfig: saveJudgeConfig,
   updateScoring: saveJudgeConfig,
-
-  updateTestcaseSetScoring: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const setId = readStringField(formData.get("setId"), "setId");
-    const rawStrategy = readStringField(formData.get("strategy"), "strategy");
-    await setTestcaseSetScoringStrategy(actor, problemId, setId, rawStrategy);
-    return { success: true };
-  }),
 
   updateWorkspace: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();

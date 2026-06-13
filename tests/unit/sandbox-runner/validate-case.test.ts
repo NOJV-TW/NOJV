@@ -68,10 +68,10 @@ describe("validateCase", () => {
     expect(outcome.teamMessage).toBe("exact match");
   });
 
-  it("exit 43 with score.txt → WA carrying a partial score", async () => {
+  it("exit 43 → WA, score.txt ignored (AC/WA only), teammessage kept", async () => {
     const outcome = await run("hello\n");
     expect(outcome.verdict).toBe("WA");
-    expect(outcome.score).toBe(50);
+    expect("score" in outcome).toBe(false);
     expect(outcome.teamMessage).toBe("partial");
   });
 

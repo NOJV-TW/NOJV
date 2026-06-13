@@ -1,5 +1,5 @@
 import { prisma } from "../client";
-import type { Prisma, SubtaskScoringStrategy } from "../../generated/prisma/client";
+import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 import { problemMiniSelect } from "./selects";
 
@@ -309,13 +309,6 @@ export const testcaseSetRepo = {
 
   update(id: string, data: Prisma.TestcaseSetUpdateInput) {
     return prisma.testcaseSet.update({ where: { id }, data });
-  },
-
-  async updateScoringStrategy(setId: string, strategy: SubtaskScoringStrategy): Promise<void> {
-    await prisma.testcaseSet.update({
-      where: { id: setId },
-      data: { scoringStrategy: strategy },
-    });
   },
 
   delete(id: string) {

@@ -119,6 +119,23 @@ describe("saveProblemJudgeConfig", () => {
     expect(deleteBlob).toHaveBeenCalledWith({}, "problems/prob_1/validator/interactor");
   });
 
+  it("standard judge persists the compare options (case sensitivity + float tolerance)", async () => {
+    await saveProblemJudgeConfig(actor, "prob_1", {
+      judgeConfig: {
+        type: "standard",
+        compare: { caseSensitive: false, floatTolerance: 1e-6 },
+      },
+    });
+
+    const persisted = problemUpdate.mock.calls[0]![1] as {
+      judgeConfig: Record<string, unknown>;
+    };
+    expect(persisted.judgeConfig).toEqual({
+      type: "standard",
+      compare: { caseSensitive: false, floatTolerance: 1e-6 },
+    });
+  });
+
   it("clearing the checker body (empty string) drops the key and deletes the blob", async () => {
     await saveProblemJudgeConfig(actor, "prob_1", {
       judgeConfig: { type: "checker", checkerLanguage: "python" },

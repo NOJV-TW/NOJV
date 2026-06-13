@@ -29,12 +29,12 @@ describe("compareStandard (canonical normalization)", () => {
     expect(compareStandard("Hello", "hello")).toBe(false);
   });
 
-  it("does not collapse internal whitespace (no more ignore_whitespace mode)", () => {
-    expect(compareStandard("a  b", "a b")).toBe(false);
-    expect(compareStandard("a\tb", "a b")).toBe(false);
+  it("collapses internal whitespace runs (DOMjudge token semantics)", () => {
+    expect(compareStandard("a  b", "a b")).toBe(true);
+    expect(compareStandard("a\tb", "a b")).toBe(true);
   });
 
-  it("does not apply float tolerance (no more float mode)", () => {
+  it("does not apply float tolerance by default (exact unless opted in)", () => {
     expect(compareStandard("1.0000001", "1.0")).toBe(false);
   });
 });

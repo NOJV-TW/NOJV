@@ -388,13 +388,13 @@ describe("standard judge edge cases", () => {
     if (!result.success) return;
 
     const acVerdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-    expect(acVerdict.score).toBe(100);
+    expect(acVerdict.verdict).toBe("AC");
 
     const waVerdict = await judgeStandard(
       result.runCommand,
       makeTestcase({ expected: "999\n" }),
       TIMEOUT_MS,
     );
-    expect(waVerdict.score).toBe(0);
+    expect(waVerdict.verdict).toBe("WA");
   }, 30_000);
 });

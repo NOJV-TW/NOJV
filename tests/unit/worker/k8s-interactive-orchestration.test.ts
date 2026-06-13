@@ -163,7 +163,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     expect(tcResults.length).toBe(3);
     expect(tcResults[0]!.verdict).toBe("AC");
     expect(tcResults[1]!.verdict).toBe("WA");
-    expect(tcResults[1]!.score).toBe(50);
     expect(tcResults[2]!.verdict).toBe("RE");
   });
 

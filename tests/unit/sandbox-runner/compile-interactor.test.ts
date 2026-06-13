@@ -32,7 +32,6 @@ describe("compileInteractor (python)", () => {
     expect(wrapped).toContain("print(msg, flush=True)");
     expect(wrapped).toContain("def accept(");
     expect(wrapped).toContain("def wrong(");
-    expect(wrapped).toContain("def set_score(");
     expect(wrapped).toContain("_sys.exit(42)");
     expect(wrapped).toContain("_sys.exit(43)");
     expect(wrapped).not.toContain("team_output = _sys.stdin.read()");

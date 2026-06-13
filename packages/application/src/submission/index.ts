@@ -31,7 +31,6 @@ export type {
   AdvancedModeContext,
   CompletedSubmission,
   SubmissionJudgeContext,
-  SubtaskStrategyMap,
   TestcaseSetGroup,
   WorkspaceFileEntry,
 } from "./types";

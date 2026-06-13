@@ -8,32 +8,21 @@ function rawRun(overrides: Partial<RawCaseRun> & { index: number }): RawCaseRun 
 }
 
 describe("mergeCheckerResults", () => {
-  it("takes the validator AC verdict and defaults score to 100", () => {
+  it("takes the validator AC verdict", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0, stdout: "out" })],
       new Map<number, ValidatorOutcome>([[0, { verdict: "AC" }]]),
     );
     expect(result!.verdict).toBe("AC");
-    expect(result!.score).toBe(100);
     expect(result!.stdout).toBe("out");
   });
 
-  it("takes the validator WA verdict and defaults score to 0", () => {
+  it("takes the validator WA verdict (checkers are AC/WA only)", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0 })],
       new Map<number, ValidatorOutcome>([[0, { verdict: "WA" }]]),
     );
     expect(result!.verdict).toBe("WA");
-    expect(result!.score).toBe(0);
-  });
-
-  it("honors a partial score from the validator", () => {
-    const [result] = mergeCheckerResults(
-      [rawRun({ index: 0 })],
-      new Map<number, ValidatorOutcome>([[0, { verdict: "WA", score: 50 }]]),
-    );
-    expect(result!.verdict).toBe("WA");
-    expect(result!.score).toBe(50);
   });
 
   it("surfaces teamMessage as student feedback and judgeMessage as staffFeedback", () => {
@@ -65,7 +54,6 @@ describe("mergeCheckerResults", () => {
         new Map<number, ValidatorOutcome>([[0, { verdict: "AC" }]]),
       );
       expect(result!.verdict).toBe(errorVerdict);
-      expect(result!.score).toBe(0);
       expect(result!.stderr).toBe("boom");
     },
   );
@@ -76,7 +64,6 @@ describe("mergeCheckerResults", () => {
       new Map<number, ValidatorOutcome>(),
     );
     expect(result!.verdict).toBe("SE");
-    expect(result!.score).toBe(0);
   });
 
   it("treats a validator SE outcome as SE", () => {
