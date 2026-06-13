@@ -286,11 +286,12 @@ because there is no egress boundary to protect.)
     primitive — the worker does the polling). Sidecar crash before/during run →
     detected by the worker → submission SE.
   - **Cross-Pod `/output` transfer (no shared emptyDir across Pods).** The run
-    Pod's emit container **tars `/workspace/output/` to stdout** between markers;
+    Pod's emit container streams `/workspace/output/` to stdout between markers;
     the worker captures it via the Pod-logs API — the same log-tailing pattern the
     current `emit-result` sidecar already uses (`k8s-advanced.ts`), so no PV and no
-    ConfigMap 1 MB limit. (`--dereference` tar safety from the Binary I/O section
-    applies here too.)
+    ConfigMap 1 MB limit. The same capture-safety rules as the Docker path apply
+    (drop symlinks + special files, file/byte caps) — Phase 5 must enforce them on
+    whatever the run Pod emits, e.g. emit a manifest of regular files only.
   - sidecar egress is independent (proxy → allowlisted hosts; service → full).
   - This multi-Pod orchestration (start sidecar Pod + per-submission NetworkPolicy,
     await ready, run Job, capture tar, teardown, then grade Job) is the heaviest
@@ -311,27 +312,42 @@ JSON string or stdin text — so image/audio/binary files survive intact.
 This promotes the previously-ignored `artifacts/` directory to the official
 run→grade I/O bus. The platform never interprets binary semantics.
 
-### Tar safety (a security gate — the `/output` capture must not become an answer leak)
+### Capture safety (a security gate — the `/output` capture must not become an answer leak)
 
-`/output` is written by untrusted student code, so the capture is hardened:
+`/output` is written by untrusted student code, so the capture is hardened.
+**Implemented (Phase 2) as a host-side `safeCopyTree`, not an in-container tar** —
+see the rationale below for why this is simpler and strictly safer.
 
-- **Tar happens inside the run container, before teardown, with `--dereference`.**
-  Symlinks therefore resolve in the **run** filesystem — which contains **no
-  answers** — so a malicious `output/x → /answers/secret` symlink dereferences to
-  a non-existent path and is dropped, never reaching grade. Tarring in the worker
-  after the fact would resolve such a link in a context that could see other
-  mounts → that is the leak we must avoid. (Note: even though run has no answers,
-  `--dereference` + run-context tarring is what makes the property hold by
-  construction rather than by luck.)
-- **Skip special files** (FIFOs, sockets, device nodes) — they can hang tar /
-  the extractor (DoS).
-- **Bound the tree before transfer**: reject if file count or directory depth
-  exceeds a cap (e.g. ≤ 100k files), and extend the existing `/workspace` size
-  watchdog (`advanced-mode-executor.ts` `dirSizeBytes`, today byte-sum only) to
-  also count **inodes/files** so a million 1-byte files can't exhaust fds or OOM
-  the tar under the 1 GiB byte cap.
-- An `/output` that violates these (special files, over-cap tree, tar failure) is
-  a defined failure mode → submission SE; grade is not started.
+- **Skip symlinks entirely** (the core gate). The capture walks the run
+  container's **static, post-exit** `/output` on the host and, per entry, uses
+  `lstat` (checked *before* any `isFile`/`isDirectory` branch) to detect and
+  **drop every symlink** — it is never copied and never followed. A malicious
+  `output/x → /answers/secret` (absolute) or `→ ../escape` (relative) therefore
+  never reaches `gradeDir/run-output`, so nothing can resolve against the grade
+  container's baked-in `/answers`. Because no symlink is ever dereferenced, the
+  capture also cannot be tricked into reading host secrets via a symlink.
+- **Skip special files** (FIFOs, sockets, device nodes) — `lstat`-classified and
+  dropped without ever `open()`ing them, so a FIFO cannot hang the capture.
+- **Binary-safe** — regular files are copied as raw bytes (`copyFile`), never
+  decoded as UTF-8, so image/audio bytes round-trip losslessly.
+- **Bound the tree**: `safeCopyTree` throws `SafeCopyLimitError` (→ SE) when the
+  file count exceeds ≤ 100k or the cumulative bytes exceed the 1 GiB cap. The
+  during-run `/workspace` watchdog (`dirStats`) was extended from byte-sum to also
+  count **files**, force-killing the run container before a million 1-byte files
+  can be written.
+- Any failure of the capture / grade-workspace prep (cap exceeded, unexpected IO
+  error) is a defined failure mode → submission SE; grade is not started. (An
+  *empty* `/output` is NOT an SE — see "Verdict ownership".)
+
+**Why host-side `safeCopyTree` instead of an in-container `tar --dereference`:**
+the run container is `--rm` and gone the instant its main process exits, so there
+is no live container to `tar`/`docker exec` into afterward, and embedding the tar
+in the (TA-authored) run image would move the security-critical step out of
+platform control. `safeCopyTree` reads the dead container's static bind-mounted
+output on the host and neutralizes the symlink-leak by **never dereferencing at
+all** (drop-on-`lstat`) rather than by dereferencing in a guaranteed-safe context.
+It is pure host logic, so it is unit-tested without Docker (the adversarial
+symlink/FIFO/cap/binary tests), and the post-exit static read has no TOCTOU window.
 
 ## Security hardening matrix
 
@@ -469,7 +485,7 @@ New/changed code (to be detailed in the implementation plan):
 - **Adversarial security tests** (core): a malicious submission must **fail** to
   ① read `/answers` from the run container, ② reach a non-allowlisted host,
   ③ reach the grade container, ④ leak an answer via an `output/x → /answers/...`
-  symlink (must be dropped by the run-context `--dereference` tar), ⑤ escape the
+  symlink (must be dropped by the host-side `safeCopyTree` skip-symlink gate), ⑤ escape the
   allowlist by unsetting `HTTP_PROXY` / hard-coding a public IP (no route), ⑥
   exhaust resources via a million-file or special-file `/output` (watchdog +
   count cap → SE). Plus binary I/O round-trip (image in → image out → graded).
