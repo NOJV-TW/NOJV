@@ -38,6 +38,23 @@
 Nothing runs until the types exist. Build the schema, migration, and make every
 existing call site compile against it before touching executor behavior.
 
+> **Execution note (decided during execution, 2026-06-14):** A blast-radius scan
+> showed `advancedImageRef`/`advancedImageSource` are woven across 15+ files
+> (core schema, application mutations/queries, submission context, prisma seed,
+> web edit/upload/components/types). Replacing them is an **atomic refactor** —
+> splitting Tasks 0.2–0.5 into independently-green commits is impossible (any
+> partial change breaks compilation of the others). So Phase 0 is executed as
+> **one consolidated migration** (Task 0.1 schema already done). Two scope
+> decisions to keep it tractable and keep `ci:verify` green at the phase boundary:
+> 1. **Defer `advancedRequiredPaths` removal** — it is an orthogonal UI feature;
+>    keep it intact for now, remove it in a later cleanup task.
+> 2. **Executor transitional shim** — `AdvancedModeContext` moves to the new
+>    `{run, grade, network, resourceLimits}` shape, but the Docker/K8s advanced
+>    executors temporarily treat `advancedConfig.grade.imageRef` as the old single
+>    image (preserving current single-container behavior). The real run/grade
+>    split is Phase 1. Seed sets `run` and `grade` to the existing demo image so
+>    the advanced-mode integration/e2e tests keep passing — **no test skips**.
+
 ### Task 0.1: `advancedConfig` Zod schema
 
 **Files:**
@@ -73,10 +90,15 @@ it("allowlist mode requires non-empty allowlist", () => {
 ### Task 0.2: `special_env` problem validation
 
 **Files:**
-- Modify: `packages/core/src/schemas/problem.ts` (currently flat `advancedImageRef`/`advancedImageSource`/`advancedRequiredPaths` ~lines 90–138)
-- Test: `packages/core/src/schemas/problem.test.ts`
+- Modify: `packages/core/src/schemas/problem.ts` (currently flat `advancedImageRef`/`advancedImageSource`/`advancedRequiredPaths` ~lines 90–138; also owns `problemImageSourceSchema` ~lines 18–19)
+- Modify: `packages/core/src/schemas/advanced-mode.ts` (enum unification — see below)
+- Test: `tests/unit/core/` (e.g. extend `schemas.test.ts` or add `problem-advanced-config.test.ts`)
 
 **Steps:** TDD that a `special_env` problem requires a valid `advancedConfig` and that non-`special_env` problems reject it. Replace the flat-field validation with `advancedConfig`. Remove `advancedRequiredPaths` (it was a single-image concept). Commit: `feat(core): validate special_env problems against advancedConfig`.
+
+**Carried over from Task 0.1 code review (do here, where problem.ts is already open):**
+- **Single-source the image-source enum.** Task 0.1 inlined `z.enum(["registry","tarball"])` in `advanced-mode.ts`; `problem.ts:18-19` already exports `problemImageSourceSchema` for the same concept. Unify to ONE canonical enum. Direction matters to avoid a cycle: since `problem.ts` will now import `advancedConfigSchema` from `advanced-mode.ts`, the canonical enum must live in `advanced-mode.ts` (export `imageSourceSchema` there) and `problem.ts` should import/re-export it — NOT the reverse.
+- **i18n validation messages.** `advanced-mode.ts`'s `advancedConfigSchema` superRefine currently emits prose English strings; `problem.ts`'s superRefine uses i18n keys (`validation_required`, etc.) because these surface in the authoring UI. When wiring `special_env` validation, decide whether the advancedConfig messages need i18n keys; if the authoring UI renders them, convert to keys for consistency.
 
 ### Task 0.3: extend the sandbox contract
 
