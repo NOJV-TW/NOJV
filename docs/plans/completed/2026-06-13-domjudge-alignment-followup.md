@@ -1,5 +1,7 @@
 # DOMjudge 對齊後續修復計劃
 
+> **狀態:已 ship — PR #149(squash `2c862d22`,2026-06-14,全 CI 綠)。** #1–#5(含 #4 Docker + K8s 每測資一容器 memory.peak)皆完成並實機判題驗證。**遞延未做**(列為建議):checker/interactive 的 per-case 路徑端到端煙測、OLE verdict、bundle 無損化。
+
 - 日期:2026-06-13
 - 起點:PR #148(`2e73cd82`)對齊判題語意核心後,使用者提出 5 個後續問題 + 「還有什麼值得參考」。
 - 相關活文件:[Judge Pipeline](../../architecture/JUDGE_PIPELINE.md)、[Database](../../architecture/DATABASE.md)、[Contests spec](../../specs/contests.md)、前置稽核決策 [2026-06-12-full-audit-remediation](../completed/2026-06-12-full-audit-remediation.md)
