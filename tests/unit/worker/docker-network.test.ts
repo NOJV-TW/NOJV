@@ -7,16 +7,12 @@ import {
 } from "../../../apps/worker/src/services/docker-network";
 
 describe("planSubmissionNetworks", () => {
-  it("derives per-submission internal/egress names and a proxy static IP in the subnet", () => {
+  it("derives per-submission internal/egress names without any static subnet/IP", () => {
     const plan = planSubmissionNetworks("sub-123");
     expect(plan.internalName).toBe("nojv-net-internal-sub-123");
     expect(plan.egressName).toBe("nojv-net-egress-sub-123");
-    expect(plan.internalSubnet).toMatch(/^10\.88\.\d{1,3}\.0\/24$/);
-    expect(plan.proxyInternalIp).toMatch(/^10\.88\.\d{1,3}\.2$/);
-
-    const subnetOctet = plan.internalSubnet.split(".")[2];
-    const ipOctet = plan.proxyInternalIp.split(".")[2];
-    expect(ipOctet).toBe(subnetOctet);
+    expect(plan).not.toHaveProperty("internalSubnet");
+    expect(plan).not.toHaveProperty("proxyInternalIp");
   });
 
   it("is deterministic for the same submission id", () => {
@@ -31,16 +27,11 @@ describe("planSubmissionNetworks", () => {
 });
 
 describe("buildCreateInternalNetworkArgs", () => {
-  it("creates an --internal network with the given subnet (zero external routing)", () => {
-    const args = buildCreateInternalNetworkArgs("net-internal-x", "10.88.7.0/24");
-    expect(args).toEqual([
-      "network",
-      "create",
-      "--internal",
-      "--subnet",
-      "10.88.7.0/24",
-      "net-internal-x",
-    ]);
+  it("creates an --internal network and lets Docker IPAM assign the subnet", () => {
+    const args = buildCreateInternalNetworkArgs("net-internal-x");
+    expect(args).toEqual(["network", "create", "--internal", "net-internal-x"]);
+    expect(args).not.toContain("--subnet");
+    expect(args).not.toContain("--ip");
   });
 });
 

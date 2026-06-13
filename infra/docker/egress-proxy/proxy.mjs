@@ -3,9 +3,45 @@ import { connect } from "node:net";
 import { pathToFileURL } from "node:url";
 
 const DEFAULT_PORTS = [80, 443];
+const CONNECT_TIMEOUT_MS = 30_000;
 
 function normalizeHost(host) {
-  return host.trim().toLowerCase().replace(/\.$/, "");
+  return host
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "");
+}
+
+function parsePort(portStr) {
+  const port = Number(portStr);
+  return Number.isInteger(port) && port > 0 && port <= 65_535 ? port : null;
+}
+
+function parseEntry(trimmed) {
+  if (trimmed.startsWith("[")) {
+    const close = trimmed.indexOf("]");
+    if (close < 0) return null;
+    const host = normalizeHost(trimmed.slice(0, close + 1));
+    if (!host) return null;
+    const rest = trimmed.slice(close + 1);
+    if (rest === "") return { host, ports: [...DEFAULT_PORTS] };
+    if (!rest.startsWith(":")) return null;
+    const port = parsePort(rest.slice(1));
+    return port === null ? null : { host, ports: [port] };
+  }
+
+  const colon = trimmed.indexOf(":");
+  if (colon < 0) {
+    return { host: normalizeHost(trimmed), ports: [...DEFAULT_PORTS] };
+  }
+  if (colon !== trimmed.lastIndexOf(":")) {
+    return null;
+  }
+  const port = parsePort(trimmed.slice(colon + 1));
+  if (port === null) return null;
+  const host = normalizeHost(trimmed.slice(0, colon));
+  return host ? { host, ports: [port] } : null;
 }
 
 export function parseAllowlist(raw) {
@@ -13,16 +49,8 @@ export function parseAllowlist(raw) {
   for (const part of (raw ?? "").split(",")) {
     const trimmed = part.trim();
     if (!trimmed) continue;
-    const colon = trimmed.lastIndexOf(":");
-    if (colon > 0 && colon < trimmed.length - 1) {
-      const portStr = trimmed.slice(colon + 1);
-      const port = Number(portStr);
-      if (Number.isInteger(port) && port > 0 && port <= 65_535) {
-        entries.push({ host: normalizeHost(trimmed.slice(0, colon)), ports: [port] });
-        continue;
-      }
-    }
-    entries.push({ host: normalizeHost(trimmed), ports: [...DEFAULT_PORTS] });
+    const entry = parseEntry(trimmed);
+    if (entry) entries.push(entry);
   }
   return entries;
 }
@@ -52,10 +80,15 @@ function handleConnect(allowlist, req, clientSocket, head) {
 
   logRequest(host, port, "allow");
   const upstream = connect(port, host, () => {
+    upstream.setTimeout(0);
     clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
     if (head && head.length > 0) upstream.write(head);
     upstream.pipe(clientSocket);
     clientSocket.pipe(upstream);
+  });
+
+  upstream.setTimeout(CONNECT_TIMEOUT_MS, () => {
+    upstream.destroy();
   });
 
   const teardown = () => {
@@ -63,7 +96,9 @@ function handleConnect(allowlist, req, clientSocket, head) {
     clientSocket.destroy();
   };
   upstream.on("error", teardown);
+  upstream.on("close", teardown);
   clientSocket.on("error", teardown);
+  clientSocket.on("close", teardown);
 }
 
 function handleHttp(allowlist, clientReq, clientRes) {
@@ -116,12 +151,14 @@ export function createProxyServer(allowlist) {
   return server;
 }
 
+export const READY_MARKER = "NOJV_PROXY_READY";
+
 function main() {
   const port = Number(process.env.NOJV_PROXY_PORT ?? "8888");
   const allowlist = parseAllowlist(process.env.NOJV_ALLOWLIST);
   const server = createProxyServer(allowlist);
   server.listen(port, () => {
-    process.stdout.write(`egress-proxy listening on ${String(port)}\n`);
+    process.stdout.write(`${READY_MARKER} ${String(port)}\n`);
   });
 }
 

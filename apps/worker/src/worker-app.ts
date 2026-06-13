@@ -61,6 +61,11 @@ export class WorkerApp {
       const executor = createExecutor(this.env);
       setExecutor(executor);
 
+      if (this.env.EXECUTION_BACKEND === "docker") {
+        const { sweepOrphanNetworks } = await import("./services/docker-network.js");
+        sweepOrphanNetworks();
+      }
+
       const judgeWorker = await Worker.create({
         connection,
         namespace,

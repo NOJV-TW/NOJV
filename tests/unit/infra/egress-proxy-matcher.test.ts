@@ -84,3 +84,29 @@ describe("parseAllowlist", () => {
     expect(matchesAllowlist(allowlist, "api.example.com", 443)).toBe(false);
   });
 });
+
+describe("parseAllowlist IPv6 handling", () => {
+  it("parses a bracketed IPv6 host with a port", () => {
+    const allowlist = parseAllowlist("[::1]:443");
+    expect(matchesAllowlist(allowlist, "::1", 443)).toBe(true);
+    expect(matchesAllowlist(allowlist, "::1", 80)).toBe(false);
+  });
+
+  it("parses a bracketed IPv6 host with no port as default 80/443", () => {
+    const allowlist = parseAllowlist("[2001:db8::1]");
+    expect(matchesAllowlist(allowlist, "2001:db8::1", 80)).toBe(true);
+    expect(matchesAllowlist(allowlist, "2001:db8::1", 443)).toBe(true);
+    expect(matchesAllowlist(allowlist, "2001:db8::1", 8080)).toBe(false);
+  });
+
+  it("fails closed on a bare unbracketed IPv6 address (ambiguous colons dropped)", () => {
+    const allowlist = parseAllowlist("::1");
+    expect(allowlist).toEqual([]);
+    expect(matchesAllowlist(allowlist, "::1", 443)).toBe(false);
+  });
+
+  it("fails closed on a bracketed host with a malformed port suffix", () => {
+    expect(parseAllowlist("[::1]:notaport")).toEqual([]);
+    expect(parseAllowlist("[::1]extra")).toEqual([]);
+  });
+});

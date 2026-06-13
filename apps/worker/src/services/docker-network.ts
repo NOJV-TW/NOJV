@@ -1,6 +1,6 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 
-import { sanitizeId } from "./docker-process";
+import { runDocker, sanitizeId } from "./docker-process";
 
 const INTERNAL_NETWORK_PREFIX = "nojv-net-internal-";
 const EGRESS_NETWORK_PREFIX = "nojv-net-egress-";
@@ -8,55 +8,22 @@ const EGRESS_NETWORK_PREFIX = "nojv-net-egress-";
 export interface SubmissionNetworks {
   internalName: string;
   egressName: string;
-  internalSubnet: string;
-  proxyInternalIp: string;
-}
-
-function octetFromId(submissionId: string): number {
-  let hash = 0;
-  for (const ch of submissionId) {
-    hash = (hash * 31 + ch.charCodeAt(0)) % 251;
-  }
-  return hash + 2;
 }
 
 export function planSubmissionNetworks(submissionId: string): SubmissionNetworks {
   const id = sanitizeId(submissionId).slice(0, 40);
-  const octet = octetFromId(submissionId);
   return {
     internalName: `${INTERNAL_NETWORK_PREFIX}${id}`,
     egressName: `${EGRESS_NETWORK_PREFIX}${id}`,
-    internalSubnet: `10.88.${String(octet)}.0/24`,
-    proxyInternalIp: `10.88.${String(octet)}.2`,
   };
 }
 
-export function buildCreateInternalNetworkArgs(name: string, subnet: string): string[] {
-  return ["network", "create", "--internal", "--subnet", subnet, name];
+export function buildCreateInternalNetworkArgs(name: string): string[] {
+  return ["network", "create", "--internal", name];
 }
 
 export function buildCreateEgressNetworkArgs(name: string): string[] {
   return ["network", "create", name];
-}
-
-function runDocker(args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-    let stderr = "";
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.on("error", (err: Error) => reject(err));
-    child.on("close", (code: number | null) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`docker ${args.join(" ")} failed (${String(code)}): ${stderr.trim()}`));
-    });
-    child.stdin.end();
-  });
 }
 
 export async function createSubmissionNetworks(
@@ -64,8 +31,13 @@ export async function createSubmissionNetworks(
 ): Promise<SubmissionNetworks> {
   const plan = planSubmissionNetworks(submissionId);
   removeSubmissionNetworks(plan);
-  await runDocker(buildCreateInternalNetworkArgs(plan.internalName, plan.internalSubnet));
-  await runDocker(buildCreateEgressNetworkArgs(plan.egressName));
+  await runDocker(buildCreateInternalNetworkArgs(plan.internalName));
+  try {
+    await runDocker(buildCreateEgressNetworkArgs(plan.egressName));
+  } catch (err) {
+    removeSubmissionNetworks(plan);
+    throw err;
+  }
   return plan;
 }
 

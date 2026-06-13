@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { buildInspectNetworkIpArgs } from "../../../apps/worker/src/services/docker-process";
 import {
   buildProxyEnvArgs,
   buildStartProxyArgs,
@@ -60,12 +61,11 @@ describe("buildStartProxyArgs", () => {
   const args = buildStartProxyArgs({
     containerName: "nojv-egress-proxy-sub-1",
     internalName: "nojv-net-internal-sub-1",
-    staticIp: "10.88.5.2",
     allowlist: ["api.example.com:443"],
     port: EGRESS_PROXY_PORT,
   });
 
-  it("runs the proxy detached on the internal network with a static IP", () => {
+  it("runs the proxy detached on the internal network", () => {
     expect(args[0]).toBe("run");
     expect(args).toContain("-d");
     expect(args).toContain("--rm");
@@ -73,10 +73,10 @@ describe("buildStartProxyArgs", () => {
     const netIdx = args.indexOf("--network");
     expect(netIdx).toBeGreaterThan(0);
     expect(args[netIdx + 1]).toBe("nojv-net-internal-sub-1");
+  });
 
-    const ipIdx = args.indexOf("--ip");
-    expect(ipIdx).toBeGreaterThan(0);
-    expect(args[ipIdx + 1]).toBe("10.88.5.2");
+  it("does NOT pin a static IP (Docker IPAM assigns; the worker inspects it)", () => {
+    expect(args).not.toContain("--ip");
   });
 
   it("does NOT attach the egress network at start (egress is added via network connect)", () => {
@@ -93,9 +93,24 @@ describe("buildStartProxyArgs", () => {
   });
 });
 
+describe("buildInspectNetworkIpArgs", () => {
+  it("inspects the container's IP on a specific network via a Go template", () => {
+    const args = buildInspectNetworkIpArgs(
+      "nojv-egress-proxy-sub-1",
+      "nojv-net-internal-sub-1",
+    );
+    expect(args[0]).toBe("inspect");
+    expect(args[1]).toBe("-f");
+    expect(args[2]).toBe(
+      '{{(index .NetworkSettings.Networks "nojv-net-internal-sub-1").IPAddress}}',
+    );
+    expect(args.at(-1)).toBe("nojv-egress-proxy-sub-1");
+  });
+});
+
 describe("proxyUrl / proxyContainerName", () => {
-  it("builds an http proxy URL by IP", () => {
-    expect(proxyUrl("10.88.5.2", 8888)).toBe("http://10.88.5.2:8888");
+  it("builds an http proxy URL from the inspected IP", () => {
+    expect(proxyUrl("172.20.0.2", 8888)).toBe("http://172.20.0.2:8888");
   });
 
   it("derives a sanitized, length-bounded container name", () => {

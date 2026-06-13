@@ -575,7 +575,6 @@ export class AdvancedModeExecutor {
         submissionId: request.submissionId,
         internalName: networks.internalName,
         egressName: networks.egressName,
-        staticIp: networks.proxyInternalIp,
         allowlist,
         port: EGRESS_PROXY_PORT,
       });
@@ -594,7 +593,7 @@ export class AdvancedModeExecutor {
       };
     } finally {
       if (proxyContainerName) {
-        const audit = collectEgressProxyLogs(proxyContainerName);
+        const audit = await collectEgressProxyLogs(proxyContainerName);
         if (audit) {
           logger.info("advanced egress-proxy audit log", {
             submissionId: request.submissionId,

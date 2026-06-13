@@ -1,9 +1,20 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 
-import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import { createBoundedStringBuffer } from "./bounded-buffer";
+import {
+  forceRemoveContainer,
+  forceRemoveContainerSync,
+  inspectContainerNetworkIp,
+  runDocker,
+  sanitizeId,
+} from "./docker-process";
 
 export const EGRESS_PROXY_IMAGE = "nojv-egress-proxy:local";
 export const EGRESS_PROXY_PORT = 8888;
+export const PROXY_READY_MARKER = "NOJV_PROXY_READY";
+
+const READINESS_TIMEOUT_MS = 3_000;
+const READINESS_INTERVAL_MS = 100;
 
 export function renderAllowlistEnv(allowlist: string[]): string {
   return allowlist
@@ -16,8 +27,8 @@ export function proxyContainerName(submissionId: string): string {
   return `nojv-egress-proxy-${sanitizeId(submissionId).slice(0, 36)}`;
 }
 
-export function proxyUrl(staticIp: string, port: number): string {
-  return `http://${staticIp}:${String(port)}`;
+export function proxyUrl(ip: string, port: number): string {
+  return `http://${ip}:${String(port)}`;
 }
 
 export function buildProxyEnvArgs(allowlist: string[], port: number): string[] {
@@ -32,7 +43,6 @@ export function buildProxyEnvArgs(allowlist: string[], port: number): string[] {
 export function buildStartProxyArgs(params: {
   containerName: string;
   internalName: string;
-  staticIp: string;
   allowlist: string[];
   port: number;
 }): string[] {
@@ -44,8 +54,6 @@ export function buildStartProxyArgs(params: {
     params.containerName,
     "--network",
     params.internalName,
-    "--ip",
-    params.staticIp,
     "--cap-drop",
     "ALL",
     "--security-opt",
@@ -71,31 +79,25 @@ export interface EgressProxyHandle {
   proxyUrl: string;
 }
 
-function runDocker(args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-    let stderr = "";
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.on("error", (err: Error) => reject(err));
-    child.on("close", (code: number | null) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`docker ${args.join(" ")} failed (${String(code)}): ${stderr.trim()}`));
-    });
-    child.stdin.end();
-  });
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForProxyReady(containerName: string): Promise<void> {
+  const deadline = Date.now() + READINESS_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if ((await collectEgressProxyLogs(containerName)).includes(PROXY_READY_MARKER)) {
+      return;
+    }
+    await sleep(READINESS_INTERVAL_MS);
+  }
+  throw new Error(`egress-proxy ${containerName} did not become ready within timeout`);
 }
 
 export async function startEgressProxy(params: {
   submissionId: string;
   internalName: string;
   egressName: string;
-  staticIp: string;
   allowlist: string[];
   port: number;
 }): Promise<EgressProxyHandle> {
@@ -105,22 +107,51 @@ export async function startEgressProxy(params: {
     buildStartProxyArgs({
       containerName,
       internalName: params.internalName,
-      staticIp: params.staticIp,
       allowlist: params.allowlist,
       port: params.port,
     }),
   );
-  await runDocker(["network", "connect", params.egressName, containerName]);
-  return { containerName, proxyUrl: proxyUrl(params.staticIp, params.port) };
+
+  try {
+    await runDocker(["network", "connect", params.egressName, containerName]);
+
+    const ip = inspectContainerNetworkIp(containerName, params.internalName);
+    if (!ip) {
+      throw new Error(`could not resolve egress-proxy IP on ${params.internalName}`);
+    }
+
+    await waitForProxyReady(containerName);
+
+    return { containerName, proxyUrl: proxyUrl(ip, params.port) };
+  } catch (err) {
+    forceRemoveContainer(containerName);
+    throw err;
+  }
 }
 
-export function collectEgressProxyLogs(containerName: string): string {
-  const result = spawnSync("docker", ["logs", containerName], {
-    env: process.env,
-    encoding: "utf8",
+export function collectEgressProxyLogs(containerName: string): Promise<string> {
+  return new Promise<string>((resolve) => {
+    const buffer = createBoundedStringBuffer();
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      resolve(buffer.toString().trim());
+    };
+
+    const child = spawn("docker", ["logs", containerName], { env: process.env, stdio: "pipe" });
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      buffer.push(chunk);
+    });
+    child.stderr.on("data", (chunk: string) => {
+      buffer.push(chunk);
+    });
+    child.on("error", settle);
+    child.on("close", settle);
+    child.stdin.end();
   });
-  if (result.error) return "";
-  return `${result.stdout}${result.stderr}`.trim();
 }
 
 export function stopEgressProxy(containerName: string): void {
