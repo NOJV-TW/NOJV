@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ADVANCED_WORKSPACE_MAX_BYTES,
   buildAdvancedDockerArgs,
+  buildProxyEnv,
   deriveRunStatus,
   dirStats,
   exceedsWorkspaceCaps,
@@ -156,6 +157,47 @@ describe("buildAdvancedDockerArgs", () => {
       const workspaceIdx = args.indexOf("/tmp/job/grade:/workspace");
       expect(roIdx).toBeGreaterThan(workspaceIdx);
     });
+  });
+});
+
+describe("allowlist network mode (Phase 3 run-container egress)", () => {
+  it("buildProxyEnv sets all four proxy env vars to the proxy URL with empty NO_PROXY", () => {
+    const env = buildProxyEnv("http://10.88.5.2:8888");
+    expect(env).toEqual({
+      HTTP_PROXY: "http://10.88.5.2:8888",
+      HTTPS_PROXY: "http://10.88.5.2:8888",
+      http_proxy: "http://10.88.5.2:8888",
+      https_proxy: "http://10.88.5.2:8888",
+      NO_PROXY: "",
+      no_proxy: "",
+    });
+  });
+
+  it("run args attach ONLY the internal network and inject HTTP_PROXY in allowlist mode", () => {
+    const args = runArgs({
+      networkArgs: ["--network", "nojv-net-internal-sub-123"],
+      extraEnv: buildProxyEnv("http://10.88.5.2:8888"),
+    });
+
+    const netIdx = args.indexOf("--network");
+    expect(args[netIdx + 1]).toBe("nojv-net-internal-sub-123");
+    expect(args).not.toContain("nojv-net-egress-sub-123");
+    expect(args.filter((a) => a === "--network")).toHaveLength(1);
+
+    const proxyIdx = args.indexOf("HTTP_PROXY=http://10.88.5.2:8888");
+    expect(proxyIdx).toBeGreaterThan(0);
+    expect(args[proxyIdx - 1]).toBe("--env");
+    expect(args).toContain("HTTPS_PROXY=http://10.88.5.2:8888");
+    expect(args).toContain("http_proxy=http://10.88.5.2:8888");
+    expect(args).toContain("https_proxy=http://10.88.5.2:8888");
+  });
+
+  it("run args in none mode use --network none and carry NO proxy env", () => {
+    const args = runArgs({ networkArgs: ["--network", "none"] });
+    const netIdx = args.indexOf("--network");
+    expect(args[netIdx + 1]).toBe("none");
+    expect(args.some((a) => a.startsWith("HTTP_PROXY="))).toBe(false);
+    expect(args.some((a) => a.startsWith("http_proxy="))).toBe(false);
   });
 });
 

@@ -1,5 +1,14 @@
 import { spawn } from "node:child_process";
-import { chmod, copyFile, lstat, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -10,8 +19,16 @@ import {
 } from "@nojv/core";
 import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage";
 
+import { createLogger } from "../logger.js";
 import { createBoundedStringBuffer } from "./bounded-buffer";
+import { createSubmissionNetworks, removeSubmissionNetworks } from "./docker-network";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import {
+  collectEgressProxyLogs,
+  EGRESS_PROXY_PORT,
+  startEgressProxy,
+  stopEgressProxy,
+} from "./egress-proxy";
 import { sandboxSystemError } from "./sandbox-plan";
 import { resolveSourceFiles } from "./source-files.js";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
@@ -20,6 +37,8 @@ export interface AdvancedModeConfig {
   cpuLimit: string;
   pidsLimit: number;
 }
+
+const logger = createLogger("advanced-mode-executor");
 
 export const ADVANCED_WORKSPACE_MAX_BYTES = 1024 * 1024 * 1024;
 const WORKSPACE_POLL_INTERVAL_MS = 2_000;
@@ -157,12 +176,17 @@ export interface AdvancedDockerArgsParams {
   language: string;
   user?: string | null;
   readOnlyMounts?: { hostPath: string; containerPath: string }[];
+  extraEnv?: Record<string, string>;
 }
 
 export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): string[] {
   const readOnlyMountArgs = (params.readOnlyMounts ?? []).flatMap((m) => [
     "-v",
     `${m.hostPath}:${m.containerPath}:ro`,
+  ]);
+  const extraEnvArgs = Object.entries(params.extraEnv ?? {}).flatMap(([k, v]) => [
+    "--env",
+    `${k}=${v}`,
   ]);
   return [
     "run",
@@ -193,10 +217,22 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
     `SUBMISSION_ID=${params.submissionId}`,
     "--env",
     `LANGUAGE=${params.language}`,
+    ...extraEnvArgs,
     "--workdir",
     "/workspace",
     params.imageRef,
   ];
+}
+
+export function buildProxyEnv(proxyUrl: string): Record<string, string> {
+  return {
+    HTTP_PROXY: proxyUrl,
+    HTTPS_PROXY: proxyUrl,
+    http_proxy: proxyUrl,
+    https_proxy: proxyUrl,
+    NO_PROXY: "",
+    no_proxy: "",
+  };
 }
 
 export interface RunWorkspaceInput {
@@ -472,17 +508,39 @@ export class AdvancedModeExecutor {
     return mapAdvancedResult(request, parsed.data);
   }
 
-  private runPhase(
+  private async runPhase(
     request: SandboxRequest,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
     runDir: string,
   ): Promise<ContainerOutcome> {
+    if (advanced.network.mode === "allowlist") {
+      return this.runPhaseAllowlist(request, advanced, config, imageRef, runDir);
+    }
+    if (advanced.network.mode === "service") {
+      logger.warn(
+        "advanced service network mode not implemented (Phase 4); running with --network none",
+        { submissionId: request.submissionId },
+      );
+    }
+    return this.runContainer(request, advanced, config, imageRef, runDir, {
+      networkArgs: ["--network", "none"],
+    });
+  }
+
+  private runContainer(
+    request: SandboxRequest,
+    advanced: SandboxAdvancedRequest,
+    config: AdvancedModeConfig,
+    imageRef: string,
+    runDir: string,
+    net: { networkArgs: string[]; extraEnv?: Record<string, string> },
+  ): Promise<ContainerOutcome> {
     const containerName = `nojv-advanced-run-${sanitizeId(request.submissionId).slice(0, 36)}`;
     const args = buildAdvancedDockerArgs({
       containerName,
-      networkArgs: ["--network", "none"],
+      networkArgs: net.networkArgs,
       workspaceDir: runDir,
       cpuLimit: config.cpuLimit,
       memoryMb: advanced.memoryMb,
@@ -491,6 +549,7 @@ export class AdvancedModeExecutor {
       submissionId: request.submissionId,
       language: request.language,
       user: RUN_USER,
+      ...(net.extraEnv ? { extraEnv: net.extraEnv } : {}),
     });
     return spawnContainer({
       args,
@@ -498,6 +557,56 @@ export class AdvancedModeExecutor {
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
       watchDir: runDir,
     });
+  }
+
+  private async runPhaseAllowlist(
+    request: SandboxRequest,
+    advanced: SandboxAdvancedRequest,
+    config: AdvancedModeConfig,
+    imageRef: string,
+    runDir: string,
+  ): Promise<ContainerOutcome> {
+    const allowlist = advanced.network.allowlist ?? [];
+    let networks: Awaited<ReturnType<typeof createSubmissionNetworks>> | undefined;
+    let proxyContainerName: string | undefined;
+    try {
+      networks = await createSubmissionNetworks(request.submissionId);
+      const proxy = await startEgressProxy({
+        submissionId: request.submissionId,
+        internalName: networks.internalName,
+        egressName: networks.egressName,
+        staticIp: networks.proxyInternalIp,
+        allowlist,
+        port: EGRESS_PROXY_PORT,
+      });
+      proxyContainerName = proxy.containerName;
+      return await this.runContainer(request, advanced, config, imageRef, runDir, {
+        networkArgs: ["--network", networks.internalName],
+        extraEnv: buildProxyEnv(proxy.proxyUrl),
+      });
+    } catch (err) {
+      return {
+        exitCode: null,
+        stderr: `egress setup failed: ${err instanceof Error ? err.message : String(err)}`,
+        timedOut: false,
+        sizeExceeded: false,
+        spawnError: true,
+      };
+    } finally {
+      if (proxyContainerName) {
+        const audit = collectEgressProxyLogs(proxyContainerName);
+        if (audit) {
+          logger.info("advanced egress-proxy audit log", {
+            submissionId: request.submissionId,
+            audit,
+          });
+        }
+        stopEgressProxy(proxyContainerName);
+      }
+      if (networks) {
+        removeSubmissionNetworks(networks);
+      }
+    }
   }
 
   private gradePhase(
