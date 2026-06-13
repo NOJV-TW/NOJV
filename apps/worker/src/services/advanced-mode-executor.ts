@@ -29,6 +29,13 @@ import {
   startEgressProxy,
   stopEgressProxy,
 } from "./egress-proxy";
+import {
+  collectServiceLogs,
+  SERVICE_HOST_ENV,
+  SERVICE_NETWORK_ALIAS,
+  startServiceContainer,
+  stopServiceContainer,
+} from "./service-container";
 import { sandboxSystemError } from "./sandbox-plan";
 import { resolveSourceFiles } from "./source-files.js";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
@@ -233,6 +240,10 @@ export function buildProxyEnv(proxyUrl: string): Record<string, string> {
     NO_PROXY: "",
     no_proxy: "",
   };
+}
+
+export function buildServiceEnv(): Record<string, string> {
+  return { [SERVICE_HOST_ENV]: SERVICE_NETWORK_ALIAS };
 }
 
 export interface RunWorkspaceInput {
@@ -519,10 +530,7 @@ export class AdvancedModeExecutor {
       return this.runPhaseAllowlist(request, advanced, config, imageRef, runDir);
     }
     if (advanced.network.mode === "service") {
-      logger.warn(
-        "advanced service network mode not implemented (Phase 4); running with --network none",
-        { submissionId: request.submissionId },
-      );
+      return this.runPhaseService(request, advanced, config, imageRef, runDir);
     }
     return this.runContainer(request, advanced, config, imageRef, runDir, {
       networkArgs: ["--network", "none"],
@@ -601,6 +609,68 @@ export class AdvancedModeExecutor {
           });
         }
         stopEgressProxy(proxyContainerName);
+      }
+      if (networks) {
+        removeSubmissionNetworks(networks);
+      }
+    }
+  }
+
+  private async runPhaseService(
+    request: SandboxRequest,
+    advanced: SandboxAdvancedRequest,
+    config: AdvancedModeConfig,
+    imageRef: string,
+    runDir: string,
+  ): Promise<ContainerOutcome> {
+    const service = advanced.network.service;
+    if (!service) {
+      return {
+        exitCode: null,
+        stderr: "service network mode selected without a service image",
+        timedOut: false,
+        sizeExceeded: false,
+        spawnError: true,
+      };
+    }
+
+    let networks: Awaited<ReturnType<typeof createSubmissionNetworks>> | undefined;
+    let serviceContainerName: string | undefined;
+    try {
+      const serviceImageRef = await this.resolveImageRef(service);
+      networks = await createSubmissionNetworks(request.submissionId);
+      const handle = await startServiceContainer({
+        submissionId: request.submissionId,
+        internalName: networks.internalName,
+        egressName: networks.egressName,
+        imageRef: serviceImageRef,
+        memoryMb: advanced.memoryMb,
+        cpuLimit: config.cpuLimit,
+        pidsLimit: config.pidsLimit,
+      });
+      serviceContainerName = handle.containerName;
+      return await this.runContainer(request, advanced, config, imageRef, runDir, {
+        networkArgs: ["--network", networks.internalName],
+        extraEnv: buildServiceEnv(),
+      });
+    } catch (err) {
+      return {
+        exitCode: null,
+        stderr: `service setup failed: ${err instanceof Error ? err.message : String(err)}`,
+        timedOut: false,
+        sizeExceeded: false,
+        spawnError: true,
+      };
+    } finally {
+      if (serviceContainerName) {
+        const serviceLogs = await collectServiceLogs(serviceContainerName);
+        if (serviceLogs) {
+          logger.info("advanced service container log", {
+            submissionId: request.submissionId,
+            serviceLogs,
+          });
+        }
+        stopServiceContainer(serviceContainerName);
       }
       if (networks) {
         removeSubmissionNetworks(networks);
