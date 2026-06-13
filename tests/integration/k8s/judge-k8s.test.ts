@@ -37,7 +37,6 @@ ans = judge_answer.split()
 if team == ans:
     accept("exact match")
 elif team and team == ans[:len(team)]:
-    set_score(50)
     wrong("partial prefix")
 else:
     wrong("wrong answer")
@@ -52,7 +51,6 @@ for attempt in range(budget):
         wrong("non-integer guess")
     if guess == secret:
         write("correct")
-        set_score(100 - attempt * 10)
         accept("found in " + str(attempt + 1) + " guesses")
     elif guess < secret:
         write("higher")
@@ -221,7 +219,6 @@ describe("K8s judge — standard mode", () => {
     expect(result.testcaseResults.length).toBe(2);
     for (const tc of result.testcaseResults) {
       expect(tc.verdict).toBe("AC");
-      expect(tc.score).toBe(100);
     }
   });
 
@@ -308,7 +305,6 @@ describe("K8s judge — checker mode", () => {
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
-        expect(tc.score).toBe(100);
       }
     },
   );
@@ -334,7 +330,7 @@ describe("K8s judge — checker mode", () => {
   );
 
   it(
-    "partial: validator-supplied set_score flows through",
+    "WA: prefix-only solution graded by isolated validator (checker is AC/WA only)",
     { timeout: STANDARD_TIMEOUT_MS },
     async (ctx) => {
       if (skipIfUnreachable(ctx)) return;
@@ -352,7 +348,6 @@ describe("K8s judge — checker mode", () => {
       expect(result.compilationError).toBeUndefined();
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("WA");
-        expect(tc.score).toBe(50);
       }
     },
   );
@@ -428,8 +423,6 @@ describe("K8s judge — interactive mode", () => {
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
-        expect(tc.score).toBeGreaterThan(0);
-        expect(tc.score).toBeLessThanOrEqual(100);
       }
     },
   );

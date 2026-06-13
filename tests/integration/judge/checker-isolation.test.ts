@@ -12,7 +12,6 @@ ans = judge_answer.split()
 if team == ans:
     accept("exact match")
 elif team and team == ans[:len(team)]:
-    set_score(50)
     judge_log("STAFF_DIAG partial prefix len=" + str(len(team)))
     wrong("partial prefix")
 else:
@@ -64,7 +63,6 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
-        expect(tc.score).toBe(100);
       }
     },
   );
@@ -89,22 +87,25 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     },
   );
 
-  it("flows a partial score set by the validator", { timeout: 180_000 }, async (ctx) => {
-    if (!(await requireSandboxImage(ctx))) return;
+  it(
+    "grades a prefix-only solution as WA (checker is AC/WA only)",
+    { timeout: 180_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
 
-    const result = await makeExecutor().execute(
-      checkerRequest({
-        submissionId: "checker-partial",
-        sourceCode: "a, b = map(int, input().split())\nprint(a, b)\n",
-      }),
-    );
+      const result = await makeExecutor().execute(
+        checkerRequest({
+          submissionId: "checker-partial",
+          sourceCode: "a, b = map(int, input().split())\nprint(a, b)\n",
+        }),
+      );
 
-    expect(result.compilationError).toBeUndefined();
-    for (const tc of result.testcaseResults) {
-      expect(tc.verdict).toBe("WA");
-      expect(tc.score).toBe(50);
-    }
-  });
+      expect(result.compilationError).toBeUndefined();
+      for (const tc of result.testcaseResults) {
+        expect(tc.verdict).toBe("WA");
+      }
+    },
+  );
 
   it(
     "splits validator messages: teammessage → student feedback, judgemessage → staffFeedback",
