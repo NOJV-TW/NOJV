@@ -207,11 +207,24 @@ tinyproxy/squid). Concrete design:
   internet route (Docker `--internal`; K8s NetworkPolicy) a direct connection has
   nowhere to go — the proxy is the only reachable egress.
 - **Allowlist enforcement.** Allows **HTTP CONNECT / GET by host** against the
-  per-problem allowlist; verifies the host on the CONNECT line and (for HTTPS)
-  the TLS **SNI** match the same allowlisted name before tunnelling — rejecting
-  Host/SNI mismatch to block domain-fronting. Port is constrained to the
-  allowlisted `host:port` (default 80/443). Everything else → `403` + log.
-  **No TLS interception** (student privacy + simplicity).
+  per-problem allowlist; the allow/deny decision is made on the **CONNECT
+  request-line host:port** (HTTPS) or the proxied request Host (plain HTTP) before
+  the tunnel opens. Port is constrained to the allowlisted `host:port` (default
+  80/443). Everything else → `403` + log. **No TLS interception** (student
+  privacy + simplicity).
+- **SNI verification — DEFERRED (future hardening, not implemented in Phase 3).**
+  The original design also matched the TLS **SNI** against the allowlist to block
+  *domain-fronting* (CONNECT an allowed host, then send a TLS ClientHello with a
+  different SNI co-hosted on the same CDN). This is **deliberately deferred**: the
+  core security guarantee — **answer protection** — does not depend on it, because
+  the run container holds **no secrets** (answers live only in grade), so a
+  domain-fronting student has nothing to exfiltrate; it is at most a niche
+  egress-abuse channel requiring shared-CDN infrastructure. Passive ClientHello
+  SNI parsing is fiddly and error-prone, so it is recorded here as a known
+  residual limitation rather than shipped as fragile security code. If
+  domain-fronting abuse becomes a concern, add passive SNI matching (read the
+  first ClientHello, compare `server_name` to the CONNECT host + allowlist) — it
+  does **not** require TLS interception.
 - **Config rendering.** `advancedConfig.network.allowlist` is rendered into the
   proxy's config (file/env) at sidecar start; the proxy egresses to the resolved
   hosts. Outbound DNS resolution happens **in the proxy**, not the run container.

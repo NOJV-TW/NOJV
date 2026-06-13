@@ -208,24 +208,40 @@ Commit: `feat(worker): capture advanced /output via in-container --dereference t
 
 ---
 
-## Phase 3 — egress-proxy + `allowlist` mode (Docker)
+## Phase 3 — egress-proxy + `allowlist` mode (Docker) — ✅ DONE (`26bd9f31`/`98baa9e6`/`9e9cb9f7`)
 
-### Task 3.1: egress-proxy image + allowlist config rendering
-- Create: `infra/docker/egress-proxy.Dockerfile` (small forward proxy; tinyproxy/squid wrapper or a ~100-line Node CONNECT proxy) + `apps/worker/src/services/egress-proxy.ts` (render `allowlist` → proxy config; CONNECT host + TLS SNI must match an allowlisted `host:port`; deny → 403 + log).
-- Tests: unit-test the allowlist matcher (allow `api.example.com:443`, deny others, deny Host/SNI mismatch).
-- Commit: `feat(worker): egress-proxy image + allowlist matcher`.
+**As shipped** (differs from the original task sketch below; recorded here):
+- `infra/docker/egress-proxy/proxy.mjs` (dependency-free Node CONNECT+HTTP forward
+  proxy, exports `matchesAllowlist`/`parseAllowlist`, prints `NOJV_PROXY_READY` on
+  listen) + `Dockerfile` (`node:24-alpine`, non-root, hardened); built via
+  `pnpm egress-proxy:build`.
+- `docker-network.ts` (per-submission `net_internal --internal` + `net_egress`,
+  **Docker-IPAM auto subnet** — no static IP; orphan sweep at worker startup) +
+  `egress-proxy.ts` (lifecycle, allowlist→env, readiness poll via `docker logs`,
+  bounded audit-log capture) + run-phase wiring in `advanced-mode-executor.ts`.
+- Proxy IP discovered via `docker inspect` after start (eliminates subnet
+  collisions); run container single-homed on `net_internal` with `HTTP_PROXY` by IP.
+- **Allow/deny by CONNECT request-line host:port.** Decision is on the CONNECT
+  host, no TLS interception.
+- **SNI verification DEFERRED** (future hardening): domain-fronting does not break
+  answer protection (run holds no secrets); recorded as a known residual limit in
+  the design doc's egress-proxy section. Not implemented; no `Host/SNI mismatch`
+  test.
+- Unit-tested: `matchesAllowlist`/`parseAllowlist` (incl. IPv6 brackets,
+  fail-closed), env rendering, IPAM/proxy/run docker-arg builders, the
+  single-homed-run security invariant, bounded audit buffer.
+- **Real-docker behavior verified by local smoke** (not in `ci:verify`): allowlisted
+  host → 200; non-allowlisted → 403; `HTTP_PROXY` unset → no route (`--internal`
+  is the real boundary); audit log captured. These become the Phase 8 smoke checks.
 
-### Task 3.2: wire the proxy into the Docker run phase
-- Modify: `advanced-mode-executor.ts` + a new `docker-network.ts` helper (per-submission `net_internal --internal` + `net_egress` bridge; create/teardown).
-- Run container single-homed on `net_internal`; proxy multi-homed (`net_internal` + `net_egress`); inject `HTTP_PROXY/HTTPS_PROXY` by the proxy's `net_internal` **IP**.
-- Best-effort orphan-network sweep in `finally`.
-- Commit: `feat(worker): wire egress-proxy into advanced run phase (docker)`.
+<details><summary>original task sketch (superseded)</summary>
 
-### Task 3.3: allowlist behavior + audit (security-critical)
-- Integration tests against a local stub server: allowlisted host reachable from run; non-allowlisted denied; **student unsets `HTTP_PROXY` and hard-codes the stub IP → no route** (this proves `--internal` is the real boundary, not the env var); proxy log captured.
-- Commit: `test(worker): adversarial egress allowlist tests (docker)`.
-
-**Phase 3 gate:** allowlist tests green; manual `docker network ls` shows no orphan networks after a run.
+Task 3.1 egress-proxy image + matcher; Task 3.2 wire networks (originally a
+static-IP `net_internal`, replaced by Docker IPAM + inspect during review); Task
+3.3 allowlist behavior + audit (the integration checks are real-docker, so they
+are Phase 8 smoke, not `ci:verify`). Phase 3 gate (no orphan networks after a run)
+is satisfied by the startup `sweepOrphanNetworks` + `finally` teardown.
+</details>
 
 ---
 
