@@ -16,6 +16,21 @@
 
 **Granularity note:** Phases 0–2 (schema + Docker split + the tar security gate) are specified at fine bite-sized granularity. Phases 3–8 are task-level with concrete files, approach, and acceptance criteria; expand each into bite-sized steps when reached (the design doc already pins the contracts).
 
+**Repo conventions (verified in the worktree):**
+- Tests are **NOT co-located**. Unit tests live in `tests/unit/<area>/*.test.ts`
+  (areas: `core`, `domain`, `worker`, `sandbox-runner`, `web`, `db`, `temporal`,
+  `redis`, `storage`, `infra`, `docs`); integration in `tests/integration/**`;
+  e2e in `tests/e2e/**`. Run with `pnpm test:unit tests/unit/<area>` /
+  `pnpm test:integration`. There is **no** per-package `test` script.
+- Tests import through the package barrel (e.g. `import { advancedResultSchema } from "@nojv/core"`), not deep relative paths.
+- `advancedResultSchema` and its test (`tests/unit/core/advanced-mode-schema.test.ts`)
+  already exist — **extend**, don't recreate.
+- Existing advanced tests to revise under the clean replacement:
+  `tests/e2e/advanced-mode-lifecycle.test.ts`, `tests/e2e/advanced-required-paths.test.ts`,
+  `tests/unit/web/advanced-scaffold.test.ts` (+ any `advancedRequiredPaths` references).
+- Every "Test:" path below resolves to this layout (the per-task hints predate the
+  verification and may say "co-located" — use `tests/unit/<area>/` instead).
+
 ---
 
 ## Phase 0 — Schema & contract (schema-first, then call-site sweep)
@@ -26,8 +41,9 @@ existing call site compile against it before touching executor behavior.
 ### Task 0.1: `advancedConfig` Zod schema
 
 **Files:**
-- Modify: `packages/core/src/schemas/advanced-mode.ts`
-- Test: `packages/core/src/schemas/advanced-mode.test.ts` (create if absent)
+- Modify: `packages/core/src/schemas/advanced-mode.ts` (add `advancedConfigSchema` + `imageRefSchema`)
+- Modify: `packages/core/src/index.ts` (export the new schemas/types via the barrel)
+- Test: `tests/unit/core/advanced-mode-schema.test.ts` (exists — extend it)
 
 **Step 1 — failing test.** Add tests asserting `advancedConfigSchema` parses a
 valid `{ run, grade, network:{mode:"none"} }`, rejects a missing `grade`, requires
@@ -35,7 +51,7 @@ valid `{ run, grade, network:{mode:"none"} }`, rejects a missing `grade`, requir
 `network.service` when `mode:"service"`:
 
 ```ts
-import { advancedConfigSchema } from "./advanced-mode";
+import { advancedConfigSchema } from "@nojv/core";
 it("requires grade image", () => {
   expect(advancedConfigSchema.safeParse({ run: img, network: { mode: "none" } }).success).toBe(false);
 });

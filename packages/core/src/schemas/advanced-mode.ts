@@ -36,3 +36,73 @@ export const advancedResultSchema = z.object({
 });
 
 export type AdvancedResult = z.infer<typeof advancedResultSchema>;
+
+export const imageRefSchema = z.object({
+  imageRef: z.string().min(1).max(500),
+  imageSource: z.enum(["registry", "tarball"]),
+});
+
+export type ImageRef = z.infer<typeof imageRefSchema>;
+
+const networkSchema = z
+  .object({
+    mode: z.enum(["none", "allowlist", "service"]).default("none"),
+    allowlist: z.array(z.string().min(1)).optional(),
+    service: imageRefSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.mode === "allowlist") {
+      if (!value.allowlist || value.allowlist.length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["allowlist"],
+          message: "allowlist must be a non-empty array when mode is 'allowlist'",
+        });
+      }
+      if (value.service) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["service"],
+          message: "service must be absent when mode is 'allowlist'",
+        });
+      }
+    } else if (value.mode === "service") {
+      if (!value.service) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["service"],
+          message: "service must be present when mode is 'service'",
+        });
+      }
+      if (value.allowlist) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["allowlist"],
+          message: "allowlist must be absent when mode is 'service'",
+        });
+      }
+    } else {
+      if (value.allowlist) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["allowlist"],
+          message: "allowlist must be absent when mode is 'none'",
+        });
+      }
+      if (value.service) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["service"],
+          message: "service must be absent when mode is 'none'",
+        });
+      }
+    }
+  });
+
+export const advancedConfigSchema = z.object({
+  run: imageRefSchema,
+  grade: imageRefSchema,
+  network: networkSchema.default({ mode: "none" }),
+});
+
+export type AdvancedConfig = z.infer<typeof advancedConfigSchema>;
