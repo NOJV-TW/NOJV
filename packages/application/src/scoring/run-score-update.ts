@@ -31,6 +31,7 @@ export interface ScoringUpdate<P> {
   problemIds(participation: P): ReadonlySet<string>;
   scoringMode(participation: P): ContestScoringMode;
   startsAt(participation: P): Date;
+  penaltyPerWrongSec?(participation: P): number;
   userId(participation: P): string;
   persist(participation: P, fields: PersistFields): Promise<unknown>;
   isConflict(err: unknown): boolean;
@@ -55,6 +56,9 @@ export async function runScoreUpdate<P>(
           submissions,
           problemIds,
           startsAt: adapter.startsAt(participation),
+          ...(adapter.penaltyPerWrongSec
+            ? { penaltyPerWrongSec: adapter.penaltyPerWrongSec(participation) }
+            : {}),
         });
         await adapter.persist(participation, { score, penaltySeconds });
       } else {

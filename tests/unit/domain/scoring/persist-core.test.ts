@@ -111,4 +111,19 @@ describe("computeProblemCountState", () => {
 
     expect(state).toEqual({ score: 0, penaltySeconds: 0 });
   });
+
+  it("honors a custom penaltyPerWrongSec", () => {
+    const state = computeProblemCountState({
+      submissions: [
+        { problemId: "p1", status: "wrong_answer", createdAt: at(5) },
+        { problemId: "p1", status: "accepted", createdAt: at(10) },
+      ],
+      problemIds: new Set(["p1"]),
+      startsAt,
+      penaltyPerWrongSec: 5 * 60,
+    });
+
+    expect(state.score).toBe(1);
+    expect(state.penaltySeconds).toBe(10 * 60 + 1 * 5 * 60);
+  });
 });

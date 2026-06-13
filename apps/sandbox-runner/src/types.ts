@@ -57,6 +57,16 @@ export const SandboxInputSchema = z.object({
       index: z.number().optional(),
     })
     .optional(),
+  mode: z
+    .discriminatedUnion("kind", [
+      z.object({ kind: z.literal("compile") }),
+      z.object({
+        kind: z.literal("run-case"),
+        caseIndex: z.number(),
+        runCommand: z.array(z.string()).min(1),
+      }),
+    ])
+    .optional(),
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
@@ -111,6 +121,13 @@ export const SandboxOutputSchema = z.object({
   customScore: z.number().optional(),
   scoringFeedback: z.string().optional(),
 });
+
+export const CompileOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  runCommand: z.array(z.string()).optional(),
+});
+
+export type CompileOutput = z.infer<typeof CompileOutputSchema>;
 
 const validatorCaseOutcomeSchema = z.object({
   index: z.number(),

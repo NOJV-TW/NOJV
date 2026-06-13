@@ -31,6 +31,7 @@ const contestCreateBaseSchema = z.object({
   id: slugSchema,
   startsAt: isoDateTimeSchema,
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
+  penaltyMinutesPerWrong: z.coerce.number().int().min(0).max(1440).default(20),
   summary: z.string().trim().min(8).max(4_000),
   title: z.string().trim().min(3).max(120),
 });
@@ -53,10 +54,12 @@ export const contestSettingsFormSchema = z.object({
   summary: z.string().trim().max(4_000).default(""),
   startsAt: z.string().default(""),
   endsAt: z.string().default(""),
+  frozenAt: z.string().default(""),
   scoringMode: contestScoringModeSchema.default("problem_count"),
   scoreboardMode: scoreboardModeSchema.default("live"),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
+  penaltyMinutesPerWrong: z.coerce.number().int().min(0).max(1440).default(20),
 });
 
 export type ContestSettingsForm = z.infer<typeof contestSettingsFormSchema>;

@@ -55,6 +55,7 @@ export async function updateContestScores(
       problemIds: (p) => new Set(p.contest.problems.map((cp) => cp.problemId)),
       scoringMode: (p) => p.contest.scoringMode,
       startsAt: (p) => p.contest.startsAt,
+      penaltyPerWrongSec: (p) => p.contest.penaltyMinutesPerWrong * 60,
       userId: (p) => p.userId,
       persist: (p, fields) => participationRepo.updateWithVersion(p.id, p.version, fields),
       isConflict: (err) => err instanceof UnifiedParticipationVersionConflict,
@@ -131,6 +132,7 @@ export async function getScoreboard(
     startsAt: contest.startsAt,
     endsAt: contest.endsAt,
     frozenAt: contest.frozenAt,
+    penaltyPerWrongSec: contest.penaltyMinutesPerWrong * 60,
   };
 
   const entries = buildScoreboard(

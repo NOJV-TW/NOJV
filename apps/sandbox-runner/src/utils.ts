@@ -40,6 +40,22 @@ export function readCgroupCpuUsageUsec(): number | null {
   );
 }
 
+export function parseCgroupMemoryBytes(raw: string | null): number | null {
+  if (raw === null) return null;
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const value = Number.parseInt(trimmed, 10);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+export function readCgroupMemoryPeakBytes(): number | null {
+  return parseCgroupMemoryBytes(safeReadFile("/sys/fs/cgroup/memory.peak"));
+}
+
+export function readCgroupMemoryCurrentBytes(): number | null {
+  return parseCgroupMemoryBytes(safeReadFile("/sys/fs/cgroup/memory.current"));
+}
+
 export function cleanupTempDir(dir: string): Promise<void> {
   return fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }

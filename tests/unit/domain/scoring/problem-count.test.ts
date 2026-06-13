@@ -41,17 +41,40 @@ describe("computeProblemCountPenalty", () => {
     expect(r.penaltySeconds).toBe(15 * 60 + 2 * PENALTY_PER_WRONG_SEC);
   });
 
-  it("treats TLE/MLE/RE/compile_error as wrong attempts", () => {
+  it("treats TLE/MLE/RE as wrong attempts", () => {
     const subs = [
       sub("time_limit_exceeded", 1),
       sub("memory_limit_exceeded", 2),
       sub("runtime_error", 3),
-      sub("compile_error", 4),
       sub("accepted", 5),
     ];
     const r = computeProblemCountPenalty(subs, CONTEST_START);
     expect(r.solved).toBe(true);
-    expect(r.penaltySeconds).toBe(5 * 60 + 4 * PENALTY_PER_WRONG_SEC);
+    expect(r.penaltySeconds).toBe(5 * 60 + 3 * PENALTY_PER_WRONG_SEC);
+  });
+
+  it("does not penalize compile_error/system_error/pending_upload (DOMjudge-aligned)", () => {
+    const subs = [
+      sub("wrong_answer", 1),
+      sub("compile_error", 2),
+      sub("system_error", 3),
+      sub("pending_upload", 4),
+      sub("accepted", 5),
+    ];
+    const r = computeProblemCountPenalty(subs, CONTEST_START);
+    expect(r.solved).toBe(true);
+    expect(r.wrongAttempts).toBe(1);
+    expect(r.penaltySeconds).toBe(5 * 60 + 1 * PENALTY_PER_WRONG_SEC);
+  });
+
+  it("returns not-solved with no penalty when only compile/system errors exist", () => {
+    const subs = [sub("compile_error", 5), sub("system_error", 10)];
+    expect(computeProblemCountPenalty(subs, CONTEST_START)).toEqual({
+      solved: false,
+      wrongAttempts: 0,
+      firstAcTimeSec: null,
+      penaltySeconds: 0,
+    });
   });
 
   it("skips in-progress statuses (queued/compiling/running) — regression for L40 fix", () => {
@@ -65,6 +88,12 @@ describe("computeProblemCountPenalty", () => {
     const r = computeProblemCountPenalty(subs, CONTEST_START);
     expect(r.solved).toBe(true);
     expect(r.penaltySeconds).toBe(10 * 60 + 1 * PENALTY_PER_WRONG_SEC);
+  });
+
+  it("applies a custom penalty-per-wrong-second when provided", () => {
+    const subs = [sub("wrong_answer", 5), sub("wrong_answer", 10), sub("accepted", 15)];
+    const r = computeProblemCountPenalty(subs, CONTEST_START, 10 * 60);
+    expect(r.penaltySeconds).toBe(15 * 60 + 2 * 10 * 60);
   });
 
   it("ignores submissions after the first AC", () => {

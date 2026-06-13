@@ -164,6 +164,112 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
   };
 }
 
+export interface PerCaseSandboxJobManifestParams {
+  jobName: string;
+  namespace: string;
+  configMapName: string;
+  image: string;
+  cpuRequest: string;
+  cpuLimit: string;
+  memoryRequest: string;
+  memoryLimit: string;
+  activeDeadlineSeconds: number;
+  caseIndices: number[];
+}
+
+export function perCaseContainerName(index: number): string {
+  return `case-${String(index)}`;
+}
+
+export const COMPILE_CONTAINER_NAME = "compile";
+
+export function buildPerCaseSandboxJobManifest(
+  params: PerCaseSandboxJobManifestParams,
+): k8s.V1Job {
+  const containerSecurityContext = {
+    allowPrivilegeEscalation: false,
+    capabilities: { drop: ["ALL"] },
+    readOnlyRootFilesystem: true,
+    runAsNonRoot: true,
+  };
+  const resources = {
+    requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
+    limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
+  };
+  const baseMounts = (artifactReadOnly: boolean, scratchKey: string) => [
+    { name: "submission-data", mountPath: "/submission", readOnly: true },
+    { name: "artifact", mountPath: "/artifact", readOnly: artifactReadOnly },
+    { name: "scratch-tmp", mountPath: "/tmp", subPath: scratchKey },
+    { name: "scratch-workspace", mountPath: "/workspace", subPath: scratchKey },
+  ];
+
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: {
+      name: params.jobName,
+      namespace: params.namespace,
+      labels: { app: "nojv-sandbox" },
+    },
+    spec: {
+      ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
+      activeDeadlineSeconds: params.activeDeadlineSeconds,
+      backoffLimit: 0,
+      template: {
+        metadata: { labels: { app: "nojv-sandbox", "nojv-role": "sandbox" } },
+        spec: {
+          restartPolicy: "Never",
+          automountServiceAccountToken: false,
+          nodeSelector: { "nojv-role": "sandbox" },
+          tolerations: [
+            { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
+          ],
+          securityContext: {
+            runAsUser: 10001,
+            runAsGroup: 10001,
+            runAsNonRoot: true,
+            seccompProfile: { type: "RuntimeDefault" },
+          },
+          initContainers: [
+            {
+              name: COMPILE_CONTAINER_NAME,
+              image: params.image,
+              command: ["node", "/runner/index.js"],
+              env: [
+                { name: "SANDBOX_PHASE", value: "compile" },
+                { name: "HOME", value: "/tmp" },
+              ],
+              resources,
+              securityContext: containerSecurityContext,
+              volumeMounts: baseMounts(false, "compile"),
+            },
+          ],
+          containers: params.caseIndices.map((index) => ({
+            name: perCaseContainerName(index),
+            image: params.image,
+            command: ["node", "/runner/index.js"],
+            env: [
+              { name: "SANDBOX_PHASE", value: "run-case" },
+              { name: "SANDBOX_CASE_INDEX", value: String(index) },
+              { name: "PYTHONDONTWRITEBYTECODE", value: "1" },
+              { name: "HOME", value: "/tmp" },
+            ],
+            resources,
+            securityContext: containerSecurityContext,
+            volumeMounts: baseMounts(true, perCaseContainerName(index)),
+          })),
+          volumes: [
+            { name: "submission-data", configMap: { name: params.configMapName } },
+            { name: "artifact", emptyDir: { sizeLimit: "256Mi" } },
+            { name: "scratch-tmp", emptyDir: { sizeLimit: "64Mi" } },
+            { name: "scratch-workspace", emptyDir: { sizeLimit: "128Mi" } },
+          ],
+        },
+      },
+    },
+  };
+}
+
 export const INTERACTIVE_SOCKET_PORT = 7777;
 
 export function buildSolutionContainerCommand(): string[] {
@@ -330,6 +436,21 @@ function parseValidatorOutcomesFromLogs(
     return outcomes;
   }
 
+  return null;
+}
+
+function parseCompilationError(logs: string): string | null {
+  const lines = logs.trim().split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = (lines[i] ?? "").trim();
+    if (!trimmed.startsWith("{")) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as { compilationError?: unknown };
+      return typeof parsed.compilationError === "string" ? parsed.compilationError : null;
+    } catch {
+      continue;
+    }
+  }
   return null;
 }
 
@@ -591,53 +712,60 @@ export class K8sExecutor implements SandboxExecutor {
     await this.coreApi.deleteNamespacedConfigMap({ name, namespace }).catch(() => undefined);
   }
 
-  private async executeRunOnly(request: SandboxRequest): Promise<SandboxResult> {
+  private async runPerCasePod(request: SandboxRequest): Promise<SandboxResult> {
     const jobName = `judge-${request.submissionId}`;
     const ns = this.config.namespace;
+    const caseIndices = request.testcases.map((tc) => tc.index);
+
+    if (caseIndices.length === 0) return { testcaseResults: [] };
 
     try {
       const deadlineSeconds = computeJobDeadlineSeconds(request);
       await this.createConfigMap(jobName, ns, buildRunConfigMapData(request));
-      await this.createJob(jobName, ns, jobName, deadlineSeconds);
+      await this.createPerCaseJob(jobName, ns, jobName, deadlineSeconds, caseIndices);
 
-      const outcome = await this.waitForJobCompletion(jobName, ns, deadlineSeconds);
-      if (outcome === "failed") {
-        return sandboxSystemError("Sandbox job failed or timed out.");
+      await this.waitForJobCompletion(jobName, ns, deadlineSeconds);
+
+      const compileLog = await this.getContainerLogs(jobName, ns, COMPILE_CONTAINER_NAME);
+      const compileError = parseCompilationError(compileLog);
+      if (compileError) return { testcaseResults: [], compilationError: compileError };
+
+      const rawRuns: RawCaseRun[] = [];
+      for (const index of caseIndices) {
+        const logs = await this.getContainerLogs(jobName, ns, perCaseContainerName(index));
+        const parsed = logs ? this.parseRunnerOutput(logs) : null;
+        const run = parsed?.rawRuns?.[0];
+        rawRuns.push(
+          run ?? {
+            index,
+            stdout: "",
+            stderr: parsed?.pipelineError ?? "Case container produced no result.",
+            exitCode: -1,
+            timeMs: 0,
+            errorVerdict: "SE",
+          },
+        );
       }
-
-      const logs = await this.getPodLogs(jobName, ns);
-      const parsed = this.parseRunnerOutput(logs);
-      if (!parsed) return sandboxSystemError("Failed to parse sandbox runner output.", logs);
-      return resolveSandboxResult(parsed, request.testcases, request.judgeConfig.compare);
+      return { testcaseResults: [], rawRuns };
     } finally {
       await this.cleanup(jobName, ns);
     }
   }
 
+  private async executeRunOnly(request: SandboxRequest): Promise<SandboxResult> {
+    const result = await this.runPerCasePod(request);
+    return resolveSandboxResult(result, request.testcases, request.judgeConfig.compare);
+  }
+
   private async executeChecker(request: SandboxRequest): Promise<SandboxResult> {
-    const baseName = `judge-${request.submissionId}`;
-    const validateName = `${baseName}-validate`;
+    const validateName = `judge-${request.submissionId}-validate`;
     const ns = this.config.namespace;
 
+    const runResult = await this.runPerCasePod(request);
+    if (!runResult.rawRuns) return runResult;
+    const rawRuns = runResult.rawRuns;
+
     try {
-      const deadlineSeconds = computeJobDeadlineSeconds(request);
-      await this.createConfigMap(baseName, ns, buildRunConfigMapData(request));
-      await this.createJob(baseName, ns, baseName, deadlineSeconds);
-
-      const runOutcome = await this.waitForJobCompletion(baseName, ns, deadlineSeconds);
-      if (runOutcome === "failed") {
-        return sandboxSystemError("Sandbox job failed or timed out.");
-      }
-
-      const runLogs = await this.getPodLogs(baseName, ns);
-      const runResult = this.parseRunnerOutput(runLogs);
-      if (!runResult) {
-        return sandboxSystemError("Failed to parse sandbox runner output.", runLogs);
-      }
-
-      if (!runResult.rawRuns) return runResult;
-      const rawRuns = runResult.rawRuns;
-
       const hasGradableCase = rawRuns.some((r) => !r.errorVerdict);
       const outcomes = hasGradableCase
         ? await this.runValidateJob(validateName, ns, request, rawRuns)
@@ -645,7 +773,6 @@ export class K8sExecutor implements SandboxExecutor {
 
       return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
     } finally {
-      await this.cleanup(baseName, ns);
       await this.cleanup(validateName, ns);
     }
   }
@@ -727,6 +854,30 @@ export class K8sExecutor implements SandboxExecutor {
     });
   }
 
+  private async createPerCaseJob(
+    jobName: string,
+    namespace: string,
+    configMapName: string,
+    deadlineSeconds: number,
+    caseIndices: number[],
+  ): Promise<void> {
+    await this.batchApi.createNamespacedJob({
+      namespace,
+      body: buildPerCaseSandboxJobManifest({
+        jobName,
+        namespace,
+        configMapName,
+        image: this.config.image,
+        cpuRequest: this.config.cpuRequest,
+        cpuLimit: this.config.cpuLimit,
+        memoryRequest: this.config.memoryRequest,
+        memoryLimit: this.config.memoryLimit,
+        activeDeadlineSeconds: deadlineSeconds,
+        caseIndices,
+      }),
+    });
+  }
+
   private async waitForJobCompletion(
     jobName: string,
     namespace: string,
@@ -750,6 +901,14 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async getPodLogs(jobName: string, namespace: string): Promise<string> {
+    return this.getContainerLogs(jobName, namespace, "runner");
+  }
+
+  private async getContainerLogs(
+    jobName: string,
+    namespace: string,
+    container: string,
+  ): Promise<string> {
     const pods = await this.coreApi.listNamespacedPod({
       namespace,
       labelSelector: `job-name=${jobName}`,
@@ -760,11 +919,9 @@ export class K8sExecutor implements SandboxExecutor {
       throw new Error(`No pod found for job ${jobName}`);
     }
 
-    return this.coreApi.readNamespacedPodLog({
-      container: "runner",
-      name: podName,
-      namespace,
-    });
+    return this.coreApi
+      .readNamespacedPodLog({ container, name: podName, namespace })
+      .catch(() => "");
   }
 
   private parseRunnerOutput(logs: string): SandboxResult | null {

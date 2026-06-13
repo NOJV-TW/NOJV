@@ -240,6 +240,46 @@
             <p class="mt-1 text-xs text-destructive">{$errors.submitCooldownSec}</p>
           {/if}
         </div>
+
+        <div>
+          <label class="text-sm font-medium" for="contest-settings-penalty">
+            {m.contestDetail_settingsPenaltyMinutesLabel()}
+          </label>
+          <input
+            id="contest-settings-penalty"
+            class={inputClassName}
+            type="number"
+            min="0"
+            max="1440"
+            bind:value={$form.penaltyMinutesPerWrong}
+            disabled={!editableScoring}
+          />
+          <p class="mt-1 text-xs text-muted-foreground">
+            {m.contestDetail_settingsPenaltyMinutesHint()}
+          </p>
+          {#if $errors.penaltyMinutesPerWrong}
+            <p class="mt-1 text-xs text-destructive">{$errors.penaltyMinutesPerWrong}</p>
+          {/if}
+        </div>
+
+        <div>
+          <label class="text-sm font-medium" for="contest-settings-freeze">
+            {m.contestDetail_settingsFreezeLabel()}
+          </label>
+          <input
+            id="contest-settings-freeze"
+            class={inputClassName}
+            type="datetime-local"
+            bind:value={$form.frozenAt}
+            disabled={!editableScoring}
+          />
+          <p class="mt-1 text-xs text-muted-foreground">
+            {m.contestDetail_settingsFreezeHint()}
+          </p>
+          {#if $errors.frozenAt}
+            <p class="mt-1 text-xs text-destructive">{$errors.frozenAt}</p>
+          {/if}
+        </div>
       </div>
     </section>
 

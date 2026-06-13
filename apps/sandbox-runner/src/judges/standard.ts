@@ -29,12 +29,14 @@ export async function runSolution(
   testcase: TestcaseFiles,
   timeoutMs: number,
   env?: Record<string, string>,
+  measureCgroupMemoryPeak?: boolean,
 ): Promise<RawCaseRun> {
   const result = await runProcess(runCommand, {
     stdin: testcase.input,
     timeoutMs,
     cpuSeconds: solutionCpuSeconds(timeoutMs),
     ...(env ? { env } : {}),
+    ...(measureCgroupMemoryPeak ? { measureCgroupMemoryPeak: true } : {}),
   });
   return toRawCaseRun(result, testcase.index);
 }

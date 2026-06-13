@@ -37,8 +37,8 @@ export async function runStandardMode(
     return await runInteractiveMode(request, config);
   }
 
-  await writeSubmissionFiles(tempDir, request);
-  const runResult = await runContainer(tempDir, request, config);
+  const sourceFileMap = await writeSubmissionFiles(tempDir, request);
+  const runResult = await runContainer(tempDir, request, config, sourceFileMap);
 
   if (request.judgeType === "checker" && runResult.rawRuns) {
     return await resolveCheckerResult(request, config, runResult.rawRuns);
@@ -111,7 +111,7 @@ async function runValidatorInTempDir(
 export async function writeSubmissionFiles(
   tempDir: string,
   request: SandboxRequest,
-): Promise<void> {
+): Promise<{ path: string; key: string }[]> {
   const fileWrites: Promise<void>[] = [];
   const sourceFileMap: { path: string; key: string }[] = [];
 
@@ -150,6 +150,8 @@ export async function writeSubmissionFiles(
   await mkdir(join(tempDir, "artifacts"), { recursive: true });
 
   await chmod(tempDir, 0o755);
+
+  return sourceFileMap;
 }
 
 export interface StandardDockerArgsParams {
@@ -160,9 +162,19 @@ export interface StandardDockerArgsParams {
   memoryMb: number;
   pidsLimit: number;
   image: string;
+  artifactMount?: { hostDir: string; readOnly: boolean };
+  extraEnv?: string[];
 }
 
 export function buildStandardDockerArgs(params: StandardDockerArgsParams): string[] {
+  const artifactArgs = params.artifactMount
+    ? [
+        "-v",
+        `${params.artifactMount.hostDir}:/artifact:${params.artifactMount.readOnly ? "ro" : "rw"}`,
+      ]
+    : [];
+  const extraEnvArgs = (params.extraEnv ?? []).flatMap((kv) => ["--env", kv]);
+
   return [
     "run",
     "--rm",
@@ -182,6 +194,7 @@ export function buildStandardDockerArgs(params: StandardDockerArgsParams): strin
     "/workspace:rw,exec,nosuid,nodev,size=128m",
     "-v",
     `${params.tempDir}:/submission:ro`,
+    ...artifactArgs,
     "--cpus",
     params.cpuLimit,
     "--memory",
@@ -192,47 +205,36 @@ export function buildStandardDockerArgs(params: StandardDockerArgsParams): strin
     String(params.pidsLimit),
     "--env",
     "HOME=/tmp",
+    ...extraEnvArgs,
     params.image,
     "node",
     "/runner/index.js",
   ];
 }
 
-async function runContainer(
-  tempDir: string,
-  request: SandboxRequest,
-  config: StandardModeConfig,
-): Promise<SandboxResult> {
-  const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
+interface DockerPhaseResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  spawnError: string | null;
+}
 
-  const networkArgs = ["--network", "none"];
-
-  const args = buildStandardDockerArgs({
-    containerName,
-    networkArgs,
-    tempDir,
-    cpuLimit: config.cpuLimit,
-    memoryMb: config.memoryMb,
-    pidsLimit: config.pidsLimit,
-    image: config.image,
-  });
-
-  const outerTimeoutMs = Math.min(
-    request.limits.timeoutMs * 2 * request.testcases.length + 30_000,
-    MAX_OUTER_TIMEOUT_MS,
-  );
-
+function spawnDockerPhase(
+  args: string[],
+  containerName: string,
+  outerTimeoutMs: number,
+): Promise<DockerPhaseResult> {
   forceRemoveContainerSync(containerName);
 
-  return await new Promise<SandboxResult>((resolve) => {
+  return new Promise<DockerPhaseResult>((resolve) => {
     const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-
     const stdoutBuf = createBoundedStringBuffer();
     const stderrBuf = createBoundedStringBuffer();
     let timedOut = false;
     let settled = false;
 
-    const settle = (result: SandboxResult) => {
+    const settle = (result: DockerPhaseResult) => {
       if (settled) return;
       settled = true;
       resolve(result);
@@ -246,56 +248,149 @@ async function runContainer(
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
-
-    child.stdout.on("data", (chunk: string) => {
-      stdoutBuf.push(chunk);
-    });
-
-    child.stderr.on("data", (chunk: string) => {
-      stderrBuf.push(chunk);
-    });
+    child.stdout.on("data", (chunk: string) => stdoutBuf.push(chunk));
+    child.stderr.on("data", (chunk: string) => stderrBuf.push(chunk));
 
     child.on("error", (error: Error) => {
       clearTimeout(timer);
-      settle(sandboxSystemError(`Docker failed to start: ${error.message}`));
+      settle({
+        exitCode: null,
+        stdout: "",
+        stderr: "",
+        timedOut: false,
+        spawnError: error.message,
+      });
     });
 
     child.on("close", (exitCode: number | null) => {
       clearTimeout(timer);
-
-      const stdout = stdoutBuf.toString();
-      const stderr = stderrBuf.toString();
-
-      if (timedOut) {
-        settle(sandboxSystemError("Sandbox execution timed out."));
-        return;
-      }
-
-      if (exitCode !== 0) {
-        settle(
-          sandboxSystemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim()),
-        );
-        return;
-      }
-
-      try {
-        const parsed = parseSandboxResult(JSON.parse(stdout));
-        settle(
-          parsed.success
-            ? parsed.data
-            : sandboxSystemError(
-                `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`,
-              ),
-        );
-      } catch {
-        settle(
-          sandboxSystemError(
-            `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`,
-          ),
-        );
-      }
+      settle({
+        exitCode,
+        stdout: stdoutBuf.toString(),
+        stderr: stderrBuf.toString(),
+        timedOut,
+        spawnError: null,
+      });
     });
 
     child.stdin.end();
   });
+}
+
+function caseSystemError(index: number, message: string): RawCaseRun {
+  return { index, stdout: "", stderr: message, exitCode: -1, timeMs: 0, errorVerdict: "SE" };
+}
+
+function extractCaseRun(phase: DockerPhaseResult, index: number): RawCaseRun {
+  if (phase.spawnError)
+    return caseSystemError(index, `Docker failed to start: ${phase.spawnError}`);
+  if (phase.timedOut) return caseSystemError(index, "Run container timed out.");
+  if (phase.exitCode !== 0) {
+    return caseSystemError(
+      index,
+      `Run container exited with code ${String(phase.exitCode)}.\n${phase.stderr}`.trim(),
+    );
+  }
+
+  let parsed;
+  try {
+    parsed = parseSandboxResult(JSON.parse(phase.stdout));
+  } catch {
+    return caseSystemError(index, `Failed to parse run output.\nstdout: ${phase.stdout}`);
+  }
+  if (!parsed.success) {
+    return caseSystemError(index, `Invalid run output.\nstdout: ${phase.stdout}`);
+  }
+  const run = parsed.data.rawRuns?.[0];
+  if (!run) {
+    return caseSystemError(
+      index,
+      parsed.data.pipelineError ?? "Run container produced no result.",
+    );
+  }
+  return run;
+}
+
+async function runContainer(
+  tempDir: string,
+  request: SandboxRequest,
+  config: StandardModeConfig,
+  sourceFileMap: { path: string; key: string }[],
+): Promise<SandboxResult> {
+  const baseName = sanitizeId(request.submissionId).slice(0, 36);
+  const networkArgs = ["--network", "none"];
+  const baseConfig = buildSandboxConfigJson(request, sourceFileMap);
+  const configPath = join(tempDir, "config.json");
+  const writeModeConfig = (mode: Record<string, unknown>) =>
+    writeFile(configPath, JSON.stringify({ ...baseConfig, mode }), "utf8");
+
+  const artifactDir = await mkdtemp(join(tmpdir(), `nojv-artifact-${baseName}-`));
+  await chmod(artifactDir, 0o777);
+
+  try {
+    await writeModeConfig({ kind: "compile" });
+    const compileName = `nojv-judge-c-${baseName}`;
+    const compileArgs = buildStandardDockerArgs({
+      containerName: compileName,
+      networkArgs,
+      tempDir,
+      cpuLimit: config.cpuLimit,
+      memoryMb: config.memoryMb,
+      pidsLimit: config.pidsLimit,
+      image: config.image,
+      artifactMount: { hostDir: artifactDir, readOnly: false },
+    });
+    const compile = await spawnDockerPhase(compileArgs, compileName, MAX_OUTER_TIMEOUT_MS);
+
+    if (compile.spawnError) {
+      return sandboxSystemError(`Docker failed to start: ${compile.spawnError}`);
+    }
+    if (compile.timedOut) return sandboxSystemError("Compile phase timed out.");
+    if (compile.exitCode !== 0) {
+      return sandboxSystemError(
+        `Compile container exited with code ${String(compile.exitCode)}.\n${compile.stderr}`.trim(),
+      );
+    }
+
+    let compileOut: { compilationError?: string; runCommand?: string[] };
+    try {
+      compileOut = JSON.parse(compile.stdout) as typeof compileOut;
+    } catch {
+      return sandboxSystemError(`Failed to parse compile output.\nstdout: ${compile.stdout}`);
+    }
+    if (compileOut.compilationError) {
+      return { testcaseResults: [], compilationError: compileOut.compilationError };
+    }
+    const runCommand = compileOut.runCommand;
+    if (!Array.isArray(runCommand) || runCommand.length === 0) {
+      return sandboxSystemError("Compile phase returned no run command.");
+    }
+
+    const perCaseTimeoutMs = Math.min(
+      request.limits.timeoutMs * 2 + 30_000,
+      MAX_OUTER_TIMEOUT_MS,
+    );
+    const rawRuns: RawCaseRun[] = [];
+    for (const tc of request.testcases) {
+      await writeModeConfig({ kind: "run-case", caseIndex: tc.index, runCommand });
+      const caseName = `nojv-judge-r${String(tc.index)}-${baseName}`.slice(0, 60);
+      const caseArgs = buildStandardDockerArgs({
+        containerName: caseName,
+        networkArgs,
+        tempDir,
+        cpuLimit: config.cpuLimit,
+        memoryMb: config.memoryMb,
+        pidsLimit: config.pidsLimit,
+        image: config.image,
+        artifactMount: { hostDir: artifactDir, readOnly: true },
+        extraEnv: ["PYTHONDONTWRITEBYTECODE=1"],
+      });
+      const phase = await spawnDockerPhase(caseArgs, caseName, perCaseTimeoutMs);
+      rawRuns.push(extractCaseRun(phase, tc.index));
+    }
+
+    return { testcaseResults: [], rawRuns };
+  } finally {
+    await rm(artifactDir, { recursive: true, force: true });
+  }
 }
