@@ -1,7 +1,7 @@
 import { fail } from "@sveltejs/kit";
 import { Resend } from "resend";
 import { env } from "$env/dynamic/private";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import { createLogger } from "../logger";
 import { withAction } from "./action-handlers";

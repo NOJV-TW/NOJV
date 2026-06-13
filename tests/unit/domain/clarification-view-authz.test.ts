@@ -30,7 +30,7 @@ vi.mock("@nojv/db", () => ({
   clarificationRepo: { listForContext: clarificationListForContext },
 }));
 
-import { listForViewer } from "../../../packages/domain/src/clarification/queries";
+import { listForViewer } from "../../../packages/application/src/clarification/queries";
 
 function actor(
   overrides: Partial<{ userId: string; platformRole: "admin" | "teacher" | "student" }> = {},

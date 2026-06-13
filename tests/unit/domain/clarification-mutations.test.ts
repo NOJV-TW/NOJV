@@ -45,7 +45,7 @@ vi.mock("@nojv/redis", () => ({
   pubsub: { publishClarification },
 }));
 
-import { deleteClarification } from "../../../packages/domain/src/clarification/mutations";
+import { deleteClarification } from "../../../packages/application/src/clarification/mutations";
 
 function actor(
   overrides: Partial<{

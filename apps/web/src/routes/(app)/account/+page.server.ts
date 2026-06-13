@@ -1,4 +1,4 @@
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";

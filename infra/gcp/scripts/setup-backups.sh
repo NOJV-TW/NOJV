@@ -1,21 +1,4 @@
 #!/usr/bin/env bash
-#
-# Idempotent one-shot to bring a Cloud SQL instance up to the backup posture
-# documented in docs/runbooks/backup-restore.md:
-#
-#   * automated daily backups, 30-day retention, in-region
-#   * PITR enabled with 14-day WAL retention
-#   * GCS backup bucket exists with object versioning + 30-day version retention
-#
-# Run once per environment after provisioning. Re-running is safe — Cloud SQL
-# PATCH ignores fields that are already at the target value.
-#
-# Required env:
-#   PROJECT_ID         GCP project (e.g. nojv-prod)
-#   SQL_INSTANCE       Cloud SQL instance name (e.g. nojv-postgres)
-#   REGION             SQL region (e.g. asia-east1)
-#   BACKUP_BUCKET      GCS bucket for cold exports (e.g. nojv-prod-db-exports)
-
 set -euo pipefail
 
 : "${PROJECT_ID:?PROJECT_ID is required}"
@@ -43,7 +26,6 @@ fi
 
 gcloud storage buckets update "gs://${BACKUP_BUCKET}" --versioning
 
-# Lifecycle: retain non-current versions for 30 days, then auto-delete.
 TMP_LIFECYCLE="$(mktemp)"
 trap 'rm -f "$TMP_LIFECYCLE"' EXIT
 cat > "$TMP_LIFECYCLE" <<'JSON'

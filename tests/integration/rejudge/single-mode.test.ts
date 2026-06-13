@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
-import { ForbiddenError, submissionDomain } from "@nojv/domain";
+import { ForbiddenError, submissionDomain } from "@nojv/application";
 
 import {
   createTestContest,

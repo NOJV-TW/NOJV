@@ -11,13 +11,13 @@ tests / docs in one consistent rollout.
 
 **Architecture:** `@dodona/dolos-lib` becomes a runtime dep of
 `@nojv/temporal` only. The existing domain split is preserved —
-Dolos is not pulled into `@nojv/domain` or the web image. The
+Dolos is not pulled into `@nojv/application` or the web image. The
 activity keeps its public shape (`runPlagiarismCheck(targetId,
 targetType)`); only its body and the pair model change. One-shot
 cutover, no feature flag.
 
 **Tech Stack:** `@dodona/dolos-lib`, Prisma 7 migration,
-`@nojv/domain` type tweak, `@nojv/temporal` activity rewrite,
+`@nojv/application` type tweak, `@nojv/temporal` activity rewrite,
 SvelteKit 5 UI adjustment, Vitest, paraglide.
 
 **Reference design:** `docs/plans/active/2026-04-20-dolos-migration-design.md`.
@@ -40,7 +40,7 @@ moving on.
 
 **Files:**
 
-- Modify: `packages/domain/src/plagiarism/types.ts`
+- Modify: `packages/application/src/plagiarism/types.ts`
 
 **Step 1: Replace the interface**
 
@@ -78,7 +78,7 @@ later tasks.
 **Step 3: Commit**
 
 ```bash
-git add packages/domain/src/plagiarism/types.ts
+git add packages/application/src/plagiarism/types.ts
 git commit -m "feat(domain): Dolos-shaped SimilarityPair"
 ```
 
@@ -152,7 +152,7 @@ takes `reportUrl?: string | null` in place of
 
 **Step 2: Update the domain persist surface**
 
-`packages/domain/src/plagiarism/queries.ts:53-64` has
+`packages/application/src/plagiarism/queries.ts:53-64` has
 `saveResults(target, results, mossReportUrl)` — rename the parameter
 to `reportUrl` and pass it through as
 `writePlagiarismFields(target, { ..., reportUrl })`.
@@ -173,7 +173,7 @@ should still pass — the existing tests don't assert on
 **Step 4: Commit**
 
 ```bash
-git add packages/db/src/repositories/plagiarism.ts packages/domain/src/plagiarism/queries.ts
+git add packages/db/src/repositories/plagiarism.ts packages/application/src/plagiarism/queries.ts
 git commit -m "feat(db,domain): plumb reportUrl through repo + domain"
 ```
 
@@ -596,4 +596,4 @@ All green.
 - Design: `docs/plans/active/2026-04-20-dolos-migration-design.md`
 - Spec: `docs/specs/plagiarism.md` (updated in Task 8)
 - Current activity: `packages/temporal/src/activities/plagiarism.ts`
-- Current types: `packages/domain/src/plagiarism/types.ts`
+- Current types: `packages/application/src/plagiarism/types.ts`

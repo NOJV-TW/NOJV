@@ -33,16 +33,16 @@ export const LANGUAGE_TEMPLATES: Record<Language, string> = {
 
 ### Domain 層
 
-1. **`packages/domain/src/problem/queries.ts`**
+1. **`packages/application/src/problem/queries.ts`**
    - 移除本地 `starterByLanguage` 常數，改 import `LANGUAGE_TEMPLATES`
    - `buildStarterByLanguage(type, workspaceFiles)`：`full_source` → 直接回傳 `LANGUAGE_TEMPLATES`；`multi_file` → 維持原 overlay 邏輯
    - 呼叫處 (`mapPersistedProblemDetail`) 傳入 `problem.type`
 
-2. **`packages/domain/src/submission/mutations.ts`**
+2. **`packages/application/src/submission/mutations.ts`**
    - 把 `if (problem.type !== "special_env")` 整塊改成 `if (problem.type === "multi_file")`
    - `full_source` 不再要求有 workspace entry
 
-3. **`packages/domain/src/problem/helpers.ts`**
+3. **`packages/application/src/problem/helpers.ts`**
    - `assertProblemHasWorkspaceForLanguages` 對 `full_source` 題目直接 return（永遠支援所有語言）
 
 ### 前端 UI
@@ -93,9 +93,9 @@ S3 contentKey orphan：本次只動 DB，孤兒物件之後寫 ops 腳本清。
 **修改 (8):**
 
 - `packages/core/src/index.ts`
-- `packages/domain/src/problem/queries.ts`
-- `packages/domain/src/problem/helpers.ts`
-- `packages/domain/src/submission/mutations.ts`
+- `packages/application/src/problem/queries.ts`
+- `packages/application/src/problem/helpers.ts`
+- `packages/application/src/submission/mutations.ts`
 - `apps/web/src/lib/components/problem/ProblemSections.svelte`
 - `apps/web/src/lib/components/problem/LanguageSelector.svelte`
 - `apps/web/src/lib/components/problem/Editor.svelte`

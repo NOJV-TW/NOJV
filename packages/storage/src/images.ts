@@ -1,11 +1,45 @@
 import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
+import { parseRelativePath } from "@nojv/core";
 import { randomUUID } from "node:crypto";
 
-import { getStorageBaseUrl } from "./client";
 import { getStorageEnv } from "./env";
 
 const BUCKET = getStorageEnv().S3_BUCKET;
+
+export interface StoredImage {
+  body: Buffer;
+  contentType: string;
+}
+
+function imageFilename(filename: string): string {
+  const parsed = parseRelativePath(filename);
+  if (parsed.includes("/")) {
+    throw new Error("Image filename must not contain path separators");
+  }
+  return parsed;
+}
+
+async function readObject(client: S3Client, key: string): Promise<StoredImage> {
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    }),
+  );
+  const body = response.Body;
+  if (!body) {
+    throw new Error(`No body returned for object ${key}`);
+  }
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return {
+    body: Buffer.concat(chunks),
+    contentType: response.ContentType ?? "application/octet-stream",
+  };
+}
 
 export async function uploadProblemImage(
   client: S3Client,
@@ -25,7 +59,7 @@ export async function uploadProblemImage(
     }),
   );
 
-  return `${getStorageBaseUrl()}/${BUCKET}/${key}`;
+  return key;
 }
 
 export async function uploadUserContentImage(
@@ -46,20 +80,23 @@ export async function uploadUserContentImage(
     }),
   );
 
-  return `${getStorageBaseUrl()}/${BUCKET}/${key}`;
+  return key;
 }
 
-export async function deleteProblemImage(client: S3Client, imageUrl: string): Promise<void> {
-  const url = new URL(imageUrl);
-  const pathParts = url.pathname.split("/").filter(Boolean);
-  const key = pathParts.slice(1).join("/");
+export async function downloadProblemImage(
+  client: S3Client,
+  problemId: string,
+  filename: string,
+): Promise<StoredImage> {
+  return readObject(client, `problems/${problemId}/images/${imageFilename(filename)}`);
+}
 
-  await client.send(
-    new DeleteObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    }),
-  );
+export async function downloadUserContentImage(
+  client: S3Client,
+  userId: string,
+  filename: string,
+): Promise<StoredImage> {
+  return readObject(client, `users/${userId}/images/${imageFilename(filename)}`);
 }
 
 export async function uploadAdvancedImageTarball(

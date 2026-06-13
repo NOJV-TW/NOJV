@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 import { createTestProblem, createTestUser } from "../../fixtures/factories";
 

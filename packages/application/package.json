@@ -1,5 +1,5 @@
 {
-  "name": "@nojv/domain",
+  "name": "@nojv/application",
   "version": "0.1.0",
   "private": true,
   "type": "module",

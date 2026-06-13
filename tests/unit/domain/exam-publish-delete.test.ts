@@ -53,7 +53,7 @@ import {
   examDomain,
   ForbiddenError,
   ValidationError,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 const { publishExam, deleteExamDraft, updateExamRecord } = examDomain;
 

@@ -15,7 +15,6 @@ export function resolveSourceFiles(
 
   for (const sf of request.sourceFiles ?? []) {
     const normalized = normalizeRelativePath(sf.path);
-    if (!normalized) continue;
     if (normalized === mainSourceName) wroteMain = true;
     files.push({ path: normalized, content: sf.content });
   }

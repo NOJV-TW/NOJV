@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { submissionRepo } from "@nojv/db";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 
 import {
   createTestCourse,

@@ -75,7 +75,7 @@ If a future audit identifies a specific syscall that materially expands the atta
 Editorials must not be readable inside an event that re-uses the
 problem, even when the viewer earned AC in past practice. The gate is
 enforced by `canViewEditorials(userId, problemId, context)` in
-`packages/domain/src/editorial/queries.ts`:
+`packages/application/src/editorial/queries.ts`:
 
 - `EditorialViewContext` is one of `{ kind: "practice" }`,
   `{ kind: "contest", contestId, now }`,
@@ -107,7 +107,7 @@ submissions are loaded via
 `submissionDomain.getSubmissionSources(id)` (S3-backed) and
 concatenated in **sorted path order** with `// === <path> ===\n`
 boundary markers before tokenization
-(`packages/domain/src/plagiarism/queries.ts`). The earlier path that
+(`packages/application/src/plagiarism/queries.ts`). The earlier path that
 JSON-stringified the whole file map masked semantic similarity behind
 JSON syntax tokens; the comment-marker concatenation restores
 tokenization fidelity because every Dolos-supported language treats

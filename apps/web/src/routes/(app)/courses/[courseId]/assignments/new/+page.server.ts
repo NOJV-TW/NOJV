@@ -1,5 +1,5 @@
 import { courseAssignmentFormSchema } from "@nojv/core";
-import { courseDomain, problemDomain } from "@nojv/domain";
+import { courseDomain, problemDomain } from "@nojv/application";
 import { fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";

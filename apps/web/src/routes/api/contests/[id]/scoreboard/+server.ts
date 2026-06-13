@@ -3,7 +3,7 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 import { getActorContext } from "$lib/server/auth";
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 import { apiHandler } from "$lib/server/shared/api-handler";
 
 const { canViewLiveContestScoreboard, getScoreboard } = contestDomain;

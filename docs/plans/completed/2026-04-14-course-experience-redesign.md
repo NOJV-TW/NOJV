@@ -9,7 +9,7 @@
 
 **Goal:** Replace the entire `/courses/*` experience — routes, schema, teacher/student UI, exam session lock, members rework — so it matches the 2026-04-11 design spec and the 15 committed HTML prototypes.
 
-**Architecture:** Unified teacher/student UI (no `/manage/*` split). Course-embedded exams split out of the single `Contest` table into a dedicated `Exam` model, with shared scoring logic hoisted to `packages/domain/src/scoring/`. Routes are keyed by cuid (`[courseId]`, `[assignmentId]`, `[examId]`), not slug. Exam session lock is a SvelteKit hook that matches URL prefix. Any authenticated user may create standalone contests.
+**Architecture:** Unified teacher/student UI (no `/manage/*` split). Course-embedded exams split out of the single `Contest` table into a dedicated `Exam` model, with shared scoring logic hoisted to `packages/application/src/scoring/`. Routes are keyed by cuid (`[courseId]`, `[assignmentId]`, `[examId]`), not slug. Exam session lock is a SvelteKit hook that matches URL prefix. Any authenticated user may create standalone contests.
 
 **Tech Stack:** SvelteKit 2 + Svelte 5 runes · Prisma 7 · Zod 4 · Tailwind CSS 4 · sveltekit-superforms · Bits UI · Paraglide JS i18n · Vitest (unit + integration with real Postgres) · Playwright · pnpm workspace monorepo with Turborepo.
 
@@ -44,7 +44,7 @@ packages/db/src/repositories/
 ├── user.ts               MODIFIED  handle + placeholder lookups
 └── submission.ts         MODIFIED  exam/contest scoped queries
 
-packages/domain/src/
+packages/application/src/
 ├── scoring/              NEW       icpc.ts + ioi.ts + rank-util.ts + scoreboard-builder.ts (pure, entity-agnostic)
 ├── contest/              REDUCED   standalone contest queries/mutations/permissions only
 ├── exam/                 NEW       queries.ts + mutations.ts + permissions.ts
@@ -121,30 +121,30 @@ Total estimate: **14-22 working days**. With subagent parallelization on Phase 3
 
 ### Task 1.1: Extract shared scoring module
 
-**Why:** Splitting Contest/Exam into separate tables must not duplicate ICPC/IOI scoring code. Hoisting to `packages/domain/src/scoring/` lets both consumers import pure functions.
+**Why:** Splitting Contest/Exam into separate tables must not duplicate ICPC/IOI scoring code. Hoisting to `packages/application/src/scoring/` lets both consumers import pure functions.
 
 **Dependencies:** independent — can start immediately.
 
 **Files:**
 
-- Create: `packages/domain/src/scoring/icpc.ts`
-- Create: `packages/domain/src/scoring/ioi.ts`
-- Create: `packages/domain/src/scoring/rank-util.ts`
-- Create: `packages/domain/src/scoring/scoreboard-builder.ts`
-- Create: `packages/domain/src/scoring/index.ts`
-- Modify: `packages/domain/src/contest/icpc-scoring.ts` — delete, imports redirect to scoring/icpc
-- Modify: `packages/domain/src/contest/ioi-scoring.ts` — delete
-- Modify: `packages/domain/src/contest/rank-util.ts` — delete
-- Modify: `packages/domain/src/contest/scoreboard-builder.ts` — delete
-- Modify: `packages/domain/src/contest/scoring.ts` — slim down to contest-specific orchestration; import algorithms from `scoring/`
-- Modify: `packages/domain/src/contest/index.ts` — remove re-exports of deleted files
-- Modify: `packages/domain/src/index.ts` — add `export * as scoring from "./scoring"`
+- Create: `packages/application/src/scoring/icpc.ts`
+- Create: `packages/application/src/scoring/ioi.ts`
+- Create: `packages/application/src/scoring/rank-util.ts`
+- Create: `packages/application/src/scoring/scoreboard-builder.ts`
+- Create: `packages/application/src/scoring/index.ts`
+- Modify: `packages/application/src/contest/icpc-scoring.ts` — delete, imports redirect to scoring/icpc
+- Modify: `packages/application/src/contest/ioi-scoring.ts` — delete
+- Modify: `packages/application/src/contest/rank-util.ts` — delete
+- Modify: `packages/application/src/contest/scoreboard-builder.ts` — delete
+- Modify: `packages/application/src/contest/scoring.ts` — slim down to contest-specific orchestration; import algorithms from `scoring/`
+- Modify: `packages/application/src/contest/index.ts` — remove re-exports of deleted files
+- Modify: `packages/application/src/index.ts` — add `export * as scoring from "./scoring"`
 - Modify: `tests/unit/domain/scoring-*.test.ts` (existing contest scoring tests) — update imports
 
 **Steps:**
 
-1. Read `packages/domain/src/contest/icpc-scoring.ts`, `ioi-scoring.ts`, `rank-util.ts`, `scoreboard-builder.ts`. Identify which functions are pure (no contest-specific types) vs which accept contest shape.
-2. Create the new files under `packages/domain/src/scoring/`. Parameterise any function that accepted `Contest` to accept a neutral `TimedSession` shape: `{ id: string; startsAt: Date; endsAt: Date; frozenAt: Date | null }`. For subtask strategies, accept the strategy map directly — do not take the whole contest row.
+1. Read `packages/application/src/contest/icpc-scoring.ts`, `ioi-scoring.ts`, `rank-util.ts`, `scoreboard-builder.ts`. Identify which functions are pure (no contest-specific types) vs which accept contest shape.
+2. Create the new files under `packages/application/src/scoring/`. Parameterise any function that accepted `Contest` to accept a neutral `TimedSession` shape: `{ id: string; startsAt: Date; endsAt: Date; frozenAt: Date | null }`. For subtask strategies, accept the strategy map directly — do not take the whole contest row.
 3. Delete the original files in `contest/` and re-point `contest/scoring.ts` to import from `scoring/`. Keep `contest/scoring.ts` as a thin orchestration layer that fetches contest data and calls the shared algorithms.
 4. Update the barrel exports (`contest/index.ts`, `domain/index.ts`).
 5. Update `tests/unit/domain/scoring-*.test.ts` imports — move test files to `tests/unit/domain/scoring/*.test.ts` and add new unit tests that verify scoring still produces the same output for fixture data.
@@ -165,14 +165,14 @@ All existing contest scoring tests should still pass against the hoisted algorit
 
 ### Task 1.2: Adjustment rules — new discriminated union (drop half_life, add flat + final_day_zero)
 
-**Why:** Prototype 02 and 05 lock in 4 rule types: `none`, `flat_late_penalty`, `daily_late_penalty`, `final_day_zero`. The current `packages/domain/src/submission/adjustments.ts` supports `time_bonus + late_penalty_decay (half-life)`. Drop half-life entirely.
+**Why:** Prototype 02 and 05 lock in 4 rule types: `none`, `flat_late_penalty`, `daily_late_penalty`, `final_day_zero`. The current `packages/application/src/submission/adjustments.ts` supports `time_bonus + late_penalty_decay (half-life)`. Drop half-life entirely.
 
 **Dependencies:** independent.
 
 **Files:**
 
 - Modify: `packages/core/src/schemas/adjustment-rules.ts` (create if missing — check `packages/core/src/schemas/course.ts` and `contest.ts` for current location)
-- Modify: `packages/domain/src/submission/adjustments.ts` — rewrite `applyAdjustmentRules`
+- Modify: `packages/application/src/submission/adjustments.ts` — rewrite `applyAdjustmentRules`
 - Modify: `packages/db/prisma/seed.ts` — any seed data using `half_life` variant
 - Modify: `tests/unit/domain/adjustments.test.ts` — replace half-life tests with flat/daily/final-day tests
 
@@ -219,8 +219,8 @@ pnpm test:unit -- adjustments
 - Modify: `packages/db/prisma/schema/auth.prisma` — remove `createdJoinTokens` relation from `User`
 - Create: `packages/db/prisma/migrations/20260414000000_drop_course_slug_visibility_locale_jointoken/migration.sql`
 - Modify: `packages/core/src/schemas/course.ts` — drop `slug`, `visibility`, `locale` fields from `courseCreateSchema` and `courseUpdateSchema`
-- Modify: `packages/domain/src/course/mutations.ts` — drop slug-based create path; drop token generation; drop `createJoinToken` / `consumeJoinToken` entirely
-- Modify: `packages/domain/src/course/queries.ts` — remove `findBySlug`, replace with `findById`
+- Modify: `packages/application/src/course/mutations.ts` — drop slug-based create path; drop token generation; drop `createJoinToken` / `consumeJoinToken` entirely
+- Modify: `packages/application/src/course/queries.ts` — remove `findBySlug`, replace with `findById`
 - Modify: `packages/db/src/repositories/course.ts` — same
 - Delete: `packages/db/src/repositories/course-join-token.ts` (if exists)
 - Modify: `packages/db/prisma/seed.ts` — drop slug, visibility, locale from Course seed; drop all CourseJoinToken seeding
@@ -282,10 +282,10 @@ pnpm -w test:unit     # should pass existing unit tests (may need to delete test
 - Modify: `packages/db/src/repositories/contest.ts` — drop course-embedded code paths
 - Modify: `packages/db/src/repositories/submission.ts` — add `listByExam`, `listByContest`, update filters
 - Modify: `packages/db/src/repositories/ip-violation.ts` — rename `contestId` parameter to `examId`
-- Create: `packages/domain/src/exam/index.ts`, `queries.ts`, `mutations.ts`, `permissions.ts`
-- Modify: `packages/domain/src/contest/queries.ts` — drop course-embedded branching
-- Modify: `packages/domain/src/contest/mutations.ts` — drop course-embedded branching
-- Modify: `packages/domain/src/contest/permissions.ts` — simplify `canManageContest` to just check owner / platform role
+- Create: `packages/application/src/exam/index.ts`, `queries.ts`, `mutations.ts`, `permissions.ts`
+- Modify: `packages/application/src/contest/queries.ts` — drop course-embedded branching
+- Modify: `packages/application/src/contest/mutations.ts` — drop course-embedded branching
+- Modify: `packages/application/src/contest/permissions.ts` — simplify `canManageContest` to just check owner / platform role
 - Modify: `packages/core/src/schemas/contest.ts` — drop course fields from contest schema
 - Create: `packages/core/src/schemas/exam.ts` — new schema with mandatory `courseId`, proctoring fields
 
@@ -487,8 +487,8 @@ COMMIT;
 4. Write the migration SQL as above. Run against the test DB and verify with hand-crafted queries.
 5. Create `packages/db/src/repositories/exam*.ts` as near-clones of `contest*.ts`. Only the entity name differs.
 6. Reduce `packages/db/src/repositories/contest.ts` — delete any query that filtered by `courseId` or joined `Course`.
-7. Create `packages/domain/src/exam/` — `queries.ts`, `mutations.ts`, `permissions.ts`, `index.ts`. `canManageExam(actor, exam, memberships)` mirrors `canManageContest` but requires `courseRole in [teacher, ta]`.
-8. Simplify `packages/domain/src/contest/permissions.ts` — `canManageContest` now only checks `createdByUserId === userId` (since there's no courseRole path).
+7. Create `packages/application/src/exam/` — `queries.ts`, `mutations.ts`, `permissions.ts`, `index.ts`. `canManageExam(actor, exam, memberships)` mirrors `canManageContest` but requires `courseRole in [teacher, ta]`.
+8. Simplify `packages/application/src/contest/permissions.ts` — `canManageContest` now only checks `createdByUserId === userId` (since there's no courseRole path).
 9. Contest create Zod schema: drop `courseId`, drop all proctoring fields. Exam Zod schema: mirror contest but `courseId: z.string().min(1)` required, all proctoring allowed.
 10. Run `pnpm db:generate`, fix all the resulting typescript errors across the tree. There will be many.
 
@@ -569,7 +569,7 @@ pnpm test:integration -- auth
 - Modify: `packages/db/prisma/schema/contest.prisma` — add `ActiveExamSession` and `ExamSessionEvent` models
 - Create: `packages/db/prisma/migrations/20260414030000_add_active_exam_session_tables/migration.sql`
 - Create: `packages/db/src/repositories/exam-session.ts` — CRUD + heartbeat update
-- Create: `packages/domain/src/exam/session.ts` — `startSession`, `endSession(reason)`, `recordEvent`
+- Create: `packages/application/src/exam/session.ts` — `startSession`, `endSession(reason)`, `recordEvent`
 
 **Schema:**
 
@@ -635,7 +635,7 @@ pnpm test:unit -- exam-session
 **Files:**
 
 - Modify: `packages/db/prisma/schema/course.prisma` — rename `CourseAssessment.maxAttempts Int?` to `CourseAssessment.maxAttemptsPerDay Int?` OR keep `maxAttempts` name and document semantic change
-- Modify: `packages/domain/src/submission/mutations.ts` — in the submit path, query `COUNT(*)` from Submission where `userId + courseAssessmentId + createdAt >= start_of_day_local` and compare to `maxAttemptsPerDay`
+- Modify: `packages/application/src/submission/mutations.ts` — in the submit path, query `COUNT(*)` from Submission where `userId + courseAssessmentId + createdAt >= start_of_day_local` and compare to `maxAttemptsPerDay`
 - Create: `packages/core/src/schemas/course.ts` — field rename
 - Migration to rename column
 
@@ -1206,7 +1206,7 @@ if (event.locals.sessionUser) {
 **Files:**
 
 - Create: `apps/web/src/routes/api/exam-session/release/+server.ts` — POST accepting `{ examId, reason: "submitted" | "time_up" | "released_by_instructor" }`, authz-gated
-- Modify: `packages/domain/src/exam/session.ts` — `endSession` writes to `ActiveExamSession.endedAt` and `releaseReason`, then emits `ExamSessionEvent`
+- Modify: `packages/application/src/exam/session.ts` — `endSession` writes to `ActiveExamSession.endedAt` and `releaseReason`, then emits `ExamSessionEvent`
 
 **Commit:** `feat(exam): release endpoint and audit log`
 
@@ -1238,7 +1238,7 @@ if (event.locals.sessionUser) {
 
 **Files:**
 
-- Create: `packages/domain/src/course/members.ts` — `parseHandleInput(raw: string): string[]`, `bulkAddMembers(actor, courseId, handles, role)` returns `{ added, placeholdersCreated, skipped }`
+- Create: `packages/application/src/course/members.ts` — `parseHandleInput(raw: string): string[]`, `bulkAddMembers(actor, courseId, handles, role)` returns `{ added, placeholdersCreated, skipped }`
 - Unit test cases in `tests/unit/domain/course-members.test.ts`
 
 **Commit:** `feat(domain): bulk handle add with placeholder creation`
@@ -1262,7 +1262,7 @@ if (event.locals.sessionUser) {
 **Files:**
 
 - Modify: `apps/web/src/routes/(app)/contests/create/+page.server.ts` — remove `platformRole in [teacher, admin]` check; keep authenticated check only
-- Modify: `packages/domain/src/contest/permissions.ts` — any `canCreateContest(platformRole)` helper — change to always true for authenticated users
+- Modify: `packages/application/src/contest/permissions.ts` — any `canCreateContest(platformRole)` helper — change to always true for authenticated users
 
 **Commit:** `feat(contest): allow any authenticated user to create standalone contests`
 

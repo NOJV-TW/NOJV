@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { ForbiddenError, problemDomain } from "@nojv/domain";
+import { ForbiddenError, problemDomain } from "@nojv/application";
 import { checkerKey, createStorageClient, getText } from "@nojv/storage";
 
 import { createTestProblem, createTestUser } from "../../fixtures/factories";
 
-import type { ProblemActorContext } from "../../../packages/domain/src/problem/permissions";
+import type { ProblemActorContext } from "../../../packages/application/src/problem/permissions";
 
 function actorOf(user: {
   id: string;

@@ -93,7 +93,7 @@ All seven waves landed on `chore/quality-followups-2026-05-19` on
 - [x] Wave 5 — CI security scanning: `codeql.yml` (SAST) + a `pnpm audit`
       job in `ci.yml` (hardened to a blocking gate in Wave 9).
 - [x] Wave 6 — v8 coverage thresholds in `vitest.config.ts`, scoped to
-      `packages/{domain,core}/src` (measured floor: lines 50 / stmts 48
+      `packages/{application,core}/src` (measured floor: lines 50 / stmts 48
       / funcs 41 / branches 42).
 - [x] Wave 7 — `scripts/generate-schema-docs.mjs` + `pnpm db:docs` emit
       `docs/architecture/DATABASE.generated.md` (36 models, 37 enums);

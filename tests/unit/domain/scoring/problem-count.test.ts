@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scoring } from "@nojv/domain";
+import { scoring } from "@nojv/application";
 
 const { computeProblemCountPenalty } = scoring;
 

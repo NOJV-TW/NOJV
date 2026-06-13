@@ -1,7 +1,7 @@
 # Clarification Board — Public-But-Anonymous Q&A for Contests, Exams, Assignments
 
 **Date:** 2026-04-19
-**Scope:** New `Clarification` Prisma model, `@nojv/domain/clarification/*` module, 4 API routes, new tab on contest / exam / assignment detail + manage pages, SSE integration, one notification type tied to feature #1
+**Scope:** New `Clarification` Prisma model, `@nojv/application/clarification/*` module, 4 API routes, new tab on contest / exam / assignment detail + manage pages, SSE integration, one notification type tied to feature #1
 **Status:** Design approved, awaiting implementation
 
 ## Background
@@ -94,7 +94,7 @@ The asker themselves, when viewing the public board, also sees their own questio
   - `assignment` → course teacher/TA for that course, or admin
 - **List**: any authenticated user with "view access" to the context — student participants, staff, admin. The `askedBy` field is masked per the anonymity rule.
 
-Helpers live in `packages/domain/src/clarification/authz.ts` alongside existing authz patterns.
+Helpers live in `packages/application/src/clarification/authz.ts` alongside existing authz patterns.
 
 ## API Routes
 
@@ -187,7 +187,7 @@ Active SSE subscribers also receive the update, but the notification is the offl
 
 ## Rollout Order (3 commits)
 
-1. **Schema + domain + API**: `Clarification` model + migration, `@nojv/domain/clarification/*` with authz helpers, 4 API routes with anonymity projection and permission gates, unit + integration tests. No UI yet.
+1. **Schema + domain + API**: `Clarification` model + migration, `@nojv/application/clarification/*` with authz helpers, 4 API routes with anonymity projection and permission gates, unit + integration tests. No UI yet.
 2. **Frontend tab + SSE**: components, store, SSE bridge, paraglide keys. Lands on all three detail pages in one commit since they share the component.
 3. **Notification wiring**: `clarification_answered` producer call in `PATCH /api/clarifications/[id]` → `createNotification`; small test ensuring only the state-transition case fires, not subsequent edits.
 

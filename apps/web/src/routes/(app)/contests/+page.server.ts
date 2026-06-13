@@ -5,7 +5,7 @@ import { m } from "$lib/paraglide/messages.js";
 import { getActorContext, requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { findContestByInviteCode, listContestsForUser } = contestDomain;
 

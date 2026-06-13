@@ -24,7 +24,7 @@
 ## 依賴
 
 - 上游：**只能依賴** `@nojv/core`（共享 schema / type）
-- 嚴禁依賴 `@nojv/db`、`@nojv/redis`、`@nojv/storage`、`@nojv/domain`
+- 嚴禁依賴 `@nojv/db`、`@nojv/redis`、`@nojv/storage`、`@nojv/application`
 - 下游：worker 透過 Docker / K8s 啟動本容器，透過 stdin/stdout 通訊
 
 ## 本地開發

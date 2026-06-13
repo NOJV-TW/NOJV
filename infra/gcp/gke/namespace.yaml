@@ -5,10 +5,6 @@ metadata:
   labels:
     name: nojv
 ---
-# Sandbox judges run in a separate namespace so a sandbox runaway can
-# never starve the orchestrator. NetworkPolicy in network-policy.yaml
-# locks egress down to "deny all". RBAC in worker-rbac.yaml lets the
-# worker SA create/delete jobs here.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -16,10 +12,6 @@ metadata:
   labels:
     name: nojv-sandbox
 ---
-# Temporal Server + its dedicated Postgres live in a separate namespace
-# so the Cloud SQL Auth Proxy traffic and the worker traffic into
-# Temporal stay logically separated. Operators can scope dashboards
-# and RBAC at the namespace boundary.
 apiVersion: v1
 kind: Namespace
 metadata:

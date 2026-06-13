@@ -7,7 +7,7 @@ import {
 } from "../../fixtures/factories";
 import type { Prisma } from "@nojv/db";
 
-import { submissionDomain, type ActorContext } from "@nojv/domain";
+import { submissionDomain, type ActorContext } from "@nojv/application";
 
 const { getSubmissionDetail, listProblemSubmissions } = submissionDomain;
 

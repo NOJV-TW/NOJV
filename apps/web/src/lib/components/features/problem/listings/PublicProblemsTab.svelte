@@ -8,7 +8,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import type { problemDomain } from "@nojv/domain";
+  import type { problemDomain } from "@nojv/application";
   import {
     formatAcceptanceRate,
     renderJudgeMethod,

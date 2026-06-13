@@ -6,7 +6,7 @@ import {
   ForbiddenError,
   HttpError,
   NotFoundError,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import {
   createTestCourse,

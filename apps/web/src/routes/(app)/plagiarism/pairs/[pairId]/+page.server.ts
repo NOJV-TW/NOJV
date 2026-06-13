@@ -10,7 +10,7 @@ import {
   resolveEffectiveCourseRole,
   ValidationError,
   type plagiarismDomain,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import type { CompletedActorContext } from "$lib/server/auth";
 import { requireAuth } from "$lib/server/auth";

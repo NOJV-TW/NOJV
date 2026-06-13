@@ -31,10 +31,10 @@ const componentSandboxRule = [
           "apps/web components must not touch @nojv/db, @nojv/redis, or @nojv/storage. Move the call to a server load/action and pass typed data through.",
       },
       {
-        group: ["@nojv/domain", "@nojv/domain/*"],
+        group: ["@nojv/application", "@nojv/application/*"],
         allowTypeImports: true,
         message:
-          "@nojv/domain value-imports pull Prisma/ioredis into the client bundle. Svelte components may only `import type` from it — move runtime calls to a +page.server.ts / API route and pass data through.",
+          "@nojv/application value-imports pull Prisma/ioredis into the client bundle. Svelte components may only `import type` from it — move runtime calls to a +page.server.ts / API route and pass data through.",
       },
     ],
   },
@@ -45,23 +45,23 @@ const layerBoundaryRule = [
   {
     paths: ["@nojv/temporal"].map((name) => ({
       name,
-      message: `${name} is server-only and reached through @nojv/domain (dispatch helpers). Do not import it from apps/web.`,
+      message: `${name} is server-only and reached through @nojv/application (dispatch helpers). Do not import it from apps/web.`,
     })),
     patterns: [
       {
         group: ["@nojv/db", "@nojv/db/*"],
         message:
-          "apps/web should go through @nojv/domain. The only exception is src/lib/auth.server.ts (better-auth Prisma adapter).",
+          "apps/web should go through @nojv/application. The only exception is src/lib/auth.server.ts (better-auth Prisma adapter).",
       },
       {
         group: ["@nojv/redis", "@nojv/redis/*"],
         message:
-          "apps/web should go through @nojv/domain. Exceptions: src/lib/server/shared/rate-limiter.ts and src/routes/api/events/stream/+server.ts.",
+          "apps/web should go through @nojv/application. Exceptions: src/lib/server/shared/rate-limiter.ts and src/routes/api/events/stream/+server.ts.",
       },
       {
         group: ["@nojv/storage", "@nojv/storage/*"],
         message:
-          "apps/web should go through @nojv/domain or src/lib/server/storage/* adapters.",
+          "apps/web should go through @nojv/application or src/lib/server/storage/* adapters.",
       },
     ],
   },
@@ -93,10 +93,10 @@ const primitivesNoFeaturesRule = [
           "apps/web components must not touch @nojv/db, @nojv/redis, or @nojv/storage. Move the call to a server load/action and pass typed data through.",
       },
       {
-        group: ["@nojv/domain", "@nojv/domain/*"],
+        group: ["@nojv/application", "@nojv/application/*"],
         allowTypeImports: true,
         message:
-          "@nojv/domain value-imports pull Prisma/ioredis into the client bundle. Svelte components may only `import type` from it — move runtime calls to a +page.server.ts / API route and pass data through.",
+          "@nojv/application value-imports pull Prisma/ioredis into the client bundle. Svelte components may only `import type` from it — move runtime calls to a +page.server.ts / API route and pass data through.",
       },
       {
         group: ["$lib/components/features/*", "**/components/features/**"],
@@ -122,7 +122,6 @@ export default [
       parserOptions: {
         parser: tseslint.parser,
         extraFileExtensions: [".svelte"],
-        // a future base-config edit re-enables it. svelte-eslint-parser
         project: null,
         projectService: false,
       },
@@ -139,7 +138,6 @@ export default [
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-inferrable-types": "off",
       "@typescript-eslint/no-empty-function": "off",
-      // misread by svelte-eslint-parser as import-assignment. The TS
       "no-import-assign": "off",
       "no-useless-assignment": "off",
     },

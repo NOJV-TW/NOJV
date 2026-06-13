@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeBestScoreState,
   computeProblemCountState,
-} from "../../../../packages/domain/src/scoring/persist-core";
+} from "../../../../packages/application/src/scoring/persist-core";
 
 describe("computeBestScoreState", () => {
   it("keeps the highest score per problem and sums into totalScore", () => {

@@ -1,20 +1,4 @@
 #!/bin/sh
-#
-# Self-hosted PostgreSQL backup loop for the docker-compose deployment.
-# Runs as the `postgres-backup` sidecar (postgres image, so pg_dump matches
-# the server version). Dumps the database to a date-stamped gzip under
-# /backups on a fixed interval and prunes dumps older than the retention
-# window. /backups should be a bind mount onto durable / off-box storage so
-# the copy survives loss of the postgres_data volume.
-#
-# Env (all have compose-provided defaults):
-#   PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE  standard libpq connection
-#   BACKUP_INTERVAL_SECONDS                      seconds between dumps (86400)
-#   BACKUP_RETENTION_DAYS                        delete dumps older than this (14)
-#
-# Run a one-off dump (no loop) by passing `once`:
-#   docker compose --profile backup run --rm postgres-backup once
-
 set -eu
 
 BACKUP_DIR=/backups

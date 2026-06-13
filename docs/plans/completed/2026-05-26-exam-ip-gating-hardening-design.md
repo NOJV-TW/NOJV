@@ -63,7 +63,7 @@ Migration: `ALTER TABLE "ExamParticipation" ADD COLUMN "ipGateExemptUntil" TIMES
 
 ### Pure decision function
 
-`packages/domain/src/shared/ip.ts` — extract the decision into a pure, sync,
+`packages/application/src/shared/ip.ts` — extract the decision into a pure, sync,
 heavily-testable function:
 
 ```ts

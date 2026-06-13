@@ -39,7 +39,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-import { feedbackDomain } from "@nojv/domain";
+import { feedbackDomain } from "@nojv/application";
 
 const { upsertFeedback, deleteFeedback } = feedbackDomain;
 

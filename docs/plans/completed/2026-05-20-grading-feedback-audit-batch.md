@@ -7,12 +7,12 @@ overrides, a read-only audit timeline tab, four tech optimizations, and
 four UX polish items.
 
 **Architecture:** Feedback is a new `SubmissionFeedback` table + a
-`packages/domain/src/feedback/` module mirroring the existing
+`packages/application/src/feedback/` module mirroring the existing
 `score-override/` module. The audit tab is a read-only domain query
 merging three existing audit tables. Optimizations and UX polish are
 independent, surgical changes.
 
-**Tech Stack:** SvelteKit, Prisma 7 / PostgreSQL 18, `@nojv/domain`,
+**Tech Stack:** SvelteKit, Prisma 7 / PostgreSQL 18, `@nojv/application`,
 `@nojv/db`, `@nojv/core` (Zod), `@nojv/redis`, Paraglide i18n, Vitest.
 
 **Design doc:** `docs/plans/active/2026-05-20-grading-feedback-audit-batch-design.md`
@@ -152,12 +152,12 @@ export type FeedbackUpsertInput = z.infer<typeof feedbackUpsertSchema>;
 
 **Files:**
 
-- Create: `packages/domain/src/feedback/types.ts`
-- Create: `packages/domain/src/feedback/permissions.ts`
-- Create: `packages/domain/src/feedback/mutations.ts`
-- Create: `packages/domain/src/feedback/queries.ts`
-- Create: `packages/domain/src/feedback/index.ts`
-- Modify: `packages/domain/src/index.ts` (`export * as feedbackDomain from "./feedback";`)
+- Create: `packages/application/src/feedback/types.ts`
+- Create: `packages/application/src/feedback/permissions.ts`
+- Create: `packages/application/src/feedback/mutations.ts`
+- Create: `packages/application/src/feedback/queries.ts`
+- Create: `packages/application/src/feedback/index.ts`
+- Modify: `packages/application/src/index.ts` (`export * as feedbackDomain from "./feedback";`)
 - Test: `tests/unit/domain/feedback.test.ts`
 
 **Step 1 — `types.ts`:** mirror `score-override/types.ts` but only two
@@ -207,9 +207,9 @@ Expected: PASS.
 
 **Files:**
 
-- Create: `packages/domain/src/shared/context-window.ts`
-- Modify: `packages/domain/src/score-override/permissions.ts`
-- Modify: `packages/domain/src/score-override/mutations.ts` (if the
+- Create: `packages/application/src/shared/context-window.ts`
+- Modify: `packages/application/src/score-override/permissions.ts`
+- Modify: `packages/application/src/score-override/mutations.ts` (if the
   gate is enforced in mutations rather than permissions — see Step 2)
 - Test: `tests/unit/domain/context-window.test.ts`
 - Test: existing `tests/unit/domain/score-override*.test.ts` (fixtures)
@@ -345,9 +345,9 @@ context closes.
 
 **Files:**
 
-- Create: `packages/domain/src/audit/queries.ts`
-- Create: `packages/domain/src/audit/index.ts`
-- Modify: `packages/domain/src/index.ts`
+- Create: `packages/application/src/audit/queries.ts`
+- Create: `packages/application/src/audit/index.ts`
+- Modify: `packages/application/src/index.ts`
 - Modify: `packages/db/src/repositories/submission-rejudge-log.ts` (add
   a `listForSubmissionIds(ids)` method if absent)
 - Test: `tests/unit/domain/audit-timeline.test.ts`
@@ -441,7 +441,7 @@ audit tab shows merged events for each context type.
 
 **Files:**
 
-- Modify: `packages/domain/src/problem/queries.ts` (~line 247-258)
+- Modify: `packages/application/src/problem/queries.ts` (~line 247-258)
 - Test: `tests/unit/domain/` (problem-queries test if present)
 
 `listProblemCards` currently runs `fullTextSearch` and `likeSearch` in
@@ -462,7 +462,7 @@ test harness exists, skip the test and rely on `check` + manual.
 **Files:**
 
 - Modify: `packages/redis/src/keys.ts` (add `adminDashboard` key)
-- Modify: `packages/domain/src/admin/index.ts`
+- Modify: `packages/application/src/admin/index.ts`
 
 **Note:** `@nojv/redis` exposes no generic cache module — use
 `getRedis()` directly.
@@ -476,7 +476,7 @@ Wrap cache reads/writes in try/catch so a Redis hiccup falls through
 to a live computation (mirror the best-effort pattern in
 `score-override/mutations.ts` `invalidateScoreboardForOverride`).
 
-**Step 3:** `pnpm --filter @nojv/domain typecheck`. Manual check — two
+**Step 3:** `pnpm --filter @nojv/application typecheck`. Manual check — two
 quick dashboard loads, second is cache-served.
 
 **Commit** — `perf(domain): cache admin dashboard aggregates (5m TTL)`.
@@ -488,7 +488,7 @@ quick dashboard loads, second is cache-served.
 **Files:**
 
 - Modify: `packages/db/src/repositories/contest.ts` (~line 50-73)
-- Modify: `packages/domain/src/contest/queries.ts` (callers)
+- Modify: `packages/application/src/contest/queries.ts` (callers)
 
 `listPublished()` and `listParticipable()` are byte-identical. Keep
 one (`listPublished`), delete the other, update both call sites in

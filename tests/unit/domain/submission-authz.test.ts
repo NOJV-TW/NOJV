@@ -22,7 +22,7 @@ vi.mock("@nojv/db", () => ({
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
 }));
 
-import { ForbiddenError, submissionDomain } from "@nojv/domain";
+import { ForbiddenError, submissionDomain } from "@nojv/application";
 
 const { canOperateOnSubmission, assertCanOperateOnSubmission } = submissionDomain;
 

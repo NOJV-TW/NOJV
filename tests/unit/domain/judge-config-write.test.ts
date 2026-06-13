@@ -38,7 +38,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 const { saveProblemJudgeConfig } = problemDomain;
 

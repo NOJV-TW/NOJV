@@ -1,4 +1,4 @@
-# @nojv/domain
+# @nojv/application
 
 > 業務邏輯層。所有 query、mutation、權限、評分都在這。apps 唯一該呼叫的業務介面。
 
@@ -28,9 +28,9 @@
 
 ```bash
 # 從 repo 根目錄
-pnpm -F @nojv/domain build
-pnpm -F @nojv/domain typecheck
-pnpm -F @nojv/domain lint
+pnpm -F @nojv/application build
+pnpm -F @nojv/application typecheck
+pnpm -F @nojv/application lint
 ```
 
 ## 相關文件

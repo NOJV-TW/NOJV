@@ -1,7 +1,7 @@
 # Judge Config Simplification — Compare Mode Removal, Subtask Strategy Relocation, Checker/Interactor DX
 
 **Date:** 2026-04-13
-**Scope:** `apps/web/src/lib/components/problem/tabs/{JudgeTab,TestcaseTab}.svelte`, `packages/core/src/schemas/judge-config.ts`, `packages/db/prisma/schema/problem.prisma`, `packages/domain/src/submission/judge-context.ts`, `apps/sandbox-runner/src/judges/{standard,checker,interactive}.ts`, `apps/sandbox-runner/src/compiler.ts`, sandbox image
+**Scope:** `apps/web/src/lib/components/problem/tabs/{JudgeTab,TestcaseTab}.svelte`, `packages/core/src/schemas/judge-config.ts`, `packages/db/prisma/schema/problem.prisma`, `packages/application/src/submission/judge-context.ts`, `apps/sandbox-runner/src/judges/{standard,checker,interactive}.ts`, `apps/sandbox-runner/src/compiler.ts`, sandbox image
 **Status:** Design approved, awaiting implementation
 
 ## Background
@@ -100,7 +100,7 @@ New migration directory `packages/db/prisma/migrations/20260413000000_subtask_sc
 
 ### Domain layer
 
-`packages/domain/src/submission/judge-context.ts`:
+`packages/application/src/submission/judge-context.ts`:
 
 - Build `subtaskStrategies` from the `testcaseSets` query result instead of from `judgeConfig.scoring.subtaskStrategies`. The set-by-id map shape is unchanged, so downstream consumers (`scoring.ts`) are unaffected.
 - The repository `getProblemForJudging` (or equivalent) must include `scoringStrategy` in its `select`.

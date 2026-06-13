@@ -1,4 +1,4 @@
-import { entryFileNameFor, type SubmissionDraft } from "@nojv/core";
+import { entryFileNameFor, parseRelativePath, type SubmissionDraft } from "@nojv/core";
 import { submissionSourceKey, type SubmissionSource } from "@nojv/storage";
 
 import { ConflictError } from "../shared/errors";
@@ -13,8 +13,9 @@ export function normalizeSubmissionSources(
 
   if (payload.sourceFiles && payload.sourceFiles.length > 0) {
     for (const file of payload.sourceFiles) {
-      submissionSourceKey(submissionId, file.path);
-      sources.push({ path: file.path, content: file.content });
+      const path = parseRelativePath(file.path);
+      submissionSourceKey(submissionId, path);
+      sources.push({ path, content: file.content });
     }
   } else {
     if (!payload.sourceCode) {

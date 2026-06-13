@@ -31,7 +31,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-import { examDomain } from "@nojv/domain";
+import { examDomain } from "@nojv/application";
 
 const { releaseAllSessionsAsInstructor, resetStudentIpBinding } = examDomain.session;
 

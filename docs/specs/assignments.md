@@ -298,34 +298,34 @@ is only available after it closes.")` (shared post-close gate; see
 
 ### Domain
 
-- `packages/domain/src/assignment/mutations.ts` —
+- `packages/application/src/assignment/mutations.ts` —
   `updateAssignmentRecord`, `publishAssignment`, `deleteAssignmentDraft`,
   `revertAssignmentToDraft`, `assertFieldsAllowedForStatus`
   (status-aware lock), `deriveLiveStatus`.
 - `packages/db/src/repositories/assessment-audit.ts` —
   `assessmentAuditLogRepo` (`withTx().create`, `listByAssessment`).
-- `packages/domain/src/course/mutations.ts` —
+- `packages/application/src/course/mutations.ts` —
   `createAssessmentRecord` (initial insert; generates slug-style id).
-- `packages/domain/src/course/overview.ts` —
+- `packages/application/src/course/overview.ts` —
   `listAssignmentOverviewForCourse`, `listAssignmentsForCourse`,
   `mapAssignmentToOverviewRow` (internal helper), rank function.
-- `packages/domain/src/course/across-courses.ts` —
+- `packages/application/src/course/across-courses.ts` —
   `listAssignmentsAcrossCoursesForUser` (dashboard surface).
-- `packages/domain/src/shared/list-aggregations.ts` —
+- `packages/application/src/shared/list-aggregations.ts` —
   `aggregateAssignmentClassStats`, `aggregateAssignmentMyStatus`.
-- `packages/domain/src/problem/permissions.ts` — `assertProblemViewAccess`
+- `packages/application/src/problem/permissions.ts` — `assertProblemViewAccess`
   (practice-after-close historical-participant gate).
-- `packages/domain/src/feedback/` — `upsertFeedback`,
+- `packages/application/src/feedback/` — `upsertFeedback`,
   `deleteFeedback`, `listFeedbackForContext`,
   `getFeedbackForStudent`, `assertCanWriteFeedback` (role + post-close
   gate), `assertCanViewFeedback` (role-only).
-- `packages/domain/src/score-override/permissions.ts` —
+- `packages/application/src/score-override/permissions.ts` —
   `assertCanSetScoreOverride` (role + post-close gate),
   `assertCanViewScoreOverrides` (role-only).
-- `packages/domain/src/shared/context-window.ts` — `isContextClosed`,
+- `packages/application/src/shared/context-window.ts` — `isContextClosed`,
   `assertContextClosed` (shared post-close gate across assignment +
   exam + contest).
-- `packages/domain/src/audit/queries.ts` —
+- `packages/application/src/audit/queries.ts` —
   `listAuditTimelineForContext`.
 
 ### Schema

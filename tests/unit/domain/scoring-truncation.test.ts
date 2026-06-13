@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import {
   MAX_CASE_STDERR_BYTES,
   MAX_CASE_STDOUT_BYTES,

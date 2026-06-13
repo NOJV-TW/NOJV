@@ -17,7 +17,7 @@ import {
   ConflictError,
   isContextClosed,
   NotFoundError,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 const PAST = new Date("2020-01-01T00:00:00Z");
 const FUTURE = new Date("2999-01-01T00:00:00Z");

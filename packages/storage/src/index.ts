@@ -2,12 +2,13 @@ export { createStorageClient } from "./client";
 export {
   uploadProblemImage,
   uploadUserContentImage,
-  deleteProblemImage,
+  downloadProblemImage,
+  downloadUserContentImage,
   uploadAdvancedImageTarball,
   deleteAdvancedImageTarball,
   downloadAdvancedImageTarball,
 } from "./images";
-export { uploadUserAvatar, deleteUserAvatar } from "./avatar";
+export { uploadUserAvatar, downloadUserAvatar, deleteUserAvatar } from "./avatar";
 export {
   testcaseInputKey,
   testcaseOutputKey,
@@ -18,12 +19,15 @@ export {
   problemPrefix,
   submissionPrefix,
   submissionSourcePrefix,
+  submissionSourceStagingPrefix,
   submissionSourceKey,
+  submissionSourceStagingKey,
   submissionVerdictDetailKey,
 } from "./keys";
 export {
   putText,
   getText,
+  copyBlob,
   deleteBlob,
   deleteBlobsByPrefix,
   listByPrefix,
@@ -31,9 +35,12 @@ export {
 } from "./blobs";
 export {
   putSubmissionSources,
+  putSubmissionSourcesStaged,
+  promoteSubmissionSources,
   getSubmissionSources,
   putVerdictDetail,
   getVerdictDetail,
+  deleteSubmissionStaging,
   deleteSubmissionStorage,
 } from "./submission";
 export type { SubmissionSource } from "./submission";

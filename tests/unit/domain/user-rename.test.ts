@@ -32,7 +32,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-import { ConflictError, ForbiddenError, ValidationError, userDomain } from "@nojv/domain";
+import { ConflictError, ForbiddenError, ValidationError, userDomain } from "@nojv/application";
 
 const { renameName, renameUsername } = userDomain;
 

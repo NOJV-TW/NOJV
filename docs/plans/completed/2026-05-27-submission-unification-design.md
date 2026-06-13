@@ -94,7 +94,7 @@ export const caseResultSchema = z.object({
 - Drops `passed` (→ derive from `verdict`), `ordinal` (→ `index`), `runtimeMs`
   (→ `timeMs`). One outcome representation (`verdict`), one timing field (`timeMs`).
 
-Producer — `packages/domain/src/submission/scoring.ts`:
+Producer — `packages/application/src/submission/scoring.ts`:
 
 - `mapResult` flat `caseResults`: emit `verdict: t.verdict` (was `passed: t.verdict === "AC"`).
 - `buildSubtaskResults` cases: `{ index, verdict, timeMs, testcaseId, memoryKb? }`
@@ -148,7 +148,7 @@ Seed + fixtures: re-run `pnpm db:seed`; update `tests/unit/worker/sandbox-result
 
 - `packages/db/src/repositories/submission.ts` `listByUserAndProblem`: add optional
   `contestId` filter.
-- `packages/domain/src/submission/queries.ts` `listProblemSubmissions`: generalise
+- `packages/application/src/submission/queries.ts` `listProblemSubmissions`: generalise
   the third param to `context?: { assignmentId; courseId } | { contestId }`.
 - `contests/[contestId]/problems/[problemId]/+page.server.ts:24`: pass `{ contestId }`;
   delete the false "always scoped" comment.

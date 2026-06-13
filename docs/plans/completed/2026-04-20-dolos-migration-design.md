@@ -112,7 +112,7 @@ blocker.
 
 Today plagiarism is split between:
 
-- `packages/domain/src/plagiarism/` — query + persist methods,
+- `packages/application/src/plagiarism/` — query + persist methods,
   target resolution, error classes.
 - `packages/temporal/src/activities/plagiarism.ts` — MOSS socket +
   dedup + grouping + pair construction.
@@ -123,7 +123,7 @@ marking). The new version will contain equivalent logic wrapped
 around a Dolos call.
 
 **Decision: keep the split as-is.** Moving the activity's logic into
-`@nojv/domain` would force `@nojv/domain` to depend on
+`@nojv/application` would force `@nojv/application` to depend on
 `@dodona/dolos-lib` + its native addons, pulling Dolos into every
 consumer including the web image (which would never execute it).
 Leave the Dolos-specific code in the Temporal activity, where it
@@ -133,7 +133,7 @@ already lives.
 
 ## Data shape change — `SimilarityPair`
 
-Current shape (`packages/domain/src/plagiarism/types.ts:1-9`):
+Current shape (`packages/application/src/plagiarism/types.ts:1-9`):
 
 ```ts
 export interface SimilarityPair {
@@ -199,7 +199,7 @@ historical records.
 // packages/temporal/src/activities/plagiarism.ts (sketch)
 
 import { Dolos } from "@dodona/dolos-lib";
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 export async function runPlagiarismCheck(
   targetId: string,
@@ -384,7 +384,7 @@ first release.
   implementation).
 - `packages/temporal/src/activities/plagiarism.ts` — activity file
   being rewritten.
-- `packages/domain/src/plagiarism/types.ts` —
+- `packages/application/src/plagiarism/types.ts` —
   `SimilarityPair` + `PlagiarismResults` interfaces.
 - `infra/docker/worker.Dockerfile` — consumer of the new native
   addon.

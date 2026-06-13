@@ -75,7 +75,7 @@ ALTER TABLE "Problem" ADD CONSTRAINT "Problem_displayId_key" UNIQUE ("displayId"
 
 **讀取面**
 
-- `packages/domain/` 內把 Problem 投影給前端的查詢（`getProblemPageData`、`getProblemRowById`、`listProblems` 等）的 select 欄位加上 `displayId`。
+- `packages/application/` 內把 Problem 投影給前端的查詢（`getProblemPageData`、`getProblemRowById`、`listProblems` 等）的 select 欄位加上 `displayId`。
 - `packages/core/` 內 Problem 相關 Zod 輸出 schema（`ProblemSummary`、`ProblemDetail` 等）加 `displayId: z.number().int().positive()`。
 - 不新增「以 displayId 反查」的查詢函式 — URL 路由仍走 cuid，沒這需求。
 
@@ -148,13 +148,13 @@ ALTER TABLE "Problem" ADD CONSTRAINT "Problem_displayId_key" UNIQUE ("displayId"
 
 ## 8. 影響面總結
 
-| 區塊              | 變更                                                                                                              |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Prisma schema     | `Problem` 新增 `displayId Int @unique @default(autoincrement())`                                                  |
-| Migration         | 新增一支 SQL migration，回填既有資料                                                                              |
-| `packages/core`   | Zod 輸出 schema 加 `displayId`                                                                                    |
-| `packages/domain` | 各 Problem 投影查詢 select 加 `displayId`                                                                         |
-| `apps/web` 前端   | 新增 `formatProblemDisplayName` 工具、`common_problemDisplayId` i18n 鍵；多處 Problem 顯示點改走此工具（詳見 §6） |
-| Tests             | 新增 unit / integration / E2E 各一條                                                                              |
+| 區塊                   | 變更                                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Prisma schema          | `Problem` 新增 `displayId Int @unique @default(autoincrement())`                                                  |
+| Migration              | 新增一支 SQL migration，回填既有資料                                                                              |
+| `packages/core`        | Zod 輸出 schema 加 `displayId`                                                                                    |
+| `packages/application` | 各 Problem 投影查詢 select 加 `displayId`                                                                         |
+| `apps/web` 前端        | 新增 `formatProblemDisplayName` 工具、`common_problemDisplayId` i18n 鍵；多處 Problem 顯示點改走此工具（詳見 §6） |
+| Tests                  | 新增 unit / integration / E2E 各一條                                                                              |
 
 預期不破壞：URL、API 路徑、外鍵、舊 cuid 連結、既有 client。

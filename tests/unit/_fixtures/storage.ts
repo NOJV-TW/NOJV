@@ -39,6 +39,17 @@ export function createInMemoryStorage() {
       })();
       return { Body: body };
     }
+    if (name === "CopyObjectCommand") {
+      const sourceKey = decodeCopySource(input.CopySource as string);
+      const targetKey = input.Key as string;
+      if (!store.has(sourceKey)) {
+        const err = new Error("NoSuchKey");
+        (err as Error & { name: string }).name = "NoSuchKey";
+        throw err;
+      }
+      store.set(targetKey, store.get(sourceKey) ?? "");
+      return {};
+    }
     if (name === "DeleteObjectCommand") {
       store.delete(input.Key as string);
       return {};
@@ -82,3 +93,9 @@ export function createInMemoryStorage() {
 }
 
 export type InMemoryStorage = ReturnType<typeof createInMemoryStorage>;
+
+function decodeCopySource(copySource: string): string {
+  const slash = copySource.indexOf("/");
+  const encodedKey = slash >= 0 ? copySource.slice(slash + 1) : copySource;
+  return encodedKey.split("/").map(decodeURIComponent).join("/");
+}

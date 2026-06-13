@@ -38,11 +38,11 @@ Events are published by Temporal activities and by domain mutations that emit no
 
 ## Scoreboard
 
-Contest leaderboard **data** is not stored in Redis. It is computed on read directly from PostgreSQL (`getScoreboard` in `packages/domain/src/contest/scoring.ts` reads `contest.participations` + submissions and calls `buildScoreboard`), including ICPC/IOI ranking and freeze (gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns, which cut off submissions after the freeze point). Redis does carry the **live-update signal**: a successful contest judge calls `publishScoreboardUpdate`, which (throttled once per 10 s per contest via `nojv:sb-throttle:{id}`) publishes a `scoreboard:update` event on `nojv:contest:{id}`; the page's scoreboard SSE stream nudges connected viewers to re-fetch, with a 30 s poll as fallback. See [Judge Pipeline](./JUDGE_PIPELINE.md) and [Architecture Overview](./ARCHITECTURE.md).
+Contest leaderboard **data** is not stored in Redis. It is computed on read directly from PostgreSQL (`getScoreboard` in `packages/application/src/contest/scoring.ts` reads `contest.participations` + submissions and calls `buildScoreboard`), including ICPC/IOI ranking and freeze (gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns, which cut off submissions after the freeze point). Redis does carry the **live-update signal**: a successful contest judge calls `publishScoreboardUpdate`, which (throttled once per 10 s per contest via `nojv:sb-throttle:{id}`) publishes a `scoreboard:update` event on `nojv:contest:{id}`; the page's scoreboard SSE stream nudges connected viewers to re-fetch, with a 30 s poll as fallback. See [Judge Pipeline](./JUDGE_PIPELINE.md) and [Architecture Overview](./ARCHITECTURE.md).
 
 ## Submit Cooldown
 
-Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in `packages/domain/src/exam/mutations.ts`, which reads the user's most recent submission via `submissionRepo.findMostRecent`.
+Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in `packages/application/src/exam/mutations.ts`, which reads the user's most recent submission via `submissionRepo.findMostRecent`.
 
 ## Rate Limiting
 

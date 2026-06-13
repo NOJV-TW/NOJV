@@ -1,13 +1,4 @@
 #!/usr/bin/env node
-// Generate a field-level Markdown reference from the Prisma schema.
-//
-// The schema is split across packages/db/prisma/schema/*.prisma; this
-// walks every file, extracts each model + enum, and emits
-// docs/architecture/DATABASE.generated.md. Run via `pnpm db:docs`.
-//
-// Dependency-free on purpose: Prisma model/enum bodies never nest braces
-// (attributes use parens), so a line-based parser is enough and avoids
-// pulling in a schema-parser package.
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +7,6 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const schemaDir = join(repoRoot, "packages/db/prisma/schema");
 const outPath = join(repoRoot, "docs/architecture/DATABASE.generated.md");
 
-/** Strip a trailing `// ...` line comment. */
 function stripComment(line) {
   return line.replace(/\s+\/\/.*$/, "").trimEnd();
 }

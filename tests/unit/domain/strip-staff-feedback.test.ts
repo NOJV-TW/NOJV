@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import type { SubmissionResult } from "@nojv/core";
 
 const { stripStaffFeedback } = submissionDomain;

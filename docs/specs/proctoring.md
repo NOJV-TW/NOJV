@@ -199,15 +199,15 @@ notify` while students are taking the exam, ongoing blocked requests
 
 ### Domain
 
-- `packages/domain/src/shared/ip-utils.ts` — `checkIpLock`,
+- `packages/application/src/shared/ip-utils.ts` — `checkIpLock`,
   `isIpInCidr`, `isIpInWhitelist`, `IpLockConfig`, `IpCheckResult`,
   `ipToNumber`.
-- `packages/domain/src/shared/page-lock.ts` — `getPageLockedContext`.
-- `packages/domain/src/proctoring/gate.ts` — `checkProctoringGate`,
+- `packages/application/src/shared/page-lock.ts` — `getPageLockedContext`.
+- `packages/application/src/proctoring/gate.ts` — `checkProctoringGate`,
   `checkProctoringGateInTx` (the exported entry points);
   `checkExamGate` / `checkContestGate` are internal (non-exported)
   per-kind helpers. `ProctoringDenialReason`.
-- `packages/domain/src/proctoring/violation-logger.ts` — `logViolation`,
+- `packages/application/src/proctoring/violation-logger.ts` — `logViolation`,
   `logViolationInTx`.
 
 ### Web layer

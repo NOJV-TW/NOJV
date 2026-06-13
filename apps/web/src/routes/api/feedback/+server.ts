@@ -10,7 +10,7 @@ import {
   assertJsonBodyWithinLimit,
 } from "$lib/server/shared/api-handler";
 import { feedbackUpsertSchema } from "@nojv/core";
-import { feedbackDomain } from "@nojv/domain";
+import { feedbackDomain } from "@nojv/application";
 
 const contextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),

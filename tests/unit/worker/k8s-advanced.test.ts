@@ -142,17 +142,13 @@ describe("buildAdvancedConfigMapData", () => {
     expect(payload.submissionFiles).toEqual([{ path: "main.py", content: "print('hi')" }]);
   });
 
-  it("skips path-traversal / invalid file paths but never throws", () => {
+  it("throws on path-traversal file paths", () => {
     const req = makeAdvancedRequest();
     req.sourceFiles = [
       { path: "../escape.py", content: "evil" },
       { path: "ok.py", content: "good" },
     ];
-    const data = buildAdvancedConfigMapData(req);
-    const payload = JSON.parse(data["payload.json"]!) as {
-      submissionFiles: { path: string; content: string }[];
-    };
-    expect(payload.submissionFiles.map((f) => f.path)).toEqual(["ok.py", "main.py"]);
+    expect(() => buildAdvancedConfigMapData(req)).toThrow("Path contains unsafe segments");
   });
 });
 

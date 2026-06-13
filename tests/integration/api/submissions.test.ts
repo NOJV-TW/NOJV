@@ -7,7 +7,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import { submissionSourcePrefix } from "@nojv/storage";
 
 const { getSubmissionForUser, getSubmissionSources, listProblemSubmissions } = submissionDomain;

@@ -9,7 +9,7 @@ const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
-  "@nojv/domain": path.resolve(__dirname, "packages/domain/src/index.ts"),
+  "@nojv/application": path.resolve(__dirname, "packages/application/src/index.ts"),
   "@nojv/redis": path.resolve(__dirname, "packages/redis/src/index.ts"),
   "@nojv/temporal": path.resolve(__dirname, "packages/temporal/src/index.ts"),
   "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
@@ -31,13 +31,13 @@ export default defineConfig({
       // worker/sandbox-runner floor is lower than domain/core because their
       // docker/k8s paths only run in the nightly real-image suite, not this gate.
       include: [
-        "packages/domain/src/**",
+        "packages/application/src/**",
         "packages/core/src/**",
         "apps/worker/src/**",
         "apps/sandbox-runner/src/**",
       ],
       thresholds: {
-        "packages/{domain,core}/src/**": {
+        "packages/{application,core}/src/**": {
           lines: 68,
           statements: 65,
           functions: 62,

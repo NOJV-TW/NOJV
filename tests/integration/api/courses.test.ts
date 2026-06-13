@@ -7,7 +7,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { courseDomain } from "@nojv/domain";
+import { courseDomain } from "@nojv/application";
 
 const { listCourseCards, listForUserWithCards, getDashboardStats } = courseDomain;
 

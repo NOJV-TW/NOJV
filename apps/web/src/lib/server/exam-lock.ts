@@ -1,4 +1,4 @@
-import { examDomain, type proctoringDomain } from "@nojv/domain";
+import { examDomain, type proctoringDomain } from "@nojv/application";
 
 export type ActiveExamContext = NonNullable<
   Awaited<ReturnType<typeof examDomain.session.getActiveSessionContext>>

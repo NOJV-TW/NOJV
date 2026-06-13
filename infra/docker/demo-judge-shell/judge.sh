@@ -1,13 +1,4 @@
 #!/bin/bash
-# Demo Advanced Mode judge for the Shell Scripting Lab problem.
-#
-# Contract (see apps/worker/src/services/advanced-mode-executor.ts):
-#   - The uploaded files live under /workspace/submission/.
-#   - We must write /workspace/output/result.json matching advancedResultSchema:
-#       { "score": 0-100, "verdict": "accepted"|"wrong_answer"|"runtime_error"|..., "feedback"?: string }
-#
-# Grading: run the submitted main.sh. If it runs and its stdout contains the
-# token "hello", accept; otherwise wrong_answer. If main.sh is missing, runtime_error.
 set -u
 
 OUT_DIR=/workspace/output
@@ -15,7 +6,6 @@ SUBMISSION=/workspace/submission/main.sh
 mkdir -p "$OUT_DIR"
 
 write_result() {
-  # $1 = score, $2 = verdict, $3 = feedback
   local score="$1"
   local verdict="$2"
   local feedback="$3"

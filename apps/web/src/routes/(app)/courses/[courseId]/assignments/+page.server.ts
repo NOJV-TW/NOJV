@@ -1,5 +1,5 @@
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { courseDomain } from "@nojv/domain";
+import { courseDomain } from "@nojv/application";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 

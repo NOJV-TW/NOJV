@@ -2,7 +2,7 @@ import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { m } from "$lib/paraglide/messages.js";
-import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
+import { contestDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const { getContestWorkspaceData, listContestProblemSiblings } = contestDomain;
 const { getProblemPageData } = problemDomain;

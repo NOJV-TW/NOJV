@@ -6,7 +6,7 @@ import {
   ForbiddenError,
   resolveEffectiveCourseRole,
   canManageCourse,
-} from "@nojv/domain";
+} from "@nojv/application";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 

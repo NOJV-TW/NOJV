@@ -9,7 +9,7 @@
 - 定義 task queue 名稱（`JUDGE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`）
 - 定義 dispatch input/output 與 workflow signal types
 
-**這個 package 故意 _沒_ 依賴 `@nojv/domain` 或任何 workflow / activity 程式碼** —— 那是為了避免 `domain → temporal → domain` 的循環依賴。workflow 定義與 activity 實作都放在 `apps/worker/`，由 worker 啟動時 register 給 Temporal SDK。
+**這個 package 故意 _沒_ 依賴 `@nojv/application` 或任何 workflow / activity 程式碼** —— 那是為了避免 `domain → temporal → domain` 的循環依賴。workflow 定義與 activity 實作都放在 `apps/worker/`，由 worker 啟動時 register 給 Temporal SDK。
 
 ## 主要入口
 
@@ -24,7 +24,7 @@ workflow 與 activity 程式：見 `apps/worker/src/workflows/`、`apps/worker/s
 ## 依賴
 
 - 上游：`@nojv/core`、`@temporalio/client`
-- 下游：`@nojv/domain`（dispatch helpers + types）、`apps/worker`（workflows + activities 自行 register）
+- 下游：`@nojv/application`（dispatch helpers + types）、`apps/worker`（workflows + activities 自行 register）
 
 ## 本地開發
 

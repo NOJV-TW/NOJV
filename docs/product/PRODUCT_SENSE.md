@@ -134,7 +134,7 @@
 - PostgreSQL is the business source of truth; Redis and Temporal are derived/ephemeral.
 - Prefer Temporal workflows over custom queue logic for long-running orchestration.
 - Keep authentication and authorization separate; OAuth proves identity, local RBAC decides permissions.
-- Keep business logic in `@nojv/domain`; presentation layers (web, temporal activities) stay thin.
+- Keep business logic in `@nojv/application`; presentation layers (web, temporal activities) stay thin.
 - Prefer S3-compatible storage over custom blob solutions for portability.
 - Problem statements support i18n; UI strings use Paraglide JS.
 

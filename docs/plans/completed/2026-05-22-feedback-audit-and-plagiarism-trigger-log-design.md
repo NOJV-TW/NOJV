@@ -57,7 +57,7 @@ Migration adds the same CHECK constraint as `SubmissionFeedback` itself (exactly
 
 ### Write points
 
-`packages/domain/src/feedback/mutations.ts`:
+`packages/application/src/feedback/mutations.ts`:
 
 - `upsertFeedback`: inside the existing `prisma.$transaction` block. Read the row before upsert; if it exists, write `action = update` with `oldComment = existing.comment, newComment = input.comment`; if not, write `action = create` with `oldComment = null, newComment = input.comment`. Then upsert the row.
 - `deleteFeedback`: inside a new `prisma.$transaction` (the current implementation is a plain `delete`). Read the row, write `action = delete` with `oldComment = existing.comment, newComment = null`, then delete the row.
@@ -93,7 +93,7 @@ model PlagiarismTriggerLog {
 
 ### Write point
 
-`packages/domain/src/plagiarism/triggers.ts` (or wherever the existing `triggerPlagiarismScan` lives — verify during implementation):
+`packages/application/src/plagiarism/triggers.ts` (or wherever the existing `triggerPlagiarismScan` lives — verify during implementation):
 
 1. Read the existing `plagiarismResultJson` / `plagiarismPairCount` from the parent row.
 2. Compute `priorPairCount` (length of pairs array, or 0 if no prior run).

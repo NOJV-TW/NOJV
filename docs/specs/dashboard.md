@@ -234,11 +234,11 @@ timezone. There is no pre-aggregated daily-activity table.
 
 ### Domain
 
-- `packages/domain/src/user/queries.ts` — `getDashboardView`,
+- `packages/application/src/user/queries.ts` — `getDashboardView`,
   `aggregateByTag` (top-8 cut, stable sort).
-- `packages/domain/src/user/activity.ts` — `getSubmissionActivity` (raw
+- `packages/application/src/user/activity.ts` — `getSubmissionActivity` (raw
   submission timestamps for the activity surfaces).
-- `packages/domain/src/user/analytics.ts` — `getSuggestedProblems`.
+- `packages/application/src/user/analytics.ts` — `getSuggestedProblems`.
 
 ### Schema
 

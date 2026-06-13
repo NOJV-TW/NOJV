@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { feedbackDomain } from "@nojv/domain";
+import { feedbackDomain } from "@nojv/application";
 
 import {
   createTestCourse,
@@ -9,7 +9,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import type { ActorContext } from "../../../packages/domain/src/shared/actor-context";
+import type { ActorContext } from "../../../packages/application/src/shared/actor-context";
 
 function actorOf(user: {
   id: string;

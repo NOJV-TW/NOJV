@@ -6,7 +6,7 @@
 
 **Architecture:** Filters stay URL-`searchParams`-driven (server `load` re-runs on change, instant apply). The new sidebar is a single `ProblemFilterSidebar.svelte` rendered inline on `lg+` and inside a Bits-UI `Dialog` drawer on small screens. Bookmarks get a new `ProblemBookmark` table; judge-method filtering reads the existing `judgeConfig` JSON (no denormalized column). Status counts are computed server-side over the public+published base set, only for authenticated users.
 
-**Tech Stack:** SvelteKit 5 (runes), Prisma 7, Postgres 18, Zod 4, `@nojv/domain` query/mutation layer, Vitest integration tests, Paraglide i18n (en + zh-TW).
+**Tech Stack:** SvelteKit 5 (runes), Prisma 7, Postgres 18, Zod 4, `@nojv/application` query/mutation layer, Vitest integration tests, Paraglide i18n (en + zh-TW).
 
 ---
 
@@ -121,8 +121,8 @@ Add `export { problemBookmarkRepo } from "./problem-bookmark";` to `index.ts`.
 
 **Files:**
 
-- Create or extend: `packages/domain/src/problem/bookmarks.ts`
-- Modify: `packages/domain/src/problem/index.ts` (re-export under `problemDomain`)
+- Create or extend: `packages/application/src/problem/bookmarks.ts`
+- Modify: `packages/application/src/problem/index.ts` (re-export under `problemDomain`)
 - Test: `tests/integration/domain/problem-bookmark.test.ts`
 
 **Step 1: Failing integration test** — seed a user + published problem; assert `toggleBookmark` flips state and is idempotent per direction.
@@ -161,7 +161,7 @@ export async function toggleBookmark(
 
 **Files:**
 
-- Modify: `packages/domain/src/problem/queries.ts:206-326`
+- Modify: `packages/application/src/problem/queries.ts:206-326`
 - Test: `tests/integration/domain/problem-list-filters.test.ts`
 
 **Step 1: Write failing integration tests** covering:
@@ -309,7 +309,7 @@ Add `bookmarked: bookmarkedIds.has(problem.id)` to each mapped card, and `bookma
 Use existing API helpers (`writeApiHandler` / `requireApiAuth` per `reference_web_helpers`). POST toggles:
 
 ```ts
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 import { writeApiHandler, requireApiAuth } from "$lib/server/...";
 
 export const POST = writeApiHandler(async (event) => {

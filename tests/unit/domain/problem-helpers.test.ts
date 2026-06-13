@@ -17,7 +17,7 @@ vi.mock("@nojv/db", () => ({
   examProblemRepo: {},
 }));
 
-import { problemDomain, NotFoundError, ValidationError } from "@nojv/domain";
+import { problemDomain, NotFoundError, ValidationError } from "@nojv/application";
 
 const { assertProblemHasWorkspaceForLanguages } = problemDomain;
 

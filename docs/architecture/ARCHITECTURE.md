@@ -15,7 +15,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 ├─────────────────────────────────────────────────────────────────────┤
 │ 2nd Tier                                                            │
 │                                                                     │
-│  Service           @nojv/domain                                     │
+│  Service           @nojv/application                                     │
 │                    admin/ announcement/ assignment/ audit/          │
 │                    clarification/ contest/ course/ editorial/        │
 │                    exam/ feedback/ notification/ plagiarism/         │
@@ -108,32 +108,32 @@ Redis client rather than a domain-shaped wrapper: the SSE subscriber
 (`api/events/stream`), the contest scoreboard SSE stream
 (`contests/[contestId]/scoreboard/stream`), the shared SSE hub
 (`shared/sse-hub.ts`), and `RateLimiterRedis` (`shared/rate-limiter.ts`).
-Everything else goes through `@nojv/domain`. The `no-restricted-imports`
+Everything else goes through `@nojv/application`. The `no-restricted-imports`
 ESLint rule in `apps/web/eslint.config.mjs` is the single source of truth —
 it enforces this and lists the exact allow-list of files.
 
 ‡ `web` uses `@nojv/db` only via `prismaAdapterClient` from
 `src/lib/auth.server.ts`, where the better-auth Prisma adapter
 requires a raw `PrismaClient`. All other route / loader / action code
-goes through `@nojv/domain`; the ESLint rule above blocks new direct
+goes through `@nojv/application`; the ESLint rule above blocks new direct
 `@nojv/db` imports outside `auth.server.ts`.
 
 ‖ `web` imports the `@nojv/temporal` root entry only in
 `src/lib/server/domain-orchestration.ts`, where it adapts Temporal
-dispatch/query helpers into `@nojv/domain`'s orchestration port. Routes,
+dispatch/query helpers into `@nojv/application`'s orchestration port. Routes,
 loaders, and actions should call domain functions rather than raw
 Temporal helpers.
 
 ※ `web` may use `@nojv/storage` from inside `src/lib/server/storage/*`
 adapters (currently `avatar.ts`, `problem-image.ts`,
 `user-content-image.ts`, `advanced-image.ts`). Routes, loaders, and
-actions must call those adapters or go through `@nojv/domain` (e.g.
+actions must call those adapters or go through `@nojv/application` (e.g.
 `problemDomain.hydrateTestcaseSets`) — they must not import
 `@nojv/storage` directly. The ESLint rule above enforces this too.
 
 § `worker` pulls problem-image tarballs from object storage in
 `advanced-mode-executor.ts`. Adding a domain hop would require moving
-the cache logic into `@nojv/domain`, which is not worth it for one
+the cache logic into `@nojv/application`, which is not worth it for one
 caller.
 
 ¶ `@nojv/db` declares `@nojv/redis` and `@nojv/storage` as runtime
@@ -157,14 +157,14 @@ Responsibilities:
 - Server-rendered pages with client hydration (User Interface tier)
 - Server load functions and form actions as Presentation layer
 - Session validation via better-auth
-- Calls `@nojv/domain` for all business logic — **zero business logic in this layer**
+- Calls `@nojv/application` for all business logic — **zero business logic in this layer**
 - Role-based access control (platform + course roles)
 - Serves OpenAPI 3.1 documents (`/api/openapi.{public,internal}.json`) and Scalar reference pages (`/docs`, `/docs/internal`) describing the existing API surface — documentation-only, assembled in `src/lib/server/openapi/` (internal paths split per-tag under `openapi/internal/`); a unit test (`tests/unit/openapi-contract.test.ts`) guards the docs against route drift
 
 Directly accesses: Redis (SSE subscriber + `RateLimiterRedis`), DB
 (better-auth adapter + a few repository-direct routes), and Temporal
 only through `src/lib/server/domain-orchestration.ts`, which configures
-`@nojv/domain`'s orchestration adapter. See the table above for why.
+`@nojv/application`'s orchestration adapter. See the table above for why.
 
 ### apps/worker — Temporal Worker
 
@@ -174,7 +174,7 @@ Responsibilities:
 
 - Registers Temporal workflows and activities
 - Activities act as Presentation layer (worker-side controllers)
-- Activities call `@nojv/domain` data functions for business logic
+- Activities call `@nojv/application` data functions for business logic
 - Executes sandbox code in Docker or Kubernetes
 
 Supports three deployment modes via `WORKER_MODE`:
@@ -256,7 +256,7 @@ flowchart LR
   subgraph worker["apps/worker (judge)"]
     judge["fetchJudgeContext →<br/>executeSandbox → completeSubmission"]
   end
-  domain["@nojv/domain<br/>(problem/blobs, submission/mutations,<br/>problem/bundle, plagiarism)"]
+  domain["@nojv/application<br/>(problem/blobs, submission/mutations,<br/>problem/bundle, plagiarism)"]
   storage["@nojv/storage<br/>(createStorageClient + key registry)"]
   s3[("S3 / MinIO<br/>GCS / R2")]
 
@@ -280,11 +280,11 @@ source of truth that keeps producer and consumer paths aligned.
 
 ### @nojv/temporal
 
-Temporal client, dispatch API, task queue constants, and Temporal input/output types. Intentionally lean: zero `@nojv/domain` import. The web and worker apps adapt this package into `@nojv/domain`'s orchestration port at startup.
+Temporal client, dispatch API, task queue constants, and Temporal input/output types. Intentionally lean: zero `@nojv/application` import. The web and worker apps adapt this package into `@nojv/application`'s orchestration port at startup.
 
 - Exports `getTemporalClient` / `closeTemporalClient`, `dispatch*` functions, workflow `query*` helpers, task queue constants, and Temporal input/output types.
 - Workflow definitions live in `apps/worker/src/workflows/` (loaded into Temporal's workflow sandbox at worker start-up).
-- Activity implementations live in `apps/worker/src/activities/` — they import `@nojv/domain` for business logic and `@nojv/redis` for event publishing.
+- Activity implementations live in `apps/worker/src/activities/` — they import `@nojv/application` for business logic and `@nojv/redis` for event publishing.
 - Activities never dispatch workflows (no accidental recursion).
 - `domain/admin/index.ts` is the only file outside `apps/worker` that touches the raw `getTemporalClient`, to expose Temporal connection state on the admin healthz endpoint.
 
@@ -320,7 +320,7 @@ attempt (see [Reliability Invariants](../operations/RELIABILITY.md)).
 
 Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, the stale-submission sweeper, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
 
-### @nojv/domain
+### @nojv/application
 
 Single source of all business logic. Organized by domain:
 

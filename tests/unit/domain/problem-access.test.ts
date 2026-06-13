@@ -16,7 +16,7 @@ vi.mock("@nojv/db", () => ({
   problemWorkspaceFileRepo: {},
 }));
 
-import { NotFoundError, problemDomain } from "@nojv/domain";
+import { NotFoundError, problemDomain } from "@nojv/application";
 
 const { assertProblemViewAccess } = problemDomain;
 

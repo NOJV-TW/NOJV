@@ -81,7 +81,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: vi.fn(),
 }));
 
-import { courseDomain, problemDomain } from "@nojv/domain";
+import { courseDomain, problemDomain } from "@nojv/application";
 
 const { listProblemCards, getProblemPageData } = problemDomain;
 const { getDashboardStats } = courseDomain;

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { courseDomain } from "@nojv/domain";
+  import type { courseDomain } from "@nojv/application";
 
   export type SubmissionsMatrixData = courseDomain.SubmissionsMatrix;
 </script>

@@ -89,14 +89,14 @@ vi.mock("@nojv/db", () => ({
   ): Promise<T> => fn({ $executeRaw: vi.fn().mockResolvedValue(0) }),
 }));
 
-vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
   __setStorageClientForTests: (c: unknown) => {
     storageRef.client = c as typeof storageRef.client;
   },
 }));
 
-import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/domain";
+import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/application";
 
 const { createQueuedSubmissionRecord } = submissionDomain;
 

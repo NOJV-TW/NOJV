@@ -289,36 +289,36 @@ available after it closes.")` (shared post-close gate via
 
 ### Domain
 
-- `packages/domain/src/exam/mutations.ts` — `createExamRecord`,
+- `packages/application/src/exam/mutations.ts` — `createExamRecord`,
   `updateExamRecord`, `publishExam`, `deleteExamDraft`,
   `assertExamManagePermission`.
-- `packages/domain/src/exam/session.ts` — `startSession`,
+- `packages/application/src/exam/session.ts` — `startSession`,
   `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`,
   `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`,
   `countActiveSessions`, `getActiveSessionContext`,
   `requireActiveSessionForUserExam`, `START_GRACE_MS`.
-- `packages/domain/src/exam/submissions-matrix.ts` —
+- `packages/application/src/exam/submissions-matrix.ts` —
   `getExamSubmissionsMatrix`.
-- `packages/domain/src/exam/detail.ts` — `getExamDetailPage`.
-- `packages/domain/src/exam/queries.ts` — `listForCourse`, `getExamDetail`,
+- `packages/application/src/exam/detail.ts` — `getExamDetailPage`.
+- `packages/application/src/exam/queries.ts` — `listForCourse`, `getExamDetail`,
   `checkExamIpAccess`.
-- `packages/domain/src/shared/ip-utils.ts` — `checkIpLock`, `isIpInCidr`,
+- `packages/application/src/shared/ip-utils.ts` — `checkIpLock`, `isIpInCidr`,
   `isIpInWhitelist`.
-- `packages/domain/src/shared/page-lock.ts` — `getPageLockedContext`.
-- `packages/domain/src/proctoring/gate.ts` — `checkProctoringGate` /
+- `packages/application/src/shared/page-lock.ts` — `getPageLockedContext`.
+- `packages/application/src/proctoring/gate.ts` — `checkProctoringGate` /
   `checkExamGate`.
-- `packages/domain/src/proctoring/violation-logger.ts` — `logViolationInTx`.
-- `packages/domain/src/feedback/` — `upsertFeedback`,
+- `packages/application/src/proctoring/violation-logger.ts` — `logViolationInTx`.
+- `packages/application/src/feedback/` — `upsertFeedback`,
   `deleteFeedback`, `listFeedbackForContext`,
   `getFeedbackForStudent`, `assertCanWriteFeedback` (role + post-close
   gate), `assertCanViewFeedback` (role-only).
-- `packages/domain/src/score-override/permissions.ts` —
+- `packages/application/src/score-override/permissions.ts` —
   `assertCanSetScoreOverride` (role + post-close gate),
   `assertCanViewScoreOverrides` (role-only).
-- `packages/domain/src/shared/context-window.ts` — `isContextClosed`,
+- `packages/application/src/shared/context-window.ts` — `isContextClosed`,
   `assertContextClosed` (shared post-close gate across assignment +
   exam + contest).
-- `packages/domain/src/audit/queries.ts` —
+- `packages/application/src/audit/queries.ts` —
   `listAuditTimelineForContext`.
 
 ### Schema

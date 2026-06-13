@@ -20,7 +20,7 @@
     "@kubernetes/client-node": "^1.4.0",
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
-    "@nojv/domain": "workspace:*",
+    "@nojv/application": "workspace:*",
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "@nojv/temporal": "workspace:*",

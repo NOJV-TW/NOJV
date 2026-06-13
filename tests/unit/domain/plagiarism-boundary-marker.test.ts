@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 const { boundaryMarkerFor } = plagiarismDomain;
 

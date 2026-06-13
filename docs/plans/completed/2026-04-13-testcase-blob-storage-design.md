@@ -95,7 +95,7 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
 反模式不可接受：**不要**把 S3 upload 包在 Prisma `$transaction()` 裡 — 跨網路 IO 持有 DB connection 會毒害 pool。
 
 ```ts
-// 在 packages/domain/src/problem/mutations.ts 的 createTestcase
+// 在 packages/application/src/problem/mutations.ts 的 createTestcase
 import { createId } from "@paralleldrive/cuid2"; // 或 Prisma 內建的 cuid generator
 
 const id = createId();
@@ -177,7 +177,7 @@ try {
 
 ### Worker（judge 流程）
 
-`packages/domain/src/submission/judge-context.ts:95` 目前直接從 DB row 拿 `testcase.inputFiles`。改成：
+`packages/application/src/submission/judge-context.ts:95` 目前直接從 DB row 拿 `testcase.inputFiles`。改成：
 
 ```ts
 const [input, output, fileEntries] = await Promise.all([

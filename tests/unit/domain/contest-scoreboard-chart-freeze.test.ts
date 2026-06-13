@@ -34,7 +34,7 @@ vi.mock("@nojv/redis", () => ({
   scoreboard: {},
 }));
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { getScoreboardChart } = contestDomain;
 

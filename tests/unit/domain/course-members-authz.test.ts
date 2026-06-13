@@ -23,8 +23,8 @@ import {
   changeMemberRole,
   removeMember,
   bulkAddByHandle,
-} from "../../../packages/domain/src/course/members";
-import { canManageMembers } from "../../../packages/domain/src/shared/permissions";
+} from "../../../packages/application/src/course/members";
+import { canManageMembers } from "../../../packages/application/src/shared/permissions";
 
 type Role = "student" | "ta" | "teacher";
 

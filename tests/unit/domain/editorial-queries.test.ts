@@ -10,7 +10,7 @@ vi.mock("@nojv/db", () => ({
   editorialRepo: { upsert: editorialUpsert },
 }));
 
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { hasUserAcProblem, upsertEditorial } = editorialDomain;
 

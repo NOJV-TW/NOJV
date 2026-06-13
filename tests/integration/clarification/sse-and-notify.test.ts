@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { clarificationDomain, ConflictError } from "@nojv/domain";
+import { clarificationDomain, ConflictError } from "@nojv/application";
 import { createSubscriber, keys } from "@nojv/redis";
 
 import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";

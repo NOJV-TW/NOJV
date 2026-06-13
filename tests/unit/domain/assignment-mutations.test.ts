@@ -65,7 +65,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { assignmentDomain } from "@nojv/domain";
+import { assignmentDomain } from "@nojv/application";
 
 const {
   updateAssignmentRecord,

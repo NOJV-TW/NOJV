@@ -9,10 +9,10 @@ import {
   HttpError,
   NotFoundError,
   ForbiddenError,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 export { HttpError, NotFoundError, ForbiddenError };
-export { ConflictError } from "@nojv/domain";
+export { ConflictError } from "@nojv/application";
 
 export interface ActorContext {
   displayName: string;
@@ -112,4 +112,4 @@ export function canCreateCourse(platformRole: PlatformRole) {
   return canEditProblem(platformRole);
 }
 
-export { canManageCourse as isCourseStaff } from "@nojv/domain";
+export { canManageCourse as isCourseStaff } from "@nojv/application";

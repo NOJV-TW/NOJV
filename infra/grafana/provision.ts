@@ -48,21 +48,11 @@ export async function uploadDashboard(
   return { uid: data.uid, url: data.url };
 }
 
-// ─── SLO alert rules ───────────────────────────────────────────────────
-
-// In-repo alert definition (see infra/grafana/alerts/slo-alerts.json). The
-// stack-specific folder + datasource UIDs are injected at provision time
-// so the JSON files stay portable across Grafana stacks.
-// AlertRuleDef shape lives in ./schemas.ts (re-exported above).
-
 export type AlertRuleContext = {
   folderUID: string;
   datasourceUid: string;
 };
 
-// Expand a compact AlertRuleDef into a Grafana provisioned-alert-rule
-// payload. The three-query A→B→C shape (PromQL → reduce(last) → threshold)
-// is the canonical form the Grafana alert editor itself generates.
 export function buildAlertRule(def: AlertRuleDef, ctx: AlertRuleContext) {
   const relativeTimeRange = { from: 3600, to: 0 };
   return {
@@ -73,7 +63,6 @@ export function buildAlertRule(def: AlertRuleDef, ctx: AlertRuleContext) {
     ruleGroup: "NOJV SLO",
     orgID: 1,
     for: def.for,
-    // No traffic → NaN → "OK" rather than a spurious page for an idle stack.
     noDataState: "OK",
     execErrState: "Error",
     labels: { severity: def.severity, team: "nojv" },
@@ -114,9 +103,6 @@ export function buildAlertRule(def: AlertRuleDef, ctx: AlertRuleContext) {
 
 export type AlertRulePayload = ReturnType<typeof buildAlertRule>;
 
-// PUT upserts an alert rule by UID; on a 404 (rule does not exist yet) fall
-// back to POST. `X-Disable-Provenance` keeps the rule editable in the UI
-// and re-provisionable on the next run.
 export async function uploadAlertRule(
   config: GrafanaConfig,
   rule: AlertRulePayload,
@@ -212,13 +198,9 @@ async function provisionAlerts(config: GrafanaConfig, baseDir: string): Promise<
   return failed;
 }
 
-// ─── Contact point + notification policy ───────────────────────────────
-
 const NOJV_CONTACT_POINT_NAME = "NOJV SLO Alerts";
 const NOJV_CONTACT_POINT_UID = "nojv-slo-contact";
 
-// Email contact point — the destination address is the only stack-specific
-// bit, injected from GRAFANA_ALERT_EMAIL at provision time.
 export function buildContactPoint(email: string) {
   return {
     uid: NOJV_CONTACT_POINT_UID,
@@ -229,10 +211,6 @@ export function buildContactPoint(email: string) {
   };
 }
 
-// Root notification policy. `receiver` is the catch-all; the `team=nojv`
-// child route is where the SLO alert rules (labelled `team: nojv`) land.
-// NOTE: Grafana's policy tree is a singleton — provisioning it REPLACES
-// the stack's root policy. Intended for a NOJV-dedicated stack.
 export function buildNotificationPolicy() {
   return {
     receiver: NOJV_CONTACT_POINT_NAME,
@@ -256,7 +234,6 @@ const provisioningHeaders = (saToken: string) => ({
   "X-Disable-Provenance": "true",
 });
 
-// PUT upserts the contact point by UID; POST on a 404 first-create.
 export async function uploadContactPoint(
   config: GrafanaConfig,
   contactPoint: ContactPoint,
@@ -284,7 +261,6 @@ export async function uploadContactPoint(
   return contactPoint.uid;
 }
 
-// The notification policy tree is a singleton — always a plain PUT.
 export async function uploadNotificationPolicy(
   config: GrafanaConfig,
   policy: NotificationPolicy,
@@ -359,7 +335,6 @@ async function main(): Promise<void> {
   }
 }
 
-// Run main() only when invoked directly (not when imported by tests)
 const invokedDirectly = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
 if (invokedDirectly) {
   await main();

@@ -17,7 +17,7 @@ const { updateReportStatus, listSubmissionsForCheck, saveResults, markReportFail
     markReportFailed: vi.fn(),
   }));
 
-vi.mock("@nojv/domain", () => ({
+vi.mock("@nojv/application", () => ({
   plagiarismDomain: {
     updateReportStatus,
     listSubmissionsForCheck,

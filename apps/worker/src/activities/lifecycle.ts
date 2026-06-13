@@ -1,4 +1,9 @@
-import { contestDomain, examDomain, notificationDomain, submissionDomain } from "@nojv/domain";
+import {
+  contestDomain,
+  examDomain,
+  notificationDomain,
+  submissionDomain,
+} from "@nojv/application";
 import { pubsub } from "@nojv/redis";
 
 import { createLogger } from "../logger.js";

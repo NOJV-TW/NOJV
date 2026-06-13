@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { listEditorialReports, resolveEditorialReport } = editorialDomain;
 

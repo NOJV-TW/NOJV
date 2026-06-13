@@ -1,4 +1,4 @@
-import type { plagiarismDomain, SubmissionSource } from "@nojv/domain";
+import type { plagiarismDomain, SubmissionSource } from "@nojv/application";
 
 export interface PlagiarismPairDiffData {
   pair: {

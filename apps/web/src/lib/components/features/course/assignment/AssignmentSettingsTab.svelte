@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { courseDomain } from "@nojv/domain";
+  import type { courseDomain } from "@nojv/application";
   import type { AssessmentSettingsFormData } from "@nojv/core";
 
   export type SettingsTabDetail = courseDomain.AssignmentDetail;

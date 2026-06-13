@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
