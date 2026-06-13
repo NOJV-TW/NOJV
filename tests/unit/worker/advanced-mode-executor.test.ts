@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,8 +11,12 @@ import {
   buildAdvancedDockerArgs,
   deriveRunStatus,
   dirSizeBytes,
+  dirStats,
+  exceedsWorkspaceCaps,
   prepareGradeWorkspace,
   prepareRunWorkspace,
+  safeCopyTree,
+  SafeCopyLimitError,
   type ContainerOutcome,
 } from "../../../apps/worker/src/services/advanced-mode-executor";
 
@@ -135,6 +140,19 @@ describe("buildAdvancedDockerArgs", () => {
       expect(args).toContain("/tmp:rw,exec,nosuid,nodev,size=64m");
       expect(args).toContain("--memory-swap");
       expect(args.at(-1)).toBe("grade-image:latest");
+    });
+
+    it("mounts the captured run-output read-only on top of the writable workspace", () => {
+      const args = gradeArgs({
+        workspaceDir: "/tmp/job/grade",
+        readOnlyMounts: [
+          { hostPath: "/tmp/job/grade/run-output", containerPath: "/workspace/run-output" },
+        ],
+      });
+      expect(args).toContain("/tmp/job/grade:/workspace");
+      const roIdx = args.indexOf("/tmp/job/grade/run-output:/workspace/run-output:ro");
+      expect(roIdx).toBeGreaterThan(0);
+      expect(args[roIdx - 1]).toBe("-v");
     });
   });
 });
@@ -273,5 +291,162 @@ describe("dirSizeBytes (disk-cap watchdog)", () => {
     const measured = await dirSizeBytes(dir);
     const tinyCap = 0;
     expect(measured > tinyCap).toBe(true);
+  });
+});
+
+describe("dirStats + exceedsWorkspaceCaps (Task 2.2 watchdog)", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "nojv-dirstats-"));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { force: true, recursive: true });
+  });
+
+  it("counts both bytes and files across nested subdirectories", async () => {
+    await writeFile(join(dir, "a.txt"), "x".repeat(100));
+    await mkdir(join(dir, "output"), { recursive: true });
+    await writeFile(join(dir, "output", "result.json"), "y".repeat(250));
+    await mkdir(join(dir, "submission", "deep"), { recursive: true });
+    await writeFile(join(dir, "submission", "deep", "main.py"), "z".repeat(50));
+
+    expect(await dirStats(dir)).toEqual({ bytes: 400, files: 3 });
+  });
+
+  it("genuinely triggers the watchdog when the file-count cap is exceeded", async () => {
+    for (let i = 0; i < 5; i++) {
+      await writeFile(join(dir, `f${String(i)}.txt`), "1");
+    }
+    const stats = await dirStats(dir);
+    expect(stats.files).toBe(5);
+
+    expect(
+      exceedsWorkspaceCaps(stats, {
+        maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+        maxFiles: 4,
+      }),
+    ).toBe(true);
+    expect(
+      exceedsWorkspaceCaps(stats, {
+        maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+        maxFiles: 5,
+      }),
+    ).toBe(false);
+  });
+
+  it("genuinely triggers the watchdog when the byte cap is exceeded", async () => {
+    await writeFile(join(dir, "big.bin"), "Z".repeat(1024));
+    const stats = await dirStats(dir);
+
+    expect(exceedsWorkspaceCaps(stats, { maxBytes: 1023, maxFiles: 100_000 })).toBe(true);
+    expect(exceedsWorkspaceCaps(stats, { maxBytes: 1024, maxFiles: 100_000 })).toBe(false);
+  });
+});
+
+describe("safeCopyTree (/output capture security gate)", () => {
+  let src: string;
+  let dest: string;
+
+  beforeEach(async () => {
+    const base = await mkdtemp(join(tmpdir(), "nojv-safecopy-"));
+    src = join(base, "src");
+    dest = join(base, "dest");
+    await mkdir(src, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(join(src, ".."), { force: true, recursive: true });
+  });
+
+  const listFiles = async (root: string): Promise<string[]> => {
+    const out: string[] = [];
+    const walk = async (rel: string): Promise<void> => {
+      const entries = await readdir(join(root, rel), { withFileTypes: true });
+      for (const e of entries) {
+        const child = rel ? join(rel, e.name) : e.name;
+        if (e.isDirectory()) await walk(child);
+        else out.push(child);
+      }
+    };
+    await walk("");
+    return out.sort();
+  };
+
+  it("drops absolute and relative symlinks, copies the real file (answer-leak gate)", async () => {
+    await symlink("/answers/secret", join(src, "leak"));
+    await symlink("../escape", join(src, "rel"));
+    await writeFile(join(src, "ans.txt"), "the real output");
+
+    await safeCopyTree(src, dest, {
+      maxFiles: 100_000,
+      maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+    });
+
+    expect(await listFiles(dest)).toEqual(["ans.txt"]);
+    expect(await readFile(join(dest, "ans.txt"), "utf8")).toBe("the real output");
+  });
+
+  it("skips a FIFO special file without hanging and never copies it", async () => {
+    const fifo = join(src, "pipe");
+    execFileSync("mkfifo", [fifo]);
+    await writeFile(join(src, "normal.txt"), "ok");
+
+    await safeCopyTree(src, dest, {
+      maxFiles: 100_000,
+      maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+    });
+
+    expect(await listFiles(dest)).toEqual(["normal.txt"]);
+  });
+
+  it("throws SafeCopyLimitError when the file count exceeds maxFiles", async () => {
+    for (let i = 0; i < 6; i++) {
+      await writeFile(join(src, `f${String(i)}.txt`), "x");
+    }
+    await expect(
+      safeCopyTree(src, dest, { maxFiles: 5, maxBytes: ADVANCED_WORKSPACE_MAX_BYTES }),
+    ).rejects.toBeInstanceOf(SafeCopyLimitError);
+  });
+
+  it("throws SafeCopyLimitError when the byte total exceeds maxBytes", async () => {
+    await writeFile(join(src, "a.bin"), "A".repeat(600));
+    await writeFile(join(src, "b.bin"), "B".repeat(600));
+    await expect(
+      safeCopyTree(src, dest, { maxFiles: 100_000, maxBytes: 1000 }),
+    ).rejects.toBeInstanceOf(SafeCopyLimitError);
+  });
+
+  it("round-trips non-UTF8 binary bytes losslessly", async () => {
+    const payload = Buffer.from([0, 255, 128, 0x89, 0x50, 0x4e, 0x47]);
+    await writeFile(join(src, "image.png"), payload);
+
+    await safeCopyTree(src, dest, {
+      maxFiles: 100_000,
+      maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+    });
+
+    const copied = await readFile(join(dest, "image.png"));
+    expect(copied.equals(payload)).toBe(true);
+  });
+
+  it("copies nested directory trees structurally", async () => {
+    await mkdir(join(src, "a", "b", "c"), { recursive: true });
+    await writeFile(join(src, "a", "top.txt"), "1");
+    await writeFile(join(src, "a", "b", "mid.txt"), "2");
+    await writeFile(join(src, "a", "b", "c", "leaf.txt"), "3");
+
+    await safeCopyTree(src, dest, {
+      maxFiles: 100_000,
+      maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+    });
+
+    expect(await listFiles(dest)).toEqual([
+      join("a", "b", "c", "leaf.txt"),
+      join("a", "b", "mid.txt"),
+      join("a", "top.txt"),
+    ]);
+    expect(await readFile(join(dest, "a", "b", "c", "leaf.txt"), "utf8")).toBe("3");
   });
 });

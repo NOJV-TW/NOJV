@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { chmod, cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, copyFile, lstat, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -50,27 +50,103 @@ export function deriveRunStatus(outcome: ContainerOutcome): RunStatus {
   return { state: "exited", exitCode: outcome.exitCode };
 }
 
-export async function dirSizeBytes(dir: string): Promise<number> {
-  let total = 0;
+export interface DirStats {
+  bytes: number;
+  files: number;
+}
+
+export async function dirStats(dir: string): Promise<DirStats> {
+  const acc: DirStats = { bytes: 0, files: 0 };
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
-    return total;
+    return acc;
   }
   for (const entry of entries) {
     const full = join(dir, entry.name);
     try {
       if (entry.isDirectory()) {
-        total += await dirSizeBytes(full);
+        const nested = await dirStats(full);
+        acc.bytes += nested.bytes;
+        acc.files += nested.files;
       } else if (entry.isFile()) {
-        total += (await stat(full)).size;
+        acc.bytes += (await stat(full)).size;
+        acc.files += 1;
       }
     } catch {
       continue;
     }
   }
-  return total;
+  return acc;
+}
+
+export async function dirSizeBytes(dir: string): Promise<number> {
+  return (await dirStats(dir)).bytes;
+}
+
+export function exceedsWorkspaceCaps(
+  stats: DirStats,
+  caps: { maxBytes: number; maxFiles: number },
+): boolean {
+  return stats.bytes > caps.maxBytes || stats.files > caps.maxFiles;
+}
+
+export class SafeCopyLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SafeCopyLimitError";
+  }
+}
+
+export async function safeCopyTree(
+  srcDir: string,
+  destDir: string,
+  caps: { maxFiles: number; maxBytes: number },
+): Promise<void> {
+  const counters = { files: 0, bytes: 0 };
+  await mkdir(destDir, { recursive: true });
+  await copyTreeInto(srcDir, destDir, caps, counters);
+}
+
+async function copyTreeInto(
+  srcDir: string,
+  destDir: string,
+  caps: { maxFiles: number; maxBytes: number },
+  counters: { files: number; bytes: number },
+): Promise<void> {
+  const entries = await readdir(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = join(srcDir, entry.name);
+    const destPath = join(destDir, entry.name);
+    const info = await lstat(srcPath);
+
+    if (info.isSymbolicLink()) {
+      continue;
+    }
+    if (info.isDirectory()) {
+      await mkdir(destPath, { recursive: true });
+      await copyTreeInto(srcPath, destPath, caps, counters);
+      continue;
+    }
+    if (!info.isFile()) {
+      continue;
+    }
+
+    counters.files += 1;
+    counters.bytes += info.size;
+    if (counters.files > caps.maxFiles) {
+      throw new SafeCopyLimitError(
+        `Advanced run output exceeded the file count limit (${String(caps.maxFiles)}).`,
+      );
+    }
+    if (counters.bytes > caps.maxBytes) {
+      throw new SafeCopyLimitError(
+        `Advanced run output exceeded the byte limit (${String(caps.maxBytes)}).`,
+      );
+    }
+    await copyFile(srcPath, destPath);
+  }
 }
 
 export interface AdvancedDockerArgsParams {
@@ -84,9 +160,14 @@ export interface AdvancedDockerArgsParams {
   submissionId: string;
   language: string;
   user?: string | null;
+  readOnlyMounts?: { hostPath: string; containerPath: string }[];
 }
 
 export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): string[] {
+  const readOnlyMountArgs = (params.readOnlyMounts ?? []).flatMap((m) => [
+    "-v",
+    `${m.hostPath}:${m.containerPath}:ro`,
+  ]);
   return [
     "run",
     "--rm",
@@ -103,6 +184,7 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
     "/tmp:rw,exec,nosuid,nodev,size=64m",
     "-v",
     `${params.workspaceDir}:/workspace`,
+    ...readOnlyMountArgs,
     "--cpus",
     params.cpuLimit,
     "--memory",
@@ -168,6 +250,8 @@ export async function prepareRunWorkspace(
   await chmod(runDir, 0o777);
 }
 
+export const ADVANCED_OUTPUT_MAX_FILES = 100_000;
+
 export async function prepareGradeWorkspace(
   gradeDir: string,
   runOutputDir: string,
@@ -180,7 +264,10 @@ export async function prepareGradeWorkspace(
   await mkdir(gradeRunOutputDir, { mode: 0o777, recursive: true });
   await mkdir(outputDir, { mode: 0o777, recursive: true });
 
-  await cp(runOutputDir, gradeRunOutputDir, { recursive: true });
+  await safeCopyTree(runOutputDir, gradeRunOutputDir, {
+    maxFiles: ADVANCED_OUTPUT_MAX_FILES,
+    maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+  });
 
   const meta = {
     submissionId: input.submissionId,
@@ -228,9 +315,14 @@ function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome>
       ? setInterval(() => {
           if (sizeExceeded || sizeCheckInFlight) return;
           sizeCheckInFlight = true;
-          void dirSizeBytes(watchDir)
-            .then((bytes) => {
-              if (bytes > ADVANCED_WORKSPACE_MAX_BYTES) {
+          void dirStats(watchDir)
+            .then((stats) => {
+              if (
+                exceedsWorkspaceCaps(stats, {
+                  maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+                  maxFiles: ADVANCED_OUTPUT_MAX_FILES,
+                })
+              ) {
                 sizeExceeded = true;
                 forceRemoveContainer(params.containerName);
                 child.kill("SIGKILL");
@@ -325,11 +417,21 @@ export class AdvancedModeExecutor {
 
     const runStatus = deriveRunStatus(runOutcome);
 
-    await prepareGradeWorkspace(gradeDir, runOutputDir, {
-      submissionId: request.submissionId,
-      language: request.language,
-      runStatus,
-    });
+    try {
+      await prepareGradeWorkspace(gradeDir, runOutputDir, {
+        submissionId: request.submissionId,
+        language: request.language,
+        runStatus,
+      });
+    } catch (err) {
+      if (err instanceof SafeCopyLimitError) {
+        return advancedFallbackResult(
+          request,
+          "Advanced run output exceeded the file/size limit.",
+        );
+      }
+      throw err;
+    }
 
     const gradeOutcome = await this.gradePhase(
       request,
@@ -418,6 +520,9 @@ export class AdvancedModeExecutor {
       submissionId: request.submissionId,
       language: request.language,
       user: null,
+      readOnlyMounts: [
+        { hostPath: join(gradeDir, "run-output"), containerPath: "/workspace/run-output" },
+      ],
     });
     return spawnContainer({
       args,
