@@ -103,10 +103,10 @@ export class AdvancedModeExecutor {
       return sandboxSystemError("advanced-mode dispatch called without payload");
     }
 
-    let imageRef = advanced.imageRef;
-    if (advanced.imageSource === "tarball") {
+    let imageRef = advanced.grade.imageRef;
+    if (advanced.grade.imageSource === "tarball") {
       try {
-        imageRef = await this.ensureTarballLoaded(advanced.imageRef);
+        imageRef = await this.ensureTarballLoaded(advanced.grade.imageRef);
       } catch (err) {
         return advancedFallbackResult(
           request,

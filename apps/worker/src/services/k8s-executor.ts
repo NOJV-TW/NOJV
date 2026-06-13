@@ -494,7 +494,7 @@ export class K8sExecutor implements SandboxExecutor {
     const advanced = request.advanced;
     if (!advanced) return sandboxSystemError("advanced-mode dispatch called without payload");
 
-    if (advanced.imageSource === "tarball") {
+    if (advanced.grade.imageSource === "tarball") {
       const message =
         "Advanced tarball-source images require the Docker backend; push the image to a registry the cluster can pull and switch the problem to 'registry' source, or run advanced workloads on the Docker backend.";
       logger.error("K8s executor refused advanced tarball-source submission", {
@@ -516,7 +516,7 @@ export class K8sExecutor implements SandboxExecutor {
           namespace: ns,
           configMapName,
           sandboxImage: this.config.image,
-          graderImage: advanced.imageRef,
+          graderImage: advanced.grade.imageRef,
           memoryMb: advanced.memoryMb,
           totalTimeMs: advanced.totalTimeMs,
           cpuLimit: this.config.cpuLimit,

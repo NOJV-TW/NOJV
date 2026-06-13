@@ -102,11 +102,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       title: problem.title,
       type: problem.type satisfies ProblemType,
       visibility: problem.visibility,
-      ...(isAdvanced
-        ? {
-            advancedImageRef: problem.advancedImageRef ?? "",
-            advancedImageSource: problem.advancedImageSource ?? "registry",
-          }
+      ...(isAdvanced && problem.advancedConfig
+        ? { advancedConfig: problem.advancedConfig }
         : {}),
     },
     zod4(problemCreateSchema),
@@ -120,8 +117,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     validatorScripts,
     imageConfig: isAdvanced
       ? {
-          source: problem.advancedImageSource ?? "registry",
-          ref: problem.advancedImageRef ?? "",
+          source: problem.advancedConfig?.grade.imageSource ?? "registry",
+          ref: problem.advancedConfig?.grade.imageRef ?? "",
           timeLimitMs: problem.timeLimitMs,
           memoryLimitMb: problem.memoryLimitMb,
         }
@@ -257,11 +254,11 @@ export const actions: Actions = {
   updateImage: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
     const data = parseJsonField(formData.get("data"), advancedImageSavePayloadSchema);
+    const image = { imageRef: data.ref, imageSource: data.source };
     try {
       await updateProblemRecord(actor, problemId, {
         type: "special_env",
-        advancedImageRef: data.ref,
-        advancedImageSource: data.source,
+        advancedConfig: { run: image, grade: image, network: { mode: "none" } },
         ...(data.timeLimitMs !== undefined ? { timeLimitMs: data.timeLimitMs } : {}),
         ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {}),
       });

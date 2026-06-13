@@ -1,8 +1,8 @@
 import type {
   AdjustmentRules,
+  AdvancedConfig,
   CompareConfig,
   JudgeType,
-  ProblemImageSource,
   ProblemJudgeTestcase,
   ProblemSample,
   ProblemType,
@@ -32,8 +32,7 @@ export interface AdjustmentContext {
 }
 
 export interface AdvancedModeContext {
-  imageRef: string;
-  imageSource: ProblemImageSource;
+  config: AdvancedConfig;
   resourceLimits: {
     totalTimeMs: number;
     memoryMb: number;

@@ -2,6 +2,7 @@ import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { advancedConfigSchema } from "@nojv/core";
 import { canCreateProblem, problemDomain } from "@nojv/application";
 import { createLogger } from "$lib/server/logger";
 import {
@@ -51,17 +52,19 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   }
 
   const existing = await problemDomain.getProblemRowById(problemId);
+  const existingConfig = advancedConfigSchema.safeParse(existing?.advancedConfig).data;
   const previousKey =
-    existing?.advancedImageSource === "tarball" ? existing.advancedImageRef : null;
+    existingConfig?.grade.imageSource === "tarball" ? existingConfig.grade.imageRef : null;
 
   const key = await uploadAdvancedImageTarball(problemId, buffer);
+
+  const image = { imageRef: key, imageSource: "tarball" as const };
 
   await updateProblemRecord(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
     problemId,
     {
-      advancedImageSource: "tarball",
-      advancedImageRef: key,
+      advancedConfig: { run: image, grade: image, network: { mode: "none" } },
     },
   );
 

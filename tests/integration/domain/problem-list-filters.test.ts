@@ -16,8 +16,11 @@ describe("listProblemCards — type filter", () => {
     const multi = await createTestProblem({ type: "multi_file" });
     await createTestProblem({
       type: "special_env",
-      advancedImageRef: "img",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "img", imageSource: "registry" },
+        grade: { imageRef: "img", imageSource: "registry" },
+        network: { mode: "none" },
+      },
     });
 
     const result = await problemDomain.listProblemCards({ types: ["multi_file"] });
@@ -49,8 +52,11 @@ describe("listProblemCards — judge-method filter", () => {
   it("excludes special_env problems from any judge-method filter", async () => {
     await createTestProblem({
       type: "special_env",
-      advancedImageRef: "img",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "img", imageSource: "registry" },
+        grade: { imageRef: "img", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       judgeConfig: undefined,
     });
     const std = await createTestProblem({ judgeConfig: { type: "standard" } });

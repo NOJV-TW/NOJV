@@ -42,6 +42,7 @@ model Submission {
   memoryKb                Int?
   verdictSummary          Json?
   verdictDetailStorageKey String?
+  advancedConfigSnapshot  Json?
   ipAddress               String?
 
   createdAt DateTime @default(now())

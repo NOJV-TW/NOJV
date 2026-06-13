@@ -37,9 +37,11 @@ export const advancedResultSchema = z.object({
 
 export type AdvancedResult = z.infer<typeof advancedResultSchema>;
 
+export const imageSourceSchema = z.enum(["registry", "tarball"]);
+
 export const imageRefSchema = z.object({
   imageRef: z.string().min(1).max(500),
-  imageSource: z.enum(["registry", "tarball"]),
+  imageSource: imageSourceSchema,
 });
 
 export type ImageRef = z.infer<typeof imageRefSchema>;

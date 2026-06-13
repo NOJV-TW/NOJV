@@ -147,8 +147,9 @@ function buildAdvancedPayload(
   }
   const ctx = judgeContext.advanced;
   return {
-    imageRef: ctx.imageRef,
-    imageSource: ctx.imageSource,
+    run: ctx.config.run,
+    grade: ctx.config.grade,
+    network: ctx.config.network,
     totalTimeMs: ctx.resourceLimits.totalTimeMs,
     memoryMb: ctx.resourceLimits.memoryMb,
   };

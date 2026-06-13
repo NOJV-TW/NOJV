@@ -8,6 +8,7 @@ import type { Prisma } from "@nojv/db";
 import { attemptWindowStart } from "./attempt-window";
 import {
   adjustmentRulesSchema,
+  advancedConfigSchema,
   judgeConfigSchema,
   languageSchema,
   submissionVerdicts,
@@ -430,11 +431,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 
   const problemType = problem.type;
+  const parsedAdvancedConfig = advancedConfigSchema.safeParse(problem.advancedConfig);
   const advanced: AdvancedModeContext | null =
-    problemType === "special_env" && problem.advancedImageRef && problem.advancedImageSource
+    problemType === "special_env" && parsedAdvancedConfig.success
       ? {
-          imageRef: problem.advancedImageRef,
-          imageSource: problem.advancedImageSource,
+          config: parsedAdvancedConfig.data,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
             memoryMb: problem.memoryLimitMb,

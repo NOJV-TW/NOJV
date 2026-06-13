@@ -142,8 +142,11 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
       authorId: "usr_teacher",
       visibility: "public",
       type: "special_env",
-      advancedImageRef: "ghcr.io/acme/ta:1.0",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        grade: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       advancedRequiredPaths: ["src/main.c"],
     });
 
@@ -166,8 +169,11 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
       authorId: "usr_teacher",
       visibility: "public",
       type: "special_env",
-      advancedImageRef: "ghcr.io/acme/ta:1.0",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        grade: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       advancedRequiredPaths: ["src/"],
     });
 

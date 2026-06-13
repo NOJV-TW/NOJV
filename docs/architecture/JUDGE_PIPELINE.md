@@ -120,10 +120,9 @@ A missing, unreadable, or malformed `result.json` collapses every testcase into 
 
 ### Image source and resource limits
 
-The TA provides an image via two columns on `Problem`:
+The TA provides images via the `Problem.advancedConfig` JSON column. It holds a `run` and a `grade` image (each `{ imageRef, imageSource }`, where `imageSource` is `registry` or `tarball`) plus a `network` policy (`{ mode: "none" | "allowlist" | "service" }`). `imageRef` is either a registry reference (`ghcr.io/org/judge:tag`) or a storage key pointing at a tarball.
 
-- `advancedImageRef` — either a registry reference (`ghcr.io/org/judge:tag`) or a storage key pointing at a tarball
-- `advancedImageSource` — `registry` or `tarball`
+The run/grade split and the network policy are scaffolding for a later phase: the executors today still run a single container sourced from `advancedConfig.grade`, and the `network` field is carried but not yet enforced.
 
 For `tarball` sources, the worker streams the tarball out of object storage and `docker load`s it on first use. The loaded ref is cached per storage key for the worker's lifetime.
 

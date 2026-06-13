@@ -31,8 +31,15 @@ function makeAdvancedRequest(overrides?: {
     judgeConfig: {},
     limits: { timeoutMs: 1_000, memoryMb: 256 },
     advanced: {
-      imageRef: overrides?.imageRef ?? "registry.example.com/ta/grader:1.0",
-      imageSource: overrides?.imageSource ?? "registry",
+      run: {
+        imageRef: overrides?.imageRef ?? "registry.example.com/ta/grader:1.0",
+        imageSource: overrides?.imageSource ?? "registry",
+      },
+      grade: {
+        imageRef: overrides?.imageRef ?? "registry.example.com/ta/grader:1.0",
+        imageSource: overrides?.imageSource ?? "registry",
+      },
+      network: { mode: "none" },
       totalTimeMs: overrides?.totalTimeMs ?? 60_000,
       memoryMb: overrides?.memoryMb ?? 512,
     },

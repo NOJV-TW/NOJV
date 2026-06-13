@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type { AdvancedConfig } from "@nojv/core";
 import {
   checkerKey,
   createStorageClient,
@@ -97,8 +98,7 @@ type SeedProblemDef = {
   status?: "draft" | "published";
   samples?: SeedProblemSample[];
   workspaceFiles?: SeedWorkspaceFile[];
-  advancedImageSource?: "registry" | "tarball";
-  advancedImageRef?: string;
+  advancedConfig?: AdvancedConfig;
 };
 
 const hardenedIds = [
@@ -121,8 +121,8 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
     }
 
     if (def.type === "special_env") {
-      if (!def.advancedImageRef || !def.advancedImageSource) {
-        throw new Error(`special_env problem must declare image ref + source: ${def.id}`);
+      if (!def.advancedConfig) {
+        throw new Error(`special_env problem must declare advancedConfig: ${def.id}`);
       }
     } else {
       if (!def.testcases) {
@@ -1178,8 +1178,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       memoryLimitMb: 512,
       timeLimitMs: 30_000,
       visibility: "public" as const,
-      advancedImageSource: "registry" as const,
-      advancedImageRef: "nojv-demo-judge-shell:local",
+      advancedConfig: {
+        run: { imageRef: "nojv-demo-judge-shell:local", imageSource: "registry" },
+        grade: { imageRef: "nojv-demo-judge-shell:local", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       statements: {
         "zh-TW": {
           title: "Shell Scripting Lab",
@@ -1210,8 +1213,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       judgeConfig,
       status: def.status ?? "published",
       samples: toSamplesJson(def.samples),
-      advancedImageRef: def.advancedImageRef ?? null,
-      advancedImageSource: def.advancedImageSource ?? null,
+      advancedConfig: def.advancedConfig ?? Prisma.JsonNull,
     };
 
     const problem = await prisma.problem.upsert({

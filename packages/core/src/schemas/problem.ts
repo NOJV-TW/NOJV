@@ -9,14 +9,15 @@ import {
   type Language,
 } from "../types";
 
+import { advancedConfigSchema, imageSourceSchema } from "./advanced-mode";
 import { judgeConfigSchema } from "./judge-config";
 import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
 
 const BLOB_FIELD_MAX_BYTES = 16 * 1024 * 1024;
 
-export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
-export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;
+export const problemImageSourceSchema = imageSourceSchema;
+export type ProblemImageSource = z.infer<typeof imageSourceSchema>;
 
 export const problemSampleSchema = z.object({
   input: z.string().max(200_000),
@@ -87,43 +88,27 @@ const problemCreateObjectSchema = z.object({
   judgeConfig: judgeConfigSchema.optional(),
   status: problemStatusSchema.default("draft"),
   samples: problemSamplesSchema.optional(),
-  advancedImageRef: z.string().max(500).optional(),
-  advancedImageSource: problemImageSourceSchema.optional(),
+  advancedConfig: advancedConfigSchema.optional(),
   advancedRequiredPaths: requiredPathsSchema.optional(),
 });
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, ctx) => {
   const isSpecialEnv = data.type === "special_env";
-  const hasImageRef = !!data.advancedImageRef && data.advancedImageRef.trim().length > 0;
-  const hasImageSource = !!data.advancedImageSource;
+  const hasAdvancedConfig = data.advancedConfig !== undefined;
 
   if (isSpecialEnv) {
-    if (!hasImageRef) {
+    if (!hasAdvancedConfig) {
       ctx.addIssue({
         code: "custom",
-        path: ["advancedImageRef"],
-        message: "validation_required",
-      });
-    }
-    if (!hasImageSource) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["advancedImageSource"],
+        path: ["advancedConfig"],
         message: "validation_required",
       });
     }
   } else {
-    if (hasImageRef) {
+    if (hasAdvancedConfig) {
       ctx.addIssue({
         code: "custom",
-        path: ["advancedImageRef"],
-        message: "validation_onlyAllowedForSpecialEnv",
-      });
-    }
-    if (hasImageSource) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["advancedImageSource"],
+        path: ["advancedConfig"],
         message: "validation_onlyAllowedForSpecialEnv",
       });
     }

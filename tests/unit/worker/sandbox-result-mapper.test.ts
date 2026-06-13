@@ -17,8 +17,9 @@ const request: SandboxRequest = {
   judgeConfig: {},
   limits: { timeoutMs: 30_000, memoryMb: 1_024 },
   advanced: {
-    imageRef: "img:tag",
-    imageSource: "registry",
+    run: { imageRef: "img:tag", imageSource: "registry" },
+    grade: { imageRef: "img:tag", imageSource: "registry" },
+    network: { mode: "none" },
     totalTimeMs: 30_000,
     memoryMb: 1_024,
   },
