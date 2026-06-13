@@ -257,15 +257,13 @@ describe("K8s checker uses the same mergeCheckerResults as Docker", () => {
     ];
     const outcomes = new Map<number, ValidatorOutcome>([
       [0, { verdict: "AC" }],
-      [2, { verdict: "WA", score: 25 }],
+      [2, { verdict: "WA" }],
     ]);
 
     const merged = mergeCheckerResults(rawRuns, outcomes);
 
     expect(merged[0]!.verdict).toBe("AC");
-    expect(merged[0]!.score).toBe(100);
     expect(merged[1]!.verdict).toBe("TLE");
     expect(merged[2]!.verdict).toBe("WA");
-    expect(merged[2]!.score).toBe(25);
   });
 });

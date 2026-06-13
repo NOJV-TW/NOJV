@@ -16,7 +16,6 @@ for attempt in range(budget):
         wrong("non-integer guess")
     if guess == secret:
         write("correct")
-        set_score(100 - attempt * 10)
         judge_log("STAFF_DIAG solved secret=" + str(secret))
         accept("found in " + str(attempt + 1) + " guesses")
     elif guess < secret:
@@ -108,8 +107,6 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
-        expect(tc.score).toBeGreaterThan(0);
-        expect(tc.score).toBeLessThanOrEqual(100);
       }
     },
   );

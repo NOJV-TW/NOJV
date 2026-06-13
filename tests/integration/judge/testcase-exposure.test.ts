@@ -85,7 +85,6 @@ describe("standard-mode testcase exposure (isolation)", () => {
     expect(result.testcaseResults.length).toBe(2);
     for (const tc of result.testcaseResults) {
       expect(tc.verdict).toBe("AC");
-      expect(tc.score).toBe(100);
     }
   });
 });

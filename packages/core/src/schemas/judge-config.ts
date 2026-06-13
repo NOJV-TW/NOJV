@@ -13,6 +13,13 @@ export const runtimeSchema = z.object({
 
 export type Runtime = z.infer<typeof runtimeSchema>;
 
+export const compareOptionsSchema = z.object({
+  caseSensitive: z.boolean().default(true),
+  floatTolerance: z.number().positive().max(1).nullish(),
+});
+
+export type CompareConfig = z.infer<typeof compareOptionsSchema>;
+
 export const judgeConfigSchema = z.object({
   type: judgeTypeSchema.default("standard"),
 
@@ -20,6 +27,8 @@ export const judgeConfigSchema = z.object({
   checkerLanguage: judgeScriptLanguageSchema.nullish(),
   interactorKey: z.string().max(500).nullish(),
   interactorLanguage: judgeScriptLanguageSchema.nullish(),
+
+  compare: compareOptionsSchema.nullish(),
 
   runtime: runtimeSchema.nullish(),
 });

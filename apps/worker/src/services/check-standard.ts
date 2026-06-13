@@ -1,5 +1,6 @@
 import {
   compareStandard,
+  type CompareConfig,
   type RawCaseRun,
   type SandboxResult,
   type SandboxTestcase,
@@ -16,7 +17,7 @@ export function enforceMemoryLimit(
     (r.verdict === "AC" || r.verdict === "WA") &&
     r.memoryKb !== undefined &&
     r.memoryKb > limitKb
-      ? { ...r, verdict: "MLE", score: 0 }
+      ? { ...r, verdict: "MLE" }
       : r,
   );
 }
@@ -24,6 +25,7 @@ export function enforceMemoryLimit(
 export function resolveStandardResults(
   rawRuns: RawCaseRun[],
   testcases: SandboxTestcase[],
+  compare?: CompareConfig,
 ): SandboxTestcaseResult[] {
   const expectedByIndex = new Map(testcases.map((tc) => [tc.index, tc.output]));
 
@@ -38,7 +40,7 @@ export function resolveStandardResults(
     };
 
     if (run.errorVerdict) {
-      return { ...base, verdict: run.errorVerdict, score: 0 };
+      return { ...base, verdict: run.errorVerdict };
     }
 
     const expected = expectedByIndex.get(run.index);
@@ -46,13 +48,12 @@ export function resolveStandardResults(
       return {
         ...base,
         verdict: "SE",
-        score: 0,
         feedback: "Judge misconfiguration: missing expected output.",
       };
     }
 
-    const accepted = compareStandard(run.stdout, expected);
-    return { ...base, verdict: accepted ? "AC" : "WA", score: accepted ? 100 : 0 };
+    const accepted = compareStandard(run.stdout, expected, compare);
+    return { ...base, verdict: accepted ? "AC" : "WA" };
   });
 }
 
@@ -71,7 +72,7 @@ export function mergeCheckerResults(
     };
 
     if (run.errorVerdict) {
-      return { ...base, verdict: run.errorVerdict, score: 0 };
+      return { ...base, verdict: run.errorVerdict };
     }
 
     const outcome = outcomes.get(run.index);
@@ -79,16 +80,13 @@ export function mergeCheckerResults(
       return {
         ...base,
         verdict: "SE",
-        score: 0,
         feedback: "Validator did not report a verdict for this case.",
       };
     }
 
-    const score = outcome.score ?? (outcome.verdict === "AC" ? 100 : 0);
     return {
       ...base,
       verdict: outcome.verdict,
-      score,
       ...(outcome.teamMessage !== undefined ? { feedback: outcome.teamMessage } : {}),
       ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
     };
@@ -98,10 +96,11 @@ export function mergeCheckerResults(
 export function resolveSandboxResult(
   parsed: SandboxResult,
   testcases: SandboxTestcase[],
+  compare?: CompareConfig,
 ): SandboxResult {
   if (!parsed.rawRuns) {
     return parsed;
   }
   const { rawRuns, ...rest } = parsed;
-  return { ...rest, testcaseResults: resolveStandardResults(rawRuns, testcases) };
+  return { ...rest, testcaseResults: resolveStandardResults(rawRuns, testcases, compare) };
 }

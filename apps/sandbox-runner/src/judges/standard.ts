@@ -64,6 +64,5 @@ export async function judgeStandard(
     exitCode: result.exitCode,
     timeMs: result.timeMs,
     ...(result.memoryKb > 0 ? { memoryKb: result.memoryKb } : {}),
-    score: verdict === "AC" ? 100 : 0,
   };
 }

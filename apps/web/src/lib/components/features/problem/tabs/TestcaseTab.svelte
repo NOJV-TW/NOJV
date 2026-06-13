@@ -14,7 +14,6 @@
     id: string;
     name: string;
     weight: number;
-    scoringStrategy: string;
     testcases: TestcaseData[];
   }
 
@@ -26,17 +25,6 @@
   let { testcaseSets, problemId }: Props = $props();
 
   let subtaskSets = $derived(testcaseSets.filter((s) => s.weight > 0));
-
-  function strategyLabel(strategy: string): string {
-    switch (strategy) {
-      case "PROPORTIONAL":
-        return m.testcases_scoringStrategyProportional();
-      case "MINIMUM":
-        return m.testcases_scoringStrategyMinimum();
-      default:
-        return m.testcases_scoringStrategyAllOrNothing();
-    }
-  }
 
   let error = $state<string | null>(null);
 </script>
@@ -66,11 +54,7 @@
           >{m.testcases_totalScoreLabel()}:
         </span>
         <span class="text-caption font-mono"
-          >{subtaskSets
-            .map(
-              (s) => `${s.name} (${String(s.weight)}pts, ${strategyLabel(s.scoringStrategy)})`,
-            )
-            .join(" + ")}</span
+          >{subtaskSets.map((s) => `${s.name} (${String(s.weight)}pts)`).join(" + ")}</span
         >
       </div>
     {/if}

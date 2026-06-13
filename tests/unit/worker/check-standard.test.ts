@@ -18,34 +18,31 @@ function rawRun(overrides: Partial<RawCaseRun> & { index: number }): RawCaseRun 
 }
 
 describe("resolveStandardResults", () => {
-  it("returns AC with score 100 when output matches (after normalization)", () => {
+  it("returns AC when output matches (after normalization)", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 0, stdout: "42\n\n" })],
       [testcase(0, "42")],
     );
     expect(result!.verdict).toBe("AC");
-    expect(result!.score).toBe(100);
     expect(result!.stdout).toBe("42\n\n");
   });
 
-  it("returns WA with score 0 when output differs", () => {
+  it("returns WA when output differs", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 0, stdout: "41" })],
       [testcase(0, "42")],
     );
     expect(result!.verdict).toBe("WA");
-    expect(result!.score).toBe(0);
   });
 
   it.each(["TLE", "MLE", "RE", "SE"] as const)(
-    "passes through the %s error verdict with score 0",
+    "passes through the %s error verdict",
     (errorVerdict) => {
       const [result] = resolveStandardResults(
         [rawRun({ index: 0, errorVerdict, stderr: "boom", exitCode: 1 })],
         [testcase(0, "42")],
       );
       expect(result!.verdict).toBe(errorVerdict);
-      expect(result!.score).toBe(0);
       expect(result!.stderr).toBe("boom");
     },
   );

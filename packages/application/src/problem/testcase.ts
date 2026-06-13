@@ -1,15 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "@nojv/db";
-import {
-  runTransaction,
-  SubtaskScoringStrategy,
-  testcaseRepo,
-  testcaseSetRepo,
-} from "@nojv/db";
+import { runTransaction, testcaseRepo, testcaseSetRepo } from "@nojv/db";
 import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
 
-import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
+import { ConflictError, NotFoundError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 
@@ -19,11 +14,7 @@ import {
   writeTestcaseBlobs,
   type TestcaseBlobKeys,
 } from "./blobs";
-import {
-  assertProblemEditAccess,
-  assertProblemOwnership,
-  type ProblemActorContext,
-} from "./permissions";
+import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
@@ -180,22 +171,4 @@ export async function deleteTestcaseRecord(
   });
 
   await bestEffortDeleteTestcaseBlobs(problemId, testcaseId);
-}
-
-function isSubtaskScoringStrategy(value: string): value is SubtaskScoringStrategy {
-  return (Object.values(SubtaskScoringStrategy) as string[]).includes(value);
-}
-
-export async function setTestcaseSetScoringStrategy(
-  actor: ProblemActorContext,
-  problemId: string,
-  setId: string,
-  rawStrategy: string,
-): Promise<void> {
-  if (!isSubtaskScoringStrategy(rawStrategy)) {
-    throw new ValidationError("Invalid scoring strategy");
-  }
-  await assertProblemEditAccess(actor, problemId);
-  await requireSetInProblem(setId, problemId);
-  await testcaseSetRepo.updateScoringStrategy(setId, rawStrategy);
 }

@@ -263,6 +263,9 @@ export async function saveProblemJudgeConfig(
     ...(interactorKey
       ? { interactorKey, interactorLanguage: input.judgeConfig.interactorLanguage }
       : {}),
+    ...(type === "standard" && input.judgeConfig.compare
+      ? { compare: input.judgeConfig.compare }
+      : {}),
     ...(input.judgeConfig.runtime ? { runtime: input.judgeConfig.runtime } : {}),
   };
 

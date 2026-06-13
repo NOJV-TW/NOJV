@@ -28,7 +28,6 @@ describe("compileValidator (python)", () => {
     const wrapped = await readFile(result.runCommand[1]!, "utf8");
     expect(wrapped).toContain("def accept(");
     expect(wrapped).toContain("def wrong(");
-    expect(wrapped).toContain("def set_score(");
     expect(wrapped).toContain("team_output = _sys.stdin.read()");
     expect(wrapped).toContain("accept('looks good')");
   });

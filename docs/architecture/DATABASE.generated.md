@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_41 models and 37 enums across 9 schema files._
+_41 models and 36 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -697,10 +697,6 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 
 `public` · `private`
 
-#### `SubtaskScoringStrategy`
-
-`ALL_OR_NOTHING` · `PROPORTIONAL` · `MINIMUM`
-
 #### `WorkspaceFileVisibility`
 
 `editable` · `readonly` · `hidden`
@@ -819,7 +815,6 @@ Indexes & constraints: `@@unique([testcaseSetId, ordinal])`
 | `description` | `String` | `@default("") @db.Text` |
 | `weight` | `Int` | `@default(1)` |
 | `ordinal` | `Int` | `@default(0)` |
-| `scoringStrategy` | `SubtaskScoringStrategy` | `@default(ALL_OR_NOTHING)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |

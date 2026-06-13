@@ -44,7 +44,7 @@ export async function runStandardMode(
     return await resolveCheckerResult(request, config, runResult.rawRuns);
   }
 
-  return resolveSandboxResult(runResult, request.testcases);
+  return resolveSandboxResult(runResult, request.testcases, request.judgeConfig.compare);
 }
 
 async function resolveCheckerResult(

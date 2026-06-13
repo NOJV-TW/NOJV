@@ -285,49 +285,27 @@ describe("getJudgeContext", () => {
     expect(ctx.samples).toEqual([]);
   });
 
-  it("builds subtaskStrategies map from the testcase sets", async () => {
+  it("exposes compareOptions parsed from judgeConfig.compare", async () => {
     const row = mkSubmissionRow(
       {},
       {
-        testcaseSets: [
-          {
-            id: "ts_a",
-            name: "A",
-            weight: 50,
-            scoringStrategy: "ALL_OR_NOTHING",
-            testcases: [
-              {
-                id: "tc_a1",
-                inputKey: "k1",
-                outputKey: "o1",
-                inputFileKeys: null,
-              },
-            ],
-          },
-          {
-            id: "ts_b",
-            name: "B",
-            weight: 50,
-            scoringStrategy: "PROPORTIONAL",
-            testcases: [
-              {
-                id: "tc_b1",
-                inputKey: "k2",
-                outputKey: "o2",
-                inputFileKeys: null,
-              },
-            ],
-          },
-        ],
+        judgeConfig: {
+          type: "standard",
+          compare: { caseSensitive: false, floatTolerance: 1e-6 },
+          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+        },
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
 
     const ctx = await getJudgeContext("sub_1");
-    expect(ctx.subtaskStrategies).toEqual({
-      ts_a: "ALL_OR_NOTHING",
-      ts_b: "PROPORTIONAL",
-    });
+    expect(ctx.compareOptions).toEqual({ caseSensitive: false, floatTolerance: 1e-6 });
+  });
+
+  it("compareOptions is null when judgeConfig has no compare block", async () => {
+    findByIdWithJudgeContext.mockResolvedValue(mkSubmissionRow());
+    const ctx = await getJudgeContext("sub_1");
+    expect(ctx.compareOptions).toBeNull();
   });
 
   describe("advanced mode", () => {

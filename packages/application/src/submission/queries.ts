@@ -44,7 +44,6 @@ import type {
   AdjustmentContext,
   AdvancedModeContext,
   SubmissionJudgeContext,
-  SubtaskStrategyMap,
   TestcaseSetGroup,
   WorkspaceFileEntry,
 } from "./types";
@@ -407,10 +406,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     timeLimitMs: problem.timeLimitMs,
   };
 
-  const subtaskStrategies: SubtaskStrategyMap = Object.fromEntries(
-    problem.testcaseSets.map((ts) => [ts.id, ts.scoringStrategy]),
-  );
-
   const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
     problem.workspaceFiles.map(
       async (f): Promise<WorkspaceFileEntry> => ({
@@ -460,11 +455,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     adjustment,
     checkerScript,
     interactorScript,
+    compareOptions: judgeConfig.compare ?? null,
     judgeType: judgeConfig.type,
     runtime,
     samples,
     problemType,
-    subtaskStrategies,
     testcaseSets,
     workspaceFiles,
     advanced,
