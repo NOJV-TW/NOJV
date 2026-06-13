@@ -209,6 +209,7 @@ export async function executeSandbox(
       ...(judgeContext.interactorScript != null
         ? { interactorScript: judgeContext.interactorScript }
         : {}),
+      ...(judgeContext.compareOptions != null ? { compare: judgeContext.compareOptions } : {}),
     },
     limits: {
       timeoutMs: judgeContext.runtime.timeLimitMs,

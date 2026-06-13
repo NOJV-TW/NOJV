@@ -100,7 +100,6 @@ erDiagram
 | `ProblemVisibility`        | public, private                                                                                                                                            |
 | `ProblemStatus`            | draft, published                                                                                                                                           |
 | `WorkspaceFileVisibility`  | editable, readonly, hidden                                                                                                                                 |
-| `SubtaskScoringStrategy`   | ALL_OR_NOTHING, PROPORTIONAL, MINIMUM                                                                                                                      |
 | `PlatformRole`             | admin, teacher, student                                                                                                                                    |
 | `UserStatus`               | active, disabled, pending_first_login                                                                                                                      |
 | `CourseRole`               | teacher, ta, student                                                                                                                                       |

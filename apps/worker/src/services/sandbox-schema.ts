@@ -9,7 +9,6 @@ const sandboxTestcaseResultSchema = z.object({
   exitCode: z.number(),
   timeMs: z.number(),
   memoryKb: z.number().optional(),
-  score: z.number().optional(),
   feedback: z.string().optional(),
 });
 
@@ -45,7 +44,6 @@ export function parseSandboxResult(
 const validatorCaseOutcomeSchema = z.object({
   index: z.number(),
   verdict: z.enum(["AC", "WA", "SE"]),
-  score: z.number().optional(),
   teamMessage: z.string().optional(),
   judgeMessage: z.string().optional(),
 });

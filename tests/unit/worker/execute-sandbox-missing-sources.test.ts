@@ -49,7 +49,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
       checkerScript: null,
       interactorScript: null,
       advanced: null,
-      subtaskStrategies: {},
+      compareOptions: null,
       adjustment: {
         assignmentAdjustmentRules: null,
         dueAt: null,

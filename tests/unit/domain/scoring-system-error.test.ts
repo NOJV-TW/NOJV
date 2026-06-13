@@ -26,7 +26,7 @@ const NO_ADJUSTMENT = {
     finalDay: null,
     submittedAt: new Date(),
   },
-  subtaskStrategies: {},
+  compareOptions: null,
 };
 
 describe("mapResult — sandbox SE maps to system_error (platform fault)", () => {

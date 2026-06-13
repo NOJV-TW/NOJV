@@ -1,4 +1,5 @@
 import type { JudgeType, Language, ProblemType } from "./types";
+import type { CompareConfig } from "./schemas/judge-config";
 import { parseRelativePath } from "./schemas/path";
 
 export interface SandboxTestcase {
@@ -35,6 +36,7 @@ export interface SandboxRequest {
     interactorScript?: string;
     checkerLanguage?: string;
     interactorLanguage?: string;
+    compare?: CompareConfig;
   };
   limits: {
     timeoutMs: number;
@@ -55,7 +57,6 @@ export interface SandboxTestcaseResult {
   exitCode: number;
   timeMs: number;
   memoryKb?: number;
-  score?: number;
   feedback?: string;
   staffFeedback?: string;
 }

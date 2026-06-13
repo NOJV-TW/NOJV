@@ -54,27 +54,22 @@ the container that runs untrusted student code never mounts the expected answers
 or the validator source. Only the worker (or a second isolated container that
 holds no student code) makes the AC/WA decision.
 
-- **`standard`** — stdout vs expected text comparison. `judgeConfig` has no `compare` block; the sandbox runner applies a single fixed canonical normalisation on both sides and tests exact equality. From `apps/sandbox-runner/src/judges/standard.ts`:
-  1. `\r\n` → `\n`
-  2. strip per-line trailing whitespace (spaces and tabs)
-  3. strip trailing blank lines
+- **`standard`** — token-based comparison matching the DOMjudge/ICPC default output validator, in `packages/core/src/judge/compare.ts` (`compareStandard`). Both sides are split on any run of whitespace (spaces, tabs, **and newlines**), and the resulting token lists must match element-for-element. Whitespace amount and line structure are therefore always irrelevant (`"1 2"` = `"1  2"` = `"1\n2"`); this is hard-wired and not configurable. Two per-problem knobs, set by the problem author and stored in `judgeConfig.compare`, refine token matching:
+  - `caseSensitive` (default `true`) — when `false`, tokens compare case-insensitively.
+  - `floatTolerance` (default unset = exact) — when set to ε, two numeric tokens match if they are within absolute **or** relative error ε (the DOMjudge `float_tolerance` shorthand). Non-numeric tokens always compare exactly.
 
-  The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds. Float tolerance, case-insensitive matching, regex line filters, and any other custom comparison semantics must be implemented as a **checker**.
+  The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds, so `judgeConfig.compare` only needs to reach the worker. Anything token comparison cannot express (multiple valid answers, structural checks, etc.) must be implemented as a **checker**.
 
-- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`). The run container produces `rawRuns` (no answer present); the worker then launches a **second isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) per clean case. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Partial credit and feedback travel through files in `feedback_dir`: `score.txt` (0–100 integer) and `teammessage.txt` (shown to the student); an optional `judgemessage.txt` is operator-only. Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `set_score()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface. The parsed score flows into the per-case `score` field that `PROPORTIONAL` subtask scoring averages over (see [score](#score)).
+- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`) that renders an **AC/WA verdict only** (no partial scoring). The run container produces `rawRuns` (no answer present); the worker then launches a **second isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) per clean case. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Feedback travels through files in `feedback_dir`: `teammessage.txt` (shown to the student) and an optional `judgemessage.txt` (operator-only). Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface.
 - **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`apps/sandbox-runner/assets/wrappers/python-interactor-domjudge.py`).
 
 On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` **also runs on K8s** (`K8sExecutor.executeInteractive` → `runInteractiveCase`): one Job per testcase with two containers (solution + interactor) wired over a `socat` TCP bridge on port 7777, the secret input/answer mounted only into the interactor side. Only **tarball-source `advanced`** stays Docker-backend-only (the cluster cannot `docker load` a TA-supplied tarball); **registry-source `advanced`** runs as a K8s Job. See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
 
 ### score
 
-Per-case results are aggregated into a 0–100 raw score using `TestcaseSet.scoringStrategy` (Prisma enum column on each subtask row, see `packages/db/prisma/schema/problem.prisma`). The domain layer reads `scoringStrategy` off each subtask into a `Record<testcaseSetId, strategy>` map in `packages/application/src/submission/judge-context.ts`; there is no `scoring` block on `judgeConfig`. The strategies are:
+Subtask scoring is **all-or-nothing**: a `TestcaseSet` (subtask) earns its full `weight` only if **every** case in it is AC, otherwise 0. There is no per-subtask strategy column and no per-case partial credit — checkers/interactors render AC/WA only. This is uniform across practice, assignment, contest, and exam; contests adjust whole-**problem** aggregation (see [Architecture](./ARCHITECTURE.md)), not the subtask AC-all decision.
 
-- `ALL_OR_NOTHING` — set weight if every case in the subtask is AC, else 0. Default.
-- `PROPORTIONAL` — `weight * (Σ caseScore) / (total * 100)`. Each `caseScore` is the per-case 0–100 score: 100 for AC and 0 for any other verdict under `standard`, or the validator/interactor `score.txt` value under `checker`/`interactive` (so partial credit on a single case flows through).
-- `MINIMUM` — `weight * min(caseScore) / 100`. The subtask is awarded its weight scaled by the **lowest** per-case score, so a single failing case (score 0) zeroes the subtask while a uniformly-90 set keeps 90% of the weight. Distinct from both `ALL_OR_NOTHING` (binary) and `PROPORTIONAL` (average).
-
-The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/application/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
+The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`, where each subtask's `rawScore` is `weight` (all cases AC) or `0`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/application/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
 
 ## Advanced Mode pipeline
 
@@ -286,7 +281,8 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`
 - Sandbox runner bounded buffer + memory poller — `apps/sandbox-runner/src/utils.ts`
 - Compiler dispatch — `apps/sandbox-runner/src/compiler.ts`
-- Standard judge comparator — `apps/sandbox-runner/src/judges/standard.ts`
+- Standard token comparator (`compareStandard`) — `packages/core/src/judge/compare.ts`
+- Per-case run helper (emits `rawRuns`, no in-container comparison) — `apps/sandbox-runner/src/judges/standard.ts`
 - DOMjudge validator runner (in-container) — `apps/sandbox-runner/src/judges/validate.ts`
 - DOMjudge interactor runner (in-container) — `apps/sandbox-runner/src/judges/interactive-isolated.ts`
 - Per-case run-process helper / verdict classifier — `apps/sandbox-runner/src/judges/run-process.ts`
@@ -299,7 +295,6 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - `judgeConfigSchema` — `packages/core/src/schemas/judge-config.ts`
 - `advancedResultSchema` — `packages/core/src/schemas/advanced-mode.ts`
 - `adjustmentRuleSchema` — `packages/core/src/schemas/assessment-adjustments.ts`
-- `TestcaseSet.scoringStrategy` enum — `packages/db/prisma/schema/problem.prisma`
 - `ProblemWorkspaceFile` table — `packages/db/prisma/schema/problem.prisma`
 
 ## Related docs

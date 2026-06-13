@@ -23,7 +23,7 @@ function makeJudgeContext(
     runtime: "docker",
     samples: [],
     problemType: "full_source",
-    subtaskStrategies: {},
+    compareOptions: null,
     testcaseSets: [],
     workspaceFiles,
     advanced: null,

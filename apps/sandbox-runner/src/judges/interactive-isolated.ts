@@ -177,8 +177,6 @@ export function runInteractiveValidator(
         }
 
         const feedback: ValidatorFeedbackFiles = {};
-        const scoreTxt = await readFeedbackFile(files.feedbackDir, "score.txt");
-        if (scoreTxt !== undefined) feedback.scoreTxt = scoreTxt;
         const judgeMessage = await readFeedbackFile(files.feedbackDir, "judgemessage.txt");
         if (judgeMessage !== undefined) feedback.judgeMessage = judgeMessage;
         const teamMessage = await readFeedbackFile(files.feedbackDir, "teammessage.txt");

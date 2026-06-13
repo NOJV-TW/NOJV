@@ -27,24 +27,17 @@ describe("validator exit codes", () => {
   });
 });
 
-describe("validator score.txt parsing", () => {
-  it.each([
-    ["0.85", 85],
-    ["1", 100],
-    ["0", 0],
-    ["42", 42],
-    ["150", 100],
-    ["-3", 0],
-  ])("parses score.txt %s to %i", (scoreTxt, expected) => {
-    expect(parseValidatorFeedback(42, { scoreTxt }).score).toBe(expected);
+describe("checker is AC/WA only — score.txt is ignored (no partial scoring)", () => {
+  it("never reports a numeric score, even when score.txt is present", () => {
+    const files = { scoreTxt: "0.85" } as unknown as Parameters<
+      typeof parseValidatorFeedback
+    >[1];
+    const outcome = parseValidatorFeedback(42, files);
+    expect("score" in outcome).toBe(false);
   });
 
-  it("omits score when score.txt is unparseable", () => {
-    expect(parseValidatorFeedback(42, { scoreTxt: "abc" }).score).toBeUndefined();
-  });
-
-  it("omits score when score.txt is absent", () => {
-    expect(parseValidatorFeedback(42, {}).score).toBeUndefined();
+  it("an AC verdict carries no score field", () => {
+    expect("score" in parseValidatorFeedback(42, {})).toBe(false);
   });
 });
 

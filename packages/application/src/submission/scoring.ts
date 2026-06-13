@@ -1,9 +1,8 @@
 import { MAX_CASE_STDERR_BYTES, MAX_CASE_STDOUT_BYTES, MAX_FEEDBACK_LEN } from "@nojv/core";
 import type { CaseResult, SandboxResult, SubmissionResult } from "@nojv/core";
-import type { SubtaskScoringStrategy } from "@nojv/db";
 
 import { applyAdjustmentRules } from "./adjustments";
-import type { SubmissionJudgeContext, TestcaseSetGroup, SubtaskStrategyMap } from "./types";
+import type { SubmissionJudgeContext, TestcaseSetGroup } from "./types";
 
 const TRUNCATION_MARKER = "…[truncated]";
 
@@ -38,14 +37,12 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
 export function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],
-  strategies: SubtaskStrategyMap,
 ): SubtaskResultItem[] {
   let flatIndex = 0;
   const subtaskResults: SubtaskResultItem[] = [];
 
   for (const ts of testcaseSets) {
     const cases: SubtaskResultItem["cases"] = [];
-    const caseScores: number[] = [];
     for (let ordinal = 0; ordinal < ts.testcases.length; ordinal++) {
       const sandboxCase = result.testcaseResults[flatIndex++];
       const verdict = sandboxCase?.verdict ?? "SE";
@@ -58,48 +55,23 @@ export function buildSubtaskResults(
           ? { memoryKb: sandboxCase.memoryKb }
           : {}),
       });
-      caseScores.push(sandboxCase?.score ?? (verdict === "AC" ? 100 : 0));
     }
 
     const total = cases.length;
     const passed = cases.filter((c) => c.verdict === "AC").length;
     const allPassed = total > 0 && passed === total;
 
-    const strategy = strategies[ts.id] ?? "ALL_OR_NOTHING";
-    const rawScore = computeSubtaskRawScore(strategy, caseScores, ts.weight, total, allPassed);
-
     subtaskResults.push({
       cases,
       label: ts.name,
       passed: allPassed,
-      rawScore,
+      rawScore: allPassed ? ts.weight : 0,
       testcaseSetId: ts.id,
       weight: ts.weight,
     });
   }
 
   return subtaskResults;
-}
-
-function computeSubtaskRawScore(
-  strategy: SubtaskScoringStrategy,
-  caseScores: number[],
-  weight: number,
-  total: number,
-  allPassed: boolean,
-): number {
-  if (total === 0) {
-    return 0;
-  }
-  if (strategy === "PROPORTIONAL") {
-    const sumScore = caseScores.reduce((s, v) => s + v, 0);
-    return (weight * sumScore) / (total * 100);
-  }
-  if (strategy === "MINIMUM") {
-    const minScore = Math.min(...caseScores);
-    return (weight * minScore) / 100;
-  }
-  return allPassed ? weight : 0;
 }
 
 export function mapResult(
@@ -165,11 +137,7 @@ export function mapResult(
   }
 
   const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
-  const subtaskResults = buildSubtaskResults(
-    result,
-    testcaseSets,
-    judgeContext.subtaskStrategies,
-  );
+  const subtaskResults = buildSubtaskResults(result, testcaseSets);
 
   const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
   const rawScoreSum = subtaskResults.reduce((s, st) => s + st.rawScore, 0);

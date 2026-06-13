@@ -32,11 +32,6 @@ enum WorkspaceFileVisibility {
   hidden
 }
 
-enum SubtaskScoringStrategy {
-  ALL_OR_NOTHING
-  PROPORTIONAL
-  MINIMUM
-}
 
 model Problem {
   id         String            @id @default(cuid())
@@ -118,7 +113,6 @@ model TestcaseSet {
   description     String                 @default("") @db.Text
   weight          Int                    @default(1)
   ordinal         Int                    @default(0)
-  scoringStrategy SubtaskScoringStrategy @default(ALL_OR_NOTHING)
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   problem         Problem                @relation(fields: [problemId], references: [id], onDelete: Cascade)
