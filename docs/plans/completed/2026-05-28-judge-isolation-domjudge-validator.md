@@ -6,7 +6,7 @@
 
 **Architecture:** Today the sandbox runner and the student program share one container and one mount namespace, so the student program can read `/submission/.../expected.txt` and the validator source and trivially cheat. Our container hardening (`cap-drop ALL`, `no-new-privileges`, non-root, K8s `allowPrivilegeEscalation:false`) blocks in-container self-isolation (no `unshare`/`chroot`/`setuid`), and unprivileged user namespaces are unreliable on GKE/COS. The fix is therefore **run/check separation**: the student program runs in a container that never sees answers or validator code; comparison/validation happens elsewhere (worker-side for standard mode — zero throughput cost; a separate validator container for checker mode; a two-container piped pair for interactive). The validator interface adopts the DOMjudge/Kattis standard.
 
-**Tech Stack:** TypeScript/ESM, Temporal worker (`apps/worker`), sandbox runner (`apps/sandbox-runner`, Node on Alpine), Docker + Kubernetes executors, `@nojv/core` (Zod schemas), `@nojv/domain`, `@nojv/db` (Prisma 7), `@nojv/storage` (S3/MinIO), SvelteKit web, Vitest.
+**Tech Stack:** TypeScript/ESM, Temporal worker (`apps/worker`), sandbox runner (`apps/sandbox-runner`, Node on Alpine), Docker + Kubernetes executors, `@nojv/core` (Zod schemas), `@nojv/application`, `@nojv/db` (Prisma 7), `@nojv/storage` (S3/MinIO), SvelteKit web, Vitest.
 
 ---
 
@@ -362,7 +362,7 @@ DOMjudge splits feedback into student-visible (`teammessage.txt`) and operator-o
 **Files:**
 
 - Modify: `packages/core/src/sandbox.ts` — keep `feedback` as the **student-visible** field (← `teamMessage`); add `staffFeedback?: string` (← `judgeMessage`).
-- Modify: `packages/domain/src/submission/scoring.ts` (`mapResult`/`buildSubtaskResults`) and the persisted submission/case-result schema — carry `staffFeedback` and gate it: students never receive it.
+- Modify: `packages/application/src/submission/scoring.ts` (`mapResult`/`buildSubtaskResults`) and the persisted submission/case-result schema — carry `staffFeedback` and gate it: students never receive it.
 - Modify: the submission detail UI (the shared case-result components: `SubtaskResultTree`/`CaseResultGrid` per the `submission_unification_2026_05_27` memory) — show `staffFeedback` only when the viewer is staff (reuse the existing staff-vs-student gating used for the `/submissions/[id]` review surface).
 - Test: a domain test that a student-facing `SubmissionResult` omits `staffFeedback`; a staff-facing one includes it.
 
@@ -420,7 +420,7 @@ Switching protocols **breaks every existing checker/interactor script** (old one
 
 **Files:**
 
-- Modify: `packages/domain/src/submission/queries.ts:404-405` — replace inline `checkerScript`/`interactorScript` reads with a `getText(validatorKey)` fetch (only when `judgeType !== "standard"`).
+- Modify: `packages/application/src/submission/queries.ts:404-405` — replace inline `checkerScript`/`interactorScript` reads with a `getText(validatorKey)` fetch (only when `judgeType !== "standard"`).
 - Modify: `apps/worker/src/activities/judge.ts:163-170` — pass the fetched validator content into the request (or have the executor fetch it; keep the fetch in the domain/activity layer, not the workflow).
 - Test: integration test that a checker problem still judges after the move.
 
@@ -430,7 +430,7 @@ Switching protocols **breaks every existing checker/interactor script** (old one
 
 **Files:**
 
-- Modify: the problem-edit save path (`apps/web/src/routes/(app)/problems/[problemId]/edit/+page.server.ts` and the judge-config mutation in `packages/domain/src/problem/mutations.ts`) — upload validator via `putText`, store the key; `deleteBlob` on removal.
+- Modify: the problem-edit save path (`apps/web/src/routes/(app)/problems/[problemId]/edit/+page.server.ts` and the judge-config mutation in `packages/application/src/problem/mutations.ts`) — upload validator via `putText`, store the key; `deleteBlob` on removal.
 - Modify: `packages/core/src/schemas/judge-config.ts` — remove `checkerScript`/`interactorScript`/`interactorLanguage`; keep `validatorLanguage`.
 - Remove now-dead inline-script plumbing across `SandboxRequest.judgeConfig` etc.
 

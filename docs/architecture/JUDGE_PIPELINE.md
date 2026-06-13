@@ -68,13 +68,13 @@ On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits 
 
 ### score
 
-Per-case results are aggregated into a 0–100 raw score using `TestcaseSet.scoringStrategy` (Prisma enum column on each subtask row, see `packages/db/prisma/schema/problem.prisma`). The domain layer reads `scoringStrategy` off each subtask into a `Record<testcaseSetId, strategy>` map in `packages/domain/src/submission/judge-context.ts`; there is no `scoring` block on `judgeConfig`. The strategies are:
+Per-case results are aggregated into a 0–100 raw score using `TestcaseSet.scoringStrategy` (Prisma enum column on each subtask row, see `packages/db/prisma/schema/problem.prisma`). The domain layer reads `scoringStrategy` off each subtask into a `Record<testcaseSetId, strategy>` map in `packages/application/src/submission/judge-context.ts`; there is no `scoring` block on `judgeConfig`. The strategies are:
 
 - `ALL_OR_NOTHING` — set weight if every case in the subtask is AC, else 0. Default.
 - `PROPORTIONAL` — `weight * (Σ caseScore) / (total * 100)`. Each `caseScore` is the per-case 0–100 score: 100 for AC and 0 for any other verdict under `standard`, or the validator/interactor `score.txt` value under `checker`/`interactive` (so partial credit on a single case flows through).
 - `MINIMUM` — `weight * min(caseScore) / 100`. The subtask is awarded its weight scaled by the **lowest** per-case score, so a single failing case (score 0) zeroes the subtask while a uniformly-90 set keeps 90% of the weight. Distinct from both `ALL_OR_NOTHING` (binary) and `PROPORTIONAL` (average).
 
-The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/domain/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
+The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/application/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
 
 ## Advanced Mode pipeline
 
@@ -174,7 +174,7 @@ Visibility is enforced on the server: `mergeSandboxSources()` rebuilds the sandb
 
 ## Adjustment rules
 
-Late penalties and time bonuses are applied at the `Assessment` level via the `adjustmentRules` JSON column, **not per-problem and not on contests** — contests do not carry adjustment rules. The post-judge step in `mapResult()` calls `applyAdjustmentRules()` from `packages/domain/src/submission/adjustments.ts` with the raw 0–100 score and the submission context (runtime, `submittedAt`, `dueAt`, `finalDay`).
+Late penalties and time bonuses are applied at the `Assessment` level via the `adjustmentRules` JSON column, **not per-problem and not on contests** — contests do not carry adjustment rules. The post-judge step in `mapResult()` calls `applyAdjustmentRules()` from `packages/application/src/submission/adjustments.ts` with the raw 0–100 score and the submission context (runtime, `submittedAt`, `dueAt`, `finalDay`).
 
 Rule types, defined in `packages/core/src/schemas/assessment-adjustments.ts`:
 
@@ -220,7 +220,7 @@ prefix / key references and a small JSON summary. The full flow:
    start of the activity rather than trusting the dispatch draft. Both
    fresh dispatches and rejudges see the same canonical bytes.
 3. **Plagiarism** — `listSubmissionsForCheck` (in
-   `packages/domain/src/plagiarism/queries.ts`) reads per-file sources
+   `packages/application/src/plagiarism/queries.ts`) reads per-file sources
    via the same helper and concatenates them in sorted-path order with
    `// === <path> ===\n` boundary markers before handing the merged
    blob to Dolos. Every Dolos-supported language treats `//` as a line
@@ -265,7 +265,7 @@ Timeouts and retry policy applied to the judge activities proxy:
 hung container is detected before the start-to-close timeout); the rest
 of the judge activities use the shorter `5m` `judge` proxy.
 
-The standard-vs-advanced mode is decided by a small **inline expression in the workflow** (`apps/worker/src/workflows/submission-judge.ts`): `problemType === "special_env" && advanced !== null ? "advanced" : "standard"`. It is inlined rather than imported from `@nojv/domain` because pulling the domain package into the workflow bundle would drag Prisma into the workflow sandbox, which Temporal forbids (workflow code must be deterministic and self-contained). The domain layer's own `deriveJudgeMode` (`packages/domain/src/submission/queries.ts`, used by the judge activity) encodes the same rule, and its unit test exercises the condition to keep the two copies in sync.
+The standard-vs-advanced mode is decided by a small **inline expression in the workflow** (`apps/worker/src/workflows/submission-judge.ts`): `problemType === "special_env" && advanced !== null ? "advanced" : "standard"`. It is inlined rather than imported from `@nojv/application` because pulling the domain package into the workflow bundle would drag Prisma into the workflow sandbox, which Temporal forbids (workflow code must be deterministic and self-contained). The domain layer's own `deriveJudgeMode` (`packages/application/src/submission/queries.ts`, used by the judge activity) encodes the same rule, and its unit test exercises the condition to keep the two copies in sync.
 
 ## Reliability notes
 
@@ -293,9 +293,9 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
 - Temporal judge activity — `apps/worker/src/activities/judge.ts`
-- Judge context builder — `packages/domain/src/submission/judge-context.ts`
-- Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/domain/src/submission/scoring.ts`
-- Score adjustments — `packages/domain/src/submission/adjustments.ts`
+- Judge context builder — `packages/application/src/submission/judge-context.ts`
+- Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/application/src/submission/scoring.ts`
+- Score adjustments — `packages/application/src/submission/adjustments.ts`
 - `judgeConfigSchema` — `packages/core/src/schemas/judge-config.ts`
 - `advancedResultSchema` — `packages/core/src/schemas/advanced-mode.ts`
 - `adjustmentRuleSchema` — `packages/core/src/schemas/assessment-adjustments.ts`

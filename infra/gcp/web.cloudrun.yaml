@@ -2,14 +2,13 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: nojv-web
+  annotations:
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
 spec:
   template:
     metadata:
       annotations:
         autoscaling.knative.dev/minScale: "1"
-        # 15 instances × 80 concurrent ≈ 1200 simultaneous requests before queueing.
-        # Sized for exam-week peaks (300 students submitting + navigating); bump higher
-        # once real metrics show saturation rather than guessing.
         autoscaling.knative.dev/maxScale: "15"
     spec:
       containerConcurrency: 80
@@ -47,6 +46,11 @@ spec:
                 secretKeyRef:
                   key: latest
                   name: nojv-auth-url
+            - name: EDGE_TRUST_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-edge-trust-secret
             - name: GITHUB_CLIENT_ID
               valueFrom:
                 secretKeyRef:

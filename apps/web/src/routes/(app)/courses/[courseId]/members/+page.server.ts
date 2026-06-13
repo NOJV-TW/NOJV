@@ -2,7 +2,7 @@ import { fail } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
-import { canManageCourse, canManageMembers, courseDomain } from "@nojv/domain";
+import { canManageCourse, canManageMembers, courseDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";

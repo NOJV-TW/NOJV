@@ -14,7 +14,7 @@ import {
   plagiarismDomain,
   scoreOverrideDomain,
   userDomain,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth";

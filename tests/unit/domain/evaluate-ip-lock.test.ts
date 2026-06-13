@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateIpLock } from "@nojv/domain";
+import { evaluateIpLock } from "@nojv/application";
 
 const base = {
   ipWhitelistEnabled: false,

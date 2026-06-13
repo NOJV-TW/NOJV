@@ -1,6 +1,6 @@
 import { fail } from "@sveltejs/kit";
 
-import { contestDomain, virtualContestDomain } from "@nojv/domain";
+import { contestDomain, virtualContestDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";

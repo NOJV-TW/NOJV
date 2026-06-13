@@ -5,7 +5,7 @@ vi.mock("@temporalio/activity", () => ({
 }));
 
 import { putSubmissionSources } from "@nojv/storage";
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 import { runPlagiarismCheck } from "../../../apps/worker/src/activities/plagiarism";
 import {

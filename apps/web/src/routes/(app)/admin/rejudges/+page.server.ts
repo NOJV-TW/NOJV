@@ -4,7 +4,7 @@ import { requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
 import { submissionPendingTimeoutMinutesSchema } from "@nojv/core";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 
 const PAGE_SIZE = 50;
 

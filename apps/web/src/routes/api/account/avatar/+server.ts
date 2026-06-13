@@ -1,7 +1,7 @@
 import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";

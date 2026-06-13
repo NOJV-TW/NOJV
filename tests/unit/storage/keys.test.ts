@@ -25,6 +25,12 @@ describe("storage key builders", () => {
     );
   });
 
+  it("testcaseInputFileKey rejects nested paths and unsafe segments", () => {
+    expect(() => testcaseInputFileKey("prob_1", "tc_1", "dir/graph.txt")).toThrow();
+    expect(() => testcaseInputFileKey("prob_1", "tc_1", ".")).toThrow();
+    expect(() => testcaseInputFileKey("prob_1", "tc_1", "a:b.txt")).toThrow();
+  });
+
   it("workspaceFileKey returns the canonical workspace file path", () => {
     expect(workspaceFileKey("prob_1", "ws_1")).toBe("problems/prob_1/workspace/ws_1");
   });

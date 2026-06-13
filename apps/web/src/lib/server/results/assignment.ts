@@ -1,4 +1,4 @@
-import type { courseDomain } from "@nojv/domain";
+import type { courseDomain } from "@nojv/application";
 
 import { buildScoreStats, type ScoreStats } from "../shared/score-stats";
 

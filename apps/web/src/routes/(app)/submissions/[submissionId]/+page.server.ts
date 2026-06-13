@@ -4,7 +4,7 @@ import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { feedbackDomain, submissionDomain } from "@nojv/domain";
+import { feedbackDomain, submissionDomain } from "@nojv/application";
 
 const { getSubmissionDetail } = submissionDomain;
 

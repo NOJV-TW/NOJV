@@ -24,7 +24,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
   __setStorageClientForTests: (c: unknown) => {
     storageRef.client = c as typeof storageRef.client;
@@ -32,7 +32,7 @@ vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
 }));
 
 import type { SubmissionResult } from "@nojv/core";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 
 const { completeJudge, deriveVerdictSummary } = submissionDomain;
 

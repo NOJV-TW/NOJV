@@ -8,7 +8,7 @@ import {
 } from "../../fixtures/factories";
 
 import { participationRepo, runTransaction } from "@nojv/db";
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { listPublicContests, getContestDetail, getContestWorkspaceData, getScoreboard } =
   contestDomain;

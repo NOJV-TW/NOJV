@@ -36,11 +36,12 @@ vi.mock("@nojv/db", () => ({
     fn({}),
 }));
 
-vi.mock("../../../packages/domain/src/shared/ip", () => ({
+vi.mock("../../../packages/application/src/shared/ip", () => ({
   checkIpLock: checkIpLockMock,
 }));
 
-const { checkProctoringGate } = await import("../../../packages/domain/src/proctoring/gate");
+const { checkProctoringGate } =
+  await import("../../../packages/application/src/proctoring/gate");
 
 const now = new Date("2026-05-01T10:00:00.000Z");
 const examStart = new Date("2026-05-01T09:00:00.000Z");

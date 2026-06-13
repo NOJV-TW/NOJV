@@ -5,7 +5,7 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 
 const batchSchema = z.object({
   problemId: z.string().min(1),

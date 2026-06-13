@@ -236,16 +236,16 @@ answer." Content is markdown, rendered through the shared
 
 ### Domain
 
-- `packages/domain/src/editorial/queries.ts` — `hasUserAcProblem`,
+- `packages/application/src/editorial/queries.ts` — `hasUserAcProblem`,
   `canViewEditorials` (author grandfather OR AC + context-gate-open),
   `resolveActiveContextForUser` (server-side resolution of the
   strictest active event for the viewer; the client cannot supply a
   context), `listProblemEditorials`, `listEditorialsPage`,
   `getEditorialById`. `EditorialViewContext` is the discriminated union
   shared across the gate API.
-- `packages/domain/src/editorial/mutations.ts` — `upsertEditorial`,
+- `packages/application/src/editorial/mutations.ts` — `upsertEditorial`,
   `updateEditorial`, `softDeleteEditorial`.
-- `packages/domain/src/editorial/reports.ts` — `reportEditorial`,
+- `packages/application/src/editorial/reports.ts` — `reportEditorial`,
   `listEditorialReports`, `resolveEditorialReport`.
 - `packages/db/src/repositories/editorial.ts` — `listByProblemId`,
   `listByProblemIdPaged`, `countByProblemId`, `findById`, `upsert`,

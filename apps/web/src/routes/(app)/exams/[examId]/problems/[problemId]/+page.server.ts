@@ -1,6 +1,6 @@
 import { error, redirect } from "@sveltejs/kit";
 
-import { examDomain } from "@nojv/domain";
+import { examDomain } from "@nojv/application";
 
 import { requireAuth } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/shared/client-ip";

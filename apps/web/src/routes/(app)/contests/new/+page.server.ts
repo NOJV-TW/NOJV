@@ -6,7 +6,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
 

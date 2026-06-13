@@ -1,5 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import { adminDomain } from "@nojv/domain";
+import { adminDomain } from "@nojv/application";
 
 const { getAdminDashboard } = adminDomain;
 

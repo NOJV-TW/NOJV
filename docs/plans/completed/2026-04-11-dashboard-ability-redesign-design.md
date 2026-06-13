@@ -1,7 +1,7 @@
 # Dashboard Redesign — Student Ability Overview
 
 **Date:** 2026-04-11
-**Scope:** `apps/web/src/routes/(app)/dashboard/+page.svelte` and its server loader, plus a small addition to `packages/domain/src/user/queries.ts` and one new chart component.
+**Scope:** `apps/web/src/routes/(app)/dashboard/+page.svelte` and its server loader, plus a small addition to `packages/application/src/user/queries.ts` and one new chart component.
 **Status:** Approved for implementation.
 
 ## Problem
@@ -94,7 +94,7 @@ Implemented as two rows:
 
 Horizontal ECharts bar chart, top 8 tags by AC count.
 
-**Data:** extend `getUserAnalytics` in `packages/domain/src/user/queries.ts` to also return `byTag`:
+**Data:** extend `getUserAnalytics` in `packages/application/src/user/queries.ts` to also return `byTag`:
 
 ```ts
 export interface UserAnalytics {
@@ -156,7 +156,7 @@ Delete the following from `+page.svelte` and its `+page.server.ts` load:
 - The old 3-column analytics grid wrapper.
 - Unused icon imports after removal: `BookOpen`, `CalendarClock`, `Megaphone`, `Lightbulb`, `Code2` (only if no remaining usage — verify before deleting).
 
-`listCourseCards`, `listUpcomingAssessments`, `listAnnouncements` remain in `packages/domain` — they're used by other routes and must not be deleted.
+`listCourseCards`, `listUpcomingAssessments`, `listAnnouncements` remain in `packages/application` — they're used by other routes and must not be deleted.
 
 ## Typography Rules (applies to this page only)
 
@@ -213,7 +213,7 @@ Existing hard-coded Chinese strings in the current `+page.svelte` (`已解難度
 
 | File                                                        | Change                                                          |
 | ----------------------------------------------------------- | --------------------------------------------------------------- |
-| `packages/domain/src/user/queries.ts`                       | Add `byTag` to `UserAnalytics` + populate in `getUserAnalytics` |
+| `packages/application/src/user/queries.ts`                  | Add `byTag` to `UserAnalytics` + populate in `getUserAnalytics` |
 | `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` | **New.** 30-day DOM-based heatmap with tooltips                 |
 | `apps/web/src/routes/(app)/dashboard/+page.svelte`          | Full rewrite per layout above                                   |
 | `apps/web/src/routes/(app)/dashboard/+page.server.ts`       | Remove courses/assessments/announcements loads                  |
@@ -224,7 +224,7 @@ No changes to `packages/db`, no Prisma migrations, no Temporal workflow changes,
 
 ## Testing
 
-- **Unit:** `packages/domain` has existing Vitest tests for `getUserAnalytics`. Add one case verifying `byTag` returns top-8 sorted descending, with multi-tag AC problems counted under every tag they carry.
+- **Unit:** `packages/application` has existing Vitest tests for `getUserAnalytics`. Add one case verifying `byTag` returns top-8 sorted descending, with multi-tag AC problems counted under every tag they carry.
 - **Visual:** manually verify in both light and dark mode via `pnpm --filter web dev`, with:
   - A user who has AC submissions → all charts populated
   - A user with zero submissions → every empty state renders with the correct icon and copy

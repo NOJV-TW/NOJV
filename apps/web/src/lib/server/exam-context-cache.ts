@@ -1,4 +1,4 @@
-import type { PageLockedContext } from "@nojv/domain";
+import type { PageLockedContext } from "@nojv/application";
 
 import type { ActiveExamContext } from "$lib/server/exam-lock";
 

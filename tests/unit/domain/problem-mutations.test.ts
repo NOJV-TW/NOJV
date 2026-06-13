@@ -82,7 +82,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { ConflictError, problemDomain } from "@nojv/domain";
+import { ConflictError, problemDomain } from "@nojv/application";
 
 const {
   createProblemDefinition,

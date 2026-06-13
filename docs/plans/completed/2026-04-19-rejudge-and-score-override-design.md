@@ -68,7 +68,7 @@ Derived from the project memory on submission-context permissions:
 | `exam`                                  | Platform admin + course teacher/TA of that course |
 | `contest`                               | Platform admin + contest organizer                |
 
-**Problem author rejudge rights cover practice context only.** Once a problem is embedded into an assignment/exam/contest, rejudge authority transfers to the context owner. This rule is enforced in the new `canRejudgeSubmission(actor, submission)` helper in `packages/domain/src/submission/authz.ts`.
+**Problem author rejudge rights cover practice context only.** Once a problem is embedded into an assignment/exam/contest, rejudge authority transfers to the context owner. This rule is enforced in the new `canRejudgeSubmission(actor, submission)` helper in `packages/application/src/submission/authz.ts`.
 
 For batch rejudge, the gate is slightly different: caller must be permitted for **every** submission the filter would match. Enforced by an upstream `assertBatchRejudgeAccess(actor, input)` that runs the filter as `count()` and cross-checks `actor.canOperateOn(context)` before dispatch. If any submission is outside the actor's authority, the whole batch is rejected with a clear "scope exceeds your permission" error.
 
@@ -186,7 +186,7 @@ enum ScoreOverrideAction { create update delete }
 
 ### Scoring read path integration
 
-The single point that resolves "what score does this student have for this problem in this context" lives in `packages/domain/src/submission/scoring.ts`. Add an override-first read:
+The single point that resolves "what score does this student have for this problem in this context" lives in `packages/application/src/submission/scoring.ts`. Add an override-first read:
 
 ```ts
 export async function resolveFinalScore(userId, problemId, context) {
@@ -257,7 +257,7 @@ All routes: `requireAuth` + `consumeFormRateLimit` + permission check via the sh
 
 3. **Score Override domain + API**:
    - `ScoreOverride` + `ScoreOverrideAuditLog` models + migration.
-   - `@nojv/domain/score-override/*` module with create/update/delete + audit-write wrapped in tx.
+   - `@nojv/application/score-override/*` module with create/update/delete + audit-write wrapped in tx.
    - `resolveFinalScore` read path integration.
    - 4 API routes.
    - Unit + integration tests.

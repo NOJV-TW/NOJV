@@ -19,7 +19,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { listIdsForContext: submissionListIdsForContext },
 }));
 
-import { auditDomain } from "@nojv/domain";
+import { auditDomain } from "@nojv/application";
 
 const { listAuditTimelineForContext } = auditDomain;
 

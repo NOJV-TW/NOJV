@@ -8,7 +8,7 @@
 - 管理 migration 與 seed
 - 對外暴露 repository function 與 type，封裝 Prisma 查詢
 - **不對外暴露 raw `PrismaClient`**。例外：`prismaAdapterClient` 給 better-auth 用（framework adapter）
-- **不負責**：業務邏輯（在 `@nojv/domain`）、權限判斷、Redis 快取
+- **不負責**：業務邏輯（在 `@nojv/application`）、權限判斷、Redis 快取
 
 ## 主要 API
 
@@ -22,7 +22,7 @@
 ## 依賴
 
 - 上游：`@nojv/storage`（特定 repository 需要清資源時呼叫）
-- 下游：`@nojv/domain`、`apps/web` 的 better-auth adapter、`apps/worker`
+- 下游：`@nojv/application`、`apps/web` 的 better-auth adapter、`apps/worker`
 
 ## 本地開發
 

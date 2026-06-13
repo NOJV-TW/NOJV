@@ -79,7 +79,7 @@ NOJV 目前共 ~1,225 個非 generated 原始檔（TS/Svelte，~44k 行）。專
 
 #### P0-5 修正 submission queries 的 silent failure
 
-- **路徑：** `packages/domain/src/submission/queries.ts:58-85`（`listProblemSubmissions` 內的 map）
+- **路徑：** `packages/application/src/submission/queries.ts:58-85`（`listProblemSubmissions` 內的 map）
 - **現況：**
   - Line 60：`verdictParsed.success ? verdictParsed.data : "wrong_answer"`——Zod 失敗時靜默降級成 `wrong_answer`
   - Line 65-75：`submissionResultSchema.safeParse(s.verdictDetail)` 失敗時合成假的 `SubmissionResult`
@@ -115,9 +115,9 @@ NOJV 目前共 ~1,225 個非 generated 原始檔（TS/Svelte，~44k 行）。專
 - **相依：** 建議在 P1-1 之後做，避免 merge conflict
 - **風險：** 中
 
-#### P1-3 拆解 `packages/domain/src/problem/mutations.ts`
+#### P1-3 拆解 `packages/application/src/problem/mutations.ts`
 
-- **路徑：** `packages/domain/src/problem/mutations.ts` (533 行，15 exports)
+- **路徑：** `packages/application/src/problem/mutations.ts` (533 行，15 exports)
 - **現況：** CRUD + workspace files + testcase sets + mode conversion 全擠在一起；內含 5 個其實是查詢的 helper（`requireProblem`、`assertProblemOwnership`…）
 - **動作：** 拆成
   - `problem-crud.ts`
@@ -129,7 +129,7 @@ NOJV 目前共 ~1,225 個非 generated 原始檔（TS/Svelte，~44k 行）。專
 
 #### P1-4 拆解 `contest/scoreboard.ts`
 
-- **路徑：** `packages/domain/src/contest/scoreboard.ts` (453 行)
+- **路徑：** `packages/application/src/contest/scoreboard.ts` (453 行)
 - **現況：** `getScoreboard` 主流程與 ICPC / IOI 兩套 scoring strategy 混在同檔
 - **動作：**
   - `scoreboard-builder.ts`（`getScoreboard` + 權限 + freeze）
@@ -148,24 +148,24 @@ NOJV 目前共 ~1,225 個非 generated 原始檔（TS/Svelte，~44k 行）。專
   - `sandbox-result-mapper.ts`
 - **風險：** 中——需配合 sandbox-runner 整合測試驗證
 
-#### P1-6 將 Temporal judge 的 scoring 邏輯搬到 `@nojv/domain`
+#### P1-6 將 Temporal judge 的 scoring 邏輯搬到 `@nojv/application`
 
 - **路徑：** `packages/temporal/src/activities/judge.ts` (438 行)
 - **現況：** `buildSubtaskResults` / `verdictMap` 等 ~200 行 scoring 邏輯住在 Temporal activity，導致 sandbox-runner 測試必須重複實作
-- **動作：** 搬到 `@nojv/domain/src/submission/scoring.ts`，兩端都 import
+- **動作：** 搬到 `@nojv/application/src/submission/scoring.ts`，兩端都 import
 - **風險：** 低
 
 ### P2 — 局部清理（小 PR 可收）
 
 #### P2-1 刪除 `judge-context.ts` 的冗餘 nullable fallback
 
-- **路徑：** `packages/domain/src/submission/judge-context.ts`
+- **路徑：** `packages/application/src/submission/judge-context.ts`
 - **動作：** 刪除 `?? null` / `?? undefined` 在欄位型別已是 nullable 時的包裝（line 86, 96, 114, 118, 153 附近）
 - **風險：** 低——型別檢查會抓到任何破綻
 
 #### P2-2 壓平 `pick-problem-statement.ts` 三層 `??` fallback
 
-- **路徑：** `packages/domain/src/shared/pick-problem-statement.ts:17-18`
+- **路徑：** `packages/application/src/shared/pick-problem-statement.ts:17-18`
 - **動作：** 在 Prisma 查詢層保證有預設 statement，避免呼叫端多層 fallback
 - **風險：** 低
 
@@ -234,11 +234,11 @@ PR 3-8 之間幾乎無相依，可並行；PR 3 與 PR 4 有重疊（都動 Work
 - [ ] `packages/core/src/user-stats.ts` 不存在
 - [ ] `.gitignore` 包含 `.tmp/` 與 `.shared/`，且工作目錄內兩者不存在（`.shared` 已刪）
 - [ ] `.prettierignore` 無失效路徑
-- [ ] `packages/domain/src/submission/queries.ts` 無 `safeParse` → fallback 的 pattern；改為 `parse` 直接 throw
+- [ ] `packages/application/src/submission/queries.ts` 無 `safeParse` → fallback 的 pattern；改為 `parse` 直接 throw
 - [ ] `apps/web/src/lib/components/problem/` 下無 500+ 行的 `.svelte` 檔案
 - [ ] `apps/worker/src/services/docker-executor.ts` 被拆成至少 3 檔，每檔 < 300 行
-- [ ] `packages/domain/src/problem/mutations.ts` 拆為 4 檔，每檔 < 250 行
-- [ ] `packages/domain/src/contest/scoreboard.ts` 拆為 3-4 檔
+- [ ] `packages/application/src/problem/mutations.ts` 拆為 4 檔，每檔 < 250 行
+- [ ] `packages/application/src/contest/scoreboard.ts` 拆為 3-4 檔
 - [ ] `packages/redis/src/cache.ts` 的 `cacheGet` 強制 schema 參數
 - [ ] `pnpm ci:verify` 全綠
 - [ ] 前端 e2e（submission lifecycle、contest scoreboard、problem workspace）全綠

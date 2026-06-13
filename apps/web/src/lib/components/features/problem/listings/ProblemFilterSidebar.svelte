@@ -10,7 +10,7 @@
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { problemTypes, judgeTypes } from "@nojv/core";
-  import type { problemDomain } from "@nojv/domain";
+  import type { problemDomain } from "@nojv/application";
   import { Input } from "$lib/components/primitives/ui/input";
   import FilterChips, {
     type FilterChipOption,

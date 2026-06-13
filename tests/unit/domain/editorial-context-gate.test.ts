@@ -22,7 +22,7 @@ vi.mock("@nojv/db", () => ({
   examRepo: { findById: examFindById },
 }));
 
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { canViewEditorials } = editorialDomain;
 

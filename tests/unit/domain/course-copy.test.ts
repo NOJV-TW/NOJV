@@ -87,7 +87,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { ForbiddenError, NotFoundError, courseDomain } from "@nojv/domain";
+import { ForbiddenError, NotFoundError, courseDomain } from "@nojv/application";
 
 const { copyCourse } = courseDomain;
 

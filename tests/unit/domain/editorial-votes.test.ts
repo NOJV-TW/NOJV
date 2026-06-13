@@ -29,7 +29,7 @@ vi.mock("@nojv/db", () => ({
   examProblemRepo: { findActiveExamsForUser: vi.fn().mockResolvedValue([]) },
 }));
 
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { castEditorialVote } = editorialDomain;
 

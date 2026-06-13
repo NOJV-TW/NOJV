@@ -9,7 +9,7 @@ import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
 } from "$lib/server/shared/api-handler";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);

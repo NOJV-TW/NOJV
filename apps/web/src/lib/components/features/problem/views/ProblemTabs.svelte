@@ -6,7 +6,7 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { fetchWithCsrf } from "$lib/services/http";
-  import type { problemDomain } from "@nojv/domain";
+  import type { problemDomain } from "@nojv/application";
   import PublicProblemsTab from "../listings/PublicProblemsTab.svelte";
   import MyProblemsTab, { type EditableProblemCard } from "../listings/MyProblemsTab.svelte";
 

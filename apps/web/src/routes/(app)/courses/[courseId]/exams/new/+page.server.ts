@@ -14,7 +14,7 @@ import {
   type ExamCreate,
   type ExamPublishStatus,
 } from "@nojv/core";
-import { canManageCourse, examDomain, problemDomain } from "@nojv/domain";
+import { canManageCourse, examDomain, problemDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";

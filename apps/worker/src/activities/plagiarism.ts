@@ -4,7 +4,7 @@ import { Dolos } from "@dodona/dolos-lib";
 import { File } from "@dodona/dolos-core";
 
 import type { Language } from "@nojv/core";
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 type PlagiarismTargetType = "assessment" | "exam" | "contest";
 

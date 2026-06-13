@@ -1,6 +1,6 @@
 <script lang="ts">
   import { History } from "@lucide/svelte";
-  import type { auditDomain } from "@nojv/domain";
+  import type { auditDomain } from "@nojv/application";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { m } from "$lib/paraglide/messages.js";

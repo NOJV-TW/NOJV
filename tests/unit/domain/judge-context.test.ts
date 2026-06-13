@@ -18,13 +18,13 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-vi.mock("../../../packages/domain/src/problem/blobs", () => ({
+vi.mock("../../../packages/application/src/problem/blobs", () => ({
   readTestcaseBlobs,
   readWorkspaceFileBlob,
   readValidatorScriptBlob,
 }));
 
-import { submissionDomain, IntegrityError, NotFoundError } from "@nojv/domain";
+import { submissionDomain, IntegrityError, NotFoundError } from "@nojv/application";
 
 const { getJudgeContext, deriveJudgeMode } = submissionDomain;
 

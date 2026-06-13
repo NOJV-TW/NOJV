@@ -4,7 +4,7 @@ import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
-import { canCreateProblem, problemDomain } from "@nojv/domain";
+import { canCreateProblem, problemDomain } from "@nojv/application";
 
 const { createProblemRecord } = problemDomain;
 

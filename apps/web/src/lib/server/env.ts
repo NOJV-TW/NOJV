@@ -24,6 +24,8 @@ const webEnvSchema = z
 
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM_DOMAIN: z.string().optional(),
+
+    EDGE_TRUST_SECRET: z.string().optional(),
   })
   .transform((val) => ({
     ...val,
@@ -37,6 +39,15 @@ const webEnvSchema = z
         "BETTER_AUTH_SECRET is required in production and must be at least 32 characters",
       path: ["BETTER_AUTH_SECRET"],
     },
+  )
+  .refine(
+    (val) =>
+      val.NODE_ENV !== "production" ||
+      (typeof val.EDGE_TRUST_SECRET === "string" && val.EDGE_TRUST_SECRET.length >= 32),
+    {
+      message: "EDGE_TRUST_SECRET is required in production and must be at least 32 characters",
+      path: ["EDGE_TRUST_SECRET"],
+    },
   );
 
 export type WebEnv = z.output<typeof webEnvSchema>;
@@ -46,7 +57,7 @@ let _webEnv: WebEnv | undefined;
 export function getWebEnv(): WebEnv {
   if (_webEnv) return _webEnv;
   if (env.NODE_ENV === "production") {
-    for (const key of ["DATABASE_URL", "REDIS_URL"] as const) {
+    for (const key of ["DATABASE_URL", "REDIS_URL", "EDGE_TRUST_SECRET"] as const) {
       if (!env[key]) {
         throw new Error(`${key} is required in production (refusing the localhost default).`);
       }

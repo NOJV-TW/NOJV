@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   runScoreUpdate,
   type ScoringUpdate,
-} from "../../../../packages/domain/src/scoring/run-score-update";
-import { ConflictError } from "../../../../packages/domain/src/shared/errors";
+} from "../../../../packages/application/src/scoring/run-score-update";
+import { ConflictError } from "../../../../packages/application/src/shared/errors";
 
 interface P {
   id: string;

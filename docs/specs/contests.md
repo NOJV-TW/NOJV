@@ -274,31 +274,31 @@ grading is only available after it closes.")` (shared post-close gate
 
 ### Domain
 
-- `packages/domain/src/contest/mutations.ts` —
+- `packages/application/src/contest/mutations.ts` —
   `createContestRecord`, `updateContestRecord`,
   `ensureContestParticipation`, `checkSubmitCooldown`,
   `activateContest`, `freezeContestBoard`, `finalizeContest`,
   `resolveAndAttachContestProblems`.
-- `packages/domain/src/contest/queries.ts` —
+- `packages/application/src/contest/queries.ts` —
   `listPublicContests`, `listContestsForUser`,
   `getContestDetail`, `getContestWorkspaceData`,
   `findContestByInviteCode`, `getContestContext`,
   `unfreezeContest`.
-- `packages/domain/src/contest/scoring.ts` —
+- `packages/application/src/contest/scoring.ts` —
   `updateContestScores`, `getScoreboard`, `getScoreboardChart`.
-- `packages/domain/src/contest/permissions.ts` — `canManageContest`.
-- `packages/domain/src/scoring/` — pure builders:
+- `packages/application/src/contest/permissions.ts` — `canManageContest`.
+- `packages/application/src/scoring/` — pure builders:
   `buildScoreboard`, `buildScoreboardChartSeries`,
   `computeProblemCountPenalty`.
-- `packages/domain/src/proctoring/gate.ts` — `checkContestGate`
+- `packages/application/src/proctoring/gate.ts` — `checkContestGate`
   (existence + visibility + time window; no IP).
-- `packages/domain/src/score-override/permissions.ts` —
+- `packages/application/src/score-override/permissions.ts` —
   `assertCanSetScoreOverride` (role + post-close gate),
   `assertCanViewScoreOverrides` (role-only).
-- `packages/domain/src/shared/context-window.ts` — `isContextClosed`,
+- `packages/application/src/shared/context-window.ts` — `isContextClosed`,
   `assertContextClosed` (shared post-close gate across assignment +
   exam + contest).
-- `packages/domain/src/audit/queries.ts` —
+- `packages/application/src/audit/queries.ts` —
   `listAuditTimelineForContext`.
 
 ### Schema
@@ -312,9 +312,9 @@ grading is only available after it closes.")` (shared post-close gate
 ### Scoreboard computation
 
 - The scoreboard is computed live from PostgreSQL on every fetch —
-  `packages/domain/src/contest/scoring.ts` `getScoreboard` reads
+  `packages/application/src/contest/scoring.ts` `getScoreboard` reads
   `contest.participations` + submissions and calls
-  `packages/domain/src/scoring/` `buildScoreboard`. There is no Redis
+  `packages/application/src/scoring/` `buildScoreboard`. There is no Redis
   zset, no `ZADD`/`ZRANGE`, and no live/frozen snapshot keys. Freeze is a
   `Contest.frozenBoard` / `frozenAt` column pair; `buildScoreboard`
   applies `frozenAt` as a submission cutoff to produce the frozen view.

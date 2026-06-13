@@ -2,6 +2,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  CopyObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
@@ -105,6 +106,20 @@ export async function deleteBlob(client: S3Client, key: string): Promise<void> {
   );
 }
 
+export async function copyBlob(
+  client: S3Client,
+  fromKey: string,
+  toKey: string,
+): Promise<void> {
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: BUCKET,
+      CopySource: `${encodeURIComponent(BUCKET)}/${encodeStorageKey(fromKey)}`,
+      Key: toKey,
+    }),
+  );
+}
+
 export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Promise<void> {
   let continuationToken: string | undefined;
 
@@ -139,4 +154,8 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
       ? listResponse.NextContinuationToken
       : undefined;
   } while (continuationToken);
+}
+
+function encodeStorageKey(key: string): string {
+  return key.split("/").map(encodeURIComponent).join("/");
 }

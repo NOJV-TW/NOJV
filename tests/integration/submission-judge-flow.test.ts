@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { contestDomain, submissionDomain } from "@nojv/domain";
+import { contestDomain, submissionDomain } from "@nojv/application";
 import { submissionRepo } from "@nojv/db";
 
 import {

@@ -152,7 +152,7 @@ pnpm test:all           # All of the above
 pnpm ci:verify
 ```
 
-Runs: formatting check, the `lint:domain-queries` guard, Prisma generation, build, typecheck, lint, and unit tests.
+Runs: formatting check, the `lint:application-queries` guard, Prisma generation, build, typecheck, lint, and unit tests.
 
 ### Rebuild Sandbox Image
 

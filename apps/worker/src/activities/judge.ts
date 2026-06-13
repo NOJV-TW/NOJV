@@ -7,7 +7,7 @@ import {
   type SubmissionDraft,
   type SubmissionResult,
 } from "@nojv/core";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
 import { heartbeat } from "@temporalio/activity";
 

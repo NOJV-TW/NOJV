@@ -16,7 +16,7 @@
 
 | 項目                              | 狀態      | 落地處                                                                                                |
 | --------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| 風險 #1 — scoring 純核心抽取      | ✅ 已實作 | `packages/domain/src/scoring/persist-core.ts` + contest/exam scoring.ts + persist-core.test.ts        |
+| 風險 #1 — scoring 純核心抽取      | ✅ 已實作 | `packages/application/src/scoring/persist-core.ts` + contest/exam scoring.ts + persist-core.test.ts   |
 | 1.1 HTTP harness                  | ✅ 已實作 | `tests/integration/http/_harness.ts` + `tests/setup/stubs/*` + vitest.config alias                    |
 | 1.2 signup-disabled 端點測試      | ✅ 已實作 | `tests/integration/http/auth-signup.test.ts`                                                          |
 | 1.3 守衛鏈 request 層測試         | ✅ 已實作 | `tests/integration/http/{hooks-guards,notifications,healthz}.test.ts`                                 |
@@ -110,7 +110,7 @@
 
 #### 第一步 spike — ✅ 已調查完成並**已實作**(2026-06-11)
 
-> **已落地:**`packages/domain/src/scoring/persist-core.ts` 匯出 `computeBestScoreState` / `computeProblemCountState` 兩個無 I/O 純函式;contest/exam 兩邊 `persist*Score` 已改呼叫它們。新增 `tests/unit/domain/scoring/persist-core.test.ts`(8 例,含 override 無條件覆蓋回歸),`contest/exam-scoring-race` 行為等價守門全綠。**out-of-scope 部分(updateXScores 外層、updateWithVersion 泛型化、Submission FK 多型化)未動,留待獨立計劃。**
+> **已落地:**`packages/application/src/scoring/persist-core.ts` 匯出 `computeBestScoreState` / `computeProblemCountState` 兩個無 I/O 純函式;contest/exam 兩邊 `persist*Score` 已改呼叫它們。新增 `tests/unit/domain/scoring/persist-core.test.ts`(8 例,含 override 無條件覆蓋回歸),`contest/exam-scoring-race` 行為等價守門全綠。**out-of-scope 部分(updateXScores 外層、updateWithVersion 泛型化、Submission FK 多型化)未動,留待獨立計劃。**
 
 **調查結論:唯讀計分核心已收斂得很好沒重複(`scoring/scoreboard-builder.ts`、`scoring/problem-count.ts`、`scoring/rank-util.ts` 三方共用);真正的重複在 persist 路徑。**
 
@@ -122,7 +122,7 @@
 
 **最小、低風險、可獨立 PR 的第一步抽取點 = persist 計分純核心**(因 `persistContestBestScore`/`persistBestScore` body 幾乎逐字相同):
 
-1. 新增 `packages/domain/src/scoring/persist-core.ts`,匯出兩個**無 I/O 純函式**:
+1. 新增 `packages/application/src/scoring/persist-core.ts`,匯出兩個**無 I/O 純函式**:
    - `computeBestScoreState({ submissions, problemIds: Set, overrides, userId }) -> { totalScore, subtaskScores: Record<string,number> }`(搬 `persistContestBestScore` 計分核心)
    - `computeProblemCountState({ submissions, problemIds: Set, sessionStartsAt }) -> { score, penaltySeconds }`(內部已共用 `computeProblemCountPenalty`,只剩 byProblem 分組 + 累加重複)
    - 入參用**結構型別**(只取 `problemId`/`score`),別綁 Prisma 生成型別以免耦合。

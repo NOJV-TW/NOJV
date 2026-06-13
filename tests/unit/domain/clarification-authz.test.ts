@@ -31,7 +31,7 @@ import {
   canAskClarification,
   canAnswerInContext,
   canSeeAuthor,
-} from "../../../packages/domain/src/clarification/permissions";
+} from "../../../packages/application/src/clarification/permissions";
 
 function actor(
   overrides: Partial<{

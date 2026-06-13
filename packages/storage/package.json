@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1067.0",
+    "@nojv/core": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

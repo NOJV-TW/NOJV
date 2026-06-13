@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import { caseResultSchema } from "@nojv/core";
 import type { SandboxResult, SandboxTestcaseResult } from "@nojv/core";
 

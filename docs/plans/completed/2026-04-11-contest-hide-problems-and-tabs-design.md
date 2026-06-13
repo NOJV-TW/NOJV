@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-11
 **Status:** Design approved, pending implementation plan
-**Scope:** `apps/web` contest list & detail pages, `packages/domain/src/contest`
+**Scope:** `apps/web` contest list & detail pages, `packages/application/src/contest`
 
 ## Problem
 
@@ -24,7 +24,7 @@ The user's framing: _competitions must not display problems before they begin, b
 
 ### 1. Permission primitive
 
-New file `packages/domain/src/contest/permissions.ts` exporting a pure function:
+New file `packages/application/src/contest/permissions.ts` exporting a pure function:
 
 ```ts
 type ContestPermissionInput = {
@@ -62,7 +62,7 @@ This same primitive is consumed by the detail page, the problem solve page, and 
 
 ### 2. Detail page: hide problems before start
 
-**File:** `packages/domain/src/contest/queries.ts`
+**File:** `packages/application/src/contest/queries.ts`
 
 Consolidate `getContestDetail(slug)` and `getContestWorkspaceData(slug, userId)` into:
 
@@ -170,7 +170,7 @@ This matches the user's choice (the strictest of the three levels discussed duri
 
 **Files:**
 
-- `packages/domain/src/contest/queries.ts` — new function
+- `packages/application/src/contest/queries.ts` — new function
 - `apps/web/src/routes/(app)/contests/+page.server.ts` — call the new function
 - `apps/web/src/routes/(app)/contests/+page.svelte` — tabs UI
 
@@ -252,7 +252,7 @@ Add to both `en.json` and `zh-TW.json`:
 
 ## Testing
 
-### Unit (Vitest, `packages/domain`)
+### Unit (Vitest, `packages/application`)
 
 - `canManageContest` — six cases: owner, course teacher, course TA, course student, stranger, unauthenticated.
 - `getContestDetail` — `problemsHidden` truth table:
@@ -286,8 +286,8 @@ Add to both `en.json` and `zh-TW.json`:
 
 | File                                                                             | Change                                                                             |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `packages/domain/src/contest/permissions.ts`                                     | **New** — `canManageContest()`                                                     |
-| `packages/domain/src/contest/queries.ts`                                         | `getContestDetail` signature + `problemsHidden` shaping; new `listContestsForUser` |
+| `packages/application/src/contest/permissions.ts`                                | **New** — `canManageContest()`                                                     |
+| `packages/application/src/contest/queries.ts`                                    | `getContestDetail` signature + `problemsHidden` shaping; new `listContestsForUser` |
 | `apps/web/src/routes/(app)/contests/+page.server.ts`                             | Call `listContestsForUser`, pass through `tab` query param                         |
 | `apps/web/src/routes/(app)/contests/+page.svelte`                                | Bits UI Tabs, visibility badges, empty states                                      |
 | `apps/web/src/routes/(app)/contests/[slug]/+page.server.ts`                      | Pass `userId`, `now` to domain                                                     |

@@ -24,7 +24,7 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-import { courseDomain } from "@nojv/domain";
+import { courseDomain } from "@nojv/application";
 
 const { getCourseAnalytics } = courseDomain;
 

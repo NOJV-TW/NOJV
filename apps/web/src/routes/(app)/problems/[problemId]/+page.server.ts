@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { editorialDomain, problemDomain, submissionDomain } from "@nojv/domain";
+import { editorialDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const {
   assertProblemViewAccess,

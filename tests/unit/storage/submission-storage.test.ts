@@ -3,13 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 import {
   submissionSourcePrefix,
   submissionSourceKey,
+  submissionSourceStagingPrefix,
+  submissionSourceStagingKey,
   submissionVerdictDetailKey,
 } from "../../../packages/storage/src/keys";
 import {
   putSubmissionSources,
+  putSubmissionSourcesStaged,
+  promoteSubmissionSources,
   getSubmissionSources,
   putVerdictDetail,
   getVerdictDetail,
+  deleteSubmissionStaging,
   deleteSubmissionStorage,
 } from "../../../packages/storage/src/submission";
 
@@ -18,14 +23,31 @@ describe("submission storage key builders", () => {
     expect(submissionSourcePrefix("sub_abc")).toBe("submissions/sub_abc/sources/");
   });
 
+  it("submissionSourceStagingPrefix ends with a trailing slash", () => {
+    expect(submissionSourceStagingPrefix("sub_abc")).toBe(
+      "submissions/sub_abc/staging/sources/",
+    );
+  });
+
   it("submissionSourceKey joins prefix and relative path", () => {
     expect(submissionSourceKey("sub_abc", "main.cpp")).toBe(
       "submissions/sub_abc/sources/main.cpp",
     );
   });
 
+  it("submissionSourceStagingKey joins prefix and relative path", () => {
+    expect(submissionSourceStagingKey("sub_abc", "main.cpp")).toBe(
+      "submissions/sub_abc/staging/sources/main.cpp",
+    );
+  });
+
   it("submissionSourceKey rejects parent traversal", () => {
     expect(() => submissionSourceKey("sub_abc", "../etc/passwd")).toThrow();
+  });
+
+  it("submissionSourceKey rejects dot segments", () => {
+    expect(() => submissionSourceKey("sub_abc", "./main.py")).toThrow();
+    expect(() => submissionSourceKey("sub_abc", "src/./main.py")).toThrow();
   });
 
   it("submissionSourceKey rejects absolute paths", () => {
@@ -46,6 +68,11 @@ describe("submission storage key builders", () => {
 
   it("submissionSourceKey rejects control characters (e.g. newline)", () => {
     expect(() => submissionSourceKey("sub_abc", "main.py\nfoo")).toThrow();
+  });
+
+  it("submissionSourceKey rejects colon characters", () => {
+    expect(() => submissionSourceKey("sub_abc", "C:/main.py")).toThrow();
+    expect(() => submissionSourceKey("sub_abc", "main:py")).toThrow();
   });
 
   it("submissionVerdictDetailKey returns the canonical path", () => {
@@ -81,6 +108,17 @@ function createFakeS3() {
       })();
       return { Body: body };
     }
+    if (name === "CopyObjectCommand") {
+      const sourceKey = decodeCopySource(input.CopySource as string);
+      const targetKey = input.Key as string;
+      if (!store.has(sourceKey)) {
+        const err = new Error("NoSuchKey");
+        (err as Error & { name: string }).name = "NoSuchKey";
+        throw err;
+      }
+      store.set(targetKey, store.get(sourceKey) ?? "");
+      return {};
+    }
     if (name === "DeleteObjectCommand") {
       store.delete(input.Key as string);
       return {};
@@ -106,6 +144,12 @@ function createFakeS3() {
   return { send, store } as unknown as { send: typeof send; store: Map<string, string> };
 }
 
+function decodeCopySource(copySource: string): string {
+  const slash = copySource.indexOf("/");
+  const encodedKey = slash >= 0 ? copySource.slice(slash + 1) : copySource;
+  return encodedKey.split("/").map(decodeURIComponent).join("/");
+}
+
 describe("submission storage helpers", () => {
   it("putSubmissionSources + getSubmissionSources round-trips and returns sorted paths", async () => {
     const fake = createFakeS3();
@@ -120,6 +164,45 @@ describe("submission storage helpers", () => {
     const result = await getSubmissionSources(client, "sub_1");
     expect(result.map((s) => s.path)).toEqual(["lib/util.cpp", "main.cpp", "README.md"]);
     expect(result.find((s) => s.path === "main.cpp")?.content).toBe("int main() {}");
+  });
+
+  it("stages sources, promotes them to final keys, and removes staging keys", async () => {
+    const fake = createFakeS3();
+    const client = fake as unknown as Parameters<typeof putSubmissionSourcesStaged>[0];
+
+    await putSubmissionSourcesStaged(client, "sub_1", [
+      { path: "main.cpp", content: "int main() {}" },
+      { path: "lib/util.cpp", content: "void util();" },
+    ]);
+
+    expect([...fake.store.keys()].sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
+      "submissions/sub_1/staging/sources/lib/util.cpp",
+      "submissions/sub_1/staging/sources/main.cpp",
+    ]);
+
+    await promoteSubmissionSources(client, "sub_1", [
+      { path: "main.cpp", content: "ignored during copy" },
+      { path: "lib/util.cpp", content: "ignored during copy" },
+    ]);
+
+    expect([...fake.store.keys()].sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
+      "submissions/sub_1/sources/lib/util.cpp",
+      "submissions/sub_1/sources/main.cpp",
+    ]);
+    expect(fake.store.get("submissions/sub_1/sources/main.cpp")).toBe("int main() {}");
+  });
+
+  it("deleteSubmissionStaging removes only staged source keys", async () => {
+    const fake = createFakeS3();
+    const client = fake as unknown as Parameters<typeof deleteSubmissionStaging>[0];
+
+    await putSubmissionSourcesStaged(client, "sub_1", [{ path: "main.cpp", content: "x" }]);
+    await putSubmissionSources(client, "sub_1", [{ path: "main.cpp", content: "y" }]);
+
+    await deleteSubmissionStaging(client, "sub_1");
+
+    expect([...fake.store.keys()]).toEqual(["submissions/sub_1/sources/main.cpp"]);
+    expect(fake.store.get("submissions/sub_1/sources/main.cpp")).toBe("y");
   });
 
   it("putVerdictDetail + getVerdictDetail round-trips JSON, missing key returns null", async () => {

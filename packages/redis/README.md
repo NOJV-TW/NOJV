@@ -6,7 +6,7 @@
 
 - 集中管理 Redis 連線（singleton client + subscriber）與 key naming（`keys` registry）
 - 提供 pub/sub helper 給 SSE 與 worker 之間溝通
-- **不負責**：業務規則（誰能更新、何時 freeze 在 `@nojv/domain`）
+- **不負責**：業務規則（誰能更新、何時 freeze 在 `@nojv/application`）
 
 ## 主要 API
 
@@ -17,7 +17,7 @@
 ## 依賴
 
 - 上游：`@nojv/core`（共享 schema）、`ioredis`、`@opentelemetry/api`
-- 下游：`@nojv/domain`、`apps/web`、`apps/worker`、`@nojv/temporal`
+- 下游：`@nojv/application`、`apps/web`、`apps/worker`、`@nojv/temporal`
 
 ## 本地開發
 

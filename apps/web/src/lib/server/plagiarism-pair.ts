@@ -5,7 +5,7 @@ import {
   contestDomain,
   plagiarismDomain,
   userDomain,
-} from "@nojv/domain";
+} from "@nojv/application";
 import type { RequestEvent } from "@sveltejs/kit";
 
 import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";

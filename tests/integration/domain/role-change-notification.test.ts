@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import { createTestUser } from "../../fixtures/factories";
 

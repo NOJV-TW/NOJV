@@ -6,7 +6,7 @@
 
 **Architecture:** Rejudge reuses the existing `rejudgeWorkflow` + `submissionJudgeWorkflow` and threads a `forRejudge` flag so the child can snapshot the submission before overwriting. Score override is a new model with a single `resolveFinalScore` gateway that every scoreboard / stats / matrix reader funnels through. Both features share the `canOperateOnSubmission` authz helper derived from the submission-context permission memory.
 
-**Tech Stack:** Prisma 7, `@nojv/domain`, `@nojv/temporal`, `@nojv/job-dispatch`, SvelteKit 5, Bits UI dialogs, Vitest, paraglide.
+**Tech Stack:** Prisma 7, `@nojv/application`, `@nojv/temporal`, `@nojv/job-dispatch`, SvelteKit 5, Bits UI dialogs, Vitest, paraglide.
 
 **Reference design:** `docs/plans/active/2026-04-19-rejudge-and-score-override-design.md`.
 
@@ -83,7 +83,7 @@ git commit -m "feat(temporal): RejudgeInput discriminated union (single + batch)
 
 **Files:**
 
-- Modify: `packages/domain/src/submission/judge-context.ts:223`
+- Modify: `packages/application/src/submission/judge-context.ts:223`
 
 **Step 1: Extend the signature to cover new fields**
 
@@ -127,7 +127,7 @@ Check `packages/db/prisma/schema/submission.prisma` for the actual column used f
 **Step 2: Commit**
 
 ```bash
-git add packages/domain/src/submission/judge-context.ts
+git add packages/application/src/submission/judge-context.ts
 git commit -m "feat(domain): findForRejudge supports exam / userIds / date range"
 ```
 
@@ -232,7 +232,7 @@ git commit -m "feat(db): SubmissionRejudgeLog audit table"
 - Modify: `packages/temporal/src/types.ts` — extend `SubmissionJudgeInput`
 - Modify: `packages/temporal/src/workflows/submission-judge.ts`
 - Modify: `packages/temporal/src/activities/judge.ts`
-- Modify: `packages/domain/src/submission/mutations.ts`
+- Modify: `packages/application/src/submission/mutations.ts`
 
 **Step 1: Extend the input type**
 
@@ -273,8 +273,8 @@ git commit -m "feat(temporal): snapshot submission rejudge log before/after re-j
 
 **Files:**
 
-- Create: `packages/domain/src/submission/authz.ts`
-- Modify: `packages/domain/src/submission/index.ts` (re-export)
+- Create: `packages/application/src/submission/authz.ts`
+- Modify: `packages/application/src/submission/index.ts` (re-export)
 - Test: `tests/unit/domain/submission-authz.test.ts`
 
 **Step 1: Write the failing test**
@@ -332,7 +332,7 @@ export async function assertCanOperateOnSubmission(actor, submission) {
 }
 ```
 
-`isCourseTeacherOrTa(userId, courseId)` likely already exists under `packages/domain/src/course/*`; reuse. If not, implement: `CourseMembership` where role in (teacher, ta) and status = active.
+`isCourseTeacherOrTa(userId, courseId)` likely already exists under `packages/application/src/course/*`; reuse. If not, implement: `CourseMembership` where role in (teacher, ta) and status = active.
 
 **Step 3: Commit**
 
@@ -346,7 +346,7 @@ git commit -m "feat(domain): canOperateOnSubmission authz helper"
 
 **Files:**
 
-- Modify: `packages/domain/src/submission/authz.ts`
+- Modify: `packages/application/src/submission/authz.ts`
 - Test: `tests/unit/domain/batch-rejudge-authz.test.ts`
 
 **Step 1: Implement**
@@ -414,7 +414,7 @@ import { z } from "zod";
 import { requireAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
-import { submissionDomain, submissionRepo } from "@nojv/domain";
+import { submissionDomain, submissionRepo } from "@nojv/application";
 import { dispatchRejudge } from "@nojv/job-dispatch";
 import type { RequestHandler } from "./$types";
 
@@ -604,9 +604,9 @@ Commit `feat(db): score override repository`.
 
 **Files:**
 
-- Create: `packages/domain/src/score-override/index.ts`
-- Create: `packages/domain/src/score-override/authz.ts`
-- Modify: `packages/domain/src/index.ts` (barrel)
+- Create: `packages/application/src/score-override/index.ts`
+- Create: `packages/application/src/score-override/authz.ts`
+- Modify: `packages/application/src/index.ts` (barrel)
 - Test: `tests/unit/domain/score-override.test.ts`
 
 **Step 1: Failing tests** for create/update/delete each writing an audit row.
@@ -633,7 +633,7 @@ git commit -m "feat(domain): score override with audit log"
 
 **Files:**
 
-- Modify: `packages/domain/src/submission/scoring.ts`
+- Modify: `packages/application/src/submission/scoring.ts`
 - Modify: every reader — class stats aggregation, ICPC/IOI scoreboard builders, exam submissions matrix, per-student assessment grade view
 
 **Step 1: Add the helper**
@@ -662,11 +662,11 @@ Grep for `findBestScore` and scoreboard aggregation; wherever the final per-prob
 
 Expected surfaces (confirm by grep):
 
-- `packages/domain/src/scoring/point-sum.ts`
-- `packages/domain/src/scoring/problem-count.ts`
-- `packages/domain/src/scoring/scoreboard-builder.ts`
-- `packages/domain/src/course/progress.ts` (class stats)
-- `packages/domain/src/exam/queries.ts` (submissions matrix)
+- `packages/application/src/scoring/point-sum.ts`
+- `packages/application/src/scoring/problem-count.ts`
+- `packages/application/src/scoring/scoreboard-builder.ts`
+- `packages/application/src/course/progress.ts` (class stats)
+- `packages/application/src/exam/queries.ts` (submissions matrix)
 
 **Step 3: On override mutation, invalidate scoreboards**
 

@@ -43,7 +43,7 @@ vi.mock("@nojv/db", () => ({
   UnifiedParticipationVersionConflict,
 }));
 
-import { contestDomain, ConflictError } from "@nojv/domain";
+import { contestDomain, ConflictError } from "@nojv/application";
 
 const { updateContestScores } = contestDomain;
 

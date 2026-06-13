@@ -38,7 +38,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {},
 }));
 
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 const { createPlagiarismReport } = plagiarismDomain;
 

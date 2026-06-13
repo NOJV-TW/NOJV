@@ -175,16 +175,16 @@ Convert every `findByCourseAndSlug` / `findByComposite(courseId, slug)` / `findB
 
 Files from grep:
 
-- `packages/domain/src/course/mutations.ts` (assessment create uniqueness check — needs rethink, see §Uniqueness)
-- `packages/domain/src/course/queries.ts`
-- `packages/domain/src/submission/queries.ts`
-- `packages/domain/src/submission/mutations.ts`
-- `packages/domain/src/exam/mutations.ts`
-- `packages/domain/src/exam/session.ts`
-- `packages/domain/src/contest/queries.ts`
-- `packages/domain/src/contest/scoring.ts`
-- `packages/domain/src/contest/mutations.ts`
-- `packages/domain/src/shared/require.ts`
+- `packages/application/src/course/mutations.ts` (assessment create uniqueness check — needs rethink, see §Uniqueness)
+- `packages/application/src/course/queries.ts`
+- `packages/application/src/submission/queries.ts`
+- `packages/application/src/submission/mutations.ts`
+- `packages/application/src/exam/mutations.ts`
+- `packages/application/src/exam/session.ts`
+- `packages/application/src/contest/queries.ts`
+- `packages/application/src/contest/scoring.ts`
+- `packages/application/src/contest/mutations.ts`
+- `packages/application/src/shared/require.ts`
 - `packages/core/src/schemas/course.ts` — `assessmentSlug` → `assessmentId` on submission / draft schemas
 - `packages/core/src/schemas/submission.ts`
 - `packages/core/src/schemas/contest.ts`
@@ -218,7 +218,7 @@ Schema additions (Contest):
 
 Shared helper module:
 
-- `packages/domain/src/proctoring/` — new folder
+- `packages/application/src/proctoring/` — new folder
   - `gate.ts` — `checkProctoringGate({ entityKind: "exam"|"contest", entityId, userId, ip }): ProctoringVerdict` — consolidates membership + window + page-lock + IP-binding + IP-whitelist checks
   - `violation-logger.ts` — wraps `IpViolationLog` writes (already schema-ready for both contest + assessment FKs)
 - Migrate `apps/web/src/hooks.server.ts`'s `isExamAllowed` / `getCachedPageLockContext` to call the shared helper
@@ -307,22 +307,22 @@ Per Decisions §1, seeds keep readable ids as literal cuids (no change). Only ac
 
 ### Domain
 
-- [ ] `packages/domain/src/course/mutations.ts` — drop slug uniqueness check (nothing replaces it per Decisions §2)
-- [ ] `packages/domain/src/course/queries.ts`
-- [ ] `packages/domain/src/submission/queries.ts`
-- [ ] `packages/domain/src/submission/mutations.ts`
-- [ ] `packages/domain/src/exam/mutations.ts`
-- [ ] `packages/domain/src/exam/session.ts`
-- [ ] `packages/domain/src/contest/queries.ts`
-- [ ] `packages/domain/src/contest/mutations.ts`
-- [ ] `packages/domain/src/contest/scoring.ts`
-- [ ] `packages/domain/src/shared/require.ts`
+- [ ] `packages/application/src/course/mutations.ts` — drop slug uniqueness check (nothing replaces it per Decisions §2)
+- [ ] `packages/application/src/course/queries.ts`
+- [ ] `packages/application/src/submission/queries.ts`
+- [ ] `packages/application/src/submission/mutations.ts`
+- [ ] `packages/application/src/exam/mutations.ts`
+- [ ] `packages/application/src/exam/session.ts`
+- [ ] `packages/application/src/contest/queries.ts`
+- [ ] `packages/application/src/contest/mutations.ts`
+- [ ] `packages/application/src/contest/scoring.ts`
+- [ ] `packages/application/src/shared/require.ts`
 
 ### Proctoring helper (new module)
 
-- [ ] `packages/domain/src/proctoring/gate.ts` — `checkProctoringGate({ entityKind, entityId, userId, ip })` returning `ProctoringVerdict`. Consolidates logic currently in exam session + hooks.
-- [ ] `packages/domain/src/proctoring/violation-logger.ts` — `IpViolationLog` writer shared across contest + assessment FKs
-- [ ] `packages/domain/src/proctoring/index.ts` — barrel export
+- [ ] `packages/application/src/proctoring/gate.ts` — `checkProctoringGate({ entityKind, entityId, userId, ip })` returning `ProctoringVerdict`. Consolidates logic currently in exam session + hooks.
+- [ ] `packages/application/src/proctoring/violation-logger.ts` — `IpViolationLog` writer shared across contest + assessment FKs
+- [ ] `packages/application/src/proctoring/index.ts` — barrel export
 - [ ] `apps/web/src/lib/server/proctoring-gate.ts` — SvelteKit RequestEvent wrapper calling `checkProctoringGate`
 - [ ] `apps/web/src/hooks.server.ts` — migrate `isExamAllowed` / `getCachedPageLockContext` to the shared helper; teach it contest awareness
 
@@ -386,7 +386,7 @@ Resolved 2026-04-16:
 1. **Seed direction** — **B: keep readable strings**. `problem_add-two-numbers`, `course_os-lab-spring-2026`, etc. remain as literal ids in seeds. They are just opaque cuid-role strings; readable ones happen to help dev debugging. No production impact (UI-created rows get real cuids).
 2. **Title uniqueness within course** — **do not add `@@unique([courseId, title])`**. Slug uniqueness was a URL side-effect, not a business rule. Duplicate titles within a course are the teacher's problem to avoid via naming.
 3. **Assignment/exam detail page** — **drop the `/courses/[courseId]/...` variant entirely**. Only `/assignments/[assessmentId]` and `/exams/[examId]` exist. Teacher management UI and student overview share the same top-level route with role-gated tabs. Course-scoped list pages (`/courses/[courseId]/assignments/`, `/courses/[courseId]/exams/`) and creation pages (`/courses/[courseId]/<kind>/new`) stay because they need courseId context from the URL.
-4. **Contest proctoring** — **full parity with exam**. Contest schema gains the proctoring fields (`pageLock`, `ipBinding`, `ipWhitelist`, `ipViolationMode`, etc.). Proctoring logic extracted into a shared helper (`packages/domain/src/proctoring/`) consumed by both exam and contest layouts. IP violations continue logging via `IpViolationLog` (already has both `contestId` and `assessmentId` FKs).
+4. **Contest proctoring** — **full parity with exam**. Contest schema gains the proctoring fields (`pageLock`, `ipBinding`, `ipWhitelist`, `ipViolationMode`, etc.). Proctoring logic extracted into a shared helper (`packages/application/src/proctoring/`) consumed by both exam and contest layouts. IP violations continue logging via `IpViolationLog` (already has both `contestId` and `assessmentId` FKs).
 
 ## Verification Gates
 

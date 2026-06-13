@@ -19,7 +19,7 @@ vi.mock("@nojv/db", () => ({
 import {
   peekSchoolVerification,
   processSchoolVerification,
-} from "../../../packages/domain/src/user/verification";
+} from "../../../packages/application/src/user/verification";
 
 beforeEach(() => {
   vi.clearAllMocks();

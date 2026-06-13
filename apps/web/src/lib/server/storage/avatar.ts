@@ -1,4 +1,9 @@
-import { createStorageClient, deleteUserAvatar, uploadUserAvatar } from "@nojv/storage";
+import {
+  createStorageClient,
+  deleteUserAvatar,
+  downloadUserAvatar,
+  uploadUserAvatar,
+} from "@nojv/storage";
 
 import type { ActorContext } from "../auth";
 import { createLogger } from "../logger";
@@ -16,7 +21,8 @@ export async function uploadAvatar(
   assertImageFormat(file.buffer, ["webp"]);
 
   const client = createStorageClient();
-  const url = await uploadUserAvatar(client, actor.userId, file.buffer);
+  await uploadUserAvatar(client, actor.userId, file.buffer);
+  const url = `/api/storage/avatars/${encodeURIComponent(actor.userId)}?v=${String(Date.now())}`;
   return { url };
 }
 
@@ -30,4 +36,8 @@ export async function deleteAvatar(actor: ActorContext): Promise<void> {
       err: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+export async function readAvatar(userId: string): Promise<Buffer> {
+  return downloadUserAvatar(createStorageClient(), userId);
 }

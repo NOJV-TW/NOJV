@@ -74,25 +74,14 @@ async function materializeConfiguredSources(
 ): Promise<void> {
   for (const sourceFile of config.sourceFiles ?? []) {
     const normalizedPath = normalizeRelativePath(sourceFile.path);
-    if (!normalizedPath) {
-      continue;
-    }
     await writeWorkFile(workDir, normalizedPath, sourceFile.content);
   }
 
   for (const fileRef of config.sourceFileMap ?? []) {
     const normalizedPath = normalizeRelativePath(fileRef.path);
     const normalizedKey = normalizeRelativePath(fileRef.key);
-    if (!normalizedPath || !normalizedKey) {
-      continue;
-    }
-
-    try {
-      const content = await fs.readFile(path.join(SUBMISSION_DIR, normalizedKey), "utf-8");
-      await writeWorkFile(workDir, normalizedPath, content);
-    } catch {
-      continue;
-    }
+    const content = await fs.readFile(path.join(SUBMISSION_DIR, normalizedKey), "utf-8");
+    await writeWorkFile(workDir, normalizedPath, content);
   }
 }
 
@@ -255,8 +244,7 @@ async function compileSubmission(
   await materializeConfiguredSources(config, workDir);
 
   const defaultEntry = sourceFileName(config.language);
-  const entryFile =
-    (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
+  const entryFile = config.entryFile ? normalizeRelativePath(config.entryFile) : defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
   if (!(await pathExists(srcFile))) {

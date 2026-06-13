@@ -4,7 +4,7 @@
 
 **Goal:** Replace the current 8-section `/dashboard` page with a focused 4-section student-ability overview (hero stat bar, 30-day heatmap, tag/difficulty/verdict profile, recent submissions) and fix the Fraunces-on-CJK typography issue.
 
-**Architecture:** Extend `getUserAnalytics` in `packages/domain` with a pure `byTag` aggregation. Add one new DOM-based heatmap component in `apps/web`. Rewrite the dashboard route's server loader + page template. Add/remove i18n keys. Nothing else in the codebase is touched.
+**Architecture:** Extend `getUserAnalytics` in `packages/application` with a pure `byTag` aggregation. Add one new DOM-based heatmap component in `apps/web`. Rewrite the dashboard route's server loader + page template. Add/remove i18n keys. Nothing else in the codebase is touched.
 
 **Tech Stack:** SvelteKit 5 (runes), TypeScript, Tailwind CSS 4, ECharts 6 (lazy), Paraglide JS, Vitest, Prisma 7.
 
@@ -16,13 +16,13 @@
 
 **New files:**
 
-- `packages/domain/src/user/analytics-helpers.ts` — pure aggregation helpers (tag counting). Pure fns so they're trivial to unit-test without mocking Prisma.
+- `packages/application/src/user/analytics-helpers.ts` — pure aggregation helpers (tag counting). Pure fns so they're trivial to unit-test without mocking Prisma.
 - `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` — 30-cell DOM heatmap with tooltips.
 - `tests/unit/domain/user-analytics-helpers.test.ts` — covers the tag aggregation helper.
 
 **Modified files:**
 
-- `packages/domain/src/user/queries.ts` — wire the helper into `getUserAnalytics`, extend `UserAnalytics` interface with `byTag`.
+- `packages/application/src/user/queries.ts` — wire the helper into `getUserAnalytics`, extend `UserAnalytics` interface with `byTag`.
 - `apps/web/src/routes/(app)/dashboard/+page.server.ts` — drop courses/assessments/announcements loads.
 - `apps/web/src/routes/(app)/dashboard/+page.svelte` — full rewrite per spec.
 - `apps/web/messages/zh-TW.json` — add 5 new keys, remove unused ones.
@@ -36,7 +36,7 @@
 
 **Files:**
 
-- Create: `packages/domain/src/user/analytics-helpers.ts`
+- Create: `packages/application/src/user/analytics-helpers.ts`
 - Create: `tests/unit/domain/user-analytics-helpers.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -45,7 +45,7 @@ Create `tests/unit/domain/user-analytics-helpers.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { aggregateByTag } from "@nojv/domain";
+import { aggregateByTag } from "@nojv/application";
 
 describe("aggregateByTag", () => {
   it("returns an empty array when there are no AC rows", () => {
@@ -90,7 +90,7 @@ describe("aggregateByTag", () => {
 });
 ```
 
-The import is intentionally through the top-level `@nojv/domain` barrel (not a subpath) so no `package.json` exports surgery is needed. We'll wire the re-export in Step 4.
+The import is intentionally through the top-level `@nojv/application` barrel (not a subpath) so no `package.json` exports surgery is needed. We'll wire the re-export in Step 4.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -98,11 +98,11 @@ The import is intentionally through the top-level `@nojv/domain` barrel (not a s
 pnpm vitest run tests/unit/domain/user-analytics-helpers.test.ts
 ```
 
-Expected: FAIL with an import error (`aggregateByTag` is not exported from `@nojv/domain`).
+Expected: FAIL with an import error (`aggregateByTag` is not exported from `@nojv/application`).
 
 - [ ] **Step 3: Implement `aggregateByTag`**
 
-Create `packages/domain/src/user/analytics-helpers.ts`:
+Create `packages/application/src/user/analytics-helpers.ts`:
 
 ```ts
 export interface TagAcCount {
@@ -137,21 +137,21 @@ export function aggregateByTag(rows: readonly AcRow[]): TagAcCount[] {
 
 - [ ] **Step 4: Re-export from the package barrels**
 
-Edit `packages/domain/src/user/index.ts` — append:
+Edit `packages/application/src/user/index.ts` — append:
 
 ```ts
 export { aggregateByTag } from "./analytics-helpers";
 export type { TagAcCount } from "./analytics-helpers";
 ```
 
-Verify `packages/domain/src/index.ts` re-exports everything from `./user` (it almost certainly does — look for a line like `export * from "./user"` or a namespace re-export). If it uses a namespace pattern, make sure `aggregateByTag` and `TagAcCount` are reachable as named exports from `@nojv/domain`. If they are not reachable, add:
+Verify `packages/application/src/index.ts` re-exports everything from `./user` (it almost certainly does — look for a line like `export * from "./user"` or a namespace re-export). If it uses a namespace pattern, make sure `aggregateByTag` and `TagAcCount` are reachable as named exports from `@nojv/application`. If they are not reachable, add:
 
 ```ts
 export { aggregateByTag } from "./user/analytics-helpers";
 export type { TagAcCount } from "./user/analytics-helpers";
 ```
 
-to `packages/domain/src/index.ts`.
+to `packages/application/src/index.ts`.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -164,9 +164,9 @@ Expected: all 4 tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/domain/src/user/analytics-helpers.ts \
-        packages/domain/src/user/index.ts \
-        packages/domain/src/index.ts \
+git add packages/application/src/user/analytics-helpers.ts \
+        packages/application/src/user/index.ts \
+        packages/application/src/index.ts \
         tests/unit/domain/user-analytics-helpers.test.ts
 git commit -m "feat(domain): add aggregateByTag helper for user analytics"
 ```
@@ -177,11 +177,11 @@ git commit -m "feat(domain): add aggregateByTag helper for user analytics"
 
 **Files:**
 
-- Modify: `packages/domain/src/user/queries.ts` (interface `UserAnalytics` + function `getUserAnalytics`)
+- Modify: `packages/application/src/user/queries.ts` (interface `UserAnalytics` + function `getUserAnalytics`)
 
 - [ ] **Step 1: Update the `UserAnalytics` interface**
 
-Open `packages/domain/src/user/queries.ts`. Find the interface (currently at ~line 96):
+Open `packages/application/src/user/queries.ts`. Find the interface (currently at ~line 96):
 
 ```ts
 export interface UserAnalytics {
@@ -229,7 +229,7 @@ return {
 - [ ] **Step 3: Type-check**
 
 ```bash
-pnpm --filter @nojv/domain build
+pnpm --filter @nojv/application build
 ```
 
 Expected: no TypeScript errors. If `TagAcCount` is surfaced as a return type mismatch, align the `byTag` entry shape — both sides use `{ tag: string; acCount: number }` so this should Just Work.
@@ -245,7 +245,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/domain/src/user/queries.ts
+git add packages/application/src/user/queries.ts
 git commit -m "feat(domain): expose byTag from getUserAnalytics"
 ```
 
@@ -409,7 +409,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.server.ts` with:
 
 ```ts
 import { requireAuth } from "$lib/server/auth";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 import { userDailyActivityRepo } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";

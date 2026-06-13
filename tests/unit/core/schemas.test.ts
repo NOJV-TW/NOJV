@@ -163,6 +163,23 @@ describe("safeRelativePath", () => {
     expect(() => safeRelativePath.parse("/etc/passwd")).toThrow();
   });
 
+  it("rejects a leading dot segment", () => {
+    expect(() => safeRelativePath.parse("./main.py")).toThrow();
+  });
+
+  it("rejects a single dot segment", () => {
+    expect(() => safeRelativePath.parse("src/./main.py")).toThrow();
+  });
+
+  it("rejects an empty segment", () => {
+    expect(() => safeRelativePath.parse("src//main.py")).toThrow();
+  });
+
+  it("rejects leading or trailing whitespace instead of normalizing API input", () => {
+    expect(() => safeRelativePath.parse(" main.py")).toThrow();
+    expect(() => safeRelativePath.parse("main.py ")).toThrow();
+  });
+
   it("rejects a parent traversal segment", () => {
     expect(() => safeRelativePath.parse("foo/../bar")).toThrow();
   });
@@ -173,6 +190,11 @@ describe("safeRelativePath", () => {
 
   it("rejects a NUL byte", () => {
     expect(() => safeRelativePath.parse("bad\0name")).toThrow();
+  });
+
+  it("rejects a colon", () => {
+    expect(() => safeRelativePath.parse("C:/main.cpp")).toThrow();
+    expect(() => safeRelativePath.parse("main:cpp")).toThrow();
   });
 
   it("rejects a newline (would forge a MOSS boundary marker)", () => {

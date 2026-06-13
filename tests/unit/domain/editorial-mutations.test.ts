@@ -15,7 +15,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { count: vi.fn() },
 }));
 
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { updateEditorial, softDeleteEditorial, getEditorialById } = editorialDomain;
 

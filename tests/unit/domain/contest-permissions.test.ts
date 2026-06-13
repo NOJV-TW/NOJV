@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageContest } from "@nojv/domain";
+import { canManageContest } from "@nojv/application";
 
 const standalone = { createdByUserId: "owner-1" };
 

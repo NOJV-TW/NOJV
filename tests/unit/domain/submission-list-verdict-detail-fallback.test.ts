@@ -55,16 +55,16 @@ vi.mock("@nojv/storage", () => ({
   interactorKey: vi.fn(),
 }));
 
-vi.mock("../../../packages/domain/src/problem/queries", async () => {
-  const actual: typeof import("../../../packages/domain/src/problem/queries") =
-    await vi.importActual("../../../packages/domain/src/problem/queries");
+vi.mock("../../../packages/application/src/problem/queries", async () => {
+  const actual: typeof import("../../../packages/application/src/problem/queries") =
+    await vi.importActual("../../../packages/application/src/problem/queries");
   return {
     ...actual,
     getProblemPageData,
   };
 });
 
-import { submissionDomain, examDomain, virtualContestDomain } from "@nojv/domain";
+import { submissionDomain, examDomain, virtualContestDomain } from "@nojv/application";
 
 const { listProblemSubmissions } = submissionDomain;
 const { getExamProblemView, getExamProblemViewByProblemId } = examDomain;

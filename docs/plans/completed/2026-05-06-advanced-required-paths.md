@@ -180,7 +180,7 @@ export function validateRequiredPaths(
 
 **Files:**
 
-- Modify: `packages/domain/src/problem/mutations.ts` — add `updateAdvancedRequiredPaths(actor, problemId, paths)` that calls `assertProblemEditAccess` then writes via repo.
+- Modify: `packages/application/src/problem/mutations.ts` — add `updateAdvancedRequiredPaths(actor, problemId, paths)` that calls `assertProblemEditAccess` then writes via repo.
 - Modify: `packages/db/src/repositories/problem.ts` — add `updateAdvancedRequiredPaths(id, paths)` returning the updated row (or extend an existing `update` if the shape fits).
 - Modify: edit page `+page.server.ts` — new form action that parses with `requiredPathsSchema`, calls the domain mutation.
 
@@ -209,7 +209,7 @@ export function validateRequiredPaths(
 
 **Files:**
 
-- Modify: `packages/domain/src/submission/mutations.ts` (around line 135 where `special_env` workspace logic lives)
+- Modify: `packages/application/src/submission/mutations.ts` (around line 135 where `special_env` workspace logic lives)
 
 **Steps:**
 

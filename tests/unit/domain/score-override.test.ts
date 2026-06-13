@@ -77,7 +77,7 @@ import {
   NotFoundError,
   scoreOverrideDomain,
   ValidationError,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 const {
   createOverride,

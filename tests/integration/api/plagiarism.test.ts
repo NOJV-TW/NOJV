@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RequestEvent } from "@sveltejs/kit";
 
-import { ForbiddenError, plagiarismDomain } from "@nojv/domain";
+import { ForbiddenError, plagiarismDomain } from "@nojv/application";
 
 import { assertCanManagePlagiarism } from "../../../apps/web/src/lib/server/plagiarism-pair";
 import {
@@ -12,7 +12,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import type { ActorContext } from "../../../packages/domain/src/shared/actor-context";
+import type { ActorContext } from "../../../packages/application/src/shared/actor-context";
 
 type SessionRole = ActorContext["platformRole"];
 

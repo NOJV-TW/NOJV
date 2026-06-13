@@ -25,7 +25,7 @@ vi.mock("@nojv/db", () => ({
   userRepo: {},
 }));
 
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 const { getDashboardView } = userDomain;
 

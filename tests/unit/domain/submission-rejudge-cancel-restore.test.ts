@@ -8,7 +8,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { updateStatusIfIn },
 }));
 
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 
 describe("restoreSubmissionAfterCancelledRejudge", () => {
   it("only restores rows still in an in-flight status so a written verdict is never clobbered", async () => {

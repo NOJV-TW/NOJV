@@ -22,7 +22,8 @@ import {
 } from "@nojv/core";
 import {
   deleteSubmissionStorage,
-  putSubmissionSources,
+  promoteSubmissionSources,
+  putSubmissionSourcesStaged,
   putVerdictDetail,
   submissionSourcePrefix,
   submissionVerdictDetailKey,
@@ -300,16 +301,18 @@ export async function createQueuedSubmissionRecord(
     return { row: created, sources };
   });
 
+  const storageClient = storage();
   try {
-    await putSubmissionSources(storage(), submissionId, sources);
+    await putSubmissionSourcesStaged(storageClient, submissionId, sources);
+    await promoteSubmissionSources(storageClient, submissionId, sources);
   } catch (err) {
-    await deleteSubmissionStorage(storage(), submissionId).catch(() => undefined);
+    await deleteSubmissionStorage(storageClient, submissionId).catch(() => undefined);
     await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
     throw err;
   }
 
   return submissionRepo.updateStatus(submissionId, "queued").catch(async (err: unknown) => {
-    await deleteSubmissionStorage(storage(), submissionId).catch(() => undefined);
+    await deleteSubmissionStorage(storageClient, submissionId).catch(() => undefined);
     await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
     throw err;
   });
