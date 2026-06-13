@@ -245,7 +245,21 @@ is satisfied by the startup `sweepOrphanNetworks` + `finally` teardown.
 
 ---
 
-## Phase 4 — `service` mode (Docker)
+## Phase 4 — `service` mode (Docker) — ✅ DONE (`2e60da23`)
+
+**As shipped:** new `apps/worker/src/services/service-container.ts` (lifecycle modeled
+on `egress-proxy.ts`); the TA `service` image runs on `net_internal` (alias `service`)
++ `net_egress` (full network, trusted, hardened, no `--user`), best-effort readiness via
+a `NOJV_SERVICE_READY` log marker (proceeds regardless), torn down in `finally`. The run
+container is single-homed on `net_internal` with `NOJV_SERVICE_HOST=service`, no
+`HTTP_PROXY`, keeps `--user 10001`. Security invariant (run single-homed, never egress)
+locked by unit test. Real reachability/isolation is Phase 8 smoke.
+
+> **Tracked cleanup for Phase 5:** `service-container.ts` and `egress-proxy.ts` share
+> near-verbatim `collect*Logs` / `sleep` / start-stop skeleton. When the K8s sidecar
+> (Phase 5) becomes the third sidecar call site, extract a shared helper
+> (`collectContainerLogs`, `pollLogsForMarker(name, marker, {timeoutMs, throwOnTimeout})`,
+> `sleep`) into `docker-process.ts`, leaving only the per-role arg builders divergent.
 
 ### Task 4.1: service container lifecycle
 - Modify: `advanced-mode-executor.ts` — start the TA `service` image on `net_internal` (full net via a second NIC on `net_egress`, trusted), poll readiness, then start run; teardown after run.
