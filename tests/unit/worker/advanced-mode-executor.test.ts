@@ -10,7 +10,6 @@ import {
   ADVANCED_WORKSPACE_MAX_BYTES,
   buildAdvancedDockerArgs,
   deriveRunStatus,
-  dirSizeBytes,
   dirStats,
   exceedsWorkspaceCaps,
   prepareGradeWorkspace,
@@ -153,6 +152,9 @@ describe("buildAdvancedDockerArgs", () => {
       const roIdx = args.indexOf("/tmp/job/grade/run-output:/workspace/run-output:ro");
       expect(roIdx).toBeGreaterThan(0);
       expect(args[roIdx - 1]).toBe("-v");
+
+      const workspaceIdx = args.indexOf("/tmp/job/grade:/workspace");
+      expect(roIdx).toBeGreaterThan(workspaceIdx);
     });
   });
 });
@@ -254,46 +256,6 @@ describe("prepareRunWorkspace / prepareGradeWorkspace", () => {
   });
 });
 
-describe("dirSizeBytes (disk-cap watchdog)", () => {
-  let dir: string;
-
-  beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "nojv-dirsize-"));
-  });
-
-  afterEach(async () => {
-    await rm(dir, { force: true, recursive: true });
-  });
-
-  it("returns 0 for an empty directory", async () => {
-    expect(await dirSizeBytes(dir)).toBe(0);
-  });
-
-  it("returns 0 for a missing directory instead of throwing", async () => {
-    expect(await dirSizeBytes(join(dir, "does-not-exist"))).toBe(0);
-  });
-
-  it("sums file sizes across nested subdirectories", async () => {
-    await writeFile(join(dir, "a.txt"), "x".repeat(100));
-    await mkdir(join(dir, "output"), { recursive: true });
-    await writeFile(join(dir, "output", "result.json"), "y".repeat(250));
-    await mkdir(join(dir, "submission", "deep"), { recursive: true });
-    await writeFile(join(dir, "submission", "deep", "main.py"), "z".repeat(50));
-
-    expect(await dirSizeBytes(dir)).toBe(400);
-  });
-
-  it("flags a workspace that exceeds the cap and clears one that does not", async () => {
-    const small = join(dir, "small.bin");
-    await writeFile(small, "0");
-    expect(await dirSizeBytes(dir)).toBeLessThanOrEqual(ADVANCED_WORKSPACE_MAX_BYTES);
-
-    const measured = await dirSizeBytes(dir);
-    const tinyCap = 0;
-    expect(measured > tinyCap).toBe(true);
-  });
-});
-
 describe("dirStats + exceedsWorkspaceCaps (Task 2.2 watchdog)", () => {
   let dir: string;
 
@@ -303,6 +265,14 @@ describe("dirStats + exceedsWorkspaceCaps (Task 2.2 watchdog)", () => {
 
   afterEach(async () => {
     await rm(dir, { force: true, recursive: true });
+  });
+
+  it("returns zero bytes and files for an empty directory", async () => {
+    expect(await dirStats(dir)).toEqual({ bytes: 0, files: 0 });
+  });
+
+  it("returns zero bytes and files for a missing directory instead of throwing", async () => {
+    expect(await dirStats(join(dir, "does-not-exist"))).toEqual({ bytes: 0, files: 0 });
   });
 
   it("counts both bytes and files across nested subdirectories", async () => {
@@ -416,6 +386,21 @@ describe("safeCopyTree (/output capture security gate)", () => {
     await expect(
       safeCopyTree(src, dest, { maxFiles: 100_000, maxBytes: 1000 }),
     ).rejects.toBeInstanceOf(SafeCopyLimitError);
+  });
+
+  it("copies a tree at EXACTLY maxFiles without throwing (off-by-one lock)", async () => {
+    for (let i = 0; i < 5; i++) {
+      await writeFile(join(src, `f${String(i)}.txt`), "x");
+    }
+    await safeCopyTree(src, dest, { maxFiles: 5, maxBytes: ADVANCED_WORKSPACE_MAX_BYTES });
+    expect(await listFiles(dest)).toEqual(["f0.txt", "f1.txt", "f2.txt", "f3.txt", "f4.txt"]);
+  });
+
+  it("copies a tree at EXACTLY maxBytes without throwing (off-by-one lock)", async () => {
+    await writeFile(join(src, "a.bin"), "A".repeat(400));
+    await writeFile(join(src, "b.bin"), "B".repeat(600));
+    await safeCopyTree(src, dest, { maxFiles: 100_000, maxBytes: 1000 });
+    expect(await listFiles(dest)).toEqual(["a.bin", "b.bin"]);
   });
 
   it("round-trips non-UTF8 binary bytes losslessly", async () => {

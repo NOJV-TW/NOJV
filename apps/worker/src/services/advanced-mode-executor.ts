@@ -81,10 +81,6 @@ export async function dirStats(dir: string): Promise<DirStats> {
   return acc;
 }
 
-export async function dirSizeBytes(dir: string): Promise<number> {
-  return (await dirStats(dir)).bytes;
-}
-
 export function exceedsWorkspaceCaps(
   stats: DirStats,
   caps: { maxBytes: number; maxFiles: number },
@@ -430,7 +426,10 @@ export class AdvancedModeExecutor {
           "Advanced run output exceeded the file/size limit.",
         );
       }
-      throw err;
+      return advancedFallbackResult(
+        request,
+        `Failed to capture advanced run output: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     const gradeOutcome = await this.gradePhase(
