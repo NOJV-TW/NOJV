@@ -27,6 +27,8 @@ import {
 import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
+const ARTIFACT_DIR = "/artifact";
+const RUN_COMMAND_FILE = path.join(ARTIFACT_DIR, "run-command.json");
 const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
 
 function log(message: string): void {
@@ -330,12 +332,90 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   emit({ rawRuns });
 }
 
+async function runCompilePhase(config: SandboxInput): Promise<void> {
+  const compileResult = await compileSubmission(ARTIFACT_DIR, config);
+  if (!compileResult.success) {
+    process.stdout.write(JSON.stringify({ compilationError: compileResult.error }));
+    return;
+  }
+  await fs.writeFile(RUN_COMMAND_FILE, JSON.stringify(compileResult.runCommand), "utf-8");
+  process.stdout.write(JSON.stringify({ runCommand: compileResult.runCommand }));
+}
+
+async function resolveRunCommand(config: SandboxInput): Promise<string[] | null> {
+  if (config.mode?.kind === "run-case") return config.mode.runCommand;
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(RUN_COMMAND_FILE, "utf-8"));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length > 0 &&
+      parsed.every((s): s is string => typeof s === "string")
+    ) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function runSingleCase(config: SandboxInput, caseIndex: number): Promise<void> {
+  const runCommand = await resolveRunCommand(config);
+  if (!runCommand) {
+    emit({
+      pipelineError:
+        "run-case phase could not resolve a run command (missing run-command.json).",
+    });
+    return;
+  }
+
+  const testcase = (await loadTestcases()).find((tc) => tc.index === caseIndex);
+  if (!testcase) {
+    emit({ pipelineError: `Testcase ${String(caseIndex)} not found in submission bundle.` });
+    return;
+  }
+
+  const run = await runSolution(
+    runCommand,
+    testcase,
+    config.limits.timeoutMs,
+    config.limits.env,
+    true,
+  );
+  emit({ rawRuns: [run] });
+}
+
+function resolveCaseIndex(config: SandboxInput): number | null {
+  const fromEnv = process.env.SANDBOX_CASE_INDEX;
+  if (fromEnv !== undefined) {
+    const parsed = Number.parseInt(fromEnv, 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  }
+  return config.mode?.kind === "run-case" ? config.mode.caseIndex : null;
+}
+
 async function main(): Promise<void> {
   log("Reading config...");
   const config = await readConfig();
   log(
     `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.problemType}`,
   );
+
+  const phase = process.env.SANDBOX_PHASE ?? config.mode?.kind;
+
+  if (phase === "compile") {
+    await runCompilePhase(config);
+    return;
+  }
+  if (phase === "run-case") {
+    const caseIndex = resolveCaseIndex(config);
+    if (caseIndex === null) {
+      emit({ pipelineError: "run-case phase requires a valid case index." });
+      return;
+    }
+    await runSingleCase(config, caseIndex);
+    return;
+  }
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   try {

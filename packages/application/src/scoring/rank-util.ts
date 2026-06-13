@@ -43,6 +43,7 @@ export interface TimedSession {
   startsAt: Date;
   endsAt: Date;
   frozenAt: Date | null;
+  penaltyPerWrongSec?: number;
 }
 
 export function secondsSince(base: Date, later: Date): number {

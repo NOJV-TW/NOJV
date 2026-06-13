@@ -44,6 +44,8 @@ One sandboxed process per testcase. Stdin comes from the testcase `input`, stdou
 - `memoryLimitMb` — 16 MB to 1024 MB, default 256 MB
 - `env` — extra environment variables injected into the process
 
+The **effective** per-run time budget is `timeLimitMs × LANGUAGE_TIME_FACTOR[language]` (`packages/core/src/judge/time-factor.ts`), applied once where the sandbox request is built (`apps/worker/src/activities/judge.ts`). Compiled-native languages (c/cpp/rust) use factor 1.0; slower runtimes get a multiplier (go 1.5, js/ts/java 2, python 3) so the same problem is fair across languages, mirroring DOMjudge's per-language `time_factor`. Because every downstream ceiling (CPU soft TLE, CPU rlimit, wall-clock grace, docker/k8s deadlines, validator timeout) derives from this `timeoutMs`, they all scale together. The factor does not apply to Advanced Mode. Memory has no per-language factor (neither does DOMjudge).
+
 All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs, and bounded `tmpfs` mounts on `/tmp` (64m) and `/workspace` (128m).
 
 ### check
@@ -55,7 +57,7 @@ or the validator source. Only the worker (or a second isolated container that
 holds no student code) makes the AC/WA decision.
 
 - **`standard`** — token-based comparison matching the DOMjudge/ICPC default output validator, in `packages/core/src/judge/compare.ts` (`compareStandard`). Both sides are split on any run of whitespace (spaces, tabs, **and newlines**), and the resulting token lists must match element-for-element. Whitespace amount and line structure are therefore always irrelevant (`"1 2"` = `"1  2"` = `"1\n2"`); this is hard-wired and not configurable. Two per-problem knobs, set by the problem author and stored in `judgeConfig.compare`, refine token matching:
-  - `caseSensitive` (default `true`) — when `false`, tokens compare case-insensitively.
+  - `caseSensitive` (default `true`) — when `false`, tokens compare case-insensitively. Note: NOJV defaults to **strict** case matching, the opposite of DOMjudge's default validator (case-insensitive); authors who want DOMjudge-equivalent leniency must set this `false` per problem.
   - `floatTolerance` (default unset = exact) — when set to ε, two numeric tokens match if they are within absolute **or** relative error ε (the DOMjudge `float_tolerance` shorthand). Non-numeric tokens always compare exactly.
 
   The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds, so `judgeConfig.compare` only needs to reach the worker. Anything token comparison cannot express (multiple valid answers, structural checks, etc.) must be implemented as a **checker**.

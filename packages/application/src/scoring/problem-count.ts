@@ -14,6 +14,15 @@ import {
 
 export const PROBLEM_COUNT_PENALTY_PER_WRONG_SEC = 20 * 60;
 
+const NON_PENALIZED_STATUSES = new Set([
+  "queued",
+  "compiling",
+  "running",
+  "pending_upload",
+  "compile_error",
+  "system_error",
+]);
+
 interface ProblemCountScoringSubmission {
   status: string;
   createdAt: Date;
@@ -29,10 +38,11 @@ export interface ProblemCountResult {
 export function computeProblemCountPenalty(
   submissions: readonly ProblemCountScoringSubmission[],
   sessionStartsAt: Date,
+  penaltyPerWrongSec: number = PROBLEM_COUNT_PENALTY_PER_WRONG_SEC,
 ): ProblemCountResult {
   let wrongAttempts = 0;
   for (const sub of submissions) {
-    if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
+    if (NON_PENALIZED_STATUSES.has(sub.status)) {
       continue;
     }
     if (sub.status === "accepted") {
@@ -44,7 +54,7 @@ export function computeProblemCountPenalty(
         solved: true,
         wrongAttempts,
         firstAcTimeSec,
-        penaltySeconds: firstAcTimeSec + wrongAttempts * PROBLEM_COUNT_PENALTY_PER_WRONG_SEC,
+        penaltySeconds: firstAcTimeSec + wrongAttempts * penaltyPerWrongSec,
       };
     }
     wrongAttempts++;
@@ -74,6 +84,7 @@ export function buildProblemCountScoreboard(
   }
 
   const subsByUser = groupByUser(submissions);
+  const penaltyPerWrongSec = session.penaltyPerWrongSec ?? PROBLEM_COUNT_PENALTY_PER_WRONG_SEC;
 
   const entries: ScoreboardEntry[] = participants.map((p) => {
     const userSubs = subsByUser.get(p.userId) ?? [];
@@ -86,7 +97,11 @@ export function buildProblemCountScoreboard(
       const probSubs = userSubs.filter((s) => s.problemId === prob.id);
       const { visibleSubs, isFrozen } = splitFrozenVisible(probSubs, frozenAt, showFrozen);
 
-      const result = computeProblemCountPenalty(visibleSubs, session.startsAt);
+      const result = computeProblemCountPenalty(
+        visibleSubs,
+        session.startsAt,
+        penaltyPerWrongSec,
+      );
       const score = result.solved ? prob.points : 0;
       if (result.solved) {
         totalScore += prob.points;

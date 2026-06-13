@@ -130,10 +130,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
           summary: contest.summary,
           startsAt: toDateTimeLocal(contest.startsAt),
           endsAt: toDateTimeLocal(contest.endsAt),
+          frozenAt: toDateTimeLocal(contest.frozenAt),
           scoringMode: contest.scoringMode,
           scoreboardMode: contest.scoreboardMode,
           allowedLanguages: contest.allowedLanguages,
           submitCooldownSec: contest.submitCooldownSec,
+          penaltyMinutesPerWrong: contest.penaltyMinutesPerWrong,
         },
         zod4(contestSettingsFormSchema),
       );
@@ -194,10 +196,12 @@ export const actions: Actions = {
       summary: form.data.summary ? form.data.summary : undefined,
       startsAt: toIsoOrUndefined(form.data.startsAt),
       endsAt: toIsoOrUndefined(form.data.endsAt),
+      frozenAt: toIsoOrUndefined(form.data.frozenAt),
       scoringMode: form.data.scoringMode,
       scoreboardMode: form.data.scoreboardMode,
       allowedLanguages: form.data.allowedLanguages,
       submitCooldownSec: form.data.submitCooldownSec,
+      penaltyMinutesPerWrong: form.data.penaltyMinutesPerWrong,
     });
     if (!parsed.success) {
       return message<FormMessage>(

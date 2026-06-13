@@ -32,6 +32,7 @@ export const contestFormSchema = z.object({
   id: slugSchema,
   startsAt: z.string().min(1),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
+  penaltyMinutesPerWrong: z.coerce.number().int().min(0).max(1440).default(20),
   summary: z.string().min(8).max(4_000),
   title: z.string().min(3).max(120),
 });
@@ -172,6 +173,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       id: payload.id,
       startsAt: new Date(payload.startsAt),
       submitCooldownSec: payload.submitCooldownSec,
+      penaltyMinutesPerWrong: payload.penaltyMinutesPerWrong,
       summary: payload.summary,
       title: payload.title,
       visibility: "published",
@@ -208,6 +210,7 @@ export async function updateContestRecord(
       summary: payload.summary,
       scoringMode: payload.scoringMode,
       submitCooldownSec: payload.submitCooldownSec,
+      penaltyMinutesPerWrong: payload.penaltyMinutesPerWrong,
       allowedLanguages: payload.allowedLanguages,
       scoreboardMode: payload.scoreboardMode,
     });
