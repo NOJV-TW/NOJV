@@ -357,6 +357,19 @@ describe("getJudgeContext", () => {
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.advanced).toBeNull();
     });
+
+    it("throws IntegrityError for special_env with a present-but-invalid advancedConfig", async () => {
+      const row = mkSubmissionRow(
+        {},
+        {
+          type: "special_env",
+          advancedConfig: { run: { imageRef: "img:tag" } },
+        },
+      );
+      findByIdWithJudgeContext.mockResolvedValue(row);
+
+      await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
+    });
   });
 
   describe("deriveJudgeMode", () => {

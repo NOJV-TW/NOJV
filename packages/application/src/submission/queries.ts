@@ -15,6 +15,7 @@ import {
   submissionVerdictSchema,
   verdictSummarySchema,
   type AdjustmentRules,
+  type AdvancedConfig,
   type JudgeConfig,
   type Language,
   type ProblemJudgeTestcase,
@@ -345,6 +346,17 @@ function parseAdjustmentRules(raw: unknown, submissionId: string): AdjustmentRul
   );
 }
 
+function parseAdvancedConfig(raw: unknown, submissionId: string): AdvancedConfig | null {
+  if (raw == null) return null;
+  const result = advancedConfigSchema.safeParse(raw);
+  if (result.success) return result.data;
+  throw new IntegrityError(
+    `Invalid advancedConfig for submission ${submissionId}: ${result.error.issues
+      .map((issue) => issue.path.join(".") || issue.code)
+      .join(", ")}`,
+  );
+}
+
 function parseInputFileKeys(raw: unknown, testcaseId: string): Record<string, string> | null {
   if (raw == null) return null;
   const result = inputFileKeysSchema.safeParse(raw);
@@ -431,11 +443,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 
   const problemType = problem.type;
-  const parsedAdvancedConfig = advancedConfigSchema.safeParse(problem.advancedConfig);
+  const advancedConfig = parseAdvancedConfig(problem.advancedConfig, submissionId);
   const advanced: AdvancedModeContext | null =
-    problemType === "special_env" && parsedAdvancedConfig.success
+    problemType === "special_env" && advancedConfig !== null
       ? {
-          config: parsedAdvancedConfig.data,
+          config: advancedConfig,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
             memoryMb: problem.memoryLimitMb,

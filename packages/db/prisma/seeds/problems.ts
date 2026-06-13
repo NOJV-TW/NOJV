@@ -11,7 +11,7 @@ import {
   workspaceFileKey,
 } from "@nojv/storage";
 
-import type { Prisma, PrismaClient } from "../../generated/prisma/client";
+import { Prisma, type PrismaClient } from "../../generated/prisma/client";
 
 const SEED_DIFFICULTIES = ["easy", "medium", "hard"] as const;
 type SeedDifficulty = (typeof SEED_DIFFICULTIES)[number];
