@@ -4,6 +4,8 @@ import {
   createBoundedBuffer,
   createMemoryPoller,
   readCgroupCpuUsageUsec,
+  readCgroupMemoryCurrentBytes,
+  readCgroupMemoryPeakBytes,
   withProcessLimit,
 } from "../utils.js";
 
@@ -28,10 +30,14 @@ export function runProcess(
     timeoutMs: number;
     env?: Record<string, string>;
     cpuSeconds?: number;
+    measureCgroupMemoryPeak?: boolean;
   },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
     const startCpuUsec = readCgroupCpuUsageUsec();
+    const memBaselineBytes = options.measureCgroupMemoryPeak
+      ? readCgroupMemoryCurrentBytes()
+      : null;
     const startTime = performance.now();
     const wallBudgetMs = options.timeoutMs * WALL_GRACE_FACTOR;
     const [cmd, ...args] = command;
@@ -96,7 +102,15 @@ export function runProcess(
           ? Math.max(0, Math.round((endCpuUsec - startCpuUsec) / 1000))
           : null;
       const judgedMs = cpuMs ?? elapsedMs;
-      const memoryKb = memoryPoller?.stop() ?? 0;
+      const pollerKb = memoryPoller?.stop() ?? 0;
+      let memoryKb = pollerKb;
+      if (options.measureCgroupMemoryPeak && memBaselineBytes !== null) {
+        const peakAfter = readCgroupMemoryPeakBytes();
+        if (peakAfter !== null) {
+          const cgroupKb = Math.max(0, Math.round((peakAfter - memBaselineBytes) / 1024));
+          memoryKb = Math.max(pollerKb, cgroupKb);
+        }
+      }
       const rawStderr = stderrBuf.toString();
       const execFailed =
         isWrapped &&

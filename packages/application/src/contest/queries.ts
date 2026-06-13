@@ -52,6 +52,7 @@ export interface ContestDetail {
   scoringMode: ContestScoringMode;
   startsAt: string;
   submitCooldownSec: number;
+  penaltyMinutesPerWrong: number;
   summary: string;
   title: string;
   visibility: "draft" | "published";
@@ -108,6 +109,7 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
     scoringMode: contest.scoringMode,
     startsAt: contest.startsAt.toISOString(),
     submitCooldownSec: contest.submitCooldownSec,
+    penaltyMinutesPerWrong: contest.penaltyMinutesPerWrong,
     summary: contest.summary,
     title: contest.title,
     visibility: contest.visibility,

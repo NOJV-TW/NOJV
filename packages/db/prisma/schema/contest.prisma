@@ -64,6 +64,8 @@ model Contest {
   frozenAt          DateTime?
   submitCooldownSec Int                @default(0)
 
+  penaltyMinutesPerWrong Int @default(20)
+
   allowedLanguages SupportedLanguage[] @default([])
 
   inviteCode      String?  @unique

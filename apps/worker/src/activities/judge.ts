@@ -1,4 +1,5 @@
 import {
+  effectiveTimeLimitMs,
   entryFileNameFor,
   submissionResultSchema,
   type Language,
@@ -212,7 +213,7 @@ export async function executeSandbox(
       ...(judgeContext.compareOptions != null ? { compare: judgeContext.compareOptions } : {}),
     },
     limits: {
-      timeoutMs: judgeContext.runtime.timeLimitMs,
+      timeoutMs: effectiveTimeLimitMs(judgeContext.runtime.timeLimitMs, draft.language),
       memoryMb: judgeContext.runtime.memoryLimitMb,
       ...(Object.keys(judgeContext.runtime.env).length > 0
         ? { env: judgeContext.runtime.env }

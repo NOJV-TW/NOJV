@@ -183,6 +183,31 @@
       </div>
 
       <div>
+        <label class="text-sm font-medium" for="penaltyMinutesPerWrong"
+          >{m.contestCreate_penaltyMinutes()}</label
+        >
+        <input
+          class={inputClassName}
+          id="penaltyMinutesPerWrong"
+          name="penaltyMinutesPerWrong"
+          type="number"
+          min="0"
+          max="1440"
+          bind:value={$form.penaltyMinutesPerWrong}
+          aria-invalid={Boolean($errors.penaltyMinutesPerWrong)}
+          aria-describedby={$errors.penaltyMinutesPerWrong
+            ? "penaltyMinutesPerWrong-error"
+            : undefined}
+        />
+        {#if $errors.penaltyMinutesPerWrong}<p
+            id="penaltyMinutesPerWrong-error"
+            class="mt-1 text-xs text-destructive"
+          >
+            {$errors.penaltyMinutesPerWrong}
+          </p>{/if}
+      </div>
+
+      <div>
         <label class="text-sm font-medium" for="scoreboardMode"
           >{m.contestCreate_scoreboardMode()}</label
         >

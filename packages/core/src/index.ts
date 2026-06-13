@@ -21,5 +21,6 @@ export * from "./redis-connection";
 export * from "./sandbox";
 export * from "./judge/compare";
 export * from "./judge/validator";
+export * from "./judge/time-factor";
 export * from "./reserved-username";
 export * from "./language-templates";

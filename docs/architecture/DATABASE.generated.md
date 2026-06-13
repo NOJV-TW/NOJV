@@ -277,6 +277,7 @@ Indexes & constraints: `@@unique([userId, examId])`, `@@index([examId, endedAt])
 | `frozenBoard` | `Boolean` | `@default(true)` |
 | `frozenAt` | `DateTime?` | — |
 | `submitCooldownSec` | `Int` | `@default(0)` |
+| `penaltyMinutesPerWrong` | `Int` | `@default(20)` |
 | `allowedLanguages` | `SupportedLanguage[]` | `@default([])` |
 | `inviteCode` | `String?` | `@unique` |
 | `createdByUserId` | `String?` | — |
