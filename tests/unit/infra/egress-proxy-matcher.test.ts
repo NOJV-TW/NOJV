@@ -1,0 +1,86 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { describe, expect, it } from "vitest";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const proxyPath = join(here, "..", "..", "..", "infra", "docker", "egress-proxy", "proxy.mjs");
+
+const { matchesAllowlist, parseAllowlist } = (await import(
+  pathToFileURL(proxyPath).href
+)) as typeof import("../../../infra/docker/egress-proxy/proxy.mjs");
+
+describe("matchesAllowlist", () => {
+  it("allows an exact host:port entry", () => {
+    const allowlist = parseAllowlist("api.example.com:443");
+    expect(matchesAllowlist(allowlist, "api.example.com", 443)).toBe(true);
+  });
+
+  it("allows a bare-host entry on default ports 80 and 443", () => {
+    const allowlist = parseAllowlist("api.example.com");
+    expect(matchesAllowlist(allowlist, "api.example.com", 80)).toBe(true);
+    expect(matchesAllowlist(allowlist, "api.example.com", 443)).toBe(true);
+  });
+
+  it("denies a bare-host entry on a non-default port", () => {
+    const allowlist = parseAllowlist("api.example.com");
+    expect(matchesAllowlist(allowlist, "api.example.com", 8080)).toBe(false);
+  });
+
+  it("denies a host that is not on the list", () => {
+    const allowlist = parseAllowlist("api.example.com:443");
+    expect(matchesAllowlist(allowlist, "evil.example.com", 443)).toBe(false);
+  });
+
+  it("denies a listed host on a non-listed port", () => {
+    const allowlist = parseAllowlist("api.example.com:443");
+    expect(matchesAllowlist(allowlist, "api.example.com", 80)).toBe(false);
+  });
+
+  it("normalizes host case", () => {
+    const allowlist = parseAllowlist("API.Example.COM:443");
+    expect(matchesAllowlist(allowlist, "api.example.com", 443)).toBe(true);
+    expect(
+      matchesAllowlist(parseAllowlist("api.example.com:443"), "API.EXAMPLE.COM", 443),
+    ).toBe(true);
+  });
+
+  it("normalizes a trailing dot (FQDN) on both sides", () => {
+    expect(
+      matchesAllowlist(parseAllowlist("api.example.com:443"), "api.example.com.", 443),
+    ).toBe(true);
+    expect(
+      matchesAllowlist(parseAllowlist("api.example.com.:443"), "api.example.com", 443),
+    ).toBe(true);
+  });
+
+  it("denies everything for an empty allowlist", () => {
+    const allowlist = parseAllowlist("");
+    expect(allowlist).toEqual([]);
+    expect(matchesAllowlist(allowlist, "api.example.com", 443)).toBe(false);
+    expect(matchesAllowlist(allowlist, "anything", 80)).toBe(false);
+  });
+
+  it("denies a non-numeric port", () => {
+    const allowlist = parseAllowlist("api.example.com:443");
+    expect(matchesAllowlist(allowlist, "api.example.com", Number.NaN)).toBe(false);
+  });
+});
+
+describe("parseAllowlist", () => {
+  it("parses multiple comma-separated entries with mixed forms", () => {
+    const allowlist = parseAllowlist("api.example.com:443, files.example.org , bare.host");
+    expect(matchesAllowlist(allowlist, "api.example.com", 443)).toBe(true);
+    expect(matchesAllowlist(allowlist, "api.example.com", 80)).toBe(false);
+    expect(matchesAllowlist(allowlist, "files.example.org", 80)).toBe(true);
+    expect(matchesAllowlist(allowlist, "files.example.org", 443)).toBe(true);
+    expect(matchesAllowlist(allowlist, "bare.host", 443)).toBe(true);
+  });
+
+  it("ignores blank entries and never allows an out-of-range port", () => {
+    const allowlist = parseAllowlist("api.example.com:70000,,");
+    expect(matchesAllowlist(allowlist, "api.example.com", 70_000)).toBe(false);
+    expect(matchesAllowlist(allowlist, "api.example.com", 80)).toBe(false);
+    expect(matchesAllowlist(allowlist, "api.example.com", 443)).toBe(false);
+  });
+});
