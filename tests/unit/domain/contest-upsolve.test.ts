@@ -10,7 +10,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { groupByUserAndProblem },
 }));
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { getUpsolveView } = contestDomain;
 

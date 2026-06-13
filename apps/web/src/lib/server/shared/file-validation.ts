@@ -1,4 +1,4 @@
-import { ValidationError } from "@nojv/domain";
+import { ValidationError } from "@nojv/application";
 
 export type ImageFormat = "webp" | "png" | "jpeg" | "gif";
 

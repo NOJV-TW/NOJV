@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 
 const { flagPair, buildPairKey } = plagiarismDomain;

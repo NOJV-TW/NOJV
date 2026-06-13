@@ -60,7 +60,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { examDomain, ForbiddenError, NotFoundError } from "@nojv/domain";
+import { examDomain, ForbiddenError, NotFoundError } from "@nojv/application";
 
 const { session } = examDomain;
 

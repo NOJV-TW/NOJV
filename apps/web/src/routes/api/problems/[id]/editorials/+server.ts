@@ -9,7 +9,7 @@ import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
 } from "$lib/server/shared/api-handler";
-import { editorialDomain, problemDomain } from "@nojv/domain";
+import { editorialDomain, problemDomain } from "@nojv/application";
 
 const { getProblemRowById } = problemDomain;
 const {

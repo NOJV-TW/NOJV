@@ -55,7 +55,7 @@
 
 > 批准後改用 superpowers:executing-plans 逐 task;TDD + 頻繁 commit。
 
-- **Task 1** — 在 `packages/domain/src/scoring/` 定義 `ScoringContextAdapter` 介面(loadSubmissions/loadOverrides/persist/onConflict)+ 共用 `runScoreUpdate(adapter)`(搬 retry loop,內部呼叫 persist-core)。先寫 `runScoreUpdate` 單測(mock adapter:conflict→retry、3 次→拋 ConflictError、participation 不存在→no-op)。
+- **Task 1** — 在 `packages/application/src/scoring/` 定義 `ScoringContextAdapter` 介面(loadSubmissions/loadOverrides/persist/onConflict)+ 共用 `runScoreUpdate(adapter)`(搬 retry loop,內部呼叫 persist-core)。先寫 `runScoreUpdate` 單測(mock adapter:conflict→retry、3 次→拋 ConflictError、participation 不存在→no-op)。
 - **Task 2** — `contest/scoring.ts`:`updateContestScores` 改成建 contest adapter → `runScoreUpdate`;保留回傳 `contestId`(adapter 的 `persist` 後回 contestId)。跑 `contest-scoring-race` 回歸。
 - **Task 3** — `exam/scoring.ts`:同樣建 exam adapter → `runScoreUpdate`;回傳 `void`。跑 `exam-scoring-race` 回歸。
 - **Task 4** — 評估是否把三份 `updateWithVersion` + conflict class 收成泛型 repo helper。**先做 spike 確認 Prisma 型別安全不被犧牲**(#110 spike 判定「跨三 model 型別參數化犧牲型別安全」→ 很可能維持三份,只是 adapter 包起來);型別安全無法保時**不做**。

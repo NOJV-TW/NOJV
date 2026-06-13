@@ -6,7 +6,7 @@
 
 **Architecture:**
 
-- Permission logic lives in `packages/domain/src/contest/permissions.ts` as a pure function consumed by detail page, problem solve page, and list page.
+- Permission logic lives in `packages/application/src/contest/permissions.ts` as a pure function consumed by detail page, problem solve page, and list page.
 - `getContestDetail` / `getContestWorkspaceData` are refactored to accept `{ userId, now }` and return `{ problems: ProblemSummary[] | null, problemsHidden: boolean, isManager: boolean }`. No Prisma schema or existing repo method changes; additive repo methods are added for the new list-page queries.
 - Contest list page renders Bits UI Tabs with URL-synced state (`?tab=`).
 
@@ -18,9 +18,9 @@
 
 | File                                                                                          | Purpose                                                   |
 | --------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `packages/domain/src/contest/permissions.ts` _(new)_                                          | Pure `canManageContest(userId, contest, memberships)`     |
-| `packages/domain/src/contest/queries.ts` _(modified)_                                         | Refactor detail queries; add `listContestsForUser`        |
-| `packages/domain/src/contest/index.ts` _(modified)_                                           | Export permissions module                                 |
+| `packages/application/src/contest/permissions.ts` _(new)_                                     | Pure `canManageContest(userId, contest, memberships)`     |
+| `packages/application/src/contest/queries.ts` _(modified)_                                    | Refactor detail queries; add `listContestsForUser`        |
+| `packages/application/src/contest/index.ts` _(modified)_                                      | Export permissions module                                 |
 | `packages/db/src/repositories/contest.ts` _(modified)_                                        | Additive: `listManagedForUser`, `listParticipableForUser` |
 | `packages/db/src/repositories/course.ts` _(modified)_                                         | Additive: `courseMembershipRepo.listActiveForUser`        |
 | `apps/web/src/routes/(app)/contests/+page.server.ts` _(modified)_                             | Call `listContestsForUser`, read `?tab=`                  |
@@ -41,7 +41,7 @@
 
 **Files:**
 
-- Create: `packages/domain/src/contest/permissions.ts`
+- Create: `packages/application/src/contest/permissions.ts`
 - Test: `tests/unit/domain/contest-permissions.test.ts`
 
 - [ ] **Step 1.1: Write the failing unit test**
@@ -51,7 +51,7 @@ Create `tests/unit/domain/contest-permissions.test.ts`:
 ```ts
 import { describe, expect, it } from "vitest";
 
-import { canManageContest } from "@nojv/domain";
+import { canManageContest } from "@nojv/application";
 
 const standalone = { createdByUserId: "owner-1", courseId: null };
 const courseContest = { createdByUserId: "owner-1", courseId: "course-1" };
@@ -116,11 +116,11 @@ describe("canManageContest", () => {
 - [ ] **Step 1.2: Run test to verify it fails**
 
 Run: `pnpm test:unit tests/unit/domain/contest-permissions.test.ts`
-Expected: FAIL with "canManageContest is not exported from @nojv/domain".
+Expected: FAIL with "canManageContest is not exported from @nojv/application".
 
 - [ ] **Step 1.3: Create `permissions.ts` with minimal implementation**
 
-Create `packages/domain/src/contest/permissions.ts`:
+Create `packages/application/src/contest/permissions.ts`:
 
 ```ts
 import type { CourseRole, CourseMembershipStatus } from "@nojv/db";
@@ -163,7 +163,7 @@ export function canManageContest(
 
 - [ ] **Step 1.4: Re-export from contest barrel**
 
-Modify `packages/domain/src/contest/index.ts` — add a line:
+Modify `packages/application/src/contest/index.ts` — add a line:
 
 ```ts
 export * from "./queries";
@@ -182,8 +182,8 @@ Expected: PASS, 9 tests.
 - [ ] **Step 1.6: Commit**
 
 ```bash
-git add packages/domain/src/contest/permissions.ts \
-        packages/domain/src/contest/index.ts \
+git add packages/application/src/contest/permissions.ts \
+        packages/application/src/contest/index.ts \
         tests/unit/domain/contest-permissions.test.ts
 git commit -m "feat(domain): add canManageContest permission primitive"
 ```
@@ -229,7 +229,7 @@ git commit -m "feat(db): add courseMembershipRepo.listActiveForUser"
 
 **Files:**
 
-- Modify: `packages/domain/src/contest/queries.ts`
+- Modify: `packages/application/src/contest/queries.ts`
 - Test: `tests/integration/domain/contest-visibility.test.ts`
 
 - [ ] **Step 3.1: Write the failing integration test**
@@ -246,7 +246,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { getContestDetail } = contestDomain;
 
@@ -376,7 +376,7 @@ Expected: FAIL — `getContestDetail` currently takes `(slug: string)`, and its 
 
 - [ ] **Step 3.3: Refactor `getContestDetail` and `getContestWorkspaceData`**
 
-In `packages/domain/src/contest/queries.ts`:
+In `packages/application/src/contest/queries.ts`:
 
 1. Add imports at the top:
 
@@ -500,7 +500,7 @@ Expected: PASS.
 - [ ] **Step 3.7: Commit**
 
 ```bash
-git add packages/domain/src/contest/queries.ts \
+git add packages/application/src/contest/queries.ts \
         tests/integration/domain/contest-visibility.test.ts \
         tests/integration/domain/contests.test.ts
 git commit -m "feat(domain): hide contest problems before startsAt for non-managers"
@@ -522,7 +522,7 @@ Replace the body of `load` to pass the new options object. Full replacement:
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad } from "./$types";
-import { contestDomain, getClientIp } from "@nojv/domain";
+import { contestDomain, getClientIp } from "@nojv/application";
 
 const { getContestDetail, getContestParticipationForIpCheck, checkContestIpAccess } =
   contestDomain;
@@ -743,7 +743,7 @@ Replace the `load` body:
 import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad } from "./$types";
-import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
+import { contestDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const { getContestWorkspaceData } = contestDomain;
 const { getProblemPageData } = problemDomain;
@@ -883,7 +883,7 @@ git commit -m "feat(db): add listManagedForUser and listParticipableForUser"
 
 **Files:**
 
-- Modify: `packages/domain/src/contest/queries.ts`
+- Modify: `packages/application/src/contest/queries.ts`
 - Test: `tests/integration/domain/contest-list-for-user.test.ts`
 
 - [ ] **Step 9.1: Write the failing integration test**
@@ -895,7 +895,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { listContestsForUser } = contestDomain;
 
@@ -1028,7 +1028,7 @@ Expected: FAIL — `listContestsForUser` not exported.
 
 - [ ] **Step 9.3: Implement `listContestsForUser`**
 
-Add to `packages/domain/src/contest/queries.ts`:
+Add to `packages/application/src/contest/queries.ts`:
 
 ```ts
 export interface ContestListItemForUser extends ContestListItem {
@@ -1089,7 +1089,7 @@ Expected: PASS, 7 tests.
 - [ ] **Step 9.5: Commit**
 
 ```bash
-git add packages/domain/src/contest/queries.ts \
+git add packages/application/src/contest/queries.ts \
         tests/integration/domain/contest-list-for-user.test.ts
 git commit -m "feat(domain): add listContestsForUser with managed/participable split"
 ```

@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 import { createSubscriber, keys } from "@nojv/redis";
 
 import { createTestUser, testPrisma } from "../../fixtures/factories";

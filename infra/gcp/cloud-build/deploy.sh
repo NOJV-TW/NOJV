@@ -108,8 +108,8 @@ upsert_secret nojv-s3-access-key "$S3_ACCESS_KEY"
 upsert_secret nojv-s3-secret-key "$S3_SECRET_KEY"
 upsert_secret nojv-s3-bucket "$S3_BUCKET"
 upsert_secret nojv-s3-region "$S3_REGION"
+upsert_secret nojv-edge-trust-secret "$EDGE_TRUST_SECRET"
 
-# Optional OAuth — only upsert if set
 [[ -n "${GITHUB_CLIENT_ID:-}" ]] && upsert_secret nojv-github-client-id "$GITHUB_CLIENT_ID"
 [[ -n "${GITHUB_CLIENT_SECRET:-}" ]] && upsert_secret nojv-github-client-secret "$GITHUB_CLIENT_SECRET"
 [[ -n "${GOOGLE_CLIENT_ID:-}" ]] && upsert_secret nojv-google-client-id "$GOOGLE_CLIENT_ID"
@@ -145,12 +145,12 @@ S3_ACCESS_KEY=nojv-s3-access-key:latest,\
 S3_SECRET_KEY=nojv-s3-secret-key:latest,\
 S3_BUCKET=nojv-s3-bucket:latest,\
 S3_REGION=nojv-s3-region:latest,\
+EDGE_TRUST_SECRET=nojv-edge-trust-secret:latest,\
 GITHUB_CLIENT_ID=nojv-github-client-id:latest,\
 GITHUB_CLIENT_SECRET=nojv-github-client-secret:latest,\
 GOOGLE_CLIENT_ID=nojv-google-client-id:latest,\
 GOOGLE_CLIENT_SECRET=nojv-google-client-secret:latest"
 
-# Verify deployment is serving
 WEB_URL="$(gcloud run services describe "${SERVICE_PREFIX}-web" --region "$REGION" --format='value(status.url)')"
 
 echo "Verifying deployment health..."

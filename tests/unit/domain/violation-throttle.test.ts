@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isViolationLogDue } from "@nojv/domain";
+import { isViolationLogDue } from "@nojv/application";
 
 const now = new Date("2026-05-26T10:00:00Z");
 

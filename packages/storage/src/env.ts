@@ -14,7 +14,6 @@ export const storageEnvSchema = z
     S3_SECRET_KEY: z.string().optional(),
     S3_BUCKET: z.string().default("nojv"),
     S3_REGION: z.string().default("auto"),
-    S3_PUBLIC_URL: z.string().optional(),
   })
   .superRefine((val, ctx) => {
     if (val.NODE_ENV !== "production") return;

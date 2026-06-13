@@ -477,7 +477,7 @@ pnpm ci:verify
 Steps (from `package.json`):
 
 1. `pnpm format` — Prettier formatting check
-2. `pnpm lint:domain-queries` — Guards that no `prisma.*` call leaks outside `packages/db` / `packages/domain`
+2. `pnpm lint:application-queries` — Guards that no `prisma.*` call leaks outside `packages/db` / `packages/application`
 3. `pnpm db:generate` — Regenerate Prisma client
 4. `turbo run build typecheck lint` — Build, typecheck, and lint all packages
 5. `pnpm test:unit` — Run Vitest unit tests (separate step, not inside the turbo run)

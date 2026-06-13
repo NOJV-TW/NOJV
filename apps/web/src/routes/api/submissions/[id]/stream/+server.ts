@@ -3,7 +3,7 @@ import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
 import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
 import { getClientIp } from "$lib/server/shared/client-ip";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import { submissionResultSchema } from "@nojv/core";
 
 const { getSubmissionForUser, getVerdictDetail, getSubmissionStatus, stripStaffFeedback } =

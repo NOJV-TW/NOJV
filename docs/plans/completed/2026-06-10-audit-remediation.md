@@ -98,14 +98,14 @@
 ### Task 2.1: SE verdict 語意修正
 
 - Modify: `packages/core/src/types.ts:29-36` — `submissionVerdicts` 加 `"system_error"`。
-- Modify: `packages/domain/src/submission/scoring.ts:22-28` — `verdictMap.SE = "system_error"`;`mapResult` 在跑分前**優先**偵測任何 case `verdict === "SE"`,有則回 `{ verdict: "system_error", accepted: false, score: 0, feedback: 平台故障訊息 }`,不進跑分/不扣次數。
+- Modify: `packages/application/src/submission/scoring.ts:22-28` — `verdictMap.SE = "system_error"`;`mapResult` 在跑分前**優先**偵測任何 case `verdict === "SE"`,有則回 `{ verdict: "system_error", accepted: false, score: 0, feedback: 平台故障訊息 }`,不進跑分/不扣次數。
 - Modify: VerdictBadge 元件(grep `verdictMap`/`VerdictBadge`)加 system_error 色(用 `--warning` 之類 token,非 destructive,以區別學生錯誤)。
 - Test: `tests/unit/domain/scoring-system-error.test.ts` — 單一 case SE → 最終 verdict system_error、score 0;`tests/unit` 既有 attempt-count 測試確認 system_error 不計次數(MEMORY:所有 system_error 返還)。
 
 ### Task 2.2: 大輸出截斷對齊(消除 ZodError 卡死)
 
 - 統一上限策略:在「進入 `submissionResultSchema.parse` 之前」對每 case stdout/stderr、compile error、feedback 做**截斷**(附 `…[truncated]` 標記),保證永不超過 core schema 上限。
-- Modify: `apps/worker/src/activities/judge.ts:~252`(parse 前截斷)+ `packages/domain/src/submission/scoring.ts` `mapResult`(填 caseResults 時截斷)。
+- Modify: `apps/worker/src/activities/judge.ts:~252`(parse 前截斷)+ `packages/application/src/submission/scoring.ts` `mapResult`(填 caseResults 時截斷)。
 - Modify: `apps/worker/src/services/standard-mode-executor.ts:275-289` — runner→worker 16MB 整體 cap 與每 case 上限對齊,截斷而非整筆轉 SE。
 - Test: `tests/unit/worker` 或 domain — 餵 >1MB stdout 的 case,確認不 throw 且 verdict 正常(非 system_error)、stdout 被截斷。
 
@@ -121,7 +121,7 @@
 - Modify: `apps/sandbox-runner/src/utils.ts:21-51` — 改用 cgroup memory peak(`memory.peak` / `memory.max_usage_in_bytes`)而非單一 PID VmHWM,涵蓋 fork 子行程。
 - Test: 實機(sandbox image)— fork 後大量配置記憶體應觸 MLE。標註此測試需 sandbox image(見 Wave 6 CI)。
 
-**Wave 2 驗證:** `pnpm --filter @nojv/core build`、`pnpm --filter @nojv/domain test`、typecheck。
+**Wave 2 驗證:** `pnpm --filter @nojv/core build`、`pnpm --filter @nojv/application test`、typecheck。
 
 ---
 
@@ -144,7 +144,7 @@
 
 ### Task 3.4: testcase 物件層級授權
 
-- Modify: `packages/domain/src/problem/testcase.ts:115`(四個變更函式)— 以 `setId`/`testcaseId` 操作前,先驗證該 set/testcase 屬於路由 `problemId`(repo 查 + 比對,不符則 NotFoundError/Forbidden)。
+- Modify: `packages/application/src/problem/testcase.ts:115`(四個變更函式)— 以 `setId`/`testcaseId` 操作前,先驗證該 set/testcase 屬於路由 `problemId`(repo 查 + 比對,不符則 NotFoundError/Forbidden)。
 - Test: `tests/integration` — A 題作者帶 B 題的 setId → 403/404,不得刪改。
 
 **Wave 3 驗證:** worker typecheck、domain test、相關 integration。
@@ -199,7 +199,7 @@
 ### Task 5.1: 記分板 — Redis ZSET 決策
 
 - 決策:**讓讀路徑消費既有 ZSET**(否則拆掉死寫入)。推薦接讀:`contest/exam` 的 `getScoreboard` 改先讀 Redis ZSET,miss/frozen 才從 PG 重算並回填。
-- Modify: `packages/domain/src/contest/scoring.ts:232`、`packages/redis/src/scoreboard.ts`、前端 30s `invalidateAll` 改 SSE/針對性更新。
+- Modify: `packages/application/src/contest/scoring.ts:232`、`packages/redis/src/scoreboard.ts`、前端 30s `invalidateAll` 改 SSE/針對性更新。
 - 同一請求重算兩次 → 算一次共用。
 
 ### Task 5.2: submission stream 改用 pub/sub
@@ -274,7 +274,7 @@
 
 ### Task 7.1: ESLint 分層守衛補洞
 
-- Modify: `apps/web/eslint.config.mjs:12` — 禁止 `.svelte` 元件 value-import `@nojv/domain`(只允 type-import);`packages/db` 加 import 守衛(禁 src→redis/storage,seed 例外)。
+- Modify: `apps/web/eslint.config.mjs:12` — 禁止 `.svelte` 元件 value-import `@nojv/application`(只允 type-import);`packages/db` 加 import 守衛(禁 src→redis/storage,seed 例外)。
 
 ### Task 7.2: repository 邊界收斂
 

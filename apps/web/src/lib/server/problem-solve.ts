@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 
-import { problemDomain, submissionDomain } from "@nojv/domain";
+import { problemDomain, submissionDomain } from "@nojv/application";
 import type { Language } from "@nojv/core";
 
 const {

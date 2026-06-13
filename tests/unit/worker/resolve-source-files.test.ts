@@ -52,26 +52,38 @@ describe("resolveSourceFiles", () => {
     ]);
   });
 
-  it("skips paths that normalizeRelativePath rejects", () => {
+  it("throws when a source file path is unsafe", () => {
+    expect(() =>
+      resolveSourceFiles({
+        ...base(),
+        sourceFiles: [
+          { path: "../evil.py", content: "bad" },
+          { path: "helper.py", content: "# ok" },
+        ],
+      }),
+    ).toThrow("Path contains unsafe segments");
+  });
+
+  it("does not normalize Windows or leading-dot paths", () => {
+    expect(() =>
+      resolveSourceFiles({
+        ...base(),
+        language: "cpp",
+        sourceCode: "int main(){}",
+        sourceFiles: [{ path: String.raw`.\sub\helper.cpp`, content: "// win" }],
+      }),
+    ).toThrow("Path contains unsafe characters");
+  });
+
+  it("returns multiple files in declaration order when every path is valid", () => {
     const files = resolveSourceFiles({
       ...base(),
       sourceFiles: [
-        { path: "../evil.py", content: "bad" },
-        { path: "/absolute.py", content: "bad" },
         { path: "helper.py", content: "# ok" },
+        { path: "src/util.py", content: "# util" },
       ],
     });
-    expect(files.map((f) => f.path)).toEqual(["helper.py", "main.py"]);
-  });
-
-  it("normalizes backslashes and leading ./ in paths", () => {
-    const files = resolveSourceFiles({
-      ...base(),
-      language: "cpp",
-      sourceCode: "int main(){}",
-      sourceFiles: [{ path: ".\\sub\\helper.cpp", content: "// win" }],
-    });
-    expect(files[0]?.path).toBe("sub/helper.cpp");
+    expect(files.map((f) => f.path)).toEqual(["helper.py", "src/util.py", "main.py"]);
   });
 
   it("requireSourceCode: true — suppresses fallback when sourceCode is empty string", () => {

@@ -1,5 +1,5 @@
 import { courseCreateSchema } from "@nojv/core";
-import { courseDomain } from "@nojv/domain";
+import { courseDomain } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";

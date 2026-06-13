@@ -6,7 +6,7 @@ import {
   canManageCourse,
   courseDomain,
   resolveEffectiveCourseRole,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";

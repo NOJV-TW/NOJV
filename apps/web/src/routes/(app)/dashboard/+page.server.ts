@@ -1,5 +1,5 @@
 import { requireAuth } from "$lib/server/auth";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import type { PageServerLoad } from "./$types";
 

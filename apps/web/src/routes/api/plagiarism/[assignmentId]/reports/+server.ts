@@ -5,7 +5,7 @@ import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { assertCanManagePlagiarism } from "$lib/server/plagiarism-pair";
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 const {
   getPlagiarismTarget,

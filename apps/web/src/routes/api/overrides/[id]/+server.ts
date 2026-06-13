@@ -6,7 +6,7 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
-import { scoreOverrideDomain } from "@nojv/domain";
+import { scoreOverrideDomain } from "@nojv/application";
 
 const patchSchema = z.object({
   overrideScore: z.number().int().min(0).optional(),

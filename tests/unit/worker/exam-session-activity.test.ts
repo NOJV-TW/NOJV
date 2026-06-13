@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const autoCloseForExamMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@nojv/domain", () => ({
+vi.mock("@nojv/application", () => ({
   assignmentDomain: {},
   contestDomain: {},
   examDomain: {

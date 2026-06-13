@@ -17,7 +17,7 @@ vi.mock("@nojv/db", () => ({
   examProblemRepo: { findActiveExamsForUser: findActiveExams },
 }));
 
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { resolveActiveContextForUser } = editorialDomain;
 

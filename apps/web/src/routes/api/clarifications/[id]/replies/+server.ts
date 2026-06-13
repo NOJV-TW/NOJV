@@ -6,7 +6,7 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
-import { clarificationDomain } from "@nojv/domain";
+import { clarificationDomain } from "@nojv/application";
 
 const CANNED_TEMPLATES = {
   noComment: "No comment.",

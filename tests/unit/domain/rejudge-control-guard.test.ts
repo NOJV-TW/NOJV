@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ForbiddenError, submissionDomain } from "@nojv/domain";
+import { ForbiddenError, submissionDomain } from "@nojv/application";
 
 const { assertRejudgeWorkflowId } = submissionDomain;
 

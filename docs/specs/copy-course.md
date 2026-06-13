@@ -181,12 +181,12 @@ addedByUserId: actor.userId)`.
 
 ### Domain
 
-- `packages/domain/src/course/mutations.ts` — `copyCourse` (whole
+- `packages/application/src/course/mutations.ts` — `copyCourse` (whole
   function body lives here, ~90 lines under the `export async function
 copyCourse` comment block).
-- `packages/domain/src/course/mutations.ts` — `assertCourseManager`
+- `packages/application/src/course/mutations.ts` — `assertCourseManager`
   (permission gate reused by copy + other course mutations).
-- `packages/domain/src/user/mutations.ts` — `ensureUser` (used to
+- `packages/application/src/user/mutations.ts` — `ensureUser` (used to
   materialize the actor record inside the tx).
 
 ### Schema

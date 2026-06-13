@@ -1,3 +1,5 @@
+import { parseRelativePath } from "@nojv/core";
+
 export const testcaseInputKey = (problemId: string, testcaseId: string): string =>
   `problems/${problemId}/testcases/${testcaseId}/input`;
 
@@ -9,16 +11,11 @@ export const testcaseInputFileKey = (
   testcaseId: string,
   filename: string,
 ): string => {
-  if (
-    filename.length === 0 ||
-    filename === "." ||
-    filename === ".." ||
-    // eslint-disable-next-line no-control-regex -- control chars are exactly what we're rejecting
-    /[/\\\0\x01-\x1f\x7f]/.test(filename)
-  ) {
+  const parsed = parseRelativePath(filename);
+  if (parsed.includes("/")) {
     throw new Error("testcaseInputFileKey: unsafe filename");
   }
-  return `problems/${problemId}/testcases/${testcaseId}/files/${filename}`;
+  return `problems/${problemId}/testcases/${testcaseId}/files/${parsed}`;
 };
 
 export const workspaceFileKey = (problemId: string, fileId: string): string =>
@@ -38,28 +35,15 @@ export const submissionPrefix = (submissionId: string): string =>
 export const submissionSourcePrefix = (submissionId: string): string =>
   `submissions/${submissionId}/sources/`;
 
+export const submissionSourceStagingPrefix = (submissionId: string): string =>
+  `submissions/${submissionId}/staging/sources/`;
+
 export const submissionSourceKey = (submissionId: string, path: string): string => {
-  if (path.length === 0) {
-    throw new Error("submissionSourceKey: path must not be empty");
-  }
-  if (path.startsWith("/")) {
-    throw new Error("submissionSourceKey: path must not be absolute");
-  }
-  if (path.includes("\\")) {
-    throw new Error("submissionSourceKey: path must not contain backslashes");
-  }
-  if (path.includes("\0")) {
-    throw new Error("submissionSourceKey: path must not contain NUL");
-  }
-  // eslint-disable-next-line no-control-regex -- control chars are exactly what we're rejecting
-  if (/[\x01-\x1f\x7f]/.test(path)) {
-    throw new Error("submissionSourceKey: path must not contain control characters");
-  }
-  const segments = path.split("/");
-  if (segments.includes("..")) {
-    throw new Error("submissionSourceKey: path must not contain parent traversal");
-  }
-  return `${submissionSourcePrefix(submissionId)}${path}`;
+  return `${submissionSourcePrefix(submissionId)}${parseRelativePath(path)}`;
+};
+
+export const submissionSourceStagingKey = (submissionId: string, path: string): string => {
+  return `${submissionSourceStagingPrefix(submissionId)}${parseRelativePath(path)}`;
 };
 
 export const submissionVerdictDetailKey = (submissionId: string): string =>

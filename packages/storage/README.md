@@ -7,7 +7,7 @@
 - 封裝 `@aws-sdk/client-s3`，提供有意義的高階 API（upload/download/delete）
 - 集中管理 storage key naming（testcase、workspace file、problem image、avatar、advanced image tarball）
 - 處理大檔 streaming（advanced image tarball）
-- **不負責**：DB 中的 metadata（在 `@nojv/db` repository）、權限（在 `@nojv/domain`）
+- **不負責**：DB 中的 metadata（在 `@nojv/db` repository）、權限（在 `@nojv/application`）
 
 ## 主要 API
 
@@ -20,7 +20,7 @@
 ## 依賴
 
 - 上游：`@aws-sdk/client-s3`
-- 下游：`@nojv/db`（清理資源時）、`@nojv/domain`、`apps/web`、`apps/worker`
+- 下游：`@nojv/db`（清理資源時）、`@nojv/application`、`apps/web`、`apps/worker`
 
 ## 本地開發
 

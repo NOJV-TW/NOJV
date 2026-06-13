@@ -10,7 +10,7 @@ vi.mock("@nojv/db", () => ({
   problemRepo: { findRecommendations },
 }));
 
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 const { getSuggestedProblems } = userDomain;
 

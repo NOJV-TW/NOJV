@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 const { listUsersPaginated, updateUserRole, toggleUserDisabled } = userDomain;
 

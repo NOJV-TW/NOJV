@@ -9,7 +9,7 @@ import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
 } from "$lib/server/shared/api-handler";
-import { scoreOverrideDomain } from "@nojv/domain";
+import { scoreOverrideDomain } from "@nojv/application";
 
 const contextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),

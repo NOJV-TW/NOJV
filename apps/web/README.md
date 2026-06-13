@@ -7,7 +7,7 @@
 - 渲染所有頁面（題目、提交、課程、比賽、考試、儀表板、後台）
 - 對外提供 SSR API routes（`/api/**`）給瀏覽器與第三方
 - 處理使用者認證、表單驗證、檔案上傳的 framework 接面
-- 委派業務邏輯給 `@nojv/domain`，本身只做 presentation 與 transport
+- 委派業務邏輯給 `@nojv/application`，本身只做 presentation 與 transport
 - **不負責**：直接呼叫 Prisma（除 better-auth adapter 外）、定義 workflow、跑 sandbox
 
 ## 主要入口
@@ -22,7 +22,7 @@
 
 ## 依賴
 
-- 上游：`@nojv/core`、`@nojv/domain`、`@nojv/db`（僅限 better-auth adapter）、`@nojv/redis`、`@nojv/storage`
+- 上游：`@nojv/core`、`@nojv/application`、`@nojv/db`（僅限 better-auth adapter）、`@nojv/redis`、`@nojv/storage`
 - 透過 HTTP/Temporal client：dispatch 至 `@nojv/worker` 的 workflow
 - 下游：終端使用者瀏覽器
 

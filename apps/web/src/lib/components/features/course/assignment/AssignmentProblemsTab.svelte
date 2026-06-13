@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { courseDomain, problemDomain } from "@nojv/domain";
+  import type { courseDomain, problemDomain } from "@nojv/application";
 
   export type ProblemsTabProblem = courseDomain.AssignmentDetailProblem;
   export type CandidateProblem = Awaited<

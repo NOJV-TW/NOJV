@@ -41,7 +41,7 @@ import {
   aggregateAssignmentMyStatus,
   aggregateExamClassStats,
   aggregateExamMyStatus,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 beforeEach(() => {
   groupBestScoresByAssessment.mockReset();

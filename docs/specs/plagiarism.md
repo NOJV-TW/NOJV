@@ -254,19 +254,19 @@ for staff.
 
 ### Domain
 
-- `packages/domain/src/plagiarism/index.ts` — exports
+- `packages/application/src/plagiarism/index.ts` — exports
   `getPlagiarismTarget`, `createPlagiarismReport`,
   `listSubmissionsForCheck`, `findPlagiarismReport`,
   `updateReportStatus`, `saveResults`, `markReportFailed`,
   `getPlagiarismSourceCode`, `listAssignmentPlagiarismReports`,
   `getAssignmentProblemMap`.
-- `packages/domain/src/plagiarism/flags.ts` — `buildPairKey`,
+- `packages/application/src/plagiarism/flags.ts` — `buildPairKey`,
   `flagPair`, `unflagPair`, `listFlagsForContext`. Pair-key shape:
   `[userA, userB].sort()` joined by `|` then `|problemId`. Unique on
   `(contextType, contextId, pairKey)`.
-- `packages/domain/src/plagiarism/types.ts` — `SimilarityPair` (Dolos
+- `packages/application/src/plagiarism/types.ts` — `SimilarityPair` (Dolos
   shape: `similarity`, `longest`, `overlap`).
-- `packages/domain/src/shared/permissions.ts` —
+- `packages/application/src/shared/permissions.ts` —
   `resolveEffectiveCourseRole`, `canManageCourse`.
 
 ### Schema

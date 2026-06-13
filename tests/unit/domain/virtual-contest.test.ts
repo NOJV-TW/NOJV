@@ -49,7 +49,7 @@ vi.mock("@nojv/redis", () => ({
   scoreboard: {},
 }));
 
-import { virtualContestDomain } from "@nojv/domain";
+import { virtualContestDomain } from "@nojv/application";
 
 const { startVirtualContest, getVirtualContestScoreboard, assertCanSubmitToVirtualContest } =
   virtualContestDomain;

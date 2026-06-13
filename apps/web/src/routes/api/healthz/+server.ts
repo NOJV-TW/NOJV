@@ -1,6 +1,6 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { adminDomain } from "@nojv/domain";
+import { adminDomain } from "@nojv/application";
 
 const CACHE_TTL_MS = 5000;
 

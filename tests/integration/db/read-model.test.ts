@@ -7,7 +7,7 @@ import {
   createTestUser,
 } from "../../fixtures/factories";
 
-import { problemDomain, courseDomain } from "@nojv/domain";
+import { problemDomain, courseDomain } from "@nojv/application";
 
 const { listProblemCards, getProblemPageData } = problemDomain;
 const { listCourseCards } = courseDomain;

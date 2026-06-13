@@ -12,7 +12,7 @@ vi.mock("@nojv/db", () => ({
   scoreOverrideRepo: { findAllByContext: findAllOverrides },
 }));
 
-import { examDomain } from "@nojv/domain";
+import { examDomain } from "@nojv/application";
 
 const { buildExamSubmissionsMatrix } = examDomain;
 

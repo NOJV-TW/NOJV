@@ -15,7 +15,7 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/domain";
+import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/application";
 
 const fakeTx = {} as never;
 const fakeContext = { userId: "usr_test", examId: "exm_test" };

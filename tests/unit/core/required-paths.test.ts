@@ -68,9 +68,12 @@ describe("validateRequiredPaths", () => {
 });
 
 describe("requiredPathSchema", () => {
-  it.each([["src/main.c"], ["src/"], ["Makefile"], ["a.b-c_d/e.f"]])("accepts %s", (path) => {
-    expect(requiredPathSchema.safeParse(path).success).toBe(true);
-  });
+  it.each([["src/main.c"], ["src/"], ["Makefile"], ["a.b-c_d/e.f"], ["file with space"]])(
+    "accepts %s",
+    (path) => {
+      expect(requiredPathSchema.safeParse(path).success).toBe(true);
+    },
+  );
 
   it("rejects '..' (parent traversal)", () => {
     expect(requiredPathSchema.safeParse("..").success).toBe(false);
@@ -84,20 +87,21 @@ describe("requiredPathSchema", () => {
     expect(requiredPathSchema.safeParse("/abs/path").success).toBe(false);
   });
 
-  it("rejects paths with whitespace", () => {
-    expect(requiredPathSchema.safeParse("file with space").success).toBe(false);
+  it("rejects dot segments", () => {
+    expect(requiredPathSchema.safeParse("./main.c").success).toBe(false);
+    expect(requiredPathSchema.safeParse("src/./main.c").success).toBe(false);
   });
 
-  it("rejects paths with disallowed punctuation", () => {
-    expect(requiredPathSchema.safeParse("a*b").success).toBe(false);
+  it("rejects colon characters", () => {
+    expect(requiredPathSchema.safeParse("a:b").success).toBe(false);
   });
 
   it("rejects empty strings", () => {
     expect(requiredPathSchema.safeParse("").success).toBe(false);
   });
 
-  it("rejects paths longer than 256 characters", () => {
-    expect(requiredPathSchema.safeParse("a".repeat(257)).success).toBe(false);
+  it("rejects paths longer than 300 characters", () => {
+    expect(requiredPathSchema.safeParse("a".repeat(301)).success).toBe(false);
   });
 });
 

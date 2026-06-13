@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageExam } from "@nojv/domain";
+import { canManageExam } from "@nojv/application";
 
 const exam = { createdByUserId: "owner-1", courseId: "course-1" };
 

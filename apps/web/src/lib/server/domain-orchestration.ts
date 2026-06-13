@@ -1,4 +1,4 @@
-import { configureDomainOrchestration } from "@nojv/domain";
+import { configureDomainOrchestration } from "@nojv/application";
 import {
   cancelRejudge,
   dispatchContestLifecycle,

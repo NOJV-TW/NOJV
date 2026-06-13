@@ -6,7 +6,11 @@ const { terminateSubmissionJudge } = vi.hoisted(() => ({
 
 import { SUBMISSION_PENDING_TIMEOUT_SETTING_KEY } from "@nojv/core";
 import { platformSettingRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
-import { configureDomainOrchestration, submissionDomain, ValidationError } from "@nojv/domain";
+import {
+  configureDomainOrchestration,
+  submissionDomain,
+  ValidationError,
+} from "@nojv/application";
 
 import {
   createTestCourse,

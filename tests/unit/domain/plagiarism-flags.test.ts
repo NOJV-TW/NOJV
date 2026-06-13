@@ -33,7 +33,12 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-import { ForbiddenError, NotFoundError, ValidationError, plagiarismDomain } from "@nojv/domain";
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+  plagiarismDomain,
+} from "@nojv/application";
 
 const { buildPairKey, flagPair, unflagPair, listFlagsForContext } = plagiarismDomain;
 

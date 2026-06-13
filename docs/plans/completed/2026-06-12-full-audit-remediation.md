@@ -86,7 +86,7 @@
 
 **修法:**
 
-1. 在 **domain 層**(非 route)`packages/domain/src/submission/` 加守衛:`cancelRejudge`/`queryRejudgeProgress` 先斷言 `workflowId.startsWith("rejudge-")`,否則丟 `ForbiddenError`。
+1. 在 **domain 層**(非 route)`packages/application/src/submission/` 加守衛:`cancelRejudge`/`queryRejudgeProgress` 先斷言 `workflowId.startsWith("rejudge-")`,否則丟 `ForbiddenError`。
 2. 進一步:持久化發起者(`SubmissionRejudgeLog` 已有 `rejudgedByUserId`),cancel 時要求 actor = 發起者 ∨ 該 context staff ∨ admin。最小版先做前綴檢查 + staff 守衛。
 3. 修正 `cancel/+server.ts:9-11` 與 GET route 的誤導註解。
 4. **Fitness test:** `tests/integration/http/rejudge-cancel.test.ts` — 學生對 `contest-lifecycle-x` / `submission-pending-sweeper` POST cancel 必須 403;對自己發起的 `rejudge-...` 成功。
@@ -95,7 +95,7 @@
 
 ### Task 0.2 — 🔴 P1:考試 confinement 不及於判題 API
 
-**問題(已複驗):** `packages/domain/src/submission/mutations.ts:198-315` 的提交建立流程,exam 路徑的 `assertActiveExamSubmissionAllowed`(:54-79)只檢查「無外部 context / 未結束 / cooldown」,**無題目歸屬檢查**;:256 的 `assertProblemViewAccess` 對 public 題放行。對照 contest 路徑(:246-253 `contestProblemRepo.findLink`)與 assignment 路徑(:112-115 `assessmentProblemRepo.findLink`)都有,**exam 漏了**。鎖屏中的考生可對任意 public 題提交、取得完整 verdict,submission 還被標 examId(卻不進老師 exam matrix,難察覺)。
+**問題(已複驗):** `packages/application/src/submission/mutations.ts:198-315` 的提交建立流程,exam 路徑的 `assertActiveExamSubmissionAllowed`(:54-79)只檢查「無外部 context / 未結束 / cooldown」,**無題目歸屬檢查**;:256 的 `assertProblemViewAccess` 對 public 題放行。對照 contest 路徑(:246-253 `contestProblemRepo.findLink`)與 assignment 路徑(:112-115 `assessmentProblemRepo.findLink`)都有,**exam 漏了**。鎖屏中的考生可對任意 public 題提交、取得完整 verdict,submission 還被標 examId(卻不進老師 exam matrix,難察覺)。
 
 **修法:**
 
@@ -194,7 +194,7 @@
 
 ### Task 1.5 — 🟡 P2:coverage threshold 排除 worker + sandbox-runner
 
-**問題:** `vitest.config.ts:29-35` 的 coverage include 只有 `packages/domain` + `packages/core`,把 `apps/worker`(4140 行)+ `apps/sandbox-runner`(1398 行,含 docker/k8s arg 構造)排除。歷史高風險區(mocked sandbox 抓不到 docker-arg bug)無覆蓋率門檻。
+**問題:** `vitest.config.ts:29-35` 的 coverage include 只有 `packages/application` + `packages/core`,把 `apps/worker`(4140 行)+ `apps/sandbox-runner`(1398 行,含 docker/k8s arg 構造)排除。歷史高風險區(mocked sandbox 抓不到 docker-arg bug)無覆蓋率門檻。
 
 **修法:** coverage include 納入 `apps/worker/src` + `apps/sandbox-runner/src`(可設務實門檻如 lines 70),或至少對 `services/*-executor.ts` 設 per-file 門檻。
 
@@ -359,7 +359,7 @@
 ### Task 5.1 — 🟡 P2:turbo lint 靜默跳過 @nojv/temporal + apps/sandbox-runner
 
 **問題:** 兩套件 package.json 無 lint script,`turbo lint` 靜默跳過 → 從未被 strictTypeChecked ESLint 檢查(sandbox-runner 是安全關鍵 runtime)。
-**修法:** 兩套件加 `"lint": "eslint ."`;temporal 加 `no-restricted-imports` 禁 @nojv/db、@nojv/domain;加 fitness test 斷言「每個 workspace package 都有 lint script」。
+**修法:** 兩套件加 `"lint": "eslint ."`;temporal 加 `no-restricted-imports` 禁 @nojv/db、@nojv/application;加 fitness test 斷言「每個 workspace package 都有 lint script」。
 
 ### Task 5.2 — 🟡 P2:workflow/query 名稱裸字串跨套件契約無 fitness test
 

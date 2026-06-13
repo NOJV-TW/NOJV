@@ -22,7 +22,7 @@ import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 const {
   getProblemPageData,

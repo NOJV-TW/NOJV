@@ -1,7 +1,7 @@
 # Notification Center — Persistent "Review-Later" Events
 
 **Date:** 2026-04-19
-**Scope:** New `Notification` Prisma model, `@nojv/domain/notification/*` module, 4 new API routes under `/api/notifications/*`, bell dropdown UI in navbar, SSE integration, Temporal lifecycle workflow hooks for scheduled reminders
+**Scope:** New `Notification` Prisma model, `@nojv/application/notification/*` module, 4 new API routes under `/api/notifications/*`, bell dropdown UI in navbar, SSE integration, Temporal lifecycle workflow hooks for scheduled reminders
 **Status:** Design approved, awaiting implementation
 
 ## Background
@@ -29,7 +29,7 @@ Verdict and form-success events stay in toast; they MUST NOT be duplicated into 
 ### In scope
 
 - `Notification` model + migration with capped retention (50 per user).
-- `@nojv/domain/notification/*`: `createNotification`, `createNotificationBatch`, `markAsRead`, `markAllAsRead`, `listRecent`, `countUnread`.
+- `@nojv/application/notification/*`: `createNotification`, `createNotificationBatch`, `markAsRead`, `markAllAsRead`, `listRecent`, `countUnread`.
 - 4 API routes under `/api/notifications/*`.
 - Navbar `NotificationBell` + `NotificationDropdown` + `NotificationItem` components.
 - Svelte 5 rune store `notifications.svelte.ts` with SSE integration and bell-shake animation trigger.
@@ -93,11 +93,11 @@ enum NotificationType {
 
 ### Immediate events (written inline from domain layer)
 
-| Event                    | Trigger                                    | Producer                                                                      |
-| ------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------- |
-| `course_enrolled`        | Teacher/TA adds a student to a course      | `manuallyEnrollCourseMember` in `packages/domain/src/course/mutations.ts`     |
-| `announcement_published` | Announcement transitions draft → published | `packages/domain/src/announcement/mutations.ts` (fan-out to all active users) |
-| `role_changed`           | Admin changes a user's platform role       | `packages/domain/src/admin/mutations.ts`                                      |
+| Event                    | Trigger                                    | Producer                                                                           |
+| ------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `course_enrolled`        | Teacher/TA adds a student to a course      | `manuallyEnrollCourseMember` in `packages/application/src/course/mutations.ts`     |
+| `announcement_published` | Announcement transitions draft → published | `packages/application/src/announcement/mutations.ts` (fan-out to all active users) |
+| `role_changed`           | Admin changes a user's platform role       | `packages/application/src/admin/mutations.ts`                                      |
 
 ### Scheduled events (Temporal workflow sleep-then-fan-out)
 
@@ -192,7 +192,7 @@ Announcement title is stored bilingually in `params.titleEn` / `params.titleZhTw
 
 ## Rollout Order (3 commits)
 
-1. **Schema + domain + API**: `Notification` model, migration, `@nojv/domain/notification/*`, 4 API routes, unit + integration tests. Mergeable without any UI changes.
+1. **Schema + domain + API**: `Notification` model, migration, `@nojv/application/notification/*`, 4 API routes, unit + integration tests. Mergeable without any UI changes.
 2. **Immediate-event wiring**: `manuallyEnrollCourseMember`, announcement publish, role change — each calls `createNotification`.
 3. **Scheduled events + UI**: lifecycle workflows gain sleep steps; `NotificationBell` + dropdown + store + SSE; paraglide keys; bell-shake animation.
 

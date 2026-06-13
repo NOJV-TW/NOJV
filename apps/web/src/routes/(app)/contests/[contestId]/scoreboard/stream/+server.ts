@@ -2,7 +2,7 @@ import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { keys } from "@nojv/redis";
 import { subscribeSse } from "$lib/server/shared/sse-hub";
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 import {
   sseConnectionDuration,
   sseConnectionDroppedTotal,

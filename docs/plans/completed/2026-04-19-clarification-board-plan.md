@@ -6,7 +6,7 @@
 
 **Architecture:** One `Clarification` row per question; asker identity is always stored but masked at the API projection layer for non-staff callers. Student posts publish instantly (`state: pending`); staff move the state machine to `answered | dismissed`. SSE uses a new `clarification:{contextType}:{contextId}` Redis channel.
 
-**Tech Stack:** Prisma 7, `@nojv/domain`, `@nojv/redis` pub/sub, `@nojv/core` (SSE event type), SvelteKit 5 runes, Bits UI dialog, paraglide, Vitest.
+**Tech Stack:** Prisma 7, `@nojv/application`, `@nojv/redis` pub/sub, `@nojv/core` (SSE event type), SvelteKit 5 runes, Bits UI dialog, paraglide, Vitest.
 
 **Reference design:** `docs/plans/active/2026-04-19-clarification-board-design.md`.
 
@@ -201,7 +201,7 @@ Commit `feat(core): clarification SSE event + channel`.
 
 **Files:**
 
-- Create: `packages/domain/src/clarification/authz.ts`
+- Create: `packages/application/src/clarification/authz.ts`
 - Test: `tests/unit/domain/clarification-authz.test.ts`
 
 Three functions + tests:
@@ -248,8 +248,8 @@ Commit `feat(domain): clarification authz helpers`.
 
 **Files:**
 
-- Create: `packages/domain/src/clarification/index.ts`
-- Modify: `packages/domain/src/index.ts` (barrel)
+- Create: `packages/application/src/clarification/index.ts`
+- Modify: `packages/application/src/index.ts` (barrel)
 - Test: `tests/unit/domain/clarification.test.ts`
 
 **Step 1: Write failing tests** covering:

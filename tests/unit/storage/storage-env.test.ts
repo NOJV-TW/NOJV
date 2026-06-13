@@ -49,11 +49,9 @@ describe("storageEnvSchema — centralized S3 env", () => {
       S3_ENDPOINT: "http://localhost:9000",
       S3_ACCESS_KEY: "a",
       S3_SECRET_KEY: "s",
-      S3_PUBLIC_URL: "https://cdn.example.com",
     });
     expect(env.S3_BUCKET).toBe("custom");
     expect(env.S3_REGION).toBe("us-east-1");
     expect(env.S3_ENDPOINT).toBe("http://localhost:9000");
-    expect(env.S3_PUBLIC_URL).toBe("https://cdn.example.com");
   });
 });

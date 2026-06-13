@@ -9,7 +9,7 @@ vi.mock("@nojv/db", () => ({
 }));
 
 import { LANGUAGE_TEMPLATES, supportedLanguages, type Language } from "@nojv/core";
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 const { buildStarterByLanguage } = problemDomain;
 

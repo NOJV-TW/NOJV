@@ -5,7 +5,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
-import { announcementDomain } from "@nojv/domain";
+import { announcementDomain } from "@nojv/application";
 
 function requireAdmin(event: RequestEvent) {
   const actor = requireAuth(event);

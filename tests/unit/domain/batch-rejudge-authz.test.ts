@@ -25,7 +25,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { anyWithContextForProblem: submissionAnyWithContextForProblem },
 }));
 
-import { ForbiddenError, submissionDomain } from "@nojv/domain";
+import { ForbiddenError, submissionDomain } from "@nojv/application";
 
 const { assertBatchRejudgeAccess } = submissionDomain;
 

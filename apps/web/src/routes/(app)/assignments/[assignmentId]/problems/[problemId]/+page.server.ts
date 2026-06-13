@@ -1,7 +1,7 @@
 import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { assignmentDomain, submissionDomain } from "@nojv/domain";
+import { assignmentDomain, submissionDomain } from "@nojv/application";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { loadProblemSolveData } from "$lib/server/problem-solve";

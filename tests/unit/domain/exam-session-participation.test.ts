@@ -51,7 +51,7 @@ vi.mock("@nojv/db", () => ({
     }),
 }));
 
-import { examDomain } from "@nojv/domain";
+import { examDomain } from "@nojv/application";
 
 const { startSession } = examDomain.session;
 

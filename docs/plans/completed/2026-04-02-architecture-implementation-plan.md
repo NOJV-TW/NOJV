@@ -4,7 +4,7 @@
 
 **Goal:** Refactor NOJV from a monolithic web app into a multi-tier architecture with proper layer separation (Presentation → Service → Persistence → Data) and cross-cutting Infrastructure packages.
 
-**Architecture:** Create 3 new packages (`@nojv/redis`, `@nojv/job-dispatch`, `@nojv/domain`), add repository pattern to `@nojv/db`, then migrate all business logic from `apps/web/src/lib/server/` into `@nojv/domain` and update `@nojv/temporal` activities to call domain functions instead of direct Prisma access.
+**Architecture:** Create 3 new packages (`@nojv/redis`, `@nojv/job-dispatch`, `@nojv/application`), add repository pattern to `@nojv/db`, then migrate all business logic from `apps/web/src/lib/server/` into `@nojv/application` and update `@nojv/temporal` activities to call domain functions instead of direct Prisma access.
 
 **Tech Stack:** TypeScript ESM, pnpm workspaces, tsdown build, Prisma 7, ioredis, @temporalio/client
 
@@ -791,22 +791,22 @@ git commit -m "feat: add repository pattern to @nojv/db"
 
 ---
 
-## Phase 4: Create `@nojv/domain` Package
+## Phase 4: Create `@nojv/application` Package
 
-This is the largest phase. Move ALL business logic from `apps/web/src/lib/server/` into `@nojv/domain`.
+This is the largest phase. Move ALL business logic from `apps/web/src/lib/server/` into `@nojv/application`.
 
-### Task 4.1: Scaffold `@nojv/domain` package
+### Task 4.1: Scaffold `@nojv/application` package
 
 **Files:**
 
-- Create: `packages/domain/package.json`
-- Create: `packages/domain/tsconfig.json`
+- Create: `packages/application/package.json`
+- Create: `packages/application/tsconfig.json`
 
 **package.json:**
 
 ```json
 {
-  "name": "@nojv/domain",
+  "name": "@nojv/application",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -840,8 +840,8 @@ Run: `pnpm install`
 
 **Files:**
 
-- Create: `packages/domain/src/shared/errors.ts`
-- Create: `packages/domain/src/shared/permissions.ts`
+- Create: `packages/application/src/shared/errors.ts`
+- Create: `packages/application/src/shared/permissions.ts`
 
 **errors.ts** — move from `apps/web/src/lib/server/auth.ts:14-40`:
 
@@ -898,18 +898,18 @@ export function canEditProblem(platformRole: PlatformRole): boolean {
 
 For each domain, move the corresponding files from `apps/web/src/lib/server/`:
 
-| Domain module                     | Source files to move                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------- |
-| `packages/domain/src/problem/`    | `apps/web/src/lib/server/problem/queries.ts`, `mutations.ts`, `editorial-queries.ts`        |
-| `packages/domain/src/submission/` | `apps/web/src/lib/server/submission/queries.ts`, `mutations.ts`                             |
-| `packages/domain/src/contest/`    | `apps/web/src/lib/server/contest/queries.ts`, `mutations.ts`, `scoreboard.ts`, `schemas.ts` |
-| `packages/domain/src/course/`     | `apps/web/src/lib/server/course/queries.ts`, `mutations.ts`, `progress.ts`                  |
-| `packages/domain/src/user/`       | `apps/web/src/lib/server/user/mutations.ts`                                                 |
-| `packages/domain/src/shared/`     | `ip-utils.ts`, `page-lock.ts`, `permissions.ts`, errors                                     |
+| Domain module                          | Source files to move                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `packages/application/src/problem/`    | `apps/web/src/lib/server/problem/queries.ts`, `mutations.ts`, `editorial-queries.ts`        |
+| `packages/application/src/submission/` | `apps/web/src/lib/server/submission/queries.ts`, `mutations.ts`                             |
+| `packages/application/src/contest/`    | `apps/web/src/lib/server/contest/queries.ts`, `mutations.ts`, `scoreboard.ts`, `schemas.ts` |
+| `packages/application/src/course/`     | `apps/web/src/lib/server/course/queries.ts`, `mutations.ts`, `progress.ts`                  |
+| `packages/application/src/user/`       | `apps/web/src/lib/server/user/mutations.ts`                                                 |
+| `packages/application/src/shared/`     | `ip-utils.ts`, `page-lock.ts`, `permissions.ts`, errors                                     |
 
 **Migration procedure for each domain module:**
 
-1. Copy the source file into `packages/domain/src/<domain>/`
+1. Copy the source file into `packages/application/src/<domain>/`
 2. Replace all `import { prisma } from "@nojv/db"` with repository imports: `import { submissionRepo } from "@nojv/db"`
 3. Replace all direct `prisma.xxx.yyy()` calls with `xxxRepo.yyy()` calls
 4. Replace Redis imports: `import { setCooldown } from "$lib/server/redis"` → `import { cooldown } from "@nojv/redis"`
@@ -923,17 +923,17 @@ For each domain, move the corresponding files from `apps/web/src/lib/server/`:
 
 Some functions in `apps/web/src/lib/server/` use SvelteKit types (e.g., `redirect()`, `RequestEvent`). These CANNOT move to domain. Split them:
 
-- **Domain function** (in `@nojv/domain`): Pure business logic, takes plain params, returns DTO
+- **Domain function** (in `@nojv/application`): Pure business logic, takes plain params, returns DTO
 - **Adapter function** (stays in `apps/web`): Extracts params from SvelteKit types, calls domain, handles redirect/error
 
 Example split for `requireAuth`:
 
 ```typescript
-// @nojv/domain — does not exist, this is a web-only concern
+// @nojv/application — does not exist, this is a web-only concern
 // requireAuth stays in apps/web, but calls domain for permission checks
 
 // apps/web/src/lib/server/auth.ts (stays here, but simplified)
-import { resolveEffectiveCourseRole, canManageCourse } from "@nojv/domain";
+import { resolveEffectiveCourseRole, canManageCourse } from "@nojv/application";
 import { redirect } from "@sveltejs/kit";
 // ... SvelteKit-specific guards stay here
 ```
@@ -942,7 +942,7 @@ import { redirect } from "@sveltejs/kit";
 
 **Files:**
 
-- Create: `packages/domain/src/index.ts`
+- Create: `packages/application/src/index.ts`
 
 ```typescript
 export * as problemDomain from "./problem";
@@ -958,7 +958,7 @@ export * from "./shared/permissions";
 Each domain module has its own `index.ts` that re-exports queries and commands:
 
 ```typescript
-// packages/domain/src/problem/index.ts
+// packages/application/src/problem/index.ts
 export * from "./queries";
 export * from "./mutations";
 export * from "./editorial-queries";
@@ -966,7 +966,7 @@ export * from "./editorial-queries";
 
 ### Task 4.5: Build and verify
 
-Run: `cd packages/domain && pnpm build && pnpm typecheck`
+Run: `cd packages/application && pnpm build && pnpm typecheck`
 
 Fix any type errors. Most will be:
 
@@ -974,11 +974,11 @@ Fix any type errors. Most will be:
 - SvelteKit imports → split function, keep adapter in web
 - TransactionClient usage → use `runTransaction` from `@nojv/db`
 
-### Task 4.6: Update web app to use `@nojv/domain`
+### Task 4.6: Update web app to use `@nojv/application`
 
 **Files:**
 
-- Modify: `apps/web/package.json` — add `@nojv/domain`, keep `@nojv/core`
+- Modify: `apps/web/package.json` — add `@nojv/application`, keep `@nojv/core`
 - Modify: ALL files in `apps/web/src/lib/server/` that had business logic
 - Modify: ALL SvelteKit route files (`+page.server.ts`, `+server.ts`) that imported from `$lib/server/<domain>/`
 
@@ -989,7 +989,7 @@ Fix any type errors. Most will be:
 import { listProblemCards } from "$lib/server/problem/queries";
 
 // After:
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 // ... use problemDomain.listProblemCards()
 ```
 
@@ -997,7 +997,7 @@ For files in `apps/web/src/lib/server/` that were moved to domain:
 
 - Delete the file if ALL logic moved
 - Keep it as thin adapter if some SvelteKit-specific code remains
-- Update imports in the adapter to use `@nojv/domain`
+- Update imports in the adapter to use `@nojv/application`
 
 ### Task 4.7: Build, typecheck, verify
 
@@ -1006,26 +1006,26 @@ Run: `pnpm build && pnpm lint`
 ### Task 4.8: Commit
 
 ```bash
-git add packages/domain/ packages/db/src/repositories/ apps/web/
-git commit -m "refactor: create @nojv/domain package, move business logic from web"
+git add packages/application/ packages/db/src/repositories/ apps/web/
+git commit -m "refactor: create @nojv/application package, move business logic from web"
 ```
 
 ---
 
 ## Phase 5: Refactor Temporal Activities to Use Domain
 
-Update activities that directly access Prisma to call `@nojv/domain` data functions instead.
+Update activities that directly access Prisma to call `@nojv/application` data functions instead.
 
 ### Task 5.1: Update `@nojv/temporal` dependencies
 
 **Files:**
 
-- Modify: `packages/temporal/package.json` — add `@nojv/domain`, remove `@nojv/db`
+- Modify: `packages/temporal/package.json` — add `@nojv/application`, remove `@nojv/db`
 
 ```json
 "dependencies": {
   "@nojv/core": "workspace:*",
-  "@nojv/domain": "workspace:*",
+  "@nojv/application": "workspace:*",
   "@nojv/redis": "workspace:*",
   "@temporalio/activity": "^1.11.7",
   "@temporalio/client": "^1.11.7",
@@ -1035,7 +1035,7 @@ Update activities that directly access Prisma to call `@nojv/domain` data functi
 }
 ```
 
-Note: `ioredis` removed (now in `@nojv/redis`). `@nojv/db` removed (accessed through `@nojv/domain`).
+Note: `ioredis` removed (now in `@nojv/redis`). `@nojv/db` removed (accessed through `@nojv/application`).
 
 ### Task 5.2: Refactor `assessment.ts` activities
 
@@ -1044,7 +1044,7 @@ Note: `ioredis` removed (now in `@nojv/redis`). `@nojv/db` removed (accessed thr
 - Modify: `packages/temporal/src/activities/assessment.ts`
 
 ```typescript
-import { assessmentDomain } from "@nojv/domain";
+import { assessmentDomain } from "@nojv/application";
 
 // Types stay the same
 export interface AssessmentInfo {
@@ -1066,7 +1066,7 @@ export async function closeAssessment(assessmentId: string): Promise<void> {
 }
 ```
 
-Corresponding domain functions needed in `packages/domain/src/assessment/`:
+Corresponding domain functions needed in `packages/application/src/assessment/`:
 
 - `getAssessmentInfo(id)` — wraps `assessmentRepo.findById()`, returns ISO strings
 - `activate(id)` — wraps `assessmentRepo.updateStatus(id, "published")`
@@ -1089,7 +1089,7 @@ Replace all `prisma.*` calls with domain function calls:
 The `updateContestScores()` function contains significant business logic (ICPC/IOI scoring). This MUST move to domain:
 
 ```typescript
-// packages/domain/src/contest/scoring.ts — moved from activities/contest.ts:64-157
+// packages/application/src/contest/scoring.ts — moved from activities/contest.ts:64-157
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
   // Same ICPC/IOI logic but using contestRepo, submissionRepo, and @nojv/redis/scoreboard
 }
@@ -1103,7 +1103,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
 
 This is the most complex activity file (464 lines). Split into:
 
-- **Domain functions** (business logic → `@nojv/domain`):
+- **Domain functions** (business logic → `@nojv/application`):
   - `fetchJudgeContext()` → `problemDomain.getJudgeContext(submissionId)` (the complex Prisma query with deep includes)
   - `completeSubmission()` → `submissionDomain.complete(submissionId, result)` (write verdict + publish event)
   - `fetchSubmissionIdsForRejudge()` → `submissionDomain.findForRejudge(input)`
@@ -1113,18 +1113,18 @@ This is the most complex activity file (464 lines). Split into:
 
 **Split plan for `judge.ts`:**
 
-Move to `packages/domain/src/submission/judge-context.ts`:
+Move to `packages/application/src/submission/judge-context.ts`:
 
 - `fetchJudgeContext()` function body (Prisma query + data shaping)
 - `SubmissionJudgeContext` type
 - `TestcaseSetGroup` type
 
-Move to `packages/domain/src/submission/complete.ts`:
+Move to `packages/application/src/submission/complete.ts`:
 
 - `completeSubmission()` function body (DB update)
 - `CompletedSubmission` type
 
-Move to `packages/domain/src/submission/result-mapper.ts`:
+Move to `packages/application/src/submission/result-mapper.ts`:
 
 - `mapResult()` helper
 - `buildSubtaskResults()` helper
@@ -1141,10 +1141,10 @@ Keep in `packages/temporal/src/activities/judge.ts`:
 
 - Modify: `packages/temporal/src/activities/stats.ts`
 
-Move the entire `updateUserStats()` logic to `packages/domain/src/user/stats.ts`:
+Move the entire `updateUserStats()` logic to `packages/application/src/user/stats.ts`:
 
 ```typescript
-// packages/domain/src/user/stats.ts
+// packages/application/src/user/stats.ts
 import { userRepo, submissionRepo, problemRepo, runTransaction } from "@nojv/db";
 // ... same logic from temporal/activities/stats.ts but using repos
 ```
@@ -1152,7 +1152,7 @@ import { userRepo, submissionRepo, problemRepo, runTransaction } from "@nojv/db"
 Activity becomes:
 
 ```typescript
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 export async function updateUserStats(submission: { ... }): Promise<void> {
   await userDomain.updateStats(submission);
@@ -1167,7 +1167,7 @@ export async function updateUserStats(submission: { ... }): Promise<void> {
 
 The MOSS client logic (socket protocol) is infrastructure, but the DB queries (fetch submissions, update report) are business logic.
 
-Move to `packages/domain/src/plagiarism/`:
+Move to `packages/application/src/plagiarism/`:
 
 - `fetchSubmissionsForCheck(targetId, targetType)` — the Prisma query
 - `updateReportStatus(reportId, status)` — status updates
@@ -1195,8 +1195,8 @@ Run: `pnpm build && pnpm lint`
 ### Task 5.9: Commit
 
 ```bash
-git add packages/temporal/ packages/domain/
-git commit -m "refactor: temporal activities delegate to @nojv/domain"
+git add packages/temporal/ packages/application/
+git commit -m "refactor: temporal activities delegate to @nojv/application"
 ```
 
 ---
@@ -1280,7 +1280,7 @@ Remove dependencies no longer needed:
 - `@nojv/temporal` — replaced by `@nojv/job-dispatch` (via domain)
 - `ioredis` — replaced by `@nojv/redis` (via domain)
 
-Verify `@nojv/domain` is listed. Remove `@nojv/db` if the web app no longer imports it directly (it shouldn't after full migration).
+Verify `@nojv/application` is listed. Remove `@nojv/db` if the web app no longer imports it directly (it shouldn't after full migration).
 
 ### Task 6.5: Verify dependency rules
 
@@ -1298,7 +1298,7 @@ grep -r "from \"ioredis\"" apps/web/src/ && echo "VIOLATION: web imports ioredis
 grep -r "from \"@nojv/db\"" packages/temporal/src/ && echo "VIOLATION: temporal imports db"
 
 # Domain must NOT import temporal
-grep -r "from \"@nojv/temporal\"" packages/domain/src/ && echo "VIOLATION: domain imports temporal"
+grep -r "from \"@nojv/temporal\"" packages/application/src/ && echo "VIOLATION: domain imports temporal"
 ```
 
 All should return no matches (exit code 1).
@@ -1344,7 +1344,7 @@ packages/
 
 **Files:**
 
-- Modify: `docs/TEMPORAL.md` — note that activities now delegate to `@nojv/domain`
+- Modify: `docs/TEMPORAL.md` — note that activities now delegate to `@nojv/application`
 - Modify: `docs/REDIS.md` — note `@nojv/redis` package as the source of truth
 - Modify: `docs/DATABASE.md` — note repository pattern, CHECK constraint
 

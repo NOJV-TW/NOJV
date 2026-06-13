@@ -69,7 +69,7 @@ model SubmissionFeedback {
 - Postgres treats `NULL` as distinct in unique indexes, so the two
   `@@unique` lines act as partial-unique per context.
 
-### Domain — new `packages/domain/src/feedback/`
+### Domain — new `packages/application/src/feedback/`
 
 Mirrors the existing `score-override/` module structure.
 
@@ -144,7 +144,7 @@ A read-only viewer over **existing** audit tables. No new audit tables
 ## Part 3 — Tech Optimizations
 
 - **C1 — search double query.** `listProblemCards`
-  (`packages/domain/src/problem/queries.ts:249`) runs `fullTextSearch`
+  (`packages/application/src/problem/queries.ts:249`) runs `fullTextSearch`
   AND `likeSearch` in parallel every search. Make `likeSearch` a real
   fallback: run it only when `fullTextSearch` returns zero rows. Fix
   the misleading "fallback" comment.

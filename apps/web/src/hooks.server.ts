@@ -14,7 +14,7 @@ import {
   getPageLockedContext,
   proctoringDomain,
   type PageLockedContext,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import { getAuth } from "$lib/auth.server";
 import { examContextCache, pageLockCache } from "$lib/server/exam-context-cache";
@@ -33,6 +33,16 @@ import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/ser
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
+import {
+  deriveRequestId,
+  enforceApiCsrf,
+  setSecurityHeaders,
+} from "$lib/server/hooks/request-security";
+import {
+  isPageLockExempt,
+  isProfileExempt,
+  stripLocalePrefix,
+} from "$lib/server/hooks/route-paths";
 
 getWebEnv();
 
@@ -54,52 +64,6 @@ process.on("uncaughtException", (err) => {
   });
   process.exit(1);
 });
-
-const PROFILE_EXEMPT_PREFIXES = [
-  "/api/",
-  "/complete-profile",
-  "/verify-school",
-  "/signin",
-  "/admin-signin",
-  "/signup",
-];
-
-const LOCALE_PREFIXES = ["/zh-TW"];
-
-function stripLocalePrefix(pathname: string): string {
-  for (const lp of LOCALE_PREFIXES) {
-    if (pathname === lp || pathname.startsWith(lp + "/")) {
-      return pathname.slice(lp.length) || "/";
-    }
-  }
-  return pathname;
-}
-
-function isProfileExempt(pathname: string): boolean {
-  const clean = stripLocalePrefix(pathname);
-  return PROFILE_EXEMPT_PREFIXES.some((p) => clean.startsWith(p));
-}
-
-function isPageLockExempt(pathname: string): boolean {
-  return (
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/signin") ||
-    pathname.startsWith("/signup")
-  );
-}
-
-function setSecurityHeaders(response: Response): void {
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-  );
-  if (process.env.NODE_ENV === "production") {
-    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  }
-}
 
 function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boolean {
   const prefix = `/exams/${ctx.examId}`;
@@ -126,14 +90,6 @@ function pageLockRedirectTarget(ctx: PageLockedContext): string {
   return `/exams/${ctx.examId}`;
 }
 
-function deriveRequestId(headers: Headers): string {
-  const incoming = headers.get("x-request-id");
-  if (incoming && incoming.length > 0 && incoming.length <= 128 && /^[\w.-]+$/.test(incoming)) {
-    return incoming;
-  }
-  return crypto.randomUUID();
-}
-
 export const handle: Handle = async ({ event, resolve }) => {
   const startMs = performance.now();
   let recordedStatus: number | null = null;
@@ -156,41 +112,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 type HandleEvent = Parameters<Handle>[0]["event"];
 type HandleResolve = Parameters<Handle>[0]["resolve"];
-
-function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response | null {
-  if (
-    !cleanPath.startsWith("/api/") ||
-    ["GET", "HEAD", "OPTIONS"].includes(event.request.method)
-  ) {
-    return null;
-  }
-
-  const origin = event.request.headers.get("origin");
-  if (origin && origin !== event.url.origin) {
-    return new Response("CSRF validation failed", {
-      status: 403,
-      headers: { "x-request-id": event.locals.requestId },
-    });
-  }
-
-  if (!cleanPath.startsWith("/api/auth")) {
-    const xrw = event.request.headers.get("x-requested-with");
-    if (xrw !== "fetch") {
-      return new Response(
-        JSON.stringify({ message: "CSRF token required", code: "csrf_required" }),
-        {
-          status: 403,
-          headers: {
-            "content-type": "application/json",
-            "x-request-id": event.locals.requestId,
-          },
-        },
-      );
-    }
-  }
-
-  return null;
-}
 
 async function handleApiAuthRoute(
   event: HandleEvent,

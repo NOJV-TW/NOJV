@@ -7,7 +7,7 @@ const { updateStatusMock, getSourcesMock, deriveModeMock } = vi.hoisted(() => ({
   deriveModeMock: vi.fn(() => "standard"),
 }));
 
-vi.mock("@nojv/domain", () => ({
+vi.mock("@nojv/application", () => ({
   submissionDomain: {
     updateSubmissionStatus: updateStatusMock,
     getSubmissionSources: getSourcesMock,

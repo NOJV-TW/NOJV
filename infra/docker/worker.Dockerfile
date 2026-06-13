@@ -20,7 +20,7 @@ COPY apps/worker/package.json apps/worker/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
 COPY packages/temporal/package.json packages/temporal/
-COPY packages/domain/package.json packages/domain/
+COPY packages/application/package.json packages/application/
 COPY packages/redis/package.json packages/redis/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/worker...
@@ -29,14 +29,14 @@ RUN pnpm install --frozen-lockfile --filter @nojv/worker...
 COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
 COPY packages/redis/ packages/redis/
-COPY packages/domain/ packages/domain/
+COPY packages/application/ packages/application/
 COPY packages/temporal/ packages/temporal/
 COPY apps/worker/ apps/worker/
 
 RUN pnpm --filter @nojv/db build
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/redis build
-RUN pnpm --filter @nojv/domain build
+RUN pnpm --filter @nojv/application build
 RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/worker build
 
@@ -65,9 +65,9 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/db/node_modules/ ./pa
 COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/dist/ ./packages/temporal/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/package.json ./packages/temporal/package.json
 COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/node_modules/ ./packages/temporal/node_modules/
-COPY --from=builder --chown=appuser:nodejs /build/packages/domain/dist/ ./packages/domain/dist/
-COPY --from=builder --chown=appuser:nodejs /build/packages/domain/package.json ./packages/domain/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/domain/node_modules/ ./packages/domain/node_modules/
+COPY --from=builder --chown=appuser:nodejs /build/packages/application/dist/ ./packages/application/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/application/package.json ./packages/application/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/application/node_modules/ ./packages/application/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/dist/ ./packages/redis/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./packages/redis/package.json
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/

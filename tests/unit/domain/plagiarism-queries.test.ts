@@ -44,7 +44,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {},
 }));
 
-import { NotFoundError, plagiarismDomain } from "@nojv/domain";
+import { NotFoundError, plagiarismDomain } from "@nojv/application";
 
 const { getPlagiarismTarget, createPlagiarismReport } = plagiarismDomain;
 

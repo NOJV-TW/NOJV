@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestContest, createTestUser } from "../../fixtures/factories";
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { listContestsForUser } = contestDomain;
 

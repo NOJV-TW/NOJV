@@ -4,7 +4,7 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { feedbackDomain } from "@nojv/domain";
+import { feedbackDomain } from "@nojv/application";
 
 function requireId(event: RequestEvent): string {
   const id = event.params.id;

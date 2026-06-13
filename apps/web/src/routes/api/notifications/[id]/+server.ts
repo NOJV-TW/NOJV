@@ -5,7 +5,7 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 
 const patchSchema = z.object({
   read: z.literal(true),

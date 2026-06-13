@@ -4,7 +4,7 @@ import type { RequestHandler } from "./$types";
 
 import { ForbiddenError, NotFoundError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);

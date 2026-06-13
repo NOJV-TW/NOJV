@@ -1,5 +1,5 @@
 import { fail } from "@sveltejs/kit";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import { m } from "$lib/paraglide/messages.js";
 

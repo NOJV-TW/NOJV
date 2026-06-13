@@ -3,10 +3,6 @@ kind: LimitRange
 metadata:
   name: sandbox-limits
   namespace: nojv-sandbox
-# Belt-and-braces caps on every sandbox pod. The worker's K8sExecutor already
-# passes explicit resources.requests/limits per job, but these defaults mean
-# a future code path that creates a pod without explicit limits still gets
-# bounded — a single runaway job can never exhaust the namespace ResourceQuota.
 spec:
   limits:
     - type: Container

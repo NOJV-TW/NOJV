@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateByTag } from "@nojv/domain";
+import { aggregateByTag } from "@nojv/application";
 
 describe("aggregateByTag", () => {
   it("returns an empty array when there are no AC rows", () => {

@@ -6,7 +6,7 @@ import {
   NotFoundError,
   ValidationError,
   editorialDomain,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 import {
   checkerKey as checkerKeyFor,
   deleteBlobsByPrefix,
@@ -15,7 +15,7 @@ import {
 } from "@nojv/storage";
 
 import { createTestProblem, testPrisma } from "../../fixtures/factories";
-import type { ProblemActorContext } from "../../../packages/domain/src/problem/permissions";
+import type { ProblemActorContext } from "../../../packages/application/src/problem/permissions";
 
 interface SeededProblem {
   problemId: string;

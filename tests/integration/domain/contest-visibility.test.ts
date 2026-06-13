@@ -7,7 +7,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { getContestDetail } = contestDomain;
 

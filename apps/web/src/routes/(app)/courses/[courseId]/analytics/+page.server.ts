@@ -1,5 +1,5 @@
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { courseDomain, ForbiddenError } from "@nojv/domain";
+import { courseDomain, ForbiddenError } from "@nojv/application";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const { getCourseAnalytics } = courseDomain;

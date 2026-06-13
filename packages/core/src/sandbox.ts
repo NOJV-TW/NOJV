@@ -1,4 +1,5 @@
 import type { JudgeType, Language, ProblemType } from "./types";
+import { parseRelativePath } from "./schemas/path";
 
 export interface SandboxTestcase {
   index: number;
@@ -82,19 +83,8 @@ export interface SandboxExecutor {
   execute(request: SandboxRequest): Promise<SandboxResult>;
 }
 
-export function normalizeRelativePath(rawPath: string): string | null {
-  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
-  if (!normalized || normalized.startsWith("/")) return null;
-
-  const segments = normalized.split("/").filter((s) => s.length > 0);
-  if (
-    segments.length === 0 ||
-    segments.some((s) => s === "." || s === ".." || s.includes("\0") || s.includes(":"))
-  ) {
-    return null;
-  }
-
-  return segments.join("/");
+export function normalizeRelativePath(rawPath: string): string {
+  return parseRelativePath(rawPath);
 }
 
 export const sourceFileNames: Record<Language, string> = {

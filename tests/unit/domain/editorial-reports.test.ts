@@ -35,7 +35,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { count: submissionCount },
 }));
 
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { reportEditorial, listEditorialReports, resolveEditorialReport, canViewEditorials } =
   editorialDomain;
