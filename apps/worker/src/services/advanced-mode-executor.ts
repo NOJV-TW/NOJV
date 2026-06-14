@@ -267,6 +267,7 @@ export async function prepareRunWorkspace(
   await mkdir(runDir, { mode: 0o777, recursive: true });
   await mkdir(submissionDir, { mode: 0o777, recursive: true });
   await mkdir(outputDir, { mode: 0o777, recursive: true });
+  await chmod(outputDir, 0o777);
 
   const resolved = resolveSourceFiles(request, { requireSourceCode: true });
   const fileWrites: Promise<void>[] = [];
@@ -309,6 +310,7 @@ export async function prepareGradeWorkspace(
   await mkdir(gradeDir, { mode: 0o777, recursive: true });
   await mkdir(gradeRunOutputDir, { mode: 0o777, recursive: true });
   await mkdir(outputDir, { mode: 0o777, recursive: true });
+  await chmod(outputDir, 0o777);
 
   await safeCopyTree(runOutputDir, gradeRunOutputDir, {
     maxFiles: ADVANCED_OUTPUT_MAX_FILES,

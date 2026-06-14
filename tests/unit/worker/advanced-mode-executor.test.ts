@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -295,6 +295,41 @@ describe("prepareRunWorkspace / prepareGradeWorkspace", () => {
 
     const copied = await readFile(join(gradeDir, "run-output", "case-0.bin"), "utf8");
     expect(copied).toBe("payload");
+  });
+
+  it("makes the run output dir world-writable so the sandbox uid can write under cap-drop ALL", async () => {
+    const prev = process.umask(0o077);
+    try {
+      const runDir = join(dir, "run");
+      await prepareRunWorkspace(runDir, request, {
+        submissionId: "sub-xyz",
+        language: "python",
+        totalTimeMs: 5000,
+        memoryMb: 256,
+      });
+      const mode = (await stat(join(runDir, "output"))).mode & 0o777;
+      expect(mode).toBe(0o777);
+    } finally {
+      process.umask(prev);
+    }
+  });
+
+  it("makes the grade output dir world-writable so the trusted uid can write result.json under cap-drop ALL", async () => {
+    const prev = process.umask(0o077);
+    try {
+      const runOutputDir = join(dir, "run", "output");
+      await mkdir(runOutputDir, { recursive: true });
+      const gradeDir = join(dir, "grade");
+      await prepareGradeWorkspace(gradeDir, runOutputDir, {
+        submissionId: "sub-xyz",
+        language: "python",
+        runStatus: { state: "exited", exitCode: 0 },
+      });
+      const mode = (await stat(join(gradeDir, "output"))).mode & 0o777;
+      expect(mode).toBe(0o777);
+    } finally {
+      process.umask(prev);
+    }
   });
 });
 
