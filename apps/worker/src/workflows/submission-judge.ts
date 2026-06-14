@@ -60,7 +60,12 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       judgeContext.problemType === "special_env" && judgeContext.advanced !== null
         ? "advanced"
         : "standard";
-    const submission = await judge.completeSubmission(input.submissionId, result, mode);
+    const submission = await judge.completeSubmission(
+      input.submissionId,
+      result,
+      mode,
+      judgeContext.advanced?.config ?? null,
+    );
 
     const dispatch = resolveScoringDispatch(submission);
     if (dispatch.kind === "contest") {

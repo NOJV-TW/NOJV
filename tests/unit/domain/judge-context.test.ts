@@ -39,8 +39,7 @@ function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
       runtime: { env: { CC: "gcc" }, timeLimitMs: 1000, memoryLimitMb: 256 },
     },
     samples: [{ input: "1\n", output: "1\n" }],
-    advancedImageRef: null,
-    advancedImageSource: null,
+    advancedConfig: null,
     testcaseSets: [
       {
         id: "ts_1",
@@ -317,12 +316,16 @@ describe("getJudgeContext", () => {
     });
 
     it("populates the advanced context for special_env problems", async () => {
+      const config = {
+        run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+        grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+        network: { mode: "none" },
+      };
       const row = mkSubmissionRow(
         {},
         {
           type: "special_env",
-          advancedImageRef: "registry.example.com/judge:v1",
-          advancedImageSource: "registry",
+          advancedConfig: config,
           timeLimitMs: 5000,
           memoryLimitMb: 1024,
         },
@@ -332,25 +335,62 @@ describe("getJudgeContext", () => {
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.problemType).toBe("special_env");
       expect(ctx.advanced).toEqual({
-        imageRef: "registry.example.com/judge:v1",
-        imageSource: "registry",
+        config: {
+          run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+          grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+          network: { mode: "none" },
+        },
         resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
       });
     });
 
-    it("returns advanced=null for special_env when imageRef is missing (config not yet attached)", async () => {
+    it("reads the LIVE problem advancedConfig (rejudge picks up an updated image), never a submission snapshot", async () => {
+      const updatedConfig = {
+        run: { imageRef: "registry.example.com/judge:v2", imageSource: "registry" },
+        grade: { imageRef: "registry.example.com/judge:v2", imageSource: "registry" },
+        network: { mode: "none" },
+      };
       const row = mkSubmissionRow(
         {},
         {
           type: "special_env",
-          advancedImageRef: null,
-          advancedImageSource: "registry",
+          advancedConfig: updatedConfig,
+          timeLimitMs: 5000,
+          memoryLimitMb: 1024,
+        },
+      );
+      findByIdWithJudgeContext.mockResolvedValue(row);
+
+      const ctx = await getJudgeContext("sub_1");
+      expect(ctx.advanced?.config.run.imageRef).toBe("registry.example.com/judge:v2");
+      expect(ctx.advanced?.config.grade.imageRef).toBe("registry.example.com/judge:v2");
+    });
+
+    it("returns advanced=null for special_env when advancedConfig is missing (config not yet attached)", async () => {
+      const row = mkSubmissionRow(
+        {},
+        {
+          type: "special_env",
+          advancedConfig: null,
         },
       );
       findByIdWithJudgeContext.mockResolvedValue(row);
 
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.advanced).toBeNull();
+    });
+
+    it("throws IntegrityError for special_env with a present-but-invalid advancedConfig", async () => {
+      const row = mkSubmissionRow(
+        {},
+        {
+          type: "special_env",
+          advancedConfig: { run: { imageRef: "img:tag" } },
+        },
+      );
+      findByIdWithJudgeContext.mockResolvedValue(row);
+
+      await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
     });
   });
 
@@ -360,8 +400,11 @@ describe("getJudgeContext", () => {
         deriveJudgeMode({
           problemType: "special_env",
           advanced: {
-            imageRef: "registry.example.com/judge:v1",
-            imageSource: "registry",
+            config: {
+              run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+              grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+              network: { mode: "none" },
+            },
             resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
           },
         }),

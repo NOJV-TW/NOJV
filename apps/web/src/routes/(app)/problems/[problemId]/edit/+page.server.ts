@@ -1,8 +1,8 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
+  advancedConfigSchema,
   languageSchema,
   problemCreateSchema,
-  problemImageSourceSchema,
   problemTestcaseSetCreateSchema,
   problemTypeSchema,
   problemWorkspaceFileSchema,
@@ -11,6 +11,7 @@ import {
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
   judgeConfigSchema,
+  MAX_ADVANCED_TOTAL_TIME_MS,
 } from "@nojv/core";
 import type { ProblemType } from "@nojv/core";
 import { message, superValidate } from "sveltekit-superforms";
@@ -51,11 +52,10 @@ const updateWorkspaceSchema = z.object({
   files: z.array(problemWorkspaceFileSchema).max(50),
 });
 
-const advancedImageSavePayloadSchema = z.object({
-  source: problemImageSourceSchema,
-  ref: z.string().min(1).max(500),
-  timeLimitMs: z.coerce.number().int().min(1_000).max(300_000).optional(),
-  memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional(),
+const advancedConfigSavePayloadSchema = z.object({
+  config: advancedConfigSchema,
+  timeLimitMs: z.coerce.number().int().min(1_000).max(MAX_ADVANCED_TOTAL_TIME_MS),
+  memoryLimitMb: z.coerce.number().int().min(16).max(4_096),
 });
 
 const advancedRequiredPathsSavePayloadSchema = z.object({
@@ -102,11 +102,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       title: problem.title,
       type: problem.type satisfies ProblemType,
       visibility: problem.visibility,
-      ...(isAdvanced
-        ? {
-            advancedImageRef: problem.advancedImageRef ?? "",
-            advancedImageSource: problem.advancedImageSource ?? "registry",
-          }
+      ...(isAdvanced && problem.advancedConfig
+        ? { advancedConfig: problem.advancedConfig }
         : {}),
     },
     zod4(problemCreateSchema),
@@ -118,12 +115,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     testcaseSets,
     workspaceFiles,
     validatorScripts,
-    imageConfig: isAdvanced
+    advancedConfig: isAdvanced
       ? {
-          source: problem.advancedImageSource ?? "registry",
-          ref: problem.advancedImageRef ?? "",
+          config: problem.advancedConfig ?? {
+            run: { imageRef: "", imageSource: "registry" as const },
+            grade: { imageRef: "", imageSource: "registry" as const },
+            network: { mode: "none" as const },
+          },
           timeLimitMs: problem.timeLimitMs,
           memoryLimitMb: problem.memoryLimitMb,
+          maxTotalTimeMs: MAX_ADVANCED_TOTAL_TIME_MS,
         }
       : null,
     advancedModeSupported: isAdvancedModeSupported(),
@@ -254,16 +255,15 @@ export const actions: Actions = {
     redirect(303, `/problems/${problemId}/edit`);
   }),
 
-  updateImage: problemEditAction(async ({ actor, problemId, event }) => {
+  updateAdvancedConfig: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
-    const data = parseJsonField(formData.get("data"), advancedImageSavePayloadSchema);
+    const data = parseJsonField(formData.get("data"), advancedConfigSavePayloadSchema);
     try {
       await updateProblemRecord(actor, problemId, {
         type: "special_env",
-        advancedImageRef: data.ref,
-        advancedImageSource: data.source,
-        ...(data.timeLimitMs !== undefined ? { timeLimitMs: data.timeLimitMs } : {}),
-        ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {}),
+        advancedConfig: data.config,
+        timeLimitMs: data.timeLimitMs,
+        memoryLimitMb: data.memoryLimitMb,
       });
     } catch (err) {
       return fail(400, { message: err instanceof Error ? err.message : "Update failed" });

@@ -10,13 +10,14 @@ import {
 import {
   DEFAULT_LOCALE,
   LANGUAGE_TEMPLATES,
+  advancedConfigSchema,
   judgeConfigSchema,
   judgeTypes,
   problemDifficultySchema,
+  type AdvancedConfig,
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
-  type ProblemImageSource,
   type ProblemStatus,
   type ProblemType,
   type ProblemVisibility,
@@ -55,8 +56,7 @@ export interface ProblemDetail {
     visibility: "editable" | "readonly" | "hidden";
     description: string;
   }[];
-  advancedImageRef: string | null;
-  advancedImageSource: ProblemImageSource | null;
+  advancedConfig: AdvancedConfig | null;
   advancedRequiredPaths: string[];
 }
 
@@ -119,8 +119,7 @@ async function mapPersistedProblemDetail(
     timeLimitMs?: number;
     visibility: ProblemVisibility;
     type: ProblemType;
-    advancedImageRef?: string | null;
-    advancedImageSource?: ProblemImageSource | null;
+    advancedConfig?: unknown;
     advancedRequiredPaths?: string[];
     workspaceFiles?: {
       language: string;
@@ -181,8 +180,7 @@ async function mapPersistedProblemDetail(
     totalSubmissions: attempters,
     visibility: problem.visibility,
     workspaceFiles: visibleWorkspaceFiles,
-    advancedImageRef: problem.advancedImageRef ?? null,
-    advancedImageSource: problem.advancedImageSource ?? null,
+    advancedConfig: advancedConfigSchema.safeParse(problem.advancedConfig).data ?? null,
     advancedRequiredPaths: problem.advancedRequiredPaths ?? [],
   };
 }

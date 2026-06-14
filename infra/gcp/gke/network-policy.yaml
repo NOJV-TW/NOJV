@@ -4,7 +4,14 @@ metadata:
   name: sandbox-deny-egress
   namespace: nojv-sandbox
 spec:
-  podSelector: {}
+  # Selects every sandbox Pod EXCEPT those carrying nojv.egress=<value> (advanced
+  # allowlist/service run + grade Pods), which escape deny-all and are governed by
+  # their own per-submission NetworkPolicy. NetworkPolicy is additive, so deny-all
+  # must NOT match a Pod that a per-submission allow policy needs to widen.
+  podSelector:
+    matchExpressions:
+      - key: nojv.egress
+        operator: DoesNotExist
   policyTypes:
     - Egress
     - Ingress

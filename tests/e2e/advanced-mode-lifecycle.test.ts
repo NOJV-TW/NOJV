@@ -8,7 +8,8 @@ const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/t
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
 const ORIGIN = "http://localhost:5173";
-const REGISTRY_REF = "ghcr.io/test-org/test-judge:test";
+const REGISTRY_REF = "ghcr.io/test-org/test-run:test";
+const REGISTRY_GRADE_REF = "ghcr.io/test-org/test-grade:test";
 const ADVANCED_EXAM_ID = "exam_demo_advanced_active";
 const SEEDED_ADVANCED_PROBLEM_ID = "problem_shell-scripting-lab";
 
@@ -33,7 +34,7 @@ async function postFormAction(
 
 async function buildSubmissionZip(): Promise<Buffer> {
   const zip = new JSZip();
-  zip.file("main.sh", "#!/bin/sh\necho hello\n");
+  zip.file("main.py", "a, b = map(int, input().split())\nprint(a + b)\n");
   zip.file("README.md", "# advanced-mode e2e upload\n");
   return zip.generateAsync({ type: "nodebuffer" });
 }
@@ -60,7 +61,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     await context.close();
   });
 
-  test("edit page renders the advanced layout for special_env problems and accepts a registry image ref", async ({
+  test("edit page renders the advanced layout for special_env problems and accepts a run/grade config", async ({
     browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
@@ -68,15 +69,22 @@ test.describe("Advanced Mode Lifecycle", () => {
 
     await page.goto(`/problems/${advancedProblemId}/edit`);
     await expect(page.getByRole("heading", { name: /advanced mode/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /judge image/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /advanced judge configuration/i }),
+    ).toBeVisible();
+    await expect(page.getByTestId("adv-ref-run")).toBeVisible();
+    await expect(page.getByTestId("adv-ref-grade")).toBeVisible();
 
     const saveResult = await postFormAction(
       page,
-      `/problems/${advancedProblemId}/edit?/updateImage`,
+      `/problems/${advancedProblemId}/edit?/updateAdvancedConfig`,
       {
         data: JSON.stringify({
-          ref: REGISTRY_REF,
-          source: "registry",
+          config: {
+            run: { imageRef: REGISTRY_REF, imageSource: "registry" },
+            grade: { imageRef: REGISTRY_GRADE_REF, imageSource: "registry" },
+            network: { mode: "none" },
+          },
           timeLimitMs: 30_000,
           memoryLimitMb: 1_024,
         }),
@@ -88,14 +96,13 @@ test.describe("Advanced Mode Lifecycle", () => {
     await context.close();
   });
 
-  test("saved registry ref persists across a reload", async ({ browser }) => {
+  test("saved run/grade refs persist across a reload", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
     await page.goto(`/problems/${advancedProblemId}/edit`);
-    const refInput = page.locator(`input[placeholder*="ghcr.io"]`);
-    await expect(refInput).toBeVisible();
-    await expect(refInput).toHaveValue(REGISTRY_REF);
+    await expect(page.getByTestId("adv-ref-run")).toHaveValue(REGISTRY_REF);
+    await expect(page.getByTestId("adv-ref-grade")).toHaveValue(REGISTRY_GRADE_REF);
 
     await context.close();
   });

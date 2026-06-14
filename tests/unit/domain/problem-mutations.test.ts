@@ -105,15 +105,14 @@ describe("createProblemDefinition", () => {
     problemCreate.mockResolvedValue({ id: "prob_1" });
   });
 
-  it("defaults type to full_source and leaves special_env fields unset", async () => {
+  it("defaults type to full_source and leaves advancedConfig unset", async () => {
     await createProblemDefinition(fakeTx, baseInput);
 
     expect(problemCreate).toHaveBeenCalledTimes(1);
     const data = problemCreate.mock.calls[0][0];
     expect(data.type).toBe("full_source");
     expect(data.samples).toBe(PRISMA_JSON_NULL);
-    expect(data.advancedImageRef).toBeUndefined();
-    expect(data.advancedImageSource).toBeUndefined();
+    expect(data.advancedConfig).toBeUndefined();
   });
 
   it("honors type: 'special_env' explicitly passed by the caller", async () => {
@@ -123,25 +122,27 @@ describe("createProblemDefinition", () => {
     expect(data.type).toBe("special_env");
   });
 
-  it("applies special_env defaults when type is special_env and fields omitted", async () => {
+  it("leaves advancedConfig unset when type is special_env and config omitted", async () => {
     await createProblemDefinition(fakeTx, { ...baseInput, type: "special_env" });
 
     const data = problemCreate.mock.calls[0][0];
-    expect(data.advancedImageRef).toBe("");
-    expect(data.advancedImageSource).toBe("registry");
+    expect(data.advancedConfig).toBeUndefined();
   });
 
-  it("preserves caller-supplied special_env fields when provided", async () => {
+  it("preserves caller-supplied advancedConfig when provided", async () => {
+    const config = {
+      run: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
+      grade: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
+      network: { mode: "none" as const },
+    };
     await createProblemDefinition(fakeTx, {
       ...baseInput,
       type: "special_env",
-      advancedImageRef: "ghcr.io/acme/ta:1.2.3",
-      advancedImageSource: "tarball",
+      advancedConfig: config,
     });
 
     const data = problemCreate.mock.calls[0][0];
-    expect(data.advancedImageRef).toBe("ghcr.io/acme/ta:1.2.3");
-    expect(data.advancedImageSource).toBe("tarball");
+    expect(data.advancedConfig).toEqual(config);
   });
 
   it("writes difficulty to its dedicated column and leaves tags untouched", async () => {

@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_41 models and 36 enums across 9 schema files._
+_41 models and 35 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -682,10 +682,6 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 
 `easy` · `medium` · `hard`
 
-#### `ProblemImageSource`
-
-`registry` · `tarball`
-
 #### `ProblemStatus`
 
 `draft` · `published`
@@ -721,8 +717,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `memoryLimitMb` | `Int` | — |
 | `judgeConfig` | `Json?` | — |
 | `samples` | `Json?` | — |
-| `advancedImageRef` | `String?` | — |
-| `advancedImageSource` | `ProblemImageSource?` | — |
+| `advancedConfig` | `Json?` | — |
 | `advancedRequiredPaths` | `String[]` | `@default([])` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
@@ -972,6 +967,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `memoryKb` | `Int?` | — |
 | `verdictSummary` | `Json?` | — |
 | `verdictDetailStorageKey` | `String?` | — |
+| `advancedConfigSnapshot` | `Json?` | — |
 | `ipAddress` | `String?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |

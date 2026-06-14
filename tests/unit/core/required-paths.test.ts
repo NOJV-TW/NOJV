@@ -153,11 +153,81 @@ describe("problemCreateSchema integration with advancedRequiredPaths", () => {
     const result = problemCreateSchema.safeParse({
       ...baseProblemInput,
       type: "special_env",
-      advancedImageRef: "ghcr.io/example/judge:1.0.0",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "ghcr.io/example/judge:1.0.0", imageSource: "registry" },
+        grade: { imageRef: "ghcr.io/example/judge:1.0.0", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       advancedRequiredPaths: ["src/main.c", "src/"],
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe("problemCreateSchema integration with advancedConfig", () => {
+  const baseProblemInput = {
+    difficulty: "easy",
+    inputFormat: "n",
+    memoryLimitMb: 256,
+    outputFormat: "n",
+    statement: "Compute n.",
+    tags: [],
+    timeLimitMs: 1000,
+    title: "Sample",
+    visibility: "public",
+  } as const;
+
+  const config = {
+    run: { imageRef: "ghcr.io/example/run:1", imageSource: "registry" as const },
+    grade: { imageRef: "ghcr.io/example/grade:1", imageSource: "registry" as const },
+    network: { mode: "none" as const },
+  };
+
+  it("requires advancedConfig on special_env problems", () => {
+    const result = problemCreateSchema.safeParse({
+      ...baseProblemInput,
+      type: "special_env",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const hasGuardIssue = result.error.issues.some(
+        (issue) =>
+          issue.path.length === 1 &&
+          issue.path[0] === "advancedConfig" &&
+          issue.message === "validation_required",
+      );
+      expect(hasGuardIssue).toBe(true);
+    }
+  });
+
+  it("accepts special_env problems carrying a valid advancedConfig", () => {
+    const result = problemCreateSchema.safeParse({
+      ...baseProblemInput,
+      type: "special_env",
+      advancedConfig: config,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects advancedConfig on non-special_env problems", () => {
+    const result = problemCreateSchema.safeParse({
+      ...baseProblemInput,
+      type: "full_source",
+      advancedConfig: config,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const hasGuardIssue = result.error.issues.some(
+        (issue) =>
+          issue.path.length === 1 &&
+          issue.path[0] === "advancedConfig" &&
+          issue.message === "validation_onlyAllowedForSpecialEnv",
+      );
+      expect(hasGuardIssue).toBe(true);
+    }
   });
 });

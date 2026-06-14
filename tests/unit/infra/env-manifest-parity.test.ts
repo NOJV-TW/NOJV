@@ -25,6 +25,7 @@ const validK8sEnv: Record<string, string> = {
   K8S_CPU_LIMIT: "1",
   K8S_MEMORY_REQUEST: "256Mi",
   K8S_MEMORY_LIMIT: "512Mi",
+  EGRESS_PROXY_IMAGE: "egress-proxy:latest",
 };
 
 function requiredKubernetesEnvKeys(): string[] {

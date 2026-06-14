@@ -569,8 +569,10 @@ export const internalSchemas = {
     type: "object",
     properties: {
       key: { type: "string" },
+      role: { type: "string", enum: ["run", "grade", "service"] },
+      persisted: { type: "boolean" },
     },
-    required: ["key"],
+    required: ["key", "role", "persisted"],
   },
   ProblemScore: {
     type: "object",

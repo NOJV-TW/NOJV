@@ -10,6 +10,7 @@ and links out to that reference material.
 | Runbook                                       | When to use                                                       |
 | --------------------------------------------- | ----------------------------------------------------------------- |
 | [Getting Started](getting-started.md)         | First local run, environment setup, troubleshooting the dev stack |
+| [Single-Machine k3s](k8s-single-machine.md)   | One-box K8s-backend deploy (k3s + Calico) + autoscaling guidance  |
 | [Incident Recovery](incident-recovery.md)     | Outage response, SLO breach, recovery steps                       |
 | [Backup & Restore](backup-restore.md)         | Backup posture, PITR, GCS / Redis snapshot restore                |
 | [Observability Setup](observability-setup.md) | Setting up / updating Grafana metrics dashboards + alert rules    |

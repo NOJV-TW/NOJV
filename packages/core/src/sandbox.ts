@@ -1,4 +1,5 @@
 import type { JudgeType, Language, ProblemType } from "./types";
+import type { AdvancedConfig } from "./schemas/advanced-mode";
 import type { CompareConfig } from "./schemas/judge-config";
 import { parseRelativePath } from "./schemas/path";
 
@@ -16,8 +17,9 @@ export interface SandboxSourceFile {
 }
 
 export interface SandboxAdvancedRequest {
-  imageRef: string;
-  imageSource: "registry" | "tarball";
+  run: AdvancedConfig["run"];
+  grade: AdvancedConfig["grade"];
+  network: AdvancedConfig["network"];
   totalTimeMs: number;
   memoryMb: number;
 }
