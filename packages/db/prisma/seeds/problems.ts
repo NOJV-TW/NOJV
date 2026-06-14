@@ -208,14 +208,14 @@ export async function seedProblems(
       visibility: "public" as const,
       statements: {
         "zh-TW": {
-          title: "Warmup Sum",
-          body: "實作經典的暖身題。從標準輸入讀取兩個整數，並將它們的總和加上換行符號後輸出。",
+          title: "暖身：兩數之和",
+          body: "經典暖身題。從標準輸入讀取兩個整數，輸出它們的總和。",
           inputFormat: String.raw`一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \le a, b \le 2^{31}-1$）。`,
           outputFormat: "一行，輸出 $a + b$ 的值。",
         },
         en: {
           title: "Warmup Sum",
-          body: "Implement the classic warmup judge task. Read exactly two integers from standard input and print their sum followed by a newline.",
+          body: "The classic warmup task. Read exactly two integers from standard input and print their sum.",
           inputFormat: String.raw`A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \le a, b \le 2^{31}-1$).`,
           outputFormat: "A single line containing the value of $a + b$.",
         },
@@ -245,7 +245,7 @@ export async function seedProblems(
     },
     {
       authorId: teacherId,
-      title: "Graph Docking",
+      title: "Binary Search Lower Bound",
       tags: ["medium"],
       type: "full_source" as const,
       id: "problem_graph-docking",
@@ -254,44 +254,46 @@ export async function seedProblems(
       visibility: "public" as const,
       statements: {
         "zh-TW": {
-          title: "Graph Docking",
-          body: "為每艘船維護下一個可用碼頭。隱藏評審偏好使用 DSU 或貪心路徑壓縮方法。",
+          title: "二分搜尋：lower bound",
+          body: "給定一個由小到大排序的整數陣列，以及若干個查詢值。對每個查詢值 $x$，回答陣列中第一個「大於等於 $x$」的元素之 0-based 索引；若不存在，回答陣列長度 $N$。\n\n每個查詢都應以 $O(\\log N)$ 的二分搜尋回答。",
           inputFormat:
-            "第一行一個整數 $N$（$1 \\le N \\le 10^6$），表示碼頭數量。\n\n接下來 $N$ 行，每行一個整數 $d_i$（$1 \\le d_i \\le N$），表示第 $i$ 艘船希望停靠的碼頭編號。",
-          outputFormat: "一行，輸出無法成功停靠的船隻數量。",
+            "第一行一個整數 $N$（$1 \\le N \\le 2 \\times 10^5$），表示陣列長度。\n\n第二行 $N$ 個由小到大排序的整數 $a_0 \\le a_1 \\le \\dots \\le a_{N-1}$（$-10^9 \\le a_i \\le 10^9$）。\n\n第三行一個整數 $Q$（$1 \\le Q \\le 2 \\times 10^5$），表示查詢數。\n\n第四行 $Q$ 個整數，每個是一筆查詢值 $x$。",
+          outputFormat: "一行，輸出 $Q$ 個以空白分隔的索引，第 $k$ 個是第 $k$ 筆查詢的答案。",
         },
         en: {
-          title: "Graph Docking",
-          body: "Maintain the next available dock for each incoming ship. The hidden judge favors DSU or greedy path compression approaches.",
+          title: "Binary Search Lower Bound",
+          body: "Given a sorted array of integers and several query values, for each query $x$ report the 0-based index of the first element that is greater than or equal to $x$. If no such element exists, report the array length $N$.\n\nEach query must be answered with an $O(\\log N)$ binary search.",
           inputFormat:
-            "The first line contains an integer $N$ ($1 \\le N \\le 10^6$), the number of docks.\n\nThe next $N$ lines each contain an integer $d_i$ ($1 \\le d_i \\le N$), the preferred dock for the $i$-th ship.",
-          outputFormat: "A single line containing the number of ships that could not dock.",
+            "The first line contains an integer $N$ ($1 \\le N \\le 2 \\times 10^5$), the array length.\n\nThe second line contains $N$ non-decreasing integers $a_0 \\le a_1 \\le \\dots \\le a_{N-1}$ ($-10^9 \\le a_i \\le 10^9$).\n\nThe third line contains an integer $Q$ ($1 \\le Q \\le 2 \\times 10^5$), the number of queries.\n\nThe fourth line contains $Q$ query values $x$.",
+          outputFormat:
+            "A single line with $Q$ space-separated indices; the $k$-th is the answer to the $k$-th query.",
         },
       },
       samples: [
-        { input: "4\n3\n4\n1\n1\n", output: "2" },
-        { input: "2\n1\n2\n", output: "0" },
+        { input: "5\n1 3 5 7 9\n3\n4 9 10\n", output: "2 4 5" },
+        { input: "4\n2 2 2 2\n2\n2 3\n", output: "0 4" },
       ],
       testcases: {
         sample: {
-          description: "1 ≤ N ≤ 6, simple verification cases.",
+          description: "Small sorted arrays demonstrating lower-bound semantics.",
           cases: [
-            { input: "4\n3\n4\n1\n1\n", output: "2" },
-            { input: "2\n1\n2\n", output: "0" },
+            { input: "5\n1 3 5 7 9\n3\n4 9 10\n", output: "2 4 5" },
+            { input: "4\n2 2 2 2\n2\n2 3\n", output: "0 4" },
           ],
         },
         hidden: {
-          description: "1 ≤ N ≤ 10^6, stresses DSU/path compression.",
+          description: "Edges: below-all, above-all, duplicates, single element.",
           cases: [
-            { input: "6\n5\n6\n3\n3\n2\n1\n", output: "3" },
-            { input: "1\n1\n", output: "0" },
+            { input: "1\n5\n3\n5 4 6\n", output: "0 0 1" },
+            { input: "6\n-5 -3 -3 0 4 4\n4\n-3 -10 4 5\n", output: "1 0 4 6" },
+            { input: "3\n10 20 30\n2\n10 31\n", output: "0 3" },
           ],
         },
       },
     },
     {
       authorId: teacherId,
-      title: "Distributed Labyrinth",
+      title: "Maze Shortest Path",
       tags: ["hard"],
       type: "full_source" as const,
       id: "problem_distributed-labyrinth",
@@ -300,19 +302,19 @@ export async function seedProblems(
       visibility: "public" as const,
       statements: {
         "zh-TW": {
-          title: "Distributed Labyrinth",
-          body: "在多層走廊中協調多個代理，同時保持最短路徑保證。一旦迷宮開始分支，需要高效的狀態壓縮和最短路徑推理。",
+          title: "迷宮最短路徑",
+          body: "給定一個由 `.`（可通行）與 `#`（牆）組成的格狀迷宮。從左上角 $(0,0)$ 出發，每步可往上、下、左、右移動到相鄰的可通行格子，求到達右下角 $(R-1,C-1)$ 的最短步數。\n\n若起點或終點是牆，或無法到達終點，輸出 `-1`。這是一道單源最短路徑（BFS）題。",
           inputFormat:
-            "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示迷宮的列數與行數。\n\n接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。\n\n起點為左上角 $(0,0)$，終點為右下角 $(R-1,C-1)$。",
-          outputFormat: "一行，輸出從起點到終點的最短路徑長度。",
+            "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示列數與行數。\n\n接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。",
+          outputFormat: "一行，輸出從 $(0,0)$ 到 $(R-1,C-1)$ 的最短步數；若不可達輸出 `-1`。",
         },
         en: {
-          title: "Distributed Labyrinth",
-          body: "Coordinate multiple agents across layered corridors while preserving shortest-path guarantees. Efficient state compression and shortest-path reasoning are both required once the maze begins to branch.",
+          title: "Maze Shortest Path",
+          body: "Given a grid maze of `.` (open) and `#` (wall) cells, start at the top-left $(0,0)$ and move up/down/left/right between adjacent open cells. Report the minimum number of steps to reach the bottom-right $(R-1,C-1)$.\n\nIf the start or goal is a wall, or the goal is unreachable, output `-1`. This is a single-source shortest-path (BFS) problem.",
           inputFormat:
-            "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns.\n\nThe next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall.\n\nThe start is at $(0,0)$ and the goal is at $(R-1,C-1)$.",
+            "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns.\n\nThe next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall.",
           outputFormat:
-            "A single line containing the length of the shortest path from start to goal.",
+            "A single line containing the shortest number of steps from $(0,0)$ to $(R-1,C-1)$, or `-1` if it is unreachable.",
         },
       },
       samples: [
@@ -328,17 +330,18 @@ export async function seedProblems(
           ],
         },
         hidden: {
-          description: "1 ≤ R, C ≤ 1000, dense and degenerate mazes.",
+          description: "Spiral, single cell, and an unreachable goal.",
           cases: [
             { input: "5 5\n.....\n.###.\n.#.#.\n.###.\n.....\n", output: "8" },
             { input: "1 1\n.\n", output: "0" },
+            { input: "3 3\n.#.\n.#.\n.#.\n", output: "-1" },
           ],
         },
       },
     },
     {
       authorId: teacherId,
-      title: "Process Log Parser",
+      title: "Maximum Subarray Sum",
       tags: ["medium"],
       type: "full_source" as const,
       id: "problem_process-log-parser",
@@ -347,56 +350,45 @@ export async function seedProblems(
       visibility: "private" as const,
       statements: {
         "zh-TW": {
-          title: "Process Log Parser",
-          body: "解析作業系統行程追蹤並輸出正規化的生命週期日誌。這是一個私有題目，僅供課程作業使用。",
+          title: "最大子陣列和",
+          body: "給定一個整數陣列，找出和最大的「連續非空子陣列」，並輸出該最大和。\n\n這是經典的 Kadane 動態規劃題：以線性時間維護「以當前位置結尾的最大子陣列和」。注意陣列可能全為負數，此時答案是最大的單一元素。",
           inputFormat:
-            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示事件數量。\n\n接下來 $N$ 行，每行格式為 `fork <parent> <child>`、`exit <pid>` 或 `wait <pid>`。",
-          outputFormat:
-            "每行一個事件的正規化描述：\n\n- `fork` 事件輸出 `<parent>-><child> forked`\n- `exit` 事件輸出 `<pid> exited`\n- `wait` 事件輸出 `<pid> waited`",
+            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示陣列長度。\n\n第二行 $N$ 個整數 $a_i$（$-10^4 \\le a_i \\le 10^4$）。",
+          outputFormat: "一行，輸出最大連續子陣列和。",
         },
         en: {
-          title: "Process Log Parser",
-          body: "Parse an operating-system process trace and emit a normalized lifecycle log. This private problem is meant for course-only usage.",
+          title: "Maximum Subarray Sum",
+          body: "Given an array of integers, find the contiguous non-empty subarray with the largest sum and print that sum.\n\nThis is the classic Kadane dynamic-programming problem: maintain, in linear time, the best subarray sum ending at the current position. Note the array may be all negative, in which case the answer is the single largest element.",
           inputFormat:
-            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the number of events.\n\nThe next $N$ lines each contain an event in the form `fork <parent> <child>`, `exit <pid>`, or `wait <pid>`.",
-          outputFormat:
-            "One line per event:\n\n- `fork` events produce `<parent>-><child> forked`\n- `exit` events produce `<pid> exited`\n- `wait` events produce `<pid> waited`",
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the array length.\n\nThe second line contains $N$ integers $a_i$ ($-10^4 \\le a_i \\le 10^4$).",
+          outputFormat: "A single line containing the maximum contiguous subarray sum.",
         },
       },
       samples: [
-        {
-          input: "3\nfork 1 2\nexit 2\nwait 1\n",
-          output: "1->2 forked\n2 exited\n1 waited\n",
-        },
+        { input: "9\n-2 1 -3 4 -1 2 1 -5 4\n", output: "6" },
+        { input: "1\n5\n", output: "5" },
       ],
       testcases: {
         sample: {
-          description: "1 ≤ N ≤ 5, demonstrates the event format.",
+          description: "Mixed-sign array and a single element.",
           cases: [
-            {
-              input: "3\nfork 1 2\nexit 2\nwait 1\n",
-              output: "1->2 forked\n2 exited\n1 waited\n",
-            },
+            { input: "9\n-2 1 -3 4 -1 2 1 -5 4\n", output: "6" },
+            { input: "1\n5\n", output: "5" },
           ],
         },
         hidden: {
-          description: "1 ≤ N ≤ 10^5, nested fork chains.",
+          description: "All-negative, all-positive, and single negative edges.",
           cases: [
-            {
-              input: "5\nfork 1 2\nfork 2 3\nexit 3\nwait 2\nexit 1\n",
-              output: "1->2 forked\n2->3 forked\n3 exited\n2 waited\n1 exited\n",
-            },
-            {
-              input: "2\nfork 1 2\nexit 2\n",
-              output: "1->2 forked\n2 exited\n",
-            },
+            { input: "3\n-3 -1 -2\n", output: "-1" },
+            { input: "4\n1 2 3 4\n", output: "10" },
+            { input: "1\n-7\n", output: "-7" },
           ],
         },
       },
     },
     {
       authorId: teacherId,
-      title: "Fork Bomb Safeguard",
+      title: "0/1 Knapsack",
       tags: ["hard"],
       type: "full_source" as const,
       id: "problem_fork-bomb-safeguard",
@@ -405,37 +397,39 @@ export async function seedProblems(
       visibility: "private" as const,
       statements: {
         "zh-TW": {
-          title: "Fork Bomb Safeguard",
-          body: "計算在爆發約束下行程樹的最小成本隔離策略。這個題目在課程考試中保持私有。",
+          title: "0/1 背包問題",
+          body: "有 $N$ 件物品與一個容量為 $W$ 的背包。第 $i$ 件物品的重量為 $w_i$、價值為 $v_i$，每件物品至多選一次。在總重量不超過 $W$ 的前提下，求能取得的最大總價值。\n\n這是經典的 0/1 背包動態規劃，以一維 DP 表 $dp[c]$ 由大到小更新容量即可。",
           inputFormat:
-            "第一行一個整數 $N$（$2 \\le N \\le 10^5$），表示行程數量。\n\n接下來 $N-1$ 行，每行兩個整數 $u$ 和 $v$，表示行程 $u$ fork 了行程 $v$。",
-          outputFormat: "一行，輸出最小隔離成本。",
+            "第一行兩個整數 $N$ 和 $W$（$1 \\le N \\le 100$，$1 \\le W \\le 10^4$）。\n\n接下來 $N$ 行，每行兩個整數 $w_i$ 和 $v_i$（$1 \\le w_i \\le W$，$1 \\le v_i \\le 10^9$）。",
+          outputFormat: "一行，輸出總重量不超過 $W$ 時的最大總價值。",
         },
         en: {
-          title: "Fork Bomb Safeguard",
-          body: "Compute the minimum cost isolation strategy for a process tree under burst constraints. This problem stays private to the course exam.",
+          title: "0/1 Knapsack",
+          body: "There are $N$ items and a knapsack of capacity $W$. Item $i$ has weight $w_i$ and value $v_i$, and each item may be taken at most once. Maximize the total value without exceeding total weight $W$.\n\nThis is the classic 0/1 knapsack dynamic program; a one-dimensional table $dp[c]$ updated from high capacity to low suffices.",
           inputFormat:
-            "The first line contains an integer $N$ ($2 \\le N \\le 10^5$), the number of processes.\n\nThe next $N-1$ lines each contain two integers $u$ and $v$, indicating process $u$ forked process $v$.",
-          outputFormat: "A single line containing the minimum isolation cost.",
+            "The first line contains two integers $N$ and $W$ ($1 \\le N \\le 100$, $1 \\le W \\le 10^4$).\n\nThe next $N$ lines each contain two integers $w_i$ and $v_i$ ($1 \\le w_i \\le W$, $1 \\le v_i \\le 10^9$).",
+          outputFormat:
+            "A single line containing the maximum total value with total weight at most $W$.",
         },
       },
       samples: [
-        { input: "4\n1 2\n1 3\n3 4\n", output: "7" },
-        { input: "2\n1 2\n", output: "3" },
+        { input: "4 10\n2 3\n3 4\n4 5\n5 6\n", output: "13" },
+        { input: "3 5\n1 1\n2 2\n3 3\n", output: "5" },
       ],
       testcases: {
         sample: {
-          description: "Small process trees demonstrating the cost model.",
+          description: "Small instances demonstrating the trade-off.",
           cases: [
-            { input: "4\n1 2\n1 3\n3 4\n", output: "7" },
-            { input: "2\n1 2\n", output: "3" },
+            { input: "4 10\n2 3\n3 4\n4 5\n5 6\n", output: "13" },
+            { input: "3 5\n1 1\n2 2\n3 3\n", output: "5" },
           ],
         },
         hidden: {
-          description: "2 ≤ N ≤ 10^5, deep + wide trees.",
+          description: "Exact fit, item that cannot fit, and a forced single pick.",
           cases: [
-            { input: "5\n1 2\n1 3\n3 4\n3 5\n", output: "11" },
-            { input: "3\n1 2\n2 3\n", output: "6" },
+            { input: "3 7\n3 4\n4 5\n2 3\n", output: "9" },
+            { input: "1 4\n5 10\n", output: "0" },
+            { input: "2 10\n10 100\n9 90\n", output: "100" },
           ],
         },
       },
@@ -546,6 +540,82 @@ wrong(f"expected {expected}, got {actual}")
     },
     {
       authorId: teacherId,
+      title: "Any Two Sum (Checker)",
+      tags: ["medium"],
+      type: "full_source" as const,
+      id: "problem_any-two-sum",
+      memoryLimitMb: 256,
+      judgeConfig: {
+        type: "checker",
+        checkerLanguage: "python",
+        checkerScript: `lines = judge_input.strip().split("\\n")
+n, target = map(int, lines[0].split())
+arr = list(map(int, lines[1].split()))
+exists = judge_answer.strip()
+
+toks = team_output.split()
+if not toks:
+    wrong("no output")
+if toks[0] == "-1":
+    if exists == "NO":
+        accept("correctly reported no pair")
+    wrong("reported no pair but one exists")
+if len(toks) < 2:
+    wrong("expected two indices")
+try:
+    i, j = int(toks[0]), int(toks[1])
+except ValueError:
+    wrong("indices are not integers")
+if not (1 <= i <= n and 1 <= j <= n) or i == j:
+    wrong(f"invalid index pair {i} {j}")
+if arr[i - 1] + arr[j - 1] == target:
+    accept(f"valid pair {i} {j}")
+wrong(f"a[{i}]+a[{j}] != {target}")
+`,
+      },
+      timeLimitMs: 1000,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "任意兩數之和（自訂 checker）",
+          body: "這是一道「答案不唯一」的 checker 示範題。給定 $N$ 個整數與一個目標值 $T$，請找出**任意一組**索引 $i$、$j$（$1 \\le i, j \\le N$ 且 $i \\ne j$，1-based），使得 $a_i + a_j = T$，並輸出 `i j`（順序不限）。若不存在任何一組，輸出 `-1`。\n\n判題使用自訂 checker：只要你輸出的索引對確實滿足 $a_i + a_j = T$ 即視為正確，不要求與標準答案完全相同。",
+          inputFormat:
+            "第一行兩個整數 $N$ 和 $T$（$2 \\le N \\le 2000$，$-10^9 \\le T \\le 10^9$）。\n\n第二行 $N$ 個整數 $a_i$（$-10^9 \\le a_i \\le 10^9$）。",
+          outputFormat: "輸出任意一組滿足條件的 1-based 索引 `i j`；若不存在輸出 `-1`。",
+        },
+        en: {
+          title: "Any Two Sum (Checker)",
+          body: "A multiple-valid-answers checker demo. Given $N$ integers and a target $T$, output **any** pair of indices $i$, $j$ ($1 \\le i, j \\le N$, $i \\ne j$, 1-based) such that $a_i + a_j = T$, printed as `i j` (either order). If no such pair exists, output `-1`.\n\nGrading uses a custom checker: any index pair that truly satisfies $a_i + a_j = T$ is accepted — you need not match a fixed reference answer.",
+          inputFormat:
+            "The first line contains two integers $N$ and $T$ ($2 \\le N \\le 2000$, $-10^9 \\le T \\le 10^9$).\n\nThe second line contains $N$ integers $a_i$ ($-10^9 \\le a_i \\le 10^9$).",
+          outputFormat: "Output any valid 1-based index pair `i j`, or `-1` if none exists.",
+        },
+      },
+      samples: [
+        { input: "4 9\n2 7 4 5\n", output: "1 2" },
+        { input: "3 100\n1 2 3\n", output: "-1" },
+      ],
+      testcases: {
+        sample: {
+          description: "One solvable case and one with no valid pair.",
+          cases: [
+            { input: "4 9\n2 7 4 5\n", output: "YES" },
+            { input: "3 100\n1 2 3\n", output: "NO" },
+          ],
+        },
+        hidden: {
+          description:
+            "Checker reads judge_answer = YES/NO (whether any pair exists) and validates structurally.",
+          cases: [
+            { input: "5 0\n-3 1 4 3 -1\n", output: "YES" },
+            { input: "2 5\n2 3\n", output: "YES" },
+            { input: "4 1000000000\n1 2 3 4\n", output: "NO" },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
       title: "Guess the Number",
       tags: ["medium"],
       type: "full_source" as const,
@@ -615,7 +685,7 @@ wrong(f"failed to guess {secret} within 20 attempts")
     },
     {
       authorId: teacherId,
-      title: "Stateful DHCP Option Parser",
+      title: "Primality Test (Multi-File)",
       tags: ["hard"],
       type: "multi_file" as const,
       id: "problem_stateful-dhcp-parser",
@@ -624,109 +694,95 @@ wrong(f"failed to guess {secret} within 20 attempts")
       visibility: "public" as const,
       statements: {
         "zh-TW": {
-          title: "Stateful DHCP Option Parser",
-          body: '這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀資料、對每行 payload 呼叫 `parse_dhcp_options(hex_payload)`，並印出結果。輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_payloads()` 解析 stdin）；你只需在 `main.py` 裡實作 `parse_dhcp_options`。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `["ERROR"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。',
+          title: "質數判定（多檔）",
+          body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀入 $Q$ 個整數，對每個整數 $n$ 呼叫你實作的 `is_prime(n)`，並逐行印出 `YES`（質數）或 `NO`（非質數）。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_queries()` 解析 stdin）；你只需在 `main.py` 裡實作 `is_prime`。\n\n定義：小於 2 的整數都不是質數。請以試除到 $\\sqrt{n}$ 的方式判定，使每筆查詢都能在時限內完成。",
           inputFormat:
-            "第一行一個整數 $Q$，接著有 $Q$ 行 hex payload。每行都會呼叫一次 `parse_dhcp_options`。",
-          outputFormat: "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。",
+            "第一行一個整數 $Q$（$1 \\le Q \\le 10^4$）。\n\n接下來 $Q$ 行，每行一個整數 $n$（$0 \\le n \\le 10^9$）。",
+          outputFormat: "對每個查詢輸出一行：質數輸出 `YES`，否則輸出 `NO`。",
         },
         en: {
-          title: "Stateful DHCP Option Parser",
-          body: 'A multi-file problem. The runnable entry point is `main.py`: it reads stdin, calls `parse_dhcp_options(hex_payload)` once per payload line, and prints the result. The input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\n`main.py` imports the read-only `iolib.py` (which provides `read_payloads()` to parse stdin); you only implement `parse_dhcp_options` in `main.py`.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `["ERROR"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.',
+          title: "Primality Test (Multi-File)",
+          body: "A multi-file problem. The runnable entry point is `main.py`: it reads $Q$ integers from stdin, calls your `is_prime(n)` on each, and prints `YES` (prime) or `NO` (not prime), one per line.\n\n`main.py` imports the read-only `iolib.py` (which provides `read_queries()` to parse stdin); you only implement `is_prime` in `main.py`.\n\nDefinition: integers below 2 are not prime. Use trial division up to $\\sqrt{n}$ so each query stays within the time limit.",
           inputFormat:
-            "The first line contains an integer $Q$, followed by $Q$ payload lines. Each line is passed once to `parse_dhcp_options`.",
-          outputFormat:
-            "Print one line per payload. A returned list `[a, b, c]` must be printed as `a|b|c`.",
+            "The first line contains an integer $Q$ ($1 \\le Q \\le 10^4$).\n\nThe next $Q$ lines each contain an integer $n$ ($0 \\le n \\le 10^9$).",
+          outputFormat: "For each query print one line: `YES` if prime, otherwise `NO`.",
         },
       },
       samples: [
         {
-          input: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
-          output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2",
+          input: "4\n1\n2\n17\n18\n",
+          output: "NO\nYES\nYES\nNO",
         },
       ],
       workspaceFiles: [
         {
           language: "python",
           path: "main.py",
-          content: `from typing import List
+          content: `from iolib import read_queries
 
-from iolib import read_payloads
-
-def parse_dhcp_options(hex_payload: str) -> List[str]:
-    """Parse a DHCP option TLV stream into CODE:LEN:VALUE entries.
-
-    Rules:
-      - Code 0 is padding (skip).
-      - Code 255 is End (stop).
-      - On malformed input return ["ERROR"].
-      - Codes 1/3/6 -> IPv4 dotted groups joined by commas.
-      - Other codes -> uppercase contiguous hex.
-    """
-    # implement parse_dhcp_options here
-    return ["ERROR"]
+def is_prime(n: int) -> bool:
+    """Return True if n is a prime number, False otherwise."""
+    # implement is_prime here
+    return False
 
 def main() -> None:
-    for payload in read_payloads():
-        print("|".join(parse_dhcp_options(payload)))
+    for n in read_queries():
+        print("YES" if is_prime(n) else "NO")
 
 if __name__ == "__main__":
     main()
 `,
           visibility: "editable",
           description:
-            "The runnable entry. main() reads payloads via iolib.read_payloads and prints each parse_dhcp_options result with '|' separators. Implement parse_dhcp_options here.",
+            "The runnable entry. main() reads queries via iolib.read_queries and prints YES/NO per is_prime result. Implement is_prime here.",
           orderIndex: 0,
         },
         {
           language: "python",
           path: "iolib.py",
-          content: `"""Read-only I/O helper for the DHCP option parser.
+          content: `"""Read-only I/O helper for the primality test.
 
-Do NOT modify. main.py imports read_payloads to turn the stdin stream
-into the list of hex payload strings to parse.
+Do NOT modify. main.py imports read_queries to turn the stdin stream
+into the list of Q integers to classify.
 """
 
 import sys
 from typing import List
 
-def read_payloads() -> List[str]:
-    """Return the Q payload lines from stdin (empty list on bad count)."""
-    data = sys.stdin.read().splitlines()
+def read_queries() -> List[int]:
+    """Return the Q query integers from stdin (empty list on bad count)."""
+    data = sys.stdin.read().split()
     if not data:
         return []
-    try:
-        q = int(data[0])
-    except ValueError:
-        return []
-    return [line.strip() for line in data[1 : 1 + q]]
+    q = int(data[0])
+    return [int(tok) for tok in data[1 : 1 + q]]
 `,
           visibility: "readonly",
           description:
-            "Read-only stdin helper. Provides read_payloads(), which main.py imports to get the list of hex payloads. You don't need to touch this file.",
+            "Read-only stdin helper. Provides read_queries(), which main.py imports to get the integers. You don't need to touch this file.",
           orderIndex: 1,
         },
       ],
       testcases: {
         sample: {
-          description: "Single sample exercising IPv4 + Ethernet codes.",
+          description: "Smallest non-prime, smallest prime, a prime, and a composite.",
           cases: [
             {
-              input: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
-              output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2",
+              input: "4\n1\n2\n17\n18\n",
+              output: "NO\nYES\nYES\nNO",
             },
           ],
         },
         hidden: {
-          description: "Malformed payloads, multi-byte non-IP values, padding handling.",
+          description: "Zero, large prime, large composite, and a perfect square.",
           cases: [
             {
-              input: "2\n0C066E6F6A762D31FF\n0104C0A801\n",
-              output: "12:6:6E6F6A762D31\nERROR",
+              input: "5\n0\n97\n100\n7919\n7921\n",
+              output: "NO\nYES\nNO\nYES\nNO",
             },
             {
-              input: "1\n00000608C0A80101C0A801FEFF\n",
-              output: "6:8:192.168.1.1,192.168.1.254",
+              input: "3\n999999937\n999999938\n3\n",
+              output: "YES\nNO\nYES",
             },
           ],
         },
@@ -734,7 +790,7 @@ def read_payloads() -> List[str]:
     },
     {
       authorId: teacherId,
-      title: "Memory Leak Forensics",
+      title: "Binary Search (Multi-File)",
       tags: ["hard"],
       type: "multi_file" as const,
       id: "problem_memory-leak-forensics",
@@ -743,112 +799,104 @@ def read_payloads() -> List[str]:
       visibility: "public" as const,
       statements: {
         "zh-TW": {
-          title: "Memory Leak Forensics",
-          body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀事件、呼叫 `analyze_trace(events)`，並印出三個整數。每個事件格式為：\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_events()` 解析 stdin）；你只需在 `main.py` 裡實作 `analyze_trace`。\n\n同一 `id` 重複 ALLOC 視為先前未釋放（覆蓋前請先計入洩漏），FREE 不存在的 `id` 視為 invalid free。\n\n回傳 `(peak_bytes, leaked_blocks, invalid_free_count)`。",
-          inputFormat: "第一行一個整數 $N$，再讀 $N$ 行事件。",
-          outputFormat: "輸出三個整數：`peak_bytes leaked_blocks invalid_free_count`。",
+          title: "二分搜尋（多檔）",
+          body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它讀入一個由小到大排序、且元素互異的整數陣列，以及若干筆查詢。對每筆查詢 $x$，呼叫你實作的 `binary_search(arr, x)`，回傳 $x$ 在陣列中的 0-based 索引；若不存在，回傳 $-1$。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_problem()` 解析 stdin）；你只需在 `main.py` 裡實作 `binary_search`，且必須使用 $O(\\log N)$ 二分搜尋。",
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 2 \\times 10^5$）。\n\n第二行 $N$ 個嚴格遞增的整數。\n\n第三行一個整數 $Q$（$1 \\le Q \\le 2 \\times 10^5$）。\n\n第四行 $Q$ 個查詢值。",
+          outputFormat: "一行，輸出 $Q$ 個以空白分隔的結果，每個是對應查詢的索引或 $-1$。",
         },
         en: {
-          title: "Memory Leak Forensics",
-          body: "A multi-file problem. The runnable entry point is `main.py`: it reads stdin, calls `analyze_trace(events)`, and prints three integers. Each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n`main.py` imports the read-only `iolib.py` (which provides `read_events()` to parse stdin); you only implement `analyze_trace` in `main.py`.\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
-          inputFormat: "The first line contains an integer $N$, then $N$ event lines follow.",
-          outputFormat: "Print three integers: `peak_bytes leaked_blocks invalid_free_count`.",
+          title: "Binary Search (Multi-File)",
+          body: "A multi-file problem. The runnable entry point is `main.py`: it reads a strictly increasing array of distinct integers and several queries. For each query $x$, it calls your `binary_search(arr, x)`, which returns the 0-based index of $x$ in the array, or $-1$ if absent.\n\n`main.py` imports the read-only `iolib.py` (which provides `read_problem()` to parse stdin); you only implement `binary_search` in `main.py`, and it must use an $O(\\log N)$ binary search.",
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 2 \\times 10^5$).\n\nThe second line contains $N$ strictly increasing integers.\n\nThe third line contains an integer $Q$ ($1 \\le Q \\le 2 \\times 10^5$).\n\nThe fourth line contains $Q$ query values.",
+          outputFormat:
+            "A single line with $Q$ space-separated results, each the index of the query or $-1$.",
         },
       },
       samples: [
         {
-          input: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
-          output: "48 0 0",
-        },
-        {
-          input: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
-          output: "10 1 2",
+          input: "6\n1 3 5 7 9 11\n3\n7 1 4\n",
+          output: "3 0 -1",
         },
       ],
       workspaceFiles: [
         {
           language: "python",
           path: "main.py",
-          content: `from typing import Iterable, Tuple
+          content: `from typing import List
 
-from iolib import read_events
+from iolib import read_problem
 
-def analyze_trace(events: Iterable[str]) -> Tuple[int, int, int]:
-    """Return (peak_bytes, leaked_blocks, invalid_free_count).
-
-    Events are strings of the form 'ALLOC <id> <size>' or 'FREE <id>'.
-    Re-allocating a live id leaks the prior block. Freeing an unknown
-    id counts as an invalid free and does not crash.
-    """
-    # implement analyze_trace here
-    return (0, 0, 0)
+def binary_search(arr: List[int], x: int) -> int:
+    """Return the 0-based index of x in the sorted arr, or -1 if absent."""
+    # implement an O(log N) binary search here
+    return -1
 
 def main() -> None:
-    peak, leaked, invalid = analyze_trace(read_events())
-    print(f"{peak} {leaked} {invalid}")
+    arr, queries = read_problem()
+    print(" ".join(str(binary_search(arr, x)) for x in queries))
 
 if __name__ == "__main__":
     main()
 `,
           visibility: "editable",
           description:
-            "The runnable entry. main() reads the event lines via iolib.read_events and prints the three integers analyze_trace returns. Implement analyze_trace here.",
+            "The runnable entry. main() reads the array + queries via iolib.read_problem and prints each binary_search result. Implement binary_search here.",
           orderIndex: 0,
         },
         {
           language: "python",
           path: "iolib.py",
-          content: `"""Read-only I/O helper for Memory Leak Forensics.
+          content: `"""Read-only I/O helper for the binary search problem.
 
-Do NOT modify. main.py imports read_events to turn the stdin trace into
-the list of N event lines analyze_trace expects.
+Do NOT modify. main.py imports read_problem to turn the stdin stream
+into (arr, queries) for binary_search to answer.
 """
 
 import sys
-from typing import List
+from typing import List, Tuple
 
-def read_events() -> List[str]:
-    """Return the N event lines from stdin (empty list on bad count)."""
-    data = sys.stdin.read().splitlines()
-    if not data:
-        return []
-    try:
-        n = int(data[0])
-    except ValueError:
-        return []
-    return data[1 : 1 + n]
+def read_problem() -> Tuple[List[int], List[int]]:
+    """Return (arr, queries) parsed from stdin."""
+    data = sys.stdin.read().split()
+    idx = 0
+    n = int(data[idx]); idx += 1
+    arr = [int(data[idx + i]) for i in range(n)]; idx += n
+    q = int(data[idx]); idx += 1
+    queries = [int(data[idx + i]) for i in range(q)]
+    return arr, queries
 `,
           visibility: "readonly",
           description:
-            "Read-only stdin helper. Provides read_events(), which main.py imports to get the event lines. You don't need to touch this file.",
+            "Read-only stdin helper. Provides read_problem(), which main.py imports to get (arr, queries). You don't need to touch this file.",
           orderIndex: 1,
         },
       ],
       testcases: {
         sample: {
-          description: "Sample event streams covering basic and re-alloc-leak cases.",
+          description: "A hit at the middle, a hit at the front, and a miss.",
           cases: [
             {
-              input: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
-              output: "48 0 0",
-            },
-            {
-              input: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
-              output: "10 1 2",
+              input: "6\n1 3 5 7 9 11\n3\n7 1 4\n",
+              output: "3 0 -1",
             },
           ],
         },
         hidden: {
-          description: "Mixed traces with peak tracking, leaks, and invalid frees.",
+          description: "Last element, below-all, above-all, and a single-element array.",
           cases: [
             {
-              input:
-                "8\nALLOC p1 100\nALLOC p2 200\nFREE p1\nALLOC p3 50\nALLOC p2 30\nFREE p3\nFREE p9\nFREE p2\n",
-              output: "300 1 1",
+              input: "6\n1 3 5 7 9 11\n3\n11 0 12\n",
+              output: "5 -1 -1",
             },
             {
-              input: "4\nFREE z\nALLOC z 1\nALLOC z 2\nALLOC z 3\n",
-              output: "3 2 1",
+              input: "1\n42\n2\n42 7\n",
+              output: "0 -1",
+            },
+            {
+              input: "5\n-10 -3 0 8 15\n4\n-3 15 -10 1\n",
+              output: "1 4 0 -1",
             },
           ],
         },
@@ -856,7 +904,7 @@ def read_events() -> List[str]:
     },
     {
       authorId: teacherId,
-      title: "Multi-File Mean (Checker)",
+      title: "Any Factor Pair (Multi-File Checker)",
       tags: ["medium"],
       type: "multi_file" as const,
       id: "problem_multi-checker-stats",
@@ -864,103 +912,102 @@ def read_events() -> List[str]:
       judgeConfig: {
         type: "checker",
         checkerLanguage: "python",
-        checkerScript: `expected = float(judge_answer.strip())
+        checkerScript: `n = int(judge_input.strip())
+toks = team_output.split()
+if len(toks) < 2:
+    wrong("expected two integers")
 try:
-    actual = float(team_output.strip())
+    a, b = int(toks[0]), int(toks[1])
 except ValueError:
-    wrong("output is not a valid number")
-if abs(expected - actual) < 1e-6:
-    accept()
-wrong(f"expected {expected}, got {actual}")
+    wrong("factors are not integers")
+if a > 1 and b > 1 and a * b == n:
+    accept(f"valid factorization {a} x {b}")
+wrong(f"{a} x {b} is not a valid factor pair of {n}")
 `,
       },
       timeLimitMs: 1000,
       visibility: "public" as const,
       statements: {
         "zh-TW": {
-          title: "Multi-File Mean (Checker)",
-          body: "這是一題「多檔 × 自訂 checker」示範題。可執行的進入點是 `main.py`：它讀入 $N$ 與 $N$ 個整數，`import` 唯讀的 `stats.py`（提供 `mean(values)`），並以 6 位小數印出平均值。\n\n判題使用自訂 checker：只要你的答案與標準答案的絕對誤差小於 $10^{-6}$ 即視為正確。你只需在 `main.py` 裡完成讀檔與輸出。",
-          inputFormat: String.raw`第一行一個整數 $N$（$1 \le N \le 10^5$），接著有 $N$ 個整數（可跨多行，以空白分隔）。`,
-          outputFormat: "一行，輸出這 $N$ 個整數的平均值。與標準答案絕對誤差須小於 $10^{-6}$。",
+          title: "任意因數對（多檔 × 自訂 checker）",
+          body: "這是一題「多檔 × 自訂 checker、且答案不唯一」示範題。可執行的進入點是 `main.py`：它讀入一個保證為合數的整數 $n$，呼叫你實作的 `any_factor_pair(n)`，並印出兩個整數 `a b`。\n\n你的目標是找出**任意一組**整數 $a, b$，使得 $a > 1$、$b > 1$ 且 $a \\times b = n$。例如 $n = 12$ 時，`2 6`、`3 4`、`6 2` 都算正確。\n\n`main.py` 會 `import` 唯讀的 `numio.py`（提供 `read_n()`）。判題使用自訂 checker，只驗證乘積是否等於 $n$。你只需在 `main.py` 裡實作 `any_factor_pair`。",
+          inputFormat: "一行一個整數 $n$（$4 \\le n \\le 10^9$，保證為合數）。",
+          outputFormat:
+            "一行兩個以空白分隔的整數 `a b`，滿足 $a > 1$、$b > 1$ 且 $a \\times b = n$。",
         },
         en: {
-          title: "Multi-File Mean (Checker)",
-          body: "A multi_file × custom-checker demo problem. The runnable entry point is `main.py`: it reads $N$ and $N$ integers, imports the read-only `stats.py` (which provides `mean(values)`), and prints the mean to 6 decimal places.\n\nGrading uses a custom checker: any answer within $10^{-6}$ absolute error of the reference is accepted. You only complete the read + print logic in `main.py`.",
-          inputFormat: String.raw`The first line contains an integer $N$ ($1 \le N \le 10^5$), followed by $N$ integers (whitespace-separated, possibly across multiple lines).`,
+          title: "Any Factor Pair (Multi-File Checker)",
+          body: "A multi_file × custom-checker demo with multiple valid answers. The runnable entry point is `main.py`: it reads a guaranteed-composite integer $n$, calls your `any_factor_pair(n)`, and prints two integers `a b`.\n\nYour goal is to find **any** integers $a, b$ with $a > 1$, $b > 1$, and $a \\times b = n$. For $n = 12$, the outputs `2 6`, `3 4`, and `6 2` are all accepted.\n\n`main.py` imports the read-only `numio.py` (which provides `read_n()`). Grading uses a custom checker that only verifies the product equals $n$. You only implement `any_factor_pair` in `main.py`.",
+          inputFormat:
+            "A single line with one integer $n$ ($4 \\le n \\le 10^9$, guaranteed composite).",
           outputFormat:
-            "A single line containing the mean of the $N$ integers. Must be within $10^{-6}$ absolute error of the reference.",
+            "A single line with two space-separated integers `a b` satisfying $a > 1$, $b > 1$, and $a \\times b = n$.",
         },
       },
       samples: [
-        { input: "5\n1 2 3 4 5\n", output: "3.000000" },
-        { input: "3\n1 2 4\n", output: "2.333333" },
+        { input: "12\n", output: "2 6" },
+        { input: "100\n", output: "4 25" },
       ],
       workspaceFiles: [
         {
           language: "python",
           path: "main.py",
-          content: `import sys
-from typing import List
+          content: `from typing import Tuple
 
-from stats import mean
+from numio import read_n
 
-def read_numbers() -> List[float]:
-    """Read N then N integers from stdin and return them as floats."""
-    # implement reading: first token is the count N, then N integers
-    tokens = sys.stdin.read().split()
-    if not tokens:
-        return []
-    n = int(tokens[0])
-    return [float(t) for t in tokens[1 : 1 + n]]
+def any_factor_pair(n: int) -> Tuple[int, int]:
+    """Return any (a, b) with a > 1, b > 1, and a * b == n."""
+    # implement any_factor_pair here
+    return (1, n)
 
 def main() -> None:
-    numbers = read_numbers()
-    print(f"{mean(numbers):.6f}")
+    a, b = any_factor_pair(read_n())
+    print(a, b)
 
 if __name__ == "__main__":
     main()
 `,
           visibility: "editable",
           description:
-            "The runnable entry. main() reads the numbers, averages them via stats.mean, and prints the mean to 6 dp. Implement read_numbers here.",
+            "The runnable entry. main() reads n via numio.read_n and prints the factor pair any_factor_pair returns. Implement any_factor_pair here.",
           orderIndex: 0,
         },
         {
           language: "python",
-          path: "stats.py",
-          content: `"""Read-only statistics helper.
+          path: "numio.py",
+          content: `"""Read-only input helper for the factor-pair problem.
 
-Do NOT modify. main.py imports mean to average the parsed numbers.
+Do NOT modify. main.py imports read_n to get the composite integer n.
 """
 
-from typing import Sequence
+import sys
 
-def mean(values: Sequence[float]) -> float:
-    """Return the arithmetic mean of values (0.0 for an empty input)."""
-    if not values:
-        return 0.0
-    return sum(values) / len(values)
+def read_n() -> int:
+    """Return the single integer n from stdin."""
+    return int(sys.stdin.read().split()[0])
 `,
           visibility: "readonly",
           description:
-            "Read-only helper. Provides mean(values), which main.py imports. You don't need to touch this file.",
+            "Read-only helper. Provides read_n(), which main.py imports. You don't need to touch this file.",
           orderIndex: 1,
         },
       ],
       testcases: {
         sample: {
-          description: "Public sample cases for the float-mean checker.",
+          description: "Composite numbers; checker accepts any valid factor pair.",
           cases: [
-            { input: "5\n1 2 3 4 5\n", output: "3.000000" },
-            { input: "3\n1 2 4\n", output: "2.333333" },
+            { input: "12\n", output: "" },
+            { input: "100\n", output: "" },
           ],
         },
         hidden: {
-          description: "Hidden cases graded by the abs-diff < 1e-6 checker.",
+          description: "Even, odd composite, prime-squared, and larger composite.",
           cases: [
-            { input: "1\n7\n", output: "7.000000" },
-            { input: "4\n-2 -1 1 2\n", output: "0.000000" },
-            { input: "6\n10 20 30 40 50 65\n", output: "35.833333" },
+            { input: "4\n", output: "" },
+            { input: "9\n", output: "" },
+            { input: "1000000\n", output: "" },
+            { input: "999999999\n", output: "" },
           ],
         },
       },
