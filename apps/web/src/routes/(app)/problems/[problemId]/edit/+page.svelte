@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
-  import type { Language, ProblemImageSource } from "@nojv/core";
+  import type { AdvancedConfig, Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import ProblemSections from "$lib/components/features/problem/views/ProblemSections.svelte";
@@ -9,8 +9,7 @@
   import TestcaseTab from "$lib/components/features/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/features/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
-  import ImageSection from "$lib/components/features/problem/advanced/ImageSection.svelte";
-  import ContainerContractSection from "$lib/components/features/problem/advanced/ContainerContractSection.svelte";
+  import AdvancedConfigSection from "$lib/components/features/problem/advanced/AdvancedConfigSection.svelte";
   import RequiredPathsSection from "$lib/components/features/problem/advanced/RequiredPathsSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
@@ -37,17 +36,6 @@
     storageRefreshToken += 1;
   }
 
-  let imageRef = $state<string>(untrack(() => data.imageConfig?.ref ?? ""));
-  let imageSource = $state<ProblemImageSource>(
-    untrack(() => data.imageConfig?.source ?? "registry"),
-  );
-  let advancedTimeLimitMs = $state<number>(
-    untrack(() => data.imageConfig?.timeLimitMs ?? 30_000),
-  );
-  let advancedMemoryLimitMb = $state<number>(
-    untrack(() => data.imageConfig?.memoryLimitMb ?? 1_024),
-  );
-
   let requiredPaths = $state<string[]>(untrack(() => data.problem.advancedRequiredPaths ?? []));
 
   let isBasicInfoComplete = $derived(
@@ -60,7 +48,9 @@
   let canPublish = $derived(
     data.problem.status === "draft" &&
       (isAdvanced
-        ? isBasicInfoComplete && (data.imageConfig?.ref ?? "") !== ""
+        ? isBasicInfoComplete &&
+          (data.advancedConfig?.config.run.imageRef ?? "") !== "" &&
+          (data.advancedConfig?.config.grade.imageRef ?? "") !== ""
         : data.testcaseSets.length > 0),
   );
 
@@ -146,27 +136,20 @@
     });
   }
 
-  async function saveImage(payload: {
-    imageRef: string;
-    imageSource: ProblemImageSource;
+  async function saveAdvancedConfig(payload: {
+    config: AdvancedConfig;
     timeLimitMs: number;
     memoryLimitMb: number;
   }): Promise<{ ok: boolean }> {
     const fd = new FormData();
-    fd.append(
-      "data",
-      JSON.stringify({
-        ref: payload.imageRef,
-        source: payload.imageSource,
-        timeLimitMs: payload.timeLimitMs,
-        memoryLimitMb: payload.memoryLimitMb,
-      }),
-    );
-    const res = await fetch("?/updateImage", { method: "POST", body: fd });
+    fd.append("data", JSON.stringify(payload));
+    const res = await fetch("?/updateAdvancedConfig", { method: "POST", body: fd });
     if (res.ok) {
       toasts.add({ message: m.admin_imageConfigSaved(), type: "success" });
+      await invalidateAll();
+      return { ok: true };
     }
-    return { ok: res.ok };
+    return { ok: false };
   }
 
   async function saveRequiredPaths() {
@@ -247,24 +230,20 @@
       <BasicInfoTab formData={data.form} problemId={data.problem.id} />
     </section>
 
-    <section
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <ContainerContractSection />
-    </section>
-
-    <section
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <ImageSection
-        problemId={data.problem.id}
-        bind:imageRef
-        bind:imageSource
-        bind:timeLimitMs={advancedTimeLimitMs}
-        bind:memoryLimitMb={advancedMemoryLimitMb}
-        onsave={saveImage}
-      />
-    </section>
+    {#if data.advancedConfig}
+      <section
+        class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+      >
+        <AdvancedConfigSection
+          problemId={data.problem.id}
+          config={data.advancedConfig.config}
+          timeLimitMs={data.advancedConfig.timeLimitMs}
+          memoryLimitMb={data.advancedConfig.memoryLimitMb}
+          maxTotalTimeMs={data.advancedConfig.maxTotalTimeMs}
+          onsave={saveAdvancedConfig}
+        />
+      </section>
+    {/if}
 
     <section
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"

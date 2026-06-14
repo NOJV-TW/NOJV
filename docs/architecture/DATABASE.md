@@ -96,7 +96,6 @@ erDiagram
 | `SubmissionStatus`         | pending_upload, queued, compiling, running, accepted, wrong_answer, time_limit_exceeded, memory_limit_exceeded, runtime_error, compile_error, system_error |
 | `ProblemType`              | full_source, multi_file, special_env                                                                                                                       |
 | `ProblemDifficulty`        | easy, medium, hard                                                                                                                                         |
-| `ProblemImageSource`       | registry, tarball                                                                                                                                          |
 | `ProblemVisibility`        | public, private                                                                                                                                            |
 | `ProblemStatus`            | draft, published                                                                                                                                           |
 | `WorkspaceFileVisibility`  | editable, readonly, hidden                                                                                                                                 |
@@ -148,23 +147,22 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 
 ### Problem
 
-| Field                   | Type                | Notes                                                                           |
-| ----------------------- | ------------------- | ------------------------------------------------------------------------------- |
-| `id`                    | String              | CUID, primary key                                                               |
-| `displayId`             | Int                 | Unique auto-increment counter — short human-friendly ID for URLs and UI         |
-| `title`                 | String              | Problem title                                                                   |
-| `visibility`            | ProblemVisibility   | public or private (course-only)                                                 |
-| `status`                | ProblemStatus       | draft or published                                                              |
-| `type`                  | ProblemType         | full_source, multi_file, or special_env                                         |
-| `difficulty`            | ProblemDifficulty   | easy, medium, or hard (dedicated column; NOT a tag)                             |
-| `tags`                  | String[]            | Free-form topic/skill tags (difficulty lives on its own column)                 |
-| `timeLimitMs`           | Int                 | Execution time limit (per-case for standard, total for special_env)             |
-| `memoryLimitMb`         | Int                 | Memory limit                                                                    |
-| `judgeConfig`           | Json?               | Unified judge configuration (ignored when `type === "special_env"`)             |
-| `samples`               | Json?               | `{ input, output }[]` sample I/O pairs                                          |
-| `advancedImageRef`      | String?             | TA image registry ref or tarball storage key (special_env only)                 |
-| `advancedImageSource`   | ProblemImageSource? | `registry` or `tarball` (special_env only)                                      |
-| `advancedRequiredPaths` | String[]            | special_env only — paths the TA image expects (trailing `/` = directory marker) |
+| Field                   | Type              | Notes                                                                                                                         |
+| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | String            | CUID, primary key                                                                                                             |
+| `displayId`             | Int               | Unique auto-increment counter — short human-friendly ID for URLs and UI                                                       |
+| `title`                 | String            | Problem title                                                                                                                 |
+| `visibility`            | ProblemVisibility | public or private (course-only)                                                                                               |
+| `status`                | ProblemStatus     | draft or published                                                                                                            |
+| `type`                  | ProblemType       | full_source, multi_file, or special_env                                                                                       |
+| `difficulty`            | ProblemDifficulty | easy, medium, or hard (dedicated column; NOT a tag)                                                                           |
+| `tags`                  | String[]          | Free-form topic/skill tags (difficulty lives on its own column)                                                               |
+| `timeLimitMs`           | Int               | Execution time limit (per-case for standard, total for special_env)                                                           |
+| `memoryLimitMb`         | Int               | Memory limit                                                                                                                  |
+| `judgeConfig`           | Json?             | Unified judge configuration (ignored when `type === "special_env"`)                                                           |
+| `samples`               | Json?             | `{ input, output }[]` sample I/O pairs                                                                                        |
+| `advancedConfig`        | Json?             | special_env only — `{ run, grade, network }`; run/grade are `{ imageRef, imageSource }` (registry ref or tarball storage key) |
+| `advancedRequiredPaths` | String[]          | special_env only — paths the TA image expects (trailing `/` = directory marker)                                               |
 
 ### Submission
 
@@ -181,6 +179,7 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 | `sourceStoragePrefix`     | String           | `@nojv/storage` prefix for the per-file source blobs (`submissions/<id>/sources/`). One S3 object per submitted file. There is no `sourceCode` column                     |
 | `verdictSummary`          | Json?            | Small (< 4 KB) summary: `{ caseSummary: { ac, wa, tle, mle, re, other }, subtaskSummary?: { id, score }[], compilerErrorTruncated?: string }`. Safe to load in list views |
 | `verdictDetailStorageKey` | String?          | `@nojv/storage` key for the full `SubmissionResult` blob (`submissions/<id>/verdict-detail.json`). Null until the judge writes detail                                     |
+| `advancedConfigSnapshot`  | Json?            | special_env only — reserved for a later phase to snapshot the problem's `advancedConfig` at submission time. Currently always null                                        |
 
 "Mode" is not a stored column — it's derived from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". A DB-level CHECK constraint (`Submission_single_context_chk`, added in migration `20260416180001_submission_single_context_check`) enforces that at most one of `examId` / `contestId` / `assessmentId` is non-null per row. `participationId` sits OUTSIDE this xor — a virtual-contest submission has only `participationId` set (none of the three xor columns).
 

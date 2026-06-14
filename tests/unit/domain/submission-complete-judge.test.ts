@@ -8,6 +8,7 @@ const { submissionComplete, storageRef } = vi.hoisted(() => ({
 }));
 
 vi.mock("@nojv/db", () => ({
+  Prisma: { JsonNull: { __jsonNull: true } },
   submissionRepo: {
     complete: submissionComplete,
   },
@@ -32,6 +33,7 @@ vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
 }));
 
 import type { SubmissionResult } from "@nojv/core";
+import { Prisma } from "@nojv/db";
 import { submissionDomain } from "@nojv/application";
 
 const { completeJudge, deriveVerdictSummary } = submissionDomain;
@@ -200,5 +202,55 @@ describe("completeJudge — storage + DB write", () => {
 
     const updateArg = submissionComplete.mock.calls[0]![1] as Record<string, unknown>;
     expect(updateArg).not.toHaveProperty("memoryKb");
+  });
+
+  it("records the advancedConfig audit snapshot when an advanced config is supplied", async () => {
+    submissionComplete.mockResolvedValue({
+      id: "sub_adv",
+      contestId: null,
+      examId: null,
+      createdAt: new Date(),
+      language: "python",
+      problemId: "prob_adv",
+      sampleOnly: false,
+      score: 100,
+      status: "accepted",
+      userId: "usr_adv",
+    });
+
+    const config = {
+      run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" as const },
+      grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" as const },
+      network: { mode: "none" as const },
+    };
+
+    await completeJudge("sub_adv", makeResult({ verdict: "accepted", score: 100 }), config);
+
+    const updateArg = submissionComplete.mock.calls[0]![1] as {
+      advancedConfigSnapshot: unknown;
+    };
+    expect(updateArg.advancedConfigSnapshot).toEqual(config);
+  });
+
+  it("writes a null advancedConfig snapshot for non-advanced submissions", async () => {
+    submissionComplete.mockResolvedValue({
+      id: "sub_std",
+      contestId: null,
+      examId: null,
+      createdAt: new Date(),
+      language: "python",
+      problemId: "prob_std",
+      sampleOnly: false,
+      score: 0,
+      status: "wrong_answer",
+      userId: "usr_std",
+    });
+
+    await completeJudge("sub_std", makeResult());
+
+    const updateArg = submissionComplete.mock.calls[0]![1] as {
+      advancedConfigSnapshot: unknown;
+    };
+    expect(updateArg.advancedConfigSnapshot).toBe(Prisma.JsonNull);
   });
 });

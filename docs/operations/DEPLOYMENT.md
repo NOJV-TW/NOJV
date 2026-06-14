@@ -85,31 +85,38 @@ key — there are no implicit defaults for the required ones below, so the
 deployment manifest must set every one. `tests/unit/infra/env-manifest-parity.test.ts`
 is a fitness test that fails CI if the GKE manifest omits a required worker env.
 
-| Variable             | Required / Default                   | Purpose                                           |
-| -------------------- | ------------------------------------ | ------------------------------------------------- |
-| `EXECUTION_BACKEND`  | **required** (`docker`/`kubernetes`) | Sandbox executor backend                          |
-| `SANDBOX_IMAGE`      | **required**                         | Sandbox container image                           |
-| `PORT`               | **required**                         | Worker health server port (`/healthz`, `/readyz`) |
-| `WORKER_CONCURRENCY` | **required**                         | Activity concurrency per task queue               |
-| `WORKER_MODE`        | `all`                                | Task queues: `all`, `judge`, `platform`           |
-| `SANDBOX_CPU_LIMIT`  | **required** (Docker backend)        | CPU limit per sandbox                             |
-| `SANDBOX_MEMORY_MB`  | **required** (Docker backend)        | Memory limit per sandbox (MB)                     |
-| `SANDBOX_PIDS_LIMIT` | **required** (Docker backend)        | PID limit per sandbox                             |
-| `K8S_NAMESPACE`      | **required** (Kubernetes backend)    | Namespace for sandbox pods                        |
-| `K8S_CPU_REQUEST`    | **required** (Kubernetes backend)    | Sandbox pod CPU request                           |
-| `K8S_CPU_LIMIT`      | **required** (Kubernetes backend)    | Sandbox pod CPU limit                             |
-| `K8S_MEMORY_REQUEST` | **required** (Kubernetes backend)    | Sandbox pod memory request                        |
-| `K8S_MEMORY_LIMIT`   | **required** (Kubernetes backend)    | Sandbox pod memory limit                          |
+| Variable                               | Required / Default                   | Purpose                                                                                                                                                               |
+| -------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXECUTION_BACKEND`                    | **required** (`docker`/`kubernetes`) | Sandbox executor backend                                                                                                                                              |
+| `SANDBOX_IMAGE`                        | **required**                         | Sandbox container image                                                                                                                                               |
+| `PORT`                                 | **required**                         | Worker health server port (`/healthz`, `/readyz`)                                                                                                                     |
+| `WORKER_CONCURRENCY`                   | **required**                         | Activity concurrency per task queue                                                                                                                                   |
+| `WORKER_MODE`                          | `all`                                | Task queues: `all`, `judge`, `platform`                                                                                                                               |
+| `SANDBOX_CPU_LIMIT`                    | **required** (Docker backend)        | CPU limit per sandbox                                                                                                                                                 |
+| `SANDBOX_MEMORY_MB`                    | **required** (Docker backend)        | Memory limit per sandbox (MB)                                                                                                                                         |
+| `SANDBOX_PIDS_LIMIT`                   | **required** (Docker backend)        | PID limit per sandbox                                                                                                                                                 |
+| `K8S_NAMESPACE`                        | **required** (Kubernetes backend)    | Namespace for sandbox pods                                                                                                                                            |
+| `K8S_CPU_REQUEST`                      | **required** (Kubernetes backend)    | Sandbox pod CPU request                                                                                                                                               |
+| `K8S_CPU_LIMIT`                        | **required** (Kubernetes backend)    | Sandbox pod CPU limit                                                                                                                                                 |
+| `K8S_MEMORY_REQUEST`                   | **required** (Kubernetes backend)    | Sandbox pod memory request                                                                                                                                            |
+| `K8S_MEMORY_LIMIT`                     | **required** (Kubernetes backend)    | Sandbox pod memory limit                                                                                                                                              |
+| `NOJV_ALLOW_UNENFORCED_NETWORK_POLICY` | `false` (Kubernetes backend)         | Dev opt-out for the startup NetworkPolicy-enforcement self-check. Truthy → warn and proceed on a non-enforcing CNI (OrbStack/local k3s). **Never set in production.** |
 
 > The `SANDBOX_*` resource limits are read only by the Docker backend; the
 > `K8S_*` limits only by the Kubernetes backend. The schema enforces this split,
 > so each backend requires exactly the keys it actually uses.
 
-> Advanced-mode (`special_env`) judging runs only on the Docker backend. When
-> `EXECUTION_BACKEND=kubernetes`, also set the same value on the **web** service
-> (`EXECUTION_BACKEND` is part of the web env schema, default `docker`) so it
-> hides advanced-problem creation/conversion. The web Cloud Run manifest sets it
-> to `kubernetes` to match the GKE worker.
+> Advanced-mode (`special_env`) judging runs on **both** backends:
+> **registry-source** run/grade images execute as K8s Jobs (incl. the `none` /
+> `allowlist` / `service` network modes — see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#advanced-mode-pipeline)
+> and `tests/integration/k8s/judge-k8s.test.ts`). Only **tarball-source**
+> advanced requires the Docker backend, because the cluster cannot `docker load`
+> a TA-supplied tarball (`K8sExecutor.executeAdvanced` returns a System Error for
+> tarball-source run/grade — push the image to a registry the cluster can pull
+> instead). When `EXECUTION_BACKEND=kubernetes`, also set the same value on the
+> **web** service (`EXECUTION_BACKEND` is part of the web env schema, default
+> `docker`) so it hides tarball-source advanced-problem creation/conversion. The
+> web Cloud Run manifest sets it to `kubernetes` to match the GKE worker.
 
 ### Object Storage (S3-Compatible)
 
@@ -176,6 +183,18 @@ Rules when changing code under `apps/worker/src/workflows/`:
 4. Workflow / query / signal **names** are a separate cross-package contract — see the registration fitness test under `tests/unit/worker/`.
 
 There is intentionally **no** `patched()` usage in the tree today because no workflow has yet needed a backward-incompatible change; the first such change must introduce it.
+
+## Single-Machine k3s (Kubernetes backend on one box)
+
+To run the Kubernetes sandbox backend on a **single machine** — getting
+per-submission Pod autoscaling without GKE — follow the
+[Single-Machine k3s Runbook](../runbooks/k8s-single-machine.md). It installs k3s
+with a NetworkPolicy-enforcing CNI (Calico, **required** — k3s's default flannel
+does not enforce policy and the worker fails closed without it), reuses
+`infra/k8s/sandbox/` and `infra/gcp/gke/` manifests, and covers all three
+autoscaling layers (per-submission judge Pods, worker replicas, node join). It
+is the entry point on the spectrum **single-node k3s → multi-node k3s → GKE**
+([GKE Worker Rollout](#gke-worker-rollout)).
 
 ## GCP Production Architecture
 
@@ -287,9 +306,28 @@ gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
    - `worker-rbac.yaml`, `worker.deployment.yaml`, `worker.pdb.yaml` — RBAC, Deployment (with the Cloud SQL Auth Proxy sidecar — `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0` on `127.0.0.1:5432`, Workload Identity), and PodDisruptionBudget. Sets `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` for the in-cluster Temporal.
 3. Apply the sandbox namespace guardrails: `kubectl apply -f infra/k8s/sandbox`
    (namespace, NetworkPolicy, ResourceQuota, LimitRange).
-4. **Verify egress isolation is actually enforced** (a NetworkPolicy is inert
-   unless the CNI enforces it — on GKE that requires Dataplane V2 / network
-   policy enabled). Launch a throwaway pod carrying the sandbox's
+4. **A NetworkPolicy-enforcing CNI is a HARD security requirement on the
+   Kubernetes backend.** On the Kubernetes backend, ALL sandbox egress isolation
+   (the `deny-all-sandbox` policy plus the per-submission egress policies) is
+   inert unless the cluster CNI actually enforces NetworkPolicy — a non-enforcing
+   CNI (k3s default flannel, kindnet) silently ignores it and every sandbox Pod
+   can reach the internet, letting students get outside help. You **must** run a
+   NetworkPolicy-enforcing CNI: **GKE Dataplane V2** (or a Standard cluster with
+   `--enable-network-policy`), or **Calico/Cilium**. **GKE Autopilot has
+   Dataplane V2 always-on**, which is the simplest way to guarantee enforcement.
+   For k3s, start the server with `--flannel-backend=none
+--disable-network-policy` and install Calico or Cilium.
+
+   The worker now **fails closed**: at startup, when `EXECUTION_BACKEND=kubernetes`,
+   it empirically probes a deny-all-covered Pod for outbound reachability and
+   **refuses to start the judge worker** if enforcement is absent (see
+   `apps/worker/src/services/k8s-netpol-probe.ts`). To override this gate in a
+   non-enforcing dev cluster (e.g. OrbStack / local k3s), set
+   `NOJV_ALLOW_UNENFORCED_NETWORK_POLICY=1` on the worker — it then logs a loud
+   warning and proceeds. **Never set this in production.**
+
+   You can also verify enforcement manually (the automated self-check does the
+   same check at startup). Launch a throwaway pod carrying the sandbox's
    `app=nojv-sandbox` label so the `sandbox-deny-egress` policy applies, and
    confirm it cannot reach the internet:
 
@@ -306,7 +344,8 @@ gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
    submissions, otherwise sandboxed code can exfiltrate over the network. The
    same isolation is asserted in CI by `tests/integration/k8s/judge-k8s.test.ts`
    and `tests/unit/infra/network-policy-parity.test.ts`, but those run against
-   dev infra — this step confirms the live cluster's CNI honors it.
+   dev infra — the startup self-check and this step confirm the live cluster's
+   CNI honors it.
 
 Pre-requisites: two GKE node pools `pool-worker` (untainted) and
 `pool-sandbox` (tainted `nojv-role=sandbox:NoSchedule`). The worker pins to

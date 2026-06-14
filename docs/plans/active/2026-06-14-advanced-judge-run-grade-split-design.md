@@ -1,0 +1,651 @@
+# Advanced Judge: Run/Grade Split + Controlled Egress + Binary I/O
+
+**Status:** Landed (Phases 0–7 shipped on `feat/advanced-judge-run-grade-split`; `docs/architecture/JUDGE_PIPELINE.md` is the landed-code reference, this doc is the rationale. Phase 8 real-machine smoke is the runbook below.)
+**Scope:** Redesign Advanced Mode (`special_env`) judging
+**Pre-production:** Not yet launched — no data migration burden; existing demo `special_env` problems are rewritten, the legacy single-image path is removed outright.
+
+## Problem statement
+
+Advanced Mode (`special_env`) currently runs the student's code **inside the TA
+grader image, in the same container and as the same user** (see
+`docs/architecture/JUDGE_PIPELINE.md` → "Protecting answers is the TA's
+responsibility"). Three problems follow:
+
+1. **Answer leakage / cheating.** A malicious submission can read any
+   world-readable path in the grader container, including baked-in testcases /
+   answers. The `run_submission` cwd-copy is explicitly _not_ an isolation
+   boundary. Answer protection is offloaded to TA discipline.
+2. **No public network.** Advanced containers run `--network none`. Some
+   problems legitimately need the student program to call a specified public
+   API endpoint.
+3. **No binary I/O.** Only stdin/stdout text is wired. Problems with image /
+   audio / other binary inputs and outputs have no channel.
+
+All three must be solved **without weakening the platform's security guarantee**.
+
+## Decisions (from brainstorming)
+
+| Question                      | Decision                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Public network scope          | Per-problem **allowlist** of specific endpoints (not full internet)                                          |
+| Answer isolation architecture | **Platform-managed run/grade split** (mirrors existing `checker`/`interactive`)                              |
+| Run environment               | TA-provided **run image** (custom toolchain preserved), authored from a downloadable scaffold, same as today |
+| grade container network       | **Full network** (trusted TA, no student code)                                                               |
+| Topology owner                | **Platform** owns topology + student hardening; optional **service** container supported                     |
+| Run container's network peer  | **One of** `none` / `allowlist` (platform proxy) / `service` (TA image) — mutually exclusive                 |
+| service container network     | **Full network** (trusted TA)                                                                                |
+| Existing problems             | **Clean replacement** — not in production, no migration                                                      |
+
+## Prerequisites / scope (this is net-new, not a refactor)
+
+The current code is the PR #149 **single-container** model; **every** load-bearing
+piece below does not exist yet and must be built, schema-first, tracing all
+call sites:
+
+- Schema migration: flat `Problem.advancedImageRef` / `advancedImageSource`
+  (`packages/core/src/schemas/problem.ts`) → `advancedConfig`; the sandbox
+  contract `SandboxAdvancedRequest` (`packages/core/src/sandbox.ts`) has **no**
+  network/role/allowlist/service fields today. Call sites to update:
+  `deriveJudgeMode` / judge-context (`packages/application/src/submission/`),
+  `judge.ts buildAdvancedPayload`, `sandbox-plan.ts`, `k8s-executor.ts`,
+  `docker-executor.ts`, the web edit page, seed.
+- Docker network create/destroy primitives — `docker-process.ts` only removes
+  containers today; per-submission `net_internal` / `net_egress` lifecycle is new.
+- Sidecar (proxy/service) lifecycle + readiness + teardown; run→grade two-phase
+  split; `/output` tar capture + transfer.
+- `apps/worker/src/services/egress-proxy.ts` + a proxy image under `infra/docker/`
+  - allowlist→config rendering — none exist.
+- Role-aware upload + three scaffolds (`{run,grade,service}/`) — today's upload
+  has no `role` and the scaffold is a single flat grader.
+
+The implementation plan must front-load the schema + call-site sweep so the
+"design sound but implementation lags" gap surfaces before code review, not after.
+
+## Goals / non-goals
+
+**Goals**
+
+- Student code never shares a container, filesystem, or memory space with the
+  answers. Answer protection becomes a **platform-level guarantee**, not TA
+  discipline.
+- The run container reaches **at most one** controlled network peer; never the
+  open internet directly.
+- Binary (image/audio/arbitrary) inputs and outputs flow losslessly between the
+  run phase and the grade phase.
+- Works on **both** the Docker backend (local/dev) and the Kubernetes backend
+  (GKE prod). No backend is abandoned.
+
+**Non-goals**
+
+- Free-form TA-authored topology (e.g. uploading a `docker-compose.yml`).
+  Rejected: it moves student-container hardening into TA config (large
+  validation attack surface, platform can no longer _guarantee_ containment) and
+  cannot run on the K8s sandbox (no Docker daemon). See "Rejected: docker-compose".
+- Non-HTTP egress protocols in `allowlist` mode (raw TCP/UDP to public hosts).
+  The proxy enforces by hostname over HTTP(S) CONNECT. A `service`-mode TA image
+  can expose any protocol _internally_ if needed.
+- Simultaneous `allowlist` + `service` (real public internet _and_ a TA mock).
+  A TA `service` image can forward to a real API itself if both are truly needed.
+
+## Architecture
+
+Replace "single TA image owns everything" with a **two-phase, platform-orchestrated
+pipeline**, reusing the `checker`/`interactive` invariant: the container that
+runs untrusted student code never holds the answers; only an isolated container
+with no student code makes the grading decision.
+
+```
+run-phase                                      grade-phase (time-separated)
+┌──────────────────────────────────────┐      ┌────────────────────────────┐
+│ net_internal (no internet route)      │      │ grade container            │
+│                                       │      │  - TA grade image          │
+│  ┌───────────┐     ┌───────────────┐  │      │  - holds answers (baked)   │
+│  │ run        │◄───►│ sidecar        │ │      │  - full network (trusted)  │
+│  │  student   │     │ (one of):      │ │      │  - NO student code         │
+│  │  code      │     │  egress-proxy  │─┼──►   │  reads run /output +       │
+│  │  HTTP_PROXY│     │   →allowlist   │ │ pub  │  answers → result.json     │
+│  │  no answers│     │  OR service    │─┼──►   └────────────────────────────┘
+│  └───────────┘     │   (TA, full net)│ │ pub
+│                     └───────────────┘  │
+└──────────────────────────────────────┘
+        worker captures /output ─────────────► mounted read-only into grade
+```
+
+Per submission the worker orchestrates, **all ephemeral (fresh per submission,
+destroyed after)**:
+
+1. **run-phase:** `run` container + (optionally) one sidecar (`egress-proxy` for
+   `allowlist`, or `service` for `service`, or nothing for `none`).
+2. worker captures the run container's `/workspace/output/` directory as raw
+   bytes (tar).
+3. **teardown** run + sidecar.
+4. **grade-phase:** `grade` container, with the captured run output mounted
+   read-only plus the baked-in answers. Writes `result.json`.
+
+run and grade are **time-separated** — the grade container never coexists with
+student code.
+
+## Container contract
+
+### run container (untrusted: runs student code)
+
+```
+/workspace/submission/   student files (from ZIP or wrapped single source)
+/workspace/meta.json     { submissionId, language, submissionFiles, resourceLimits }
+/workspace/output/       run harness writes student outputs here (binary OK)
+(testcase INPUTS baked into the run image, e.g. /testcases/ — not secret)
+```
+
+The run harness (TA code, from the run scaffold) reads its baked-in inputs, runs
+the student program per case with its own per-case timeout (the existing
+`run_submission(cmd, stdin, timeout)` pattern), and writes per-case outputs +
+status into `/workspace/output/`.
+
+**Compile / language responsibility.** The run image bakes whatever toolchain the
+problem needs; **the run harness owns compiling and running the student** (it gets
+`meta.json.language` and the submission files). A compile failure is the run
+harness's to detect and report (write a marker into `/output`); the grade harness
+maps it to the `compile_error` verdict. `result.json` is unchanged. Whether the
+run scaffold ships per-language or one toolchain image is the TA's choice — the
+platform does not compile the student in Advanced Mode.
+
+**Per-case vs whole-submission.** `advancedResultSchema.testcases` stays optional
+(`packages/core/src/schemas/advanced-mode.ts`): the run/grade harnesses MAY grade
+per case or as a whole. The scaffolds demonstrate the per-case loop but do not
+mandate it.
+
+### grade container (trusted: no student code)
+
+```
+/workspace/run-output/        run-phase /output, mounted READ-ONLY (binary OK)
+/workspace/meta.json          { submissionId, language, runStatus }
+/workspace/output/result.json grade harness writes here (existing schema)
+(ANSWERS baked into the grade image, e.g. /answers/ — never exposed to student)
+```
+
+`runStatus` = worker-observed run-container outcome:
+`{ state: "exited"|"timed_out"|"oom_killed", exitCode }`. The grade harness uses
+it to emit TLE/RE/SE when the whole run container died catastrophically; ordinary
+per-case TLE/RE is decided by the run harness and conveyed through `/output`.
+
+The worker **must actually populate** `runStatus` (today's executor keeps
+`timedOut` / `sizeExceeded` as internal vars and never writes them to meta —
+`apps/worker/src/services/advanced-mode-executor.ts`): after run exits the worker
+derives the state (Docker: wall-clock timeout flag + cgroup OOM / exit code;
+K8s: Job status conditions), serializes it into the **grade** meta.json, and
+mounts that read-only into the grade container. The grade meta.json
+schema is exactly `{ submissionId, language, runStatus }` — it deliberately does
+**not** carry `network.mode` (a proxy denial is just a connection error to the
+student program, so grade never needs to know the network mode).
+
+**Verdict ownership (refined during Phase 1 implementation).** The worker does
+**not** SE on an empty `/output`. An empty run output is a legitimate outcome (a
+student program that printed nothing → the grade harness should render WA/RE using
+`runStatus`), not a system fault. So after any run that did not _infrastructurally_
+fail, the worker **always proceeds to grade**, funneling the run outcome through
+`runStatus`. The worker SEs only on infrastructure failures: run container spawn
+error, run size-cap exceeded, grade container spawn error, grade timeout, and
+missing/unreadable/invalid `result.json`. The grade harness (TA code) owns the
+TLE/MLE/RE/WA verdict. This supersedes the earlier "empty `/output` → SE" wording.
+
+### service container (optional, trusted: no student code)
+
+A TA-provided dependency the student talks to (mock API / DB / simulator).
+Full network (trusted). Exposes a port the run container reaches over
+`net_internal`. Run-phase only.
+
+### egress-proxy (platform-injected, `allowlist` mode only)
+
+A platform image (small custom forward proxy or a thin wrapper over
+tinyproxy/squid). Concrete design:
+
+- **Reachability / env.** The worker injects `HTTP_PROXY` / `HTTPS_PROXY` (and
+  `http_proxy` / `https_proxy`) into the run container pointing at the proxy **by
+  IP** (Docker: the sidecar's `net_internal` IP; K8s: the sidecar Pod IP or
+  ClusterIP) so the run container needs **no DNS of its own**. `NO_PROXY` is left
+  empty. The run container cannot usefully `unset` these to escape: with no
+  internet route (Docker `--internal`; K8s NetworkPolicy) a direct connection has
+  nowhere to go — the proxy is the only reachable egress.
+- **Allowlist enforcement.** Allows **HTTP CONNECT / GET by host** against the
+  per-problem allowlist; the allow/deny decision is made on the **CONNECT
+  request-line host:port** (HTTPS) or the proxied request Host (plain HTTP) before
+  the tunnel opens. Port is constrained to the allowlisted `host:port` (default
+  80/443). Everything else → `403` + log. **No TLS interception** (student
+  privacy + simplicity).
+- **SNI verification — DEFERRED (future hardening, not implemented in Phase 3).**
+  The original design also matched the TLS **SNI** against the allowlist to block
+  _domain-fronting_ (CONNECT an allowed host, then send a TLS ClientHello with a
+  different SNI co-hosted on the same CDN). This is **deliberately deferred**: the
+  core security guarantee — **answer protection** — does not depend on it, because
+  the run container holds **no secrets** (answers live only in grade), so a
+  domain-fronting student has nothing to exfiltrate; it is at most a niche
+  egress-abuse channel requiring shared-CDN infrastructure. Passive ClientHello
+  SNI parsing is fiddly and error-prone, so it is recorded here as a known
+  residual limitation rather than shipped as fragile security code. If
+  domain-fronting abuse becomes a concern, add passive SNI matching (read the
+  first ClientHello, compare `server_name` to the CONNECT host + allowlist) — it
+  does **not** require TLS interception.
+- **Config rendering.** `advancedConfig.network.allowlist` is rendered into the
+  proxy's config (file/env) at sidecar start; the proxy egresses to the resolved
+  hosts. Outbound DNS resolution happens **in the proxy**, not the run container.
+- **Audit.** Every request logged (host + allow/deny + bytes); the worker
+  collects the proxy log for operator review.
+- **Resource budget.** Small fixed `requests`/`limits` (e.g. 64–128 MiB, 0.25
+  CPU); see "Resource budgets & concurrency".
+
+### `result.json` schema — unchanged
+
+Still `advancedResultSchema` (`packages/core/src/schemas/advanced-mode.ts`):
+`{ score 0..100, verdict, feedback, testcases[] }`. The grade harness owns it.
+Missing/unreadable/malformed → SE via `advancedFallbackResult()`.
+
+## Network model
+
+Per-problem `advancedConfig.network.mode`. The run container has **at most one**
+network peer:
+
+| mode             | run reaches                                 | extra container | use                                          |
+| ---------------- | ------------------------------------------- | --------------- | -------------------------------------------- |
+| `none` (default) | nothing                                     | —               | offline judging (current behavior)           |
+| `allowlist`      | platform egress-proxy → listed public hosts | egress-proxy    | "call this public API", TA writes no service |
+| `service`        | TA service container (full net)             | service         | student talks to a mock/DB/simulator         |
+
+**Invariant:** the run container is always on a network with **no direct
+internet route** and can reach **only** its single sidecar. The proxy and the
+service are structurally identical — a **separate-netns sidecar, multi-homed
+(internal + egress)**; only their role differs (platform allowlist enforcer vs
+TA application endpoint). The sidecar **must not share a netns with run**, or run
+would inherit its routes and bypass the boundary.
+
+### Docker backend
+
+- `none` → `--network none`.
+- `allowlist` / `service` →
+  - `net_internal`: a per-submission `--internal` user-defined network (zero
+    external routing). `run` (+ the sidecar's first NIC) attach here. Docker's
+    embedded resolver still works intra-network, but the run container is given
+    the **proxy by IP** (see egress-proxy) so it needs no DNS; in `service` mode
+    run reaches the service by its container-name on this network.
+  - `net_egress`: a normal bridge (NAT to internet). Only the **sidecar's second
+    NIC** attaches here, so only the sidecar egresses. run, being single-homed on
+    `net_internal`, has no internet route — even if student code hard-codes a
+    public IP, there is no route to it.
+  - Both networks are created per submission and torn down with the containers;
+    cleanup is best-effort on the worker's finally path (orphan-network sweep).
+
+### Kubernetes backend
+
+**Why separate Pods (not the `interactive` same-Pod trick).** All containers in
+a K8s Pod **share one network namespace** by design, so a same-Pod sidecar would
+hand the run container the sidecar's routes → instant proxy bypass. The egress
+boundary therefore requires the sidecar in a **separate Pod**. (This is the one
+place Advanced differs from `interactive`, which can co-locate over `127.0.0.1`
+because there is no egress boundary to protect.)
+
+- `none` → run Pod stays under deny-all (no `nojv.egress` label), as in 5A. The
+  **grade** Pod, however, gets full network in **all** modes (see below).
+- `allowlist` / `service` (**Phase 5B, shipped**):
+  - **Deny-all is additive and cannot be narrowed.** The blanket deny-all
+    (`infra/k8s/sandbox/network-policy.yaml`, `infra/gcp/gke/network-policy.yaml`)
+    matched every sandbox Pod; a per-submission "allow egress to sidecar" policy
+    can't override it. Fix (shipped): the deny-all `podSelector` is now
+    `matchExpressions: [{ key: nojv.egress, operator: DoesNotExist }]` so it does
+    **not** match Pods carrying `nojv.egress=<value>`. Standard/checker/interactive
+    sandbox Pods and `mode=none` advanced run Pods carry no `nojv.egress` label →
+    they stay denied. The run Pod (allowlist/service) is labeled
+    `nojv.egress=<submission-id>` and gets a per-submission `NetworkPolicy`
+    (`buildRunEgressPolicy`) allowing egress **only** to the sidecar Pod
+    (`podSelector` on the sidecar's `nojv.sidecar=<submission-id>` label) — no
+    `0.0.0.0/0`, no `ipBlock`, no kube-dns (the run Pod reaches the sidecar by the
+    injected sidecar **ClusterIP**, and DNS for allowlisted hosts is resolved inside
+    the proxy). Because relabeling drops the deny-all's blanket ingress denial for
+    labeled Pods, this policy ALSO re-asserts `policyTypes: [Ingress, Egress]` with
+    `ingress: []` — the untrusted student run Pod is never a server. Both the policy
+    and the label are created and torn down per submission.
+  - **Grade Pod full network in all modes (5A divergence fixed).** The grade
+    container is trusted (no student code), so it gets full network like the Docker
+    backend. The grade Pod is labeled `nojv.egress=<submission-id>-grade` (a
+    distinct label from the run Pod, escaping deny-all) and gets a per-submission
+    `NetworkPolicy` (`buildGradeEgressPolicy`) with a single open egress rule plus
+    `ingress: []` (full egress, no inbound — grade is not a server either). This
+    grade policy is emitted for **every** mode including `none` (5A left grade under
+    deny-all; 5B fixes it to match Docker + design).
+  - **Sidecar workload + readiness.** The sidecar runs as a per-submission Pod
+    (`buildProxySidecarPodManifest` reusing the `nojv-egress-proxy` image for
+    allowlist, or `buildServiceSidecarPodManifest` with the TA `advanced.network.service`
+    registry image for service — tarball service images are refused on K8s, same as
+    run/grade). It is exposed by a per-submission ClusterIP Service
+    (`buildSidecarServiceManifest`) and gets its own `NetworkPolicy`
+    (`buildSidecarEgressPolicy`): full egress (reach the allowlisted/TA hosts) +
+    ingress **only** from the run Pod (`from: podSelector nojv.egress=<id>`), so the
+    sidecar accepts connections from nothing but its own run Pod. The run container's
+    `HTTP_PROXY`/`HTTPS_PROXY` (allowlist) or `NOJV_SERVICE_HOST` (service) is
+    injected by the sidecar Service's **ClusterIP** (an IP literal, NOT a DNS name) —
+    the worker reads `.spec.clusterIP` back from the Service create response (it is
+    assigned synchronously) and injects that. This keeps the **no-DNS-in-the-run-Pod**
+    invariant: the run Pod's policy permits no kube-dns, so a Service NAME would never
+    resolve; the ClusterIP is DNAT'd by kube-proxy to the sidecar Pod IP, which the
+    run policy's `podSelector` egress permits. (Mirrors the Docker path, which injects
+    the proxy container's `net_internal` IP via `inspectContainerNetworkIp`, never a
+    name.) The run Job is created **after** the worker polls the sidecar Pod's logs for
+    the ready marker (`NOJV_PROXY_READY` / `NOJV_SERVICE_READY`) — K8s has no Job→Job
+    ordering primitive. Proxy not ready in time (or the Service got no ClusterIP) → SE
+    - teardown (the allowlist boundary must hold). Service marker missing → proceed
+      anyway (best-effort; the TA run harness retries), no SE.
+  - **Cross-Pod `/output` transfer via a per-submission PVC (Phase 5A, shipped).**
+    The earlier pod-logs streaming idea is **superseded**: run output moves over a
+    per-submission **`ReadWriteOnce` PVC**, giving lossless binary round-trip with
+    no base64/marker framing and no ConfigMap 1 MB limit. Flow: the run Pod runs an
+    extra platform **`transfer`** native sidecar (the sandbox image, no answers)
+    that, when the run container exits (kubelet SIGTERM to the sidecar), **safe-copies**
+    `/workspace/output/` → the PVC applying the SAME gate as the Docker `safeCopyTree`
+    (lstat-first **drop symlinks**, drop special files, file-count + byte caps). The
+    grade Pod mounts the same PVC **read-only** at `/workspace/run-output`. Because
+    RWO is single-node, the worker observes the run Pod's `spec.nodeName` and pins
+    the grade Job to that node (`pod.spec.nodeName`). The PVC is created per
+    submission and deleted on the worker's `finally` path along with both Jobs and
+    both ConfigMaps. Only the **result.json** still flows via pod-logs (the grade
+    Pod's `emit-result` sidecar between the existing markers). The gate runs inside
+    the answer-free run Pod, so an `output/x → /answers/secret` symlink is dropped
+    where there are no answers and never reaches the PVC or grade. **Network modes
+    (allowlist/service) + per-submission NetworkPolicy shipped in Phase 5B**; the
+    PVC/run/grade split itself shipped in 5A.
+  - sidecar egress is independent (proxy → allowlisted hosts; service → full).
+  - This multi-Pod orchestration (create the grade-egress policy + — for
+    allowlist/service — the sidecar Pod, sidecar Service, and run/sidecar
+    NetworkPolicies before the run Job; await sidecar ready; run Job; capture via
+    PVC; grade Job; then `finally` delete the sidecar Pod + Service + all
+    per-submission NetworkPolicies alongside 5A's PVC/Jobs/ConfigMaps) is the
+    heaviest new piece in the K8s executor. The worker is granted
+    `pods`/`services`/`networkpolicies` create+delete in
+    `infra/gcp/gke/worker-rbac.yaml`.
+  - **CNI ENFORCEMENT IS A HARD DEPENDENCY.** Every NetworkPolicy here is a
+    **no-op** unless the cluster's CNI actually enforces NetworkPolicy — GKE
+    **Dataplane V2** (Cilium), Calico, or Cilium. The default kindnet/flannel and
+    some managed defaults install the API objects but enforce nothing, so the run
+    Pod would silently reach the whole internet while every policy "exists". A
+    non-enforcing CNI passes the happy-path AC test while leaving the egress
+    boundary wide open. **Phase 8 OrbStack smoke must therefore affirmatively verify
+    egress is BLOCKED** — assert the run Pod CANNOT reach a non-allowlisted host
+    (expect a connection failure / proxy 403), not merely that an allowlisted call
+    succeeds or that AC is achieved. (Confirm the OrbStack k8s CNI enforces
+    NetworkPolicy before trusting a green smoke run.)
+  - **Real-cluster egress allow/deny, proxy enforcement, service reachability, and
+    "run can't reach the internet except via the sidecar" are verified in Phase 8
+    OrbStack smoke**; ci:verify covers only the pure manifest/policy builders.
+
+## Binary I/O
+
+The worker moves a **raw byte directory (tar)** between run and grade, never a
+JSON string or stdin text — so image/audio/binary files survive intact.
+
+- Inputs: baked into the run image; the run harness feeds the student however it
+  likes (stdin, files). Binary-safe because it is the TA's own code.
+- Outputs: the student/run harness writes arbitrary files to `/workspace/output/`;
+  the worker tars them and mounts them read-only at `/workspace/run-output/` in
+  grade. The grade harness does the actual image/audio decode + comparison in code
+  (Pillow / librosa / etc., baked into the grade image).
+
+This promotes the previously-ignored `artifacts/` directory to the official
+run→grade I/O bus. The platform never interprets binary semantics.
+
+### Capture safety (a security gate — the `/output` capture must not become an answer leak)
+
+`/output` is written by untrusted student code, so the capture is hardened.
+**Implemented (Phase 2) as a host-side `safeCopyTree`, not an in-container tar** —
+see the rationale below for why this is simpler and strictly safer.
+
+- **Skip symlinks entirely** (the core gate). The capture walks the run
+  container's **static, post-exit** `/output` on the host and, per entry, uses
+  `lstat` (checked _before_ any `isFile`/`isDirectory` branch) to detect and
+  **drop every symlink** — it is never copied and never followed. A malicious
+  `output/x → /answers/secret` (absolute) or `→ ../escape` (relative) therefore
+  never reaches `gradeDir/run-output`, so nothing can resolve against the grade
+  container's baked-in `/answers`. Because no symlink is ever dereferenced, the
+  capture also cannot be tricked into reading host secrets via a symlink.
+- **Skip special files** (FIFOs, sockets, device nodes) — `lstat`-classified and
+  dropped without ever `open()`ing them, so a FIFO cannot hang the capture.
+- **Binary-safe** — regular files are copied as raw bytes (`copyFile`), never
+  decoded as UTF-8, so image/audio bytes round-trip losslessly.
+- **Bound the tree**: `safeCopyTree` throws `SafeCopyLimitError` (→ SE) when the
+  file count exceeds ≤ 100k or the cumulative bytes exceed the 1 GiB cap. The
+  during-run `/workspace` watchdog (`dirStats`) was extended from byte-sum to also
+  count **files**, force-killing the run container before a million 1-byte files
+  can be written.
+- Any failure of the capture / grade-workspace prep (cap exceeded, unexpected IO
+  error) is a defined failure mode → submission SE; grade is not started. (An
+  _empty_ `/output` is NOT an SE — see "Verdict ownership".)
+
+**Why host-side `safeCopyTree` instead of an in-container `tar --dereference`:**
+the run container is `--rm` and gone the instant its main process exits, so there
+is no live container to `tar`/`docker exec` into afterward, and embedding the tar
+in the (TA-authored) run image would move the security-critical step out of
+platform control. `safeCopyTree` reads the dead container's static bind-mounted
+output on the host and neutralizes the symlink-leak by **never dereferencing at
+all** (drop-on-`lstat`) rather than by dereferencing in a guaranteed-safe context.
+It is pure host logic, so it is unit-tested without Docker (the adversarial
+symlink/FIFO/cap/binary tests), and the post-exit static read has no TOCTOU window.
+
+## Security hardening matrix
+
+|                                 | run                             | grade                     | service | egress-proxy                         |
+| ------------------------------- | ------------------------------- | ------------------------- | ------- | ------------------------------------ |
+| runs student code               | **yes**                         | no                        | no      | no                                   |
+| trust                           | untrusted                       | trusted                   | trusted | platform                             |
+| network                         | only its sidecar (or none)      | full                      | full    | internal in + allowlisted egress out |
+| `--user` non-root               | **yes (10001)**                 | no (TA-managed, as today) | no      | yes                                  |
+| `--cap-drop ALL`                | yes                             | yes                       | yes     | yes                                  |
+| `no-new-privileges`             | yes                             | yes                       | yes     | yes                                  |
+| `--read-only` rootfs            | yes                             | yes                       | yes     | yes                                  |
+| writable                        | `/tmp` tmpfs, `/workspace` bind | `/tmp`, `/workspace`      | `/tmp`  | `/tmp`                               |
+| memory / cpu / pids             | `memoryLimitMb` / bounded       | own (generous)            | own     | small                                |
+| `/workspace` 1GiB disk watchdog | yes                             | yes                       | n/a     | n/a                                  |
+| holds answers                   | **never**                       | yes (baked)               | never   | never                                |
+
+The run container keeps the strictest posture (it is the only one running
+untrusted code). grade/service stay on the existing "trusted TA, no `--user`"
+posture.
+
+**Trust boundary for the `service` container (explicit).** A full-network
+`service` is a deliberate trust choice consistent with `docs/operations/SECURITY.md`
+(TAs are trusted). Consequences and bounds: a malicious TA could write the service
+as an open relay — accepted, because it cannot reach the **answers** (those live
+only in grade) and so cannot break the core guarantee; the worst case is network
+abuse by a trusted author, mitigated by (a) the service Pod's `NetworkPolicy`
+ingress allowing **only** the run Pod (label selector), (b) the per-image upload
+being an authenticated TA action, and (c) egress logging. A future option is an
+egress allowlist on the service too; out of scope now.
+
+## Schema / DB
+
+Replace the single `Problem.advancedImageRef` / `advancedImageSource` columns
+with a Zod-validated JSON column `advancedConfig` (mirrors the existing
+`judgeConfig` pattern), keeping per-role image refs for the tarball
+`docker load` cache:
+
+```jsonc
+advancedConfig: {
+  run:   { imageRef: string, imageSource: "registry" | "tarball" },
+  grade: { imageRef: string, imageSource: "registry" | "tarball" },
+  network: {
+    mode: "none" | "allowlist" | "service",          // default "none"
+    allowlist?: string[],                              // mode = "allowlist", e.g. ["api.example.com:443"]
+    service?: { imageRef: string, imageSource: "registry" | "tarball" }  // mode = "service"
+  }
+}
+```
+
+`special_env` problem validation (`packages/core/src/schemas/problem.ts`):
+require `run` + `grade`; require `network.allowlist` non-empty iff
+`mode = "allowlist"`; require `network.service` iff `mode = "service"`.
+
+### `advancedConfig` audit snapshot on the submission
+
+**Settled decision (2026-06-14):** rejudge reads the **LIVE** `Problem.advancedConfig`,
+consistent with every other judge type (standard / checker / interactive all
+re-read live problem state on rejudge). A teacher who fixes a broken run/grade
+image and rejudges expects the **NEW** image — so rejudge must not pin an old
+snapshot. `getJudgeContext` (`packages/application/src/submission/queries.ts`)
+already reads `problem.advancedConfig` via `parseAdvancedConfig` on every judge.
+
+`Submission.advancedConfigSnapshot` (`Json?`) is therefore a pure **audit
+record**, not a judging input. At judge completion the activity records _which_
+`advancedConfig` was used to judge this submission (overwritten on every
+judge/rejudge so it reflects the latest run). It has forensic value — if a TA
+image is later found problematic, you can see which submissions it graded — but
+it never feeds back into judging. For non-advanced submissions it stays null. The
+column already exists (Phase 0); no further schema work.
+
+## Authoring / upload
+
+- **Scaffolds:** `GET /api/problems/advanced-scaffold?role=run|grade|service`
+  streams a per-role starter zip:
+  - **run** — `runner.py` (load meta, run student, write `/output`) +
+    `Dockerfile` baking testcase **inputs**.
+  - **grade** — `grader.py` (read `/run-output` + `/answers`, write
+    `result.json`) + `Dockerfile` baking **answers** + a shared `nojv_grader.py`
+    helper (validate/normalize verdicts, `write_result`).
+  - **service** — a minimal HTTP service example.
+- **Upload:** extend the advanced-image upload endpoint with a `role`
+  (`run`/`grade`/`service`). tar magic validation unchanged. Store at
+  `problems/{id}/advanced-images/{role}/{uuid}.tar`, write back the matching
+  ref/source. The per-storage-key `docker load` cache is keyed by role. The 64 MB
+  cap (`advanced-image/+server.ts`) now applies **per role**; heavyweight ML
+  graders may exceed it, so make the cap configurable (and prefer `registry`
+  sources for large images, which carry no upload cap).
+
+## Result flow / limits / timeouts / failure modes
+
+- Resource limits reuse `Problem.timeLimitMs` / `memoryLimitMb`:
+  - run container: cgroup memory = `memoryLimitMb`, outer wall =
+    `totalTimeMs + grace` (covers harness + student).
+  - grade / service / proxy: **explicit** requests/limits (not "unbounded"):
+    proxy small fixed (≈64–128 MiB, 0.25 CPU); grade/service a generous-but-capped
+    default (e.g. 1 GiB / 1 CPU, overridable per problem). Unbounded sidecars ×
+    concurrent submissions is a cluster-DoS risk.
+  - `/workspace` size watchdog applied per phase (run, grade); see Tar safety for
+    the inode/file-count extension.
+- **Concurrency.** Up to 4 ephemeral containers per submission × N concurrent
+  submissions; the worker enforces a max in-flight Advanced submissions cap (and
+  on K8s a namespace `ResourceQuota`) so sidecars can't exhaust the node/cluster.
+- **Timeout budget.** The `judgeSandbox` activity must cover
+  `sidecar_ready + run_wall + tar_capture + teardown + grade_wall + grace`. With
+  two sequential phases each up to `totalTimeMs`, the activity `startToCloseTimeout`
+  (today `10m`) and the per-phase deadlines must be set from this formula, and a
+  `totalTimeMs` large enough to blow the activity budget is rejected at problem
+  save time rather than failing mysteriously at judge time.
+- Failure modes → System Error (`advancedFallbackResult`): sidecar fails to
+  start; run/grade container **spawn** error; run size-cap exceeded; grade
+  timeout; grade produces no/invalid `result.json`. An **empty `/output` is NOT
+  an SE** — it flows to grade via `runStatus` (see Verdict ownership). In
+  `allowlist` mode a proxy denial surfaces to the student program as an
+  ordinary connection error — **not** SE.
+
+## Backend implementation map
+
+New/changed code (to be detailed in the implementation plan):
+
+- `apps/worker/src/services/advanced-mode-executor.ts` — split into run-phase +
+  grade-phase orchestration; sidecar (proxy/service) lifecycle; `/output`
+  capture + transfer.
+- New `apps/worker/src/services/egress-proxy.ts` (or an asset image under
+  `infra/docker/`) — the platform forward proxy + allowlist config rendering.
+- `apps/worker/src/services/k8s-advanced.ts` / `k8s-executor.ts` — multi-Pod
+  run + sidecar + NetworkPolicy; separate grade Job.
+- `packages/core/src/schemas/advanced-mode.ts` + `problem.ts` — `advancedConfig`.
+- `apps/web/.../advanced-image/+server.ts` + scaffold route — `role` support.
+- `apps/web/src/lib/server/advanced-scaffold/files/{run,grade,service}/` — scaffolds.
+- `infra/k8s/sandbox/` + `infra/gcp/gke/` — NetworkPolicy variants for
+  `allowlist`/`service`.
+
+## Testing strategy
+
+- **Unit:** `advancedConfig` Zod schema; mode derivation; proxy allowlist
+  hostname matching.
+- **Integration:** executor wiring against a mocked Docker/K8s.
+- **Real-machine smoke** (lesson: sandbox docker-arg bugs only surface on real
+  judging runs): one run/grade-split problem per mode (`none`, `allowlist`,
+  `service`), end-to-end AC.
+- **Adversarial security tests** (core): a malicious submission must **fail** to
+  ① read `/answers` from the run container, ② reach a non-allowlisted host,
+  ③ reach the grade container, ④ leak an answer via an `output/x → /answers/...`
+  symlink (must be dropped by the host-side `safeCopyTree` skip-symlink gate), ⑤ escape the
+  allowlist by unsetting `HTTP_PROXY` / hard-coding a public IP (no route), ⑥
+  exhaust resources via a million-file or special-file `/output` (watchdog +
+  count cap → SE). Plus binary I/O round-trip (image in → image out → graded).
+
+### Adversarial security test index (landed)
+
+Each adversarial property below is proven by a landed unit test. Paths are repo-relative.
+
+| Property                                                                                                                                                                                                                                                                           | Verified by                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Symlink answer-leak gate** — `output/x → /answers/secret` (absolute) + `→ ../escape` (relative) dropped, real file kept; FIFO/special files skipped without hanging                                                                                                              | `tests/unit/worker/advanced-mode-executor.test.ts` → "safeCopyTree (/output capture security gate)" (drops symlinks, skips FIFO)                                                              |
+| **K8s cross-gate parity** — the K8s `transfer` embedded gate sanitizes byte-identically to the Docker `safeCopyTree` (drops the same secret symlink, rejects the same at-cap fixture)                                                                                              | `tests/unit/worker/k8s-advanced.test.ts` → "cross-gate parity: Docker safeCopyTree and the K8s embedded gate sanitize identically" + "the safe-copy gate executed against a real tree"        |
+| **Resource-exhaustion caps** — file-count / byte caps → `SafeCopyLimitError` (→ SE); watchdog counts files as well as bytes                                                                                                                                                        | `tests/unit/worker/advanced-mode-executor.test.ts` → "throws SafeCopyLimitError when…", "dirStats + exceedsWorkspaceCaps"; `k8s-advanced.test.ts` → "throws (→ SE) when the …cap is exceeded" |
+| **Allowlist matcher fail-closed** — host/port exact match, default 80/443 only on bare host, denies unlisted host/port, empty allowlist denies all, IPv6 / malformed-port fail closed                                                                                              | `tests/unit/infra/egress-proxy-matcher.test.ts` (`matchesAllowlist` / `parseAllowlist`)                                                                                                       |
+| **Run single-homed / egress only to sidecar (Docker)** — allowlist run args attach **only** `net_internal`, inject `HTTP_PROXY` by IP; `none` mode carries no proxy env                                                                                                            | `tests/unit/worker/advanced-mode-executor.test.ts` → "allowlist network mode (Phase 3 run-container egress)"                                                                                  |
+| **Run egress restricted to the sidecar (K8s)** — `buildRunEgressPolicy` allows egress **only** to the sidecar label selector (no `0.0.0.0/0` / `ipBlock` / empty rule), denies all ingress; sidecar ingress only from the run Pod; run env injects the ClusterIP, never a DNS name | `tests/unit/worker/k8s-advanced-network.test.ts` (`buildRunEgressPolicy`, `buildSidecarEgressPolicy`, run-env injection helpers)                                                              |
+| **Deny-all relabel covers every other Pod** — the deny-all NetworkPolicy uses `nojv.egress DoesNotExist`, so every plain sandbox Pod stays denied while run/grade builders emit the escape label                                                                                   | `tests/unit/infra/network-policy-parity.test.ts` + `tests/unit/worker/k8s-advanced-network.test.ts` → "deny-all relabel — manifest YAML excludes nojv.egress-labeled pods"                    |
+| **Grade Pod escapes deny-all with full network (all modes)** — distinct `nojv.egress=<id>-grade` label + open egress rule, ingress denied                                                                                                                                          | `tests/unit/worker/k8s-advanced-network.test.ts` (`buildGradeEgressPolicy`); `k8s-advanced.test.ts` → "mode=none: grade Pod STILL escapes deny-all"                                           |
+| **Transfer-capture-failure → SE (K8s)** — transfer sidecar non-zero exit / never-terminated → SE, grade never created                                                                                                                                                              | `tests/unit/worker/k8s-advanced.test.ts` → "transfer sidecar exited non-zero (cap/IO capture failure) → SE", "transfer sidecar never terminated cleanly → SE"                                 |
+| **Tarball-source refused on K8s → SE** — no PVC/Job/ConfigMap created                                                                                                                                                                                                              | `tests/unit/worker/k8s-advanced.test.ts` → "tarball-source on K8s returns SE; creates no PVC / Job / ConfigMap"                                                                               |
+
+**Honestly NOT in `ci:verify`** — these properties hold only under real-machine [Phase 8 smoke](#phase-8-smoke-verification-runbook), because the unit tests assert the **manifest/argument shape**, not runtime behavior:
+
+- **Actual egress blocking.** The K8s NetworkPolicies are no-ops on a non-enforcing CNI (see "CNI ENFORCEMENT IS A HARD DEPENDENCY"). The unit tests prove the policies are _shaped_ right; only the smoke proves a run Pod **cannot** reach a non-allowlisted host.
+- **Real proxy enforcement.** `matchesAllowlist` is unit-tested, but that the live `egress-proxy` actually `403`s a non-allowlisted CONNECT and tunnels an allowlisted one (no TLS interception) is smoke-only.
+- **PVC binding + single-node grade pinning.** That the RWO PVC actually binds and the grade Pod schedules on the run Pod's node is smoke-only.
+- **Docker single-homing / `--internal` no-route.** That run on `net_internal` genuinely has no internet route (even with `HTTP_PROXY` unset / a hard-coded public IP) is smoke-only.
+
+## Phase 8 smoke verification runbook
+
+These are the manual real-machine checks `ci:verify` cannot cover (lesson: sandbox docker-arg / CNI bugs only surface on real judging runs). Record results in the PR.
+
+### Docker (local)
+
+Build a dual-image (`run` + `grade`) problem per network mode and judge end-to-end:
+
+1. **`none`** — offline judging: submit a correct solution → **AC**; submit a wrong one → **WA** (verdict comes from the grade harness, not the worker).
+2. **`allowlist`** — a problem whose run harness calls a public API:
+   - allowlisted host reachable (`HTTP_PROXY` injected by IP) → expected verdict;
+   - a **non-allowlisted** host → proxy `403` (surfaces to the student as a connection error, **not** SE);
+   - student **unsets `HTTP_PROXY`** (or hard-codes a public IP) → still blocked (no internet route on `net_internal`).
+3. **`service`** — student talks to the TA `service` container at `NOJV_SERVICE_HOST=host:8888` → expected verdict; confirm the service Pod is reachable from run but run still has no other egress.
+4. **Answer-isolation attack** — a submission that tries to `cat /answers/*` or writes `output/leak -> /answers/secret` (symlink) → the answers must **NOT** appear in the grade input and the verdict must not leak them (the run container has no answers; `safeCopyTree` drops the symlink).
+5. **Binary I/O round-trip** — an image-in → image-out problem graded by the grade harness (Pillow/etc.) → bytes survive intact.
+
+### Kubernetes (OrbStack)
+
+Per the repo's k8s setup (`orbctl start k8s`, label/taint the node `nojv-role=sandbox`). **First confirm the OrbStack CNI enforces NetworkPolicy** — otherwise a green run is meaningless. Repeat the Docker checks (1–5), AND additionally:
+
+6. **Affirmatively assert egress is BLOCKED.** A non-NetworkPolicy-enforcing CNI silently passes the happy path, so AC alone is **not** sufficient evidence. Explicitly verify the run Pod **cannot** reach a non-allowlisted host (expect a connection failure / proxy `403`), and that with `mode=none` the run Pod has no egress at all.
+7. **Transfer cap-exceeded → SE.** A run that writes a `/output` exceeding the file/byte cap → the `transfer` sidecar exits non-zero → submission **SE**, grade Job never created.
+8. **Max-output-within-grace.** A run producing the largest in-cap output still transfers over the PVC and grades correctly (no truncation, binary intact, grade Pod pinned to the run Pod's node).
+
+## Rejected: docker-compose as the contract
+
+Letting TAs upload a `docker-compose.yml` was considered and rejected:
+
+1. **Loses the security guarantee.** Student-container hardening
+   (network/caps/user/read-only/seccomp/limits) would move into TA-authored
+   compose config; the platform could no longer _guarantee_ the untrusted
+   container is locked down, and would need a large, fragile compose validator
+   that first has to identify which service runs student code.
+2. **Breaks the K8s prod backend.** `docker compose` needs a Docker daemon; the
+   GKE sandbox is containerd + Jobs. Compose would force all Advanced Mode back
+   to Docker-only, regressing the production path.
+3. **Doesn't remove the proxy.** Reaching a _real_ public API still needs the
+   platform egress-proxy regardless; a self-contained compose stack can't do it
+   safely on its own.
+
+The platform owns topology + hardening; the TA owns image **content** + a few
+declared knobs (images, network mode, allowlist). This is the safe, bounded
+version of "compose".
+
+## Related docs
+
+- [Judge Pipeline](../../architecture/JUDGE_PIPELINE.md) — Advanced Mode section
+  to be rewritten once this lands.
+- [Security Requirements](../../operations/SECURITY.md)
+- [Threat Model](../../operations/THREAT_MODEL.md)

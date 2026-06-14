@@ -2,6 +2,7 @@ import {
   effectiveTimeLimitMs,
   entryFileNameFor,
   submissionResultSchema,
+  type AdvancedConfig,
   type Language,
   type SandboxExecutor,
   type SandboxRequest,
@@ -147,8 +148,9 @@ function buildAdvancedPayload(
   }
   const ctx = judgeContext.advanced;
   return {
-    imageRef: ctx.imageRef,
-    imageSource: ctx.imageSource,
+    run: ctx.config.run,
+    grade: ctx.config.grade,
+    network: ctx.config.network,
     totalTimeMs: ctx.resourceLimits.totalTimeMs,
     memoryMb: ctx.resourceLimits.memoryMb,
   };
@@ -259,8 +261,9 @@ export async function completeSubmission(
   submissionId: string,
   result: SubmissionResult,
   mode: "standard" | "advanced",
+  advancedConfig: AdvancedConfig | null = null,
 ): Promise<submissionDomain.CompletedSubmission> {
-  const completed = await submissionDomain.completeJudge(submissionId, result);
+  const completed = await submissionDomain.completeJudge(submissionId, result, advancedConfig);
   recordJudgeLatency(judgeLatencyHistogram, {
     startedAtMs: completed.createdAt.getTime(),
     completedAtMs: Date.now(),

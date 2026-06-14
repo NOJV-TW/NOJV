@@ -7,14 +7,16 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
 
-function networkPolicyMatchLabels(): Record<string, string> {
-  const yaml = readFileSync(join(repoRoot, "infra/k8s/sandbox/network-policy.yaml"), "utf8");
+const EGRESS_KEY = "nojv.egress";
+
+function denyAllSelectorExpressions(yaml: string): { key: string; operator: string }[] {
   const lines = yaml.split("\n");
-  const labels: Record<string, string> = {};
+  const expressions: { key: string; operator: string }[] = [];
   let inMatch = false;
   let matchIndent = -1;
+  let pendingKey: string | null = null;
   for (const line of lines) {
-    const m = /^(\s*)matchLabels:\s*$/.exec(line);
+    const m = /^(\s*)matchExpressions:\s*$/.exec(line);
     if (m) {
       inMatch = true;
       matchIndent = m[1].length;
@@ -23,10 +25,15 @@ function networkPolicyMatchLabels(): Record<string, string> {
     if (!inMatch) continue;
     const indent = line.length - line.trimStart().length;
     if (line.trim() !== "" && indent <= matchIndent) break;
-    const pair = /^\s+([\w.\-/]+):\s*(\S+)/.exec(line);
-    if (pair) labels[pair[1]] = pair[2];
+    const keyMatch = /^\s*-?\s*key:\s*([\w.\-/]+)\s*$/.exec(line);
+    if (keyMatch) pendingKey = keyMatch[1];
+    const opMatch = /^\s*operator:\s*(\S+)\s*$/.exec(line);
+    if (opMatch && pendingKey) {
+      expressions.push({ key: pendingKey, operator: opMatch[1] });
+      pendingKey = null;
+    }
   }
-  return labels;
+  return expressions;
 }
 
 function executorLabelSets(): Record<string, string>[] {
@@ -42,24 +49,42 @@ function executorLabelSets(): Record<string, string>[] {
   return sets;
 }
 
-describe("NetworkPolicy ↔ k8s-executor pod label parity (sandbox isolation drift gate)", () => {
-  const matchLabels = networkPolicyMatchLabels();
-  const labelSets = executorLabelSets();
+describe("NetworkPolicy deny-all relabel ↔ executor labels (sandbox isolation drift gate)", () => {
+  const denyAllManifests = [
+    "infra/k8s/sandbox/network-policy.yaml",
+    "infra/gcp/gke/network-policy.yaml",
+  ];
 
-  it("the NetworkPolicy selects on at least one label and the executor labels at least one pod", () => {
-    expect(Object.keys(matchLabels).length).toBeGreaterThan(0);
+  it.each(denyAllManifests)(
+    "%s deny-all selects pods WITHOUT nojv.egress (DoesNotExist), so labeled pods escape it",
+    (path) => {
+      const yaml = readFileSync(join(repoRoot, path), "utf8");
+      const expressions = denyAllSelectorExpressions(yaml);
+      expect(
+        expressions,
+        `${path} deny-all must select on 'nojv.egress DoesNotExist' so per-submission policies can widen labeled pods`,
+      ).toContainEqual({ key: EGRESS_KEY, operator: "DoesNotExist" });
+    },
+  );
+
+  it("SECURITY: every plain sandbox pod the executor labels stays under deny-all (no nojv.egress)", () => {
+    const labelSets = executorLabelSets();
     expect(labelSets.length).toBeGreaterThan(0);
+    for (const set of labelSets) {
+      expect(
+        set[EGRESS_KEY],
+        `executor labels ${JSON.stringify(set)} carry ${EGRESS_KEY} → would ESCAPE deny-all without a per-submission policy (standard/checker/interactive/none must stay denied)`,
+      ).toBeUndefined();
+      expect(set.app).toBe("nojv-sandbox");
+    }
   });
 
-  it("every pod the executor labels carries the deny-all NetworkPolicy's selector labels", () => {
-    for (const set of labelSets) {
-      for (const [key, value] of Object.entries(matchLabels)) {
-        expect(
-          set[key],
-          `executor labels ${JSON.stringify(set)} miss selector ${key}=${value} → deny-all NetworkPolicy would not apply (sandbox could reach the network)`,
-        ).toBe(value);
-      }
-    }
+  it("advanced run/grade builders emit the nojv.egress escape label so per-submission policies apply", () => {
+    const src = readFileSync(
+      join(repoRoot, "apps/worker/src/services/k8s-advanced.ts"),
+      "utf8",
+    );
+    expect(src).toContain('"nojv.egress": params.egressLabel');
   });
 });
 

@@ -73,29 +73,54 @@ Subtask scoring is **all-or-nothing**: a `TestcaseSet` (subtask) earns its full 
 
 The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`, where each subtask's `rawScore` is `weight` (all cases AC) or `0`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/application/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
 
+### Judge-type parity note
+
+A Phase 5 parity audit confirmed that `standard`, `checker`, and `interactive` already implement run/check separation: the answers and any judge code live **only** in the worker process or a no-student container/ConfigMap (the second validator container / interactor side, or the K8s `validate` Job's ConfigMap), never alongside untrusted student code. They therefore do **not** share Advanced Mode's new run/grade attack surface, and were intentionally left unchanged by the run/grade redesign. Across **all** judge types — standard, checker, interactive, and advanced — rejudge reads **live** problem state by design; no judge type pins a config snapshot.
+
 ## Advanced Mode pipeline
 
-Advanced Mode is the escape hatch. The platform does **not** run compile/execute/check itself — instead it spawns a TA-provided Docker image and reads a structured result file. Use cases include problems that need custom toolchains, partial-credit grading, multi-stage pipelines, or anything else Standard Mode can't express.
+Advanced Mode is the escape hatch for problems that need custom toolchains, binary I/O, a controlled public-API call, or anything else Standard Mode can't express. Unlike Standard Mode, the platform does not compile/execute the student itself — but it **does** own the topology and the student-side hardening. The model is a **run/grade two-phase split** that reuses the same `run/check separation` invariant as `checker`/`interactive`: the container that runs untrusted student code never holds the answers, and only a separate, time-separated container with no student code makes the grading decision. Full rationale (and the rejected alternatives) lives in the design doc: [Advanced Judge run/grade split](../plans/active/2026-06-14-advanced-judge-run-grade-split-design.md).
+
+### Run/grade two-phase split
+
+Per submission the worker orchestrates two **time-separated** phases plus, optionally, one network sidecar — all ephemeral (fresh per submission, destroyed in `finally`):
+
+1. **run phase** — a **run container** (untrusted: holds the student code, hardened, runs as uid `10001`) plus at most one network sidecar. It reads its baked-in testcase **inputs**, runs the student program, and writes per-case outputs + a status marker into `/workspace/output/`. It holds **no answers**.
+2. **capture** — after the run container exits, the platform captures `/workspace/output/` host-side via `safeCopyTree` (the answer-leak gate, below) into the grade workspace. The worker derives a `runStatus` from how the run container ended.
+3. **teardown** — run container + sidecar + per-submission networks are removed.
+4. **grade phase** — a **grade container** (trusted TA, holds the baked-in answers in its image rootfs, full network, **no student code**) mounts the captured run output read-only at `/workspace/run-output` plus a `meta.json` carrying `runStatus`, and writes `/workspace/output/result.json`.
+
+Docker orchestration lives in `apps/worker/src/services/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`); the K8s equivalent in `k8s-executor.ts` (`executeAdvanced`) + `k8s-advanced.ts` + `k8s-advanced-network.ts`.
 
 ### Container contract
 
-The worker lays out a fixed `/workspace/` directory and mounts it into the TA image:
+The **run container** sees:
 
 ```
-/workspace/submission/     student files (from ZIP or wrapped single source)
-/workspace/meta.json       { submissionId, language, submissionFiles, resourceLimits }
-/workspace/output/         TA image writes here
-    result.json            required
-    artifacts/             optional; currently ignored by the platform
+/workspace/submission/   student files (from ZIP or wrapped single source)
+/workspace/meta.json     { submissionId, language, submissionFiles, resourceLimits }
+/workspace/output/       run harness writes student outputs here (binary OK)
+(testcase INPUTS baked into the run image — not secret)
 ```
 
-`meta.json.submissionFiles` is the **actual list of relative paths the worker wrote into `submission/`** for this run (i.e. the post-merge layout), not a static declaration. TA images that need to discover the submission shape should iterate this array rather than scanning the filesystem. Built by `prepareWorkspace()` in `apps/worker/src/services/advanced-mode-executor.ts`.
+`meta.json.submissionFiles` is the **actual list of relative paths the worker wrote into `submission/`** for this run (i.e. the post-merge layout), not a static declaration; TA run harnesses should iterate this array rather than scanning the filesystem. The run harness owns compiling and running the student (it gets `meta.json.language` + the files) — the platform does not compile the student in Advanced Mode. A compile failure is the run harness's to detect and report (write a marker into `/output`); the grade harness maps it to the `compile_error` verdict. Built by `prepareRunWorkspace()`.
 
-Testcases are bundled inside the TA image itself — the platform no longer manages advanced-mode testcases. The TA image is expected to read `submission/` and `meta.json`, do whatever grading it wants against its baked-in test data, then write `/workspace/output/result.json`.
+The **grade container** sees:
+
+```
+/workspace/run-output/        the captured run /output, mounted READ-ONLY (binary OK)
+/workspace/meta.json          { submissionId, language, runStatus }
+/workspace/output/result.json grade harness writes here
+(ANSWERS baked into the grade image — never exposed to the student)
+```
+
+`runStatus` (`{ state: "exited" | "timed_out" | "oom_killed", exitCode }`, built by `deriveRunStatus`) is the worker-observed outcome of the **whole** run container; the grade harness uses it to emit a catastrophic-failure verdict, while ordinary per-case TLE/RE/WA is decided by the run harness and conveyed through `/output`. The grade `meta.json` deliberately does **not** carry the network mode (a proxy denial is just a connection error to the student program). Built by `prepareGradeWorkspace()`.
+
+**Binary I/O.** Inputs and outputs flow as a raw byte directory, never a JSON string or stdin text, so image/audio/arbitrary-binary files survive intact: the run harness writes arbitrary files to `/output`, the worker copies them byte-for-byte (`copyFile`, never UTF-8 decoded), and the grade harness does the decode + comparison in code (Pillow/librosa/etc., baked into the grade image). The platform never interprets binary semantics.
 
 ### `result.json` schema
 
-Validated against `advancedResultSchema` in `packages/core/src/schemas/advanced-mode.ts`:
+Unchanged — validated against `advancedResultSchema` in `packages/core/src/schemas/advanced-mode.ts`:
 
 ```jsonc
 {
@@ -110,44 +135,94 @@ Validated against `advancedResultSchema` in `packages/core/src/schemas/advanced-
 }
 ```
 
-The TA image owns grading: `score` (0–100) is authoritative and overrides any
-platform-side subtask weighting. Per-case detail flows through `testcases[]`;
-there is no separate subtask channel (advanced problems have no platform
-testcase sets). A `compile_error` verdict is surfaced as a compile failure
-(verdict `compile_error`, score 0), matching standard mode.
+The grade harness owns grading: `score` (0–100) is authoritative; per-case detail flows through `testcases[]` (advanced problems have no platform testcase sets). A `compile_error` verdict is surfaced as a compile failure (score 0), matching standard mode.
 
-A missing, unreadable, or malformed `result.json` collapses every testcase into `SE` via `advancedFallbackResult()` in the executor.
+### Verdict ownership and System Errors
 
-### Image source and resource limits
+The worker funnels every run outcome through `runStatus` and **always proceeds to grade** after a run that did not _infrastructurally_ fail — including an **empty `/output`** (a student that printed nothing is a legitimate WA/RE for the grade harness to render, not a platform fault). The worker raises a **System Error** (`advancedFallbackResult`, every testcase → `SE`) only on infrastructure failures: run/grade container **spawn** error, run/output **size-cap exceeded** (`safeCopyTree` `SafeCopyLimitError`, or the during-run watchdog), grade **timeout**, and a missing/unreadable/malformed `result.json`. On K8s the same set applies plus the **transfer-sidecar non-zero exit** (a capture-gate or IO failure inside the run Pod → SE, grade never created). In `allowlist` mode a proxy denial reaches the student program as an ordinary connection error — **not** an SE.
 
-The TA provides an image via two columns on `Problem`:
+### `advancedConfig` (image sources + network policy)
 
-- `advancedImageRef` — either a registry reference (`ghcr.io/org/judge:tag`) or a storage key pointing at a tarball
-- `advancedImageSource` — `registry` or `tarball`
+The TA configures the problem via the `Problem.advancedConfig` JSON column (`advancedConfigSchema`), holding per-role images and a network policy:
 
-For `tarball` sources, the worker streams the tarball out of object storage and `docker load`s it on first use. The loaded ref is cached per storage key for the worker's lifetime.
+```jsonc
+advancedConfig: {
+  run:   { imageRef, imageSource: "registry" | "tarball" },
+  grade: { imageRef, imageSource: "registry" | "tarball" },
+  network: {
+    mode: "none" | "allowlist" | "service",   // default "none"
+    allowlist?: string[],                       // mode = "allowlist", e.g. ["api.example.com:443"]
+    service?: { imageRef, imageSource }         // mode = "service"
+  }
+}
+```
 
-Resource limits come from `Problem.timeLimitMs` / `Problem.memoryLimitMb` — the same fields and the same validation bounds as standard mode (there is no separate advanced limit field):
+`imageRef` is either a registry reference (`ghcr.io/org/judge:tag`) or a storage key pointing at a tarball. `special_env` validation (`packages/core/src/schemas/problem.ts`) requires both `run` and `grade`, a non-empty `allowlist` iff `mode = "allowlist"`, and a `service` image iff `mode = "service"`. For `tarball` sources the worker streams the tarball out of object storage and `docker load`s it on first use, caching the loaded ref per storage key for the worker's lifetime; **tarball is Docker-only** (see backends). `advancedRequiredPaths` (a separate optional `Problem` column) still governs the student **upload** shape — the set of relative paths a submission ZIP must contain — and is unrelated to `advancedConfig`.
 
-- `timeLimitMs` — 100 ms to 30 s, used as the container wall-clock budget (`advanced.totalTimeMs`)
-- `memoryLimitMb` — 16 MB to 1024 MB cgroup limit (`advanced.memoryMb`)
+### Network modes
 
-Advanced Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs (`--read-only`), and the same `--memory` / `--cpus` / `--pids-limit` bounds as standard mode. Writes are permitted only to two places: `/tmp` (a 64m `tmpfs`, for scratch the TA image needs) and `/workspace` (the host bind mount where the TA image writes `output/result.json`). The `/workspace` mount has no `tmpfs` size cap — the host disk is instead protected by a watchdog that polls the directory size every 2 s and force-removes the container if it exceeds **1 GiB**, failing the submission with a System Error (`advancedFallbackResult`). Unlike standard mode, advanced containers do **not** run with `--user`: the TA image is trusted and manages its own user. Any packages or test data the TA image needs must be baked into the image at build time — runtime fetches are not allowed. Advanced Mode also always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
+The run container is always **single-homed with no direct internet route** and can reach **at most one** sidecar:
 
-**Tarball-source advanced images require the Docker executor.** Docker-side dispatch lives in `apps/worker/src/services/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`). The Kubernetes executor rejects **tarball-source** advanced requests (`K8sExecutor.executeAdvanced` short-circuits with an `SE` verdict — the learner sees a neutral _"Sandbox configuration error. Please contact your administrator."_ while the operator-facing reason is logged at `error` level), because the K8s path cannot `docker load` a TA-supplied tarball. **Registry-source** advanced images run on K8s as a Job (`buildAdvancedJobManifest`): init container materializes the submission, sidecar tails progress, and the TA grader container runs with `cap-drop ALL`, `allowPrivilegeEscalation: false`, read-only rootfs, and pod-level `seccompProfile: RuntimeDefault` — but without `runAsNonRoot`, matching the Docker path's trusted-TA design.
+| mode             | run reaches                                 | extra container | use                                       |
+| ---------------- | ------------------------------------------- | --------------- | ----------------------------------------- |
+| `none` (default) | nothing                                     | —               | offline judging                           |
+| `allowlist`      | platform egress-proxy → listed public hosts | egress-proxy    | "call this public API"; TA writes no code |
+| `service`        | TA service container (full net)             | service         | student talks to a mock/DB/simulator      |
 
-### Authoring an advanced judge image
+- **`allowlist`** — the worker starts a platform **egress-proxy** sidecar (`infra/docker/egress-proxy/proxy.mjs`) that enforces a per-problem hostname allowlist on the HTTP `CONNECT` request-line host:port (HTTPS) or proxied Host (plain HTTP) before opening the tunnel; everything else → `403` + audit log, **no TLS interception**. The worker injects `HTTP_PROXY`/`HTTPS_PROXY` (and lowercase variants) into the run container pointing at the proxy **by IP** with an empty `NO_PROXY`, so the run container needs no DNS of its own (outbound DNS resolution happens in the proxy). The run container cannot escape by unsetting the proxy vars or hard-coding a public IP: with no internet route it has nowhere to go but the proxy.
+- **`service`** — a TA-provided dependency (mock API / DB / simulator, full network, trusted). The run container reaches it at `NOJV_SERVICE_HOST=host:8888` over the internal network.
 
-TAs don't hand-write the boilerplate. The problem edit page (Advanced settings → Container contract) has a **Download starter project** button that streams a self-contained zip; the route is `GET /api/problems/advanced-scaffold` (auth-gated, zips `apps/web/src/lib/server/advanced-scaffold/files/` on the fly with JSZip). The scaffold contains:
+### Backends
 
-- `Dockerfile` — `FROM python:3.12-slim`, bakes in `testcases/` + the grader code. There is no custom NOJV base image; the scaffold is fully self-contained (a published base image is a possible future ops follow-up).
-- `nojv_grader.py` — a stdlib-only helper the TA does **not** edit. It loads `meta.json`, exposes `submission_files()` / `submission_path(rel)`, runs the student program via `run_submission(cmd, stdin, timeout)` (which copies the submission into a `/tmp` dir and runs it from there so the student's relative file I/O doesn't collide with grader files — this is **not** a security boundary, see below), and `write_result(score, verdict, feedback, testcases)` which validates/normalizes verdicts and writes `output/result.json` in the canonical shape.
-- `grader.py` — the worked example the TA edits: read `testcases/case-*.json`, run each case, decide a per-case verdict, compute a 0–100 score, call `write_result(...)`.
-- `testcases/case-*.json`, `README.md`.
+Both the Docker backend (local/dev) and the Kubernetes backend (GKE prod) are supported; no backend is abandoned.
 
-Workflow: **download the scaffold → edit `grader.py` (and `testcases/`) → `docker build -t my-judge .` → upload** (either `docker save | gzip` a tarball and upload it as image source `tarball`, or push to a registry and paste the reference). Because the container runs with `--network none` and a read-only rootfs, every dependency and all test data must be baked into the image at build time — write only to `/workspace` and `/tmp`, and don't rely on the process exit code (only `result.json` is read). The canonical `result.json` verdicts are the long forms (`accepted`, `wrong_answer`, `time_limit_exceeded`, `memory_limit_exceeded`, `runtime_error`, `compile_error`) at the top level and the short codes (`AC`, `WA`, `TLE`, `MLE`, `RE`, `SE`) per testcase — `write_result` accepts either and normalizes.
+**Docker** (`advanced-mode-executor.ts` + `docker-network.ts` + `egress-proxy.ts` + `service-container.ts`). `none` → `--network none`. `allowlist`/`service` create a per-submission pair of networks: `net_internal` (a `--internal` user-defined network with zero external routing) that `run` and the sidecar's first NIC attach to, and `net_egress` (a NAT bridge) that **only** the sidecar's second NIC attaches to — so only the sidecar egresses, and run, being single-homed on `net_internal`, has no route to the internet even if it hard-codes a public IP. The sidecar is a separate container (never sharing run's netns). Networks are created per submission and torn down on the `finally` path.
 
-**Protecting answers is the TA's responsibility.** Advanced mode runs the student's code _inside the TA image_, in the same container and as the same user as the grader. With `--cap-drop ALL` + `--read-only` and no `--user`, the grader cannot setuid-drop the submission to another UID and cannot hide or delete the baked-in files — so a malicious submission can read any world-readable path, including `/grader/testcases/`. The `run_submission` cwd-copy only isolates relative path collisions; it is **not** an isolation boundary. The safe pattern (used by the scaffold's `grader.py`) is to feed each case's input on **stdin** and compare the student's **stdout** to the expected answer inside the grader, so the student never needs the answer. Never hand the student a path to the expected output, and don't bake secrets at guessable readable paths when running untrusted code with broad filesystem access.
+**Kubernetes** (`k8s-executor.ts` + `k8s-advanced.ts` + `k8s-advanced-network.ts`). Run and grade are **two separate Jobs**; run output crosses between them over a per-submission **`ReadWriteOnce` PVC** (lossless binary, no ConfigMap 1 MB limit). A native `transfer` sidecar in the run Pod runs the **same `safeCopyTree` gate** on TERM, copying `/output` → PVC; the grade Pod mounts the PVC read-only and is pinned (`spec.nodeName`) to the run Pod's node because RWO is single-node. Because all containers in one Pod share a netns, the egress sidecar **must** live in a **separate Pod** (this is the one place Advanced differs from `interactive`, which can co-locate over `127.0.0.1`). Egress isolation is per-submission `NetworkPolicy`:
+
+- The blanket deny-all (`infra/k8s/sandbox/network-policy.yaml`, `infra/gcp/gke/network-policy.yaml`) selects on `nojv.egress` **`DoesNotExist`**, so standard/checker/interactive Pods and `mode=none` advanced run Pods (none carry the label) stay denied. The run Pod (allowlist/service) is relabeled `nojv.egress=<id>` and gets `buildRunEgressPolicy` allowing egress **only** to the sidecar Pod (no `0.0.0.0/0`, no `ipBlock`, no kube-dns) with `ingress: []` (the untrusted run Pod is never a server). The grade Pod is labeled `nojv.egress=<id>-grade` and gets full egress (`buildGradeEgressPolicy`) in **every** mode. The sidecar Pod gets full egress + ingress only from the run Pod (`buildSidecarEgressPolicy`), is fronted by a per-submission ClusterIP Service, and the run Pod's `HTTP_PROXY` / `NOJV_SERVICE_HOST` is injected by that **ClusterIP literal** (never a DNS name, preserving the no-DNS-in-the-run-Pod invariant). The worker is granted `pods`/`services`/`networkpolicies`/`persistentvolumeclaims` in `infra/gcp/gke/worker-rbac.yaml`.
+- **CNI enforcement is a hard dependency.** Every NetworkPolicy above is a **no-op** unless the cluster's CNI actually enforces NetworkPolicy (GKE Dataplane V2 / Cilium / Calico). A non-enforcing CNI (kindnet/flannel, some managed defaults) installs the API objects but lets the run Pod reach the whole internet while every policy "exists" — and the happy-path AC test still passes. This is why the [Phase 8 smoke runbook](../plans/active/2026-06-14-advanced-judge-run-grade-split-design.md#phase-8-smoke-verification-runbook) must affirmatively assert egress is **blocked**, not merely that an allowlisted call succeeds.
+
+**Tarball-source advanced images require the Docker executor.** `K8sExecutor.executeAdvanced` short-circuits a tarball-source run **or** grade with an `SE` (the learner sees a neutral message; the operator reason is logged at `error`) because the cluster cannot `docker load` a TA tarball — push to a registry the cluster can pull instead. The same applies to a tarball `service` image.
+
+### Hardening posture
+
+| flag                | run (untrusted)            | grade / service (trusted) | egress-proxy                  |
+| ------------------- | -------------------------- | ------------------------- | ----------------------------- |
+| `--cap-drop ALL`    | yes                        | yes                       | yes                           |
+| `no-new-privileges` | yes                        | yes                       | yes                           |
+| `--read-only`       | yes                        | yes                       | yes                           |
+| `--user` non-root   | **yes (10001)**            | no (TA-managed, as today) | yes                           |
+| network             | only its sidecar (or none) | full                      | internal-in + allowlisted-out |
+| holds answers       | **never**                  | grade: yes (baked)        | never                         |
+
+All four roles share `--cap-drop ALL`, `no-new-privileges`, `--read-only` rootfs, and the `--memory` (+ matching `--memory-swap`) / `--cpus` / `--pids-limit` bounds; on K8s the equivalent `securityContext` (`runAsNonRoot`, `allowPrivilegeEscalation: false`, `seccompProfile: RuntimeDefault`, resource limits). The run container additionally runs as uid `10001` — the only role running untrusted code; grade/service keep the existing trusted-TA "no `--user`" posture (a malicious TA `service` can at worst abuse the network, never reach the answers). Writes are permitted only to `/tmp` (a 64m `tmpfs`) and `/workspace` (the host bind / emptyDir). The `/workspace` mount has no `tmpfs` size cap; instead a watchdog polls every 2 s and force-kills the container if the directory exceeds **1 GiB** or **100k files** (extended from byte-sum to also count files, so a million 1-byte files can't be written) → SE. Resource limits reuse `Problem.timeLimitMs` / `memoryLimitMb` (100 ms–30 s, 16–1024 MB) as `advanced.totalTimeMs` / `advanced.memoryMb`; the outer container kill timeout is `totalTimeMs + 30 s` per phase. Advanced Mode skips the in-browser editor: students submit a ZIP (or a single source file the platform wraps into `sourceFiles: [{ path, content }]`).
+
+### Capture safety (the answer-leak gate)
+
+`/output` is written by untrusted student code, so the host-side capture is the security-critical step. `safeCopyTree` walks the run container's static, post-exit `/output` and, per entry, `lstat`s **before** any `isFile`/`isDirectory` branch:
+
+- **Skips every symlink** (the core gate, never copied and never dereferenced). A malicious `output/x → /answers/secret` (absolute) or `→ ../escape` (relative) therefore never reaches `grade/run-output`, so nothing can resolve against the grade container's baked-in `/answers`. Because no symlink is ever dereferenced, the capture can't be tricked into reading host secrets either.
+- **Skips special files** (FIFOs, sockets, device nodes) without `open()`ing them, so a FIFO can't hang the capture.
+- **Copies regular files as raw bytes** (binary-safe), throwing `SafeCopyLimitError` (→ SE) past 100k files or 1 GiB.
+
+It is host-side rather than an in-container `tar --dereference` because the run container is `--rm` and gone the instant its main process exits — and keeping the gate in platform (not TA) code means it is unit-tested without Docker, with no TOCTOU window against the dead container's static bytes. The K8s `transfer` sidecar runs a byte-identical embedded copy of this gate inside the answer-free run Pod (cross-gate parity locked by test).
+
+### Authoring run/grade judge images
+
+TAs don't hand-write the boilerplate. The problem edit page (Advanced settings → Container contract) has **Download starter project** buttons that stream per-role self-contained zips via `GET /api/problems/advanced-scaffold?role=run|grade|service` (auth-gated, zipped from `apps/web/src/lib/server/advanced-scaffold/files/{run,grade,service}/` on the fly with JSZip):
+
+- **run** — `runner.py` (load `meta.json`, compile/run the student per case, write `/output`) + a `Dockerfile` baking testcase **inputs**.
+- **grade** — `grader.py` (read `/run-output` + the baked-in `/answers`, decide verdicts, write `result.json`) + a shared stdlib-only `nojv_grader.py` helper (validate/normalize verdicts, `write_result`) the TA does **not** edit + a `Dockerfile` baking the **answers**.
+- **service** — a minimal HTTP service example listening on `PORT` (8888).
+
+Workflow: **download the scaffolds → edit `runner.py` / `grader.py` (+ testcases/answers) → `docker build` each → upload** (per-role, either a `docker save | gzip` tarball or a registry reference). The canonical `result.json` verdicts are the long forms at the top level and the short codes (`AC`/`WA`/`TLE`/`MLE`/`RE`/`SE`) per testcase — `write_result` accepts either and normalizes.
+
+Because answers live **only** in the grade image and student code **only** in the run container, answer protection is now a **platform guarantee** rather than TA discipline: a malicious submission cannot read the answers (they are in a different, time-separated container), reach the grade container, or leak an answer through a `/output` symlink. SNI / domain-fronting protection in `allowlist` mode is a documented **future hardening** (not implemented) — it is not load-bearing because the run container holds no secrets, so a domain-fronting student has nothing to exfiltrate (see the design doc's egress-proxy section).
+
+### `advancedConfigSnapshot` (audit, not a judging input)
+
+`Submission.advancedConfigSnapshot` (`Json?`) is a pure **audit record** written at judge completion — _which_ `advancedConfig` graded this submission (overwritten on every judge/rejudge; null for non-advanced). It is **never** read back into judging. **Rejudge reads the LIVE `Problem.advancedConfig`** (via `getJudgeContext` → `parseAdvancedConfig`), consistent with every other judge type — a teacher who fixes a broken run/grade image and rejudges gets the **new** image, never a pinned snapshot.
 
 ## Problem types
 
@@ -155,7 +230,7 @@ Workflow: **download the scaffold → edit `grader.py` (and `testcases/`) → `d
 
 - **`full_source`** — the student submits one complete source file. Content lands at `main.<ext>` in the sandbox workspace.
 - **`multi_file`** — the teacher ships a scaffold (main + helpers); the student edits designated files in-browser. Every enabled language ships exactly one editable `main.<ext>`. Teachers achieve LeetCode-style "student implements a named function" by marking the function file as `visibility: "editable"` and the driver file as `visibility: "readonly"`.
-- **`special_env`** — Advanced Mode. The TA-provided Docker image owns the entire judging loop; the student uploads a tarball / ZIP. See [Advanced Mode pipeline](#advanced-mode-pipeline).
+- **`special_env`** — Advanced Mode. The platform orchestrates a TA-provided **run** image (executes the student) and a separate **grade** image (holds the answers, decides the verdict); the student uploads a ZIP. See [Advanced Mode pipeline](#advanced-mode-pipeline).
 
 ## Workspace files
 
@@ -276,8 +351,12 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - Standard Mode executor (Docker) — `apps/worker/src/services/standard-mode-executor.ts`
 - Isolated checker validator executor (Docker) — `apps/worker/src/services/validator-executor.ts`
 - Isolated interactive two-container executor (Docker) — `apps/worker/src/services/interactive-executor.ts`
-- Advanced Mode executor (Docker only) — `apps/worker/src/services/advanced-mode-executor.ts`
-- Kubernetes executor (Standard + checker via two-Job pipeline, interactive via per-case two-container Job, registry-source advanced via Job; rejects only tarball-source advanced) — `apps/worker/src/services/k8s-executor.ts`
+- Advanced Mode run/grade executor (Docker) — `apps/worker/src/services/advanced-mode-executor.ts` (`safeCopyTree` answer-leak gate, `deriveRunStatus`, network-mode branch)
+- Advanced Mode Docker networking + sidecars (Docker) — `apps/worker/src/services/docker-network.ts`, `egress-proxy.ts`, `service-container.ts`
+- Advanced Mode K8s manifests (two Jobs + PVC + transfer gate) — `apps/worker/src/services/k8s-advanced.ts`
+- Advanced Mode K8s networking (per-submission NetworkPolicies + sidecar Pod/Service) — `apps/worker/src/services/k8s-advanced-network.ts`
+- Egress-proxy image (allowlist enforcer) — `infra/docker/egress-proxy/proxy.mjs`
+- Kubernetes executor (Standard + checker via two-Job pipeline, interactive via per-case two-container Job, registry-source advanced via two Jobs + PVC; rejects only tarball-source advanced) — `apps/worker/src/services/k8s-executor.ts`
 - Sandbox plan / config builder — `apps/worker/src/services/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/services/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`
@@ -291,11 +370,11 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
 - Temporal judge activity — `apps/worker/src/activities/judge.ts`
-- Judge context builder — `packages/application/src/submission/judge-context.ts`
+- Judge context builder (`getJudgeContext` / `parseAdvancedConfig`) — `packages/application/src/submission/queries.ts`
 - Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/application/src/submission/scoring.ts`
 - Score adjustments — `packages/application/src/submission/adjustments.ts`
 - `judgeConfigSchema` — `packages/core/src/schemas/judge-config.ts`
-- `advancedResultSchema` — `packages/core/src/schemas/advanced-mode.ts`
+- `advancedResultSchema` + `advancedConfigSchema` — `packages/core/src/schemas/advanced-mode.ts`
 - `adjustmentRuleSchema` — `packages/core/src/schemas/assessment-adjustments.ts`
 - `ProblemWorkspaceFile` table — `packages/db/prisma/schema/problem.prisma`
 

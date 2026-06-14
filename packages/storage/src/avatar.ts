@@ -3,7 +3,10 @@ import type { S3Client } from "@aws-sdk/client-s3";
 
 import { getStorageEnv } from "./env";
 
-const BUCKET = getStorageEnv().S3_BUCKET;
+let cachedBucket: string | undefined;
+function BUCKET(): string {
+  return (cachedBucket ??= getStorageEnv().S3_BUCKET);
+}
 
 function avatarKey(userId: string): string {
   return `avatars/${userId}.webp`;
@@ -18,7 +21,7 @@ export async function uploadUserAvatar(
 
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: file,
       ContentType: "image/webp",
@@ -31,7 +34,7 @@ export async function uploadUserAvatar(
 export async function downloadUserAvatar(client: S3Client, userId: string): Promise<Buffer> {
   const response = await client.send(
     new GetObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: avatarKey(userId),
     }),
   );
@@ -49,7 +52,7 @@ export async function downloadUserAvatar(client: S3Client, userId: string): Prom
 export async function deleteUserAvatar(client: S3Client, userId: string): Promise<void> {
   await client.send(
     new DeleteObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: avatarKey(userId),
     }),
   );

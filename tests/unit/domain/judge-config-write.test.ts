@@ -54,8 +54,7 @@ beforeEach(() => {
     id: "prob_1",
     authorId: "usr_author",
     type: "full_source",
-    advancedImageRef: null,
-    advancedImageSource: null,
+    advancedConfig: null,
   });
   problemUpdate.mockResolvedValue({ id: "prob_1" });
   putText.mockResolvedValue(undefined);

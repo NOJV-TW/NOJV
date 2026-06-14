@@ -15,11 +15,6 @@ enum ProblemType {
   special_env
 }
 
-enum ProblemImageSource {
-  registry
-  tarball
-}
-
 enum ProblemDifficulty {
   easy
   medium
@@ -50,8 +45,7 @@ model Problem {
   judgeConfig Json?
   samples     Json?
 
-  advancedImageRef    String?
-  advancedImageSource ProblemImageSource?
+  advancedConfig Json?
 
   advancedRequiredPaths String[] @default([])
 

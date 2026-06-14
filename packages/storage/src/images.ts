@@ -5,7 +5,10 @@ import { randomUUID } from "node:crypto";
 
 import { getStorageEnv } from "./env";
 
-const BUCKET = getStorageEnv().S3_BUCKET;
+let cachedBucket: string | undefined;
+function BUCKET(): string {
+  return (cachedBucket ??= getStorageEnv().S3_BUCKET);
+}
 
 export interface StoredImage {
   body: Buffer;
@@ -23,7 +26,7 @@ function imageFilename(filename: string): string {
 async function readObject(client: S3Client, key: string): Promise<StoredImage> {
   const response = await client.send(
     new GetObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
     }),
   );
@@ -52,7 +55,7 @@ export async function uploadProblemImage(
 
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: file,
       ContentType: mimeType,
@@ -73,7 +76,7 @@ export async function uploadUserContentImage(
 
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: file,
       ContentType: mimeType,
@@ -99,16 +102,19 @@ export async function downloadUserContentImage(
   return readObject(client, `users/${userId}/images/${imageFilename(filename)}`);
 }
 
+export type AdvancedImageRole = "run" | "grade" | "service";
+
 export async function uploadAdvancedImageTarball(
   client: S3Client,
   problemId: string,
+  role: AdvancedImageRole,
   file: Buffer,
 ): Promise<string> {
-  const key = `problems/${problemId}/advanced-images/${randomUUID()}.tar`;
+  const key = `problems/${problemId}/advanced-images/${role}/${randomUUID()}.tar`;
 
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: file,
       ContentType: "application/x-tar",
@@ -121,7 +127,7 @@ export async function uploadAdvancedImageTarball(
 export async function deleteAdvancedImageTarball(client: S3Client, key: string): Promise<void> {
   await client.send(
     new DeleteObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
     }),
   );
@@ -133,7 +139,7 @@ export async function downloadAdvancedImageTarball(
 ): Promise<Buffer> {
   const response = await client.send(
     new GetObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
     }),
   );

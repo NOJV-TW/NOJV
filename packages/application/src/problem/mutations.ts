@@ -8,11 +8,11 @@ import {
   type TransactionClient,
 } from "@nojv/db";
 import type {
+  AdvancedConfig,
   JudgeConfig,
   JudgeScriptLanguage,
   ProblemCreate,
   ProblemDifficulty,
-  ProblemImageSource,
   ProblemStatus,
   ProblemType,
   ProblemUpdate,
@@ -52,8 +52,7 @@ export interface CreateProblemDefinitionInput {
   title: string;
   visibility?: ProblemVisibility | undefined;
   type?: ProblemType | undefined;
-  advancedImageRef?: string | undefined;
-  advancedImageSource?: ProblemImageSource | undefined;
+  advancedConfig?: AdvancedConfig | undefined;
 }
 
 export async function createProblemDefinition(
@@ -77,9 +76,8 @@ export async function createProblemDefinition(
   if (input.judgeConfig !== undefined) {
     createData.judgeConfig = input.judgeConfig as Prisma.InputJsonValue;
   }
-  if (type === "special_env") {
-    createData.advancedImageRef = input.advancedImageRef ?? "";
-    createData.advancedImageSource = input.advancedImageSource ?? "registry";
+  if (type === "special_env" && input.advancedConfig !== undefined) {
+    createData.advancedConfig = input.advancedConfig;
   }
   const problem = await problemRepo.withTx(tx).create(createData);
 
@@ -118,8 +116,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
     const author = await ensureUser(tx, actor.userId, actor);
 
     const problem = await createProblemDefinition(tx, {
-      advancedImageRef: payload.advancedImageRef,
-      advancedImageSource: payload.advancedImageSource,
+      advancedConfig: payload.advancedConfig,
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
@@ -149,10 +146,7 @@ function buildProblemUpdateData(payload: ProblemUpdate): Record<string, unknown>
   if (payload.status !== undefined) updateData.status = payload.status;
   if (payload.type !== undefined) updateData.type = payload.type;
   if (payload.samples !== undefined) updateData.samples = payload.samples;
-  if (payload.advancedImageRef !== undefined)
-    updateData.advancedImageRef = payload.advancedImageRef;
-  if (payload.advancedImageSource !== undefined)
-    updateData.advancedImageSource = payload.advancedImageSource;
+  if (payload.advancedConfig !== undefined) updateData.advancedConfig = payload.advancedConfig;
   if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
   if (payload.tags !== undefined) updateData.tags = payload.tags;
   return updateData;
@@ -162,23 +156,17 @@ function assertSpecialEnvImageConsistency(
   payload: ProblemUpdate,
   problem: {
     type: ProblemType;
-    advancedImageRef: string | null;
-    advancedImageSource: string | null;
+    advancedConfig: unknown;
   },
 ): void {
   const mergedType = payload.type ?? problem.type;
-  const mergedImageRef = payload.advancedImageRef ?? problem.advancedImageRef;
-  const mergedImageSource = payload.advancedImageSource ?? problem.advancedImageSource;
-  const hasImage = Boolean(mergedImageRef) && Boolean(mergedImageSource);
-  if (mergedType === "special_env" && !hasImage) {
-    throw new ValidationError(
-      "special_env problems require both advancedImageRef and advancedImageSource.",
-    );
+  const mergedConfig = payload.advancedConfig ?? problem.advancedConfig;
+  const hasConfig = mergedConfig != null;
+  if (mergedType === "special_env" && !hasConfig) {
+    throw new ValidationError("special_env problems require advancedConfig.");
   }
-  if (mergedType !== "special_env" && hasImage) {
-    throw new ValidationError(
-      "advancedImageRef / advancedImageSource are only allowed on special_env problems.",
-    );
+  if (mergedType !== "special_env" && hasConfig) {
+    throw new ValidationError("advancedConfig is only allowed on special_env problems.");
   }
 }
 
@@ -316,8 +304,7 @@ export async function convertProblemToAdvancedMode(
       type: "special_env",
       samples: Prisma.JsonNull,
       judgeConfig: resetJudgeConfig,
-      advancedImageRef: "",
-      advancedImageSource: "registry",
+      advancedConfig: Prisma.JsonNull,
     });
   });
 
