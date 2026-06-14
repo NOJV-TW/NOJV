@@ -81,10 +81,11 @@ for _ in range(20):
 
 const createdJobs = new Set<string>();
 const createdConfigMaps = new Set<string>();
+const createdPvcs = new Set<string>();
 
 function trackSubmission(
   submissionId: string,
-  opts: { interactiveCases?: number[] } = {},
+  opts: { interactiveCases?: number[]; advanced?: boolean } = {},
 ): void {
   const base = `judge-${submissionId}`;
   createdJobs.add(base);
@@ -92,6 +93,13 @@ function trackSubmission(
   createdJobs.add(`${base}-validate`);
   createdConfigMaps.add(`${base}-validate`);
   createdConfigMaps.add(`${base}-input`);
+  if (opts.advanced) {
+    createdJobs.add(`${base}-run`);
+    createdJobs.add(`${base}-grade`);
+    createdConfigMaps.add(`${base}-run-input`);
+    createdConfigMaps.add(`${base}-grade-input`);
+    createdPvcs.add(`${base}-runout`);
+  }
   for (const idx of opts.interactiveCases ?? []) {
     const jobName = `${base}-int-${idx}`;
     createdJobs.add(jobName);
@@ -118,12 +126,22 @@ async function deleteConfigMap(name: string): Promise<void> {
   } catch {}
 }
 
+async function deletePvc(name: string): Promise<void> {
+  if (!clients) return;
+  try {
+    await clients.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace: NAMESPACE });
+  } catch {}
+}
+
 async function sweepNamespace(): Promise<void> {
   if (!clients) return;
-  const [jobs, cms] = await Promise.all([
+  const [jobs, cms, pvcs] = await Promise.all([
     clients.batchApi.listNamespacedJob({ namespace: NAMESPACE }).catch(() => ({ items: [] })),
     clients.coreApi
       .listNamespacedConfigMap({ namespace: NAMESPACE })
+      .catch(() => ({ items: [] })),
+    clients.coreApi
+      .listNamespacedPersistentVolumeClaim({ namespace: NAMESPACE })
       .catch(() => ({ items: [] })),
   ]);
   const jobNames = (jobs.items ?? [])
@@ -132,9 +150,13 @@ async function sweepNamespace(): Promise<void> {
   const cmNames = (cms.items ?? [])
     .map((c: k8s.V1ConfigMap) => c.metadata?.name)
     .filter((n): n is string => !!n && (n.startsWith("judge-") || n.startsWith("nojv-")));
+  const pvcNames = (pvcs.items ?? [])
+    .map((p: k8s.V1PersistentVolumeClaim) => p.metadata?.name)
+    .filter((n): n is string => !!n && n.startsWith("judge-"));
   await Promise.all([
     ...jobNames.map((n) => deleteJob(n)),
     ...cmNames.map((n) => deleteConfigMap(n)),
+    ...pvcNames.map((n) => deletePvc(n)),
   ]);
 }
 
@@ -168,9 +190,15 @@ afterEach(async () => {
   if (!clients) return;
   const jobs = Array.from(createdJobs);
   const cms = Array.from(createdConfigMaps);
+  const pvcs = Array.from(createdPvcs);
   createdJobs.clear();
   createdConfigMaps.clear();
-  await Promise.all([...jobs.map(deleteJob), ...cms.map(deleteConfigMap)]);
+  createdPvcs.clear();
+  await Promise.all([
+    ...jobs.map(deleteJob),
+    ...cms.map(deleteConfigMap),
+    ...pvcs.map(deletePvc),
+  ]);
 }, 60_000);
 
 afterAll(async () => {
@@ -500,7 +528,7 @@ describe("K8s judge — advanced mode", () => {
       if (skipIfUnreachable(ctx)) return;
 
       const submissionId = `k8s-adv-correct-${Date.now()}`;
-      trackSubmission(submissionId);
+      trackSubmission(submissionId, { advanced: true });
 
       const request: SandboxRequest = {
         submissionId,
@@ -537,7 +565,7 @@ describe("K8s judge — advanced mode", () => {
       if (skipIfUnreachable(ctx)) return;
 
       const submissionId = `k8s-adv-wrong-${Date.now()}`;
-      trackSubmission(submissionId);
+      trackSubmission(submissionId, { advanced: true });
 
       const request: SandboxRequest = {
         submissionId,
@@ -576,9 +604,10 @@ describe("K8s judge — advanced mode", () => {
       if (!clients) return;
 
       const submissionId = `k8s-adv-tarball-${Date.now()}`;
-      const jobName = `judge-${submissionId}`;
-      const cmName = `${jobName}-input`;
-      trackSubmission(submissionId);
+      const base = `judge-${submissionId}`;
+      const runCmName = `${base}-run-input`;
+      const gradeCmName = `${base}-grade-input`;
+      trackSubmission(submissionId, { advanced: true });
 
       const before = await clients.batchApi.listNamespacedJob({ namespace: NAMESPACE });
       const beforeNames = new Set((before.items ?? []).map((j) => j.metadata?.name));
@@ -617,8 +646,15 @@ describe("K8s judge — advanced mode", () => {
       const cmAfter = await clients.coreApi
         .listNamespacedConfigMap({ namespace: NAMESPACE })
         .catch(() => ({ items: [] }));
-      expect((cmAfter.items ?? []).some((c) => c.metadata?.name === jobName)).toBe(false);
-      expect((cmAfter.items ?? []).some((c) => c.metadata?.name === cmName)).toBe(false);
+      expect((cmAfter.items ?? []).some((c) => c.metadata?.name === runCmName)).toBe(false);
+      expect((cmAfter.items ?? []).some((c) => c.metadata?.name === gradeCmName)).toBe(false);
+
+      const pvcAfter = await clients.coreApi
+        .listNamespacedPersistentVolumeClaim({ namespace: NAMESPACE })
+        .catch(() => ({ items: [] }));
+      expect((pvcAfter.items ?? []).some((p) => p.metadata?.name === `${base}-runout`)).toBe(
+        false,
+      );
     },
   );
 });

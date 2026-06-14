@@ -1,3 +1,8 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { SandboxRequest } from "@nojv/core";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,10 +12,19 @@ import {
   ADVANCED_SIDECAR_NAME,
   ADVANCED_GRADER_NAME,
   ADVANCED_INIT_NAME,
+  ADVANCED_RUN_NAME,
+  ADVANCED_TRANSFER_NAME,
+  advancedPvcName,
   buildAdvancedConfigMapData,
+  buildAdvancedGradeConfigMapData,
+  buildAdvancedGradeJobManifest,
   buildAdvancedInitScript,
-  buildAdvancedJobManifest,
+  buildAdvancedPvcManifest,
+  buildAdvancedRunJobManifest,
   buildAdvancedTailScript,
+  buildAdvancedTransferScript,
+  buildAdvancedTransferWaitScript,
+  deriveRunStatusFromJob,
   parseAdvancedResultLog,
   K8sExecutor,
 } from "../../../apps/worker/src/services/k8s-executor";
@@ -32,11 +46,11 @@ function makeAdvancedRequest(overrides?: {
     limits: { timeoutMs: 1_000, memoryMb: 256 },
     advanced: {
       run: {
-        imageRef: overrides?.imageRef ?? "registry.example.com/ta/grader:1.0",
+        imageRef: overrides?.imageRef ?? "registry.example.com/ta/run:1.0",
         imageSource: overrides?.imageSource ?? "registry",
       },
       grade: {
-        imageRef: overrides?.imageRef ?? "registry.example.com/ta/grader:1.0",
+        imageRef: overrides?.imageRef ?? "registry.example.com/ta/grade:1.0",
         imageSource: overrides?.imageSource ?? "registry",
       },
       network: { mode: "none" },
@@ -58,7 +72,9 @@ const EXEC_CONFIG = {
 interface CallRecord {
   configMapsCreated: { name: string; namespace: string; data: Record<string, string> }[];
   configMapsDeleted: { name: string; namespace: string }[];
-  jobsCreated: { name: string; namespace: string; body: unknown }[];
+  pvcsCreated: { name: string; namespace: string; body: unknown }[];
+  pvcsDeleted: { name: string; namespace: string }[];
+  jobsCreated: { name: string; namespace: string; body: any }[];
   jobsDeleted: { name: string; namespace: string }[];
   podLogsRead: { name: string; namespace: string; container: string }[];
 }
@@ -66,24 +82,31 @@ interface CallRecord {
 interface FakeOpts {
   sidecarLog?: string;
   jobOutcome?: "succeeded" | "failed";
+  failJob?: string;
   throwOnJobCreate?: boolean;
+  runNodeName?: string | null;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
   const coreApi = {
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
-      record.configMapsCreated.push({
-        name: body.metadata.name,
-        namespace,
-        data: body.data,
-      });
+      record.configMapsCreated.push({ name: body.metadata.name, namespace, data: body.data });
     }),
     deleteNamespacedConfigMap: vi.fn(async ({ name, namespace }: any) => {
       record.configMapsDeleted.push({ name, namespace });
     }),
+    createNamespacedPersistentVolumeClaim: vi.fn(async ({ namespace, body }: any) => {
+      record.pvcsCreated.push({ name: body.metadata.name, namespace, body });
+    }),
+    deleteNamespacedPersistentVolumeClaim: vi.fn(async ({ name, namespace }: any) => {
+      record.pvcsDeleted.push({ name, namespace });
+    }),
     listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
       const jobName = String(labelSelector).split("=")[1];
-      return { items: [{ metadata: { name: `${jobName}-pod` } }] };
+      const nodeName = opts.runNodeName === undefined ? "node-a" : opts.runNodeName;
+      return {
+        items: [{ metadata: { name: `${jobName}-pod` }, spec: { nodeName } }],
+      };
     }),
     readNamespacedPodLog: vi.fn(async ({ name, namespace, container }: any) => {
       record.podLogsRead.push({ name, namespace, container });
@@ -99,9 +122,10 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     deleteNamespacedJob: vi.fn(async ({ name, namespace }: any) => {
       record.jobsDeleted.push({ name, namespace });
     }),
-    readNamespacedJob: vi.fn(async () => {
-      const status = opts.jobOutcome ?? "succeeded";
-      return { status: { [status]: 1 } };
+    readNamespacedJob: vi.fn(async ({ name }: any) => {
+      const outcome =
+        opts.failJob && name === opts.failJob ? "failed" : (opts.jobOutcome ?? "succeeded");
+      return { status: { [outcome]: 1 } };
     }),
   } as any;
 
@@ -112,11 +136,42 @@ function emptyRecord(): CallRecord {
   return {
     configMapsCreated: [],
     configMapsDeleted: [],
+    pvcsCreated: [],
+    pvcsDeleted: [],
     jobsCreated: [],
     jobsDeleted: [],
     podLogsRead: [],
   };
 }
+
+const RUN_PARAMS = {
+  jobName: "judge-sub-adv-1-run",
+  namespace: "nojv-sandbox",
+  configMapName: "judge-sub-adv-1-run-input",
+  pvcName: "judge-sub-adv-1-runout",
+  sandboxImage: "nojv-sandbox:test",
+  runImage: "registry.example.com/ta/run:1.0",
+  memoryMb: 512,
+  totalTimeMs: 60_000,
+  cpuLimit: "1",
+  submissionId: "sub-adv-1",
+  language: "python",
+};
+
+const GRADE_PARAMS = {
+  jobName: "judge-sub-adv-1-grade",
+  namespace: "nojv-sandbox",
+  configMapName: "judge-sub-adv-1-grade-input",
+  pvcName: "judge-sub-adv-1-runout",
+  sandboxImage: "nojv-sandbox:test",
+  gradeImage: "registry.example.com/ta/grade:1.0",
+  memoryMb: 512,
+  totalTimeMs: 60_000,
+  cpuLimit: "1",
+  submissionId: "sub-adv-1",
+  language: "python",
+  nodeName: "node-a",
+};
 
 describe("buildAdvancedConfigMapData", () => {
   it("packs submission files + meta.json into a single JSON payload key", () => {
@@ -140,15 +195,6 @@ describe("buildAdvancedConfigMapData", () => {
     ]);
   });
 
-  it("falls back to sourceCode under sourceFileNames[language] when no sourceFiles given", () => {
-    const req = makeAdvancedRequest();
-    const data = buildAdvancedConfigMapData(req);
-    const payload = JSON.parse(data["payload.json"]!) as {
-      submissionFiles: { path: string; content: string }[];
-    };
-    expect(payload.submissionFiles).toEqual([{ path: "main.py", content: "print('hi')" }]);
-  });
-
   it("throws on path-traversal file paths", () => {
     const req = makeAdvancedRequest();
     req.sourceFiles = [
@@ -156,6 +202,44 @@ describe("buildAdvancedConfigMapData", () => {
       { path: "ok.py", content: "good" },
     ];
     expect(() => buildAdvancedConfigMapData(req)).toThrow("Path contains unsafe segments");
+  });
+});
+
+describe("buildAdvancedGradeConfigMapData", () => {
+  it("writes a grade meta.json carrying only submissionId, language, runStatus (no answers)", () => {
+    const data = buildAdvancedGradeConfigMapData("sub-adv-1", "python", {
+      state: "exited",
+      exitCode: 0,
+    });
+    expect(Object.keys(data)).toEqual(["meta.json"]);
+    const meta = JSON.parse(data["meta.json"]!);
+    expect(meta).toEqual({
+      submissionId: "sub-adv-1",
+      language: "python",
+      runStatus: { state: "exited", exitCode: 0 },
+    });
+  });
+});
+
+describe("deriveRunStatusFromJob", () => {
+  it("succeeded → exited exit 0", () => {
+    expect(deriveRunStatusFromJob("succeeded", false)).toEqual({
+      state: "exited",
+      exitCode: 0,
+    });
+  });
+  it("failed (non-deadline) → exited exit 1", () => {
+    expect(deriveRunStatusFromJob("failed", false)).toEqual({ state: "exited", exitCode: 1 });
+  });
+  it("deadline exceeded → timed_out regardless of state", () => {
+    expect(deriveRunStatusFromJob("failed", true)).toEqual({
+      state: "timed_out",
+      exitCode: null,
+    });
+    expect(deriveRunStatusFromJob("succeeded", true)).toEqual({
+      state: "timed_out",
+      exitCode: null,
+    });
   });
 });
 
@@ -179,10 +263,99 @@ describe("buildAdvancedTailScript", () => {
     expect(script).toContain("90");
     expect(script).toContain('{"missing":true}');
   });
+});
 
-  it("rounds sub-second time up to at least one second", () => {
-    const script = buildAdvancedTailScript(250);
-    expect(script).toContain("31");
+describe("buildAdvancedTransferScript (the safe-copy gate)", () => {
+  it("embeds the skip-symlink / skip-special / file+byte cap gate", () => {
+    const script = buildAdvancedTransferScript();
+    expect(script).toContain("lstatSync");
+    expect(script).toContain("isSymbolicLink");
+    expect(script).toContain("isDirectory");
+    expect(script).toContain("isFile");
+    expect(script).toContain("copyFileSync");
+    expect(script).toContain("NOJV_TRANSFER_FILE_CAP");
+    expect(script).toContain("NOJV_TRANSFER_BYTE_CAP");
+  });
+
+  it("the wait wrapper copies into the PVC mount on TERM and passes the caps", () => {
+    const script = buildAdvancedTransferWaitScript();
+    expect(script).toContain("trap copy TERM INT");
+    expect(script).toContain("/run-output");
+    expect(script).toContain("NOJV_TRANSFER_MAX_FILES=100000");
+    expect(script).toContain("NOJV_TRANSFER_MAX_BYTES=1073741824");
+  });
+});
+
+describe("safe-copy gate executed against a real tree (binary-safe, drops symlinks/special files)", () => {
+  function runGate(src: string, dest: string, env: Record<string, string> = {}): void {
+    execFileSync(process.execPath, ["-e", buildAdvancedTransferScript()], {
+      env: {
+        ...process.env,
+        NOJV_TRANSFER_SRC: src,
+        NOJV_TRANSFER_DEST: dest,
+        NOJV_TRANSFER_MAX_FILES: "100000",
+        NOJV_TRANSFER_MAX_BYTES: "1073741824",
+        ...env,
+      },
+    });
+  }
+
+  it("copies regular files (binary-safe), recurses dirs, and DROPS a symlink to a secret", () => {
+    const root = mkdtempSync(join(tmpdir(), "nojv-gate-"));
+    const src = join(root, "output");
+    const dest = join(root, "pvc");
+    const secret = join(root, "answers");
+    mkdirSync(src, { recursive: true });
+    mkdirSync(join(src, "sub"), { recursive: true });
+    mkdirSync(secret, { recursive: true });
+    writeFileSync(join(secret, "key.txt"), "TOP-SECRET-ANSWER");
+    writeFileSync(join(src, "a.bin"), Buffer.from([0x00, 0xff, 0x10, 0x80, 0x00]));
+    writeFileSync(join(src, "sub", "b.txt"), "hello");
+    symlinkSync(join(secret, "key.txt"), join(src, "leak"));
+    symlinkSync("../escape", join(src, "rel-leak"));
+
+    runGate(src, dest);
+
+    const top = readdirSync(dest);
+    expect(top.sort()).toEqual(["a.bin", "sub"]);
+    expect(readdirSync(join(dest, "sub"))).toEqual(["b.txt"]);
+    expect(readdirSync(dest)).not.toContain("leak");
+    expect(readdirSync(dest)).not.toContain("rel-leak");
+  });
+
+  it("DROPS special files (FIFO) without hanging", () => {
+    const root = mkdtempSync(join(tmpdir(), "nojv-gate-fifo-"));
+    const src = join(root, "output");
+    const dest = join(root, "pvc");
+    mkdirSync(src, { recursive: true });
+    writeFileSync(join(src, "ok.txt"), "ok");
+    try {
+      execFileSync("mkfifo", [join(src, "pipe")]);
+    } catch {
+      return;
+    }
+
+    runGate(src, dest);
+    expect(readdirSync(dest)).toEqual(["ok.txt"]);
+  });
+
+  it("throws (→ SE) when the file-count cap is exceeded", () => {
+    const root = mkdtempSync(join(tmpdir(), "nojv-gate-cap-"));
+    const src = join(root, "output");
+    const dest = join(root, "pvc");
+    mkdirSync(src, { recursive: true });
+    writeFileSync(join(src, "a"), "1");
+    writeFileSync(join(src, "b"), "2");
+    expect(() => runGate(src, dest, { NOJV_TRANSFER_MAX_FILES: "1" })).toThrow();
+  });
+
+  it("throws (→ SE) when the byte cap is exceeded", () => {
+    const root = mkdtempSync(join(tmpdir(), "nojv-gate-bytecap-"));
+    const src = join(root, "output");
+    const dest = join(root, "pvc");
+    mkdirSync(src, { recursive: true });
+    writeFileSync(join(src, "big"), "x".repeat(100));
+    expect(() => runGate(src, dest, { NOJV_TRANSFER_MAX_BYTES: "10" })).toThrow();
   });
 });
 
@@ -190,8 +363,11 @@ describe("parseAdvancedResultLog", () => {
   it("extracts and JSON-parses a clean marker block", () => {
     const json = '{"score":80,"verdict":"accepted","feedback":"ok"}';
     const log = `noise\n${ADVANCED_RESULT_MARKER_BEGIN}\n${json}\n${ADVANCED_RESULT_MARKER_END}\nmore noise\n`;
-    const parsed = parseAdvancedResultLog(log);
-    expect(parsed).toEqual({ score: 80, verdict: "accepted", feedback: "ok" });
+    expect(parseAdvancedResultLog(log)).toEqual({
+      score: 80,
+      verdict: "accepted",
+      feedback: "ok",
+    });
   });
 
   it("returns the sentinel {missing:true} payload when grader never wrote result.json", () => {
@@ -207,145 +383,88 @@ describe("parseAdvancedResultLog", () => {
     const log = `${ADVANCED_RESULT_MARKER_BEGIN}\nnot json{\n${ADVANCED_RESULT_MARKER_END}\n`;
     expect(parseAdvancedResultLog(log)).toBeNull();
   });
+});
 
-  it("handles multi-line JSON between the markers", () => {
-    const log = `${ADVANCED_RESULT_MARKER_BEGIN}\n{\n  "score": 50,\n  "verdict": "wrong_answer"\n}\n${ADVANCED_RESULT_MARKER_END}\n`;
-    expect(parseAdvancedResultLog(log)).toEqual({ score: 50, verdict: "wrong_answer" });
+describe("buildAdvancedPvcManifest", () => {
+  it("is a per-submission ReadWriteOnce PVC", () => {
+    const pvc = buildAdvancedPvcManifest({
+      pvcName: advancedPvcName("sub-adv-1"),
+      namespace: "nojv-sandbox",
+    });
+    expect(pvc.metadata!.name).toBe("judge-sub-adv-1-runout");
+    expect(pvc.spec!.accessModes).toEqual(["ReadWriteOnce"]);
+    expect(pvc.spec!.resources!.requests!.storage).toBeTruthy();
   });
 });
 
-describe("buildAdvancedJobManifest — registry-source pod structure", () => {
-  const params = {
-    jobName: "judge-sub-adv-1",
-    namespace: "nojv-sandbox",
-    configMapName: "judge-sub-adv-1-input",
-    sandboxImage: "nojv-sandbox:test",
-    graderImage: "registry.example.com/ta/grader:1.0",
-    memoryMb: 512,
-    totalTimeMs: 60_000,
-    cpuLimit: "1",
-    submissionId: "sub-adv-1",
-    language: "python",
-  };
-
-  it("has exactly ONE main container (the grader) and TWO initContainers (prep + native sidecar)", () => {
-    const m = buildAdvancedJobManifest(params);
+describe("buildAdvancedRunJobManifest — untrusted run Pod", () => {
+  it("has the RUN image as its single main container", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
     const podSpec = m.spec!.template.spec!;
     expect(podSpec.containers.length).toBe(1);
-    expect(podSpec.containers[0]!.name).toBe(ADVANCED_GRADER_NAME);
-
-    const initNames = (podSpec.initContainers ?? []).map((c) => c.name).sort();
-    expect(initNames).toEqual(
-      [ADVANCED_INIT_NAME, ADVANCED_SIDECAR_NAME].sort((a, b) => Number(a > b) - Number(a < b)),
-    );
+    expect(podSpec.containers[0]!.name).toBe(ADVANCED_RUN_NAME);
+    expect(podSpec.containers[0]!.image).toBe("registry.example.com/ta/run:1.0");
   });
 
-  it("sidecar is in initContainers with restartPolicy: Always (K8s 1.28+ native sidecar)", () => {
-    const m = buildAdvancedJobManifest(params);
-    const sidecar = m.spec!.template.spec!.initContainers!.find(
-      (c) => c.name === ADVANCED_SIDECAR_NAME,
-    );
-    expect(sidecar).toBeDefined();
-    expect(sidecar!.restartPolicy).toBe("Always");
+  it("does NOT override the run image entrypoint (no injected command)", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
+    expect(m.spec!.template.spec!.containers[0]!.command).toBeUndefined();
   });
 
-  it("init prep container has NO restartPolicy (regular init, runs to completion)", () => {
-    const m = buildAdvancedJobManifest(params);
-    const init = m.spec!.template.spec!.initContainers!.find(
-      (c) => c.name === ADVANCED_INIT_NAME,
-    );
-    expect(init).toBeDefined();
-    expect(init!.restartPolicy).toBeUndefined();
+  it("has prep + transfer initContainers; transfer is a native sidecar (restartPolicy Always)", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
+    const inits = m.spec!.template.spec!.initContainers!;
+    const names = inits.map((c) => c.name).sort();
+    expect(names).toEqual([ADVANCED_INIT_NAME, ADVANCED_TRANSFER_NAME].sort());
+    const transfer = inits.find((c) => c.name === ADVANCED_TRANSFER_NAME)!;
+    expect(transfer.restartPolicy).toBe("Always");
+    expect(transfer.image).toBe("nojv-sandbox:test");
+    expect(JSON.stringify(transfer.command)).toContain("trap copy TERM");
   });
 
-  it("grader uses request.advanced.imageRef as its image", () => {
-    const m = buildAdvancedJobManifest(params);
-    const grader = m.spec!.template.spec!.containers[0]!;
-    expect(grader.image).toBe("registry.example.com/ta/grader:1.0");
-  });
-
-  it("prep + sidecar both use the sandbox image (vendored shell scripts)", () => {
-    const m = buildAdvancedJobManifest(params);
-    const init = m.spec!.template.spec!.initContainers!.find(
-      (c) => c.name === ADVANCED_INIT_NAME,
+  it("the transfer sidecar mounts BOTH the workspace and the PVC (so it can copy output→PVC)", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
+    const transfer = m.spec!.template.spec!.initContainers!.find(
+      (c) => c.name === ADVANCED_TRANSFER_NAME,
     )!;
-    const sidecar = m.spec!.template.spec!.initContainers!.find(
-      (c) => c.name === ADVANCED_SIDECAR_NAME,
-    )!;
-    expect(init.image).toBe("nojv-sandbox:test");
-    expect(sidecar.image).toBe("nojv-sandbox:test");
+    const mounts = transfer.volumeMounts!.map((v) => v.mountPath).sort();
+    expect(mounts).toContain("/workspace");
+    expect(mounts).toContain("/run-output");
   });
 
-  it("grader memory limit comes from request.advanced.memoryMb", () => {
-    const m = buildAdvancedJobManifest(params);
-    const grader = m.spec!.template.spec!.containers[0]!;
-    expect(grader.resources!.limits!.memory).toBe("512Mi");
+  it("the run container does NOT mount the PVC (only platform code touches the PVC)", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
+    const run = m.spec!.template.spec!.containers[0]!;
+    expect(run.volumeMounts!.some((v) => v.name === "run-output")).toBe(false);
   });
 
-  it("activeDeadlineSeconds = ceil(totalTimeMs/1000) + 30", () => {
-    const m = buildAdvancedJobManifest(params);
-    expect(m.spec!.activeDeadlineSeconds).toBe(90);
-
-    const m2 = buildAdvancedJobManifest({ ...params, totalTimeMs: 1_500 });
-    expect(m2.spec!.activeDeadlineSeconds).toBe(32);
+  it("mounts the per-submission PVC as a volume", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
+    const vol = m.spec!.template.spec!.volumes!.find((v) => v.name === "run-output");
+    expect(vol!.persistentVolumeClaim!.claimName).toBe("judge-sub-adv-1-runout");
   });
 
-  it("all three containers share a workspace emptyDir", () => {
-    const m = buildAdvancedJobManifest(params);
+  it("hardens the run container: runAsUser 10001, cap-drop ALL, read-only rootfs, seccomp, mem/cpu limits", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
     const podSpec = m.spec!.template.spec!;
-    const wsVolume = podSpec.volumes!.find((v) => v.name === "workspace");
-    expect(wsVolume?.emptyDir).toBeDefined();
-
-    for (const c of [...podSpec.containers, ...podSpec.initContainers!]) {
-      const mount = c.volumeMounts!.find((m) => m.name === "workspace");
-      expect(mount?.mountPath).toBe("/workspace");
-    }
-  });
-
-  it("init prep also mounts the input ConfigMap read-only at /init-payload", () => {
-    const m = buildAdvancedJobManifest(params);
-    const init = m.spec!.template.spec!.initContainers!.find(
-      (c) => c.name === ADVANCED_INIT_NAME,
-    )!;
-    const payloadMount = init.volumeMounts!.find((m) => m.mountPath === "/init-payload");
-    expect(payloadMount).toBeDefined();
-    expect(payloadMount!.readOnly).toBe(true);
-    const volume = m.spec!.template.spec!.volumes!.find((v) => v.name === payloadMount!.name);
-    expect(volume?.configMap?.name).toBe(params.configMapName);
-  });
-
-  it("grader hardening: cap-drop ALL, no-new-privileges, read-only rootfs, tmpfs /tmp", () => {
-    const m = buildAdvancedJobManifest(params);
-    const grader = m.spec!.template.spec!.containers[0]!;
-    expect(grader.securityContext).toMatchObject({
+    expect(podSpec.securityContext).toMatchObject({
+      runAsUser: 10001,
+      runAsNonRoot: true,
+      seccompProfile: { type: "RuntimeDefault" },
+    });
+    const run = podSpec.containers[0]!;
+    expect(run.securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       capabilities: { drop: ["ALL"] },
       readOnlyRootFilesystem: true,
+      runAsUser: 10001,
     });
-    const tmp = grader.volumeMounts!.find((m) => m.mountPath === "/tmp");
-    expect(tmp).toBeDefined();
-    const volume = m.spec!.template.spec!.volumes!.find((v) => v.name === tmp!.name);
-    expect(volume?.emptyDir).toBeDefined();
+    expect(run.resources!.limits!.memory).toBe("512Mi");
+    expect(run.resources!.limits!.cpu).toBe("1");
   });
 
-  it("grader is forced to run as the sandbox uid instead of root", () => {
-    const m = buildAdvancedJobManifest(params);
-    const grader = m.spec!.template.spec!.containers[0]!;
-    expect(m.spec!.template.spec!.securityContext).toMatchObject({
-      runAsUser: 10001,
-      runAsGroup: 10001,
-      fsGroup: 10001,
-      runAsNonRoot: true,
-    });
-    expect(grader.securityContext).toMatchObject({
-      runAsUser: 10001,
-      runAsGroup: 10001,
-      runAsNonRoot: true,
-    });
-  });
-
-  it("pod-level: automountServiceAccountToken=false, sandbox node selector + toleration, NetworkPolicy label", () => {
-    const m = buildAdvancedJobManifest(params);
+  it("pins to the sandbox node pool and never auto-mounts a service-account token", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
     const podSpec = m.spec!.template.spec!;
     expect(podSpec.automountServiceAccountToken).toBe(false);
     expect(podSpec.nodeSelector).toEqual({ "nojv-role": "sandbox" });
@@ -353,23 +472,68 @@ describe("buildAdvancedJobManifest — registry-source pod structure", () => {
       { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
     ]);
     expect(podSpec.restartPolicy).toBe("Never");
-    expect(m.spec!.template.metadata!.labels).toMatchObject({ app: "nojv-sandbox" });
+    expect(m.spec!.backoffLimit).toBe(0);
+    expect(m.spec!.activeDeadlineSeconds).toBe(90);
+  });
+});
+
+describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code", () => {
+  it("has the GRADE image as its single main container and NO run/student container", () => {
+    const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
+    const podSpec = m.spec!.template.spec!;
+    expect(podSpec.containers.length).toBe(1);
+    expect(podSpec.containers[0]!.name).toBe(ADVANCED_GRADER_NAME);
+    expect(podSpec.containers[0]!.image).toBe("registry.example.com/ta/grade:1.0");
+    expect(podSpec.containers.some((c) => c.name === ADVANCED_RUN_NAME)).toBe(false);
+    expect((podSpec.initContainers ?? []).some((c) => c.name === ADVANCED_RUN_NAME)).toBe(
+      false,
+    );
   });
 
-  it("Job has backoffLimit=0 + ttlSecondsAfterFinished set", () => {
-    const m = buildAdvancedJobManifest(params);
-    expect(m.spec!.backoffLimit).toBe(0);
-    expect(m.spec!.ttlSecondsAfterFinished).toBeGreaterThan(0);
+  it("mounts the PVC READ-ONLY at /workspace/run-output into the grader", () => {
+    const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
+    const grader = m.spec!.template.spec!.containers[0]!;
+    const mount = grader.volumeMounts!.find((v) => v.name === "run-output")!;
+    expect(mount.mountPath).toBe("/workspace/run-output");
+    expect(mount.readOnly).toBe(true);
+    const vol = m.spec!.template.spec!.volumes!.find((v) => v.name === "run-output");
+    expect(vol!.persistentVolumeClaim).toMatchObject({
+      claimName: "judge-sub-adv-1-runout",
+      readOnly: true,
+    });
+  });
+
+  it("has the emit-result sidecar tailing result.json between the markers", () => {
+    const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
+    const sidecar = m.spec!.template.spec!.initContainers!.find(
+      (c) => c.name === ADVANCED_SIDECAR_NAME,
+    )!;
+    expect(sidecar.restartPolicy).toBe("Always");
+    expect(JSON.stringify(sidecar.command)).toContain(ADVANCED_RESULT_MARKER_BEGIN);
+  });
+
+  it("is pinned to the same node as the run Pod", () => {
+    const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
+    expect(m.spec!.template.spec!.nodeName).toBe("node-a");
+  });
+
+  it("grade init seeds meta.json from the grade ConfigMap, not from the PVC", () => {
+    const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
+    const init = m.spec!.template.spec!.initContainers!.find(
+      (c) => c.name === ADVANCED_INIT_NAME,
+    )!;
+    expect(JSON.stringify(init.command)).toContain("/grade-meta/meta.json");
+    const vol = m.spec!.template.spec!.volumes!.find((v) => v.name === "grade-meta");
+    expect(vol!.configMap!.name).toBe("judge-sub-adv-1-grade-input");
   });
 });
 
 describe("K8sExecutor.execute(advanced) — tarball source fail-fast", () => {
-  it("tarball-source on K8s returns SE with a clear operator message and creates no resources", async () => {
+  it("tarball-source on K8s returns SE; creates no PVC / Job / ConfigMap", async () => {
     const record = emptyRecord();
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record));
     const result = await executor.execute(makeAdvancedRequest({ imageSource: "tarball" }));
 
-    expect(result.testcaseResults).toHaveLength(1);
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
     expect(message).toMatch(/registry/i);
@@ -377,6 +541,7 @@ describe("K8sExecutor.execute(advanced) — tarball source fail-fast", () => {
 
     expect(record.jobsCreated).toHaveLength(0);
     expect(record.configMapsCreated).toHaveLength(0);
+    expect(record.pvcsCreated).toHaveLength(0);
   });
 });
 
@@ -390,8 +555,8 @@ function buildSidecarLog(payload: Record<string, unknown>): string {
   ].join("\n");
 }
 
-describe("K8sExecutor.execute(advanced) — registry source orchestration", () => {
-  it("creates ConfigMap + Job, reads sidecar logs, returns mapped AC result", async () => {
+describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestration", () => {
+  it("creates PVC → run Job → grade Job (same node) → reads grade sidecar → AC result", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({
       score: 100,
@@ -401,92 +566,118 @@ describe("K8sExecutor.execute(advanced) — registry source orchestration", () =
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
     const result = await executor.execute(makeAdvancedRequest());
 
-    expect(record.configMapsCreated).toHaveLength(1);
-    expect(record.jobsCreated).toHaveLength(1);
-    expect(record.jobsCreated[0]!.name).toBe("judge-sub-adv-1");
+    expect(record.pvcsCreated).toHaveLength(1);
+    expect(record.pvcsCreated[0]!.name).toBe("judge-sub-adv-1-runout");
+    expect(record.jobsCreated.map((j) => j.name)).toEqual([
+      "judge-sub-adv-1-run",
+      "judge-sub-adv-1-grade",
+    ]);
+
+    const gradeJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-grade")!;
+    expect(gradeJob.body.spec.template.spec.nodeName).toBe("node-a");
+
+    expect(record.configMapsCreated.map((c) => c.name).sort()).toEqual([
+      "judge-sub-adv-1-grade-input",
+      "judge-sub-adv-1-run-input",
+    ]);
+    const gradeCm = record.configMapsCreated.find(
+      (c) => c.name === "judge-sub-adv-1-grade-input",
+    )!;
+    const gradeMeta = JSON.parse(gradeCm.data["meta.json"]!);
+    expect(gradeMeta.runStatus).toEqual({ state: "exited", exitCode: 0 });
 
     expect(record.podLogsRead.some((c) => c.container === ADVANCED_SIDECAR_NAME)).toBe(true);
-
-    expect(result.testcaseResults).toHaveLength(1);
     expect(result.testcaseResults[0]!.verdict).toBe("AC");
     expect(result.customScore).toBe(100);
   });
 
-  it("preprocesses short-code verdict aliases (advancedResultSchema preprocess)", async () => {
+  it("a failed run Job still proceeds to grade, conveying runStatus exit 1", async () => {
     const record = emptyRecord();
-    const sidecarLog = buildSidecarLog({ score: 30, verdict: "wa" });
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    const sidecarLog = buildSidecarLog({ score: 0, verdict: "runtime_error" });
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, { sidecarLog, failJob: "judge-sub-adv-1-run" }),
+    );
     const result = await executor.execute(makeAdvancedRequest());
 
-    expect(result.testcaseResults[0]!.verdict).toBe("WA");
-    expect(result.customScore).toBe(30);
+    expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-grade");
+    const gradeCm = record.configMapsCreated.find(
+      (c) => c.name === "judge-sub-adv-1-grade-input",
+    )!;
+    expect(JSON.parse(gradeCm.data["meta.json"]!).runStatus).toEqual({
+      state: "exited",
+      exitCode: 1,
+    });
+    expect(result.testcaseResults[0]!.verdict).toBe("RE");
   });
 
-  it("missing result.json (sidecar emits {missing:true}) → fallback SE with clear message", async () => {
+  it("run Pod with no scheduled node (PVC/scheduling failure) → SE, grade never created", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, { runNodeName: null }),
+    );
+    const result = await executor.execute(makeAdvancedRequest());
+
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    expect(record.jobsCreated.map((j) => j.name)).toEqual(["judge-sub-adv-1-run"]);
+    expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
+  });
+
+  it("missing result.json (grade sidecar emits {missing:true}) → SE", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ missing: true });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
     const result = await executor.execute(makeAdvancedRequest());
-
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
     expect(message).toMatch(/result\.json/i);
   });
 
-  it("sidecar log without markers → fallback SE", async () => {
+  it("invalid result.json → SE", async () => {
     const record = emptyRecord();
-    const executor = new K8sExecutor(
-      EXEC_CONFIG,
-      buildFakeClients(record, { sidecarLog: "completely garbled\n" }),
-    );
-    const result = await executor.execute(makeAdvancedRequest());
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-  });
-
-  it("result.json that fails advancedResultSchema → fallback SE with clear message", async () => {
-    const record = emptyRecord();
-    const sidecarLog = buildSidecarLog({ score: "not a number", verdict: "accepted" });
+    const sidecarLog = buildSidecarLog({ score: "nope", verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
     const result = await executor.execute(makeAdvancedRequest());
-
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
-    expect(message).toMatch(/result\.json/i);
   });
 
-  it("failed Job (activeDeadline / image pull) → fallback SE; cleanup still runs", async () => {
+  it("teardown deletes both Jobs, both ConfigMaps, and the PVC even on success", async () => {
     const record = emptyRecord();
-    const executor = new K8sExecutor(
-      EXEC_CONFIG,
-      buildFakeClients(record, { jobOutcome: "failed" }),
-    );
-    const result = await executor.execute(makeAdvancedRequest());
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    await executor.execute(makeAdvancedRequest());
 
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    expect(record.jobsDeleted).toHaveLength(1);
-    expect(record.configMapsDeleted).toHaveLength(1);
+    expect(record.jobsDeleted.map((j) => j.name).sort()).toEqual([
+      "judge-sub-adv-1-grade",
+      "judge-sub-adv-1-run",
+    ]);
+    expect(record.configMapsDeleted.map((c) => c.name).sort()).toEqual([
+      "judge-sub-adv-1-grade-input",
+      "judge-sub-adv-1-run-input",
+    ]);
+    expect(record.pvcsDeleted.map((p) => p.name)).toEqual(["judge-sub-adv-1-runout"]);
   });
 
-  it("Job creation failure → cleanup still runs in finally", async () => {
+  it("Job creation failure → cleanup (incl. PVC) still runs in finally", async () => {
     const record = emptyRecord();
     const executor = new K8sExecutor(
       EXEC_CONFIG,
       buildFakeClients(record, { throwOnJobCreate: true }),
     );
     const result = await executor.execute(makeAdvancedRequest());
-
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    expect(record.configMapsDeleted).toHaveLength(1);
+    expect(record.pvcsDeleted).toHaveLength(1);
+    expect(record.configMapsDeleted.some((c) => c.name === "judge-sub-adv-1-run-input")).toBe(
+      true,
+    );
   });
 });
 
 describe("DRY: K8s advanced reuses Docker advanced's helpers", () => {
   it("uses the same mapAdvancedResult / advancedFallbackResult symbols as the Docker backend", async () => {
-    const k8sMod = await import("../../../apps/worker/src/services/k8s-executor");
     const mapperMod = await import("../../../apps/worker/src/services/sandbox-result-mapper");
     expect(typeof mapperMod.mapAdvancedResult).toBe("function");
     expect(typeof mapperMod.advancedFallbackResult).toBe("function");
-    expect(k8sMod.K8sExecutor).toBeDefined();
   });
 });

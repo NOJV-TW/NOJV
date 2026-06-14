@@ -13,7 +13,7 @@ responsibility"). Three problems follow:
 
 1. **Answer leakage / cheating.** A malicious submission can read any
    world-readable path in the grader container, including baked-in testcases /
-   answers. The `run_submission` cwd-copy is explicitly *not* an isolation
+   answers. The `run_submission` cwd-copy is explicitly _not_ an isolation
    boundary. Answer protection is offloaded to TA discipline.
 2. **No public network.** Advanced containers run `--network none`. Some
    problems legitimately need the student program to call a specified public
@@ -25,16 +25,16 @@ All three must be solved **without weakening the platform's security guarantee**
 
 ## Decisions (from brainstorming)
 
-| Question | Decision |
-| --- | --- |
-| Public network scope | Per-problem **allowlist** of specific endpoints (not full internet) |
-| Answer isolation architecture | **Platform-managed run/grade split** (mirrors existing `checker`/`interactive`) |
-| Run environment | TA-provided **run image** (custom toolchain preserved), authored from a downloadable scaffold, same as today |
-| grade container network | **Full network** (trusted TA, no student code) |
-| Topology owner | **Platform** owns topology + student hardening; optional **service** container supported |
-| Run container's network peer | **One of** `none` / `allowlist` (platform proxy) / `service` (TA image) — mutually exclusive |
-| service container network | **Full network** (trusted TA) |
-| Existing problems | **Clean replacement** — not in production, no migration |
+| Question                      | Decision                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Public network scope          | Per-problem **allowlist** of specific endpoints (not full internet)                                          |
+| Answer isolation architecture | **Platform-managed run/grade split** (mirrors existing `checker`/`interactive`)                              |
+| Run environment               | TA-provided **run image** (custom toolchain preserved), authored from a downloadable scaffold, same as today |
+| grade container network       | **Full network** (trusted TA, no student code)                                                               |
+| Topology owner                | **Platform** owns topology + student hardening; optional **service** container supported                     |
+| Run container's network peer  | **One of** `none` / `allowlist` (platform proxy) / `service` (TA image) — mutually exclusive                 |
+| service container network     | **Full network** (trusted TA)                                                                                |
+| Existing problems             | **Clean replacement** — not in production, no migration                                                      |
 
 ## Prerequisites / scope (this is net-new, not a refactor)
 
@@ -54,7 +54,7 @@ call sites:
 - Sidecar (proxy/service) lifecycle + readiness + teardown; run→grade two-phase
   split; `/output` tar capture + transfer.
 - `apps/worker/src/services/egress-proxy.ts` + a proxy image under `infra/docker/`
-  + allowlist→config rendering — none exist.
+  - allowlist→config rendering — none exist.
 - Role-aware upload + three scaffolds (`{run,grade,service}/`) — today's upload
   has no `role` and the scaffold is a single flat grader.
 
@@ -79,12 +79,12 @@ The implementation plan must front-load the schema + call-site sweep so the
 
 - Free-form TA-authored topology (e.g. uploading a `docker-compose.yml`).
   Rejected: it moves student-container hardening into TA config (large
-  validation attack surface, platform can no longer *guarantee* containment) and
+  validation attack surface, platform can no longer _guarantee_ containment) and
   cannot run on the K8s sandbox (no Docker daemon). See "Rejected: docker-compose".
 - Non-HTTP egress protocols in `allowlist` mode (raw TCP/UDP to public hosts).
   The proxy enforces by hostname over HTTP(S) CONNECT. A `service`-mode TA image
-  can expose any protocol *internally* if needed.
-- Simultaneous `allowlist` + `service` (real public internet *and* a TA mock).
+  can expose any protocol _internally_ if needed.
+- Simultaneous `allowlist` + `service` (real public internet _and_ a TA mock).
   A TA `service` image can forward to a real API itself if both are truly needed.
 
 ## Architecture
@@ -181,7 +181,7 @@ student program, so grade never needs to know the network mode).
 **Verdict ownership (refined during Phase 1 implementation).** The worker does
 **not** SE on an empty `/output`. An empty run output is a legitimate outcome (a
 student program that printed nothing → the grade harness should render WA/RE using
-`runStatus`), not a system fault. So after any run that did not *infrastructurally*
+`runStatus`), not a system fault. So after any run that did not _infrastructurally_
 fail, the worker **always proceeds to grade**, funneling the run outcome through
 `runStatus`. The worker SEs only on infrastructure failures: run container spawn
 error, run size-cap exceeded, grade container spawn error, grade timeout, and
@@ -214,7 +214,7 @@ tinyproxy/squid). Concrete design:
   privacy + simplicity).
 - **SNI verification — DEFERRED (future hardening, not implemented in Phase 3).**
   The original design also matched the TLS **SNI** against the allowlist to block
-  *domain-fronting* (CONNECT an allowed host, then send a TLS ClientHello with a
+  _domain-fronting_ (CONNECT an allowed host, then send a TLS ClientHello with a
   different SNI co-hosted on the same CDN). This is **deliberately deferred**: the
   core security guarantee — **answer protection** — does not depend on it, because
   the run container holds **no secrets** (answers live only in grade), so a
@@ -244,11 +244,11 @@ Missing/unreadable/malformed → SE via `advancedFallbackResult()`.
 Per-problem `advancedConfig.network.mode`. The run container has **at most one**
 network peer:
 
-| mode | run reaches | extra container | use |
-| --- | --- | --- | --- |
-| `none` (default) | nothing | — | offline judging (current behavior) |
-| `allowlist` | platform egress-proxy → listed public hosts | egress-proxy | "call this public API", TA writes no service |
-| `service` | TA service container (full net) | service | student talks to a mock/DB/simulator |
+| mode             | run reaches                                 | extra container | use                                          |
+| ---------------- | ------------------------------------------- | --------------- | -------------------------------------------- |
+| `none` (default) | nothing                                     | —               | offline judging (current behavior)           |
+| `allowlist`      | platform egress-proxy → listed public hosts | egress-proxy    | "call this public API", TA writes no service |
+| `service`        | TA service container (full net)             | service         | student talks to a mock/DB/simulator         |
 
 **Invariant:** the run container is always on a network with **no direct
 internet route** and can reach **only** its single sidecar. The proxy and the
@@ -298,13 +298,24 @@ because there is no egress boundary to protect.)
     **after** the worker polls the sidecar to Ready (K8s has no Job→Job ordering
     primitive — the worker does the polling). Sidecar crash before/during run →
     detected by the worker → submission SE.
-  - **Cross-Pod `/output` transfer (no shared emptyDir across Pods).** The run
-    Pod's emit container streams `/workspace/output/` to stdout between markers;
-    the worker captures it via the Pod-logs API — the same log-tailing pattern the
-    current `emit-result` sidecar already uses (`k8s-advanced.ts`), so no PV and no
-    ConfigMap 1 MB limit. The same capture-safety rules as the Docker path apply
-    (drop symlinks + special files, file/byte caps) — Phase 5 must enforce them on
-    whatever the run Pod emits, e.g. emit a manifest of regular files only.
+  - **Cross-Pod `/output` transfer via a per-submission PVC (Phase 5A, shipped).**
+    The earlier pod-logs streaming idea is **superseded**: run output moves over a
+    per-submission **`ReadWriteOnce` PVC**, giving lossless binary round-trip with
+    no base64/marker framing and no ConfigMap 1 MB limit. Flow: the run Pod runs an
+    extra platform **`transfer`** native sidecar (the sandbox image, no answers)
+    that, when the run container exits (kubelet SIGTERM to the sidecar), **safe-copies**
+    `/workspace/output/` → the PVC applying the SAME gate as the Docker `safeCopyTree`
+    (lstat-first **drop symlinks**, drop special files, file-count + byte caps). The
+    grade Pod mounts the same PVC **read-only** at `/workspace/run-output`. Because
+    RWO is single-node, the worker observes the run Pod's `spec.nodeName` and pins
+    the grade Job to that node (`pod.spec.nodeName`). The PVC is created per
+    submission and deleted on the worker's `finally` path along with both Jobs and
+    both ConfigMaps. Only the **result.json** still flows via pod-logs (the grade
+    Pod's `emit-result` sidecar between the existing markers). The gate runs inside
+    the answer-free run Pod, so an `output/x → /answers/secret` symlink is dropped
+    where there are no answers and never reaches the PVC or grade. **Network modes
+    (allowlist/service) + per-submission NetworkPolicy remain Phase 5B**; 5A is
+    `mode=none` (the existing deny-all NetworkPolicy stays).
   - sidecar egress is independent (proxy → allowlisted hosts; service → full).
   - This multi-Pod orchestration (start sidecar Pod + per-submission NetworkPolicy,
     await ready, run Job, capture tar, teardown, then grade Job) is the heaviest
@@ -333,7 +344,7 @@ see the rationale below for why this is simpler and strictly safer.
 
 - **Skip symlinks entirely** (the core gate). The capture walks the run
   container's **static, post-exit** `/output` on the host and, per entry, uses
-  `lstat` (checked *before* any `isFile`/`isDirectory` branch) to detect and
+  `lstat` (checked _before_ any `isFile`/`isDirectory` branch) to detect and
   **drop every symlink** — it is never copied and never followed. A malicious
   `output/x → /answers/secret` (absolute) or `→ ../escape` (relative) therefore
   never reaches `gradeDir/run-output`, so nothing can resolve against the grade
@@ -350,7 +361,7 @@ see the rationale below for why this is simpler and strictly safer.
   can be written.
 - Any failure of the capture / grade-workspace prep (cap exceeded, unexpected IO
   error) is a defined failure mode → submission SE; grade is not started. (An
-  *empty* `/output` is NOT an SE — see "Verdict ownership".)
+  _empty_ `/output` is NOT an SE — see "Verdict ownership".)
 
 **Why host-side `safeCopyTree` instead of an in-container `tar --dereference`:**
 the run container is `--rm` and gone the instant its main process exits, so there
@@ -364,19 +375,19 @@ symlink/FIFO/cap/binary tests), and the post-exit static read has no TOCTOU wind
 
 ## Security hardening matrix
 
-| | run | grade | service | egress-proxy |
-| --- | --- | --- | --- | --- |
-| runs student code | **yes** | no | no | no |
-| trust | untrusted | trusted | trusted | platform |
-| network | only its sidecar (or none) | full | full | internal in + allowlisted egress out |
-| `--user` non-root | **yes (10001)** | no (TA-managed, as today) | no | yes |
-| `--cap-drop ALL` | yes | yes | yes | yes |
-| `no-new-privileges` | yes | yes | yes | yes |
-| `--read-only` rootfs | yes | yes | yes | yes |
-| writable | `/tmp` tmpfs, `/workspace` bind | `/tmp`, `/workspace` | `/tmp` | `/tmp` |
-| memory / cpu / pids | `memoryLimitMb` / bounded | own (generous) | own | small |
-| `/workspace` 1GiB disk watchdog | yes | yes | n/a | n/a |
-| holds answers | **never** | yes (baked) | never | never |
+|                                 | run                             | grade                     | service | egress-proxy                         |
+| ------------------------------- | ------------------------------- | ------------------------- | ------- | ------------------------------------ |
+| runs student code               | **yes**                         | no                        | no      | no                                   |
+| trust                           | untrusted                       | trusted                   | trusted | platform                             |
+| network                         | only its sidecar (or none)      | full                      | full    | internal in + allowlisted egress out |
+| `--user` non-root               | **yes (10001)**                 | no (TA-managed, as today) | no      | yes                                  |
+| `--cap-drop ALL`                | yes                             | yes                       | yes     | yes                                  |
+| `no-new-privileges`             | yes                             | yes                       | yes     | yes                                  |
+| `--read-only` rootfs            | yes                             | yes                       | yes     | yes                                  |
+| writable                        | `/tmp` tmpfs, `/workspace` bind | `/tmp`, `/workspace`      | `/tmp`  | `/tmp`                               |
+| memory / cpu / pids             | `memoryLimitMb` / bounded       | own (generous)            | own     | small                                |
+| `/workspace` 1GiB disk watchdog | yes                             | yes                       | n/a     | n/a                                  |
+| holds answers                   | **never**                       | yes (baked)               | never   | never                                |
 
 The run container keeps the strictest posture (it is the only one running
 untrusted code). grade/service stay on the existing "trusted TA, no `--user`"
@@ -509,13 +520,13 @@ Letting TAs upload a `docker-compose.yml` was considered and rejected:
 
 1. **Loses the security guarantee.** Student-container hardening
    (network/caps/user/read-only/seccomp/limits) would move into TA-authored
-   compose config; the platform could no longer *guarantee* the untrusted
+   compose config; the platform could no longer _guarantee_ the untrusted
    container is locked down, and would need a large, fragile compose validator
    that first has to identify which service runs student code.
 2. **Breaks the K8s prod backend.** `docker compose` needs a Docker daemon; the
    GKE sandbox is containerd + Jobs. Compose would force all Advanced Mode back
    to Docker-only, regressing the production path.
-3. **Doesn't remove the proxy.** Reaching a *real* public API still needs the
+3. **Doesn't remove the proxy.** Reaching a _real_ public API still needs the
    platform egress-proxy regardless; a self-contained compose stack can't do it
    safely on its own.
 

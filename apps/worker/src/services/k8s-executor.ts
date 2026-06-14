@@ -30,8 +30,13 @@ import {
 } from "./k8s-configmaps";
 import {
   ADVANCED_SIDECAR_NAME,
+  advancedPvcName,
   buildAdvancedConfigMapData,
-  buildAdvancedJobManifest,
+  buildAdvancedGradeConfigMapData,
+  buildAdvancedGradeJobManifest,
+  buildAdvancedPvcManifest,
+  buildAdvancedRunJobManifest,
+  deriveRunStatusFromJob,
   parseAdvancedResultLog,
 } from "./k8s-advanced";
 
@@ -48,11 +53,20 @@ export {
   ADVANCED_INIT_NAME,
   ADVANCED_RESULT_MARKER_BEGIN,
   ADVANCED_RESULT_MARKER_END,
+  ADVANCED_RUN_NAME,
   ADVANCED_SIDECAR_NAME,
+  ADVANCED_TRANSFER_NAME,
+  advancedPvcName,
   buildAdvancedConfigMapData,
+  buildAdvancedGradeConfigMapData,
+  buildAdvancedGradeJobManifest,
   buildAdvancedInitScript,
-  buildAdvancedJobManifest,
+  buildAdvancedPvcManifest,
+  buildAdvancedRunJobManifest,
   buildAdvancedTailScript,
+  buildAdvancedTransferScript,
+  buildAdvancedTransferWaitScript,
+  deriveRunStatusFromJob,
   parseAdvancedResultLog,
 } from "./k8s-advanced";
 
@@ -494,7 +508,7 @@ export class K8sExecutor implements SandboxExecutor {
     const advanced = request.advanced;
     if (!advanced) return sandboxSystemError("advanced-mode dispatch called without payload");
 
-    if (advanced.grade.imageSource === "tarball") {
+    if (advanced.grade.imageSource === "tarball" || advanced.run.imageSource === "tarball") {
       const message =
         "Advanced tarball-source images require the Docker backend; push the image to a registry the cluster can pull and switch the problem to 'registry' source, or run advanced workloads on the Docker backend.";
       logger.error("K8s executor refused advanced tarball-source submission", {
@@ -503,20 +517,27 @@ export class K8sExecutor implements SandboxExecutor {
       return advancedFallbackResult(request, message);
     }
 
-    const jobName = `judge-${request.submissionId}`;
+    const baseName = `judge-${request.submissionId}`;
     const ns = this.config.namespace;
-    const configMapName = `${jobName}-input`;
+    const runJobName = `${baseName}-run`;
+    const gradeJobName = `${baseName}-grade`;
+    const runConfigMapName = `${runJobName}-input`;
+    const gradeConfigMapName = `${gradeJobName}-input`;
+    const pvcName = advancedPvcName(request.submissionId);
+    const deadlineSeconds = Math.ceil(advanced.totalTimeMs / 1000) + 30;
 
     try {
-      await this.createConfigMap(configMapName, ns, buildAdvancedConfigMapData(request));
+      await this.createPvc(pvcName, ns);
+      await this.createConfigMap(runConfigMapName, ns, buildAdvancedConfigMapData(request));
       await this.batchApi.createNamespacedJob({
         namespace: ns,
-        body: buildAdvancedJobManifest({
-          jobName,
+        body: buildAdvancedRunJobManifest({
+          jobName: runJobName,
           namespace: ns,
-          configMapName,
+          configMapName: runConfigMapName,
+          pvcName,
           sandboxImage: this.config.image,
-          graderImage: advanced.grade.imageRef,
+          runImage: advanced.run.imageRef,
           memoryMb: advanced.memoryMb,
           totalTimeMs: advanced.totalTimeMs,
           cpuLimit: this.config.cpuLimit,
@@ -525,15 +546,46 @@ export class K8sExecutor implements SandboxExecutor {
         }),
       });
 
-      await this.waitForJobCompletion(jobName, ns, Math.ceil(advanced.totalTimeMs / 1000) + 30);
-      const podName = await this.findPodName(jobName, ns);
-      if (!podName) {
-        return advancedFallbackResult(request, "Advanced sandbox produced no pod.");
+      const runOutcome = await this.waitForJobOutcome(runJobName, ns, deadlineSeconds);
+      const nodeName = await this.findPodNodeName(runJobName, ns);
+      if (!nodeName) {
+        return advancedFallbackResult(request, "Advanced run phase produced no scheduled pod.");
+      }
+
+      const runStatus = deriveRunStatusFromJob(runOutcome.state, runOutcome.deadlineExceeded);
+
+      await this.createConfigMap(
+        gradeConfigMapName,
+        ns,
+        buildAdvancedGradeConfigMapData(request.submissionId, request.language, runStatus),
+      );
+      await this.batchApi.createNamespacedJob({
+        namespace: ns,
+        body: buildAdvancedGradeJobManifest({
+          jobName: gradeJobName,
+          namespace: ns,
+          configMapName: gradeConfigMapName,
+          pvcName,
+          sandboxImage: this.config.image,
+          gradeImage: advanced.grade.imageRef,
+          memoryMb: advanced.memoryMb,
+          totalTimeMs: advanced.totalTimeMs,
+          cpuLimit: this.config.cpuLimit,
+          submissionId: request.submissionId,
+          language: request.language,
+          nodeName,
+        }),
+      });
+
+      await this.waitForJobCompletion(gradeJobName, ns, deadlineSeconds);
+      const gradePodName = await this.findPodName(gradeJobName, ns);
+      if (!gradePodName) {
+        return advancedFallbackResult(request, "Advanced grade phase produced no pod.");
       }
 
       const sidecarLog = await this.coreApi
         .readNamespacedPodLog({
-          name: podName,
+          name: gradePodName,
           namespace: ns,
           container: ADVANCED_SIDECAR_NAME,
         })
@@ -566,7 +618,7 @@ export class K8sExecutor implements SandboxExecutor {
     } catch (err) {
       logger.error("K8s advanced execution failed", {
         submissionId: request.submissionId,
-        jobName,
+        baseName,
         err: err instanceof Error ? err.message : String(err),
       });
       return advancedFallbackResult(
@@ -574,8 +626,11 @@ export class K8sExecutor implements SandboxExecutor {
         `Advanced sandbox failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
-      await this.cleanupJob(jobName, ns);
-      await this.cleanupConfigMap(configMapName, ns);
+      await this.cleanupJob(runJobName, ns);
+      await this.cleanupJob(gradeJobName, ns);
+      await this.cleanupConfigMap(runConfigMapName, ns);
+      await this.cleanupConfigMap(gradeConfigMapName, ns);
+      await this.cleanupPvc(pvcName, ns);
     }
   }
 
@@ -706,6 +761,31 @@ export class K8sExecutor implements SandboxExecutor {
     } catch {
       return null;
     }
+  }
+
+  private async findPodNodeName(jobName: string, namespace: string): Promise<string | null> {
+    try {
+      const pods = await this.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      });
+      return pods.items[0]?.spec?.nodeName ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async createPvc(name: string, namespace: string): Promise<void> {
+    await this.coreApi.createNamespacedPersistentVolumeClaim({
+      namespace,
+      body: buildAdvancedPvcManifest({ pvcName: name, namespace }),
+    });
+  }
+
+  private async cleanupPvc(name: string, namespace: string): Promise<void> {
+    await this.coreApi
+      .deleteNamespacedPersistentVolumeClaim({ name, namespace })
+      .catch(() => undefined);
   }
 
   private async cleanupConfigMap(name: string, namespace: string): Promise<void> {
@@ -883,6 +963,14 @@ export class K8sExecutor implements SandboxExecutor {
     namespace: string,
     deadlineSeconds: number,
   ): Promise<"succeeded" | "failed"> {
+    return (await this.waitForJobOutcome(jobName, namespace, deadlineSeconds)).state;
+  }
+
+  private async waitForJobOutcome(
+    jobName: string,
+    namespace: string,
+    deadlineSeconds: number,
+  ): Promise<{ state: "succeeded" | "failed"; deadlineExceeded: boolean }> {
     const deadline = Date.now() + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
 
     while (Date.now() < deadline) {
@@ -891,13 +979,18 @@ export class K8sExecutor implements SandboxExecutor {
         namespace,
       });
 
-      if (job.status?.succeeded) return "succeeded";
-      if (job.status?.failed) return "failed";
+      if (job.status?.succeeded) return { state: "succeeded", deadlineExceeded: false };
+      if (job.status?.failed) {
+        const deadlineExceeded = (job.status.conditions ?? []).some(
+          (c) => c.reason === "DeadlineExceeded",
+        );
+        return { state: "failed", deadlineExceeded };
+      }
 
       await new Promise((r) => setTimeout(r, JOB_POLL_INTERVAL_MS));
     }
 
-    return "failed";
+    return { state: "failed", deadlineExceeded: true };
   }
 
   private async getPodLogs(jobName: string, namespace: string): Promise<string> {
