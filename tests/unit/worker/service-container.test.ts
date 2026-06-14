@@ -54,10 +54,8 @@ describe("buildStartServiceArgs", () => {
     expect(args).not.toContain("none");
   });
 
-  it("runs as the non-root sandbox uid for parity with the run container", () => {
-    const userIdx = args.indexOf("--user");
-    expect(userIdx).toBeGreaterThan(0);
-    expect(args[userIdx + 1]).toBe("10001:10001");
+  it("does NOT pass --user (trusted TA service runs as its image's USER, like grade)", () => {
+    expect(args).not.toContain("--user");
   });
 
   it("keeps the service hardened and resource-bounded like the grade container", () => {

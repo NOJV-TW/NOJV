@@ -39,6 +39,19 @@ describe("decideNetworkPolicyGate — pure decision logic", () => {
       action: "warn-proceed",
     });
   });
+
+  it("UNCONFIRMED → not enforced (same as reached) → refuse unless opt-out", () => {
+    expect(decideNetworkPolicyGate({ outcome: "unconfirmed", allowUnenforced: false })).toEqual(
+      {
+        enforced: false,
+        action: "refuse",
+      },
+    );
+    expect(decideNetworkPolicyGate({ outcome: "unconfirmed", allowUnenforced: true })).toEqual({
+      enforced: false,
+      action: "warn-proceed",
+    });
+  });
 });
 
 describe("buildNetpolProbePodManifest", () => {
@@ -158,14 +171,84 @@ describe("verifyNetworkPolicyEnforced — live probe wiring", () => {
     expect(decision).toEqual({ enforced: true, action: "ok" });
   });
 
-  it("no recognizable marker → treated as blocked (fail toward enforced=ok)", async () => {
+  it("terminal Pod with NO recognizable marker → unconfirmed → REFUSE (fail closed)", async () => {
     const f = fakeDeps("garbage output\n");
     const decision = await verifyNetworkPolicyEnforced({
       namespace: NS,
       allowUnenforced: false,
       deps: f.deps,
     });
-    expect(decision).toEqual({ enforced: true, action: "ok" });
+    expect(decision).toEqual({ enforced: false, action: "refuse" });
+  });
+
+  it("clean BLOCKED is the ONLY path to ok (reached/unconfirmed all refuse)", async () => {
+    const ok = await verifyNetworkPolicyEnforced({
+      namespace: NS,
+      allowUnenforced: false,
+      deps: fakeDeps(`${PROBE_BLOCKED_MARKER}\n`).deps,
+    });
+    expect(ok).toEqual({ enforced: true, action: "ok" });
+
+    for (const log of [`${PROBE_REACHED_MARKER}\n`, "garbage\n", ""]) {
+      const decision = await verifyNetworkPolicyEnforced({
+        namespace: NS,
+        allowUnenforced: false,
+        deps: fakeDeps(log).deps,
+      });
+      expect(decision.action).toBe("refuse");
+    }
+  });
+
+  it("probe Pod perpetually Pending → timeout → unconfirmed → refuse (warn-proceed with opt-out)", async () => {
+    let clock = 0;
+    const pendingOverrides: Partial<NetworkPolicyProbeDeps> = {
+      readPodPhase: async () => "Pending",
+      now: () => clock,
+      sleep: async (ms: number) => {
+        clock += ms;
+      },
+    };
+
+    const refused = await verifyNetworkPolicyEnforced({
+      namespace: NS,
+      allowUnenforced: false,
+      deps: fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, pendingOverrides).deps,
+    });
+    expect(refused).toEqual({ enforced: false, action: "refuse" });
+
+    clock = 0;
+    const warned = await verifyNetworkPolicyEnforced({
+      namespace: NS,
+      allowUnenforced: true,
+      deps: fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, pendingOverrides).deps,
+    });
+    expect(warned).toEqual({ enforced: false, action: "warn-proceed" });
+  });
+
+  it("createPod rejects → error propagates so worker-app fails closed (no decision)", async () => {
+    const f = fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, {
+      createPod: async () => {
+        throw new Error("ResourceQuota exceeded");
+      },
+    });
+    await expect(
+      verifyNetworkPolicyEnforced({ namespace: NS, allowUnenforced: false, deps: f.deps }),
+    ).rejects.toThrow(/ResourceQuota/);
+    expect(f.deleted).toContain(netpolProbePodName());
+  });
+
+  it("readPodLog throws → unconfirmed → refuse", async () => {
+    const f = fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, {
+      readPodLog: async () => {
+        throw new Error("logs unavailable");
+      },
+    });
+    const decision = await verifyNetworkPolicyEnforced({
+      namespace: NS,
+      allowUnenforced: false,
+      deps: f.deps,
+    });
+    expect(decision).toEqual({ enforced: false, action: "refuse" });
   });
 
   it("always deletes the probe pod (before create and in finally)", async () => {

@@ -42,8 +42,6 @@ export function buildStartServiceArgs(params: {
     SERVICE_NETWORK_ALIAS,
     "-e",
     `${SERVICE_PORT_ENV}=${String(ADVANCED_SERVICE_PORT)}`,
-    "--user",
-    "10001:10001",
     "--cap-drop",
     "ALL",
     "--security-opt",

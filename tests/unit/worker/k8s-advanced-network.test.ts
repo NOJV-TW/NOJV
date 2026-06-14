@@ -200,20 +200,31 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), f
     expect(container.env).toContainEqual({ name: "PORT", value: "8888" });
     expect(container.resources!.limits!.memory).toBe("512Mi");
     expect(pod.spec!.automountServiceAccountToken).toBe(false);
-    expect(pod.spec!.securityContext).toMatchObject({
-      runAsNonRoot: true,
-      runAsUser: 10001,
-      runAsGroup: 10001,
-    });
+    expect(pod.spec!.securityContext).toMatchObject({ runAsNonRoot: true });
     expect(container.securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       capabilities: { drop: ["ALL"] },
       readOnlyRootFilesystem: true,
       runAsNonRoot: true,
-      runAsUser: 10001,
-      runAsGroup: 10001,
     });
     expect(pod.spec!.volumes!.some((v) => v.name === "tmp" && v.emptyDir)).toBe(true);
+  });
+
+  it("does NOT pin runAsUser/runAsGroup (trusted TA service keeps its image uid)", () => {
+    const pod = buildServiceSidecarPodManifest({
+      submissionId: SUB,
+      namespace: NS,
+      image: "registry/ta/service:1.0",
+      memoryMb: 512,
+      cpuLimit: "1",
+      port: SIDECAR_PORT,
+    });
+    const podCtx = pod.spec!.securityContext as Record<string, unknown>;
+    const containerCtx = pod.spec!.containers[0]!.securityContext as Record<string, unknown>;
+    expect(podCtx.runAsUser).toBeUndefined();
+    expect(podCtx.runAsGroup).toBeUndefined();
+    expect(containerCtx.runAsUser).toBeUndefined();
+    expect(containerCtx.runAsGroup).toBeUndefined();
   });
 });
 

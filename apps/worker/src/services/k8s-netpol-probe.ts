@@ -18,7 +18,7 @@ const PROBE_ACTIVE_DEADLINE_SECONDS = 30;
 const PROBE_POLL_INTERVAL_MS = 1_000;
 const PROBE_WAIT_TIMEOUT_MS = 60_000;
 
-export type ProbeOutcome = "reached" | "blocked";
+export type ProbeOutcome = "reached" | "blocked" | "unconfirmed";
 
 export interface NetpolGateDecision {
   enforced: boolean;
@@ -29,8 +29,7 @@ export function decideNetworkPolicyGate(params: {
   outcome: ProbeOutcome;
   allowUnenforced: boolean;
 }): NetpolGateDecision {
-  const enforced = params.outcome === "blocked";
-  if (enforced) return { enforced: true, action: "ok" };
+  if (params.outcome === "blocked") return { enforced: true, action: "ok" };
   return { enforced: false, action: params.allowUnenforced ? "warn-proceed" : "refuse" };
 }
 
@@ -94,17 +93,24 @@ export function buildNetpolProbePodManifest(params: NetpolProbePodParams): k8s.V
   };
 }
 
-function parseProbeLog(log: string): ProbeOutcome | null {
+function parseProbeLog(log: string): "reached" | "blocked" | null {
   if (log.includes(PROBE_REACHED_MARKER)) return "reached";
   if (log.includes(PROBE_BLOCKED_MARKER)) return "blocked";
   return null;
 }
 
-const REMEDIATION =
+const REACHED_REMEDIATION =
   "Cluster does NOT enforce NetworkPolicy: sandbox egress isolation is INERT and student " +
   "code can reach the internet. Enable a NetworkPolicy-enforcing CNI before judging — GKE " +
   "Dataplane V2 (or `--enable-network-policy`), or install Calico/Cilium. For k3s start with " +
   "`--flannel-backend=none --disable-network-policy` then install Calico/Cilium.";
+
+const UNCONFIRMED_REMEDIATION =
+  "Could NOT confirm NetworkPolicy enforcement: the probe Pod never reported a clean BLOCKED " +
+  "(it may be stuck Pending / ImagePullBackOff / blocked by ResourceQuota, killed before " +
+  "emitting a marker, or the API read failed). Enforcement is UNVERIFIED, so this is treated " +
+  "as NOT enforced. Check the sandbox namespace can schedule a busybox Pod (quota, node " +
+  "selector/taint, image pull), then re-roll; only a positively-observed BLOCKED is accepted.";
 
 export interface NetworkPolicyProbeDeps {
   createPod: (namespace: string, body: k8s.V1Pod) => Promise<void>;
@@ -128,18 +134,24 @@ async function runProbe(
   try {
     await deps.createPod(namespace, buildNetpolProbePodManifest({ namespace, image, podName }));
 
-    const deadline = now() + PROBE_WAIT_TIMEOUT_MS;
-    while (now() < deadline) {
-      const phase = await deps.readPodPhase(podName, namespace).catch(() => undefined);
-      if (phase === "Succeeded" || phase === "Failed") {
-        const log = await deps.readPodLog(podName, namespace).catch(() => "");
-        const outcome = parseProbeLog(log);
-        if (outcome) return outcome;
-        return "blocked";
+    try {
+      const deadline = now() + PROBE_WAIT_TIMEOUT_MS;
+      while (now() < deadline) {
+        const phase = await deps.readPodPhase(podName, namespace);
+        if (phase === "Succeeded" || phase === "Failed") {
+          const log = await deps.readPodLog(podName, namespace);
+          return parseProbeLog(log) ?? "unconfirmed";
+        }
+        await sleep(PROBE_POLL_INTERVAL_MS);
       }
-      await sleep(PROBE_POLL_INTERVAL_MS);
+    } catch (err) {
+      logger.warn("NetworkPolicy probe read failed — enforcement is UNCONFIRMED", {
+        namespace,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return "unconfirmed";
     }
-    return "blocked";
+    return "unconfirmed";
   } finally {
     await deps.deletePod(podName, namespace).catch(() => undefined);
   }
@@ -164,19 +176,25 @@ export async function verifyNetworkPolicyEnforced(
     allowUnenforced: params.allowUnenforced,
   });
 
+  const remediation = outcome === "reached" ? REACHED_REMEDIATION : UNCONFIRMED_REMEDIATION;
+  const reason =
+    outcome === "reached"
+      ? "sandbox egress REACHED the internet"
+      : "could not confirm enforcement (probe never reported a clean BLOCKED)";
+
   if (decision.action === "ok") {
     logger.info("NetworkPolicy enforcement verified — sandbox egress is isolated", {
       namespace: params.namespace,
     });
   } else if (decision.action === "warn-proceed") {
     logger.warn(
-      "NetworkPolicy enforcement ABSENT but NOJV_ALLOW_UNENFORCED_NETWORK_POLICY is set — proceeding (DEV ONLY)",
-      { namespace: params.namespace, remediation: REMEDIATION },
+      `NetworkPolicy enforcement not verified (${reason}) but NOJV_ALLOW_UNENFORCED_NETWORK_POLICY is set — proceeding (DEV ONLY)`,
+      { namespace: params.namespace, outcome, remediation },
     );
   } else {
     logger.error(
-      "CRITICAL: refusing to start K8s judge worker — NetworkPolicy enforcement is ABSENT",
-      { namespace: params.namespace, remediation: REMEDIATION },
+      `CRITICAL: refusing to start K8s judge worker — NetworkPolicy enforcement not verified (${reason})`,
+      { namespace: params.namespace, outcome, remediation },
     );
   }
 
