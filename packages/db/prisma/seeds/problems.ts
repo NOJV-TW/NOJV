@@ -11,7 +11,7 @@ import {
   workspaceFileKey,
 } from "@nojv/storage";
 
-import { Prisma, type PrismaClient } from "../../generated/prisma/client";
+import type { Prisma, PrismaClient } from "../../generated/prisma/client";
 
 const SEED_DIFFICULTIES = ["easy", "medium", "hard"] as const;
 type SeedDifficulty = (typeof SEED_DIFFICULTIES)[number];
@@ -1264,7 +1264,7 @@ export async function seedProblems(
       judgeConfig,
       status: def.status ?? "published",
       samples: toSamplesJson(def.samples),
-      advancedConfig: def.advancedConfig ?? Prisma.JsonNull,
+      ...(def.advancedConfig ? { advancedConfig: def.advancedConfig } : {}),
     };
 
     const problem = await prisma.problem.upsert({
