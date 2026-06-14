@@ -108,3 +108,5 @@ export const advancedConfigSchema = z.object({
 });
 
 export type AdvancedConfig = z.infer<typeof advancedConfigSchema>;
+
+export const MAX_ADVANCED_TOTAL_TIME_MS = 120_000;
