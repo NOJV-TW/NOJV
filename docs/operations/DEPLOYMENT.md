@@ -106,11 +106,17 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 > `K8S_*` limits only by the Kubernetes backend. The schema enforces this split,
 > so each backend requires exactly the keys it actually uses.
 
-> Advanced-mode (`special_env`) judging runs only on the Docker backend. When
-> `EXECUTION_BACKEND=kubernetes`, also set the same value on the **web** service
-> (`EXECUTION_BACKEND` is part of the web env schema, default `docker`) so it
-> hides advanced-problem creation/conversion. The web Cloud Run manifest sets it
-> to `kubernetes` to match the GKE worker.
+> Advanced-mode (`special_env`) judging runs on **both** backends:
+> **registry-source** run/grade images execute as K8s Jobs (incl. the `none` /
+> `allowlist` / `service` network modes — see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#advanced-mode-pipeline)
+> and `tests/integration/k8s/judge-k8s.test.ts`). Only **tarball-source**
+> advanced requires the Docker backend, because the cluster cannot `docker load`
+> a TA-supplied tarball (`K8sExecutor.executeAdvanced` returns a System Error for
+> tarball-source run/grade — push the image to a registry the cluster can pull
+> instead). When `EXECUTION_BACKEND=kubernetes`, also set the same value on the
+> **web** service (`EXECUTION_BACKEND` is part of the web env schema, default
+> `docker`) so it hides tarball-source advanced-problem creation/conversion. The
+> web Cloud Run manifest sets it to `kubernetes` to match the GKE worker.
 
 ### Object Storage (S3-Compatible)
 
@@ -177,6 +183,18 @@ Rules when changing code under `apps/worker/src/workflows/`:
 4. Workflow / query / signal **names** are a separate cross-package contract — see the registration fitness test under `tests/unit/worker/`.
 
 There is intentionally **no** `patched()` usage in the tree today because no workflow has yet needed a backward-incompatible change; the first such change must introduce it.
+
+## Single-Machine k3s (Kubernetes backend on one box)
+
+To run the Kubernetes sandbox backend on a **single machine** — getting
+per-submission Pod autoscaling without GKE — follow the
+[Single-Machine k3s Runbook](../runbooks/k8s-single-machine.md). It installs k3s
+with a NetworkPolicy-enforcing CNI (Calico, **required** — k3s's default flannel
+does not enforce policy and the worker fails closed without it), reuses
+`infra/k8s/sandbox/` and `infra/gcp/gke/` manifests, and covers all three
+autoscaling layers (per-submission judge Pods, worker replicas, node join). It
+is the entry point on the spectrum **single-node k3s → multi-node k3s → GKE**
+([GKE Worker Rollout](#gke-worker-rollout)).
 
 ## GCP Production Architecture
 
