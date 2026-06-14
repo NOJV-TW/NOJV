@@ -726,13 +726,13 @@ export class K8sExecutor implements SandboxExecutor {
           port: SIDECAR_PORT,
         }),
       });
-      await this.createSidecarServiceAndPolicies(submissionId, ns);
+      const clusterIp = await this.createSidecarServiceAndPolicies(submissionId, ns);
 
       const ready = await this.waitForSidecarMarker(submissionId, ns, PROXY_READY_MARKER);
       if (!ready) {
         throw new Error("egress proxy sidecar did not become ready within timeout");
       }
-      return buildProxyRunEnv(sidecarServiceName(submissionId), SIDECAR_PORT);
+      return buildProxyRunEnv(clusterIp, SIDECAR_PORT);
     }
 
     const service = advanced.network.service;
@@ -753,20 +753,24 @@ export class K8sExecutor implements SandboxExecutor {
         port: SIDECAR_PORT,
       }),
     });
-    await this.createSidecarServiceAndPolicies(submissionId, ns);
+    const clusterIp = await this.createSidecarServiceAndPolicies(submissionId, ns);
 
     await this.waitForSidecarMarker(submissionId, ns, SERVICE_READY_MARKER);
-    return buildServiceRunEnv(sidecarServiceName(submissionId));
+    return buildServiceRunEnv(clusterIp);
   }
 
   private async createSidecarServiceAndPolicies(
     submissionId: string,
     ns: string,
-  ): Promise<void> {
-    await this.coreApi.createNamespacedService({
+  ): Promise<string> {
+    const created = await this.coreApi.createNamespacedService({
       namespace: ns,
       body: buildSidecarServiceManifest({ submissionId, namespace: ns, port: SIDECAR_PORT }),
     });
+    const clusterIp = created.spec?.clusterIP;
+    if (!clusterIp || clusterIp === "None") {
+      throw new Error("sidecar Service was created without an assigned ClusterIP");
+    }
     await this.createNamespacedNetworkPolicy(
       ns,
       buildSidecarEgressPolicy({ submissionId, namespace: ns }),
@@ -775,6 +779,7 @@ export class K8sExecutor implements SandboxExecutor {
       ns,
       buildRunEgressPolicy({ submissionId, namespace: ns }),
     );
+    return clusterIp;
   }
 
   private async waitForSidecarMarker(

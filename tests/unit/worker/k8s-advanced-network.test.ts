@@ -60,11 +60,17 @@ describe("buildRunEgressPolicy — run Pod egress restricted to the sidecar ONLY
 
   it("allows egress ONLY to the sidecar Pod's label selector", () => {
     const policy = buildRunEgressPolicy({ submissionId: SUB, namespace: NS });
-    expect(policy.spec!.policyTypes).toEqual(["Egress"]);
+    expect(policy.spec!.policyTypes).toEqual(["Ingress", "Egress"]);
     const targets = flattenEgressTargets(policy);
     expect(targets).toEqual([
       { podSelector: { matchLabels: { [SIDECAR_ROLE_LABEL_KEY]: SUB } } },
     ]);
+  });
+
+  it("SECURITY: denies ALL ingress to the untrusted run Pod (student code is not a server)", () => {
+    const policy = buildRunEgressPolicy({ submissionId: SUB, namespace: NS });
+    expect(policy.spec!.policyTypes).toContain("Ingress");
+    expect(policy.spec!.ingress).toEqual([]);
   });
 
   it("SECURITY: grants NO broad egress — no 0.0.0.0/0, no ipBlock, no empty rule", () => {
@@ -94,20 +100,36 @@ describe("buildGradeEgressPolicy — grade Pod escapes deny-all with FULL egress
     expect(gradeEgressLabel(SUB)).not.toBe(runEgressLabel(SUB));
   });
 
-  it("grants full egress (a single open egress rule)", () => {
+  it("grants full egress (a single open egress rule) while denying all ingress", () => {
     const policy = buildGradeEgressPolicy({ submissionId: SUB, namespace: NS });
-    expect(policy.spec!.policyTypes).toEqual(["Egress"]);
+    expect(policy.spec!.policyTypes).toEqual(["Ingress", "Egress"]);
     expect(policy.spec!.egress).toEqual([{}]);
+    expect(policy.spec!.ingress).toEqual([]);
   });
 });
 
-describe("buildSidecarEgressPolicy — sidecar has full egress to reach allowlisted/TA hosts", () => {
+describe("buildSidecarEgressPolicy — sidecar full egress, ingress ONLY from the run Pod", () => {
   it("selects the sidecar Pod and grants full egress", () => {
     const policy = buildSidecarEgressPolicy({ submissionId: SUB, namespace: NS });
     expect(policy.spec!.podSelector!.matchLabels).toEqual({
       [SIDECAR_ROLE_LABEL_KEY]: SUB,
     });
+    expect(policy.spec!.policyTypes).toEqual(["Ingress", "Egress"]);
     expect(policy.spec!.egress).toEqual([{}]);
+  });
+
+  it("SECURITY: allows ingress ONLY from the run Pod (nojv.egress=<id>), nothing else", () => {
+    const policy = buildSidecarEgressPolicy({ submissionId: SUB, namespace: NS });
+    // The client serializes the `_from` field to wire `from` (attributeTypeMap baseName).
+    expect(policy.spec!.ingress).toEqual([
+      {
+        _from: [{ podSelector: { matchLabels: { [EGRESS_LABEL_KEY]: runEgressLabel(SUB) } } }],
+      },
+    ]);
+    const json = policyJson(policy);
+    expect(json).not.toContain("0.0.0.0/0");
+    expect(json).not.toContain("ipBlock");
+    expect(json).not.toContain("namespaceSelector");
   });
 });
 
@@ -179,7 +201,9 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), f
     expect(container.securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       capabilities: { drop: ["ALL"] },
+      readOnlyRootFilesystem: true,
     });
+    expect(pod.spec!.volumes!.some((v) => v.name === "tmp" && v.emptyDir)).toBe(true);
   });
 });
 
@@ -196,18 +220,20 @@ describe("buildSidecarServiceManifest — ClusterIP Service pointing at the side
   });
 });
 
-describe("run env injection helpers", () => {
-  it("buildProxyRunEnv points HTTP(S)_PROXY at the sidecar host:port", () => {
-    const env = buildProxyRunEnv("judge-sub-net-1-sidecar", SIDECAR_PORT);
-    expect(env.HTTP_PROXY).toBe("http://judge-sub-net-1-sidecar:8888");
-    expect(env.HTTPS_PROXY).toBe("http://judge-sub-net-1-sidecar:8888");
-    expect(env.http_proxy).toBe("http://judge-sub-net-1-sidecar:8888");
+describe("run env injection helpers — inject the sidecar ClusterIP, never a DNS name", () => {
+  it("buildProxyRunEnv points HTTP(S)_PROXY at the sidecar ClusterIP:port (no DNS in run Pod)", () => {
+    const env = buildProxyRunEnv("10.96.0.42", SIDECAR_PORT);
+    expect(env.HTTP_PROXY).toBe("http://10.96.0.42:8888");
+    expect(env.HTTPS_PROXY).toBe("http://10.96.0.42:8888");
+    expect(env.http_proxy).toBe("http://10.96.0.42:8888");
     expect(env.NO_PROXY).toBe("");
+    expect(env.HTTP_PROXY).not.toContain("sidecar");
   });
 
-  it("buildServiceRunEnv injects NOJV_SERVICE_HOST", () => {
-    const env = buildServiceRunEnv("judge-sub-net-1-sidecar");
-    expect(env.NOJV_SERVICE_HOST).toBe("judge-sub-net-1-sidecar");
+  it("buildServiceRunEnv injects NOJV_SERVICE_HOST as the sidecar ClusterIP", () => {
+    const env = buildServiceRunEnv("10.96.0.42");
+    expect(env.NOJV_SERVICE_HOST).toBe("10.96.0.42");
+    expect(env.NOJV_SERVICE_HOST).not.toContain("sidecar");
   });
 });
 

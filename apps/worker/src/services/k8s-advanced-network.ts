@@ -33,6 +33,7 @@ const PROXY_CONTAINER_SECURITY_CONTEXT = {
 const SERVICE_CONTAINER_SECURITY_CONTEXT = {
   allowPrivilegeEscalation: false,
   capabilities: { drop: ["ALL"] },
+  readOnlyRootFilesystem: true,
   runAsNonRoot: true,
 };
 const SIDECAR_TMP_SIZE_LIMIT = "64Mi";
@@ -196,7 +197,8 @@ export function buildRunEgressPolicy(params: {
       podSelector: {
         matchLabels: { [EGRESS_LABEL_KEY]: runEgressLabel(params.submissionId) },
       },
-      policyTypes: ["Egress"],
+      policyTypes: ["Ingress", "Egress"],
+      ingress: [],
       egress: [
         {
           to: [
@@ -228,7 +230,8 @@ export function buildGradeEgressPolicy(params: {
       podSelector: {
         matchLabels: { [EGRESS_LABEL_KEY]: gradeEgressLabel(params.submissionId) },
       },
-      policyTypes: ["Egress"],
+      policyTypes: ["Ingress", "Egress"],
+      ingress: [],
       egress: [{}],
     },
   };
@@ -250,7 +253,18 @@ export function buildSidecarEgressPolicy(params: {
       podSelector: {
         matchLabels: { [SIDECAR_ROLE_LABEL_KEY]: params.submissionId },
       },
-      policyTypes: ["Egress"],
+      policyTypes: ["Ingress", "Egress"],
+      ingress: [
+        {
+          _from: [
+            {
+              podSelector: {
+                matchLabels: { [EGRESS_LABEL_KEY]: runEgressLabel(params.submissionId) },
+              },
+            },
+          ],
+        },
+      ],
       egress: [{}],
     },
   };

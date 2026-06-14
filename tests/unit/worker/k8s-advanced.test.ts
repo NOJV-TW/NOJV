@@ -115,6 +115,7 @@ interface FakeOpts {
   runNodeName?: string | null;
   transferExitCode?: number | null;
   sidecarReadyMarker?: string | null;
+  serviceClusterIp?: string | null;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
@@ -139,6 +140,9 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     }),
     createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
       record.servicesCreated.push({ name: body.metadata.name, namespace, body });
+      const clusterIP =
+        opts.serviceClusterIp === undefined ? "10.96.0.42" : opts.serviceClusterIp;
+      return { ...body, spec: { ...body.spec, clusterIP } };
     }),
     deleteNamespacedService: vi.fn(async ({ name, namespace }: any) => {
       record.servicesDeleted.push({ name, namespace });
@@ -949,8 +953,9 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const runEnv = Object.fromEntries(
       runJob.body.spec.template.spec.containers[0].env.map((e: any) => [e.name, e.value]),
     );
-    expect(runEnv.HTTP_PROXY).toBe("http://judge-sub-adv-1-sidecar:8888");
-    expect(runEnv.HTTPS_PROXY).toBe("http://judge-sub-adv-1-sidecar:8888");
+    expect(runEnv.HTTP_PROXY).toBe("http://10.96.0.42:8888");
+    expect(runEnv.HTTPS_PROXY).toBe("http://10.96.0.42:8888");
+    expect(runEnv.HTTP_PROXY).not.toContain("sidecar");
     expect(runEnv.NOJV_SERVICE_HOST).toBeUndefined();
 
     expect(record.networkPoliciesCreated.map((p) => p.name).sort()).toEqual([
@@ -981,6 +986,25 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       "judge-sub-adv-1-run-egress",
       "judge-sub-adv-1-sidecar-egress",
     ]);
+  });
+
+  it("mode=allowlist: sidecar Service assigned no ClusterIP → SE + full teardown", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, { sidecarLog, serviceClusterIp: null }),
+    );
+    const result = await executor.execute(
+      makeAdvancedRequest({
+        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
+      }),
+    );
+
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
+    expect(record.podsDeleted.map((p) => p.name)).toContain("judge-sub-adv-1-sidecar");
+    expect(record.servicesDeleted.map((s) => s.name)).toContain("judge-sub-adv-1-sidecar");
   });
 
   it("mode=allowlist: no proxy image configured → SE before any sidecar Pod is created", async () => {
@@ -1026,7 +1050,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const runEnv = Object.fromEntries(
       runJob.body.spec.template.spec.containers[0].env.map((e: any) => [e.name, e.value]),
     );
-    expect(runEnv.NOJV_SERVICE_HOST).toBe("judge-sub-adv-1-sidecar");
+    expect(runEnv.NOJV_SERVICE_HOST).toBe("10.96.0.42");
+    expect(runEnv.NOJV_SERVICE_HOST).not.toContain("sidecar");
     expect(runEnv.HTTP_PROXY).toBeUndefined();
 
     expect(record.networkPoliciesCreated.map((p) => p.name).sort()).toEqual([

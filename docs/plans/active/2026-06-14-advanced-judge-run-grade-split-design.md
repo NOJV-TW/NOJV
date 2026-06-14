@@ -296,14 +296,18 @@ because there is no egress boundary to protect.)
     `nojv.egress=<submission-id>` and gets a per-submission `NetworkPolicy`
     (`buildRunEgressPolicy`) allowing egress **only** to the sidecar Pod
     (`podSelector` on the sidecar's `nojv.sidecar=<submission-id>` label) — no
-    `0.0.0.0/0`, no `ipBlock`, no kube-dns (the run Pod reaches the sidecar by
-    injected IP/name, and DNS for allowlisted hosts is resolved inside the proxy).
-    Both the policy and the label are created and torn down per submission.
+    `0.0.0.0/0`, no `ipBlock`, no kube-dns (the run Pod reaches the sidecar by the
+    injected sidecar **ClusterIP**, and DNS for allowlisted hosts is resolved inside
+    the proxy). Because relabeling drops the deny-all's blanket ingress denial for
+    labeled Pods, this policy ALSO re-asserts `policyTypes: [Ingress, Egress]` with
+    `ingress: []` — the untrusted student run Pod is never a server. Both the policy
+    and the label are created and torn down per submission.
   - **Grade Pod full network in all modes (5A divergence fixed).** The grade
     container is trusted (no student code), so it gets full network like the Docker
     backend. The grade Pod is labeled `nojv.egress=<submission-id>-grade` (a
     distinct label from the run Pod, escaping deny-all) and gets a per-submission
-    `NetworkPolicy` (`buildGradeEgressPolicy`) with a single open egress rule. This
+    `NetworkPolicy` (`buildGradeEgressPolicy`) with a single open egress rule plus
+    `ingress: []` (full egress, no inbound — grade is not a server either). This
     grade policy is emitted for **every** mode including `none` (5A left grade under
     deny-all; 5B fixes it to match Docker + design).
   - **Sidecar workload + readiness.** The sidecar runs as a per-submission Pod
@@ -311,17 +315,23 @@ because there is no egress boundary to protect.)
     allowlist, or `buildServiceSidecarPodManifest` with the TA `advanced.network.service`
     registry image for service — tarball service images are refused on K8s, same as
     run/grade). It is exposed by a per-submission ClusterIP Service
-    (`buildSidecarServiceManifest`) and gets its own full-egress `NetworkPolicy`
-    (`buildSidecarEgressPolicy`) so it can reach the allowlisted/TA hosts. The run
-    container's `HTTP_PROXY`/`HTTPS_PROXY` (allowlist) or `NOJV_SERVICE_HOST`
-    (service) is injected by the **Service ClusterIP DNS name** (no DNS needed in the
-    run Pod's netns — the Service name resolves via the cluster, but the run Pod only
-    has a route to the sidecar Pod IP that the Service fronts). The run Job is created
-    **after** the worker polls the sidecar Pod's logs for the ready marker
-    (`NOJV_PROXY_READY` / `NOJV_SERVICE_READY`) — K8s has no Job→Job ordering
-    primitive. Proxy not ready in time → SE + teardown (the allowlist boundary must
-    hold). Service marker missing → proceed anyway (best-effort; the TA run harness
-    retries), no SE.
+    (`buildSidecarServiceManifest`) and gets its own `NetworkPolicy`
+    (`buildSidecarEgressPolicy`): full egress (reach the allowlisted/TA hosts) +
+    ingress **only** from the run Pod (`from: podSelector nojv.egress=<id>`), so the
+    sidecar accepts connections from nothing but its own run Pod. The run container's
+    `HTTP_PROXY`/`HTTPS_PROXY` (allowlist) or `NOJV_SERVICE_HOST` (service) is
+    injected by the sidecar Service's **ClusterIP** (an IP literal, NOT a DNS name) —
+    the worker reads `.spec.clusterIP` back from the Service create response (it is
+    assigned synchronously) and injects that. This keeps the **no-DNS-in-the-run-Pod**
+    invariant: the run Pod's policy permits no kube-dns, so a Service NAME would never
+    resolve; the ClusterIP is DNAT'd by kube-proxy to the sidecar Pod IP, which the
+    run policy's `podSelector` egress permits. (Mirrors the Docker path, which injects
+    the proxy container's `net_internal` IP via `inspectContainerNetworkIp`, never a
+    name.) The run Job is created **after** the worker polls the sidecar Pod's logs for
+    the ready marker (`NOJV_PROXY_READY` / `NOJV_SERVICE_READY`) — K8s has no Job→Job
+    ordering primitive. Proxy not ready in time (or the Service got no ClusterIP) → SE
+    - teardown (the allowlist boundary must hold). Service marker missing → proceed
+      anyway (best-effort; the TA run harness retries), no SE.
   - **Cross-Pod `/output` transfer via a per-submission PVC (Phase 5A, shipped).**
     The earlier pod-logs streaming idea is **superseded**: run output moves over a
     per-submission **`ReadWriteOnce` PVC**, giving lossless binary round-trip with
@@ -348,10 +358,21 @@ because there is no egress boundary to protect.)
     per-submission NetworkPolicies alongside 5A's PVC/Jobs/ConfigMaps) is the
     heaviest new piece in the K8s executor. The worker is granted
     `pods`/`services`/`networkpolicies` create+delete in
-    `infra/gcp/gke/worker-rbac.yaml`. **Real-cluster egress allow/deny, proxy
-    enforcement, service reachability, and "run can't reach the internet except via
-    the sidecar" are verified in Phase 8 OrbStack smoke**; ci:verify covers only the
-    pure manifest/policy builders.
+    `infra/gcp/gke/worker-rbac.yaml`.
+  - **CNI ENFORCEMENT IS A HARD DEPENDENCY.** Every NetworkPolicy here is a
+    **no-op** unless the cluster's CNI actually enforces NetworkPolicy — GKE
+    **Dataplane V2** (Cilium), Calico, or Cilium. The default kindnet/flannel and
+    some managed defaults install the API objects but enforce nothing, so the run
+    Pod would silently reach the whole internet while every policy "exists". A
+    non-enforcing CNI passes the happy-path AC test while leaving the egress
+    boundary wide open. **Phase 8 OrbStack smoke must therefore affirmatively verify
+    egress is BLOCKED** — assert the run Pod CANNOT reach a non-allowlisted host
+    (expect a connection failure / proxy 403), not merely that an allowlisted call
+    succeeds or that AC is achieved. (Confirm the OrbStack k8s CNI enforces
+    NetworkPolicy before trusting a green smoke run.)
+  - **Real-cluster egress allow/deny, proxy enforcement, service reachability, and
+    "run can't reach the internet except via the sidecar" are verified in Phase 8
+    OrbStack smoke**; ci:verify covers only the pure manifest/policy builders.
 
 ## Binary I/O
 
