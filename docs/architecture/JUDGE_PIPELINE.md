@@ -370,7 +370,7 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
 - Temporal judge activity — `apps/worker/src/activities/judge.ts`
-- Judge context builder — `packages/application/src/submission/judge-context.ts`
+- Judge context builder (`getJudgeContext` / `parseAdvancedConfig`) — `packages/application/src/submission/queries.ts`
 - Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/application/src/submission/scoring.ts`
 - Score adjustments — `packages/application/src/submission/adjustments.ts`
 - `judgeConfigSchema` — `packages/core/src/schemas/judge-config.ts`
