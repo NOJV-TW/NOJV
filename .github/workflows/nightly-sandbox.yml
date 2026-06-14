@@ -46,12 +46,17 @@ jobs:
       - name: Build sandbox image
         run: pnpm sandbox:build
 
+      - name: Build advanced run/grade demo images
+        run: pnpm demo-advanced:build
+
       - name: Sandbox executor + isolation unit tests
         run: pnpm vitest run tests/unit/worker
 
-      - name: Adversarial isolation suite (real sandbox image, must not skip)
+      - name: Adversarial isolation + seed smoke suite (real images, must not skip)
         env:
           REQUIRE_SANDBOX_IMAGE: "1"
+          REQUIRE_ADVANCED_DEMO_IMAGES: "1"
+          REQUIRE_SEED_SMOKE: "1"
         run: pnpm vitest run tests/integration/judge
 
       - name: Isolation — sandbox process runs as non-root (uid 10001)

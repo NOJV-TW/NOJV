@@ -83,7 +83,7 @@ function toSamplesJson(
   }));
 }
 
-type SeedProblemDef = {
+export type SeedProblemDef = {
   authorId: string;
   title: string;
   id: string;
@@ -187,16 +187,8 @@ async function persistJudgeConfig(
   return rest;
 }
 
-export async function seedProblems(
-  prisma: PrismaClient,
-  teacherId: string,
-  storageOverride?: SeedStorageClient,
-) {
-  const storage = (storageOverride ?? createStorageClient()) as ReturnType<
-    typeof createStorageClient
-  >;
-
-  const problemDefs: SeedProblemDef[] = [
+export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
+  return [
     {
       authorId: teacherId,
       title: "Warmup Sum",
@@ -1246,6 +1238,18 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       },
     },
   ];
+}
+
+export async function seedProblems(
+  prisma: PrismaClient,
+  teacherId: string,
+  storageOverride?: SeedStorageClient,
+) {
+  const storage = (storageOverride ?? createStorageClient()) as ReturnType<
+    typeof createStorageClient
+  >;
+
+  const problemDefs = buildSeedProblemDefs(teacherId);
 
   validateProblemDefinitions(problemDefs);
 
