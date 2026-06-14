@@ -14,7 +14,12 @@ const require = createRequire(import.meta.url);
 
 const NAMESPACE = "nojv-sandbox";
 const SANDBOX_IMAGE = "nojv-sandbox:local";
-const DEMO_JUDGE_IMAGE = "nojv-demo-judge-shell:local";
+const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
+const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
+const EGRESS_PROXY_IMAGE = "nojv-egress-proxy:local";
+
+const SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a + b)\n";
+const WRONG_SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a - b)\n";
 
 const EXECUTOR_CONFIG: K8sExecutorConfig = {
   namespace: NAMESPACE,
@@ -23,6 +28,7 @@ const EXECUTOR_CONFIG: K8sExecutorConfig = {
   cpuLimit: "500m",
   memoryRequest: "128Mi",
   memoryLimit: "256Mi",
+  egressProxyImage: EGRESS_PROXY_IMAGE,
 };
 
 const STANDARD_TIMEOUT_MS = 180_000;
@@ -222,10 +228,10 @@ beforeAll(async () => {
     const kc = new k8sLib.KubeConfig();
     kc.loadFromDefault();
     const ctx = kc.getCurrentContext();
-    if (ctx !== "k3d-nojv-judge") {
+    if (ctx !== "orbstack" && ctx !== "k3d-nojv-judge") {
       // eslint-disable-next-line no-console
       console.warn(
-        `[k8s-judge-integration] current context is "${ctx}", expected "k3d-nojv-judge"`,
+        `[k8s-judge-integration] current context is "${ctx}", expected "orbstack" or "k3d-nojv-judge"`,
       );
     }
     const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
@@ -284,6 +290,12 @@ function skipIfUnreachable(ctx: { skip: () => void }): boolean {
 function makeExecutor(): K8sExecutor {
   if (!clients) throw new Error("clients not initialised — beforeAll must have skipped");
   return new K8sExecutor(EXECUTOR_CONFIG, clients);
+}
+
+function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
+  const pod = pods.find((p) => p.metadata?.name === name);
+  if (!pod) return false;
+  return pod.metadata?.deletionTimestamp == null;
 }
 
 describe("K8s judge — standard mode", () => {
@@ -356,6 +368,48 @@ print("".join(chunks))
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).not.toBe("AC");
+      }
+    },
+  );
+
+  it(
+    "AC: multi_file solution (main.py imports lib.py)",
+    { timeout: STANDARD_TIMEOUT_MS },
+    async (ctx) => {
+      if (skipIfUnreachable(ctx)) return;
+
+      const submissionId = `k8s-std-multifile-${Date.now()}`;
+      trackSubmission(submissionId);
+
+      const request: SandboxRequest = {
+        submissionId,
+        sourceCode: "",
+        sourceFiles: [
+          {
+            path: "main.py",
+            content:
+              "from lib import add\na, b = map(int, input().split())\nprint(add(a, b))\n",
+          },
+          { path: "lib.py", content: "def add(a, b):\n    return a + b\n" },
+        ],
+        language: "python",
+        problemType: "multi_file",
+        entryFile: "main.py",
+        testcases: [
+          { index: 0, input: "1 2\n", output: "3\n", weight: 1, isSample: false },
+          { index: 1, input: "10 20\n", output: "30\n", weight: 1, isSample: false },
+        ],
+        judgeType: "standard",
+        judgeConfig: {},
+        limits: { timeoutMs: 5_000, memoryMb: 128 },
+      };
+
+      const result = await makeExecutor().execute(request);
+      expect(result.compilationError).toBeUndefined();
+      expect(result.pipelineError).toBeUndefined();
+      expect(result.testcaseResults.length).toBe(2);
+      for (const tc of result.testcaseResults) {
+        expect(tc.verdict).toBe("AC");
       }
     },
   );
@@ -586,9 +640,36 @@ for _ in range(20):
   );
 });
 
+type AdvancedNetwork = NonNullable<SandboxRequest["advanced"]>["network"];
+
+function advancedRequest(
+  submissionId: string,
+  mainPy: string,
+  network: AdvancedNetwork,
+): SandboxRequest {
+  return {
+    submissionId,
+    sourceCode: "",
+    sourceFiles: [{ path: "main.py", content: mainPy }],
+    language: "python",
+    problemType: "full_source",
+    testcases: [],
+    judgeType: "standard",
+    judgeConfig: {},
+    limits: { timeoutMs: 30_000, memoryMb: 256 },
+    advanced: {
+      run: { imageRef: DEMO_RUN_IMAGE, imageSource: "registry" },
+      grade: { imageRef: DEMO_GRADE_IMAGE, imageSource: "registry" },
+      network,
+      totalTimeMs: 60_000,
+      memoryMb: 256,
+    },
+  };
+}
+
 describe("K8s judge — advanced mode", () => {
   it(
-    "AC: demo grader (nojv-demo-judge-shell:local) runs and result.json flows back",
+    "AC: correct sum solution through run+grade split (network none)",
     { timeout: ADVANCED_TIMEOUT_MS },
     async (ctx) => {
       if (skipIfUnreachable(ctx)) return;
@@ -596,26 +677,9 @@ describe("K8s judge — advanced mode", () => {
       const submissionId = `k8s-adv-correct-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const request: SandboxRequest = {
-        submissionId,
-        sourceCode: "",
-        sourceFiles: [{ path: "main.sh", content: "echo hello world\n" }],
-        language: "python",
-        problemType: "full_source",
-        testcases: [],
-        judgeType: "standard",
-        judgeConfig: {},
-        limits: { timeoutMs: 30_000, memoryMb: 256 },
-        advanced: {
-          run: { imageRef: DEMO_JUDGE_IMAGE, imageSource: "registry" },
-          grade: { imageRef: DEMO_JUDGE_IMAGE, imageSource: "registry" },
-          network: { mode: "none" },
-          totalTimeMs: 60_000,
-          memoryMb: 256,
-        },
-      };
-
-      const result = await makeExecutor().execute(request);
+      const result = await makeExecutor().execute(
+        advancedRequest(submissionId, SUM_SOLUTION, { mode: "none" }),
+      );
       expect(result.compilationError).toBeUndefined();
       expect(result.pipelineError).toBeUndefined();
       expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
@@ -625,7 +689,7 @@ describe("K8s judge — advanced mode", () => {
   );
 
   it(
-    "WA: demo grader on a non-matching script → wrong_answer flows back",
+    "WA: wrong sum solution through run+grade split (network none)",
     { timeout: ADVANCED_TIMEOUT_MS },
     async (ctx) => {
       if (skipIfUnreachable(ctx)) return;
@@ -633,32 +697,89 @@ describe("K8s judge — advanced mode", () => {
       const submissionId = `k8s-adv-wrong-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const request: SandboxRequest = {
-        submissionId,
-        sourceCode: "",
-        sourceFiles: [{ path: "main.sh", content: "echo goodbye\n" }],
-        language: "python",
-        problemType: "full_source",
-        testcases: [],
-        judgeType: "standard",
-        judgeConfig: {},
-        limits: { timeoutMs: 30_000, memoryMb: 256 },
-        advanced: {
-          run: { imageRef: DEMO_JUDGE_IMAGE, imageSource: "registry" },
-          grade: { imageRef: DEMO_JUDGE_IMAGE, imageSource: "registry" },
-          network: { mode: "none" },
-          totalTimeMs: 60_000,
-          memoryMb: 256,
-        },
-      };
-
-      const result = await makeExecutor().execute(request);
+      const result = await makeExecutor().execute(
+        advancedRequest(submissionId, WRONG_SUM_SOLUTION, { mode: "none" }),
+      );
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("WA");
       }
       expect(result.customScore).toBe(0);
+    },
+  );
+
+  it(
+    "AC: allowlist network mode wires egress proxy sidecar + still judges",
+    { timeout: ADVANCED_TIMEOUT_MS },
+    async (ctx) => {
+      if (skipIfUnreachable(ctx)) return;
+      if (!clients) return;
+
+      const submissionId = `k8s-adv-allowlist-${Date.now()}`;
+      const base = `judge-${submissionId}`;
+      trackSubmission(submissionId, { advanced: true });
+
+      const result = await makeExecutor().execute(
+        advancedRequest(submissionId, SUM_SOLUTION, {
+          mode: "allowlist",
+          allowlist: ["example.com:443"],
+        }),
+      );
+
+      expect(result.compilationError).toBeUndefined();
+      expect(result.pipelineError).toBeUndefined();
+      expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
+      expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
+      expect(result.customScore).toBe(100);
+
+      const npAfter = await clients.networkingApi
+        .listNamespacedNetworkPolicy({ namespace: NAMESPACE })
+        .catch(() => ({ items: [] }));
+      const npNames = new Set((npAfter.items ?? []).map((p) => p.metadata?.name));
+      expect(npNames.has(`${base}-run-egress`)).toBe(false);
+      expect(npNames.has(`${base}-sidecar-egress`)).toBe(false);
+      const podsAfter = await clients.coreApi
+        .listNamespacedPod({ namespace: NAMESPACE })
+        .catch(() => ({ items: [] }));
+      expect(sidecarLeaked(podsAfter.items ?? [], `${base}-sidecar`)).toBe(false);
+    },
+  );
+
+  it(
+    "AC: service network mode wires service sidecar Pod/Service + still judges",
+    { timeout: ADVANCED_TIMEOUT_MS },
+    async (ctx) => {
+      if (skipIfUnreachable(ctx)) return;
+      if (!clients) return;
+
+      const submissionId = `k8s-adv-service-${Date.now()}`;
+      const base = `judge-${submissionId}`;
+      trackSubmission(submissionId, { advanced: true });
+
+      const result = await makeExecutor().execute(
+        advancedRequest(submissionId, SUM_SOLUTION, {
+          mode: "service",
+          service: { imageRef: DEMO_RUN_IMAGE, imageSource: "registry" },
+        }),
+      );
+
+      expect(result.compilationError).toBeUndefined();
+      expect(result.pipelineError).toBeUndefined();
+      expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
+      expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
+      expect(result.customScore).toBe(100);
+
+      const svcAfter = await clients.coreApi
+        .listNamespacedService({ namespace: NAMESPACE })
+        .catch(() => ({ items: [] }));
+      expect((svcAfter.items ?? []).some((s) => s.metadata?.name === `${base}-sidecar`)).toBe(
+        false,
+      );
+      const podsAfter = await clients.coreApi
+        .listNamespacedPod({ namespace: NAMESPACE })
+        .catch(() => ({ items: [] }));
+      expect(sidecarLeaked(podsAfter.items ?? [], `${base}-sidecar`)).toBe(false);
     },
   );
 
