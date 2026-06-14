@@ -1,6 +1,6 @@
 # Advanced Judge: Run/Grade Split + Controlled Egress + Binary I/O
 
-**Status:** Design (validated in brainstorming 2026-06-14, pending adversarial review)
+**Status:** Landed (Phases 0–7 shipped on `feat/advanced-judge-run-grade-split`; `docs/architecture/JUDGE_PIPELINE.md` is the landed-code reference, this doc is the rationale. Phase 8 real-machine smoke is the runbook below.)
 **Scope:** Redesign Advanced Mode (`special_env`) judging
 **Pre-production:** Not yet launched — no data migration burden; existing demo `special_env` problems are rewritten, the legacy single-image path is removed outright.
 
@@ -573,6 +573,55 @@ New/changed code (to be detailed in the implementation plan):
   allowlist by unsetting `HTTP_PROXY` / hard-coding a public IP (no route), ⑥
   exhaust resources via a million-file or special-file `/output` (watchdog +
   count cap → SE). Plus binary I/O round-trip (image in → image out → graded).
+
+### Adversarial security test index (landed)
+
+Each adversarial property below is proven by a landed unit test. Paths are repo-relative.
+
+| Property                                                                                                                                                                                                                                                                           | Verified by                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Symlink answer-leak gate** — `output/x → /answers/secret` (absolute) + `→ ../escape` (relative) dropped, real file kept; FIFO/special files skipped without hanging                                                                                                              | `tests/unit/worker/advanced-mode-executor.test.ts` → "safeCopyTree (/output capture security gate)" (drops symlinks, skips FIFO)                                                              |
+| **K8s cross-gate parity** — the K8s `transfer` embedded gate sanitizes byte-identically to the Docker `safeCopyTree` (drops the same secret symlink, rejects the same at-cap fixture)                                                                                              | `tests/unit/worker/k8s-advanced.test.ts` → "cross-gate parity: Docker safeCopyTree and the K8s embedded gate sanitize identically" + "the safe-copy gate executed against a real tree"        |
+| **Resource-exhaustion caps** — file-count / byte caps → `SafeCopyLimitError` (→ SE); watchdog counts files as well as bytes                                                                                                                                                        | `tests/unit/worker/advanced-mode-executor.test.ts` → "throws SafeCopyLimitError when…", "dirStats + exceedsWorkspaceCaps"; `k8s-advanced.test.ts` → "throws (→ SE) when the …cap is exceeded" |
+| **Allowlist matcher fail-closed** — host/port exact match, default 80/443 only on bare host, denies unlisted host/port, empty allowlist denies all, IPv6 / malformed-port fail closed                                                                                              | `tests/unit/infra/egress-proxy-matcher.test.ts` (`matchesAllowlist` / `parseAllowlist`)                                                                                                       |
+| **Run single-homed / egress only to sidecar (Docker)** — allowlist run args attach **only** `net_internal`, inject `HTTP_PROXY` by IP; `none` mode carries no proxy env                                                                                                            | `tests/unit/worker/advanced-mode-executor.test.ts` → "allowlist network mode (Phase 3 run-container egress)"                                                                                  |
+| **Run egress restricted to the sidecar (K8s)** — `buildRunEgressPolicy` allows egress **only** to the sidecar label selector (no `0.0.0.0/0` / `ipBlock` / empty rule), denies all ingress; sidecar ingress only from the run Pod; run env injects the ClusterIP, never a DNS name | `tests/unit/worker/k8s-advanced-network.test.ts` (`buildRunEgressPolicy`, `buildSidecarEgressPolicy`, run-env injection helpers)                                                              |
+| **Deny-all relabel covers every other Pod** — the deny-all NetworkPolicy uses `nojv.egress DoesNotExist`, so every plain sandbox Pod stays denied while run/grade builders emit the escape label                                                                                   | `tests/unit/infra/network-policy-parity.test.ts` + `tests/unit/worker/k8s-advanced-network.test.ts` → "deny-all relabel — manifest YAML excludes nojv.egress-labeled pods"                    |
+| **Grade Pod escapes deny-all with full network (all modes)** — distinct `nojv.egress=<id>-grade` label + open egress rule, ingress denied                                                                                                                                          | `tests/unit/worker/k8s-advanced-network.test.ts` (`buildGradeEgressPolicy`); `k8s-advanced.test.ts` → "mode=none: grade Pod STILL escapes deny-all"                                           |
+| **Transfer-capture-failure → SE (K8s)** — transfer sidecar non-zero exit / never-terminated → SE, grade never created                                                                                                                                                              | `tests/unit/worker/k8s-advanced.test.ts` → "transfer sidecar exited non-zero (cap/IO capture failure) → SE", "transfer sidecar never terminated cleanly → SE"                                 |
+| **Tarball-source refused on K8s → SE** — no PVC/Job/ConfigMap created                                                                                                                                                                                                              | `tests/unit/worker/k8s-advanced.test.ts` → "tarball-source on K8s returns SE; creates no PVC / Job / ConfigMap"                                                                               |
+
+**Honestly NOT in `ci:verify`** — these properties hold only under real-machine [Phase 8 smoke](#phase-8-smoke-verification-runbook), because the unit tests assert the **manifest/argument shape**, not runtime behavior:
+
+- **Actual egress blocking.** The K8s NetworkPolicies are no-ops on a non-enforcing CNI (see "CNI ENFORCEMENT IS A HARD DEPENDENCY"). The unit tests prove the policies are _shaped_ right; only the smoke proves a run Pod **cannot** reach a non-allowlisted host.
+- **Real proxy enforcement.** `matchesAllowlist` is unit-tested, but that the live `egress-proxy` actually `403`s a non-allowlisted CONNECT and tunnels an allowlisted one (no TLS interception) is smoke-only.
+- **PVC binding + single-node grade pinning.** That the RWO PVC actually binds and the grade Pod schedules on the run Pod's node is smoke-only.
+- **Docker single-homing / `--internal` no-route.** That run on `net_internal` genuinely has no internet route (even with `HTTP_PROXY` unset / a hard-coded public IP) is smoke-only.
+
+## Phase 8 smoke verification runbook
+
+These are the manual real-machine checks `ci:verify` cannot cover (lesson: sandbox docker-arg / CNI bugs only surface on real judging runs). Record results in the PR.
+
+### Docker (local)
+
+Build a dual-image (`run` + `grade`) problem per network mode and judge end-to-end:
+
+1. **`none`** — offline judging: submit a correct solution → **AC**; submit a wrong one → **WA** (verdict comes from the grade harness, not the worker).
+2. **`allowlist`** — a problem whose run harness calls a public API:
+   - allowlisted host reachable (`HTTP_PROXY` injected by IP) → expected verdict;
+   - a **non-allowlisted** host → proxy `403` (surfaces to the student as a connection error, **not** SE);
+   - student **unsets `HTTP_PROXY`** (or hard-codes a public IP) → still blocked (no internet route on `net_internal`).
+3. **`service`** — student talks to the TA `service` container at `NOJV_SERVICE_HOST=host:8888` → expected verdict; confirm the service Pod is reachable from run but run still has no other egress.
+4. **Answer-isolation attack** — a submission that tries to `cat /answers/*` or writes `output/leak -> /answers/secret` (symlink) → the answers must **NOT** appear in the grade input and the verdict must not leak them (the run container has no answers; `safeCopyTree` drops the symlink).
+5. **Binary I/O round-trip** — an image-in → image-out problem graded by the grade harness (Pillow/etc.) → bytes survive intact.
+
+### Kubernetes (OrbStack)
+
+Per the repo's k8s setup (`orbctl start k8s`, label/taint the node `nojv-role=sandbox`). **First confirm the OrbStack CNI enforces NetworkPolicy** — otherwise a green run is meaningless. Repeat the Docker checks (1–5), AND additionally:
+
+6. **Affirmatively assert egress is BLOCKED.** A non-NetworkPolicy-enforcing CNI silently passes the happy path, so AC alone is **not** sufficient evidence. Explicitly verify the run Pod **cannot** reach a non-allowlisted host (expect a connection failure / proxy `403`), and that with `mode=none` the run Pod has no egress at all.
+7. **Transfer cap-exceeded → SE.** A run that writes a `/output` exceeding the file/byte cap → the `transfer` sidecar exits non-zero → submission **SE**, grade Job never created.
+8. **Max-output-within-grace.** A run producing the largest in-cap output still transfers over the PVC and grades correctly (no truncation, binary intact, grade Pod pinned to the run Pod's node).
 
 ## Rejected: docker-compose as the contract
 
