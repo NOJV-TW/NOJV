@@ -1,10 +1,15 @@
 import type * as k8s from "@kubernetes/client-node";
 import type { SandboxRequest } from "@nojv/core";
 
-import type { RunStatus } from "./advanced-mode-executor";
+import {
+  ADVANCED_OUTPUT_MAX_FILES,
+  ADVANCED_WORKSPACE_MAX_BYTES,
+  type RunStatus,
+} from "./advanced-mode-executor";
 import { resolveSourceFiles } from "./source-files.js";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
+const RUN_POD_TERMINATION_GRACE_SECONDS = 120;
 
 export const ADVANCED_INIT_NAME = "prep";
 export const ADVANCED_RUN_NAME = "run";
@@ -16,9 +21,6 @@ export const ADVANCED_RESULT_MARKER_END = "<<<END>>>";
 
 export const ADVANCED_PVC_MOUNT_PATH = "/run-output";
 export const ADVANCED_GRADE_RUN_OUTPUT_PATH = "/workspace/run-output";
-
-export const ADVANCED_OUTPUT_MAX_FILES = 100_000;
-export const ADVANCED_OUTPUT_MAX_BYTES = 1024 * 1024 * 1024;
 
 const ADVANCED_WORKSPACE_SIZE_LIMIT = "1Gi";
 const ADVANCED_TMP_SIZE_LIMIT = "64Mi";
@@ -119,7 +121,7 @@ export function buildAdvancedTransferScript(): string {
 export function buildAdvancedTransferWaitScript(): string {
   return `set -u
 copy() {
-  NOJV_TRANSFER_DEST=${ADVANCED_PVC_MOUNT_PATH} NOJV_TRANSFER_MAX_FILES=${String(ADVANCED_OUTPUT_MAX_FILES)} NOJV_TRANSFER_MAX_BYTES=${String(ADVANCED_OUTPUT_MAX_BYTES)} node -e '${SAFE_COPY_GATE_JS}'
+  NOJV_TRANSFER_DEST=${ADVANCED_PVC_MOUNT_PATH} NOJV_TRANSFER_MAX_FILES=${String(ADVANCED_OUTPUT_MAX_FILES)} NOJV_TRANSFER_MAX_BYTES=${String(ADVANCED_WORKSPACE_MAX_BYTES)} node -e '${SAFE_COPY_GATE_JS}'
   exit $?
 }
 trap copy TERM INT
@@ -249,6 +251,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          terminationGracePeriodSeconds: RUN_POD_TERMINATION_GRACE_SECONDS,
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: RUN_POD_SECURITY_CONTEXT,
@@ -391,14 +394,7 @@ chmod 0777 /workspace/output
                   "ephemeral-storage": ADVANCED_WORKSPACE_SIZE_LIMIT,
                 },
               },
-              securityContext: {
-                allowPrivilegeEscalation: false,
-                capabilities: { drop: ["ALL"] },
-                readOnlyRootFilesystem: true,
-                runAsNonRoot: true,
-                runAsUser: 10001,
-                runAsGroup: 10001,
-              },
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               volumeMounts: [
                 sharedWorkspaceMount,
                 {

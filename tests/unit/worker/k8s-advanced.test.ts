@@ -1,10 +1,23 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, readdirSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 import type { SandboxRequest } from "@nojv/core";
 import { describe, expect, it, vi } from "vitest";
+
+import {
+  ADVANCED_OUTPUT_MAX_FILES,
+  ADVANCED_WORKSPACE_MAX_BYTES,
+  safeCopyTree,
+} from "../../../apps/worker/src/services/advanced-mode-executor";
 
 import {
   ADVANCED_RESULT_MARKER_BEGIN,
@@ -83,8 +96,10 @@ interface FakeOpts {
   sidecarLog?: string;
   jobOutcome?: "succeeded" | "failed";
   failJob?: string;
+  deadlineExceededJob?: string;
   throwOnJobCreate?: boolean;
   runNodeName?: string | null;
+  transferExitCode?: number | null;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
@@ -104,8 +119,22 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
       const jobName = String(labelSelector).split("=")[1];
       const nodeName = opts.runNodeName === undefined ? "node-a" : opts.runNodeName;
+      const transferExitCode = opts.transferExitCode === undefined ? 0 : opts.transferExitCode;
+      const isRunPod = String(jobName).endsWith("-run");
+      const initContainerStatuses =
+        isRunPod && transferExitCode !== null
+          ? [{ name: "transfer", state: { terminated: { exitCode: transferExitCode } } }]
+          : isRunPod
+            ? [{ name: "transfer", state: { running: {} } }]
+            : undefined;
       return {
-        items: [{ metadata: { name: `${jobName}-pod` }, spec: { nodeName } }],
+        items: [
+          {
+            metadata: { name: `${jobName}-pod` },
+            spec: { nodeName },
+            status: { initContainerStatuses },
+          },
+        ],
       };
     }),
     readNamespacedPodLog: vi.fn(async ({ name, namespace, container }: any) => {
@@ -123,9 +152,15 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       record.jobsDeleted.push({ name, namespace });
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
-      const outcome =
-        opts.failJob && name === opts.failJob ? "failed" : (opts.jobOutcome ?? "succeeded");
-      return { status: { [outcome]: 1 } };
+      const failed =
+        (opts.failJob && name === opts.failJob) ||
+        (opts.deadlineExceededJob && name === opts.deadlineExceededJob);
+      const outcome = failed ? "failed" : (opts.jobOutcome ?? "succeeded");
+      const conditions =
+        opts.deadlineExceededJob && name === opts.deadlineExceededJob
+          ? [{ type: "Failed", reason: "DeadlineExceeded" }]
+          : undefined;
+      return { status: { [outcome]: 1, conditions } };
     }),
   } as any;
 
@@ -356,6 +391,99 @@ describe("safe-copy gate executed against a real tree (binary-safe, drops symlin
     mkdirSync(src, { recursive: true });
     writeFileSync(join(src, "big"), "x".repeat(100));
     expect(() => runGate(src, dest, { NOJV_TRANSFER_MAX_BYTES: "10" })).toThrow();
+  });
+});
+
+function snapshotTree(dir: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const walk = (current: string): void => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const full = join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile()) {
+        out[relative(dir, full)] = readFileSync(full).toString("base64");
+      }
+    }
+  };
+  walk(dir);
+  return out;
+}
+
+function buildAdversarialFixture(root: string): string {
+  const src = join(root, "output");
+  const secret = join(root, "answers");
+  mkdirSync(join(src, "nested", "deep"), { recursive: true });
+  mkdirSync(secret, { recursive: true });
+  writeFileSync(join(secret, "key.txt"), "TOP-SECRET-ANSWER");
+  writeFileSync(join(src, "img.bin"), Buffer.from([0x00, 0xff, 0x10, 0x80, 0x00, 0x7f]));
+  writeFileSync(join(src, "nested", "note.txt"), "plain text");
+  writeFileSync(join(src, "nested", "deep", "leaf.dat"), Buffer.from([0x01, 0x02, 0x03]));
+  symlinkSync(join(secret, "key.txt"), join(src, "abs-leak"));
+  symlinkSync("../escape", join(src, "rel-leak"));
+  try {
+    execFileSync("mkfifo", [join(src, "pipe")]);
+  } catch {}
+  return src;
+}
+
+describe("cross-gate parity: Docker safeCopyTree and the K8s embedded gate sanitize identically", () => {
+  it("produces byte-identical sanitized trees from the same adversarial fixture", async () => {
+    const root = mkdtempSync(join(tmpdir(), "nojv-gate-parity-"));
+    const src = buildAdversarialFixture(root);
+
+    const dockerDest = join(root, "docker-dest");
+    await safeCopyTree(src, dockerDest, {
+      maxFiles: ADVANCED_OUTPUT_MAX_FILES,
+      maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+    });
+
+    const k8sDest = join(root, "k8s-dest");
+    execFileSync(process.execPath, ["-e", buildAdvancedTransferScript()], {
+      env: {
+        ...process.env,
+        NOJV_TRANSFER_SRC: src,
+        NOJV_TRANSFER_DEST: k8sDest,
+        NOJV_TRANSFER_MAX_FILES: String(ADVANCED_OUTPUT_MAX_FILES),
+        NOJV_TRANSFER_MAX_BYTES: String(ADVANCED_WORKSPACE_MAX_BYTES),
+      },
+    });
+
+    const dockerSnap = snapshotTree(dockerDest);
+    const k8sSnap = snapshotTree(k8sDest);
+
+    expect(k8sSnap).toEqual(dockerSnap);
+    expect(Object.keys(dockerSnap).sort()).toEqual([
+      "img.bin",
+      join("nested", "deep", "leaf.dat"),
+      join("nested", "note.txt"),
+    ]);
+    expect(Object.keys(dockerSnap).some((k) => k.includes("leak"))).toBe(false);
+    expect(Object.keys(dockerSnap).some((k) => k.includes("pipe"))).toBe(false);
+  });
+
+  it("both gates reject the same at-cap fixture", async () => {
+    const root = mkdtempSync(join(tmpdir(), "nojv-gate-parity-cap-"));
+    const src = join(root, "output");
+    mkdirSync(src, { recursive: true });
+    writeFileSync(join(src, "a"), "1");
+    writeFileSync(join(src, "b"), "2");
+
+    await expect(
+      safeCopyTree(src, join(root, "docker-dest"), { maxFiles: 1, maxBytes: 1_000_000 }),
+    ).rejects.toThrow();
+
+    expect(() =>
+      execFileSync(process.execPath, ["-e", buildAdvancedTransferScript()], {
+        env: {
+          ...process.env,
+          NOJV_TRANSFER_SRC: src,
+          NOJV_TRANSFER_DEST: join(root, "k8s-dest"),
+          NOJV_TRANSFER_MAX_FILES: "1",
+          NOJV_TRANSFER_MAX_BYTES: "1000000",
+        },
+      }),
+    ).toThrow();
   });
 });
 
@@ -622,6 +750,61 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     expect(record.jobsCreated.map((j) => j.name)).toEqual(["judge-sub-adv-1-run"]);
     expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
+  });
+
+  it("transfer sidecar exited non-zero (cap/IO capture failure) → SE, grade never created", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, { sidecarLog, transferExitCode: 1 }),
+    );
+    const result = await executor.execute(makeAdvancedRequest());
+
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
+    expect(message).toMatch(/capture failed/i);
+    expect(record.jobsCreated.map((j) => j.name)).toEqual(["judge-sub-adv-1-run"]);
+    expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
+    expect(record.pvcsDeleted).toHaveLength(1);
+  });
+
+  it("transfer sidecar never terminated cleanly (no terminated state) → SE", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, { sidecarLog, transferExitCode: null }),
+    );
+    const result = await executor.execute(makeAdvancedRequest());
+
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
+  });
+
+  it("deadline-exceeded run still proceeds to grade even though transfer didn't terminate cleanly", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 0, verdict: "time_limit_exceeded" });
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, {
+        sidecarLog,
+        failJob: "judge-sub-adv-1-run",
+        deadlineExceededJob: "judge-sub-adv-1-run",
+        transferExitCode: null,
+      }),
+    );
+    const result = await executor.execute(makeAdvancedRequest());
+
+    expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-grade");
+    const gradeCm = record.configMapsCreated.find(
+      (c) => c.name === "judge-sub-adv-1-grade-input",
+    )!;
+    expect(JSON.parse(gradeCm.data["meta.json"]!).runStatus).toEqual({
+      state: "timed_out",
+      exitCode: null,
+    });
+    expect(result.testcaseResults[0]!.verdict).toBe("TLE");
   });
 
   it("missing result.json (grade sidecar emits {missing:true}) → SE", async () => {

@@ -30,6 +30,7 @@ import {
 } from "./k8s-configmaps";
 import {
   ADVANCED_SIDECAR_NAME,
+  ADVANCED_TRANSFER_NAME,
   advancedPvcName,
   buildAdvancedConfigMapData,
   buildAdvancedGradeConfigMapData,
@@ -547,9 +548,15 @@ export class K8sExecutor implements SandboxExecutor {
       });
 
       const runOutcome = await this.waitForJobOutcome(runJobName, ns, deadlineSeconds);
-      const nodeName = await this.findPodNodeName(runJobName, ns);
+      const { nodeName, transferCaptureOk } = await this.inspectRunPod(runJobName, ns);
       if (!nodeName) {
         return advancedFallbackResult(request, "Advanced run phase produced no scheduled pod.");
+      }
+      if (!runOutcome.deadlineExceeded && !transferCaptureOk) {
+        return advancedFallbackResult(
+          request,
+          "Advanced run output capture failed (size/file cap or IO error).",
+        );
       }
 
       const runStatus = deriveRunStatusFromJob(runOutcome.state, runOutcome.deadlineExceeded);
@@ -763,15 +770,24 @@ export class K8sExecutor implements SandboxExecutor {
     }
   }
 
-  private async findPodNodeName(jobName: string, namespace: string): Promise<string | null> {
+  private async inspectRunPod(
+    jobName: string,
+    namespace: string,
+  ): Promise<{ nodeName: string | null; transferCaptureOk: boolean }> {
     try {
       const pods = await this.coreApi.listNamespacedPod({
         namespace,
         labelSelector: `job-name=${jobName}`,
       });
-      return pods.items[0]?.spec?.nodeName ?? null;
+      const pod = pods.items[0];
+      const nodeName = pod?.spec?.nodeName ?? null;
+      const transferStatus = (pod?.status?.initContainerStatuses ?? []).find(
+        (c) => c.name === ADVANCED_TRANSFER_NAME,
+      );
+      const transferCaptureOk = transferStatus?.state?.terminated?.exitCode === 0;
+      return { nodeName, transferCaptureOk };
     } catch {
-      return null;
+      return { nodeName: null, transferCaptureOk: false };
     }
   }
 
