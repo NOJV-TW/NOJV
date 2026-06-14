@@ -226,11 +226,23 @@ export interface AdvancedRunJobManifestParams {
   cpuLimit: string;
   submissionId: string;
   language: string;
+  egressLabel?: string;
+  extraEnv?: Record<string, string>;
 }
 
 export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams): k8s.V1Job {
   const sharedWorkspaceMount = { name: "workspace", mountPath: "/workspace" };
   const totalTimeoutSeconds = Math.ceil(params.totalTimeMs / 1000) + 30;
+  const podLabels = {
+    app: "nojv-sandbox",
+    "nojv-role": "sandbox",
+    ...(params.egressLabel ? { "nojv.egress": params.egressLabel } : {}),
+  };
+  const runEnv = [
+    { name: "SUBMISSION_ID", value: params.submissionId },
+    { name: "LANGUAGE", value: params.language },
+    ...Object.entries(params.extraEnv ?? {}).map(([name, value]) => ({ name, value })),
+  ];
 
   return {
     apiVersion: "batch/v1",
@@ -246,7 +258,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
       backoffLimit: 0,
       template: {
         metadata: {
-          labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
+          labels: podLabels,
         },
         spec: {
           restartPolicy: "Never",
@@ -280,10 +292,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
             {
               name: ADVANCED_RUN_NAME,
               image: params.runImage,
-              env: [
-                { name: "SUBMISSION_ID", value: params.submissionId },
-                { name: "LANGUAGE", value: params.language },
-              ],
+              env: runEnv,
               workingDir: "/workspace",
               resources: {
                 limits: {
@@ -321,6 +330,7 @@ export interface AdvancedGradeJobManifestParams {
   submissionId: string;
   language: string;
   nodeName: string;
+  egressLabel: string;
 }
 
 export function buildAdvancedGradeJobManifest(
@@ -328,6 +338,11 @@ export function buildAdvancedGradeJobManifest(
 ): k8s.V1Job {
   const sharedWorkspaceMount = { name: "workspace", mountPath: "/workspace" };
   const totalTimeoutSeconds = Math.ceil(params.totalTimeMs / 1000) + 30;
+  const podLabels = {
+    app: "nojv-sandbox",
+    "nojv-role": "sandbox",
+    "nojv.egress": params.egressLabel,
+  };
 
   return {
     apiVersion: "batch/v1",
@@ -343,7 +358,7 @@ export function buildAdvancedGradeJobManifest(
       backoffLimit: 0,
       template: {
         metadata: {
-          labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
+          labels: podLabels,
         },
         spec: {
           restartPolicy: "Never",

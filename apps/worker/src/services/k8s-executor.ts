@@ -40,6 +40,26 @@ import {
   deriveRunStatusFromJob,
   parseAdvancedResultLog,
 } from "./k8s-advanced";
+import {
+  buildGradeEgressPolicy,
+  buildProxyRunEnv,
+  buildProxySidecarPodManifest,
+  buildRunEgressPolicy,
+  buildServiceRunEnv,
+  buildServiceSidecarPodManifest,
+  buildSidecarEgressPolicy,
+  buildSidecarServiceManifest,
+  gradeEgressLabel,
+  gradePolicyName,
+  PROXY_READY_MARKER,
+  runEgressLabel,
+  runPolicyName,
+  SERVICE_READY_MARKER,
+  sidecarPodName,
+  sidecarPolicyName,
+  sidecarServiceName,
+  SIDECAR_PORT,
+} from "./k8s-advanced-network";
 
 export {
   buildRunConfigMapData,
@@ -80,7 +100,13 @@ export interface K8sExecutorConfig {
   cpuLimit: string;
   memoryRequest: string;
   memoryLimit: string;
+  egressProxyImage?: string;
+  sidecarReadinessTimeoutMs?: number;
+  sidecarReadinessIntervalMs?: number;
 }
+
+const SIDECAR_READINESS_TIMEOUT_MS = 30_000;
+const SIDECAR_READINESS_INTERVAL_MS = 500;
 
 const JOB_DEADLINE_BUFFER_SECONDS = 60;
 const JOB_POLL_INTERVAL_MS = 1_000;
@@ -411,6 +437,7 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
 export interface K8sClientHandles {
   coreApi: k8s.CoreV1Api;
   batchApi: k8s.BatchV1Api;
+  networkingApi?: k8s.NetworkingV1Api;
 }
 
 function validatorOutcomesSeForAll(rawRuns: RawCaseRun[]): Map<number, ValidatorOutcome> {
@@ -472,6 +499,7 @@ function parseCompilationError(logs: string): string | null {
 export class K8sExecutor implements SandboxExecutor {
   private readonly coreApi: k8s.CoreV1Api;
   private readonly batchApi: k8s.BatchV1Api;
+  private networkingApiHandle: k8s.NetworkingV1Api | undefined;
 
   constructor(
     private readonly config: K8sExecutorConfig,
@@ -480,6 +508,7 @@ export class K8sExecutor implements SandboxExecutor {
     if (clients) {
       this.coreApi = clients.coreApi;
       this.batchApi = clients.batchApi;
+      this.networkingApiHandle = clients.networkingApi;
       return;
     }
     const k8sLib = require("@kubernetes/client-node") as typeof k8s;
@@ -487,6 +516,14 @@ export class K8sExecutor implements SandboxExecutor {
     kc.loadFromCluster();
     this.coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
     this.batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
+    this.networkingApiHandle = kc.makeApiClient(k8sLib.NetworkingV1Api);
+  }
+
+  private networkingApi(): k8s.NetworkingV1Api {
+    if (!this.networkingApiHandle) {
+      throw new Error("NetworkingV1Api client is not available");
+    }
+    return this.networkingApiHandle;
   }
 
   async execute(request: SandboxRequest): Promise<SandboxResult> {
@@ -518,18 +555,37 @@ export class K8sExecutor implements SandboxExecutor {
       return advancedFallbackResult(request, message);
     }
 
-    const baseName = `judge-${request.submissionId}`;
+    const submissionId = request.submissionId;
+    const baseName = `judge-${submissionId}`;
     const ns = this.config.namespace;
     const runJobName = `${baseName}-run`;
     const gradeJobName = `${baseName}-grade`;
     const runConfigMapName = `${runJobName}-input`;
     const gradeConfigMapName = `${gradeJobName}-input`;
-    const pvcName = advancedPvcName(request.submissionId);
+    const pvcName = advancedPvcName(submissionId);
     const deadlineSeconds = Math.ceil(advanced.totalTimeMs / 1000) + 30;
+    const mode = advanced.network.mode;
+    const hasSidecar = mode === "allowlist" || mode === "service";
 
     try {
       await this.createPvc(pvcName, ns);
       await this.createConfigMap(runConfigMapName, ns, buildAdvancedConfigMapData(request));
+
+      let runExtraEnv: Record<string, string> | undefined;
+      try {
+        runExtraEnv = await this.prepareAdvancedNetwork(request, advanced, mode, ns);
+      } catch (err) {
+        return advancedFallbackResult(
+          request,
+          `Advanced network setup failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      await this.createNamespacedNetworkPolicy(
+        ns,
+        buildGradeEgressPolicy({ submissionId, namespace: ns }),
+      );
+
       await this.batchApi.createNamespacedJob({
         namespace: ns,
         body: buildAdvancedRunJobManifest({
@@ -542,8 +598,10 @@ export class K8sExecutor implements SandboxExecutor {
           memoryMb: advanced.memoryMb,
           totalTimeMs: advanced.totalTimeMs,
           cpuLimit: this.config.cpuLimit,
-          submissionId: request.submissionId,
+          submissionId,
           language: request.language,
+          ...(hasSidecar ? { egressLabel: runEgressLabel(submissionId) } : {}),
+          ...(runExtraEnv ? { extraEnv: runExtraEnv } : {}),
         }),
       });
 
@@ -578,9 +636,10 @@ export class K8sExecutor implements SandboxExecutor {
           memoryMb: advanced.memoryMb,
           totalTimeMs: advanced.totalTimeMs,
           cpuLimit: this.config.cpuLimit,
-          submissionId: request.submissionId,
+          submissionId,
           language: request.language,
           nodeName,
+          egressLabel: gradeEgressLabel(submissionId),
         }),
       });
 
@@ -638,6 +697,137 @@ export class K8sExecutor implements SandboxExecutor {
       await this.cleanupConfigMap(runConfigMapName, ns);
       await this.cleanupConfigMap(gradeConfigMapName, ns);
       await this.cleanupPvc(pvcName, ns);
+      await this.teardownAdvancedNetwork(submissionId, ns, hasSidecar);
+    }
+  }
+
+  private async prepareAdvancedNetwork(
+    request: SandboxRequest,
+    advanced: NonNullable<SandboxRequest["advanced"]>,
+    mode: "none" | "allowlist" | "service",
+    ns: string,
+  ): Promise<Record<string, string> | undefined> {
+    if (mode === "none") return undefined;
+
+    const submissionId = request.submissionId;
+
+    if (mode === "allowlist") {
+      const proxyImage = this.config.egressProxyImage;
+      if (!proxyImage) {
+        throw new Error("EGRESS_PROXY_IMAGE is not configured for allowlist mode");
+      }
+      await this.coreApi.createNamespacedPod({
+        namespace: ns,
+        body: buildProxySidecarPodManifest({
+          submissionId,
+          namespace: ns,
+          image: proxyImage,
+          allowlist: advanced.network.allowlist ?? [],
+          port: SIDECAR_PORT,
+        }),
+      });
+      await this.createSidecarServiceAndPolicies(submissionId, ns);
+
+      const ready = await this.waitForSidecarMarker(submissionId, ns, PROXY_READY_MARKER);
+      if (!ready) {
+        throw new Error("egress proxy sidecar did not become ready within timeout");
+      }
+      return buildProxyRunEnv(sidecarServiceName(submissionId), SIDECAR_PORT);
+    }
+
+    const service = advanced.network.service;
+    if (!service) {
+      throw new Error("service network mode selected without a service image");
+    }
+    if (service.imageSource === "tarball") {
+      throw new Error("service image tarball source requires the Docker backend");
+    }
+    await this.coreApi.createNamespacedPod({
+      namespace: ns,
+      body: buildServiceSidecarPodManifest({
+        submissionId,
+        namespace: ns,
+        image: service.imageRef,
+        memoryMb: advanced.memoryMb,
+        cpuLimit: this.config.cpuLimit,
+        port: SIDECAR_PORT,
+      }),
+    });
+    await this.createSidecarServiceAndPolicies(submissionId, ns);
+
+    await this.waitForSidecarMarker(submissionId, ns, SERVICE_READY_MARKER);
+    return buildServiceRunEnv(sidecarServiceName(submissionId));
+  }
+
+  private async createSidecarServiceAndPolicies(
+    submissionId: string,
+    ns: string,
+  ): Promise<void> {
+    await this.coreApi.createNamespacedService({
+      namespace: ns,
+      body: buildSidecarServiceManifest({ submissionId, namespace: ns, port: SIDECAR_PORT }),
+    });
+    await this.createNamespacedNetworkPolicy(
+      ns,
+      buildSidecarEgressPolicy({ submissionId, namespace: ns }),
+    );
+    await this.createNamespacedNetworkPolicy(
+      ns,
+      buildRunEgressPolicy({ submissionId, namespace: ns }),
+    );
+  }
+
+  private async waitForSidecarMarker(
+    submissionId: string,
+    ns: string,
+    marker: string,
+  ): Promise<boolean> {
+    const podName = sidecarPodName(submissionId);
+    const timeoutMs = this.config.sidecarReadinessTimeoutMs ?? SIDECAR_READINESS_TIMEOUT_MS;
+    const intervalMs = this.config.sidecarReadinessIntervalMs ?? SIDECAR_READINESS_INTERVAL_MS;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const log = await this.coreApi
+        .readNamespacedPodLog({ name: podName, namespace: ns })
+        .catch(() => "");
+      if (log.includes(marker)) return true;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return false;
+  }
+
+  private async createNamespacedNetworkPolicy(
+    ns: string,
+    body: k8s.V1NetworkPolicy,
+  ): Promise<void> {
+    await this.networkingApi().createNamespacedNetworkPolicy({ namespace: ns, body });
+  }
+
+  private async teardownAdvancedNetwork(
+    submissionId: string,
+    ns: string,
+    hasSidecar: boolean,
+  ): Promise<void> {
+    const networkingApi = this.networkingApi();
+    const deletePolicy = (name: string) =>
+      networkingApi
+        .deleteNamespacedNetworkPolicy({ name, namespace: ns })
+        .catch(() => undefined);
+
+    await deletePolicy(gradePolicyName(submissionId));
+    if (hasSidecar) {
+      await deletePolicy(runPolicyName(submissionId));
+      await deletePolicy(sidecarPolicyName(submissionId));
+      await this.coreApi
+        .deleteNamespacedService({ name: sidecarServiceName(submissionId), namespace: ns })
+        .catch(() => undefined);
+      await this.coreApi
+        .deleteNamespacedPod({
+          name: sidecarPodName(submissionId),
+          namespace: ns,
+          propagationPolicy: "Background",
+        })
+        .catch(() => undefined);
     }
   }
 

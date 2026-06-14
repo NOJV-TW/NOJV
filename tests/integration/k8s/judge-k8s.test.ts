@@ -29,7 +29,11 @@ const STANDARD_TIMEOUT_MS = 180_000;
 const INTERACTIVE_TIMEOUT_MS = 240_000;
 const ADVANCED_TIMEOUT_MS = 180_000;
 
-let clients: { coreApi: k8s.CoreV1Api; batchApi: k8s.BatchV1Api } | null = null;
+let clients: {
+  coreApi: k8s.CoreV1Api;
+  batchApi: k8s.BatchV1Api;
+  networkingApi: k8s.NetworkingV1Api;
+} | null = null;
 let clusterUnreachableReason: string | null = null;
 
 const VALIDATOR_SCRIPT = `team = team_output.split()
@@ -82,6 +86,9 @@ for _ in range(20):
 const createdJobs = new Set<string>();
 const createdConfigMaps = new Set<string>();
 const createdPvcs = new Set<string>();
+const createdPods = new Set<string>();
+const createdServices = new Set<string>();
+const createdNetworkPolicies = new Set<string>();
 
 function trackSubmission(
   submissionId: string,
@@ -99,6 +106,11 @@ function trackSubmission(
     createdConfigMaps.add(`${base}-run-input`);
     createdConfigMaps.add(`${base}-grade-input`);
     createdPvcs.add(`${base}-runout`);
+    createdPods.add(`${base}-sidecar`);
+    createdServices.add(`${base}-sidecar`);
+    createdNetworkPolicies.add(`${base}-run-egress`);
+    createdNetworkPolicies.add(`${base}-grade-egress`);
+    createdNetworkPolicies.add(`${base}-sidecar-egress`);
   }
   for (const idx of opts.interactiveCases ?? []) {
     const jobName = `${base}-int-${idx}`;
@@ -133,15 +145,47 @@ async function deletePvc(name: string): Promise<void> {
   } catch {}
 }
 
+async function deletePod(name: string): Promise<void> {
+  if (!clients) return;
+  try {
+    await clients.coreApi.deleteNamespacedPod({
+      name,
+      namespace: NAMESPACE,
+      propagationPolicy: "Background",
+    });
+  } catch {}
+}
+
+async function deleteService(name: string): Promise<void> {
+  if (!clients) return;
+  try {
+    await clients.coreApi.deleteNamespacedService({ name, namespace: NAMESPACE });
+  } catch {}
+}
+
+async function deleteNetworkPolicy(name: string): Promise<void> {
+  if (!clients) return;
+  try {
+    await clients.networkingApi.deleteNamespacedNetworkPolicy({ name, namespace: NAMESPACE });
+  } catch {}
+}
+
 async function sweepNamespace(): Promise<void> {
   if (!clients) return;
-  const [jobs, cms, pvcs] = await Promise.all([
+  const [jobs, cms, pvcs, pods, svcs, nps] = await Promise.all([
     clients.batchApi.listNamespacedJob({ namespace: NAMESPACE }).catch(() => ({ items: [] })),
     clients.coreApi
       .listNamespacedConfigMap({ namespace: NAMESPACE })
       .catch(() => ({ items: [] })),
     clients.coreApi
       .listNamespacedPersistentVolumeClaim({ namespace: NAMESPACE })
+      .catch(() => ({ items: [] })),
+    clients.coreApi.listNamespacedPod({ namespace: NAMESPACE }).catch(() => ({ items: [] })),
+    clients.coreApi
+      .listNamespacedService({ namespace: NAMESPACE })
+      .catch(() => ({ items: [] })),
+    clients.networkingApi
+      .listNamespacedNetworkPolicy({ namespace: NAMESPACE })
       .catch(() => ({ items: [] })),
   ]);
   const jobNames = (jobs.items ?? [])
@@ -153,10 +197,22 @@ async function sweepNamespace(): Promise<void> {
   const pvcNames = (pvcs.items ?? [])
     .map((p: k8s.V1PersistentVolumeClaim) => p.metadata?.name)
     .filter((n): n is string => !!n && n.startsWith("judge-"));
+  const podNames = (pods.items ?? [])
+    .map((p: k8s.V1Pod) => p.metadata?.name)
+    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-sidecar"));
+  const svcNames = (svcs.items ?? [])
+    .map((s: k8s.V1Service) => s.metadata?.name)
+    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-sidecar"));
+  const npNames = (nps.items ?? [])
+    .map((p: k8s.V1NetworkPolicy) => p.metadata?.name)
+    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-egress"));
   await Promise.all([
     ...jobNames.map((n) => deleteJob(n)),
     ...cmNames.map((n) => deleteConfigMap(n)),
     ...pvcNames.map((n) => deletePvc(n)),
+    ...podNames.map((n) => deletePod(n)),
+    ...svcNames.map((n) => deleteService(n)),
+    ...npNames.map((n) => deleteNetworkPolicy(n)),
   ]);
 }
 
@@ -174,8 +230,9 @@ beforeAll(async () => {
     }
     const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
     const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
+    const networkingApi = kc.makeApiClient(k8sLib.NetworkingV1Api);
     await coreApi.listNamespacedPod({ namespace: NAMESPACE });
-    clients = { coreApi, batchApi };
+    clients = { coreApi, batchApi, networkingApi };
     await sweepNamespace();
   } catch (err) {
     clusterUnreachableReason = err instanceof Error ? err.message : String(err);
@@ -191,13 +248,22 @@ afterEach(async () => {
   const jobs = Array.from(createdJobs);
   const cms = Array.from(createdConfigMaps);
   const pvcs = Array.from(createdPvcs);
+  const pods = Array.from(createdPods);
+  const services = Array.from(createdServices);
+  const networkPolicies = Array.from(createdNetworkPolicies);
   createdJobs.clear();
   createdConfigMaps.clear();
   createdPvcs.clear();
+  createdPods.clear();
+  createdServices.clear();
+  createdNetworkPolicies.clear();
   await Promise.all([
     ...jobs.map(deleteJob),
     ...cms.map(deleteConfigMap),
     ...pvcs.map(deletePvc),
+    ...pods.map(deletePod),
+    ...services.map(deleteService),
+    ...networkPolicies.map(deleteNetworkPolicy),
   ]);
 }, 60_000);
 

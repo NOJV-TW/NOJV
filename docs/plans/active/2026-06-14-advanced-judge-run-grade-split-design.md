@@ -282,22 +282,46 @@ boundary therefore requires the sidecar in a **separate Pod**. (This is the one
 place Advanced differs from `interactive`, which can co-locate over `127.0.0.1`
 because there is no egress boundary to protect.)
 
-- `none` → empty `NetworkPolicy` (deny all), as today.
-- `allowlist` / `service`:
-  - **Deny-all is additive and cannot be narrowed.** Today's blanket deny-all
+- `none` → run Pod stays under deny-all (no `nojv.egress` label), as in 5A. The
+  **grade** Pod, however, gets full network in **all** modes (see below).
+- `allowlist` / `service` (**Phase 5B, shipped**):
+  - **Deny-all is additive and cannot be narrowed.** The blanket deny-all
     (`infra/k8s/sandbox/network-policy.yaml`, `infra/gcp/gke/network-policy.yaml`)
-    matches every sandbox Pod; a per-submission "allow egress to sidecar" policy
-    can't override it. Fix: relabel the deny-all `podSelector` to
+    matched every sandbox Pod; a per-submission "allow egress to sidecar" policy
+    can't override it. Fix (shipped): the deny-all `podSelector` is now
     `matchExpressions: [{ key: nojv.egress, operator: DoesNotExist }]` so it does
-    **not** match Pods carrying `nojv.egress=<submission-id>`, and emit a
-    per-submission `NetworkPolicy` allowing the run Pod egress **only** to the
-    sidecar Pod (label selector) + kube-dns. Both the policy and its label are
-    created and torn down per submission.
+    **not** match Pods carrying `nojv.egress=<value>`. Standard/checker/interactive
+    sandbox Pods and `mode=none` advanced run Pods carry no `nojv.egress` label →
+    they stay denied. The run Pod (allowlist/service) is labeled
+    `nojv.egress=<submission-id>` and gets a per-submission `NetworkPolicy`
+    (`buildRunEgressPolicy`) allowing egress **only** to the sidecar Pod
+    (`podSelector` on the sidecar's `nojv.sidecar=<submission-id>` label) — no
+    `0.0.0.0/0`, no `ipBlock`, no kube-dns (the run Pod reaches the sidecar by
+    injected IP/name, and DNS for allowlisted hosts is resolved inside the proxy).
+    Both the policy and the label are created and torn down per submission.
+  - **Grade Pod full network in all modes (5A divergence fixed).** The grade
+    container is trusted (no student code), so it gets full network like the Docker
+    backend. The grade Pod is labeled `nojv.egress=<submission-id>-grade` (a
+    distinct label from the run Pod, escaping deny-all) and gets a per-submission
+    `NetworkPolicy` (`buildGradeEgressPolicy`) with a single open egress rule. This
+    grade policy is emitted for **every** mode including `none` (5A left grade under
+    deny-all; 5B fixes it to match Docker + design).
   - **Sidecar workload + readiness.** The sidecar runs as a per-submission Pod
-    (proxy or service), exposed by a ClusterIP Service; the run Job is created
-    **after** the worker polls the sidecar to Ready (K8s has no Job→Job ordering
-    primitive — the worker does the polling). Sidecar crash before/during run →
-    detected by the worker → submission SE.
+    (`buildProxySidecarPodManifest` reusing the `nojv-egress-proxy` image for
+    allowlist, or `buildServiceSidecarPodManifest` with the TA `advanced.network.service`
+    registry image for service — tarball service images are refused on K8s, same as
+    run/grade). It is exposed by a per-submission ClusterIP Service
+    (`buildSidecarServiceManifest`) and gets its own full-egress `NetworkPolicy`
+    (`buildSidecarEgressPolicy`) so it can reach the allowlisted/TA hosts. The run
+    container's `HTTP_PROXY`/`HTTPS_PROXY` (allowlist) or `NOJV_SERVICE_HOST`
+    (service) is injected by the **Service ClusterIP DNS name** (no DNS needed in the
+    run Pod's netns — the Service name resolves via the cluster, but the run Pod only
+    has a route to the sidecar Pod IP that the Service fronts). The run Job is created
+    **after** the worker polls the sidecar Pod's logs for the ready marker
+    (`NOJV_PROXY_READY` / `NOJV_SERVICE_READY`) — K8s has no Job→Job ordering
+    primitive. Proxy not ready in time → SE + teardown (the allowlist boundary must
+    hold). Service marker missing → proceed anyway (best-effort; the TA run harness
+    retries), no SE.
   - **Cross-Pod `/output` transfer via a per-submission PVC (Phase 5A, shipped).**
     The earlier pod-logs streaming idea is **superseded**: run output moves over a
     per-submission **`ReadWriteOnce` PVC**, giving lossless binary round-trip with
@@ -314,12 +338,20 @@ because there is no egress boundary to protect.)
     Pod's `emit-result` sidecar between the existing markers). The gate runs inside
     the answer-free run Pod, so an `output/x → /answers/secret` symlink is dropped
     where there are no answers and never reaches the PVC or grade. **Network modes
-    (allowlist/service) + per-submission NetworkPolicy remain Phase 5B**; 5A is
-    `mode=none` (the existing deny-all NetworkPolicy stays).
+    (allowlist/service) + per-submission NetworkPolicy shipped in Phase 5B**; the
+    PVC/run/grade split itself shipped in 5A.
   - sidecar egress is independent (proxy → allowlisted hosts; service → full).
-  - This multi-Pod orchestration (start sidecar Pod + per-submission NetworkPolicy,
-    await ready, run Job, capture tar, teardown, then grade Job) is the heaviest
-    new piece in the K8s executor.
+  - This multi-Pod orchestration (create the grade-egress policy + — for
+    allowlist/service — the sidecar Pod, sidecar Service, and run/sidecar
+    NetworkPolicies before the run Job; await sidecar ready; run Job; capture via
+    PVC; grade Job; then `finally` delete the sidecar Pod + Service + all
+    per-submission NetworkPolicies alongside 5A's PVC/Jobs/ConfigMaps) is the
+    heaviest new piece in the K8s executor. The worker is granted
+    `pods`/`services`/`networkpolicies` create+delete in
+    `infra/gcp/gke/worker-rbac.yaml`. **Real-cluster egress allow/deny, proxy
+    enforcement, service reachability, and "run can't reach the internet except via
+    the sidecar" are verified in Phase 8 OrbStack smoke**; ci:verify covers only the
+    pure manifest/policy builders.
 
 ## Binary I/O
 

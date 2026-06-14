@@ -47,6 +47,11 @@ function makeAdvancedRequest(overrides?: {
   imageRef?: string;
   memoryMb?: number;
   totalTimeMs?: number;
+  network?: SandboxRequest["advanced"] extends infer A
+    ? A extends { network: infer N }
+      ? N
+      : never
+    : never;
 }): SandboxRequest {
   return {
     submissionId: "sub-adv-1",
@@ -66,7 +71,7 @@ function makeAdvancedRequest(overrides?: {
         imageRef: overrides?.imageRef ?? "registry.example.com/ta/grade:1.0",
         imageSource: overrides?.imageSource ?? "registry",
       },
-      network: { mode: "none" },
+      network: overrides?.network ?? { mode: "none" },
       totalTimeMs: overrides?.totalTimeMs ?? 60_000,
       memoryMb: overrides?.memoryMb ?? 512,
     },
@@ -80,6 +85,9 @@ const EXEC_CONFIG = {
   cpuLimit: "1",
   memoryRequest: "128Mi",
   memoryLimit: "256Mi",
+  egressProxyImage: "registry.example.com/nojv/egress-proxy:latest",
+  sidecarReadinessTimeoutMs: 50,
+  sidecarReadinessIntervalMs: 5,
 };
 
 interface CallRecord {
@@ -90,6 +98,12 @@ interface CallRecord {
   jobsCreated: { name: string; namespace: string; body: any }[];
   jobsDeleted: { name: string; namespace: string }[];
   podLogsRead: { name: string; namespace: string; container: string }[];
+  podsCreated: { name: string; namespace: string; body: any }[];
+  podsDeleted: { name: string; namespace: string }[];
+  servicesCreated: { name: string; namespace: string; body: any }[];
+  servicesDeleted: { name: string; namespace: string }[];
+  networkPoliciesCreated: { name: string; namespace: string; body: any }[];
+  networkPoliciesDeleted: { name: string; namespace: string }[];
 }
 
 interface FakeOpts {
@@ -100,6 +114,7 @@ interface FakeOpts {
   throwOnJobCreate?: boolean;
   runNodeName?: string | null;
   transferExitCode?: number | null;
+  sidecarReadyMarker?: string | null;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
@@ -115,6 +130,18 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     }),
     deleteNamespacedPersistentVolumeClaim: vi.fn(async ({ name, namespace }: any) => {
       record.pvcsDeleted.push({ name, namespace });
+    }),
+    createNamespacedPod: vi.fn(async ({ namespace, body }: any) => {
+      record.podsCreated.push({ name: body.metadata.name, namespace, body });
+    }),
+    deleteNamespacedPod: vi.fn(async ({ name, namespace }: any) => {
+      record.podsDeleted.push({ name, namespace });
+    }),
+    createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
+      record.servicesCreated.push({ name: body.metadata.name, namespace, body });
+    }),
+    deleteNamespacedService: vi.fn(async ({ name, namespace }: any) => {
+      record.servicesDeleted.push({ name, namespace });
     }),
     listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
       const jobName = String(labelSelector).split("=")[1];
@@ -139,6 +166,11 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     }),
     readNamespacedPodLog: vi.fn(async ({ name, namespace, container }: any) => {
       record.podLogsRead.push({ name, namespace, container });
+      if (String(name).endsWith("-sidecar")) {
+        return opts.sidecarReadyMarker === undefined
+          ? "NOJV_PROXY_READY 8888\nNOJV_SERVICE_READY"
+          : (opts.sidecarReadyMarker ?? "");
+      }
       return opts.sidecarLog ?? "";
     }),
   } as any;
@@ -164,7 +196,16 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     }),
   } as any;
 
-  return { coreApi, batchApi };
+  const networkingApi = {
+    createNamespacedNetworkPolicy: vi.fn(async ({ namespace, body }: any) => {
+      record.networkPoliciesCreated.push({ name: body.metadata.name, namespace, body });
+    }),
+    deleteNamespacedNetworkPolicy: vi.fn(async ({ name, namespace }: any) => {
+      record.networkPoliciesDeleted.push({ name, namespace });
+    }),
+  } as any;
+
+  return { coreApi, batchApi, networkingApi };
 }
 
 function emptyRecord(): CallRecord {
@@ -176,6 +217,12 @@ function emptyRecord(): CallRecord {
     jobsCreated: [],
     jobsDeleted: [],
     podLogsRead: [],
+    podsCreated: [],
+    podsDeleted: [],
+    servicesCreated: [],
+    servicesDeleted: [],
+    networkPoliciesCreated: [],
+    networkPoliciesDeleted: [],
   };
 }
 
@@ -840,6 +887,209 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       "judge-sub-adv-1-run-input",
     ]);
     expect(record.pvcsDeleted.map((p) => p.name)).toEqual(["judge-sub-adv-1-runout"]);
+  });
+
+  it("mode=none: run Pod carries NO nojv.egress label and no proxy/service env (deny-all)", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    await executor.execute(makeAdvancedRequest());
+
+    const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
+    const runLabels = runJob.body.spec.template.metadata.labels;
+    expect(runLabels["nojv.egress"]).toBeUndefined();
+    const runEnv = runJob.body.spec.template.spec.containers[0].env.map((e: any) => e.name);
+    expect(runEnv).not.toContain("HTTP_PROXY");
+    expect(runEnv).not.toContain("NOJV_SERVICE_HOST");
+
+    expect(record.podsCreated).toHaveLength(0);
+    expect(record.servicesCreated).toHaveLength(0);
+  });
+
+  it("mode=none: grade Pod STILL escapes deny-all and gets a grade-egress policy (full network)", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    await executor.execute(makeAdvancedRequest());
+
+    const gradeJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-grade")!;
+    expect(gradeJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1-grade");
+
+    expect(record.networkPoliciesCreated.map((p) => p.name)).toEqual([
+      "judge-sub-adv-1-grade-egress",
+    ]);
+    expect(record.networkPoliciesDeleted.map((p) => p.name)).toEqual([
+      "judge-sub-adv-1-grade-egress",
+    ]);
+  });
+
+  it("mode=allowlist: starts a proxy Pod+Service, injects HTTP_PROXY + nojv.egress label, all 3 policies", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    await executor.execute(
+      makeAdvancedRequest({
+        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
+      }),
+    );
+
+    const proxyPod = record.podsCreated.find((p) => p.name === "judge-sub-adv-1-sidecar")!;
+    expect(proxyPod.body.spec.containers[0].image).toBe(
+      "registry.example.com/nojv/egress-proxy:latest",
+    );
+    const proxyEnv = Object.fromEntries(
+      proxyPod.body.spec.containers[0].env.map((e: any) => [e.name, e.value]),
+    );
+    expect(proxyEnv.NOJV_ALLOWLIST).toBe("api.example.com:443");
+
+    expect(record.servicesCreated.map((s) => s.name)).toEqual(["judge-sub-adv-1-sidecar"]);
+
+    const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
+    expect(runJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1");
+    const runEnv = Object.fromEntries(
+      runJob.body.spec.template.spec.containers[0].env.map((e: any) => [e.name, e.value]),
+    );
+    expect(runEnv.HTTP_PROXY).toBe("http://judge-sub-adv-1-sidecar:8888");
+    expect(runEnv.HTTPS_PROXY).toBe("http://judge-sub-adv-1-sidecar:8888");
+    expect(runEnv.NOJV_SERVICE_HOST).toBeUndefined();
+
+    expect(record.networkPoliciesCreated.map((p) => p.name).sort()).toEqual([
+      "judge-sub-adv-1-grade-egress",
+      "judge-sub-adv-1-run-egress",
+      "judge-sub-adv-1-sidecar-egress",
+    ]);
+  });
+
+  it("mode=allowlist: proxy never signals ready → SE + full teardown (no run/grade Job)", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, { sidecarReadyMarker: "" }),
+    );
+    const result = await executor.execute(
+      makeAdvancedRequest({
+        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
+      }),
+    );
+
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
+    expect(record.podsDeleted.map((p) => p.name)).toContain("judge-sub-adv-1-sidecar");
+    expect(record.servicesDeleted.map((s) => s.name)).toContain("judge-sub-adv-1-sidecar");
+    expect(record.networkPoliciesDeleted.map((p) => p.name).sort()).toEqual([
+      "judge-sub-adv-1-grade-egress",
+      "judge-sub-adv-1-run-egress",
+      "judge-sub-adv-1-sidecar-egress",
+    ]);
+  });
+
+  it("mode=allowlist: no proxy image configured → SE before any sidecar Pod is created", async () => {
+    const record = emptyRecord();
+    const configNoProxy = {
+      namespace: EXEC_CONFIG.namespace,
+      image: EXEC_CONFIG.image,
+      cpuRequest: EXEC_CONFIG.cpuRequest,
+      cpuLimit: EXEC_CONFIG.cpuLimit,
+      memoryRequest: EXEC_CONFIG.memoryRequest,
+      memoryLimit: EXEC_CONFIG.memoryLimit,
+    };
+    const executor = new K8sExecutor(configNoProxy, buildFakeClients(record));
+    const result = await executor.execute(
+      makeAdvancedRequest({
+        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
+      }),
+    );
+
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    expect(record.podsCreated).toHaveLength(0);
+    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
+  });
+
+  it("mode=service: starts the TA service Pod+Service, injects NOJV_SERVICE_HOST (no HTTP_PROXY)", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    await executor.execute(
+      makeAdvancedRequest({
+        network: {
+          mode: "service",
+          service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+        },
+      }),
+    );
+
+    const svcPod = record.podsCreated.find((p) => p.name === "judge-sub-adv-1-sidecar")!;
+    expect(svcPod.body.spec.containers[0].image).toBe("registry.example.com/ta/svc:1.0");
+
+    const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
+    expect(runJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1");
+    const runEnv = Object.fromEntries(
+      runJob.body.spec.template.spec.containers[0].env.map((e: any) => [e.name, e.value]),
+    );
+    expect(runEnv.NOJV_SERVICE_HOST).toBe("judge-sub-adv-1-sidecar");
+    expect(runEnv.HTTP_PROXY).toBeUndefined();
+
+    expect(record.networkPoliciesCreated.map((p) => p.name).sort()).toEqual([
+      "judge-sub-adv-1-grade-egress",
+      "judge-sub-adv-1-run-egress",
+      "judge-sub-adv-1-sidecar-egress",
+    ]);
+  });
+
+  it("mode=service: missing service marker does NOT SE — run proceeds (best-effort readiness)", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, { sidecarLog, sidecarReadyMarker: "" }),
+    );
+    const result = await executor.execute(
+      makeAdvancedRequest({
+        network: {
+          mode: "service",
+          service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+        },
+      }),
+    );
+
+    expect(result.testcaseResults[0]!.verdict).toBe("AC");
+    expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-run");
+  });
+
+  it("mode=service: tarball service image is refused on K8s (SE, no sidecar Pod)", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record));
+    const result = await executor.execute(
+      makeAdvancedRequest({
+        network: {
+          mode: "service",
+          service: { imageRef: "ta/svc:1.0", imageSource: "tarball" },
+        },
+      }),
+    );
+
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    expect(record.podsCreated).toHaveLength(0);
+    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
+  });
+
+  it("allowlist teardown deletes the sidecar Pod, Service, and all 3 per-submission policies", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    await executor.execute(
+      makeAdvancedRequest({
+        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
+      }),
+    );
+
+    expect(record.podsDeleted.map((p) => p.name)).toEqual(["judge-sub-adv-1-sidecar"]);
+    expect(record.servicesDeleted.map((s) => s.name)).toEqual(["judge-sub-adv-1-sidecar"]);
+    expect(record.networkPoliciesDeleted.map((p) => p.name).sort()).toEqual([
+      "judge-sub-adv-1-grade-egress",
+      "judge-sub-adv-1-run-egress",
+      "judge-sub-adv-1-sidecar-egress",
+    ]);
   });
 
   it("Job creation failure → cleanup (incl. PVC) still runs in finally", async () => {

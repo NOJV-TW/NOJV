@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript ESM, Temporal worker, Zod 4, Prisma 7, Docker CLI + Kubernetes (`@kubernetes/client-node`), Vitest, SvelteKit.
 
 **Companion docs:**
+
 - Design (contracts/specs): `docs/plans/active/2026-06-14-advanced-judge-run-grade-split-design.md`
 - Parity audit conclusion: standard/checker/interactive are already safe — **do not** modify them; only a doc note in Phase 8.
 
@@ -17,6 +18,7 @@
 **Granularity note:** Phases 0–2 (schema + Docker split + the tar security gate) are specified at fine bite-sized granularity. Phases 3–8 are task-level with concrete files, approach, and acceptance criteria; expand each into bite-sized steps when reached (the design doc already pins the contracts).
 
 **Repo conventions (verified in the worktree):**
+
 - Tests are **NOT co-located**. Unit tests live in `tests/unit/<area>/*.test.ts`
   (areas: `core`, `domain`, `worker`, `sandbox-runner`, `web`, `db`, `temporal`,
   `redis`, `storage`, `infra`, `docs`); integration in `tests/integration/**`;
@@ -46,6 +48,7 @@ existing call site compile against it before touching executor behavior.
 > partial change breaks compilation of the others). So Phase 0 is executed as
 > **one consolidated migration** (Task 0.1 schema already done). Two scope
 > decisions to keep it tractable and keep `ci:verify` green at the phase boundary:
+>
 > 1. **Defer `advancedRequiredPaths` removal** — it is an orthogonal UI feature;
 >    keep it intact for now, remove it in a later cleanup task.
 > 2. **Executor transitional shim** — `AdvancedModeContext` moves to the new
@@ -58,6 +61,7 @@ existing call site compile against it before touching executor behavior.
 ### Task 0.1: `advancedConfig` Zod schema
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/advanced-mode.ts` (add `advancedConfigSchema` + `imageRefSchema`)
 - Modify: `packages/core/src/index.ts` (export the new schemas/types via the barrel)
 - Test: `tests/unit/core/advanced-mode-schema.test.ts` (exists — extend it)
@@ -70,12 +74,21 @@ valid `{ run, grade, network:{mode:"none"} }`, rejects a missing `grade`, requir
 ```ts
 import { advancedConfigSchema } from "@nojv/core";
 it("requires grade image", () => {
-  expect(advancedConfigSchema.safeParse({ run: img, network: { mode: "none" } }).success).toBe(false);
+  expect(advancedConfigSchema.safeParse({ run: img, network: { mode: "none" } }).success).toBe(
+    false,
+  );
 });
 it("allowlist mode requires non-empty allowlist", () => {
-  expect(advancedConfigSchema.safeParse({ run: img, grade: img, network: { mode: "allowlist", allowlist: [] } }).success).toBe(false);
+  expect(
+    advancedConfigSchema.safeParse({
+      run: img,
+      grade: img,
+      network: { mode: "allowlist", allowlist: [] },
+    }).success,
+  ).toBe(false);
 });
 ```
+
 (`const img = { imageRef: "ghcr.io/x:1", imageSource: "registry" }`.)
 
 **Step 2 — run, expect FAIL** (`advancedConfigSchema` undefined):
@@ -90,6 +103,7 @@ it("allowlist mode requires non-empty allowlist", () => {
 ### Task 0.2: `special_env` problem validation
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/problem.ts` (currently flat `advancedImageRef`/`advancedImageSource`/`advancedRequiredPaths` ~lines 90–138; also owns `problemImageSourceSchema` ~lines 18–19)
 - Modify: `packages/core/src/schemas/advanced-mode.ts` (enum unification — see below)
 - Test: `tests/unit/core/` (e.g. extend `schemas.test.ts` or add `problem-advanced-config.test.ts`)
@@ -97,12 +111,14 @@ it("allowlist mode requires non-empty allowlist", () => {
 **Steps:** TDD that a `special_env` problem requires a valid `advancedConfig` and that non-`special_env` problems reject it. Replace the flat-field validation with `advancedConfig`. Remove `advancedRequiredPaths` (it was a single-image concept). Commit: `feat(core): validate special_env problems against advancedConfig`.
 
 **Carried over from Task 0.1 code review (do here, where problem.ts is already open):**
+
 - **Single-source the image-source enum.** Task 0.1 inlined `z.enum(["registry","tarball"])` in `advanced-mode.ts`; `problem.ts:18-19` already exports `problemImageSourceSchema` for the same concept. Unify to ONE canonical enum. Direction matters to avoid a cycle: since `problem.ts` will now import `advancedConfigSchema` from `advanced-mode.ts`, the canonical enum must live in `advanced-mode.ts` (export `imageSourceSchema` there) and `problem.ts` should import/re-export it — NOT the reverse.
 - **i18n validation messages.** `advanced-mode.ts`'s `advancedConfigSchema` superRefine currently emits prose English strings; `problem.ts`'s superRefine uses i18n keys (`validation_required`, etc.) because these surface in the authoring UI. When wiring `special_env` validation, decide whether the advancedConfig messages need i18n keys; if the authoring UI renders them, convert to keys for consistency.
 
 ### Task 0.3: extend the sandbox contract
 
 **Files:**
+
 - Modify: `packages/core/src/sandbox.ts` (`SandboxAdvancedRequest`, ~18–23 — today only `imageRef/imageSource/totalTimeMs/memoryMb`)
 - Test: alongside.
 
@@ -111,6 +127,7 @@ it("allowlist mode requires non-empty allowlist", () => {
 ### Task 0.4: Prisma schema + migrations
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/problem.prisma` — drop `advancedImageRef`/`advancedImageSource`/`advancedRequiredPaths`; add `advancedConfig Json?`.
 - Modify: `packages/db/prisma/schema/submission.prisma` — add `advancedConfigSnapshot Json?` (for Phase 7 reproducibility).
 - Create: migration under `packages/db/prisma/migrations/`.
@@ -120,6 +137,7 @@ it("allowlist mode requires non-empty allowlist", () => {
 ### Task 0.5: call-site sweep (make it compile, behavior unchanged for mode=none)
 
 **Files (modify):**
+
 - `packages/application/src/submission/queries.ts` — `deriveJudgeMode`, `AdvancedModeContext` build (~366–443): read `advancedConfig` instead of flat fields.
 - `packages/application/src/submission/types.ts` — `AdvancedModeContext` shape.
 - `apps/worker/src/activities/judge.ts` — `buildAdvancedPayload`/advanced request build.
@@ -141,6 +159,7 @@ Split `AdvancedModeExecutor` into two phases. No network sidecar yet.
 ### Task 1.1: split workspace preparation
 
 **Files:**
+
 - Modify: `apps/worker/src/services/advanced-mode-executor.ts` (`prepareWorkspace`, ~118–155)
 - Test: `apps/worker/src/services/advanced-mode-executor.test.ts`
 
@@ -149,9 +168,11 @@ Split `AdvancedModeExecutor` into two phases. No network sidecar yet.
 ### Task 1.2: two-phase orchestration + runStatus
 
 **Files:**
+
 - Modify: `apps/worker/src/services/advanced-mode-executor.ts` (`run`, `spawnContainer`, `buildAdvancedDockerArgs` ~57–246)
 
 **Steps (TDD with mocked docker spawn):**
+
 1. Run phase: spawn the **run** image with the run workspace, the existing hardening (`--cap-drop ALL`, `no-new-privileges`, `--read-only`, `--user 10001`, tmpfs `/tmp`, `--memory`/`--pids`), `--network none` for now. Capture exit + wall-clock-timeout + OOM into `runStatus = { state, exitCode }`.
 2. Capture `/output` (plain copy for now; tar safety lands in Phase 2).
 3. Grade phase: spawn the **grade** image with the grade workspace, full network (`--network bridge`), no `--user` (trusted, as today). Read `output/result.json`, validate `advancedResultSchema`.
@@ -182,10 +203,12 @@ split.
 ### Task 2.1: tar `/output` inside the run container with `--dereference`
 
 **Files:**
+
 - Modify: `apps/worker/src/services/advanced-mode-executor.ts` (output capture)
 - Test: `apps/worker/src/services/advanced-mode-executor.test.ts` + an adversarial fixture under `tests/`
 
 **Steps (TDD — this is security-critical, write the attacks first):**
+
 1. **Failing adversarial test:** a run fixture that writes `output/leak -> /answers/secret` (symlink) and a normal `output/ans.txt`. Assert the captured archive contains `ans.txt`'s content and **not** any `/answers` content (the symlink dereferences to a non-existent path in the answer-free run fs → dropped).
 2. Implement: capture by running, **inside the run container before teardown**, `tar --dereference --hard-dereference -cf - -C /workspace/output --exclude-special-files? .` (GNU tar: skip FIFOs/sockets/devices via pre-scan or `--warning=no-file-ignored` + a node-side filter; if BusyBox tar in the base image lacks flags, bake GNU tar into the run base image — note in the run scaffold). Stream stdout to the worker.
 3. **Special-file test:** run fixture writes a FIFO in `/output` → capture skips it (or fails to SE if unsafe). Assert no hang.
@@ -196,6 +219,7 @@ Commit: `feat(worker): capture advanced /output via in-container --dereference t
 ### Task 2.2: extend the workspace watchdog with inode/file count
 
 **Files:**
+
 - Modify: `apps/worker/src/services/advanced-mode-executor.ts` (`dirSizeBytes` ~22–43, `WORKSPACE_POLL_INTERVAL_MS`)
 
 **Steps (TDD):** Add a file-count accumulator next to the byte sum; force-remove + SE when either the 1 GiB byte cap or the file-count cap (e.g. 100k) is exceeded. Test with a synthetic directory. **Also close the Phase 1 test gap:** the existing `dirSizeBytes` cap test (`tests/unit/worker/advanced-mode-executor.test.ts`) is a near-tautology (never exceeds the 1 GiB cap); add a real cap-exceeded assertion (e.g. inject a lowered cap / count threshold) so the watchdog trigger is genuinely exercised. Commit: `feat(worker): bound advanced /workspace by file count, not just bytes`.
@@ -211,6 +235,7 @@ Commit: `feat(worker): capture advanced /output via in-container --dereference t
 ## Phase 3 — egress-proxy + `allowlist` mode (Docker) — ✅ DONE (`26bd9f31`/`98baa9e6`/`9e9cb9f7`)
 
 **As shipped** (differs from the original task sketch below; recorded here):
+
 - `infra/docker/egress-proxy/proxy.mjs` (dependency-free Node CONNECT+HTTP forward
   proxy, exports `matchesAllowlist`/`parseAllowlist`, prints `NOJV_PROXY_READY` on
   listen) + `Dockerfile` (`node:24-alpine`, non-root, hardened); built via
@@ -241,6 +266,7 @@ static-IP `net_internal`, replaced by Docker IPAM + inspect during review); Task
 3.3 allowlist behavior + audit (the integration checks are real-docker, so they
 are Phase 8 smoke, not `ci:verify`). Phase 3 gate (no orphan networks after a run)
 is satisfied by the startup `sweepOrphanNetworks` + `finally` teardown.
+
 </details>
 
 ---
@@ -249,11 +275,12 @@ is satisfied by the startup `sweepOrphanNetworks` + `finally` teardown.
 
 **As shipped:** new `apps/worker/src/services/service-container.ts` (lifecycle modeled
 on `egress-proxy.ts`); the TA `service` image runs on `net_internal` (alias `service`)
-+ `net_egress` (full network, trusted, hardened, no `--user`), best-effort readiness via
-a `NOJV_SERVICE_READY` log marker (proceeds regardless), torn down in `finally`. The run
-container is single-homed on `net_internal` with `NOJV_SERVICE_HOST=service`, no
-`HTTP_PROXY`, keeps `--user 10001`. Security invariant (run single-homed, never egress)
-locked by unit test. Real reachability/isolation is Phase 8 smoke.
+
+- `net_egress` (full network, trusted, hardened, no `--user`), best-effort readiness via
+  a `NOJV_SERVICE_READY` log marker (proceeds regardless), torn down in `finally`. The run
+  container is single-homed on `net_internal` with `NOJV_SERVICE_HOST=service`, no
+  `HTTP_PROXY`, keeps `--user 10001`. Security invariant (run single-homed, never egress)
+  locked by unit test. Real reachability/isolation is Phase 8 smoke.
 
 > **Tracked cleanup for Phase 5:** `service-container.ts` and `egress-proxy.ts` share
 > near-verbatim `collect*Logs` / `sleep` / start-stop skeleton. When the K8s sidecar
@@ -262,11 +289,13 @@ locked by unit test. Real reachability/isolation is Phase 8 smoke.
 > `sleep`) into `docker-process.ts`, leaving only the per-role arg builders divergent.
 
 ### Task 4.1: service container lifecycle
+
 - Modify: `advanced-mode-executor.ts` — start the TA `service` image on `net_internal` (full net via a second NIC on `net_egress`, trusted), poll readiness, then start run; teardown after run.
 - Service Pod/container `--cap-drop ALL`/`--read-only`/`no-new-privileges` (trusted but still hardened); ingress effectively only from run (single shared `net_internal`).
 - Commit: `feat(worker): service-mode sidecar for advanced run phase (docker)`.
 
 ### Task 4.2: wire + test
+
 - Run reaches the service by container-name on `net_internal`; run still cannot reach the internet directly.
 - Integration test: run calls the service, service responds; run cannot reach an external host.
 - Commit: `test(worker): service-mode reachability + isolation (docker)`.
@@ -275,22 +304,62 @@ locked by unit test. Real reachability/isolation is Phase 8 smoke.
 
 ## Phase 5 — Kubernetes backend (all modes)
 
+**Phase 5A (run/grade split + PVC, `mode=none`) — ✅ DONE** (`cd34693e` + review fix `b20e00a6`).
+Two Jobs + per-submission RWO PVC; the pod-log tar idea (Task 5.1 sketch) was
+**superseded** by the PVC transfer (lossless binary, no ConfigMap 1 MB cap).
+
+**Phase 5B (network modes `allowlist` + `service`) — ✅ DONE.** As shipped (differs
+from the Task 5.1–5.4 sketches below; recorded here):
+
+- **Deny-all relabel** (Task 5.2): both `infra/k8s/sandbox/network-policy.yaml` and
+  `infra/gcp/gke/network-policy.yaml` deny-all `podSelector` →
+  `matchExpressions:[{key: nojv.egress, operator: DoesNotExist}]`. Standard/checker/
+  interactive + `mode=none` run Pods carry no `nojv.egress` → stay denied.
+- **Per-submission policy builders** in new `apps/worker/src/services/k8s-advanced-network.ts`:
+  - `buildRunEgressPolicy` — run Pod (`nojv.egress=<id>`) egress **only** to the
+    sidecar Pod (`podSelector` on `nojv.sidecar=<id>`); no `0.0.0.0/0`/`ipBlock`/DNS.
+  - `buildGradeEgressPolicy` — grade Pod (`nojv.egress=<id>-grade`) full egress,
+    emitted in **all** modes (fixes 5A's grade-under-deny-all divergence; grade is
+    trusted, matches Docker + design).
+  - `buildSidecarEgressPolicy` — sidecar full egress (reach allowlisted/TA hosts).
+- **Sidecar Pod + Service** (Task 5.3): `buildProxySidecarPodManifest` (reuses the
+  `nojv-egress-proxy` image, `NOJV_ALLOWLIST` env, `EGRESS_PROXY_IMAGE` config) or
+  `buildServiceSidecarPodManifest` (TA registry image; tarball refused on K8s) +
+  `buildSidecarServiceManifest` (ClusterIP). Run env injected by the **Service
+  ClusterIP DNS name** — `HTTP_PROXY`/`HTTPS_PROXY` (allowlist) or `NOJV_SERVICE_HOST`
+  (service). Readiness: poll the sidecar Pod logs for `NOJV_PROXY_READY` (allowlist →
+  SE + teardown if not ready) / `NOJV_SERVICE_READY` (service → best-effort, proceed).
+- **Orchestration + teardown** (Tasks 5.1/5.4) in `k8s-executor.ts` `executeAdvanced`:
+  branch on `advanced.network.mode`; create grade policy + (allowlist/service) sidecar
+  Pod + Service + run/sidecar policies before the run Job; `finally` deletes the sidecar
+  Pod + Service + all per-submission NetworkPolicies alongside 5A's PVC/Jobs/ConfigMaps.
+- **RBAC**: `infra/gcp/gke/worker-rbac.yaml` grants the worker
+  `pods`/`services`/`networkpolicies` create+delete.
+- **Tested**: pure builder + orchestration unit tests in
+  `tests/unit/worker/k8s-advanced-network.test.ts` + `k8s-advanced.test.ts`; drift gate
+  `tests/unit/infra/network-policy-parity.test.ts` updated for the new selector.
+  Real-cluster egress/proxy/service behavior is **Phase 8 OrbStack smoke**.
+
 ### Task 5.1: split the advanced Job into run + grade
+
 - Modify: `apps/worker/src/services/k8s-advanced.ts` (currently one Job, shared emptyDir ~97–190) + `k8s-executor.ts` `executeAdvanced`.
 - Run Job: emit container tars `/workspace/output` to **stdout** between markers; worker captures via pod-logs (reuse the `emit-result` log-tail pattern). Grade Job runs after, with run output materialized from the captured tar.
 - Commit: `feat(worker): split advanced k8s into run and grade jobs with pod-log tar transfer`.
 
 ### Task 5.2: NetworkPolicy (deny-all relabel + per-submission egress) — security-critical
+
 - Modify: `infra/k8s/sandbox/network-policy.yaml`, `infra/gcp/gke/network-policy.yaml` — deny-all `podSelector` → `matchExpressions:[{key: nojv.egress, operator: DoesNotExist}]`.
 - Emit a per-submission `NetworkPolicy` allowing the run Pod (label `nojv.egress=<submission-id>`) egress **only** to the sidecar Pod + kube-dns; create/teardown lifecycle.
 - Commit: `feat(infra,worker): per-submission egress NetworkPolicy for advanced run pod`.
 
 ### Task 5.3: sidecar Pod (proxy/service) + Service + readiness
+
 - Modify: `k8s-executor.ts`/`k8s-advanced.ts` — sidecar as a per-submission Pod + ClusterIP Service; worker polls Ready before creating the run Job; sidecar crash → SE.
 - Inject `HTTP_PROXY` by sidecar IP/ClusterIP.
 - Commit: `feat(worker): advanced sidecar pod + readiness wait (k8s)`.
 
 ### Task 5.4: timeout formula + teardown
+
 - Set run/grade Job `activeDeadlineSeconds` and the `judgeSandbox` activity timeout from `sidecar_ready + run_wall + tar + teardown + grade_wall + grace`; reject oversized `totalTimeMs` at problem save (Task 6.3).
 - Teardown sidecar Pod + per-submission NetworkPolicy + Service in `finally`.
 - Commit: `feat(worker): advanced k8s timeout budget + teardown`.
@@ -302,15 +371,18 @@ locked by unit test. Real reachability/isolation is Phase 8 smoke.
 ## Phase 6 — Web (schema UI, role upload, scaffolds)
 
 ### Task 6.1: role-aware upload
+
 - Modify: `apps/web/src/routes/api/problems/[id]/advanced-image/+server.ts` — accept `role` (`run`/`grade`/`service`); store `problems/{id}/advanced-images/{role}/{uuid}.tar`; write the matching `advancedConfig` slot; make the 64 MB cap configurable; `docker load` cache keyed by role.
 - Commit: `feat(web): role-aware advanced image upload`.
 
 ### Task 6.2: three scaffolds
+
 - Create: `apps/web/src/lib/server/advanced-scaffold/files/{run,grade,service}/` — run (`runner.py` runs student, writes `/output`; Dockerfile bakes inputs + GNU tar), grade (`grader.py` reads `/run-output`+`/answers`, writes `result.json`; shared `nojv_grader.py`), service (minimal HTTP server).
 - Modify: `advanced-scaffold/+server.ts` to take `role`.
 - Commit: `feat(web): per-role advanced scaffolds`.
 
 ### Task 6.3: problem edit UI
+
 - Modify: the edit page + `JudgeTab`/advanced settings components — run/grade image fields, network `mode` selector, allowlist editor (when `allowlist`), service image (when `service`); reject oversized `totalTimeMs`.
 - Commit: `feat(web): advancedConfig editor (run/grade/network)`.
 
@@ -319,6 +391,7 @@ locked by unit test. Real reachability/isolation is Phase 8 smoke.
 ## Phase 7 — rejudge / plagiarism reproducibility
 
 ### Task 7.1: snapshot advancedConfig on the submission
+
 - Modify: `apps/worker/src/activities/judge.ts` / `packages/application/src/submission/` — at judge time write `Submission.advancedConfigSnapshot`; rejudge reads the snapshot, not the live Problem; plagiarism filters by snapshot.
 - TDD: a rejudge after the Problem's images change still uses the snapshot.
 - Commit: `feat: snapshot advancedConfig for reproducible advanced rejudge`.
@@ -328,17 +401,21 @@ locked by unit test. Real reachability/isolation is Phase 8 smoke.
 ## Phase 8 — Adversarial tests, real-machine smoke, docs, seed
 
 ### Task 8.1: adversarial security suite
+
 - The six attacks from the design's Testing section: read `/answers`, reach non-allowlisted host, reach grade, symlink leak, proxy-unset escape, resource exhaustion. Commit: `test: advanced run/grade adversarial security suite`.
 
 ### Task 8.2: real-machine smoke (lesson: sandbox docker-arg bugs only surface on real runs)
+
 - Manual runbook: build a dual-image problem per mode (`none`/`allowlist`/`service`), submit, confirm AC + isolation. Docker locally; K8s on OrbStack. Record results in the PR.
 
 ### Task 8.3: docs
+
 - Rewrite `docs/architecture/JUDGE_PIPELINE.md` Advanced Mode section to the run/grade split. **Add the parity note:** "standard/checker/interactive verified to implement run/check separation (answers/judge code live only in the worker or a no-student container/ConfigMap); they do not share advanced's new attack surface. rejudge reads live problem state for all types by design."
 - Move the design + this plan to `docs/plans/completed/` when shipped.
 - Commit: `docs: rewrite advanced mode pipeline + judge-type parity note`.
 
 ### Task 8.4: seed
+
 - Rewrite the demo `special_env` problem(s) in `packages/db/prisma/seed.ts` to dual-image run/grade; re-seed dev. Commit: `feat(db): dual-image advanced demo problem`.
 
 ---

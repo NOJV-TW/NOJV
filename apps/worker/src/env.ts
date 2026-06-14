@@ -24,6 +24,7 @@ const dockerEnvSchema = baseEnvSchema.extend({
   K8S_CPU_LIMIT: z.string().trim().optional(),
   K8S_MEMORY_REQUEST: z.string().trim().optional(),
   K8S_MEMORY_LIMIT: z.string().trim().optional(),
+  EGRESS_PROXY_IMAGE: z.string().trim().optional(),
 });
 
 const kubernetesEnvSchema = baseEnvSchema.extend({
@@ -33,6 +34,7 @@ const kubernetesEnvSchema = baseEnvSchema.extend({
   K8S_CPU_LIMIT: z.string().trim().min(1),
   K8S_MEMORY_REQUEST: z.string().trim().min(1),
   K8S_MEMORY_LIMIT: z.string().trim().min(1),
+  EGRESS_PROXY_IMAGE: z.string().trim().min(1),
 });
 
 export const workerEnvSchema = z.discriminatedUnion("EXECUTION_BACKEND", [

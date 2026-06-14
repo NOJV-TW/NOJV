@@ -1,7 +1,12 @@
 import { spawn } from "node:child_process";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
-import { forceRemoveContainer, forceRemoveContainerSync, runDocker, sanitizeId } from "./docker-process";
+import {
+  forceRemoveContainer,
+  forceRemoveContainerSync,
+  runDocker,
+  sanitizeId,
+} from "./docker-process";
 
 export const SERVICE_NETWORK_ALIAS = "service";
 export const SERVICE_HOST_ENV = "NOJV_SERVICE_HOST";
