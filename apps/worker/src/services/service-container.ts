@@ -10,7 +10,10 @@ import {
 
 export const SERVICE_NETWORK_ALIAS = "service";
 export const SERVICE_HOST_ENV = "NOJV_SERVICE_HOST";
+export const SERVICE_PORT_ENV = "PORT";
 export const SERVICE_READY_MARKER = "NOJV_SERVICE_READY";
+
+export const ADVANCED_SERVICE_PORT = 8888;
 
 const READINESS_TIMEOUT_MS = 5_000;
 const READINESS_INTERVAL_MS = 100;
@@ -37,6 +40,8 @@ export function buildStartServiceArgs(params: {
     params.internalName,
     "--network-alias",
     SERVICE_NETWORK_ALIAS,
+    "-e",
+    `${SERVICE_PORT_ENV}=${String(ADVANCED_SERVICE_PORT)}`,
     "--cap-drop",
     "ALL",
     "--security-opt",

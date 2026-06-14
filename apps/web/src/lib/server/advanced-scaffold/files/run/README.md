@@ -24,6 +24,8 @@ docker save my-run -o my-run.tar
 
 Upload `my-run.tar` as the **run** image on the problem's Advanced settings page
 (source = tarball), or push to a registry and paste the reference instead.
+Tarball images run on the Docker backend only; on the Kubernetes backend, push
+to a registry and use a registry reference.
 
 ## The contract
 
@@ -52,7 +54,9 @@ The run container reaches **at most one** peer, chosen per-problem:
   to the student as an ordinary connection error). The run container has no direct
   internet route, so unsetting the proxy env vars leads nowhere.
 - **`service`** — a TA-provided service container is reachable at
-  `$NOJV_SERVICE_HOST` (e.g. `http://10.0.0.5:8080`). Use `nojv.service_host()`.
+  `$NOJV_SERVICE_HOST`, a `host:port` value (no scheme), e.g. `service:8888`
+  (Docker) or `10.96.0.42:8888` (K8s). Build a URL from it:
+  `requests.get(f"http://{nojv.service_host()}/health")`.
 
 ## Runtime constraints
 

@@ -1044,13 +1044,17 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
 
     const svcPod = record.podsCreated.find((p) => p.name === "judge-sub-adv-1-sidecar")!;
     expect(svcPod.body.spec.containers[0].image).toBe("registry.example.com/ta/svc:1.0");
+    const svcEnv = Object.fromEntries(
+      svcPod.body.spec.containers[0].env.map((e: any) => [e.name, e.value]),
+    );
+    expect(svcEnv.PORT).toBe("8888");
 
     const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
     expect(runJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1");
     const runEnv = Object.fromEntries(
       runJob.body.spec.template.spec.containers[0].env.map((e: any) => [e.name, e.value]),
     );
-    expect(runEnv.NOJV_SERVICE_HOST).toBe("10.96.0.42");
+    expect(runEnv.NOJV_SERVICE_HOST).toBe("10.96.0.42:8888");
     expect(runEnv.NOJV_SERVICE_HOST).not.toContain("sidecar");
     expect(runEnv.HTTP_PROXY).toBeUndefined();
 

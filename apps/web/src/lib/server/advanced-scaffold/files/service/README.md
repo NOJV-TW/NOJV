@@ -3,8 +3,12 @@
 The optional **service** image is a TA-provided dependency the student program
 talks to in `service` network mode — a mock API, a database, a simulator. The
 platform starts it alongside the run container and injects its address into the
-run container as **`$NOJV_SERVICE_HOST`**; the student program reaches it over an
-internal-only network and has no other route out.
+run container as **`$NOJV_SERVICE_HOST`** (a `host:port` value); the student
+program reaches it over an internal-only network and has no other route out.
+
+The platform reaches your service on **`$PORT` (8888)** — it injects `PORT=8888`
+into this container. A custom service **MUST listen on `$PORT`**; the run
+container only ever connects to that port.
 
 The service is **trusted** (you authored it) and has **full network**, so it may
 forward to a real upstream if needed. It runs **only during the run phase** and
@@ -38,11 +42,12 @@ images are refused there).
 
 ## How the run container reaches it
 
-In your `runner.py`, read the injected address:
+In your `runner.py`, read the injected `host:port` and build a URL:
 
 ```python
 import nojv_runner as nojv
-base = nojv.service_host()  # e.g. "http://10.0.0.5:8080"
+host = nojv.service_host()  # "host:port", e.g. "service:8888" or "10.96.0.42:8888"
+resp = requests.get(f"http://{host}/health")
 ```
 
 The run container has no direct internet route, so this service is the only peer

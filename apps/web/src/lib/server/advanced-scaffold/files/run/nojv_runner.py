@@ -53,7 +53,12 @@ def language():
 
 
 def service_host():
-    """In `service` network mode, the TA service base URL (host:port). Empty otherwise."""
+    """In `service` network mode, the TA service as a `host:port` value (no scheme).
+
+    Empty in other modes. Build a URL from it, e.g.:
+        host = nojv.service_host()  # "service:8888" (Docker) / "10.96.0.42:8888" (K8s)
+        requests.get(f"http://{host}/health")
+    """
     return os.environ.get("NOJV_SERVICE_HOST", "")
 
 

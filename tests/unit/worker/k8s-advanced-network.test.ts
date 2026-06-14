@@ -195,6 +195,9 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), f
     const container = pod.spec!.containers[0]!;
     expect(container.image).toBe("registry/ta/service:1.0");
     expect(pod.metadata!.labels![SIDECAR_ROLE_LABEL_KEY]).toBe(SUB);
+    expect(container.ports![0]!.containerPort).toBe(SIDECAR_PORT);
+    expect(container.env).toContainEqual({ name: "PORT", value: String(SIDECAR_PORT) });
+    expect(container.env).toContainEqual({ name: "PORT", value: "8888" });
     expect(container.resources!.limits!.memory).toBe("512Mi");
     expect(pod.spec!.automountServiceAccountToken).toBe(false);
     expect(pod.spec!.securityContext).toMatchObject({ runAsNonRoot: true });
@@ -230,9 +233,9 @@ describe("run env injection helpers — inject the sidecar ClusterIP, never a DN
     expect(env.HTTP_PROXY).not.toContain("sidecar");
   });
 
-  it("buildServiceRunEnv injects NOJV_SERVICE_HOST as the sidecar ClusterIP", () => {
+  it("buildServiceRunEnv injects NOJV_SERVICE_HOST as the sidecar ClusterIP:8888 (host:port)", () => {
     const env = buildServiceRunEnv("10.96.0.42");
-    expect(env.NOJV_SERVICE_HOST).toBe("10.96.0.42");
+    expect(env.NOJV_SERVICE_HOST).toBe("10.96.0.42:8888");
     expect(env.NOJV_SERVICE_HOST).not.toContain("sidecar");
   });
 });

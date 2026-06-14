@@ -25,6 +25,8 @@ docker save my-grade -o my-grade.tar
 
 Upload `my-grade.tar` as the **grade** image on the problem's Advanced settings
 page (source = tarball), or push to a registry and paste the reference instead.
+Tarball images run on the Docker backend only; on the Kubernetes backend, push
+to a registry and use a registry reference.
 
 ## The contract
 

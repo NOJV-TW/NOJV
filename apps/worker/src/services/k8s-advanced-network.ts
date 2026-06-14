@@ -1,11 +1,16 @@
 import type * as k8s from "@kubernetes/client-node";
 
 import { PROXY_READY_MARKER, renderAllowlistEnv } from "./egress-proxy";
-import { SERVICE_HOST_ENV, SERVICE_READY_MARKER } from "./service-container";
+import {
+  ADVANCED_SERVICE_PORT,
+  SERVICE_HOST_ENV,
+  SERVICE_PORT_ENV,
+  SERVICE_READY_MARKER,
+} from "./service-container";
 
 export const EGRESS_LABEL_KEY = "nojv.egress";
 export const SIDECAR_ROLE_LABEL_KEY = "nojv.sidecar";
-export const SIDECAR_PORT = 8888;
+export const SIDECAR_PORT = ADVANCED_SERVICE_PORT;
 
 const SANDBOX_NODE_SELECTOR = { "nojv-role": "sandbox" };
 const SANDBOX_TOLERATIONS = [
@@ -143,6 +148,7 @@ export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8
         {
           name: "service",
           image: params.image,
+          env: [{ name: SERVICE_PORT_ENV, value: String(params.port) }],
           ports: [{ containerPort: params.port }],
           resources: {
             limits: {
@@ -283,7 +289,7 @@ export function buildProxyRunEnv(proxyHost: string, port: number): Record<string
 }
 
 export function buildServiceRunEnv(serviceHost: string): Record<string, string> {
-  return { [SERVICE_HOST_ENV]: serviceHost };
+  return { [SERVICE_HOST_ENV]: `${serviceHost}:${String(ADVANCED_SERVICE_PORT)}` };
 }
 
 export { PROXY_READY_MARKER, SERVICE_READY_MARKER };

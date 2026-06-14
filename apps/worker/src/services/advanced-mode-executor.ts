@@ -30,6 +30,7 @@ import {
   stopEgressProxy,
 } from "./egress-proxy";
 import {
+  ADVANCED_SERVICE_PORT,
   collectServiceLogs,
   SERVICE_HOST_ENV,
   SERVICE_NETWORK_ALIAS,
@@ -243,7 +244,9 @@ export function buildProxyEnv(proxyUrl: string): Record<string, string> {
 }
 
 export function buildServiceEnv(): Record<string, string> {
-  return { [SERVICE_HOST_ENV]: SERVICE_NETWORK_ALIAS };
+  return {
+    [SERVICE_HOST_ENV]: `${SERVICE_NETWORK_ALIAS}:${String(ADVANCED_SERVICE_PORT)}`,
+  };
 }
 
 export interface RunWorkspaceInput {

@@ -9,6 +9,7 @@ WORKDIR /service
 
 COPY service.py ./
 
-# Listen on $PORT (default 8080) and print NOJV_SERVICE_READY when ready.
-EXPOSE 8080
+# The platform injects PORT=8888 and reaches the service there. Listen on $PORT
+# and print NOJV_SERVICE_READY when ready.
+EXPOSE 8888
 CMD ["python", "/service/service.py"]

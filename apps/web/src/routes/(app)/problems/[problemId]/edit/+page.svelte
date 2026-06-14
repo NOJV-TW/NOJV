@@ -140,7 +140,7 @@
     config: AdvancedConfig;
     timeLimitMs: number;
     memoryLimitMb: number;
-  }): Promise<{ ok: boolean; message?: string }> {
+  }): Promise<{ ok: boolean }> {
     const fd = new FormData();
     fd.append("data", JSON.stringify(payload));
     const res = await fetch("?/updateAdvancedConfig", { method: "POST", body: fd });
@@ -149,8 +149,7 @@
       await invalidateAll();
       return { ok: true };
     }
-    const body = (await res.json().catch(() => null)) as { message?: string } | null;
-    return { ok: false, ...(body?.message ? { message: body.message } : {}) };
+    return { ok: false };
   }
 
   async function saveRequiredPaths() {

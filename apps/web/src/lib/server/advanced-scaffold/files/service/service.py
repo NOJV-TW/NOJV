@@ -19,7 +19,9 @@ import json
 import os
 import socketserver
 
-PORT = int(os.environ.get("PORT", "8080"))
+# The platform injects PORT=8888 and reaches the service on that port. A custom
+# service MUST listen on $PORT (the run container only ever connects there).
+PORT = int(os.environ.get("PORT", "8888"))
 
 # The marker the platform waits for. Print it AFTER bind/listen succeeds.
 READY_MARKER = "NOJV_SERVICE_READY"

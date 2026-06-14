@@ -5,6 +5,7 @@ import {
   buildServiceEnv,
 } from "../../../apps/worker/src/services/advanced-mode-executor";
 import {
+  ADVANCED_SERVICE_PORT,
   buildStartServiceArgs,
   SERVICE_HOST_ENV,
   SERVICE_NETWORK_ALIAS,
@@ -34,6 +35,14 @@ describe("buildStartServiceArgs", () => {
     expect(aliasIdx).toBeGreaterThan(0);
     expect(args[aliasIdx + 1]).toBe(SERVICE_NETWORK_ALIAS);
     expect(args[aliasIdx + 1]).toBe("service");
+  });
+
+  it("injects PORT=8888 so the scaffold binds the agreed platform service port", () => {
+    expect(ADVANCED_SERVICE_PORT).toBe(8888);
+    const envIdx = args.indexOf("-e");
+    expect(envIdx).toBeGreaterThan(0);
+    expect(args).toContain(`PORT=${String(ADVANCED_SERVICE_PORT)}`);
+    expect(args).toContain("PORT=8888");
   });
 
   it("does NOT attach the egress network at start (egress is added via network connect)", () => {
@@ -96,9 +105,11 @@ describe("service network mode run-phase args", () => {
       extraEnv,
     });
 
-  it("buildServiceEnv injects NOJV_SERVICE_HOST=service and nothing else", () => {
-    expect(buildServiceEnv()).toEqual({ [SERVICE_HOST_ENV]: SERVICE_NETWORK_ALIAS });
-    expect(buildServiceEnv()).toEqual({ NOJV_SERVICE_HOST: "service" });
+  it("buildServiceEnv injects NOJV_SERVICE_HOST=service:8888 (host:port) and nothing else", () => {
+    expect(buildServiceEnv()).toEqual({
+      [SERVICE_HOST_ENV]: `${SERVICE_NETWORK_ALIAS}:${String(ADVANCED_SERVICE_PORT)}`,
+    });
+    expect(buildServiceEnv()).toEqual({ NOJV_SERVICE_HOST: "service:8888" });
   });
 
   it("runs single-homed on the internal network (egress absent, exactly one --network)", () => {
@@ -110,9 +121,9 @@ describe("service network mode run-phase args", () => {
     expect(args).not.toContain("none");
   });
 
-  it("carries NOJV_SERVICE_HOST=service and NO HTTP_PROXY in service mode", () => {
+  it("carries NOJV_SERVICE_HOST=service:8888 and NO HTTP_PROXY in service mode", () => {
     const args = runArgs(buildServiceEnv());
-    const hostIdx = args.indexOf("NOJV_SERVICE_HOST=service");
+    const hostIdx = args.indexOf("NOJV_SERVICE_HOST=service:8888");
     expect(hostIdx).toBeGreaterThan(0);
     expect(args[hostIdx - 1]).toBe("--env");
 
