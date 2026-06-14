@@ -7,6 +7,7 @@ import {
   examProblemRepo,
   examRepo,
   examSessionRepo,
+  Prisma,
   problemWorkspaceFileRepo,
   runTransaction,
   submissionRejudgeLogRepo,
@@ -16,6 +17,7 @@ import {
 import {
   entryFileNameFor,
   validateRequiredPaths,
+  type AdvancedConfig,
   type SubmissionDraft,
   type SubmissionResult,
   type VerdictSummary,
@@ -368,6 +370,7 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
 export async function completeJudge(
   submissionId: string,
   result: SubmissionResult,
+  advancedConfigSnapshot: AdvancedConfig | null = null,
 ): Promise<CompletedSubmission> {
   await putVerdictDetail(storage(), submissionId, result);
 
@@ -380,6 +383,8 @@ export async function completeJudge(
     status: result.verdict,
     verdictSummary: toJsonValue(verdictSummary),
     verdictDetailStorageKey: submissionVerdictDetailKey(submissionId),
+    advancedConfigSnapshot:
+      advancedConfigSnapshot === null ? Prisma.JsonNull : toJsonValue(advancedConfigSnapshot),
   });
 
   return {

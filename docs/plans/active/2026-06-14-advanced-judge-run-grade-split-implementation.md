@@ -388,13 +388,26 @@ from the Task 5.1–5.4 sketches below; recorded here):
 
 ---
 
-## Phase 7 — rejudge / plagiarism reproducibility
+## Phase 7 — advancedConfig audit snapshot
 
-### Task 7.1: snapshot advancedConfig on the submission
+**Settled decision (2026-06-14):** rejudge reads the **LIVE** `Problem.advancedConfig`,
+consistent with standard/checker/interactive (all judge types re-read live problem
+state on rejudge by design — a teacher who fixes a broken image and rejudges gets the
+NEW image). Judging is **unchanged**: `getJudgeContext` already reads
+`problem.advancedConfig` via `parseAdvancedConfig`. `Submission.advancedConfigSnapshot`
+is a pure **audit record** of the config used at the latest judge, not a judging input.
 
-- Modify: `apps/worker/src/activities/judge.ts` / `packages/application/src/submission/` — at judge time write `Submission.advancedConfigSnapshot`; rejudge reads the snapshot, not the live Problem; plagiarism filters by snapshot.
-- TDD: a rejudge after the Problem's images change still uses the snapshot.
-- Commit: `feat: snapshot advancedConfig for reproducible advanced rejudge`.
+### Task 7.1: record the advancedConfig audit snapshot at judge completion
+
+- Modify: `apps/worker/src/activities/judge.ts` (thread `judgeContext.advanced?.config`
+  through `completeSubmission`) and `packages/application/src/submission/mutations.ts`
+  (`completeJudge` persists it into `Submission.advancedConfigSnapshot`). Overwrite on
+  every judge/rejudge; null for non-advanced submissions. Nothing reads the snapshot
+  back into judging.
+- TDD: judging an advanced submission populates the snapshot with the config used; a
+  non-advanced submission leaves it null; the judge context still reads the LIVE problem
+  config (changing the Problem's `advancedConfig` and rejudging uses the new config).
+- Commit: `feat: record advancedConfig audit snapshot at judge completion (rejudge stays live)`.
 
 ---
 

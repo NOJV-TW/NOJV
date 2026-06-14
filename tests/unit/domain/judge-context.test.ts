@@ -344,6 +344,28 @@ describe("getJudgeContext", () => {
       });
     });
 
+    it("reads the LIVE problem advancedConfig (rejudge picks up an updated image), never a submission snapshot", async () => {
+      const updatedConfig = {
+        run: { imageRef: "registry.example.com/judge:v2", imageSource: "registry" },
+        grade: { imageRef: "registry.example.com/judge:v2", imageSource: "registry" },
+        network: { mode: "none" },
+      };
+      const row = mkSubmissionRow(
+        {},
+        {
+          type: "special_env",
+          advancedConfig: updatedConfig,
+          timeLimitMs: 5000,
+          memoryLimitMb: 1024,
+        },
+      );
+      findByIdWithJudgeContext.mockResolvedValue(row);
+
+      const ctx = await getJudgeContext("sub_1");
+      expect(ctx.advanced?.config.run.imageRef).toBe("registry.example.com/judge:v2");
+      expect(ctx.advanced?.config.grade.imageRef).toBe("registry.example.com/judge:v2");
+    });
+
     it("returns advanced=null for special_env when advancedConfig is missing (config not yet attached)", async () => {
       const row = mkSubmissionRow(
         {},

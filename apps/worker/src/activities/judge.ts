@@ -2,6 +2,7 @@ import {
   effectiveTimeLimitMs,
   entryFileNameFor,
   submissionResultSchema,
+  type AdvancedConfig,
   type Language,
   type SandboxExecutor,
   type SandboxRequest,
@@ -260,8 +261,9 @@ export async function completeSubmission(
   submissionId: string,
   result: SubmissionResult,
   mode: "standard" | "advanced",
+  advancedConfig: AdvancedConfig | null = null,
 ): Promise<submissionDomain.CompletedSubmission> {
-  const completed = await submissionDomain.completeJudge(submissionId, result);
+  const completed = await submissionDomain.completeJudge(submissionId, result, advancedConfig);
   recordJudgeLatency(judgeLatencyHistogram, {
     startedAtMs: completed.createdAt.getTime(),
     completedAtMs: Date.now(),

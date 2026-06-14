@@ -479,15 +479,22 @@ advancedConfig: {
 require `run` + `grade`; require `network.allowlist` non-empty iff
 `mode = "allowlist"`; require `network.service` iff `mode = "service"`.
 
-### Reproducibility: snapshot `advancedConfig` on the submission
+### `advancedConfig` audit snapshot on the submission
 
-Because `advancedConfig` (including up to three image refs) now lives on the
-mutable `Problem`, a **rejudge** that re-reads the current Problem would silently
-grade an old submission with newer images → non-reproducible. The submission
-must **snapshot** the `advancedConfig` used at judge time (a denormalized column
-or embedded in the stored verdict metadata); rejudge and plagiarism read the
-snapshot, not the live Problem. This snapshot is part of the schema work and its
-own migration.
+**Settled decision (2026-06-14):** rejudge reads the **LIVE** `Problem.advancedConfig`,
+consistent with every other judge type (standard / checker / interactive all
+re-read live problem state on rejudge). A teacher who fixes a broken run/grade
+image and rejudges expects the **NEW** image — so rejudge must not pin an old
+snapshot. `getJudgeContext` (`packages/application/src/submission/queries.ts`)
+already reads `problem.advancedConfig` via `parseAdvancedConfig` on every judge.
+
+`Submission.advancedConfigSnapshot` (`Json?`) is therefore a pure **audit
+record**, not a judging input. At judge completion the activity records _which_
+`advancedConfig` was used to judge this submission (overwritten on every
+judge/rejudge so it reflects the latest run). It has forensic value — if a TA
+image is later found problematic, you can see which submissions it graded — but
+it never feeds back into judging. For non-advanced submissions it stays null. The
+column already exists (Phase 0); no further schema work.
 
 ## Authoring / upload
 
