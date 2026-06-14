@@ -8,6 +8,7 @@ export {
   deleteAdvancedImageTarball,
   downloadAdvancedImageTarball,
 } from "./images";
+export type { AdvancedImageRole } from "./images";
 export { uploadUserAvatar, downloadUserAvatar, deleteUserAvatar } from "./avatar";
 export {
   testcaseInputKey,

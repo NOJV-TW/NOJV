@@ -99,12 +99,15 @@ export async function downloadUserContentImage(
   return readObject(client, `users/${userId}/images/${imageFilename(filename)}`);
 }
 
+export type AdvancedImageRole = "run" | "grade" | "service";
+
 export async function uploadAdvancedImageTarball(
   client: S3Client,
   problemId: string,
+  role: AdvancedImageRole,
   file: Buffer,
 ): Promise<string> {
-  const key = `problems/${problemId}/advanced-images/${randomUUID()}.tar`;
+  const key = `problems/${problemId}/advanced-images/${role}/${randomUUID()}.tar`;
 
   await client.send(
     new PutObjectCommand({
