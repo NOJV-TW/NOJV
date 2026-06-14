@@ -66,6 +66,22 @@ export class WorkerApp {
         sweepOrphanNetworks();
       }
 
+      if (this.env.EXECUTION_BACKEND === "kubernetes") {
+        const { verifyNetworkPolicyEnforced } = await import("./services/k8s-netpol-probe.js");
+        const decision = await verifyNetworkPolicyEnforced({
+          namespace: this.env.K8S_NAMESPACE,
+          allowUnenforced: this.env.NOJV_ALLOW_UNENFORCED_NETWORK_POLICY,
+        });
+        if (decision.action === "refuse") {
+          throw new Error(
+            "Refusing to start K8s judge worker: the cluster CNI does not enforce NetworkPolicy, " +
+              "so sandbox egress isolation is inert. Enable a NetworkPolicy-enforcing CNI (GKE " +
+              "Dataplane V2, Calico, or Cilium), or set NOJV_ALLOW_UNENFORCED_NETWORK_POLICY=1 to " +
+              "override (DEV ONLY).",
+          );
+        }
+      }
+
       const judgeWorker = await Worker.create({
         connection,
         namespace,

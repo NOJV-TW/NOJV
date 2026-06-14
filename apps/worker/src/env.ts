@@ -35,6 +35,7 @@ const kubernetesEnvSchema = baseEnvSchema.extend({
   K8S_MEMORY_REQUEST: z.string().trim().min(1),
   K8S_MEMORY_LIMIT: z.string().trim().min(1),
   EGRESS_PROXY_IMAGE: z.string().trim().min(1),
+  NOJV_ALLOW_UNENFORCED_NETWORK_POLICY: z.stringbool().optional().default(false),
 });
 
 export const workerEnvSchema = z.discriminatedUnion("EXECUTION_BACKEND", [

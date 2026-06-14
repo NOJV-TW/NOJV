@@ -83,6 +83,12 @@ describe("buildStartProxyArgs", () => {
     expect(args).not.toContain("nojv-net-egress-sub-1");
   });
 
+  it("runs as the non-root sandbox uid for parity with the run container", () => {
+    const userIdx = args.indexOf("--user");
+    expect(userIdx).toBeGreaterThan(0);
+    expect(args[userIdx + 1]).toBe("10001:10001");
+  });
+
   it("keeps the proxy hardened and resource-bounded", () => {
     expect(args).toContain("--cap-drop");
     expect(args).toContain("ALL");

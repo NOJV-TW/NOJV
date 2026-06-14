@@ -200,11 +200,18 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), f
     expect(container.env).toContainEqual({ name: "PORT", value: "8888" });
     expect(container.resources!.limits!.memory).toBe("512Mi");
     expect(pod.spec!.automountServiceAccountToken).toBe(false);
-    expect(pod.spec!.securityContext).toMatchObject({ runAsNonRoot: true });
+    expect(pod.spec!.securityContext).toMatchObject({
+      runAsNonRoot: true,
+      runAsUser: 10001,
+      runAsGroup: 10001,
+    });
     expect(container.securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       capabilities: { drop: ["ALL"] },
       readOnlyRootFilesystem: true,
+      runAsNonRoot: true,
+      runAsUser: 10001,
+      runAsGroup: 10001,
     });
     expect(pod.spec!.volumes!.some((v) => v.name === "tmp" && v.emptyDir)).toBe(true);
   });

@@ -24,6 +24,8 @@ const PROXY_POD_SECURITY_CONTEXT = {
   seccompProfile: { type: "RuntimeDefault" },
 };
 const SERVICE_POD_SECURITY_CONTEXT = {
+  runAsUser: 10001,
+  runAsGroup: 10001,
   runAsNonRoot: true,
   seccompProfile: { type: "RuntimeDefault" },
 };
@@ -40,6 +42,8 @@ const SERVICE_CONTAINER_SECURITY_CONTEXT = {
   capabilities: { drop: ["ALL"] },
   readOnlyRootFilesystem: true,
   runAsNonRoot: true,
+  runAsUser: 10001,
+  runAsGroup: 10001,
 };
 const SIDECAR_TMP_SIZE_LIMIT = "64Mi";
 

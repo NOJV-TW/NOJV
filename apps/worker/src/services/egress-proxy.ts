@@ -54,6 +54,8 @@ export function buildStartProxyArgs(params: {
     params.containerName,
     "--network",
     params.internalName,
+    "--user",
+    "10001:10001",
     "--cap-drop",
     "ALL",
     "--security-opt",
