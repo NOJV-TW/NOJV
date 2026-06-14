@@ -420,6 +420,26 @@ is a pure **audit record** of the config used at the latest judge, not a judging
 ### Task 8.2: real-machine smoke (lesson: sandbox docker-arg bugs only surface on real runs)
 
 - Manual runbook: build a dual-image problem per mode (`none`/`allowlist`/`service`), submit, confirm AC + isolation. Docker locally; K8s on OrbStack. Record results in the PR.
+- **Docker `none`-mode smoke — ✅ DONE (2026-06-14).** Built the real dual-image
+  demo (`pnpm demo-advanced:build` → `nojv-demo-advanced-run:local` +
+  `nojv-demo-advanced-grade:local`) and drove `AdvancedModeExecutor.run` directly
+  against them (gated integration smoke: `tests/integration/judge/advanced-demo-smoke.test.ts`,
+  runs only when both images are present / `REQUIRE_ADVANCED_DEMO_IMAGES=1`).
+  - **Correct `main.py` (sum of two ints):** verdicts `[AC, AC, AC]`,
+    `customScore: 100`, `scoringFeedback: "3/3 testcases passed"`.
+  - **Answer-isolation (malicious `main.py`):** the student tries
+    `open("/answers/case-01.out")` and plants a symlink
+    `output/case-01.out -> /answers/case-01.out`. Observed real outcome:
+    `/answers` does **not exist in the run container** (read raises
+    `FileNotFoundError`; only the grade image bakes `/answers`), and
+    `safeCopyTree` **drops the planted symlink** before the grade phase runs, so
+    the grade container reads `b''` for the leaked case and compares against its
+    own baked answers. Result: verdicts `[WA, WA, WA]`, `customScore: 0`, and the
+    distinctive baked answer `30` never appears in the result. No spurious AC, no
+    answer leak.
+  - **OrbStack K8s smoke remains a manual user step** (per project memory:
+    `orbctl start k8s` + node label) — not run here; the K8s advanced path is
+    covered by mocked-k8s unit tests and the deferred manual cluster smoke.
 
 ### Task 8.3: docs
 
@@ -427,9 +447,23 @@ is a pure **audit record** of the config used at the latest judge, not a judging
 - Move the design + this plan to `docs/plans/completed/` when shipped.
 - Commit: `docs: rewrite advanced mode pipeline + judge-type parity note`.
 
-### Task 8.4: seed
+### Task 8.4: seed — ✅ DONE (2026-06-14)
 
-- Rewrite the demo `special_env` problem(s) in `packages/db/prisma/seed.ts` to dual-image run/grade; re-seed dev. Commit: `feat(db): dual-image advanced demo problem`.
+- ~~Rewrite the demo `special_env` problem(s) in `packages/db/prisma/seed.ts` to dual-image run/grade; re-seed dev.~~ Done:
+  the demo `special_env` problem (`problem_shell-scripting-lab`, retitled "Sum of
+  Two Integers (Advanced Demo)") now points `advancedConfig.run` at
+  `nojv-demo-advanced-run:local` and `advancedConfig.grade` at
+  `nojv-demo-advanced-grade:local` (`network.mode: "none"`), replacing the legacy
+  combined `nojv-demo-judge-shell:local` shim. Built via `pnpm demo-advanced:build`
+  (`infra/docker/demo-advanced-{run,grade}/`). `db:seed:validate` green.
+  E2E selectors in `tests/e2e/advanced-mode-lifecycle.test.ts` updated from the
+  old `?/updateImage` flow to the `AdvancedConfigSection` editor
+  (`?/updateAdvancedConfig`, per-role `adv-ref-run`/`adv-ref-grade` fields).
+  - **Legacy note:** `nojv-demo-judge-shell:local` (build script `demo-judge:build`,
+    `infra/docker/demo-judge-shell/`) is no longer used by the seed but is still
+    referenced by the manual live-cluster K8s smoke
+    (`tests/integration/k8s/judge-k8s.test.ts`), so its build infra is kept (not
+    orphaned). Migrating that smoke to the dual-image demo is a future follow-up.
 
 ---
 
