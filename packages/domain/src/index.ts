@@ -1,4 +1,5 @@
 export * from "./shared";
+export * from "./api-token";
 export { canManageContest } from "./contest/permissions";
 export { canManageExam } from "./exam/permissions";
 export {
@@ -8,6 +9,7 @@ export {
 export { listExamIpViolations, listExamIpViolationsForActor } from "./exam/queries";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
+export * as apiTokenDomain from "./api-token";
 export * as assignmentDomain from "./assignment";
 export * as auditDomain from "./audit";
 export * as clarificationDomain from "./clarification";

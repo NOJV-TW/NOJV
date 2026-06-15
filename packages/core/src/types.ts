@@ -12,6 +12,15 @@ export const supportedLanguages = [
 ] as const;
 
 export const platformRoles = ["admin", "teacher", "student"] as const;
+export const apiTokenScopes = [
+  "profile:read",
+  "problems:read",
+  "submissions:read",
+  "submissions:write",
+  "contests:read",
+  "assignments:read",
+  "admin:read",
+] as const;
 export const userStatuses = ["active", "disabled", "pending_first_login"] as const;
 export const courseRoles = ["teacher", "ta", "student"] as const;
 export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as const;
@@ -51,6 +60,7 @@ export const localeCodes = ["en", "zh-TW"] as const;
 export const DEFAULT_LOCALE = "zh-TW";
 
 export const platformRoleSchema = z.enum(platformRoles);
+export const apiTokenScopeSchema = z.enum(apiTokenScopes);
 export const userStatusSchema = z.enum(userStatuses);
 export const courseRoleSchema = z.enum(courseRoles);
 export const effectiveCourseRoleSchema = z.enum(effectiveCourseRoles);
@@ -86,6 +96,7 @@ export type Language = z.infer<typeof languageSchema>;
 export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ScoreboardMode = z.infer<typeof scoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
+export type ApiTokenScope = z.infer<typeof apiTokenScopeSchema>;
 export type UserStatus = z.infer<typeof userStatusSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type ProblemStatus = z.infer<typeof problemStatusSchema>;
