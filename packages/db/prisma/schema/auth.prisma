@@ -31,6 +31,11 @@ enum UserStatus {
   pending_first_login
 }
 
+enum ApiTokenStatus {
+  active
+  revoked
+}
+
 model User {
   // Core (better-auth)
   id              String  @id @default(cuid())
@@ -55,40 +60,42 @@ model User {
   schoolVerifications            SchoolVerificationToken[]
   submissions                    Submission[]
   contestParticipations          ContestParticipation[]
-  examParticipations             ExamParticipation[]       @relation("ExamParticipationUser")
+  examParticipations             ExamParticipation[]          @relation("ExamParticipationUser")
   virtualContests                VirtualContest[]
-  authoredProblems               Problem[]                 @relation("ProblemAuthor")
-  ownedCourses                   Course[]                  @relation("CourseOwner")
-  courseMemberships              CourseMembership[]        @relation("CourseMembershipUser")
-  createdMemberships             CourseMembership[]        @relation("CourseMembershipCreator")
-  createdCourseAssessments       CourseAssessment[]        @relation("CourseAssessmentCreator")
-  createdContests                Contest[]                 @relation("ContestCreator")
-  createdExams                   Exam[]                    @relation("ExamCreator")
-  createdAnnouncements           Announcement[]            @relation("AnnouncementCreator")
-  triggeredExamPlagiarisms       Exam[]                    @relation("ExamPlagiarismTriggerer")
-  triggeredContestPlagiarisms    Contest[]                 @relation("ContestPlagiarismTriggerer")
-  triggeredAssessmentPlagiarisms CourseAssessment[]        @relation("AssessmentPlagiarismTriggerer")
+  authoredProblems               Problem[]                    @relation("ProblemAuthor")
+  ownedCourses                   Course[]                     @relation("CourseOwner")
+  courseMemberships              CourseMembership[]           @relation("CourseMembershipUser")
+  createdMemberships             CourseMembership[]           @relation("CourseMembershipCreator")
+  createdCourseAssessments       CourseAssessment[]           @relation("CourseAssessmentCreator")
+  createdContests                Contest[]                    @relation("ContestCreator")
+  createdExams                   Exam[]                       @relation("ExamCreator")
+  createdAnnouncements           Announcement[]               @relation("AnnouncementCreator")
+  triggeredExamPlagiarisms       Exam[]                       @relation("ExamPlagiarismTriggerer")
+  triggeredContestPlagiarisms    Contest[]                    @relation("ContestPlagiarismTriggerer")
+  triggeredAssessmentPlagiarisms CourseAssessment[]           @relation("AssessmentPlagiarismTriggerer")
   editorials                     Editorial[]
   editorialVotes                 EditorialVote[]
   ipViolationLogs                IpViolationLog[]
-  activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
+  activeExamSessions             ActiveExamSession[]          @relation("ActiveExamSessionUser")
   notifications                  Notification[]
   triggeredRejudgeLogs           SubmissionRejudgeLog[]
-  asOverrideStudent              ScoreOverride[]           @relation("ScoreOverrideUser")
-  createdScoreOverrides          ScoreOverride[]           @relation("ScoreOverrideCreator")
-  editedScoreOverrides           ScoreOverride[]           @relation("ScoreOverrideEditor")
-  scoreOverrideAuditChanges      ScoreOverrideAuditLog[]   @relation("ScoreOverrideAuditChanger")
-  clarificationsAsked            Clarification[]           @relation("ClarificationAsker")
-  plagiarismPairFlags            PlagiarismPairFlag[]      @relation("PlagiarismPairFlagFlagger")
-  clarificationsAnswered         Clarification[]           @relation("ClarificationAnswerer")
-  assessmentAuditLogs            AssessmentAuditLog[]      @relation("AssessmentAuditActor")
-  editorialReportsFiled          EditorialReport[]         @relation("EditorialReportReporter")
-  editorialReportsResolved       EditorialReport[]         @relation("EditorialReportResolver")
-  submissionFeedbackReceived     SubmissionFeedback[]      @relation("SubmissionFeedbackStudent")
-  submissionFeedbackAuthored     SubmissionFeedback[]      @relation("SubmissionFeedbackAuthor")
+  asOverrideStudent              ScoreOverride[]              @relation("ScoreOverrideUser")
+  createdScoreOverrides          ScoreOverride[]              @relation("ScoreOverrideCreator")
+  editedScoreOverrides           ScoreOverride[]              @relation("ScoreOverrideEditor")
+  scoreOverrideAuditChanges      ScoreOverrideAuditLog[]      @relation("ScoreOverrideAuditChanger")
+  clarificationsAsked            Clarification[]              @relation("ClarificationAsker")
+  plagiarismPairFlags            PlagiarismPairFlag[]         @relation("PlagiarismPairFlagFlagger")
+  clarificationsAnswered         Clarification[]              @relation("ClarificationAnswerer")
+  assessmentAuditLogs            AssessmentAuditLog[]         @relation("AssessmentAuditActor")
+  editorialReportsFiled          EditorialReport[]            @relation("EditorialReportReporter")
+  editorialReportsResolved       EditorialReport[]            @relation("EditorialReportResolver")
+  submissionFeedbackReceived     SubmissionFeedback[]         @relation("SubmissionFeedbackStudent")
+  submissionFeedbackAuthored     SubmissionFeedback[]         @relation("SubmissionFeedbackAuthor")
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")
-  triggeredPlagiarismLogs        PlagiarismTriggerLog[]    @relation("PlagiarismTriggerLogTriggerer")
+  triggeredPlagiarismLogs        PlagiarismTriggerLog[]       @relation("PlagiarismTriggerLogTriggerer")
   problemBookmarks               ProblemBookmark[]
+  apiTokens                      ApiToken[]
+  revokedApiTokens               ApiToken[]                   @relation("ApiTokenRevoker")
 }
 
 model Session {
@@ -141,5 +148,31 @@ model SchoolVerificationToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
+}
+
+model ApiToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  prefix    String   @unique
+  tokenHash String   @unique
+  scopes    String[] @default([])
+
+  status     ApiTokenStatus @default(active)
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  lastUsedIp String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  revokedAt   DateTime?
+  revokedById String?
+  revokedBy   User?     @relation("ApiTokenRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
   @@index([expiresAt])
 }

@@ -1,5 +1,6 @@
 export { announcementRepo } from "./announcement";
 export { announcementTranslationRepo } from "./announcement-translation";
+export { apiTokenRepo } from "./api-token";
 export { assessmentRepo, assessmentProblemRepo } from "./assessment";
 export { assessmentAuditLogRepo } from "./assessment-audit";
 export { clarificationRepo } from "./clarification";
