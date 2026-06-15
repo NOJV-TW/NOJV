@@ -7,13 +7,11 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { courseDomain } from "@nojv/domain";
+import { courseDomain } from "@nojv/application";
 
 const { listCourseCards, listForUserWithCards, getDashboardStats } = courseDomain;
 
 describe("course queries (real DB)", () => {
-  // --- listCourseCards ---
-
   describe("listCourseCards", () => {
     it("returns all courses when no userId filter", async () => {
       await createTestCourse({ title: "Course A" });
@@ -65,7 +63,6 @@ describe("course queries (real DB)", () => {
       const teacher = await createTestUser({ platformRole: "teacher" });
       const course = await createTestCourse({ ownerId: teacher.id });
 
-      // Active membership
       await testPrisma.courseMembership.create({
         data: {
           courseId: course.id,
@@ -76,8 +73,7 @@ describe("course queries (real DB)", () => {
         },
       });
 
-      // Published assessment
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -96,8 +92,6 @@ describe("course queries (real DB)", () => {
       expect(cards[0]!.assignmentCount).toBe(1);
     });
   });
-
-  // --- listForUserWithCards ---
 
   describe("listForUserWithCards", () => {
     it("splits memberships into enrolled (student) and managing (teacher/ta)", async () => {
@@ -165,8 +159,7 @@ describe("course queries (real DB)", () => {
 
       const now = Date.now();
 
-      // Open assignment: opensAt <= now <= closesAt.
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -179,8 +172,7 @@ describe("course queries (real DB)", () => {
         },
       });
 
-      // Draft assignment.
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -192,7 +184,6 @@ describe("course queries (real DB)", () => {
         },
       });
 
-      // Upcoming exam.
       await testPrisma.exam.create({
         data: {
           courseId: course.id,
@@ -232,7 +223,7 @@ describe("course queries (real DB)", () => {
       });
 
       const now = Date.now();
-      await testPrisma.courseAssessment.create({
+      await testPrisma.assessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
@@ -253,8 +244,6 @@ describe("course queries (real DB)", () => {
       expect(card.myAllCaughtUp).toBe(false);
     });
   });
-
-  // --- getDashboardStats ---
 
   describe("getDashboardStats", () => {
     it("returns correct counts of public problems and courses", async () => {

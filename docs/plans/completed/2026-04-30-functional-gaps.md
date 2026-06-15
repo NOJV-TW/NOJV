@@ -44,7 +44,7 @@ Add edit + delete + browse list. Voting / comments deliberately out.
   - `DELETE /api/editorials/[id]` — soft delete (mark `deletedAt`).
 - Domain:
   - Add `updateEditorial(actor, id, input)` and `deleteEditorial(actor,
-id)` in `packages/domain/src/editorial/mutations.ts`.
+id)` in `packages/application/src/editorial/mutations.ts`.
   - Permission: `actor.userId === editorial.authorId || actor.platformRole === 'admin'`.
 - Schema:
   - Add nullable `deletedAt` column to `Editorial`. Filter
@@ -119,7 +119,7 @@ Add three widgets to `/dashboard`:
 
 Implementation:
 
-- `packages/domain/src/user/analytics.ts` — add `getStreakDays(userId)`
+- `packages/application/src/user/analytics.ts` — add `getStreakDays(userId)`
   and `getSuggestedProblems(userId, limit = 5)`.
 - `apps/web/src/routes/(app)/dashboard/+page.server.ts` — call new
   helpers in parallel `Promise.all` with existing loaders.

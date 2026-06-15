@@ -31,3 +31,29 @@ export function defineNojvThemes(monaco: typeof Monaco): void {
 export function getNojvThemeName(isDark: boolean): string {
   return isDark ? NOJV_DARK_THEME : NOJV_LIGHT_THEME;
 }
+
+export const MONACO_CODE_EDITOR_OPTIONS = {
+  automaticLayout: true,
+  fontSize: 12,
+  hideCursorInOverviewRuler: true,
+  lineDecorationsWidth: 0,
+  lineNumbersMinChars: 2,
+  minimap: { enabled: false },
+  overviewRulerBorder: false,
+  padding: { top: 16 },
+  scrollBeyondLastLine: false,
+  wordWrap: "on",
+} satisfies Monaco.editor.IStandaloneEditorConstructionOptions;
+
+export function watchThemeChanges(monaco: typeof Monaco): () => void {
+  const observer = new MutationObserver(() => {
+    monaco.editor.setTheme(
+      getNojvThemeName(document.documentElement.classList.contains("dark")),
+    );
+  });
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+}

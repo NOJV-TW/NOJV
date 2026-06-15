@@ -27,6 +27,8 @@ import {
 import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
+const ARTIFACT_DIR = "/artifact";
+const RUN_COMMAND_FILE = path.join(ARTIFACT_DIR, "run-command.json");
 const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
 
 function log(message: string): void {
@@ -51,7 +53,7 @@ async function readSourceCode(
     try {
       return await fs.readFile(path.join(SUBMISSION_DIR, fileName), "utf-8");
     } catch {
-      // try next candidate
+      continue;
     }
   }
 
@@ -74,25 +76,14 @@ async function materializeConfiguredSources(
 ): Promise<void> {
   for (const sourceFile of config.sourceFiles ?? []) {
     const normalizedPath = normalizeRelativePath(sourceFile.path);
-    if (!normalizedPath) {
-      continue;
-    }
     await writeWorkFile(workDir, normalizedPath, sourceFile.content);
   }
 
   for (const fileRef of config.sourceFileMap ?? []) {
     const normalizedPath = normalizeRelativePath(fileRef.path);
     const normalizedKey = normalizeRelativePath(fileRef.key);
-    if (!normalizedPath || !normalizedKey) {
-      continue;
-    }
-
-    try {
-      const content = await fs.readFile(path.join(SUBMISSION_DIR, normalizedKey), "utf-8");
-      await writeWorkFile(workDir, normalizedPath, content);
-    } catch {
-      // Ignore missing mapped entries and continue with available files.
-    }
+    const content = await fs.readFile(path.join(SUBMISSION_DIR, normalizedKey), "utf-8");
+    await writeWorkFile(workDir, normalizedPath, content);
   }
 }
 
@@ -107,10 +98,10 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
       .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10));
 
     if (dirs.length > 0) {
-      return loadTestcasesFromDirs(testcasesDir, dirs);
+      return await loadTestcasesFromDirs(testcasesDir, dirs);
     }
   } catch {
-    // testcases/ directory doesn't exist — try flat ConfigMap layout
+    return loadTestcasesFromFlatKeys();
   }
 
   return loadTestcasesFromFlatKeys();
@@ -132,7 +123,7 @@ async function loadTestcasesFromDirs(
     try {
       expected = await fs.readFile(path.join(tcDir, "expected.txt"), "utf-8");
     } catch {
-      // expected is optional (e.g., for interactive/checker judges)
+      expected = undefined;
     }
 
     let meta: TestcaseMeta = {};
@@ -141,7 +132,7 @@ async function loadTestcasesFromDirs(
       const parsed = TestcaseMetaSchema.safeParse(JSON.parse(metaRaw));
       if (parsed.success) meta = parsed.data;
     } catch {
-      // meta.json is optional, defaults below
+      meta = {};
     }
 
     testcases.push({
@@ -159,17 +150,17 @@ async function loadTestcasesFromDirs(
 async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
   const entries = await fs.readdir(SUBMISSION_DIR);
   const inputFiles = entries
-    .filter((e) => e.match(/^testcase-\d+-input\.txt$/))
+    .filter((e) => /^testcase-\d+-input\.txt$/.test(e))
     .sort((a, b) => {
-      const ai = Number.parseInt(a.split("-")[1]!, 10);
-      const bi = Number.parseInt(b.split("-")[1]!, 10);
+      const ai = Number.parseInt(a.split("-")[1] ?? "", 10);
+      const bi = Number.parseInt(b.split("-")[1] ?? "", 10);
       return ai - bi;
     });
 
   const testcases: TestcaseFiles[] = [];
 
   for (const inputFile of inputFiles) {
-    const index = Number.parseInt(inputFile.split("-")[1]!, 10);
+    const index = Number.parseInt(inputFile.split("-")[1] ?? "", 10);
     const input = await fs.readFile(path.join(SUBMISSION_DIR, inputFile), "utf-8");
 
     let expected: string | undefined;
@@ -179,7 +170,7 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
         "utf-8",
       );
     } catch {
-      // expected is optional
+      expected = undefined;
     }
 
     testcases.push({ index, input, expected, ...DEFAULT_TESTCASE_META });
@@ -255,8 +246,7 @@ async function compileSubmission(
   await materializeConfiguredSources(config, workDir);
 
   const defaultEntry = sourceFileName(config.language);
-  const entryFile =
-    (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
+  const entryFile = config.entryFile ? normalizeRelativePath(config.entryFile) : defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
   if (!(await pathExists(srcFile))) {
@@ -270,7 +260,8 @@ async function compileSubmission(
 }
 
 async function runInteractive(workDir: string, config: SandboxInput): Promise<void> {
-  const interactive = config.interactive!;
+  const { interactive } = config;
+  if (!interactive) throw new Error("runInteractive called without an interactive config.");
 
   if (interactive.role === "solution") {
     const compileResult = await compileSubmission(workDir, config);
@@ -341,12 +332,90 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   emit({ rawRuns });
 }
 
+async function runCompilePhase(config: SandboxInput): Promise<void> {
+  const compileResult = await compileSubmission(ARTIFACT_DIR, config);
+  if (!compileResult.success) {
+    process.stdout.write(JSON.stringify({ compilationError: compileResult.error }));
+    return;
+  }
+  await fs.writeFile(RUN_COMMAND_FILE, JSON.stringify(compileResult.runCommand), "utf-8");
+  process.stdout.write(JSON.stringify({ runCommand: compileResult.runCommand }));
+}
+
+async function resolveRunCommand(config: SandboxInput): Promise<string[] | null> {
+  if (config.mode?.kind === "run-case") return config.mode.runCommand;
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(RUN_COMMAND_FILE, "utf-8"));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length > 0 &&
+      parsed.every((s): s is string => typeof s === "string")
+    ) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function runSingleCase(config: SandboxInput, caseIndex: number): Promise<void> {
+  const runCommand = await resolveRunCommand(config);
+  if (!runCommand) {
+    emit({
+      pipelineError:
+        "run-case phase could not resolve a run command (missing run-command.json).",
+    });
+    return;
+  }
+
+  const testcase = (await loadTestcases()).find((tc) => tc.index === caseIndex);
+  if (!testcase) {
+    emit({ pipelineError: `Testcase ${String(caseIndex)} not found in submission bundle.` });
+    return;
+  }
+
+  const run = await runSolution(
+    runCommand,
+    testcase,
+    config.limits.timeoutMs,
+    config.limits.env,
+    true,
+  );
+  emit({ rawRuns: [run] });
+}
+
+function resolveCaseIndex(config: SandboxInput): number | null {
+  const fromEnv = process.env.SANDBOX_CASE_INDEX;
+  if (fromEnv !== undefined) {
+    const parsed = Number.parseInt(fromEnv, 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  }
+  return config.mode?.kind === "run-case" ? config.mode.caseIndex : null;
+}
+
 async function main(): Promise<void> {
   log("Reading config...");
   const config = await readConfig();
   log(
     `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.problemType}`,
   );
+
+  const phase = process.env.SANDBOX_PHASE ?? config.mode?.kind;
+
+  if (phase === "compile") {
+    await runCompilePhase(config);
+    return;
+  }
+  if (phase === "run-case") {
+    const caseIndex = resolveCaseIndex(config);
+    if (caseIndex === null) {
+      emit({ pipelineError: "run-case phase requires a valid case index." });
+      return;
+    }
+    await runSingleCase(config, caseIndex);
+    return;
+  }
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   try {

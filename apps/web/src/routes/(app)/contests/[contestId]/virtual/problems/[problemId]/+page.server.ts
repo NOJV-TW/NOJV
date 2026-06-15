@@ -1,6 +1,6 @@
 import { error, redirect } from "@sveltejs/kit";
 
-import { problemDomain, virtualContestDomain } from "@nojv/domain";
+import { problemDomain, virtualContestDomain } from "@nojv/application";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
@@ -29,7 +29,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const [problem, submissions] = await Promise.all([
     getProblemPageData(problemId),
-    listVirtualContestProblemSubmissions(virtual.virtualContestId, actor.userId, problemId),
+    listVirtualContestProblemSubmissions(virtual.participationId, actor.userId, problemId),
   ]);
 
   const siblingProblems = virtual.problems.map((p) => ({

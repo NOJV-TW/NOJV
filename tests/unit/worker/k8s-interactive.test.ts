@@ -39,11 +39,14 @@ function makeInteractiveRequest(overrides?: {
 describe("buildInteractiveSolutionConfigMapData — solution container must NOT see any secret", () => {
   it("writes source + config.json with role=solution", () => {
     const data = buildInteractiveSolutionConfigMapData(makeInteractiveRequest());
-    expect(data["main.py"]).toBe(STUDENT_SOURCE);
     const config = JSON.parse(data["config.json"]!) as {
       interactive: { role: string };
       judgeType: string;
+      sourceFileMap?: { path: string; key: string }[];
     };
+    const mainEntry = config.sourceFileMap?.find((e) => e.path === "main.py");
+    expect(mainEntry).toBeDefined();
+    expect(data[mainEntry!.key]).toBe(STUDENT_SOURCE);
     expect(config.interactive).toEqual({ role: "solution" });
     expect(config.judgeType).toBe("interactive");
   });
@@ -57,7 +60,6 @@ describe("buildInteractiveSolutionConfigMapData — solution container must NOT 
       makeInteractiveRequest({ testcases: tcs }),
     );
 
-    // No per-case keys in either layout.
     for (const i of [0, 1]) {
       expect(data[`case-${String(i)}-input.txt`]).toBeUndefined();
       expect(data[`case-${String(i)}-answer.txt`]).toBeUndefined();
@@ -67,7 +69,6 @@ describe("buildInteractiveSolutionConfigMapData — solution container must NOT 
     expect(data["interactor.py"]).toBeUndefined();
     expect(data["interactor.cpp"]).toBeUndefined();
 
-    // Defence in depth — no value in the ConfigMap may carry any secret blob.
     for (const value of Object.values(data)) {
       expect(value).not.toContain("SECRET_INPUT_42");
       expect(value).not.toContain("SECRET_ANSWER_42");
@@ -117,7 +118,6 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
   it("ships ONLY the requested testcase — sibling cases stay isolated", () => {
     const req = makeInteractiveRequest({ testcases: tcs });
     const data = buildInteractiveInteractorConfigMapData(req, tcs[1]!);
-    // The non-requested case must NOT leak into this container.
     expect(data["case-0-input.txt"]).toBeUndefined();
     expect(data["case-0-answer.txt"]).toBeUndefined();
   });
@@ -195,7 +195,6 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
     expect(submission?.name).toBe("solution-data");
     expect(submission?.readOnly).toBe(true);
 
-    // SECURITY: the interactor's volume must not appear anywhere on the solution container.
     for (const mount of sol.volumeMounts!) {
       expect(mount.name).not.toBe("interactor-data");
     }

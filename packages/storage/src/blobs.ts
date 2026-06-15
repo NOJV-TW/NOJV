@@ -2,12 +2,18 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  CopyObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 
-const BUCKET = process.env.S3_BUCKET ?? "nojv";
+import { getStorageEnv } from "./env";
+
+let cachedBucket: string | undefined;
+function BUCKET(): string {
+  return (cachedBucket ??= getStorageEnv().S3_BUCKET);
+}
 
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 
@@ -17,7 +23,7 @@ export async function putText(client: S3Client, key: string, content: string): P
   const body = Buffer.from(content, "utf-8");
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: body,
       ContentLength: body.byteLength,
@@ -29,7 +35,7 @@ export async function putText(client: S3Client, key: string, content: string): P
 export async function getText(client: S3Client, key: string): Promise<string> {
   const response = await client.send(
     new GetObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
     }),
   );
@@ -51,7 +57,7 @@ export async function listByPrefix(client: S3Client, prefix: string): Promise<st
   do {
     const response = await client.send(
       new ListObjectsV2Command({
-        Bucket: BUCKET,
+        Bucket: BUCKET(),
         Prefix: prefix,
         ContinuationToken: continuationToken,
       }),
@@ -76,7 +82,7 @@ export async function sumSizesByPrefix(client: S3Client, prefix: string): Promis
   do {
     const response = await client.send(
       new ListObjectsV2Command({
-        Bucket: BUCKET,
+        Bucket: BUCKET(),
         Prefix: prefix,
         ContinuationToken: continuationToken,
       }),
@@ -97,8 +103,22 @@ export async function sumSizesByPrefix(client: S3Client, prefix: string): Promis
 export async function deleteBlob(client: S3Client, key: string): Promise<void> {
   await client.send(
     new DeleteObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
+    }),
+  );
+}
+
+export async function copyBlob(
+  client: S3Client,
+  fromKey: string,
+  toKey: string,
+): Promise<void> {
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: BUCKET(),
+      CopySource: `${encodeURIComponent(BUCKET())}/${encodeStorageKey(fromKey)}`,
+      Key: toKey,
     }),
   );
 }
@@ -109,7 +129,7 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
   do {
     const listResponse = await client.send(
       new ListObjectsV2Command({
-        Bucket: BUCKET,
+        Bucket: BUCKET(),
         Prefix: prefix,
         ContinuationToken: continuationToken,
       }),
@@ -124,7 +144,7 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
       const batch = keys.slice(i, i + DELETE_BATCH_SIZE);
       await client.send(
         new DeleteObjectsCommand({
-          Bucket: BUCKET,
+          Bucket: BUCKET(),
           Delete: {
             Objects: batch.map((key) => ({ Key: key })),
             Quiet: true,
@@ -137,4 +157,8 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
       ? listResponse.NextContinuationToken
       : undefined;
   } while (continuationToken);
+}
+
+function encodeStorageKey(key: string): string {
+  return key.split("/").map(encodeURIComponent).join("/");
 }

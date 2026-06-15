@@ -1,20 +1,10 @@
-// tests/integration/web/api-problems-workspace-upload.test.ts
-//
-// W3.A coverage — domain-level checks for the workspace-file upload path
-// driven by `POST /api/problems/[id]/workspace/files`. The HTTP wrapper is
-// a thin adapter: requireApiAuth + canEditProblem role check + file-size
-// + storage-budget + `setWorkspaceFile`. We exercise the domain helpers
-// directly (same pattern as api-problems-checker-upload.test.ts) since
-// the suite has no SvelteKit runtime — pulling in `+server.ts` would
-// transitively load `$app/environment` and the rate limiter.
-
 import { describe, expect, it } from "vitest";
 
-import { ForbiddenError, problemDomain } from "@nojv/domain";
+import { ForbiddenError, problemDomain } from "@nojv/application";
 
 import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
 
-import type { ProblemActorContext } from "../../../packages/domain/src/problem/permissions";
+import type { ProblemActorContext } from "../../../packages/application/src/problem/permissions";
 
 function actorOf(user: {
   id: string;
@@ -33,8 +23,6 @@ describe("POST /api/problems/[id]/workspace/files (W3.A)", () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const problem = await createTestProblem({ authorId: teacher.id, type: "multi_file" });
 
-    // Route's edit-access guard delegates to assertProblemEditAccess; we
-    // assert the same call shape passes for the author.
     await problemDomain.assertProblemEditAccess(actorOf(teacher), problem.id);
 
     await problemDomain.setWorkspaceFile(problem.id, {
@@ -71,9 +59,6 @@ describe("POST /api/problems/[id]/workspace/files (W3.A)", () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const problem = await createTestProblem({ authorId: teacher.id, type: "multi_file" });
 
-    // The route also enforces a per-file 5 MB cap (HTTP 413) before this
-    // budget check — that path is asserted at the HTTP layer; here we
-    // verify the domain-level 50 MB guard that backstops it.
     await expect(
       problemDomain.assertProblemStorageBudget(problem.id, 51 * 1024 * 1024),
     ).rejects.toThrow(/storage budget exceeded/i);

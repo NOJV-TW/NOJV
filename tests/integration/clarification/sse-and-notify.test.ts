@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { clarificationDomain, ConflictError } from "@nojv/domain";
+import { clarificationDomain, ConflictError } from "@nojv/application";
 import { createSubscriber, keys } from "@nojv/redis";
 
 import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";
@@ -27,11 +27,10 @@ function actorFor(user: ActorUser) {
 async function seedContestWithParticipant() {
   const organizer = await createTestUser({ platformRole: "teacher" });
   const contestant = await createTestUser({ platformRole: "student" });
-  // Default createTestContest window is 2026-01-01 → 2026-12-31, which
-  // covers today (2026-04-19) so assertContextActiveForAsk passes.
   const contest = await createTestContest({ createdByUserId: organizer.id });
-  await testPrisma.contestParticipation.create({
+  await testPrisma.participation.create({
     data: {
+      type: "contest",
       contestId: contest.id,
       userId: contestant.id,
       status: "active",
@@ -67,10 +66,6 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       expect(event.action).toBe("created");
       expect(event.payload.contextType).toBe("contest");
       expect(event.payload.contextId).toBe(contest.id);
-      // Masked projection: the asker's identity is nulled on the wire.
-      // Staff fetch identity via GET; the SSE push is fail-safe by
-      // default. This is the anonymity invariant enforced in
-      // `publishClarificationEvent`.
       expect(event.payload.askedByUserId).toBeNull();
       expect(event.payload.askedBy).toBeNull();
     } finally {
@@ -86,8 +81,6 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       questionText: "Is this modular arithmetic?",
     });
 
-    // Subscribe AFTER the ask so we only collect the answer's "updated"
-    // event (prevents the initial "created" from racing our assertion).
     const sub = createSubscriber(process.env.REDIS_URL ?? "redis://localhost:6379");
     const events: { action: string; payload: Record<string, unknown> }[] = [];
     sub.on("message", (_channel, msg) => {
@@ -158,7 +151,6 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
   it("rate limit rejects the 6th question within a 10-minute window", async () => {
     const { contestant, contest } = await seedContestWithParticipant();
 
-    // First 5 asks succeed.
     for (let i = 0; i < 5; i++) {
       await clarificationDomain.ask(actorFor(contestant), {
         context: { type: "contest", contestId: contest.id },
@@ -166,7 +158,6 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       });
     }
 
-    // The 6th trips the limiter.
     await expect(
       clarificationDomain.ask(actorFor(contestant), {
         context: { type: "contest", contestId: contest.id },

@@ -1,4 +1,5 @@
-import "$lib/server/otel"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
+import "$lib/server/otel"; // Must stay first for auto-instrumentation.
+import "$lib/server/domain-orchestration";
 
 import {
   error,
@@ -14,7 +15,7 @@ import {
   getPageLockedContext,
   proctoringDomain,
   type PageLockedContext,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import { getAuth } from "$lib/auth.server";
 import { examContextCache, pageLockCache } from "$lib/server/exam-context-cache";
@@ -33,6 +34,16 @@ import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/ser
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
+import {
+  deriveRequestId,
+  enforceApiCsrf,
+  setSecurityHeaders,
+} from "$lib/server/hooks/request-security";
+import {
+  isPageLockExempt,
+  isProfileExempt,
+  stripLocalePrefix,
+} from "$lib/server/hooks/route-paths";
 
 getWebEnv();
 
@@ -54,52 +65,6 @@ process.on("uncaughtException", (err) => {
   });
   process.exit(1);
 });
-
-const PROFILE_EXEMPT_PREFIXES = [
-  "/api/",
-  "/complete-profile",
-  "/verify-school",
-  "/signin",
-  "/admin-signin",
-  "/signup",
-];
-
-const LOCALE_PREFIXES = ["/zh-TW"];
-
-function stripLocalePrefix(pathname: string): string {
-  for (const lp of LOCALE_PREFIXES) {
-    if (pathname === lp || pathname.startsWith(lp + "/")) {
-      return pathname.slice(lp.length) || "/";
-    }
-  }
-  return pathname;
-}
-
-function isProfileExempt(pathname: string): boolean {
-  const clean = stripLocalePrefix(pathname);
-  return PROFILE_EXEMPT_PREFIXES.some((p) => clean.startsWith(p));
-}
-
-function isPageLockExempt(pathname: string): boolean {
-  return (
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/signin") ||
-    pathname.startsWith("/signup")
-  );
-}
-
-function setSecurityHeaders(response: Response): void {
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-  );
-  if (process.env.NODE_ENV === "production") {
-    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  }
-}
 
 function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boolean {
   const prefix = `/exams/${ctx.examId}`;
@@ -124,14 +89,6 @@ function denyExamGate(opts: {
 
 function pageLockRedirectTarget(ctx: PageLockedContext): string {
   return `/exams/${ctx.examId}`;
-}
-
-function deriveRequestId(headers: Headers): string {
-  const incoming = headers.get("x-request-id");
-  if (incoming && incoming.length > 0 && incoming.length <= 128 && /^[\w.-]+$/.test(incoming)) {
-    return incoming;
-  }
-  return crypto.randomUUID();
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -326,6 +283,31 @@ function enforceAccountState(event: HandleEvent, cleanPath: string): void {
   }
 }
 
+function enforcePasswordChange(event: HandleEvent, cleanPath: string): void {
+  if (
+    event.locals.sessionUser?.mustChangePassword &&
+    !cleanPath.startsWith("/api/") &&
+    !cleanPath.startsWith("/account/change-password") &&
+    !cleanPath.startsWith("/complete-profile") &&
+    !cleanPath.startsWith("/signin")
+  ) {
+    redirect(302, "/account/change-password");
+  }
+}
+
+function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): void {
+  const user = event.locals.sessionUser;
+  if (
+    user?.platformRole === "admin" &&
+    !user.twoFactorEnabled &&
+    !user.mustChangePassword &&
+    cleanPath.startsWith("/admin") &&
+    !cleanPath.startsWith("/api/")
+  ) {
+    redirect(302, "/account/two-factor");
+  }
+}
+
 async function enforcePageLock(event: HandleEvent, cleanPath: string): Promise<void> {
   if (!event.locals.sessionUser || isPageLockExempt(cleanPath)) {
     return;
@@ -375,15 +357,22 @@ async function enforceExamGate(
     return null;
   }
 
-  let examCtx: ActiveExamContext | null = null;
+  let examCtx: ActiveExamContext | null;
   try {
     examCtx = await examContextCache.getOrLoad(sessionUser.id, () =>
       getActiveExamContext(sessionUser.id),
     );
   } catch (err) {
-    examLockLogger.warn("getActiveExamContext failed — failing open", {
+    examLockLogger.error("getActiveExamContext failed — failing closed", {
       userId: sessionUser.id,
       err: err instanceof Error ? err.message : String(err),
+    });
+    return denyExamGate({
+      cleanPath,
+      requestId: event.locals.requestId,
+      status: 503,
+      message: m.examShell_ipGateUnavailable(),
+      code: "exam_context_unavailable",
     });
   }
 
@@ -391,7 +380,7 @@ async function enforceExamGate(
     return null;
   }
 
-  const ip = getClientIp(event); // prod: throws 403 if the request bypassed Cloudflare
+  const ip = getClientIp(event);
   let verdict;
   try {
     verdict = await proctoringDomain.checkProctoringGate({
@@ -468,6 +457,8 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   await loadSession(event);
   enforceAccountState(event, cleanPath);
+  enforcePasswordChange(event, cleanPath);
+  enforceAdminTwoFactor(event, cleanPath);
   await enforcePageLock(event, cleanPath);
 
   const examResponse = await enforceExamGate(event, cleanPath);

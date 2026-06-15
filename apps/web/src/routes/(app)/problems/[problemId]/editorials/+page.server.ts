@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { editorialDomain, problemDomain } from "@nojv/domain";
+import { editorialDomain, problemDomain } from "@nojv/application";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 

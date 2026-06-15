@@ -1,10 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Submission + Editorial
-//
-// Dashboard totals (totalAc / totalAttempts / lastSubmittedAt) and the
-// activity heatmap / streak are all computed on-demand from Submission
-// via indexed aggregates — there is no pre-aggregated activity table.
-// ═══════════════════════════════════════════════════════════════
 
 enum SupportedLanguage {
   c
@@ -18,6 +11,7 @@ enum SupportedLanguage {
 }
 
 enum SubmissionStatus {
+  pending_upload
   queued
   compiling
   running
@@ -27,88 +21,60 @@ enum SubmissionStatus {
   memory_limit_exceeded
   runtime_error
   compile_error
-  /// Terminal failure for submissions the worker can't grade — e.g. storage
-  /// write failed after the row committed, so the queued row points at a
-  /// nonexistent source prefix. Surfaced to the user as a non-graded
-  /// platform fault so they can resubmit.
   system_error
 }
 
-/// Submission "mode" is derived on-demand from the FK shape:
-/// `examId` ? "exam" : `contestId` ? "contest" :
-/// `courseAssessmentId` ? "assignment" : "practice".
-/// Domain helper `deriveSubmissionMode` lives in `@nojv/domain`.
-///
-/// A submission carries at most one of `courseAssessmentId` / `examId` /
-/// `contestId` — the xor is enforced by the `Submission_single_context_chk`
-/// CHECK constraint (Prisma cannot express multi-column CHECKs natively).
-///
-/// `virtualContestId` sits outside that mutual exclusion: a virtual-contest
-/// submission is practice-like (it does not count toward any real contest
-/// scoreboard) but carries the `virtualContestId` tag so the personal
-/// re-run can aggregate its own score. It is therefore valid for a row to
-/// have only `virtualContestId` set with all three context columns null.
 model Submission {
   id                      String            @id @default(cuid())
   userId                  String
   problemId               String
-  contestParticipationId  String?
   examId                  String?
   contestId               String?
-  virtualContestId        String?
+  participationId         String?
   courseId                String?
-  courseAssessmentId      String?
+  assessmentId            String?
   sampleOnly              Boolean           @default(false)
   language                SupportedLanguage
-  /// Prefix under @nojv/storage for this submission's source files,
-  /// e.g. "submissions/<id>/sources/". One S3 object per file.
   sourceStoragePrefix     String
   status                  SubmissionStatus  @default(queued)
   score                   Int               @default(0)
   runtimeMs               Int?
   memoryKb                Int?
-  /// Light-weight summary derived from the full verdict result.
-  /// Shape: { caseSummary: { ac, wa, tle, mle, re, other }, subtaskSummary?: { id, score }[], compilerErrorTruncated?: string }
-  /// Always < 4 KB; safe to load in list views.
   verdictSummary          Json?
-  /// S3 key for the full verdict detail blob (caseResults, compilerOutput,
-  /// stderr snippets). Null until judge writes detail.
   verdictDetailStorageKey String?
+  advancedConfigSnapshot  Json?
   ipAddress               String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  problem              Problem               @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  contestParticipation ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
-  exam                 Exam?                 @relation(fields: [examId], references: [id], onDelete: Cascade)
-  contest              Contest?              @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  virtualContest       VirtualContest?       @relation(fields: [virtualContestId], references: [id], onDelete: Cascade)
-  course               Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  courseAssessment     CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem       Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  exam          Exam?          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  contest       Contest?       @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  participation Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  course        Course?        @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  assessment    Assessment?    @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
 
   rejudgeLogs SubmissionRejudgeLog[]
 
   @@index([problemId, createdAt])
   @@index([userId, createdAt])
-  @@index([courseId, courseAssessmentId, createdAt])
-  @@index([contestParticipationId, problemId, createdAt])
+  @@index([courseId, assessmentId, createdAt])
   @@index([contestId, problemId, createdAt])
   @@index([examId, problemId, createdAt])
-  @@index([virtualContestId, problemId, createdAt])
+  @@index([participationId, problemId, createdAt])
+  @@index([assessmentId, problemId, createdAt])
+  @@index([status, updatedAt])
+  @@index([problemId, sampleOnly, userId, status])
+  @@index([createdAt])
 }
 
-/// Audit log for rejudge runs. Written in two passes by
-/// submissionJudgeWorkflow when invoked with `forRejudge`:
-/// a snapshot before `executeSandbox` captures the pre-rejudge state
-/// (old* fields), and a follow-up update after `completeSubmission`
-/// fills in the new* fields. new* are nullable so the snapshot row is
-/// valid on its own if the second pass never runs (replay-safety).
 model SubmissionRejudgeLog {
   id               String   @id @default(cuid())
   submissionId     String
   rejudgedByUserId String?
+  rejudgeRunId     String?
   oldVerdict       String
   oldScore         Int
   oldResultJson    Json?
@@ -120,8 +86,10 @@ model SubmissionRejudgeLog {
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   rejudgedBy User?      @relation(fields: [rejudgedByUserId], references: [id], onDelete: SetNull)
 
+  @@unique([submissionId, rejudgeRunId])
   @@index([submissionId, createdAt(sort: Desc)])
   @@index([rejudgedByUserId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
 }
 
 enum OverrideContextType {
@@ -136,10 +104,6 @@ enum ScoreOverrideAction {
   delete
 }
 
-/// Staff-only per-(user, problem, context) manual score override.
-/// `getFinalScore` short-circuits the best-submission aggregate when
-/// a matching row is present. Practice context is not a valid target —
-/// `OverrideContextType` makes that unrepresentable at the type level.
 model ScoreOverride {
   id              String              @id @default(cuid())
   userId          String
@@ -164,9 +128,6 @@ model ScoreOverride {
   @@index([contextType, contextId])
 }
 
-/// Append-only audit trail for every score-override create/update/delete.
-/// `overrideId` is nullable so audit rows survive the cascade when the
-/// override is deleted (delete action sets it to null up-front).
 model ScoreOverrideAuditLog {
   id              String              @id @default(cuid())
   overrideId      String?
@@ -189,38 +150,26 @@ model ScoreOverrideAuditLog {
   @@index([userId, problemId, createdAt(sort: Desc)])
 }
 
-/// Teacher-authored, student-visible grading comment per
-/// (student, problem, assessment-or-exam). Sibling of ScoreOverride;
-/// `comment` is feedback prose with no effect on the computed score.
-/// Exactly one of `courseAssessmentId` / `examId` is non-null —
-/// enforced by the `SubmissionFeedback_single_context_chk` CHECK
-/// constraint (Prisma cannot express multi-column CHECKs natively).
-/// Contest context is intentionally excluded.
 model SubmissionFeedback {
-  id                 String   @id @default(cuid())
-  studentUserId      String
-  problemId          String
-  courseAssessmentId String?
-  examId             String?
-  comment            String   @db.Text
-  authorUserId       String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id            String   @id @default(cuid())
+  studentUserId String
+  problemId     String
+  assessmentId  String?
+  examId        String?
+  comment       String   @db.Text
+  authorUserId  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  student    User              @relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
-  problem    Problem           @relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)
-  assessment CourseAssessment? @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
-  exam       Exam?             @relation(fields: [examId], references: [id], onDelete: Cascade)
-  author     User?             @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  student    User        @relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  problem    Problem     @relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)
+  assessment Assessment? @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  exam       Exam?       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  author     User?       @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
 
   auditLogs SubmissionFeedbackAuditLog[]
 
-  /// One feedback row per (context, problem, student). Two separate
-  /// composites — rather than one over both context columns — are
-  /// correct only because the CHECK guarantees exactly one context is
-  /// non-null; the unused column is always NULL so its composite never
-  /// collides. Do not collapse these into a single unique index.
-  @@unique([courseAssessmentId, problemId, studentUserId])
+  @@unique([assessmentId, problemId, studentUserId])
   @@unique([examId, problemId, studentUserId])
 }
 
@@ -231,22 +180,22 @@ enum SubmissionFeedbackAction {
 }
 
 model SubmissionFeedbackAuditLog {
-  id                 String                   @id @default(cuid())
-  feedbackId         String?
-  studentUserId      String
-  problemId          String
-  courseAssessmentId String?
-  examId             String?
-  action             SubmissionFeedbackAction
-  oldComment         String?                  @db.Text
-  newComment         String?                  @db.Text
-  changedByUserId    String?
-  createdAt          DateTime                 @default(now())
+  id              String                   @id @default(cuid())
+  feedbackId      String?
+  studentUserId   String
+  problemId       String
+  assessmentId    String?
+  examId          String?
+  action          SubmissionFeedbackAction
+  oldComment      String?                  @db.Text
+  newComment      String?                  @db.Text
+  changedByUserId String?
+  createdAt       DateTime                 @default(now())
 
   feedback  SubmissionFeedback? @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
   changedBy User?               @relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)
 
-  @@index([courseAssessmentId, problemId, createdAt(sort: Desc)])
+  @@index([assessmentId, problemId, createdAt(sort: Desc)])
   @@index([examId, problemId, createdAt(sort: Desc)])
   @@index([studentUserId, problemId, createdAt(sort: Desc)])
 }
@@ -266,27 +215,16 @@ model Editorial {
   language  SupportedLanguage
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
-  /// Soft-delete tombstone. All read paths must filter `deletedAt: null`.
-  /// Hard-deleting would lose history and break the upsert composite
-  /// key when an author later re-publishes in the same language; the
-  /// soft-delete row stays so the unique index keeps protecting against
-  /// concurrent re-creates while the author can still restore by
-  /// posting fresh content (handled at the domain layer).
   deletedAt DateTime?
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
   reports   EditorialReport[]
   votes     EditorialVote[]
 
-  /// A user can post multiple editorials for the same problem as
-  /// long as they're in different languages.
   @@unique([userId, problemId, language])
   @@index([problemId, createdAt])
 }
 
-/// One vote per (editorial, user). `value` is +1 (upvote) or -1
-/// (downvote); the net score is the sum. Removing a vote deletes the
-/// row rather than storing 0, so the unique index stays meaningful.
 model EditorialVote {
   id          String   @id @default(cuid())
   editorialId String
@@ -302,9 +240,6 @@ model EditorialVote {
   @@index([editorialId])
 }
 
-/// User-filed report against an editorial (spam, off-topic, etc.).
-/// Surfaces in the admin moderation queue. One report per
-/// (editorial, reporter); `resolve` soft-deletes the editorial.
 model EditorialReport {
   id               String                @id @default(cuid())
   editorialId      String

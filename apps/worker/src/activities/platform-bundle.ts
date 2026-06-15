@@ -6,9 +6,9 @@ export {
   updateContestScores,
   updateExamScores,
   closeActiveSessionsForExam,
+  sweepStaleSubmissions,
   publishVerdict,
   publishContestEvent,
-  publishAssessmentDeadline,
   fanoutAssignmentDueSoon,
   fanoutExamStartingSoon,
   fanoutContestStartingSoon,
@@ -16,4 +16,4 @@ export {
 
 export { runPlagiarismCheck } from "./plagiarism";
 
-export { getRedis, updateScoreboard, getScoreboard } from "./utils";
+export { getRedis } from "./utils";

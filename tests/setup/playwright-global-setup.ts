@@ -1,4 +1,3 @@
-// tests/setup/playwright-global-setup.ts
 import { chromium, type FullConfig } from "@playwright/test";
 import path from "node:path";
 
@@ -8,6 +7,7 @@ const roles = [
   { name: "admin", email: "admin@nojv.local", password: "password123" },
   { name: "teacher", email: "teacher@nojv.local", password: "password123" },
   { name: "student", email: "student@nojv.local", password: "password123" },
+  { name: "new-student", email: "new-student@nojv.local", password: "password123" },
 ] as const;
 
 export default async function globalSetup(config: FullConfig) {
@@ -23,7 +23,6 @@ export default async function globalSetup(config: FullConfig) {
     await page.getByLabel(/password/i).fill(role.password);
     await page.getByRole("button", { name: /sign in|登入/i }).click();
 
-    // Login redirects via window.location.assign("/") — wait for non-signin URL
     await page.waitForURL((url) => !url.pathname.includes("signin"), {
       timeout: 15000,
     });

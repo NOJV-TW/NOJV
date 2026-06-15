@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   contestSessionSchema,
+  parseIpWhitelistText,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
   safeRelativePath,
@@ -98,6 +99,25 @@ describe("contestSessionSchema", () => {
   });
 });
 
+describe("parseIpWhitelistText", () => {
+  it("parses line-separated and CSV CIDR entries into a deduplicated list", () => {
+    expect(
+      parseIpWhitelistText(`
+        10.0.0.0/8, 192.168.0.0/16
+        2001:db8::/32;10.0.0.0/8
+        203.0.113.4/32
+      `),
+    ).toEqual(["10.0.0.0/8", "192.168.0.0/16", "2001:db8::/32", "203.0.113.4/32"]);
+  });
+
+  it("drops empty cells from copied spreadsheets", () => {
+    expect(parseIpWhitelistText(" 10.0.0.0/8,\t,\n\n192.168.1.0/24 ")).toEqual([
+      "10.0.0.0/8",
+      "192.168.1.0/24",
+    ]);
+  });
+});
+
 describe("problemTestcaseSetCreateSchema", () => {
   it("accepts weighted testcase sets with ordered input/output pairs", () => {
     const result = problemTestcaseSetCreateSchema.parse({
@@ -143,6 +163,23 @@ describe("safeRelativePath", () => {
     expect(() => safeRelativePath.parse("/etc/passwd")).toThrow();
   });
 
+  it("rejects a leading dot segment", () => {
+    expect(() => safeRelativePath.parse("./main.py")).toThrow();
+  });
+
+  it("rejects a single dot segment", () => {
+    expect(() => safeRelativePath.parse("src/./main.py")).toThrow();
+  });
+
+  it("rejects an empty segment", () => {
+    expect(() => safeRelativePath.parse("src//main.py")).toThrow();
+  });
+
+  it("rejects leading or trailing whitespace instead of normalizing API input", () => {
+    expect(() => safeRelativePath.parse(" main.py")).toThrow();
+    expect(() => safeRelativePath.parse("main.py ")).toThrow();
+  });
+
   it("rejects a parent traversal segment", () => {
     expect(() => safeRelativePath.parse("foo/../bar")).toThrow();
   });
@@ -153,6 +190,11 @@ describe("safeRelativePath", () => {
 
   it("rejects a NUL byte", () => {
     expect(() => safeRelativePath.parse("bad\0name")).toThrow();
+  });
+
+  it("rejects a colon", () => {
+    expect(() => safeRelativePath.parse("C:/main.cpp")).toThrow();
+    expect(() => safeRelativePath.parse("main:cpp")).toThrow();
   });
 
   it("rejects a newline (would forge a MOSS boundary marker)", () => {

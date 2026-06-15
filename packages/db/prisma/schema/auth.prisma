@@ -1,16 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Auth & identity
-//
-// Session / Account / Verification shapes are dictated by the
-// better-auth library — do not modify their fields. User's
-// `platformRole` / `disabled` are our `additionalFields`
-// (configured in apps/web/src/lib/auth.ts) and can evolve.
-//
-// SchoolVerificationToken is our own table for school-email
-// verification; it intentionally does NOT reuse better-auth's
-// Verification table so neither side interferes with the other's
-// cleanup sweeps.
-// ═══════════════════════════════════════════════════════════════
 
 enum PlatformRole {
   admin
@@ -18,13 +5,6 @@ enum PlatformRole {
   student
 }
 
-/// Tri-state user lifecycle flag. `disabled: Boolean` is retained as an
-/// admin-visible soft-lock and stays the source of truth for
-/// sign-in checks via better-auth. `status` adds the third
-/// `pending_first_login` state used by the placeholder-user mechanism
-/// (spec §5.3): teachers bulk-paste course-member handles, unknown
-/// handles become `User` rows in `pending_first_login` so the student
-/// can auto-merge into that row on first OAuth login.
 enum UserStatus {
   active
   disabled
@@ -37,7 +17,6 @@ enum ApiTokenStatus {
 }
 
 model User {
-  // Core (better-auth)
   id              String  @id @default(cuid())
   email           String  @unique
   username        String? @unique
@@ -46,33 +25,31 @@ model User {
   emailVerified   Boolean @default(false)
   image           String?
 
-  // additionalFields (ours)
-  platformRole PlatformRole @default(student)
-  disabled     Boolean      @default(false)
-  status       UserStatus   @default(active)
+  platformRole       PlatformRole @default(student)
+  disabled           Boolean      @default(false)
+  status             UserStatus   @default(active)
+  mustChangePassword Boolean      @default(false)
+  twoFactorEnabled   Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   sessions                       Session[]
   accounts                       Account[]
   schoolVerifications            SchoolVerificationToken[]
   submissions                    Submission[]
-  contestParticipations          ContestParticipation[]
-  examParticipations             ExamParticipation[]          @relation("ExamParticipationUser")
-  virtualContests                VirtualContest[]
+  participations                 Participation[]              @relation("UnifiedParticipationUser")
   authoredProblems               Problem[]                    @relation("ProblemAuthor")
   ownedCourses                   Course[]                     @relation("CourseOwner")
   courseMemberships              CourseMembership[]           @relation("CourseMembershipUser")
   createdMemberships             CourseMembership[]           @relation("CourseMembershipCreator")
-  createdCourseAssessments       CourseAssessment[]           @relation("CourseAssessmentCreator")
+  createdAssessments             Assessment[]                 @relation("AssessmentCreator")
   createdContests                Contest[]                    @relation("ContestCreator")
   createdExams                   Exam[]                       @relation("ExamCreator")
   createdAnnouncements           Announcement[]               @relation("AnnouncementCreator")
   triggeredExamPlagiarisms       Exam[]                       @relation("ExamPlagiarismTriggerer")
   triggeredContestPlagiarisms    Contest[]                    @relation("ContestPlagiarismTriggerer")
-  triggeredAssessmentPlagiarisms CourseAssessment[]           @relation("AssessmentPlagiarismTriggerer")
+  triggeredAssessmentPlagiarisms Assessment[]                 @relation("AssessmentPlagiarismTriggerer")
   editorials                     Editorial[]
   editorialVotes                 EditorialVote[]
   ipViolationLogs                IpViolationLog[]
@@ -96,6 +73,19 @@ model User {
   problemBookmarks               ProblemBookmark[]
   apiTokens                      ApiToken[]
   revokedApiTokens               ApiToken[]                   @relation("ApiTokenRevoker")
+  twoFactors                     TwoFactor[]
+}
+
+model TwoFactor {
+  id          String  @id
+  secret      String
+  backupCodes String
+  userId      String
+  verified    Boolean @default(true)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
 }
 
 model Session {
@@ -108,6 +98,8 @@ model Session {
   userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Account {
@@ -125,6 +117,9 @@ model Account {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
 }
 
 model Verification {
@@ -134,11 +129,10 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime? @default(now())
   updatedAt  DateTime? @updatedAt
+
+  @@index([identifier])
 }
 
-/// Dedicated store for school-email verification tokens.
-/// Decoupled from better-auth's Verification table so neither side
-/// interferes with the other's cleanup sweeps.
 model SchoolVerificationToken {
   token     String   @id
   userId    String

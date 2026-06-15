@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// vi.hoisted handles need to live above the vi.mock that references them.
 const {
   findByIdWithJudgeContext,
   readTestcaseBlobs,
@@ -19,20 +18,15 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-// `getJudgeContext` calls `readTestcaseBlobs` / `readWorkspaceFileBlob`
-// from the sibling problem/blobs module. Mock the module so the in-memory
-// stub doesn't need to talk to S3.
-vi.mock("../../../packages/domain/src/problem/blobs", () => ({
+vi.mock("../../../packages/application/src/problem/blobs", () => ({
   readTestcaseBlobs,
   readWorkspaceFileBlob,
   readValidatorScriptBlob,
 }));
 
-import { submissionDomain, NotFoundError } from "@nojv/domain";
+import { submissionDomain, IntegrityError, NotFoundError } from "@nojv/application";
 
 const { getJudgeContext, deriveJudgeMode } = submissionDomain;
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -45,8 +39,7 @@ function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
       runtime: { env: { CC: "gcc" }, timeLimitMs: 1000, memoryLimitMb: 256 },
     },
     samples: [{ input: "1\n", output: "1\n" }],
-    advancedImageRef: null,
-    advancedImageSource: null,
+    advancedConfig: null,
     testcaseSets: [
       {
         id: "ts_1",
@@ -82,14 +75,12 @@ function mkSubmissionRow(
   return {
     id: "sub_1",
     createdAt: new Date("2026-04-20T12:00:00Z"),
-    courseAssessment: null,
-    contestParticipation: null,
+    assessment: null,
+    contest: null,
     problem: mkProblemRow(problemOverrides),
     ...overrides,
   };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe("getJudgeContext", () => {
   beforeEach(() => {
@@ -199,6 +190,53 @@ describe("getJudgeContext", () => {
     expect(readValidatorScriptBlob).not.toHaveBeenCalled();
   });
 
+  it("fails closed when persisted judgeConfig is invalid", async () => {
+    const row = mkSubmissionRow({}, { judgeConfig: { type: "not-a-judge" } });
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
+  });
+
+  it("fails closed when persisted testcase inputFileKeys is invalid", async () => {
+    const row = mkSubmissionRow(
+      {},
+      {
+        testcaseSets: [
+          {
+            id: "ts_1",
+            name: "main",
+            weight: 100,
+            scoringStrategy: "ALL_OR_NOTHING",
+            testcases: [
+              {
+                id: "tc_bad",
+                inputKey: "in",
+                outputKey: "out",
+                inputFileKeys: { "a.txt": 42 },
+              },
+            ],
+          },
+        ],
+      },
+    );
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
+  });
+
+  it("fails closed when persisted assignment adjustmentRules is invalid", async () => {
+    const row = mkSubmissionRow({
+      assessment: {
+        dueAt: new Date("2026-04-20T00:00:00Z"),
+        closesAt: new Date("2026-04-21T00:00:00Z"),
+        adjustmentRules: { late: "not-an-array" },
+      },
+    });
+    findByIdWithJudgeContext.mockResolvedValue(row);
+
+    await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
+  });
+
   it("falls back to problem time/memory limits when judgeConfig.runtime is missing", async () => {
     const row = mkSubmissionRow(
       {},
@@ -246,49 +284,27 @@ describe("getJudgeContext", () => {
     expect(ctx.samples).toEqual([]);
   });
 
-  it("builds subtaskStrategies map from the testcase sets", async () => {
+  it("exposes compareOptions parsed from judgeConfig.compare", async () => {
     const row = mkSubmissionRow(
       {},
       {
-        testcaseSets: [
-          {
-            id: "ts_a",
-            name: "A",
-            weight: 50,
-            scoringStrategy: "ALL_OR_NOTHING",
-            testcases: [
-              {
-                id: "tc_a1",
-                inputKey: "k1",
-                outputKey: "o1",
-                inputFileKeys: null,
-              },
-            ],
-          },
-          {
-            id: "ts_b",
-            name: "B",
-            weight: 50,
-            scoringStrategy: "PROPORTIONAL",
-            testcases: [
-              {
-                id: "tc_b1",
-                inputKey: "k2",
-                outputKey: "o2",
-                inputFileKeys: null,
-              },
-            ],
-          },
-        ],
+        judgeConfig: {
+          type: "standard",
+          compare: { caseSensitive: false, floatTolerance: 1e-6 },
+          runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
+        },
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
 
     const ctx = await getJudgeContext("sub_1");
-    expect(ctx.subtaskStrategies).toEqual({
-      ts_a: "ALL_OR_NOTHING",
-      ts_b: "PROPORTIONAL",
-    });
+    expect(ctx.compareOptions).toEqual({ caseSensitive: false, floatTolerance: 1e-6 });
+  });
+
+  it("compareOptions is null when judgeConfig has no compare block", async () => {
+    findByIdWithJudgeContext.mockResolvedValue(mkSubmissionRow());
+    const ctx = await getJudgeContext("sub_1");
+    expect(ctx.compareOptions).toBeNull();
   });
 
   describe("advanced mode", () => {
@@ -300,12 +316,16 @@ describe("getJudgeContext", () => {
     });
 
     it("populates the advanced context for special_env problems", async () => {
+      const config = {
+        run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+        grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+        network: { mode: "none" },
+      };
       const row = mkSubmissionRow(
         {},
         {
           type: "special_env",
-          advancedImageRef: "registry.example.com/judge:v1",
-          advancedImageSource: "registry",
+          advancedConfig: config,
           timeLimitMs: 5000,
           memoryLimitMb: 1024,
         },
@@ -315,25 +335,62 @@ describe("getJudgeContext", () => {
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.problemType).toBe("special_env");
       expect(ctx.advanced).toEqual({
-        imageRef: "registry.example.com/judge:v1",
-        imageSource: "registry",
+        config: {
+          run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+          grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+          network: { mode: "none" },
+        },
         resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
       });
     });
 
-    it("returns advanced=null for special_env when imageRef is missing (config not yet attached)", async () => {
+    it("reads the LIVE problem advancedConfig (rejudge picks up an updated image), never a submission snapshot", async () => {
+      const updatedConfig = {
+        run: { imageRef: "registry.example.com/judge:v2", imageSource: "registry" },
+        grade: { imageRef: "registry.example.com/judge:v2", imageSource: "registry" },
+        network: { mode: "none" },
+      };
       const row = mkSubmissionRow(
         {},
         {
           type: "special_env",
-          advancedImageRef: null,
-          advancedImageSource: "registry",
+          advancedConfig: updatedConfig,
+          timeLimitMs: 5000,
+          memoryLimitMb: 1024,
+        },
+      );
+      findByIdWithJudgeContext.mockResolvedValue(row);
+
+      const ctx = await getJudgeContext("sub_1");
+      expect(ctx.advanced?.config.run.imageRef).toBe("registry.example.com/judge:v2");
+      expect(ctx.advanced?.config.grade.imageRef).toBe("registry.example.com/judge:v2");
+    });
+
+    it("returns advanced=null for special_env when advancedConfig is missing (config not yet attached)", async () => {
+      const row = mkSubmissionRow(
+        {},
+        {
+          type: "special_env",
+          advancedConfig: null,
         },
       );
       findByIdWithJudgeContext.mockResolvedValue(row);
 
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.advanced).toBeNull();
+    });
+
+    it("throws IntegrityError for special_env with a present-but-invalid advancedConfig", async () => {
+      const row = mkSubmissionRow(
+        {},
+        {
+          type: "special_env",
+          advancedConfig: { run: { imageRef: "img:tag" } },
+        },
+      );
+      findByIdWithJudgeContext.mockResolvedValue(row);
+
+      await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
     });
   });
 
@@ -343,8 +400,11 @@ describe("getJudgeContext", () => {
         deriveJudgeMode({
           problemType: "special_env",
           advanced: {
-            imageRef: "registry.example.com/judge:v1",
-            imageSource: "registry",
+            config: {
+              run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+              grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
+              network: { mode: "none" },
+            },
             resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
           },
         }),
@@ -365,7 +425,7 @@ describe("getJudgeContext", () => {
       const dueAt = new Date("2026-04-19T12:00:00Z");
       const closesAt = new Date("2026-04-21T12:00:00Z");
       const row = mkSubmissionRow({
-        courseAssessment: {
+        assessment: {
           adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 10, startFrom: "due" }],
           dueAt,
           closesAt,
@@ -384,12 +444,9 @@ describe("getJudgeContext", () => {
     it("falls back to contest.endsAt when the submission belongs to a contest (no assessment)", async () => {
       const endsAt = new Date("2026-04-20T18:00:00Z");
       const row = mkSubmissionRow({
-        contestParticipation: {
-          contestId: "ct_1",
-          contest: {
-            startsAt: new Date("2026-04-20T10:00:00Z"),
-            endsAt,
-          },
+        contest: {
+          startsAt: new Date("2026-04-20T10:00:00Z"),
+          endsAt,
         },
       });
       findByIdWithJudgeContext.mockResolvedValue(row);
@@ -397,10 +454,6 @@ describe("getJudgeContext", () => {
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.adjustment.dueAt).toEqual(endsAt);
       expect(ctx.adjustment.finalDay).toEqual(endsAt);
-      // Contests carry no assessment-style adjustment rules.
-      // (Implementation pins to `assessment?.adjustmentRules`, so without
-      //  an assessment row this is undefined — adjustments.ts treats
-      //  undefined and null identically.)
       expect(ctx.adjustment.assignmentAdjustmentRules).toBeFalsy();
     });
 

@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
 
-// Shared repo stubs — hoisted so they can be referenced in the vi.mock
-// factory below (vi.mock is hoisted above regular imports).
 const {
   problemFindById,
   userFindById,
@@ -19,6 +17,7 @@ const {
   submissionFindMostRecent,
   examSessionFindActiveForUser,
   examFindById,
+  examProblemExists,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
   txExecuteRaw,
@@ -38,6 +37,7 @@ const {
   submissionFindMostRecent: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
+  examProblemExists: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   txExecuteRaw: vi.fn(),
@@ -65,14 +65,23 @@ vi.mock("@nojv/db", () => {
     assessmentRepo: {
       withTx: () => ({ findByCompositeId: assessmentFindByCompositeId }),
     },
+    assessmentProblemRepo: {
+      withTx: () => ({ findLink: txAssessmentProblemFindFirst }),
+    },
     contestRepo: {
       withTx: () => ({ findById: vi.fn() }),
+    },
+    contestProblemRepo: {
+      withTx: () => ({ findLink: txContestProblemFindFirst }),
     },
     examSessionRepo: {
       withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
     },
     examRepo: {
       withTx: () => ({ findById: examFindById }),
+    },
+    examProblemRepo: {
+      withTx: () => ({ exists: examProblemExists }),
     },
     problemWorkspaceFileRepo: {
       findByProblemId: workspaceFindByProblemId,
@@ -85,33 +94,20 @@ vi.mock("@nojv/db", () => {
       }),
       updateStatus: submissionUpdateStatus,
     },
-    // createQueuedSubmissionRecord now does direct prisma reads against
-    // the assessment/contest problem-link tables for problem-in-context
-    // checks; expose those on the mock tx.
     runTransaction: async <T>(
-      fn: (tx: {
-        courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
-        contestProblem: { findFirst: typeof txContestProblemFindFirst };
-      }) => Promise<T>,
-    ): Promise<T> =>
-      fn({
-        courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
-        contestProblem: { findFirst: txContestProblemFindFirst },
-        $executeRaw: txExecuteRaw,
-      }),
+      fn: (tx: { $executeRaw: typeof txExecuteRaw }) => Promise<T>,
+    ): Promise<T> => fn({ $executeRaw: txExecuteRaw }),
   };
 });
 
-// Storage singleton — return whatever client storageRef.client is set to.
-// Tests reassign storageRef.client per case via the in-memory fixture.
-vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
   __setStorageClientForTests: (c: unknown) => {
     storageRef.client = c as typeof storageRef.client;
   },
 }));
 
-import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/domain";
+import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/application";
 import { supportedLanguages } from "@nojv/core";
 
 const { createQueuedSubmissionRecord } = submissionDomain;
@@ -144,8 +140,6 @@ function setupSubmitPipelineDefaults(
   maxAttemptsPerDay: number | null,
   attemptResetMinuteOfDay: number | null = null,
 ) {
-  // Fresh in-memory storage for each test setup; reads via the mocked
-  // singleton above (`storage()` returns whatever storageRef.client is).
   storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   const user = {
     id: fakeActor.userId,
@@ -162,9 +156,6 @@ function setupSubmitPipelineDefaults(
   userUpdate.mockResolvedValue(user);
   userCreate.mockResolvedValue(user);
   courseFindById.mockResolvedValue(fakeCourse);
-  // Now that the assessment time-window check runs against opensAt/closesAt,
-  // give the test a wide window centered around an arbitrary "now"; tests
-  // using vi.setSystemTime stay safely inside it.
   assessmentFindByCompositeId.mockResolvedValue({
     ...fakeAssessmentBase,
     maxAttemptsPerDay,
@@ -179,18 +170,17 @@ function setupSubmitPipelineDefaults(
     status: "active",
     role: "student",
   });
-  // No active exam session → lockout doesn't trigger.
   examSessionFindActiveForUser.mockResolvedValue(null);
-  // The assessment link table check needs to confirm the problem is in
-  // the assessment; default to "yes".
   txAssessmentProblemFindFirst.mockResolvedValue({ id: "cap_1" });
   txContestProblemFindFirst.mockResolvedValue(null);
-  // full_source problem with zero workspace files → submits a single
-  // source file directly (no entry-file check).
   workspaceFindByProblemId.mockResolvedValue([]);
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
+  }));
+  submissionUpdateStatus.mockImplementation(async (id: string, status: string) => ({
+    id,
+    status,
   }));
 }
 
@@ -219,7 +209,6 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     setupSubmitPipelineDefaults(3);
     vi.setSystemTime(new Date("2026-04-14T08:00:00.000Z"));
 
-    // Walk the in-memory counter so each call sees the prior count.
     let dbCount = 0;
     submissionCountForUserAssessmentProblemSince.mockImplementation(async () => dbCount);
     submissionCreate.mockImplementation(async () => {
@@ -241,7 +230,6 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     setupSubmitPipelineDefaults(3);
     vi.setSystemTime(new Date("2026-04-14T15:30:00.000Z"));
 
-    // Already 3 submissions on record for today.
     submissionCountForUserAssessmentProblemSince.mockResolvedValue(3);
 
     await expect(
@@ -265,7 +253,6 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     expect(assessmentId).toBe(fakeAssessmentBase.id);
     expect(problemId).toBe(fakeProblem.id);
     expect(sinceTime).toBeInstanceOf(Date);
-    // default reset 05:00 (300); Taipei 2026-04-14 05:00 = UTC 2026-04-13 21:00
     expect((sinceTime as Date).toISOString()).toBe("2026-04-13T21:00:00.000Z");
   });
 
@@ -277,13 +264,11 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     await createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1");
 
     const [, , , sinceTime] = submissionCountForUserAssessmentProblemSince.mock.calls[0];
-    // Taipei 2026-04-14 06:00 = UTC 2026-04-13 22:00
     expect((sinceTime as Date).toISOString()).toBe("2026-04-13T22:00:00.000Z");
   });
 
   it("resets the counter at the Taipei reset time — advancing past it unblocks submissions", async () => {
     setupSubmitPipelineDefaults(3, 0); // reset at Taipei midnight (UTC 16:00)
-    // Taipei 2026-04-14 23:59:50 → window start UTC 2026-04-13 16:00.
     vi.setSystemTime(new Date("2026-04-14T15:59:50.000Z"));
     submissionCountForUserAssessmentProblemSince.mockResolvedValueOnce(3);
 
@@ -292,7 +277,6 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     ).rejects.toBeInstanceOf(ConflictError);
     expect(submissionCreate).not.toHaveBeenCalled();
 
-    // Cross Taipei midnight → Taipei 2026-04-15 00:00:05 → new window UTC 2026-04-14 16:00.
     vi.setSystemTime(new Date("2026-04-14T16:00:05.000Z"));
     submissionCountForUserAssessmentProblemSince.mockResolvedValueOnce(0);
 
@@ -348,7 +332,6 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
       type: "full_source",
       visibility: "public",
     });
-    // Even if pre-migration residue exists, full_source must skip the check.
     workspaceFindByProblemId.mockResolvedValue([]);
 
     for (const language of supportedLanguages) {
@@ -361,7 +344,6 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
       ).resolves.toBeDefined();
     }
 
-    // full_source skips the workspace-entry check entirely.
     expect(workspaceFindByProblemId).not.toHaveBeenCalled();
     expect(submissionCreate).toHaveBeenCalledTimes(supportedLanguages.length);
   });
@@ -373,7 +355,6 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
       type: "multi_file",
       visibility: "public",
     });
-    // Editable starter only for python — a java submission should be rejected.
     workspaceFindByProblemId.mockResolvedValue([
       { language: "python", path: "main.py", visibility: "editable", content: "" },
     ]);
@@ -432,8 +413,6 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
 });
 
 describe("createQueuedSubmissionRecord — exam time window", () => {
-  // Exam-tagged drafts carry no assessment/contest context — the active
-  // session is the source of truth (see the lockout in the mutation).
   const examDraft = {
     problemId: fakeProblem.id,
     language: "python" as const,
@@ -455,13 +434,13 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
     userUpdate.mockResolvedValue(user);
     userCreate.mockResolvedValue(user);
     workspaceFindByProblemId.mockResolvedValue([]);
-    // Student is mid-exam: an active (unended) session row exists.
     examSessionFindActiveForUser.mockResolvedValue({
       id: "es_1",
       examId: "exam_window",
       userId: fakeActor.userId,
       endedAt: null,
     });
+    examProblemExists.mockResolvedValue(true);
     examFindById.mockResolvedValue({
       id: "exam_window",
       startsAt: new Date("2026-04-14T09:00:00.000Z"),
@@ -484,7 +463,6 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
 
   it("rejects a submission once the exam has ended even while the session row is still active", async () => {
     setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
-    // One second past endsAt: the auto-close workflow has not run yet.
     vi.setSystemTime(new Date("2026-04-14T10:00:01.000Z"));
 
     await expect(

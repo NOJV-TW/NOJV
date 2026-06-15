@@ -6,13 +6,13 @@
 
 **Architecture:** One `Notification` row per event per user; text is rendered client-side from `(type, params)` via paraglide. SSE pushes land on the existing `/api/events/stream` endpoint via a new `notification:{userId}` Redis channel. Scheduled events piggyback on existing lifecycle Temporal workflows with a sleep-then-fan-out pattern.
 
-**Tech Stack:** Prisma 7 (Postgres), `@nojv/domain` (business logic), `@nojv/redis` (pub/sub), `@nojv/core` (shared schemas + constants), `@nojv/temporal` (workflows), SvelteKit 5 runes (frontend), paraglide (i18n), Vitest (tests), existing `sveltekit-superforms` and `requireAuth` patterns.
+**Tech Stack:** Prisma 7 (Postgres), `@nojv/application` (business logic), `@nojv/redis` (pub/sub), `@nojv/core` (shared schemas + constants), `@nojv/temporal` (workflows), SvelteKit 5 runes (frontend), paraglide (i18n), Vitest (tests), existing `sveltekit-superforms` and `requireAuth` patterns.
 
 **Reference design:** `docs/plans/active/2026-04-19-notification-center-design.md` — read first.
 
 **Conventions to match:**
 
-- Domain module lives at `packages/domain/src/notification/` with `index.ts` barrel export (mirror `packages/domain/src/announcement/`).
+- Domain module lives at `packages/application/src/notification/` with `index.ts` barrel export (mirror `packages/application/src/announcement/`).
 - Repository at `packages/db/src/repositories/notification.ts` (mirror `announcement.ts`).
 - API routes are SvelteKit server routes at `apps/web/src/routes/api/notifications/...` using `apiHandler` + `requireAuth` + `consumeFormRateLimit`.
 - Schema changes go in `packages/db/prisma/schema/*.prisma` (multi-file schema). Create a new `notification.prisma` file.
@@ -329,7 +329,7 @@ git commit -m "feat(core): notification SSE event + redis channel helper"
 ```ts
 // tests/unit/domain/notification.test.ts
 import { describe, it, expect, beforeEach } from "vitest";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 import { notificationRepo } from "@nojv/db";
 import { truncateTestDb, createTestUser } from "../../fixtures/seed-test-db";
 
@@ -394,13 +394,13 @@ git commit -m "test: failing notification domain test"
 
 **Files:**
 
-- Create: `packages/domain/src/notification/index.ts`
-- Modify: `packages/domain/src/index.ts`
+- Create: `packages/application/src/notification/index.ts`
+- Modify: `packages/application/src/index.ts`
 
 **Step 1: Write the domain module**
 
 ```ts
-// packages/domain/src/notification/index.ts
+// packages/application/src/notification/index.ts
 import { notificationRepo, type NotificationCreateInput } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
@@ -493,7 +493,7 @@ export async function markAllAsRead(userId: string) {
 
 **Step 2: Export from barrel**
 
-Append to `packages/domain/src/index.ts`:
+Append to `packages/application/src/index.ts`:
 
 ```ts
 export * as notificationDomain from "./notification";
@@ -507,7 +507,7 @@ Expected: PASS on "writes a row" and "caps retention". Third test (redis publish
 **Step 4: Commit**
 
 ```bash
-git add packages/domain/src/notification/index.ts packages/domain/src/index.ts
+git add packages/application/src/notification/index.ts packages/application/src/index.ts
 git commit -m "feat(domain): notification module with createNotification + cap"
 ```
 
@@ -524,7 +524,7 @@ git commit -m "feat(domain): notification module with createNotification + cap"
 ```ts
 // tests/integration/notification/publish.test.ts
 import { describe, it, expect, beforeEach } from "vitest";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 import { createSubscriber, keys } from "@nojv/redis";
 import { truncateTestDb, createTestUser } from "../../fixtures/seed-test-db";
 
@@ -592,7 +592,7 @@ import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { requireAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireAuth(event);
@@ -635,7 +635,7 @@ git commit -m "feat(web): GET /api/notifications/recent"
 import { json } from "@sveltejs/kit";
 import { requireAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -650,7 +650,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 import { json } from "@sveltejs/kit";
 import { requireAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import type { RequestHandler } from "./$types";
 
@@ -667,7 +667,7 @@ export const POST: RequestHandler = apiHandler(async (event) => {
 import { json } from "@sveltejs/kit";
 import { requireAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import type { RequestHandler } from "./$types";
 
@@ -731,7 +731,7 @@ git commit -m "feat(web): SSE stream subscribes to notification channel"
 
 **Files:**
 
-- Modify: `packages/domain/src/course/mutations.ts` — find `manuallyEnrollCourseMember` function
+- Modify: `packages/application/src/course/mutations.ts` — find `manuallyEnrollCourseMember` function
 - Test: `tests/integration/domain/course-enroll-notification.test.ts`
 
 **Step 1: Write the integration test first**
@@ -739,7 +739,7 @@ git commit -m "feat(web): SSE stream subscribes to notification channel"
 ```ts
 // tests/integration/domain/course-enroll-notification.test.ts
 import { describe, it, expect, beforeEach } from "vitest";
-import { courseDomain, notificationDomain } from "@nojv/domain";
+import { courseDomain, notificationDomain } from "@nojv/application";
 import { notificationRepo } from "@nojv/db";
 import { truncateTestDb, createTestUser, createTestCourse } from "../../fixtures/seed-test-db";
 
@@ -776,7 +776,7 @@ Expected: FAIL (no notification created).
 
 **Step 3: Add the producer call**
 
-In `packages/domain/src/course/mutations.ts` inside `manuallyEnrollCourseMember`, after the enrollment mutation succeeds, call:
+In `packages/application/src/course/mutations.ts` inside `manuallyEnrollCourseMember`, after the enrollment mutation succeeds, call:
 
 ```ts
 await notificationDomain.createNotification({
@@ -796,7 +796,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add packages/domain/src/course/mutations.ts tests/integration/domain/course-enroll-notification.test.ts
+git add packages/application/src/course/mutations.ts tests/integration/domain/course-enroll-notification.test.ts
 git commit -m "feat(domain): emit course_enrolled notification on manual enroll"
 ```
 
@@ -806,7 +806,7 @@ git commit -m "feat(domain): emit course_enrolled notification on manual enroll"
 
 **Files:**
 
-- Modify: `packages/domain/src/announcement/index.ts`
+- Modify: `packages/application/src/announcement/index.ts`
 - Test: `tests/integration/domain/announcement-publish-notification.test.ts`
 
 **Step 1: Write the test**
@@ -822,7 +822,7 @@ Make sure the transition detection is "was not published, now is" — do not re-
 **Step 3: Commit**
 
 ```bash
-git add packages/domain/src/announcement/index.ts packages/db/src/repositories/user.ts tests/integration/domain/announcement-publish-notification.test.ts
+git add packages/application/src/announcement/index.ts packages/db/src/repositories/user.ts tests/integration/domain/announcement-publish-notification.test.ts
 git commit -m "feat(domain): fan out notifications on announcement publish"
 ```
 
@@ -832,7 +832,7 @@ git commit -m "feat(domain): fan out notifications on announcement publish"
 
 **Files:**
 
-- Modify: `packages/domain/src/admin/` — find the function that writes `User.platformRole`
+- Modify: `packages/application/src/admin/` — find the function that writes `User.platformRole`
 - Test: `tests/integration/domain/role-change-notification.test.ts`
 
 **Step 1: Write the test** — admin updates a user's role, expect a `role_changed` notification with `params: { newRole, oldRole }` and `linkUrl: "/account"`.
@@ -842,7 +842,7 @@ git commit -m "feat(domain): fan out notifications on announcement publish"
 **Step 3: Commit**
 
 ```bash
-git add packages/domain/src/admin/ tests/integration/domain/role-change-notification.test.ts
+git add packages/application/src/admin/ tests/integration/domain/role-change-notification.test.ts
 git commit -m "feat(domain): emit role_changed notification on role update"
 ```
 

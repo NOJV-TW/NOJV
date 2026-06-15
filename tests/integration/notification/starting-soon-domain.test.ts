@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 
 import {
   createTestContest,
@@ -11,8 +11,6 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-// `Notification` is not in the shared TABLES list truncated by integration-setup,
-// so clear it locally (same pattern as assignment-due-soon-domain.test.ts).
 beforeEach(async () => {
   await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
 });
@@ -35,11 +33,10 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
     const studentA = await createTestUser({ platformRole: "student" });
     const studentB = await createTestUser({ platformRole: "student" });
     for (const s of [studentA, studentB]) {
-      await testPrisma.examParticipation.create({
-        data: { examId: exam.id, userId: s.id, status: "registered" },
+      await testPrisma.participation.create({
+        data: { type: "exam", examId: exam.id, userId: s.id, status: "registered" },
       });
     }
-    // A third student has no participation row — must not be notified.
     const studentC = await createTestUser({ platformRole: "student" });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -78,8 +75,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
     const student = await createTestUser({ platformRole: "student" });
-    await testPrisma.examParticipation.create({
-      data: { examId: exam.id, userId: student.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -101,8 +98,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       startsAt: new Date(Date.now() - 60 * 60_000),
       endsAt: new Date(Date.now() + 60 * 60_000),
     });
-    await testPrisma.examParticipation.create({
-      data: { examId: exam.id, userId: student.id, status: "active" },
+    await testPrisma.participation.create({
+      data: { type: "exam", examId: exam.id, userId: student.id, status: "active" },
     });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -123,8 +120,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       startsAt: new Date(Date.now() + 60 * 60_000),
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
-    await testPrisma.examParticipation.create({
-      data: { examId: exam.id, userId: student.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
     await notificationDomain.fanoutExamStartingSoon(exam.id);
@@ -136,7 +133,6 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
   it("is a no-op when the exam has no participants", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
-    // A student exists but has no exam participation row.
     const student = await createTestUser({ platformRole: "student" });
 
     const exam = await createTestExam({
@@ -167,8 +163,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
     const userA = await createTestUser();
     const userB = await createTestUser();
     for (const u of [userA, userB]) {
-      await testPrisma.contestParticipation.create({
-        data: { contestId: contest.id, userId: u.id, status: "registered" },
+      await testPrisma.participation.create({
+        data: { type: "contest", contestId: contest.id, userId: u.id, status: "registered" },
       });
     }
     const userC = await createTestUser();
@@ -203,8 +199,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
     const user = await createTestUser();
-    await testPrisma.contestParticipation.create({
-      data: { contestId: contest.id, userId: user.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
     await notificationDomain.fanoutContestStartingSoon(contest.id);
@@ -221,8 +217,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       endsAt: new Date(Date.now() + 60 * 60_000),
     });
     const user = await createTestUser();
-    await testPrisma.contestParticipation.create({
-      data: { contestId: contest.id, userId: user.id, status: "active" },
+    await testPrisma.participation.create({
+      data: { type: "contest", contestId: contest.id, userId: user.id, status: "active" },
     });
 
     await notificationDomain.fanoutContestStartingSoon(contest.id);
@@ -238,8 +234,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
     const user = await createTestUser();
-    await testPrisma.contestParticipation.create({
-      data: { contestId: contest.id, userId: user.id, status: "registered" },
+    await testPrisma.participation.create({
+      data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
     await notificationDomain.fanoutContestStartingSoon(contest.id);

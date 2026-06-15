@@ -1,10 +1,48 @@
 import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
+import { parseRelativePath } from "@nojv/core";
 import { randomUUID } from "node:crypto";
 
-import { getStorageBaseUrl } from "./client";
+import { getStorageEnv } from "./env";
 
-const BUCKET = process.env.S3_BUCKET ?? "nojv";
+let cachedBucket: string | undefined;
+function BUCKET(): string {
+  return (cachedBucket ??= getStorageEnv().S3_BUCKET);
+}
+
+export interface StoredImage {
+  body: Buffer;
+  contentType: string;
+}
+
+function imageFilename(filename: string): string {
+  const parsed = parseRelativePath(filename);
+  if (parsed.includes("/")) {
+    throw new Error("Image filename must not contain path separators");
+  }
+  return parsed;
+}
+
+async function readObject(client: S3Client, key: string): Promise<StoredImage> {
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: BUCKET(),
+      Key: key,
+    }),
+  );
+  const body = response.Body;
+  if (!body) {
+    throw new Error(`No body returned for object ${key}`);
+  }
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return {
+    body: Buffer.concat(chunks),
+    contentType: response.ContentType ?? "application/octet-stream",
+  };
+}
 
 export async function uploadProblemImage(
   client: S3Client,
@@ -17,14 +55,14 @@ export async function uploadProblemImage(
 
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: file,
       ContentType: mimeType,
     }),
   );
 
-  return `${getStorageBaseUrl()}/${BUCKET}/${key}`;
+  return key;
 }
 
 export async function uploadUserContentImage(
@@ -38,39 +76,45 @@ export async function uploadUserContentImage(
 
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: file,
       ContentType: mimeType,
     }),
   );
 
-  return `${getStorageBaseUrl()}/${BUCKET}/${key}`;
+  return key;
 }
 
-export async function deleteProblemImage(client: S3Client, imageUrl: string): Promise<void> {
-  const url = new URL(imageUrl);
-  const pathParts = url.pathname.split("/").filter(Boolean);
-  const key = pathParts.slice(1).join("/");
-
-  await client.send(
-    new DeleteObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    }),
-  );
+export async function downloadProblemImage(
+  client: S3Client,
+  problemId: string,
+  filename: string,
+): Promise<StoredImage> {
+  return readObject(client, `problems/${problemId}/images/${imageFilename(filename)}`);
 }
+
+export async function downloadUserContentImage(
+  client: S3Client,
+  userId: string,
+  filename: string,
+): Promise<StoredImage> {
+  return readObject(client, `users/${userId}/images/${imageFilename(filename)}`);
+}
+
+export type AdvancedImageRole = "run" | "grade" | "service";
 
 export async function uploadAdvancedImageTarball(
   client: S3Client,
   problemId: string,
+  role: AdvancedImageRole,
   file: Buffer,
 ): Promise<string> {
-  const key = `problems/${problemId}/advanced-images/${randomUUID()}.tar`;
+  const key = `problems/${problemId}/advanced-images/${role}/${randomUUID()}.tar`;
 
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
       Body: file,
       ContentType: "application/x-tar",
@@ -83,7 +127,7 @@ export async function uploadAdvancedImageTarball(
 export async function deleteAdvancedImageTarball(client: S3Client, key: string): Promise<void> {
   await client.send(
     new DeleteObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
     }),
   );
@@ -95,7 +139,7 @@ export async function downloadAdvancedImageTarball(
 ): Promise<Buffer> {
   const response = await client.send(
     new GetObjectCommand({
-      Bucket: BUCKET,
+      Bucket: BUCKET(),
       Key: key,
     }),
   );

@@ -6,6 +6,8 @@ const TITLE_MIN = 1;
 const TITLE_MAX = 200;
 const CONTENT_MIN = 10;
 const CONTENT_MAX = 50_000;
+const REASON_MIN = 1;
+const REASON_MAX = 1000;
 
 export const editorialSubmitSchema = z.object({
   title: z.string().trim().min(TITLE_MIN).max(TITLE_MAX),
@@ -27,11 +29,31 @@ export const editorialUpdateSchema = z
     },
   );
 
-/// `value` of 1 = upvote, -1 = downvote, 0 = clear the viewer's vote.
 export const editorialVoteSchema = z.object({
   value: z.union([z.literal(1), z.literal(-1), z.literal(0)]),
 });
 
+export const editorialReportSchema = z.object({
+  reason: z.string().min(REASON_MIN).max(REASON_MAX),
+});
+
+export const editorialEntrySchema = z.looseObject({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  language: z.string(),
+  createdAt: z.string(),
+  voteScore: z.number(),
+  viewerVote: z.number(),
+  user: z.object({
+    username: z.string().nullable(),
+    name: z.string(),
+  }),
+});
+
+export const editorialListResponseSchema = z.array(editorialEntrySchema);
+
 export type EditorialSubmitInput = z.infer<typeof editorialSubmitSchema>;
 export type EditorialUpdateInput = z.infer<typeof editorialUpdateSchema>;
 export type EditorialVoteInput = z.infer<typeof editorialVoteSchema>;
+export type EditorialReportInput = z.infer<typeof editorialReportSchema>;

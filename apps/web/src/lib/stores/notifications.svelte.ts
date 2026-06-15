@@ -12,11 +12,11 @@ export interface NotificationItem {
 }
 
 interface SseNotificationEvent {
-  id?: string; // present for single-event pushes; absent for batch signals
+  id?: string;
   notificationType: string;
   params: unknown;
   linkUrl: string | null;
-  createdAt?: string; // present for single-event; absent for batch signals
+  createdAt?: string;
 }
 
 class NotificationsStore {

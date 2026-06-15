@@ -1,5 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import { canCreateProblem, problemDomain } from "@nojv/domain";
+import { canCreateProblem, problemDomain } from "@nojv/application";
 import { problemTypeSchema, judgeTypeSchema } from "@nojv/core";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 

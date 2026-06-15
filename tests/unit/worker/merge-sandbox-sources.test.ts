@@ -1,5 +1,5 @@
 import type { Language } from "@nojv/core";
-import type { submissionDomain } from "@nojv/domain";
+import type { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
 import { describe, expect, it } from "vitest";
 
@@ -23,7 +23,7 @@ function makeJudgeContext(
     runtime: "docker",
     samples: [],
     problemType: "full_source",
-    subtaskStrategies: {},
+    compareOptions: null,
     testcaseSets: [],
     workspaceFiles,
     advanced: null,

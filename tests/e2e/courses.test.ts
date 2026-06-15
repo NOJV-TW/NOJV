@@ -10,7 +10,6 @@ test.describe("Courses", () => {
     const page = await context.newPage();
     await page.goto("/courses");
     await expect(page.getByRole("main")).toBeVisible();
-    // Student is enrolled in os-lab-spring-2026
     await expect(page.getByText("Operating Systems Lab")).toBeVisible();
     await context.close();
   });
@@ -18,9 +17,6 @@ test.describe("Courses", () => {
   test("teacher sees managed courses and create link under the managing tab", async ({
     browser,
   }) => {
-    // Listing splits into "enrolled" (default) and "managing" tabs. The
-    // teacher's owned course is on the managing tab and the create
-    // entrypoint (an anchor styled as a button) only renders there.
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     await page.goto("/courses?tab=managing");
@@ -35,8 +31,6 @@ test.describe("Courses", () => {
   test("can view course detail page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    // Seeded id is `course_os-lab-spring-2026` — including the `course_`
-    // prefix matters since detail routes match by id, not by slug.
     await page.goto("/courses/course_os-lab-spring-2026");
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.getByText("Operating Systems Lab")).toBeVisible();

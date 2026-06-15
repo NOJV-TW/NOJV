@@ -32,6 +32,9 @@
   let interactorScript = $state(untrack(() => validatorScripts.interactorScript));
   let interactorLanguage = $state<JudgeScriptLanguage>(cfg.interactorLanguage ?? "python");
 
+  let caseSensitive = $state<boolean>(cfg.compare?.caseSensitive ?? true);
+  let floatTolerance = $state<number | null>(cfg.compare?.floatTolerance ?? null);
+
   function buildJudgeConfig() {
     const config: Record<string, unknown> = {
       type: judgeType,
@@ -41,6 +44,11 @@
       config.checkerLanguage = checkerLanguage;
     } else if (judgeType === "interactive") {
       config.interactorLanguage = interactorLanguage;
+    } else if (judgeType === "standard") {
+      config.compare = {
+        caseSensitive,
+        ...(floatTolerance != null ? { floatTolerance } : {}),
+      };
     }
 
     if (cfg.runtime) {
@@ -180,9 +188,40 @@
     </div>
 
     {#if judgeType === "standard"}
-      <p class="mt-4 rounded-md bg-muted/50 px-3 py-2 text-caption text-muted-foreground">
-        {m.admin_standardNormalizationHint()}
-      </p>
+      <div class="mt-4 space-y-3">
+        <p class="rounded-md bg-muted/50 px-3 py-2 text-caption text-muted-foreground">
+          {m.admin_standardNormalizationHint()}
+        </p>
+
+        <label class="flex items-center gap-2 text-body-sm">
+          <input
+            type="checkbox"
+            class="accent-primary"
+            checked={caseSensitive}
+            onchange={(e) => (caseSensitive = (e.target as HTMLInputElement).checked)}
+          />
+          <span>{m.admin_compareCaseSensitive()}</span>
+        </label>
+
+        <label class="block text-caption text-muted-foreground">
+          <span>{m.admin_compareFloatTolerance()}</span>
+          <input
+            type="number"
+            step="any"
+            min="0"
+            max="1"
+            class={inputClassName}
+            value={floatTolerance ?? ""}
+            placeholder={m.admin_compareFloatTolerancePlaceholder()}
+            onchange={(e) => {
+              const raw = (e.target as HTMLInputElement).value.trim();
+              const n = raw === "" ? null : Number(raw);
+              floatTolerance = n != null && Number.isFinite(n) && n > 0 ? n : null;
+            }}
+          />
+          <span class="mt-1 block">{m.admin_compareFloatToleranceHint()}</span>
+        </label>
+      </div>
     {:else if judgeType === "checker"}
       <div class="mt-4 space-y-3">
         <label class="text-caption text-muted-foreground">

@@ -112,7 +112,6 @@
             await update();
             if (result.type === "success") {
               onOpenChange(false);
-              // Navigate to the take view on success.
               window.location.href = window.location.pathname + "/take";
             }
             submitting = false;

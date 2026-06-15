@@ -12,9 +12,6 @@ const apiRoot = path.resolve(__dirname, "../../apps/web/src/routes/api");
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
-// SvelteKit route segments -> OpenAPI path template:
-//   [id]        -> {id}
-//   [...path]   -> {path}
 function routeDirToOpenApiPath(dir: string): string {
   const rel = path.relative(apiRoot, dir).split(path.sep).join("/");
   const segments = rel
@@ -23,7 +20,6 @@ function routeDirToOpenApiPath(dir: string): string {
   return `/api/${segments.join("/")}`.replace(/\/$/, "");
 }
 
-// Walk the filesystem for every +server.ts and the HTTP methods it exports.
 function actualOperations(): Set<string> {
   const ops = new Set<string>();
   const walk = (dir: string) => {
@@ -61,13 +57,6 @@ function documentedOperations(doc: {
   return ops;
 }
 
-// Drift guard for hand-written OpenAPI documents. The internal document is a
-// curated, intentionally NON-exhaustive maintainer reference, so we do not
-// require every route to be documented (a new endpoint may legitimately be left
-// out). What must always hold is the other direction: the documents must never
-// describe an operation that no longer has a real handler. This catches the
-// realistic drift — a route renamed, removed, or its method changed — leaving a
-// stale, lying entry in the docs.
 describe("OpenAPI contract stays in sync with API routes", () => {
   const actual = actualOperations();
   const documented = new Set<string>([
@@ -84,8 +73,6 @@ describe("OpenAPI contract stays in sync with API routes", () => {
   });
 
   it("sanity: the route scan and the documents both produced operations", () => {
-    // Guards against a silently broken scan (e.g. apiRoot moved) that would
-    // make the phantom check vacuously pass.
     expect(actual.size).toBeGreaterThan(0);
     expect(documented.size).toBeGreaterThan(0);
   });

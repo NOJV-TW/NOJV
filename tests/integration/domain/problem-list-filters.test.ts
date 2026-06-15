@@ -1,12 +1,6 @@
-// Sidebar filter coverage for listProblemCards: problem-type, judge-method
-// (incl. the null-judgeConfig => "standard" rule and special_env exclusion),
-// per-user status, statusCounts, and the per-card `bookmarked` flag.
-//
-// These exercise real Prisma `where` clauses (relation filters + JSON path)
-// against Postgres — the kind of thing unit mocks can't validate.
 import { describe, expect, it } from "vitest";
 
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 import {
   createTestProblem,
@@ -22,8 +16,11 @@ describe("listProblemCards — type filter", () => {
     const multi = await createTestProblem({ type: "multi_file" });
     await createTestProblem({
       type: "special_env",
-      advancedImageRef: "img",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "img", imageSource: "registry" },
+        grade: { imageRef: "img", imageSource: "registry" },
+        network: { mode: "none" },
+      },
     });
 
     const result = await problemDomain.listProblemCards({ types: ["multi_file"] });
@@ -55,8 +52,11 @@ describe("listProblemCards — judge-method filter", () => {
   it("excludes special_env problems from any judge-method filter", async () => {
     await createTestProblem({
       type: "special_env",
-      advancedImageRef: "img",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "img", imageSource: "registry" },
+        grade: { imageRef: "img", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       judgeConfig: undefined,
     });
     const std = await createTestProblem({ judgeConfig: { type: "standard" } });

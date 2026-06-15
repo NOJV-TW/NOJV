@@ -10,10 +10,6 @@ const ORIGIN = "http://localhost:5173";
 const TIMESTAMP = Date.now();
 const PROBLEM_TITLE = `Parallelogram Library E2E ${TIMESTAMP}`;
 
-// -----------------------------------------------------------------------------
-// Problem content — adapted from docs/example-problem/mid.pdf (mid.3 "Parallelogram")
-// -----------------------------------------------------------------------------
-
 const PROBLEM_STATEMENT = `Develop a Parallelogram library in **C**. Given three points $P_1$, $P_2$, $P_3$, where $P_2$ and $P_3$ are both connected to $P_1$ but $P_2$ and $P_3$ are NOT connected to each other, the parallelogram is formed by these three vertices plus the implicit fourth vertex $P_4 = P_2 + P_3 - P_1$.
 
 Your solution must be split into three files:
@@ -47,13 +43,6 @@ const HIDDEN_CASES: Array<{ input: string; output: string }> = [
   { input: "-2 -2 2 -2 -2 2", output: "16.00 16.00 90.00" },
   { input: "0 0 3 0 6 0", output: "-1.00 -1.00 -1.00" },
 ];
-
-// -----------------------------------------------------------------------------
-// Multi-file C solution submitted as sourceCode (main.c) + sourceFiles
-// (parallelogram.h and parallelogram.c). The sandbox compiler collects every
-// .c file in the work directory with `gcc -O2 -std=c17`, so additional source
-// files get linked together automatically.
-// -----------------------------------------------------------------------------
 
 const MAIN_C = String.raw`#include <stdio.h>
 #include <stdint.h>
@@ -183,10 +172,6 @@ double get_p1_degree(void) {
 }
 `;
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
 type FormActionResult = {
   type?: string;
   status?: number;
@@ -205,10 +190,6 @@ async function postFormAction(
   });
   return res.json() as Promise<FormActionResult>;
 }
-
-// -----------------------------------------------------------------------------
-// Test suite
-// -----------------------------------------------------------------------------
 
 let problemId = "";
 
@@ -235,29 +216,20 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await page.goto(`/problems/${problemId}/edit`);
     await expect(page.getByRole("main")).toBeVisible();
 
-    // Title
     const titleInput = page.locator("input[name='title']");
     await titleInput.click();
     await titleInput.fill(PROBLEM_TITLE);
 
-    // Statement / Input format / Output format
     await page.locator("textarea[name='statement']").fill(PROBLEM_STATEMENT);
     await page.locator("textarea[name='inputFormat']").fill(INPUT_FORMAT);
     await page.locator("textarea[name='outputFormat']").fill(OUTPUT_FORMAT);
 
-    // Visibility: Bits UI Select portals are flaky under Playwright — the
-    // trigger click sometimes fails to mount the floating content. Set the
-    // value programmatically via the hidden input that Bits UI syncs with
-    // the native form, then trigger the onValueChange callback through the
-    // component's internal state by evaluating on the page.
     await page.evaluate(() => {
-      // Find the visibility trigger (the second one — first is difficulty)
       const triggers = [
         ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]'),
       ];
       const visTrigger = triggers.find((t) => /private/i.test(t.textContent ?? ""));
       if (!visTrigger) throw new Error("Visibility trigger not found");
-      // The hidden input sibling stores the form value
       const hiddenInput = visTrigger.parentElement?.querySelector<HTMLInputElement>(
         'input[type="hidden"], input[name="visibility"]',
       );
@@ -267,24 +239,18 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
         hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
-    // Also update via the Bits UI trigger to ensure Svelte state is synced —
-    // click trigger, use keyboard to select "public".
     const visTrigger = page
       .locator('[data-slot="select-trigger"]')
       .filter({ hasText: /private/i });
     await visTrigger.click();
-    // Type "p" to jump to "Public" in the listbox, then Enter to confirm.
     await page.keyboard.press("p");
     await page.keyboard.press("Enter");
 
-    // Save
     await page
       .getByRole("button", { name: /save|儲存/i })
       .first()
       .click();
 
-    // Wait for the basic-info form action to finish — the page reloads with
-    // the new title surfaced as the heading.
     await expect(page.getByRole("heading", { name: PROBLEM_TITLE })).toBeVisible({
       timeout: 15_000,
     });
@@ -334,7 +300,6 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     expect(body.type).not.toBe("error");
     expect(body.type).not.toBe("failure");
 
-    // Draft badge should be gone after publish
     await page.goto(`/problems/${problemId}/edit`);
     await expect(page.getByText(/^Draft$|^草稿$/)).not.toBeVisible();
 
@@ -375,11 +340,6 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     expect(created.status).toBe("queued");
     expect(created.pollUrl).toBe(`/api/submissions/${created.submissionId}`);
 
-    // Poll for verdict up to ~30s. Judge runs in Docker sandbox; if the
-    // sandbox isn't available locally the submission may stay queued — we
-    // still assert a valid polling response and record the last known state.
-    // Cap at half the per-test timeout so the loop exits cleanly before
-    // Playwright kills the test.
     const deadline = Date.now() + 30_000;
     let lastStatus = created.status as string;
     while (Date.now() < deadline) {
@@ -394,17 +354,20 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       await page.waitForTimeout(1500);
     }
 
-    // Whatever the outcome, the submission must have a valid operation status.
-    expect([
-      "queued",
-      "running",
+    const terminalStatuses = [
       "accepted",
       "wrong_answer",
       "compile_error",
       "runtime_error",
       "time_limit_exceeded",
       "memory_limit_exceeded",
-    ]).toContain(lastStatus);
+    ];
+
+    if (process.env.NOJV_E2E_RUN_JUDGE === "1") {
+      expect(terminalStatuses).toContain(lastStatus);
+    } else {
+      expect([...terminalStatuses, "queued", "running"]).toContain(lastStatus);
+    }
 
     await context.close();
   });

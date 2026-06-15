@@ -1,8 +1,8 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
+  advancedConfigSchema,
   languageSchema,
   problemCreateSchema,
-  problemImageSourceSchema,
   problemTestcaseSetCreateSchema,
   problemTypeSchema,
   problemWorkspaceFileSchema,
@@ -11,6 +11,7 @@ import {
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
   judgeConfigSchema,
+  MAX_ADVANCED_TOTAL_TIME_MS,
 } from "@nojv/core";
 import type { ProblemType } from "@nojv/core";
 import { message, superValidate } from "sveltekit-superforms";
@@ -18,11 +19,11 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 const {
   getProblemPageData,
@@ -41,7 +42,6 @@ const {
   deleteTestcaseRecord,
   deleteProblemRecord,
   convertProblemToAdvancedMode,
-  setTestcaseSetScoringStrategy,
   updateAdvancedRequiredPaths,
 } = problemDomain;
 
@@ -52,85 +52,84 @@ const updateWorkspaceSchema = z.object({
   files: z.array(problemWorkspaceFileSchema).max(50),
 });
 
-const advancedImageSavePayloadSchema = z.object({
-  source: problemImageSourceSchema,
-  ref: z.string().min(1).max(500),
-  timeLimitMs: z.coerce.number().int().min(1_000).max(300_000).optional(),
-  memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional(),
+const advancedConfigSavePayloadSchema = z.object({
+  config: advancedConfigSchema,
+  timeLimitMs: z.coerce.number().int().min(1_000).max(MAX_ADVANCED_TOTAL_TIME_MS),
+  memoryLimitMb: z.coerce.number().int().min(16).max(4_096),
 });
 
 const advancedRequiredPathsSavePayloadSchema = z.object({
   paths: requiredPathsSchema,
 });
 
-export const load: PageServerLoad = handleLoad(
-  async ({ params, locals }: PageServerLoadEvent) => {
-    if (!locals.user) {
-      redirect(302, `/problems/${params.problemId}`);
-    }
+export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  const { params, locals } = event;
+  if (!locals.user) {
+    redirect(302, `/problems/${params.problemId}`);
+  }
 
-    const actor = requireAuth({ locals, params } as RequestEvent);
-    await problemDomain.assertProblemEditAccess(actor, params.problemId);
+  const actor = requireAuth(event);
+  await problemDomain.assertProblemEditAccess(actor, params.problemId);
 
-    const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
-      getProblemPageData(params.problemId),
-      getProblemTestcaseSets(params.problemId),
-      listProblemWorkspaceFiles(params.problemId),
-    ]);
+  const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
+    getProblemPageData(params.problemId),
+    getProblemTestcaseSets(params.problemId),
+    listProblemWorkspaceFiles(params.problemId),
+  ]);
 
-    const [testcaseSets, workspaceFiles, validatorScripts] = await Promise.all([
-      hydrateTestcaseSets(rawTestcaseSets),
-      hydrateWorkspaceFiles(rawWorkspaceFiles),
-      hydrateValidatorScripts({
-        checkerKey: problem.judgeConfig.checkerKey,
-        interactorKey: problem.judgeConfig.interactorKey,
-      }),
-    ]);
+  const [testcaseSets, workspaceFiles, validatorScripts] = await Promise.all([
+    hydrateTestcaseSets(rawTestcaseSets),
+    hydrateWorkspaceFiles(rawWorkspaceFiles),
+    hydrateValidatorScripts({
+      checkerKey: problem.judgeConfig.checkerKey,
+      interactorKey: problem.judgeConfig.interactorKey,
+    }),
+  ]);
 
-    const isAdvanced = problem.type === "special_env";
-    const form = await superValidate(
-      {
-        difficulty: problem.difficulty,
-        inputFormat: problem.inputFormat,
-        judgeConfig: problem.judgeConfig,
-        memoryLimitMb: problem.memoryLimitMb,
-        outputFormat: problem.outputFormat,
-        samples: problem.samples,
-        statement: problem.statement,
-        status: problem.status,
-        tags: problem.tags,
-        timeLimitMs: problem.timeLimitMs,
-        title: problem.title,
-        type: problem.type satisfies ProblemType,
-        visibility: problem.visibility,
-        ...(isAdvanced
-          ? {
-              advancedImageRef: problem.advancedImageRef ?? "",
-              advancedImageSource: problem.advancedImageSource ?? "registry",
-            }
-          : {}),
-      },
-      zod4(problemCreateSchema),
-    );
+  const isAdvanced = problem.type === "special_env";
+  const form = await superValidate(
+    {
+      difficulty: problem.difficulty,
+      inputFormat: problem.inputFormat,
+      judgeConfig: problem.judgeConfig,
+      memoryLimitMb: problem.memoryLimitMb,
+      outputFormat: problem.outputFormat,
+      samples: problem.samples,
+      statement: problem.statement,
+      status: problem.status,
+      tags: problem.tags,
+      timeLimitMs: problem.timeLimitMs,
+      title: problem.title,
+      type: problem.type satisfies ProblemType,
+      visibility: problem.visibility,
+      ...(isAdvanced && problem.advancedConfig
+        ? { advancedConfig: problem.advancedConfig }
+        : {}),
+    },
+    zod4(problemCreateSchema),
+  );
 
-    return {
-      problem,
-      form,
-      testcaseSets,
-      workspaceFiles,
-      validatorScripts,
-      imageConfig: isAdvanced
-        ? {
-            source: problem.advancedImageSource ?? "registry",
-            ref: problem.advancedImageRef ?? "",
-            timeLimitMs: problem.timeLimitMs,
-            memoryLimitMb: problem.memoryLimitMb,
-          }
-        : null,
-      advancedModeSupported: isAdvancedModeSupported(),
-    };
-  },
-);
+  return {
+    problem,
+    form,
+    testcaseSets,
+    workspaceFiles,
+    validatorScripts,
+    advancedConfig: isAdvanced
+      ? {
+          config: problem.advancedConfig ?? {
+            run: { imageRef: "", imageSource: "registry" as const },
+            grade: { imageRef: "", imageSource: "registry" as const },
+            network: { mode: "none" as const },
+          },
+          timeLimitMs: problem.timeLimitMs,
+          memoryLimitMb: problem.memoryLimitMb,
+          maxTotalTimeMs: MAX_ADVANCED_TOTAL_TIME_MS,
+        }
+      : null,
+    advancedModeSupported: isAdvancedModeSupported(),
+  };
+});
 
 function problemEditAction<T>(
   handler: (ctx: {
@@ -139,7 +138,7 @@ function problemEditAction<T>(
     event: RequestEvent;
   }) => Promise<T>,
 ) {
-  return withRateLimit(async (event: RequestEvent) => {
+  return withAction(async (event: RequestEvent) => {
     const actor = requireAuth(event);
     const problemId = event.params.problemId;
     if (!problemId) error(400, "Missing problem id");
@@ -209,14 +208,6 @@ export const actions: Actions = {
   updateJudgeConfig: saveJudgeConfig,
   updateScoring: saveJudgeConfig,
 
-  updateTestcaseSetScoring: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const setId = readStringField(formData.get("setId"), "setId");
-    const rawStrategy = readStringField(formData.get("strategy"), "strategy");
-    await setTestcaseSetScoringStrategy(actor, problemId, setId, rawStrategy);
-    return { success: true };
-  }),
-
   updateWorkspace: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
     const data = parseJsonField(formData.get("data"), updateWorkspaceSchema);
@@ -264,16 +255,15 @@ export const actions: Actions = {
     redirect(303, `/problems/${problemId}/edit`);
   }),
 
-  updateImage: problemEditAction(async ({ actor, problemId, event }) => {
+  updateAdvancedConfig: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
-    const data = parseJsonField(formData.get("data"), advancedImageSavePayloadSchema);
+    const data = parseJsonField(formData.get("data"), advancedConfigSavePayloadSchema);
     try {
       await updateProblemRecord(actor, problemId, {
         type: "special_env",
-        advancedImageRef: data.ref,
-        advancedImageSource: data.source,
-        ...(data.timeLimitMs !== undefined ? { timeLimitMs: data.timeLimitMs } : {}),
-        ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {}),
+        advancedConfig: data.config,
+        timeLimitMs: data.timeLimitMs,
+        memoryLimitMb: data.memoryLimitMb,
       });
     } catch (err) {
       return fail(400, { message: err instanceof Error ? err.message : "Update failed" });

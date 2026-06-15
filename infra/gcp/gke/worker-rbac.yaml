@@ -1,11 +1,9 @@
-# ServiceAccount for the worker deployment
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: nojv-worker
   namespace: nojv
 ---
-# Role scoped to nojv-sandbox namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -19,13 +17,21 @@ rules:
     resources: ["configmaps"]
     verbs: ["create", "delete"]
   - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["create", "delete"]
+  - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["list"]
+    verbs: ["list", "create", "delete"]
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["create", "delete"]
 ---
-# Bind the role to the worker's service account
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:

@@ -1,7 +1,7 @@
 # Feature: Plagiarism Detection
 
 Acceptance spec for Dolos-based plagiarism detection on Exam and
-CourseAssessment. Triggered by course staff; report state is inlined on
+Assessment. Triggered by course staff; report state is inlined on
 the parent row (no dedicated `PlagiarismReport` table). Runs as a
 Temporal workflow keyed on target id — re-running terminates any
 in-flight check for the same target.
@@ -34,7 +34,7 @@ for staff.
 
 ### In scope
 
-- Inline report state on `CourseAssessment.plagiarism*`,
+- Inline report state on `Assessment.plagiarism*`,
   `Exam.plagiarism*`, and `Contest.plagiarism*` fields — six columns:
   `plagiarismStatus`, `plagiarismResults` (Json), `plagiarismReportUrl`,
   `plagiarismTriggeredAt`, `plagiarismCompletedAt`,
@@ -60,7 +60,8 @@ for staff.
   teacher, course TA) on both trigger and view paths.
 - Per-language native tree-sitter parser via Dolos: every
   `SupportedLanguage` (c, cpp, go, java, javascript, python, rust,
-  typescript) maps to its own dedicated parser. No shared buckets.
+  typescript) maps to its own dedicated parser. No shared buckets, no
+  secondary backend, and no unsupported-language fallback.
 - Pre-analysis deduplication: per `(userId, problemId)` keep only the
   highest-scoring `accepted` submission.
 - Cross-group pairing is forbidden: submissions only compare against
@@ -121,7 +122,7 @@ for staff.
 - GIVEN `?type=contest` with an unknown id,
   WHEN the route resolves,
   THEN it throws 404 `Contest not found.`.
-- GIVEN no `?type` query param (default `courseAssessment`) with an
+- GIVEN no `?type` query param (default `assessment`) with an
   unknown id,
   WHEN the route resolves,
   THEN it throws 404 `Assignment not found.`.
@@ -164,9 +165,10 @@ for staff.
 - GIVEN `cpp` submissions,
   WHEN grouping runs,
   THEN they land in their own `cpp` group with a dedicated C++ parser.
-- GIVEN submissions in an unsupported `SupportedLanguage` value,
+- GIVEN submissions in an unsupported language value,
   WHEN grouping runs,
-  THEN those submissions are silently skipped (no error, no failure).
+  THEN the activity throws, marks the report `failed`, and lets Temporal
+  retry. Unknown language values are not skipped.
 - GIVEN only one submission survives a `(problem, language)` group after
   dedup,
   WHEN the activity iterates groups,
@@ -218,10 +220,13 @@ for staff.
   construction; the activity's catch block marks the report `failed`,
   Temporal retries up to 3 times, then gives up. Operator fix: rebuild
   the worker image for the deploy target.
+- **No fallback backend**: parser regression or Dolos failure is an
+  operational failure. The activity must fail the report instead of
+  silently skipping affected groups or trying an unverified secondary
+  engine.
 - **Single Dolos instance per group**: each `(problemId, language)`
   group gets a fresh `Dolos` instance; parser state is not shared
-  across groups. This isolates parser crashes to a single group but
-  does mean a problem with many languages spawns several instances.
+  across groups. A parser failure still fails the report.
 - **Re-trigger mid-flight**: `createPlagiarismReport` wipes prior
   results before the new workflow starts; no merging with a prior run.
 - **Assessment deleted while workflow running**: parent row cascade
@@ -249,19 +254,19 @@ for staff.
 
 ### Domain
 
-- `packages/domain/src/plagiarism/index.ts` — exports
+- `packages/application/src/plagiarism/index.ts` — exports
   `getPlagiarismTarget`, `createPlagiarismReport`,
   `listSubmissionsForCheck`, `findPlagiarismReport`,
   `updateReportStatus`, `saveResults`, `markReportFailed`,
   `getPlagiarismSourceCode`, `listAssignmentPlagiarismReports`,
   `getAssignmentProblemMap`.
-- `packages/domain/src/plagiarism/flags.ts` — `buildPairKey`,
+- `packages/application/src/plagiarism/flags.ts` — `buildPairKey`,
   `flagPair`, `unflagPair`, `listFlagsForContext`. Pair-key shape:
   `[userA, userB].sort()` joined by `|` then `|problemId`. Unique on
   `(contextType, contextId, pairKey)`.
-- `packages/domain/src/plagiarism/types.ts` — `SimilarityPair` (Dolos
+- `packages/application/src/plagiarism/types.ts` — `SimilarityPair` (Dolos
   shape: `similarity`, `longest`, `overlap`).
-- `packages/domain/src/shared/permissions.ts` —
+- `packages/application/src/shared/permissions.ts` —
   `resolveEffectiveCourseRole`, `canManageCourse`.
 
 ### Schema
@@ -269,7 +274,7 @@ for staff.
 - `packages/db/prisma/schema/ops.prisma` — `PlagiarismReportStatus`
   enum.
 - `packages/db/prisma/schema/course.prisma` —
-  `CourseAssessment.plagiarism*` columns.
+  `Assessment.plagiarism*` columns.
 - `packages/db/prisma/schema/contest.prisma` — `Exam.plagiarism*` plus
   `Contest.plagiarism*` columns (both wired through the UI now).
 - `packages/db/src/repositories/plagiarism.ts` — per-target
@@ -281,7 +286,7 @@ for staff.
   unique `(contextType, contextId, pairKey)`.
 - Migration `20260420000000_rename_plagiarism_report_url` renamed the
   legacy `plagiarismMossReportUrl` column to `plagiarismReportUrl` on
-  `CourseAssessment`, `Exam`, and `Contest`.
+  `Assessment`, `Exam`, and `Contest`.
 - Migration `20260430000000_add_plagiarism_pair_flag` introduces the
   pair-flag table.
 
@@ -322,14 +327,15 @@ for staff.
 ### Tests
 
 - `tests/unit/domain/plagiarism-queries.test.ts` — covers
-  `getPlagiarismTarget` (exam / courseAssessment / legacy-contest
+  `getPlagiarismTarget` (exam / assessment / legacy-contest
   remap / not-found paths) and `createPlagiarismReport` (pre-wipe
   contract + persistence-failure throw).
 - `tests/unit/temporal/plagiarism-activity.test.ts` — real-Dolos
   integration test of `runPlagiarismCheck` with the domain layer
   mocked: status bookkeeping, empty-submission short-circuit,
   best-score dedup, per-language grouping, single-submission skip, and
-  the failure path that calls `markReportFailed` + rethrows.
+  failure paths that call `markReportFailed` + rethrow, including
+  unmapped language values.
 - `tests/unit/domain/plagiarism-flags.test.ts` — pair-key sorting +
   validation; admin / teacher / TA / student / inactive permission for
   each context type; organizer / non-organizer for contest; missing
@@ -337,15 +343,9 @@ for staff.
   non-staff / teacher branches; list delegation.
 - `tests/unit/domain/plagiarism-trigger-log.test.ts` — `priorPairCount`
   computed from prior summary; contextType mapping
-  (courseAssessment / contest / exam); ordering (log written before
+  (assessment / contest / exam); ordering (log written before
   overwrite); audit row persists even if `writePlagiarismFields` fails.
 - `tests/integration/api/plagiarism.test.ts` — route-level permission
   gate for trigger / view / source fetch / flag / unflag against real
   DB (22 cases across student / other-course teacher / same-course TA /
   admin / contest organizer / non-organizer).
-
-## Open Questions / TODO
-
-- Dolos is self-hosted and in-process, so there is no external
-  dependency to fall back from. If a tree-sitter grammar regresses on
-  a future upgrade, JPlag remains a plausible secondary backend.

@@ -4,8 +4,12 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
-import { notificationDomain } from "@nojv/domain";
+import {
+  apiHandler,
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+} from "$lib/server/shared/api-handler";
+import { notificationDomain } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -25,6 +29,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   patchSchema.parse(await event.request.json());
   const updated = await notificationDomain.markAllAsRead(actor.userId);
@@ -32,6 +37,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
 });
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const status = event.url.searchParams.get("status");
   if (status !== "read") {

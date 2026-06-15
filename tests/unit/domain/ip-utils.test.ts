@@ -1,23 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted mocks for the repos `checkIpLock` orchestrates. `findLastViolationAt`
-// drives the log throttle (null = nothing logged recently = log is due).
-const { violationLogCreate, findLastViolationAt, updateIpPin } = vi.hoisted(() => ({
+const { violationLogCreate, findLastViolationAt, updateExamIpPin } = vi.hoisted(() => ({
   violationLogCreate: vi.fn(),
   findLastViolationAt: vi.fn(),
-  updateIpPin: vi.fn(),
+  updateExamIpPin: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   ipViolationLogRepo: {
     withTx: () => ({ create: violationLogCreate, findLastViolationAt }),
   },
-  examParticipationIpRepo: {
-    withTx: () => ({ updateIpPin }),
+  participationRepo: {
+    withTx: () => ({ updateExamIpPin }),
   },
 }));
 
-import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/domain";
+import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/application";
 
 const fakeTx = {} as never;
 const fakeContext = { userId: "usr_test", examId: "exm_test" };
@@ -100,8 +98,6 @@ describe("checkIpLock — whitelist", () => {
   });
 
   it("block mode denies AND records the violation (audit trail)", async () => {
-    // Fix: previously block mode returned without ever writing IpViolationLog,
-    // so a teacher using block mode got zero audit trail.
     const result = await checkIpLock(fakeTx, whitelistBlock, "1.2.3.4", null, fakeContext);
     expect(result).toEqual({ allowed: false, violationType: "whitelist" });
     expect(violationLogCreate).toHaveBeenCalledTimes(1);
@@ -144,7 +140,7 @@ describe("checkIpLock — binding", () => {
       fakeContext,
     );
     expect(result).toEqual({ allowed: true });
-    expect(updateIpPin).toHaveBeenCalledWith("part_1", "1.2.3.4");
+    expect(updateExamIpPin).toHaveBeenCalledWith("part_1", "1.2.3.4");
     expect(violationLogCreate).not.toHaveBeenCalled();
   });
 
@@ -158,7 +154,7 @@ describe("checkIpLock — binding", () => {
     );
     expect(result).toEqual({ allowed: false, violationType: "binding" });
     expect(violationLogCreate).toHaveBeenCalledTimes(1);
-    expect(updateIpPin).not.toHaveBeenCalled();
+    expect(updateExamIpPin).not.toHaveBeenCalled();
   });
 
   it("skips the gate during a teacher grace window but still re-pins", async () => {
@@ -172,7 +168,7 @@ describe("checkIpLock — binding", () => {
       now,
     );
     expect(result).toEqual({ allowed: true });
-    expect(updateIpPin).toHaveBeenCalledWith("part_1", "9.9.9.9");
+    expect(updateExamIpPin).toHaveBeenCalledWith("part_1", "9.9.9.9");
     expect(violationLogCreate).not.toHaveBeenCalled();
   });
 });

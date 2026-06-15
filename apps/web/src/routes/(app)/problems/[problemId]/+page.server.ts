@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { editorialDomain, problemDomain, submissionDomain } from "@nojv/domain";
+import { editorialDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const {
   assertProblemViewAccess,
@@ -40,10 +40,22 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     { contextIncludesProblem: false },
   );
 
-  const [problem, fullTestcaseSets] = await Promise.all([
-    getProblemPageData(problemId),
-    getProblemTestcaseSets(problemId),
-  ]);
+  const [problem, fullTestcaseSets, submissions, editorialContext, canRejudge, bookmarked] =
+    await Promise.all([
+      getProblemPageData(problemId),
+      getProblemTestcaseSets(problemId),
+      listProblemSubmissions(userId, problemId),
+      resolveActiveContextForUser(userId, problemId, new Date()),
+      canOperateOnSubmission(actorContext, {
+        id: "",
+        userId,
+        problemId,
+        contestId: null,
+        assessmentId: null,
+        examId: null,
+      }),
+      problemDomain.isBookmarked(userId, problemId),
+    ]);
 
   const testcaseSetSummaries = fullTestcaseSets.map((set) => ({
     id: set.id,
@@ -54,21 +66,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     caseCount: set.testcases.length,
   }));
 
-  const submissions = await listProblemSubmissions(userId, problemId);
-
-  const editorialContext = await resolveActiveContextForUser(userId, problemId, new Date());
-  const [canRejudge, editorialAccess, bookmarked] = await Promise.all([
-    canOperateOnSubmission(actorContext, {
-      id: "",
-      userId,
-      problemId,
-      contestId: null,
-      courseAssessmentId: null,
-      examId: null,
-    }),
-    canViewEditorials(userId, problemId, editorialContext),
-    problemDomain.isBookmarked(userId, problemId),
-  ]);
+  const editorialAccess = await canViewEditorials(userId, problemId, editorialContext);
 
   return {
     allowedLanguages: [],

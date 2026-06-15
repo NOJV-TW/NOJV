@@ -2,7 +2,7 @@ import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { m } from "$lib/paraglide/messages.js";
-import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
+import { contestDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const { getContestWorkspaceData, listContestProblemSiblings } = contestDomain;
 const { getProblemPageData } = problemDomain;
@@ -45,7 +45,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     userId: actor.userId,
     problemId,
     contestId,
-    courseAssessmentId: null,
+    assessmentId: null,
     examId: null,
   });
 

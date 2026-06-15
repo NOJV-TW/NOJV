@@ -1,20 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Repo stubs — hoisted so the vi.mock factory can reference them.
 const {
   examFindById,
   membershipFindByComposite,
   sessionFindAllActive,
   sessionUpdate,
   sessionRecordEvent,
-  clearPinAndExempt,
+  clearExamPinAndExempt,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
   sessionFindAllActive: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
-  clearPinAndExempt: vi.fn(),
+  clearExamPinAndExempt: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -28,11 +27,11 @@ vi.mock("@nojv/db", () => ({
       recordEvent: sessionRecordEvent,
     }),
   },
-  examParticipationIpRepo: { withTx: () => ({ clearPinAndExempt }) },
+  participationRepo: { withTx: () => ({ clearExamPinAndExempt }) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-import { examDomain } from "@nojv/domain";
+import { examDomain } from "@nojv/application";
 
 const { releaseAllSessionsAsInstructor, resetStudentIpBinding } = examDomain.session;
 
@@ -61,11 +60,15 @@ describe("releaseAllSessionsAsInstructor", () => {
 
   it("releases every active session and returns the count", async () => {
     membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
-    sessionFindAllActive.mockResolvedValue([{ id: "s1" }, { id: "s2" }, { id: "s3" }]);
+    sessionFindAllActive.mockResolvedValue([
+      { id: "s1", userId: "u1" },
+      { id: "s2", userId: "u2" },
+      { id: "s3", userId: "u3" },
+    ]);
 
     const result = await releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" });
 
-    expect(result).toEqual({ released: 3 });
+    expect(result).toEqual({ released: 3, releasedUserIds: ["u1", "u2", "u3"] });
     expect(sessionUpdate).toHaveBeenCalledTimes(3);
     expect(sessionRecordEvent).toHaveBeenCalledTimes(3);
     expect(sessionUpdate).toHaveBeenCalledWith("s1", {
@@ -80,7 +83,7 @@ describe("releaseAllSessionsAsInstructor", () => {
 
     const result = await releaseAllSessionsAsInstructor(teacherActor, { examId: "exm_1" });
 
-    expect(result).toEqual({ released: 0 });
+    expect(result).toEqual({ released: 0, releasedUserIds: [] });
     expect(sessionUpdate).not.toHaveBeenCalled();
   });
 
@@ -108,7 +111,7 @@ describe("resetStudentIpBinding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
-    clearPinAndExempt.mockResolvedValue({});
+    clearExamPinAndExempt.mockResolvedValue({});
   });
 
   it("clears the pin and opens a grace window for staff", async () => {
@@ -120,9 +123,8 @@ describe("resetStudentIpBinding", () => {
       now,
     );
 
-    // 10-minute grace window.
     const expected = new Date("2026-05-26T10:10:00Z");
-    expect(clearPinAndExempt).toHaveBeenCalledWith("exm_1", "usr_student", expected);
+    expect(clearExamPinAndExempt).toHaveBeenCalledWith("exm_1", "usr_student", expected);
     expect(result).toEqual({ exemptUntil: expected });
   });
 
@@ -135,7 +137,7 @@ describe("resetStudentIpBinding", () => {
       now,
     );
 
-    expect(clearPinAndExempt).toHaveBeenCalledTimes(1);
+    expect(clearExamPinAndExempt).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a non-staff actor", async () => {
@@ -148,7 +150,7 @@ describe("resetStudentIpBinding", () => {
         now,
       ),
     ).rejects.toThrow(/staff/i);
-    expect(clearPinAndExempt).not.toHaveBeenCalled();
+    expect(clearExamPinAndExempt).not.toHaveBeenCalled();
   });
 
   it("throws when the exam does not exist", async () => {

@@ -8,9 +8,6 @@ import {
   validatorTimeoutMs,
 } from "../../../apps/sandbox-runner/src/judges/validate.js";
 
-// A node-based DOMjudge validator: reads argv[2..4] = input/answer/feedbackDir,
-// reads team output from stdin, writes feedback files, exits 42/43. Using node
-// (always present) keeps this a true unit test with no python dependency.
 const NODE_VALIDATOR = `const fs = require("fs");
 const [, , inputF, answerF, fbDir] = process.argv;
 const answer = fs.readFileSync(answerF, "utf8").trim();
@@ -71,10 +68,10 @@ describe("validateCase", () => {
     expect(outcome.teamMessage).toBe("exact match");
   });
 
-  it("exit 43 with score.txt → WA carrying a partial score", async () => {
+  it("exit 43 → WA, score.txt ignored (AC/WA only), teammessage kept", async () => {
     const outcome = await run("hello\n");
     expect(outcome.verdict).toBe("WA");
-    expect(outcome.score).toBe(50);
+    expect("score" in outcome).toBe(false);
     expect(outcome.teamMessage).toBe("partial");
   });
 

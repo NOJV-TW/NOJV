@@ -77,7 +77,6 @@ test.describe("Plagiarism — reports + flag API", () => {
     const page = await context.newPage();
     const res = await page.request.post(`/api/plagiarism-flags`, {
       data: {
-        // missing required `contextType`, `userBId` etc.
         contextId: HW1_ID,
         problemId: "problem_warmup-sum",
       },
@@ -104,8 +103,6 @@ test.describe("Plagiarism — reports + flag API", () => {
     const page = await context.newPage();
     await page.goto(`/assignments/${HW1_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    // The plagiarism sub-tab is rendered in the assignment detail layout
-    // for managers — its trigger may be a tab button or link.
     const plagiarismTab = page.getByRole("tab", { name: /plagiarism|抄襲/i }).first();
     if (await plagiarismTab.count()) {
       await expect(plagiarismTab).toBeVisible();

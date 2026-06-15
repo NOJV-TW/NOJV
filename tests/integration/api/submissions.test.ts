@@ -7,15 +7,13 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import { submissionSourcePrefix } from "@nojv/storage";
 
 const { getSubmissionForUser, getSubmissionSources, listProblemSubmissions } = submissionDomain;
 import { NotFoundError } from "$lib/server/auth";
 
 describe("submission queries (real DB)", () => {
-  // --- getSubmissionForUser ---
-
   describe("getSubmissionForUser", () => {
     it("returns submission when user is the owner", async () => {
       const user = await createTestUser();
@@ -67,14 +65,11 @@ describe("submission queries (real DB)", () => {
     });
   });
 
-  // --- listProblemSubmissions ---
-
   describe("listProblemSubmissions", () => {
     it("returns submissions for a user on a specific problem", async () => {
       const user = await createTestUser();
       const problem = await createTestProblem({ authorId: user.id });
 
-      // Create some accepted (non-sampleOnly) submissions
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
@@ -148,7 +143,6 @@ describe("submission queries (real DB)", () => {
         sampleOnly: false,
       });
 
-      // Small delay to ensure different createdAt
       await new Promise((r) => setTimeout(r, 50));
 
       const sub2 = await createTestSubmission({
@@ -160,13 +154,10 @@ describe("submission queries (real DB)", () => {
 
       const results = await listProblemSubmissions(user.id, problem.id);
       expect(results).toHaveLength(2);
-      // Most recent first
       expect(results[0]!.id).toBe(sub2.id);
       expect(results[1]!.id).toBe(sub1.id);
     });
   });
-
-  // --- Submission factory sanity ---
 
   describe("factory sanity", () => {
     it("createTestSubmission persists to DB with correct fields", async () => {
@@ -186,7 +177,6 @@ describe("submission queries (real DB)", () => {
       expect(fetched).not.toBeNull();
       expect(fetched!.language).toBe("cpp");
       expect(fetched!.status).toBe("wrong_answer");
-      // Source bytes live in object storage; the row only carries the prefix.
       expect(fetched!.sourceStoragePrefix).toBe(submissionSourcePrefix(submission.id));
       const sources = await getSubmissionSources(submission.id);
       expect(sources.length).toBeGreaterThan(0);

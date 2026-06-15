@@ -4,11 +4,6 @@ metadata:
   name: nojv-worker
   namespace: nojv
 spec:
-  # Static 2 replicas for redundancy (a single pod being evicted during node
-  # drain / image pull shouldn't halt judging). Throughput is gated by the
-  # nojv-sandbox ResourceQuota, not worker count — orchestrator work is cheap
-  # and mostly I/O. Introduce autoscaling only when Temporal task queue
-  # backlog or activity latency is actually measured to be a bottleneck.
   replicas: 2
   revisionHistoryLimit: 2
   selector:
@@ -21,14 +16,8 @@ spec:
         nojv-role: worker
     spec:
       serviceAccountName: nojv-worker
-      # Pin the orchestrator workers to the stable node pool. Sandbox pods run
-      # on a separate tainted pool so they can never starve the worker.
       nodeSelector:
         nojv-role: worker
-      # Pod-level: refuse to run as root, apply container runtime's default
-      # seccomp profile. uid/gid 1001 matches `USER appuser` in
-      # infra/docker/worker.Dockerfile — keep these in sync if the Dockerfile
-      # ever switches user/uid.
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -38,9 +27,6 @@ spec:
       containers:
         - name: worker
           image: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:latest
-          # Container-level hardening. /tmp + the Node ipc socket need to be
-          # writable, so we keep the rootfs read-only and back the writable
-          # paths with emptyDir volumes below.
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -58,6 +44,10 @@ spec:
               value: nojv-sandbox
             - name: SANDBOX_IMAGE
               value: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/sandbox:latest
+            - name: EGRESS_PROXY_IMAGE
+              value: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/egress-proxy:latest
+            - name: WORKER_CONCURRENCY
+              value: "4"
             - name: K8S_CPU_REQUEST
               value: "500m"
             - name: K8S_CPU_LIMIT
@@ -66,9 +56,6 @@ spec:
               value: "256Mi"
             - name: K8S_MEMORY_LIMIT
               value: "512Mi"
-            # Cloud SQL Auth Proxy listens on 127.0.0.1:5432 in this pod.
-            # DATABASE_URL must point at localhost — the proxy handles
-            # IAM auth + TLS to Cloud SQL.
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -83,6 +70,23 @@ spec:
               value: temporal-frontend.nojv-temporal.svc.cluster.local:7233
             - name: TEMPORAL_NAMESPACE
               value: default
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: S3_ENDPOINT
+                  name: nojv-runtime-secrets
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: S3_ACCESS_KEY
+                  name: nojv-runtime-secrets
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: S3_SECRET_KEY
+                  name: nojv-runtime-secrets
+            - name: S3_BUCKET
+              value: nojv
           livenessProbe:
             httpGet:
               path: /healthz
@@ -105,11 +109,6 @@ spec:
             limits:
               cpu: "2"
               memory: 1Gi
-        # Cloud SQL Auth Proxy sidecar. Exposes the application Cloud SQL
-        # instance on 127.0.0.1:5432 inside this pod via IAM auth — no
-        # network exposure to other pods, no password in env. Workload
-        # Identity binds the worker KSA to a GSA with roles/cloudsql.client;
-        # see the README for the gcloud commands that wire that up.
         - name: cloudsql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
           securityContext:
@@ -122,6 +121,7 @@ spec:
           args:
             - --address=127.0.0.1
             - --port=5432
+            - --private-ip
             - --structured-logs
             - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
           env:

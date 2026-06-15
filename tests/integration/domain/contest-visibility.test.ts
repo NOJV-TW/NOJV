@@ -7,7 +7,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { getContestDetail } = contestDomain;
 
@@ -18,11 +18,6 @@ async function attachProblem(contestId: string, ordinal: number, points: number)
   });
   return problem;
 }
-
-// Standalone contest visibility only. Exam visibility gating lives
-// in the Exam domain tests after the 2026-04-14 split; course
-// teacher/TA can no longer "see through" a contest that doesn't
-// carry a courseId.
 
 describe("getContestDetail visibility gating", () => {
   it("hides problems for a stranger before startsAt", async () => {

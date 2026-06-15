@@ -44,7 +44,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {},
 }));
 
-import { NotFoundError, plagiarismDomain } from "@nojv/domain";
+import { NotFoundError, plagiarismDomain } from "@nojv/application";
 
 const { getPlagiarismTarget, createPlagiarismReport } = plagiarismDomain;
 
@@ -98,7 +98,7 @@ describe("getPlagiarismTarget", () => {
     );
   });
 
-  it("resolves a missing type to a courseAssessment target", async () => {
+  it("resolves a missing type to a assessment target", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "asg_1",
       course: { id: "crs_1" },
@@ -106,7 +106,7 @@ describe("getPlagiarismTarget", () => {
     const result = await getPlagiarismTarget("asg_1", null);
     expect(result).toEqual({
       courseId: "crs_1",
-      target: { id: "asg_1", type: "courseAssessment" },
+      target: { id: "asg_1", type: "assessment" },
     });
     expect(examFindByIdWithCourse).not.toHaveBeenCalled();
   });
@@ -139,9 +139,9 @@ describe("createPlagiarismReport", () => {
     expect(input.triggeredAt).toBeInstanceOf(Date);
   });
 
-  it("routes courseAssessment targets through upsertForAssessment", async () => {
+  it("routes assessment targets through upsertForAssessment", async () => {
     findByAssessmentId.mockResolvedValue({ status: "pending" });
-    await createPlagiarismReport({ id: "asg_1", type: "courseAssessment" }, "usr_teacher");
+    await createPlagiarismReport({ id: "asg_1", type: "assessment" }, "usr_teacher");
     expect(upsertForAssessment).toHaveBeenCalledTimes(1);
     expect(upsertForExam).not.toHaveBeenCalled();
   });

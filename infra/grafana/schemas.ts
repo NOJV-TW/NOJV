@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-// Core Grafana dashboard fields we depend on. Grafana's real schema has
-// hundreds of optional fields — `.passthrough()` keeps them so the upload
-// round-trips unchanged, while the four required keys catch malformed or
-// truncated exports before they reach the API.
 export const DashboardSchema = z
   .object({
     uid: z.string().min(1),
@@ -15,8 +11,6 @@ export const DashboardSchema = z
 
 export type DashboardModel = z.infer<typeof DashboardSchema>;
 
-// SLO alert rule definition — schema is closed (no passthrough). New
-// fields here are deliberate and need a code change.
 export const AlertRuleDefSchema = z.object({
   uid: z.string().min(1),
   title: z.string().min(1),
@@ -32,13 +26,11 @@ export const AlertRuleDefsSchema = z.array(AlertRuleDefSchema);
 
 export type AlertRuleDef = z.infer<typeof AlertRuleDefSchema>;
 
-// Required to do anything; the script aborts when these are absent.
 export const RequiredEnvSchema = z.object({
   GRAFANA_STACK_URL: z.string().url(),
   GRAFANA_SA_TOKEN: z.string().min(1),
 });
 
-// Optional knobs — alert / contact-point provisioning is opt-in.
 export const OptionalEnvSchema = z.object({
   GRAFANA_ALERT_FOLDER_UID: z.string().min(1).optional(),
   GRAFANA_PROM_DATASOURCE_UID: z.string().min(1).optional(),

@@ -60,8 +60,6 @@ describe("validateRequiredPaths", () => {
   });
 
   it("folder requirement is NOT satisfied by a literal directory entry", () => {
-    // JSZip and similar tools sometimes emit standalone directory markers.
-    // A required folder must contain at least one real file under it.
     const result = validateRequiredPaths(["src/"], ["src/"]);
 
     expect(result.ok).toBe(false);
@@ -70,9 +68,12 @@ describe("validateRequiredPaths", () => {
 });
 
 describe("requiredPathSchema", () => {
-  it.each([["src/main.c"], ["src/"], ["Makefile"], ["a.b-c_d/e.f"]])("accepts %s", (path) => {
-    expect(requiredPathSchema.safeParse(path).success).toBe(true);
-  });
+  it.each([["src/main.c"], ["src/"], ["Makefile"], ["a.b-c_d/e.f"], ["file with space"]])(
+    "accepts %s",
+    (path) => {
+      expect(requiredPathSchema.safeParse(path).success).toBe(true);
+    },
+  );
 
   it("rejects '..' (parent traversal)", () => {
     expect(requiredPathSchema.safeParse("..").success).toBe(false);
@@ -86,20 +87,21 @@ describe("requiredPathSchema", () => {
     expect(requiredPathSchema.safeParse("/abs/path").success).toBe(false);
   });
 
-  it("rejects paths with whitespace", () => {
-    expect(requiredPathSchema.safeParse("file with space").success).toBe(false);
+  it("rejects dot segments", () => {
+    expect(requiredPathSchema.safeParse("./main.c").success).toBe(false);
+    expect(requiredPathSchema.safeParse("src/./main.c").success).toBe(false);
   });
 
-  it("rejects paths with disallowed punctuation", () => {
-    expect(requiredPathSchema.safeParse("a*b").success).toBe(false);
+  it("rejects colon characters", () => {
+    expect(requiredPathSchema.safeParse("a:b").success).toBe(false);
   });
 
   it("rejects empty strings", () => {
     expect(requiredPathSchema.safeParse("").success).toBe(false);
   });
 
-  it("rejects paths longer than 256 characters", () => {
-    expect(requiredPathSchema.safeParse("a".repeat(257)).success).toBe(false);
+  it("rejects paths longer than 300 characters", () => {
+    expect(requiredPathSchema.safeParse("a".repeat(301)).success).toBe(false);
   });
 });
 
@@ -151,11 +153,81 @@ describe("problemCreateSchema integration with advancedRequiredPaths", () => {
     const result = problemCreateSchema.safeParse({
       ...baseProblemInput,
       type: "special_env",
-      advancedImageRef: "ghcr.io/example/judge:1.0.0",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "ghcr.io/example/judge:1.0.0", imageSource: "registry" },
+        grade: { imageRef: "ghcr.io/example/judge:1.0.0", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       advancedRequiredPaths: ["src/main.c", "src/"],
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe("problemCreateSchema integration with advancedConfig", () => {
+  const baseProblemInput = {
+    difficulty: "easy",
+    inputFormat: "n",
+    memoryLimitMb: 256,
+    outputFormat: "n",
+    statement: "Compute n.",
+    tags: [],
+    timeLimitMs: 1000,
+    title: "Sample",
+    visibility: "public",
+  } as const;
+
+  const config = {
+    run: { imageRef: "ghcr.io/example/run:1", imageSource: "registry" as const },
+    grade: { imageRef: "ghcr.io/example/grade:1", imageSource: "registry" as const },
+    network: { mode: "none" as const },
+  };
+
+  it("requires advancedConfig on special_env problems", () => {
+    const result = problemCreateSchema.safeParse({
+      ...baseProblemInput,
+      type: "special_env",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const hasGuardIssue = result.error.issues.some(
+        (issue) =>
+          issue.path.length === 1 &&
+          issue.path[0] === "advancedConfig" &&
+          issue.message === "validation_required",
+      );
+      expect(hasGuardIssue).toBe(true);
+    }
+  });
+
+  it("accepts special_env problems carrying a valid advancedConfig", () => {
+    const result = problemCreateSchema.safeParse({
+      ...baseProblemInput,
+      type: "special_env",
+      advancedConfig: config,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects advancedConfig on non-special_env problems", () => {
+    const result = problemCreateSchema.safeParse({
+      ...baseProblemInput,
+      type: "full_source",
+      advancedConfig: config,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const hasGuardIssue = result.error.issues.some(
+        (issue) =>
+          issue.path.length === 1 &&
+          issue.path[0] === "advancedConfig" &&
+          issue.message === "validation_onlyAllowedForSpecialEnv",
+      );
+      expect(hasGuardIssue).toBe(true);
+    }
   });
 });

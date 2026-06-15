@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 
-import { problemDomain, submissionDomain } from "@nojv/domain";
+import { problemDomain, submissionDomain } from "@nojv/application";
 import type { Language } from "@nojv/core";
 
 const {
@@ -118,7 +118,7 @@ export async function loadProblemSolveData(
         userId: actor.userId,
         problemId,
         contestId: context.kind === "contest" ? context.contestId : null,
-        courseAssessmentId: context.kind === "assignment" ? context.assignmentId : null,
+        assessmentId: context.kind === "assignment" ? context.assignmentId : null,
         examId: null,
       },
     ),

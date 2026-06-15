@@ -5,7 +5,7 @@ import {
   canEditProblem,
   canManageCourse,
   resolveEffectiveCourseRole,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 describe("resolveEffectiveCourseRole", () => {
   it("admin platform role overrides course role", () => {

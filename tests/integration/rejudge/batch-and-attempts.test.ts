@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { submissionRepo } from "@nojv/db";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 
 import {
   createTestCourse,
@@ -17,7 +17,7 @@ async function createTestAssignment(opts: {
   maxAttemptsPerDay?: number;
   attemptResetMinuteOfDay?: number;
 }) {
-  return testPrisma.courseAssessment.create({
+  return testPrisma.assessment.create({
     data: {
       courseId: opts.courseId,
       createdByUserId: opts.createdByUserId,
@@ -34,9 +34,6 @@ async function createTestAssignment(opts: {
   });
 }
 
-// D — the invariant the user asked us to pin: a staff-triggered rejudge
-// re-grades an EXISTING submission row (it never inserts a new one), so it
-// must not consume the student's per-problem daily attempt quota.
 describe("rejudge — attempt-quota invariant (real DB)", () => {
   it("re-judging an existing submission does not consume the student's attempt quota", async () => {
     const student = await createTestUser();
@@ -53,7 +50,7 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
     const submission = await createTestSubmission({
       userId: student.id,
       problemId: problem.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
       status: "wrong_answer",
       score: 30,
     });
@@ -67,8 +64,11 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
     );
     expect(before).toBe(1);
 
-    // Simulate the rejudge round trip: snapshot → re-grade existing row → finalize.
-    const snap = await submissionDomain.snapshotForRejudge(submission.id, teacher.id);
+    const snap = await submissionDomain.snapshotForRejudge(
+      submission.id,
+      teacher.id,
+      `run-${submission.id}`,
+    );
     expect(snap).not.toBeNull();
     await submissionRepo.complete(submission.id, { status: "accepted", score: 100 });
     await submissionDomain.finalizeRejudgeLog(submission.id, teacher.id, snap!.logId);
@@ -79,12 +79,10 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
       problem.id,
       windowStart,
     );
-    // Unchanged — the rejudge updated the row in place, did not add one.
     expect(after).toBe(1);
   });
 });
 
-// B — admin rejudge-log listing: cursor pagination + problem filter.
 describe("listRejudgeLogsPaged (real DB)", () => {
   async function makeRejudgeLog(opts: {
     problemId: string;
@@ -97,7 +95,11 @@ describe("listRejudgeLogsPaged (real DB)", () => {
       status: "wrong_answer",
       score: 0,
     });
-    const snap = await submissionDomain.snapshotForRejudge(sub.id, opts.teacherId);
+    const snap = await submissionDomain.snapshotForRejudge(
+      sub.id,
+      opts.teacherId,
+      `run-${sub.id}`,
+    );
     await submissionRepo.complete(sub.id, { status: "accepted", score: 100 });
     await submissionDomain.finalizeRejudgeLog(sub.id, opts.teacherId, snap!.logId);
     return sub;

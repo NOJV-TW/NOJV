@@ -4,8 +4,12 @@ import { editorialSubmitSchema } from "@nojv/core";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth, ForbiddenError, NotFoundError } from "$lib/server/auth";
-import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
-import { editorialDomain, problemDomain } from "@nojv/domain";
+import {
+  apiHandler,
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+} from "$lib/server/shared/api-handler";
+import { editorialDomain, problemDomain } from "@nojv/application";
 
 const { getProblemRowById } = problemDomain;
 const {
@@ -49,6 +53,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
 
   const { id } = event.params;

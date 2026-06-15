@@ -84,8 +84,6 @@ export async function validateCase(
   }
 
   const feedback: ValidatorFeedbackFiles = {};
-  const scoreTxt = await readFeedbackFile(feedbackDir, "score.txt");
-  if (scoreTxt !== undefined) feedback.scoreTxt = scoreTxt;
   const judgeMessage = await readFeedbackFile(feedbackDir, "judgemessage.txt");
   if (judgeMessage !== undefined) feedback.judgeMessage = judgeMessage;
   const teamMessage = await readFeedbackFile(feedbackDir, "teammessage.txt");

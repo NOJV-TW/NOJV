@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import { createTestUser } from "../../fixtures/factories";
 
@@ -39,7 +39,6 @@ describe("updateUserRole notifications", () => {
 
     const rows = await notificationRepo.listRecent(target.id, 10);
     expect(rows).toHaveLength(2);
-    // listRecent is DESC; most recent first.
     const latest = rows[0]!.params as { oldRole: string; newRole: string };
     expect(latest.oldRole).toBe("teacher");
     expect(latest.newRole).toBe("admin");

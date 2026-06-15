@@ -7,7 +7,7 @@ import {
   NotFoundError,
   proctoringDomain,
   resolveEffectiveCourseRole,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
 import { m } from "$lib/paraglide/messages.js";

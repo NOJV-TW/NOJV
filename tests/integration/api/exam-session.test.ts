@@ -6,7 +6,7 @@ import {
   ForbiddenError,
   HttpError,
   NotFoundError,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import {
   createTestCourse,
@@ -21,12 +21,6 @@ interface ActorOverrides {
   platformRole?: "student" | "teacher" | "admin";
 }
 
-/**
- * Build a test actor whose shape matches `ActorContext`. The factory
- * helpers return a `User`; this wraps that with the extra fields the
- * domain layer expects so we can call `session.startSessionWithGate`
- * et al. directly.
- */
 async function buildActor(overrides: ActorOverrides = {}) {
   const user = await createTestUser({ platformRole: overrides.platformRole ?? "student" });
   return {
@@ -81,14 +75,12 @@ describe("examDomain.session — start", () => {
     expect(result.session.endedAt).toBeNull();
     expect(result.exam.endsAt).toEqual(exam.endsAt);
 
-    // Persisted: row exists with endedAt: null
     const persisted = await testPrisma.activeExamSession.findFirst({
       where: { userId: actor.userId, examId: exam.id },
     });
     expect(persisted).not.toBeNull();
     expect(persisted!.endedAt).toBeNull();
 
-    // An `enter` event was recorded
     const events = await testPrisma.examSessionEvent.findMany({
       where: { sessionId: persisted!.id },
     });
@@ -112,7 +104,6 @@ describe("examDomain.session — start", () => {
     expect(second.created).toBe(false);
     expect(second.session.id).toBe(first.session.id);
 
-    // Still only one row, still only one enter event
     const sessions = await testPrisma.activeExamSession.findMany({
       where: { userId: actor.userId, examId: exam.id },
     });
@@ -128,7 +119,6 @@ describe("examDomain.session — start", () => {
     const actor = await buildActor();
     const owner = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: owner.id });
-    // Note: no membership row is created for `actor`.
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
@@ -176,7 +166,6 @@ describe("examDomain.session — start", () => {
   it("throws 410 HttpError when the exam start is more than the grace window away", async () => {
     const actor = await buildActor();
     const { course } = await createCourseWithMember(actor.userId);
-    // 1 hour in the future — well outside the 5-minute grace window.
     const startsAt = new Date(Date.now() + 60 * 60_000);
     const exam = await createTestExam({
       courseId: course.id,
@@ -196,7 +185,6 @@ describe("examDomain.session — start", () => {
   it("allows starting inside the 5-minute grace window before startsAt", async () => {
     const actor = await buildActor();
     const { course } = await createCourseWithMember(actor.userId);
-    // 2 minutes in the future — inside the 5-minute grace.
     const startsAt = new Date(Date.now() + 2 * 60_000);
     const exam = await createTestExam({
       courseId: course.id,
@@ -271,7 +259,6 @@ describe("examDomain.session — end (submitted)", () => {
     });
     await session.startSessionWithGate(ownerActor, { examId: exam.id });
 
-    // A second student in the same course who has NOT started a session.
     const otherActor = await buildActor();
     await testPrisma.courseMembership.create({
       data: {
@@ -283,11 +270,6 @@ describe("examDomain.session — end (submitted)", () => {
       },
     });
 
-    // `endSession` looks up by the caller's userId, so the lookup
-    // returns no row and throws NotFoundError. This is the same
-    // behavioural outcome as the `(not owner) → 403` test case in the
-    // task spec — the HTTP layer maps "no session for caller" to a
-    // permission failure.
     await expect(
       session.endSession(otherActor, { examId: exam.id, reason: "submitted" }),
     ).rejects.toBeInstanceOf(NotFoundError);
@@ -410,7 +392,6 @@ describe("examDomain.session — end (released_by_instructor)", () => {
       status: "published",
       ...inWindow(),
     });
-    // Note: studentActor never starts a session.
 
     await expect(
       session.releaseSessionAsInstructor(teacherActor, {
@@ -418,119 +399,6 @@ describe("examDomain.session — end (released_by_instructor)", () => {
         targetUserId: studentActor.userId,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
-  });
-});
-
-describe("examDomain.session — heartbeat throttle", () => {
-  it("updates lastHeartbeatAt and records the first event", async () => {
-    const actor = await buildActor();
-    const { course } = await createCourseWithMember(actor.userId);
-    const exam = await createTestExam({
-      courseId: course.id,
-      status: "published",
-      ...inWindow(),
-    });
-    const { session: started } = await session.startSessionWithGate(actor, { examId: exam.id });
-
-    const before = await testPrisma.activeExamSession.findUnique({
-      where: { id: started.id },
-    });
-
-    // Wait long enough that the heartbeat timestamp must move forward.
-    await new Promise((r) => setTimeout(r, 20));
-
-    const result = await session.heartbeatWithThrottle(actor.userId, exam.id);
-
-    expect(result.recordedEvent).toBe(true);
-    expect(result.session.lastHeartbeatAt.getTime()).toBeGreaterThan(
-      before!.lastHeartbeatAt.getTime(),
-    );
-
-    const heartbeatEvents = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "heartbeat" },
-    });
-    expect(heartbeatEvents).toHaveLength(1);
-  });
-
-  it("only records one heartbeat event inside the throttle window", async () => {
-    const actor = await buildActor();
-    const { course } = await createCourseWithMember(actor.userId);
-    const exam = await createTestExam({
-      courseId: course.id,
-      status: "published",
-      ...inWindow(),
-    });
-    const { session: started } = await session.startSessionWithGate(actor, { examId: exam.id });
-
-    // Three pings in rapid succession with the default 60s throttle.
-    const r1 = await session.heartbeatWithThrottle(actor.userId, exam.id);
-    const r2 = await session.heartbeatWithThrottle(actor.userId, exam.id);
-    const r3 = await session.heartbeatWithThrottle(actor.userId, exam.id);
-
-    expect(r1.recordedEvent).toBe(true);
-    expect(r2.recordedEvent).toBe(false);
-    expect(r3.recordedEvent).toBe(false);
-
-    const heartbeatEvents = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "heartbeat" },
-    });
-    expect(heartbeatEvents).toHaveLength(1);
-  });
-
-  it("records a second event once the throttle window elapses (custom throttleMs)", async () => {
-    const actor = await buildActor();
-    const { course } = await createCourseWithMember(actor.userId);
-    const exam = await createTestExam({
-      courseId: course.id,
-      status: "published",
-      ...inWindow(),
-    });
-    const { session: started } = await session.startSessionWithGate(actor, { examId: exam.id });
-
-    // Use a 25ms throttle so we don't slow the suite.
-    const r1 = await session.heartbeatWithThrottle(actor.userId, exam.id, { throttleMs: 25 });
-    expect(r1.recordedEvent).toBe(true);
-
-    await new Promise((r) => setTimeout(r, 40));
-
-    const r2 = await session.heartbeatWithThrottle(actor.userId, exam.id, { throttleMs: 25 });
-    expect(r2.recordedEvent).toBe(true);
-
-    const heartbeatEvents = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "heartbeat" },
-    });
-    expect(heartbeatEvents).toHaveLength(2);
-  });
-
-  it("throws NotFoundError when no active session exists for the user/exam", async () => {
-    const actor = await buildActor();
-    const { course } = await createCourseWithMember(actor.userId);
-    const exam = await createTestExam({
-      courseId: course.id,
-      status: "published",
-      ...inWindow(),
-    });
-    // Note: no startSession call.
-
-    await expect(session.heartbeatWithThrottle(actor.userId, exam.id)).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
-  });
-
-  it("throws NotFoundError after the session has already been ended", async () => {
-    const actor = await buildActor();
-    const { course } = await createCourseWithMember(actor.userId);
-    const exam = await createTestExam({
-      courseId: course.id,
-      status: "published",
-      ...inWindow(),
-    });
-    await session.startSessionWithGate(actor, { examId: exam.id });
-    await session.endSession(actor, { examId: exam.id, reason: "submitted" });
-
-    await expect(session.heartbeatWithThrottle(actor.userId, exam.id)).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
   });
 });
 

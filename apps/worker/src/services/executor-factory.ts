@@ -13,6 +13,7 @@ export function createExecutor(env: WorkerEnv): SandboxExecutor {
       cpuLimit: env.K8S_CPU_LIMIT,
       memoryRequest: env.K8S_MEMORY_REQUEST,
       memoryLimit: env.K8S_MEMORY_LIMIT,
+      egressProxyImage: env.EGRESS_PROXY_IMAGE,
     });
   }
   return new DockerExecutor({

@@ -50,6 +50,7 @@
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
+  import { entriesAroundUser } from "$lib/utils/scoreboard";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
@@ -71,16 +72,44 @@
   let justRefreshed = $state(false);
 
   const AUTO_REFRESH_MS = 30_000;
+  const SSE_DEBOUNCE_MS = 1500;
   onMount(() => {
-    const interval = setInterval(async () => {
+    async function refresh() {
       await invalidateAll();
       lastRefreshed = Date.now();
       justRefreshed = true;
       setTimeout(() => {
         justRefreshed = false;
       }, 1200);
+    }
+
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    function debouncedRefresh() {
+      if (debounce) return;
+      debounce = setTimeout(() => {
+        debounce = null;
+        if (document.visibilityState === "visible") void refresh();
+      }, SSE_DEBOUNCE_MS);
+    }
+
+    const source = new EventSource(`/contests/${contestId}/scoreboard/stream`);
+    source.onmessage = () => debouncedRefresh();
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
     }, AUTO_REFRESH_MS);
-    return () => clearInterval(interval);
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") void refresh();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      source.close();
+      clearInterval(interval);
+      if (debounce) clearTimeout(debounce);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   });
 
   async function handleUnfreeze() {
@@ -101,6 +130,14 @@
     myUsername == null
       ? null
       : (scoreboard.entries.find((e) => e.username === myUsername) ?? null),
+  );
+
+  const AROUND_ME_RADIUS = 5;
+  let scoreboardFilter = $state<"all" | "around">("all");
+  const displayEntries = $derived(
+    scoreboardFilter === "around"
+      ? entriesAroundUser(scoreboard.entries, myRow?.userId ?? null, AROUND_ME_RADIUS)
+      : scoreboard.entries,
   );
 
   function avatarBg(name: string): string {
@@ -247,15 +284,16 @@
             {m.contestScoreboard_unfreezeButton()}
           </Button>
         {/if}
-        <TabStrip
-          tabs={[
-            { value: "all", label: m.contestScoreboard_filterAll() },
-            { value: "friends", label: m.contestScoreboard_filterFriends() },
-            { value: "around", label: m.contestScoreboard_filterAround() },
-          ]}
-          activeTabValue="all"
-          onChange={() => {}}
-        />
+        {#if myRow}
+          <TabStrip
+            tabs={[
+              { value: "all", label: m.contestScoreboard_filterAll() },
+              { value: "around", label: m.contestScoreboard_filterAround() },
+            ]}
+            activeTabValue={scoreboardFilter}
+            onChange={(v) => (scoreboardFilter = v === "around" ? "around" : "all")}
+          />
+        {/if}
       </div>
     </div>
 
@@ -291,7 +329,7 @@
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
-            {#each scoreboard.entries as r (r.username)}
+            {#each displayEntries as r (r.username)}
               <tr
                 class="transition-colors {r.userId === myRow?.userId
                   ? ''
@@ -374,7 +412,7 @@
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
-            {#each scoreboard.entries as r (r.username)}
+            {#each displayEntries as r (r.username)}
               <tr
                 class="transition-colors {r.userId === myRow?.userId
                   ? ''

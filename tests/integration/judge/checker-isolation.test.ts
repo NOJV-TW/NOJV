@@ -1,54 +1,17 @@
-/**
- * Phase 2B security + correctness regression: a CHECKER-mode submission must be
- * graded by a DOMjudge output validator running in a SEPARATE, isolated
- * container. The student's run container must NOT contain the validator source
- * or the expected answer — only the student source + testcase inputs.
- *
- * Correctness: a correct solution → AC, a wrong one → WA, and a validator that
- * sets a partial score has that score flow through.
- *
- * Security: a solution that tries to read the validator script and the answer
- * files (under both the new /submission/cases/ layout and the old
- * /submission/testcases/expected.txt layout) cannot obtain them, so the
- * echo-the-answer exploit gets WA, not AC.
- *
- * Requires a real Docker daemon and the locally-built sandbox image
- * (`pnpm sandbox:build` → `nojv-sandbox:local`). Skips cleanly otherwise.
- */
-import { execFile } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
 import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
+import { requireSandboxImage } from "./_sandbox-image";
 
 const SANDBOX_IMAGE = "nojv-sandbox:local";
 
-function exec(cmd: string, args: string[]): Promise<{ ok: boolean; stdout: string }> {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 10_000 }, (err, stdout) => {
-      resolve({ ok: !err, stdout: stdout.toString() });
-    });
-  });
-}
-
-async function dockerImageAvailable(): Promise<boolean> {
-  if (!(await exec("docker", ["info"])).ok) return false;
-  const { ok, stdout } = await exec("docker", ["images", "-q", SANDBOX_IMAGE]);
-  return ok && stdout.trim().length > 0;
-}
-
-// DOMjudge validator (TA code appended after the python-validator wrapper).
-// Whitespace-insensitive equality; awards a partial 50 when the team output is
-// a non-empty prefix of the answer. The wrong path emits BOTH a student-facing
-// `wrong(...)` message and an operator-only `judge_log(...)` diagnostic so the
-// merge tests can assert the two channels stay separate.
 const VALIDATOR_SCRIPT = `team = team_output.split()
 ans = judge_answer.split()
 if team == ans:
     accept("exact match")
 elif team and team == ans[:len(team)]:
-    set_score(50)
     judge_log("STAFF_DIAG partial prefix len=" + str(len(team)))
     wrong("partial prefix")
 else:
@@ -87,12 +50,11 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "grades a correct solution as AC via the isolated validator",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         checkerRequest({
           submissionId: "checker-correct",
-          // echoes the two numbers and their sum, in any spacing the validator tolerates
           sourceCode: "a, b = map(int, input().split())\nprint(a, b, a + b)\n",
         }),
       );
@@ -101,7 +63,6 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
-        expect(tc.score).toBe(100);
       }
     },
   );
@@ -110,7 +71,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "grades a wrong solution as WA via the isolated validator",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
       const result = await makeExecutor().execute(
         checkerRequest({
@@ -126,33 +87,32 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     },
   );
 
-  it("flows a partial score set by the validator", { timeout: 180_000 }, async (ctx) => {
-    if (!(await dockerImageAvailable())) return ctx.skip();
+  it(
+    "grades a prefix-only solution as WA (checker is AC/WA only)",
+    { timeout: 180_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
 
-    const result = await makeExecutor().execute(
-      checkerRequest({
-        submissionId: "checker-partial",
-        // prints only the two numbers (a non-empty prefix of the answer) → partial 50
-        sourceCode: "a, b = map(int, input().split())\nprint(a, b)\n",
-      }),
-    );
+      const result = await makeExecutor().execute(
+        checkerRequest({
+          submissionId: "checker-partial",
+          sourceCode: "a, b = map(int, input().split())\nprint(a, b)\n",
+        }),
+      );
 
-    expect(result.compilationError).toBeUndefined();
-    for (const tc of result.testcaseResults) {
-      expect(tc.verdict).toBe("WA");
-      expect(tc.score).toBe(50);
-    }
-  });
+      expect(result.compilationError).toBeUndefined();
+      for (const tc of result.testcaseResults) {
+        expect(tc.verdict).toBe("WA");
+      }
+    },
+  );
 
   it(
     "splits validator messages: teammessage → student feedback, judgemessage → staffFeedback",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
-      // Wrong solution exercises the validator's `wrong(...)` + `judge_log(...)`
-      // path. The merged result must carry the student message in `feedback` and
-      // the operator diagnostic in `staffFeedback` — never the other way round.
       const result = await makeExecutor().execute(
         checkerRequest({
           submissionId: "checker-channels",
@@ -166,7 +126,6 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
         expect(tc.verdict).toBe("WA");
         expect(tc.feedback).toBe("wrong answer");
         expect(tc.staffFeedback).toMatch(/^STAFF_DIAG expected /);
-        // The two channels must remain distinct.
         expect(tc.feedback).not.toContain("STAFF_DIAG");
       }
     },
@@ -176,13 +135,8 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "does not expose the validator script or the answer to the run container",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await dockerImageAvailable())) return ctx.skip();
+      if (!(await requireSandboxImage(ctx))) return;
 
-      // The exploit: try to echo the validator source AND any answer file it can
-      // find (new cases/ layout + old testcases/expected.txt layout). If any of
-      // those were present in the run container, the validator would see the
-      // answer echoed back and award AC. With isolation, nothing is readable →
-      // the output never matches → WA.
       const exploit = `import glob, os
 chunks = []
 for p in ["/submission/validator.py", "/submission/validator.cpp"]:

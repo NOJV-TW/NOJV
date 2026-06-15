@@ -1,8 +1,8 @@
-import type { PageLockedContext } from "@nojv/domain";
+import type { PageLockedContext } from "@nojv/application";
 
 import type { ActiveExamContext } from "$lib/server/exam-lock";
 
-export function createTtlCache<T>(ttlMs: number, maxEntries: number) {
+export function createTtlCache<T>(ttlMs: number, maxEntries: number, nullTtlMs = ttlMs) {
   const store = new Map<string, { value: T; expiresAt: number }>();
   return {
     async getOrLoad(key: string, load: () => Promise<T>): Promise<T> {
@@ -17,7 +17,8 @@ export function createTtlCache<T>(ttlMs: number, maxEntries: number) {
         const oldest = store.keys().next().value;
         if (oldest != null) store.delete(oldest);
       }
-      store.set(key, { value, expiresAt: now + ttlMs });
+      const ttl = (value as unknown) === null ? nullTtlMs : ttlMs;
+      store.set(key, { value, expiresAt: now + ttl });
       return value;
     },
     invalidate(key: string): void {
@@ -26,8 +27,17 @@ export function createTtlCache<T>(ttlMs: number, maxEntries: number) {
   };
 }
 
-export const pageLockCache = createTtlCache<PageLockedContext | null>(30_000, 10_000);
-export const examContextCache = createTtlCache<ActiveExamContext | null>(30_000, 10_000);
+const NULL_CACHE_TTL_MS = 2_000;
+export const pageLockCache = createTtlCache<PageLockedContext | null>(
+  30_000,
+  10_000,
+  NULL_CACHE_TTL_MS,
+);
+export const examContextCache = createTtlCache<ActiveExamContext | null>(
+  30_000,
+  10_000,
+  NULL_CACHE_TTL_MS,
+);
 
 export function invalidateExamContextCaches(userId: string): void {
   pageLockCache.invalidate(userId);

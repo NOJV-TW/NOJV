@@ -1,11 +1,3 @@
-// Write-path coverage for createQueuedSubmissionRecord — sources are persisted
-// to S3 (in-memory fixture) and the DB row stores only `sourceStoragePrefix`.
-//
-// Failure surfaces specifically targeted:
-//   - path validation (parent traversal) runs BEFORE any S3 put
-//   - 1 MB total cap enforced BEFORE any S3 put
-//   - storage failure post-commit marks the submission `system_error`
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { submissionSourceKey } from "../../../packages/storage/src/keys";
@@ -58,24 +50,24 @@ vi.mock("@nojv/db", () => ({
   },
   runTransaction: async <T>(
     fn: (tx: {
-      courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
+      assessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
       contestProblem: { findFirst: typeof txContestProblemFindFirst };
     }) => Promise<T>,
   ): Promise<T> =>
     fn({
-      courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
+      assessmentProblem: { findFirst: txAssessmentProblemFindFirst },
       contestProblem: { findFirst: txContestProblemFindFirst },
     }),
 }));
 
-vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
   __setStorageClientForTests: (c: unknown) => {
     storageRef.client = c as typeof storageRef.client;
   },
 }));
 
-import { ConflictError, submissionDomain } from "@nojv/domain";
+import { ConflictError, submissionDomain } from "@nojv/application";
 
 const { createQueuedSubmissionRecord } = submissionDomain;
 
@@ -109,11 +101,9 @@ function setupPracticeDefaults(problemType: "full_source" | "multi_file" | "spec
     authorId: "usr_teacher",
     visibility: "public",
     type: problemType,
-    // multi_file path uses workspace entry-file check; provide a python starter.
     advancedRequiredPaths: [],
   });
 
-  // multi_file requires an editable main.<ext> for the chosen language.
   workspaceFindByProblemId.mockResolvedValue(
     problemType === "multi_file"
       ? [{ language: "python", path: "main.py", visibility: "editable", content: "" }]
@@ -124,7 +114,10 @@ function setupPracticeDefaults(problemType: "full_source" | "multi_file" | "spec
     id: (data as { id?: string }).id ?? "sub_unknown",
     ...(data as object),
   }));
-  submissionUpdateStatus.mockResolvedValue({});
+  submissionUpdateStatus.mockImplementation(async (id: string, status: string) => ({
+    id,
+    status,
+  }));
 }
 
 const baseDraft = {
@@ -149,15 +142,16 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
       id: string;
       sourceStoragePrefix: string;
       ipAddress: string | null;
+      status: string;
     };
     expect(createArg.id).toBeTruthy();
+    expect(createArg.status).toBe("pending_upload");
     expect(createArg.sourceStoragePrefix).toBe(`submissions/${createArg.id}/sources/`);
     expect(createArg.ipAddress).toBe("127.0.0.1");
+    expect(submissionUpdateStatus).toHaveBeenCalledWith(createArg.id, "queued");
 
-    // Row returned to the caller matches the created row, not the {row, sources} pair.
     expect((row as { id: string }).id).toBe(createArg.id);
 
-    // Exactly one PutObject under the expected key.
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
     expect([...store.keys()]).toEqual([`submissions/${createArg.id}/sources/main.py`]);
     expect(store.get(`submissions/${createArg.id}/sources/main.py`)).toBe("print('hi')");
@@ -233,9 +227,6 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
   it("rejects a submission exceeding 1 MB total before any S3 write", async () => {
     setupPracticeDefaults("multi_file");
 
-    // ~600 KB × 2 files = 1.2 MB total, over the 1 MB cap. Each individual
-    // file is under the 500 KB per-file zod cap so it doesn't trip the
-    // schema-level limit — exercise the domain cap directly.
     const half = "x".repeat(600_000);
 
     await expect(
@@ -260,8 +251,6 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
   it("when S3 put fails post-commit, the submission row is marked system_error and the error is rethrown", async () => {
     setupPracticeDefaults("multi_file");
 
-    // Sabotage the second PutObjectCommand — the first source uploads fine,
-    // the second blows up, simulating a mid-batch S3 failure.
     const inMem = storageRef.client as unknown as {
       failOnPut: (n: number) => void;
       store: Map<string, string>;
@@ -282,8 +271,6 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
       ),
     ).rejects.toThrow(/Simulated storage failure/);
 
-    // Row was created, then storage failed → updateStatus was called with
-    // "system_error" to tag the orphan so the worker skips it.
     expect(submissionCreate).toHaveBeenCalledTimes(1);
     expect(submissionUpdateStatus).toHaveBeenCalledTimes(1);
     const createdId = (submissionCreate.mock.calls[0]![0] as { id: string }).id;
@@ -298,11 +285,8 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
       store: Map<string, string>;
       send: ReturnType<typeof vi.fn>;
     };
-    // First Put succeeds (orphan blob written), second blows up.
     inMem.failOnPut(1);
 
-    // Track the order between the orphan-cleanup Delete call and the
-    // submissionRepo.updateStatus call so we can assert cleanup runs first.
     let deleteCalledAt: number | null = null;
     let statusUpdatedAt: number | null = null;
     let tick = 0;
@@ -337,9 +321,7 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
       ),
     ).rejects.toThrow(/Simulated storage failure/);
 
-    // Orphan blob from the first put is now gone.
     expect(inMem.store.size).toBe(0);
-    // Cleanup ran AND ran before the status update.
     expect(deleteCalledAt).not.toBeNull();
     expect(statusUpdatedAt).not.toBeNull();
     expect(deleteCalledAt!).toBeLessThan(statusUpdatedAt!);
@@ -352,9 +334,7 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
       failOnPut: (n: number) => void;
       failNext: (pred: (commandName: string) => boolean) => void;
     };
-    // Fail second put → triggers orphan cleanup.
     inMem.failOnPut(1);
-    // Then fail the cleanup itself (ListObjectsV2 underpins deleteBlobsByPrefix).
     inMem.failNext((name) => name === "ListObjectsV2Command");
 
     await expect(
@@ -371,7 +351,6 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
       ),
     ).rejects.toThrow(/Simulated storage failure on PutObjectCommand/);
 
-    // Status update still attempted even when cleanup throws.
     expect(submissionUpdateStatus).toHaveBeenCalledTimes(1);
     const createdId = (submissionCreate.mock.calls[0]![0] as { id: string }).id;
     expect(submissionUpdateStatus).toHaveBeenCalledWith(createdId, "system_error");
@@ -392,6 +371,4 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
   });
 });
 
-// Sanity import to confirm storage path validation matches the helper we rely
-// on inside `normalizeSubmissionSources`.
 void submissionSourceKey;

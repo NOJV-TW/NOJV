@@ -1,7 +1,3 @@
-# Temporal Web UI. Internal-only — exposed via ClusterIP and a port-forward
-# (`kubectl -n nojv-temporal port-forward svc/temporal-ui 8080:8080`) instead
-# of an Ingress, since it would leak workflow state if exposed publicly.
-# Add an IAP-protected Ingress later if operators need browser access.
 apiVersion: v1
 kind: Service
 metadata:

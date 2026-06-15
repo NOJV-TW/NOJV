@@ -3,9 +3,9 @@ import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
 import type { AnnouncementAudience } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
-import { announcementDomain } from "@nojv/domain";
+import { announcementDomain } from "@nojv/application";
 
 function requireAdmin(event: RequestEvent) {
   const actor = requireAuth(event);
@@ -75,7 +75,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions = {
-  create: withRateLimit(async (event) => {
+  create: withAction(async (event) => {
     const actor = requireAdmin(event);
     const formData = await event.request.formData();
     const title = readString(formData, "title");
@@ -98,7 +98,7 @@ export const actions = {
     return { success: true };
   }),
 
-  update: withRateLimit(async (event) => {
+  update: withAction(async (event) => {
     requireAdmin(event);
     const formData = await event.request.formData();
     const id = readString(formData, "id");
@@ -121,7 +121,7 @@ export const actions = {
     return { success: true };
   }),
 
-  delete: withRateLimit(async (event) => {
+  delete: withAction(async (event) => {
     requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
@@ -130,7 +130,7 @@ export const actions = {
     return { success: true };
   }),
 
-  togglePin: withRateLimit(async (event) => {
+  togglePin: withAction(async (event) => {
     requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
@@ -141,7 +141,7 @@ export const actions = {
     return { success: true };
   }),
 
-  togglePublish: withRateLimit(async (event) => {
+  togglePublish: withAction(async (event) => {
     requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });

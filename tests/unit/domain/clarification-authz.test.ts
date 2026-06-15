@@ -21,15 +21,17 @@ vi.mock("@nojv/db", () => ({
   examRepo: { findById: examFindById },
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
-  contestParticipationRepo: { listParticipantUserIds: contestListParticipantUserIds },
-  examParticipationRepo: { listParticipantUserIds: examListParticipantUserIds },
+  participationRepo: {
+    listContestParticipantUserIds: contestListParticipantUserIds,
+    listExamParticipantUserIds: examListParticipantUserIds,
+  },
 }));
 
 import {
   canAskClarification,
   canAnswerInContext,
   canSeeAuthor,
-} from "../../../packages/domain/src/clarification/permissions";
+} from "../../../packages/application/src/clarification/permissions";
 
 function actor(
   overrides: Partial<{
@@ -46,8 +48,6 @@ function actor(
   };
 }
 
-// Shorthand factories so the tests stay readable after the move to the
-// discriminated `ClarificationContext` union.
 const contestCtx = (id = "ctst_1") => ({ type: "contest" as const, contestId: id });
 const examCtx = (id = "exm_1") => ({ type: "exam" as const, examId: id });
 const assignmentCtx = (id = "ca_1") => ({ type: "assignment" as const, assignmentId: id });

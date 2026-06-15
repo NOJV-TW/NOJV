@@ -1,32 +1,12 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import {
-  courseMiniSelect,
-  problemMiniSelect,
-  problemTeacherMiniSelect,
-  userMiniSelect,
-  userScoreboardSelect,
-} from "./selects";
+import { courseMiniSelect, problemMiniSelect, problemTeacherMiniSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
-export class ExamParticipationVersionConflict extends Error {
-  readonly participationId: string;
-  readonly expectedVersion: number;
-
-  constructor(participationId: string, expectedVersion: number) {
-    super(
-      `ExamParticipation ${participationId} version ${String(expectedVersion)} no longer current.`,
-    );
-    this.name = "ExamParticipationVersionConflict";
-    this.participationId = participationId;
-    this.expectedVersion = expectedVersion;
-  }
-}
-
 const examListInclude = {
-  _count: { select: { participations: true, problems: true } },
+  _count: { select: { participations: { where: { type: "exam" } }, problems: true } },
   course: { select: courseMiniSelect },
 } as const;
 
@@ -51,6 +31,7 @@ export const examRepo = {
 
   listByCourseId(courseId: string) {
     return prisma.exam.findMany({
+      omit: { plagiarismResults: true },
       include: examListInclude,
       orderBy: { startsAt: "desc" },
       where: {
@@ -111,7 +92,7 @@ export const examRepo = {
   findDetailById(id: string) {
     return prisma.exam.findUnique({
       include: {
-        _count: { select: { participations: true } },
+        _count: { select: { participations: { where: { type: "exam" } } } },
         course: { select: courseMiniSelect },
         problems: {
           include: {
@@ -127,7 +108,7 @@ export const examRepo = {
   findDetailForRegistrationPage(id: string) {
     return prisma.exam.findUnique({
       include: {
-        _count: { select: { participations: true } },
+        _count: { select: { participations: { where: { type: "exam" } } } },
         course: { select: { id: true, title: true, archived: true } },
         problems: {
           include: {
@@ -140,15 +121,11 @@ export const examRepo = {
     });
   },
 
-  findWorkspaceById(examId: string, userId: string) {
+  findWorkspaceById(examId: string) {
     return prisma.exam.findUnique({
       include: {
-        _count: { select: { participations: true } },
+        _count: { select: { participations: { where: { type: "exam" } } } },
         course: { select: courseMiniSelect },
-        participations: {
-          where: { userId },
-          take: 1,
-        },
         problems: {
           include: {
             problem: { select: problemMiniSelect },
@@ -166,12 +143,6 @@ export const examRepo = {
         problems: {
           include: { problem: { select: problemMiniSelect } },
           orderBy: { ordinal: "asc" },
-        },
-        participations: {
-          include: {
-            user: { select: userScoreboardSelect },
-          },
-          where: { status: { in: ["active", "submitted"] } },
         },
       },
       where: { id: examId },
@@ -197,21 +168,12 @@ export const examRepo = {
         startsAt: { lte: now },
         endsAt: { gte: now },
         participations: {
-          some: { userId, status: "active" },
+          some: { type: "exam", userId, status: "active" },
         },
       },
       select: {
         id: true,
         course: { select: { id: true } },
-      },
-    });
-  },
-
-  findParticipation(examId: string, userId: string) {
-    return prisma.examParticipation.findUnique({
-      select: { id: true, ipPin: true },
-      where: {
-        examId_userId: { examId, userId },
       },
     });
   },
@@ -314,7 +276,7 @@ export const examProblemRepo = {
           exam: {
             status: "published",
             endsAt: { lt: now },
-            participations: { some: { userId } },
+            participations: { some: { type: "exam", userId } },
           },
         },
         select: { id: true },
@@ -351,99 +313,15 @@ export const examProblemRepo = {
         return tx.examProblem.count({ where: { examId } });
       },
 
+      exists(examId: string, problemId: string) {
+        return tx.examProblem
+          .findFirst({ where: { examId, problemId }, select: { id: true } })
+          .then((row) => row !== null);
+      },
+
       deleteByExamId(examId: string) {
         return tx.examProblem.deleteMany({
           where: { examId },
-        });
-      },
-    };
-  },
-};
-
-export const examParticipationRepo = {
-  listForExamWithUser(examId: string) {
-    return prisma.examParticipation.findMany({
-      where: { examId },
-      include: {
-        user: { select: userMiniSelect },
-      },
-      orderBy: [{ status: "asc" }, { registeredAt: "asc" }],
-    });
-  },
-
-  listParticipantUserIds(examId: string) {
-    return prisma.examParticipation
-      .findMany({ where: { examId }, select: { userId: true } })
-      .then((rows) => rows.map((r) => r.userId));
-  },
-
-  findByIdWithExam(id: string) {
-    return prisma.examParticipation.findUnique({
-      include: {
-        exam: {
-          include: {
-            problems: { orderBy: { ordinal: "asc" } },
-          },
-        },
-      },
-      where: { id },
-    });
-  },
-
-  update(id: string, data: Prisma.ExamParticipationUpdateInput) {
-    return prisma.examParticipation.update({
-      data,
-      where: { id },
-    });
-  },
-
-  async updateWithVersion(
-    id: string,
-    expectedVersion: number,
-    data: Prisma.ExamParticipationUpdateInput,
-  ) {
-    try {
-      return await prisma.examParticipation.update({
-        data: { ...data, version: { increment: 1 } },
-        where: { id, version: expectedVersion },
-      });
-    } catch (err) {
-      if (err instanceof Error && (err as { code?: string }).code === "P2025") {
-        throw new ExamParticipationVersionConflict(id, expectedVersion);
-      }
-      throw err;
-    }
-  },
-
-  findIdByExamAndUser(examId: string, userId: string) {
-    return prisma.examParticipation
-      .findUnique({
-        where: { examId_userId: { examId, userId } },
-        select: { id: true },
-      })
-      .then((row) => row?.id ?? null);
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      upsert(
-        examId: string,
-        userId: string,
-        createData: Prisma.ExamParticipationUncheckedCreateInput,
-        updateData: Prisma.ExamParticipationUncheckedUpdateInput,
-      ) {
-        return tx.examParticipation.upsert({
-          create: createData,
-          update: updateData,
-          where: {
-            examId_userId: { examId, userId },
-          },
-        });
-      },
-
-      findByExamAndUser(examId: string, userId: string) {
-        return tx.examParticipation.findUnique({
-          where: { examId_userId: { examId, userId } },
         });
       },
     };

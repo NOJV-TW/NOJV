@@ -1,10 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Clarifications
-//
-// Public-but-anonymous Q&A for contests, exams, and assignments.
-// `askedByUserId` is ALWAYS stored (accountability); the API
-// projection masks it from non-staff viewers.
-// ═══════════════════════════════════════════════════════════════
 
 enum ClarificationContextType {
   contest
@@ -31,9 +24,6 @@ model Clarification {
   answeredAt       DateTime?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
-  /// Soft-delete tombstone. All read paths must filter `deletedAt: null`.
-  /// Lets staff (or the original asker) retract a mistakenly-posted
-  /// thread without hard-deleting accountability history.
   deletedAt        DateTime?
 
   askedBy    User     @relation("ClarificationAsker", fields: [askedByUserId], references: [id], onDelete: Cascade)

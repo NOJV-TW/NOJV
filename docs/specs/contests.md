@@ -48,11 +48,12 @@ freeze/unfreeze for the final reveal.
 - Participation auto-created on first submission
   (`ensureContestParticipation`).
 - Submit cooldown enforcement (`checkSubmitCooldown`).
-- Scoreboard build/read (Redis zset backing + Postgres rebuild from
-  submissions on every fetch).
-- Scoreboard freeze/unfreeze: snapshot live → frozen key; `getScoreboard`
-  prefers frozen when `frozenAt < now` or mode === `frozen`; unfreeze
-  deletes the frozen key.
+- Scoreboard build/read (computed live from PostgreSQL — `contest.participations`
+  - submissions — on every fetch; no Redis zset backing).
+- Scoreboard freeze/unfreeze: `Contest.frozenBoard` / `frozenAt` columns;
+  `getScoreboard` builds with `frozenAt` as the cutoff (filtering out
+  submissions after the freeze point) when `frozenAt < now` or mode ===
+  `frozen`; unfreeze clears `frozenBoard`.
 - Scoreboard chart series (top-N + time-series by user).
 - Invite-code join flow (`joinByCode` action; redirects to
   `/contests/[id]` — participation is still lazy).
@@ -156,7 +157,7 @@ false` regardless of time window, and the problem list is returned.
     `(firstAC.createdAt - contest.startsAt) / 1000 + 20 * 60 *
 countOfWrongsBefore`.
 - Final `score = solvedCount`; `penaltySeconds = sum over solved
-problems`; Redis zset score = `solvedCount * 1e9 - totalPenalty` so
+problems`; `buildScoreboard` ranks by a packed score = `solvedCount * 1e9 - totalPenalty` so
   lower penalty ranks higher within the same solve count.
 
 ### Scoring — IOI (point_sum)
@@ -168,19 +169,18 @@ problems`; Redis zset score = `solvedCount * 1e9 - totalPenalty` so
 
 ### Scoreboard freeze / unfreeze
 
-- WHEN `freezeContestBoard(contestId)` runs, THEN
-  `scoreboard.freezeScoreboard(contestId, ttl)` snapshots the live zset
-  into the frozen key and sets `Contest.frozenBoard = true`. The TTL is
-  `scoreboardTtlForEndsAt(contest.endsAt)` (= `endsAt` + 7-day grace,
-  floored at 1h), the same `endsAt`-derived TTL as the live board — not
-  the 90-day constant.
-- WHEN a submission is judged DURING a freeze, THEN `updateScoreboard`
-  still writes to the LIVE zset — `getScoreboard` continues to return
-  the frozen snapshot until unfreeze.
+- WHEN `freezeContestBoard(contestId)` runs, THEN `Contest.frozenBoard`
+  is set to `true` and `frozenAt` is stamped. There is no snapshot key —
+  the public board is derived at read time by filtering submissions to
+  `createdAt <= frozenAt`.
+- WHEN a submission is judged DURING a freeze, THEN it is persisted as
+  normal, but `getScoreboard` excludes it from the public view (its
+  `createdAt > frozenAt`) — the board stays frozen at the cutoff until
+  unfreeze.
 - WHEN `finalizeContest(contestId)` runs (via the contest lifecycle
-  workflow at `endsAt`), THEN the frozen key is deleted and `frozenBoard
-= false`. Visibility stays `published` — there is no auto-archive flip
-  anymore; "ended" is derived from `endsAt < now`.
+  workflow at `endsAt`), THEN `frozenBoard = false`. Visibility stays
+  `published` — there is no auto-archive flip anymore; "ended" is
+  derived from `endsAt < now`.
 - GIVEN `scoreboardMode === 'frozen'` OR (`frozenBoard && frozenAt <
 now`) and the viewer is not privileged, THEN `getScoreboard` returns
   the frozen view (`isFrozen: true`).
@@ -253,15 +253,15 @@ grading is only available after it closes.")` (shared post-close gate
   fallback has ~4 billion keyspace; a clash raises a Prisma P2002 which
   propagates as an internal error. Mitigation: callers should supply a
   deterministic code for high-volume events.
-- **Zset with negative scores.** ICPC packs score as `solvedCount \* 1e9
-  - penalty`. For `solvedCount = 0`, the zset score is `0 - penalty`,
-which is never negative in practice because `penalty > 0`only after
-AC — but a contest could have`solvedCount = 0, penalty = 0`entries
-by design. Verified safe in`contest-permissions.test.ts`.
-- **Freeze then finalize.** `finalizeContest` DELs the frozen key and
-  clears `frozenBoard`. The contest stays `visibility = 'published'` —
-  the "ended" presentation is derived client-side from `endsAt < now`.
-  An already-rendered client view stays stale until next load.
+- **Packed score with negative values.** ICPC packs the ranking score as
+  `solvedCount \* 1e9 - penalty`. For `solvedCount = 0`, the packed score
+  is `0 - penalty`, which is never negative in practice because
+  `penalty > 0`only after AC — but a contest could have`solvedCount = 0, penalty = 0`entries
+  by design. Verified safe in`contest-permissions.test.ts`.
+- **Freeze then finalize.** `finalizeContest` clears `frozenBoard`. The
+  contest stays `visibility = 'published'` — the "ended" presentation is
+  derived client-side from `endsAt < now`. An already-rendered client
+  view stays stale until next load.
 - **Deleted problem referenced by a contest.** `ContestProblem.problemId`
   has `onDelete: Cascade` on the problem side — a rare admin wipe will
   cascade; live contests shouldn't hit this in practice because
@@ -274,31 +274,31 @@ by design. Verified safe in`contest-permissions.test.ts`.
 
 ### Domain
 
-- `packages/domain/src/contest/mutations.ts` —
+- `packages/application/src/contest/mutations.ts` —
   `createContestRecord`, `updateContestRecord`,
   `ensureContestParticipation`, `checkSubmitCooldown`,
   `activateContest`, `freezeContestBoard`, `finalizeContest`,
   `resolveAndAttachContestProblems`.
-- `packages/domain/src/contest/queries.ts` —
+- `packages/application/src/contest/queries.ts` —
   `listPublicContests`, `listContestsForUser`,
   `getContestDetail`, `getContestWorkspaceData`,
   `findContestByInviteCode`, `getContestContext`,
   `unfreezeContest`.
-- `packages/domain/src/contest/scoring.ts` —
+- `packages/application/src/contest/scoring.ts` —
   `updateContestScores`, `getScoreboard`, `getScoreboardChart`.
-- `packages/domain/src/contest/permissions.ts` — `canManageContest`.
-- `packages/domain/src/scoring/` — pure builders:
+- `packages/application/src/contest/permissions.ts` — `canManageContest`.
+- `packages/application/src/scoring/` — pure builders:
   `buildScoreboard`, `buildScoreboardChartSeries`,
   `computeProblemCountPenalty`.
-- `packages/domain/src/proctoring/gate.ts` — `checkContestGate`
+- `packages/application/src/proctoring/gate.ts` — `checkContestGate`
   (existence + visibility + time window; no IP).
-- `packages/domain/src/score-override/permissions.ts` —
+- `packages/application/src/score-override/permissions.ts` —
   `assertCanSetScoreOverride` (role + post-close gate),
   `assertCanViewScoreOverrides` (role-only).
-- `packages/domain/src/shared/context-window.ts` — `isContextClosed`,
+- `packages/application/src/shared/context-window.ts` — `isContextClosed`,
   `assertContextClosed` (shared post-close gate across assignment +
   exam + contest).
-- `packages/domain/src/audit/queries.ts` —
+- `packages/application/src/audit/queries.ts` —
   `listAuditTimelineForContext`.
 
 ### Schema
@@ -309,16 +309,15 @@ by design. Verified safe in`contest-permissions.test.ts`.
   `ContestProblem`, `ContestParticipation`, enum `ContestVisibility`,
   `ContestScoringMode`, `ContestParticipationStatus`, `ScoreboardMode`.
 
-### Redis
+### Scoreboard computation
 
-- `packages/redis/src/scoreboard.ts` — `updateScoreboard`,
-  `getScoreboard`, `freezeScoreboard`, `unfreezeScoreboard`,
-  `scoreboardTtlForEndsAt`.
-  Keys: `keys.scoreboard(contestId)` / `keys.scoreboardFrozen(contestId)`.
-  `scoreboardTtlForEndsAt(endsAt)` = `endsAt` + 7-day grace, floored at
-  `MIN_SCOREBOARD_TTL_SECONDS` (1h). `SCOREBOARD_TTL_SECONDS`
-  (`90 * 24 * 60 * 60`) is only the default/fallback when no `endsAt` is
-  available.
+- The scoreboard is computed live from PostgreSQL on every fetch —
+  `packages/application/src/contest/scoring.ts` `getScoreboard` reads
+  `contest.participations` + submissions and calls
+  `packages/application/src/scoring/` `buildScoreboard`. There is no Redis
+  zset, no `ZADD`/`ZRANGE`, and no live/frozen snapshot keys. Freeze is a
+  `Contest.frozenBoard` / `frozenAt` column pair; `buildScoreboard`
+  applies `frozenAt` as a submission cutoff to produce the frozen view.
 
 ### Routes / API
 

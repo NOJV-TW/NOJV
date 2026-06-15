@@ -215,7 +215,7 @@ Legitimate nullable patterns (the only cases where `T | null` is still allowed):
 
 Supporting infrastructure:
 
-- [`packages/domain/src/shared/require.ts`](../packages/domain/src/shared/require.ts) -- pure "exists-else-throw" helpers (`requireProblem`, `requireContest`, `requireCourse`, `requireUser`, `requireCourseAssessment`).
+- [`packages/application/src/shared/require.ts`](../packages/application/src/shared/require.ts) -- pure "exists-else-throw" helpers (`requireProblem`, `requireContest`, `requireCourse`, `requireUser`, `requireAssessment`).
 - [`apps/web/src/lib/server/shared/load-wrapper.ts`](../apps/web/src/lib/server/shared/load-wrapper.ts) -- `handleLoad()` wraps `+page.server.ts` / `+layout.server.ts` loaders so thrown `HttpError`s turn into the correct SvelteKit `error(status, message)` response.
 
 Example -- a load function composed from a throwing query:
@@ -223,7 +223,7 @@ Example -- a load function composed from a throwing query:
 ```ts
 // apps/web/src/routes/(app)/problems/[id]/+page.server.ts
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { getProblemPageData } from "@nojv/domain/problem/queries";
+import { getProblemPageData } from "@nojv/application/problem/queries";
 
 export const load = handleLoad(async ({ params, locals }) => {
   // getProblemPageData throws NotFoundError when the problem is missing;
@@ -233,7 +233,7 @@ export const load = handleLoad(async ({ params, locals }) => {
 });
 ```
 
-The convention is enforced by [`scripts/check-query-returns.mjs`](../../scripts/check-query-returns.mjs), wired into `pnpm lint` and `pnpm ci:verify`. The guard scans `packages/domain/src/**/queries.ts` for exported `get*` / `load*` / `fetch*` / `require*` functions that fall back to `return null`. Escape hatch: annotate the declaration with a leading `// intentional-nullable: <why>` comment. Only use it for cases that match the legitimate patterns listed above.
+The convention is enforced by [`scripts/check-query-returns.mjs`](../../scripts/check-query-returns.mjs), wired into `pnpm lint` and `pnpm ci:verify`. The guard scans `packages/application/src/**/queries.ts` for exported `get*` / `load*` / `fetch*` / `require*` functions that fall back to `return null`. Escape hatch: annotate the declaration with a leading `// intentional-nullable: <why>` comment. Only use it for cases that match the legitimate patterns listed above.
 
 ## Related Docs
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Action } from "svelte/action";
-  import type { courseDomain } from "@nojv/domain";
+  import type { courseDomain } from "@nojv/application";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import AlertTriangle from "@lucide/svelte/icons/alert-triangle";

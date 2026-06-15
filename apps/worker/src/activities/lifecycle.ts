@@ -1,5 +1,14 @@
-import { contestDomain, examDomain, notificationDomain } from "@nojv/domain";
+import {
+  contestDomain,
+  examDomain,
+  notificationDomain,
+  submissionDomain,
+} from "@nojv/application";
 import { pubsub } from "@nojv/redis";
+
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("sweeper");
 
 export type ContestInfo = contestDomain.ContestLifecycleSnapshot;
 
@@ -19,21 +28,32 @@ export async function finalizeContest(contestId: string): Promise<void> {
   await contestDomain.finalizeContest(contestId);
 }
 
-export async function updateContestScores(contestParticipationId: string): Promise<void> {
-  await contestDomain.updateContestScores(contestParticipationId);
+export async function updateContestScores(
+  contestId: string,
+  userId: string,
+): Promise<string | null> {
+  return contestDomain.updateContestScores(contestId, userId);
 }
 
 export async function updateExamScores(examId: string, userId: string): Promise<void> {
-  await examDomain.updateExamScoresForUser(examId, userId);
+  await examDomain.updateExamScores(examId, userId);
 }
 
 export async function closeActiveSessionsForExam(examId: string): Promise<{ closed: number }> {
   return examDomain.session.autoCloseForExam(examId);
 }
 
+export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepStaleSubmissionsResult> {
+  const result = await submissionDomain.sweepStaleSubmissions();
+  if (result.scanned > 0) {
+    logger.info("stale submission sweep", { ...result });
+  }
+  return result;
+}
+
 export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;
-export const publishAssessmentDeadline = pubsub.publishAssessmentDeadline;
+export const publishScoreboardUpdate = pubsub.publishScoreboardUpdate;
 
 export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {
   await notificationDomain.fanoutAssignmentDueSoon(assignmentId);

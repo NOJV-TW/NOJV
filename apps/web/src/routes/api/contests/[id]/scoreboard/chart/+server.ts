@@ -2,9 +2,10 @@ import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { contestDomain } from "@nojv/domain";
+import { getActorContext } from "$lib/server/auth";
+import { contestDomain } from "@nojv/application";
 
-const { getScoreboardChart } = contestDomain;
+const { canViewLiveContestScoreboard, getScoreboardChart } = contestDomain;
 import { apiHandler } from "$lib/server/shared/api-handler";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -16,7 +17,10 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     50,
   );
 
-  const chart = await getScoreboardChart(id, topN);
+  const actor = getActorContext(event);
+  const canSeeLive = await canViewLiveContestScoreboard(id, actor);
+
+  const chart = await getScoreboardChart(id, topN, { canSeeLive });
 
   return json(chart);
 });

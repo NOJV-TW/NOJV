@@ -1,8 +1,3 @@
-// A7: executeSandbox must bail with a system_error status when storage
-// returns zero sources (a system_error row from createQueuedSubmissionRecord
-// that got rejudged). Without the guard, mergeSandboxSources returns an empty
-// sourceCode and the verdict comes back as wrong_answer — masking the cause.
-
 import type { SandboxExecutor, SubmissionDraft } from "@nojv/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +7,7 @@ const { updateStatusMock, getSourcesMock, deriveModeMock } = vi.hoisted(() => ({
   deriveModeMock: vi.fn(() => "standard"),
 }));
 
-vi.mock("@nojv/domain", () => ({
+vi.mock("@nojv/application", () => ({
   submissionDomain: {
     updateSubmissionStatus: updateStatusMock,
     getSubmissionSources: getSourcesMock,
@@ -54,7 +49,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
       checkerScript: null,
       interactorScript: null,
       advanced: null,
-      subtaskStrategies: {},
+      compareOptions: null,
       adjustment: {
         assignmentAdjustmentRules: null,
         dueAt: null,
@@ -66,15 +61,10 @@ describe("executeSandbox — missing sources guard (A7)", () => {
     const result = await executeSandbox("sub_missing", draft, judgeContext);
 
     expect(executor.execute).not.toHaveBeenCalled();
-    // Status: first the `running` flip, then the `system_error` bail.
-    expect(updateStatusMock).toHaveBeenCalledTimes(2);
+    expect(updateStatusMock).toHaveBeenCalledTimes(1);
     expect(updateStatusMock).toHaveBeenNthCalledWith(1, "sub_missing", "running");
-    expect(updateStatusMock).toHaveBeenNthCalledWith(2, "sub_missing", "system_error");
 
-    // The result blob's verdict cannot be `system_error` (not in
-    // submissionVerdictSchema), so the activity falls back to runtime_error.
-    // The row status is the authoritative signal.
-    expect(result.verdict).toBe("runtime_error");
+    expect(result.verdict).toBe("system_error");
     expect(result.score).toBe(0);
     expect(result.accepted).toBe(false);
     expect(result.caseResults).toEqual([]);

@@ -1,8 +1,14 @@
 import { createRequire } from "node:module";
 
 import { NativeConnection, Worker } from "@temporalio/worker";
+import "./domain-orchestration";
 
-import { closeTemporalClient, JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "@nojv/temporal";
+import {
+  closeTemporalClient,
+  ensureSubmissionSweeper,
+  JUDGE_TASK_QUEUE,
+  PLATFORM_TASK_QUEUE,
+} from "@nojv/temporal";
 
 const require = createRequire(import.meta.url);
 
@@ -19,13 +25,27 @@ export class WorkerApp {
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
   private shutdownPromise: Promise<void> | null = null;
+  private connection: NativeConnection | null = null;
 
   constructor(env: WorkerEnv) {
     this.env = env;
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
-      isTemporalConnected: () =>
-        this.workers.length > 0 && this.workers.every((w) => w.getState() === "RUNNING"),
+      checkTemporal: async () => {
+        if (
+          this.workers.length === 0 ||
+          !this.workers.every((w) => w.getState() === "RUNNING")
+        ) {
+          return false;
+        }
+        if (!this.connection) return false;
+        try {
+          await this.connection.ensureConnected();
+          return true;
+        } catch {
+          return false;
+        }
+      },
     });
   }
 
@@ -34,11 +54,33 @@ export class WorkerApp {
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
     const connection = await NativeConnection.connect({ address });
+    this.connection = connection;
 
     if (mode === "all" || mode === "judge") {
       const { setExecutor } = await import("./activities/judge.js");
       const executor = createExecutor(this.env);
       setExecutor(executor);
+
+      if (this.env.EXECUTION_BACKEND === "docker") {
+        const { sweepOrphanNetworks } = await import("./services/docker-network.js");
+        sweepOrphanNetworks();
+      }
+
+      if (this.env.EXECUTION_BACKEND === "kubernetes") {
+        const { verifyNetworkPolicyEnforced } = await import("./services/k8s-netpol-probe.js");
+        const decision = await verifyNetworkPolicyEnforced({
+          namespace: this.env.K8S_NAMESPACE,
+          allowUnenforced: this.env.NOJV_ALLOW_UNENFORCED_NETWORK_POLICY,
+        });
+        if (decision.action === "refuse") {
+          throw new Error(
+            "Refusing to start K8s judge worker: the cluster CNI does not enforce NetworkPolicy, " +
+              "so sandbox egress isolation is inert. Enable a NetworkPolicy-enforcing CNI (GKE " +
+              "Dataplane V2, Calico, or Cilium), or set NOJV_ALLOW_UNENFORCED_NETWORK_POLICY=1 to " +
+              "override (DEV ONLY).",
+          );
+        }
+      }
 
       const judgeWorker = await Worker.create({
         connection,
@@ -61,6 +103,7 @@ export class WorkerApp {
         maxConcurrentActivityTaskExecutions: 10,
       });
       this.workers.push(platformWorker);
+      await ensureSubmissionSweeper();
     }
 
     await new Promise<void>((resolve) => {

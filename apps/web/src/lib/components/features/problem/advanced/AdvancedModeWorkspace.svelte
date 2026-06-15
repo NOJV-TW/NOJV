@@ -19,6 +19,7 @@
   import ProblemLeftPanel from "../layouts/ProblemLeftPanel.svelte";
   import AdvancedUploader, { type StagedFile } from "./AdvancedUploader.svelte";
   import AdvancedFileManager from "./AdvancedFileManager.svelte";
+  import { buildSubmissionBody } from "$lib/services/submission-service";
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
@@ -135,23 +136,16 @@
     const placeholderLanguage: Language = "cpp";
     const placeholderSource = "// advanced-mode upload";
 
-    const body = {
+    const body = buildSubmissionBody({
       assessment,
       contestId,
-      virtualContestId,
+      ...(virtualContestId ? { participationId: virtualContestId } : {}),
       language: placeholderLanguage,
-      mode: contestId
-        ? "contest"
-        : virtualContestId
-          ? "virtual"
-          : assessment
-            ? "assignment"
-            : "practice",
       problemId: problem.id,
       sampleOnly: false,
       sourceCode: placeholderSource,
       sourceFiles: staged.sourceFiles,
-    };
+    });
 
     try {
       const response = await fetch("/api/submissions", {

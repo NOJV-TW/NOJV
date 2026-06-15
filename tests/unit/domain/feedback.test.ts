@@ -43,7 +43,12 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-import { ConflictError, feedbackDomain, ForbiddenError, NotFoundError } from "@nojv/domain";
+import {
+  ConflictError,
+  feedbackDomain,
+  ForbiddenError,
+  NotFoundError,
+} from "@nojv/application";
 
 const {
   upsertFeedback,
@@ -69,7 +74,6 @@ function actor(
   };
 }
 
-/** Feedback is a post-close action: gate fixtures need a closed context. */
 const CLOSED_AT = new Date("2020-01-01T00:00:00Z");
 const OPEN_AT = new Date("2999-01-01T00:00:00Z");
 
@@ -105,21 +109,20 @@ describe("upsertFeedback", () => {
       input: { ...baseInput, comment: "Updated comment after re-grade." },
     });
 
-    // Repo upsert was the write path both times — same uniqueness key, one row.
     expect(feedbackUpsert).toHaveBeenCalledTimes(2);
     const firstData = feedbackUpsert.mock.calls[0]?.[1];
     const secondData = feedbackUpsert.mock.calls[1]?.[1];
     expect(firstData).toMatchObject({
       studentUserId: "usr_student",
       problemId: "prob_1",
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
       comment: baseInput.comment,
       authorUserId: "usr_t",
     });
     expect(secondData).toMatchObject({
       studentUserId: "usr_student",
       problemId: "prob_1",
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
       comment: "Updated comment after re-grade.",
       authorUserId: "usr_t",
     });
@@ -160,7 +163,7 @@ describe("deleteFeedback", () => {
       id: "fb_1",
       studentUserId: "usr_student",
       problemId: "prob_1",
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
       examId: null,
       comment: "Old comment",
     });
@@ -200,7 +203,7 @@ describe("listFeedbackForContext", () => {
     feedbackFindForContext.mockResolvedValue([{ id: "fb_1" }, { id: "fb_2" }]);
     const rows = await listFeedbackForContext(assignmentContext);
     expect(rows).toHaveLength(2);
-    expect(feedbackFindForContext).toHaveBeenCalledWith({ courseAssessmentId: "ca_hw1" });
+    expect(feedbackFindForContext).toHaveBeenCalledWith({ assessmentId: "ca_hw1" });
   });
 });
 
@@ -226,7 +229,7 @@ describe("getFeedbackForStudent", () => {
     const rows = await getFeedbackForStudent("usr_student", assignmentContext);
     expect(rows).toHaveLength(1);
     expect(feedbackFindForStudentInContext).toHaveBeenCalledWith("usr_student", {
-      courseAssessmentId: "ca_hw1",
+      assessmentId: "ca_hw1",
     });
   });
 });
@@ -236,7 +239,6 @@ describe("read vs write authorization split", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "ca_hw1",
       courseId: "crs_1",
-      // OPEN context — closesAt in the far future.
       closesAt: OPEN_AT,
     });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });

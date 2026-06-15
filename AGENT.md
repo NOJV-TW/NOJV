@@ -39,6 +39,7 @@ when working on a specific area, open the listed doc first.
 | Cloud Run / GKE config, env vars, Cloud Build        | [Deployment Guide](docs/operations/DEPLOYMENT.md)                             |
 | Feature scope, product direction, shipped vs planned | [Product Sense](docs/product/PRODUCT_SENSE.md)                                |
 | Multi-step work needing checkpoints                  | [Planning System](docs/product/PLANS.md) → write plan in `docs/plans/active/` |
+| Which runbook for an operational task                | [Runbooks Index](docs/runbooks/README.md)                                     |
 | Local dev setup, first run, troubleshooting          | [Getting Started](docs/runbooks/getting-started.md)                           |
 | Outage response, SLO breach, recovery steps          | [Incident Recovery](docs/runbooks/incident-recovery.md)                       |
 | Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                           |
@@ -61,7 +62,7 @@ when working on a specific area, open the listed doc first.
 - **Auth**: better-auth (email/password, GitHub, Google)
 - **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 18, Prisma 7
-- **Cache**: Redis 8 (pub/sub, rate limiting, scoreboards, cooldown, hot cache)
+- **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
 - **Object Storage**: S3-compatible (MinIO local, GCS/R2/S3 production) via `@nojv/storage`
 - **Validation**: Zod 4 everywhere (schemas in `@nojv/core`)
 - **Testing**: Vitest (unit/integration), Playwright (E2E)
@@ -99,9 +100,9 @@ packages/
   core/             Shared Zod schemas, types, pipeline definitions
   db/               Prisma 7 schema, migrations, repositories
   domain/           Business logic — queries, commands, scoring, stats
-  redis/            Redis connection, key registry, pub/sub, cache, cooldown
+  redis/            Redis connection, key registry, pub/sub
   storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal client + dispatch API + workflows + activities
+  temporal/         Temporal client + dispatch API + task queues + workflow I/O types (workflows/activities live in apps/worker)
 
 tooling/
   eslint/           Shared ESLint 9 flat config
@@ -132,3 +133,4 @@ docs/
 - Keep this file short and navigational.
 - Keep durable product, architecture, reliability, and security detail in the linked docs.
 - Keep the linked docs aligned with landed code instead of preserving speculative or stale future-tense guidance.
+- Do not add any unnecessary comments.

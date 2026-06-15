@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
 
-// Hoisted repo stubs — referenced inside the vi.mock factory below.
 const {
   problemFindById,
   userFindById,
@@ -68,25 +67,25 @@ vi.mock("@nojv/db", () => {
     },
     runTransaction: async <T>(
       fn: (tx: {
-        courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
+        assessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
         contestProblem: { findFirst: typeof txContestProblemFindFirst };
       }) => Promise<T>,
     ): Promise<T> =>
       fn({
-        courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
+        assessmentProblem: { findFirst: txAssessmentProblemFindFirst },
         contestProblem: { findFirst: txContestProblemFindFirst },
       }),
   };
 });
 
-vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
   __setStorageClientForTests: (c: unknown) => {
     storageRef.client = c as typeof storageRef.client;
   },
 }));
 
-import { ConflictError, submissionDomain } from "@nojv/domain";
+import { ConflictError, submissionDomain } from "@nojv/application";
 
 const { createQueuedSubmissionRecord } = submissionDomain;
 
@@ -118,6 +117,10 @@ function setupPracticeDefaults() {
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
   }));
+  submissionUpdateStatus.mockImplementation(async (id: string, status: string) => ({
+    id,
+    status,
+  }));
 }
 
 const baseDraft = {
@@ -139,8 +142,11 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
       authorId: "usr_teacher",
       visibility: "public",
       type: "special_env",
-      advancedImageRef: "ghcr.io/acme/ta:1.0",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        grade: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       advancedRequiredPaths: ["src/main.c"],
     });
 
@@ -163,8 +169,11 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
       authorId: "usr_teacher",
       visibility: "public",
       type: "special_env",
-      advancedImageRef: "ghcr.io/acme/ta:1.0",
-      advancedImageSource: "registry",
+      advancedConfig: {
+        run: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        grade: { imageRef: "ghcr.io/acme/ta:1.0", imageSource: "registry" },
+        network: { mode: "none" },
+      },
       advancedRequiredPaths: ["src/"],
     });
 
@@ -182,9 +191,6 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
   });
 
   it("ignores advancedRequiredPaths on a non-special_env problem (type guard)", async () => {
-    // Schema's superRefine forbids this state on create, but the column
-    // could still hold values via direct DB mutation. The mutation MUST
-    // only enforce the contract on special_env problems.
     problemFindById.mockResolvedValue({
       id: "prob_full",
       authorId: "usr_teacher",
@@ -198,8 +204,6 @@ describe("createQueuedSubmissionRecord — advanced required paths", () => {
         {
           ...baseDraft,
           problemId: "prob_full",
-          // full_source with no workspace files submits a single source
-          // file directly; sourceFiles is irrelevant for the entry-file check.
           sourceFiles: [{ path: "main.cpp", content: "int main(){}" }],
         },
         fakeActor,

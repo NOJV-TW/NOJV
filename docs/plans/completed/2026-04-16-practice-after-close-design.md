@@ -82,8 +82,8 @@ No change to `createQueuedSubmissionRecord`. The existing path:
 
 ### Phase 1 — Access control
 
-1. Extend `assertProblemViewAccess` in `packages/domain/src/problem/helpers.ts` to accept an optional `tx` / repo accessor and perform the historical-participant check when the four synchronous gates reject. Signature becomes async.
-2. Update the two callers (`packages/domain/src/submission/mutations.ts`, `apps/web/src/routes/(app)/problems/[id]/+page.server.ts`) to `await`.
+1. Extend `assertProblemViewAccess` in `packages/application/src/problem/helpers.ts` to accept an optional `tx` / repo accessor and perform the historical-participant check when the four synchronous gates reject. Signature becomes async.
+2. Update the two callers (`packages/application/src/submission/mutations.ts`, `apps/web/src/routes/(app)/problems/[id]/+page.server.ts`) to `await`.
 3. Unit tests in `tests/unit/domain/problem-access.test.ts`:
    - public / private / author / admin baselines
    - active context passes via `contextIncludesProblem`
@@ -110,8 +110,8 @@ No change to `createQueuedSubmissionRecord`. The existing path:
 
 ## Files Expected to Change
 
-- `packages/domain/src/problem/helpers.ts` — extend `assertProblemViewAccess`
-- `packages/domain/src/submission/mutations.ts` — `await` the updated helper
+- `packages/application/src/problem/helpers.ts` — extend `assertProblemViewAccess`
+- `packages/application/src/submission/mutations.ts` — `await` the updated helper
 - `apps/web/src/routes/(app)/problems/[id]/+page.server.ts` — `await` the updated helper
 - `apps/web/src/routes/(app)/courses/[courseId]/assignments/[assignmentId]/+page.svelte` — conditional link
 - `apps/web/src/routes/(app)/courses/[courseId]/exams/[examId]/+page.svelte` — conditional link

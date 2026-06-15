@@ -1,4 +1,7 @@
 import type { JudgeType, Language, ProblemType } from "./types";
+import type { AdvancedConfig } from "./schemas/advanced-mode";
+import type { CompareConfig } from "./schemas/judge-config";
+import { parseRelativePath } from "./schemas/path";
 
 export interface SandboxTestcase {
   index: number;
@@ -14,8 +17,9 @@ export interface SandboxSourceFile {
 }
 
 export interface SandboxAdvancedRequest {
-  imageRef: string;
-  imageSource: "registry" | "tarball";
+  run: AdvancedConfig["run"];
+  grade: AdvancedConfig["grade"];
+  network: AdvancedConfig["network"];
   totalTimeMs: number;
   memoryMb: number;
 }
@@ -34,6 +38,7 @@ export interface SandboxRequest {
     interactorScript?: string;
     checkerLanguage?: string;
     interactorLanguage?: string;
+    compare?: CompareConfig;
   };
   limits: {
     timeoutMs: number;
@@ -54,7 +59,6 @@ export interface SandboxTestcaseResult {
   exitCode: number;
   timeMs: number;
   memoryKb?: number;
-  score?: number;
   feedback?: string;
   staffFeedback?: string;
 }
@@ -82,19 +86,8 @@ export interface SandboxExecutor {
   execute(request: SandboxRequest): Promise<SandboxResult>;
 }
 
-export function normalizeRelativePath(rawPath: string): string | null {
-  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
-  if (!normalized || normalized.startsWith("/")) return null;
-
-  const segments = normalized.split("/").filter((s) => s.length > 0);
-  if (
-    segments.length === 0 ||
-    segments.some((s) => s === "." || s === ".." || s.includes("\0") || s.includes(":"))
-  ) {
-    return null;
-  }
-
-  return segments.join("/");
+export function normalizeRelativePath(rawPath: string): string {
+  return parseRelativePath(rawPath);
 }
 
 export const sourceFileNames: Record<Language, string> = {

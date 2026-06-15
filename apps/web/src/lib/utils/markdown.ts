@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
 
@@ -76,16 +77,34 @@ const KATEX_ATTRS = [
   "separator",
   "separators",
   "stretchy",
-  "style",
   "symmetric",
   "voffset",
   "width",
   "xmlns",
 ];
 
-export const PURIFY_CONFIG = {
+const PURIFY_CONFIG = {
   ADD_TAGS: KATEX_TAGS,
   ADD_ATTR: KATEX_ATTRS,
 };
+
+function isInsideKatexSubtree(node: Element | null): boolean {
+  for (let el: Element | null = node; el != null; el = el.parentElement) {
+    for (const cls of el.classList) {
+      if (cls.startsWith("katex")) return true;
+    }
+  }
+  return false;
+}
+
+DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+  if (data.attrName === "style") {
+    data.keepAttr = isInsideKatexSubtree(node);
+  }
+});
+
+export function renderMarkdown(content: string): string {
+  return DOMPurify.sanitize(marked.parse(content, { async: false }), PURIFY_CONFIG);
+}
 
 export { marked };

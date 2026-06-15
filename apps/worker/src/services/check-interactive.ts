@@ -26,7 +26,6 @@ export function mergeInteractiveCase(
     stderr,
     exitCode: -1,
     timeMs: 0,
-    score: 0,
     feedback,
   });
 
@@ -56,23 +55,20 @@ export function mergeInteractiveCase(
   };
 
   if (run.errorVerdict) {
-    return { ...base, verdict: run.errorVerdict, score: 0 };
+    return { ...base, verdict: run.errorVerdict };
   }
 
   if (!outcome || outcome.verdict === "SE") {
     return {
       ...base,
       verdict: "SE",
-      score: 0,
       feedback: "Interactor did not report a verdict.",
     };
   }
 
-  const score = outcome.score ?? (outcome.verdict === "AC" ? 100 : 0);
   return {
     ...base,
     verdict: outcome.verdict,
-    score,
     ...(outcome.teamMessage !== undefined ? { feedback: outcome.teamMessage } : {}),
     ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
   };

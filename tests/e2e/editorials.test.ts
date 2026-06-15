@@ -4,20 +4,10 @@ import { adminAuth, apiWriteHeaders, studentAuth, teacherAuth } from "./_shared"
 
 const PROBLEM_ID = "problem_warmup-sum";
 
-// Reads two ints from stdin and prints the sum. Matches every public +
-// hidden case for `problem_warmup-sum` (sample.cases + hidden.cases in
-// packages/db/prisma/seeds/problems.ts).
 const WARMUP_SUM_PYTHON_AC = `a, b = map(int, input().split())
 print(a + b)
 `;
 
-/**
- * Submits the canned AC solution and polls the submission until it
- * reaches a terminal verdict or `deadlineMs` passes. Returns the final
- * verdict string. Requires a running judge — when the local sandbox
- * isn't available the verdict will stay `queued`/`running` and the
- * caller should treat that as "skip the AC-gated assertions".
- */
 async function submitAcAndAwait(
   request: APIRequestContext,
   problemId: string,
@@ -34,9 +24,6 @@ async function submitAcAndAwait(
       headers: apiWriteHeaders,
     });
   } catch {
-    // Most common cause: dispatcher unreachable (no Temporal worker),
-    // which can manifest as `socket hang up` if the request handler
-    // crashes before sending headers. Treat as "judge unavailable".
     return "dispatch_failed";
   }
   if (res.status() !== 202) return `dispatch_failed_${res.status()}`;
@@ -74,6 +61,9 @@ test.describe("Editorials — auth + permissions", () => {
     const page = await context.newPage();
     const res = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
     expect(res.status()).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      message: "Solve this problem first to view editorials.",
+    });
     await context.close();
   });
 
@@ -88,6 +78,9 @@ test.describe("Editorials — auth + permissions", () => {
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      message: "Solve this problem first to post an editorial.",
+    });
     await context.close();
   });
 
@@ -98,8 +91,6 @@ test.describe("Editorials — auth + permissions", () => {
       data: { content: "short", language: "python" },
       headers: apiWriteHeaders,
     });
-    // Either schema 400 or AC gate 403 — both are valid rejections; the
-    // important thing is no editorial is persisted.
     expect([400, 403]).toContain(res.status());
     await context.close();
   });
@@ -150,21 +141,12 @@ test.describe("Editorials — auth + permissions", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.goto(`/problems/${PROBLEM_ID}/editorials`);
-    // Page-level AC gate either renders an error page (200 w/ message) or
-    // returns 403; both are acceptable — the core invariant is that the
-    // student doesn't see editorial bodies they haven't earned.
-    expect([200, 403, 404]).toContain(res?.status() ?? 0);
+    expect(res?.status()).toBe(403);
     await context.close();
   });
 });
 
 test.describe("Editorials — happy path (AC required)", () => {
-  // This block exercises the full submit→judge→AC pipeline before the
-  // editorial CRUD endpoints. It needs a running Temporal worker AND a
-  // built sandbox image — without those, /api/submissions can crash the
-  // dev server, which then sinks every later test in the suite.
-  // Opt-in via `NOJV_E2E_RUN_JUDGE=1` so default `pnpm test:e2e` runs
-  // never hit this codepath.
   test.skip(
     process.env.NOJV_E2E_RUN_JUDGE !== "1",
     "set NOJV_E2E_RUN_JUDGE=1 to run AC pipeline",
@@ -180,17 +162,11 @@ test.describe("Editorials — happy path (AC required)", () => {
     const page = await context.newPage();
 
     const verdict = await submitAcAndAwait(page.request, PROBLEM_ID);
-    if (verdict === "accepted") {
-      acReached = true;
-    } else {
-      // Local e2e runs without a Temporal worker / sandbox image will
-      // never reach `accepted`. Record that and let downstream tests
-      // skip cleanly via `test.skip(!acReached, ...)` — do not fail.
-      test.info().annotations.push({
-        type: "skip-reason",
-        description: `judge did not reach accepted (final: ${verdict}); editorial AC-gated tests will skip`,
-      });
-    }
+    expect(
+      verdict,
+      `judge did not accept the warmup-sum AC solution (final verdict: ${verdict})`,
+    ).toBe("accepted");
+    acReached = true;
     await context.close();
   });
 
@@ -256,8 +232,6 @@ test.describe("Editorials — happy path (AC required)", () => {
     browser,
   }) => {
     test.skip(!acReached || !editorialId, "no editorial id to challenge");
-    // Use the teacher account as a non-author non-admin proxy; teachers
-    // are not editorial authors here. Admin would bypass; teacher should not.
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     const res = await page.request.fetch(`/api/editorials/${editorialId}`, {
@@ -265,7 +239,6 @@ test.describe("Editorials — happy path (AC required)", () => {
       data: { content: "Sneaky overwrite by the wrong user." },
       headers: apiWriteHeaders,
     });
-    // Domain returns NotFound (not Forbidden) so probes can't enumerate ids.
     expect([403, 404]).toContain(res.status());
     await context.close();
   });
@@ -280,7 +253,6 @@ test.describe("Editorials — happy path (AC required)", () => {
     });
     expect(res.ok()).toBe(true);
 
-    // Listing should no longer include the deleted editorial id.
     const listRes = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
     expect(listRes.ok()).toBe(true);
     const list = (await listRes.json()) as Array<{ id: string }>;

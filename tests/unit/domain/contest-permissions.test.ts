@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageContest } from "@nojv/domain";
-
-// After the 2026-04-14 split, contests are always standalone —
-// `canManageContest` only checks ownership. Course-role teaching
-// rights moved to `canManageExam`; see exam-permissions.test.ts.
+import { canManageContest } from "@nojv/application";
 
 const standalone = { createdByUserId: "owner-1" };
 

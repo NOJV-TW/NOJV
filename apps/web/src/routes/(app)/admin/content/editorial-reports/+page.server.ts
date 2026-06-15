@@ -1,9 +1,9 @@
 import { error, fail, type RequestEvent } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { listEditorialReports, resolveEditorialReport } = editorialDomain;
 
@@ -35,7 +35,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  resolve: withRateLimit(async (event) => {
+  resolve: withAction(async (event) => {
     const actor = requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
@@ -44,7 +44,7 @@ export const actions = {
     return { success: true };
   }),
 
-  dismiss: withRateLimit(async (event) => {
+  dismiss: withAction(async (event) => {
     const actor = requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });

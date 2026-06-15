@@ -6,7 +6,7 @@
 
 **Architecture:** Nine independent workstreams sequenced into waves. Wave 0 lands all schema in one migration; the rest are mostly disjoint and verified + committed individually.
 
-**Tech Stack:** SvelteKit, Prisma 7 / PostgreSQL, Zod 4, `@nojv/domain` business layer, Paraglide i18n, Vitest.
+**Tech Stack:** SvelteKit, Prisma 7 / PostgreSQL, Zod 4, `@nojv/application` business layer, Paraglide i18n, Vitest.
 
 **Branch:** `feat/feature-completion-batch-2026-05-18`
 
@@ -129,8 +129,8 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 - Modify: `packages/core/src/schemas/course.ts`
   - `assessmentSettingsFormSchema`: add `latePenalty: adjustmentRuleSchema.nullable().default(null)`.
   - `courseAssessmentUpdateSchema`: add `adjustmentRules: adjustmentRulesSchema.optional()`.
-- Modify: `packages/domain/src/course/assignment-detail.ts` — `AssignmentDetail` interface + query return the stored late-penalty rule (extract from `adjustmentRules` JSON; the late-penalty member is the non-`time_bonus` rule). Ensure `assessmentRepo.findById` selects `adjustmentRules`.
-- Modify: `packages/domain/src/assignment/mutations.ts` — `updateAssignmentRecord`: when `payload.adjustmentRules !== undefined`, write `updateData.adjustmentRules`. The existing `assertFieldsAllowedForStatus` already blocks all writes on `closed`; no extra lock needed.
+- Modify: `packages/application/src/course/assignment-detail.ts` — `AssignmentDetail` interface + query return the stored late-penalty rule (extract from `adjustmentRules` JSON; the late-penalty member is the non-`time_bonus` rule). Ensure `assessmentRepo.findById` selects `adjustmentRules`.
+- Modify: `packages/application/src/assignment/mutations.ts` — `updateAssignmentRecord`: when `payload.adjustmentRules !== undefined`, write `updateData.adjustmentRules`. The existing `assertFieldsAllowedForStatus` already blocks all writes on `closed`; no extra lock needed.
 - Modify: `apps/web/src/routes/(app)/assignments/[assignmentId]/+page.server.ts`
   - `load`: hydrate `latePenalty` into the `settingsForm` from `detail`.
   - `updateSettings`: read `form.data.latePenalty`, set `payload.adjustmentRules = form.data.latePenalty ? [form.data.latePenalty] : []`.
@@ -163,13 +163,13 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 
 **Files:**
 
-- Create: `packages/domain/src/user/activity.ts` — `getSubmissionActivity(userId, since: Date): Promise<{ createdAt: Date; isAc: boolean }[]>` — lightweight select of the user's submissions in the window.
+- Create: `packages/application/src/user/activity.ts` — `getSubmissionActivity(userId, since: Date): Promise<{ createdAt: Date; isAc: boolean }[]>` — lightweight select of the user's submissions in the window.
 - Modify: `apps/web/src/routes/(app)/dashboard/+page.server.ts` — drop `utcDayOffset` / UTC bucketing; load raw activity for the last 365 days; pass timestamps to the page.
 - Modify: `apps/web/src/lib/components/features/dashboard/ActivityHeatmap.svelte` — bucket timestamps by **local** day (`new Date(ts)` → local Y/M/D key); grid alignment via `getDay()` not `getUTCDay()`; render a 365-day window.
 - Modify: `StreakCard` path — compute streak client-side from the same local-day buckets (consecutive local days with ≥1 AC, today grace day).
 - Modify: `WeeklyTrendCard.svelte` — last 7 local days from the same buckets.
 - Modify: i18n — `dashboard_last30Days` → a 1-year-window label; `ActivityHeatmap` aria-label.
-- `packages/domain/src/user/analytics.ts` `getStreakDays` — leave for any non-dashboard caller, or delete if dashboard was its only consumer (verify with `rg`).
+- `packages/application/src/user/analytics.ts` `getStreakDays` — leave for any non-dashboard caller, or delete if dashboard was its only consumer (verify with `rg`).
 
 **Tests:** `tests/unit` — a pure local-day bucketing helper test (extract bucketing into a testable function).
 
@@ -183,7 +183,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 
 **Files:**
 
-- Modify: `packages/domain/src/exam/session.ts` — add `releaseAllSessionsAsInstructor(actor, { examId }): Promise<{ released: number }>` — same staff check as `releaseSessionAsInstructor`, loops `examSessionRepo.findAllActiveForExam`, ends each + records the `release` event in one transaction.
+- Modify: `packages/application/src/exam/session.ts` — add `releaseAllSessionsAsInstructor(actor, { examId }): Promise<{ released: number }>` — same staff check as `releaseSessionAsInstructor`, loops `examSessionRepo.findAllActiveForExam`, ends each + records the `release` event in one transaction.
 - Modify: `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` — add form actions `releaseStudentSession` (wires existing `releaseSessionAsInstructor`) and `releaseAllSessions`; `load` (manager branch) returns the active-session list.
 - Create: `apps/web/src/lib/components/features/course/exam/ExamSessionsPanel.svelte` — staff-only panel: active-session list with per-row release + a "release all" button + count. Surface it under a tab/section on the exam page.
 - i18n keys for the panel (en + zh-TW).
@@ -212,8 +212,8 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 
 - Create: `packages/db/src/repositories/assessment-audit.ts` — `create` (tx-capable), `listByAssessment(assessmentId, take)`.
 - Modify: `packages/db/src/repositories/index.ts` — export it.
-- Modify: `packages/domain/src/assignment/mutations.ts` — in `publishAssignment`, `revertAssignmentToDraft`, `deleteAssignmentDraft`, insert an audit row in the existing transaction (`actorUserId` = `actor.userId`); in `markAssignmentPublished` (Temporal) insert with `actorUserId: null`.
-- Modify: `packages/domain/src/course/assignment-detail.ts` — `AssignmentDetail` returns recent audit entries (actor display name + action + time).
+- Modify: `packages/application/src/assignment/mutations.ts` — in `publishAssignment`, `revertAssignmentToDraft`, `deleteAssignmentDraft`, insert an audit row in the existing transaction (`actorUserId` = `actor.userId`); in `markAssignmentPublished` (Temporal) insert with `actorUserId: null`.
+- Modify: `packages/application/src/course/assignment-detail.ts` — `AssignmentDetail` returns recent audit entries (actor display name + action + time).
 - Modify: `apps/web/src/lib/components/features/course/assignment/AssignmentLifecycleSection.svelte` — render a compact history list.
 - i18n keys for the three action labels (en + zh-TW).
 
@@ -229,7 +229,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 
 - Create: `packages/db/src/repositories/editorial-report.ts` — `create`, `listByStatus`, `updateStatus`.
 - Modify: `packages/db/src/repositories/index.ts` — export it.
-- Create: `packages/domain/src/editorial/reports.ts`
+- Create: `packages/application/src/editorial/reports.ts`
   - `reportEditorial(actor, editorialId, reason)` — any authenticated user; one per `(editorial, user)` (unique constraint); cannot report your own.
   - `listEditorialReports(actor, status)` — admin-only.
   - `resolveEditorialReport(actor, reportId, action: "resolve" | "dismiss")` — admin-only; `resolve` soft-deletes the editorial + marks the report `resolved`; `dismiss` marks `dismissed`.
@@ -238,7 +238,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 - Create: `apps/web/src/routes/(app)/admin/content/editorial-reports/+page.{server.ts,svelte}` — admin moderation queue (list open reports, resolve / dismiss).
 - Modify: `apps/web/src/routes/(app)/admin/+layout.svelte` — add the tab.
 - **Rejudge grandfather:** modify the AC-gate so editorial visibility also passes when the viewer has **authored a non-deleted editorial** for that problem.
-  - Modify: `packages/domain/src/editorial/queries.ts` — `hasUserAcProblem` callers also accept "has authored an editorial here". Add `canViewEditorials(userId, problemId) = hasUserAcProblem || hasAuthoredEditorial`.
+  - Modify: `packages/application/src/editorial/queries.ts` — `hasUserAcProblem` callers also accept "has authored an editorial here". Add `canViewEditorials(userId, problemId) = hasUserAcProblem || hasAuthoredEditorial`.
   - Modify: `requireProblemWithAc` in `api/problems/[id]/editorials/+server.ts`, the editorials list `+page.server.ts`, and `editorials/[id]/edit/+page.server.ts` to use `canViewEditorials`.
   - Modify: `ProblemLeftPanel.svelte` `hasAc` derive — also true when the viewer authored an editorial (pass a flag from the loader).
 - i18n keys (en + zh-TW).

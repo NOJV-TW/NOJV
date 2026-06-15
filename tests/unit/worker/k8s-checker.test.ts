@@ -46,7 +46,6 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
       expect(data[`testcase-${String(i)}-input.txt`]).toBe(`in-${String(i)}\n`);
       expect(data[`testcase-${String(i)}-expected.txt`]).toBeUndefined();
     }
-    // Defense-in-depth: no value in the run ConfigMap may carry the secret answer.
     for (const value of Object.values(data)) {
       expect(value).not.toContain("secret-answer-");
     }
@@ -71,8 +70,12 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
 
   it("still writes source + config.json + input keys for the run", () => {
     const data = buildRunConfigMapData(makeCheckerRequest());
-    expect(data["main.py"]).toBe("print(1)");
-    expect(data["config.json"]).toBeDefined();
+    const config = JSON.parse(data["config.json"]!) as {
+      sourceFileMap?: { path: string; key: string }[];
+    };
+    const mainEntry = config.sourceFileMap?.find((e) => e.path === "main.py");
+    expect(mainEntry).toBeDefined();
+    expect(data[mainEntry!.key]).toBe("print(1)");
     expect(data["testcase-0-input.txt"]).toBe("1\n");
   });
 
@@ -186,6 +189,7 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
     cpuLimit: "1",
     memoryRequest: "128Mi",
     memoryLimit: "256Mi",
+    activeDeadlineSeconds: 120,
   };
 
   it.each([
@@ -253,15 +257,13 @@ describe("K8s checker uses the same mergeCheckerResults as Docker", () => {
     ];
     const outcomes = new Map<number, ValidatorOutcome>([
       [0, { verdict: "AC" }],
-      [2, { verdict: "WA", score: 25 }],
+      [2, { verdict: "WA" }],
     ]);
 
     const merged = mergeCheckerResults(rawRuns, outcomes);
 
     expect(merged[0]!.verdict).toBe("AC");
-    expect(merged[0]!.score).toBe(100);
     expect(merged[1]!.verdict).toBe("TLE");
     expect(merged[2]!.verdict).toBe("WA");
-    expect(merged[2]!.score).toBe(25);
   });
 });

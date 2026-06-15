@@ -4,7 +4,7 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import { submissionResultSchema } from "@nojv/core";
 
 const { getSubmissionForUser, getVerdictDetail, stripStaffFeedback } = submissionDomain;
@@ -12,7 +12,7 @@ const { getSubmissionForUser, getVerdictDetail, stripStaffFeedback } = submissio
 function sanitizeVerdictDetail(raw: unknown): unknown {
   if (raw === null || raw === undefined) return raw;
   const parsed = submissionResultSchema.safeParse(raw);
-  return parsed.success ? stripStaffFeedback(parsed.data) : raw;
+  return parsed.success ? stripStaffFeedback(parsed.data) : null;
 }
 
 export const GET: RequestHandler = apiHandler(async (event) => {

@@ -58,6 +58,7 @@ export const openApiDocument = {
                 },
                 example: {
                   ok: true,
+                  checks: { postgres: "ok", redis: "ok", temporal: "ok" },
                 },
               },
             },
@@ -71,6 +72,7 @@ export const openApiDocument = {
                 },
                 example: {
                   ok: false,
+                  checks: { postgres: "ok", redis: "error: timeout", temporal: "ok" },
                 },
               },
             },
@@ -335,9 +337,20 @@ export const openApiDocument = {
         properties: {
           ok: {
             type: "boolean",
+            description:
+              "True when the web-critical dependencies (PostgreSQL + Redis) are reachable. Temporal is surfaced under `checks` for observability but does not gate this flag.",
+          },
+          checks: {
+            type: "object",
+            properties: {
+              postgres: { type: "string" },
+              redis: { type: "string" },
+              temporal: { type: "string" },
+            },
+            required: ["postgres", "redis", "temporal"],
           },
         },
-        required: ["ok"],
+        required: ["ok", "checks"],
       },
       SupportedLanguage: {
         ...zodToOpenApiSchema(languageSchema),

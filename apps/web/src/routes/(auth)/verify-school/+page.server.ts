@@ -1,10 +1,12 @@
-import { userDomain } from "@nojv/domain";
+import { fail } from "@sveltejs/kit";
+import { userDomain } from "@nojv/application";
 
 import { m } from "$lib/paraglide/messages.js";
 
-import type { PageServerLoad } from "./$types";
+import type { Actions, PageServerLoad } from "./$types";
+import { withAction } from "$lib/server/shared/action-handlers";
 
-const { processSchoolVerification } = userDomain;
+const { peekSchoolVerification, processSchoolVerification } = userDomain;
 
 export const load: PageServerLoad = async ({ url }) => {
   const token = url.searchParams.get("token");
@@ -13,5 +15,20 @@ export const load: PageServerLoad = async ({ url }) => {
     return { status: "error" as const, detail: m.auth_missingVerifyToken() };
   }
 
-  return processSchoolVerification(token);
+  const result = await peekSchoolVerification(token);
+  if (result.status === "error") {
+    return { status: "error" as const, detail: result.detail };
+  }
+
+  return { status: "confirm" as const, username: result.username, token };
+};
+
+export const actions: Actions = {
+  default: withAction(async ({ request }) => {
+    const token = (await request.formData()).get("token");
+    if (typeof token !== "string" || !token) {
+      return fail(400, { status: "error" as const, detail: m.auth_missingVerifyToken() });
+    }
+    return processSchoolVerification(token);
+  }),
 };

@@ -12,7 +12,6 @@ function caseResult(over: Partial<SandboxTestcaseResult>): SandboxTestcaseResult
     stderr: "",
     exitCode: 0,
     timeMs: 10,
-    score: 100,
     ...over,
   };
 }
@@ -26,12 +25,11 @@ describe("enforceMemoryLimit", () => {
       LIMIT_MB,
     );
     expect(out[0]!.verdict).toBe("MLE");
-    expect(out[0]!.score).toBe(0);
   });
 
   it("reclassifies a WA run that exceeded the limit as MLE", () => {
     const out = enforceMemoryLimit(
-      [caseResult({ verdict: "WA", score: 0, memoryKb: 257 * 1024 })],
+      [caseResult({ verdict: "WA", memoryKb: 257 * 1024 })],
       LIMIT_MB,
     );
     expect(out[0]!.verdict).toBe("MLE");
@@ -43,7 +41,6 @@ describe("enforceMemoryLimit", () => {
       LIMIT_MB,
     );
     expect(out[0]!.verdict).toBe("AC");
-    expect(out[0]!.score).toBe(100);
   });
 
   it("does not false-trigger when memoryKb is unmeasured", () => {
@@ -56,10 +53,7 @@ describe("enforceMemoryLimit", () => {
 
   it("leaves run-failure verdicts (TLE/RE/SE) untouched even if memory is high", () => {
     for (const verdict of ["TLE", "RE", "SE"] as const) {
-      const out = enforceMemoryLimit(
-        [caseResult({ verdict, score: 0, memoryKb: 999 * 1024 })],
-        LIMIT_MB,
-      );
+      const out = enforceMemoryLimit([caseResult({ verdict, memoryKb: 999 * 1024 })], LIMIT_MB);
       expect(out[0]!.verdict).toBe(verdict);
     }
   });

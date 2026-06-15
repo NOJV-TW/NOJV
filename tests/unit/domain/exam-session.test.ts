@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Shared repo stubs — hoisted so the `vi.mock` factory below can
-// reference them. `vi.mock` is hoisted above regular imports.
 const {
   examFindById,
   examFindByIdOrThrow,
@@ -12,8 +10,8 @@ const {
   sessionRecordEvent,
   membershipFindByComposite,
   txCourseFindUnique,
-  participationUpsert,
-  participationFindByExamAndUser,
+  participationUpsertExamActive,
+  participationFindExamParticipation,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examFindByIdOrThrow: vi.fn(),
@@ -24,8 +22,8 @@ const {
   sessionRecordEvent: vi.fn(),
   membershipFindByComposite: vi.fn(),
   txCourseFindUnique: vi.fn(),
-  participationUpsert: vi.fn(),
-  participationFindByExamAndUser: vi.fn(),
+  participationUpsertExamActive: vi.fn(),
+  participationFindExamParticipation: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -44,28 +42,25 @@ vi.mock("@nojv/db", () => {
         recordEvent: sessionRecordEvent,
       }),
     },
+    courseRepo: {
+      withTx: () => ({ findArchivedById: txCourseFindUnique }),
+    },
     courseMembershipRepo: {
       withTx: () => ({ findByComposite: membershipFindByComposite }),
     },
-    examParticipationRepo: {
+    participationRepo: {
       withTx: () => ({
-        upsert: participationUpsert,
-        findByExamAndUser: participationFindByExamAndUser,
+        upsertExamActive: participationUpsertExamActive,
+        findExamParticipation: participationFindExamParticipation,
       }),
     },
-    // assertEnrolledInExamCourse now reads `tx.course` directly to check
-    // course.archived alongside membership; provide a tx mock that exposes it.
     runTransaction: async <T>(
-      fn: (tx: {
-        course: { findUnique: typeof txCourseFindUnique };
-        $executeRaw: (...args: unknown[]) => Promise<number>;
-      }) => Promise<T>,
-    ): Promise<T> =>
-      fn({ course: { findUnique: txCourseFindUnique }, $executeRaw: async () => 0 }),
+      fn: (tx: { $executeRaw: (...args: unknown[]) => Promise<number> }) => Promise<T>,
+    ): Promise<T> => fn({ $executeRaw: async () => 0 }),
   };
 });
 
-import { examDomain, ForbiddenError, NotFoundError } from "@nojv/domain";
+import { examDomain, ForbiddenError, NotFoundError } from "@nojv/application";
 
 const { session } = examDomain;
 
@@ -303,59 +298,6 @@ describe("examDomain.session.recordEvent", () => {
     expect(call.sessionId).toBe("sess_1");
     expect(call.eventType).toBe("leave");
     expect(call).not.toHaveProperty("metadata");
-  });
-});
-
-describe("examDomain.session.heartbeat", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("updates lastHeartbeatAt and records a heartbeat event", async () => {
-    sessionFindByUserAndExam.mockResolvedValue({
-      id: "sess_1",
-      userId: fakeActor.userId,
-      examId: fakeExam.id,
-      endedAt: null,
-    });
-    sessionUpdate.mockResolvedValue({ id: "sess_1" });
-
-    await session.heartbeat(fakeActor.userId, fakeExam.id);
-
-    expect(sessionUpdate).toHaveBeenCalledTimes(1);
-    const [, updateData] = sessionUpdate.mock.calls[0] as [string, Record<string, unknown>];
-    expect(updateData.lastHeartbeatAt).toBeInstanceOf(Date);
-    // Heartbeat must NOT touch endedAt / releaseReason.
-    expect(updateData).not.toHaveProperty("endedAt");
-    expect(updateData).not.toHaveProperty("releaseReason");
-    expect(sessionRecordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId: "sess_1", eventType: "heartbeat" }),
-    );
-  });
-
-  it("throws NotFoundError when no active session exists", async () => {
-    sessionFindByUserAndExam.mockResolvedValue(null);
-
-    await expect(session.heartbeat(fakeActor.userId, fakeExam.id)).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
-
-    expect(sessionUpdate).not.toHaveBeenCalled();
-  });
-
-  it("throws NotFoundError when the session has already ended", async () => {
-    sessionFindByUserAndExam.mockResolvedValue({
-      id: "sess_old",
-      userId: fakeActor.userId,
-      examId: fakeExam.id,
-      endedAt: new Date(),
-    });
-
-    await expect(session.heartbeat(fakeActor.userId, fakeExam.id)).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
-
-    expect(sessionUpdate).not.toHaveBeenCalled();
   });
 });
 

@@ -5,7 +5,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { getActorContext, requireAuth } from "$lib/server/auth";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const {
   canViewLiveContestScoreboard,
@@ -31,10 +31,11 @@ export const load: PageServerLoad = handleLoad(async (event) => {
     redirect(303, `/contests/${contestId}`);
   }
 
-  const [scoreboard, chart] = await Promise.all([
-    getScoreboard(contestId, { canSeeLive }),
-    getScoreboardChart(contestId, 10),
-  ]);
+  const scoreboard = await getScoreboard(contestId, { canSeeLive });
+  const chart = await getScoreboardChart(contestId, 10, {
+    canSeeLive,
+    precomputed: scoreboard,
+  });
 
   return {
     canUnfreeze: canSeeLive,

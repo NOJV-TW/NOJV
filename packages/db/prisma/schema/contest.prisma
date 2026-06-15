@@ -1,15 +1,3 @@
-// ═══════════════════════════════════════════════════════════════
-// Contest + Exam domain
-//
-// Contest   — standalone, always public/invite-only (no courseId).
-// Exam      — course-embedded (courseId NOT NULL), carries the
-//             proctoring fields (page lock, IP whitelist/binding).
-//
-// The two models used to be one `Contest` table with a nullable
-// `courseId`. The 2026-04-14 split moved the course-embedded rows
-// out to `Exam` and stripped proctoring from `Contest` — contests
-// are now public remote events, exams are in-room assessments.
-// ═══════════════════════════════════════════════════════════════
 
 enum ContestVisibility {
   draft
@@ -17,20 +5,10 @@ enum ContestVisibility {
 }
 
 enum ContestScoringMode {
-  problem_count // ICPC-style: score = number of problems solved, penalty time tiebreaker
-  point_sum // IOI-style: score = weighted sum of subtask partial credit
+  problem_count
+  point_sum
 }
 
-enum ContestParticipationStatus {
-  registered
-  active
-  submitted
-  disqualified
-}
-
-/// Exam lifecycle — mirrors ContestVisibility but named for the
-/// course-embedded flow so the two stay decoupled if either side
-/// grows extra states.
 enum ExamStatus {
   draft
   published
@@ -41,14 +19,6 @@ enum ExamScoringMode {
   point_sum
 }
 
-enum ExamParticipationStatus {
-  registered
-  active
-  submitted
-  disqualified
-}
-
-/// Shared by Contest and Exam.
 enum ScoreboardMode {
   hidden
   live
@@ -65,14 +35,12 @@ enum IpViolationType {
   binding
 }
 
-/// Why a student's exam session ended — drives the Phase 4 lock.
 enum ExamSessionReleaseReason {
   submitted
   time_up
   released_by_instructor
 }
 
-/// Append-only audit log event types for ActiveExamSession.
 enum ExamSessionEventType {
   enter
   leave
@@ -82,10 +50,6 @@ enum ExamSessionEventType {
   heartbeat
 }
 
-/// Standalone contest — public / invite-only competition with no
-/// course binding. Contests do NOT have proctoring (page lock, IP
-/// whitelist, IP binding). Those controls live on `Exam` only —
-/// contest = public CP event, exam = proctored classroom assessment.
 model Contest {
   id       String   @id @default(cuid())
   title    String
@@ -100,9 +64,8 @@ model Contest {
   frozenAt          DateTime?
   submitCooldownSec Int                @default(0)
 
-  /// Empty array = all supported languages allowed. Adding a problem
-  /// to this contest is application-gated: the problem must ship an
-  /// editable main.<ext> workspace file for every language listed here.
+  penaltyMinutesPerWrong Int @default(20)
+
   allowedLanguages SupportedLanguage[] @default([])
 
   inviteCode      String?  @unique
@@ -110,7 +73,6 @@ model Contest {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
   plagiarismStatus        PlagiarismReportStatus?
   plagiarismResults       Json?
   plagiarismReportUrl     String?
@@ -118,12 +80,11 @@ model Contest {
   plagiarismCompletedAt   DateTime?
   plagiarismTriggeredById String?
 
-  createdBy             User?                  @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  plagiarismTriggeredBy User?                  @relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  createdBy             User?            @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  plagiarismTriggeredBy User?            @relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
   problems              ContestProblem[]
-  participations        ContestParticipation[]
   submissions           Submission[]
-  virtualContests       VirtualContest[]
+  participations        Participation[]  @relation("ContestUnifiedParticipation")
 }
 
 model ContestProblem {
@@ -134,41 +95,12 @@ model ContestProblem {
   points    Int      @default(100)
   createdAt DateTime @default(now())
   contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Restrict)
 
   @@unique([contestId, problemId])
   @@unique([contestId, ordinal])
 }
 
-model ContestParticipation {
-  id               String                     @id @default(cuid())
-  contestId        String
-  userId           String
-  status           ContestParticipationStatus @default(registered)
-  startedAt        DateTime?
-  submittedAt      DateTime?
-  score            Int                        @default(0)
-  penaltySeconds   Int                        @default(0)
-  subtaskScores    Json?
-  /// Optimistic-lock counter — bumped on every score recompute so
-  /// concurrent `updateContestScores` calls cannot silently overwrite
-  /// each other. See packages/domain/src/contest/scoring.ts.
-  version          Int                        @default(0)
-  createdAt        DateTime                   @default(now())
-  updatedAt        DateTime                   @updatedAt
-  contest          Contest                    @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  user             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  submissions      Submission[]
-
-  @@unique([contestId, userId])
-}
-
-/// Course-embedded exam. Always tied to a course (`courseId` NOT NULL)
-/// and carries all the proctoring controls (page lock, IP whitelist,
-/// IP binding). Participation is implicit via course membership —
-/// Phase 4's ActiveExamSession will gate entry; for now an
-/// ExamParticipation row is created on first submit, mirroring the
-/// contest flow.
 model Exam {
   id       String   @id @default(cuid())
   courseId String
@@ -184,14 +116,12 @@ model Exam {
 
   allowedLanguages SupportedLanguage[] @default([])
 
-  // ── Proctoring — Exam only ──
   pageLockEnabled    Boolean         @default(false)
   ipWhitelistEnabled Boolean         @default(false)
   ipBindingEnabled   Boolean         @default(false)
   ipWhitelist        String[]        @default([])
   ipViolationMode    IpViolationMode @default(block)
 
-  // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
   plagiarismStatus        PlagiarismReportStatus?
   plagiarismResults       Json?
   plagiarismReportUrl     String?
@@ -203,15 +133,15 @@ model Exam {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  course                Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdBy             User?               @relation("ExamCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  plagiarismTriggeredBy User?               @relation("ExamPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  course                Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy             User?                @relation("ExamCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  plagiarismTriggeredBy User?                @relation("ExamPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
   problems              ExamProblem[]
-  participations        ExamParticipation[]
   submissions           Submission[]
   ipViolationLogs       IpViolationLog[]
   activeSessions        ActiveExamSession[]
   submissionFeedback    SubmissionFeedback[]
+  participations        Participation[]      @relation("ExamUnifiedParticipation")
 
   @@index([courseId, status])
 }
@@ -230,43 +160,6 @@ model ExamProblem {
   @@unique([examId, ordinal])
 }
 
-model ExamParticipation {
-  id                 String                  @id @default(cuid())
-  examId             String
-  userId             String
-  status             ExamParticipationStatus @default(registered)
-  registeredAt       DateTime                @default(now())
-  startedAt          DateTime?
-  submittedAt        DateTime?
-  disqualifiedAt     DateTime?
-  score              Int                     @default(0)
-  penaltySeconds     Int                     @default(0)
-  subtaskScores      Json?
-  ipPin              String?
-  /// Teacher-granted grace window: while now < this, the IP gate is skipped for
-  /// this student (e.g. mid-exam machine swap) but still re-pins on first access.
-  ipGateExemptUntil  DateTime?
-  /// Optimistic-lock counter — bumped on every score recompute so
-  /// concurrent `updateExamScores` calls cannot silently overwrite
-  /// each other. Mirrors `ContestParticipation.version`.
-  version            Int                     @default(0)
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  exam               Exam                    @relation(fields: [examId], references: [id], onDelete: Cascade)
-  user               User                    @relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([examId, userId])
-  @@index([userId, status])
-}
-
-/// Audit log for IP whitelist / IP binding violations. Exams and
-/// standalone contests both log through this table; the application
-/// layer (shared proctoring helper) enforces the invariant that
-/// exactly one of `examId` / `contestId` is non-null per row.
-/// Homework assessments still do not have IP lock.
-/// Audit log for IP whitelist / IP binding violations. Only exams carry
-/// proctoring, so every row must be tied to an exam — contests are
-/// public and do not log IP events.
 model IpViolationLog {
   id            String          @id @default(cuid())
   userId        String
@@ -282,11 +175,6 @@ model IpViolationLog {
   @@index([userId, createdAt])
 }
 
-/// One row per student per active exam. Drives the Phase 4 exam lock
-/// in hooks.server.ts: while `endedAt IS NULL` the student is routed
-/// back to the exam landing page on every navigation. IP binding is
-/// enforced via `ExamParticipation.ipPin` — the session row does not
-/// carry a pin of its own.
 model ActiveExamSession {
   id              String                    @id @default(cuid())
   userId          String
@@ -307,10 +195,6 @@ model ActiveExamSession {
   @@index([userId, endedAt])
 }
 
-/// Append-only audit log for exam session lifecycle events. One row
-/// per {enter, leave, visibility_lost, release, auto_close, heartbeat}
-/// observation against an ActiveExamSession. `metadata` is a free-form
-/// Json blob — callers in Phase 4 / Phase 6 decide the shape.
 model ExamSessionEvent {
   id         String               @id @default(cuid())
   sessionId  String
@@ -323,36 +207,44 @@ model ExamSessionEvent {
   @@index([sessionId, occurredAt])
 }
 
-enum VirtualContestStatus {
-  active
-  finished
+enum ParticipationType {
+  contest
+  exam
+  virtual
 }
 
-/// One user's time-shifted personal re-run of a past contest. Lets a
-/// user replay an already-ended contest on their own clock — the
-/// original contest is untouched; scores/penalty here are private to
-/// the virtual run. At most one per (contest, user).
-model VirtualContest {
-  id             String               @id @default(cuid())
-  contestId      String
-  userId         String
-  startedAt      DateTime             @default(now())
-  endsAt         DateTime
-  status         VirtualContestStatus @default(active)
-  score          Int                  @default(0)
-  penaltySeconds Int                  @default(0)
-  subtaskScores  Json?
-  /// Optimistic-lock counter — bumped on every score recompute so
-  /// concurrent score updates cannot silently overwrite each other.
-  /// Mirrors `ContestParticipation.version`.
-  version        Int                  @default(0)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+enum ParticipationStatus {
+  registered
+  active
+  submitted
+  disqualified
+}
 
-  contest     Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Participation {
+  id                String              @id @default(cuid())
+  type              ParticipationType
+  userId            String
+  contestId         String?
+  examId            String?
+  score             Int                 @default(0)
+  penaltySeconds    Int                 @default(0)
+  subtaskScores     Json?
+  status            ParticipationStatus
+  version           Int                 @default(0)
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  ipPin             String?
+  ipGateExemptUntil DateTime?
+  endsAt            DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  user        User         @relation("UnifiedParticipationUser", fields: [userId], references: [id], onDelete: Cascade)
+  contest     Contest?     @relation("ContestUnifiedParticipation", fields: [contestId], references: [id], onDelete: Cascade)
+  exam        Exam?        @relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)
   submissions Submission[]
 
-  @@unique([contestId, userId])
-  @@index([userId, createdAt])
+  @@unique([type, contestId, userId])
+  @@unique([type, examId, userId])
+  @@index([userId])
 }

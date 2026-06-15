@@ -1,20 +1,5 @@
 import { vi } from "vitest";
 
-/**
- * In-memory S3Client stub for tests. Implements only the subset of the
- * S3 surface our storage helpers actually exercise:
- *   - PutObjectCommand
- *   - GetObjectCommand
- *   - ListObjectsV2Command
- *   - DeleteObjectCommand
- *   - DeleteObjectsCommand
- *
- * Returned object exposes:
- *   - `client`: cast to whatever S3Client-shaped param the helper expects
- *   - `store`: the underlying Map for direct assertions
- *   - `send`: the vi.fn for call-count assertions
- *   - `failNext` / `failOnPut`: hooks for simulating storage failure
- */
 export function createInMemoryStorage() {
   const store = new Map<string, string>();
   const fails: ((commandName: string) => boolean)[] = [];
@@ -23,7 +8,6 @@ export function createInMemoryStorage() {
     const name = command.constructor.name;
     const input = command.input as Record<string, unknown>;
 
-    // Apply queued failure predicates (consume on match).
     for (let i = 0; i < fails.length; i += 1) {
       const pred = fails[i];
       if (pred?.(name)) {
@@ -55,6 +39,17 @@ export function createInMemoryStorage() {
       })();
       return { Body: body };
     }
+    if (name === "CopyObjectCommand") {
+      const sourceKey = decodeCopySource(input.CopySource as string);
+      const targetKey = input.Key as string;
+      if (!store.has(sourceKey)) {
+        const err = new Error("NoSuchKey");
+        (err as Error & { name: string }).name = "NoSuchKey";
+        throw err;
+      }
+      store.set(targetKey, store.get(sourceKey) ?? "");
+      return {};
+    }
     if (name === "DeleteObjectCommand") {
       store.delete(input.Key as string);
       return {};
@@ -80,11 +75,9 @@ export function createInMemoryStorage() {
   return {
     send,
     store,
-    /** Make the next matching command throw a SimulatedError. */
     failNext(predicate: (commandName: string) => boolean) {
       fails.push(predicate);
     },
-    /** Make the Nth (0-indexed) PutObjectCommand throw. */
     failOnPut(occurrence: number) {
       let seen = -1;
       fails.push((name) => {
@@ -100,3 +93,9 @@ export function createInMemoryStorage() {
 }
 
 export type InMemoryStorage = ReturnType<typeof createInMemoryStorage>;
+
+function decodeCopySource(copySource: string): string {
+  const slash = copySource.indexOf("/");
+  const encodedKey = slash >= 0 ? copySource.slice(slash + 1) : copySource;
+  return encodedKey.split("/").map(decodeURIComponent).join("/");
+}

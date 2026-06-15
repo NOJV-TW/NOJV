@@ -161,7 +161,7 @@
     workspaceFiles: () => workspaceFilesForLanguage,
     assessment: () => assessment,
     contestId: () => contestId,
-    virtualContestId: () => virtualContestId,
+    participationId: () => virtualContestId,
     onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
     onSubmissionComplete: (id, result, lang, src) =>
       onSubmissionComplete?.(id, result, lang, src),

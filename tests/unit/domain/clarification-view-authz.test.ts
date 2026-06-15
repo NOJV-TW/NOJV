@@ -23,12 +23,14 @@ vi.mock("@nojv/db", () => ({
   examRepo: { findById: examFindById },
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
-  contestParticipationRepo: { listParticipantUserIds: contestListParticipantUserIds },
-  examParticipationRepo: { listParticipantUserIds: examListParticipantUserIds },
+  participationRepo: {
+    listContestParticipantUserIds: contestListParticipantUserIds,
+    listExamParticipantUserIds: examListParticipantUserIds,
+  },
   clarificationRepo: { listForContext: clarificationListForContext },
 }));
 
-import { listForViewer } from "../../../packages/domain/src/clarification/queries";
+import { listForViewer } from "../../../packages/application/src/clarification/queries";
 
 function actor(
   overrides: Partial<{ userId: string; platformRole: "admin" | "teacher" | "student" }> = {},

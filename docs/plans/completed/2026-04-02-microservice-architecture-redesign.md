@@ -7,7 +7,7 @@
 
 - Multi-tier architecture (UI → Presentation → Service → Persistence → Data)
 - Cross-cutting Infrastructure layer
-- Business logic 集中在 Service layer (`@nojv/domain`)
+- Business logic 集中在 Service layer (`@nojv/application`)
 - Repository pattern 隔離 ORM 細節
 - 為未來前後端分離、sandbox 語言替換、domain 拆分預留升級路徑
 
@@ -24,7 +24,7 @@
 ├─────────────────────────────────────────────────────────────────────┤
 │ 2nd Tier                                                            │
 │                                                                     │
-│  Service           @nojv/domain                                     │
+│  Service           @nojv/application                                     │
 │                    contest/ course/ problem/ submission/ user/       │
 │                    editorial/ plagiarism/ announcement/              │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -111,7 +111,7 @@ infra/              Docker, GCP, K8s (unchanged)
 ### 1. SvelteKit as BFF (not separate API server)
 
 SvelteKit server load functions and form actions act as the Presentation layer.
-They validate sessions, call `@nojv/domain` functions, and return DTOs to components.
+They validate sessions, call `@nojv/application` functions, and return DTOs to components.
 No business logic in the web layer.
 
 **Future upgrade path**: Add `apps/api` (Hono/Fastify) that wraps the same domain
@@ -159,7 +159,7 @@ Repositories per domain:
 ### 3. Domain Functions: Two Categories
 
 ```typescript
-// @nojv/domain/src/submission/
+// @nojv/application/src/submission/
 
 // Orchestration — called by web (Presentation layer)
 // May dispatch workflows via job-dispatch
@@ -242,7 +242,7 @@ export const cooldown = {
 ### 6. Domain Module Structure
 
 ```
-packages/domain/
+packages/application/
   src/
     contest/
       queries.ts         # getContest, getScoreboard, listContests
@@ -303,7 +303,7 @@ export const eventConfigSchema = z.object({
   pageLockEnabled: z.boolean(),
 })
 
-// @nojv/domain/shared/event-config.ts — single logic
+// @nojv/application/shared/event-config.ts — single logic
 export function enforceEventConfig(config: EventConfig, ...) { ... }
 ```
 
@@ -381,7 +381,7 @@ Incremental migration, one package at a time. Each step is independently deploya
 
 ### Phase 3: Service layer
 
-5. Create `packages/domain` — migrate business logic from `apps/web/src/lib/server/`
+5. Create `packages/application` — migrate business logic from `apps/web/src/lib/server/`
 6. Update `apps/web` to call domain functions only
 
 ### Phase 4: Worker refactor
@@ -398,10 +398,10 @@ Each phase can be merged independently. No big-bang migration.
 
 ## Future Upgrade Paths
 
-| When                               | Action                                                                                 |
-| ---------------------------------- | -------------------------------------------------------------------------------------- |
-| Need REST API for mobile/3rd party | Add `apps/api` wrapping domain functions                                               |
-| Sandbox needs Rust/Go rewrite      | Replace `apps/sandbox-runner`, contract in `@nojv/core` unchanged                      |
-| Contest domain grows too large     | Extract `packages/domain/contest` → `packages/domain-contest` → `apps/contest-service` |
-| Need separate DB per domain        | Add DB connection per repository, domain code unchanged                                |
-| Different team owns judge          | `apps/worker` + `packages/temporal` already deployable independently                   |
+| When                               | Action                                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Need REST API for mobile/3rd party | Add `apps/api` wrapping domain functions                                                         |
+| Sandbox needs Rust/Go rewrite      | Replace `apps/sandbox-runner`, contract in `@nojv/core` unchanged                                |
+| Contest domain grows too large     | Extract `packages/application/contest` → `packages/application-contest` → `apps/contest-service` |
+| Need separate DB per domain        | Add DB connection per repository, domain code unchanged                                          |
+| Different team owns judge          | `apps/worker` + `packages/temporal` already deployable independently                             |

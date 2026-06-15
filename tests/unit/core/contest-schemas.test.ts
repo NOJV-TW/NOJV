@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { contestCreateSchema } from "../../../packages/core/src/index";
+import {
+  contestCreateSchema,
+  contestSettingsFormSchema,
+  contestUpdateSchema,
+} from "../../../packages/core/src/index";
 
 const baseContestInput = {
   allowedLanguages: [],
@@ -52,5 +56,22 @@ describe("contestCreateSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("contest settings — short title is a form error, never an unhandled 500", () => {
+  it("the permissive settings form schema accepts a short title", () => {
+    const result = contestSettingsFormSchema.safeParse({ title: "ab" });
+    expect(result.success).toBe(true);
+  });
+
+  it("contestUpdateSchema rejects the short title via safeParse (the 400 path)", () => {
+    const result = contestUpdateSchema.safeParse({ title: "ab" });
+    expect(result.success).toBe(false);
+  });
+
+  it("contestUpdateSchema accepts a valid title length", () => {
+    const result = contestUpdateSchema.safeParse({ title: "Final Round" });
+    expect(result.success).toBe(true);
   });
 });

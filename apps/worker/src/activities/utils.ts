@@ -1,7 +1,5 @@
 import { metrics, type Histogram } from "@opentelemetry/api";
 
-import { scoreboard } from "@nojv/redis";
-
 export { getRedis } from "@nojv/redis";
 
 const meter = metrics.getMeter("@nojv/worker", "0.1.0");
@@ -22,6 +20,3 @@ export function recordJudgeLatency(hist: Histogram, args: JudgeLatencyArgs): voi
   const seconds = Math.max(0, (args.completedAtMs - args.startedAtMs) / 1000);
   hist.record(seconds, { mode: args.mode, verdict: args.verdict });
 }
-
-export const updateScoreboard = scoreboard.updateScoreboard;
-export const getScoreboard = scoreboard.getScoreboard;

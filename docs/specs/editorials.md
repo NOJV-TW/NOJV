@@ -236,16 +236,16 @@ answer." Content is markdown, rendered through the shared
 
 ### Domain
 
-- `packages/domain/src/editorial/queries.ts` — `hasUserAcProblem`,
+- `packages/application/src/editorial/queries.ts` — `hasUserAcProblem`,
   `canViewEditorials` (author grandfather OR AC + context-gate-open),
   `resolveActiveContextForUser` (server-side resolution of the
   strictest active event for the viewer; the client cannot supply a
   context), `listProblemEditorials`, `listEditorialsPage`,
   `getEditorialById`. `EditorialViewContext` is the discriminated union
   shared across the gate API.
-- `packages/domain/src/editorial/mutations.ts` — `upsertEditorial`,
+- `packages/application/src/editorial/mutations.ts` — `upsertEditorial`,
   `updateEditorial`, `softDeleteEditorial`.
-- `packages/domain/src/editorial/reports.ts` — `reportEditorial`,
+- `packages/application/src/editorial/reports.ts` — `reportEditorial`,
   `listEditorialReports`, `resolveEditorialReport`.
 - `packages/db/src/repositories/editorial.ts` — `listByProblemId`,
   `listByProblemIdPaged`, `countByProblemId`, `findById`, `upsert`,
@@ -309,6 +309,8 @@ answer." Content is markdown, rendered through the shared
 - `tests/integration/domain/editorial-reports.test.ts` — the same
   moderation flow against a real DB, exercising the unique-constraint
   `ConflictError` and the resolve-time soft-delete.
-- **Still missing**: route-level AC gate tests (403 for GET and POST
-  without AC) and an integration test that round-trips an XSS payload
-  through `MarkdownRenderer` to confirm DOMPurify strips it.
+- `tests/integration/web/markdown-renderer-xss.test.ts` — server-renders
+  `MarkdownRenderer` with an editorial XSS payload and verifies DOMPurify
+  strips executable nodes and attributes.
+- `tests/e2e/editorials.test.ts` — covers route-level AC gates for API
+  GET/POST and the problem editorial list page.

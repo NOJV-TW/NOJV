@@ -9,7 +9,6 @@ test.describe("Contests", () => {
     const page = await context.newPage();
     await page.goto("/contests");
     await expect(page.getByRole("main")).toBeVisible();
-    // Should see the seeded published contest
     await expect(page.getByText("Spring Qualifier 2026")).toBeVisible();
     await context.close();
   });
@@ -19,9 +18,7 @@ test.describe("Contests", () => {
     const page = await context.newPage();
     await page.goto("/contests/spring-qualifier-2026");
     await expect(page.getByRole("main")).toBeVisible();
-    // Contest title should be visible in the detail header
     await expect(page.getByRole("heading", { name: "Spring Qualifier 2026" })).toBeVisible();
-    // Contest problems section should be present
     await expect(page.getByRole("heading", { name: "Problems" })).toBeVisible();
     await context.close();
   });
@@ -31,7 +28,6 @@ test.describe("Contests", () => {
     const page = await context.newPage();
     await page.goto("/contests/spring-qualifier-2026/scoreboard");
     await expect(page.getByRole("main")).toBeVisible();
-    // The scoreboard hero heading is the "Live ranking" h1.
     await expect(page.getByRole("heading", { name: "Live ranking", level: 1 })).toBeVisible();
     await context.close();
   });

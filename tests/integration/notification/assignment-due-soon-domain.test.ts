@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 
 import {
   createTestCourse,
@@ -11,8 +11,6 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-// Notification is NOT in the shared TABLES list truncated by integration-setup,
-// so clear it locally (same pattern as notification-domain.test.ts).
 describe("notificationDomain.fanoutAssignmentDueSoon", () => {
   beforeEach(async () => {
     await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
@@ -25,9 +23,8 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
     const problemA = await createTestProblem({ authorId: teacher.id });
     const problemB = await createTestProblem({ authorId: teacher.id });
 
-    // Assessment closes in 48h — two 10-point problems, max 20.
     const closesAt = new Date(Date.now() + 48 * 3600_000);
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -38,7 +35,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
         closesAt,
       },
     });
-    await testPrisma.courseAssessmentProblem.createMany({
+    await testPrisma.assessmentProblem.createMany({
       data: [
         { assessmentId: assessment.id, problemId: problemA.id, ordinal: 1, points: 10 },
         { assessmentId: assessment.id, problemId: problemB.id, ordinal: 2, points: 10 },
@@ -59,12 +56,11 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       });
     }
 
-    // Student A maxes out (10 + 10 = 20).
     await createTestSubmission({
       userId: studentA.id,
       problemId: problemA.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "accepted",
       score: 10,
     });
@@ -72,16 +68,15 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       userId: studentA.id,
       problemId: problemB.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "accepted",
       score: 10,
     });
-    // Student B partially scores (10 + 5 = 15).
     await createTestSubmission({
       userId: studentB.id,
       problemId: problemA.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "accepted",
       score: 10,
     });
@@ -89,11 +84,10 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       userId: studentB.id,
       problemId: problemB.id,
       courseId: course.id,
-      courseAssessmentId: assessment.id,
+      assessmentId: assessment.id,
       status: "wrong_answer",
       score: 5,
     });
-    // Student C makes no submissions (score 0).
 
     await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
 
@@ -128,7 +122,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -155,7 +149,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,
@@ -181,7 +175,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
-    const assessment = await testPrisma.courseAssessment.create({
+    const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,
         createdByUserId: teacher.id,

@@ -23,9 +23,6 @@ test.describe("Problem workspace UI", () => {
     await page.goto(`/problems/${PROBLEM_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
 
-    // LanguageSelector renders a native <select>. The combobox role
-    // covers it; ensure we have at least two distinct options for the
-    // student to pick from.
     const select = page.getByRole("combobox").first();
     await expect(select).toBeVisible({ timeout: 10_000 });
     const optionCount = await page.locator("option").count();
@@ -38,7 +35,6 @@ test.describe("Problem workspace UI", () => {
     const page = await context.newPage();
     await page.goto(`/problems/${PROBLEM_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    // Wait for hydration so the Monaco editor has registered its model.
     await page.waitForTimeout(1500);
 
     const stamp = `// e2e draft ${Date.now()}\n`;
@@ -54,7 +50,6 @@ test.describe("Problem workspace UI", () => {
     }, stamp);
 
     if (!typed) {
-      // Monaco isn't booted in this environment — workspace e2e is best-effort.
       test.info().annotations.push({
         type: "skip-reason",
         description: "monaco editor not available in workspace; smoke-only",
@@ -63,7 +58,6 @@ test.describe("Problem workspace UI", () => {
       return;
     }
 
-    // Trigger the debounced draft persistence the workspace uses.
     await page.waitForTimeout(1500);
     await page.reload();
     await expect(page.getByRole("main")).toBeVisible();

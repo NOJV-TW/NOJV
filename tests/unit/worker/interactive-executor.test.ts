@@ -42,14 +42,13 @@ function intStderr(outcome: Record<string, unknown>): string {
 describe("mergeInteractiveCase", () => {
   const ok = { stderr: "", timedOut: false, spawnError: false };
 
-  it("uses the interactor outcome (AC + score + teamMessage) when the run is clean", () => {
+  it("uses the interactor verdict (AC) and teamMessage when the run is clean", () => {
     const result = mergeInteractiveCase(
       TESTCASE,
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 12, errorVerdict: null }) },
-      { ...ok, stderr: intStderr({ verdict: "AC", score: 80, teamMessage: "solved in 4" }) },
+      { ...ok, stderr: intStderr({ verdict: "AC", teamMessage: "solved in 4" }) },
     );
     expect(result.verdict).toBe("AC");
-    expect(result.score).toBe(80);
     expect(result.feedback).toBe("solved in 4");
     expect(result.index).toBe(2);
     expect(result.timeMs).toBe(12);
@@ -59,20 +58,18 @@ describe("mergeInteractiveCase", () => {
     const result = mergeInteractiveCase(
       TESTCASE,
       { ...ok, stderr: runStderr({ exitCode: -1, timeMs: 6000, errorVerdict: "TLE" }) },
-      { ...ok, stderr: intStderr({ verdict: "AC", score: 100 }) },
+      { ...ok, stderr: intStderr({ verdict: "AC" }) },
     );
     expect(result.verdict).toBe("TLE");
-    expect(result.score).toBe(0);
   });
 
-  it("WA outcome with no explicit score defaults to 0", () => {
+  it("renders a WA verdict from the interactor", () => {
     const result = mergeInteractiveCase(
       TESTCASE,
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
       { ...ok, stderr: intStderr({ verdict: "WA" }) },
     );
     expect(result.verdict).toBe("WA");
-    expect(result.score).toBe(0);
   });
 
   it("surfaces the interactor judgeMessage as staffFeedback (not the student feedback)", () => {
@@ -90,7 +87,6 @@ describe("mergeInteractiveCase", () => {
     );
     expect(result.feedback).toBe("wrong guess");
     expect(result.staffFeedback).toBe("secret answer was 7");
-    // The raw key name from the validator outcome must not leak through.
     expect(JSON.stringify(result)).not.toContain("judgeMessage");
   });
 
@@ -182,7 +178,6 @@ describe("interactive container file layout", () => {
     expect(await readFile(join(solDir, "main.py"), "utf8")).toBe("print('hi')\n");
     const config = JSON.parse(await readFile(join(solDir, "config.json"), "utf8"));
     expect(config.interactive).toEqual({ role: "solution" });
-    // The secret must NOT be present in the solution container.
     expect(await exists(join(solDir, "cases"))).toBe(false);
     expect(await exists(join(solDir, "interactor.py"))).toBe(false);
   });
@@ -194,7 +189,6 @@ describe("interactive container file layout", () => {
     expect(await readFile(join(intDir, "cases", "2", "answer.txt"), "utf8")).toBe("answer 7\n");
     const config = JSON.parse(await readFile(join(intDir, "config.json"), "utf8"));
     expect(config.interactive).toEqual({ role: "validator", language: "python", index: 2 });
-    // No student source in the interactor container.
     expect(await exists(join(intDir, "main.py"))).toBe(false);
   });
 });

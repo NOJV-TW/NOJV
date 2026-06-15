@@ -25,7 +25,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { anyWithContextForProblem: submissionAnyWithContextForProblem },
 }));
 
-import { ForbiddenError, submissionDomain } from "@nojv/domain";
+import { ForbiddenError, submissionDomain } from "@nojv/application";
 
 const { assertBatchRejudgeAccess } = submissionDomain;
 
@@ -192,7 +192,6 @@ describe("assertBatchRejudgeAccess — unscoped (bare problemId)", () => {
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_stranger" }), baseBatch),
     ).rejects.toBeInstanceOf(ForbiddenError);
-    // Short-circuits before checking non-practice submissions.
     expect(submissionAnyWithContextForProblem).not.toHaveBeenCalled();
   });
 });

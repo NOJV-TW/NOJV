@@ -211,7 +211,7 @@ export const problemsPaths = {
   "/api/problems/{id}/advanced-image": {
     post: {
       tags: ["Problems Management"],
-      summary: "Upload advanced problem Docker image tarball",
+      summary: "Upload an advanced problem Docker image tarball for one role",
       operationId: "uploadAdvancedProblemImage",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       requestBody: {
@@ -221,12 +221,16 @@ export const problemsPaths = {
             schema: {
               type: "object",
               properties: {
+                role: {
+                  type: "string",
+                  enum: ["run", "grade", "service"],
+                },
                 tarball: {
                   type: "string",
                   format: "binary",
                 },
               },
-              required: ["tarball"],
+              required: ["role", "tarball"],
             },
           },
         },
@@ -262,8 +266,16 @@ export const problemsPaths = {
   "/api/problems/advanced-scaffold": {
     get: {
       tags: ["Problems Management"],
-      summary: "Download advanced problem scaffold",
+      summary: "Download an advanced problem scaffold for one role",
       operationId: "downloadAdvancedProblemScaffold",
+      parameters: [
+        {
+          name: "role",
+          in: "query",
+          required: false,
+          schema: { type: "string", enum: ["run", "grade", "service"], default: "run" },
+        },
+      ],
       responses: {
         "200": {
           description: "Scaffold zip file",

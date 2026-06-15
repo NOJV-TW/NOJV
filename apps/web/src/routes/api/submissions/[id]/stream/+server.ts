@@ -3,16 +3,16 @@ import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
 import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
 import { getClientIp } from "$lib/server/shared/client-ip";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import { submissionResultSchema } from "@nojv/core";
 
-const { getSubmissionForUser, getVerdictDetail, querySubmissionStatus, stripStaffFeedback } =
+const { getSubmissionForUser, getVerdictDetail, getSubmissionStatus, stripStaffFeedback } =
   submissionDomain;
 
 function sanitizeVerdictDetail(raw: unknown): unknown {
   if (raw === null || raw === undefined) return raw;
   const parsed = submissionResultSchema.safeParse(raw);
-  return parsed.success ? stripStaffFeedback(parsed.data) : raw;
+  return parsed.success ? stripStaffFeedback(parsed.data) : null;
 }
 
 async function loadDetail(
@@ -24,7 +24,7 @@ async function loadDetail(
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
-const TERMINAL_STATUSES = new Set(["completed", "failed"]);
+const NON_TERMINAL_STATUSES = new Set(["pending_upload", "queued", "compiling", "running"]);
 
 export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);
@@ -71,7 +71,7 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.close();
         } catch {
-          // ignore: controller already closed
+          return;
         }
       });
 
@@ -81,21 +81,14 @@ export const GET: RequestHandler = async (event) => {
 
       try {
         while (Date.now() - startTime < MAX_DURATION_MS) {
-          try {
-            const status = await querySubmissionStatus(submissionId);
-            send({ status, submissionId });
+          const status = await getSubmissionStatus(submissionId);
+          if (status === null) {
+            send({ error: "Submission not found." });
+            break;
+          }
+          send({ status, submissionId });
 
-            if (TERMINAL_STATUSES.has(status)) {
-              const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
-              const detail = await loadDetail(submission);
-              send({
-                result: sanitizeVerdictDetail(detail),
-                status: submission.status,
-                submissionId: submission.id,
-              });
-              break;
-            }
-          } catch {
+          if (!NON_TERMINAL_STATUSES.has(status)) {
             const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
             const detail = await loadDetail(submission);
             send({

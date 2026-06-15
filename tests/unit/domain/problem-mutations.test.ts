@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Shared repo stubs — hoisted so they can be referenced in the vi.mock
-// factory below (vi.mock is hoisted above regular imports).
 const {
   problemCreate,
   problemStatementCreate,
@@ -10,6 +8,8 @@ const {
   problemFindById,
   problemUpdate,
   problemUpdateAdvancedRequiredPaths,
+  problemDelete,
+  problemHasContextLinks,
   PRISMA_JSON_NULL,
 } = vi.hoisted(() => ({
   problemCreate: vi.fn(),
@@ -19,14 +19,12 @@ const {
   problemFindById: vi.fn(),
   problemUpdate: vi.fn(),
   problemUpdateAdvancedRequiredPaths: vi.fn(),
-  // Sentinel for Prisma.JsonNull — we only need identity equality in assertions.
+  problemDelete: vi.fn(),
+  problemHasContextLinks: vi.fn(),
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
 
 vi.mock("@nojv/storage", () => {
-  // Lazy stub: domain code only uses these primitives. We don't care about
-  // the actual values here — `updateProblemWorkspace` writes blobs before
-  // INSERT and the test only asserts the DB-side effects.
   return {
     createStorageClient: vi.fn(() => ({})),
     putText: vi.fn(() => Promise.resolve()),
@@ -67,7 +65,8 @@ vi.mock("@nojv/db", () => {
     problemRepo: {
       withTx: () => withTx,
       findById: problemFindById,
-      delete: vi.fn(),
+      delete: problemDelete,
+      hasContextLinks: problemHasContextLinks,
       updateAdvancedRequiredPaths: problemUpdateAdvancedRequiredPaths,
     },
     problemStatementRepo: {
@@ -83,10 +82,14 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { ConflictError, problemDomain } from "@nojv/domain";
+import { ConflictError, problemDomain } from "@nojv/application";
 
-const { createProblemDefinition, updateProblemWorkspace, updateAdvancedRequiredPaths } =
-  problemDomain;
+const {
+  createProblemDefinition,
+  updateProblemWorkspace,
+  updateAdvancedRequiredPaths,
+  deleteProblemRecord,
+} = problemDomain;
 
 const fakeTx = {} as never;
 
@@ -102,15 +105,14 @@ describe("createProblemDefinition", () => {
     problemCreate.mockResolvedValue({ id: "prob_1" });
   });
 
-  it("defaults type to full_source and leaves special_env fields unset", async () => {
+  it("defaults type to full_source and leaves advancedConfig unset", async () => {
     await createProblemDefinition(fakeTx, baseInput);
 
     expect(problemCreate).toHaveBeenCalledTimes(1);
     const data = problemCreate.mock.calls[0][0];
     expect(data.type).toBe("full_source");
     expect(data.samples).toBe(PRISMA_JSON_NULL);
-    expect(data.advancedImageRef).toBeUndefined();
-    expect(data.advancedImageSource).toBeUndefined();
+    expect(data.advancedConfig).toBeUndefined();
   });
 
   it("honors type: 'special_env' explicitly passed by the caller", async () => {
@@ -120,25 +122,27 @@ describe("createProblemDefinition", () => {
     expect(data.type).toBe("special_env");
   });
 
-  it("applies special_env defaults when type is special_env and fields omitted", async () => {
+  it("leaves advancedConfig unset when type is special_env and config omitted", async () => {
     await createProblemDefinition(fakeTx, { ...baseInput, type: "special_env" });
 
     const data = problemCreate.mock.calls[0][0];
-    expect(data.advancedImageRef).toBe("");
-    expect(data.advancedImageSource).toBe("registry");
+    expect(data.advancedConfig).toBeUndefined();
   });
 
-  it("preserves caller-supplied special_env fields when provided", async () => {
+  it("preserves caller-supplied advancedConfig when provided", async () => {
+    const config = {
+      run: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
+      grade: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
+      network: { mode: "none" as const },
+    };
     await createProblemDefinition(fakeTx, {
       ...baseInput,
       type: "special_env",
-      advancedImageRef: "ghcr.io/acme/ta:1.2.3",
-      advancedImageSource: "tarball",
+      advancedConfig: config,
     });
 
     const data = problemCreate.mock.calls[0][0];
-    expect(data.advancedImageRef).toBe("ghcr.io/acme/ta:1.2.3");
-    expect(data.advancedImageSource).toBe("tarball");
+    expect(data.advancedConfig).toEqual(config);
   });
 
   it("writes difficulty to its dedicated column and leaves tags untouched", async () => {
@@ -190,11 +194,7 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
   });
 
   it("rejects when a single language exceeds 1 MB across multiple files", async () => {
-    // main.py (required) + two big python files → > 1 MB total for python.
     const chunk = "a".repeat(600_000);
-    // Round 4 regression: this threw plain `new Error(...)` which became
-    // HTTP 500 instead of 409. Assert the error class explicitly so a
-    // future change back to `Error` fails loudly.
     await expect(
       updateProblemWorkspace(actor, "prob_1", {
         files: [
@@ -246,7 +246,6 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
   });
 
   it("rejects only the offending language when another language fits", async () => {
-    // Python stays well under budget, cpp goes over.
     const pythonChunk = "p".repeat(10);
     const cppBig = "c".repeat(1_100_000);
     await expect(
@@ -299,9 +298,6 @@ describe("updateAdvancedRequiredPaths — special_env type guard", () => {
   });
 
   it("rejects non-empty paths on a non-special_env problem with ConflictError", async () => {
-    // problemUpdateSchema.partial() drops the create-time superRefine arm,
-    // so the canonical guard for partial updates lives in the mutation
-    // itself. This is the regression test for that guard.
     problemFindById.mockResolvedValue({
       id: "prob_full",
       authorId: "usr_author",
@@ -332,8 +328,6 @@ describe("updateAdvancedRequiredPaths — special_env type guard", () => {
   });
 
   it("allows clearing (empty array) on a non-special_env problem — idempotent", async () => {
-    // Clearing must always succeed regardless of type so that callers can
-    // safely call this on any problem to reset the column.
     problemFindById.mockResolvedValue({
       id: "prob_full",
       authorId: "usr_author",
@@ -342,5 +336,36 @@ describe("updateAdvancedRequiredPaths — special_env type guard", () => {
 
     await expect(updateAdvancedRequiredPaths(actor, "prob_full", [])).resolves.toBeUndefined();
     expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledWith("prob_full", []);
+  });
+});
+
+describe("deleteProblemRecord — context-link guard (P1)", () => {
+  const actor = {
+    userId: "usr_author",
+    username: "author",
+    platformRole: "teacher" as const,
+    displayName: "Author",
+    email: "author@example.com",
+  };
+  const ownedProblem = { id: "prob_1", authorId: "usr_author", visibility: "private" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemFindById.mockResolvedValue(ownedProblem);
+    problemDelete.mockResolvedValue(ownedProblem);
+  });
+
+  it("refuses to delete a problem still linked to a contest/exam/assignment", async () => {
+    problemHasContextLinks.mockResolvedValue(true);
+
+    await expect(deleteProblemRecord(actor, "prob_1")).rejects.toBeInstanceOf(ConflictError);
+    expect(problemDelete).not.toHaveBeenCalled();
+  });
+
+  it("deletes a problem with no context links", async () => {
+    problemHasContextLinks.mockResolvedValue(false);
+
+    await expect(deleteProblemRecord(actor, "prob_1")).resolves.toBeDefined();
+    expect(problemDelete).toHaveBeenCalledWith("prob_1");
   });
 });

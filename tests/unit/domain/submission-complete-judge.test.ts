@@ -1,9 +1,3 @@
-// completeJudge — verdictDetail split:
-//   - full SubmissionResult lands in S3 at submissions/<id>/verdict-detail.json
-//   - DB row gets a summary digest + the storage key
-//   - storage write happens BEFORE the DB update so a storage failure leaves
-//     the row in its pre-terminal state (no AC verdict without detail)
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
@@ -14,11 +8,10 @@ const { submissionComplete, storageRef } = vi.hoisted(() => ({
 }));
 
 vi.mock("@nojv/db", () => ({
+  Prisma: { JsonNull: { __jsonNull: true } },
   submissionRepo: {
     complete: submissionComplete,
   },
-  // The completeJudge path doesn't touch these, but the @nojv/db barrel
-  // export is wide — stub the surface our import graph reaches.
   problemRepo: { withTx: () => ({}) },
   userRepo: { withTx: () => ({}) },
   courseRepo: { withTx: () => ({}) },
@@ -32,7 +25,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
   __setStorageClientForTests: (c: unknown) => {
     storageRef.client = c as typeof storageRef.client;
@@ -40,7 +33,8 @@ vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
 }));
 
 import type { SubmissionResult } from "@nojv/core";
-import { submissionDomain } from "@nojv/domain";
+import { Prisma } from "@nojv/db";
+import { submissionDomain } from "@nojv/application";
 
 const { completeJudge, deriveVerdictSummary } = submissionDomain;
 
@@ -137,7 +131,8 @@ describe("completeJudge — storage + DB write", () => {
     });
     submissionComplete.mockResolvedValue({
       id: "sub_1",
-      contestParticipationId: null,
+      contestId: null,
+      examId: null,
       createdAt: new Date(),
       language: "python",
       problemId: "prob_1",
@@ -149,12 +144,10 @@ describe("completeJudge — storage + DB write", () => {
 
     await completeJudge("sub_1", result);
 
-    // S3 received exactly one PutObject under the verdict-detail key.
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
     expect([...store.keys()]).toEqual(["submissions/sub_1/verdict-detail.json"]);
     expect(JSON.parse(store.get("submissions/sub_1/verdict-detail.json")!)).toEqual(result);
 
-    // The DB write carries summary + storage key, no longer the full result.
     expect(submissionComplete).toHaveBeenCalledTimes(1);
     const updateArg = submissionComplete.mock.calls[0]![1] as {
       runtimeMs: number;
@@ -194,7 +187,8 @@ describe("completeJudge — storage + DB write", () => {
     const result = makeResult({ verdict: "wrong_answer", score: 30 });
     submissionComplete.mockResolvedValue({
       id: "sub_3",
-      contestParticipationId: null,
+      contestId: null,
+      examId: null,
       createdAt: new Date(),
       language: "python",
       problemId: "prob_3",
@@ -208,5 +202,55 @@ describe("completeJudge — storage + DB write", () => {
 
     const updateArg = submissionComplete.mock.calls[0]![1] as Record<string, unknown>;
     expect(updateArg).not.toHaveProperty("memoryKb");
+  });
+
+  it("records the advancedConfig audit snapshot when an advanced config is supplied", async () => {
+    submissionComplete.mockResolvedValue({
+      id: "sub_adv",
+      contestId: null,
+      examId: null,
+      createdAt: new Date(),
+      language: "python",
+      problemId: "prob_adv",
+      sampleOnly: false,
+      score: 100,
+      status: "accepted",
+      userId: "usr_adv",
+    });
+
+    const config = {
+      run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" as const },
+      grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" as const },
+      network: { mode: "none" as const },
+    };
+
+    await completeJudge("sub_adv", makeResult({ verdict: "accepted", score: 100 }), config);
+
+    const updateArg = submissionComplete.mock.calls[0]![1] as {
+      advancedConfigSnapshot: unknown;
+    };
+    expect(updateArg.advancedConfigSnapshot).toEqual(config);
+  });
+
+  it("writes a null advancedConfig snapshot for non-advanced submissions", async () => {
+    submissionComplete.mockResolvedValue({
+      id: "sub_std",
+      contestId: null,
+      examId: null,
+      createdAt: new Date(),
+      language: "python",
+      problemId: "prob_std",
+      sampleOnly: false,
+      score: 0,
+      status: "wrong_answer",
+      userId: "usr_std",
+    });
+
+    await completeJudge("sub_std", makeResult());
+
+    const updateArg = submissionComplete.mock.calls[0]![1] as {
+      advancedConfigSnapshot: unknown;
+    };
+    expect(updateArg.advancedConfigSnapshot).toBe(Prisma.JsonNull);
   });
 });

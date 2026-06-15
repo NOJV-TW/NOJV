@@ -1,13 +1,20 @@
 import { z } from "zod";
 
-const PATH_RE = /^[A-Za-z0-9._\-/]+$/;
+import { parseRelativePath } from "./path";
 
-export const requiredPathSchema = z
-  .string()
-  .min(1)
-  .max(256)
-  .regex(PATH_RE, "Path may only contain letters, digits, '.', '_', '-', '/'.")
-  .refine((p) => !p.includes(".."), "Path may not contain '..'")
-  .refine((p) => !p.startsWith("/"), "Path must be relative");
+export const requiredPathSchema = z.string().transform((rawPath, ctx) => {
+  const isDirectoryRequirement = rawPath.endsWith("/");
+  const candidate = isDirectoryRequirement ? rawPath.slice(0, -1) : rawPath;
+  try {
+    const path = parseRelativePath(candidate);
+    return isDirectoryRequirement ? `${path}/` : path;
+  } catch (err) {
+    ctx.addIssue({
+      code: "custom",
+      message: err instanceof Error ? err.message : "Path contains unsafe characters",
+    });
+    return z.NEVER;
+  }
+});
 
 export const requiredPathsSchema = z.array(requiredPathSchema).max(50).default([]);

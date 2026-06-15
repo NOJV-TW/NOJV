@@ -25,7 +25,6 @@
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
-  // Progress view state (shown after a batch is queued).
   let workflowId = $state<string | null>(null);
   let progress = $state<{ completed: number; total: number }>({ completed: 0, total: 0 });
   let done = $state(false);
@@ -54,7 +53,7 @@
         }
       }
     } catch {
-      // Transient network error — keep polling on the next tick.
+      return;
     }
   }
 
@@ -166,12 +165,8 @@
         startPolling();
       } else {
         let msg: string = m.rejudge_toast_error();
-        try {
-          const body = (await res.json()) as { message?: string };
-          if (body.message) msg = body.message;
-        } catch {
-          // ignore JSON parse failure — keep default message
-        }
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        if (body?.message) msg = body.message;
         error = msg;
         toasts.add({ type: "error", message: msg });
       }

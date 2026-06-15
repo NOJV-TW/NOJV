@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Hoisted repo stubs so `vi.mock` can close over them.
 const {
   examFindById,
   examUpdate,
@@ -36,9 +35,6 @@ vi.mock("@nojv/db", () => {
       findByExamId: vi.fn(),
       countByExamId: examProblemCount,
     },
-    examParticipationRepo: {
-      withTx: () => ({ upsert: vi.fn(), findByExamAndUser: vi.fn() }),
-    },
     problemRepo: {
       withTx: () => ({ findMany: vi.fn() }),
     },
@@ -52,21 +48,12 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-vi.mock("@nojv/temporal", () => {
-  return {
-    dispatchExamAutoClose,
-    dispatchContestLifecycle: vi.fn(),
-    dispatchPlagiarismCheck: vi.fn(),
-    dispatchRejudge: vi.fn(),
-    dispatchSubmissionJudge: vi.fn(),
-    queryPlagiarismStatus: vi.fn(),
-    queryRejudgeProgress: vi.fn(),
-    querySubmissionStatus: vi.fn(),
-    closeClient: vi.fn(),
-  };
-});
-
-import { examDomain, ForbiddenError, ValidationError } from "@nojv/domain";
+import {
+  configureDomainOrchestration,
+  examDomain,
+  ForbiddenError,
+  ValidationError,
+} from "@nojv/application";
 
 const { publishExam, deleteExamDraft, updateExamRecord } = examDomain;
 
@@ -98,6 +85,20 @@ function publishableExam(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+beforeEach(() => {
+  configureDomainOrchestration({
+    cancelRejudge: vi.fn(async () => {}),
+    dispatchContestLifecycle: vi.fn(async () => {}),
+    dispatchExamAutoClose,
+    dispatchPlagiarismCheck: vi.fn(async () => {}),
+    dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
+    dispatchSubmissionJudge: vi.fn(async () => {}),
+    probeTemporal: vi.fn(async () => {}),
+    queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    terminateSubmissionJudge: vi.fn(async () => {}),
+  });
+});
 
 describe("publishExam", () => {
   beforeEach(() => {
@@ -168,7 +169,6 @@ describe("publishExam", () => {
 
   it("rejects when the actor is not the creator and not course staff", async () => {
     examFindById.mockResolvedValue(publishableExam());
-    // Outsider has no active teacher / TA membership.
     membershipFindByComposite.mockResolvedValue(null);
 
     await expect(publishExam(fakeOtherActor, "exam_1")).rejects.toBeInstanceOf(ForbiddenError);

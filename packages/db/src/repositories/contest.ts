@@ -1,26 +1,12 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import { problemMiniSelect, userMiniSelect, userScoreboardSelect } from "./selects";
+import { problemMiniSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
-export class ParticipationVersionConflict extends Error {
-  readonly participationId: string;
-  readonly expectedVersion: number;
-
-  constructor(participationId: string, expectedVersion: number) {
-    super(
-      `ContestParticipation ${participationId} version ${String(expectedVersion)} no longer current.`,
-    );
-    this.name = "ParticipationVersionConflict";
-    this.participationId = participationId;
-    this.expectedVersion = expectedVersion;
-  }
-}
-
 const contestListInclude = {
-  _count: { select: { participations: true, problems: true } },
+  _count: { select: { participations: { where: { type: "contest" } }, problems: true } },
 } as const;
 
 export const contestRepo = {
@@ -44,6 +30,7 @@ export const contestRepo = {
 
   listPublished() {
     return prisma.contest.findMany({
+      omit: { plagiarismResults: true },
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
       where: { visibility: "published" },
@@ -61,7 +48,7 @@ export const contestRepo = {
   findDetailById(id: string) {
     return prisma.contest.findUnique({
       include: {
-        _count: { select: { participations: true } },
+        _count: { select: { participations: { where: { type: "contest" } } } },
         problems: {
           include: {
             problem: { select: problemMiniSelect },
@@ -73,14 +60,10 @@ export const contestRepo = {
     });
   },
 
-  findWorkspaceById(id: string, userId: string) {
+  findWorkspaceById(id: string) {
     return prisma.contest.findUnique({
       include: {
-        _count: { select: { participations: true } },
-        participations: {
-          where: { userId },
-          take: 1,
-        },
+        _count: { select: { participations: { where: { type: "contest" } } } },
         problems: {
           include: {
             problem: { select: problemMiniSelect },
@@ -98,25 +81,6 @@ export const contestRepo = {
         problems: {
           include: { problem: { select: problemMiniSelect } },
           orderBy: { ordinal: "asc" },
-        },
-        participations: {
-          include: {
-            user: { select: userScoreboardSelect },
-          },
-          where: { status: { in: ["active", "submitted"] } },
-        },
-      },
-      where: { id },
-    });
-  },
-
-  findForChartById(id: string, userIds: string[]) {
-    return prisma.contest.findUnique({
-      select: {
-        startsAt: true,
-        participations: {
-          where: { userId: { in: userIds } },
-          select: { id: true, userId: true },
         },
       },
       where: { id },
@@ -192,7 +156,7 @@ export const contestProblemRepo = {
           contest: {
             visibility: "published",
             endsAt: { lt: now },
-            participations: { some: { userId } },
+            participations: { some: { type: "contest", userId } },
           },
         },
         select: { id: true },
@@ -226,97 +190,16 @@ export const contestProblemRepo = {
         return tx.contestProblem.count({ where: { contestId } });
       },
 
+      findLink(contestId: string, problemId: string) {
+        return tx.contestProblem.findFirst({
+          where: { contestId, problemId },
+          select: { id: true },
+        });
+      },
+
       deleteByContestId(contestId: string) {
         return tx.contestProblem.deleteMany({
           where: { contestId },
-        });
-      },
-    };
-  },
-};
-
-export const contestParticipationRepo = {
-  findByIdWithContest(id: string) {
-    return prisma.contestParticipation.findUnique({
-      include: {
-        contest: {
-          include: {
-            problems: { orderBy: { ordinal: "asc" } },
-          },
-        },
-      },
-      where: { id },
-    });
-  },
-
-  listParticipantUserIds(contestId: string) {
-    return prisma.contestParticipation
-      .findMany({ where: { contestId }, select: { userId: true } })
-      .then((rows) => rows.map((r) => r.userId));
-  },
-
-  listParticipantsWithUser(contestId: string) {
-    return prisma.contestParticipation.findMany({
-      where: { contestId },
-      include: { user: { select: userMiniSelect } },
-      orderBy: [{ user: { username: "asc" } }],
-    });
-  },
-
-  update(id: string, data: Prisma.ContestParticipationUpdateInput) {
-    return prisma.contestParticipation.update({
-      data,
-      where: { id },
-    });
-  },
-
-  async updateWithVersion(
-    id: string,
-    expectedVersion: number,
-    data: Prisma.ContestParticipationUpdateInput,
-  ) {
-    try {
-      return await prisma.contestParticipation.update({
-        data: { ...data, version: { increment: 1 } },
-        where: { id, version: expectedVersion },
-      });
-    } catch (err) {
-      if (err instanceof Error && (err as { code?: string }).code === "P2025") {
-        throw new ParticipationVersionConflict(id, expectedVersion);
-      }
-      throw err;
-    }
-  },
-
-  findIdByContestAndUser(contestId: string, userId: string) {
-    return prisma.contestParticipation
-      .findUnique({
-        where: { contestId_userId: { contestId, userId } },
-        select: { id: true },
-      })
-      .then((row) => row?.id ?? null);
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      upsert(
-        contestId: string,
-        userId: string,
-        createData: Prisma.ContestParticipationUncheckedCreateInput,
-        updateData: Prisma.ContestParticipationUncheckedUpdateInput,
-      ) {
-        return tx.contestParticipation.upsert({
-          create: createData,
-          update: updateData,
-          where: {
-            contestId_userId: { contestId, userId },
-          },
-        });
-      },
-
-      findByContestAndUser(contestId: string, userId: string) {
-        return tx.contestParticipation.findUnique({
-          where: { contestId_userId: { contestId, userId } },
         });
       },
     };

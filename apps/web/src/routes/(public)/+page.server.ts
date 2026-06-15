@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 
-import { courseDomain } from "@nojv/domain";
+import { courseDomain } from "@nojv/application";
 import { DEFAULT_LOCALE } from "@nojv/core";
 import { getActorContext } from "$lib/server/auth";
 

@@ -24,7 +24,7 @@ Today `/account` is read-only. `User.name` is seeded from the OAuth provider or 
 
 ## Domain layer
 
-New file (or extend) `packages/domain/src/user/mutations.ts`:
+New file (or extend) `packages/application/src/user/mutations.ts`:
 
 ```ts
 renameName(userId: string, newName: string): Promise<void>
@@ -45,7 +45,7 @@ renameUsername(userId: string, newUsername: string): Promise<{ merged: boolean }
   //        - otherwise → throw ConflictError('TAKEN')
 ```
 
-Error classes come from `packages/domain/src/shared/errors.ts` (existing `ConflictError`, add `ForbiddenError` if missing — check first).
+Error classes come from `packages/application/src/shared/errors.ts` (existing `ConflictError`, add `ForbiddenError` if missing — check first).
 
 ## Server actions
 

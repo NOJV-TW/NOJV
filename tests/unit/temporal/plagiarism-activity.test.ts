@@ -17,7 +17,7 @@ const { updateReportStatus, listSubmissionsForCheck, saveResults, markReportFail
     markReportFailed: vi.fn(),
   }));
 
-vi.mock("@nojv/domain", () => ({
+vi.mock("@nojv/application", () => ({
   plagiarismDomain: {
     updateReportStatus,
     listSubmissionsForCheck,
@@ -28,7 +28,7 @@ vi.mock("@nojv/domain", () => ({
 
 import { runPlagiarismCheck } from "../../../apps/worker/src/activities/plagiarism";
 
-const target = { type: "courseAssessment" as const, id: "asg_1" };
+const target = { type: "assessment" as const, id: "asg_1" };
 
 const IDENTICAL_PY = `def solve(n):
     total = 0
@@ -123,21 +123,18 @@ describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)"
     expect(payload.pairs).toEqual([]);
   });
 
-  it("silently skips submissions in unmapped languages", async () => {
+  it("fails the report instead of silently skipping unmapped languages", async () => {
     listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, "brainfuck_source", "brainfuck"),
       sub("usr_b", "prob_1", 100, IDENTICAL_PY, "python"),
       sub("usr_c", "prob_1", 100, IDENTICAL_PY, "python"),
     ]);
 
-    await runPlagiarismCheck(target.id, target.type);
-
-    const [, payload] = saveResults.mock.calls[0];
-    expect(payload.pairs).toHaveLength(1);
-    const users = [payload.pairs[0].userId1, payload.pairs[0].userId2].sort(
-      (a, b) => Number(a > b) - Number(a < b),
+    await expect(runPlagiarismCheck(target.id, target.type)).rejects.toThrow(
+      "Unsupported plagiarism language: brainfuck",
     );
-    expect(users).toEqual(["usr_b", "usr_c"]);
+    expect(markReportFailed).toHaveBeenCalledWith(target);
+    expect(saveResults).not.toHaveBeenCalled();
   });
 });
 
@@ -169,9 +166,6 @@ describe("runPlagiarismCheck — pair emission", () => {
     await runPlagiarismCheck(target.id, target.type);
 
     const [, payload] = saveResults.mock.calls[0];
-    // Dolos may return no pair below its minSimilarity threshold, OR an
-    // entry with very low similarity. Both are acceptable "no meaningful
-    // match" outcomes.
     if (payload.pairs.length > 0) {
       expect(payload.pairs[0].similarity).toBeLessThan(30);
     }

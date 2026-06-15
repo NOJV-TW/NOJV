@@ -1,10 +1,11 @@
 import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { detectImageMime } from "$lib/server/shared/file-validation";
 import { deleteAvatar, MAX_AVATAR_BYTES, uploadAvatar } from "$lib/server/storage/avatar";
 
 export const PUT: RequestHandler = writeApiHandler(async (event) => {
@@ -26,6 +27,9 @@ export const PUT: RequestHandler = writeApiHandler(async (event) => {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (detectImageMime(buffer) !== "image/webp") {
+    error(400, "Invalid file content. Avatars must be webp.");
+  }
   const { url } = await uploadAvatar(actor, { buffer });
   await userDomain.setUserAvatar(actor.userId, url);
 

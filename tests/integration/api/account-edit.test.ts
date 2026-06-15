@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 import { userRepo } from "@nojv/db";
 
 import { createTestCourse, createTestUser, testPrisma } from "../../fixtures/factories";
@@ -16,8 +16,6 @@ describe("account edit — rename name + username", () => {
   });
 
   it("renameUsername on non-verified user updates DB and returns merged: false", async () => {
-    // Factory default username is `test_<ts>_<n>` — not a student-ID format,
-    // so the user is non-verified.
     const user = await createTestUser();
 
     const result = await userDomain.renameUsername(user.id, "new_handle");
@@ -32,7 +30,6 @@ describe("account edit — rename name + username", () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
 
-    // Placeholder handle the teacher bulk-pasted into the course.
     const placeholderHandle = "pending_student_1";
     const placeholder = await userRepo.createPlaceholder({
       username: placeholderHandle,
@@ -48,7 +45,6 @@ describe("account edit — rename name + username", () => {
       },
     });
 
-    // Real (non-verified) user renames into the placeholder's handle.
     const realUser = await createTestUser();
     const result = await userDomain.renameUsername(realUser.id, placeholderHandle);
 
@@ -67,7 +63,6 @@ describe("account edit — rename name + username", () => {
   });
 
   it("renameUsername on verified user rejects with VERIFIED_LOCKED", async () => {
-    // `41047001a` matches the NTNU student-ID regex → user is considered verified.
     const user = await createTestUser({ username: "41047001a" });
 
     await expect(userDomain.renameUsername(user.id, "anything")).rejects.toThrow(

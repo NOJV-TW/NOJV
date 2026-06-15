@@ -22,7 +22,7 @@ vi.mock("@nojv/db", () => ({
   examRepo: { findById: examFindById },
 }));
 
-import { editorialDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/application";
 
 const { canViewEditorials } = editorialDomain;
 
@@ -36,8 +36,6 @@ beforeEach(() => {
   contestFindById.mockReset();
   assessmentFindInfoById.mockReset();
   examFindById.mockReset();
-  // By default, the user is NOT an editorial author. Each test that needs
-  // the grandfather rule sets this to true explicitly.
   editorialExistsForUserProblem.mockResolvedValue(false);
 });
 
@@ -79,8 +77,6 @@ describe("canViewEditorials — context gate", () => {
   });
 
   it("M3 fix: denies AC + contest missing (fail-closed)", async () => {
-    // A transient Prisma flap or a stale contestId must NOT leak the
-    // editorial. The gate fails closed on a null lookup.
     submissionCount.mockResolvedValue(1);
     contestFindById.mockResolvedValue(null);
     await expect(
@@ -129,8 +125,6 @@ describe("canViewEditorials — context gate", () => {
   });
 
   it("M3 fix: denies AC + assignment missing (fail-closed)", async () => {
-    // findInfoById throws on a missing row; the gate must fail closed
-    // rather than leak the editorial during a transient lookup failure.
     submissionCount.mockResolvedValue(1);
     assessmentFindInfoById.mockRejectedValue(new Error("not found"));
     await expect(
@@ -197,9 +191,7 @@ describe("canViewEditorials — context gate", () => {
     ).resolves.toBe(false);
   });
 
-  it("allows editorial author + contest in progress (grandfather rule)", async () => {
-    // Author has no AC (e.g. rejudge overturned it) — should still see
-    // editorials regardless of the active context gate.
+  it("Phase 5.10: editorial author during active contest is blocked (gate checked first)", async () => {
     submissionCount.mockResolvedValue(0);
     editorialExistsForUserProblem.mockResolvedValue(true);
     contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: FUTURE });
@@ -209,10 +201,10 @@ describe("canViewEditorials — context gate", () => {
         contestId: "ctx_1",
         now: NOW,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
   });
 
-  it("allows editorial author + assignment before closesAt (grandfather rule)", async () => {
+  it("Phase 5.10: editorial author during active assignment is blocked (gate checked first)", async () => {
     submissionCount.mockResolvedValue(0);
     editorialExistsForUserProblem.mockResolvedValue(true);
     assessmentFindInfoById.mockResolvedValue({ closesAt: FUTURE });
@@ -220,6 +212,19 @@ describe("canViewEditorials — context gate", () => {
       canViewEditorials("usr_1", "prob_1", {
         kind: "assignment",
         assignmentId: "asn_1",
+        now: NOW,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("Phase 5.10: editorial author can view after contest ends even without AC", async () => {
+    submissionCount.mockResolvedValue(0);
+    editorialExistsForUserProblem.mockResolvedValue(true);
+    contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: PAST });
+    await expect(
+      canViewEditorials("usr_1", "prob_1", {
+        kind: "contest",
+        contestId: "ctx_1",
         now: NOW,
       }),
     ).resolves.toBe(true);

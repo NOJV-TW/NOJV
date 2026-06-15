@@ -1,13 +1,11 @@
 export const keys = {
-  scoreboard: (contestId: string) => `nojv:scoreboard:${contestId}`,
-  scoreboardFrozen: (contestId: string) => `nojv:scoreboard:${contestId}:frozen`,
-
   adminDashboard: () => "nojv:cache:admin-dashboard",
 
-  userChannel: (userId: string) => `user:${userId}`,
-  notificationChannel: (userId: string) => `notification:${userId}`,
-  contestChannel: (contestId: string) => `contest:${contestId}`,
-  assessmentChannel: (assessmentId: string) => `assessment:${assessmentId}`,
+  scoreboardUpdateThrottle: (contestId: string) => `nojv:sb-throttle:${contestId}`,
+
+  userChannel: (userId: string) => `nojv:user:${userId}`,
+  notificationChannel: (userId: string) => `nojv:notification:${userId}`,
+  contestChannel: (contestId: string) => `nojv:contest:${contestId}`,
   clarificationChannel: (contextType: string, contextId: string) =>
-    `clarification:${contextType}:${contextId}`,
+    `nojv:clarification:${contextType}:${contextId}`,
 } as const;

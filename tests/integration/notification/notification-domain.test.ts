@@ -1,14 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { notificationDomain } from "@nojv/domain";
+import { notificationDomain } from "@nojv/application";
 import { createSubscriber, keys } from "@nojv/redis";
 
 import { createTestUser, testPrisma } from "../../fixtures/factories";
 
-// The shared integration-setup.ts `truncateAllTables()` does NOT include the
-// `Notification` table in its TABLES list. Per Task 5 instructions, we do a
-// local truncate here rather than modifying seed-test-db.ts.
 describe("notificationDomain (real DB + Redis)", () => {
   beforeEach(async () => {
     await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
@@ -37,7 +34,6 @@ describe("notificationDomain (real DB + Redis)", () => {
   it("caps retention at 50 per user", async () => {
     const user = await createTestUser();
 
-    // Insert 55 notifications sequentially so createdAt is monotonic.
     for (let i = 0; i < 55; i++) {
       await notificationDomain.createNotification({
         userId: user.id,
@@ -50,9 +46,6 @@ describe("notificationDomain (real DB + Redis)", () => {
     const rows = await notificationRepo.listRecent(user.id, 100);
     expect(rows).toHaveLength(50);
 
-    // listRecent returns DESC by createdAt, so the oldest in the window is
-    // rows[rows.length - 1]. The first 5 inserts (ordinal 0..4) must be gone;
-    // the earliest surviving row should be ordinal 5 or later.
     const earliestParams = rows[rows.length - 1]!.params as { ordinal: number };
     expect(earliestParams.ordinal).toBeGreaterThanOrEqual(5);
   });
@@ -120,7 +113,6 @@ describe("notificationDomain (real DB + Redis)", () => {
     expect(afterFirst!.readAt).toBeInstanceOf(Date);
     expect(afterFirst!.readAt).not.toBeNull();
 
-    // Second call is a no-op — `where: readAt: null` in the repo filters it out.
     const secondCount = await notificationDomain.markAsRead(user.id, notificationId);
     expect(secondCount).toBe(0);
   });
@@ -129,7 +121,6 @@ describe("notificationDomain (real DB + Redis)", () => {
     const userA = await createTestUser();
     const userB = await createTestUser();
 
-    // Seed 3 notifications for user A.
     for (let i = 0; i < 3; i++) {
       await notificationDomain.createNotification({
         userId: userA.id,
@@ -139,12 +130,10 @@ describe("notificationDomain (real DB + Redis)", () => {
       });
     }
 
-    // Mark the most recent (index 0, since listRecent is DESC) as read.
     const rowsA = await notificationRepo.listRecent(userA.id, 10);
     expect(rowsA).toHaveLength(3);
     await notificationDomain.markAsRead(userA.id, rowsA[0]!.id);
 
-    // Seed 1 unread notification for user B.
     await notificationDomain.createNotification({
       userId: userB.id,
       type: "announcement_published",
@@ -152,17 +141,13 @@ describe("notificationDomain (real DB + Redis)", () => {
       linkUrl: "/b/0",
     });
 
-    // markAllAsRead for user A should flip only the 2 remaining unread rows.
     const updatedA = await notificationDomain.markAllAsRead(userA.id);
     expect(updatedA).toBe(2);
 
-    // User B's notification is untouched.
     const rowsB = await notificationRepo.listRecent(userB.id, 10);
     expect(rowsB).toHaveLength(1);
     expect(rowsB[0]!.readAt).toBeNull();
   });
 
-  afterAll(async () => {
-    // testPrisma is disconnected by the shared integration-setup afterAll.
-  });
+  afterAll(async () => {});
 });

@@ -6,16 +6,20 @@ Live SLO dashboards are at <https://takalawang.grafana.net> (see [Observability 
 
 Every SLO is stated as an end-to-end user-visible metric (not a component internal), so a regression in any tier (app / Temporal / sandbox / DB) shows up in the same table.
 
+> The targets below are **provisional, conservative heuristics** — they alert
+> (they don't cap functionality), and they are deliberately lenient so they
+> only fire on genuine regressions. Validate and tighten them against measured
+> p95/p99 distributions once the platform carries sustained production traffic.
+
 | SLO                                                         | Target      | Window              | Notes                                                                                                                                                                             |
 | ----------------------------------------------------------- | ----------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days      | Measured from `submission.createdAt` to verdict visible via API / SSE. Dashboard: [NOJV — Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency)                     |
 | Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days      | Advanced-mode (custom docker image) may need higher ceiling per problem. Dashboard: [NOJV — Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency) (`mode=advanced`) |
-| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day       | Excludes `/api/*/stream` (SSE) and `/api/exam-sessions/[examId]/heartbeat`. Dashboard: [NOJV — API Latency](https://takalawang.grafana.net/d/nojv-api-latency)                    |
+| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day       | Excludes `/api/*/stream` (SSE). Dashboard: [NOJV — API Latency](https://takalawang.grafana.net/d/nojv-api-latency)                                                                |
 | SSE connection stability                                    | 99.5%       | Rolling 1 day       | Share of established connections not dropped by server-side faults. Dashboard: [NOJV — Exam Proctoring](https://takalawang.grafana.net/d/nojv-exam-proctoring) (SSE panels)       |
 | Platform availability                                       | 99.5%       | Monthly             | Down = web OR worker OR sandbox tier fully unavailable. Composed from request-rate + 5xx panels on [NOJV — API Latency](https://takalawang.grafana.net/d/nojv-api-latency)        |
 | Scoreboard update latency                                   | p95 < 3s    | Contest in progress | From final AC verdict commit to updated entry returned by `getScoreboard`. Dashboard: [NOJV — Scoreboard Update](https://takalawang.grafana.net/d/nojv-scoreboard)                |
 | Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days      | Excludes app-level `ValidationError` / expected user-facing failures. Throughput panel on [NOJV — Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency)             |
-| Exam session heartbeat miss rate                            | < 1%        | Exam in progress    | A miss = > 30s gap without a heartbeat from an active session. Dashboard: [NOJV — Exam Proctoring](https://takalawang.grafana.net/d/nojv-exam-proctoring) (heartbeat panel)       |
 
 **Handling SLO violations:**
 
@@ -26,7 +30,7 @@ Every SLO is stated as an end-to-end user-visible metric (not a component intern
 
 `apps/web` and `apps/worker` boot an OpenTelemetry SDK on startup via top-of-file side-effect imports (`apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`). Each process pushes histogram + counter metrics to Grafana Cloud Hosted Prometheus over OTLP HTTP (region `prod-ap-northeast-0`, free tier). Auto-instrumentation hooks `http`, `pg`, `ioredis`, and `undici`; `fs` and `dns` are disabled to keep noise down. Trace export is intentionally off (`spanProcessors: []`) — metrics-only is the design today; logs continue to flow through GCP Cloud Logging on a separate path.
 
-Six manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_request_duration_seconds`, `scoreboard_update_latency_seconds`, `sse_connection_duration_seconds`, `sse_connection_dropped_total`, `exam_heartbeat_miss_total`. Worker SIGTERM awaits `shutdownOtel()` so the last 30 s metric interval is flushed before exit; the web tier relies on adapter-node lifecycle and may lose 0–30 s on shutdown (accepted). Token rotation, dashboard updates, and the exact PromQL behind each panel are documented in [Observability Setup Runbook](runbooks/observability-setup.md).
+Five manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_request_duration_seconds`, `scoreboard_update_latency_seconds`, `sse_connection_duration_seconds`, `sse_connection_dropped_total`. Worker SIGTERM awaits `shutdownOtel()` so the last 30 s metric interval is flushed before exit; the web tier relies on adapter-node lifecycle and may lose 0–30 s on shutdown (accepted). Token rotation, dashboard updates, and the exact PromQL behind each panel are documented in [Observability Setup Runbook](runbooks/observability-setup.md).
 
 ## Service Expectations
 
@@ -41,7 +45,7 @@ Six manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_
 
 PostgreSQL is the single durable store. All other systems derive from it:
 
-- **Redis**: Cache-aside with TTL. Scoreboard sorted sets rebuilt from DB on cache miss.
+- **Redis**: pub/sub for SSE events (including 10 s-throttled scoreboard-update nudges); rate limiting. Leaderboards are computed from Postgres on read, not stored in Redis. No general domain cache layer (the only `nojv:cache:*` key is the admin dashboard snapshot).
 - **Temporal**: Workflow state is durable within Temporal, but final verdicts are persisted to PostgreSQL.
 - **SSE events**: Ephemeral notifications. Clients reconnect and read latest state from DB/Temporal.
 
@@ -57,9 +61,9 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ### Redis Unavailable
 
-**Impact**: Degraded — no real-time events, no cache, no scoreboards, no cooldown enforcement.
+**Impact**: Degraded — no real-time SSE events and no live scoreboard ZSET; the scoreboard read path falls back to rebuilding from PostgreSQL. Submission cooldown enforcement is unaffected (it uses PostgreSQL advisory locks, not Redis).
 **Mitigation**: Memorystore HA (automatic failover).
-**Recovery**: Automatic failover. Scoreboards rebuild on first write. Cache refills on read.
+**Recovery**: Automatic failover. Scoreboard ZSETs rebuild on first write.
 **Note**: Submissions still process (Temporal handles orchestration). SSE clients reconnect.
 
 ### Temporal Unavailable
@@ -67,7 +71,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 **Impact**: No new workflows start. In-flight workflows pause.
 **Mitigation**: Temporal auto-setup with PostgreSQL backend provides persistence.
 **Recovery**: Temporal resumes all paused workflows when it comes back. No data loss.
-**Note**: Submissions already in DB with `queued` status will be picked up when Temporal recovers.
+**Note**: If Temporal is unavailable while the web layer dispatches a new submission, the already-created row is marked `system_error` before the API rethrows. Submissions whose workflows had already started resume when Temporal recovers.
 
 ### Worker Unavailable
 
@@ -90,26 +94,27 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 3. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
 4. User stats and contest scores are updated after the verdict is committed.
 5. SSE notification is best-effort — the client falls back to polling Temporal/DB.
+6. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `pending_upload`/`queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip when a workflow may exist, so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
 
 ### Contest Lifecycle
 
 1. `contestLifecycleWorkflow` manages the full contest timeline with durable timers.
-2. Admin override signals (early end, extend) are processed atomically within the workflow.
-3. Scoreboard freeze creates a Redis snapshot in a separate frozen key (copy via `ZRANGE`+`ZADD`). The live key keeps updating so admins see real-time scores; `getScoreboard` prefers the frozen key when it exists, so public viewers see the snapshot until `unfreezeScoreboard` deletes it.
+2. Early-end / reschedule is applied by re-dispatching the lifecycle workflow with `workflowIdConflictPolicy: TERMINATE_EXISTING` (not via a signal), so the new schedule supersedes the old one.
+3. Scoreboard freeze is a read-time filter gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns: while frozen, `buildScoreboard` ignores submissions newer than `frozenAt`, so the public board holds at the freeze point while staff can still see the live ranking. No Redis snapshot is involved.
 4. Final scores are always computed from PostgreSQL, not Redis.
 
 ### Assessment Lifecycle
 
-1. `assessmentLifecycleWorkflow` manages open → due → close transitions.
+1. Assessments have no dedicated lifecycle workflow. Open → due → close is purely time-driven: submission acceptance is gated by the `closesAt` timestamp, checked server-side in the domain layer on every submit.
 2. Deadline notifications are best-effort (SSE via Redis pub/sub).
-3. Submission acceptance is gated by `closesAt` timestamp, checked server-side.
+3. Exam timing is the exception — exams use `examAutoCloseWorkflow` (a durable Temporal timer keyed on `examId`) to force-close active sessions at `endsAt`.
 
 ### Plagiarism Detection
 
-1. `PlagiarismReport` record created in DB before Temporal workflow starts.
-2. Report ID passed to workflow to avoid duplicate record creation.
-3. Dolos runs entirely in-process; retries are idempotent and produce the same pair set on the same input.
-4. Results stored in `PlagiarismReport.results` JSON column.
+1. `plagiarismCheckWorkflow` takes `(targetType, targetId)` directly; the workflow is keyed `plagiarism-{targetType}-{targetId}` with `TERMINATE_EXISTING` id-reuse, so a re-trigger replaces any in-flight run rather than duplicating it. There is no separate report record created up front.
+2. Dolos runs entirely in-process; retries are idempotent and produce the same pair set on the same input.
+3. The Dolos report itself is inlined on the `Exam` / `Assessment` row as `plagiarism*` columns and is wiped on each re-trigger.
+4. Pair-level staff review state (false-positive marking) survives re-runs in the `PlagiarismPairFlag` table, keyed `(contextType, contextId, pairKey)`. Each run is recorded in `PlagiarismTriggerLog`.
 
 ## Validation Requirements
 

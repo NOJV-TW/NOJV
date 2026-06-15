@@ -5,8 +5,6 @@ import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
 import {
-  normalizeRelativePath,
-  sourceFileNames,
   type SandboxRequest,
   type SandboxResult,
   type SandboxTestcase,
@@ -17,11 +15,20 @@ import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
+import { resolveSourceFiles } from "./source-files.js";
 
 export { mergeInteractiveCase } from "./check-interactive";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 const PER_CASE_GRACE_MS = 35_000;
+
+function endStdin(stream: Writable): void {
+  try {
+    stream.end();
+  } catch {
+    return;
+  }
+}
 
 export interface InteractiveExecutorConfig {
   cpuLimit: string;
@@ -32,7 +39,7 @@ export interface InteractiveExecutorConfig {
 
 type PipedChild = ChildProcessByStdio<Writable, Readable, Readable>;
 
-function buildContainerArgs(params: {
+export function buildContainerArgs(params: {
   containerName: string;
   tempDir: string;
   cpuLimit: string;
@@ -65,6 +72,8 @@ function buildContainerArgs(params: {
     params.cpuLimit,
     "--memory",
     `${String(params.memoryMb)}m`,
+    "--memory-swap",
+    `${String(params.memoryMb)}m`,
     "--pids-limit",
     String(params.pidsLimit),
     "--env",
@@ -81,25 +90,16 @@ export async function writeSolutionFiles(
 ): Promise<void> {
   const fileWrites: Promise<void>[] = [];
   const sourceFileMap: { path: string; key: string }[] = [];
-  const defaultSourcePath = sourceFileNames[request.language];
-  let wroteDefaultSource = false;
 
-  for (const sourceFile of request.sourceFiles ?? []) {
-    const normalizedPath = normalizeRelativePath(sourceFile.path);
-    if (!normalizedPath) continue;
-    if (normalizedPath === defaultSourcePath) wroteDefaultSource = true;
-    const destination = join(tempDir, normalizedPath);
-    sourceFileMap.push({ path: normalizedPath, key: normalizedPath });
+  for (const sf of resolveSourceFiles(request)) {
+    const destination = join(tempDir, sf.path);
+    sourceFileMap.push({ path: sf.path, key: sf.path });
     fileWrites.push(
       (async () => {
         await mkdir(join(destination, ".."), { recursive: true });
-        await writeFile(destination, sourceFile.content, "utf8");
+        await writeFile(destination, sf.content, "utf8");
       })(),
     );
-  }
-
-  if (!wroteDefaultSource) {
-    fileWrites.push(writeFile(join(tempDir, defaultSourcePath), request.sourceCode, "utf8"));
   }
 
   const config = {
@@ -253,20 +253,12 @@ async function runCase(
       });
       solChild.on("close", () => {
         solClosed = true;
-        try {
-          intChild.stdin.end();
-        } catch {
-          // already closed
-        }
+        endStdin(intChild.stdin);
         finish();
       });
       intChild.on("close", () => {
         intClosed = true;
-        try {
-          solChild.stdin.end();
-        } catch {
-          // already closed
-        }
+        endStdin(solChild.stdin);
         finish();
       });
     });

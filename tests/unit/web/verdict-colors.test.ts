@@ -28,6 +28,7 @@ describe("verdictBadgeVariant", () => {
   });
 
   it("maps pre-terminal statuses to verdict-pending", () => {
+    expect(verdictBadgeVariant("pending_upload")).toBe("verdict-pending");
     expect(verdictBadgeVariant("queued")).toBe("verdict-pending");
     expect(verdictBadgeVariant("running")).toBe("verdict-pending");
     expect(verdictBadgeVariant("compiling")).toBe("verdict-pending");

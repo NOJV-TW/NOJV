@@ -5,14 +5,14 @@ const {
   contestFindById,
   membershipFindByComposite,
   txCourseFindUnique,
-  txExamParticipationFindUnique,
+  findExamIpPinMock,
   checkIpLockMock,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   contestFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
   txCourseFindUnique: vi.fn(),
-  txExamParticipationFindUnique: vi.fn(),
+  findExamIpPinMock: vi.fn(),
   checkIpLockMock: vi.fn(),
 }));
 
@@ -23,26 +23,25 @@ vi.mock("@nojv/db", () => ({
   contestRepo: {
     withTx: () => ({ findById: contestFindById }),
   },
+  courseRepo: {
+    withTx: () => ({ findArchivedById: txCourseFindUnique }),
+  },
   courseMembershipRepo: {
     withTx: () => ({ findByComposite: membershipFindByComposite }),
   },
-  runTransaction: async <T>(
-    fn: (tx: {
-      course: { findUnique: typeof txCourseFindUnique };
-      examParticipation: { findUnique: typeof txExamParticipationFindUnique };
-    }) => Promise<T>,
-  ): Promise<T> =>
-    fn({
-      course: { findUnique: txCourseFindUnique },
-      examParticipation: { findUnique: txExamParticipationFindUnique },
-    }),
+  participationRepo: {
+    withTx: () => ({ findExamIpPin: findExamIpPinMock }),
+  },
+  runTransaction: async <T>(fn: (tx: Record<string, never>) => Promise<T>): Promise<T> =>
+    fn({}),
 }));
 
-vi.mock("../../../packages/domain/src/shared/ip", () => ({
+vi.mock("../../../packages/application/src/shared/ip", () => ({
   checkIpLock: checkIpLockMock,
 }));
 
-const { checkProctoringGate } = await import("../../../packages/domain/src/proctoring/gate");
+const { checkProctoringGate } =
+  await import("../../../packages/application/src/proctoring/gate");
 
 const now = new Date("2026-05-01T10:00:00.000Z");
 const examStart = new Date("2026-05-01T09:00:00.000Z");
@@ -71,7 +70,7 @@ const baseContest = {
 beforeEach(() => {
   vi.clearAllMocks();
   checkIpLockMock.mockResolvedValue({ allowed: true });
-  txExamParticipationFindUnique.mockResolvedValue(null);
+  findExamIpPinMock.mockResolvedValue(null);
 });
 
 describe("checkProctoringGate — exam", () => {
@@ -139,8 +138,6 @@ describe("checkProctoringGate — exam", () => {
 });
 
 describe("checkProctoringGate — contest", () => {
-  // Contests have no proctoring — the gate only covers existence,
-  // visibility, and the time window. `checkIpLock` is never called.
   it("returns ok when published and within window (no enrollment check, no IP check)", async () => {
     contestFindById.mockResolvedValue(baseContest);
 

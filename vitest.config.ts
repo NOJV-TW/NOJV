@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -8,11 +9,18 @@ const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
-  "@nojv/domain": path.resolve(__dirname, "packages/domain/src/index.ts"),
+  "@nojv/application": path.resolve(__dirname, "packages/application/src/index.ts"),
   "@nojv/redis": path.resolve(__dirname, "packages/redis/src/index.ts"),
   "@nojv/temporal": path.resolve(__dirname, "packages/temporal/src/index.ts"),
   "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
+  "$env/dynamic/private": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-private.ts"),
+  "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
+  "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
 };
+
+function svelteTestPlugin() {
+  return svelte({ configFile: path.resolve(__dirname, "apps/web/svelte.config.js") });
+}
 
 export default defineConfig({
   test: {
@@ -20,22 +28,32 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       reportsDirectory: "./coverage",
-      // Scope coverage to the business-logic layers the suites are designed
-      // to exercise. apps/web UI + routes are covered by Playwright E2E
-      // instead and would otherwise dilute the percentages to noise.
-      include: ["packages/domain/src/**", "packages/core/src/**"],
-      // Ratchet floor — measured 2026-05-19 against the unit project alone
-      // (the full `test:coverage` run, unit + integration, clears these
-      // comfortably). Raise as coverage improves; never lower.
+      // worker/sandbox-runner floor is lower than domain/core because their
+      // docker/k8s paths only run in the nightly real-image suite, not this gate.
+      include: [
+        "packages/application/src/**",
+        "packages/core/src/**",
+        "apps/worker/src/**",
+        "apps/sandbox-runner/src/**",
+      ],
       thresholds: {
-        lines: 50,
-        statements: 48,
-        functions: 41,
-        branches: 42,
+        "packages/{application,core}/src/**": {
+          lines: 68,
+          statements: 65,
+          functions: 62,
+          branches: 58,
+        },
+        "apps/{worker,sandbox-runner}/src/**": {
+          lines: 30,
+          statements: 30,
+          functions: 30,
+          branches: 30,
+        },
       },
     },
     projects: [
       {
+        plugins: [svelteTestPlugin()],
         resolve: { alias: sharedAliases },
         test: {
           name: "unit",
@@ -44,6 +62,7 @@ export default defineConfig({
         },
       },
       {
+        plugins: [svelteTestPlugin()],
         resolve: { alias: sharedAliases },
         test: {
           name: "integration",

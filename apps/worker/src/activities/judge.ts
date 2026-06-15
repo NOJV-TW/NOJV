@@ -1,13 +1,15 @@
 import {
+  effectiveTimeLimitMs,
   entryFileNameFor,
   submissionResultSchema,
+  type AdvancedConfig,
   type Language,
   type SandboxExecutor,
   type SandboxRequest,
   type SubmissionDraft,
   type SubmissionResult,
 } from "@nojv/core";
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
 import { heartbeat } from "@temporalio/activity";
 
@@ -146,8 +148,9 @@ function buildAdvancedPayload(
   }
   const ctx = judgeContext.advanced;
   return {
-    imageRef: ctx.imageRef,
-    imageSource: ctx.imageSource,
+    run: ctx.config.run,
+    grade: ctx.config.grade,
+    network: ctx.config.network,
     totalTimeMs: ctx.resourceLimits.totalTimeMs,
     memoryMb: ctx.resourceLimits.memoryMb,
   };
@@ -165,10 +168,9 @@ export async function executeSandbox(
   const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
   if (studentSources.length === 0) {
-    await submissionDomain.updateSubmissionStatus(submissionId, "system_error");
     return {
       accepted: false,
-      verdict: "runtime_error",
+      verdict: "system_error",
       score: 0,
       runtimeMs: 0,
       caseResults: [],
@@ -210,9 +212,10 @@ export async function executeSandbox(
       ...(judgeContext.interactorScript != null
         ? { interactorScript: judgeContext.interactorScript }
         : {}),
+      ...(judgeContext.compareOptions != null ? { compare: judgeContext.compareOptions } : {}),
     },
     limits: {
-      timeoutMs: judgeContext.runtime.timeLimitMs,
+      timeoutMs: effectiveTimeLimitMs(judgeContext.runtime.timeLimitMs, draft.language),
       memoryMb: judgeContext.runtime.memoryLimitMb,
       ...(Object.keys(judgeContext.runtime.env).length > 0
         ? { env: judgeContext.runtime.env }
@@ -258,8 +261,9 @@ export async function completeSubmission(
   submissionId: string,
   result: SubmissionResult,
   mode: "standard" | "advanced",
+  advancedConfig: AdvancedConfig | null = null,
 ): Promise<submissionDomain.CompletedSubmission> {
-  const completed = await submissionDomain.completeJudge(submissionId, result);
+  const completed = await submissionDomain.completeJudge(submissionId, result, advancedConfig);
   recordJudgeLatency(judgeLatencyHistogram, {
     startedAtMs: completed.createdAt.getTime(),
     completedAtMs: Date.now(),
@@ -292,8 +296,9 @@ export async function fetchSingleSubmissionForRejudge(
 export async function snapshotSubmissionForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
+  rejudgeRunId: string | null,
 ): Promise<{ logId: string; oldStatus: string } | null> {
-  return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId);
+  return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId, rejudgeRunId);
 }
 
 export async function finalizeRejudgeLog(
@@ -302,4 +307,11 @@ export async function finalizeRejudgeLog(
   logId: string,
 ): Promise<void> {
   return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
+}
+
+export async function restoreSubmissionForCancelledRejudge(
+  submissionId: string,
+  oldStatus: string,
+): Promise<void> {
+  return submissionDomain.restoreSubmissionAfterCancelledRejudge(submissionId, oldStatus);
 }

@@ -41,7 +41,7 @@ import {
   aggregateAssignmentMyStatus,
   aggregateExamClassStats,
   aggregateExamMyStatus,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 beforeEach(() => {
   groupBestScoresByAssessment.mockReset();
@@ -64,12 +64,10 @@ describe("aggregateAssignmentClassStats", () => {
 
   it("computes submittedUsers / avgScore by summing best scores per user", async () => {
     groupBestScoresByAssessment.mockResolvedValue([
-      // user A: 80 + 60 = 140
-      { courseAssessmentId: "a1", userId: "uA", problemId: "p1", _max: { score: 80 } },
-      { courseAssessmentId: "a1", userId: "uA", problemId: "p2", _max: { score: 60 } },
-      // user B: 100 + 0 = 100
-      { courseAssessmentId: "a1", userId: "uB", problemId: "p1", _max: { score: 100 } },
-      { courseAssessmentId: "a1", userId: "uB", problemId: "p2", _max: { score: 0 } },
+      { assessmentId: "a1", userId: "uA", problemId: "p1", _max: { score: 80 } },
+      { assessmentId: "a1", userId: "uA", problemId: "p2", _max: { score: 60 } },
+      { assessmentId: "a1", userId: "uB", problemId: "p1", _max: { score: 100 } },
+      { assessmentId: "a1", userId: "uB", problemId: "p2", _max: { score: 0 } },
     ]);
     countStudentsByCourse.mockResolvedValue(new Map([["c1", 5]]));
 
@@ -103,7 +101,7 @@ describe("aggregateAssignmentClassStats", () => {
 
   it("treats null _max.score (no scored submissions yet) as 0", async () => {
     groupBestScoresByAssessment.mockResolvedValue([
-      { courseAssessmentId: "a1", userId: "uA", problemId: "p1", _max: { score: null } },
+      { assessmentId: "a1", userId: "uA", problemId: "p1", _max: { score: null } },
     ]);
     countStudentsByCourse.mockResolvedValue(new Map([["c1", 1]]));
     const out = await aggregateAssignmentClassStats([
@@ -122,14 +120,14 @@ describe("aggregateAssignmentMyStatus", () => {
 
   it("counts distinct accepted problems and sums best scores per assessment", async () => {
     groupAcceptedByAssessmentForUser.mockResolvedValue([
-      { courseAssessmentId: "a1", problemId: "p1" },
-      { courseAssessmentId: "a1", problemId: "p2" },
-      { courseAssessmentId: "a2", problemId: "p3" },
+      { assessmentId: "a1", problemId: "p1" },
+      { assessmentId: "a1", problemId: "p2" },
+      { assessmentId: "a2", problemId: "p3" },
     ]);
     groupBestScoresByAssessmentForUser.mockResolvedValue([
-      { courseAssessmentId: "a1", problemId: "p1", _max: { score: 80 } },
-      { courseAssessmentId: "a1", problemId: "p2", _max: { score: 60 } },
-      { courseAssessmentId: "a2", problemId: "p3", _max: { score: 100 } },
+      { assessmentId: "a1", problemId: "p1", _max: { score: 80 } },
+      { assessmentId: "a1", problemId: "p2", _max: { score: 60 } },
+      { assessmentId: "a2", problemId: "p3", _max: { score: 100 } },
     ]);
     sumPointsByAssessment.mockResolvedValue([
       { assessmentId: "a1", _sum: { points: 200 } },

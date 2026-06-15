@@ -57,7 +57,7 @@ export async function seedCourses(
     });
   }
 
-  const hw1 = await prisma.courseAssessment.upsert({
+  const hw1 = await prisma.assessment.upsert({
     create: {
       allowedLanguages: ["c", "cpp", "python"],
       closesAt: new Date("2026-03-25T15:00:00.000Z"),
@@ -82,7 +82,7 @@ export async function seedCourses(
     where: { id: "hw1-process-trace" },
   });
 
-  const hw2 = await prisma.courseAssessment.upsert({
+  const hw2 = await prisma.assessment.upsert({
     create: {
       id: "hw2-signal-handling",
       allowedLanguages: ["c", "cpp"],
@@ -101,7 +101,7 @@ export async function seedCourses(
     where: { id: "hw2-signal-handling" },
   });
 
-  await prisma.courseAssessment.upsert({
+  await prisma.assessment.upsert({
     create: {
       id: "hw3-scheduler-draft",
       allowedLanguages: [],
@@ -151,7 +151,7 @@ export async function seedCourses(
       where: { id: link.problemId },
     });
 
-    await prisma.courseAssessmentProblem.upsert({
+    await prisma.assessmentProblem.upsert({
       create: {
         assessmentId: link.assessmentId,
         ordinal: link.ordinal,
@@ -201,7 +201,7 @@ export async function seedCourses(
     });
   }
 
-  const hwActive = await prisma.courseAssessment.upsert({
+  const hwActive = await prisma.assessment.upsert({
     create: {
       id: "hw-demo-active",
       allowedLanguages: ["c", "cpp", "python"],
@@ -223,7 +223,7 @@ export async function seedCourses(
     where: { id: "hw-demo-active" },
   });
 
-  await prisma.courseAssessmentProblem.upsert({
+  await prisma.assessmentProblem.upsert({
     create: {
       assessmentId: hwActive.id,
       ordinal: 1,
@@ -275,6 +275,58 @@ export async function seedCourses(
       examId_problemId: {
         examId: examUpcomingDemo.id,
         problemId: "problem_warmup-sum",
+      },
+    },
+  });
+
+  const activeAdvancedExam = await prisma.exam.upsert({
+    create: {
+      id: "exam_demo_advanced_active",
+      allowedLanguages: ["cpp"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now - DAY),
+      endsAt: new Date(now + 7 * DAY),
+      pageLockEnabled: false,
+      ipBindingEnabled: false,
+      ipWhitelistEnabled: false,
+      scoreboardMode: "hidden",
+      status: "published",
+      summary: "Active advanced-mode exam fixture used by e2e tests.",
+      title: "Demo: Advanced Mode Exam",
+    },
+    update: {
+      allowedLanguages: ["cpp"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now - DAY),
+      endsAt: new Date(now + 7 * DAY),
+      pageLockEnabled: false,
+      ipBindingEnabled: false,
+      ipWhitelistEnabled: false,
+      scoreboardMode: "hidden",
+      status: "published",
+      summary: "Active advanced-mode exam fixture used by e2e tests.",
+      title: "Demo: Advanced Mode Exam",
+    },
+    where: { id: "exam_demo_advanced_active" },
+  });
+
+  await prisma.examProblem.upsert({
+    create: {
+      examId: activeAdvancedExam.id,
+      ordinal: 1,
+      points: 100,
+      problemId: "problem_shell-scripting-lab",
+    },
+    update: {
+      ordinal: 1,
+      points: 100,
+    },
+    where: {
+      examId_problemId: {
+        examId: activeAdvancedExam.id,
+        problemId: "problem_shell-scripting-lab",
       },
     },
   });

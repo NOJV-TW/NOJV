@@ -2,10 +2,6 @@ import { test, expect } from "@playwright/test";
 
 import { studentAuth } from "./_shared";
 
-// Paraglide is configured with strategy ["cookie", "globalVariable", "baseLocale"]
-// — URL prefixes are NOT routed (no `url` strategy). Locale is selected by the
-// `PARAGLIDE_LOCALE` cookie. The seeded auth fixtures default to `en`; flipping
-// the cookie at the context level switches every subsequent navigation.
 async function setLocaleCookie(
   context: import("@playwright/test").BrowserContext,
   locale: "en" | "zh-TW",
@@ -48,7 +44,6 @@ test.describe("Locale routing — en vs zh-TW", () => {
     const page = await context.newPage();
     await page.goto("/courses");
     await expect(page.getByRole("main")).toBeVisible();
-    // The seeded course title is English-only and passes through unchanged.
     await expect(page.getByText("Operating Systems Lab")).toBeVisible();
     await context.close();
   });
@@ -63,9 +58,6 @@ test.describe("Locale routing — en vs zh-TW", () => {
   });
 
   test("auth gate still fires regardless of locale cookie", async ({ browser }) => {
-    // A signed-out browser visiting a protected page must redirect to
-    // /signin even when PARAGLIDE_LOCALE asks for zh-TW. Skip the
-    // signed-in state — we want a fresh anonymous context.
     const context = await browser.newContext();
     await setLocaleCookie(context, "zh-TW");
     const page = await context.newPage();

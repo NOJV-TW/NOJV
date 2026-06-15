@@ -2,28 +2,24 @@ import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
-import { canCreateProblem, problemDomain } from "@nojv/domain";
+import { canCreateProblem, problemDomain } from "@nojv/application";
 
 const { createProblemRecord } = problemDomain;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
 
   if (!canCreateProblem(actor.platformRole, actor.emailVerified)) {
     error(403, "Not authorized to create problems");
   }
 
-  let mode: unknown;
-  try {
-    const body = (await event.request.json().catch(() => null)) as {
-      mode?: unknown;
-    } | null;
-    mode = body?.mode;
-  } catch {
-    // missing/invalid body falls through to the default ProblemType
-  }
+  const body = (await event.request.json().catch(() => null)) as {
+    mode?: unknown;
+  } | null;
+  const mode = body?.mode;
 
   let type: ProblemType = "full_source";
   if (mode === "advanced") {

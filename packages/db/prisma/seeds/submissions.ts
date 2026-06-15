@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { entryFileNameFor } from "@nojv/core";
-import { scoreboard } from "@nojv/redis";
 import {
   createStorageClient,
   putSubmissionSources,
@@ -80,9 +79,9 @@ function makeSubmission(args: {
   sampleOnly?: boolean;
   context?:
     | { kind: "practice" }
-    | { kind: "assignment"; courseAssessmentId: string }
+    | { kind: "assignment"; assessmentId: string }
     | { kind: "exam"; examId: string }
-    | { kind: "contest"; contestId: string; contestParticipationId: string };
+    | { kind: "contest"; contestId: string };
 }): SeedSubmission {
   const { rng, userId, problemId, testcases, verdict, createdAt } = args;
   const language = args.language ?? rng.pick(LANGS);
@@ -117,13 +116,12 @@ function makeSubmission(args: {
   const ctx = args.context ?? { kind: "practice" };
   if (ctx.kind === "assignment") {
     row.courseId = COURSE_ID;
-    row.courseAssessmentId = ctx.courseAssessmentId;
+    row.assessmentId = ctx.assessmentId;
   } else if (ctx.kind === "exam") {
     row.courseId = COURSE_ID;
     row.examId = ctx.examId;
   } else if (ctx.kind === "contest") {
     row.contestId = ctx.contestId;
-    row.contestParticipationId = ctx.contestParticipationId;
   }
 
   return { id, row, sources, detail };
@@ -151,7 +149,7 @@ export async function seedSubmissions(
   const storage = createStorageClient();
 
   await prisma.submission.deleteMany({});
-  await prisma.contestParticipation.deleteMany({});
+  await prisma.participation.deleteMany({});
 
   const problemIds = new Set<string>([
     ...PUBLIC_PRACTICE_PROBLEMS,
@@ -262,7 +260,7 @@ export async function seedSubmissions(
             testcases: tc(problemId),
             verdict,
             createdAt: new Date(when),
-            context: { kind: "assignment", courseAssessmentId: HW1_ID },
+            context: { kind: "assignment", assessmentId: HW1_ID },
           }),
         );
       }
@@ -282,7 +280,7 @@ export async function seedSubmissions(
           verdict,
           createdAt: new Date(when),
           language: rng.pick(HW2_LANGS),
-          context: { kind: "assignment", courseAssessmentId: HW2_ID },
+          context: { kind: "assignment", assessmentId: HW2_ID },
         }),
       );
     }
@@ -389,14 +387,14 @@ async function seedContestSubmissions(
     tc: (pid: string) => ProblemTestcases;
   },
 ): Promise<void> {
-  const { contestId, problems, students, startsAt, endsAt, submissionTimeFor, rngBase, tc } =
-    args;
+  const { contestId, problems, students, startsAt, submissionTimeFor, rngBase, tc } = args;
 
   for (const [idx, s] of students.entries()) {
     const rng = new SeededRng(rngBase + idx);
 
-    const participation = await prisma.contestParticipation.create({
+    const participation = await prisma.participation.create({
       data: {
+        type: "contest",
         contestId,
         userId: s.id,
         status: "active",
@@ -428,7 +426,7 @@ async function seedContestSubmissions(
             testcases: tc(problemId),
             verdict,
             createdAt: new Date(submissionTimeFor(rng)),
-            context: { kind: "contest", contestId, contestParticipationId: participation.id },
+            context: { kind: "contest", contestId },
           }),
         );
       }
@@ -443,7 +441,7 @@ async function seedContestSubmissions(
             testcases: tc(problemId),
             verdict: "accepted",
             createdAt: new Date(acTime),
-            context: { kind: "contest", contestId, contestParticipationId: participation.id },
+            context: { kind: "contest", contestId },
           }),
         );
         solvedCount++;
@@ -457,24 +455,9 @@ async function seedContestSubmissions(
 
     await persistSeedSubmissions(prisma, storage, contestSubs);
 
-    await prisma.contestParticipation.update({
+    await prisma.participation.update({
       where: { id: participation.id },
       data: { score: solvedCount, penaltySeconds: totalPenalty },
     });
-
-    try {
-      const packedScore = solvedCount * 1e9 - totalPenalty;
-      await scoreboard.updateScoreboard(
-        contestId,
-        participation.id,
-        packedScore,
-        "icpc",
-        scoreboard.scoreboardTtlForEndsAt(endsAt),
-      );
-    } catch (err) {
-      console.warn(
-        `  [scoreboard] skipped Redis write for ${contestId}/${participation.id}: ${String(err)}`,
-      );
-    }
   }
 }

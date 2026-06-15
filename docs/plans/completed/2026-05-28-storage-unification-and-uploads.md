@@ -229,7 +229,7 @@ In `packages/db/src/repositories/submission.ts`:
 
 **Step 5: typecheck shows expected breakage**
 
-Run: `pnpm typecheck`. Expected: many failures in `packages/domain/src/submission/`, `apps/worker/src/activities/judge.ts`, `apps/web/src/routes/api/submissions/...`. These are the W1 tasks' targets.
+Run: `pnpm typecheck`. Expected: many failures in `packages/application/src/submission/`, `apps/worker/src/activities/judge.ts`, `apps/web/src/routes/api/submissions/...`. These are the W1 tasks' targets.
 
 **Step 6: Push the migration to dev DB**
 
@@ -257,7 +257,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 
-- Modify: `packages/domain/src/submission/mutations.ts` (the `createQueuedSubmissionRecord` tx body, ~lines 175–247)
+- Modify: `packages/application/src/submission/mutations.ts` (the `createQueuedSubmissionRecord` tx body, ~lines 175–247)
 - Modify: `tests/unit/domain/submission-mutations*.test.ts` — update existing tests; they were asserting `sourceCode`
 
 **Step 1: Update test expectations**
@@ -313,7 +313,7 @@ Expected: all green (existing assertions migrated to S3 + new assertions added).
 **Step 5: Commit**
 
 ```bash
-git add packages/domain/src/submission tests/unit/domain
+git add packages/application/src/submission tests/unit/domain
 git commit -m "feat(submission): write sources to S3 on create
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
@@ -325,7 +325,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 
-- Modify: `packages/domain/src/submission/queries.ts` — add `getSubmissionSources(id)`, `getVerdictDetail(id)`; the existing `getJudgeContext` calls the new helper
+- Modify: `packages/application/src/submission/queries.ts` — add `getSubmissionSources(id)`, `getVerdictDetail(id)`; the existing `getJudgeContext` calls the new helper
 - Modify: `apps/worker/src/activities/judge.ts` — replace `draft.sourceCode` reads with the helper
 - Modify: `apps/web/src/routes/api/submissions/[id]/source/+server.ts` — return `{ files: [{path, content}] }` instead of legacy single-string
 - Modify: `apps/web/src/routes/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]/+server.ts` — same shape
@@ -354,7 +354,7 @@ it("getVerdictDetail returns null if not yet judged", async () => {
 **Step 2: Implement**
 
 ```ts
-// packages/domain/src/submission/queries.ts
+// packages/application/src/submission/queries.ts
 import { storage } from "../shared/storage-singleton"; // create if missing
 import {
   getSubmissionSources as storageGetSources,
@@ -403,7 +403,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 
 - Modify: `apps/worker/src/activities/judge.ts` (`completeSubmission` path)
-- Modify: `packages/domain/src/submission/mutations.ts` (`completeJudge` — split incoming `SubmissionResult` into summary + detail)
+- Modify: `packages/application/src/submission/mutations.ts` (`completeJudge` — split incoming `SubmissionResult` into summary + detail)
 - Update tests asserting verdictDetail shape
 
 **Step 1: Update tests**
@@ -417,7 +417,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Step 2: Implement summary derivation**
 
 ```ts
-// packages/domain/src/submission/mutations.ts
+// packages/application/src/submission/mutations.ts
 function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
   const counts = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
   for (const c of result.caseResults ?? []) counts[c.verdict] = (counts[c.verdict] ?? 0) + 1;
@@ -467,7 +467,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 
-- Modify: `packages/domain/src/editorial/queries.ts` (`canViewEditorials` signature)
+- Modify: `packages/application/src/editorial/queries.ts` (`canViewEditorials` signature)
 - Modify: `apps/web/src/routes/api/problems/[id]/editorials/+server.ts`
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/editorials/+page.server.ts`
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/+page.server.ts`
@@ -555,7 +555,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 
-- Modify: `packages/domain/src/plagiarism/queries.ts` — `listSubmissionsForCheck`, `getPlagiarismSourceCode`
+- Modify: `packages/application/src/plagiarism/queries.ts` — `listSubmissionsForCheck`, `getPlagiarismSourceCode`
 - Modify: `apps/worker/src/activities/plagiarism.ts` (or `packages/temporal/src/activities/plagiarism.ts` — grep first)
 - Add integration test in `tests/integration/plagiarism/multi-file.test.ts`
 
@@ -693,7 +693,7 @@ Pattern shared by all five tasks:
 - Route is `POST /api/problems/[id]/...`
 - Guard: `requireApiAuth` + `assertProblemEditAccess(actor, problemId)` + `writeApiRateLimiter`
 - Size limits enforced server-side from `Content-Length` AND post-read byte count
-- New helper `assertProblemStorageBudget(problemId, deltaBytes)` in `packages/domain/src/problem/storage-budget.ts` — counts current S3 usage under `problems/{id}/` prefix; rejects if `current + delta > 50_000_000`
+- New helper `assertProblemStorageBudget(problemId, deltaBytes)` in `packages/application/src/problem/storage-budget.ts` — counts current S3 usage under `problems/{id}/` prefix; rejects if `current + delta > 50_000_000`
 - Audit log: `auditLogRepo.create({ kind: "problem_upload", actorId, problemId, meta: { path, size } })`
 
 ### Task W3.A: Workspace file upload route
@@ -702,7 +702,7 @@ Pattern shared by all five tasks:
 
 - Create: `apps/web/src/routes/api/problems/[id]/workspace/files/+server.ts`
 - Create: `tests/integration/web/api-problems-workspace-upload.test.ts`
-- Modify: `packages/domain/src/problem/workspace.ts` — add `setWorkspaceFile(problemId, file)` helper that wraps `putText` + DB metadata upsert
+- Modify: `packages/application/src/problem/workspace.ts` — add `setWorkspaceFile(problemId, file)` helper that wraps `putText` + DB metadata upsert
 
 **Step 1: Failing test (3 cases)**
 
@@ -781,9 +781,9 @@ Commit: `feat(problem): interactor source upload route`
 **Files:**
 
 - Create: `apps/web/src/routes/api/problems/[id]/bundle/+server.ts` (POST)
-- Create: `packages/domain/src/problem/bundle.ts` — `importBundle(actor, problemId, zipBuffer)`
+- Create: `packages/application/src/problem/bundle.ts` — `importBundle(actor, problemId, zipBuffer)`
 - Create: `tests/integration/web/api-problems-bundle-import.test.ts`
-- Modify: `packages/domain/package.json` — depend on `unzipper`
+- Modify: `packages/application/package.json` — depend on `unzipper`
 
 **Step 1: Failing tests (5 cases)**
 
@@ -798,7 +798,7 @@ it("rejects bundle with > 200 entries", async () => { ... });
 **Step 2: Implement**
 
 ```ts
-// packages/domain/src/problem/bundle.ts
+// packages/application/src/problem/bundle.ts
 import { Open } from "unzipper";
 
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -874,11 +874,11 @@ Commit: `feat(problem): zip bundle import for testcases/workspace/checker`
 **Files:**
 
 - Create: `apps/web/src/routes/api/problems/[id]/bundle/+server.ts` (GET — same file as W3.D's POST)
-- Create: `packages/domain/src/problem/bundle.ts` — `exportBundle(actor, problemId): Promise<Buffer>` (same file as W3.D)
+- Create: `packages/application/src/problem/bundle.ts` — `exportBundle(actor, problemId): Promise<Buffer>` (same file as W3.D)
 - Create: `tests/integration/web/api-problems-bundle-export.test.ts`
-- Modify: `packages/domain/package.json` — depend on `archiver`
+- Modify: `packages/application/package.json` — depend on `archiver`
 
-**Coordination with W3.D:** W3.D and W3.E share `packages/domain/src/problem/bundle.ts` and the route file. If both subagents are dispatched, W3.E waits on W3.D's commit. Recommend sequencing W3.D → W3.E rather than parallel.
+**Coordination with W3.D:** W3.D and W3.E share `packages/application/src/problem/bundle.ts` and the route file. If both subagents are dispatched, W3.E waits on W3.D's commit. Recommend sequencing W3.D → W3.E rather than parallel.
 
 **Step 1: Failing round-trip test**
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scoring } from "@nojv/domain";
+import { scoring } from "@nojv/application";
 
 const { buildPointSumScoreboard } = scoring;
 
@@ -100,12 +100,8 @@ describe("buildPointSumScoreboard", () => {
       mkSub("leader", "P2", 100, 60),
     ];
     const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
-    // Order in the array reflects the comparator: higher score first,
-    // then lower last-improvement time as a display-side tie-breaker.
     expect(board.map((e) => e.userId)).toEqual(["leader", "fast", "slow"]);
     expect(board[1]!.totalPenalty).toBeLessThan(board[2]!.totalPenalty);
-    // Rank is IOI-style: leader is rank 1, fast and slow share rank 2
-    // because they have identical total scores.
     expect(board[0]!.rank).toBe(1);
     expect(board[1]!.rank).toBe(2);
     expect(board[2]!.rank).toBe(2);

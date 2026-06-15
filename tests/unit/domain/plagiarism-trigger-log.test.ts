@@ -38,7 +38,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {},
 }));
 
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 const { createPlagiarismReport } = plagiarismDomain;
 
@@ -115,7 +115,7 @@ describe("createPlagiarismReport — trigger audit log", () => {
       })
       .mockResolvedValueOnce({ status: "pending" });
 
-    await createPlagiarismReport({ id: "asg_1", type: "courseAssessment" }, "usr_teacher");
+    await createPlagiarismReport({ id: "asg_1", type: "assessment" }, "usr_teacher");
 
     expect(triggerLogCreate).toHaveBeenCalledTimes(1);
     const [, data] = triggerLogCreate.mock.calls[0];
@@ -154,9 +154,9 @@ describe("createPlagiarismReport — trigger audit log", () => {
     expect(triggerLogCreate.mock.calls[0][1].priorPairCount).toBe(0);
   });
 
-  it("maps courseAssessment target to contextType='assessment'", async () => {
+  it("maps assessment target to contextType='assessment'", async () => {
     findByAssessmentId.mockResolvedValueOnce(null).mockResolvedValueOnce({ status: "pending" });
-    await createPlagiarismReport({ id: "asg_42", type: "courseAssessment" }, "usr_t");
+    await createPlagiarismReport({ id: "asg_42", type: "assessment" }, "usr_t");
     expect(triggerLogCreate.mock.calls[0][1]).toMatchObject({
       contextType: "assessment",
       contextId: "asg_42",

@@ -8,6 +8,11 @@ import {
   userMiniSelect,
   userPublicSelect,
 } from "./selects";
+import {
+  countProblemStatusSummaryForUser,
+  countUserStatsByProblem,
+  countUserStatsByProblemForAssessments,
+} from "./submission-stats";
 
 type TxClient = TransactionClient;
 
@@ -34,6 +39,10 @@ export const submissionRepo = {
     return prisma.submission.findUnique({ where: { id } });
   },
 
+  findStatusById(id: string) {
+    return prisma.submission.findUnique({ where: { id }, select: { status: true } });
+  },
+
   findByIdWithProblemId(id: string) {
     return prisma.submission.findUnique({
       select: {
@@ -47,8 +56,7 @@ export const submissionRepo = {
         sampleOnly: true,
         userId: true,
         createdAt: true,
-        contestParticipationId: true,
-        courseAssessmentId: true,
+        assessmentId: true,
         courseId: true,
         verdictSummary: true,
         verdictDetailStorageKey: true,
@@ -66,7 +74,7 @@ export const submissionRepo = {
         problemId: true,
         contestId: true,
         courseId: true,
-        courseAssessmentId: true,
+        assessmentId: true,
         examId: true,
         sampleOnly: true,
         language: true,
@@ -81,7 +89,7 @@ export const submissionRepo = {
         user: { select: userMiniSelect },
         problem: { select: problemMiniSelect },
         contest: { select: { id: true, title: true } },
-        courseAssessment: {
+        assessment: {
           select: {
             id: true,
             title: true,
@@ -104,15 +112,10 @@ export const submissionRepo = {
   findByIdWithJudgeContext(id: string) {
     return prisma.submission.findUnique({
       include: {
-        contestParticipation: {
-          select: {
-            contestId: true,
-            contest: {
-              select: { endsAt: true, startsAt: true },
-            },
-          },
+        contest: {
+          select: { endsAt: true, startsAt: true },
         },
-        courseAssessment: {
+        assessment: {
           select: { adjustmentRules: true, closesAt: true, dueAt: true, opensAt: true },
         },
         problem: {
@@ -142,8 +145,8 @@ export const submissionRepo = {
     userId: string;
     statusIn: SubmissionStatus[];
     contestId?: string;
-    courseAssessmentId?: string;
-    virtualContestId?: string;
+    assessmentId?: string;
+    participationId?: string;
     take?: number;
   }) {
     return prisma.submission.findMany({
@@ -153,8 +156,8 @@ export const submissionRepo = {
         sampleOnly: false,
         status: { in: opts.statusIn },
         ...(opts.contestId ? { contestId: opts.contestId } : {}),
-        ...(opts.courseAssessmentId ? { courseAssessmentId: opts.courseAssessmentId } : {}),
-        ...(opts.virtualContestId ? { virtualContestId: opts.virtualContestId } : {}),
+        ...(opts.assessmentId ? { assessmentId: opts.assessmentId } : {}),
+        ...(opts.participationId ? { participationId: opts.participationId } : {}),
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -167,7 +170,7 @@ export const submissionRepo = {
         verdictSummary: true,
         verdictDetailStorageKey: true,
         contestId: true,
-        courseAssessmentId: true,
+        assessmentId: true,
         examId: true,
       },
       take: opts.take ?? 50,
@@ -190,7 +193,7 @@ export const submissionRepo = {
         runtimeMs: true,
         memoryKb: true,
         contestId: true,
-        courseAssessmentId: true,
+        assessmentId: true,
         examId: true,
         problem: { select: problemMiniSelect },
       },
@@ -231,29 +234,17 @@ export const submissionRepo = {
     });
   },
 
-  async countUserStatsByProblem(
-    problemIds: string[],
-  ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {
-    if (problemIds.length === 0) return [];
-    return prisma.$queryRaw<{ problemId: string; attempters: number; solvers: number }[]>`
-      SELECT
-        "problemId",
-        COUNT(DISTINCT "userId")::int AS attempters,
-        COUNT(DISTINCT "userId") FILTER (WHERE status = 'accepted')::int AS solvers
-      FROM "Submission"
-      WHERE "problemId" = ANY(${problemIds}::text[])
-        AND "sampleOnly" = false
-      GROUP BY "problemId"
-    `;
+  countUserStatsByProblem(problemIds: string[]) {
+    return countUserStatsByProblem(problemIds);
   },
 
   groupBestScoresByAssessment(assessmentIds: string[]) {
     if (assessmentIds.length === 0) return Promise.resolve([]);
     return prisma.submission.groupBy({
-      by: ["courseAssessmentId", "userId", "problemId"],
+      by: ["assessmentId", "userId", "problemId"],
       _max: { score: true },
       where: {
-        courseAssessmentId: { in: assessmentIds },
+        assessmentId: { in: assessmentIds },
         sampleOnly: false,
       },
     });
@@ -262,10 +253,10 @@ export const submissionRepo = {
   groupAcceptedByAssessmentForUser(opts: { assessmentIds: string[]; userId: string }) {
     if (opts.assessmentIds.length === 0) return Promise.resolve([]);
     return prisma.submission.groupBy({
-      by: ["courseAssessmentId", "problemId"],
+      by: ["assessmentId", "problemId"],
       _count: { _all: true },
       where: {
-        courseAssessmentId: { in: opts.assessmentIds },
+        assessmentId: { in: opts.assessmentIds },
         userId: opts.userId,
         sampleOnly: false,
         status: "accepted",
@@ -276,10 +267,10 @@ export const submissionRepo = {
   groupBestScoresByAssessmentForUser(opts: { assessmentIds: string[]; userId: string }) {
     if (opts.assessmentIds.length === 0) return Promise.resolve([]);
     return prisma.submission.groupBy({
-      by: ["courseAssessmentId", "problemId"],
+      by: ["assessmentId", "problemId"],
       _max: { score: true },
       where: {
-        courseAssessmentId: { in: opts.assessmentIds },
+        assessmentId: { in: opts.assessmentIds },
         userId: opts.userId,
         sampleOnly: false,
       },
@@ -355,21 +346,15 @@ export const submissionRepo = {
     });
   },
 
-  findForContestScoreboard(participationIds: string[]) {
+  findForContestScoreboardByContestId(contestId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
-      select: {
-        ...scoringBaseSelect,
-        contestParticipation: { select: { userId: true } },
-      },
-      where: {
-        contestParticipationId: { in: participationIds },
-        sampleOnly: false,
-      },
+      select: { ...scoringBaseSelect, userId: true },
+      where: { contestId, sampleOnly: false },
     });
   },
 
-  findForVirtualContestScoreboard(virtualContestId: string) {
+  findForVirtualContestScoreboard(participationId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: {
@@ -377,32 +362,31 @@ export const submissionRepo = {
         userId: true,
       },
       where: {
-        virtualContestId,
+        participationId,
         sampleOnly: false,
       },
     });
   },
 
-  findForContestChart(participationIds: string[]) {
+  findForContestChartByContestId(contestId: string, userIds: string[]) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
-      select: {
-        ...scoringBaseSelect,
-        contestParticipationId: true,
-      },
+      select: { ...scoringBaseSelect, userId: true },
       where: {
-        contestParticipationId: { in: participationIds },
+        contestId,
+        userId: { in: userIds },
         sampleOnly: false,
       },
     });
   },
 
-  findForParticipationScoring(participationId: string) {
+  findForContestScoring(contestId: string, userId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: scoringBaseSelect,
       where: {
-        contestParticipationId: participationId,
+        contestId,
+        userId,
         sampleOnly: false,
       },
     });
@@ -430,7 +414,7 @@ export const submissionRepo = {
     let where: Prisma.SubmissionWhereInput;
     switch (context.type) {
       case "assignment":
-        where = { courseAssessmentId: context.assignmentId };
+        where = { assessmentId: context.assignmentId };
         break;
       case "exam":
         where = { examId: context.examId };
@@ -449,7 +433,7 @@ export const submissionRepo = {
         problemId,
         OR: [
           { contestId: { not: null } },
-          { courseAssessmentId: { not: null } },
+          { assessmentId: { not: null } },
           { examId: { not: null } },
         ],
       },
@@ -562,12 +546,12 @@ export const submissionRepo = {
         sampleOnly: false,
         createdAt: { gte: from },
         courseId: { in: courseIds },
-        courseAssessmentId: { not: null },
+        assessmentId: { not: null },
       },
       select: {
         status: true,
-        courseAssessmentId: true,
-        courseAssessment: {
+        assessmentId: true,
+        assessment: {
           select: {
             id: true,
             title: true,
@@ -583,27 +567,15 @@ export const submissionRepo = {
     return prisma.submission.groupBy({
       by: ["status"],
       where: {
-        courseAssessmentId: { in: assessmentIds },
+        assessmentId: { in: assessmentIds },
         sampleOnly: false,
       },
       _count: { _all: true },
     });
   },
 
-  async countUserStatsByProblemForAssessments(
-    assessmentIds: string[],
-  ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {
-    if (assessmentIds.length === 0) return [];
-    return prisma.$queryRaw<{ problemId: string; attempters: number; solvers: number }[]>`
-      SELECT
-        "problemId",
-        COUNT(DISTINCT "userId")::int AS attempters,
-        COUNT(DISTINCT "userId") FILTER (WHERE status = 'accepted')::int AS solvers
-      FROM "Submission"
-      WHERE "courseAssessmentId" = ANY(${assessmentIds}::text[])
-        AND "sampleOnly" = false
-      GROUP BY "problemId"
-    `;
+  countUserStatsByProblemForAssessments(assessmentIds: string[]) {
+    return countUserStatsByProblemForAssessments(assessmentIds);
   },
 
   groupBestScores(opts: { assessmentId: string; studentIds: string[]; problemIds: string[] }) {
@@ -613,7 +585,7 @@ export const submissionRepo = {
       by: ["userId", "problemId"],
       _max: { score: true },
       where: {
-        courseAssessmentId: opts.assessmentId,
+        assessmentId: opts.assessmentId,
         sampleOnly: false,
         userId: { in: opts.studentIds },
         problemId: { in: opts.problemIds },
@@ -649,6 +621,13 @@ export const submissionRepo = {
     });
   },
 
+  updateStatusIfIn(id: string, fromStatuses: string[], status: string) {
+    return prisma.submission.updateMany({
+      data: { status } as Prisma.SubmissionUncheckedUpdateInput,
+      where: { id, status: { in: fromStatuses as SubmissionStatus[] } },
+    });
+  },
+
   complete(id: string, data: Prisma.SubmissionUpdateInput) {
     return prisma.submission.update({
       data,
@@ -662,17 +641,32 @@ export const submissionRepo = {
 
   countForUserAssessmentProblemSince(
     userId: string,
-    courseAssessmentId: string,
+    assessmentId: string,
     problemId: string,
     sinceTime: Date,
   ) {
     return prisma.submission.count({
       where: {
         userId,
-        courseAssessmentId,
+        assessmentId,
         problemId,
         sampleOnly: false,
+        status: { not: "system_error" },
         createdAt: { gte: sinceTime },
+      },
+    });
+  },
+
+  countProblemStatusSummaryForUser(userId: string) {
+    return countProblemStatusSummaryForUser(userId);
+  },
+
+  findStalePendingIds(before: Date) {
+    return prisma.submission.findMany({
+      select: { id: true },
+      where: {
+        status: { in: ["pending_upload", "queued", "compiling", "running"] },
+        updatedAt: { lt: before },
       },
     });
   },
@@ -689,16 +683,17 @@ export const submissionRepo = {
 
       countForUserAssessmentProblemSince(
         userId: string,
-        courseAssessmentId: string,
+        assessmentId: string,
         problemId: string,
         sinceTime: Date,
       ) {
         return tx.submission.count({
           where: {
             userId,
-            courseAssessmentId,
+            assessmentId,
             problemId,
             sampleOnly: false,
+            status: { not: "system_error" },
             createdAt: { gte: sinceTime },
           },
         });

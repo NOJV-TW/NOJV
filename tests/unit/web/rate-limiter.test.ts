@@ -11,11 +11,21 @@ describe("rate limiter (RateLimiterMemory smoke test)", () => {
 });
 
 function mockClientIp(): void {
-  // rate-limiter imports getClientIp, which transitively pulls in
-  // $env/dynamic/private. Mock it directly so the env shim is bypassed.
   vi.doMock("$lib/server/shared/client-ip", () => ({
     getClientIp: () => "1.2.3.4",
   }));
+}
+
+function makeDisconnectedRedis(): object {
+  return {
+    on() {},
+    call() {
+      return Promise.reject(new Error("Connection is closed."));
+    },
+    sendCommand() {
+      return Promise.reject(new Error("Connection is closed."));
+    },
+  };
 }
 
 describe("rate limiter fail-closed in production", () => {
@@ -23,31 +33,25 @@ describe("rate limiter fail-closed in production", () => {
     vi.resetModules();
   });
 
-  it("falls back to memory limiter in dev when Redis is down", async () => {
+  it("uses memory limiter in dev mode", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: true, building: false }));
     vi.doMock("@nojv/redis", () => ({
-      getRedis: () => {
-        throw new Error("Redis not available");
-      },
+      createRateLimiterConnection: () => ({}),
     }));
     mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
-    // Should not throw — dev fallback uses RateLimiterMemory and counts down points.
     await expect(mod.apiRateLimiter.consume("ip-dev")).resolves.toBeDefined();
   });
 
-  it("fails closed in production when Redis is down", async () => {
+  it("fails closed in production when Redis rejects consume", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
     vi.doMock("@nojv/redis", () => ({
-      getRedis: () => {
-        throw new Error("Redis not available");
-      },
+      createRateLimiterConnection: makeDisconnectedRedis,
     }));
     mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
-    // Every consume should reject — no in-memory fallback in production.
     await expect(mod.apiRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
       mod.__test.RateLimiterFailClosedError,
     );
@@ -56,24 +60,37 @@ describe("rate limiter fail-closed in production", () => {
     );
   });
 
-  it("consumeFormRateLimitInternal returns 429 fail() when fail-closed in production", async () => {
+  it("consumeFormRateLimitInternal returns 429 fail() when Redis is down in production", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
     vi.doMock("@nojv/redis", () => ({
-      getRedis: () => {
-        throw new Error("Redis not available");
-      },
+      createRateLimiterConnection: makeDisconnectedRedis,
     }));
     mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
-    // Cast: consumeFormRateLimitInternal now takes RequestEvent but the mocked
-    // getClientIp ignores its argument, so a stub is sufficient.
     const fakeEvent = {} as unknown as Parameters<typeof mod.consumeFormRateLimitInternal>[0];
     const result = await mod.consumeFormRateLimitInternal(fakeEvent);
     expect(result).not.toBeNull();
-    // SvelteKit's fail() returns an ActionFailure-shaped object with status + data.
     const failObj = result as unknown as { status: number; data: { error: string } };
     expect(failObj.status).toBe(429);
     expect(failObj.data.error).toMatch(/too many requests/i);
+  });
+});
+
+describe("rate limiter key prefixes", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("gives each limiter its own Redis keyPrefix so per-IP counters never collide", async () => {
+    vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
+    vi.doMock("@nojv/redis", () => ({ createRateLimiterConnection: () => ({}) }));
+    mockClientIp();
+
+    const mod = await import("$lib/server/shared/rate-limiter");
+    const prefixes = [mod.apiRateLimiter, mod.writeApiRateLimiter, mod.signInRateLimiter].map(
+      (limiter) => (limiter as { keyPrefix?: string }).keyPrefix,
+    );
+    expect(prefixes).toEqual(["rl:api", "rl:write", "rl:signin"]);
   });
 });

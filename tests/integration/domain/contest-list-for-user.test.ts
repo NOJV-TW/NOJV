@@ -2,13 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { createTestContest, createTestUser } from "../../fixtures/factories";
 
-import { contestDomain } from "@nojv/domain";
+import { contestDomain } from "@nojv/application";
 
 const { listContestsForUser } = contestDomain;
-
-// Standalone-contest listing only. Course-embedded exams moved to
-// the Exam model in the 2026-04-14 split; see exam.test.ts for the
-// equivalent listing tests.
 
 describe("listContestsForUser", () => {
   it("puts user-created standalone contests into managed, not participable", async () => {

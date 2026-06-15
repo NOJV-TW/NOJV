@@ -1,4 +1,4 @@
-import type { SubmissionSource } from "@nojv/domain";
+import type { SubmissionSource } from "@nojv/application";
 
 export function flattenSourcesForDisplay(files: SubmissionSource[]): string {
   if (files.length === 0) return "";

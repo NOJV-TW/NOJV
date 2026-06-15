@@ -46,7 +46,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/admin`                                             | Admin dashboard (platform admin only)                                                                                                           |
 | `/admin/content/announcements`                       | Manage announcements                                                                                                                            |
 | `/admin/content/editorial-reports`                   | Review reported editorials                                                                                                                      |
-| `/admin/system`                                      | System settings landing                                                                                                                         |
+| `/admin/rejudges`                                    | Rejudge log (paged, filterable by problem) + stale-submission pending-timeout setting                                                           |
 | `/admin/system/users`                                | User management (role assignment, disable)                                                                                                      |
 | `/account`                                           | User account settings (display name, locale, avatar)                                                                                            |
 
@@ -84,15 +84,24 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/submissions/[id]/stream`                                | GET                | SSE: poll Temporal workflow query for status                                                   |
 | `/api/submissions/[id]/rejudge`                               | POST               | Rejudge a single submission (admin/teacher)                                                    |
 | `/api/rejudges`                                               | POST               | Batch rejudge by problem/context filters                                                       |
+| `/api/rejudges/[workflowId]`                                  | GET                | Rejudge progress `{ completed, total }` (Temporal `getProgress` query) for the progress bar    |
+| `/api/rejudges/[workflowId]/cancel`                           | POST               | Cancel an in-flight batch rejudge (cancels the parent workflow)                                |
 | `/api/events/stream`                                          | GET                | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
-| `/api/contests/[id]/scoreboard`                               | GET                | Scoreboard data from Redis (or DB rebuild fallback)                                            |
+| `/api/contests/[id]/scoreboard`                               | GET                | Scoreboard data (computed on read from Postgres via `buildScoreboard`)                         |
 | `/api/contests/[id]/scoreboard/chart`                         | GET                | Scoreboard chart data                                                                          |
-| `/api/exam-sessions/[examId]/heartbeat`                       | POST               | Record page-lock heartbeat / visibility events                                                 |
 | `/api/plagiarism/[assignmentId]/reports`                      | GET, POST          | List plagiarism reports (GET) / trigger detection (POST)                                       |
 | `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]` | GET                | Fetch a participant's submission source for a flagged pair                                     |
 | `/api/plagiarism-flags`                                       | POST               | Flag a plagiarism pair (admin/teacher)                                                         |
 | `/api/plagiarism-flags/[id]`                                  | DELETE             | Remove a plagiarism flag                                                                       |
-| `/api/problems`                                               | POST               | Create problem (admin/teacher)                                                                 |
+| `/api/problems`                                               | POST               | Create problem (email-verified users)                                                          |
+| `/api/problems/[id]`                                          | DELETE             | Delete a problem (owner / staff)                                                               |
+| `/api/problems/advanced-scaffold`                             | GET                | Stream the advanced-mode starter project zip                                                   |
+| `/api/problems/[id]/bookmark`                                 | POST               | Toggle the practice-list bookmark for a problem                                                |
+| `/api/problems/[id]/bundle`                                   | GET, POST          | Download / upload the problem testcase + workspace bundle (zip)                                |
+| `/api/problems/[id]/checker`                                  | POST               | Upload the checker (DOMjudge validator) script                                                 |
+| `/api/problems/[id]/interactor`                               | POST               | Upload the interactor script                                                                   |
+| `/api/problems/[id]/workspace/files`                          | POST               | Upload / replace a workspace file                                                              |
+| `/api/problems/[id]/storage-usage`                            | GET                | Per-problem object-storage usage                                                               |
 | `/api/problems/[id]/editorials`                               | GET, POST          | Problem editorials (AC-gated)                                                                  |
 | `/api/problems/[id]/images`                                   | POST               | Upload problem image (magic-number validated)                                                  |
 | `/api/problems/[id]/advanced-image`                           | POST               | Upload advanced-mode judge image tarball                                                       |
@@ -105,6 +114,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/clarifications/[id]`                                    | PATCH              | Answer or dismiss a clarification                                                              |
 | `/api/clarifications/[id]/replies`                            | POST               | Canned-reply / templated answer                                                                |
 | `/api/editorials/[id]`                                        | PATCH, DELETE      | Edit / soft-delete editorial                                                                   |
+| `/api/editorials/[id]/votes`                                  | POST               | Cast / change an up-or-down vote on an editorial                                               |
+| `/api/editorials/[id]/reports`                                | POST               | File a report against an editorial (feeds the admin moderation queue)                          |
 | `/api/overrides`                                              | GET, POST          | List / create score overrides (writes gated post-close, admin bypass)                          |
 | `/api/overrides/[id]`                                         | PATCH, DELETE      | Update / remove score override (writes gated post-close, admin bypass)                         |
 | `/api/feedback`                                               | GET, PUT           | List / upsert per-cell grading feedback (assignment + exam; writes gated post-close)           |
@@ -119,7 +130,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - **Roles**: `requirePlatformRole(actor, ...roles)` for admin/teacher gates
 - **Course access**: `isCourseStaff(role)`, `resolveEffectiveCourseRole(platformRole, courseRole)`
 - **Database**: Repositories exported from `@nojv/db`. Domain layer is the default path; routes that read structural data (e.g. announcement listings, layout loaders) may import repositories directly
-- **Job dispatch**: Temporal via `@nojv/temporal` root entry, typically re-exported through `@nojv/domain` (`dispatchSubmissionJudge`, `dispatchPlagiarismCheck`, etc.). Workflow queries via `querySubmissionStatus` / `queryRejudgeProgress` / `queryPlagiarismStatus`
+- **Job dispatch**: routes call `@nojv/application` orchestration functions (`dispatchSubmissionJudge`, `dispatchPlagiarismCheck`, etc.). `apps/web/src/lib/server/domain-orchestration.ts` wires those functions to the `@nojv/temporal` root dispatch/query helpers at process startup; route handlers should not import raw Temporal helpers directly
 - **Redis**: Pub/sub and rate-limiter Redis access via `@nojv/redis` (`getRedis`, `createSubscriber`, key registry)
 - **Rate limits**: `apiHandler` / `writeApiHandler` wrap read / write routes; form actions compose through `withRateLimit` in `action-handlers.ts` (which calls the internal `consumeFormRateLimitInternal(event)`); `signInRateLimiter` enforced from `hooks.server.ts` on password sign-in routes. All key on `getClientIp(event)` (Cloudflare-aware)
 - **CSRF**: `hooks.server.ts` rejects `/api/**` non-GET requests without `X-Requested-With: fetch` (better-auth path exempt). Same-origin Origin header also enforced
@@ -168,6 +179,23 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - **Channels**: `user:{userId}`, `notification:{userId}`, `contest:{contestId}`, `assessment:{assessmentId}`, `clarification:{contextType}:{contextId}` — see [Redis Architecture](REDIS.md)
 - **Events**: submission verdict, contest starting/ending, assignment deadline, notifications, clarification updates
 - **Submission polling**: Temporal `workflow.query("getStatus")` with DB fallback
+
+## Accessibility
+
+Component-level a11y is built on accessible primitives plus explicit ARIA on
+the hand-rolled controls. Evidence by surface:
+
+| Concern                        | Pattern (where)                                                                                                                                                                                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accessible primitives          | 21 components build on **Bits UI** (`bits-ui`) — dialogs (`role="dialog"`, `aria-modal`), tabs (`role="tab"`/`"tablist"`, `aria-selected`, `aria-orientation`), selects (`aria-expanded`/`aria-controls`/`aria-haspopup`), giving focus trap + keyboard nav for free.             |
+| Form validation                | Inputs/buttons/select-triggers carry `aria-invalid` (`primitives/ui/{input,button,select}`); the error `<p>` is linked via `aria-describedby` and announced with `role="alert"` (e.g. `AssignmentBasicSection`, `ExamBasicSettings`, `ContestSettingsTab`, `SchoolVerification`). |
+| Toggle / current state         | `aria-pressed` on toggles (language switch in `Header`), `aria-current` on active nav, `aria-checked`/`aria-disabled` where relevant.                                                                                                                                             |
+| Async status (live region)     | `aria-live` + `aria-atomic` announce toasts and judge status without focus change; `aria-busy` marks in-flight controls.                                                                                                                                                          |
+| Icon-only controls             | `aria-label` names icon buttons; decorative icons are `aria-hidden` so they don't pollute the accessibility tree.                                                                                                                                                                 |
+| Color is never the sole signal | Verdicts pair color with text/short codes (`VerdictBadge`, `CaseResultGrid`) so colour-blind users still distinguish AC/WA/TLE/…                                                                                                                                                  |
+
+Bare (non-Bits) `<input>` controls are flagged by `svelte-check`'s a11y lint, so
+missing labels/roles fail `pnpm check` rather than shipping silently.
 
 ## Related Docs
 

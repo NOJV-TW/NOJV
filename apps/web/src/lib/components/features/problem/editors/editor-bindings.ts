@@ -24,7 +24,7 @@ export function readPanelWidth(): number {
     const parsed = Number(raw);
     if (Number.isFinite(parsed)) return clampPanelWidth(parsed);
   } catch {
-    // localStorage may throw under private-mode quotas / SSR; fall through.
+    return DEFAULT_PANEL_WIDTH;
   }
   return DEFAULT_PANEL_WIDTH;
 }
@@ -33,7 +33,7 @@ export function persistPanelWidth(width: number): void {
   try {
     localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(clampPanelWidth(width)));
   } catch {
-    // Quota / disabled storage — silently no-op.
+    return;
   }
 }
 
@@ -47,7 +47,7 @@ export function persistLanguage(lang: Language): void {
   try {
     document.cookie = `${EDITOR_LANGUAGE_COOKIE}=${lang}; path=/; max-age=31536000; samesite=lax`;
   } catch {
-    // Disabled cookies / SSR — silently no-op.
+    return;
   }
 }
 
@@ -158,7 +158,7 @@ export function buildSubmissionRequest(args: {
   runCases?: { input: string; expectedOutput?: string }[] | undefined;
   assessment?: SubmissionAssessmentContext | undefined;
   contestId?: string | undefined;
-  virtualContestId?: string | undefined;
+  participationId?: string | undefined;
 }): SubmissionRequest {
   const base: Omit<SubmissionRequest, "sourceCode" | "sourceFiles"> = {
     language: args.language,
@@ -166,7 +166,7 @@ export function buildSubmissionRequest(args: {
     sampleOnly: args.sampleOnly,
     ...(args.assessment ? { assessment: args.assessment } : {}),
     ...(args.contestId ? { contestId: args.contestId } : {}),
-    ...(args.virtualContestId ? { virtualContestId: args.virtualContestId } : {}),
+    ...(args.participationId ? { participationId: args.participationId } : {}),
     ...(args.runCases ? { runCases: args.runCases } : {}),
   };
   if (args.isWorkspaceMode) {

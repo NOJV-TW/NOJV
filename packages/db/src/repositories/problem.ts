@@ -1,5 +1,5 @@
 import { prisma } from "../client";
-import type { Prisma, SubtaskScoringStrategy } from "../../generated/prisma/client";
+import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 import { problemMiniSelect } from "./selects";
 
@@ -38,6 +38,22 @@ export const problemRepo = {
 
   delete(id: string) {
     return prisma.problem.delete({ where: { id } });
+  },
+
+  hasContextLinks(id: string) {
+    return prisma.problem
+      .findFirst({
+        where: {
+          id,
+          OR: [
+            { contestLinks: { some: {} } },
+            { examLinks: { some: {} } },
+            { assessmentLinks: { some: {} } },
+          ],
+        },
+        select: { id: true },
+      })
+      .then((row) => row !== null);
   },
 
   countPublic() {
@@ -295,13 +311,6 @@ export const testcaseSetRepo = {
     return prisma.testcaseSet.update({ where: { id }, data });
   },
 
-  async updateScoringStrategy(setId: string, strategy: SubtaskScoringStrategy): Promise<void> {
-    await prisma.testcaseSet.update({
-      where: { id: setId },
-      data: { scoringStrategy: strategy },
-    });
-  },
-
   delete(id: string) {
     return prisma.testcaseSet.delete({ where: { id } });
   },
@@ -312,6 +321,14 @@ export const testcaseSetRepo = {
         return tx.testcaseSet.create({ data });
       },
 
+      countByProblem(problemId: string) {
+        return tx.testcaseSet.count({ where: { problemId } });
+      },
+
+      maxOrdinalByProblem(problemId: string) {
+        return tx.testcaseSet.aggregate({ where: { problemId }, _max: { ordinal: true } });
+      },
+
       deleteByProblemId(problemId: string) {
         return tx.testcaseSet.deleteMany({ where: { problemId } });
       },
@@ -320,6 +337,13 @@ export const testcaseSetRepo = {
 };
 
 export const testcaseRepo = {
+  findById(id: string) {
+    return prisma.testcase.findUnique({
+      where: { id },
+      include: { testcaseSet: { select: { problemId: true } } },
+    });
+  },
+
   update(id: string, data: Prisma.TestcaseUpdateInput) {
     return prisma.testcase.update({ where: { id }, data });
   },

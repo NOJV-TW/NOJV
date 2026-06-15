@@ -2,7 +2,7 @@ import { error } from "@sveltejs/kit";
 
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
 import { m } from "$lib/paraglide/messages.js";
-import { proctoringDomain } from "@nojv/domain";
+import { proctoringDomain } from "@nojv/application";
 import { getActorContext } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 

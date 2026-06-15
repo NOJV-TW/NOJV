@@ -32,8 +32,10 @@ vi.mock("@nojv/db", () => ({
   examRepo: { findById: examFindById },
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
-  contestParticipationRepo: { listParticipantUserIds: vi.fn() },
-  examParticipationRepo: { listParticipantUserIds: vi.fn() },
+  participationRepo: {
+    listContestParticipantUserIds: vi.fn(),
+    listExamParticipantUserIds: vi.fn(),
+  },
   assessmentProblemRepo: { exists: vi.fn() },
   contestProblemRepo: { existsById: vi.fn() },
   examProblemRepo: { exists: vi.fn() },
@@ -43,7 +45,7 @@ vi.mock("@nojv/redis", () => ({
   pubsub: { publishClarification },
 }));
 
-import { deleteClarification } from "../../../packages/domain/src/clarification/mutations";
+import { deleteClarification } from "../../../packages/application/src/clarification/mutations";
 
 function actor(
   overrides: Partial<{
@@ -95,7 +97,6 @@ function clarificationRow(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default contest: organizer is usr_organizer.
   contestFindById.mockResolvedValue({
     id: "ctst_1",
     createdByUserId: "usr_organizer",

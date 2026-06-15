@@ -1,8 +1,8 @@
 import type {
+  AdvancedConfig,
   JudgeConfig,
   JudgeType,
   Language,
-  ProblemImageSource,
   ProblemOverview,
   ProblemStatus,
   ProblemType,
@@ -58,8 +58,7 @@ export interface ProblemDetail extends ProblemOverview {
   tags: string[];
   timeLimitMs: number;
   visibility: ProblemVisibility;
-  advancedImageRef: string | null;
-  advancedImageSource: ProblemImageSource | null;
+  advancedConfig: AdvancedConfig | null;
   advancedRequiredPaths: string[];
   workspaceFiles: {
     language: string;

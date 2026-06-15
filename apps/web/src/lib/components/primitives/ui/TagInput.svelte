@@ -29,14 +29,24 @@
       tags = tags.slice(0, -1);
     }
   }
+
+  function focusInput() {
+    inputEl?.focus();
+  }
+
+  function handleContainerKeydown(event: KeyboardEvent) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    focusInput();
+  }
 </script>
 
 <div
   class="flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
-  onclick={() => inputEl?.focus()}
+  onclick={focusInput}
   role="textbox"
   tabindex="-1"
-  onkeydown={() => {}}
+  onkeydown={handleContainerKeydown}
 >
   {#each tags as tag, index (tag)}
     <span

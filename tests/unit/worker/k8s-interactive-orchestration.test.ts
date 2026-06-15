@@ -41,9 +41,7 @@ interface CallRecord {
 }
 
 interface FakeOptions {
-  /** Per Job name → containers' log payloads. */
   perJob?: Map<string, { solution: string; interactor: string }>;
-  /** Per Job name → outcome of waitForJobCompletion (default succeeded). */
   outcomes?: Map<string, "succeeded" | "failed">;
 }
 
@@ -140,7 +138,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       "judge-sub-int-orch-int-2",
     ]);
 
-    // Two ConfigMaps per case (solution-data + interactor-data).
     expect(record.configMapsCreated.map((c) => c.name)).toEqual([
       "judge-sub-int-orch-int-0-sol",
       "judge-sub-int-orch-int-0-int",
@@ -150,7 +147,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       "judge-sub-int-orch-int-2-int",
     ]);
 
-    // Every ConfigMap + Job is cleaned up after each case (best-effort delete).
     expect(
       record.configMapsDeleted.map((c) => c.name).sort((a, b) => Number(a > b) - Number(a < b)),
     ).toEqual(
@@ -167,8 +163,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     expect(tcResults.length).toBe(3);
     expect(tcResults[0]!.verdict).toBe("AC");
     expect(tcResults[1]!.verdict).toBe("WA");
-    expect(tcResults[1]!.score).toBe(50);
-    // Solution RE wins over interactor AC — same merge semantics as Docker.
     expect(tcResults[2]!.verdict).toBe("RE");
   });
 
@@ -205,7 +199,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     const perJob = new Map([
       [
         "judge-sub-int-orch-int-0",
-        // Solution emits no marker → SE for this case.
         { solution: "garbled output\n", interactor: intMarker({ verdict: "AC" }) },
       ],
       [
@@ -224,10 +217,8 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     expect(tcResults[0]!.verdict).toBe("SE");
     expect(tcResults[1]!.verdict).toBe("AC");
 
-    // Both jobs created and both cleaned.
     expect(record.jobsCreated).toHaveLength(2);
     expect(record.jobsDeleted).toHaveLength(2);
-    // Both pairs of ConfigMaps cleaned.
     expect(record.configMapsDeleted).toHaveLength(4);
   });
 
@@ -242,7 +233,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     const result = await executor.execute(request);
 
     expect(result.testcaseResults![0]!.verdict).toBe("SE");
-    // Still cleans the Job + both ConfigMaps.
     expect(record.jobsDeleted).toHaveLength(1);
     expect(record.configMapsDeleted).toHaveLength(2);
   });
@@ -278,8 +268,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       );
       const result = await executor.execute(request);
 
-      // Markers are authoritative — Job-failed is the EXPECTED state for a clean
-      // interactive run, so it must NOT poison the verdict to SE.
       expect(result.testcaseResults![0]!.verdict).toBe("WA");
       expect(result.testcaseResults![0]!.feedback).toBe("guess budget exhausted");
     },
@@ -335,7 +323,6 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     const result = await executor.execute(broken);
 
     expect(result.testcaseResults![0]!.verdict).toBe("SE");
-    // Never tried to create any K8s resources.
     expect(record.jobsCreated).toHaveLength(0);
     expect(record.configMapsCreated).toHaveLength(0);
   });

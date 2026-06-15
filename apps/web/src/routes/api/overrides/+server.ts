@@ -4,8 +4,12 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
-import { scoreOverrideDomain } from "@nojv/domain";
+import {
+  apiHandler,
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+} from "$lib/server/shared/api-handler";
+import { scoreOverrideDomain } from "@nojv/application";
 
 const contextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
@@ -46,6 +50,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
+  assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const body = createSchema.parse(await event.request.json());
 

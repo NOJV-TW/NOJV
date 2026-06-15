@@ -23,7 +23,7 @@ export interface SubmissionWorkspaceFile {
 export interface SubmissionRequest {
   assessment?: SubmissionAssessmentContext | undefined;
   contestId?: string | undefined;
-  virtualContestId?: string | undefined;
+  participationId?: string | undefined;
   language: Language;
   problemId: string;
   runCases?: SubmissionRunCase[];
@@ -39,7 +39,7 @@ export interface ExecuteSubmissionOptions {
   onOperationUpdate?: (operation: ReturnType<typeof submissionOperationSchema.parse>) => void;
 }
 
-const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 600_000;
 const INITIAL_POLL_DELAY_MS = 500;
 const MAX_POLL_DELAY_MS = 3_000;
 const POLL_BACKOFF_FACTOR = 1.5;
@@ -48,7 +48,7 @@ function resolveSubmissionMode(
   request: SubmissionRequest,
 ): "contest" | "assignment" | "practice" | "virtual" {
   if (request.contestId) return "contest";
-  if (request.virtualContestId) return "virtual";
+  if (request.participationId) return "virtual";
   if (request.assessment) return "assignment";
   return "practice";
 }
@@ -59,7 +59,7 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
   const commonFields: Record<string, unknown> = {
     assessment: request.assessment,
     contestId: request.contestId,
-    virtualContestId: request.virtualContestId,
+    participationId: request.participationId,
     language: request.language,
     mode,
     problemId: request.problemId,
@@ -172,7 +172,7 @@ export async function executeSubmission(
     pollDelay = Math.min(pollDelay * POLL_BACKOFF_FACTOR, MAX_POLL_DELAY_MS);
   }
 
-  throw new Error("Submission polling timed out.");
+  return null;
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<boolean> {

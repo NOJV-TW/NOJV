@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canManageExam } from "@nojv/domain";
-
-// Exams are always course-embedded, so `canManageExam` checks
-// ownership OR an active teacher/TA course membership.
+import { canManageExam } from "@nojv/application";
 
 const exam = { createdByUserId: "owner-1", courseId: "course-1" };
 

@@ -5,8 +5,8 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import {
   examSettingsFormSchema,
   examUpdateSchema,
+  parseIpWhitelistText,
   type ExamSettingsForm,
-  type ExamUpdate,
 } from "@nojv/core";
 import {
   auditDomain,
@@ -19,7 +19,7 @@ import {
   proctoringDomain,
   scoreOverrideDomain,
   userDomain,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
@@ -29,6 +29,10 @@ import { createLogger } from "$lib/server/logger";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import {
+  serializePlagiarismFlags,
+  serializePlagiarismReport,
+} from "$lib/server/shared/plagiarism-view";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
 import { buildExamResults, type ExamResults } from "$lib/server/results/exam";
 import type { FormMessage } from "$lib/types/form-message";
@@ -42,13 +46,6 @@ const {
 } = examDomain;
 
 const logger = createLogger("exam-page-action");
-
-function parseWhitelist(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const parent = await event.parent();
@@ -150,22 +147,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     courseId: examHeader.courseId,
     settingsForm,
     results,
-    plagiarism: plagiarism
-      ? {
-          status: plagiarism.status,
-          reportUrl: plagiarism.reportUrl,
-          triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
-          completedAt: plagiarism.completedAt?.toISOString() ?? null,
-          results: plagiarism.results as unknown,
-        }
-      : null,
-    plagiarismFlags: plagiarismFlags.map((f) => ({
-      id: f.id,
-      pairKey: f.pairKey,
-      flaggedBy: f.flaggedBy,
-      flaggedAt: f.flaggedAt.toISOString(),
-      note: f.note,
-    })),
+    plagiarism: serializePlagiarismReport(plagiarism),
+    plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
@@ -240,9 +223,15 @@ export const actions = {
   releaseAllSessions: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
-      await examDomain.session.releaseAllSessionsAsInstructor(actor, {
-        examId: event.params.examId,
-      });
+      const { releasedUserIds } = await examDomain.session.releaseAllSessionsAsInstructor(
+        actor,
+        {
+          examId: event.params.examId,
+        },
+      );
+      for (const releasedUserId of releasedUserIds) {
+        invalidateExamContextCaches(releasedUserId);
+      }
     } catch (err) {
       if (err instanceof HttpError) {
         return fail(err.status, { error: err.message });
@@ -264,6 +253,7 @@ export const actions = {
         examId: event.params.examId,
         targetUserId,
       });
+      invalidateExamContextCaches(targetUserId);
     } catch (err) {
       if (err instanceof HttpError) {
         return fail(err.status, { error: err.message });
@@ -304,7 +294,7 @@ export const actions = {
       return fail(400, { form });
     }
 
-    const payload: ExamUpdate = examUpdateSchema.parse({
+    const parsed = examUpdateSchema.safeParse({
       title: form.data.title,
       summary: form.data.summary ? form.data.summary : undefined,
       startsAt: toIsoOrUndefined(form.data.startsAt),
@@ -318,12 +308,19 @@ export const actions = {
       ipViolationMode: form.data.ipViolationMode,
       ipWhitelistEnabled: form.data.ipWhitelistEnabled,
       ipWhitelist: form.data.ipWhitelistEnabled
-        ? parseWhitelist(form.data.ipWhitelistText)
+        ? parseIpWhitelistText(form.data.ipWhitelistText)
         : [],
     });
+    if (!parsed.success) {
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: parsed.error.issues[0]?.message ?? "validation_failed" },
+        { status: 400 },
+      );
+    }
 
     try {
-      await updateExamRecord(actor, event.params.examId, payload);
+      await updateExamRecord(actor, event.params.examId, parsed.data);
     } catch (err) {
       const classified = classifyError(err);
       return message<FormMessage>(

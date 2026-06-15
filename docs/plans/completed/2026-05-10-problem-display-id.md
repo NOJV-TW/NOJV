@@ -250,7 +250,7 @@ git commit -m "feat(db): include displayId in Problem repo selects"
 **Files:**
 
 - Modify: `packages/core/src/schemas/problem.ts:180-186`
-- Modify: `packages/domain/src/problem/queries.ts` (interfaces `ProblemDetail`, `ProblemCardWithStatus`; mappers `mapPersistedProblemDetail`, `listProblemCards`, `listEditableProblems`)
+- Modify: `packages/application/src/problem/queries.ts` (interfaces `ProblemDetail`, `ProblemCardWithStatus`; mappers `mapPersistedProblemDetail`, `listProblemCards`, `listEditableProblems`)
 
 - [ ] **Step 1: Add `displayId` to `problemOverviewSchema`**
 
@@ -267,7 +267,7 @@ export const problemOverviewSchema = z.object({
 
 - [ ] **Step 2: Add `displayId` to the two cross-package interfaces**
 
-In `packages/domain/src/problem/queries.ts`:
+In `packages/application/src/problem/queries.ts`:
 
 `ProblemDetail` (around line 27) — add `displayId: number;` next to `id: string;`.
 
@@ -288,7 +288,7 @@ In the `problems.map(...)` block around line 360–374, add `displayId: problem.
 - [ ] **Step 6: Sweep for any other mapper that strips fields**
 
 ```bash
-grep -rn "id:.*problem\.id\|id: persistedProblem\.id\|title: persistedProblem\.title" packages/domain/src/
+grep -rn "id:.*problem\.id\|id: persistedProblem\.id\|title: persistedProblem\.title" packages/application/src/
 ```
 
 For each match outside the three mappers above, ensure the returned object also contains `displayId: <source>.displayId`. Pass-through spreads (`return problem;`) need no change.
@@ -297,7 +297,7 @@ For each match outside the three mappers above, ensure the returned object also 
 
 ```bash
 pnpm -C packages/core tsc --noEmit
-pnpm -C packages/domain tsc --noEmit
+pnpm -C packages/application tsc --noEmit
 ```
 
 Expected: passes.
@@ -305,7 +305,7 @@ Expected: passes.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add packages/core/src/schemas/problem.ts packages/domain/src/problem/queries.ts
+git add packages/core/src/schemas/problem.ts packages/application/src/problem/queries.ts
 git commit -m "feat(core,domain): expose Problem.displayId to consumers"
 ```
 

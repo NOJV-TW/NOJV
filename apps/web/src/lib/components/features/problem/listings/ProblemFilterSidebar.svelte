@@ -10,7 +10,7 @@
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { problemTypes, judgeTypes } from "@nojv/core";
-  import type { problemDomain } from "@nojv/domain";
+  import type { problemDomain } from "@nojv/application";
   import { Input } from "$lib/components/primitives/ui/input";
   import FilterChips, {
     type FilterChipOption,
@@ -63,7 +63,7 @@
       if (val === undefined || val === "" || val === "all") params.delete(key);
       else params.set(key, val);
     }
-    params.delete("page"); // any filter change resets pagination
+    params.delete("page");
     const qs = params.toString();
     void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
   }

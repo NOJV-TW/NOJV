@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RequestEvent } from "@sveltejs/kit";
 
-import { ForbiddenError, plagiarismDomain } from "@nojv/domain";
+import { ForbiddenError, plagiarismDomain } from "@nojv/application";
 
 import { assertCanManagePlagiarism } from "../../../apps/web/src/lib/server/plagiarism-pair";
 import {
@@ -12,14 +12,7 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import type { ActorContext } from "../../../packages/domain/src/shared/actor-context";
-
-/**
- * Route-level permission gate coverage for the 4 plagiarism HTTP endpoints
- * (per `docs/specs/plagiarism.md`). The HTTP wrappers are thin — testing
- * `assertCanManagePlagiarism` (web helper) + `flagPair`/`unflagPair`
- * (domain) hits the exact production gate the route delegates to.
- */
+import type { ActorContext } from "../../../packages/application/src/shared/actor-context";
 
 type SessionRole = ActorContext["platformRole"];
 
@@ -84,7 +77,7 @@ async function addCourseMember(
 }
 
 async function makeAssignment(courseId: string, createdByUserId: string) {
-  return testPrisma.courseAssessment.create({
+  return testPrisma.assessment.create({
     data: {
       courseId,
       createdByUserId,
@@ -220,7 +213,6 @@ describe("plagiarism API permission gates (real DB)", () => {
   });
 
   describe("GET /api/plagiarism/[assignmentId]/sources gate", () => {
-    // Same gate as trigger; cover the same actor matrix to pin the contract.
     it("rejects a same-course student with ForbiddenError", async () => {
       const teacher = await createTestUser({ platformRole: "teacher" });
       const course = await createTestCourse({ ownerId: teacher.id });

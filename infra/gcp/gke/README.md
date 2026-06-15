@@ -61,9 +61,11 @@ gcloud container node-pools create pool-sandbox \
 - `worker.pdb.yaml`: PodDisruptionBudget — keep ≥1 alive during voluntary disruptions
 - `temporal/`: self-hosted Temporal Server + dedicated Postgres + Web UI
 
-Sandbox per-pod resource limits (ResourceQuota, LimitRange) still live under
-`infra/k8s/sandbox/`; the namespace itself is declared here so a single
-`kubectl apply -k infra/gcp/gke` brings everything up.
+Sandbox per-pod resource limits (ResourceQuota, LimitRange) live under
+`infra/k8s/sandbox/` and are applied as a **separate second step** (see the
+Apply Flow below). `kubectl apply -k infra/gcp/gke` brings up the namespace,
+NetworkPolicy, worker RBAC/deployment/PDB, and Temporal — but **not** the
+sandbox ResourceQuota/LimitRange; those need `kubectl apply -f infra/k8s/sandbox`.
 
 ## Cloud SQL Auth Proxy
 
@@ -126,7 +128,7 @@ layer itself is a bottleneck.
 
 1. Create the two node pools (see above).
 2. Replace `PROJECT_ID` and image tags in `worker.deployment.yaml`.
-3. Create a real `nojv-runtime-secrets` secret with Cloud SQL and Memorystore connection strings.
+3. Create a real `nojv-runtime-secrets` secret with the Cloud SQL / Memorystore connection strings **and the object-storage credentials** (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the worker reads submission sources and writes verdict blobs through `@nojv/storage`, so judging fails without them.
 4. Apply the worker manifests:
    `kubectl apply -k infra/gcp/gke`
 5. Apply the sandbox namespace manifests:

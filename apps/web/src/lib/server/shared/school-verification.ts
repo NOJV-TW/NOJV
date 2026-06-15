@@ -1,10 +1,10 @@
 import { fail } from "@sveltejs/kit";
 import { Resend } from "resend";
 import { env } from "$env/dynamic/private";
-import { userDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/application";
 
 import { createLogger } from "../logger";
-import { withRateLimit } from "./action-handlers";
+import { withAction } from "./action-handlers";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 
 const logger = createLogger("school-verification");
@@ -70,7 +70,7 @@ export async function processSchoolVerification(
   return { success: true };
 }
 
-export const handleSendVerificationAction = withRateLimit(async (event) => {
+export const handleSendVerificationAction = withAction(async (event) => {
   const user = event.locals.user;
   if (!user) {
     return fail(401, { error: "Unauthorized" });

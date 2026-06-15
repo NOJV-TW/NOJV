@@ -1,10 +1,12 @@
 import type { S3Client } from "@aws-sdk/client-s3";
 
-import { deleteBlobsByPrefix, getText, listByPrefix, putText } from "./blobs";
+import { copyBlob, deleteBlobsByPrefix, getText, listByPrefix, putText } from "./blobs";
 import {
   submissionPrefix,
   submissionSourceKey,
   submissionSourcePrefix,
+  submissionSourceStagingKey,
+  submissionSourceStagingPrefix,
   submissionVerdictDetailKey,
 } from "./keys";
 
@@ -23,6 +25,35 @@ export async function putSubmissionSources(
       putText(client, submissionSourceKey(submissionId, source.path), source.content),
     ),
   );
+}
+
+export async function putSubmissionSourcesStaged(
+  client: S3Client,
+  submissionId: string,
+  sources: readonly SubmissionSource[],
+): Promise<void> {
+  await Promise.all(
+    sources.map((source) =>
+      putText(client, submissionSourceStagingKey(submissionId, source.path), source.content),
+    ),
+  );
+}
+
+export async function promoteSubmissionSources(
+  client: S3Client,
+  submissionId: string,
+  sources: readonly SubmissionSource[],
+): Promise<void> {
+  await Promise.all(
+    sources.map((source) =>
+      copyBlob(
+        client,
+        submissionSourceStagingKey(submissionId, source.path),
+        submissionSourceKey(submissionId, source.path),
+      ),
+    ),
+  );
+  await deleteSubmissionStaging(client, submissionId);
 }
 
 export async function getSubmissionSources(
@@ -68,6 +99,13 @@ export async function deleteSubmissionStorage(
   submissionId: string,
 ): Promise<void> {
   await deleteBlobsByPrefix(client, submissionPrefix(submissionId));
+}
+
+export async function deleteSubmissionStaging(
+  client: S3Client,
+  submissionId: string,
+): Promise<void> {
+  await deleteBlobsByPrefix(client, submissionSourceStagingPrefix(submissionId));
 }
 
 function isNotFoundError(err: unknown): boolean {

@@ -7,15 +7,14 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { contestDomain } from "@nojv/domain";
+import { participationRepo, runTransaction } from "@nojv/db";
+import { contestDomain } from "@nojv/application";
 
 const { listPublicContests, getContestDetail, getContestWorkspaceData, getScoreboard } =
   contestDomain;
 import { NotFoundError } from "$lib/server/auth";
 
 describe("contest queries (real DB)", () => {
-  // --- listPublicContests ---
-
   describe("listPublicContests", () => {
     it("returns published contests", async () => {
       await createTestContest({ visibility: "published", title: "Public Contest" });
@@ -45,8 +44,9 @@ describe("contest queries (real DB)", () => {
       });
 
       const user = await createTestUser();
-      await testPrisma.contestParticipation.create({
+      await testPrisma.participation.create({
         data: {
+          type: "contest",
           contestId: contest.id,
           userId: user.id,
           status: "active",
@@ -60,8 +60,6 @@ describe("contest queries (real DB)", () => {
       expect(contests[0]!.participantCount).toBe(1);
     });
   });
-
-  // --- getContestDetail ---
 
   describe("getContestDetail", () => {
     it("returns contest detail with linked problems", async () => {
@@ -129,8 +127,6 @@ describe("contest queries (real DB)", () => {
     });
   });
 
-  // --- getContestWorkspaceData ---
-
   describe("getContestWorkspaceData", () => {
     it("returns null participation when user has not joined", async () => {
       const contest = await createTestContest({
@@ -153,14 +149,9 @@ describe("contest queries (real DB)", () => {
       });
       const user = await createTestUser();
 
-      await testPrisma.contestParticipation.create({
-        data: {
-          contestId: contest.id,
-          userId: user.id,
-          status: "active",
-          startedAt: new Date(),
-        },
-      });
+      await runTransaction((tx) =>
+        participationRepo.withTx(tx).upsertContestActive(contest.id, user.id, new Date()),
+      );
 
       const data = await getContestWorkspaceData(contest.id, user.id, {
         now: new Date(),
@@ -170,8 +161,6 @@ describe("contest queries (real DB)", () => {
       expect(data!.participation!.status).toBe("active");
     });
   });
-
-  // --- getScoreboard ---
 
   describe("getScoreboard", () => {
     it("throws NotFoundError for nonexistent contest", async () => {
@@ -216,23 +205,15 @@ describe("contest queries (real DB)", () => {
       });
 
       const user = await createTestUser();
-      const participation = await testPrisma.contestParticipation.create({
-        data: {
-          contestId: contest.id,
-          userId: user.id,
-          status: "active",
-          startedAt: new Date("2026-01-01T00:00:00Z"),
-        },
-      });
+      await runTransaction((tx) =>
+        participationRepo.withTx(tx).upsertContestActive(contest.id, user.id, new Date()),
+      );
 
-      // Create an accepted submission. Sources live in object storage but the
-      // scoreboard test doesn't read them — just stamp a prefix.
       const subId = "sub_problem_count_sb_1";
       await testPrisma.submission.create({
         data: {
           id: subId,
           contestId: contest.id,
-          contestParticipationId: participation.id,
           language: "python",
           problemId: problem.id,
           sampleOnly: false,

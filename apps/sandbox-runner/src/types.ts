@@ -57,6 +57,16 @@ export const SandboxInputSchema = z.object({
       index: z.number().optional(),
     })
     .optional(),
+  mode: z
+    .discriminatedUnion("kind", [
+      z.object({ kind: z.literal("compile") }),
+      z.object({
+        kind: z.literal("run-case"),
+        caseIndex: z.number(),
+        runCommand: z.array(z.string()).min(1),
+      }),
+    ])
+    .optional(),
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
@@ -90,7 +100,6 @@ const sandboxTestcaseResultSchema = z.object({
   exitCode: z.number(),
   timeMs: z.number(),
   memoryKb: z.number().optional(),
-  score: z.number().optional(),
   feedback: z.string().optional(),
 });
 
@@ -113,10 +122,16 @@ export const SandboxOutputSchema = z.object({
   scoringFeedback: z.string().optional(),
 });
 
+export const CompileOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  runCommand: z.array(z.string()).optional(),
+});
+
+export type CompileOutput = z.infer<typeof CompileOutputSchema>;
+
 const validatorCaseOutcomeSchema = z.object({
   index: z.number(),
   verdict: z.enum(["AC", "WA", "SE"]),
-  score: z.number().optional(),
   teamMessage: z.string().optional(),
   judgeMessage: z.string().optional(),
 });

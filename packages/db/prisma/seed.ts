@@ -1,4 +1,3 @@
-import { getRedis } from "@nojv/redis";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma/client";
@@ -16,6 +15,12 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PROD_SEED !== "true") {
+    throw new Error(
+      "Refusing to run the demo seed in production. It inserts password123 test accounts and wipes announcements. Use `db:bootstrap-admin` to provision a production admin, or set ALLOW_PROD_SEED=true to override.",
+    );
+  }
+
   console.log("Seeding database...");
 
   const { admin, teacher, taStudent, student } = await seedUsers(prisma);
@@ -91,5 +96,4 @@ try {
   process.exitCode = 1;
 } finally {
   await prisma.$disconnect();
-  await getRedis().quit();
 }

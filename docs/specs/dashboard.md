@@ -234,11 +234,11 @@ timezone. There is no pre-aggregated daily-activity table.
 
 ### Domain
 
-- `packages/domain/src/user/queries.ts` — `getDashboardView`,
+- `packages/application/src/user/queries.ts` — `getDashboardView`,
   `aggregateByTag` (top-8 cut, stable sort).
-- `packages/domain/src/user/activity.ts` — `getSubmissionActivity` (raw
+- `packages/application/src/user/activity.ts` — `getSubmissionActivity` (raw
   submission timestamps for the activity surfaces).
-- `packages/domain/src/user/analytics.ts` — `getSuggestedProblems`.
+- `packages/application/src/user/analytics.ts` — `getSuggestedProblems`.
 
 ### Schema
 
@@ -280,5 +280,6 @@ timezone. There is no pre-aggregated daily-activity table.
   group-row flattening, and byTag top-8 cut.
 - `tests/unit/domain/user-analytics-helpers.test.ts` — covers
   `aggregateByTag` including the stable-sort-on-ties invariant.
-- **Still missing**: an E2E test for empty-state rendering on a
-  brand-new user.
+- `tests/e2e/dashboard.test.ts` — covers auth redirect, seeded dashboard
+  rendering for student / teacher / admin, and brand-new-user onboarding
+  empty-state rendering.

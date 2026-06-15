@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-// The worker activity calls `log` from `@temporalio/activity`; outside a
-// Temporal worker context that import throws. Stub it to a no-op logger.
 vi.mock("@temporalio/activity", () => ({
   log: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
 import { putSubmissionSources } from "@nojv/storage";
-import { plagiarismDomain } from "@nojv/domain";
+import { plagiarismDomain } from "@nojv/application";
 
 import { runPlagiarismCheck } from "../../../apps/worker/src/activities/plagiarism";
 import {
@@ -18,22 +16,8 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-/**
- * Multi-file plagiarism: pre-W2.B, the MOSS pipeline saw a single
- * JSON-stringified blob per submission, which masked semantic similarity
- * behind JSON syntax tokens. W2.B reads files from object storage and
- * concatenates by sorted path with `// === path ===` boundary markers
- * (every Dolos-supported language treats `//` as a line comment), so the
- * tokenizer drops the markers and similarity scoring sees the real code.
- *
- * This integration test plants two C++ submissions whose multi-file source
- * is semantically equivalent — same `solve()` body, renamed variables,
- * different file ordering on the put side — and asserts the resulting
- * pair clears a similarity threshold that the old JSON-stringified shape
- * could not reach.
- */
 async function makeAssignment(courseId: string, createdByUserId: string) {
-  return testPrisma.courseAssessment.create({
+  return testPrisma.assessment.create({
     data: {
       courseId,
       createdByUserId,
@@ -56,11 +40,10 @@ describe("plagiarism — multi-file detection (real DB + Dolos)", () => {
     const userA = await createTestUser({ platformRole: "student" });
     const userB = await createTestUser({ platformRole: "student" });
 
-    // --- Submission A: main.cpp calls util.cpp::accumulate.
     const subA = await createTestSubmission({
       userId: userA.id,
       problemId: problem.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
       language: "cpp",
       status: "accepted",
       score: 100,
@@ -88,22 +71,15 @@ int main() {
 }
 `;
 
-    // Write multi-file sources directly to (mocked) storage. The factory
-    // wrote a single-file placeholder; this overwrites with the real
-    // multi-file payload the plagiarism domain query will read back.
     await putSubmissionSources({} as never, subA.id, [
       { path: "main.cpp", content: A_MAIN },
       { path: "util.cpp", content: A_UTIL },
     ]);
 
-    // --- Submission B: same logic, variables renamed (x→a, count→n,
-    // total→sum, i→k), files written in reverse order on the put side
-    // (the storage helper sorts on read, so this exercises the
-    // sorted-merge contract).
     const subB = await createTestSubmission({
       userId: userB.id,
       problemId: problem.id,
-      courseAssessmentId: assignment.id,
+      assessmentId: assignment.id,
       language: "cpp",
       status: "accepted",
       score: 100,
@@ -132,23 +108,19 @@ int main() {
 `;
 
     await putSubmissionSources({} as never, subB.id, [
-      // Reverse order on write to confirm sort-on-read is the contract.
       { path: "util.cpp", content: B_UTIL },
       { path: "main.cpp", content: B_MAIN },
     ]);
 
-    // Initialize the report row so updateReportStatus("running") has a
-    // target to write to (matches the production flow where the route
-    // calls createPlagiarismReport before dispatching the workflow).
     await plagiarismDomain.createPlagiarismReport(
-      { type: "courseAssessment", id: assignment.id },
+      { type: "assessment", id: assignment.id },
       teacher.id,
     );
 
-    await runPlagiarismCheck(assignment.id, "courseAssessment");
+    await runPlagiarismCheck(assignment.id, "assessment");
 
     const report = await plagiarismDomain.findPlagiarismReport({
-      type: "courseAssessment",
+      type: "assessment",
       id: assignment.id,
     });
     expect(report).not.toBeNull();
@@ -168,10 +140,6 @@ int main() {
     expect(pair.problemId).toBe(problem.id);
     const users = [pair.userId1, pair.userId2].sort((a, b) => Number(a > b) - Number(a < b));
     expect(users).toEqual([userA.id, userB.id].sort((a, b) => Number(a > b) - Number(a < b)));
-    // Threshold: 70. Semantic equivalence (same logic, variable rename) on
-    // cpp typically scores ~85-95 with Dolos. The legacy JSON-stringified
-    // shape would score around 10-30 because the JSON syntax tokens
-    // dominate the AST. 70 sits comfortably above the failure floor.
     expect(pair.similarity).toBeGreaterThan(70);
   });
 });

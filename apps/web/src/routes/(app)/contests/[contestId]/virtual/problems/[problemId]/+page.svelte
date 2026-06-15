@@ -68,5 +68,5 @@
   problem={data.problem}
   siblingProblems={data.siblingProblems}
   submissions={data.submissions}
-  virtualContestId={data.virtual.virtualContestId}
+  virtualContestId={data.virtual.participationId}
 />

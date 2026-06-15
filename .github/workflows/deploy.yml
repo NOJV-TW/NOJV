@@ -53,6 +53,9 @@ jobs:
 
           : "${BETTER_AUTH_SECRET:?Missing BETTER_AUTH_SECRET from .env or runner environment}"
           : "${BETTER_AUTH_URL:?Missing BETTER_AUTH_URL from .env or runner environment}"
+          : "${S3_ENDPOINT:?Missing S3_ENDPOINT from .env or runner environment}"
+          : "${S3_ACCESS_KEY:?Missing S3_ACCESS_KEY from .env or runner environment}"
+          : "${S3_SECRET_KEY:?Missing S3_SECRET_KEY from .env or runner environment}"
 
           DEPLOY_WITH_SEED="${DEPLOY_WITH_SEED:-false}"
           if [[ "$DEPLOY_WITH_SEED" != "true" && "$DEPLOY_WITH_SEED" != "false" ]]; then
@@ -60,7 +63,18 @@ jobs:
             exit 1
           fi
 
+          if [[ "$DEPLOY_WITH_SEED" != "true" ]]; then
+            : "${SEED_ADMIN_USERNAME:?Missing SEED_ADMIN_USERNAME (required to bootstrap the prod admin)}"
+            : "${SEED_ADMIN_EMAIL:?Missing SEED_ADMIN_EMAIL (required to bootstrap the prod admin)}"
+            : "${SEED_ADMIN_PASSWORD:?Missing SEED_ADMIN_PASSWORD (required to bootstrap the prod admin)}"
+          fi
+
           echo "::add-mask::$BETTER_AUTH_SECRET"
+          echo "::add-mask::$S3_SECRET_KEY"
+          [[ -n "${POSTGRES_PASSWORD:-}" ]] && echo "::add-mask::$POSTGRES_PASSWORD"
+          [[ -n "${MINIO_ROOT_PASSWORD:-}" ]] && echo "::add-mask::$MINIO_ROOT_PASSWORD"
+          [[ -n "${GRAFANA_OTLP_TOKEN:-}" ]] && echo "::add-mask::$GRAFANA_OTLP_TOKEN"
+          [[ -n "${SEED_ADMIN_PASSWORD:-}" ]] && echo "::add-mask::$SEED_ADMIN_PASSWORD"
 
           {
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
@@ -70,6 +84,22 @@ jobs:
             echo "GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}"
             echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}"
             echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}"
+            echo "POSTGRES_USER=${POSTGRES_USER:-postgres}"
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}"
+            echo "MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}"
+            echo "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}"
+            echo "S3_ENDPOINT=$S3_ENDPOINT"
+            echo "S3_REGION=${S3_REGION:-auto}"
+            echo "S3_ACCESS_KEY=$S3_ACCESS_KEY"
+            echo "S3_SECRET_KEY=$S3_SECRET_KEY"
+            echo "S3_BUCKET=${S3_BUCKET:-nojv}"
+            echo "S3_PUBLIC_URL=${S3_PUBLIC_URL:-}"
+            echo "GRAFANA_OTLP_ENDPOINT=${GRAFANA_OTLP_ENDPOINT:-}"
+            echo "GRAFANA_OTLP_INSTANCE_ID=${GRAFANA_OTLP_INSTANCE_ID:-}"
+            echo "GRAFANA_OTLP_TOKEN=${GRAFANA_OTLP_TOKEN:-}"
+            echo "SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME:-}"
+            echo "SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-}"
+            echo "SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-}"
           } >> "$GITHUB_ENV"
 
           docker --version
@@ -80,7 +110,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker compose up -d --wait postgres redis temporal temporal-ui
+          # temporal-ui is intentionally NOT started: it exposes an unauthenticated
+          # workflow console. Start it manually only behind a firewall/VPN.
+          docker compose up -d --wait postgres redis temporal minio
+          docker compose up minio-init
+          docker compose --profile backup up -d postgres-backup
 
       - name: Build runtime images for this commit
         shell: bash
@@ -96,26 +130,55 @@ jobs:
           set -euo pipefail
           docker compose --profile deploy run --rm migrator
 
-      - name: Optionally seed demo data
+      - name: Bootstrap prod admin or seed demo data
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ "${DEPLOY_WITH_SEED:-false}" != "true" ]]; then
-            echo "DEPLOY_WITH_SEED is not true; skipping seed step."
+          if [[ "${DEPLOY_WITH_SEED:-false}" == "true" ]]; then
+            # Staging only: full demo dataset. The seed script self-rejects
+            # under NODE_ENV=production, so this path runs without it.
+            docker compose --profile deploy run --rm migrator sh -lc '
+              set -euo pipefail
+              pnpm -C packages/db db:seed:validate
+              pnpm -C packages/db exec node --import tsx prisma/seed.ts
+            '
             exit 0
           fi
 
-          docker compose --profile deploy run --rm migrator sh -lc '
-            set -euo pipefail
-            pnpm -C packages/db db:seed:validate
-            pnpm -C packages/db exec node --import tsx prisma/seed.ts
-          '
+          # Production: provision the single admin account from SEED_ADMIN_*.
+          # Idempotent — leaves an existing admin untouched. Invoke the script
+          # directly (bypassing the db:bootstrap-admin --env-file wrapper, since
+          # there is no .env inside the migrator image).
+          docker compose --profile deploy run --rm \
+            -e NODE_ENV=production \
+            -e SEED_ADMIN_USERNAME="$SEED_ADMIN_USERNAME" \
+            -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
+            -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
+            migrator sh -lc 'pnpm -C packages/db exec node --import tsx prisma/bootstrap-admin.ts'
+
+      - name: Record pre-rollout image IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for service in web worker; do
+            container_id="$(docker compose --profile prod ps -q "$service" 2>/dev/null || true)"
+            if [[ -n "$container_id" ]]; then
+              image_id="$(docker inspect --format '{{.Image}}' "$container_id")"
+              echo "PREV_IMAGE_${service^^}=$image_id" >> "$GITHUB_ENV"
+              echo "Previous $service image: $image_id"
+            else
+              echo "PREV_IMAGE_${service^^}=" >> "$GITHUB_ENV"
+              echo "No running $service container before rollout"
+            fi
+          done
 
       - name: Roll out web and worker
         shell: bash
         run: |
           set -euo pipefail
+          DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
+          export DOCKER_GID
           docker compose --profile prod up -d --wait --remove-orphans web worker
 
       - name: Verify health checks
@@ -141,6 +204,9 @@ jobs:
             echo "$service: healthy"
           done
 
+          docker compose --profile prod exec -T worker docker version >/dev/null
+          echo "worker: can reach the docker socket (judging will not EACCES)"
+
           docker compose --profile prod ps
 
       - name: Dump diagnostics on failure
@@ -149,13 +215,50 @@ jobs:
         run: |
           set +e
           docker compose ps
-          docker compose logs --no-color --tail=300 postgres redis temporal temporal-ui web worker
-          for service in postgres redis temporal temporal-ui web worker; do
+          docker compose logs --no-color --tail=300 postgres redis temporal minio web worker
+          for service in postgres redis temporal minio web worker; do
             container_id="$(docker compose ps -q "$service")"
             if [[ -n "$container_id" ]]; then
               docker inspect "$container_id"
             fi
           done
+
+      - name: Rollback on health failure
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          rolled_back=false
+          for service in web worker; do
+            var="PREV_IMAGE_${service^^}"
+            prev_image="${!var:-}"
+            if [[ -z "$prev_image" ]]; then
+              echo "No previous image recorded for $service — cannot roll back"
+              continue
+            fi
+            rollback_tag="nojv-${service}:rollback"
+            docker tag "$prev_image" "$rollback_tag" 2>/dev/null || {
+              echo "Cannot tag previous image for $service (may have been pruned)"
+              continue
+            }
+            # Override the image used by compose by setting COMPOSE_IMAGE env var
+            # is not portable; instead we start the container directly from the old image.
+            docker stop "$(docker compose --profile prod ps -q "$service" 2>/dev/null)" 2>/dev/null || true
+            docker run -d \
+              --name "nojv-${service}-rollback" \
+              --network host \
+              "$rollback_tag" && rolled_back=true \
+              && echo "Rolled back $service to $prev_image"
+          done
+          if [[ "$rolled_back" == "true" ]]; then
+            echo "::warning::One or more services were rolled back to the previous image."
+            echo "::warning::Run 'docker compose --profile prod up -d --force-recreate web worker' to restore compose-managed state after fixing the issue."
+          else
+            echo "::error::Health check failed and no automatic rollback was possible."
+            echo "::error::Manual recovery: identify the last known-good image tag and run:"
+            echo "::error::  docker tag <good-image-id> nojv-web:latest && docker compose --profile prod up -d --force-recreate web"
+            echo "::error::  docker tag <good-image-id> nojv-worker:latest && docker compose --profile prod up -d --force-recreate worker"
+          fi
 
       - name: Clean up old Docker images
         if: always()

@@ -1,60 +1,49 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  findByIdWithContest,
-  findForParticipationScoring,
+  findContestForScoring,
+  findForContestScoring,
   findAllByContext,
   updateWithVersion,
-  updateScoreboardMock,
-  ParticipationVersionConflict,
+  UnifiedParticipationVersionConflict,
 } = vi.hoisted(() => {
-  class ParticipationVersionConflict extends Error {
+  class UnifiedParticipationVersionConflict extends Error {
     readonly participationId: string;
     readonly expectedVersion: number;
     constructor(participationId: string, expectedVersion: number) {
       super(
-        `ContestParticipation ${participationId} version ${String(expectedVersion)} stale.`,
+        `Participation ${participationId} version ${String(expectedVersion)} no longer current.`,
       );
-      this.name = "ParticipationVersionConflict";
+      this.name = "UnifiedParticipationVersionConflict";
       this.participationId = participationId;
       this.expectedVersion = expectedVersion;
     }
   }
   return {
-    findByIdWithContest: vi.fn(),
-    findForParticipationScoring: vi.fn(),
+    findContestForScoring: vi.fn(),
+    findForContestScoring: vi.fn(),
     findAllByContext: vi.fn(),
     updateWithVersion: vi.fn(),
-    updateScoreboardMock: vi.fn(),
-    ParticipationVersionConflict,
+    UnifiedParticipationVersionConflict,
   };
 });
 
 vi.mock("@nojv/db", () => ({
-  contestParticipationRepo: {
-    findByIdWithContest,
+  participationRepo: {
+    findContestForScoring,
     updateWithVersion,
   },
   submissionRepo: {
-    findForParticipationScoring,
+    findForContestScoring,
   },
   scoreOverrideRepo: {
     findAllByContext,
   },
   contestRepo: {},
-  ParticipationVersionConflict,
+  UnifiedParticipationVersionConflict,
 }));
 
-vi.mock("@nojv/redis", () => ({
-  scoreboard: {
-    updateScoreboard: updateScoreboardMock,
-    // Pure TTL helper — scoring passes its result straight to
-    // updateScoreboard; a fixed number keeps the race assertions stable.
-    scoreboardTtlForEndsAt: () => 604800,
-  },
-}));
-
-import { contestDomain, ConflictError } from "@nojv/domain";
+import { contestDomain, ConflictError } from "@nojv/application";
 
 const { updateContestScores } = contestDomain;
 
@@ -84,19 +73,15 @@ function participationFixture(version: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   findAllByContext.mockResolvedValue([]);
-  updateScoreboardMock.mockResolvedValue(undefined);
 });
 
 describe("updateContestScores — optimistic locking", () => {
   it("retries after a P2025/version conflict and persists the latest computed score", async () => {
-    // First read: version 0, submissions show score 60.
-    // Second read (after retry): version 1 (someone else wrote), submissions
-    //   now show score 80. We must end up persisting 80, not 60.
-    findByIdWithContest
+    findContestForScoring
       .mockResolvedValueOnce(participationFixture(0))
       .mockResolvedValueOnce(participationFixture(1));
 
-    findForParticipationScoring
+    findForContestScoring
       .mockResolvedValueOnce([
         { problemId: PROBLEM_ID, score: 60, status: "wrong_answer", createdAt: new Date() },
       ])
@@ -106,16 +91,15 @@ describe("updateContestScores — optimistic locking", () => {
 
     updateWithVersion
       .mockImplementationOnce(() => {
-        throw new ParticipationVersionConflict(PARTICIPATION_ID, 0);
+        throw new UnifiedParticipationVersionConflict(PARTICIPATION_ID, 0);
       })
       .mockResolvedValueOnce({ id: PARTICIPATION_ID, score: 80, version: 2 });
 
-    await updateContestScores(PARTICIPATION_ID);
+    await updateContestScores(CONTEST_ID, USER_ID);
 
-    expect(findByIdWithContest).toHaveBeenCalledTimes(2);
+    expect(findContestForScoring).toHaveBeenCalledTimes(2);
     expect(updateWithVersion).toHaveBeenCalledTimes(2);
 
-    // First call used version 0 with the stale score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       1,
       PARTICIPATION_ID,
@@ -123,39 +107,27 @@ describe("updateContestScores — optimistic locking", () => {
       expect.objectContaining({ score: 60 }),
     );
 
-    // Retry used the freshly read version 1 with the recomputed score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       2,
       PARTICIPATION_ID,
       1,
       expect.objectContaining({ score: 80 }),
     );
-
-    // Scoreboard reflects the value that actually landed.
-    expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      CONTEST_ID,
-      PARTICIPATION_ID,
-      80,
-      "ioi",
-      expect.any(Number),
-    );
   });
 
   it("throws ConflictError after exhausting all retry attempts", async () => {
-    findByIdWithContest.mockResolvedValue(participationFixture(0));
-    findForParticipationScoring.mockResolvedValue([
+    findContestForScoring.mockResolvedValue(participationFixture(0));
+    findForContestScoring.mockResolvedValue([
       { problemId: PROBLEM_ID, score: 50, status: "partial", createdAt: new Date() },
     ]);
     updateWithVersion.mockImplementation(() => {
-      throw new ParticipationVersionConflict(PARTICIPATION_ID, 0);
+      throw new UnifiedParticipationVersionConflict(PARTICIPATION_ID, 0);
     });
 
-    await expect(updateContestScores(PARTICIPATION_ID)).rejects.toBeInstanceOf(ConflictError);
+    await expect(updateContestScores(CONTEST_ID, USER_ID)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
 
-    // 3 attempts before giving up.
     expect(updateWithVersion).toHaveBeenCalledTimes(3);
-    // Scoreboard must NOT be touched when no DB write succeeded.
-    expect(updateScoreboardMock).not.toHaveBeenCalled();
   });
 });

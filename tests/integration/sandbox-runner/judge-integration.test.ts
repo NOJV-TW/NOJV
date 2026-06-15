@@ -1,12 +1,3 @@
-/**
- * Comprehensive integration tests: 8 languages × standard judge × all verdicts.
- *
- * Verdicts: AC, WA, RE, TLE, CE, MLE, SE
- * Languages: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
- *
- * Checker and interactive judging are run/check-separated across isolated
- * containers — their integration coverage lives in tests/integration/judge/.
- */
 import { execFile } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -20,7 +11,9 @@ import type { SandboxInput, TestcaseFiles } from "../../../apps/sandbox-runner/s
 const TIMEOUT_MS = 10_000;
 const SHORT_TIMEOUT_MS = 500;
 
-// ─── Utilities ──────────────────────────────────────────────────────
+const SLOW_COMPILE_LANGUAGES = new Set(["go", "rust"]);
+const compileTestTimeout = (name: string) =>
+  SLOW_COMPILE_LANGUAGES.has(name) ? 90_000 : 30_000;
 
 const commandVersionFlags: Record<string, string> = {
   gcc: "--version",
@@ -63,8 +56,6 @@ async function skipIfMissing(name: string): Promise<boolean> {
   if (compiler && !(await commandExists(compiler))) return true;
   return false;
 }
-
-// ─── Program data ───────────────────────────────────────────────────
 
 const correctPrograms: Record<string, LangEntry> = {
   c: {
@@ -174,7 +165,6 @@ const invalidSources: Record<string, LangEntry> = {
   rust: { language: "rust", source: "not valid" },
 };
 
-/** Programs that self-SIGKILL to simulate OOM kill → MLE */
 const mlePrograms: Record<string, LangEntry> = {
   c: {
     language: "c",
@@ -227,8 +217,6 @@ fn main() {
   typescript: { language: "typescript", source: `process.kill(process.pid, 'SIGKILL');` },
 };
 
-// ─── Helpers ────────────────────────────────────────────────────────
-
 let workDir: string;
 
 beforeEach(async () => {
@@ -260,8 +248,6 @@ async function compileProgram(lang: SandboxInput["language"], source: string) {
   return compile(input, srcFile, workDir);
 }
 
-// ─── Standard judge ─────────────────────────────────────────────────
-
 describe("standard judge", () => {
   for (const [name, prog] of Object.entries(correctPrograms)) {
     it(
@@ -274,7 +260,7 @@ describe("standard judge", () => {
         const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
         expect(verdict.verdict).toBe("AC");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -293,7 +279,7 @@ describe("standard judge", () => {
         );
         expect(verdict.verdict).toBe("WA");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -308,7 +294,7 @@ describe("standard judge", () => {
         const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
         expect(verdict.verdict).toBe("RE");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -327,7 +313,7 @@ describe("standard judge", () => {
         );
         expect(verdict.verdict).toBe("TLE");
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -352,7 +338,7 @@ describe("standard judge", () => {
         const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
         expectMleVerdict(name, verdict.verdict);
       },
-      name === "go" ? 90_000 : 30_000,
+      compileTestTimeout(name),
     );
   }
 
@@ -374,7 +360,6 @@ describe("standard judge edge cases", () => {
   }, 30_000);
 
   it("CRLF output matches LF expected → AC", async () => {
-    // Python program that outputs CRLF
     const result = await compileProgram(
       "python",
       `import sys\nsys.stdout.write("hello\\r\\n")`,
@@ -388,7 +373,6 @@ describe("standard judge edge cases", () => {
   }, 30_000);
 
   it("trailing whitespace in output still matches if trimEnd matches", async () => {
-    // Output with trailing newlines
     const result = await compileProgram("python", String.raw`print("8\n\n")`);
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -404,13 +388,13 @@ describe("standard judge edge cases", () => {
     if (!result.success) return;
 
     const acVerdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-    expect(acVerdict.score).toBe(100);
+    expect(acVerdict.verdict).toBe("AC");
 
     const waVerdict = await judgeStandard(
       result.runCommand,
       makeTestcase({ expected: "999\n" }),
       TIMEOUT_MS,
     );
-    expect(waVerdict.score).toBe(0);
+    expect(waVerdict.verdict).toBe("WA");
   }, 30_000);
 });

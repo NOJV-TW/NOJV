@@ -1,80 +1,83 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const { getWebEnvMock } = vi.hoisted(() => ({
-  getWebEnvMock: vi.fn(),
-}));
+import { resolveClientIp } from "../../../apps/web/src/lib/server/shared/client-ip";
 
-vi.mock("$lib/server/env", () => ({
-  getWebEnv: getWebEnvMock,
-}));
-
-const { getClientIp } = await import("$lib/server/shared/client-ip");
-
-function mockEvent(opts: {
-  cfIp?: string | null;
-  devIp?: string | null;
-  socket?: string;
-}): Parameters<typeof getClientIp>[0] {
-  const headers = new Headers();
-  if (opts.cfIp) headers.set("cf-connecting-ip", opts.cfIp);
-  if (opts.devIp) headers.set("x-dev-ip", opts.devIp);
-  return {
-    request: new Request("https://nojv.test", { headers }),
-    getClientAddress: () => opts.socket ?? "127.0.0.1",
-  } as unknown as Parameters<typeof getClientIp>[0];
+function captureError(fn: () => unknown): unknown {
+  try {
+    fn();
+  } catch (err) {
+    return err;
+  }
+  throw new Error("Expected function to throw");
 }
 
-describe("getClientIp — production", () => {
-  it("returns the CF-Connecting-IP value", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "production" });
-    const ip = getClientIp(mockEvent({ cfIp: "203.0.113.42" }));
-    expect(ip).toBe("203.0.113.42");
+function expectHttpError(err: unknown, status: number, message: string): void {
+  expect(err).toMatchObject({ status, body: { message } });
+}
+
+describe("resolveClientIp", () => {
+  it("uses x-dev-ip outside production when it is a valid IP address", () => {
+    const headers = new Headers({ "x-dev-ip": "203.0.113.10" });
+
+    expect(
+      resolveClientIp(headers, () => "127.0.0.1", {
+        NODE_ENV: "test",
+        EDGE_TRUST_SECRET: undefined,
+      }),
+    ).toBe("203.0.113.10");
   });
 
-  it("trims surrounding whitespace from CF-Connecting-IP", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "production" });
-    const ip = getClientIp(mockEvent({ cfIp: "  203.0.113.42  " }));
-    expect(ip).toBe("203.0.113.42");
+  it("ignores invalid x-dev-ip outside production", () => {
+    const headers = new Headers({ "x-dev-ip": "not-an-ip" });
+
+    expect(
+      resolveClientIp(headers, () => "127.0.0.1", {
+        NODE_ENV: "test",
+        EDGE_TRUST_SECRET: undefined,
+      }),
+    ).toBe("127.0.0.1");
   });
 
-  it("throws 403 when CF-Connecting-IP is missing (no fallback)", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "production" });
-    // SvelteKit `error(403, ...)` throws; we only assert it throws, not the shape.
-    expect(() => getClientIp(mockEvent({ socket: "10.0.0.1" }))).toThrow();
+  it("rejects production requests without the trusted edge secret", () => {
+    const headers = new Headers({ "cf-connecting-ip": "203.0.113.10" });
+
+    const err = captureError(() =>
+      resolveClientIp(headers, () => "10.0.0.1", {
+        NODE_ENV: "production",
+        EDGE_TRUST_SECRET: "a".repeat(32),
+      }),
+    );
+
+    expectHttpError(err, 403, "Request must arrive via the trusted edge.");
   });
 
-  it("ignores x-dev-ip in production (no header injection)", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "production" });
-    expect(() => getClientIp(mockEvent({ devIp: "1.2.3.4", socket: "10.0.0.1" }))).toThrow();
+  it("rejects production requests with an invalid Cloudflare IP header", () => {
+    const headers = new Headers({
+      "cf-connecting-ip": "not-an-ip",
+      "x-nojv-edge-secret": "a".repeat(32),
+    });
+
+    const err = captureError(() =>
+      resolveClientIp(headers, () => "10.0.0.1", {
+        NODE_ENV: "production",
+        EDGE_TRUST_SECRET: "a".repeat(32),
+      }),
+    );
+
+    expectHttpError(err, 403, "Trusted edge did not provide a valid client IP.");
   });
 
-  it("ignores socket address in production (no fallback)", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "production" });
-    expect(() => getClientIp(mockEvent({ socket: "10.0.0.1" }))).toThrow();
-  });
-});
+  it("trusts cf-connecting-ip only when the edge secret matches", () => {
+    const headers = new Headers({
+      "cf-connecting-ip": "2001:db8::1",
+      "x-nojv-edge-secret": "a".repeat(32),
+    });
 
-describe("getClientIp — development", () => {
-  it("prefers x-dev-ip header when present", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "development" });
-    const ip = getClientIp(mockEvent({ devIp: "10.1.2.3", socket: "127.0.0.1" }));
-    expect(ip).toBe("10.1.2.3");
-  });
-
-  it("trims x-dev-ip", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "development" });
-    const ip = getClientIp(mockEvent({ devIp: "  10.1.2.3  " }));
-    expect(ip).toBe("10.1.2.3");
-  });
-
-  it("falls back to socket address when x-dev-ip absent", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "development" });
-    const ip = getClientIp(mockEvent({ socket: "192.168.1.50" }));
-    expect(ip).toBe("192.168.1.50");
-  });
-
-  it("does NOT require CF-Connecting-IP in dev", () => {
-    getWebEnvMock.mockReturnValue({ NODE_ENV: "development" });
-    expect(() => getClientIp(mockEvent({ socket: "127.0.0.1" }))).not.toThrow();
+    expect(
+      resolveClientIp(headers, () => "10.0.0.1", {
+        NODE_ENV: "production",
+        EDGE_TRUST_SECRET: "a".repeat(32),
+      }),
+    ).toBe("2001:db8::1");
   });
 });

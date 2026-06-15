@@ -4,12 +4,18 @@ const { findByComposite, updateRole, removeFromCourse, runTransaction } = vi.hoi
   findByComposite: vi.fn(),
   updateRole: vi.fn(),
   removeFromCourse: vi.fn(),
-  runTransaction: vi.fn(),
+  runTransaction: vi.fn(
+    <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({ $executeRaw: async () => 0 }),
+  ),
 }));
 
 vi.mock("@nojv/db", () => ({
-  courseMembershipRepo: { findByComposite },
-  courseMembershipAdminRepo: { updateRole, removeFromCourse },
+  courseMembershipRepo: { findByComposite, withTx: () => ({ findByComposite }) },
+  courseMembershipAdminRepo: {
+    updateRole,
+    removeFromCourse,
+    withTx: () => ({ updateRole, removeFromCourse }),
+  },
   runTransaction,
 }));
 
@@ -17,8 +23,8 @@ import {
   changeMemberRole,
   removeMember,
   bulkAddByHandle,
-} from "../../../packages/domain/src/course/members";
-import { canManageMembers } from "../../../packages/domain/src/shared/permissions";
+} from "../../../packages/application/src/course/members";
+import { canManageMembers } from "../../../packages/application/src/shared/permissions";
 
 type Role = "student" | "ta" | "teacher";
 

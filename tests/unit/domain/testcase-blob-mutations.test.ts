@@ -1,16 +1,3 @@
-/**
- * Unit tests for the S3 + DB write/delete flow that backs the testcase
- * blob storage migration. We mock both `@nojv/storage` and `@nojv/db` so
- * the test exercises the real `createProblemTestcaseSetRecord`,
- * `updateTestcaseRecord`, and `deleteTestcaseRecord` code paths without
- * touching network or Postgres.
- *
- * Key invariants under test:
- * - S3 writes happen BEFORE the DB transaction (no nested IO + locks).
- * - S3 failure short-circuits the DB write entirely.
- * - DB failure leaves S3 orphans (acceptable; never rethrows).
- * - Delete path: DB first, then best-effort S3 cleanup that swallows errors.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -19,6 +6,7 @@ const {
   deleteBlob,
   deleteBlobsByPrefix,
   testcaseFindById,
+  testcaseRowFindById,
   testcaseSetCreate,
   testcaseCreateMany,
   testcaseDelete,
@@ -32,6 +20,7 @@ const {
   deleteBlob: vi.fn(),
   deleteBlobsByPrefix: vi.fn(),
   testcaseFindById: vi.fn(),
+  testcaseRowFindById: vi.fn(),
   testcaseSetCreate: vi.fn(),
   testcaseCreateMany: vi.fn(),
   testcaseDelete: vi.fn(),
@@ -82,9 +71,12 @@ vi.mock("@nojv/db", () => {
       delete: testcaseSetDelete,
       withTx: () => ({
         create: testcaseSetCreate,
+        countByProblem: testcaseSetCount,
+        maxOrdinalByProblem: testcaseSetMaxOrdinal,
       }),
     },
     testcaseRepo: {
+      findById: testcaseRowFindById,
       delete: testcaseDelete,
       withTx: () => ({
         createMany: testcaseCreateMany,
@@ -93,7 +85,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 const {
   createProblemTestcaseSetRecord,
@@ -110,7 +102,6 @@ const actor = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: ownership check passes (problem belongs to actor).
   problemFindById.mockResolvedValue({
     id: "prob_1",
     authorId: "usr_author",
@@ -129,6 +120,15 @@ beforeEach(() => {
   deleteBlobsByPrefix.mockResolvedValue(undefined);
   testcaseDelete.mockResolvedValue({ id: "tc_1" });
   testcaseSetDelete.mockResolvedValue({ id: "set_1" });
+  testcaseFindById.mockResolvedValue({
+    id: "set_1",
+    problemId: "prob_1",
+    testcases: [],
+  });
+  testcaseRowFindById.mockResolvedValue({
+    id: "tc_1",
+    testcaseSet: { problemId: "prob_1" },
+  });
 });
 
 describe("createProblemTestcaseSetRecord", () => {
@@ -152,9 +152,7 @@ describe("createProblemTestcaseSetRecord", () => {
       ],
     });
 
-    // Two cases × two fields (input + output) = four putText calls.
     expect(putText).toHaveBeenCalledTimes(4);
-    // All puts must run before createMany.
     expect(sequence.filter((s) => s === "put")).toHaveLength(4);
     expect(sequence.indexOf("createMany")).toBeGreaterThan(sequence.lastIndexOf("put"));
     expect(testcaseCreateMany).toHaveBeenCalledTimes(1);
@@ -188,7 +186,6 @@ describe("createProblemTestcaseSetRecord", () => {
       }),
     ).rejects.toThrow(/unique constraint/);
 
-    // S3 puts ran (the orphans the design accepts).
     expect(putText).toHaveBeenCalled();
   });
 
@@ -237,8 +234,6 @@ describe("updateTestcaseRecord", () => {
   it("does not touch the DB row (key columns are stable for the lifetime of the row)", async () => {
     await updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "x" });
 
-    // testcaseRepo.update is not called — there's no DB column to change.
-    // The test would fail loudly if the implementation accidentally hit the DB.
     expect(testcaseCreateMany).not.toHaveBeenCalled();
   });
 });
@@ -274,10 +269,50 @@ describe("deleteTestcaseRecord", () => {
   });
 });
 
+describe("object-level authorization — set/testcase must belong to the route problem", () => {
+  it("rejects deleting a testcase whose set belongs to another problem (IDOR)", async () => {
+    testcaseRowFindById.mockResolvedValueOnce({
+      id: "tc_other",
+      testcaseSet: { problemId: "prob_OTHER" },
+    });
+
+    await expect(deleteTestcaseRecord(actor, "prob_1", "tc_other")).rejects.toThrow(
+      /not found for this problem/i,
+    );
+    expect(testcaseDelete).not.toHaveBeenCalled();
+  });
+
+  it("rejects deleting a testcase set that belongs to another problem (IDOR)", async () => {
+    testcaseFindById.mockResolvedValueOnce({
+      id: "set_other",
+      problemId: "prob_OTHER",
+      testcases: [{ id: "tc_x" }],
+    });
+
+    await expect(deleteTestcaseSetRecord(actor, "prob_1", "set_other")).rejects.toThrow(
+      /not found for this problem/i,
+    );
+    expect(testcaseSetDelete).not.toHaveBeenCalled();
+  });
+
+  it("rejects overwriting a testcase blob across problems (no S3 write)", async () => {
+    testcaseRowFindById.mockResolvedValueOnce({
+      id: "tc_other",
+      testcaseSet: { problemId: "prob_OTHER" },
+    });
+
+    await expect(
+      updateTestcaseRecord(actor, "prob_1", "tc_other", { input: "x" }),
+    ).rejects.toThrow(/not found for this problem/i);
+    expect(putText).not.toHaveBeenCalled();
+  });
+});
+
 describe("deleteTestcaseSetRecord", () => {
   it("sweeps S3 prefixes for every testcase in the set after the DB delete commits", async () => {
     testcaseFindById.mockResolvedValueOnce({
       id: "set_1",
+      problemId: "prob_1",
       testcases: [{ id: "tc_a" }, { id: "tc_b" }, { id: "tc_c" }],
     });
 

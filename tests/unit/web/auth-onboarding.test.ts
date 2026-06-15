@@ -4,7 +4,6 @@ import { sessionUserSchema } from "@nojv/core";
 import { hasActorUsername } from "$lib/server/auth";
 import { isValidUsername } from "$lib/utils";
 
-/** Helper to build a minimal valid session-user-like object. */
 function fakeUser(overrides: Record<string, unknown> = {}) {
   return {
     id: "u1",
@@ -36,7 +35,6 @@ describe("hasActorUsername", () => {
   it("returns true and narrows type when username is a non-empty string", () => {
     const actor = { username: "alice" as string | null, userId: "u1" };
     if (hasActorUsername(actor)) {
-      // Type should be narrowed - username is string, not null
       expect(actor.username).toBe("alice");
     } else {
       throw new Error("Expected hasActorUsername to return true");

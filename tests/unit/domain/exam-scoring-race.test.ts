@@ -1,39 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  findByIdWithExam,
-  findIdByExamAndUser,
+  findExamForScoring,
   findMany,
   findAllByContext,
   updateWithVersion,
-  updateScoreboardMock,
-  ExamParticipationVersionConflict,
+  UnifiedParticipationVersionConflict,
 } = vi.hoisted(() => {
-  class ExamParticipationVersionConflict extends Error {
+  class UnifiedParticipationVersionConflict extends Error {
     readonly participationId: string;
     readonly expectedVersion: number;
     constructor(participationId: string, expectedVersion: number) {
-      super(`ExamParticipation ${participationId} version ${String(expectedVersion)} stale.`);
-      this.name = "ExamParticipationVersionConflict";
+      super(`Participation ${participationId} version ${String(expectedVersion)} stale.`);
+      this.name = "UnifiedParticipationVersionConflict";
       this.participationId = participationId;
       this.expectedVersion = expectedVersion;
     }
   }
   return {
-    findByIdWithExam: vi.fn(),
-    findIdByExamAndUser: vi.fn(),
+    findExamForScoring: vi.fn(),
     findMany: vi.fn(),
     findAllByContext: vi.fn(),
     updateWithVersion: vi.fn(),
-    updateScoreboardMock: vi.fn(),
-    ExamParticipationVersionConflict,
+    UnifiedParticipationVersionConflict,
   };
 });
 
 vi.mock("@nojv/db", () => ({
-  examParticipationRepo: {
-    findByIdWithExam,
-    findIdByExamAndUser,
+  participationRepo: {
+    findExamForScoring,
     updateWithVersion,
   },
   examRepo: {},
@@ -43,21 +38,12 @@ vi.mock("@nojv/db", () => ({
   scoreOverrideRepo: {
     findAllByContext,
   },
-  ExamParticipationVersionConflict,
+  UnifiedParticipationVersionConflict,
 }));
 
-vi.mock("@nojv/redis", () => ({
-  scoreboard: {
-    updateScoreboard: updateScoreboardMock,
-    // Pure TTL helper — scoring passes its result straight to
-    // updateScoreboard; a fixed number keeps the race assertions stable.
-    scoreboardTtlForEndsAt: () => 604800,
-  },
-}));
+import { examDomain, ConflictError } from "@nojv/application";
 
-import { examDomain, ConflictError } from "@nojv/domain";
-
-const { updateExamScores, updateExamScoresForUser } = examDomain;
+const { updateExamScores } = examDomain;
 
 const PARTICIPATION_ID = "ep_1";
 const EXAM_ID = "ex_1";
@@ -85,15 +71,11 @@ function participationFixture(version: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   findAllByContext.mockResolvedValue([]);
-  updateScoreboardMock.mockResolvedValue(undefined);
 });
 
 describe("updateExamScores — optimistic locking", () => {
   it("retries after a version conflict and persists the latest computed score (point_sum)", async () => {
-    // First read: version 0, submissions show best score 60.
-    // Retry read: version 1 (a concurrent writer landed), submissions now
-    //   show best score 80 — we must persist 80, not 60.
-    findByIdWithExam
+    findExamForScoring
       .mockResolvedValueOnce(participationFixture(0))
       .mockResolvedValueOnce(participationFixture(1));
 
@@ -107,16 +89,15 @@ describe("updateExamScores — optimistic locking", () => {
 
     updateWithVersion
       .mockImplementationOnce(() => {
-        throw new ExamParticipationVersionConflict(PARTICIPATION_ID, 0);
+        throw new UnifiedParticipationVersionConflict(PARTICIPATION_ID, 0);
       })
       .mockResolvedValueOnce({ id: PARTICIPATION_ID, score: 80, version: 2 });
 
-    await updateExamScores(PARTICIPATION_ID);
+    await updateExamScores(EXAM_ID, USER_ID);
 
-    expect(findByIdWithExam).toHaveBeenCalledTimes(2);
+    expect(findExamForScoring).toHaveBeenCalledTimes(2);
     expect(updateWithVersion).toHaveBeenCalledTimes(2);
 
-    // First call used the stale version 0 with the stale score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       1,
       PARTICIPATION_ID,
@@ -124,22 +105,11 @@ describe("updateExamScores — optimistic locking", () => {
       expect.objectContaining({ score: 60 }),
     );
 
-    // Retry used the freshly read version 1 with the recomputed score.
     expect(updateWithVersion).toHaveBeenNthCalledWith(
       2,
       PARTICIPATION_ID,
       1,
       expect.objectContaining({ score: 80 }),
-    );
-
-    // Scoreboard reflects the value that actually landed.
-    expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      EXAM_ID,
-      PARTICIPATION_ID,
-      80,
-      "ioi",
-      expect.any(Number),
     );
   });
 
@@ -149,8 +119,7 @@ describe("updateExamScores — optimistic locking", () => {
       f.exam.scoringMode = "problem_count";
       return f;
     };
-    findByIdWithExam.mockResolvedValue(icpcFixture(0));
-    // One accepted submission → 1 problem solved.
+    findExamForScoring.mockResolvedValue(icpcFixture(0));
     findMany.mockResolvedValue([
       {
         problemId: PROBLEM_ID,
@@ -161,7 +130,7 @@ describe("updateExamScores — optimistic locking", () => {
     ]);
     updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, version: 1 });
 
-    await updateExamScores(PARTICIPATION_ID);
+    await updateExamScores(EXAM_ID, USER_ID);
 
     expect(updateWithVersion).toHaveBeenCalledTimes(1);
     expect(updateWithVersion).toHaveBeenCalledWith(
@@ -169,54 +138,42 @@ describe("updateExamScores — optimistic locking", () => {
       0,
       expect.objectContaining({ score: 1 }),
     );
-    expect(updateScoreboardMock).toHaveBeenCalledWith(
-      EXAM_ID,
-      PARTICIPATION_ID,
-      expect.any(Number),
-      "icpc",
-      expect.any(Number),
-    );
   });
 
   it("throws ConflictError after exhausting all retry attempts", async () => {
-    findByIdWithExam.mockResolvedValue(participationFixture(0));
+    findExamForScoring.mockResolvedValue(participationFixture(0));
     findMany.mockResolvedValue([
       { problemId: PROBLEM_ID, score: 50, status: "partial", createdAt: new Date() },
     ]);
     updateWithVersion.mockImplementation(() => {
-      throw new ExamParticipationVersionConflict(PARTICIPATION_ID, 0);
+      throw new UnifiedParticipationVersionConflict(PARTICIPATION_ID, 0);
     });
 
-    await expect(updateExamScores(PARTICIPATION_ID)).rejects.toBeInstanceOf(ConflictError);
+    await expect(updateExamScores(EXAM_ID, USER_ID)).rejects.toBeInstanceOf(ConflictError);
 
-    // 3 attempts before giving up.
     expect(updateWithVersion).toHaveBeenCalledTimes(3);
-    // Scoreboard must NOT be touched when no DB write succeeded.
-    expect(updateScoreboardMock).not.toHaveBeenCalled();
   });
 
   it("returns early without writing when the participation does not exist", async () => {
-    findByIdWithExam.mockResolvedValue(null);
+    findExamForScoring.mockResolvedValue(null);
 
-    await updateExamScores(PARTICIPATION_ID);
+    await updateExamScores(EXAM_ID, USER_ID);
 
     expect(updateWithVersion).not.toHaveBeenCalled();
-    expect(updateScoreboardMock).not.toHaveBeenCalled();
   });
 });
 
-describe("updateExamScoresForUser — judge-pipeline entry point", () => {
+describe("updateExamScores — judge-pipeline entry point", () => {
   it("resolves the participation for (exam, user) and recomputes its score", async () => {
-    findIdByExamAndUser.mockResolvedValue(PARTICIPATION_ID);
-    findByIdWithExam.mockResolvedValue(participationFixture(0));
+    findExamForScoring.mockResolvedValue(participationFixture(0));
     findMany.mockResolvedValue([
       { problemId: PROBLEM_ID, score: 80, status: "partial", createdAt: new Date() },
     ]);
     updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, score: 80, version: 1 });
 
-    await updateExamScoresForUser(EXAM_ID, USER_ID);
+    await updateExamScores(EXAM_ID, USER_ID);
 
-    expect(findIdByExamAndUser).toHaveBeenCalledWith(EXAM_ID, USER_ID);
+    expect(findExamForScoring).toHaveBeenCalledWith(EXAM_ID, USER_ID);
     expect(updateWithVersion).toHaveBeenCalledWith(
       PARTICIPATION_ID,
       0,
@@ -225,11 +182,10 @@ describe("updateExamScoresForUser — judge-pipeline entry point", () => {
   });
 
   it("no-ops when the user has no participation row yet", async () => {
-    findIdByExamAndUser.mockResolvedValue(null);
+    findExamForScoring.mockResolvedValue(null);
 
-    await updateExamScoresForUser(EXAM_ID, USER_ID);
+    await updateExamScores(EXAM_ID, USER_ID);
 
-    expect(findByIdWithExam).not.toHaveBeenCalled();
     expect(updateWithVersion).not.toHaveBeenCalled();
   });
 });

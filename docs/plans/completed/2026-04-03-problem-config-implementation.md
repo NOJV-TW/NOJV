@@ -292,9 +292,9 @@ feat(db): update seed to use judgeConfig
 
 **Files:**
 
-- Modify: `packages/domain/src/problem/mutations.ts`
-- Modify: `packages/domain/src/submission/judge-context.ts`
-- Modify: `packages/domain/src/problem/queries.ts` (if it references old fields)
+- Modify: `packages/application/src/problem/mutations.ts`
+- Modify: `packages/application/src/submission/judge-context.ts`
+- Modify: `packages/application/src/problem/queries.ts` (if it references old fields)
 
 **Step 1: Update `CreateProblemDefinitionInput`**
 
@@ -369,7 +369,7 @@ return {
 
 **Step 6: Verify build**
 
-Run: `pnpm --filter @nojv/domain build`
+Run: `pnpm --filter @nojv/application build`
 Expected: SUCCESS
 
 **Step 7: Commit**
@@ -659,7 +659,7 @@ Add to edit page.server.ts:
 - `updateTestcase` — update individual testcase stdin/expectedStdout
 - `deleteTestcase` — delete individual testcase
 
-These call new domain functions (add to `packages/domain/src/problem/mutations.ts`):
+These call new domain functions (add to `packages/application/src/problem/mutations.ts`):
 
 - `updateTestcaseSetRecord(actor, problemSlug, setId, payload)`
 - `deleteTestcaseSetRecord(actor, problemSlug, setId)`

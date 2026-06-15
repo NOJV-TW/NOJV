@@ -8,9 +8,6 @@ def _write(name, text):
     with open(_os.path.join(feedback_dir, name), "w") as f:
         f.write(str(text))
 
-def set_score(x):
-    _write("score.txt", x)
-
 def judge_log(msg):
     _write("judgemessage.txt", msg)
 

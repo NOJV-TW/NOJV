@@ -199,15 +199,15 @@ notify` while students are taking the exam, ongoing blocked requests
 
 ### Domain
 
-- `packages/domain/src/shared/ip-utils.ts` — `checkIpLock`,
+- `packages/application/src/shared/ip-utils.ts` — `checkIpLock`,
   `isIpInCidr`, `isIpInWhitelist`, `IpLockConfig`, `IpCheckResult`,
   `ipToNumber`.
-- `packages/domain/src/shared/page-lock.ts` — `getPageLockedContext`.
-- `packages/domain/src/proctoring/gate.ts` — `checkProctoringGate`,
+- `packages/application/src/shared/page-lock.ts` — `getPageLockedContext`.
+- `packages/application/src/proctoring/gate.ts` — `checkProctoringGate`,
   `checkProctoringGateInTx` (the exported entry points);
   `checkExamGate` / `checkContestGate` are internal (non-exported)
   per-kind helpers. `ProctoringDenialReason`.
-- `packages/domain/src/proctoring/violation-logger.ts` — `logViolation`,
+- `packages/application/src/proctoring/violation-logger.ts` — `logViolation`,
   `logViolationInTx`.
 
 ### Web layer
@@ -241,7 +241,11 @@ notify` while students are taking the exam, ongoing blocked requests
     `ExamSessionEventType`.
 - `packages/core/src/types.ts` — `ipLockFields` (domain-facing array
   variant), `ipLockFormFields` (form textarea variant),
-  `ipViolationModeSchema` (enum `'block' | 'notify'`).
+  `parseIpWhitelistText` (newline / CSV / semicolon / whitespace bulk
+  import parser), `ipViolationModeSchema` (enum `'block' | 'notify'`).
+- `apps/web/src/lib/components/features/course/exam/IpWhitelistField.svelte`
+  — shared textarea + CSV/TXT import field used by exam create and
+  settings forms.
 
 ### Tests
 
@@ -250,10 +254,6 @@ notify` while students are taking the exam, ongoing blocked requests
 - `tests/unit/domain/proctoring-gate.test.ts` — composite gate with
   all denial reasons, including contest vs exam split.
 - `tests/unit/domain/exam-session.test.ts` — session start/end plumbing.
-
-## Open Questions / TODO
-
-- **Whitelist UI for bulk import.** Teachers currently paste CIDR
-  entries one per line into a textarea (`ipLockFormFields
-.ipWhitelistText`). A CSV import / lab-network import flow is a
-  common ask but out of scope here.
+- `tests/unit/core/schemas.test.ts` — whitelist text bulk parser,
+  including line-separated, CSV, semicolon, spreadsheet whitespace, and
+  duplicate entries.

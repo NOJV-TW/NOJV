@@ -1,6 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { canCreateCourse, requireAuth } from "$lib/server/auth";
-import { courseDomain } from "@nojv/domain";
+import { courseDomain } from "@nojv/application";
 
 const { listForUserWithCards } = courseDomain;
 

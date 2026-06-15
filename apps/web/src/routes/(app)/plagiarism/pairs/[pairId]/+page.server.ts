@@ -10,7 +10,7 @@ import {
   resolveEffectiveCourseRole,
   ValidationError,
   type plagiarismDomain,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 import type { CompletedActorContext } from "$lib/server/auth";
 import { requireAuth } from "$lib/server/auth";
@@ -107,7 +107,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     await assertAssignmentManager(actor, contextId);
     return await loadPlagiarismPair({
       pairId: pairKey,
-      target: { type: "courseAssessment", id: contextId },
+      target: { type: "assessment", id: contextId },
       flagContext: "assessment",
     });
   }

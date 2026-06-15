@@ -1,7 +1,3 @@
-// Read-path coverage for getSubmissionSources — the domain wrapper resolves
-// the storage singleton, so any caller using it (worker, source API, staff
-// plagiarism endpoint) sees a sorted-by-path list of {path, content}.
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { putSubmissionSources } from "../../../packages/storage/src/submission";
@@ -11,14 +7,14 @@ const { storageRef } = vi.hoisted(() => ({
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
-vi.mock("../../../packages/domain/src/shared/storage-singleton", () => ({
+vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
   __setStorageClientForTests: (c: unknown) => {
     storageRef.client = c as typeof storageRef.client;
   },
 }));
 
-import { submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/application";
 
 const { getSubmissionSources } = submissionDomain;
 

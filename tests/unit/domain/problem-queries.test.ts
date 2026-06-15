@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@nojv/db", () => ({
-  // Pure-function unit: the surface under test never touches the DB, but the
-  // module under test imports from @nojv/db at top level, so stub the named
-  // exports it pulls in.
   problemRepo: {},
   problemStatementRepo: {},
   problemWorkspaceFileRepo: {},
@@ -12,7 +9,7 @@ vi.mock("@nojv/db", () => ({
 }));
 
 import { LANGUAGE_TEMPLATES, supportedLanguages, type Language } from "@nojv/core";
-import { problemDomain } from "@nojv/domain";
+import { problemDomain } from "@nojv/application";
 
 const { buildStarterByLanguage } = problemDomain;
 
@@ -61,14 +58,12 @@ describe("buildStarterByLanguage — multi_file", () => {
 
     expect(result.python).toBe(pythonStarter);
     expect(result.cpp).toBe(cppStarter);
-    // languages without an editable entry fall back to the system template
     expect(result.java).toBe(LANGUAGE_TEMPLATES.java);
     expect(result.go).toBe(LANGUAGE_TEMPLATES.go);
   });
 
   it("falls back to LANGUAGE_TEMPLATES when no editable entry exists for the language", () => {
     const files = [
-      // readonly / hidden files must NOT be used as starters.
       { language: "python", path: "helper.py", visibility: "readonly", content: "helper" },
       { language: "python", path: "secret.py", visibility: "hidden", content: "" },
     ];
