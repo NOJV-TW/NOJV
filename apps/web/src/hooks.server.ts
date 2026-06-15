@@ -9,6 +9,7 @@ import {
 } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
 import {
+  apiTokenDomain,
   examDomain,
   getPageLockedContext,
   proctoringDomain,
@@ -164,6 +165,13 @@ function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response | null 
     return null;
   }
 
+  if (
+    event.locals.apiToken &&
+    apiTokenDomain.findApiTokenRouteRule(event.request.method, cleanPath)
+  ) {
+    return null;
+  }
+
   const origin = event.request.headers.get("origin");
   if (origin && origin !== event.url.origin) {
     return new Response("CSRF validation failed", {
@@ -186,6 +194,69 @@ function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response | null 
         },
       );
     }
+  }
+
+  return null;
+}
+
+function jsonErrorResponse(opts: {
+  code?: string;
+  message: string;
+  requestId: string;
+  status: number;
+}): Response {
+  return new Response(JSON.stringify({ message: opts.message, code: opts.code }), {
+    status: opts.status,
+    headers: {
+      "content-type": "application/json",
+      "x-request-id": opts.requestId,
+    },
+  });
+}
+
+function readBearerToken(event: HandleEvent): string | null {
+  const authorization = event.request.headers.get("authorization");
+  if (!authorization) return null;
+  const match = /^Bearer\s+(.+)$/i.exec(authorization);
+  const token = match?.[1]?.trim();
+  return token && token.length > 0 ? token : null;
+}
+
+async function authenticateApiToken(
+  event: HandleEvent,
+  cleanPath: string,
+): Promise<Response | null> {
+  event.locals.apiToken = null;
+  event.locals.apiTokenActor = null;
+
+  const token = readBearerToken(event);
+  if (!token) return null;
+
+  const route = apiTokenDomain.findApiTokenRouteRule(event.request.method, cleanPath);
+  if (!route) {
+    return jsonErrorResponse({
+      code: "api_token_route_not_allowed",
+      message: "API token auth is not allowed for this endpoint.",
+      requestId: event.locals.requestId,
+      status: 403,
+    });
+  }
+
+  try {
+    const verified = await apiTokenDomain.verifyApiTokenForRoute({
+      ip: getClientIp(event),
+      route,
+      token,
+    });
+    event.locals.apiToken = verified;
+    event.locals.apiTokenActor = verified.actor;
+  } catch (err) {
+    const classified = classifyError(err);
+    return jsonErrorResponse({
+      message: classified.message,
+      requestId: event.locals.requestId,
+      status: classified.status,
+    });
   }
 
   return null;
@@ -375,8 +446,15 @@ async function enforceExamGate(
 
 const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Response> => {
   event.locals.requestId = deriveRequestId(event.request.headers);
+  event.locals.apiToken = null;
+  event.locals.apiTokenActor = null;
 
   const cleanPath = stripLocalePrefix(event.url.pathname);
+
+  const apiTokenAuthResponse = await authenticateApiToken(event, cleanPath);
+  if (apiTokenAuthResponse) {
+    return apiTokenAuthResponse;
+  }
 
   const csrfResponse = enforceApiCsrf(event, cleanPath);
   if (csrfResponse) {
@@ -400,6 +478,12 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   return paraglideMiddleware(event.request, async ({ request }) => {
     event.request = request;
     const response = await resolve(event);
+    if (event.locals.apiToken && response.status < 400) {
+      await apiTokenDomain.recordApiTokenUse({
+        ip: event.locals.apiToken.ip,
+        tokenId: event.locals.apiToken.tokenId,
+      });
+    }
     response.headers.set("x-request-id", event.locals.requestId);
     return response;
   });
