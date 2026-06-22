@@ -69,12 +69,45 @@
   });
 </script>
 
+<!--
+  Full-bleed Carbon top bar. The bar is always dark in both themes, so we
+  re-scope the base color tokens on the <header> element to dark-surface
+  values; every token-driven child (logo, theme toggle, bell, user menu,
+  language pills) then renders correctly on the dark bar without per-child
+  overrides. The active-state tokens (--nav-active-*) stay mode-aware.
+-->
 <header
-  class="z-[var(--z-sticky)] rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/85 py-1.5 pl-1.5 pr-1.5 shadow-rest backdrop-blur-md {immersive
-    ? 'relative'
-    : 'sticky top-6 animate-[fade-up_700ms_var(--ease-out-soft)_both]'}"
+  class={cn(
+    "z-[var(--z-sticky)] w-full border-b",
+    immersive ? "relative" : "sticky top-0 animate-[fade-up_500ms_var(--ease-out-soft)_both]",
+  )}
+  style="
+    background: var(--nav-bg);
+    border-color: var(--nav-rule);
+    --foreground: #eaeef4;
+    --muted-foreground: var(--nav-idle);
+    --accent: rgba(255, 255, 255, 0.08);
+    --accent-foreground: #ffffff;
+    --card: rgba(255, 255, 255, 0.06);
+    --card-foreground: #eaeef4;
+    --secondary: rgba(255, 255, 255, 0.08);
+    --secondary-foreground: #eaeef4;
+    --muted: rgba(255, 255, 255, 0.06);
+    --popover: #232b35;
+    --popover-foreground: #eaeef4;
+    --border-subtle: var(--nav-rule);
+    --border: rgba(255, 255, 255, 0.14);
+    --border-strong: rgba(255, 255, 255, 0.24);
+    --panel: rgba(255, 255, 255, 0.06);
+    --panel-strong: rgba(255, 255, 255, 0.06);
+    --color-panel: rgba(255, 255, 255, 0.06);
+    --color-panel-strong: rgba(255, 255, 255, 0.06);
+    --primary: var(--nav-logo);
+    --primary-foreground: #ffffff;
+    --ring: var(--nav-logo);
+  "
 >
-  <div class="flex flex-wrap items-center gap-6">
+  <div class="flex h-[76px] items-center gap-3 px-5 sm:px-6 lg:px-8">
     {#if navItems.length > 0}
       <button
         type="button"
@@ -87,26 +120,29 @@
       </button>
     {/if}
 
-    <a class="transition-colors duration-fast ease-out-soft hover:text-primary" href="/">
+    <a
+      class="mr-1 flex items-center transition-colors duration-fast ease-out-soft hover:text-primary"
+      href="/"
+    >
       <BrandLogo />
     </a>
 
     {#if navItems.length > 0}
-      <nav class="hidden flex-wrap items-center gap-2 text-body-sm font-medium lg:flex">
+      <nav class="hidden items-stretch gap-1 lg:flex" aria-label="Primary">
         {#each navLinks as item (item.href)}
           {@const Icon = item.icon}
           <a
             class={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors duration-fast ease-out-soft",
+              "flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-xl px-3.5 py-2 transition-colors duration-fast ease-out-soft",
               item.active
-                ? "text-foreground bg-accent/60"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/40",
+                ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-fg)]"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
             href={item.href}
             aria-current={item.active ? "page" : undefined}
           >
-            <Icon class="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <span>{item.label}</span>
+            <Icon class="size-[22px]" strokeWidth={1.85} aria-hidden="true" />
+            <span class="text-[0.66rem] font-bold uppercase tracking-[0.09em]">{item.label}</span>
           </a>
         {/each}
       </nav>

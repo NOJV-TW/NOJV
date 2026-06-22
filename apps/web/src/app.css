@@ -119,6 +119,14 @@
   --panel: rgba(255, 255, 255, 0.86);
   --panel-strong: rgba(248, 249, 251, 0.95);
 
+  /* Navbar — always-dark Carbon bar (mode-aware active state) */
+  --nav-bg: #171c24;
+  --nav-rule: rgba(255, 255, 255, 0.1);
+  --nav-idle: #9aa3b0;
+  --nav-logo: #1d8c9c;
+  --nav-active-bg: #eef6f7;
+  --nav-active-fg: #165f6a;
+
   /* === Layered shadow elevation ladder (Stripe/Vercel style) === */
   --shadow-rest:
     0 1px 1px rgba(20, 24, 31, 0.04), 0 2px 4px rgba(20, 24, 31, 0.04),
@@ -222,6 +230,14 @@
   --sidebar-ring: #36a3b0;
   --panel: rgba(34, 42, 52, 0.92);
   --panel-strong: rgba(42, 50, 61, 0.96);
+
+  /* Navbar — always-dark Carbon bar (mode-aware active state) */
+  --nav-bg: #1b222b;
+  --nav-rule: rgba(255, 255, 255, 0.09);
+  --nav-idle: #9aa3b0;
+  --nav-logo: #36a3b0;
+  --nav-active-bg: #2b626d;
+  --nav-active-fg: #c0e6ec;
 
   /* Dark-mode shadow ladder: softer, warmer tint */
   --shadow-rest:
