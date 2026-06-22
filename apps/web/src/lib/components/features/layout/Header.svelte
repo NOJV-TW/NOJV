@@ -84,6 +84,7 @@
   style="
     background: var(--nav-bg);
     border-color: var(--nav-rule);
+    color: #eaeef4;
     --foreground: #eaeef4;
     --muted-foreground: var(--nav-idle);
     --accent: rgba(255, 255, 255, 0.08);
