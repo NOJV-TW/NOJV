@@ -193,7 +193,8 @@
   --popover-foreground: #e6ebf2;
   --primary: #36a3b0;
   --primary-foreground: #04222a;
-  --secondary: #2a323d;
+  /* secondary sits a clear step above --card so secondary buttons stay visible on cards */
+  --secondary: #36414f;
   --secondary-foreground: #e6ebf2;
   --muted: #2a323d;
   --muted-foreground: #93a0ae;
