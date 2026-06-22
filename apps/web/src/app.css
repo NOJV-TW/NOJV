@@ -57,29 +57,29 @@
   --radius-full: 9999px;
   --radius: var(--radius-md); /* legacy alias for shadcn-svelte compat */
 
-  /* === Warm cream base (light) === */
-  --background: #f7f1e8;
-  --foreground: #1f1916;
-  --card: rgba(255, 250, 244, 0.82);
-  --card-foreground: #1f1916;
-  --popover: #fffaf4;
-  --popover-foreground: #1f1916;
+  /* === Carbon base (light A) === */
+  --background: #f4f5f7;
+  --foreground: #181d24;
+  --card: rgba(255, 255, 255, 0.86);
+  --card-foreground: #181d24;
+  --popover: #ffffff;
+  --popover-foreground: #181d24;
 
-  /* Primary: burnt orange */
-  --primary: #c4682d;
+  /* Primary: teal */
+  --primary: #1d8c9c;
   --primary-foreground: #ffffff;
 
-  /* Secondary: warm cream */
-  --secondary: #efe5d8;
-  --secondary-foreground: #1f1916;
+  /* Secondary: cool neutral */
+  --secondary: #e9edf0;
+  --secondary-foreground: #181d24;
 
   /* Muted */
-  --muted: #f4ecdf;
-  --muted-foreground: #6d6157;
+  --muted: #eef1f4;
+  --muted-foreground: #5f6875;
 
-  /* Accent: soft warm for hover states */
-  --accent: #ead6c7;
-  --accent-foreground: #1f1916;
+  /* Accent: soft teal-tinted for hover states */
+  --accent: #e1edef;
+  --accent-foreground: #134e57;
 
   --destructive: oklch(0.577 0.245 27.325);
   --success: oklch(0.648 0.15 160);
@@ -87,17 +87,17 @@
   --info: oklch(0.68 0.12 230);
 
   /* === Border contrast ladder === */
-  --border-subtle: rgba(79, 52, 35, 0.08); /* dividers, inner lines */
-  --border: rgba(79, 52, 35, 0.14); /* default card / input */
-  --border-strong: rgba(79, 52, 35, 0.24); /* emphasized outlines */
-  --input: rgba(79, 52, 35, 0.14);
-  --ring: #c4682d;
+  --border-subtle: rgba(20, 24, 31, 0.06); /* dividers, inner lines */
+  --border: rgba(20, 24, 31, 0.1); /* default card / input */
+  --border-strong: rgba(20, 24, 31, 0.18); /* emphasized outlines */
+  --input: rgba(20, 24, 31, 0.1);
+  --ring: #1d8c9c;
 
-  /* Charts — aligned with warm-earth palette */
-  --chart-1: #c4682d; /* primary burnt orange */
+  /* Charts — aligned with carbon/teal palette */
+  --chart-1: #1d8c9c; /* primary teal */
   --chart-2: #4d6f8f; /* cool slate for contrast */
-  --chart-3: #8a6142; /* warm brown */
-  --chart-4: #d4a054; /* amber */
+  --chart-3: #2f9d6b; /* green */
+  --chart-4: #c98a1a; /* amber */
   --chart-5: #7a8f6d; /* sage */
 
   /* Leaderboard medal ranks */
@@ -106,30 +106,30 @@
   --rank-bronze: #cd7f32;
 
   /* Sidebar */
-  --sidebar: #efe5d8;
-  --sidebar-foreground: #1f1916;
-  --sidebar-primary: #c4682d;
+  --sidebar: #eef1f4;
+  --sidebar-foreground: #181d24;
+  --sidebar-primary: #1d8c9c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4ecdf;
-  --sidebar-accent-foreground: #1f1916;
-  --sidebar-border: rgba(79, 52, 35, 0.14);
-  --sidebar-ring: #c4682d;
+  --sidebar-accent: #e1edef;
+  --sidebar-accent-foreground: #134e57;
+  --sidebar-border: rgba(20, 24, 31, 0.1);
+  --sidebar-ring: #1d8c9c;
 
   /* Panel surface (glass-morphic) */
-  --panel: rgba(255, 250, 244, 0.82);
-  --panel-strong: rgba(247, 239, 228, 0.94);
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-strong: rgba(248, 249, 251, 0.95);
 
   /* === Layered shadow elevation ladder (Stripe/Vercel style) === */
   --shadow-rest:
-    0 1px 1px rgba(79, 52, 35, 0.04), 0 2px 4px rgba(79, 52, 35, 0.04),
-    0 8px 16px rgba(79, 52, 35, 0.04);
+    0 1px 1px rgba(20, 24, 31, 0.04), 0 2px 4px rgba(20, 24, 31, 0.04),
+    0 8px 16px rgba(20, 24, 31, 0.04);
   --shadow-hover:
-    0 1px 1px rgba(79, 52, 35, 0.05), 0 4px 8px rgba(79, 52, 35, 0.06),
-    0 12px 24px rgba(79, 52, 35, 0.08), 0 24px 48px rgba(79, 52, 35, 0.06);
+    0 1px 1px rgba(20, 24, 31, 0.05), 0 4px 8px rgba(20, 24, 31, 0.06),
+    0 12px 24px rgba(20, 24, 31, 0.08), 0 24px 48px rgba(20, 24, 31, 0.06);
   --shadow-modal:
-    0 4px 8px rgba(79, 52, 35, 0.08), 0 16px 32px rgba(79, 52, 35, 0.12),
-    0 32px 64px rgba(79, 52, 35, 0.16);
-  --shadow-focus: 0 0 0 3px rgba(196, 104, 45, 0.25);
+    0 4px 8px rgba(20, 24, 31, 0.08), 0 16px 32px rgba(20, 24, 31, 0.12),
+    0 32px 64px rgba(20, 24, 31, 0.16);
+  --shadow-focus: 0 0 0 3px rgba(29, 140, 156, 0.25);
   --shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 
   /* === Motion tokens === */
@@ -176,52 +176,52 @@
 }
 
 .dark {
-  --background: #1a1412;
-  --foreground: #f5ede4;
-  /* Brighter card bg so panels visibly separate from the near-black body. */
-  --card: rgba(74, 58, 48, 0.88);
-  --card-foreground: #f5ede4;
-  --popover: #38281e;
-  --popover-foreground: #f5ede4;
-  --primary: #d4834a;
-  --primary-foreground: #ffffff;
-  --secondary: #2a201a;
-  --secondary-foreground: #f5ede4;
-  --muted: #2a201a;
-  --muted-foreground: #a89888;
-  --accent: #3a2e26;
-  --accent-foreground: #f5ede4;
+  --background: #141a21;
+  --foreground: #e6ebf2;
+  /* Brighter card bg so panels visibly separate from the dark body. */
+  --card: rgba(34, 42, 52, 0.92);
+  --card-foreground: #e6ebf2;
+  --popover: #222a34;
+  --popover-foreground: #e6ebf2;
+  --primary: #36a3b0;
+  --primary-foreground: #04222a;
+  --secondary: #2a323d;
+  --secondary-foreground: #e6ebf2;
+  --muted: #2a323d;
+  --muted-foreground: #93a0ae;
+  --accent: #28343c;
+  --accent-foreground: #c0e6ec;
   --destructive: oklch(0.704 0.191 22.216);
   --success: oklch(0.72 0.15 160);
   --warning: oklch(0.82 0.16 75);
   --info: oklch(0.75 0.12 230);
 
-  --border-subtle: rgba(255, 250, 244, 0.06);
-  --border: rgba(255, 250, 244, 0.12);
-  --border-strong: rgba(255, 250, 244, 0.22);
-  --input: rgba(255, 250, 244, 0.15);
-  --ring: #d4834a;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #36a3b0;
 
-  --chart-1: #d4834a;
+  --chart-1: #36a3b0;
   --chart-2: #6e90ad;
-  --chart-3: #b48664;
-  --chart-4: #e4b878;
+  --chart-3: #4cc08a;
+  --chart-4: #e0b25a;
   --chart-5: #9cb086;
 
   --rank-gold: #e0b56a;
   --rank-silver: #b4b4b4;
   --rank-bronze: #d98f48;
 
-  --sidebar: #2a201a;
-  --sidebar-foreground: #f5ede4;
-  --sidebar-primary: #d4834a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #3a2e26;
-  --sidebar-accent-foreground: #f5ede4;
-  --sidebar-border: rgba(255, 250, 244, 0.1);
-  --sidebar-ring: #d4834a;
-  --panel: rgba(74, 58, 48, 0.88);
-  --panel-strong: rgba(86, 68, 56, 0.94);
+  --sidebar: #1b222b;
+  --sidebar-foreground: #e6ebf2;
+  --sidebar-primary: #36a3b0;
+  --sidebar-primary-foreground: #04222a;
+  --sidebar-accent: #28343c;
+  --sidebar-accent-foreground: #c0e6ec;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #36a3b0;
+  --panel: rgba(34, 42, 52, 0.92);
+  --panel-strong: rgba(42, 50, 61, 0.96);
 
   /* Dark-mode shadow ladder: softer, warmer tint */
   --shadow-rest:
@@ -427,9 +427,9 @@
     min-height: 100dvh;
     /* OKLCH interpolation avoids the gray-midpoint problem of sRGB */
     background:
-      radial-gradient(circle at top left in oklch, rgba(196, 104, 45, 0.14), transparent 26%),
-      radial-gradient(circle at top right in oklch, rgba(77, 111, 143, 0.12), transparent 22%),
-      linear-gradient(180deg in oklch, #fbf5ed 0%, #f4ecdf 100%);
+      radial-gradient(circle at top left in oklch, rgba(29, 140, 156, 0.1), transparent 26%),
+      radial-gradient(circle at top right in oklch, rgba(77, 111, 143, 0.08), transparent 22%),
+      linear-gradient(180deg in oklch, #f7f8fa 0%, #f1f3f6 100%);
     background-attachment: fixed;
     font-feature-settings:
       "kern" 1,
@@ -491,9 +491,9 @@
 
 :is(.dark) body {
   background:
-    radial-gradient(circle at top left in oklch, rgba(212, 131, 74, 0.08), transparent 26%),
-    radial-gradient(circle at top right in oklch, rgba(77, 111, 143, 0.06), transparent 22%),
-    linear-gradient(180deg in oklch, #1a1412 0%, #151010 100%);
+    radial-gradient(circle at top left in oklch, rgba(54, 163, 176, 0.07), transparent 26%),
+    radial-gradient(circle at top right in oklch, rgba(110, 144, 173, 0.05), transparent 22%),
+    linear-gradient(180deg in oklch, #141a21 0%, #10151b 100%);
 }
 
 :is(.dark) ::selection {
