@@ -18,6 +18,17 @@ export function generateOtp(): string {
   return String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, "0");
 }
 
+const STEPUP_CODE_PATTERN = new RegExp(`^\\d{${String(OTP_LENGTH)}}$`);
+const BACKUP_CODE_PATTERN = /^[A-Za-z0-9]{5}-[A-Za-z0-9]{5}$/;
+
+export function validateStepUpCode(code: string): boolean {
+  return STEPUP_CODE_PATTERN.test(code);
+}
+
+export function isBackupCodeFormat(code: string): boolean {
+  return BACKUP_CODE_PATTERN.test(code);
+}
+
 export async function storeEnrollOtp(userId: string, otp: string): Promise<void> {
   await getRedis().set(keys.twoFactorEnrollOtp(userId), hashOtp(otp), "EX", OTP_TTL_SECONDS);
 }
@@ -55,6 +66,15 @@ export async function wasTotpSeen(userId: string, code: string): Promise<boolean
 export async function verifyTotpStepUp(code: string, headers: Headers): Promise<boolean> {
   try {
     await getAuth().api.verifyTOTP({ body: { code }, headers });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function verifyBackupCodeStepUp(code: string, headers: Headers): Promise<boolean> {
+  try {
+    await getAuth().api.verifyBackupCode({ body: { code }, headers });
     return true;
   } catch {
     return false;

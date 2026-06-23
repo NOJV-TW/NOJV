@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, verifyTotpMock } = vi.hoisted(() => {
+const { store, verifyTotpMock, verifyBackupCodeMock } = vi.hoisted(() => {
   const map = new Map<string, string>();
   return {
     store: {
@@ -10,6 +10,7 @@ const { store, verifyTotpMock } = vi.hoisted(() => {
       },
     },
     verifyTotpMock: vi.fn(),
+    verifyBackupCodeMock: vi.fn(),
   };
 });
 
@@ -40,7 +41,9 @@ vi.mock("@nojv/redis", () => ({
 vi.mock("@nojv/db", () => new Proxy({}, { get: () => ({}) }));
 
 vi.mock("$lib/auth.server", () => ({
-  getAuth: () => ({ api: { verifyTOTP: verifyTotpMock } }),
+  getAuth: () => ({
+    api: { verifyTOTP: verifyTotpMock, verifyBackupCode: verifyBackupCodeMock },
+  }),
 }));
 
 import {
@@ -48,9 +51,12 @@ import {
   clearStepUp,
   generateOtp,
   hasFreshStepUp,
+  isBackupCodeFormat,
   markStepUpFresh,
   markTotpSeen,
   storeEnrollOtp,
+  validateStepUpCode,
+  verifyBackupCodeStepUp,
   verifyEnrollOtp,
   verifyTotpStepUp,
   wasTotpSeen,
@@ -59,6 +65,7 @@ import {
 beforeEach(() => {
   store.reset();
   verifyTotpMock.mockReset();
+  verifyBackupCodeMock.mockReset();
 });
 
 describe("step-up — enroll OTP", () => {
@@ -88,6 +95,42 @@ describe("step-up — enroll OTP", () => {
 
   it("rejects when no OTP was stored", async () => {
     expect(await verifyEnrollOtp("usr_nope", "123456")).toBe(false);
+  });
+});
+
+describe("step-up — code validation", () => {
+  it("accepts exactly OTP_LENGTH digits", () => {
+    expect(validateStepUpCode("123456")).toBe(true);
+  });
+
+  it("rejects codes with the wrong length", () => {
+    expect(validateStepUpCode("12345")).toBe(false);
+    expect(validateStepUpCode("1234567")).toBe(false);
+    expect(validateStepUpCode("")).toBe(false);
+  });
+
+  it("rejects non-digit codes", () => {
+    expect(validateStepUpCode("12345a")).toBe(false);
+    expect(validateStepUpCode(" 12345")).toBe(false);
+    expect(validateStepUpCode("12 456")).toBe(false);
+  });
+});
+
+describe("step-up — backup code format", () => {
+  it("accepts a 5-5 alphanumeric backup code", () => {
+    expect(isBackupCodeFormat("abc12-XY34z")).toBe(true);
+    expect(isBackupCodeFormat("00000-00000")).toBe(true);
+  });
+
+  it("rejects a 6-digit TOTP code", () => {
+    expect(isBackupCodeFormat("123456")).toBe(false);
+  });
+
+  it("rejects malformed backup codes", () => {
+    expect(isBackupCodeFormat("abc1-XY34z")).toBe(false);
+    expect(isBackupCodeFormat("abc12XY34z")).toBe(false);
+    expect(isBackupCodeFormat("abc12-XY34")).toBe(false);
+    expect(isBackupCodeFormat("abc1_-XY34z")).toBe(false);
   });
 });
 
@@ -123,5 +166,22 @@ describe("step-up — TOTP verification", () => {
   it("returns false when verifyTOTP throws", async () => {
     verifyTotpMock.mockRejectedValue(new Error("invalid code"));
     expect(await verifyTotpStepUp("000000", new Headers())).toBe(false);
+  });
+});
+
+describe("step-up — backup code verification", () => {
+  it("returns true when verifyBackupCode resolves", async () => {
+    verifyBackupCodeMock.mockResolvedValue({ status: true });
+    const headers = new Headers();
+    expect(await verifyBackupCodeStepUp("abc12-XY34z", headers)).toBe(true);
+    expect(verifyBackupCodeMock).toHaveBeenCalledWith({
+      body: { code: "abc12-XY34z" },
+      headers,
+    });
+  });
+
+  it("returns false when verifyBackupCode throws", async () => {
+    verifyBackupCodeMock.mockRejectedValue(new Error("invalid backup code"));
+    expect(await verifyBackupCodeStepUp("abc12-XY34z", new Headers())).toBe(false);
   });
 });
