@@ -275,4 +275,22 @@ describe("API token lifecycle and verification", () => {
     expect(err.status).toBe(403);
     expect(err.message).toMatch(/role/i);
   });
+
+  it("fails closed when the pepper is missing in production", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPepper = process.env.API_TOKEN_PEPPER;
+    try {
+      process.env.NODE_ENV = "production";
+      delete process.env.API_TOKEN_PEPPER;
+      setUser("usr_1");
+
+      const err = await catchError(create({ scopes: ["submissions:write"] }));
+      expect(err.status).toBe(500);
+      expect(err.message).toMatch(/API_TOKEN_PEPPER/);
+    } finally {
+      process.env.NODE_ENV = prevNodeEnv;
+      if (prevPepper === undefined) delete process.env.API_TOKEN_PEPPER;
+      else process.env.API_TOKEN_PEPPER = prevPepper;
+    }
+  });
 });
