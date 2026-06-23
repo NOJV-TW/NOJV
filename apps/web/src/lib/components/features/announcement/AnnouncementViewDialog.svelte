@@ -29,7 +29,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <Dialog.Title class="text-title">{announcement.title}</Dialog.Title>
           {#if announcement.pinned}
-            <Badge variant="warning" size="sm">
+            <Badge variant="warning" size="sm" class="border-primary/20 bg-primary/15 text-primary">
               {m.admin_announcementsPinned()}
             </Badge>
           {/if}
