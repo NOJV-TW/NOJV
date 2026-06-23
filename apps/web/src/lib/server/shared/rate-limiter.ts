@@ -57,6 +57,9 @@ const formActionRateLimiter = createRateLimiter("rl:form", 20, 60);
 
 export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
 
+export const otpSendRateLimiter = createRateLimiter("rl:2fa-otp", 3, 600);
+export const stepUpAttemptRateLimiter = createRateLimiter("rl:stepup", 5, 600);
+
 export async function consumeFormRateLimitInternal(
   event: RequestEvent,
 ): Promise<ReturnType<typeof fail<{ error: string }>> | null> {
