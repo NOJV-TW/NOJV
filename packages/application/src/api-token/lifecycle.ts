@@ -120,7 +120,7 @@ function parseToken(token: string): { prefix: string } | null {
 // cannot be used to verify or forge tokens offline without it.
 const DEV_API_TOKEN_PEPPER = "nojv-dev-api-token-pepper-not-for-production";
 
-function apiTokenPepper(): string {
+export function apiTokenPepper(): string {
   const fromEnv = process.env.API_TOKEN_PEPPER;
   if (process.env.NODE_ENV === "production") {
     if (!fromEnv || fromEnv.length < 32) {
