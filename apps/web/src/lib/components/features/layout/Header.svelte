@@ -143,7 +143,9 @@
             aria-current={item.active ? "page" : undefined}
           >
             <Icon class="size-[22px]" strokeWidth={1.85} aria-hidden="true" />
-            <span class="text-[0.66rem] font-bold uppercase tracking-[0.09em]">{item.label}</span>
+            <span class="text-[0.66rem] font-bold uppercase tracking-[0.09em]"
+              >{item.label}</span
+            >
           </a>
         {/each}
       </nav>

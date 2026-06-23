@@ -20,7 +20,9 @@
 
 <h1 class="sr-only">{title}</h1>
 {#if actions}
-  <header class={cn("animate-in mb-8 flex flex-wrap items-center justify-end gap-2", className)}>
+  <header
+    class={cn("animate-in mb-8 flex flex-wrap items-center justify-end gap-2", className)}
+  >
     {@render actions()}
   </header>
 {/if}
