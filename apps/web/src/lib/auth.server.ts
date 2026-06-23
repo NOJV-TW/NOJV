@@ -132,7 +132,7 @@ function createAuth() {
           return /^[a-z0-9._-]+$/.test(candidate);
         },
       }),
-      twoFactor({ issuer: "NOJV" }),
+      twoFactor({ issuer: "NOJV", allowPasswordless: true }),
     ],
   });
 }

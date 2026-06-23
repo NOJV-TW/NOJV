@@ -1,3 +1,4 @@
+export { accountRepo } from "./account";
 export { announcementRepo } from "./announcement";
 export { announcementTranslationRepo } from "./announcement-translation";
 export { apiTokenRepo } from "./api-token";

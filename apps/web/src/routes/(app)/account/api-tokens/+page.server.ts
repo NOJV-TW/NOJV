@@ -2,7 +2,8 @@ import { apiTokenDomain } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
-import { requireAuth } from "$lib/server/auth";
+import { ForbiddenError, requireAuth } from "$lib/server/auth";
+import { hasFreshStepUp } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 function readString(formData: FormData, name: string): string {
@@ -37,6 +38,14 @@ export const load = async (event: RequestEvent) => {
   }
 
   const actor = requireAuth(event);
+
+  if (!event.locals.sessionUser?.twoFactorEnabled) {
+    redirect(302, "/account/two-factor?returnTo=" + encodeURIComponent("/account/api-tokens"));
+  }
+  if (!(await hasFreshStepUp(actor.userId))) {
+    redirect(302, "/account/api-tokens/verify");
+  }
+
   const tokens = await apiTokenDomain.listApiTokens(actor.userId);
 
   return {
@@ -49,9 +58,15 @@ export const load = async (event: RequestEvent) => {
 export const actions = {
   create: withRateLimit(async (event) => {
     const actor = requireAuth(event);
-    const formData = await event.request.formData();
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
+      if (!(await hasFreshStepUp(actor.userId))) {
+        throw new ForbiddenError("Step-up verification required.");
+      }
+      const formData = await event.request.formData();
       const result = await apiTokenDomain.createApiToken({
         expiresInDays: readExpiry(formData),
         name: readString(formData, "name"),
@@ -68,9 +83,15 @@ export const actions = {
 
   update: withRateLimit(async (event) => {
     const actor = requireAuth(event);
-    const formData = await event.request.formData();
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
+      if (!(await hasFreshStepUp(actor.userId))) {
+        throw new ForbiddenError("Step-up verification required.");
+      }
+      const formData = await event.request.formData();
       await apiTokenDomain.updateApiToken({
         expiresInDays: readExpiry(formData),
         id: readString(formData, "id"),
@@ -88,9 +109,15 @@ export const actions = {
 
   rotate: withRateLimit(async (event) => {
     const actor = requireAuth(event);
-    const formData = await event.request.formData();
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
+      if (!(await hasFreshStepUp(actor.userId))) {
+        throw new ForbiddenError("Step-up verification required.");
+      }
+      const formData = await event.request.formData();
       const result = await apiTokenDomain.rotateApiToken({
         id: readString(formData, "id"),
         userId: actor.userId,
@@ -104,9 +131,15 @@ export const actions = {
 
   revoke: withRateLimit(async (event) => {
     const actor = requireAuth(event);
-    const formData = await event.request.formData();
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
+      if (!(await hasFreshStepUp(actor.userId))) {
+        throw new ForbiddenError("Step-up verification required.");
+      }
+      const formData = await event.request.formData();
       await apiTokenDomain.revokeApiToken({
         id: readString(formData, "id"),
         revokedById: actor.userId,
