@@ -1,4 +1,4 @@
-import { apiTokenDomain } from "@nojv/domain";
+import { apiTokenDomain } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 

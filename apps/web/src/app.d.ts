@@ -1,7 +1,7 @@
 import type { Session, User } from "better-auth";
 import type { SessionUser } from "@nojv/core";
 import type { ActorContext } from "$lib/server/auth";
-import type { VerifiedApiTokenContext } from "@nojv/domain";
+import type { VerifiedApiTokenContext } from "@nojv/application";
 
 declare global {
   namespace App {
