@@ -4,6 +4,7 @@ import type { Session } from "better-auth";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
+import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
@@ -13,6 +14,8 @@ import {
   verifyEnrollOtp,
   verifyStepUpCode,
 } from "$lib/server/step-up";
+
+const logger = createLogger("two-factor");
 
 const ENROLL_FRESH_WINDOW_MS = 5 * 60 * 1000;
 
@@ -119,11 +122,17 @@ export const actions = {
     } catch {
       return fail(401, { error: "Invalid code. Try again." });
     }
-    await getMailer().sendEmail({
-      to: actor.email,
-      subject: "NOJV 已啟用兩步驟驗證",
-      html: enabledEmailHtml(),
-    });
+    try {
+      await getMailer().sendEmail({
+        to: actor.email,
+        subject: "NOJV 已啟用兩步驟驗證",
+        html: enabledEmailHtml(),
+      });
+    } catch (err) {
+      logger.error("2FA enabled notification email failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
     const returnTo = sanitizeReturnTo(
       formString(formData, "returnTo") || event.url.searchParams.get("returnTo"),
     );

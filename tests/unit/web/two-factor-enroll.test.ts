@@ -263,6 +263,13 @@ describe("two-factor verify", () => {
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
   });
+
+  it("still succeeds when the notification email fails", async () => {
+    verifyTotpMock.mockResolvedValue({ status: true });
+    sendEmailMock.mockRejectedValue(new Error("smtp down"));
+    const result = await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
+    expect(result).toEqual({ enabled: true });
+  });
 });
 
 describe("two-factor disable", () => {

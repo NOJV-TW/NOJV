@@ -31,12 +31,12 @@ This is a follow-up to the API token feature (PR #157) and ships as its own PR.
 
 ## Threat Model
 
-| Threat | Mitigation |
-| --- | --- |
-| Stolen session mints a long-lived API token | Step-up requires a fresh TOTP code (Redis sudo window, short TTL) before any token view/mutation |
+| Threat                                                                    | Mitigation                                                                                                 |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Stolen session mints a long-lived API token                               | Step-up requires a fresh TOTP code (Redis sudo window, short TTL) before any token view/mutation           |
 | Stolen session self-enrolls attacker's authenticator, then passes step-up | Enroll requires email OTP + fresh session; enrollment notification email lets the victim notice and revoke |
-| Stolen long-lived cookie | `freshAge` blocks enrollment unless the session was created recently (forces a real IdP re-login) |
-| Residual: attacker controls **both** session and email | Out of scope — fundamental bootstrap limit shared by all account-recovery designs |
+| Stolen long-lived cookie                                                  | `freshAge` blocks enrollment unless the session was created recently (forces a real IdP re-login)          |
+| Residual: attacker controls **both** session and email                    | Out of scope — fundamental bootstrap limit shared by all account-recovery designs                          |
 
 ## Components
 
@@ -76,10 +76,10 @@ This is a follow-up to the API token feature (PR #157) and ships as its own PR.
 
 ## Redis keys
 
-| Key | Purpose | TTL |
-| --- | --- | --- |
-| `apitoken:stepup:<userId>` | Fresh-step-up sudo window | `STEPUP_TTL` (default 10 min) |
-| `2fa:enroll-otp:<userId>` | Hashed email OTP for enroll/change | `OTP_TTL` (default 10 min) |
+| Key                        | Purpose                            | TTL                           |
+| -------------------------- | ---------------------------------- | ----------------------------- |
+| `apitoken:stepup:<userId>` | Fresh-step-up sudo window          | `STEPUP_TTL` (default 10 min) |
+| `2fa:enroll-otp:<userId>`  | Hashed email OTP for enroll/change | `OTP_TTL` (default 10 min)    |
 
 ## Defaults (adjustable at review)
 
@@ -89,23 +89,25 @@ This is a follow-up to the API token feature (PR #157) and ships as its own PR.
 - `FRESH_AGE` for enrollment = 5 minutes since `session.createdAt`.
 - Gate covers both **view and mutations**.
 
-## Open implementation risk (spike first)
+## Resolved spike — verify-totp on an authenticated session
 
-- **Does `twoFactor.verifyTotp` work for an already-fully-authenticated session**
-  (no pending sign-in 2FA challenge)? The plugin's primary use is completing the
-  sign-in challenge. Step-1 of implementation is a spike:
-  - If yes → use it directly for step-up.
-  - If it requires a pending challenge / different entry point → verify the
-    submitted code server-side against the enrolled secret, or trigger a
-    lightweight challenge. Resolve before building the gate UI.
+- **Confirmed (better-auth 1.6.17, double-verified against installed source):**
+  `auth.api.verifyTOTP({ body: { code }, headers })` works for an
+  already-authenticated session with NO pending 2FA cookie. `verifyTwoFactor`
+  resolves the live session first and never reads the sign-in challenge cookie;
+  for an already-enrolled user it is a pure verify (no session mutation), and a
+  wrong code throws `APIError` 401. We record our own Redis sudo marker on
+  success. Backup codes use the separate `auth.api.verifyBackupCode` (single-use
+  consumed by better-auth, so no Redis dedupe). Enrollment for OAuth-only users
+  uses `allowPasswordless: true`; users with a credential password still pass it.
 
 ## Out of scope (v1)
 
 - WebAuthn / passkeys as a second factor.
 - Per-token step-up (one sudo window covers the whole management page).
 - Step-up on any surface other than `/account/api-tokens`.
-- Requiring step-up to *use* a token (tokens are bearer creds by design; step-up
-  guards *minting/managing*, not API calls).
+- Requiring step-up to _use_ a token (tokens are bearer creds by design; step-up
+  guards _minting/managing_, not API calls).
 
 ## Test plan
 

@@ -67,10 +67,11 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Email (Optional)
 
-| Variable            | Purpose                      |
-| ------------------- | ---------------------------- |
-| `RESEND_API_KEY`    | Resend email service API key |
-| `EMAIL_FROM_DOMAIN` | Sender domain for emails     |
+| Variable            | Purpose                                       |
+| ------------------- | --------------------------------------------- |
+| `EMAIL_PROVIDER`    | Mailer backend: `resend` (default) or `gmail` |
+| `RESEND_API_KEY`    | Resend email service API key                  |
+| `EMAIL_FROM_DOMAIN` | Sender domain for emails                      |
 
 ### Temporal
 
