@@ -29,6 +29,39 @@ function sanitizeReturnTo(value: string | null): string | null {
   return typeof value === "string" && value.startsWith("/account/") ? value : null;
 }
 
+function forwardSetCookies(event: RequestEvent, headers: Headers): void {
+  for (const raw of headers.getSetCookie()) {
+    const parts = raw.split(";");
+    const pair = parts[0];
+    if (!pair) continue;
+    const attrs = parts.slice(1);
+    const eq = pair.indexOf("=");
+    if (eq < 0) continue;
+    const name = pair.slice(0, eq).trim();
+    const value = pair.slice(eq + 1).trim();
+    const options: Parameters<typeof event.cookies.set>[2] = {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      encode: (v) => v,
+    };
+    for (const attr of attrs) {
+      const i = attr.indexOf("=");
+      const key = (i < 0 ? attr : attr.slice(0, i)).trim().toLowerCase();
+      const val = i < 0 ? "" : attr.slice(i + 1).trim();
+      if (key === "path") options.path = val;
+      else if (key === "domain") options.domain = val;
+      else if (key === "max-age") options.maxAge = Number(val);
+      else if (key === "expires") options.expires = new Date(val);
+      else if (key === "samesite")
+        options.sameSite = val.toLowerCase() as "lax" | "strict" | "none";
+      else if (key === "secure") options.secure = true;
+      else if (key === "httponly") options.httpOnly = true;
+    }
+    event.cookies.set(name, value, options);
+  }
+}
+
 function formString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return (typeof value === "string" ? value : "").trim();
@@ -119,7 +152,12 @@ export const actions = {
     const formData = await event.request.formData();
     const code = formString(formData, "code");
     try {
-      await getAuth().api.verifyTOTP({ body: { code }, headers: event.request.headers });
+      const { headers } = await getAuth().api.verifyTOTP({
+        body: { code },
+        headers: event.request.headers,
+        returnHeaders: true,
+      });
+      forwardSetCookies(event, headers);
     } catch {
       return fail(401, { error: "Invalid code. Try again." });
     }
@@ -169,7 +207,12 @@ export const actions = {
       }
     }
     try {
-      await getAuth().api.disableTwoFactor({ body, headers: event.request.headers });
+      const { headers } = await getAuth().api.disableTwoFactor({
+        body,
+        headers: event.request.headers,
+        returnHeaders: true,
+      });
+      forwardSetCookies(event, headers);
       await clearStepUp(actor.userId);
       return { disabled: true };
     } catch {

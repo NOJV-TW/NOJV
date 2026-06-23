@@ -171,7 +171,7 @@
             </button>
           </form>
         </div>
-      {:else if data.hasPassword}
+      {:else if data.hasPassword && phase === "idle"}
         <p class="text-body-sm">{m.account_2fa_passwordIntro()}</p>
         <form
           class="flex flex-col gap-3"

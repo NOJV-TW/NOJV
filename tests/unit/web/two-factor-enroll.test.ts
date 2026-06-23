@@ -14,6 +14,7 @@ const {
   disableTwoFactorMock,
   generateBackupCodesMock,
   otpConsumeMock,
+  cookiesSetMock,
 } = vi.hoisted(() => ({
   generateOtpMock: vi.fn(),
   storeEnrollOtpMock: vi.fn(),
@@ -27,6 +28,7 @@ const {
   disableTwoFactorMock: vi.fn(),
   generateBackupCodesMock: vi.fn(),
   otpConsumeMock: vi.fn(),
+  cookiesSetMock: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => new Proxy({}, { get: () => ({}) }));
@@ -93,6 +95,7 @@ function makeEvent(opts?: {
       method: "POST",
       body: opts?.body ?? new FormData(),
     }),
+    cookies: { set: cookiesSetMock },
     url,
   } as unknown as RequestEvent;
 }
@@ -127,6 +130,7 @@ beforeEach(() => {
   disableTwoFactorMock.mockReset();
   generateBackupCodesMock.mockReset();
   otpConsumeMock.mockReset().mockResolvedValue(undefined);
+  cookiesSetMock.mockReset();
 });
 
 describe("two-factor load", () => {
@@ -250,18 +254,19 @@ describe("two-factor verify", () => {
   });
 
   it("sends the notification email and returns enabled on success", async () => {
-    verifyTotpMock.mockResolvedValue({ status: true });
+    verifyTotpMock.mockResolvedValue({ headers: new Headers() });
     const result = await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
     expect(verifyTotpMock).toHaveBeenCalledWith({
       body: { code: "123456" },
       headers: expect.any(Headers),
+      returnHeaders: true,
     });
     expect(sendEmailMock).toHaveBeenCalledOnce();
     expect(result).toEqual({ enabled: true });
   });
 
   it("redirects to a sanitized returnTo after success", async () => {
-    verifyTotpMock.mockResolvedValue({ status: true });
+    verifyTotpMock.mockResolvedValue({ headers: new Headers() });
     const body = form({ code: "123456", returnTo: "/account/api-tokens" });
     const thrown = await caught(() => actions.verify(makeEvent({ body })));
     expect(thrown.status).toBe(303);
@@ -269,10 +274,24 @@ describe("two-factor verify", () => {
   });
 
   it("still succeeds when the notification email fails", async () => {
-    verifyTotpMock.mockResolvedValue({ status: true });
+    verifyTotpMock.mockResolvedValue({ headers: new Headers() });
     sendEmailMock.mockRejectedValue(new Error("smtp down"));
     const result = await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
     expect(result).toEqual({ enabled: true });
+  });
+
+  it("forwards better-auth's rotated session cookie so enrolling does not log you out", async () => {
+    verifyTotpMock.mockResolvedValue({
+      headers: new Headers([
+        ["set-cookie", "better-auth.session_token=newtoken; Path=/; HttpOnly; SameSite=Lax"],
+      ]),
+    });
+    await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
+    expect(cookiesSetMock).toHaveBeenCalledWith(
+      "better-auth.session_token",
+      "newtoken",
+      expect.objectContaining({ path: "/" }),
+    );
   });
 });
 
@@ -285,13 +304,14 @@ describe("two-factor disable", () => {
 
   it("password user: passes password to disableTwoFactor", async () => {
     userHasCredentialPasswordMock.mockResolvedValue(true);
-    disableTwoFactorMock.mockResolvedValue({ status: true });
+    disableTwoFactorMock.mockResolvedValue({ headers: new Headers() });
     const result = await actions.disable(
       makeEvent({ twoFactorEnabled: true, body: form({ password: "hunter2" }) }),
     );
     expect(disableTwoFactorMock).toHaveBeenCalledWith({
       body: { password: "hunter2" },
       headers: expect.any(Headers),
+      returnHeaders: true,
     });
     expect(clearStepUpMock).toHaveBeenCalledWith("usr_1");
     expect(result).toEqual({ disabled: true });
@@ -309,7 +329,7 @@ describe("two-factor disable", () => {
 
   it("OAuth user: verifies an inline code then disables with empty body", async () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: true });
-    disableTwoFactorMock.mockResolvedValue({ status: true });
+    disableTwoFactorMock.mockResolvedValue({ headers: new Headers() });
     const result = await actions.disable(
       makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
     );
@@ -317,6 +337,7 @@ describe("two-factor disable", () => {
     expect(disableTwoFactorMock).toHaveBeenCalledWith({
       body: {},
       headers: expect.any(Headers),
+      returnHeaders: true,
     });
     expect(clearStepUpMock).toHaveBeenCalledWith("usr_1");
     expect(result).toEqual({ disabled: true });
