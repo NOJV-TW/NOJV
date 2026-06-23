@@ -438,6 +438,17 @@
       color var(--duration-normal) var(--ease-out-soft) !important;
   }
 
+  /*
+   * The top bar is an always-dark surface. Its active tab jumps between a light
+   * blue (#eef6f7) and teal (#2b626d) across themes; animating that background
+   * interpolates through a muddy sRGB midpoint. Snap the bar's colors instead
+   * so the switch reads clean. The rest of the page still cross-fades.
+   */
+  html.theme-transition .app-nav,
+  html.theme-transition .app-nav * {
+    transition: none !important;
+  }
+
   body {
     @apply text-foreground;
     font-family: var(--font-sans);

@@ -78,7 +78,7 @@
 -->
 <header
   class={cn(
-    "z-[var(--z-sticky)] w-full border-b",
+    "app-nav z-[var(--z-sticky)] w-full border-b",
     immersive ? "relative" : "sticky top-0 animate-[fade-up_500ms_var(--ease-out-soft)_both]",
   )}
   style="
