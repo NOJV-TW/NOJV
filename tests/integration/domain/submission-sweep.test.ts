@@ -29,6 +29,7 @@ beforeEach(() => {
   terminateSubmissionJudge.mockReset();
   configureDomainOrchestration({
     cancelRejudge: vi.fn(async () => {}),
+    dispatchAssignmentDueSoon: vi.fn(async () => {}),
     dispatchContestLifecycle: vi.fn(async () => {}),
     dispatchExamAutoClose: vi.fn(async () => {}),
     dispatchPlagiarismCheck: vi.fn(async () => {}),

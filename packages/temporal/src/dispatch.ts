@@ -11,6 +11,7 @@ import { submissionJudgeJobSchema } from "@nojv/core";
 import { getTemporalClient } from "./client";
 import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "./task-queues";
 import type {
+  AssignmentDueSoonInput,
   ContestLifecycleInput,
   ExamAutoCloseInput,
   PlagiarismCheckInput,
@@ -101,6 +102,17 @@ export async function dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<
   await client.workflow.start("examAutoCloseWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `exam-auto-close-${input.examId}`,
+    workflowIdConflictPolicy: "TERMINATE_EXISTING",
+    args: [input],
+  });
+}
+
+export async function dispatchAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void> {
+  const client = await getTemporalClient();
+
+  await client.workflow.start("assignmentDueSoonWorkflow", {
+    taskQueue: PLATFORM_TASK_QUEUE,
+    workflowId: `assignment-due-soon-${input.assignmentId}`,
     workflowIdConflictPolicy: "TERMINATE_EXISTING",
     args: [input],
   });

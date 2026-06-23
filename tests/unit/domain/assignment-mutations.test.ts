@@ -65,7 +65,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { assignmentDomain } from "@nojv/application";
+import { assignmentDomain, configureDomainOrchestration } from "@nojv/application";
 
 const {
   updateAssignmentRecord,
@@ -73,6 +73,23 @@ const {
   deleteAssignmentDraft,
   revertAssignmentToDraft,
 } = assignmentDomain;
+
+const dispatchAssignmentDueSoon = vi.fn(async () => {});
+
+beforeEach(() => {
+  configureDomainOrchestration({
+    cancelRejudge: vi.fn(async () => {}),
+    dispatchAssignmentDueSoon,
+    dispatchContestLifecycle: vi.fn(async () => {}),
+    dispatchExamAutoClose: vi.fn(async () => {}),
+    dispatchPlagiarismCheck: vi.fn(async () => {}),
+    dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
+    dispatchSubmissionJudge: vi.fn(async () => {}),
+    probeTemporal: vi.fn(async () => {}),
+    queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    terminateSubmissionJudge: vi.fn(async () => {}),
+  });
+});
 
 const teacherActor = {
   userId: "usr_teacher",
@@ -289,6 +306,10 @@ describe("publishAssignment", () => {
       courseId: "crs_1",
       actorUserId: "usr_teacher",
       action: "publish",
+    });
+    expect(dispatchAssignmentDueSoon).toHaveBeenCalledWith({
+      assignmentId: "asg_1",
+      closesAt: new Date("2030-01-15T00:00:00Z").toISOString(),
     });
   });
 

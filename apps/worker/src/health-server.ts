@@ -83,6 +83,11 @@ async function handleReadyz(deps: HealthDeps, response: ServerResponse): Promise
 
 export function createWorkerHealthServer(deps: HealthDeps): Server {
   return createServer((request, response) => {
+    if (request.url === "/livez" && request.method === "GET") {
+      writeJson(response, 200, { status: "alive" });
+      return;
+    }
+
     if (request.url === "/healthz" && request.method === "GET") {
       void handleHealthz(deps, response);
       return;

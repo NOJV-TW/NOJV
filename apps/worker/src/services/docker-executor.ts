@@ -2,7 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { SandboxExecutor, SandboxRequest, SandboxResult } from "@nojv/core";
+import {
+  resolveContainerMemoryMb,
+  type SandboxExecutor,
+  type SandboxRequest,
+  type SandboxResult,
+} from "@nojv/core";
 
 import { AdvancedModeExecutor } from "./advanced-mode-executor.js";
 import { sanitizeId } from "./docker-process.js";
@@ -13,6 +18,22 @@ export interface DockerExecutorConfig {
   image: string;
   memoryMb: number;
   pidsLimit: number;
+  headroomMb?: number;
+  maxMemoryMb?: number;
+}
+
+const DEFAULT_MEMORY_HEADROOM_MB = 64;
+const DEFAULT_MAX_MEMORY_MB = 2048;
+
+export function resolveDockerMemoryMb(
+  request: SandboxRequest,
+  config: Pick<DockerExecutorConfig, "memoryMb" | "headroomMb" | "maxMemoryMb">,
+): number {
+  return resolveContainerMemoryMb(request.limits.memoryMb, {
+    defaultMemoryMb: config.memoryMb,
+    headroomMb: config.headroomMb ?? DEFAULT_MEMORY_HEADROOM_MB,
+    maxMemoryMb: config.maxMemoryMb ?? DEFAULT_MAX_MEMORY_MB,
+  });
 }
 
 export class DockerExecutor implements SandboxExecutor {
@@ -35,7 +56,10 @@ export class DockerExecutor implements SandboxExecutor {
           pidsLimit: this.config.pidsLimit,
         });
       }
-      return await runStandardMode(tempDir, request, this.config);
+      return await runStandardMode(tempDir, request, {
+        ...this.config,
+        memoryMb: resolveDockerMemoryMb(request, this.config),
+      });
     } finally {
       await rm(tempDir, { force: true, recursive: true });
     }

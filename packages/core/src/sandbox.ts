@@ -80,10 +80,26 @@ export interface SandboxResult {
   rawRuns?: RawCaseRun[];
   customScore?: number;
   scoringFeedback?: string;
+  overallVerdict?: SandboxVerdict;
 }
 
 export interface SandboxExecutor {
   execute(request: SandboxRequest): Promise<SandboxResult>;
+}
+
+export interface ContainerMemoryOptions {
+  defaultMemoryMb: number;
+  headroomMb: number;
+  maxMemoryMb: number;
+}
+
+export function resolveContainerMemoryMb(
+  perProblemMemoryMb: number | undefined,
+  options: ContainerMemoryOptions,
+): number {
+  const base = perProblemMemoryMb ?? options.defaultMemoryMb;
+  const withHeadroom = base + options.headroomMb;
+  return Math.max(base, Math.min(withHeadroom, options.maxMemoryMb));
 }
 
 export function normalizeRelativePath(rawPath: string): string {

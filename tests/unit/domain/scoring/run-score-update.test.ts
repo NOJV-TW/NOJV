@@ -16,6 +16,7 @@ function adapter(over: Partial<ScoringUpdate<P>> = {}): ScoringUpdate<P> {
     submissions: vi.fn(() => Promise.resolve([])),
     overrides: vi.fn(() => Promise.resolve([])),
     problemIds: vi.fn(() => new Set<string>()),
+    problemPoints: vi.fn(() => new Map<string, number>()),
     scoringMode: vi.fn(() => "point_sum" as const),
     startsAt: vi.fn(() => new Date(0)),
     userId: vi.fn(() => "u1"),

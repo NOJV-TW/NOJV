@@ -41,6 +41,11 @@ export interface ExamAutoCloseInput {
   endsAt: string;
 }
 
+export interface AssignmentDueSoonInput {
+  assignmentId: string;
+  closesAt: string;
+}
+
 export interface PlagiarismCheckInput {
   targetId: string;
   targetType: "assessment" | "exam" | "contest";

@@ -161,6 +161,27 @@ export function mapResult(
     score = adjusted.score;
   }
 
+  if (result.overallVerdict !== undefined) {
+    const verdict =
+      result.overallVerdict === "AC"
+        ? ("accepted" as const)
+        : (verdictMap[result.overallVerdict] ?? "runtime_error");
+    return {
+      accepted: verdict === "accepted",
+      caseResults,
+      feedback: truncate(
+        result.scoringFeedback ??
+          (verdict === "accepted" ? "Accepted" : `Verdict: ${verdict.replaceAll("_", " ")}`),
+        MAX_FEEDBACK_LEN,
+      ),
+      runtimeMs,
+      ...memoryField,
+      score,
+      subtaskResults,
+      verdict,
+    };
+  }
+
   const allAc = result.testcaseResults.every((t) => t.verdict === "AC");
 
   if (allAc && score >= 100) {

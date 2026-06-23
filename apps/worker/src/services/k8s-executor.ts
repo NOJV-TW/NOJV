@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 
 import {
   advancedResultSchema,
+  resolveContainerMemoryMb,
   type RawCaseRun,
   type SandboxExecutor,
   type SandboxRequest,
@@ -100,9 +101,30 @@ export interface K8sExecutorConfig {
   cpuLimit: string;
   memoryRequest: string;
   memoryLimit: string;
+  headroomMb?: number;
+  maxMemoryMb?: number;
   egressProxyImage?: string;
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
+}
+
+const DEFAULT_MEMORY_HEADROOM_MB = 64;
+const DEFAULT_MAX_MEMORY_MB = 2048;
+
+function parseMemoryLimitMb(value: string): number {
+  return Number.parseInt(value, 10);
+}
+
+export function resolveK8sMemoryLimit(
+  request: SandboxRequest,
+  config: Pick<K8sExecutorConfig, "memoryLimit" | "headroomMb" | "maxMemoryMb">,
+): string {
+  const memoryMb = resolveContainerMemoryMb(request.limits.memoryMb, {
+    defaultMemoryMb: parseMemoryLimitMb(config.memoryLimit),
+    headroomMb: config.headroomMb ?? DEFAULT_MEMORY_HEADROOM_MB,
+    maxMemoryMb: config.maxMemoryMb ?? DEFAULT_MAX_MEMORY_MB,
+  });
+  return `${String(memoryMb)}Mi`;
 }
 
 const SIDECAR_READINESS_TIMEOUT_MS = 30_000;
@@ -896,7 +918,7 @@ export class K8sExecutor implements SandboxExecutor {
           cpuRequest: this.config.cpuRequest,
           cpuLimit: this.config.cpuLimit,
           memoryRequest: this.config.memoryRequest,
-          memoryLimit: this.config.memoryLimit,
+          memoryLimit: resolveK8sMemoryLimit(request, this.config),
           activeDeadlineSeconds: deadlineSeconds,
         }),
       });
@@ -1013,7 +1035,14 @@ export class K8sExecutor implements SandboxExecutor {
     try {
       const deadlineSeconds = computeJobDeadlineSeconds(request);
       await this.createConfigMap(jobName, ns, buildRunConfigMapData(request));
-      await this.createPerCaseJob(jobName, ns, jobName, deadlineSeconds, caseIndices);
+      await this.createPerCaseJob(
+        jobName,
+        ns,
+        jobName,
+        deadlineSeconds,
+        caseIndices,
+        resolveK8sMemoryLimit(request, this.config),
+      );
 
       await this.waitForJobCompletion(jobName, ns, deadlineSeconds);
 
@@ -1081,7 +1110,13 @@ export class K8sExecutor implements SandboxExecutor {
         namespace,
         buildValidateConfigMapData(request, rawRuns),
       );
-      await this.createJob(jobName, namespace, jobName, deadlineSeconds);
+      await this.createJob(
+        jobName,
+        namespace,
+        jobName,
+        deadlineSeconds,
+        resolveK8sMemoryLimit(request, this.config),
+      );
 
       const outcome = await this.waitForJobCompletion(jobName, namespace, deadlineSeconds);
       if (outcome === "failed") return validatorOutcomesSeForAll(rawRuns);
@@ -1128,6 +1163,7 @@ export class K8sExecutor implements SandboxExecutor {
     namespace: string,
     configMapName: string,
     deadlineSeconds: number,
+    memoryLimit: string,
   ): Promise<void> {
     await this.batchApi.createNamespacedJob({
       namespace,
@@ -1139,7 +1175,7 @@ export class K8sExecutor implements SandboxExecutor {
         cpuRequest: this.config.cpuRequest,
         cpuLimit: this.config.cpuLimit,
         memoryRequest: this.config.memoryRequest,
-        memoryLimit: this.config.memoryLimit,
+        memoryLimit,
         activeDeadlineSeconds: deadlineSeconds,
       }),
     });
@@ -1151,6 +1187,7 @@ export class K8sExecutor implements SandboxExecutor {
     configMapName: string,
     deadlineSeconds: number,
     caseIndices: number[],
+    memoryLimit: string,
   ): Promise<void> {
     await this.batchApi.createNamespacedJob({
       namespace,
@@ -1162,7 +1199,7 @@ export class K8sExecutor implements SandboxExecutor {
         cpuRequest: this.config.cpuRequest,
         cpuLimit: this.config.cpuLimit,
         memoryRequest: this.config.memoryRequest,
-        memoryLimit: this.config.memoryLimit,
+        memoryLimit,
         activeDeadlineSeconds: deadlineSeconds,
         caseIndices,
       }),

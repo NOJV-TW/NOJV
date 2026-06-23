@@ -71,6 +71,7 @@ export function mapAdvancedResult(
   return {
     testcaseResults: perCaseResults,
     customScore: result.score,
+    overallVerdict: ADVANCED_VERDICT_TO_SANDBOX[result.verdict],
     ...(result.feedback ? { scoringFeedback: result.feedback } : {}),
   };
 }

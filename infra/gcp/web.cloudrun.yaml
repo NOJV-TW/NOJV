@@ -10,6 +10,9 @@ spec:
       annotations:
         autoscaling.knative.dev/minScale: "1"
         autoscaling.knative.dev/maxScale: "15"
+        run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE
+        run.googleapis.com/vpc-access-connector: VPC_CONNECTOR_NAME
+        run.googleapis.com/vpc-access-egress: private-ranges-only
     spec:
       containerConcurrency: 80
       timeoutSeconds: 60
@@ -93,3 +96,8 @@ spec:
                   name: nojv-s3-secret-key
             - name: S3_BUCKET
               value: nojv
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-s3-region
