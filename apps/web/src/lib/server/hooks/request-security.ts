@@ -1,4 +1,5 @@
 import type { Handle } from "@sveltejs/kit";
+import { apiTokenDomain } from "@nojv/application";
 
 type HandleEvent = Parameters<Handle>[0]["event"];
 
@@ -27,6 +28,13 @@ export function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response 
   if (
     !cleanPath.startsWith("/api/") ||
     ["GET", "HEAD", "OPTIONS"].includes(event.request.method)
+  ) {
+    return null;
+  }
+
+  if (
+    event.locals.apiToken &&
+    apiTokenDomain.findApiTokenRouteRule(event.request.method, cleanPath)
   ) {
     return null;
   }

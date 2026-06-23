@@ -114,48 +114,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 type HandleEvent = Parameters<Handle>[0]["event"];
 type HandleResolve = Parameters<Handle>[0]["resolve"];
 
-function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response | null {
-  if (
-    !cleanPath.startsWith("/api/") ||
-    ["GET", "HEAD", "OPTIONS"].includes(event.request.method)
-  ) {
-    return null;
-  }
-
-  if (
-    event.locals.apiToken &&
-    apiTokenDomain.findApiTokenRouteRule(event.request.method, cleanPath)
-  ) {
-    return null;
-  }
-
-  const origin = event.request.headers.get("origin");
-  if (origin && origin !== event.url.origin) {
-    return new Response("CSRF validation failed", {
-      status: 403,
-      headers: { "x-request-id": event.locals.requestId },
-    });
-  }
-
-  if (!cleanPath.startsWith("/api/auth")) {
-    const xrw = event.request.headers.get("x-requested-with");
-    if (xrw !== "fetch") {
-      return new Response(
-        JSON.stringify({ message: "CSRF token required", code: "csrf_required" }),
-        {
-          status: 403,
-          headers: {
-            "content-type": "application/json",
-            "x-request-id": event.locals.requestId,
-          },
-        },
-      );
-    }
-  }
-
-  return null;
-}
-
 function jsonErrorResponse(opts: {
   code?: string;
   message: string;
