@@ -26,6 +26,10 @@ export interface ActorContext {
 export type CompletedActorContext = ActorContext & { username: string };
 
 export function getActorContext(event: Pick<RequestEvent, "locals">): ActorContext | null {
+  if (event.locals.apiTokenActor) {
+    return event.locals.apiTokenActor;
+  }
+
   const sessionUser = event.locals.sessionUser;
 
   if (!sessionUser) {

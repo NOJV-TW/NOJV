@@ -12,7 +12,24 @@ import { problemsPaths } from "./internal/paths/problems";
 import { rejudgePaths } from "./internal/paths/rejudge";
 import { systemPaths } from "./internal/paths/system";
 import { uploadsPaths } from "./internal/paths/uploads";
+import { withInternalAuthMetadata } from "./internal/auth-metadata";
 import { internalSchemas } from "./internal/schemas";
+
+const internalPaths = withInternalAuthMetadata({
+  ...systemPaths,
+  ...accountPaths,
+  ...notificationsPaths,
+  ...clarificationsPaths,
+  ...editorialsPaths,
+  ...plagiarismPaths,
+  ...examsPaths,
+  ...gradingPaths,
+  ...uploadsPaths,
+  ...eventsPaths,
+  ...problemsPaths,
+  ...contestsPaths,
+  ...rejudgePaths,
+});
 
 export const internalOpenApiDocument = {
   ...publicOpenApiDocument,
@@ -53,19 +70,7 @@ export const internalOpenApiDocument = {
   ],
   paths: {
     ...publicOpenApiDocument.paths,
-    ...systemPaths,
-    ...accountPaths,
-    ...notificationsPaths,
-    ...clarificationsPaths,
-    ...editorialsPaths,
-    ...plagiarismPaths,
-    ...examsPaths,
-    ...gradingPaths,
-    ...uploadsPaths,
-    ...eventsPaths,
-    ...problemsPaths,
-    ...contestsPaths,
-    ...rejudgePaths,
+    ...internalPaths,
   },
   components: {
     ...publicOpenApiDocument.components,

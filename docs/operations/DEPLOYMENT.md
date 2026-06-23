@@ -48,6 +48,7 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                              |
 | `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production) |
 | `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects              |
+| `API_TOKEN_PEPPER`   | —                                                    | HMAC pepper for API token hashing (prod ≥32)  |
 
 ### Web
 
@@ -562,6 +563,7 @@ Required:
 
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
+- `API_TOKEN_PEPPER`
 
 Optional OAuth values:
 
