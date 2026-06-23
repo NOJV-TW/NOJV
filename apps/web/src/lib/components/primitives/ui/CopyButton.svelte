@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import { Copy, Check } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
@@ -27,6 +28,8 @@
     clearTimeout(timer);
     timer = setTimeout(() => (copied = false), 2000);
   }
+
+  onDestroy(() => clearTimeout(timer));
 </script>
 
 <button

@@ -30,7 +30,7 @@
           <Dialog.Title class="text-title">{announcement.title}</Dialog.Title>
           {#if announcement.pinned}
             <Badge
-              variant="warning"
+              variant="outline"
               size="sm"
               class="border-primary/20 bg-primary/15 text-primary"
             >
