@@ -1,9 +1,9 @@
 import { fail } from "@sveltejs/kit";
-import { Resend } from "resend";
 import { env } from "$env/dynamic/private";
 import { userDomain } from "@nojv/application";
 
 import { createLogger } from "../logger";
+import { getMailer } from "../mailer";
 import { withAction } from "./action-handlers";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 
@@ -36,18 +36,15 @@ export async function processSchoolVerification(
   }
 
   if (!env.BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL is required");
-  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is required");
-  if (!env.EMAIL_FROM_DOMAIN) throw new Error("EMAIL_FROM_DOMAIN is required");
 
   const appUrl = env.BETTER_AUTH_URL;
   const verifyUrl = `${appUrl}/verify-school?token=${result.token}`;
 
-  const resend = new Resend(env.RESEND_API_KEY);
-  const { error } = await resend.emails.send({
-    from: `NOJV <noreply@${env.EMAIL_FROM_DOMAIN}>`,
-    to: email,
-    subject: "NOJV 學生帳號驗證",
-    html: `
+  try {
+    await getMailer().sendEmail({
+      to: email,
+      subject: "NOJV 學生帳號驗證",
+      html: `
       <div style="max-width:480px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a">
         <h2 style="margin-bottom:16px">NOJV 帳號驗證</h2>
         <p style="margin-bottom:24px;line-height:1.6">請點擊下方按鈕完成學生帳號驗證：</p>
@@ -58,11 +55,10 @@ export async function processSchoolVerification(
         <p style="font-size:13px;color:#6b7280">如果您沒有申請此驗證，請忽略這封信。</p>
       </div>
     `,
-  });
-
-  if (error) {
+    });
+  } catch (err) {
     logger.error("email send failed", {
-      err: error.message,
+      err: err instanceof Error ? err.message : String(err),
     });
     return { error: "Failed to send email", status: 500 };
   }
