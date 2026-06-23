@@ -7,6 +7,7 @@ const {
   verifyEnrollOtpMock,
   userHasCredentialPasswordMock,
   verifyStepUpCodeMock,
+  clearStepUpMock,
   sendEmailMock,
   enableTwoFactorMock,
   verifyTotpMock,
@@ -19,6 +20,7 @@ const {
   verifyEnrollOtpMock: vi.fn(),
   userHasCredentialPasswordMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
+  clearStepUpMock: vi.fn(),
   sendEmailMock: vi.fn(),
   enableTwoFactorMock: vi.fn(),
   verifyTotpMock: vi.fn(),
@@ -35,6 +37,7 @@ vi.mock("$lib/server/step-up", () => ({
   verifyEnrollOtp: verifyEnrollOtpMock,
   userHasCredentialPassword: userHasCredentialPasswordMock,
   verifyStepUpCode: verifyStepUpCodeMock,
+  clearStepUp: clearStepUpMock,
 }));
 
 vi.mock("$lib/server/mailer", () => ({
@@ -117,6 +120,7 @@ beforeEach(() => {
   verifyEnrollOtpMock.mockReset();
   userHasCredentialPasswordMock.mockReset().mockResolvedValue(false);
   verifyStepUpCodeMock.mockReset();
+  clearStepUpMock.mockReset().mockResolvedValue(undefined);
   sendEmailMock.mockReset().mockResolvedValue(undefined);
   enableTwoFactorMock.mockReset();
   verifyTotpMock.mockReset();
@@ -289,6 +293,7 @@ describe("two-factor disable", () => {
       body: { password: "hunter2" },
       headers: expect.any(Headers),
     });
+    expect(clearStepUpMock).toHaveBeenCalledWith("usr_1");
     expect(result).toEqual({ disabled: true });
   });
 
@@ -299,6 +304,7 @@ describe("two-factor disable", () => {
       makeEvent({ twoFactorEnabled: true, body: form({ password: "wrong" }) }),
     );
     expect(result).toMatchObject({ status: 400 });
+    expect(clearStepUpMock).not.toHaveBeenCalled();
   });
 
   it("OAuth user: verifies an inline code then disables with empty body", async () => {
@@ -312,6 +318,7 @@ describe("two-factor disable", () => {
       body: {},
       headers: expect.any(Headers),
     });
+    expect(clearStepUpMock).toHaveBeenCalledWith("usr_1");
     expect(result).toEqual({ disabled: true });
   });
 

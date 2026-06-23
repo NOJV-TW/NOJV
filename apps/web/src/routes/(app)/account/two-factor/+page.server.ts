@@ -8,6 +8,7 @@ import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
+  clearStepUp,
   generateOtp,
   storeEnrollOtp,
   userHasCredentialPassword,
@@ -169,6 +170,7 @@ export const actions = {
     }
     try {
       await getAuth().api.disableTwoFactor({ body, headers: event.request.headers });
+      await clearStepUp(actor.userId);
       return { disabled: true };
     } catch {
       return fail(400, { error: "Could not disable. Check your password and try again." });

@@ -141,6 +141,18 @@ describe("api-tokens action guard", () => {
     },
   );
 
+  it.each(guardedActions)(
+    "%s returns fail(403) when the marker is fresh but 2FA is disabled",
+    async (_name, getAction, domainMock) => {
+      hasFreshStepUpMock.mockResolvedValue(true);
+      const event = makeEvent();
+      (event.locals.sessionUser as { twoFactorEnabled: boolean }).twoFactorEnabled = false;
+      const result = await getAction()(event);
+      expect(result).toMatchObject({ status: 403 });
+      expect(domainMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("create proceeds to the domain call when the marker is fresh", async () => {
     hasFreshStepUpMock.mockResolvedValue(true);
     createApiTokenMock.mockResolvedValue({ token: "tok", item: { id: "t1" } });

@@ -60,6 +60,9 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");
       }
@@ -82,6 +85,9 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");
       }
@@ -105,6 +111,9 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");
       }
@@ -124,6 +133,9 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
+      if (!event.locals.sessionUser?.twoFactorEnabled) {
+        throw new ForbiddenError("Two-factor authentication required.");
+      }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");
       }
