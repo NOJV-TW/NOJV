@@ -17,6 +17,7 @@ const QUEUE_BUNDLES = [
     workflows: [
       "workflows/contest-lifecycle.ts",
       "workflows/exam-auto-close.ts",
+      "workflows/assignment-due-soon.ts",
       "workflows/plagiarism-check.ts",
       "workflows/submission-sweeper.ts",
     ],
@@ -28,10 +29,18 @@ function readWorkerFile(relativePath: string): string {
 }
 
 function proxiedActivityNames(workflowSource: string): Set<string> {
+  const names = new Set<string>();
+
+  for (const block of workflowSource.matchAll(/const \{([^}]*)\} = proxyActivities/g)) {
+    for (const raw of block[1].split(",")) {
+      const name = raw.split(":")[0].trim();
+      if (name) names.add(name);
+    }
+  }
+
   const proxyConsts = [...workflowSource.matchAll(/const (\w+) = proxyActivities/g)].map(
     (m) => m[1],
   );
-  const names = new Set<string>();
   for (const proxy of proxyConsts) {
     for (const call of workflowSource.matchAll(new RegExp(`\\b${proxy}\\.(\\w+)\\(`, "g"))) {
       names.add(call[1]);

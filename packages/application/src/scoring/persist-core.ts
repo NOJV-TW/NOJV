@@ -44,10 +44,11 @@ export interface ProblemCountState {
 export function computeProblemCountState(args: {
   submissions: readonly { problemId: string; status: string; createdAt: Date }[];
   problemIds: ReadonlySet<string>;
+  problemPoints: ReadonlyMap<string, number>;
   startsAt: Date;
   penaltyPerWrongSec?: number;
 }): ProblemCountState {
-  const { submissions, problemIds, startsAt, penaltyPerWrongSec } = args;
+  const { submissions, problemIds, problemPoints, startsAt, penaltyPerWrongSec } = args;
 
   const byProblem = new Map<string, { status: string; createdAt: Date }[]>();
   for (const sub of submissions) {
@@ -57,19 +58,19 @@ export function computeProblemCountState(args: {
     byProblem.set(sub.problemId, existing);
   }
 
-  let solvedCount = 0;
+  let score = 0;
   let totalPenalty = 0;
-  for (const [, problemSubs] of byProblem) {
+  for (const [problemId, problemSubs] of byProblem) {
     const { solved, penaltySeconds } = computeProblemCountPenalty(
       problemSubs,
       startsAt,
       penaltyPerWrongSec,
     );
     if (solved) {
-      solvedCount++;
+      score += problemPoints.get(problemId) ?? 0;
       totalPenalty += penaltySeconds;
     }
   }
 
-  return { score: solvedCount, penaltySeconds: totalPenalty };
+  return { score, penaltySeconds: totalPenalty };
 }

@@ -87,7 +87,7 @@ describe("computeProblemCountState", () => {
   const startsAt = new Date("2026-01-01T00:00:00.000Z");
   const at = (minutes: number) => new Date(startsAt.getTime() + minutes * 60_000);
 
-  it("counts solved problems and sums ICPC-style penalty (first AC time + 20min/wrong)", () => {
+  it("sums points of solved problems and ICPC-style penalty (first AC time + 20min/wrong)", () => {
     const state = computeProblemCountState({
       submissions: [
         { problemId: "p1", status: "wrong_answer", createdAt: at(5) },
@@ -95,10 +95,14 @@ describe("computeProblemCountState", () => {
         { problemId: "p2", status: "wrong_answer", createdAt: at(3) },
       ],
       problemIds: new Set(["p1", "p2"]),
+      problemPoints: new Map([
+        ["p1", 100],
+        ["p2", 50],
+      ]),
       startsAt,
     });
 
-    expect(state.score).toBe(1);
+    expect(state.score).toBe(100);
     expect(state.penaltySeconds).toBe(10 * 60 + 1 * 20 * 60);
   });
 
@@ -106,6 +110,7 @@ describe("computeProblemCountState", () => {
     const state = computeProblemCountState({
       submissions: [{ problemId: "ghost", status: "accepted", createdAt: at(1) }],
       problemIds: new Set(["p1"]),
+      problemPoints: new Map([["p1", 100]]),
       startsAt,
     });
 
@@ -119,11 +124,12 @@ describe("computeProblemCountState", () => {
         { problemId: "p1", status: "accepted", createdAt: at(10) },
       ],
       problemIds: new Set(["p1"]),
+      problemPoints: new Map([["p1", 100]]),
       startsAt,
       penaltyPerWrongSec: 5 * 60,
     });
 
-    expect(state.score).toBe(1);
+    expect(state.score).toBe(100);
     expect(state.penaltySeconds).toBe(10 * 60 + 1 * 5 * 60);
   });
 });

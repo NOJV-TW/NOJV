@@ -6,6 +6,7 @@ export {
   dispatchRejudge,
   dispatchContestLifecycle,
   dispatchExamAutoClose,
+  dispatchAssignmentDueSoon,
   dispatchPlagiarismCheck,
   ensureSubmissionSweeper,
   terminateSubmissionJudge,

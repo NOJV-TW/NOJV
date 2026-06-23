@@ -13,6 +13,8 @@ export function createExecutor(env: WorkerEnv): SandboxExecutor {
       cpuLimit: env.K8S_CPU_LIMIT,
       memoryRequest: env.K8S_MEMORY_REQUEST,
       memoryLimit: env.K8S_MEMORY_LIMIT,
+      headroomMb: env.SANDBOX_MEMORY_HEADROOM_MB,
+      maxMemoryMb: env.SANDBOX_MAX_MEMORY_MB,
       egressProxyImage: env.EGRESS_PROXY_IMAGE,
     });
   }
@@ -21,5 +23,7 @@ export function createExecutor(env: WorkerEnv): SandboxExecutor {
     image: env.SANDBOX_IMAGE,
     memoryMb: env.SANDBOX_MEMORY_MB,
     pidsLimit: env.SANDBOX_PIDS_LIMIT,
+    headroomMb: env.SANDBOX_MEMORY_HEADROOM_MB,
+    maxMemoryMb: env.SANDBOX_MAX_MEMORY_MB,
   });
 }

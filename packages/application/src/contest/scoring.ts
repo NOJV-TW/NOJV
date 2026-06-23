@@ -53,6 +53,7 @@ export async function updateContestScores(
       submissions: (p) => submissionRepo.findForContestScoring(p.contest.id, p.userId),
       overrides: (p) => scoreOverrideRepo.findAllByContext("contest", p.contest.id),
       problemIds: (p) => new Set(p.contest.problems.map((cp) => cp.problemId)),
+      problemPoints: (p) => new Map(p.contest.problems.map((cp) => [cp.problemId, cp.points])),
       scoringMode: (p) => p.contest.scoringMode,
       startsAt: (p) => p.contest.startsAt,
       penaltyPerWrongSec: (p) => p.contest.penaltyMinutesPerWrong * 60,

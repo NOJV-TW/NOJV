@@ -89,16 +89,18 @@ spec:
               value: nojv
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 20
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /readyz
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+            failureThreshold: 3
           ports:
             - containerPort: 8080
               name: health

@@ -42,13 +42,14 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Required
 
-| Variable             | Default                                              | Purpose                                       |
-| -------------------- | ---------------------------------------------------- | --------------------------------------------- |
-| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5432/nojv` | PostgreSQL connection                         |
-| `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                              |
-| `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production) |
-| `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects              |
-| `API_TOKEN_PEPPER`   | —                                                    | HMAC pepper for API token hashing (prod ≥32)  |
+| Variable             | Default                                              | Purpose                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5432/nojv` | PostgreSQL connection                                                                                                                                   |
+| `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                                                                                                                                        |
+| `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production)                                                                                                           |
+| `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects                                                                                                                        |
+| `API_TOKEN_PEPPER`   | —                                                    | HMAC pepper for API token hashing (prod ≥32)                                                                                                            |
+| `EDGE_TRUST_SECRET`  | —                                                    | Shared secret for the Cloudflare→app edge trust header. **Required in production (≥32) — web refuses to boot without it.** See [SECURITY](SECURITY.md). |
 
 ### Web
 
@@ -65,7 +66,12 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `GOOGLE_CLIENT_ID`     | Google OAuth client ID     |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 
-### Email (Optional)
+### Email
+
+Optional to boot, but **required at runtime for any email-sending flow** —
+school-email verification, passwordless/2FA enrollment, and API-token step-up
+OTP all throw if these are unset (`apps/web/src/lib/server/mailer/resend.ts`).
+Deploy these whenever those features are in use.
 
 | Variable            | Purpose                            |
 | ------------------- | ---------------------------------- |
@@ -122,26 +128,32 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 
 ### Object Storage (S3-Compatible)
 
-| Variable        | Default                 | Purpose                              |
-| --------------- | ----------------------- | ------------------------------------ |
-| `S3_ENDPOINT`   | `http://localhost:9000` | S3 API endpoint (MinIO local)        |
-| `S3_ACCESS_KEY` | `minioadmin`            | S3 access key (MinIO root user)      |
-| `S3_SECRET_KEY` | `minioadmin`            | S3 secret key (MinIO root password)  |
-| `S3_BUCKET`     | `nojv`                  | Bucket name                          |
-| `S3_PUBLIC_URL` | (same as endpoint)      | Public URL for images (optional CDN) |
-| `S3_REGION`     | `us-east-1`             | S3 region                            |
+| Variable        | Default                 | Purpose                                                               |
+| --------------- | ----------------------- | --------------------------------------------------------------------- |
+| `S3_ENDPOINT`   | `http://localhost:9000` | S3 API endpoint (MinIO local)                                         |
+| `S3_ACCESS_KEY` | `minioadmin`            | S3 access key (MinIO root user)                                       |
+| `S3_SECRET_KEY` | `minioadmin`            | S3 secret key (MinIO root password)                                   |
+| `S3_BUCKET`     | `nojv`                  | Bucket name                                                           |
+| `S3_PUBLIC_URL` | —                       | Reserved; not currently consumed by the storage client. Safe to omit. |
+| `S3_REGION`     | `auto`                  | S3 region (`auto` works for GCS/R2)                                   |
 
 Local dev uses MinIO. Production can use GCS (S3-compatible mode), Cloudflare R2, or AWS S3 — change env vars only.
 
+> **No TLS to backends from the app.** `REDIS_URL` accepts only `redis://`
+> (`packages/redis`) and the Temporal client connects without TLS
+> (`packages/temporal`). Run Redis/Memorystore and Temporal on a private network
+> the app reaches over a trusted link (VPC), not over the public internet.
+
 ### Kubernetes (Production Only)
 
-| Variable             | Purpose                               |
-| -------------------- | ------------------------------------- |
-| `K8S_NAMESPACE`      | Kubernetes namespace for sandbox jobs |
-| `K8S_CPU_REQUEST`    | CPU request per sandbox pod           |
-| `K8S_CPU_LIMIT`      | CPU limit per sandbox pod             |
-| `K8S_MEMORY_REQUEST` | Memory request per sandbox pod        |
-| `K8S_MEMORY_LIMIT`   | Memory limit per sandbox pod          |
+| Variable             | Purpose                                                                                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `K8S_NAMESPACE`      | Kubernetes namespace for sandbox jobs                                                                                                                                                                                      |
+| `K8S_CPU_REQUEST`    | CPU request per sandbox pod                                                                                                                                                                                                |
+| `K8S_CPU_LIMIT`      | CPU limit per sandbox pod                                                                                                                                                                                                  |
+| `K8S_MEMORY_REQUEST` | Memory request per sandbox pod                                                                                                                                                                                             |
+| `K8S_MEMORY_LIMIT`   | Memory limit per sandbox pod                                                                                                                                                                                               |
+| `EGRESS_PROXY_IMAGE` | Egress-proxy image for advanced-mode `allowlist`/`service` network modes. Built by `cloudbuild.yaml` as `<repo>/egress-proxy:<tag>`. **Required for the Kubernetes backend** (worker throws in allowlist mode without it). |
 
 ## Observability
 
@@ -260,14 +272,24 @@ pipeline:
 export PROJECT_ID=...
 export DATABASE_URL=...
 export REDIS_URL=...
-export BETTER_AUTH_SECRET=...
+export BETTER_AUTH_SECRET=...      # ≥32 chars
 export BETTER_AUTH_URL=...
+export EDGE_TRUST_SECRET=...       # ≥32 chars — web crashloops without it
+export API_TOKEN_PEPPER=...        # ≥32 chars — 2FA / API tokens 500 without it
 # S3-compatible object storage (required — script exits at entry if any are unset)
 export S3_ENDPOINT=...
 export S3_ACCESS_KEY=...
 export S3_SECRET_KEY=...
 export S3_BUCKET=...
 export S3_REGION=...
+# Private-IP backends (Cloud SQL + Memorystore): Cloud Run reaches them ONLY
+# through these. Required for the standard private topology — omit only if your
+# DB/Redis have public IPs.
+export CLOUD_SQL_INSTANCE=PROJECT:REGION:INSTANCE
+export VPC_CONNECTOR=projects/PROJECT/locations/REGION/connectors/NAME
+# Optional email (school verification / 2FA / OTP) and OAuth, set if used:
+# export RESEND_API_KEY=...  EMAIL_FROM_DOMAIN=...
+# export GITHUB_CLIENT_ID=...  GITHUB_CLIENT_SECRET=...  GOOGLE_CLIENT_ID=...  GOOGLE_CLIENT_SECRET=...
 
 bash infra/gcp/cloud-build/deploy.sh
 ```
@@ -276,10 +298,10 @@ The script:
 
 1. Enables required GCP APIs (Artifact Registry, Cloud Build, Cloud Run, Secret Manager).
 2. Ensures the Artifact Registry repository exists.
-3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, the five `nojv-s3-*` entries, plus optional OAuth secrets).
-4. Submits Cloud Build (`infra/gcp/cloud-build/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, and `migrator` images.
-5. Deploys the migrator Cloud Run Job and runs it (Prisma migrations).
-6. Deploys `web` to Cloud Run with `--ingress=internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is unreachable and all traffic must traverse GCLB → Cloud Armor → CF (see [Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)) and injects the `S3_*` env from Secret Manager.
+3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, `nojv-edge-trust-secret`, `nojv-api-token-pepper`, the five `nojv-s3-*` entries, plus optional OAuth/mailer secrets — optional ones are referenced in `--set-secrets` only when provided).
+4. Submits Cloud Build (`infra/gcp/cloud-build/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, `migrator`, and `egress-proxy` images.
+5. Deploys the migrator Cloud Run Job (with the Cloud SQL / VPC connector flags when `CLOUD_SQL_INSTANCE` / `VPC_CONNECTOR` are set) and runs it (Prisma migrations).
+6. Deploys `web` to Cloud Run with `--ingress=internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is unreachable and all traffic must traverse GCLB → Cloud Armor → CF (see [Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)), injects all secrets from Secret Manager, and attaches the Cloud SQL instance + VPC connector so it can reach private Cloud SQL / Memorystore.
 7. Verifies the web URL is serving and prints the worker + sandbox image refs for the GKE rollout.
 
 The image tag defaults to the short git SHA (with a `-dirty-<timestamp>`
@@ -304,7 +326,7 @@ gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
 2. Apply the worker bundle: `kubectl apply -k infra/gcp/gke`. The kustomization includes:
    - `namespace.yaml` — declares `nojv`, `nojv-sandbox`, `nojv-temporal`.
    - `temporal/` — self-hosted Temporal Server (`temporalio/auto-setup:1.22`) + a dedicated 10 Gi Postgres StatefulSet + the Temporal Web UI, running in `nojv-temporal`.
-   - `network-policy.yaml` — `sandbox-deny-egress` (sandbox pods can't talk to anything) and `worker-egress` (worker can only reach Postgres, Redis, Temporal, S3).
+   - `network-policy.yaml` — `sandbox-deny-egress` (sandbox pods can't talk to anything) and `worker-egress` (worker can only reach Postgres, Redis, Temporal, S3, and the **Kubernetes API server** — the worker creates sandbox Jobs/Pods/NetworkPolicies per submission, so the API-server egress rule is mandatory; fill in your cluster's control-plane CIDR).
    - `worker-rbac.yaml`, `worker.deployment.yaml`, `worker.pdb.yaml` — RBAC, Deployment (with the Cloud SQL Auth Proxy sidecar — `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0` on `127.0.0.1:5432`, Workload Identity), and PodDisruptionBudget. Sets `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` for the in-cluster Temporal.
 3. Apply the sandbox namespace guardrails: `kubectl apply -f infra/k8s/sandbox`
    (namespace, NetworkPolicy, ResourceQuota, LimitRange).
@@ -562,9 +584,11 @@ The workflow resolves values in this order:
 
 Required:
 
-- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_SECRET` (≥32)
 - `BETTER_AUTH_URL`
-- `API_TOKEN_PEPPER`
+- `EDGE_TRUST_SECRET` (≥32 — web crashloops without it)
+- `API_TOKEN_PEPPER` (≥32 — 2FA / API tokens 500 without it)
+- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 
 Optional OAuth values:
 
@@ -572,6 +596,11 @@ Optional OAuth values:
 - `GITHUB_CLIENT_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+
+Optional email values (required at runtime for verification / 2FA / OTP flows):
+
+- `RESEND_API_KEY`
+- `EMAIL_FROM_DOMAIN`
 
 Optional deployment behavior:
 

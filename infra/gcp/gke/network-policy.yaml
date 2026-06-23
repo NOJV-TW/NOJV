@@ -69,3 +69,13 @@ spec:
       ports:
         - port: 443
           protocol: TCP
+    # kube-apiserver egress (mandatory: worker creates sandbox Jobs per submission).
+    # REPLACE both CIDRs with your cluster's Services-VIP and control-plane (master) CIDRs.
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.1/32
+        - ipBlock:
+            cidr: 172.16.0.32/28
+      ports:
+        - port: 443
+          protocol: TCP

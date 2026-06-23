@@ -36,8 +36,17 @@ steps:
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/migrator:${_IMAGE_TAG}
       - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - infra/docker/egress-proxy/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/egress-proxy:${_IMAGE_TAG}
+      - infra/docker/egress-proxy
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/web:${_IMAGE_TAG}
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/worker:${_IMAGE_TAG}
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/sandbox:${_IMAGE_TAG}
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/migrator:${_IMAGE_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/egress-proxy:${_IMAGE_TAG}
