@@ -4,10 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   hasFreshStepUpMock,
   markStepUpFreshMock,
-  markTotpSeenMock,
-  wasTotpSeenMock,
-  verifyTotpStepUpMock,
-  verifyBackupCodeStepUpMock,
+  verifyStepUpCodeMock,
   createApiTokenMock,
   updateApiTokenMock,
   rotateApiTokenMock,
@@ -15,10 +12,7 @@ const {
 } = vi.hoisted(() => ({
   hasFreshStepUpMock: vi.fn(),
   markStepUpFreshMock: vi.fn(),
-  markTotpSeenMock: vi.fn(),
-  wasTotpSeenMock: vi.fn(),
-  verifyTotpStepUpMock: vi.fn(),
-  verifyBackupCodeStepUpMock: vi.fn(),
+  verifyStepUpCodeMock: vi.fn(),
   createApiTokenMock: vi.fn(),
   updateApiTokenMock: vi.fn(),
   rotateApiTokenMock: vi.fn(),
@@ -32,10 +26,7 @@ vi.mock("$lib/server/step-up", async () => {
     ...actual,
     hasFreshStepUp: hasFreshStepUpMock,
     markStepUpFresh: markStepUpFreshMock,
-    markTotpSeen: markTotpSeenMock,
-    wasTotpSeen: wasTotpSeenMock,
-    verifyTotpStepUp: verifyTotpStepUpMock,
-    verifyBackupCodeStepUp: verifyBackupCodeStepUpMock,
+    verifyStepUpCode: verifyStepUpCodeMock,
   };
 });
 
@@ -106,10 +97,7 @@ async function caught(
 beforeEach(() => {
   hasFreshStepUpMock.mockReset();
   markStepUpFreshMock.mockReset().mockResolvedValue(undefined);
-  markTotpSeenMock.mockReset().mockResolvedValue(undefined);
-  wasTotpSeenMock.mockReset().mockResolvedValue(false);
-  verifyTotpStepUpMock.mockReset();
-  verifyBackupCodeStepUpMock.mockReset();
+  verifyStepUpCodeMock.mockReset();
   createApiTokenMock.mockReset();
   updateApiTokenMock.mockReset();
   rotateApiTokenMock.mockReset();
@@ -164,45 +152,41 @@ describe("api-tokens action guard", () => {
 
 describe("api-tokens verify action", () => {
   it("rejects a malformed code with fail(400)", async () => {
+    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "malformed" });
     const result = await verifyActions.default(verifyEvent("12ab"));
     expect(result).toMatchObject({ status: 400 });
-    expect(verifyTotpStepUpMock).not.toHaveBeenCalled();
-    expect(verifyBackupCodeStepUpMock).not.toHaveBeenCalled();
     expect(markStepUpFreshMock).not.toHaveBeenCalled();
   });
 
-  it("verifies a TOTP code and marks step-up", async () => {
-    verifyTotpStepUpMock.mockResolvedValue(true);
+  it("verifies a valid code and marks step-up", async () => {
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     const thrown = await caught(() => verifyActions.default(verifyEvent("123456")));
-    expect(verifyTotpStepUpMock).toHaveBeenCalledOnce();
-    expect(markTotpSeenMock).toHaveBeenCalledWith("usr_1", "123456");
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
     expect(markStepUpFreshMock).toHaveBeenCalledWith("usr_1");
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
   });
 
   it("verifies a backup code, marks step-up, and redirects", async () => {
-    verifyBackupCodeStepUpMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     const thrown = await caught(() => verifyActions.default(verifyEvent("abc12-XY34z")));
-    expect(verifyBackupCodeStepUpMock).toHaveBeenCalledOnce();
+    expect(verifyStepUpCodeMock).toHaveBeenCalledOnce();
     expect(markStepUpFreshMock).toHaveBeenCalledWith("usr_1");
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
   });
 
-  it("does not touch the TOTP replay key for a backup code", async () => {
-    verifyBackupCodeStepUpMock.mockResolvedValue(true);
-    await caught(() => verifyActions.default(verifyEvent("abc12-XY34z")));
-    expect(wasTotpSeenMock).not.toHaveBeenCalled();
-    expect(markTotpSeenMock).not.toHaveBeenCalled();
-    expect(verifyTotpStepUpMock).not.toHaveBeenCalled();
-  });
-
   it("rejects a replayed TOTP code with fail(401)", async () => {
-    wasTotpSeenMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "replayed" });
     const result = await verifyActions.default(verifyEvent("123456"));
     expect(result).toMatchObject({ status: 401 });
-    expect(verifyTotpStepUpMock).not.toHaveBeenCalled();
+    expect(markStepUpFreshMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid code with fail(401)", async () => {
+    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "invalid" });
+    const result = await verifyActions.default(verifyEvent("123456"));
+    expect(result).toMatchObject({ status: 401 });
     expect(markStepUpFreshMock).not.toHaveBeenCalled();
   });
 });

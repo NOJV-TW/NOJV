@@ -2,15 +2,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { requireAuth } from "$lib/server/auth";
-import {
-  isBackupCodeFormat,
-  markStepUpFresh,
-  markTotpSeen,
-  validateStepUpCode,
-  verifyBackupCodeStepUp,
-  verifyTotpStepUp,
-  wasTotpSeen,
-} from "$lib/server/step-up";
+import { markStepUpFresh, verifyStepUpCode } from "$lib/server/step-up";
 import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 
 const DEFAULT_RETURN_TO = "/account/api-tokens";
@@ -50,20 +42,15 @@ export const actions = {
         : event.url.searchParams.get("returnTo"),
     );
 
-    if (validateStepUpCode(code)) {
-      if (await wasTotpSeen(actor.userId, code)) {
+    const result = await verifyStepUpCode(actor.userId, code, event.request.headers);
+    if (!result.ok) {
+      if (result.reason === "malformed") {
+        return fail(400, { error: "Enter a 6-digit code or a backup code." });
+      }
+      if (result.reason === "replayed") {
         return fail(401, { error: "That code was already used. Wait for a new code." });
       }
-      if (!(await verifyTotpStepUp(code, event.request.headers))) {
-        return fail(401, { error: "Invalid code. Try again." });
-      }
-      await markTotpSeen(actor.userId, code);
-    } else if (isBackupCodeFormat(code)) {
-      if (!(await verifyBackupCodeStepUp(code, event.request.headers))) {
-        return fail(401, { error: "Invalid code. Try again." });
-      }
-    } else {
-      return fail(400, { error: "Enter a 6-digit code or a backup code." });
+      return fail(401, { error: "Invalid code. Try again." });
     }
 
     await markStepUpFresh(actor.userId);

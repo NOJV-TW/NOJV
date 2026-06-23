@@ -64,7 +64,7 @@
           loading={submitting}
           disabled={submitting || code.length < 6}
         >
-          {m.account_2fa_verify()}
+          {m.account_apiToken_stepUp_submit()}
         </Button>
       </form>
     </Card>

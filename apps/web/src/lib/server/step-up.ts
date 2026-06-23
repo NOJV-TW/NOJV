@@ -1,6 +1,7 @@
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 
 import { apiTokenPepper } from "@nojv/application";
+import { accountRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 
 import { getAuth } from "$lib/auth.server";
@@ -79,4 +80,30 @@ export async function verifyBackupCodeStepUp(code: string, headers: Headers): Pr
   } catch {
     return false;
   }
+}
+
+export function userHasCredentialPassword(userId: string): Promise<boolean> {
+  return accountRepo.hasCredentialPassword(userId);
+}
+
+export type StepUpVerifyResult =
+  | { ok: true }
+  | { ok: false; reason: "malformed" | "replayed" | "invalid" };
+
+export async function verifyStepUpCode(
+  userId: string,
+  code: string,
+  headers: Headers,
+): Promise<StepUpVerifyResult> {
+  if (validateStepUpCode(code)) {
+    if (await wasTotpSeen(userId, code)) return { ok: false, reason: "replayed" };
+    if (!(await verifyTotpStepUp(code, headers))) return { ok: false, reason: "invalid" };
+    await markTotpSeen(userId, code);
+    return { ok: true };
+  }
+  if (isBackupCodeFormat(code)) {
+    if (!(await verifyBackupCodeStepUp(code, headers))) return { ok: false, reason: "invalid" };
+    return { ok: true };
+  }
+  return { ok: false, reason: "malformed" };
 }

@@ -1,8 +1,8 @@
 <script lang="ts">
   import QRCode from "qrcode";
+  import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { authClient } from "$lib/auth.client";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -11,14 +11,19 @@
 
   let { data }: { data: PageData } = $props();
 
-  let phase = $state<"idle" | "setup">("idle");
-  let password = $state("");
+  let phase = $state<"idle" | "otpSent" | "setup">("idle");
+  let otp = $state("");
   let code = $state("");
+  let password = $state("");
+  let manageCode = $state("");
+  let managePassword = $state("");
   let error = $state("");
+  let needsReauth = $state(false);
   let busy = $state(false);
   let qrDataUrl = $state("");
   let manualKey = $state("");
   let backupCodes = $state<string[]>([]);
+  let savedBackupCodes = $state(false);
 
   function secretFromUri(uri: string): string {
     try {
@@ -28,70 +33,21 @@
     }
   }
 
-  async function enable() {
+  function reset() {
     error = "";
-    busy = true;
-    const { data: result, error: err } = await authClient.twoFactor.enable({ password });
-    busy = false;
-    if (err || !result) {
-      error = err?.message ?? m.account_2fa_errorGeneric();
-      return;
-    }
-    backupCodes = result.backupCodes ?? [];
-    manualKey = secretFromUri(result.totpURI);
-    qrDataUrl = await QRCode.toDataURL(result.totpURI);
-    phase = "setup";
+    needsReauth = false;
   }
 
-  async function verify() {
-    error = "";
-    busy = true;
-    const { error: err } = await authClient.twoFactor.verifyTotp({ code });
-    busy = false;
-    if (err) {
-      error = err.message ?? m.account_2fa_errorGeneric();
-      return;
-    }
-    toasts.success(m.account_2fa_enabledDone());
-    password = "";
-    code = "";
-    phase = "idle";
-    await invalidateAll();
-  }
-
-  async function disable() {
-    error = "";
-    busy = true;
-    const { error: err } = await authClient.twoFactor.disable({ password });
-    busy = false;
-    if (err) {
-      error = err.message ?? m.account_2fa_errorGeneric();
-      return;
-    }
-    toasts.success(m.account_2fa_disabledDone());
-    password = "";
-    await invalidateAll();
-  }
-
-  async function regenerate() {
-    error = "";
-    busy = true;
-    const { data: result, error: err } = await authClient.twoFactor.generateBackupCodes({
-      password,
-    });
-    busy = false;
-    if (err || !result) {
-      error = err?.message ?? m.account_2fa_errorGeneric();
-      return;
-    }
-    backupCodes = result.backupCodes ?? [];
-    password = "";
-  }
+  const manageReady = $derived(
+    data.hasPassword ? managePassword.length > 0 : manageCode.length >= 6,
+  );
 
   const inputClass =
     "w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
   const btnClass =
     "inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-body-sm font-medium text-primary-foreground transition-colors duration-fast ease-out-soft hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50";
+  const secondaryBtnClass =
+    "inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-body-sm font-medium transition-colors duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50";
 </script>
 
 <PageContainer width="form">
@@ -110,51 +66,236 @@
         </p>
       {/if}
 
+      {#if needsReauth}
+        <p
+          class="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-body-sm text-warning-foreground"
+        >
+          {m.account_2fa_needsReauth()}
+        </p>
+      {/if}
+
       {#if error}
-        <p class="text-caption text-destructive">{error}</p>
+        <p class="text-caption text-destructive" role="alert">{error}</p>
       {/if}
 
       {#if data.twoFactorEnabled}
         <p class="text-body-sm">{m.account_2fa_enabledNotice()}</p>
+        {#if backupCodes.length > 0}
+          <div class="flex flex-col gap-1">
+            <span class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_2fa_backupTitle()}
+            </span>
+            <p class="text-caption text-muted-foreground">
+              {m.account_2fa_backupInstruction()}
+            </p>
+            <ul class="grid grid-cols-2 gap-1 font-mono text-body-sm">
+              {#each backupCodes as bc (bc)}
+                <li class="rounded bg-muted px-2 py-1">{bc}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
         <label class="flex flex-col gap-1.5">
           <span class="text-caption uppercase tracking-wide text-muted-foreground">
-            {m.account_2fa_passwordLabel()}
+            {data.hasPassword ? m.account_2fa_passwordLabel() : m.account_2fa_manageCodeLabel()}
           </span>
-          <input
-            type="password"
-            autocomplete="current-password"
-            bind:value={password}
-            class={inputClass}
-          />
+          {#if data.hasPassword}
+            <input
+              type="password"
+              autocomplete="current-password"
+              bind:value={managePassword}
+              class={inputClass}
+            />
+          {:else}
+            <input
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              bind:value={manageCode}
+              class={inputClass}
+            />
+          {/if}
         </label>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class={btnClass} disabled={busy || !password} onclick={disable}>
-            {m.account_2fa_disable()}
-          </button>
-          <button
-            type="button"
-            class="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-body-sm font-medium transition-colors duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={busy || !password}
-            onclick={regenerate}
+          <form
+            method="POST"
+            action="?/disable"
+            use:enhance={() => {
+              reset();
+              busy = true;
+              return async ({ result }) => {
+                busy = false;
+                if (result.type === "failure") {
+                  error = (result.data?.error as string) ?? m.account_2fa_errorGeneric();
+                  return;
+                }
+                if (result.type === "success") {
+                  toasts.success(m.account_2fa_disabledDone());
+                  backupCodes = [];
+                  managePassword = "";
+                  manageCode = "";
+                  await invalidateAll();
+                }
+              };
+            }}
           >
-            {m.account_2fa_regenerate()}
-          </button>
+            <input type="hidden" name="password" value={managePassword} />
+            <input type="hidden" name="code" value={manageCode} />
+            <button type="submit" class={btnClass} disabled={busy || !manageReady}>
+              {m.account_2fa_disable()}
+            </button>
+          </form>
+          <form
+            method="POST"
+            action="?/regenerate"
+            use:enhance={() => {
+              reset();
+              busy = true;
+              return async ({ result }) => {
+                busy = false;
+                if (result.type === "failure") {
+                  error = (result.data?.error as string) ?? m.account_2fa_errorGeneric();
+                  return;
+                }
+                if (result.type === "success" && result.data) {
+                  backupCodes = (result.data.backupCodes as string[]) ?? [];
+                  managePassword = "";
+                  manageCode = "";
+                }
+              };
+            }}
+          >
+            <input type="hidden" name="password" value={managePassword} />
+            <input type="hidden" name="code" value={manageCode} />
+            <button type="submit" class={secondaryBtnClass} disabled={busy || !manageReady}>
+              {m.account_2fa_regenerate()}
+            </button>
+          </form>
         </div>
+      {:else if data.hasPassword}
+        <p class="text-body-sm">{m.account_2fa_passwordIntro()}</p>
+        <form
+          class="flex flex-col gap-3"
+          method="POST"
+          action="?/enable"
+          use:enhance={() => {
+            reset();
+            busy = true;
+            return async ({ result }) => {
+              busy = false;
+              if (result.type === "failure") {
+                needsReauth = result.data?.needsReauth === true;
+                error = needsReauth ? "" : ((result.data?.error as string) ?? "");
+                return;
+              }
+              if (result.type === "success" && result.data) {
+                const totpURI = result.data.totpURI as string;
+                backupCodes = (result.data.backupCodes as string[]) ?? [];
+                manualKey = secretFromUri(totpURI);
+                qrDataUrl = await QRCode.toDataURL(totpURI);
+                password = "";
+                phase = "setup";
+              }
+            };
+          }}
+        >
+          <label class="flex flex-col gap-1.5">
+            <span class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_2fa_passwordLabel()}
+            </span>
+            <input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              bind:value={password}
+              class={inputClass}
+            />
+          </label>
+          <button type="submit" class={btnClass} disabled={busy || password.length === 0}>
+            {m.account_2fa_enable()}
+          </button>
+        </form>
       {:else if phase === "idle"}
-        <label class="flex flex-col gap-1.5">
-          <span class="text-caption uppercase tracking-wide text-muted-foreground">
-            {m.account_2fa_passwordLabel()}
-          </span>
-          <input
-            type="password"
-            autocomplete="current-password"
-            bind:value={password}
-            class={inputClass}
-          />
-        </label>
-        <button type="button" class={btnClass} disabled={busy || !password} onclick={enable}>
-          {m.account_2fa_enable()}
-        </button>
+        <p class="text-body-sm">{m.account_2fa_otpIntro()}</p>
+        <form
+          method="POST"
+          action="?/sendOtp"
+          use:enhance={() => {
+            reset();
+            busy = true;
+            return async ({ result }) => {
+              busy = false;
+              if (result.type === "failure") {
+                needsReauth = result.data?.needsReauth === true;
+                error = needsReauth ? "" : ((result.data?.error as string) ?? "");
+                return;
+              }
+              if (result.type === "success") {
+                phase = "otpSent";
+                toasts.success(m.account_2fa_otpSent());
+              }
+            };
+          }}
+        >
+          <button type="submit" class={btnClass} disabled={busy}>
+            {m.account_2fa_sendOtp()}
+          </button>
+        </form>
+      {:else if phase === "otpSent"}
+        <p class="text-body-sm">{m.account_2fa_otpSentHint()}</p>
+        <form
+          class="flex flex-col gap-3"
+          method="POST"
+          action="?/enable"
+          use:enhance={() => {
+            reset();
+            busy = true;
+            return async ({ result }) => {
+              busy = false;
+              if (result.type === "failure") {
+                needsReauth = result.data?.needsReauth === true;
+                error = needsReauth ? "" : ((result.data?.error as string) ?? "");
+                return;
+              }
+              if (result.type === "success" && result.data) {
+                const totpURI = result.data.totpURI as string;
+                backupCodes = (result.data.backupCodes as string[]) ?? [];
+                manualKey = secretFromUri(totpURI);
+                qrDataUrl = await QRCode.toDataURL(totpURI);
+                otp = "";
+                phase = "setup";
+              }
+            };
+          }}
+        >
+          <label class="flex flex-col gap-1.5">
+            <span class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_2fa_otpLabel()}
+            </span>
+            <input
+              name="otp"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              bind:value={otp}
+              class={inputClass}
+            />
+          </label>
+          <div class="flex gap-2">
+            <button type="submit" class={btnClass} disabled={busy || otp.length < 6}>
+              {m.account_2fa_enable()}
+            </button>
+            <button
+              type="button"
+              class={secondaryBtnClass}
+              disabled={busy}
+              onclick={() => {
+                reset();
+                phase = "idle";
+              }}
+            >
+              {m.common_cancel()}
+            </button>
+          </div>
+        </form>
       {:else}
         <p class="text-body-sm">{m.account_2fa_scanInstruction()}</p>
         {#if qrDataUrl}
@@ -187,25 +328,58 @@
             </ul>
           </div>
         {/if}
-        <label class="flex flex-col gap-1.5">
-          <span class="text-caption uppercase tracking-wide text-muted-foreground">
-            {m.account_2fa_codeLabel()}
-          </span>
-          <input
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            bind:value={code}
-            class={inputClass}
-          />
+        <label class="flex items-center gap-2 text-body-sm">
+          <input type="checkbox" bind:checked={savedBackupCodes} />
+          <span>{m.account_2fa_savedBackupConfirm()}</span>
         </label>
-        <button
-          type="button"
-          class={btnClass}
-          disabled={busy || code.length < 6}
-          onclick={verify}
+        <form
+          class="flex flex-col gap-3"
+          method="POST"
+          action="?/verify"
+          use:enhance={() => {
+            reset();
+            busy = true;
+            return async ({ result, update }) => {
+              busy = false;
+              if (result.type === "failure") {
+                error = (result.data?.error as string) ?? m.account_2fa_errorGeneric();
+                return;
+              }
+              if (result.type === "redirect") {
+                toasts.success(m.account_2fa_enabledDone());
+                await update();
+                return;
+              }
+              if (result.type === "success") {
+                toasts.success(m.account_2fa_enabledDone());
+                code = "";
+                phase = "idle";
+                await invalidateAll();
+              }
+            };
+          }}
         >
-          {m.account_2fa_verify()}
-        </button>
+          <input type="hidden" name="returnTo" value={data.returnTo ?? ""} />
+          <label class="flex flex-col gap-1.5">
+            <span class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_2fa_codeLabel()}
+            </span>
+            <input
+              name="code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              bind:value={code}
+              class={inputClass}
+            />
+          </label>
+          <button
+            type="submit"
+            class={btnClass}
+            disabled={busy || code.length < 6 || !savedBackupCodes}
+          >
+            {m.account_2fa_verify()}
+          </button>
+        </form>
       {/if}
     </Card>
   </Section>

@@ -58,6 +58,7 @@ import {
   validateStepUpCode,
   verifyBackupCodeStepUp,
   verifyEnrollOtp,
+  verifyStepUpCode,
   verifyTotpStepUp,
   wasTotpSeen,
 } from "$lib/server/step-up";
@@ -183,5 +184,51 @@ describe("step-up — backup code verification", () => {
   it("returns false when verifyBackupCode throws", async () => {
     verifyBackupCodeMock.mockRejectedValue(new Error("invalid backup code"));
     expect(await verifyBackupCodeStepUp("abc12-XY34z", new Headers())).toBe(false);
+  });
+});
+
+describe("step-up — verifyStepUpCode", () => {
+  it("rejects a malformed code", async () => {
+    expect(await verifyStepUpCode("usr_1", "12ab", new Headers())).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+  });
+
+  it("rejects a replayed TOTP code without re-verifying", async () => {
+    await markTotpSeen("usr_1", "123456");
+    expect(await verifyStepUpCode("usr_1", "123456", new Headers())).toEqual({
+      ok: false,
+      reason: "replayed",
+    });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a fresh TOTP code and records it as seen", async () => {
+    verifyTotpMock.mockResolvedValue({ status: true });
+    expect(await verifyStepUpCode("usr_1", "123456", new Headers())).toEqual({ ok: true });
+    expect(await wasTotpSeen("usr_1", "123456")).toBe(true);
+  });
+
+  it("rejects an invalid TOTP code", async () => {
+    verifyTotpMock.mockRejectedValue(new Error("invalid"));
+    expect(await verifyStepUpCode("usr_1", "000000", new Headers())).toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+  });
+
+  it("accepts a backup code without touching the replay key", async () => {
+    verifyBackupCodeMock.mockResolvedValue({ status: true });
+    expect(await verifyStepUpCode("usr_1", "abc12-XY34z", new Headers())).toEqual({ ok: true });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid backup code", async () => {
+    verifyBackupCodeMock.mockRejectedValue(new Error("invalid"));
+    expect(await verifyStepUpCode("usr_1", "abc12-XY34z", new Headers())).toEqual({
+      ok: false,
+      reason: "invalid",
+    });
   });
 });
