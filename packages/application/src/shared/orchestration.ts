@@ -1,4 +1,5 @@
 import type {
+  AssignmentDueSoonInput,
   ContestLifecycleInput,
   ExamAutoCloseInput,
   PlagiarismCheckInput,
@@ -11,6 +12,7 @@ import { ConfigurationError } from "./errors";
 
 export interface DomainOrchestrationAdapter {
   cancelRejudge(workflowId: string): Promise<void>;
+  dispatchAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   dispatchContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   dispatchPlagiarismCheck(input: PlagiarismCheckInput): Promise<void>;

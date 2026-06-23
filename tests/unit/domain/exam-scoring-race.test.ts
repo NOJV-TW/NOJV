@@ -136,7 +136,7 @@ describe("updateExamScores — optimistic locking", () => {
     expect(updateWithVersion).toHaveBeenCalledWith(
       PARTICIPATION_ID,
       0,
-      expect.objectContaining({ score: 1 }),
+      expect.objectContaining({ score: 100 }),
     );
   });
 

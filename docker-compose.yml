@@ -7,6 +7,14 @@ services:
     image: nojv-sandbox:local
     command: ["sh", "-lc", "echo sandbox image built"]
 
+  egress-proxy-image:
+    profiles: ["sandbox-build"]
+    build:
+      context: infra/docker/egress-proxy
+      dockerfile: Dockerfile
+    image: nojv-egress-proxy:local
+    command: ["sh", "-lc", "echo egress-proxy image built"]
+
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
@@ -144,6 +152,10 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-change-in-production}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      EDGE_TRUST_SECRET: ${EDGE_TRUST_SECRET:-}
+      API_TOKEN_PEPPER: ${API_TOKEN_PEPPER:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM_DOMAIN: ${EMAIL_FROM_DOMAIN:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-placeholder}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-placeholder}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-placeholder}

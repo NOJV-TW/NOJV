@@ -12,6 +12,7 @@ import type { AssessmentUpdate, Language } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import { getDomainOrchestration } from "../shared/orchestration";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
@@ -131,7 +132,7 @@ export async function updateAssignmentRecord(
   assignmentId: string,
   payload: AssessmentUpdate,
 ): Promise<{ id: string }> {
-  return runTransaction(async (tx) => {
+  const result = await runTransaction(async (tx) => {
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -145,6 +146,12 @@ export async function updateAssignmentRecord(
       },
       payload,
     );
+
+    const closesChanged =
+      payload.closesAt !== undefined &&
+      new Date(payload.closesAt).getTime() !== assignment.closesAt.getTime();
+    const effectiveClosesAt =
+      payload.closesAt !== undefined ? new Date(payload.closesAt) : assignment.closesAt;
 
     const updateData: Prisma.AssessmentUncheckedUpdateInput = stripUndefined({
       title: payload.title,
@@ -182,15 +189,29 @@ export async function updateAssignmentRecord(
       );
     }
 
-    return { id: assignment.id };
+    return {
+      id: assignment.id,
+      status: assignment.status,
+      closesChanged,
+      closesAt: effectiveClosesAt,
+    };
   });
+
+  if (result.status === "published" && result.closesChanged) {
+    await getDomainOrchestration().dispatchAssignmentDueSoon({
+      assignmentId: result.id,
+      closesAt: result.closesAt.toISOString(),
+    });
+  }
+
+  return { id: result.id };
 }
 
 export async function publishAssignment(
   actor: ActorContext,
   assignmentId: string,
 ): Promise<void> {
-  await runTransaction(async (tx) => {
+  const published = await runTransaction(async (tx) => {
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -230,6 +251,13 @@ export async function publishAssignment(
       actorUserId: actor.userId,
       action: "publish",
     });
+
+    return { id: assignment.id, closesAt: assignment.closesAt };
+  });
+
+  await getDomainOrchestration().dispatchAssignmentDueSoon({
+    assignmentId: published.id,
+    closesAt: published.closesAt.toISOString(),
   });
 }
 

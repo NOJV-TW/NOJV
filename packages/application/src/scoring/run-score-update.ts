@@ -29,6 +29,7 @@ export interface ScoringUpdate<P> {
   submissions(participation: P): Promise<readonly ScoredSubmission[]>;
   overrides(participation: P): Promise<readonly OverrideRow[]>;
   problemIds(participation: P): ReadonlySet<string>;
+  problemPoints(participation: P): ReadonlyMap<string, number>;
   scoringMode(participation: P): ContestScoringMode;
   startsAt(participation: P): Date;
   penaltyPerWrongSec?(participation: P): number;
@@ -55,6 +56,7 @@ export async function runScoreUpdate<P>(
         const { score, penaltySeconds } = computeProblemCountState({
           submissions,
           problemIds,
+          problemPoints: adapter.problemPoints(participation),
           startsAt: adapter.startsAt(participation),
           ...(adapter.penaltyPerWrongSec
             ? { penaltyPerWrongSec: adapter.penaltyPerWrongSec(participation) }

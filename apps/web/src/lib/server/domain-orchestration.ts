@@ -1,6 +1,7 @@
 import { configureDomainOrchestration } from "@nojv/application";
 import {
   cancelRejudge,
+  dispatchAssignmentDueSoon,
   dispatchContestLifecycle,
   dispatchExamAutoClose,
   dispatchPlagiarismCheck,
@@ -13,6 +14,7 @@ import {
 
 configureDomainOrchestration({
   cancelRejudge,
+  dispatchAssignmentDueSoon,
   dispatchContestLifecycle,
   dispatchExamAutoClose,
   dispatchPlagiarismCheck,

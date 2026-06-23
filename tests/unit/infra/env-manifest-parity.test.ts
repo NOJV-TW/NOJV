@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -102,6 +102,49 @@ function requiredProductionStorageKeys(): string[] {
   }
   return required;
 }
+
+describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {
+  const rootPkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+    pnpm?: { patchedDependencies?: Record<string, string> };
+  };
+  const hasPatches = Object.keys(rootPkg.pnpm?.patchedDependencies ?? {}).length > 0;
+
+  const dockerDir = join(repoRoot, "infra/docker");
+  const frozenInstallDockerfiles = readdirSync(dockerDir)
+    .filter((f) => f.endsWith(".Dockerfile"))
+    .filter((f) => readFileSync(join(dockerDir, f), "utf8").includes("--frozen-lockfile"));
+
+  it("the repo declares pnpm patches (otherwise this guard is moot)", () => {
+    expect(hasPatches).toBe(true);
+  });
+
+  it.each(frozenInstallDockerfiles)("%s copies patches/ before installing", (file) => {
+    expect(readFileSync(join(dockerDir, file), "utf8")).toMatch(/COPY patches\//);
+  });
+});
+
+describe("production web secret parity across deploy surfaces", () => {
+  const cloudRun = readFileSync(join(repoRoot, "infra/gcp/web.cloudrun.yaml"), "utf8");
+  const deploySh = readFileSync(join(repoRoot, "infra/gcp/cloud-build/deploy.sh"), "utf8");
+  const compose = readFileSync(join(repoRoot, "docker-compose.yml"), "utf8");
+
+  const requiredWebEnv = ["API_TOKEN_PEPPER", "EDGE_TRUST_SECRET", "S3_REGION"] as const;
+
+  it.each(requiredWebEnv)("web.cloudrun.yaml provides %s", (key) => {
+    expect(containerEnvNames(cloudRun, /\0/).has(key)).toBe(true);
+  });
+
+  it.each(requiredWebEnv)("deploy.sh wires %s into the web Cloud Run secrets", (key) => {
+    expect(deploySh.includes(key)).toBe(true);
+  });
+
+  it.each(["API_TOKEN_PEPPER", "EDGE_TRUST_SECRET"] as const)(
+    "docker-compose web service provides %s",
+    (key) => {
+      expect(compose.includes(`${key}:`)).toBe(true);
+    },
+  );
+});
 
 describe("storage env schema ↔ deployment manifest parity", () => {
   it("the production storage baseline parses (sanity check for the drop-one probe)", () => {

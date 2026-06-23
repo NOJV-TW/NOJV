@@ -11,6 +11,7 @@ metadata:
   name: nojv-sandbox
   labels:
     name: nojv-sandbox
+    app.kubernetes.io/part-of: nojv
 ---
 apiVersion: v1
 kind: Namespace

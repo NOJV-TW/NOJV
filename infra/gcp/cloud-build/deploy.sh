@@ -84,6 +84,8 @@ require_env S3_ACCESS_KEY
 require_env S3_SECRET_KEY
 require_env S3_BUCKET
 require_env S3_REGION
+require_env EDGE_TRUST_SECRET
+require_env API_TOKEN_PEPPER
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
@@ -109,11 +111,35 @@ upsert_secret nojv-s3-secret-key "$S3_SECRET_KEY"
 upsert_secret nojv-s3-bucket "$S3_BUCKET"
 upsert_secret nojv-s3-region "$S3_REGION"
 upsert_secret nojv-edge-trust-secret "$EDGE_TRUST_SECRET"
+upsert_secret nojv-api-token-pepper "$API_TOKEN_PEPPER"
 
-[[ -n "${GITHUB_CLIENT_ID:-}" ]] && upsert_secret nojv-github-client-id "$GITHUB_CLIENT_ID"
-[[ -n "${GITHUB_CLIENT_SECRET:-}" ]] && upsert_secret nojv-github-client-secret "$GITHUB_CLIENT_SECRET"
-[[ -n "${GOOGLE_CLIENT_ID:-}" ]] && upsert_secret nojv-google-client-id "$GOOGLE_CLIENT_ID"
-[[ -n "${GOOGLE_CLIENT_SECRET:-}" ]] && upsert_secret nojv-google-client-secret "$GOOGLE_CLIENT_SECRET"
+WEB_SECRETS="DATABASE_URL=nojv-database-url:latest"
+WEB_SECRETS+=",REDIS_URL=nojv-redis-url:latest"
+WEB_SECRETS+=",BETTER_AUTH_SECRET=nojv-auth-secret:latest"
+WEB_SECRETS+=",BETTER_AUTH_URL=nojv-auth-url:latest"
+WEB_SECRETS+=",S3_ENDPOINT=nojv-s3-endpoint:latest"
+WEB_SECRETS+=",S3_ACCESS_KEY=nojv-s3-access-key:latest"
+WEB_SECRETS+=",S3_SECRET_KEY=nojv-s3-secret-key:latest"
+WEB_SECRETS+=",S3_BUCKET=nojv-s3-bucket:latest"
+WEB_SECRETS+=",S3_REGION=nojv-s3-region:latest"
+WEB_SECRETS+=",EDGE_TRUST_SECRET=nojv-edge-trust-secret:latest"
+WEB_SECRETS+=",API_TOKEN_PEPPER=nojv-api-token-pepper:latest"
+
+append_optional_secret() {
+  local env_var="$1"
+  local secret_name="$2"
+  if [[ -n "${!env_var:-}" ]]; then
+    upsert_secret "$secret_name" "${!env_var}"
+    WEB_SECRETS+=",${env_var}=${secret_name}:latest"
+  fi
+}
+
+append_optional_secret GITHUB_CLIENT_ID nojv-github-client-id
+append_optional_secret GITHUB_CLIENT_SECRET nojv-github-client-secret
+append_optional_secret GOOGLE_CLIENT_ID nojv-google-client-id
+append_optional_secret GOOGLE_CLIENT_SECRET nojv-google-client-secret
+append_optional_secret RESEND_API_KEY nojv-resend-api-key
+append_optional_secret EMAIL_FROM_DOMAIN nojv-email-from-domain
 
 gcloud builds submit \
   --config infra/gcp/cloud-build/cloudbuild.yaml \
@@ -121,11 +147,22 @@ gcloud builds submit \
 
 IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
 
+NET_FLAGS=()
+[[ -n "${CLOUD_SQL_INSTANCE:-}" ]] && NET_FLAGS+=(--set-cloudsql-instances "$CLOUD_SQL_INSTANCE")
+if [[ -n "${VPC_CONNECTOR:-}" ]]; then
+  NET_FLAGS+=(--vpc-connector "$VPC_CONNECTOR" --vpc-egress "${VPC_EGRESS:-private-ranges-only}")
+fi
+if [[ ${#NET_FLAGS[@]} -eq 0 ]]; then
+  echo "WARNING: neither CLOUD_SQL_INSTANCE nor VPC_CONNECTOR is set — Cloud Run" >&2
+  echo "         cannot reach private Cloud SQL / Memorystore. See DEPLOYMENT.md." >&2
+fi
+
 gcloud run jobs deploy "${SERVICE_PREFIX}-migrator" \
   --image "${IMAGE_BASE}/migrator:${IMAGE_TAG}" \
   --region "$REGION" \
   --max-retries 1 \
-  --set-secrets "DATABASE_URL=nojv-database-url:latest"
+  --set-secrets "DATABASE_URL=nojv-database-url:latest" \
+  ${NET_FLAGS[@]+"${NET_FLAGS[@]}"}
 
 gcloud run jobs execute "${SERVICE_PREFIX}-migrator" --region "$REGION" --wait
 
@@ -135,21 +172,8 @@ gcloud run deploy "${SERVICE_PREFIX}-web" \
   --port 3000 \
   --region "$REGION" \
   --ingress internal-and-cloud-load-balancing \
-  --set-secrets "\
-DATABASE_URL=nojv-database-url:latest,\
-REDIS_URL=nojv-redis-url:latest,\
-BETTER_AUTH_SECRET=nojv-auth-secret:latest,\
-BETTER_AUTH_URL=nojv-auth-url:latest,\
-S3_ENDPOINT=nojv-s3-endpoint:latest,\
-S3_ACCESS_KEY=nojv-s3-access-key:latest,\
-S3_SECRET_KEY=nojv-s3-secret-key:latest,\
-S3_BUCKET=nojv-s3-bucket:latest,\
-S3_REGION=nojv-s3-region:latest,\
-EDGE_TRUST_SECRET=nojv-edge-trust-secret:latest,\
-GITHUB_CLIENT_ID=nojv-github-client-id:latest,\
-GITHUB_CLIENT_SECRET=nojv-github-client-secret:latest,\
-GOOGLE_CLIENT_ID=nojv-google-client-id:latest,\
-GOOGLE_CLIENT_SECRET=nojv-google-client-secret:latest"
+  --set-secrets "$WEB_SECRETS" \
+  ${NET_FLAGS[@]+"${NET_FLAGS[@]}"}
 
 WEB_URL="$(gcloud run services describe "${SERVICE_PREFIX}-web" --region "$REGION" --format='value(status.url)')"
 

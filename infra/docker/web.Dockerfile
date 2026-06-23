@@ -9,6 +9,7 @@ WORKDIR /build
 
 # 1. Copy dependency manifests for cache-friendly install
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY patches/ patches/
 COPY tsconfig.base.json ./
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/web/package.json apps/web/

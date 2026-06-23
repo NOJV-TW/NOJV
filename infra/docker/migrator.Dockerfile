@@ -8,6 +8,7 @@ RUN npm install -g pnpm@10.33.0
 WORKDIR /app
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY patches/ patches/
 COPY packages/db/package.json packages/db/
 COPY packages/db/prisma.config.ts packages/db/
 
