@@ -29,7 +29,7 @@ export function getActorContext(event: Pick<RequestEvent, "locals">): ActorConte
   if (event.locals.apiTokenActor) {
     return event.locals.apiTokenActor;
   }
-  
+
   const sessionUser = event.locals.sessionUser;
 
   if (!sessionUser) {

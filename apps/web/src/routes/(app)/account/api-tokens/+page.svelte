@@ -27,7 +27,7 @@
   );
 </script>
 
-<PageContainer width="wide">
+<PageContainer width="full">
   <Section>
     {#snippet header()}
       <div class="flex flex-col gap-2">
