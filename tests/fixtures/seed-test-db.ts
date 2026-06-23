@@ -40,6 +40,7 @@ export const TABLES = [
   "Verification",
   "TwoFactor",
   "Session",
+  "ApiToken",
   "Account",
   "User",
 ] as const;

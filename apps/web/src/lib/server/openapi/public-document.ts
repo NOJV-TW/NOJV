@@ -105,7 +105,8 @@ export const openApiDocument = {
         summary: "Create a submission",
         operationId: "createSubmission",
         description:
-          "Creates a queued submission and dispatches it to the judge. This endpoint currently requires a logged-in browser session and the X-Requested-With: fetch header. Bearer token auth and scopes will be added in the API token phase.",
+          "Creates a queued submission and dispatches it to the judge. Supports Bearer API token auth when the token has the submissions:write scope. Browser-session callers continue to use the existing X-Requested-With: fetch protection.",
+        security: [{ ApiToken: [] }],
         requestBody: {
           required: true,
           content: {
@@ -201,7 +202,8 @@ export const openApiDocument = {
         summary: "Get submission status and result",
         operationId: "getSubmission",
         description:
-          "Returns the current status and judge result for a submission. Users can access their own submissions; admins can access all submissions.",
+          "Returns the current status and judge result for a submission. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; admins can access all submissions.",
+        security: [{ ApiToken: [] }],
         parameters: [
           {
             name: "id",
@@ -263,7 +265,8 @@ export const openApiDocument = {
         summary: "Get submission source files",
         operationId: "getSubmissionSource",
         description:
-          "Returns submitted source files. Users can access their own submissions; admins can access all submissions.",
+          "Returns submitted source files. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; admins can access all submissions.",
+        security: [{ ApiToken: [] }],
         parameters: [
           {
             name: "id",

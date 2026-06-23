@@ -5,7 +5,8 @@ export const systemPaths = {
       summary: "Get detailed system health",
       operationId: "getAdminHealth",
       description:
-        "Returns detailed subsystem health. Requires an authenticated admin session.",
+        "Returns detailed subsystem health. Requires an authenticated admin session or a Bearer API token with admin:read owned by an admin user.",
+      security: [{ ApiToken: [] }],
       responses: {
         "200": {
           description: "System is healthy",

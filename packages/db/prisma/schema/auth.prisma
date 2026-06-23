@@ -11,6 +11,11 @@ enum UserStatus {
   pending_first_login
 }
 
+enum ApiTokenStatus {
+  active
+  revoked
+}
+
 model User {
   id              String  @id @default(cuid())
   email           String  @unique
@@ -66,6 +71,8 @@ model User {
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")
   triggeredPlagiarismLogs        PlagiarismTriggerLog[]       @relation("PlagiarismTriggerLogTriggerer")
   problemBookmarks               ProblemBookmark[]
+  apiTokens                      ApiToken[]
+  revokedApiTokens               ApiToken[]                   @relation("ApiTokenRevoker")
   twoFactors                     TwoFactor[]
 }
 
@@ -135,5 +142,31 @@ model SchoolVerificationToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
+}
+
+model ApiToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  prefix    String   @unique
+  tokenHash String   @unique
+  scopes    String[] @default([])
+
+  status     ApiTokenStatus @default(active)
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  lastUsedIp String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  revokedAt   DateTime?
+  revokedById String?
+  revokedBy   User?     @relation("ApiTokenRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
   @@index([expiresAt])
 }
