@@ -112,7 +112,6 @@
   <Section>
     {#snippet header()}
       <h1 class="text-title-lg">{m.navigation_account()}</h1>
-      <p>{m.account_profileDescription()}</p>
     {/snippet}
 
     <div class="flex flex-col gap-6">
