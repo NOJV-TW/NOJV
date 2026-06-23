@@ -30,11 +30,7 @@
   });
 </script>
 
-<div
-  class="mx-auto flex w-full max-w-screen-2xl flex-col px-4 sm:px-6 lg:px-8 {immersive
-    ? 'h-dvh overflow-hidden pb-4 pt-6'
-    : 'min-h-dvh pb-10 pt-6'}"
->
+<div class="flex flex-col {immersive ? 'h-dvh overflow-hidden' : 'min-h-dvh'}">
   <a
     href="#main-content"
     class="sr-only z-[var(--z-toast)] rounded-md bg-primary px-4 py-2 text-primary-foreground shadow-modal focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
@@ -42,14 +38,20 @@
     {m.a11y_skipToContent()}
   </a>
   <Header {immersive} />
-  <main
-    id="main-content"
-    tabindex="-1"
-    class="outline-none {immersive ? 'min-h-0 flex-1 pt-2' : 'flex-1 pt-6'}"
+  <div
+    class="mx-auto flex w-full max-w-screen-2xl flex-col px-4 sm:px-6 lg:px-8 {immersive
+      ? 'min-h-0 flex-1 pb-4'
+      : 'flex-1 pb-10'}"
   >
-    {@render children?.()}
-  </main>
-  {#if !immersive}
-    <Footer />
-  {/if}
+    <main
+      id="main-content"
+      tabindex="-1"
+      class="outline-none {immersive ? 'min-h-0 flex-1 pt-4' : 'flex-1 pt-8'}"
+    >
+      {@render children?.()}
+    </main>
+    {#if !immersive}
+      <Footer />
+    {/if}
+  </div>
 </div>

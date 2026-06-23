@@ -59,7 +59,7 @@
                   {#if announcement.pinned}
                     <Pin
                       aria-hidden="true"
-                      class="size-3.5 shrink-0 text-warning"
+                      class="size-3.5 shrink-0 text-primary"
                       aria-label={m.common_pinned()}
                     />
                   {/if}

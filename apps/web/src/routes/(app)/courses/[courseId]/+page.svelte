@@ -146,7 +146,7 @@
                   {#if announcement.pinned}
                     <Pin
                       aria-hidden="true"
-                      class="size-3.5 shrink-0 text-warning"
+                      class="size-3.5 shrink-0 text-primary"
                       aria-label={m.admin_announcementsPinned()}
                     />
                   {/if}
@@ -186,7 +186,7 @@
                       <button
                         type="submit"
                         class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {announcement.pinned
-                          ? 'border-warning bg-warning/10 text-warning hover:bg-warning/15'
+                          ? 'border-primary bg-primary/10 text-primary hover:bg-primary/15'
                           : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
                         title={announcement.pinned
                           ? m.admin_announcementsUnpin()

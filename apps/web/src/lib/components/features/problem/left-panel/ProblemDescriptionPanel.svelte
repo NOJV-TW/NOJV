@@ -5,6 +5,7 @@
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { minutesToHHMM } from "$lib/utils/attempt-reset-time";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
   import BookmarkButton from "../listings/BookmarkButton.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
 
@@ -121,15 +122,29 @@
           <p class="text-caption font-medium text-muted-foreground">
             {m.problemDetail_input()}
           </p>
-          <pre
-            class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
+          <div class="group relative mt-1">
+            <pre
+              class="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
+            <CopyButton
+              text={sample.input}
+              iconOnly
+              class="pointer-events-none absolute right-1.5 top-1.5 bg-muted opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+            />
+          </div>
         </div>
         <div>
           <p class="text-caption font-medium text-muted-foreground">
             {m.problemDetail_output()}
           </p>
-          <pre
-            class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
+          <div class="group relative mt-1">
+            <pre
+              class="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
+            <CopyButton
+              text={sample.output}
+              iconOnly
+              class="pointer-events-none absolute right-1.5 top-1.5 bg-muted opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+            />
+          </div>
         </div>
       </div>
     </div>

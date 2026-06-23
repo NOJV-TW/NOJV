@@ -35,9 +35,6 @@
     <h1 class="mt-3 text-display font-medium tracking-tight">
       {m.coursesNew_title()}
     </h1>
-    <p class="mt-2 max-w-2xl text-body-sm text-muted-foreground">
-      {m.coursesNew_subtitle()}
-    </p>
   </section>
 
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
