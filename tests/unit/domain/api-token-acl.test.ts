@@ -4,7 +4,7 @@ import {
   assertApiTokenRuleAccess,
   findApiTokenRouteRule,
   listApiTokenRouteRules,
-} from "@nojv/domain";
+} from "@nojv/application";
 
 describe("API token ACL route whitelist", () => {
   it("matches dynamic allowlisted submission routes", () => {
