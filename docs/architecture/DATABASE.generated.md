@@ -7,11 +7,15 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_41 models and 35 enums across 9 schema files._
+_42 models and 36 enums across 9 schema files._
 
 ## `auth.prisma`
 
 ### Enums
+
+#### `ApiTokenStatus`
+
+`active` · `revoked`
 
 #### `PlatformRole`
 
@@ -43,6 +47,29 @@ _41 models and 35 enums across 9 schema files._
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@unique([providerId, accountId])`, `@@index([userId])`
+
+#### `ApiToken`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `userId` | `String` | — |
+| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `name` | `String` | — |
+| `prefix` | `String` | `@unique` |
+| `tokenHash` | `String` | `@unique` |
+| `scopes` | `String[]` | `@default([])` |
+| `status` | `ApiTokenStatus` | `@default(active)` |
+| `expiresAt` | `DateTime` | — |
+| `lastUsedAt` | `DateTime?` | — |
+| `lastUsedIp` | `String?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `revokedAt` | `DateTime?` | — |
+| `revokedById` | `String?` | — |
+| `revokedBy` | `User?` | `@relation("ApiTokenRevoker", fields: [revokedById], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@index([userId])`, `@@index([status])`, `@@index([expiresAt])`
 
 #### `SchoolVerificationToken`
 
@@ -141,6 +168,8 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `submissionFeedbackAuditChanges` | `SubmissionFeedbackAuditLog[]` | `@relation("SubmissionFeedbackAuditChanger")` |
 | `triggeredPlagiarismLogs` | `PlagiarismTriggerLog[]` | `@relation("PlagiarismTriggerLogTriggerer")` |
 | `problemBookmarks` | `ProblemBookmark[]` | — |
+| `apiTokens` | `ApiToken[]` | — |
+| `revokedApiTokens` | `ApiToken[]` | `@relation("ApiTokenRevoker")` |
 | `twoFactors` | `TwoFactor[]` | — |
 
 #### `Verification`
