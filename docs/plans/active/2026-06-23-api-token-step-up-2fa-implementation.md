@@ -9,6 +9,7 @@
 **Tech Stack:** SvelteKit form actions, better-auth 1.6.17 twoFactor plugin, `@nojv/redis` (raw ioredis `set/get/del` + `keys` registry), `rate-limiter-flexible`, Resend, `node:crypto` HMAC (reuse `API_TOKEN_PEPPER`).
 
 **Key facts established by investigation (do not re-litigate):**
+
 - `auth.api.verifyTOTP({ body:{code}, headers: request.headers })` — authed-session step-up works; wrong code throws `APIError` 401; **do not** pass `trustDevice:true`; **do not** roll your own TOTP verify (secret is XChaCha20-Poly1305 encrypted with a key from `BETTER_AUTH_SECRET`).
 - better-auth has **no** replay protection within its ±1 step (~30–90s) window → dedupe accepted codes in Redis for true single-use.
 - better-auth's built-in `/two-factor/*` rate limit (10s/3) is HTTP-IP-keyed and may **not** apply to direct `auth.api.*` server calls → add our own per-user attempt throttle.
@@ -24,6 +25,7 @@
 ## Task 1 — Mailer seam (Resend → Gmail later)
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/mailer/types.ts`, `.../mailer/resend.ts`, `.../mailer/index.ts`
 - Modify: `apps/web/src/lib/server/env.ts` (add `EMAIL_PROVIDER`)
 - Modify: `apps/web/src/lib/server/shared/school-verification.ts` (use `getMailer()`)
@@ -34,8 +36,9 @@
 **Step 2 — run, expect fail** (module missing): `pnpm vitest run --project unit tests/unit/web/mailer.test.ts`.
 
 **Step 3 — implement.**
+
 - `types.ts`: `export interface SendEmailInput { to: string; subject: string; html: string }` and `export interface Mailer { sendEmail(i: SendEmailInput): Promise<void> }`.
-- `resend.ts`: `createResendMailer(): Mailer` — read `getWebEnv()`, throw if `RESEND_API_KEY`/`EMAIL_FROM_DOMAIN` missing, build `from = \`NOJV <noreply@${domain}>\``, `sendEmail` calls `resend.emails.send(...)` and `throw new Error(error.message)` on error.
+- `resend.ts`: `createResendMailer(): Mailer` — read `getWebEnv()`, throw if `RESEND_API_KEY`/`EMAIL_FROM_DOMAIN` missing, build `from = \`NOJV <noreply@${domain}>\``, `sendEmail`calls`resend.emails.send(...)`and`throw new Error(error.message)` on error.
 - `index.ts`: `export function getMailer(): Mailer { switch (getWebEnv().EMAIL_PROVIDER) { case "resend": return createResendMailer() } }` + re-export types.
 - `env.ts`: add `EMAIL_PROVIDER: z.enum(["resend","gmail"]).default("resend")` to `webEnvSchema`.
 
@@ -50,12 +53,14 @@
 ## Task 2 — Redis keys + step-up / OTP helpers
 
 **Files:**
+
 - Modify: `packages/redis/src/keys.ts` (add `apiTokenStepUp`, `twoFactorEnrollOtp`, `twoFactorTotpSeen`)
 - Modify: `apps/web/src/lib/server/shared/rate-limiter.ts` (add `otpSendRateLimiter`, `stepUpAttemptRateLimiter`)
 - Create: `apps/web/src/lib/server/step-up.ts` (sudo marker + enroll-OTP + TOTP step-up verify, all server-side)
 - Test: `tests/unit/web/step-up.test.ts`
 
 **Key factories** (mirror existing `nojv:<ns>:<id>`):
+
 ```ts
 apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
 twoFactorEnrollOtp: (userId: string) => `nojv:2fa:enroll-otp:${userId}`,
@@ -63,6 +68,7 @@ twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userI
 ```
 
 **`step-up.ts` exports** (use `getRedis()`, `keys`, `createHmac`/`timingSafeEqual`, `getAuth`):
+
 - `otpPepper()` — read `process.env.API_TOKEN_PEPPER`, prod-required ≥32, dev fallback (copy the `apiTokenPepper()` shape from `packages/application/src/api-token/lifecycle.ts`; or export+reuse it — prefer reuse).
 - `hashOtp(otp): string` = `createHmac("sha256", otpPepper()).update(otp).digest("base64url")`.
 - `generateOtp(): string` = 6 digits from `crypto.randomInt(0, 1_000_000)` zero-padded.
@@ -82,23 +88,27 @@ twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userI
 ## Task 3 — Step-up gate on `/account/api-tokens`
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/account/api-tokens/verify/+page.server.ts` and `.../verify/+page.svelte`
 - Modify: `apps/web/src/routes/(app)/account/api-tokens/+page.server.ts` (load gate + per-action guard)
 - Modify: `apps/web/messages/en.json` + `apps/web/messages/zh-TW.json` (step-up strings)
 - Test: integration `tests/integration/http/*` if an HTTP harness fits; else a focused unit test of the guard helper.
 
 **Load gate** (after `requireAuth`, before listing):
+
 ```ts
 if (!event.locals.sessionUser?.twoFactorEnabled)
   redirect(302, "/account/two-factor?returnTo=" + encodeURIComponent("/account/api-tokens"));
-if (!(await hasFreshStepUp(actor.userId)))
-  redirect(302, "/account/api-tokens/verify");
+if (!(await hasFreshStepUp(actor.userId))) redirect(302, "/account/api-tokens/verify");
 ```
 
 **Per-action guard** — in each of `create/update/rotate/revoke`, **inside the existing `try`**, immediately after `const actor = requireAuth(event)`:
+
 ```ts
-if (!(await hasFreshStepUp(actor.userId))) throw new ForbiddenError("Step-up verification required.");
+if (!(await hasFreshStepUp(actor.userId)))
+  throw new ForbiddenError("Step-up verification required.");
 ```
+
 (`ForbiddenError` is re-exported from `$lib/server/auth`; `classifyActionError` maps 403 → `fail(403)`.)
 
 **Verify route** (`verify/+page.server.ts`): `load` requires auth + `twoFactorEnabled` (else redirect to enroll); single `default` action: rate-limit `stepUpAttemptRateLimiter.consume(userId)` (429→fail); read `code`; dedupe check `keys.twoFactorTotpSeen` (reject reuse); `verifyTotpStepUp(code, event.request.headers)`; on success set seen-key (`EX OTP_DEDUPE_TTL`), `markStepUpFresh(userId)`, `redirect(303, "/account/api-tokens")`; on failure `fail(401,{error})`. `+page.svelte`: copy the code form from `(auth)/admin-signin/+page.svelte` (FormField + one-time-code Input + Button), reuse `m.account_2fa_codeLabel/verify`.
@@ -110,6 +120,7 @@ if (!(await hasFreshStepUp(actor.userId))) throw new ForbiddenError("Step-up ver
 ## Task 4 — `allowPasswordless` + server-mediated hardened enrollment
 
 **Files:**
+
 - Modify: `apps/web/src/lib/auth.server.ts` (`twoFactor({ issuer:"NOJV", allowPasswordless:true })`)
 - Modify: `apps/web/src/routes/(app)/account/two-factor/+page.server.ts` (add server actions)
 - Modify: `apps/web/src/routes/(app)/account/two-factor/+page.svelte` (drive the new actions)
@@ -117,6 +128,7 @@ if (!(await hasFreshStepUp(actor.userId))) throw new ForbiddenError("Step-up ver
 - Test: unit test for the action-level gates where feasible (freshness fail, OTP fail) with mocked deps.
 
 **Server-mediated enroll actions** (replaces the client-direct `authClient.twoFactor.enable`):
+
 1. `sendOtp`: require auth; **freshness** `if (Date.now() - event.locals.session.createdAt.getTime() >= ENROLL_FRESH_WINDOW_MS) return fail(403,{needsReauth:true})`; `otpSendRateLimiter.consume(userId)` (429→fail); `const otp = generateOtp(); await storeEnrollOtp(userId, otp); await getMailer().sendEmail({to: email, subject:"NOJV 兩步驟驗證啟用碼", html: buildOtpEmail(otp)})`; return `{sent:true}`.
 2. `enable`: require auth; re-check freshness; `if (!(await verifyEnrollOtp(userId, formOtp))) return fail(400,{error:invalidOtp})`; `const res = await getAuth().api.enableTwoFactor({ body:{}, headers: event.request.headers })` (allowPasswordless → no password); return `{ totpURI: res.totpURI, backupCodes: res.backupCodes }`.
 3. `verify`: require auth; `try { await getAuth().api.verifyTOTP({ body:{code}, headers }) } catch { return fail(401,{error}) }`; on success 2FA is now active → `await getMailer().sendEmail({to: email, subject:"NOJV 已啟用兩步驟驗證", html: buildEnabledNotice()})`; return `{enabled:true}`.
@@ -138,6 +150,7 @@ if (!(await hasFreshStepUp(actor.userId))) throw new ForbiddenError("Step-up ver
 ---
 
 ## Risks / watch-items (from investigation)
+
 - **Redis fail-closed:** `hasFreshStepUp` and the rate limiters fail closed → a Redis outage blocks all token management + OTP sends. Consistent with exam/page-lock gates; confirm acceptable.
 - **Freshness UX:** a long-lived session is "stale" forever → users may need to re-login before enrolling. Surface a clear "please sign in again" on `needsReauth`.
 - **Pepper choice:** reuse `API_TOKEN_PEPPER` for OTP hashing (no new required env) vs a dedicated secret — reuse chosen for ops simplicity.
