@@ -2,6 +2,8 @@ export const keys = {
   adminDashboard: () => "nojv:cache:admin-dashboard",
 
   scoreboardUpdateThrottle: (contestId: string) => `nojv:sb-throttle:${contestId}`,
+  scoreboardCache: (contestId: string, variant: "live" | "public") =>
+    `nojv:sb-cache:${contestId}:${variant}`,
 
   userChannel: (userId: string) => `nojv:user:${userId}`,
   notificationChannel: (userId: string) => `nojv:notification:${userId}`,

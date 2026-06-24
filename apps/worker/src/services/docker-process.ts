@@ -53,6 +53,99 @@ export function runDocker(args: string[]): Promise<void> {
   });
 }
 
+export interface DockerRunResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  sizeExceeded: boolean;
+  spawnError: string | null;
+}
+
+export interface DockerRunOptions {
+  args: string[];
+  containerName: string;
+  outerTimeoutMs: number;
+  watch?: { dir: string; intervalMs: number; exceeds: (dir: string) => Promise<boolean> };
+}
+
+export function spawnDockerContainer(opts: DockerRunOptions): Promise<DockerRunResult> {
+  forceRemoveContainerSync(opts.containerName);
+
+  return new Promise<DockerRunResult>((resolve) => {
+    const child = spawn("docker", opts.args, { env: process.env, stdio: "pipe" });
+    const stdoutBuf = createBoundedStringBuffer();
+    const stderrBuf = createBoundedStringBuffer();
+    let timedOut = false;
+    let sizeExceeded = false;
+    let settled = false;
+    let checkInFlight = false;
+
+    const settle = (result: DockerRunResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (poll) clearInterval(poll);
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      forceRemoveContainer(opts.containerName);
+      child.kill("SIGKILL");
+    }, opts.outerTimeoutMs);
+
+    const watch = opts.watch;
+    const poll = watch
+      ? setInterval(() => {
+          if (sizeExceeded || checkInFlight) return;
+          checkInFlight = true;
+          void watch
+            .exceeds(watch.dir)
+            .then((over) => {
+              if (over) {
+                sizeExceeded = true;
+                forceRemoveContainer(opts.containerName);
+                child.kill("SIGKILL");
+              }
+            })
+            .finally(() => {
+              checkInFlight = false;
+            });
+        }, watch.intervalMs)
+      : undefined;
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => stdoutBuf.push(chunk));
+    child.stderr.on("data", (chunk: string) => stderrBuf.push(chunk));
+
+    child.on("error", (err: Error) => {
+      settle({
+        exitCode: null,
+        stdout: "",
+        stderr: "",
+        timedOut: false,
+        sizeExceeded: false,
+        spawnError: err.message,
+      });
+    });
+
+    child.on("close", (code: number | null) => {
+      settle({
+        exitCode: code,
+        stdout: stdoutBuf.toString(),
+        stderr: stderrBuf.toString(),
+        timedOut,
+        sizeExceeded,
+        spawnError: null,
+      });
+    });
+
+    child.stdin.end();
+  });
+}
+
 export function buildInspectNetworkIpArgs(
   containerName: string,
   networkName: string,

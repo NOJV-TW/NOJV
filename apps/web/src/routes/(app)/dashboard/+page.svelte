@@ -1,6 +1,8 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import { invalidateAll } from "$app/navigation";
   import { AlertTriangle, Code2, LineChart, PieChart } from "@lucide/svelte";
+  import { Button } from "$lib/components/primitives/ui/button/index.js";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -211,6 +213,22 @@
   });
 </script>
 
+{#snippet errorCard()}
+  <Card variant="surface" size="lg">
+    <div class="flex flex-col items-center gap-3">
+      <EmptyState
+        variant="minimal"
+        icon={AlertTriangle}
+        title={m.dashboard_loadError()}
+        description={m.dashboard_loadErrorDescription()}
+      />
+      <Button variant="outline" size="sm" onclick={() => invalidateAll()}>
+        {m.common_retry()}
+      </Button>
+    </div>
+  </Card>
+{/snippet}
+
 <PageContainer class="fade-up">
   <PageHeader
     eyebrow={m.dashboard_eyebrow()}
@@ -320,14 +338,7 @@
           <WeeklyTrendCard data={activityModel.weeklyTrend} />
         </div>
       {:catch}
-        <Card variant="surface" size="lg">
-          <EmptyState
-            variant="minimal"
-            icon={AlertTriangle}
-            title={m.dashboard_loadError()}
-            description={m.dashboard_loadErrorDescription()}
-          />
-        </Card>
+        {@render errorCard()}
       {/await}
 
       <div class="grid gap-4">
@@ -427,14 +438,7 @@
       {:then suggestedProblems}
         <SuggestedProblemsCard problems={suggestedProblems} />
       {:catch}
-        <Card variant="surface" size="lg">
-          <EmptyState
-            variant="minimal"
-            icon={AlertTriangle}
-            title={m.dashboard_loadError()}
-            description={m.dashboard_loadErrorDescription()}
-          />
-        </Card>
+        {@render errorCard()}
       {/await}
     </div>
   {/if}

@@ -50,9 +50,15 @@
   );
 
   let showOverrideDrawer = $state(false);
+  let overridePrefill = $state<{ userId: string; problemId: string } | null>(null);
   const canSetOverride = $derived(
     data.mode === "teacher" ? (data.canSetOverride ?? false) : false,
   );
+
+  function gradeCell(userId: string, problemId: string) {
+    overridePrefill = { userId, problemId };
+    showOverrideDrawer = true;
+  }
   const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
     data.mode === "teacher"
@@ -514,6 +520,7 @@
             matrix={data.matrix}
             courseId={detail.courseId}
             assignmentId={detail.id}
+            oncellclick={canSetOverride ? gradeCell : undefined}
           />
         {:else if activeSubTab === "results" && data.results}
           <AssignmentResultsTab data={data.results} />
@@ -562,10 +569,14 @@
 {#if canSetOverride}
   <ScoreOverrideDrawer
     open={showOverrideDrawer}
-    onOpenChange={(v) => (showOverrideDrawer = v)}
+    onOpenChange={(v) => {
+      showOverrideDrawer = v;
+      if (!v) overridePrefill = null;
+    }}
     contextType="assignment"
     contextId={detail.id}
     students={overrideStudents}
     problems={overrideProblems}
+    prefill={overridePrefill}
   />
 {/if}

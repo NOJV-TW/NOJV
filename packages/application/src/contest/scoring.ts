@@ -6,8 +6,11 @@ import {
   submissionRepo,
 } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
+import { getRedis, keys } from "@nojv/redis";
 
 import { NotFoundError } from "../shared/errors";
+
+const SCOREBOARD_CACHE_TTL_SECONDS = 10;
 import {
   buildScoreboard,
   buildScoreboardChartSeries,
@@ -71,6 +74,16 @@ export async function getScoreboard(
   options?: { canSeeLive?: boolean },
 ): Promise<Scoreboard> {
   const canSeeLive = options?.canSeeLive === true;
+  const cacheKey = keys.scoreboardCache(contestId, canSeeLive ? "live" : "public");
+  const cached = await getRedis().get(cacheKey);
+  if (cached !== null) return JSON.parse(cached) as Scoreboard;
+
+  const result = await computeScoreboard(contestId, canSeeLive);
+  await getRedis().set(cacheKey, JSON.stringify(result), "EX", SCOREBOARD_CACHE_TTL_SECONDS);
+  return result;
+}
+
+async function computeScoreboard(contestId: string, canSeeLive: boolean): Promise<Scoreboard> {
   const contest = await contestRepo.findForScoreboardById(contestId);
 
   if (!contest || contest.visibility === "draft") {

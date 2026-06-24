@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -10,10 +9,9 @@ import {
   type ValidatorOutcome,
 } from "@nojv/core";
 
-import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { resolveSourceFiles } from "./source-files.js";
-import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
 import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
@@ -212,76 +210,11 @@ export function buildStandardDockerArgs(params: StandardDockerArgsParams): strin
   ];
 }
 
-interface DockerPhaseResult {
-  exitCode: number | null;
-  stdout: string;
-  stderr: string;
-  timedOut: boolean;
-  spawnError: string | null;
-}
-
-function spawnDockerPhase(
-  args: string[],
-  containerName: string,
-  outerTimeoutMs: number,
-): Promise<DockerPhaseResult> {
-  forceRemoveContainerSync(containerName);
-
-  return new Promise<DockerPhaseResult>((resolve) => {
-    const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-    const stdoutBuf = createBoundedStringBuffer();
-    const stderrBuf = createBoundedStringBuffer();
-    let timedOut = false;
-    let settled = false;
-
-    const settle = (result: DockerPhaseResult) => {
-      if (settled) return;
-      settled = true;
-      resolve(result);
-    };
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      forceRemoveContainer(containerName);
-      child.kill("SIGKILL");
-    }, outerTimeoutMs);
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => stdoutBuf.push(chunk));
-    child.stderr.on("data", (chunk: string) => stderrBuf.push(chunk));
-
-    child.on("error", (error: Error) => {
-      clearTimeout(timer);
-      settle({
-        exitCode: null,
-        stdout: "",
-        stderr: "",
-        timedOut: false,
-        spawnError: error.message,
-      });
-    });
-
-    child.on("close", (exitCode: number | null) => {
-      clearTimeout(timer);
-      settle({
-        exitCode,
-        stdout: stdoutBuf.toString(),
-        stderr: stderrBuf.toString(),
-        timedOut,
-        spawnError: null,
-      });
-    });
-
-    child.stdin.end();
-  });
-}
-
 function caseSystemError(index: number, message: string): RawCaseRun {
   return { index, stdout: "", stderr: message, exitCode: -1, timeMs: 0, errorVerdict: "SE" };
 }
 
-function extractCaseRun(phase: DockerPhaseResult, index: number): RawCaseRun {
+function extractCaseRun(phase: DockerRunResult, index: number): RawCaseRun {
   if (phase.spawnError)
     return caseSystemError(index, `Docker failed to start: ${phase.spawnError}`);
   if (phase.timedOut) return caseSystemError(index, "Run container timed out.");
@@ -340,7 +273,11 @@ async function runContainer(
       image: config.image,
       artifactMount: { hostDir: artifactDir, readOnly: false },
     });
-    const compile = await spawnDockerPhase(compileArgs, compileName, MAX_OUTER_TIMEOUT_MS);
+    const compile = await spawnDockerContainer({
+      args: compileArgs,
+      containerName: compileName,
+      outerTimeoutMs: MAX_OUTER_TIMEOUT_MS,
+    });
 
     if (compile.spawnError) {
       return sandboxSystemError(`Docker failed to start: ${compile.spawnError}`);
@@ -385,7 +322,11 @@ async function runContainer(
         artifactMount: { hostDir: artifactDir, readOnly: true },
         extraEnv: ["PYTHONDONTWRITEBYTECODE=1"],
       });
-      const phase = await spawnDockerPhase(caseArgs, caseName, perCaseTimeoutMs);
+      const phase = await spawnDockerContainer({
+        args: caseArgs,
+        containerName: caseName,
+        outerTimeoutMs: perCaseTimeoutMs,
+      });
       rawRuns.push(extractCaseRun(phase, tc.index));
     }
 

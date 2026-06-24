@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { setMock, publishMock, pubsubErrorHandler } = vi.hoisted(() => ({
+const { setMock, publishMock, delMock, pubsubErrorHandler } = vi.hoisted(() => ({
   setMock: vi.fn(),
   publishMock: vi.fn(() => Promise.resolve(1)),
+  delMock: vi.fn(() => Promise.resolve(0)),
   pubsubErrorHandler: vi.fn(),
 }));
 
 vi.mock("../../../packages/redis/src/connection", () => ({
-  getRedis: () => ({ set: setMock, publish: publishMock }),
+  getRedis: () => ({ set: setMock, publish: publishMock, del: delMock }),
 }));
 
 import {

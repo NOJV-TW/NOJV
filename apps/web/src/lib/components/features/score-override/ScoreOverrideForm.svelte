@@ -33,6 +33,8 @@
     students: StudentOption[];
     problems: ProblemOption[];
     existing?: OverrideRow | null | undefined;
+    initialUserId?: string | undefined;
+    initialProblemId?: string | undefined;
     onsuccess: () => void;
     oncancel?: (() => void) | undefined;
   }
@@ -44,12 +46,18 @@
     students,
     problems,
     existing = null,
+    initialUserId,
+    initialProblemId,
     onsuccess,
     oncancel,
   }: Props = $props();
 
-  let userId = $state(untrack(() => existing?.userId ?? students[0]?.id ?? ""));
-  let problemId = $state(untrack(() => existing?.problemId ?? problems[0]?.id ?? ""));
+  let userId = $state(
+    untrack(() => existing?.userId ?? initialUserId ?? students[0]?.id ?? ""),
+  );
+  let problemId = $state(
+    untrack(() => existing?.problemId ?? initialProblemId ?? problems[0]?.id ?? ""),
+  );
   let overrideScore = $state(untrack(() => existing?.overrideScore ?? 0));
   let reason = $state(untrack(() => existing?.reason ?? ""));
   let submitting = $state(false);
