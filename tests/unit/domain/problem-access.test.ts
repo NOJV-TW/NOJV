@@ -26,12 +26,12 @@ const privateProblem = { id: "prob_priv", authorId: "usr_author", visibility: "p
 const studentActor = {
   userId: "usr_student",
   username: "student",
-  platformRole: "user" as const,
+  platformRole: "student" as const,
 };
 const authorActor = {
   userId: "usr_author",
   username: "author",
-  platformRole: "user" as const,
+  platformRole: "student" as const,
 };
 const adminActor = { userId: "usr_admin", username: "admin", platformRole: "admin" as const };
 

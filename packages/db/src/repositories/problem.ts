@@ -189,15 +189,11 @@ export const problemStatementRepo = {
   },
 
   likeSearch(query: string) {
-    return prisma.problemStatementI18n.findMany({
-      select: { problemId: true },
-      where: {
-        OR: [
-          { title: { contains: query, mode: "insensitive" } },
-          { bodyMarkdown: { contains: query, mode: "insensitive" } },
-        ],
-      },
-    });
+    const pattern = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    return prisma.$queryRaw<{ problemId: string }[]>`
+      SELECT DISTINCT "problemId" FROM "ProblemStatementI18n"
+      WHERE coalesce("title", '') || ' ' || coalesce("bodyMarkdown", '') ILIKE ${pattern}
+    `;
   },
 
   withTx(tx: TxClient) {
