@@ -16,10 +16,14 @@ const REDIS = "passwordless-stepup-2fa-redis-1";
 const EMAIL = "student@nojv.local";
 
 function psql(sql: string): string {
-  return execFileSync("docker", ["exec", "-i", PG, "psql", "-U", "postgres", "-d", "nojv", "-tA"], {
-    input: sql,
-    encoding: "utf8",
-  }).trim();
+  return execFileSync(
+    "docker",
+    ["exec", "-i", PG, "psql", "-U", "postgres", "-d", "nojv", "-tA"],
+    {
+      input: sql,
+      encoding: "utf8",
+    },
+  ).trim();
 }
 
 function redis(...args: string[]): string {
@@ -44,7 +48,9 @@ test.afterAll(() => {
   redis("DEL", `nojv:2fa:enroll-confirm:${tokenHash}`, `nojv:2fa:enroll-confirmed:${userId}`);
 });
 
-test("confirm link consumes the token and sets the per-user confirmed flag", async ({ page }) => {
+test("confirm link consumes the token and sets the per-user confirmed flag", async ({
+  page,
+}) => {
   // the confirmed flag is not set before the link is clicked
   expect(redis("GET", `nojv:2fa:enroll-confirmed:${userId}`)).toBe("");
 

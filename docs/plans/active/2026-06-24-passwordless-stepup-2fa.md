@@ -4,7 +4,7 @@
 
 **Goal:** Replace the low-entropy email-OTP 2FA-enrollment gate (which needs the `API_TOKEN_PEPPER`) with a provider-independent design — a unified enrollment gate (fresh-session + high-entropy email confirm link + change notification), step-up via an enrolled factor (TOTP now, passkey added), and profile-page account linking — then remove the pepper entirely.
 
-**Architecture:** Sensitive actions (create API token, enroll/disable 2FA, link/unlink a provider) require a *fresh step-up*. Step-up is proven by an **enrolled strong factor** (TOTP via better-auth `twoFactor`; passkey via `@better-auth/passkey`), which is provider-independent and therefore works identically for Google and GitHub logins. The *first* factor enrollment (bootstrap) is gated by a **fresh session** (better-auth `freshAge`) + a **high-entropy email confirmation link** (sha256-at-rest, no pepper, GET-peek/POST-confirm like `verify-school`) + a **notification email** on every factor/link change. Because no path uses a low-entropy secret anymore, `API_TOKEN_PEPPER` is deleted; the API-token hash drops from HMAC-pepper to plain `sha256`.
+**Architecture:** Sensitive actions (create API token, enroll/disable 2FA, link/unlink a provider) require a _fresh step-up_. Step-up is proven by an **enrolled strong factor** (TOTP via better-auth `twoFactor`; passkey via `@better-auth/passkey`), which is provider-independent and therefore works identically for Google and GitHub logins. The _first_ factor enrollment (bootstrap) is gated by a **fresh session** (better-auth `freshAge`) + a **high-entropy email confirmation link** (sha256-at-rest, no pepper, GET-peek/POST-confirm like `verify-school`) + a **notification email** on every factor/link change. Because no path uses a low-entropy secret anymore, `API_TOKEN_PEPPER` is deleted; the API-token hash drops from HMAC-pepper to plain `sha256`.
 
 **Tech Stack:** SvelteKit form actions, better-auth 1.6.17 (`twoFactor` already enabled; `freshAge`/`freshSessionMiddleware`; account `/link-social`, `/list-accounts`, `/unlink-account`; `@better-auth/passkey` to be added), `@nojv/redis`, `node:crypto` (`randomBytes` + `createHash`), existing mailer seam (`getMailer()`), Prisma 7.
 
@@ -12,12 +12,12 @@
 
 ## Threat model (why this is at least as strong as today)
 
-| Moment | Today (email OTP + pepper) | This plan |
-| --- | --- | --- |
-| **Step-up** (factor exists) | TOTP/backup via better-auth | Same — TOTP/passkey, on a **separate device**; strictly ≥ email OTP (email is often open in the same browser on a shared PC) |
-| **First-factor enrollment** (bootstrap) | low-entropy email OTP (pepper-protected) | fresh-session gate + **high-entropy** email confirm link (no pepper) + notification |
-| **Detection / recovery** | none beyond OTP | **notification email on every factor/link change** + revocable; the real net for "no gate is perfect" |
-| **API token at rest** | `randomBytes` + `HMAC(sha256, pepper)` | `randomBytes` + plain `sha256` (high-entropy → pepper redundant; CodeQL `js/insufficient-password-hash` already dismissed as false-positive) |
+| Moment                                  | Today (email OTP + pepper)               | This plan                                                                                                                                    |
+| --------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Step-up** (factor exists)             | TOTP/backup via better-auth              | Same — TOTP/passkey, on a **separate device**; strictly ≥ email OTP (email is often open in the same browser on a shared PC)                 |
+| **First-factor enrollment** (bootstrap) | low-entropy email OTP (pepper-protected) | fresh-session gate + **high-entropy** email confirm link (no pepper) + notification                                                          |
+| **Detection / recovery**                | none beyond OTP                          | **notification email on every factor/link change** + revocable; the real net for "no gate is perfect"                                        |
+| **API token at rest**                   | `randomBytes` + `HMAC(sha256, pepper)`   | `randomBytes` + plain `sha256` (high-entropy → pepper redundant; CodeQL `js/insufficient-password-hash` already dismissed as false-positive) |
 
 Provider asymmetry (Google can `prompt=login`, GitHub cannot) is sidestepped: the enrolled factor is **our** credential, not the OAuth provider's, so one unified flow serves both.
 
@@ -31,7 +31,7 @@ Provider asymmetry (Google can `prompt=login`, GitHub cannot) is sidestepped: th
 
 ## Out of scope (explicit)
 
-- **Account merging** (combining two existing separate accounts / their submissions/history). Today username-uniqueness already blocks a second account from claiming a verified student; linking is the *preventive* path, merging is the *remedial* one — deferred.
+- **Account merging** (combining two existing separate accounts / their submissions/history). Today username-uniqueness already blocks a second account from claiming a verified student; linking is the _preventive_ path, merging is the _remedial_ one — deferred.
 - Persisting/standardizing the school email as a sendable address.
 - OAuth `prompt=login` re-auth step-up (Google-only → breaks the unified-flow requirement; rejected).
 
@@ -39,7 +39,7 @@ Provider asymmetry (Google can `prompt=login`, GitHub cannot) is sidestepped: th
 
 - **Existing API tokens become invalid** when `hashToken` switches HMAC→sha256 (HMAC output ≠ sha256 output, and HMAC is not reversible). Users must re-issue. Acceptable at current stage; call it out in the PR description. No data migration needed (the `tokenHash` column type is unchanged).
 - **In-flight enrollment OTPs** (Redis `twoFactorEnrollOtp:*`) are abandoned; the new link flow supersedes them. TTL expires them; no cleanup migration needed.
-- `API_TOKEN_PEPPER` removal touches env schema + deploy. Removing a *required* env from `env-manifest-parity` must land in the same commit as the schema change or the parity test fails.
+- `API_TOKEN_PEPPER` removal touches env schema + deploy. Removing a _required_ env from `env-manifest-parity` must land in the same commit as the schema change or the parity test fails.
 
 ## Current call sites (grounding)
 
@@ -59,7 +59,8 @@ Removes pepper user #1. Self-contained; no dependency on later phases.
 ### Task 1.1: Switch `hashToken` to plain sha256
 
 **Files:**
-- Modify: `packages/application/src/api-token/lifecycle.ts` (import line 1; `hashToken` ~136-138; delete `DEV_API_TOKEN_PEPPER`, `apiTokenPepper` — *but see Phase 3: `apiTokenPepper` is also imported by `step-up.ts`; keep the export until Phase 2 removes that consumer, then delete in Phase 3*).
+
+- Modify: `packages/application/src/api-token/lifecycle.ts` (import line 1; `hashToken` ~136-138; delete `DEV_API_TOKEN_PEPPER`, `apiTokenPepper` — _but see Phase 3: `apiTokenPepper` is also imported by `step-up.ts`; keep the export until Phase 2 removes that consumer, then delete in Phase 3_).
 - Test: `tests/unit/domain/api-token-lifecycle.test.ts`
 
 **Step 1 — Failing test:** assert a created token round-trips through verify, and that the stored hash equals `createHash('sha256').update(token).digest('base64url')` (no pepper). Update/replace the existing pepper-config test (lines ~281-293) to expect **no** `API_TOKEN_PEPPER` requirement for tokens.
@@ -81,6 +82,7 @@ Removes pepper user #2. This is the security core.
 ### Task 2.1: Enrollment-confirm token module (pepper-free)
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/two-factor-enroll.ts`
 - Test: `tests/integration/two-factor-enroll.test.ts` (Redis-backed)
 
@@ -91,6 +93,7 @@ TDD steps: failing test for generate→store→peek→consume happy path + wrong
 ### Task 2.2: Fresh-session gate helper
 
 **Files:**
+
 - Modify: `apps/web/src/lib/auth.server.ts` — add `session: { freshAge: <e.g. 60*15> }` (confirm exact option path in 1.6.17 `init-options`).
 - Create/modify: `apps/web/src/lib/server/step-up.ts` — `requireFreshSession(event)` helper (reuse `freshSessionMiddleware` semantics or check `session.createdAt`).
 
@@ -99,6 +102,7 @@ Decide freshAge window (recommend 15 min). Test the helper rejects a stale sessi
 ### Task 2.3: New enrollment flow in the 2FA route
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/account/two-factor/+page.server.ts` (replace `generateOtp`/`storeEnrollOtp`/`verifyEnrollOtp` usage at ~111-134) and `+page.svelte`.
 - Create: enrollment-confirm landing route (GET peek + POST confirm), e.g. `routes/(auth)/two-factor-confirm/+page.server.ts` + `+page@.svelte` (clone the `verify-school` peek/confirm pattern).
 - Modify: mailer call — send to `user.email` (the OAuth account email).
@@ -116,6 +120,7 @@ Delete `hashOtp`, `generateOtp`, `storeEnrollOtp`, `verifyEnrollOtp`, `OTP_*` co
 Only after Phases 1-2 leave `apiTokenPepper()` with zero callers.
 
 **Files (remove `API_TOKEN_PEPPER` / `apiTokenPepper`):**
+
 - `packages/application/src/api-token/lifecycle.ts` — delete `apiTokenPepper`, `DEV_API_TOKEN_PEPPER`, `ConfigurationError` import if now unused; drop the barrel export in `packages/application/src/index.ts`.
 - `apps/web/src/lib/server/env.ts` (env schema) — remove `API_TOKEN_PEPPER`.
 - `.env.example`, `docker-compose.yml:158`, `infra/gcp/cloud-build/deploy.sh:88,114,126`, `infra/gcp/web.cloudrun.yaml:52`, `.github/workflows/deploy.yml:57,76,88`.
@@ -136,10 +141,12 @@ Only after Phases 1-2 leave `apiTokenPepper()` with zero callers.
 ### Task 4.2: Profile UI + actions
 
 **Files:**
+
 - Modify: `routes/(app)/account/+page.server.ts` + `+page.svelte` (or a dedicated `account/connections/` route).
 - Use better-auth `/list-accounts` (show linked providers), `/link-social` (link; OAuth round-trip), `/unlink-account` (unlink).
 
 **Guards (must add — better-auth won't decide these):**
+
 - Link/unlink require fresh step-up + send notification email.
 - Block unlinking the **last** remaining login method (query `/list-accounts`; if unlink would leave 0 providers and no password, refuse).
 - Already-claimed identity → surface better-auth's link error as a friendly "this Google/GitHub account already belongs to another NOJV account."
@@ -153,14 +160,17 @@ TDD: integration tests for link happy path, already-claimed rejection, last-meth
 > **Spike first:** confirm the package for better-auth 1.6.17 — `better-auth/plugins/passkey` did **not** resolve from the core package in this repo; it is likely the separate `@better-auth/passkey`. Confirm name/version, peer deps, and DB model before Task 5.1.
 
 ### Task 5.1: Add plugin + schema
+
 - Add dep `@better-auth/passkey` (or confirmed name); register `passkey()` plugin in `auth.server.ts`.
 - Generate Prisma migration for the passkey table (better-auth schema). `pnpm db:generate` + migration file under `packages/db/prisma/migrations/`.
 
 ### Task 5.2: Enrollment + authentication (WebAuthn) frontend
+
 - Register: `generatePasskeyRegistrationOptions` → browser WebAuthn create → verify. Gate behind the Phase-2 enrollment gate.
 - Step-up: `generatePasskeyAuthenticationOptions` (works for signed-in users — confirmed in better-auth docs) → browser get → verify → `markStepUpFresh`.
 
 ### Task 5.3: Offer passkey OR TOTP at enrollment and step-up
+
 - Update `two-factor` enroll UI and `api-tokens/verify` step-up UI to accept either factor.
 - Recovery: ensure backup codes remain available (better-auth `twoFactor`) so a lost passkey/authenticator isn't a lockout.
 

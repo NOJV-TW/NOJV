@@ -21,6 +21,11 @@ function freshEnough(session: Session | null): boolean {
   return Date.now() - new Date(session.createdAt).getTime() < FRESH_WINDOW_MS;
 }
 
+function formString(formData: FormData, name: string): string {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
 function changeEmailHtml(provider: string, action: "linked" | "unlinked"): string {
   const verb = action === "linked" ? "新增了" : "移除了";
   return `<p>你的 NOJV 帳號剛${verb}一個登入方式:<strong>${provider}</strong>。</p><p>若這不是你本人操作,請立即聯絡管理員並檢查帳號安全。</p>`;
@@ -40,7 +45,11 @@ export const load = async (event: RequestEvent) => {
       provider,
       linked: linkedProviderIds.includes(provider),
     })),
-    passkeys: passkeys.map((p) => ({ id: p.id, name: p.name ?? "Passkey", createdAt: p.createdAt })),
+    passkeys: passkeys.map((p) => ({
+      id: p.id,
+      name: p.name ?? "Passkey",
+      createdAt: p.createdAt,
+    })),
   };
 };
 
@@ -50,7 +59,7 @@ export const actions = {
     if (!freshEnough(event.locals.session)) {
       return fail(403, { needsReauth: true });
     }
-    const provider = String((await event.request.formData()).get("provider") ?? "");
+    const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
       return fail(400, { error: "Unknown provider." });
     }
@@ -58,7 +67,7 @@ export const actions = {
       body: { provider, callbackURL: "/account/connections" },
       headers: event.request.headers,
     });
-    if (res?.url) {
+    if (res.url) {
       redirect(303, res.url);
     }
     return fail(400, { error: "Could not start linking." });
@@ -69,7 +78,7 @@ export const actions = {
     if (!freshEnough(event.locals.session)) {
       return fail(403, { needsReauth: true });
     }
-    const provider = String((await event.request.formData()).get("provider") ?? "");
+    const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
       return fail(400, { error: "Unknown provider." });
     }
@@ -103,7 +112,7 @@ export const actions = {
     if (!freshEnough(event.locals.session)) {
       return fail(403, { needsReauth: true });
     }
-    const id = String((await event.request.formData()).get("id") ?? "");
+    const id = formString(await event.request.formData(), "id");
     if (!id) {
       return fail(400, { error: "Missing passkey id." });
     }

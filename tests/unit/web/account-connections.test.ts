@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  isLinkProvider,
-  wouldOrphanAccount,
-} from "$lib/server/account-connections";
+import { isLinkProvider, wouldOrphanAccount } from "$lib/server/account-connections";
 
 describe("account-connections — provider guard", () => {
   it("recognizes linkable providers only", () => {

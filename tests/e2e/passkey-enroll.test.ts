@@ -13,10 +13,14 @@ const PG = "nojv-postgres-1";
 const EMAIL = "student@nojv.local";
 
 function psql(sql: string): string {
-  return execFileSync("docker", ["exec", "-i", PG, "psql", "-U", "postgres", "-d", "nojv", "-tA"], {
-    input: sql,
-    encoding: "utf8",
-  }).trim();
+  return execFileSync(
+    "docker",
+    ["exec", "-i", PG, "psql", "-U", "postgres", "-d", "nojv", "-tA"],
+    {
+      input: sql,
+      encoding: "utf8",
+    },
+  ).trim();
 }
 
 test.use({ storageState: studentAuth });

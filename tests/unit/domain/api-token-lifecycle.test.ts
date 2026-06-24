@@ -280,5 +280,4 @@ describe("API token lifecycle and verification", () => {
     expect(err.status).toBe(403);
     expect(err.message).toMatch(/role/i);
   });
-
 });

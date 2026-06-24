@@ -23,9 +23,7 @@
           <ShieldCheck class="h-8 w-8 text-primary" aria-hidden="true" />
         </div>
         <h1 class="text-title-lg font-semibold">確認啟用兩步驟驗證</h1>
-        <p class="text-body-sm text-muted-foreground">
-          確認後請回到設定頁面繼續完成啟用。
-        </p>
+        <p class="text-body-sm text-muted-foreground">確認後請回到設定頁面繼續完成啟用。</p>
         <Button type="submit" variant="default">確認</Button>
       </form>
     {:else}

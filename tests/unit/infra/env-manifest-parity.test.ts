@@ -138,12 +138,9 @@ describe("production web secret parity across deploy surfaces", () => {
     expect(deploySh.includes(key)).toBe(true);
   });
 
-  it.each(["EDGE_TRUST_SECRET"] as const)(
-    "docker-compose web service provides %s",
-    (key) => {
-      expect(compose.includes(`${key}:`)).toBe(true);
-    },
-  );
+  it.each(["EDGE_TRUST_SECRET"] as const)("docker-compose web service provides %s", (key) => {
+    expect(compose.includes(`${key}:`)).toBe(true);
+  });
 });
 
 describe("storage env schema ↔ deployment manifest parity", () => {

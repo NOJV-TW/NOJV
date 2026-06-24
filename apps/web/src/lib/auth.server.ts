@@ -138,7 +138,7 @@ function createAuth() {
         // only after better-auth has verified the assertion (the endpoint
         // throws otherwise), so it cannot be forged by a client.
         if (ctx.path === "/passkey/verify-authentication") {
-          const userId = ctx.context.newSession?.user?.id;
+          const userId = ctx.context.newSession?.user.id;
           if (userId) {
             await getRedis().set(keys.apiTokenStepUp(userId), "1", "EX", 600);
           }

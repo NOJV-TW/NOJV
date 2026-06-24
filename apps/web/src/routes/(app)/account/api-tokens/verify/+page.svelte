@@ -49,46 +49,46 @@
       {/if}
 
       {#if data.hasTotp}
-      <form
-        class="flex flex-col gap-4"
-        method="POST"
-        use:enhance={() => {
-          submitting = true;
-          return async ({ update }) => {
-            await update();
-            submitting = false;
-          };
-        }}
-      >
-        <input type="hidden" name="returnTo" value={data.returnTo} />
-        <FormField
-          label={m.account_apiToken_stepUp_codeLabel()}
-          hint={m.account_apiToken_stepUp_codeHint()}
-          for="api-token-stepup-code"
-          required
+        <form
+          class="flex flex-col gap-4"
+          method="POST"
+          use:enhance={() => {
+            submitting = true;
+            return async ({ update }) => {
+              await update();
+              submitting = false;
+            };
+          }}
         >
-          <Input
-            id="api-token-stepup-code"
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck={false}
-            name="code"
-            bind:value={code}
+          <input type="hidden" name="returnTo" value={data.returnTo} />
+          <FormField
+            label={m.account_apiToken_stepUp_codeLabel()}
+            hint={m.account_apiToken_stepUp_codeHint()}
+            for="api-token-stepup-code"
             required
-            type="text"
-          />
-        </FormField>
-        <Button
-          type="submit"
-          variant="default"
-          size="lg"
-          class="w-full"
-          loading={submitting}
-          disabled={submitting || code.length < 6}
-        >
-          {m.account_apiToken_stepUp_submit()}
-        </Button>
-      </form>
+          >
+            <Input
+              id="api-token-stepup-code"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck={false}
+              name="code"
+              bind:value={code}
+              required
+              type="text"
+            />
+          </FormField>
+          <Button
+            type="submit"
+            variant="default"
+            size="lg"
+            class="w-full"
+            loading={submitting}
+            disabled={submitting || code.length < 6}
+          >
+            {m.account_apiToken_stepUp_submit()}
+          </Button>
+        </form>
       {/if}
 
       {#if data.hasPasskey}

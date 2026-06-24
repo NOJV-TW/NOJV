@@ -135,7 +135,9 @@ export const actions = {
       }
       body.password = password;
     } else if (!(await hasEnrollConfirmed(actor.userId))) {
-      return fail(400, { error: "Click the confirmation link we emailed you, then try again." });
+      return fail(400, {
+        error: "Click the confirmation link we emailed you, then try again.",
+      });
     }
     try {
       const res = await getAuth().api.enableTwoFactor({
