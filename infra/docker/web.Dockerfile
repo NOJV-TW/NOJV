@@ -18,6 +18,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/application/package.json packages/application/
 COPY packages/redis/package.json packages/redis/
 COPY packages/storage/package.json packages/storage/
+COPY packages/temporal/package.json packages/temporal/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/web...
 
@@ -26,6 +27,7 @@ COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
 COPY packages/redis/ packages/redis/
 COPY packages/storage/ packages/storage/
+COPY packages/temporal/ packages/temporal/
 COPY packages/application/ packages/application/
 COPY apps/web/ apps/web/
 
@@ -33,6 +35,7 @@ RUN pnpm --filter @nojv/db build
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/redis build
 RUN pnpm --filter @nojv/storage build
+RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/application build
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter @nojv/web build
 
@@ -58,6 +61,9 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/db/node_modules/ ./pa
 COPY --from=builder --chown=appuser:nodejs /build/packages/application/dist/ ./packages/application/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/application/package.json ./packages/application/package.json
 COPY --from=builder --chown=appuser:nodejs /build/packages/application/node_modules/ ./packages/application/node_modules/
+COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/dist/ ./packages/temporal/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/package.json ./packages/temporal/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/node_modules/ ./packages/temporal/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/dist/ ./packages/redis/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./packages/redis/package.json
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
