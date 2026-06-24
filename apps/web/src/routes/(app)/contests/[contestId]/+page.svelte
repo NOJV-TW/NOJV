@@ -10,7 +10,6 @@
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import Marquee from "$lib/components/primitives/visual/Marquee.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
@@ -102,97 +101,67 @@
   />
 
   <div
-    class="relative overflow-hidden rounded-xl shadow-rest"
-    style="border: 1px solid var(--border); background: {isLive
-      ? 'linear-gradient(135deg, color-mix(in oklab, var(--destructive) 12%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'
-      : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
+    class="overflow-hidden rounded-xl border shadow-rest"
+    style="border-color: var(--border);"
   >
-    <Marquee
-      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} {m
-        .contestDetail_participantsLabel()
-        .toUpperCase()}"
-    />
-
-    <div class="relative px-7 py-9 lg:p-10">
-      <div class="flex flex-wrap items-start gap-6 justify-between">
-        <div class="min-w-0">
-          <div
-            class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
-          >
-            <TypeIcon kind="contest" size={14} />
-            <span>{m.contestDetail_typeLabel()} · {scoringLabel}</span>
-          </div>
-          <div class="mt-3">
-            <StatusPill {status} type="contest" />
-          </div>
-          <h1
-            class="mt-3 font-semibold tracking-tight"
-            style="font-size: clamp(2rem, 4.2vw, 3.5rem); line-height: 1.05;"
-          >
-            {contest.title}
-          </h1>
-          {#if contest.summary}
-            <p class="mt-4 max-w-2xl text-body text-muted-foreground">
-              {contest.summary}
-            </p>
-          {/if}
-        </div>
-
-        <div
-          class="rounded-lg border p-3 min-w-[280px]"
-          style="border-color: var(--border); background: var(--panel);"
-        >
-          <div
-            class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            {#if isLive}
-              <span
-                class="size-1.5 rounded-full live-dot"
-                style="background: oklch(0.55 0.2 27);"
-              ></span>
-            {/if}
-            <span
-              >{isLive
-                ? m.contestDetail_clockRunning()
-                : isPast
-                  ? m.contestDetail_clockEnded()
-                  : m.contestDetail_clockUntilStart()}</span
-            >
-          </div>
-          <div class="mt-2">
-            {#if isPast}
-              <div class="font-mono text-title">{fmtDate(contest.startsAt)}</div>
-            {:else}
-              <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
-            {/if}
-          </div>
-          <div
-            class="mt-3 pt-3 border-t space-y-1 text-caption font-mono"
+    <div class="flex flex-col sm:flex-row">
+      <div class="min-w-0 flex-1 p-5 sm:p-6">
+        <div class="flex flex-wrap items-center gap-2">
+          <StatusPill {status} type="contest" />
+          <span
+            class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-muted-foreground"
             style="border-color: var(--border-subtle);"
           >
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.contestDetail_metaStartsLabel()}</span>
-              <span>{fmtDate(contest.startsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.contestDetail_metaEndsLabel()}</span>
-              <span>{fmtDate(contest.endsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.contestDetail_metaDurationLabel()}</span>
-              <span>{m.contestDetail_metaDurationMinutes({ count: durationMin })}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground"
-                >{m.contestDetail_metaParticipantsLabel()}</span
-              >
-              <span
-                >{m.contestDetail_metaParticipantsCount({
-                  count: contest.participantCount,
-                })}</span
-              >
-            </div>
-          </div>
+            <TypeIcon kind="contest" size={12} />
+            {scoringLabel}
+          </span>
+        </div>
+        <h1 class="mt-3 truncate text-title-lg font-semibold tracking-tight">
+          {contest.title}
+        </h1>
+        <p class="mt-2 font-mono text-caption text-muted-foreground">
+          {contest.problems?.length ?? 0}
+          {m.contestDetail_problemsHeading()} ·
+          {m.contestDetail_metaParticipantsCount({ count: contest.participantCount })}
+          {m.contestDetail_participantsLabel()}
+        </p>
+        {#if contest.summary}
+          <p class="mt-2 line-clamp-1 text-body-sm text-muted-foreground">{contest.summary}</p>
+        {/if}
+      </div>
+
+      <div
+        class="flex shrink-0 flex-col justify-center border-t p-5 sm:min-w-[260px] sm:border-l sm:border-t-0 sm:p-6"
+        style="border-color: var(--border-subtle); background: color-mix(in oklab, var(--panel-strong) 55%, transparent);"
+      >
+        <div
+          class="flex items-center gap-2 font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground"
+        >
+          {#if isLive}
+            <span class="size-1.5 rounded-full live-dot" style="background: oklch(0.55 0.2 27);"
+            ></span>
+          {/if}
+          <span
+            >{isLive
+              ? m.contestDetail_clockRunning()
+              : isPast
+                ? m.contestDetail_clockEnded()
+                : m.contestDetail_clockUntilStart()}</span
+          >
+        </div>
+        <div class="mt-1.5">
+          {#if isPast}
+            <div class="font-mono text-title">{fmtDate(contest.startsAt)}</div>
+          {:else}
+            <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
+          {/if}
+        </div>
+        <div class="mt-3 font-mono text-caption text-muted-foreground">
+          {m.contestDetail_metaStartsLabel()}
+          {fmtDate(contest.startsAt)} ·
+          {m.contestDetail_metaEndsLabel()}
+          {fmtDate(contest.endsAt)} ·
+          {m.contestDetail_metaDurationMinutes({ count: durationMin })}
         </div>
       </div>
     </div>
