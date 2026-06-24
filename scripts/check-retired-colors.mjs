@@ -6,7 +6,17 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
 
-const RETIRED = [/#c4682d/i, /#8a6142/i, /#d4a054/i, /#b07d2c/i, /#b8a085/i, /196,\s*104,\s*45/, /77,\s*141,\s*91/, /184,\s*55,\s*42/, /79,\s*52,\s*35/];
+const RETIRED = [
+  /#c4682d/i,
+  /#8a6142/i,
+  /#d4a054/i,
+  /#b07d2c/i,
+  /#b8a085/i,
+  /196,\s*104,\s*45/,
+  /77,\s*141,\s*91/,
+  /184,\s*55,\s*42/,
+  /79,\s*52,\s*35/,
+];
 
 const files = globSync("apps/web/src/**/*.{svelte,ts}", { cwd: repoRoot });
 const offenders = [];

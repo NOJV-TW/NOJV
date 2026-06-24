@@ -54,6 +54,20 @@ completed in `docs/plans/completed/2026-06-12-full-audit-remediation.md`.
 Code-level audit findings (security, performance, dead contracts) are tracked
 as phases in the remediation plan, not here.
 
+## Suppressed Security Advisories
+
+`package.json` → `pnpm.auditConfig.ignoreGhsas` suppresses the advisories below so
+the blocking `pnpm audit` gate stays meaningful for _actionable_ findings. The
+"zero high/critical" claim in the Security row is true modulo this list. Re-run
+`pnpm audit` without the ignores after each dependency bump and clear entries that
+upstream has fixed.
+
+| GHSA                | Package (transitive path)                     | Why suppressed                                                                                                 | Re-review               |
+| ------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| GHSA-vmh5-mc38-953g | `undici` via `@opentelemetry/*` OTLP exporter | No non-breaking upstream fix adopted by OpenTelemetry; OTLP egress is to the configured Grafana endpoint only. | Each OpenTelemetry bump |
+| GHSA-vxpw-j846-p89q | `undici` via `@opentelemetry/*` OTLP exporter | Same transitive path; no actionable direct dependency.                                                         | Each OpenTelemetry bump |
+| GHSA-hm92-r4w5-c3mj | `undici` via `@opentelemetry/*` OTLP exporter | Same transitive path; no actionable direct dependency.                                                         | Each OpenTelemetry bump |
+
 ## Recent Milestones
 
 One line each — full detail in `docs/plans/completed/` and git log.

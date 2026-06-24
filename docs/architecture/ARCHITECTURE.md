@@ -61,11 +61,11 @@ packages/
   redis/            Connection, key registry, pub/sub (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
   temporal/         Temporal client + dispatch API + workflow I/O types + task queue constants (depends: core)
-  domain/           Business logic (depends: core, db, redis, storage)
+  application/      Business logic — @nojv/application (depends: core, db, redis, storage)
 
 apps/
-  web/              SvelteKit BFF (depends: core, domain, temporal, db, redis, storage)
-  worker/           Temporal worker boot + activity implementations (depends: core, temporal, domain, db, redis, storage)
+  web/              SvelteKit BFF (depends: core, application, temporal, db, redis, storage)
+  worker/           Temporal worker boot + activity implementations (depends: core, temporal, application, db, redis, storage)
   sandbox-runner/   Isolated sandbox (depends: core only)
 ```
 
@@ -76,30 +76,30 @@ apps/
                    ↗  ↑  ↖↘
                  db  redis  temporal   storage
                   ↖   ↑                ↑
-                   domain ─────────────┤
+                application ──────────┤
                   ↗  ↑   ↖             │
               web ───┘    worker ─────┘
                ↖           ↗
                 temporal
 ```
 
-No cycles. `domain` exposes orchestration-shaped functions, but reaches Temporal only through the configured `DomainOrchestrationAdapter`; `web` and `worker` wire that adapter to the `@nojv/temporal` root dispatch/query helpers at startup. `worker` → `domain` remains the path for activity business logic. Activities live in `apps/worker/src/activities/` so `temporal` does NOT need to depend on `domain` — that's what previously forced the `@nojv/job-dispatch` split.
+No cycles. `application` exposes orchestration-shaped functions, but reaches Temporal only through the configured `DomainOrchestrationAdapter`; `web` and `worker` wire that adapter to the `@nojv/temporal` root dispatch/query helpers at startup. `worker` → `application` remains the path for activity business logic. Activities live in `apps/worker/src/activities/` so `temporal` does NOT need to depend on `application` — that's what previously forced the `@nojv/job-dispatch` split.
 
 ### Dependency Rules
 
-| Package          | May import                                                     | Must NOT import                                                           |
-| ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `core`           | (nothing)                                                      | everything                                                                |
-| `db`             | `core` ¶                                                       | domain, temporal; redis/storage from `src/`                               |
-| `redis`          | `core`                                                         | domain, db, temporal                                                      |
-| `domain`         | `core`, `db`, `redis`, `storage` \*                            | temporal, `@nojv/temporal/workflows`, web, worker                         |
-| `temporal`       | `core`                                                         | db, redis, domain, web, worker (must stay self-contained to avoid cycles) |
-| `storage`        | (none of `@nojv/*`)                                            | everything `@nojv/*`                                                      |
-| `web`            | `core`, `domain`, `temporal` ‖, `storage` ※, `redis` †, `db` ‡ | temporal/workflows                                                        |
-| `worker`         | `core`, `temporal`, `domain`, `db`, `redis`, `storage` §       | web                                                                       |
-| `sandbox-runner` | `core`                                                         | everything else                                                           |
+| Package          | May import                                                          | Must NOT import                                                                |
+| ---------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `core`           | (nothing)                                                           | everything                                                                     |
+| `db`             | `core` ¶                                                            | application, temporal; redis/storage from `src/`                               |
+| `redis`          | `core`                                                              | application, db, temporal                                                      |
+| `application`    | `core`, `db`, `redis`, `storage` \*                                 | temporal, `@nojv/temporal/workflows`, web, worker                              |
+| `temporal`       | `core`                                                              | db, redis, application, web, worker (must stay self-contained to avoid cycles) |
+| `storage`        | (none of `@nojv/*`)                                                 | everything `@nojv/*`                                                           |
+| `web`            | `core`, `application`, `temporal` ‖, `storage` ※, `redis` †, `db` ‡ | temporal/workflows                                                             |
+| `worker`         | `core`, `temporal`, `application`, `db`, `redis`, `storage` §       | web                                                                            |
+| `sandbox-runner` | `core`                                                              | everything else                                                                |
 
-\* `domain` reaches into `storage` from `problem/blobs.ts` to write
+\* `application` reaches into `storage` from `problem/blobs.ts` to write
 problem image blobs alongside the DB row inside the same transaction.
 The transaction would lose atomicity if storage writes lived in `web`.
 
@@ -286,7 +286,7 @@ Temporal client, dispatch API, task queue constants, and Temporal input/output t
 - Workflow definitions live in `apps/worker/src/workflows/` (loaded into Temporal's workflow sandbox at worker start-up).
 - Activity implementations live in `apps/worker/src/activities/` — they import `@nojv/application` for business logic and `@nojv/redis` for event publishing.
 - Activities never dispatch workflows (no accidental recursion).
-- `domain/admin/index.ts` is the only file outside `apps/worker` that touches the raw `getTemporalClient`, to expose Temporal connection state on the admin healthz endpoint.
+- `apps/web/src/lib/server/domain-orchestration.ts` is the web tier's single touch point for the `@nojv/temporal` dispatch/query port; `application/admin/index.ts` checks Temporal connection state through `probeTemporal()` (not a raw `getTemporalClient`) for the admin healthz endpoint.
 
 Dispatch helpers exposed at the root entry and wired into `DomainOrchestrationAdapter` by `apps/web/src/lib/server/domain-orchestration.ts` and `apps/worker/src/domain-orchestration.ts`:
 
@@ -324,7 +324,7 @@ Two task queues isolate failure domains and scale independently: `judge` handles
 
 Single source of all business logic. Organized by domain:
 
-- Each domain has `queries.ts` (read) and `commands.ts` (write)
+- Each domain has `queries.ts` (read) and `mutations.ts` (write)
 - All functions return DTO types defined in `@nojv/core`
 - Two function categories:
   - **Orchestration functions** — called by web, dispatch workflows through the configured `DomainOrchestrationAdapter`
