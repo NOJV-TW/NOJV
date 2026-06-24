@@ -25,6 +25,7 @@ export class WorkerApp {
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
   private shutdownPromise: Promise<void> | null = null;
+  private runPromise: Promise<unknown> | null = null;
   private connection: NativeConnection | null = null;
 
   constructor(env: WorkerEnv) {
@@ -89,6 +90,7 @@ export class WorkerApp {
         workflowsPath: require.resolve("./workflows/index.js"),
         activities: await import("./activities/judge-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
+        shutdownGraceTime: "30s",
       });
       this.workers.push(judgeWorker);
     }
@@ -101,6 +103,7 @@ export class WorkerApp {
         workflowsPath: require.resolve("./workflows/index.js"),
         activities: await import("./activities/platform-bundle.js"),
         maxConcurrentActivityTaskExecutions: 10,
+        shutdownGraceTime: "30s",
       });
       this.workers.push(platformWorker);
       await ensureSubmissionSweeper();
@@ -122,7 +125,10 @@ export class WorkerApp {
       taskQueues: taskQueues.join(", "),
     });
 
-    await Promise.all(this.workers.map((w) => w.run()));
+    // Retain the run() promise so shutdown() can await the actual drain rather
+    // than just initiating it. start() still blocks here to keep the process alive.
+    this.runPromise = Promise.all(this.workers.map((w) => w.run()));
+    await this.runPromise;
   }
 
   async shutdown(signal: string): Promise<void> {
@@ -131,7 +137,9 @@ export class WorkerApp {
     logger.info("shutting down", { signal });
 
     this.shutdownPromise = (async () => {
-      await closeServerSafely(this.healthServer);
+      // Initiate drain on each worker, then actually wait for in-flight activities
+      // to finish (bounded by shutdownGraceTime). Keep the health server up during
+      // the drain so K8s doesn't SIGKILL early; close it only once drained.
       for (const w of this.workers) {
         try {
           w.shutdown();
@@ -142,6 +150,17 @@ export class WorkerApp {
           throw err;
         }
       }
+      if (this.runPromise) {
+        try {
+          await this.runPromise;
+        } catch (err) {
+          logger.warn("worker run() rejected during drain", {
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      await closeServerSafely(this.healthServer);
+      await this.connection?.close();
       await closeTemporalClient();
     })();
 

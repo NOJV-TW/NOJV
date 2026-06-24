@@ -16,6 +16,10 @@ spec:
         nojv-role: worker
     spec:
       serviceAccountName: nojv-worker
+      # Judges run up to 5-10m; give the worker time to drain in-flight activities
+      # (shutdownGraceTime=30s in worker-app.ts) before K8s SIGKILLs it. The default
+      # 30s would cut short the drain.
+      terminationGracePeriodSeconds: 120
       nodeSelector:
         nojv-role: worker
       securityContext:

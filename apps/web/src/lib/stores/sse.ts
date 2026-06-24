@@ -14,9 +14,29 @@ let eventSource: EventSource | null = null;
 const listeners = new Map<string, Set<(data: SSEEvent) => void>>();
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
+let recoveryListenersRegistered = false;
 
 const clarificationSubs = new Set<string>();
+
+// Force an immediate reconnect when the tab refocuses or the network returns,
+// so a long outage doesn't leave notifications/clarifications silently dead.
+function registerRecoveryListeners(): void {
+  if (!browser || recoveryListenersRegistered) return;
+  recoveryListenersRegistered = true;
+  const kick = () => {
+    if (eventSource) return;
+    reconnectAttempts = 0;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    connectSSE();
+  };
+  window.addEventListener("online", kick);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") kick();
+  });
+}
 
 function buildStreamUrl(): string {
   if (clarificationSubs.size === 0) return "/api/events/stream";
@@ -29,6 +49,7 @@ function buildStreamUrl(): string {
 
 export function connectSSE() {
   if (!browser || eventSource) return;
+  registerRecoveryListeners();
 
   eventSource = new EventSource(buildStreamUrl());
 
@@ -66,7 +87,8 @@ export function connectSSE() {
     }
     eventSource?.close();
     eventSource = null;
-    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+    // Keep retrying at a capped interval instead of giving up after N attempts —
+    // online/visibilitychange listeners also force an immediate reconnect.
     const delay = Math.min(5000 * 2 ** reconnectAttempts, 60_000);
     reconnectAttempts++;
     reconnectTimer = setTimeout(connectSSE, delay);

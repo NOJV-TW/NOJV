@@ -90,7 +90,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 ### Submission Processing
 
 1. Every submission gets a `Submission` record in PostgreSQL before Temporal dispatch.
-2. Temporal workflow ID is deterministic: `judge-{submissionId}`. Duplicate dispatches are idempotent.
+2. Temporal workflow ID is deterministic and unique per submission: `judge-{submissionId}`. A re-dispatch of the same submission collides on the workflow ID and is rejected by Temporal (`WorkflowExecutionAlreadyStarted`), so a submission is never judged twice concurrently. (Note: if the web process crashes after creating the row but before dispatch, the row stays `queued` until the stale-submission sweeper recovers it — up to the pending-timeout window.)
 3. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
 4. User stats and contest scores are updated after the verdict is committed.
 5. SSE notification is best-effort — the client falls back to polling Temporal/DB.
