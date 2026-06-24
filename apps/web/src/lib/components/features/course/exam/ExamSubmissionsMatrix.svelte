@@ -11,16 +11,18 @@
   interface Props {
     matrix: ExamSubmissionsMatrixData;
     examId: string;
+    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
     class?: string;
   }
 
-  let { matrix, examId, class: className }: Props = $props();
+  let { matrix, examId, oncellclick, class: className }: Props = $props();
 </script>
 
 <MatrixView
   {matrix}
   csvDownloadName={`exam-${examId}-matrix.csv`}
   dataSlot="exam-submissions-matrix"
+  {oncellclick}
   class={className}
   labels={{
     heading: m.examDetail_submissionsHeading,
@@ -43,5 +45,6 @@
     paginationLabel: m.examDetail_submissionsPaginationLabel,
     prev: m.examDetail_submissionsPrev,
     next: m.examDetail_submissionsNext,
+    gradeCellTitle: m.matrix_gradeCellTitle,
   }}
 />

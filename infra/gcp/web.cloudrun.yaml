@@ -49,11 +49,6 @@ spec:
                 secretKeyRef:
                   key: latest
                   name: nojv-auth-url
-            - name: API_TOKEN_PEPPER
-              valueFrom:
-                secretKeyRef:
-                  key: latest
-                  name: nojv-api-token-pepper
             - name: EDGE_TRUST_SECRET
               valueFrom:
                 secretKeyRef:

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 interface MockUser {
@@ -151,7 +153,7 @@ async function catchError(
   const err = settled as { status?: unknown; message?: unknown };
   return {
     message: typeof err?.message === "string" ? err.message : String(settled),
-    status: typeof err?.status === "number" ? err.status : undefined,
+    ...(typeof err?.status === "number" ? { status: err.status } : {}),
   };
 }
 
@@ -171,6 +173,9 @@ describe("API token lifecycle and verification", () => {
     expect(created.token).not.toContain(stored.tokenHash as string);
     expect(Object.keys(created.item)).not.toContain("tokenHash");
     expect(JSON.stringify(created.item)).not.toContain(created.token);
+    expect(stored.tokenHash).toBe(
+      createHash("sha256").update(created.token).digest("base64url"),
+    );
 
     const verified = await verify(created.token);
     expect(verified.actor.userId).toBe("usr_1");
@@ -274,23 +279,5 @@ describe("API token lifecycle and verification", () => {
     const err = await catchError(verify(created.token, adminRoute));
     expect(err.status).toBe(403);
     expect(err.message).toMatch(/role/i);
-  });
-
-  it("fails closed when the pepper is missing in production", async () => {
-    const prevNodeEnv = process.env.NODE_ENV;
-    const prevPepper = process.env.API_TOKEN_PEPPER;
-    try {
-      process.env.NODE_ENV = "production";
-      delete process.env.API_TOKEN_PEPPER;
-      setUser("usr_1");
-
-      const err = await catchError(create({ scopes: ["submissions:write"] }));
-      expect(err.status).toBe(500);
-      expect(err.message).toMatch(/API_TOKEN_PEPPER/);
-    } finally {
-      process.env.NODE_ENV = prevNodeEnv;
-      if (prevPepper === undefined) delete process.env.API_TOKEN_PEPPER;
-      else process.env.API_TOKEN_PEPPER = prevPepper;
-    }
   });
 });

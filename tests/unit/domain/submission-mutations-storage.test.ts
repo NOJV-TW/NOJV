@@ -299,7 +299,7 @@ describe("createQueuedSubmissionRecord — write path → S3", () => {
         tick += 1;
         deleteCalledAt = tick;
       }
-      return origSend(cmd);
+      return (origSend as unknown as (c: unknown) => Promise<unknown>)(cmd);
     }) as typeof origSend;
     submissionUpdateStatus.mockImplementation(async () => {
       tick += 1;

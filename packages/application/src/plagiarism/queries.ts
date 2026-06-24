@@ -36,25 +36,30 @@ export async function listSubmissionsForCheck(
     ...plagiarismTargetFilter(target),
     status: "accepted",
   });
-  return Promise.all(
-    rows.map(async (row): Promise<PlagiarismSubmission> => {
-      const sources = await getSubmissionSources(row.id);
-      const marker = boundaryMarkerFor(row.language);
-      const merged = sources
-        .slice()
-        .sort((a, b) => a.path.localeCompare(b.path))
-        .map((s) => `${marker} === ${s.path} ===\n${s.content}`)
-        .join("\n");
-      return {
-        id: row.id,
-        userId: row.userId,
-        problemId: row.problemId,
-        language: row.language,
-        score: row.score,
-        sourceCode: merged,
-      };
-    }),
-  );
+  const loadOne = async (row: (typeof rows)[number]): Promise<PlagiarismSubmission> => {
+    const sources = await getSubmissionSources(row.id);
+    const marker = boundaryMarkerFor(row.language);
+    const merged = sources
+      .slice()
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .map((s) => `${marker} === ${s.path} ===\n${s.content}`)
+      .join("\n");
+    return {
+      id: row.id,
+      userId: row.userId,
+      problemId: row.problemId,
+      language: row.language,
+      score: row.score,
+      sourceCode: merged,
+    };
+  };
+
+  const CONCURRENCY = 16;
+  const result: PlagiarismSubmission[] = [];
+  for (let i = 0; i < rows.length; i += CONCURRENCY) {
+    result.push(...(await Promise.all(rows.slice(i, i + CONCURRENCY).map(loadOne))));
+  }
+  return result;
 }
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";

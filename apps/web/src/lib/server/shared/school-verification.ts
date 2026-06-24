@@ -47,7 +47,7 @@ export async function processSchoolVerification(
       html: `
       <div style="max-width:480px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a">
         <h2 style="margin-bottom:16px">NOJV 帳號驗證</h2>
-        <p style="margin-bottom:24px;line-height:1.6">請點擊下方按鈕完成學生帳號驗證：</p>
+        <p style="margin-bottom:24px;line-height:1.6">請點擊下方按鈕前往驗證頁面，並在頁面上確認：</p>
         <a href="${verifyUrl}" style="display:inline-block;padding:12px 32px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:9999px;font-weight:600;font-size:14px">
           驗證我的帳號
         </a>

@@ -46,7 +46,14 @@ vi.mock("@nojv/db", () => ({
 }));
 
 vi.mock("@nojv/redis", () => ({
-  scoreboard: {},
+  getRedis: () => ({
+    get: async () => null,
+    set: async () => "OK",
+    del: async () => 0,
+  }),
+  keys: {
+    scoreboardCache: (contestId: string, variant: string) => `sb:${contestId}:${variant}`,
+  },
 }));
 
 import { virtualContestDomain } from "@nojv/application";
@@ -59,7 +66,7 @@ const ACTOR = {
   username: "me",
   displayName: "Me",
   email: "me@test.dev",
-  platformRole: "user" as const,
+  platformRole: "student" as const,
 };
 
 const C_START = new Date("2026-01-01T00:00:00.000Z");

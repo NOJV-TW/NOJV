@@ -11,8 +11,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  let phase = $state<"idle" | "otpSent" | "setup">("idle");
-  let otp = $state("");
+  let phase = $state<"idle" | "linkSent" | "setup">(data.enrollConfirmed ? "linkSent" : "idle");
   let code = $state("");
   let password = $state("");
   let manageCode = $state("");
@@ -218,7 +217,7 @@
         <p class="text-body-sm">{m.account_2fa_otpIntro()}</p>
         <form
           method="POST"
-          action="?/sendOtp"
+          action="?/sendConfirm"
           use:enhance={() => {
             reset();
             busy = true;
@@ -230,7 +229,7 @@
                 return;
               }
               if (result.type === "success") {
-                phase = "otpSent";
+                phase = "linkSent";
                 toasts.success(m.account_2fa_otpSent());
               }
             };
@@ -240,7 +239,7 @@
             {m.account_2fa_sendOtp()}
           </button>
         </form>
-      {:else if phase === "otpSent"}
+      {:else if phase === "linkSent"}
         <p class="text-body-sm">{m.account_2fa_otpSentHint()}</p>
         <form
           class="flex flex-col gap-3"
@@ -261,26 +260,13 @@
                 backupCodes = (result.data.backupCodes as string[]) ?? [];
                 manualKey = secretFromUri(totpURI);
                 qrDataUrl = await QRCode.toDataURL(totpURI);
-                otp = "";
                 phase = "setup";
               }
             };
           }}
         >
-          <label class="flex flex-col gap-1.5">
-            <span class="text-caption uppercase tracking-wide text-muted-foreground">
-              {m.account_2fa_otpLabel()}
-            </span>
-            <input
-              name="otp"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              bind:value={otp}
-              class={inputClass}
-            />
-          </label>
           <div class="flex gap-2">
-            <button type="submit" class={btnClass} disabled={busy || otp.length < 6}>
+            <button type="submit" class={btnClass} disabled={busy}>
               {m.account_2fa_enable()}
             </button>
             <button

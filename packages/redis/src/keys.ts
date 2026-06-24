@@ -2,6 +2,8 @@ export const keys = {
   adminDashboard: () => "nojv:cache:admin-dashboard",
 
   scoreboardUpdateThrottle: (contestId: string) => `nojv:sb-throttle:${contestId}`,
+  scoreboardCache: (contestId: string, variant: "live" | "public") =>
+    `nojv:sb-cache:${contestId}:${variant}`,
 
   userChannel: (userId: string) => `nojv:user:${userId}`,
   notificationChannel: (userId: string) => `nojv:notification:${userId}`,
@@ -10,6 +12,7 @@ export const keys = {
     `nojv:clarification:${contextType}:${contextId}`,
 
   apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
-  twoFactorEnrollOtp: (userId: string) => `nojv:2fa:enroll-otp:${userId}`,
+  twoFactorEnrollConfirm: (tokenHash: string) => `nojv:2fa:enroll-confirm:${tokenHash}`,
+  twoFactorEnrollConfirmed: (userId: string) => `nojv:2fa:enroll-confirmed:${userId}`,
   twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,
 } as const;
