@@ -62,6 +62,10 @@ function bestEffort(
 export async function publishScoreboardUpdate(contestId: string): Promise<void> {
   const channel = keys.contestChannel(contestId);
   await bestEffort("scoreboard", channel, async () => {
+    await getRedis().del(
+      keys.scoreboardCache(contestId, "live"),
+      keys.scoreboardCache(contestId, "public"),
+    );
     const acquired = await getRedis().set(
       keys.scoreboardUpdateThrottle(contestId),
       "1",

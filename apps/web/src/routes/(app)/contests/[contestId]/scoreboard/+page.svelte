@@ -47,7 +47,7 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invalidateAll } from "$app/navigation";
+  import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { entriesAroundUser } from "$lib/utils/scoreboard";
@@ -75,7 +75,7 @@
   const SSE_DEBOUNCE_MS = 1500;
   onMount(() => {
     async function refresh() {
-      await invalidateAll();
+      await invalidate("contest:scoreboard");
       lastRefreshed = Date.now();
       justRefreshed = true;
       setTimeout(() => {
@@ -118,7 +118,7 @@
       const fd = new FormData();
       const res = await fetch("?/unfreeze", { method: "POST", body: fd });
       if (res.ok) {
-        await invalidateAll();
+        await invalidate("contest:scoreboard");
       }
     } finally {
       unfreezing = false;
@@ -530,12 +530,20 @@
   {#if chart.series.length > 0}
     <GlassPanel class="p-6">
       <div class="flex items-baseline justify-between mb-3">
-        <h3 class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+        <h3
+          id="scoreboard-chart-heading"
+          class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
+        >
           {m.contestScoreboard_chartHeading({ count: chart.series.length })}
         </h3>
       </div>
       <div class="overflow-x-auto rounded-sm" style="background: var(--panel-strong);">
-        <svg viewBox="0 0 800 300" class="h-auto w-full min-w-[600px]">
+        <svg
+          viewBox="0 0 800 300"
+          class="h-auto w-full min-w-[600px]"
+          role="img"
+          aria-labelledby="scoreboard-chart-heading"
+        >
           <line
             x1="40"
             y1="260"

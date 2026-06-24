@@ -19,22 +19,35 @@
     contextId: string;
     students: StudentOption[];
     problems: ProblemOption[];
+    prefill?: { userId: string; problemId: string } | null | undefined;
   }
 
-  let { open, onOpenChange, contextType, contextId, students, problems }: Props = $props();
+  let {
+    open,
+    onOpenChange,
+    contextType,
+    contextId,
+    students,
+    problems,
+    prefill = null,
+  }: Props = $props();
 
   const showFeedback = $derived(contextType !== "contest");
+  const prefillKey = $derived(prefill ? `${prefill.userId}:${prefill.problemId}` : "__new__");
 
   let rows = $state<OverrideListRow[]>([]);
   let loading = $state(false);
+  let loadError = $state(false);
   let editTarget = $state<OverrideRow | null>(null);
 
   let feedbackRows = $state<FeedbackListRow[]>([]);
   let feedbackLoading = $state(false);
+  let feedbackError = $state(false);
   let feedbackEditTarget = $state<FeedbackRow | null>(null);
 
   async function reload() {
     loading = true;
+    loadError = false;
     try {
       const url = new URL("/api/overrides", window.location.origin);
       url.searchParams.set("type", contextType);
@@ -45,10 +58,10 @@
         const body = (await res.json()) as { items: OverrideListRow[] };
         rows = body.items;
       } else {
-        rows = [];
+        loadError = true;
       }
     } catch {
-      rows = [];
+      loadError = true;
     } finally {
       loading = false;
     }
@@ -57,6 +70,7 @@
   async function reloadFeedback() {
     if (!showFeedback) return;
     feedbackLoading = true;
+    feedbackError = false;
     try {
       const url = new URL("/api/feedback", window.location.origin);
       url.searchParams.set("type", contextType);
@@ -67,10 +81,10 @@
         const body = (await res.json()) as { items: FeedbackListRow[] };
         feedbackRows = body.items;
       } else {
-        feedbackRows = [];
+        feedbackError = true;
       }
     } catch {
-      feedbackRows = [];
+      feedbackError = true;
     } finally {
       feedbackLoading = false;
     }
@@ -90,6 +104,17 @@
     onOpenChange(v);
   }
 </script>
+
+{#snippet loadErrorBlock(retry: () => void)}
+  <div
+    class="flex flex-col items-center gap-2 rounded-md border border-border px-3 py-6 text-center"
+  >
+    <p class="text-body-sm text-muted-foreground">{m.grading_drawer_loadError()}</p>
+    <Button variant="outline" size="sm" type="button" onclick={retry}>
+      {m.common_retry()}
+    </Button>
+  </div>
+{/snippet}
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
   <Dialog.Content showCloseButton class="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
@@ -113,6 +138,8 @@
           >
             <SkeletonTable rows={3} columns={6} class="px-3" />
           </div>
+        {:else if loadError}
+          {@render loadErrorBlock(() => void reload())}
         {:else}
           <ScoreOverrideList
             {rows}
@@ -135,7 +162,7 @@
             </Button>
           {/if}
         </div>
-        {#key editTarget?.id ?? "__new__"}
+        {#key editTarget?.id ?? prefillKey}
           <ScoreOverrideForm
             mode={editTarget ? "edit" : "create"}
             {contextType}
@@ -143,6 +170,8 @@
             {students}
             {problems}
             existing={editTarget}
+            initialUserId={editTarget ? undefined : (prefill?.userId ?? undefined)}
+            initialProblemId={editTarget ? undefined : (prefill?.problemId ?? undefined)}
             onsuccess={() => {
               editTarget = null;
               void reload();
@@ -166,6 +195,8 @@
             >
               <SkeletonTable rows={3} columns={5} class="px-3" />
             </div>
+          {:else if feedbackError}
+            {@render loadErrorBlock(() => void reloadFeedback())}
           {:else}
             <FeedbackList
               rows={feedbackRows}

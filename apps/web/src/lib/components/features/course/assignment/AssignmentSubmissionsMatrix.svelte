@@ -12,10 +12,11 @@
     matrix: SubmissionsMatrixData;
     courseId: string;
     assignmentId: string;
+    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
     class?: string;
   }
 
-  let { matrix, courseId, assignmentId, class: className }: Props = $props();
+  let { matrix, courseId, assignmentId, oncellclick, class: className }: Props = $props();
 </script>
 
 <MatrixView
@@ -24,6 +25,7 @@
   dataSlot="assignment-submissions-matrix"
   showRoleFilter
   viewHref={(userId) => `/courses/${courseId}/members?student=${userId}`}
+  {oncellclick}
   class={className}
   labels={{
     heading: m.assignmentDetail_matrixHeading,
@@ -52,5 +54,6 @@
     filterStudents: m.assignmentDetail_matrixFilterStudents,
     roleFilterTooltip: m.matrix_roleFilterTooltip,
     viewAction: m.assignmentDetail_matrixView,
+    gradeCellTitle: m.matrix_gradeCellTitle,
   }}
 />

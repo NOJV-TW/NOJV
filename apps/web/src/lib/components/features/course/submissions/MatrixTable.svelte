@@ -1,6 +1,11 @@
 <script lang="ts">
   import { cn } from "$lib/utils/css.js";
-  import type { MatrixProblemColumn, MatrixRow, MatrixViewLabels } from "./MatrixView.svelte";
+  import type {
+    MatrixCell,
+    MatrixProblemColumn,
+    MatrixRow,
+    MatrixViewLabels,
+  } from "./MatrixView.svelte";
 
   interface Props {
     problems: MatrixProblemColumn[];
@@ -8,10 +13,33 @@
     totalPoints: number;
     labels: MatrixViewLabels;
     viewHref?: ((userId: string) => string) | undefined;
+    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
   }
 
-  let { problems, rows, totalPoints, labels, viewHref }: Props = $props();
+  let { problems, rows, totalPoints, labels, viewHref, oncellclick }: Props = $props();
 </script>
+
+{#snippet cellBody(cell: MatrixCell)}
+  {#if cell.state === "empty"}
+    <span>—</span>
+  {:else}
+    <span>{cell.score}</span>
+    {#if cell.state === "ac"}
+      <span class="ml-1 font-bold">✓</span>
+    {/if}
+    <span class="mt-0.5 block text-micro font-normal opacity-70">
+      {labels.attempts({ count: cell.attempts })}
+    </span>
+  {/if}
+  {#if cell.practiceAttempts > 0 && labels.practiceSummary}
+    <span class="mt-1 block text-micro font-normal text-muted-foreground opacity-90">
+      {labels.practiceSummary({
+        score: cell.practiceScore ?? 0,
+        count: cell.practiceAttempts,
+      })}
+    </span>
+  {/if}
+{/snippet}
 
 <div class="overflow-x-auto rounded-md border border-border">
   <table class="w-full border-separate border-spacing-0 tabular-nums">
@@ -69,7 +97,8 @@
           {#each row.cells as cell (cell.problemId)}
             <td
               class={cn(
-                "border-b border-r border-border-subtle px-3 py-3 text-center text-body-sm",
+                "border-b border-r border-border-subtle text-center text-body-sm",
+                !oncellclick && "px-3 py-3",
                 cell.state === "ac" && "bg-success/15 font-semibold text-success",
                 cell.state === "partial" && "bg-destructive/10 text-destructive",
                 cell.state === "zero" && "bg-destructive/20 font-semibold text-destructive",
@@ -79,26 +108,18 @@
                 ? "background: repeating-linear-gradient(45deg, transparent, transparent 4px, var(--border-subtle) 4px, var(--border-subtle) 8px);"
                 : ""}
             >
-              {#if cell.state === "empty"}
-                <span>—</span>
-              {:else}
-                <span>{cell.score}</span>
-                {#if cell.state === "ac"}
-                  <span class="ml-1 font-bold">✓</span>
-                {/if}
-                <span class="mt-0.5 block text-micro font-normal opacity-70">
-                  {labels.attempts({ count: cell.attempts })}
-                </span>
-              {/if}
-              {#if cell.practiceAttempts > 0 && labels.practiceSummary}
-                <span
-                  class="mt-1 block text-micro font-normal text-muted-foreground opacity-90"
+              {#if oncellclick}
+                <button
+                  type="button"
+                  class="block h-full w-full cursor-pointer px-3 py-3 transition-colors hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-primary"
+                  title={labels.gradeCellTitle?.()}
+                  aria-label={labels.gradeCellTitle?.()}
+                  onclick={() => oncellclick?.(row.userId, cell.problemId)}
                 >
-                  {labels.practiceSummary({
-                    score: cell.practiceScore ?? 0,
-                    count: cell.practiceAttempts,
-                  })}
-                </span>
+                  {@render cellBody(cell)}
+                </button>
+              {:else}
+                {@render cellBody(cell)}
               {/if}
             </td>
           {/each}

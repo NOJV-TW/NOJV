@@ -60,6 +60,7 @@
     filterStudents?: () => string;
     roleFilterTooltip?: () => string;
     viewAction?: () => string;
+    gradeCellTitle?: () => string;
   }
 </script>
 
@@ -77,6 +78,7 @@
     dataSlot: string;
     showRoleFilter?: boolean;
     viewHref?: (userId: string) => string;
+    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
     class?: string | undefined;
   }
 
@@ -87,6 +89,7 @@
     dataSlot,
     showRoleFilter = false,
     viewHref,
+    oncellclick,
     class: className,
   }: Props = $props();
 
@@ -195,6 +198,7 @@
       totalPoints={matrix.totalPoints}
       {labels}
       {viewHref}
+      {oncellclick}
     />
 
     <MatrixLegend {labels} />

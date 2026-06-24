@@ -1,11 +1,9 @@
-import { spawn } from "node:child_process";
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { ValidatorOutcome } from "@nojv/core";
 
-import { createBoundedStringBuffer } from "./bounded-buffer";
-import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import { sanitizeId, spawnDockerContainer } from "./docker-process";
 import { sourceExtension } from "./sandbox-plan";
 import { parseValidateOutput } from "./sandbox-schema";
 
@@ -143,64 +141,7 @@ export async function runValidator(
     MAX_OUTER_TIMEOUT_MS,
   );
 
-  forceRemoveContainerSync(containerName);
-
-  const result = await new Promise<{
-    exitCode: number | null;
-    stdout: string;
-    stderr: string;
-    timedOut: boolean;
-  }>((resolve) => {
-    const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-    const stdoutBuf = createBoundedStringBuffer();
-    const stderrBuf = createBoundedStringBuffer();
-    let timedOut = false;
-    let settled = false;
-
-    const settle = (value: {
-      exitCode: number | null;
-      stdout: string;
-      stderr: string;
-      timedOut: boolean;
-    }) => {
-      if (settled) return;
-      settled = true;
-      resolve(value);
-    };
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      forceRemoveContainer(containerName);
-      child.kill("SIGKILL");
-    }, outerTimeoutMs);
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => stdoutBuf.push(chunk));
-    child.stderr.on("data", (chunk: string) => stderrBuf.push(chunk));
-
-    child.on("error", (err: Error) => {
-      clearTimeout(timer);
-      settle({
-        exitCode: null,
-        stdout: "",
-        stderr: `spawn failed: ${err.message}`,
-        timedOut: false,
-      });
-    });
-
-    child.on("close", (code: number | null) => {
-      clearTimeout(timer);
-      settle({
-        exitCode: code,
-        stdout: stdoutBuf.toString(),
-        stderr: stderrBuf.toString(),
-        timedOut,
-      });
-    });
-
-    child.stdin.end();
-  });
+  const result = await spawnDockerContainer({ args, containerName, outerTimeoutMs });
 
   const seForAll = (): Map<number, ValidatorOutcome> =>
     new Map(params.cases.map((c): [number, ValidatorOutcome] => [c.index, { verdict: "SE" }]));
