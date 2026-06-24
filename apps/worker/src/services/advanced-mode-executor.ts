@@ -22,7 +22,7 @@ import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage
 import { createLogger } from "../logger.js";
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { createSubmissionNetworks, removeSubmissionNetworks } from "./docker-network";
-import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import { sanitizeId, spawnDockerContainer } from "./docker-process";
 import {
   collectEgressProxyLogs,
   EGRESS_PROXY_PORT,
@@ -334,82 +334,30 @@ interface SpawnContainerParams {
 }
 
 function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome> {
-  forceRemoveContainerSync(params.containerName);
-
-  return new Promise((resolve) => {
-    const child = spawn("docker", params.args, { env: process.env, stdio: "pipe" });
-    const stderrBuf = createBoundedStringBuffer();
-    let timedOut = false;
-    let sizeExceeded = false;
-    let settled = false;
-    let sizeCheckInFlight = false;
-
-    const settle = (value: ContainerOutcome) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      clearInterval(sizePoll);
-      resolve(value);
-    };
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      forceRemoveContainer(params.containerName);
-      child.kill("SIGKILL");
-    }, params.outerTimeoutMs);
-
-    const watchDir = params.watchDir;
-    const sizePoll = watchDir
-      ? setInterval(() => {
-          if (sizeExceeded || sizeCheckInFlight) return;
-          sizeCheckInFlight = true;
-          void dirStats(watchDir)
-            .then((stats) => {
-              if (
-                exceedsWorkspaceCaps(stats, {
-                  maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
-                  maxFiles: ADVANCED_OUTPUT_MAX_FILES,
-                })
-              ) {
-                sizeExceeded = true;
-                forceRemoveContainer(params.containerName);
-                child.kill("SIGKILL");
-              }
-            })
-            .finally(() => {
-              sizeCheckInFlight = false;
-            });
-        }, WORKSPACE_POLL_INTERVAL_MS)
-      : undefined;
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      stderrBuf.push(chunk);
-    });
-
-    child.on("error", (err: Error) => {
-      settle({
-        exitCode: null,
-        stderr: `spawn failed: ${err.message}`,
-        timedOut: false,
-        sizeExceeded: false,
-        spawnError: true,
-      });
-    });
-
-    child.on("close", (code: number | null) => {
-      settle({
-        exitCode: code,
-        stderr: stderrBuf.toString(),
-        timedOut,
-        sizeExceeded,
-        spawnError: false,
-      });
-    });
-
-    child.stdin.end();
-  });
+  return spawnDockerContainer({
+    args: params.args,
+    containerName: params.containerName,
+    outerTimeoutMs: params.outerTimeoutMs,
+    ...(params.watchDir
+      ? {
+          watch: {
+            dir: params.watchDir,
+            intervalMs: WORKSPACE_POLL_INTERVAL_MS,
+            exceeds: async (dir: string) =>
+              exceedsWorkspaceCaps(await dirStats(dir), {
+                maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+                maxFiles: ADVANCED_OUTPUT_MAX_FILES,
+              }),
+          },
+        }
+      : {}),
+  }).then((r) => ({
+    exitCode: r.exitCode,
+    stderr: r.spawnError ? `spawn failed: ${r.spawnError}` : r.stderr,
+    timedOut: r.timedOut,
+    sizeExceeded: r.sizeExceeded,
+    spawnError: r.spawnError !== null,
+  }));
 }
 
 export class AdvancedModeExecutor {
