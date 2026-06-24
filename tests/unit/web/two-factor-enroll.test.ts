@@ -2,9 +2,10 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  generateOtpMock,
-  storeEnrollOtpMock,
-  verifyEnrollOtpMock,
+  generateEnrollTokenMock,
+  storeEnrollConfirmMock,
+  hasEnrollConfirmedMock,
+  clearEnrollConfirmedMock,
   userHasCredentialPasswordMock,
   verifyStepUpCodeMock,
   clearStepUpMock,
@@ -16,9 +17,10 @@ const {
   otpConsumeMock,
   cookiesSetMock,
 } = vi.hoisted(() => ({
-  generateOtpMock: vi.fn(),
-  storeEnrollOtpMock: vi.fn(),
-  verifyEnrollOtpMock: vi.fn(),
+  generateEnrollTokenMock: vi.fn(),
+  storeEnrollConfirmMock: vi.fn(),
+  hasEnrollConfirmedMock: vi.fn(),
+  clearEnrollConfirmedMock: vi.fn(),
   userHasCredentialPasswordMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
   clearStepUpMock: vi.fn(),
@@ -33,13 +35,19 @@ const {
 
 vi.mock("@nojv/db", () => new Proxy({}, { get: () => ({}) }));
 
+vi.mock("$env/dynamic/private", () => ({ env: { BETTER_AUTH_URL: "http://localhost" } }));
+
 vi.mock("$lib/server/step-up", () => ({
-  generateOtp: generateOtpMock,
-  storeEnrollOtp: storeEnrollOtpMock,
-  verifyEnrollOtp: verifyEnrollOtpMock,
   userHasCredentialPassword: userHasCredentialPasswordMock,
   verifyStepUpCode: verifyStepUpCodeMock,
   clearStepUp: clearStepUpMock,
+}));
+
+vi.mock("$lib/server/two-factor-enroll", () => ({
+  generateEnrollToken: generateEnrollTokenMock,
+  storeEnrollConfirm: storeEnrollConfirmMock,
+  hasEnrollConfirmed: hasEnrollConfirmedMock,
+  clearEnrollConfirmed: clearEnrollConfirmedMock,
 }));
 
 vi.mock("$lib/server/mailer", () => ({
@@ -118,9 +126,10 @@ async function caught(
 }
 
 beforeEach(() => {
-  generateOtpMock.mockReset().mockReturnValue("123456");
-  storeEnrollOtpMock.mockReset().mockResolvedValue(undefined);
-  verifyEnrollOtpMock.mockReset();
+  generateEnrollTokenMock.mockReset().mockReturnValue("tok_high_entropy");
+  storeEnrollConfirmMock.mockReset().mockResolvedValue(undefined);
+  hasEnrollConfirmedMock.mockReset().mockResolvedValue(false);
+  clearEnrollConfirmedMock.mockReset().mockResolvedValue(undefined);
   userHasCredentialPasswordMock.mockReset().mockResolvedValue(false);
   verifyStepUpCodeMock.mockReset();
   clearStepUpMock.mockReset().mockResolvedValue(undefined);
@@ -145,47 +154,49 @@ describe("two-factor load", () => {
   });
 });
 
-describe("two-factor sendOtp (OAuth users only)", () => {
+describe("two-factor sendConfirm (OAuth users only)", () => {
   it("fails 403 needsReauth when the session is stale", async () => {
-    const result = await actions.sendOtp(makeEvent({ sessionCreatedAt: STALE }));
+    const result = await actions.sendConfirm(makeEvent({ sessionCreatedAt: STALE }));
     expect(result).toMatchObject({ status: 403, data: { needsReauth: true } });
     expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
   it("fails 400 when 2FA is already enabled", async () => {
-    const result = await actions.sendOtp(makeEvent({ twoFactorEnabled: true }));
+    const result = await actions.sendConfirm(makeEvent({ twoFactorEnabled: true }));
     expect(result).toMatchObject({ status: 400 });
     expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
-  it("fails 400 for password users (they confirm a password, not an OTP)", async () => {
+  it("fails 400 for password users (they confirm a password, not a link)", async () => {
     userHasCredentialPasswordMock.mockResolvedValue(true);
-    const result = await actions.sendOtp(makeEvent());
+    const result = await actions.sendConfirm(makeEvent());
     expect(result).toMatchObject({ status: 400 });
-    expect(storeEnrollOtpMock).not.toHaveBeenCalled();
+    expect(storeEnrollConfirmMock).not.toHaveBeenCalled();
     expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
-  it("fails 429 when the OTP send rate limit is exceeded", async () => {
+  it("fails 429 when the send rate limit is exceeded", async () => {
     otpConsumeMock.mockRejectedValue(new Error("rate limited"));
-    const result = await actions.sendOtp(makeEvent());
+    const result = await actions.sendConfirm(makeEvent());
     expect(result).toMatchObject({ status: 429 });
-    expect(storeEnrollOtpMock).not.toHaveBeenCalled();
+    expect(storeEnrollConfirmMock).not.toHaveBeenCalled();
   });
 
-  it("stores the OTP and emails it on success", async () => {
-    const result = await actions.sendOtp(makeEvent());
-    expect(storeEnrollOtpMock).toHaveBeenCalledWith("usr_1", "123456");
+  it("stores the confirm token and emails a link on success", async () => {
+    const result = await actions.sendConfirm(makeEvent());
+    expect(storeEnrollConfirmMock).toHaveBeenCalledWith("usr_1", "tok_high_entropy");
     expect(sendEmailMock).toHaveBeenCalledOnce();
-    expect(sendEmailMock.mock.calls[0][0]).toMatchObject({ to: "a@example.com" });
+    const sent = sendEmailMock.mock.calls[0][0];
+    expect(sent).toMatchObject({ to: "a@example.com" });
+    expect(sent.html).toContain("/account/two-factor/confirm?token=tok_high_entropy");
     expect(result).toEqual({ sent: true });
   });
 });
 
-describe("two-factor enable — OAuth user (email OTP)", () => {
-  it("fails 400 on a bad email OTP", async () => {
-    verifyEnrollOtpMock.mockResolvedValue(false);
-    const result = await actions.enable(makeEvent({ body: form({ otp: "000000" }) }));
+describe("two-factor enable — OAuth user (email confirm link)", () => {
+  it("fails 400 when the confirmation link has not been clicked", async () => {
+    hasEnrollConfirmedMock.mockResolvedValue(false);
+    const result = await actions.enable(makeEvent({ body: form({}) }));
     expect(result).toMatchObject({ status: 400 });
     expect(enableTwoFactorMock).not.toHaveBeenCalled();
   });
@@ -195,17 +206,18 @@ describe("two-factor enable — OAuth user (email OTP)", () => {
     expect(result).toMatchObject({ status: 403, data: { needsReauth: true } });
   });
 
-  it("calls enableTwoFactor with no password and returns totpURI + backupCodes", async () => {
-    verifyEnrollOtpMock.mockResolvedValue(true);
+  it("enables with empty body once confirmed, returns totpURI + backupCodes, clears the flag", async () => {
+    hasEnrollConfirmedMock.mockResolvedValue(true);
     enableTwoFactorMock.mockResolvedValue({
       totpURI: "otpauth://totp/NOJV:a?secret=ABC",
       backupCodes: ["aaaaa-bbbbb"],
     });
-    const result = await actions.enable(makeEvent({ body: form({ otp: "123456" }) }));
+    const result = await actions.enable(makeEvent({ body: form({}) }));
     expect(enableTwoFactorMock).toHaveBeenCalledWith({
       body: {},
       headers: expect.any(Headers),
     });
+    expect(clearEnrollConfirmedMock).toHaveBeenCalledWith("usr_1");
     expect(result).toEqual({
       totpURI: "otpauth://totp/NOJV:a?secret=ABC",
       backupCodes: ["aaaaa-bbbbb"],
@@ -219,10 +231,10 @@ describe("two-factor enable — password user", () => {
     const result = await actions.enable(makeEvent({ body: form({}) }));
     expect(result).toMatchObject({ status: 400 });
     expect(enableTwoFactorMock).not.toHaveBeenCalled();
-    expect(verifyEnrollOtpMock).not.toHaveBeenCalled();
+    expect(hasEnrollConfirmedMock).not.toHaveBeenCalled();
   });
 
-  it("passes the password to enableTwoFactor (no email OTP)", async () => {
+  it("passes the password to enableTwoFactor (no email confirm)", async () => {
     userHasCredentialPasswordMock.mockResolvedValue(true);
     enableTwoFactorMock.mockResolvedValue({
       totpURI: "otpauth://totp/NOJV:a?secret=ABC",
@@ -233,7 +245,8 @@ describe("two-factor enable — password user", () => {
       body: { password: "hunter2" },
       headers: expect.any(Headers),
     });
-    expect(verifyEnrollOtpMock).not.toHaveBeenCalled();
+    expect(hasEnrollConfirmedMock).not.toHaveBeenCalled();
+    expect(clearEnrollConfirmedMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({ totpURI: "otpauth://totp/NOJV:a?secret=ABC" });
   });
 

@@ -2,19 +2,19 @@ import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 import type { Session } from "better-auth";
 
+import { env } from "$env/dynamic/private";
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
+import { clearStepUp, userHasCredentialPassword, verifyStepUpCode } from "$lib/server/step-up";
 import {
-  clearStepUp,
-  generateOtp,
-  storeEnrollOtp,
-  userHasCredentialPassword,
-  verifyEnrollOtp,
-  verifyStepUpCode,
-} from "$lib/server/step-up";
+  clearEnrollConfirmed,
+  generateEnrollToken,
+  hasEnrollConfirmed,
+  storeEnrollConfirm,
+} from "$lib/server/two-factor-enroll";
 
 const logger = createLogger("two-factor");
 
@@ -67,8 +67,8 @@ function formString(formData: FormData, name: string): string {
   return (typeof value === "string" ? value : "").trim();
 }
 
-function otpEmailHtml(otp: string): string {
-  return `<p>有人正在為你的 NOJV 帳號啟用兩步驟驗證。</p><p>啟用碼:<strong style="font-size:1.25rem;letter-spacing:0.2em">${otp}</strong></p><p>此驗證碼 10 分鐘內有效。若你並未要求啟用,請忽略這封信並儘速確認帳號安全。</p>`;
+function confirmEmailHtml(url: string): string {
+  return `<p>有人正在為你的 NOJV 帳號啟用兩步驟驗證。</p><p>請點擊下方連結前往確認頁面,並在頁面上確認:</p><p><a href="${url}" style="display:inline-block;padding:12px 32px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:9999px;font-weight:600">確認啟用兩步驟驗證</a></p><p>此連結 10 分鐘內有效。若你並未要求啟用,請忽略這封信並儘速確認帳號安全。</p>`;
 }
 
 function enabledEmailHtml(): string {
@@ -87,18 +87,19 @@ export const load = async (event: RequestEvent) => {
     twoFactorEnabled: event.locals.sessionUser?.twoFactorEnabled ?? false,
     platformRole: event.locals.sessionUser?.platformRole ?? "student",
     hasPassword: await userHasCredentialPassword(actor.userId),
+    enrollConfirmed: await hasEnrollConfirmed(actor.userId),
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
   };
 };
 
 export const actions = {
-  sendOtp: async (event) => {
+  sendConfirm: async (event) => {
     const actor = requireAuth(event);
     if (event.locals.sessionUser?.twoFactorEnabled) {
       return fail(400, { error: "Two-factor authentication is already enabled." });
     }
     if (await userHasCredentialPassword(actor.userId)) {
-      return fail(400, { error: "Confirm your password instead of an email code." });
+      return fail(400, { error: "Confirm your password instead of an email link." });
     }
     if (!freshEnough(event.locals.session)) {
       return fail(403, { needsReauth: true });
@@ -108,12 +109,13 @@ export const actions = {
     } catch {
       return fail(429, { error: "Too many requests. Please try again later." });
     }
-    const otp = generateOtp();
-    await storeEnrollOtp(actor.userId, otp);
+    const token = generateEnrollToken();
+    await storeEnrollConfirm(actor.userId, token);
+    const confirmUrl = `${env.BETTER_AUTH_URL}/account/two-factor/confirm?token=${token}`;
     await getMailer().sendEmail({
       to: actor.email,
-      subject: "NOJV 兩步驟驗證啟用碼",
-      html: otpEmailHtml(otp),
+      subject: "NOJV 兩步驟驗證 — 確認啟用",
+      html: confirmEmailHtml(confirmUrl),
     });
     return { sent: true };
   },
@@ -125,20 +127,24 @@ export const actions = {
     }
     const formData = await event.request.formData();
     const body: { password?: string } = {};
-    if (await userHasCredentialPassword(actor.userId)) {
+    const passwordless = !(await userHasCredentialPassword(actor.userId));
+    if (!passwordless) {
       const password = formString(formData, "password");
       if (!password) {
         return fail(400, { error: "Enter your password to continue." });
       }
       body.password = password;
-    } else if (!(await verifyEnrollOtp(actor.userId, formString(formData, "otp")))) {
-      return fail(400, { error: "That email code is incorrect or expired." });
+    } else if (!(await hasEnrollConfirmed(actor.userId))) {
+      return fail(400, { error: "Click the confirmation link we emailed you, then try again." });
     }
     try {
       const res = await getAuth().api.enableTwoFactor({
         body,
         headers: event.request.headers,
       });
+      if (passwordless) {
+        await clearEnrollConfirmed(actor.userId);
+      }
       return { totpURI: res.totpURI, backupCodes: res.backupCodes };
     } catch {
       return fail(400, {

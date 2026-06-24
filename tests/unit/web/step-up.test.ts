@@ -47,17 +47,13 @@ vi.mock("$lib/auth.server", () => ({
 }));
 
 import {
-  OTP_LENGTH,
   clearStepUp,
-  generateOtp,
   hasFreshStepUp,
   isBackupCodeFormat,
   markStepUpFresh,
   markTotpSeen,
-  storeEnrollOtp,
   validateStepUpCode,
   verifyBackupCodeStepUp,
-  verifyEnrollOtp,
   verifyStepUpCode,
   verifyTotpStepUp,
   wasTotpSeen,
@@ -69,38 +65,8 @@ beforeEach(() => {
   verifyBackupCodeMock.mockReset();
 });
 
-describe("step-up — enroll OTP", () => {
-  it("generates an OTP of OTP_LENGTH digits", () => {
-    for (let i = 0; i < 50; i += 1) {
-      const otp = generateOtp();
-      expect(otp).toMatch(new RegExp(`^\\d{${OTP_LENGTH}}$`));
-    }
-  });
-
-  it("stores then verifies a correct OTP and consumes it single-use", async () => {
-    await storeEnrollOtp("usr_1", "123456");
-
-    expect(await verifyEnrollOtp("usr_1", "123456")).toBe(true);
-    expect(await verifyEnrollOtp("usr_1", "123456")).toBe(false);
-  });
-
-  it("does not persist the OTP in plaintext", async () => {
-    await storeEnrollOtp("usr_1", "123456");
-    expect([...store.map.values()]).not.toContain("123456");
-  });
-
-  it("rejects a wrong OTP", async () => {
-    await storeEnrollOtp("usr_1", "123456");
-    expect(await verifyEnrollOtp("usr_1", "000000")).toBe(false);
-  });
-
-  it("rejects when no OTP was stored", async () => {
-    expect(await verifyEnrollOtp("usr_nope", "123456")).toBe(false);
-  });
-});
-
 describe("step-up — code validation", () => {
-  it("accepts exactly OTP_LENGTH digits", () => {
+  it("accepts exactly 6 digits", () => {
     expect(validateStepUpCode("123456")).toBe(true);
   });
 
