@@ -194,7 +194,7 @@
               </span>
               {#if runResult.runtimeMs > 0}
                 <span class="text-caption text-muted-foreground tabular-nums">
-                  Runtime: {String(runResult.runtimeMs)} ms
+                  {m.submissionDetail_runtime()}: {String(runResult.runtimeMs)} ms
                 </span>
               {/if}
             </div>

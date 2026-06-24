@@ -189,7 +189,7 @@
           </span>
           {#if entry.result.runtimeMs > 0}
             <span class="text-caption text-muted-foreground tabular-nums">
-              Runtime: {String(entry.result.runtimeMs)} ms
+              {m.submissionDetail_runtime()}: {String(entry.result.runtimeMs)} ms
             </span>
           {/if}
           {#if canRejudge && entry.id}

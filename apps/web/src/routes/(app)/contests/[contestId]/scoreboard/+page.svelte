@@ -178,7 +178,7 @@
           <path d="M8 20h8M9 20l1-3h4l1 3" />
         </svg>
         <span
-          >Scoreboard · {isSolveCount
+          >{m.contestDetail_scoreboard()} · {isSolveCount
             ? m.contestScoreboard_formatSolveCount()
             : m.contestScoreboard_formatPointSum()}</span
         >

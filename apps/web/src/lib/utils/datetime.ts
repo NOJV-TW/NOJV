@@ -137,30 +137,18 @@ export function fmtCountdown(ms: number): CountdownParts {
 
 export function formatRelativeFromNow(value: string | Date, now: Date = new Date()): string {
   const d = typeof value === "string" ? new Date(value) : value;
-  const diffMs = now.getTime() - d.getTime();
-  const past = diffMs >= 0;
+  const diffMs = d.getTime() - now.getTime(); // negative = past, positive = future
   const abs = Math.abs(diffMs);
 
   const minute = 60_000;
   const hour = 60 * minute;
   const day = 24 * hour;
 
-  let value2: number;
-  let unit: "min" | "hr" | "day";
+  const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto" });
   if (abs < hour) {
-    value2 = Math.max(1, Math.round(abs / minute));
-    unit = "min";
-  } else if (abs < day) {
-    value2 = Math.round(abs / hour);
-    unit = "hr";
-  } else {
-    value2 = Math.round(abs / day);
-    unit = "day";
+    const mins = Math.round(diffMs / minute) || (diffMs < 0 ? -1 : 1);
+    return rtf.format(mins, "minute");
   }
-
-  const nonMinLabel = unit === "hr" ? "hr" : "day";
-  const unitLabel = unit === "min" ? "min" : nonMinLabel;
-  const plural = value2 === 1 ? "" : "s";
-  const count = String(value2);
-  return past ? `${count} ${unitLabel}${plural} ago` : `in ${count} ${unitLabel}${plural}`;
+  if (abs < day) return rtf.format(Math.round(diffMs / hour), "hour");
+  return rtf.format(Math.round(diffMs / day), "day");
 }

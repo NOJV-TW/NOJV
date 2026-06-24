@@ -157,7 +157,7 @@
 
       if (!response.ok) {
         const parsed = apiErrorSchema.safeParse(await response.json());
-        throw new Error(parsed.success ? parsed.data.message : "Submission failed.");
+        throw new Error(parsed.success ? parsed.data.message : m.editor_submitFailed());
       }
 
       const dispatch = submissionDispatchResponseSchema.parse(await response.json());
@@ -171,7 +171,7 @@
 
         if (!poll.ok) {
           const parsed = apiErrorSchema.safeParse(await poll.json());
-          throw new Error(parsed.success ? parsed.data.message : "Polling failed.");
+          throw new Error(parsed.success ? parsed.data.message : m.editor_submitFailed());
         }
 
         const operation = submissionOperationSchema.parse(await poll.json());
@@ -195,7 +195,7 @@
       throw new Error("Submission polling timed out.");
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
-      submitError = err instanceof Error ? err.message : "Submission failed.";
+      submitError = err instanceof Error ? err.message : m.editor_submitFailed();
     } finally {
       isSubmitting = false;
     }
