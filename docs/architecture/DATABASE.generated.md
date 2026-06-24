@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_42 models and 36 enums across 9 schema files._
+_43 models and 36 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -70,6 +70,25 @@ Indexes & constraints: `@@unique([providerId, accountId])`, `@@index([userId])`
 | `revokedBy` | `User?` | `@relation("ApiTokenRevoker", fields: [revokedById], references: [id], onDelete: SetNull)` |
 
 Indexes & constraints: `@@index([userId])`, `@@index([status])`, `@@index([expiresAt])`
+
+#### `Passkey`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id` |
+| `name` | `String?` | — |
+| `publicKey` | `String` | — |
+| `userId` | `String` | — |
+| `credentialID` | `String` | — |
+| `counter` | `Int` | — |
+| `deviceType` | `String` | — |
+| `backedUp` | `Boolean` | — |
+| `transports` | `String?` | — |
+| `aaguid` | `String?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([userId])`, `@@index([credentialID])`
 
 #### `SchoolVerificationToken`
 
@@ -171,6 +190,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `apiTokens` | `ApiToken[]` | — |
 | `revokedApiTokens` | `ApiToken[]` | `@relation("ApiTokenRevoker")` |
 | `twoFactors` | `TwoFactor[]` | — |
+| `passkeys` | `Passkey[]` | — |
 
 #### `Verification`
 

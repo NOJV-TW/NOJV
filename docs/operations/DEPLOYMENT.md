@@ -48,7 +48,6 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                                                                                                                                        |
 | `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production)                                                                                                           |
 | `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects                                                                                                                        |
-| `API_TOKEN_PEPPER`   | —                                                    | HMAC pepper for API token hashing (prod ≥32)                                                                                                            |
 | `EDGE_TRUST_SECRET`  | —                                                    | Shared secret for the Cloudflare→app edge trust header. **Required in production (≥32) — web refuses to boot without it.** See [SECURITY](SECURITY.md). |
 
 ### Web
@@ -275,7 +274,6 @@ export REDIS_URL=...
 export BETTER_AUTH_SECRET=...      # ≥32 chars
 export BETTER_AUTH_URL=...
 export EDGE_TRUST_SECRET=...       # ≥32 chars — web crashloops without it
-export API_TOKEN_PEPPER=...        # ≥32 chars — 2FA / API tokens 500 without it
 # S3-compatible object storage (required — script exits at entry if any are unset)
 export S3_ENDPOINT=...
 export S3_ACCESS_KEY=...
@@ -298,7 +296,7 @@ The script:
 
 1. Enables required GCP APIs (Artifact Registry, Cloud Build, Cloud Run, Secret Manager).
 2. Ensures the Artifact Registry repository exists.
-3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, `nojv-edge-trust-secret`, `nojv-api-token-pepper`, the five `nojv-s3-*` entries, plus optional OAuth/mailer secrets — optional ones are referenced in `--set-secrets` only when provided).
+3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, `nojv-edge-trust-secret`, the five `nojv-s3-*` entries, plus optional OAuth/mailer secrets — optional ones are referenced in `--set-secrets` only when provided).
 4. Submits Cloud Build (`infra/gcp/cloud-build/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, `migrator`, and `egress-proxy` images.
 5. Deploys the migrator Cloud Run Job (with the Cloud SQL / VPC connector flags when `CLOUD_SQL_INSTANCE` / `VPC_CONNECTOR` are set) and runs it (Prisma migrations).
 6. Deploys `web` to Cloud Run with `--ingress=internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is unreachable and all traffic must traverse GCLB → Cloud Armor → CF (see [Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)), injects all secrets from Secret Manager, and attaches the Cloud SQL instance + VPC connector so it can reach private Cloud SQL / Memorystore.
@@ -587,7 +585,6 @@ Required:
 - `BETTER_AUTH_SECRET` (≥32)
 - `BETTER_AUTH_URL`
 - `EDGE_TRUST_SECRET` (≥32 — web crashloops without it)
-- `API_TOKEN_PEPPER` (≥32 — 2FA / API tokens 500 without it)
 - `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 
 Optional OAuth values:

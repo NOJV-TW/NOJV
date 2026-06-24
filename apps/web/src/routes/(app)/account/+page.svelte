@@ -304,6 +304,12 @@
           >
             {m.account_2fa_title()}
           </a>
+          <a
+            href="/account/connections"
+            class="text-body-sm text-foreground underline-offset-4 hover:underline"
+          >
+            登入方式
+          </a>
         </div>
       </Card>
     </div>

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { createHmac } from "node:crypto";
 import path from "node:path";
 
@@ -38,6 +39,32 @@ function totp(secretBase32: string): string {
 }
 
 test.describe("API token step-up", () => {
+  // The enroll test turns on 2FA for admin and marks a fresh step-up. Undo both
+  // on the shared dev DB/Redis so the next run starts clean: leftover 2FA hangs
+  // the plain-password global setup, and a leftover step-up marker skips the
+  // /verify redirect this test asserts.
+  test.afterAll(() => {
+    const pg = (sql: string): string =>
+      execFileSync(
+        "docker",
+        ["exec", "-i", "nojv-postgres-1", "psql", "-U", "postgres", "-d", "nojv", "-tA"],
+        { input: sql, encoding: "utf8" },
+      ).trim();
+    const adminId = pg(`SELECT id FROM "User" WHERE email = 'admin@nojv.local';`);
+    pg(
+      `DELETE FROM "TwoFactor" WHERE "userId" = '${adminId}'; UPDATE "User" SET "twoFactorEnabled" = false WHERE id = '${adminId}';`,
+    );
+    if (adminId) {
+      execFileSync("docker", [
+        "exec",
+        "passwordless-stepup-2fa-redis-1",
+        "redis-cli",
+        "DEL",
+        `nojv:apitoken:stepup:${adminId}`,
+      ]);
+    }
+  });
+
   test("a user without 2FA is redirected from /account/api-tokens to enroll", async ({
     browser,
   }) => {

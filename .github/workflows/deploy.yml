@@ -54,7 +54,6 @@ jobs:
           : "${BETTER_AUTH_SECRET:?Missing BETTER_AUTH_SECRET from .env or runner environment}"
           : "${BETTER_AUTH_URL:?Missing BETTER_AUTH_URL from .env or runner environment}"
           : "${EDGE_TRUST_SECRET:?Missing EDGE_TRUST_SECRET from .env or runner environment (web crashloops in prod without it, ≥32 chars)}"
-          : "${API_TOKEN_PEPPER:?Missing API_TOKEN_PEPPER from .env or runner environment (2FA / API tokens 500 without it, ≥32 chars)}"
           : "${S3_ENDPOINT:?Missing S3_ENDPOINT from .env or runner environment}"
           : "${S3_ACCESS_KEY:?Missing S3_ACCESS_KEY from .env or runner environment}"
           : "${S3_SECRET_KEY:?Missing S3_SECRET_KEY from .env or runner environment}"
@@ -73,7 +72,6 @@ jobs:
 
           echo "::add-mask::$BETTER_AUTH_SECRET"
           echo "::add-mask::$EDGE_TRUST_SECRET"
-          echo "::add-mask::$API_TOKEN_PEPPER"
           echo "::add-mask::$S3_SECRET_KEY"
           [[ -n "${RESEND_API_KEY:-}" ]] && echo "::add-mask::$RESEND_API_KEY"
           [[ -n "${POSTGRES_PASSWORD:-}" ]] && echo "::add-mask::$POSTGRES_PASSWORD"
@@ -85,7 +83,6 @@ jobs:
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
             echo "BETTER_AUTH_URL=$BETTER_AUTH_URL"
             echo "EDGE_TRUST_SECRET=$EDGE_TRUST_SECRET"
-            echo "API_TOKEN_PEPPER=$API_TOKEN_PEPPER"
             echo "RESEND_API_KEY=${RESEND_API_KEY:-}"
             echo "EMAIL_FROM_DOMAIN=${EMAIL_FROM_DOMAIN:-}"
             echo "DEPLOY_WITH_SEED=$DEPLOY_WITH_SEED"

@@ -39,6 +39,7 @@ export const TABLES = [
   "SchoolVerificationToken",
   "Verification",
   "TwoFactor",
+  "Passkey",
   "Session",
   "ApiToken",
   "Account",
