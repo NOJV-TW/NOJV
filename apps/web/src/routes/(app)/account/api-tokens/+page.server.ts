@@ -3,7 +3,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { ForbiddenError, requireAuth } from "$lib/server/auth";
-import { hasFreshStepUp } from "$lib/server/step-up";
+import { hasFreshStepUp, hasStepUpFactor } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 function readString(formData: FormData, name: string): string {
@@ -39,7 +39,7 @@ export const load = async (event: RequestEvent) => {
 
   const actor = requireAuth(event);
 
-  if (!event.locals.sessionUser?.twoFactorEnabled) {
+  if (!(await hasStepUpFactor(event))) {
     redirect(302, "/account/two-factor?returnTo=" + encodeURIComponent("/account/api-tokens"));
   }
   if (!(await hasFreshStepUp(actor.userId))) {
@@ -60,8 +60,8 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      if (!event.locals.sessionUser?.twoFactorEnabled) {
-        throw new ForbiddenError("Two-factor authentication required.");
+      if (!(await hasStepUpFactor(event))) {
+        throw new ForbiddenError("Two-factor authentication or a passkey is required.");
       }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");
@@ -85,8 +85,8 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      if (!event.locals.sessionUser?.twoFactorEnabled) {
-        throw new ForbiddenError("Two-factor authentication required.");
+      if (!(await hasStepUpFactor(event))) {
+        throw new ForbiddenError("Two-factor authentication or a passkey is required.");
       }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");
@@ -111,8 +111,8 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      if (!event.locals.sessionUser?.twoFactorEnabled) {
-        throw new ForbiddenError("Two-factor authentication required.");
+      if (!(await hasStepUpFactor(event))) {
+        throw new ForbiddenError("Two-factor authentication or a passkey is required.");
       }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");
@@ -133,8 +133,8 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      if (!event.locals.sessionUser?.twoFactorEnabled) {
-        throw new ForbiddenError("Two-factor authentication required.");
+      if (!(await hasStepUpFactor(event))) {
+        throw new ForbiddenError("Two-factor authentication or a passkey is required.");
       }
       if (!(await hasFreshStepUp(actor.userId))) {
         throw new ForbiddenError("Step-up verification required.");

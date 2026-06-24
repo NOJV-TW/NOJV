@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   hasFreshStepUpMock,
+  hasStepUpFactorMock,
   markStepUpFreshMock,
   verifyStepUpCodeMock,
   createApiTokenMock,
@@ -11,6 +12,7 @@ const {
   revokeApiTokenMock,
 } = vi.hoisted(() => ({
   hasFreshStepUpMock: vi.fn(),
+  hasStepUpFactorMock: vi.fn(),
   markStepUpFreshMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
   createApiTokenMock: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock("$lib/server/step-up", async () => {
   return {
     ...actual,
     hasFreshStepUp: hasFreshStepUpMock,
+    hasStepUpFactor: hasStepUpFactorMock,
     markStepUpFresh: markStepUpFreshMock,
     verifyStepUpCode: verifyStepUpCodeMock,
   };
@@ -96,6 +99,7 @@ async function caught(
 
 beforeEach(() => {
   hasFreshStepUpMock.mockReset();
+  hasStepUpFactorMock.mockReset().mockResolvedValue(true);
   markStepUpFreshMock.mockReset().mockResolvedValue(undefined);
   verifyStepUpCodeMock.mockReset();
   createApiTokenMock.mockReset();
@@ -112,10 +116,9 @@ describe("api-tokens load gate", () => {
     expect(thrown.location).toBe("/account/api-tokens/verify");
   });
 
-  it("redirects to enroll when 2FA is not enabled", async () => {
-    const event = makeEvent();
-    (event.locals.sessionUser as { twoFactorEnabled: boolean }).twoFactorEnabled = false;
-    const thrown = await caught(() => load(event));
+  it("redirects to enroll when there is no step-up factor (no 2FA, no passkey)", async () => {
+    hasStepUpFactorMock.mockResolvedValue(false);
+    const thrown = await caught(() => load(makeEvent()));
     expect(thrown.status).toBe(302);
     expect(thrown.location).toBe(
       "/account/two-factor?returnTo=" + encodeURIComponent("/account/api-tokens"),
@@ -142,12 +145,11 @@ describe("api-tokens action guard", () => {
   );
 
   it.each(guardedActions)(
-    "%s returns fail(403) when the marker is fresh but 2FA is disabled",
+    "%s returns fail(403) when the marker is fresh but there is no step-up factor",
     async (_name, getAction, domainMock) => {
       hasFreshStepUpMock.mockResolvedValue(true);
-      const event = makeEvent();
-      (event.locals.sessionUser as { twoFactorEnabled: boolean }).twoFactorEnabled = false;
-      const result = await getAction()(event);
+      hasStepUpFactorMock.mockResolvedValue(false);
+      const result = await getAction()(makeEvent());
       expect(result).toMatchObject({ status: 403 });
       expect(domainMock).not.toHaveBeenCalled();
     },

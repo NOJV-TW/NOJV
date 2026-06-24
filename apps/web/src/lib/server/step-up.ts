@@ -1,3 +1,5 @@
+import type { RequestEvent } from "@sveltejs/kit";
+
 import { accountRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 
@@ -58,6 +60,17 @@ export async function verifyBackupCodeStepUp(code: string, headers: Headers): Pr
 
 export function userHasCredentialPassword(userId: string): Promise<boolean> {
   return accountRepo.hasCredentialPassword(userId);
+}
+
+/**
+ * A user can complete a step-up if they have an enrolled factor — TOTP/2FA or a
+ * passkey. Both are provider-independent, so this is the same gate for password
+ * and OAuth-only accounts.
+ */
+export async function hasStepUpFactor(event: RequestEvent): Promise<boolean> {
+  if (event.locals.sessionUser?.twoFactorEnabled) return true;
+  const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
+  return passkeys.length > 0;
 }
 
 export type StepUpVerifyResult =

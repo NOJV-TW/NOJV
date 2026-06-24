@@ -67,8 +67,10 @@ test("a verified passkey assertion marks a fresh step-up", async ({ page, contex
 
   // 3. step up with the passkey
   await page.getByRole("button", { name: "使用 passkey 驗證" }).click();
-  await page.waitForTimeout(3000);
 
-  // 4. the verified-assertion hook marked a fresh step-up
+  // 4. the widened gate lets the passkey-only user (no TOTP) reach token management
+  await page.waitForURL(/\/account\/api-tokens$/, { timeout: 15000 });
+
+  // 5. the verified-assertion hook marked a fresh step-up
   expect(redis("GET", `nojv:apitoken:stepup:${userId}`)).toBe("1");
 });
