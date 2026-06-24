@@ -17,6 +17,7 @@ const {
   examFindById,
   examProblemExists,
   txContestProblemFindFirst,
+  proctoringGateInTx,
   storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
@@ -33,6 +34,7 @@ const {
   examFindById: vi.fn(),
   examProblemExists: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
+  proctoringGateInTx: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
@@ -87,6 +89,10 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(
     fn: (tx: { $executeRaw: typeof vi.fn }) => Promise<T>,
   ): Promise<T> => fn({ $executeRaw: vi.fn().mockResolvedValue(0) }),
+}));
+
+vi.mock("../../../packages/application/src/proctoring/gate", () => ({
+  checkProctoringGateInTx: proctoringGateInTx,
 }));
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
@@ -257,6 +263,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     setupCommonProblemDefaults();
+    proctoringGateInTx.mockResolvedValue({ ok: true });
     txContestProblemFindFirst.mockResolvedValue({ id: "cp_1" });
     examProblemExists.mockResolvedValue(true);
     contestRepoFindById.mockResolvedValue({
@@ -365,7 +372,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     expect(arg.examId).toBeNull();
   });
 
-  it("does NOT reject based on clientIp at this layer (exam IP gating lives elsewhere)", async () => {
+  it("does NOT reject based on clientIp when there is no active exam session", async () => {
     examSessionFindActiveForUser.mockResolvedValue(null);
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 
@@ -377,6 +384,40 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     await expect(
       createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, fakeIp),
     ).resolves.toBeDefined();
+  });
+
+  it("enforces the exam IP gate on submission — blocks a wrong-IP token submission (P2)", async () => {
+    examSessionFindActiveForUser.mockResolvedValue({
+      examId: "exam_42",
+      userId: fakeActor.userId,
+    });
+    examProblemExists.mockResolvedValue(true);
+    proctoringGateInTx.mockResolvedValue({ ok: false, reason: "ip_binding" });
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "203.0.113.99"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(proctoringGateInTx).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ entityKind: "exam", entityId: "exam_42", ip: "203.0.113.99" }),
+    );
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows a matching-IP submission during an IP-bound exam (gate ok)", async () => {
+    examSessionFindActiveForUser.mockResolvedValue({
+      examId: "exam_42",
+      userId: fakeActor.userId,
+    });
+    examProblemExists.mockResolvedValue(true);
+    proctoringGateInTx.mockResolvedValue({ ok: true });
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+
+    await expect(
+      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "10.0.0.1"),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -42,6 +42,7 @@ import { ensureContestParticipation, checkSubmitCooldown } from "../contest/muta
 import { checkExamSubmitCooldown } from "../exam/mutations";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
+import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
 import type { CompletedSubmission } from "./types";
 
@@ -59,13 +60,14 @@ async function assertActiveExamSubmissionAllowed(
   tx: TransactionClient,
   ctx: {
     activeExamSession: ActiveExamSession;
+    clientIp: string;
     courseContext: SubmissionCourseContext | null;
     payload: SubmissionDraft;
     problem: SubmissionProblem;
     user: SubmissionUser;
   },
 ): Promise<void> {
-  const { activeExamSession, courseContext, payload, problem, user } = ctx;
+  const { activeExamSession, clientIp, courseContext, payload, problem, user } = ctx;
   if (courseContext || payload.contestId || payload.participationId) {
     throw new ForbiddenError(
       "You are in an active exam — submissions cannot carry an external assignment or contest context.",
@@ -80,6 +82,18 @@ async function assertActiveExamSubmissionAllowed(
   const inExam = await examProblemRepo.withTx(tx).exists(activeExamSession.examId, problem.id);
   if (!inExam) {
     throw new ForbiddenError("This problem is not part of the exam.");
+  }
+
+  const gate = await checkProctoringGateInTx(tx, {
+    entityKind: "exam",
+    entityId: activeExamSession.examId,
+    userId: user.id,
+    ip: clientIp,
+  });
+  if (!gate.ok && (gate.reason === "ip_binding" || gate.reason === "ip_whitelist")) {
+    throw new ForbiddenError(
+      "Submission blocked: your network does not match the exam's IP restrictions.",
+    );
   }
 
   if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
@@ -228,6 +242,7 @@ export async function createQueuedSubmissionRecord(
     if (activeExamSession && actor.platformRole !== "admin") {
       await assertActiveExamSubmissionAllowed(tx, {
         activeExamSession,
+        clientIp,
         courseContext,
         payload,
         problem,

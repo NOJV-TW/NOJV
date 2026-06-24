@@ -627,6 +627,7 @@
     onOpenChange={(v) => (showStartModal = v)}
     examTitle={detail.title}
     problemCount={detail.problems.length}
+    firstProblemId={detail.problems[0]?.id}
     {durationMinutes}
   />
 {/if}

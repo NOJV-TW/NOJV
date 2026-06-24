@@ -118,6 +118,7 @@ services:
 
   migrator:
     profiles: ["deploy"]
+    image: nojv-migrator:latest
     build:
       context: .
       dockerfile: infra/docker/migrator.Dockerfile
@@ -131,6 +132,7 @@ services:
   web:
     profiles: ["prod"]
     restart: unless-stopped
+    image: nojv-web:latest
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
@@ -189,6 +191,7 @@ services:
   worker:
     profiles: ["prod"]
     restart: unless-stopped
+    image: nojv-worker:latest
     build:
       context: .
       dockerfile: infra/docker/worker.Dockerfile
