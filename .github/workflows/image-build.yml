@@ -1,0 +1,42 @@
+name: Image Build
+
+on:
+  pull_request:
+    paths:
+      - "infra/docker/**"
+      - "pnpm-lock.yaml"
+      - "**/package.json"
+      - "docker-compose.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/docker/**"
+      - "pnpm-lock.yaml"
+      - "**/package.json"
+      - "docker-compose.yml"
+
+concurrency:
+  group: image-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build deployable images
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build web + worker (prod profile)
+        run: docker compose --profile prod build web worker
+
+      - name: Build migrator
+        run: docker compose --profile deploy build migrator
