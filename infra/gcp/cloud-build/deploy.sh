@@ -85,7 +85,6 @@ require_env S3_SECRET_KEY
 require_env S3_BUCKET
 require_env S3_REGION
 require_env EDGE_TRUST_SECRET
-require_env API_TOKEN_PEPPER
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
@@ -111,7 +110,6 @@ upsert_secret nojv-s3-secret-key "$S3_SECRET_KEY"
 upsert_secret nojv-s3-bucket "$S3_BUCKET"
 upsert_secret nojv-s3-region "$S3_REGION"
 upsert_secret nojv-edge-trust-secret "$EDGE_TRUST_SECRET"
-upsert_secret nojv-api-token-pepper "$API_TOKEN_PEPPER"
 
 WEB_SECRETS="DATABASE_URL=nojv-database-url:latest"
 WEB_SECRETS+=",REDIS_URL=nojv-redis-url:latest"
@@ -123,7 +121,6 @@ WEB_SECRETS+=",S3_SECRET_KEY=nojv-s3-secret-key:latest"
 WEB_SECRETS+=",S3_BUCKET=nojv-s3-bucket:latest"
 WEB_SECRETS+=",S3_REGION=nojv-s3-region:latest"
 WEB_SECRETS+=",EDGE_TRUST_SECRET=nojv-edge-trust-secret:latest"
-WEB_SECRETS+=",API_TOKEN_PEPPER=nojv-api-token-pepper:latest"
 
 append_optional_secret() {
   local env_var="$1"

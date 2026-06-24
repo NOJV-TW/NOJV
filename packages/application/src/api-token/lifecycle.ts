@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { apiTokenRepo } from "@nojv/db";
 import {
@@ -8,13 +8,7 @@ import {
   type PlatformRole,
 } from "@nojv/core";
 
-import {
-  ConfigurationError,
-  ForbiddenError,
-  HttpError,
-  NotFoundError,
-  ValidationError,
-} from "../shared/errors";
+import { ForbiddenError, HttpError, NotFoundError, ValidationError } from "../shared/errors";
 import { assertApiTokenRuleAccess, type MatchedApiTokenRouteRule } from "./acl";
 
 const TOKEN_PREFIX = "nojv_live";
@@ -115,26 +109,8 @@ function parseToken(token: string): { prefix: string } | null {
   return prefix ? { prefix } : null;
 }
 
-// Tokens are 256-bit random secrets, so a fast hash is cryptographically
-// adequate; the server-side pepper adds defense-in-depth: a DB-only leak
-// cannot be used to verify or forge tokens offline without it.
-const DEV_API_TOKEN_PEPPER = "nojv-dev-api-token-pepper-not-for-production";
-
-export function apiTokenPepper(): string {
-  const fromEnv = process.env.API_TOKEN_PEPPER;
-  if (process.env.NODE_ENV === "production") {
-    if (!fromEnv || fromEnv.length < 32) {
-      throw new ConfigurationError(
-        "API_TOKEN_PEPPER is required in production and must be at least 32 characters.",
-      );
-    }
-    return fromEnv;
-  }
-  return fromEnv && fromEnv.length > 0 ? fromEnv : DEV_API_TOKEN_PEPPER;
-}
-
 function hashToken(token: string): string {
-  return createHmac("sha256", apiTokenPepper()).update(token).digest("base64url");
+  return createHash("sha256").update(token).digest("base64url");
 }
 
 function tokenHashMatches(storedHash: string, presentedHash: string): boolean {

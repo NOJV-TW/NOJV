@@ -73,6 +73,7 @@ model User {
   apiTokens                      ApiToken[]
   revokedApiTokens               ApiToken[]                   @relation("ApiTokenRevoker")
   twoFactors                     TwoFactor[]
+  passkeys                       Passkey[]
 }
 
 model TwoFactor {
@@ -85,6 +86,24 @@ model TwoFactor {
 
   @@index([secret])
   @@index([userId])
+}
+
+model Passkey {
+  id           String   @id
+  name         String?
+  publicKey    String
+  userId       String
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  aaguid       String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([credentialID])
 }
 
 model Session {
