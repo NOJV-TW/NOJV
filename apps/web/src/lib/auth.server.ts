@@ -1,3 +1,4 @@
+import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { twoFactor, username } from "better-auth/plugins";
@@ -137,6 +138,11 @@ function createAuth() {
         },
       }),
       twoFactor({ issuer: "NOJV", allowPasswordless: true }),
+      passkey({
+        rpID: new URL(env.BETTER_AUTH_URL).hostname,
+        rpName: "NOJV",
+        origin: env.BETTER_AUTH_URL,
+      }),
     ],
   });
 }

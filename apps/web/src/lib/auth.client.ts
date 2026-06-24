@@ -1,3 +1,4 @@
+import { passkeyClient } from "@better-auth/passkey/client";
 import { createAuthClient } from "better-auth/svelte";
 import {
   inferAdditionalFields,
@@ -11,6 +12,7 @@ export const authClient = createAuthClient({
   plugins: [
     usernameClient(),
     twoFactorClient(),
+    passkeyClient(),
     inferAdditionalFields<ReturnType<typeof getAuth>>(),
   ],
 });
