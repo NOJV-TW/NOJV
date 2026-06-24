@@ -8,11 +8,10 @@ describe("problem seed hardening", () => {
       validateProblemDefinitions([
         {
           authorId: "teacher",
-          defaultTitle: "Broken Interactive",
-          difficulty: "hard",
+          type: "full_source",
+          title: "Broken Interactive",
           id: "problem_broken-interactive",
           memoryLimitMb: 256,
-          summary: "broken",
           timeLimitMs: 1000,
           visibility: "public",
           judgeConfig: { type: "interactive" },
@@ -38,11 +37,10 @@ describe("problem seed hardening", () => {
       validateProblemDefinitions([
         {
           authorId: "teacher",
-          defaultTitle: "Broken Checker",
-          difficulty: "hard",
+          type: "full_source",
+          title: "Broken Checker",
           id: "problem_broken-checker",
           memoryLimitMb: 256,
-          summary: "broken",
           timeLimitMs: 1000,
           visibility: "public",
           judgeConfig: { type: "checker" },

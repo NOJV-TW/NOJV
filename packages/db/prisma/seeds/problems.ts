@@ -1254,17 +1254,26 @@ export async function seedProblems(
   validateProblemDefinitions(problemDefs);
 
   for (const def of problemDefs) {
-    const judgeConfig = await persistJudgeConfig(storage, def.id, def.judgeConfig);
+    const judgeConfig = await persistJudgeConfig(
+      storage as unknown as SeedStorageClient,
+      def.id,
+      def.judgeConfig,
+    );
 
+    const samples = toSamplesJson(def.samples);
     const sharedFields = {
       title: def.title,
       difficulty: pickSeedDifficulty(def.tags),
       tags: stripDifficultyTags(def.tags),
       type: def.type,
-      judgeConfig,
       status: def.status ?? "published",
-      samples: toSamplesJson(def.samples),
-      ...(def.advancedConfig ? { advancedConfig: def.advancedConfig } : {}),
+      ...(judgeConfig !== undefined
+        ? { judgeConfig: judgeConfig as unknown as Prisma.InputJsonValue }
+        : {}),
+      ...(samples !== undefined ? { samples } : {}),
+      ...(def.advancedConfig
+        ? { advancedConfig: def.advancedConfig as unknown as Prisma.InputJsonValue }
+        : {}),
     };
 
     const problem = await prisma.problem.upsert({

@@ -102,7 +102,7 @@ const teacherActor = {
 const studentActor = {
   userId: "usr_student",
   username: "student",
-  platformRole: "user" as const,
+  platformRole: "student" as const,
   displayName: "Student One",
   email: "student@example.com",
 };
