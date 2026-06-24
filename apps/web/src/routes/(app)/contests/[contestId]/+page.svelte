@@ -95,6 +95,43 @@
   );
 </script>
 
+<!-- Defined at the component root (not inside <PageContainer>) so it stays a
+     local snippet instead of being treated as a snippet prop of PageContainer. -->
+{#snippet actionButtons()}
+  {#if canSetOverride}
+    {#if isPast}
+      <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
+        {m.grading_openButton()}
+      </Button>
+    {:else}
+      <span class="inline-flex items-center text-caption text-muted-foreground">
+        {m.grading_availableAfterClose()}
+      </span>
+    {/if}
+  {/if}
+  <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
+    {m.contestDetail_actionScoreboard()}
+  </Button>
+  {#if isPast}
+    <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/upsolve`)}>
+      {m.contestDetail_actionUpsolve()}
+    </Button>
+    <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/virtual`)}>
+      {m.contestDetail_actionVirtual()}
+    </Button>
+  {/if}
+  {#if primaryHref}
+    <Button onclick={() => void goto(primaryHref)}>
+      {#if isLive}
+        <span class="size-1.5 rounded-full bg-white"></span>
+      {/if}
+      {primaryLabel}
+    </Button>
+  {:else}
+    <Button disabled>{primaryLabel}</Button>
+  {/if}
+{/snippet}
+
 <PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[{ label: m.navigation_contests(), href: "/contests" }, { label: contest.id }]}
@@ -167,66 +204,34 @@
     </div>
   </div>
 
-  <div class="flex flex-wrap items-center gap-3">
-    <div class="ml-auto flex flex-wrap gap-3">
-      {#if canSetOverride}
-        {#if isPast}
-          <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
-            {m.grading_openButton()}
-          </Button>
-        {:else}
-          <span class="inline-flex items-center text-caption text-muted-foreground">
-            {m.grading_availableAfterClose()}
-          </span>
-        {/if}
-      {/if}
-      <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
-        {m.contestDetail_actionScoreboard()}
-      </Button>
-      {#if isPast}
-        <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/upsolve`)}>
-          {m.contestDetail_actionUpsolve()}
-        </Button>
-        <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/virtual`)}>
-          {m.contestDetail_actionVirtual()}
-        </Button>
-      {/if}
-      {#if primaryHref}
-        <Button onclick={() => void goto(primaryHref)}>
-          {#if isLive}
-            <span class="size-1.5 rounded-full bg-white"></span>
-          {/if}
-          {primaryLabel}
-        </Button>
-      {:else}
-        <Button disabled>{primaryLabel}</Button>
-      {/if}
-    </div>
-  </div>
-
   {#if isManager}
-    <div
-      role="tablist"
-      aria-label={m.contestDetail_subTabsLabel()}
-      class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
-    >
-      {#each subTabs as tab (tab.key)}
-        {@const isActive = activeSubTab === tab.key}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={isActive}
-          onclick={() => (activeSubTab = tab.key)}
-          class={cn(
-            "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
-            isActive
-              ? "bg-[color:var(--color-primary)]/14 text-primary"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {tab.label}
-        </button>
-      {/each}
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div
+        role="tablist"
+        aria-label={m.contestDetail_subTabsLabel()}
+        class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
+      >
+        {#each subTabs as tab (tab.key)}
+          {@const isActive = activeSubTab === tab.key}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onclick={() => (activeSubTab = tab.key)}
+            class={cn(
+              "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
+              isActive
+                ? "bg-[color:var(--color-primary)]/14 text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {tab.label}
+          </button>
+        {/each}
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        {@render actionButtons()}
+      </div>
     </div>
 
     {#if activeSubTab === "problems"}
@@ -298,6 +303,9 @@
       </GlassPanel>
     {/if}
   {:else}
+    <div class="flex flex-wrap items-center justify-end gap-3">
+      {@render actionButtons()}
+    </div>
     <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
       <ContestProblemsTab
         problems={contest.problems}
