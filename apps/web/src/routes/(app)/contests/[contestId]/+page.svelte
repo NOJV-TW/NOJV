@@ -83,14 +83,14 @@
     isLive && firstProblem
       ? `/contests/${contest.id}/problems/${firstProblem.id}`
       : isPast
-        ? `/contests/${contest.id}/scoreboard`
+        ? `/contests/${contest.id}/upsolve`
         : null,
   );
   const primaryLabel = $derived(
     isLive
       ? m.contestDetail_ctaEnter()
       : isPast
-        ? m.contestDetail_ctaViewSolutions()
+        ? m.contestDetail_actionUpsolve()
         : m.contestDetail_ctaNotStarted(),
   );
 </script>
@@ -113,9 +113,6 @@
     {m.contestDetail_actionScoreboard()}
   </Button>
   {#if isPast}
-    <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/upsolve`)}>
-      {m.contestDetail_actionUpsolve()}
-    </Button>
     <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/virtual`)}>
       {m.contestDetail_actionVirtual()}
     </Button>
