@@ -79,6 +79,10 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@nojv/eslint-config": "workspace:*",
+    "@temporalio/activity": "catalog:",
+    "@temporalio/testing": "catalog:",
+    "@temporalio/worker": "catalog:",
+    "@temporalio/workflow": "catalog:",
     "@nojv/prettier-config": "workspace:*",
     "@playwright/test": "catalog:",
     "@prisma/adapter-pg": "catalog:",
