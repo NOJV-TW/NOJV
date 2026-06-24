@@ -128,7 +128,7 @@ describe("production web secret parity across deploy surfaces", () => {
   const deploySh = readFileSync(join(repoRoot, "infra/gcp/cloud-build/deploy.sh"), "utf8");
   const compose = readFileSync(join(repoRoot, "docker-compose.yml"), "utf8");
 
-  const requiredWebEnv = ["API_TOKEN_PEPPER", "EDGE_TRUST_SECRET", "S3_REGION"] as const;
+  const requiredWebEnv = ["EDGE_TRUST_SECRET", "S3_REGION"] as const;
 
   it.each(requiredWebEnv)("web.cloudrun.yaml provides %s", (key) => {
     expect(containerEnvNames(cloudRun, /\0/).has(key)).toBe(true);
@@ -138,7 +138,7 @@ describe("production web secret parity across deploy surfaces", () => {
     expect(deploySh.includes(key)).toBe(true);
   });
 
-  it.each(["API_TOKEN_PEPPER", "EDGE_TRUST_SECRET"] as const)(
+  it.each(["EDGE_TRUST_SECRET"] as const)(
     "docker-compose web service provides %s",
     (key) => {
       expect(compose.includes(`${key}:`)).toBe(true);

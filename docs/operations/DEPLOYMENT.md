@@ -48,7 +48,6 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                                                                                                                                        |
 | `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production)                                                                                                           |
 | `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects                                                                                                                        |
-| `API_TOKEN_PEPPER`   | —                                                    | HMAC pepper for API token hashing (prod ≥32)                                                                                                            |
 | `EDGE_TRUST_SECRET`  | —                                                    | Shared secret for the Cloudflare→app edge trust header. **Required in production (≥32) — web refuses to boot without it.** See [SECURITY](SECURITY.md). |
 
 ### Web
@@ -275,7 +274,6 @@ export REDIS_URL=...
 export BETTER_AUTH_SECRET=...      # ≥32 chars
 export BETTER_AUTH_URL=...
 export EDGE_TRUST_SECRET=...       # ≥32 chars — web crashloops without it
-export API_TOKEN_PEPPER=...        # ≥32 chars — 2FA / API tokens 500 without it
 # S3-compatible object storage (required — script exits at entry if any are unset)
 export S3_ENDPOINT=...
 export S3_ACCESS_KEY=...
@@ -587,7 +585,6 @@ Required:
 - `BETTER_AUTH_SECRET` (≥32)
 - `BETTER_AUTH_URL`
 - `EDGE_TRUST_SECRET` (≥32 — web crashloops without it)
-- `API_TOKEN_PEPPER` (≥32 — 2FA / API tokens 500 without it)
 - `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 
 Optional OAuth values:
