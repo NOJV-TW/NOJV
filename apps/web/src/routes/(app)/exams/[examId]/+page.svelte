@@ -128,7 +128,13 @@
   );
 
   let showOverrideDrawer = $state(false);
+  let overridePrefill = $state<{ userId: string; problemId: string } | null>(null);
   const canSetOverride = $derived(data.canSetOverride ?? false);
+
+  function gradeCell(userId: string, problemId: string) {
+    overridePrefill = { userId, problemId };
+    showOverrideDrawer = true;
+  }
   const overrideStudents = $derived(
     data.matrix
       ? data.matrix.rows.map((r) => ({
@@ -561,7 +567,11 @@
 
     {#if activeSubTabKey === "submissions" && data.matrix}
       <GlassPanel class="p-5">
-        <ExamSubmissionsMatrix matrix={data.matrix} examId={detail.id} />
+        <ExamSubmissionsMatrix
+          matrix={data.matrix}
+          examId={detail.id}
+          oncellclick={canSetOverride ? gradeCell : undefined}
+        />
       </GlassPanel>
     {:else if activeSubTabKey === "results" && data.results}
       <GlassPanel class="p-5">
@@ -635,10 +645,14 @@
 {#if canSetOverride}
   <ScoreOverrideDrawer
     open={showOverrideDrawer}
-    onOpenChange={(v) => (showOverrideDrawer = v)}
+    onOpenChange={(v) => {
+      showOverrideDrawer = v;
+      if (!v) overridePrefill = null;
+    }}
     contextType="exam"
     contextId={detail.id}
     students={overrideStudents}
     problems={overrideProblems}
+    prefill={overridePrefill}
   />
 {/if}

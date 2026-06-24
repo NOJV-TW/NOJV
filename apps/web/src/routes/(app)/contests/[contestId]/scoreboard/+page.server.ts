@@ -17,6 +17,7 @@ const {
 
 export const load: PageServerLoad = handleLoad(async (event) => {
   const { contestId } = event.params;
+  event.depends("contest:scoreboard");
   const actor = getActorContext(event);
 
   const canSeeLive = await canViewLiveContestScoreboard(contestId, actor);

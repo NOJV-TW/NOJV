@@ -33,7 +33,6 @@ vi.mock("@nojv/redis", () => ({
   }),
   keys: {
     apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
-    twoFactorEnrollOtp: (userId: string) => `nojv:2fa:enroll-otp:${userId}`,
     twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,
   },
 }));

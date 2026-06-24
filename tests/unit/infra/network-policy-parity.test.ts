@@ -37,7 +37,12 @@ function denyAllSelectorExpressions(yaml: string): { key: string; operator: stri
 }
 
 function executorLabelSets(): Record<string, string>[] {
-  const src = readFileSync(join(repoRoot, "apps/worker/src/services/k8s-executor.ts"), "utf8");
+  const src = [
+    "apps/worker/src/services/k8s-executor.ts",
+    "apps/worker/src/services/k8s-job-manifests.ts",
+  ]
+    .map((p) => readFileSync(join(repoRoot, p), "utf8"))
+    .join("\n");
   const sets: Record<string, string>[] = [];
   for (const block of src.matchAll(/labels:\s*\{([^}]*)\}/g)) {
     const set: Record<string, string> = {};

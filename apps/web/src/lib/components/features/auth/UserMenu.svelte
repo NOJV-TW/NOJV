@@ -20,10 +20,21 @@
     open = false;
   }
 
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape") {
+      open = false;
+      btnEl?.focus();
+    }
+  }
+
   $effect(() => {
     if (open) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeydown);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("keydown", handleKeydown);
+      };
     }
   });
 

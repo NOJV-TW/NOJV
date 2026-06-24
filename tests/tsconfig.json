@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "types": ["node"],
+    "verbatimModuleSyntax": false,
+    "isolatedModules": false,
+    "noUncheckedIndexedAccess": false,
+    "paths": {
+      "@nojv/core": ["../packages/core/src/index.ts"],
+      "@nojv/db": ["../packages/db/src/index.ts"],
+      "@nojv/application": ["../packages/application/src/index.ts"],
+      "@nojv/redis": ["../packages/redis/src/index.ts"],
+      "@nojv/storage": ["../packages/storage/src/index.ts"],
+      "@nojv/temporal": ["../packages/temporal/src/index.ts"]
+    }
+  },
+  "include": ["unit/domain/**/*.ts", "unit/core/**/*.ts"]
+}

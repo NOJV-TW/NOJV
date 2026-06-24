@@ -31,7 +31,14 @@ vi.mock("@nojv/db", () => ({
 }));
 
 vi.mock("@nojv/redis", () => ({
-  scoreboard: {},
+  getRedis: () => ({
+    get: async () => null,
+    set: async () => "OK",
+    del: async () => 0,
+  }),
+  keys: {
+    scoreboardCache: (contestId: string, variant: string) => `sb:${contestId}:${variant}`,
+  },
 }));
 
 import { contestDomain } from "@nojv/application";
