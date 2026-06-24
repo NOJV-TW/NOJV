@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { apiTokenRepo } from "@nojv/db";
 import {
@@ -134,7 +134,7 @@ export function apiTokenPepper(): string {
 }
 
 function hashToken(token: string): string {
-  return createHmac("sha256", apiTokenPepper()).update(token).digest("base64url");
+  return createHash("sha256").update(token).digest("base64url");
 }
 
 function tokenHashMatches(storedHash: string, presentedHash: string): boolean {
