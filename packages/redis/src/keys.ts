@@ -10,6 +10,7 @@ export const keys = {
     `nojv:clarification:${contextType}:${contextId}`,
 
   apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
-  twoFactorEnrollOtp: (userId: string) => `nojv:2fa:enroll-otp:${userId}`,
+  twoFactorEnrollConfirm: (tokenHash: string) => `nojv:2fa:enroll-confirm:${tokenHash}`,
+  twoFactorEnrollConfirmed: (userId: string) => `nojv:2fa:enroll-confirmed:${userId}`,
   twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,
 } as const;
