@@ -51,8 +51,6 @@
 
   let countdown = $derived(formatCountdown(remainingMs));
 
-  // Announce only at thresholds — a per-second aria-live region reads the full
-  // HH:MM:SS aloud every second, drowning out everything else for the whole exam.
   const announceThresholdsSec = [600, 300, 60];
   const announced = new Set<number>();
   let srAnnouncement = $state("");

@@ -11,7 +11,6 @@
 </div>
 
 <style>
-  /* Wide display math overflows the resizable solve panel; scroll it instead of clipping. */
   .markdown-content :global(.katex-display) {
     overflow-x: auto;
     overflow-y: hidden;

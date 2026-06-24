@@ -18,8 +18,6 @@ let recoveryListenersRegistered = false;
 
 const clarificationSubs = new Set<string>();
 
-// Force an immediate reconnect when the tab refocuses or the network returns,
-// so a long outage doesn't leave notifications/clarifications silently dead.
 function registerRecoveryListeners(): void {
   if (!browser || recoveryListenersRegistered) return;
   recoveryListenersRegistered = true;
@@ -87,8 +85,6 @@ export function connectSSE() {
     }
     eventSource?.close();
     eventSource = null;
-    // Keep retrying at a capped interval instead of giving up after N attempts —
-    // online/visibilitychange listeners also force an immediate reconnect.
     const delay = Math.min(5000 * 2 ** reconnectAttempts, 60_000);
     reconnectAttempts++;
     reconnectTimer = setTimeout(connectSSE, delay);
@@ -159,11 +155,6 @@ function handleDefaultEvent(data: SSEEvent) {
   }
 
   if (data.type === SSE_SUBMISSION_VERDICT) {
-    // Cross-page safety net: the worker publishes the verdict, but the editor's
-    // own polling is torn down on unmount, so a student who navigates away after
-    // submitting never sees the result. The editor registers its own listener
-    // while mounted (suppressing this default), so we only toast when the user
-    // is NOT on that problem's workspace.
     if (browser && data.problemId && window.location.pathname.includes(data.problemId)) {
       return;
     }

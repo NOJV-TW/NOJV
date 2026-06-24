@@ -1,9 +1,3 @@
--- Align the four mutually-exclusive submission context FKs on one policy.
--- Previously exam/contest were Cascade (deleting a populated context hard-deleted
--- submissions + their audit trail) while assessment/course were SetNull (orphaned
--- submissions to a NULL context). Both conflict with preserving submission history;
--- Restrict makes a populated context undeletable without an explicit cleanup step.
-
 -- DropForeignKey
 ALTER TABLE "Submission" DROP CONSTRAINT "Submission_examId_fkey";
 

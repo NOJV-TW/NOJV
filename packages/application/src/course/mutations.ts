@@ -237,9 +237,6 @@ export async function deleteCourse(actor: ActorContext, courseId: string) {
     try {
       return await courseRepo.withTx(tx).delete(courseId);
     } catch (err) {
-      // Submission context FKs are ON DELETE RESTRICT, so a course that still has
-      // submissions (directly, or via its exams/assessments) cannot be hard-deleted.
-      // Surface a clean error pointing at archiving instead of a raw P2003.
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
         throw new ConflictError(
           "This course has submissions and cannot be deleted. Archive it instead.",

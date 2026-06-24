@@ -237,12 +237,6 @@ jobs:
         shell: bash
         run: |
           set +e
-          # Roll back through compose so the restored containers keep their env,
-          # compose network and DNS — a raw `docker run` loses all of that and
-          # crashloops (missing EDGE_TRUST_SECRET, cannot resolve postgres/redis).
-          # web/worker have explicit `image: nojv-<svc>:latest` tags, so re-tagging
-          # the previous image id to that name and recreating without --build
-          # restores the old code under the same compose-managed config.
           rolled_back=false
           for service in web worker; do
             var="PREV_IMAGE_${service^^}"
@@ -261,8 +255,6 @@ jobs:
             docker compose --profile prod up -d --wait --force-recreate --no-build web worker
             up_status=$?
             echo "::warning::Health check failed — rolled back web/worker to the previous image via compose."
-            # Re-verify the rolled-back stack; a failed rollback must fail the job,
-            # not silently leave a broken deploy behind a green workflow.
             ok=true
             curl -sf http://localhost:3000 >/dev/null || ok=false
             for service in web worker; do

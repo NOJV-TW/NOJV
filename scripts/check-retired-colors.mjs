@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// Guards against the retired burnt-orange/brown palette creeping back in after
-// the teal rebrand. New colors must go through the design tokens in app.css
-// (--primary, --success, --warning, --destructive, --chart-*), not raw hex.
 import { globSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

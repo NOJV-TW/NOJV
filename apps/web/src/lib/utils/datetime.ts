@@ -137,7 +137,7 @@ export function fmtCountdown(ms: number): CountdownParts {
 
 export function formatRelativeFromNow(value: string | Date, now: Date = new Date()): string {
   const d = typeof value === "string" ? new Date(value) : value;
-  const diffMs = d.getTime() - now.getTime(); // negative = past, positive = future
+  const diffMs = d.getTime() - now.getTime();
   const abs = Math.abs(diffMs);
 
   const minute = 60_000;

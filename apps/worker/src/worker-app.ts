@@ -125,8 +125,6 @@ export class WorkerApp {
       taskQueues: taskQueues.join(", "),
     });
 
-    // Retain the run() promise so shutdown() can await the actual drain rather
-    // than just initiating it. start() still blocks here to keep the process alive.
     this.runPromise = Promise.all(this.workers.map((w) => w.run()));
     await this.runPromise;
   }
@@ -137,9 +135,6 @@ export class WorkerApp {
     logger.info("shutting down", { signal });
 
     this.shutdownPromise = (async () => {
-      // Initiate drain on each worker, then actually wait for in-flight activities
-      // to finish (bounded by shutdownGraceTime). Keep the health server up during
-      // the drain so K8s doesn't SIGKILL early; close it only once drained.
       for (const w of this.workers) {
         try {
           w.shutdown();

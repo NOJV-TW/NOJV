@@ -70,7 +70,6 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
   );
   const pruned = await submissionRejudgeLogRepo.deleteOlderThan(rejudgeRetentionCutoff);
 
-  // better-auth never prunes its own expired Session/Verification rows.
   const now = new Date();
   const expiredSessions = await authCleanupRepo.deleteExpiredSessions(now);
   const expiredVerifications = await authCleanupRepo.deleteExpiredVerifications(now);
