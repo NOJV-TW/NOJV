@@ -296,7 +296,7 @@ The script:
 
 1. Enables required GCP APIs (Artifact Registry, Cloud Build, Cloud Run, Secret Manager).
 2. Ensures the Artifact Registry repository exists.
-3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, `nojv-edge-trust-secret`, `nojv-api-token-pepper`, the five `nojv-s3-*` entries, plus optional OAuth/mailer secrets — optional ones are referenced in `--set-secrets` only when provided).
+3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, `nojv-edge-trust-secret`, the five `nojv-s3-*` entries, plus optional OAuth/mailer secrets — optional ones are referenced in `--set-secrets` only when provided).
 4. Submits Cloud Build (`infra/gcp/cloud-build/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, `migrator`, and `egress-proxy` images.
 5. Deploys the migrator Cloud Run Job (with the Cloud SQL / VPC connector flags when `CLOUD_SQL_INSTANCE` / `VPC_CONNECTOR` are set) and runs it (Prisma migrations).
 6. Deploys `web` to Cloud Run with `--ingress=internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is unreachable and all traffic must traverse GCLB → Cloud Armor → CF (see [Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)), injects all secrets from Secret Manager, and attaches the Cloud SQL instance + VPC connector so it can reach private Cloud SQL / Memorystore.
