@@ -25,12 +25,12 @@
   }
 
   const DEFAULT_VERDICT_COLORS = {
-    success: "#7a8f6d",
-    destructive: "#c4682d",
-    warning: "#d4a054",
+    success: "#2f9d6b",
+    destructive: "#d24a3a",
+    warning: "#c98a1a",
     info: "#4d6f8f",
     chart2: "#4d6f8f",
-    chart3: "#8a6142",
+    chart3: "#2f9d6b",
     mutedFg: "#6b7280",
   };
   let tokenColors = $state({ ...DEFAULT_VERDICT_COLORS });

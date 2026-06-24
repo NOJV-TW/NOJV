@@ -1,4 +1,3 @@
-
 enum AnnouncementStatus {
   draft
   published
@@ -47,7 +46,6 @@ model AnnouncementTranslation {
 
   @@unique([announcementId, locale])
 }
-
 
 model PlatformSetting {
   key       String   @id

@@ -37,13 +37,13 @@
   const hasLanguageData = $derived(analytics.byLanguage.length > 0);
 
   const DEFAULT_THEME_COLORS = {
-    success: "#7a8f6d",
-    warning: "#d4a054",
-    destructive: "#c4682d",
-    chart1: "#c4682d",
+    success: "#2f9d6b",
+    warning: "#c98a1a",
+    destructive: "#d24a3a",
+    chart1: "#1d8c9c",
     chart2: "#4d6f8f",
-    chart3: "#8a6142",
-    chart4: "#d4a054",
+    chart3: "#2f9d6b",
+    chart4: "#c98a1a",
     chart5: "#7a8f6d",
     mutedFg: "#6b7280",
     panel: "#ffffff",

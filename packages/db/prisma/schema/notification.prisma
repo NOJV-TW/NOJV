@@ -1,4 +1,3 @@
-
 enum NotificationType {
   assignment_due_soon
   exam_starting_soon

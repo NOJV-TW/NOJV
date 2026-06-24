@@ -1002,11 +1002,11 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
-| `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
-| `contest` | `Contest?` | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
+| `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Restrict)` |
+| `contest` | `Contest?` | `@relation(fields: [contestId], references: [id], onDelete: Restrict)` |
 | `participation` | `Participation?` | `@relation(fields: [participationId], references: [id], onDelete: Cascade)` |
-| `course` | `Course?` | `@relation(fields: [courseId], references: [id], onDelete: SetNull)` |
-| `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: SetNull)` |
+| `course` | `Course?` | `@relation(fields: [courseId], references: [id], onDelete: Restrict)` |
+| `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: Restrict)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
 Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`

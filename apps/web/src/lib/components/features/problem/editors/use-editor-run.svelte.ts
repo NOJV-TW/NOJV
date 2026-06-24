@@ -1,4 +1,5 @@
 import type { Language, SubmissionResult } from "@nojv/core";
+import { m } from "$lib/paraglide/messages.js";
 import { executeSubmission } from "$lib/services/submission-service";
 import type { ProblemDetail } from "$lib/types";
 import {
@@ -88,14 +89,14 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   async function run() {
     isRunning = true;
     runResult = null;
-    runStatus = "running";
+    runStatus = m.editor_running();
     runError = null;
     bottomTab = "result";
     try {
       runResult = await runSubmission(true);
       runStatus = null;
     } catch (err) {
-      runError = err instanceof Error ? err.message : "Run failed.";
+      runError = err instanceof Error ? err.message : m.editor_runFailed();
       runStatus = null;
     } finally {
       isRunning = false;
@@ -143,7 +144,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         args.onSubmissionComplete?.(dispatched.submissionId, result, language, source);
       }
     } catch (err) {
-      runError = err instanceof Error ? err.message : "Submission failed.";
+      runError = err instanceof Error ? err.message : m.editor_submitFailed();
       bottomTab = "result";
     } finally {
       isSubmitting = false;

@@ -92,3 +92,56 @@ jobs:
             --security-opt no-new-privileges --user 10001:10001 \
             --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=64m \
             nojv-sandbox:local node -e 'process.exit(0)'
+
+  k8s-isolation:
+    name: K8s sandbox backend (real cluster, REQUIRE_K8S)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Build sandbox, egress-proxy and advanced demo images
+        run: |
+          pnpm sandbox:build
+          pnpm egress-proxy:build
+          pnpm demo-advanced:build
+
+      - name: Create k3d cluster with NetworkPolicy enforcement (Calico)
+        run: |
+          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+          k3d cluster create nojv-judge \
+            --no-lb \
+            --k3s-arg "--flannel-backend=none@server:*" \
+            --k3s-arg "--disable-network-policy@server:*" \
+            --k3s-arg "--disable=traefik@server:*"
+          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
+          kubectl -n kube-system rollout status deploy/calico-kube-controllers --timeout=180s
+
+      - name: Load images into the cluster
+        run: |
+          k3d image import -c nojv-judge \
+            nojv-sandbox:local nojv-egress-proxy:local \
+            nojv-demo-advanced-run:local nojv-demo-advanced-grade:local
+
+      - name: Apply sandbox namespace, network policy, quota and label node
+        run: |
+          kubectl apply -f infra/k8s/sandbox/namespace.yaml
+          kubectl apply -f infra/k8s/sandbox/network-policy.yaml
+          kubectl apply -f infra/k8s/sandbox/resource-quota.yaml
+          kubectl apply -f infra/k8s/sandbox/limit-range.yaml
+          kubectl label node --all nojv-role=sandbox --overwrite
+
+      - name: K8s judge integration suite (must not skip)
+        env:
+          REQUIRE_K8S: "1"
+        run: pnpm vitest run tests/integration/k8s

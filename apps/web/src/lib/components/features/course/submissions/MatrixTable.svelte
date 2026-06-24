@@ -39,7 +39,7 @@
           </th>
         {/each}
         <th
-          class="border-b border-r border-border-subtle bg-[color:rgba(196,104,45,0.06)] px-3 py-3 text-center text-caption font-semibold text-primary"
+          class="border-b border-r border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold text-primary"
           style="min-width: 110px"
         >
           {labels.total()}
@@ -70,15 +70,13 @@
             <td
               class={cn(
                 "border-b border-r border-border-subtle px-3 py-3 text-center text-body-sm",
-                cell.state === "ac" &&
-                  "bg-[color:rgba(77,141,91,0.14)] font-semibold text-success",
-                cell.state === "partial" && "bg-[color:rgba(184,55,42,0.1)] text-destructive",
-                cell.state === "zero" &&
-                  "bg-[color:rgba(184,55,42,0.18)] font-semibold text-destructive",
+                cell.state === "ac" && "bg-success/15 font-semibold text-success",
+                cell.state === "partial" && "bg-destructive/10 text-destructive",
+                cell.state === "zero" && "bg-destructive/20 font-semibold text-destructive",
                 cell.state === "empty" && "text-muted-foreground",
               )}
               style={cell.state === "empty"
-                ? "background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(79, 52, 35, 0.04) 4px, rgba(79, 52, 35, 0.04) 8px);"
+                ? "background: repeating-linear-gradient(45deg, transparent, transparent 4px, var(--border-subtle) 4px, var(--border-subtle) 8px);"
                 : ""}
             >
               {#if cell.state === "empty"}
@@ -105,7 +103,7 @@
             </td>
           {/each}
           <td
-            class="border-b border-r border-border-subtle bg-[color:rgba(196,104,45,0.03)] px-3 py-3 text-center text-body-lg font-medium text-foreground"
+            class="border-b border-r border-border-subtle bg-primary/5 px-3 py-3 text-center text-body-lg font-medium text-foreground"
           >
             {row.total}<span class="font-normal text-muted-foreground"> / </span>
             <span class="text-caption font-normal text-muted-foreground">

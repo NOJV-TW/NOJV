@@ -1,14 +1,40 @@
 import { browser } from "$app/environment";
-import { SSE_NOTIFICATION, sseEventSchema, type SSEEvent } from "@nojv/core";
+import {
+  SSE_NOTIFICATION,
+  SSE_SUBMISSION_VERDICT,
+  sseEventSchema,
+  type SSEEvent,
+} from "@nojv/core";
+import { m } from "$lib/paraglide/messages.js";
+import { formatVerdictLabel } from "$lib/utils/verdict-style";
 import { notifications } from "./notifications.svelte";
+import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;
 const listeners = new Map<string, Set<(data: SSEEvent) => void>>();
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
+let recoveryListenersRegistered = false;
 
 const clarificationSubs = new Set<string>();
+
+function registerRecoveryListeners(): void {
+  if (!browser || recoveryListenersRegistered) return;
+  recoveryListenersRegistered = true;
+  const kick = () => {
+    if (eventSource) return;
+    reconnectAttempts = 0;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    connectSSE();
+  };
+  window.addEventListener("online", kick);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") kick();
+  });
+}
 
 function buildStreamUrl(): string {
   if (clarificationSubs.size === 0) return "/api/events/stream";
@@ -21,6 +47,7 @@ function buildStreamUrl(): string {
 
 export function connectSSE() {
   if (!browser || eventSource) return;
+  registerRecoveryListeners();
 
   eventSource = new EventSource(buildStreamUrl());
 
@@ -58,7 +85,6 @@ export function connectSSE() {
     }
     eventSource?.close();
     eventSource = null;
-    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
     const delay = Math.min(5000 * 2 ** reconnectAttempts, 60_000);
     reconnectAttempts++;
     reconnectTimer = setTimeout(connectSSE, delay);
@@ -125,5 +151,17 @@ function handleDefaultEvent(data: SSEEvent) {
       ...(data.id !== undefined && { id: data.id }),
       ...(data.createdAt !== undefined && { createdAt: data.createdAt }),
     });
+    return;
+  }
+
+  if (data.type === SSE_SUBMISSION_VERDICT) {
+    if (browser && data.problemId && window.location.pathname.includes(data.problemId)) {
+      return;
+    }
+    if (data.verdict === "accepted") {
+      toasts.success(m.sse_verdictToastAccepted());
+    } else {
+      toasts.info(m.sse_verdictToastResult({ verdict: formatVerdictLabel(data.verdict) }));
+    }
   }
 }

@@ -89,6 +89,17 @@
     difficulty={problem.difficulty}
   />
 
+  <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
+    <span class="tabular-nums">
+      {m.problemDetail_timeLimit()}: {(problem.timeLimitMs / 1000).toFixed(
+        problem.timeLimitMs % 1000 === 0 ? 0 : 1,
+      )}s
+    </span>
+    <span class="tabular-nums">
+      {m.problemDetail_memoryLimit()}: {problem.memoryLimitMb} MB
+    </span>
+  </div>
+
   <div class="mt-5 text-body-sm leading-7 text-foreground">
     <MarkdownRenderer content={problem.statement} />
   </div>

@@ -178,7 +178,7 @@
           <path d="M8 20h8M9 20l1-3h4l1 3" />
         </svg>
         <span
-          >Scoreboard · {isSolveCount
+          >{m.contestDetail_scoreboard()} · {isSolveCount
             ? m.contestScoreboard_formatSolveCount()
             : m.contestScoreboard_formatPointSum()}</span
         >
@@ -249,9 +249,9 @@
         <span
           class="font-mono text-micro uppercase tracking-wider px-2 py-0.5 rounded-sm"
           style="background: {isSolveCount
-            ? 'color-mix(in oklab, #c4682d 14%, transparent)'
+            ? 'color-mix(in oklab, var(--primary) 14%, transparent)'
             : 'color-mix(in oklab, var(--chart-3) 18%, transparent)'}; color: {isSolveCount
-            ? '#c4682d'
+            ? 'var(--primary)'
             : 'oklch(0.45 0.13 245)'};"
         >
           {isSolveCount

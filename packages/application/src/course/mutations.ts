@@ -5,6 +5,7 @@ import {
   courseRepo,
   examProblemRepo,
   examRepo,
+  Prisma,
   problemRepo,
   runTransaction,
   type TransactionClient,
@@ -17,7 +18,12 @@ import type {
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
@@ -228,7 +234,16 @@ export async function deleteCourse(actor: ActorContext, courseId: string) {
     await requireCourse(tx, courseId);
     await assertCourseManager(tx, actor, courseId);
 
-    return courseRepo.withTx(tx).delete(courseId);
+    try {
+      return await courseRepo.withTx(tx).delete(courseId);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+        throw new ConflictError(
+          "This course has submissions and cannot be deleted. Archive it instead.",
+        );
+      }
+      throw err;
+    }
   });
 }
 

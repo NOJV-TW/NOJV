@@ -51,6 +51,36 @@
 
   let countdown = $derived(formatCountdown(remainingMs));
 
+  const announceThresholdsSec = [600, 300, 60];
+  const announced = new Set<number>();
+  let srAnnouncement = $state("");
+  $effect(() => {
+    const sec = Math.floor(remainingMs / 1000);
+    for (const t of announceThresholdsSec) {
+      if (sec <= t && sec > 0 && !announced.has(t)) {
+        announced.add(t);
+        srAnnouncement = m.examMode_countdownThreshold({ minutes: Math.round(t / 60) });
+      }
+    }
+  });
+
+  let urgencyClass = $derived(
+    remainingMs <= 60_000
+      ? "text-destructive"
+      : remainingMs <= 300_000
+        ? "text-warning"
+        : "text-primary",
+  );
+
+  let expired = $state(false);
+  $effect(() => {
+    if (remainingMs === 0 && !expired && !ending) {
+      expired = true;
+      srAnnouncement = m.examMode_timeUp();
+      void goto(`/exams/${context.examId}`);
+    }
+  });
+
   async function handleEnd(): Promise<void> {
     if (ending) return;
     if (!window.confirm(m.examMode_submitEndConfirm())) return;
@@ -81,7 +111,7 @@
 
   <div class="flex items-center gap-3 pl-1">
     <div
-      class="flex size-[34px] items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_2px_6px_rgba(196,104,45,0.4)]"
+      class="flex size-[34px] items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_2px_6px_color-mix(in_oklab,var(--primary)_40%,transparent)]"
       title={m.examMode_lockTooltip()}
       aria-label={m.examMode_lockTooltip()}
     >
@@ -103,12 +133,11 @@
         {m.examMode_countdownLabel()}
       </span>
       <span
-        class="font-mono text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums text-primary"
-        aria-live="polite"
-        aria-atomic="true"
+        class="font-mono text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums {urgencyClass}"
       >
         {countdown}
       </span>
+      <span class="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</span>
     </div>
   </div>
 

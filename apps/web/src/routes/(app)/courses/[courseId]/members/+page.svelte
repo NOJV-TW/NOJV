@@ -126,9 +126,9 @@
               : ''} auto auto auto;"
           >
             <div
-              class="flex size-10 items-center justify-center rounded-full text-body font-semibold text-white {member.isPlaceholder
-                ? 'bg-[linear-gradient(135deg,#b8a085,#8a6142)] opacity-65'
-                : 'bg-[linear-gradient(135deg,#8a6142,#c4682d)]'}"
+              class="flex size-10 items-center justify-center rounded-full text-body font-semibold text-primary-foreground {member.isPlaceholder
+                ? 'bg-primary opacity-50'
+                : 'bg-primary'}"
               aria-hidden="true"
             >
               {member.isPlaceholder ? "?" : initialFor(member.name)}

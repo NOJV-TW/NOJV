@@ -1,4 +1,3 @@
-
 enum SupportedLanguage {
   c
   cpp
@@ -50,11 +49,11 @@ model Submission {
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem       Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  exam          Exam?          @relation(fields: [examId], references: [id], onDelete: Cascade)
-  contest       Contest?       @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  exam          Exam?          @relation(fields: [examId], references: [id], onDelete: Restrict)
+  contest       Contest?       @relation(fields: [contestId], references: [id], onDelete: Restrict)
   participation Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)
-  course        Course?        @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  assessment    Assessment?    @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  course        Course?        @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  assessment    Assessment?    @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
 
   rejudgeLogs SubmissionRejudgeLog[]
 

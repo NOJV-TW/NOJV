@@ -136,6 +136,22 @@ export function mapResult(
     };
   }
 
+  if (result.testcaseResults.length === 0) {
+    return {
+      accepted: false,
+      caseResults,
+      feedback: truncate(
+        result.scoringFeedback ??
+          "No testcases were evaluated. This submission was not counted; please contact staff.",
+        MAX_FEEDBACK_LEN,
+      ),
+      runtimeMs: 0,
+      ...memoryField,
+      score: 0,
+      verdict: "system_error",
+    };
+  }
+
   const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
   const subtaskResults = buildSubtaskResults(result, testcaseSets);
 

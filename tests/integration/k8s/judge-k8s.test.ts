@@ -242,6 +242,11 @@ beforeAll(async () => {
     await sweepNamespace();
   } catch (err) {
     clusterUnreachableReason = err instanceof Error ? err.message : String(err);
+    if (process.env.REQUIRE_K8S === "1") {
+      throw new Error(
+        `REQUIRE_K8S=1 but the cluster is unreachable: ${clusterUnreachableReason}`,
+      );
+    }
     // eslint-disable-next-line no-console
     console.warn(
       `[k8s-judge-integration] cluster unreachable, skipping suite: ${clusterUnreachableReason}`,

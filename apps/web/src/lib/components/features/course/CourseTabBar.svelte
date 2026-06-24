@@ -93,7 +93,7 @@
     className,
   )}
 >
-  <div class="flex items-center gap-1">
+  <div class="flex flex-wrap items-center gap-1">
     {#each tabs as tab (tab.key)}
       {@const isActive = tab.key === activeTabKey}
       <a

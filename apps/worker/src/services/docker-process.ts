@@ -1,5 +1,32 @@
 import { spawn, spawnSync } from "node:child_process";
 
+import { createBoundedStringBuffer } from "./bounded-buffer";
+
+export function collectContainerLogs(containerName: string): Promise<string> {
+  return new Promise<string>((resolve) => {
+    const buffer = createBoundedStringBuffer();
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      resolve(buffer.toString().trim());
+    };
+
+    const child = spawn("docker", ["logs", containerName], { env: process.env, stdio: "pipe" });
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      buffer.push(chunk);
+    });
+    child.stderr.on("data", (chunk: string) => {
+      buffer.push(chunk);
+    });
+    child.on("error", settle);
+    child.on("close", settle);
+    child.stdin.end();
+  });
+}
+
 export function sanitizeId(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
 }
