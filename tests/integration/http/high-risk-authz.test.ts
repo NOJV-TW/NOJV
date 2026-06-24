@@ -8,7 +8,12 @@ import * as plagiarismFlags from "../../../apps/web/src/routes/api/plagiarism-fl
 import * as clarifications from "../../../apps/web/src/routes/api/clarifications/+server";
 
 const cases = [
-  { name: "POST /api/submissions", path: "/api/submissions", module: submissions, method: "POST" },
+  {
+    name: "POST /api/submissions",
+    path: "/api/submissions",
+    module: submissions,
+    method: "POST",
+  },
   { name: "POST /api/rejudges", path: "/api/rejudges", module: rejudges, method: "POST" },
   { name: "POST /api/overrides", path: "/api/overrides", module: overrides, method: "POST" },
   {
