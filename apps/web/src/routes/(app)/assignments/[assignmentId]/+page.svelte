@@ -469,7 +469,7 @@
         class="border-b px-2"
         style="border-color: var(--border-subtle);"
       >
-        <div class="flex items-center gap-1">
+        <div class="flex flex-wrap items-center gap-1">
           {#each subTabs as tab (tab.key)}
             {@const isActive = activeSubTab === tab.key}
             <button

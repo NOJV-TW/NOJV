@@ -1,6 +1,14 @@
 import { browser } from "$app/environment";
-import { SSE_NOTIFICATION, sseEventSchema, type SSEEvent } from "@nojv/core";
+import {
+  SSE_NOTIFICATION,
+  SSE_SUBMISSION_VERDICT,
+  sseEventSchema,
+  type SSEEvent,
+} from "@nojv/core";
+import { m } from "$lib/paraglide/messages.js";
+import { formatVerdictLabel } from "$lib/utils/verdict-style";
 import { notifications } from "./notifications.svelte";
+import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;
 const listeners = new Map<string, Set<(data: SSEEvent) => void>>();
@@ -125,5 +133,22 @@ function handleDefaultEvent(data: SSEEvent) {
       ...(data.id !== undefined && { id: data.id }),
       ...(data.createdAt !== undefined && { createdAt: data.createdAt }),
     });
+    return;
+  }
+
+  if (data.type === SSE_SUBMISSION_VERDICT) {
+    // Cross-page safety net: the worker publishes the verdict, but the editor's
+    // own polling is torn down on unmount, so a student who navigates away after
+    // submitting never sees the result. The editor registers its own listener
+    // while mounted (suppressing this default), so we only toast when the user
+    // is NOT on that problem's workspace.
+    if (browser && data.problemId && window.location.pathname.includes(data.problemId)) {
+      return;
+    }
+    if (data.verdict === "accepted") {
+      toasts.success(m.sse_verdictToastAccepted());
+    } else {
+      toasts.info(m.sse_verdictToastResult({ verdict: formatVerdictLabel(data.verdict) }));
+    }
   }
 }

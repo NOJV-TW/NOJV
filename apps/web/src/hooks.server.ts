@@ -424,9 +424,11 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     return examResponse;
   }
 
-  return paraglideMiddleware(event.request, async ({ request }) => {
+  return paraglideMiddleware(event.request, async ({ request, locale }) => {
     event.request = request;
-    const response = await resolve(event);
+    const response = await resolve(event, {
+      transformPageChunk: ({ html }) => html.replace("%paraglide.lang%", locale),
+    });
     if (event.locals.apiToken && response.status < 400) {
       await apiTokenDomain.recordApiTokenUse({
         ip: event.locals.apiToken.ip,

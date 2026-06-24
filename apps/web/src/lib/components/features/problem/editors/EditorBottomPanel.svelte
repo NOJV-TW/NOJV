@@ -181,7 +181,7 @@
         </div>
       {/if}
     {:else}
-      <div>
+      <div role="status" aria-live="polite">
         {#if runResult}
           <div>
             <div class="flex items-baseline gap-3">

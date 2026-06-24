@@ -51,6 +51,21 @@
 
   let countdown = $derived(formatCountdown(remainingMs));
 
+  // Announce only at thresholds — a per-second aria-live region reads the full
+  // HH:MM:SS aloud every second, drowning out everything else for the whole exam.
+  const announceThresholdsSec = [600, 300, 60];
+  const announced = new Set<number>();
+  let srAnnouncement = $state("");
+  $effect(() => {
+    const sec = Math.floor(remainingMs / 1000);
+    for (const t of announceThresholdsSec) {
+      if (sec <= t && sec > 0 && !announced.has(t)) {
+        announced.add(t);
+        srAnnouncement = m.examMode_countdownThreshold({ minutes: Math.round(t / 60) });
+      }
+    }
+  });
+
   async function handleEnd(): Promise<void> {
     if (ending) return;
     if (!window.confirm(m.examMode_submitEndConfirm())) return;
@@ -104,11 +119,10 @@
       </span>
       <span
         class="font-mono text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums text-primary"
-        aria-live="polite"
-        aria-atomic="true"
       >
         {countdown}
       </span>
+      <span class="sr-only" aria-live="polite" aria-atomic="true">{srAnnouncement}</span>
     </div>
   </div>
 
