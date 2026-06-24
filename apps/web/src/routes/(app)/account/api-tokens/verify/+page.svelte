@@ -1,5 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { goto } from "$app/navigation";
+  import { authClient } from "$lib/auth.client";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -13,6 +15,25 @@
 
   let code = $state("");
   let submitting = $state(false);
+  let passkeyError = $state("");
+  let passkeyBusy = $state(false);
+
+  async function stepUpWithPasskey() {
+    passkeyError = "";
+    passkeyBusy = true;
+    try {
+      const res = await authClient.signIn.passkey();
+      if (res?.error) {
+        passkeyError = res.error.message ?? "Passkey 驗證失敗。";
+        return;
+      }
+      await goto(data.returnTo ?? "/account/api-tokens");
+    } catch {
+      passkeyError = "Passkey 驗證失敗。";
+    } finally {
+      passkeyBusy = false;
+    }
+  }
 </script>
 
 <PageContainer width="form">
@@ -27,6 +48,7 @@
         <p class="text-caption text-destructive" role="alert">{form.error}</p>
       {/if}
 
+      {#if data.hasTotp}
       <form
         class="flex flex-col gap-4"
         method="POST"
@@ -67,6 +89,28 @@
           {m.account_apiToken_stepUp_submit()}
         </Button>
       </form>
+      {/if}
+
+      {#if data.hasPasskey}
+        <div
+          class="flex flex-col gap-2 {data.hasTotp ? 'mt-4 border-t border-border pt-4' : ''}"
+        >
+          {#if passkeyError}
+            <p class="text-caption text-destructive" role="alert">{passkeyError}</p>
+          {/if}
+          <Button
+            type="button"
+            variant={data.hasTotp ? "outline" : "default"}
+            size="lg"
+            class="w-full"
+            loading={passkeyBusy}
+            disabled={passkeyBusy}
+            onclick={stepUpWithPasskey}
+          >
+            使用 passkey 驗證
+          </Button>
+        </div>
+      {/if}
     </Card>
   </Section>
 </PageContainer>

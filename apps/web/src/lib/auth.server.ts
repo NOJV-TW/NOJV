@@ -1,10 +1,12 @@
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { createAuthMiddleware } from "better-auth/api";
 import { twoFactor, username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
+import { getRedis, keys } from "@nojv/redis";
 import { getWebEnv } from "$lib/server/env";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 import { createLogger } from "$lib/server/logger";
@@ -129,6 +131,19 @@ function createAuth() {
           },
         },
       },
+    },
+    hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        // A verified passkey assertion counts as a fresh step-up. This fires
+        // only after better-auth has verified the assertion (the endpoint
+        // throws otherwise), so it cannot be forged by a client.
+        if (ctx.path === "/passkey/verify-authentication") {
+          const userId = ctx.context.newSession?.user?.id;
+          if (userId) {
+            await getRedis().set(keys.apiTokenStepUp(userId), "1", "EX", 600);
+          }
+        }
+      }),
     },
     plugins: [
       username({

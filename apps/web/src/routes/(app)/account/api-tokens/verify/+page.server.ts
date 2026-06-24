@@ -1,6 +1,7 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
+import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import { markStepUpFresh, verifyStepUpCode } from "$lib/server/step-up";
 import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
@@ -11,15 +12,21 @@ function sanitizeReturnTo(value: string | null): string {
   return typeof value === "string" && value.startsWith("/account/") ? value : DEFAULT_RETURN_TO;
 }
 
-export const load = (event: RequestEvent) => {
+export const load = async (event: RequestEvent) => {
   requireAuth(event);
 
-  if (!event.locals.sessionUser?.twoFactorEnabled) {
+  const hasTotp = event.locals.sessionUser?.twoFactorEnabled ?? false;
+  const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
+  const hasPasskey = passkeys.length > 0;
+
+  if (!hasTotp && !hasPasskey) {
     redirect(302, "/account/two-factor?returnTo=" + encodeURIComponent(DEFAULT_RETURN_TO));
   }
 
   return {
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
+    hasTotp,
+    hasPasskey,
   };
 };
 
