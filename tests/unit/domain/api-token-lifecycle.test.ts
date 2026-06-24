@@ -151,7 +151,7 @@ async function catchError(
   const err = settled as { status?: unknown; message?: unknown };
   return {
     message: typeof err?.message === "string" ? err.message : String(settled),
-    status: typeof err?.status === "number" ? err.status : undefined,
+    ...(typeof err?.status === "number" ? { status: err.status } : {}),
   };
 }
 

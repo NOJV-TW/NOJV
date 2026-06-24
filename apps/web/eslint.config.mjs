@@ -182,7 +182,6 @@ export default [
       "src/lib/server/storage/**/*.ts",
       "src/lib/server/shared/rate-limiter.ts",
       "src/lib/server/shared/sse-hub.ts",
-      "src/lib/server/step-up.ts",
       "src/routes/api/events/stream/+server.ts",
       "src/routes/**/scoreboard/stream/+server.ts",
     ],
