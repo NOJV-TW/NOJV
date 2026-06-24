@@ -64,6 +64,23 @@
     }
   });
 
+  let urgencyClass = $derived(
+    remainingMs <= 60_000
+      ? "text-destructive"
+      : remainingMs <= 300_000
+        ? "text-warning"
+        : "text-primary",
+  );
+
+  let expired = $state(false);
+  $effect(() => {
+    if (remainingMs === 0 && !expired && !ending) {
+      expired = true;
+      srAnnouncement = m.examMode_timeUp();
+      void goto(`/exams/${context.examId}`);
+    }
+  });
+
   async function handleEnd(): Promise<void> {
     if (ending) return;
     if (!window.confirm(m.examMode_submitEndConfirm())) return;
@@ -116,7 +133,7 @@
         {m.examMode_countdownLabel()}
       </span>
       <span
-        class="font-mono text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums text-primary"
+        class="font-mono text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums {urgencyClass}"
       >
         {countdown}
       </span>
