@@ -32,6 +32,12 @@ import {
   CONFIGMAP_MAX_BYTES,
 } from "./k8s-configmaps";
 import {
+  HARDENED_CONTAINER_SECURITY_CONTEXT,
+  SANDBOX_NODE_SELECTOR,
+  SANDBOX_POD_SECURITY_CONTEXT,
+  SANDBOX_TOLERATIONS,
+} from "./k8s-pod-spec";
+import {
   ADVANCED_SIDECAR_NAME,
   ADVANCED_TRANSFER_NAME,
   advancedPvcName,
@@ -165,21 +171,9 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
-          nodeSelector: { "nojv-role": "sandbox" },
-          tolerations: [
-            {
-              key: "nojv-role",
-              operator: "Equal",
-              value: "sandbox",
-              effect: "NoSchedule",
-            },
-          ],
-          securityContext: {
-            runAsUser: 10001,
-            runAsGroup: 10001,
-            runAsNonRoot: true,
-            seccompProfile: { type: "RuntimeDefault" },
-          },
+          nodeSelector: SANDBOX_NODE_SELECTOR,
+          tolerations: SANDBOX_TOLERATIONS,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           containers: [
             {
               name: "runner",
@@ -189,12 +183,7 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
                 requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
                 limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
               },
-              securityContext: {
-                allowPrivilegeEscalation: false,
-                capabilities: { drop: ["ALL"] },
-                readOnlyRootFilesystem: true,
-                runAsNonRoot: true,
-              },
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               volumeMounts: [
                 {
                   name: "submission-data",
@@ -248,12 +237,7 @@ export const COMPILE_CONTAINER_NAME = "compile";
 export function buildPerCaseSandboxJobManifest(
   params: PerCaseSandboxJobManifestParams,
 ): k8s.V1Job {
-  const containerSecurityContext = {
-    allowPrivilegeEscalation: false,
-    capabilities: { drop: ["ALL"] },
-    readOnlyRootFilesystem: true,
-    runAsNonRoot: true,
-  };
+  const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
   const resources = {
     requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
@@ -282,16 +266,9 @@ export function buildPerCaseSandboxJobManifest(
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
-          nodeSelector: { "nojv-role": "sandbox" },
-          tolerations: [
-            { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
-          ],
-          securityContext: {
-            runAsUser: 10001,
-            runAsGroup: 10001,
-            runAsNonRoot: true,
-            seccompProfile: { type: "RuntimeDefault" },
-          },
+          nodeSelector: SANDBOX_NODE_SELECTOR,
+          tolerations: SANDBOX_TOLERATIONS,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           initContainers: [
             {
               name: COMPILE_CONTAINER_NAME,
@@ -364,12 +341,7 @@ export interface InteractiveJobManifestParams {
 }
 
 export function buildInteractiveJobManifest(params: InteractiveJobManifestParams): k8s.V1Job {
-  const containerSecurityContext = {
-    allowPrivilegeEscalation: false,
-    capabilities: { drop: ["ALL"] },
-    readOnlyRootFilesystem: true,
-    runAsNonRoot: true,
-  };
+  const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
   const resources = {
     requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
@@ -394,21 +366,9 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
-          nodeSelector: { "nojv-role": "sandbox" },
-          tolerations: [
-            {
-              key: "nojv-role",
-              operator: "Equal",
-              value: "sandbox",
-              effect: "NoSchedule",
-            },
-          ],
-          securityContext: {
-            runAsUser: 10001,
-            runAsGroup: 10001,
-            runAsNonRoot: true,
-            seccompProfile: { type: "RuntimeDefault" },
-          },
+          nodeSelector: SANDBOX_NODE_SELECTOR,
+          tolerations: SANDBOX_TOLERATIONS,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           containers: [
             {
               name: "solution",
