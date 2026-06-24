@@ -611,10 +611,12 @@ export class K8sExecutor implements SandboxExecutor {
         }),
       });
 
-      const outcome = await this.waitForJobCompletion(jobName, namespace, deadlineSeconds);
+      const outcome = await this.waitForJobOutcome(jobName, namespace, deadlineSeconds);
       const podName = await this.findPodName(jobName, namespace);
       if (!podName) {
-        if (outcome === "failed") return seCase("Interactive sandbox job failed or timed out.");
+        if (outcome.state === "failed") {
+          return seCase("Interactive sandbox job failed or timed out.");
+        }
         return seCase("Interactive sandbox produced no pod.");
       }
 
@@ -629,7 +631,7 @@ export class K8sExecutor implements SandboxExecutor {
 
       const sol: InteractiveSideResult = {
         stderr: solLogs,
-        timedOut: false,
+        timedOut: outcome.deadlineExceeded,
         spawnError: false,
       };
       const int: InteractiveSideResult = {
