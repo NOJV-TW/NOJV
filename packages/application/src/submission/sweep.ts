@@ -3,7 +3,12 @@ import {
   SUBMISSION_PENDING_TIMEOUT_SETTING_KEY,
   submissionPendingTimeoutMinutesSchema,
 } from "@nojv/core";
-import { platformSettingRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
+import {
+  authCleanupRepo,
+  platformSettingRepo,
+  submissionRejudgeLogRepo,
+  submissionRepo,
+} from "@nojv/db";
 
 import { ValidationError } from "../shared/errors";
 import { getDomainOrchestration } from "../shared/orchestration";
@@ -32,6 +37,8 @@ export interface SweepStaleSubmissionsResult {
   killed: number;
   failed: number;
   rejudgeLogsPruned: number;
+  expiredSessionsPruned: number;
+  expiredVerificationsPruned: number;
 }
 
 export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResult> {
@@ -63,5 +70,17 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
   );
   const pruned = await submissionRejudgeLogRepo.deleteOlderThan(rejudgeRetentionCutoff);
 
-  return { scanned: stale.length, killed, failed, rejudgeLogsPruned: pruned.count };
+  // better-auth never prunes its own expired Session/Verification rows.
+  const now = new Date();
+  const expiredSessions = await authCleanupRepo.deleteExpiredSessions(now);
+  const expiredVerifications = await authCleanupRepo.deleteExpiredVerifications(now);
+
+  return {
+    scanned: stale.length,
+    killed,
+    failed,
+    rejudgeLogsPruned: pruned.count,
+    expiredSessionsPruned: expiredSessions.count,
+    expiredVerificationsPruned: expiredVerifications.count,
+  };
 }

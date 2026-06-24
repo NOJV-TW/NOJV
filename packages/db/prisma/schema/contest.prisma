@@ -1,4 +1,3 @@
-
 enum ContestVisibility {
   draft
   published

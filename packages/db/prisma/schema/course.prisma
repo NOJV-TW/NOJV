@@ -1,4 +1,3 @@
-
 enum CourseRole {
   teacher
   ta
