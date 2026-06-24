@@ -47,7 +47,7 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invalidateAll } from "$app/navigation";
+  import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { entriesAroundUser } from "$lib/utils/scoreboard";
@@ -75,7 +75,7 @@
   const SSE_DEBOUNCE_MS = 1500;
   onMount(() => {
     async function refresh() {
-      await invalidateAll();
+      await invalidate("contest:scoreboard");
       lastRefreshed = Date.now();
       justRefreshed = true;
       setTimeout(() => {
@@ -118,7 +118,7 @@
       const fd = new FormData();
       const res = await fetch("?/unfreeze", { method: "POST", body: fd });
       if (res.ok) {
-        await invalidateAll();
+        await invalidate("contest:scoreboard");
       }
     } finally {
       unfreezing = false;
