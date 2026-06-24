@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  DEFAULT_MAX_MEMORY_MB,
+  DEFAULT_MEMORY_HEADROOM_MB,
   resolveContainerMemoryMb,
   type SandboxExecutor,
   type SandboxRequest,
@@ -21,9 +23,6 @@ export interface DockerExecutorConfig {
   headroomMb?: number;
   maxMemoryMb?: number;
 }
-
-const DEFAULT_MEMORY_HEADROOM_MB = 64;
-const DEFAULT_MAX_MEMORY_MB = 2048;
 
 export function resolveDockerMemoryMb(
   request: SandboxRequest,

@@ -6,6 +6,8 @@ const require = createRequire(import.meta.url);
 
 import {
   advancedResultSchema,
+  DEFAULT_MAX_MEMORY_MB,
+  DEFAULT_MEMORY_HEADROOM_MB,
   resolveContainerMemoryMb,
   type RawCaseRun,
   type SandboxExecutor,
@@ -107,9 +109,6 @@ export interface K8sExecutorConfig {
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
 }
-
-const DEFAULT_MEMORY_HEADROOM_MB = 64;
-const DEFAULT_MAX_MEMORY_MB = 2048;
 
 function parseMemoryLimitMb(value: string): number {
   return Number.parseInt(value, 10);
