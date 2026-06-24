@@ -29,7 +29,7 @@
       return "background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success);";
     }
     if (status === "attempted") {
-      return "background: color-mix(in oklab, #d4a054 20%, transparent); color: #b07d2c;";
+      return "background: color-mix(in oklab, var(--warning) 20%, transparent); color: var(--warning);";
     }
     return "background: var(--muted); color: var(--muted-foreground);";
   }
@@ -73,7 +73,7 @@
         <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
           {m.contestUpsolve_statusAttempted()}
         </div>
-        <div class="mt-1 text-title font-semibold tabular-nums" style="color: #b07d2c;">
+        <div class="mt-1 text-title font-semibold tabular-nums" style="color: var(--warning);">
           {summary.attempted}
         </div>
       </div>

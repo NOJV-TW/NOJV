@@ -11,26 +11,26 @@
 <div class="flex flex-wrap items-center gap-5 text-caption text-muted-foreground">
   <span class="inline-flex items-center gap-1.5">
     <span
-      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-[color:rgba(77,141,91,0.14)]"
+      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-success/15"
     ></span>
     {labels.legendAc()}
   </span>
   <span class="inline-flex items-center gap-1.5">
     <span
-      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-[color:rgba(184,55,42,0.1)]"
+      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-destructive/10"
     ></span>
     {labels.legendPartial()}
   </span>
   <span class="inline-flex items-center gap-1.5">
     <span
-      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-[color:rgba(184,55,42,0.18)]"
+      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-destructive/20"
     ></span>
     {labels.legendZero()}
   </span>
   <span class="inline-flex items-center gap-1.5">
     <span
       class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle"
-      style="background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(79, 52, 35, 0.04) 3px, rgba(79, 52, 35, 0.04) 6px);"
+      style="background: repeating-linear-gradient(45deg, transparent, transparent 3px, var(--border-subtle) 3px, var(--border-subtle) 6px);"
     ></span>
     {labels.legendEmpty()}
   </span>

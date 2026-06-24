@@ -96,7 +96,7 @@
 
   <div class="flex items-center gap-3 pl-1">
     <div
-      class="flex size-[34px] items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_2px_6px_rgba(196,104,45,0.4)]"
+      class="flex size-[34px] items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_2px_6px_color-mix(in_oklab,var(--primary)_40%,transparent)]"
       title={m.examMode_lockTooltip()}
       aria-label={m.examMode_lockTooltip()}
     >

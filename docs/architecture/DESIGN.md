@@ -53,47 +53,38 @@ Monaco Editor uses `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monos
 
 ### Color System
 
-Warm-toned light/dark theme with manual toggle (persisted in `localStorage` as `nojv-theme`). A 200ms CSS transition on `background-color`, `border-color`, and `color` smooths the switch (applied via `.theme-transition` class).
+Teal light/dark theme with manual toggle (persisted in `localStorage` as `nojv-theme`). All colors are defined as CSS custom properties in `apps/web/src/app.css` and consumed through Tailwind tokens (`bg-primary`, `text-success/…`, `var(--chart-3)`). **Never hardcode hex colors in components** — a CI guard (`scripts/check-retired-colors.mjs`) fails the build if the retired burnt-orange/brown palette reappears.
 
-**Light mode** -- warm cream base:
+**Light mode:**
 
-- Background: `#f7f1e8` (cream) with subtle radial gradients (burnt orange top-left, blue-grey top-right)
-- Primary: `#c4682d` (burnt orange)
-- Foreground: `#1f1916` (near-black warm)
-- Cards/panels: `rgba(255, 250, 244, 0.82)` (frosted glass effect with `backdrop-blur-sm`)
-- Borders: `rgba(79, 52, 35, 0.14)` (translucent warm brown)
+- Primary: `#1d8c9c` (teal)
+- Muted foreground: `#5f6875`
+- Borders: `--border-subtle` = `rgba(20, 24, 31, 0.06)` (dividers / inner lines)
+- Chart ramp: `--chart-1` teal `#1d8c9c`, `--chart-2` slate `#4d6f8f`, `--chart-3` green `#2f9d6b`, `--chart-4` amber `#c98a1a`, `--chart-5` sage `#7a8f6d`
 
-**Dark mode** -- deep warm brown base:
+**Dark mode:** same token names, brighter values (e.g. `--primary: #36a3b0`).
 
-- Background: `#1a1412` with matching muted radial gradients
-- Primary: `#d4834a` (lighter burnt orange for contrast)
-- Foreground: `#f5ede4` (warm white)
-- Cards/panels: `rgba(42, 32, 26, 0.82)`
-- Borders: `rgba(255, 250, 244, 0.1)`
+Semantic status colors are an OKLCH four-tone set: `--success` (green), `--warning` (amber), `--destructive` (red), plus `--muted`. There is no separate per-verdict palette — verdicts map onto these four via `verdict-style.ts` (`verdictTone` / `verdictBadgeVariant`).
 
 Custom tokens beyond the standard set:
 
-- `--panel`: translucent card background for glassmorphism surfaces
+- `--panel` / `--color-panel`: card background for surface panels
 - `--panel-strong`: higher-opacity variant for nested panels (e.g., locale switcher pill)
 
 Selection highlight uses the primary color at 18% opacity (light) / 25% opacity (dark).
 
 ### Semantic Color Conventions
 
-These color assignments are used consistently across the entire codebase:
+Status meaning maps onto the four design tokens — consume them via Tailwind (`text-success`, `bg-warning/15`, …), never raw Tailwind palette names or hex:
 
-| Semantic Meaning  | Color Pattern                                             |
-| ----------------- | --------------------------------------------------------- |
-| Accepted / passed | `emerald-500/600` foreground, `emerald-500/15` background |
-| Wrong / failed    | `red-500/600` foreground, `red-500/15` background         |
-| Warning / TLE     | `amber-500/600` foreground, `amber-500/15` background     |
-| MLE               | `orange-500/600` foreground, `orange-500/15` background   |
-| Runtime error     | `purple-500/600` foreground, `purple-500/15` background   |
-| Info / queued     | `blue-500/600` foreground, `blue-500/15` background       |
-| Checker judge     | `violet-500/15` background, `violet-600/700` foreground   |
-| Interactive judge | `sky-500/15` background, `sky-600/700` foreground         |
+| Semantic Meaning           | Token                |
+| -------------------------- | -------------------- |
+| Accepted / passed          | `--success`          |
+| Wrong / runtime / compile  | `--destructive`      |
+| TLE / MLE / system error   | `--warning`          |
+| Pending / queued / running | `--muted-foreground` |
 
-All semantic colors use the `dark:text-{color}-400` pattern for dark mode contrast.
+Charts read the live token values at runtime via `getComputedStyle` (with teal hex fallbacks for SSR); see the `resolveThemeColors` helper in the analytics/dashboard/admin pages.
 
 ### Layout Patterns
 

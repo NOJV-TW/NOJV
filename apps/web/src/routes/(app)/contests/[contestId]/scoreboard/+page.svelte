@@ -249,9 +249,9 @@
         <span
           class="font-mono text-micro uppercase tracking-wider px-2 py-0.5 rounded-sm"
           style="background: {isSolveCount
-            ? 'color-mix(in oklab, #c4682d 14%, transparent)'
+            ? 'color-mix(in oklab, var(--primary) 14%, transparent)'
             : 'color-mix(in oklab, var(--chart-3) 18%, transparent)'}; color: {isSolveCount
-            ? '#c4682d'
+            ? 'var(--primary)'
             : 'oklch(0.45 0.13 245)'};"
         >
           {isSolveCount

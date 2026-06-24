@@ -52,7 +52,7 @@
   class="animate-in animate-in-1 relative overflow-hidden rounded-xl border border-border-subtle-strong bg-[color:var(--color-panel-strong)] p-5 shadow-rest backdrop-blur-md"
 >
   <div
-    class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(196,104,45,0.06),transparent_50%)]"
+    class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--primary)_6%,transparent),transparent_50%)]"
     aria-hidden="true"
   ></div>
 
