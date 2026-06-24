@@ -34,11 +34,13 @@ async function listProviderIds(event: RequestEvent): Promise<string[]> {
 export const load = async (event: RequestEvent) => {
   requireAuth(event);
   const linkedProviderIds = await listProviderIds(event);
+  const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
   return {
     providers: LINKABLE_PROVIDERS.map((provider) => ({
       provider,
       linked: linkedProviderIds.includes(provider),
     })),
+    passkeys: passkeys.map((p) => ({ id: p.id, name: p.name ?? "Passkey", createdAt: p.createdAt })),
   };
 };
 
@@ -94,5 +96,33 @@ export const actions = {
       });
     }
     return { unlinked: provider };
+  },
+
+  deletePasskey: async (event) => {
+    const actor = requireAuth(event);
+    if (!freshEnough(event.locals.session)) {
+      return fail(403, { needsReauth: true });
+    }
+    const id = String((await event.request.formData()).get("id") ?? "");
+    if (!id) {
+      return fail(400, { error: "Missing passkey id." });
+    }
+    try {
+      await getAuth().api.deletePasskey({ body: { id }, headers: event.request.headers });
+    } catch {
+      return fail(400, { error: "Could not remove this passkey." });
+    }
+    try {
+      await getMailer().sendEmail({
+        to: actor.email,
+        subject: "NOJV 帳號登入方式變更",
+        html: changeEmailHtml("passkey", "unlinked"),
+      });
+    } catch (err) {
+      logger.error("passkey delete notification email failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return { deletedPasskey: true };
   },
 } satisfies Actions;
