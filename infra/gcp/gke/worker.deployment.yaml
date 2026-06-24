@@ -16,6 +16,7 @@ spec:
         nojv-role: worker
     spec:
       serviceAccountName: nojv-worker
+      terminationGracePeriodSeconds: 120
       nodeSelector:
         nojv-role: worker
       securityContext:
@@ -87,6 +88,24 @@ spec:
                   name: nojv-runtime-secrets
             - name: S3_BUCKET
               value: nojv
+            - name: GRAFANA_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: GRAFANA_OTLP_ENDPOINT
+                  name: nojv-runtime-secrets
+                  optional: true
+            - name: GRAFANA_OTLP_INSTANCE_ID
+              valueFrom:
+                secretKeyRef:
+                  key: GRAFANA_OTLP_INSTANCE_ID
+                  name: nojv-runtime-secrets
+                  optional: true
+            - name: GRAFANA_OTLP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: GRAFANA_OTLP_TOKEN
+                  name: nojv-runtime-secrets
+                  optional: true
           livenessProbe:
             httpGet:
               path: /livez

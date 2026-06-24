@@ -245,28 +245,33 @@ jobs:
               echo "No previous image recorded for $service — cannot roll back"
               continue
             fi
-            rollback_tag="nojv-${service}:rollback"
-            docker tag "$prev_image" "$rollback_tag" 2>/dev/null || {
+            if ! docker tag "$prev_image" "nojv-${service}:latest" 2>/dev/null; then
               echo "Cannot tag previous image for $service (may have been pruned)"
               continue
-            }
-            # Override the image used by compose by setting COMPOSE_IMAGE env var
-            # is not portable; instead we start the container directly from the old image.
-            docker stop "$(docker compose --profile prod ps -q "$service" 2>/dev/null)" 2>/dev/null || true
-            docker run -d \
-              --name "nojv-${service}-rollback" \
-              --network host \
-              "$rollback_tag" && rolled_back=true \
-              && echo "Rolled back $service to $prev_image"
+            fi
+            rolled_back=true
           done
           if [[ "$rolled_back" == "true" ]]; then
-            echo "::warning::One or more services were rolled back to the previous image."
-            echo "::warning::Run 'docker compose --profile prod up -d --force-recreate web worker' to restore compose-managed state after fixing the issue."
+            docker compose --profile prod up -d --wait --force-recreate --no-build web worker
+            up_status=$?
+            echo "::warning::Health check failed — rolled back web/worker to the previous image via compose."
+            ok=true
+            curl -sf http://localhost:3000 >/dev/null || ok=false
+            for service in web worker; do
+              cid="$(docker compose --profile prod ps -q "$service" 2>/dev/null)"
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null)"
+              [[ "$health" == "healthy" ]] || ok=false
+            done
+            if [[ "$up_status" -ne 0 || "$ok" != "true" ]]; then
+              echo "::error::Rollback completed but the restored stack is NOT healthy — manual intervention required."
+              exit 1
+            fi
+            echo "Rollback verified healthy."
           else
             echo "::error::Health check failed and no automatic rollback was possible."
-            echo "::error::Manual recovery: identify the last known-good image tag and run:"
-            echo "::error::  docker tag <good-image-id> nojv-web:latest && docker compose --profile prod up -d --force-recreate web"
-            echo "::error::  docker tag <good-image-id> nojv-worker:latest && docker compose --profile prod up -d --force-recreate worker"
+            echo "::error::Manual recovery: identify the last known-good image id and run:"
+            echo "::error::  docker tag <good-image-id> nojv-web:latest && docker compose --profile prod up -d --force-recreate --no-build web"
+            echo "::error::  docker tag <good-image-id> nojv-worker:latest && docker compose --profile prod up -d --force-recreate --no-build worker"
           fi
 
       - name: Clean up old Docker images

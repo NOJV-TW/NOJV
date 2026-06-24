@@ -6,6 +6,12 @@ import {
   ADVANCED_WORKSPACE_MAX_BYTES,
   type RunStatus,
 } from "./advanced-mode-executor";
+import {
+  HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
+  SANDBOX_NODE_SELECTOR,
+  SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
+  SANDBOX_TOLERATIONS,
+} from "./k8s-pod-spec";
 import { resolveSourceFiles } from "./source-files.js";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
@@ -171,25 +177,8 @@ export function deriveRunStatusFromJob(
   return { state: "exited", exitCode: 0 };
 }
 
-const SANDBOX_NODE_SELECTOR = { "nojv-role": "sandbox" };
-const SANDBOX_TOLERATIONS = [
-  { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
-];
-const RUN_POD_SECURITY_CONTEXT = {
-  runAsUser: 10001,
-  runAsGroup: 10001,
-  fsGroup: 10001,
-  runAsNonRoot: true,
-  seccompProfile: { type: "RuntimeDefault" },
-};
-const HARDENED_CONTAINER_SECURITY_CONTEXT = {
-  allowPrivilegeEscalation: false,
-  capabilities: { drop: ["ALL"] },
-  readOnlyRootFilesystem: true,
-  runAsNonRoot: true,
-  runAsUser: 10001,
-  runAsGroup: 10001,
-};
+const RUN_POD_SECURITY_CONTEXT = SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP;
+const HARDENED_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED;
 
 export interface AdvancedPvcManifestParams {
   pvcName: string;

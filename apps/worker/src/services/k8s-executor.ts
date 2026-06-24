@@ -6,6 +6,8 @@ const require = createRequire(import.meta.url);
 
 import {
   advancedResultSchema,
+  DEFAULT_MAX_MEMORY_MB,
+  DEFAULT_MEMORY_HEADROOM_MB,
   resolveContainerMemoryMb,
   type RawCaseRun,
   type SandboxExecutor,
@@ -29,6 +31,13 @@ import {
   computeJobDeadlineSeconds,
   CONFIGMAP_MAX_BYTES,
 } from "./k8s-configmaps";
+import { scanJsonLinesFromEnd } from "./k8s-log-parse";
+import {
+  HARDENED_CONTAINER_SECURITY_CONTEXT,
+  SANDBOX_NODE_SELECTOR,
+  SANDBOX_POD_SECURITY_CONTEXT,
+  SANDBOX_TOLERATIONS,
+} from "./k8s-pod-spec";
 import {
   ADVANCED_SIDECAR_NAME,
   ADVANCED_TRANSFER_NAME,
@@ -108,9 +117,6 @@ export interface K8sExecutorConfig {
   sidecarReadinessIntervalMs?: number;
 }
 
-const DEFAULT_MEMORY_HEADROOM_MB = 64;
-const DEFAULT_MAX_MEMORY_MB = 2048;
-
 function parseMemoryLimitMb(value: string): number {
   return Number.parseInt(value, 10);
 }
@@ -166,21 +172,9 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
-          nodeSelector: { "nojv-role": "sandbox" },
-          tolerations: [
-            {
-              key: "nojv-role",
-              operator: "Equal",
-              value: "sandbox",
-              effect: "NoSchedule",
-            },
-          ],
-          securityContext: {
-            runAsUser: 10001,
-            runAsGroup: 10001,
-            runAsNonRoot: true,
-            seccompProfile: { type: "RuntimeDefault" },
-          },
+          nodeSelector: SANDBOX_NODE_SELECTOR,
+          tolerations: SANDBOX_TOLERATIONS,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           containers: [
             {
               name: "runner",
@@ -190,12 +184,7 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
                 requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
                 limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
               },
-              securityContext: {
-                allowPrivilegeEscalation: false,
-                capabilities: { drop: ["ALL"] },
-                readOnlyRootFilesystem: true,
-                runAsNonRoot: true,
-              },
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               volumeMounts: [
                 {
                   name: "submission-data",
@@ -249,12 +238,7 @@ export const COMPILE_CONTAINER_NAME = "compile";
 export function buildPerCaseSandboxJobManifest(
   params: PerCaseSandboxJobManifestParams,
 ): k8s.V1Job {
-  const containerSecurityContext = {
-    allowPrivilegeEscalation: false,
-    capabilities: { drop: ["ALL"] },
-    readOnlyRootFilesystem: true,
-    runAsNonRoot: true,
-  };
+  const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
   const resources = {
     requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
@@ -283,16 +267,9 @@ export function buildPerCaseSandboxJobManifest(
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
-          nodeSelector: { "nojv-role": "sandbox" },
-          tolerations: [
-            { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
-          ],
-          securityContext: {
-            runAsUser: 10001,
-            runAsGroup: 10001,
-            runAsNonRoot: true,
-            seccompProfile: { type: "RuntimeDefault" },
-          },
+          nodeSelector: SANDBOX_NODE_SELECTOR,
+          tolerations: SANDBOX_TOLERATIONS,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           initContainers: [
             {
               name: COMPILE_CONTAINER_NAME,
@@ -365,12 +342,7 @@ export interface InteractiveJobManifestParams {
 }
 
 export function buildInteractiveJobManifest(params: InteractiveJobManifestParams): k8s.V1Job {
-  const containerSecurityContext = {
-    allowPrivilegeEscalation: false,
-    capabilities: { drop: ["ALL"] },
-    readOnlyRootFilesystem: true,
-    runAsNonRoot: true,
-  };
+  const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
   const resources = {
     requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
@@ -395,21 +367,9 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
-          nodeSelector: { "nojv-role": "sandbox" },
-          tolerations: [
-            {
-              key: "nojv-role",
-              operator: "Equal",
-              value: "sandbox",
-              effect: "NoSchedule",
-            },
-          ],
-          securityContext: {
-            runAsUser: 10001,
-            runAsGroup: 10001,
-            runAsNonRoot: true,
-            seccompProfile: { type: "RuntimeDefault" },
-          },
+          nodeSelector: SANDBOX_NODE_SELECTOR,
+          tolerations: SANDBOX_TOLERATIONS,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           containers: [
             {
               name: "solution",
@@ -474,18 +434,9 @@ function parseValidatorOutcomesFromLogs(
   logs: string,
   rawRuns: RawCaseRun[],
 ): Map<number, ValidatorOutcome> | null {
-  const lines = logs.trim().split("\n");
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const trimmed = lines[i]?.trim();
-    if (!trimmed?.startsWith("{")) continue;
-    let json: unknown;
-    try {
-      json = JSON.parse(trimmed);
-    } catch {
-      continue;
-    }
+  return scanJsonLinesFromEnd(logs, (json) => {
     const parsed = parseValidateOutput(json);
-    if (!parsed.success || parsed.data.validatorOutcomes === undefined) continue;
+    if (!parsed.success || parsed.data.validatorOutcomes === undefined) return null;
 
     const outcomes = new Map<number, ValidatorOutcome>();
     for (const o of parsed.data.validatorOutcomes) {
@@ -498,9 +449,7 @@ function parseValidatorOutcomesFromLogs(
       }
     }
     return outcomes;
-  }
-
-  return null;
+  });
 }
 
 function parseCompilationError(logs: string): string | null {
@@ -1266,24 +1215,10 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private parseRunnerOutput(logs: string): SandboxResult | null {
-    const lines = logs.trim().split("\n");
-
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      if (!line) continue;
-
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("{")) continue;
-
-      try {
-        const parsed = parseSandboxResult(JSON.parse(trimmed));
-        if (parsed.success) return parsed.data;
-      } catch {
-        continue;
-      }
-    }
-
-    return null;
+    return scanJsonLinesFromEnd(logs, (json) => {
+      const parsed = parseSandboxResult(json);
+      return parsed.success ? parsed.data : null;
+    });
   }
 
   private async cleanup(jobName: string, namespace: string): Promise<void> {

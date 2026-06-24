@@ -26,10 +26,10 @@
   let { data }: { data: PageData } = $props();
 
   const DEFAULT_THEME_COLORS = {
-    chart1: "#c4682d",
+    chart1: "#1d8c9c",
     chart2: "#4d6f8f",
-    chart3: "#8a6142",
-    success: "#7a8f6d",
+    chart3: "#2f9d6b",
+    success: "#2f9d6b",
     mutedFg: "#6b7280",
   };
   let themeColors = $state({ ...DEFAULT_THEME_COLORS });

@@ -52,6 +52,7 @@
     <button
       class="rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
       disabled={isRunning || disabled}
+      aria-busy={isRunning}
       onclick={onRun}
       title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
       type="button"
@@ -61,6 +62,7 @@
     <button
       class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={isSubmitting || disabled || attemptsExhausted}
+      aria-busy={isSubmitting}
       onclick={onSubmit}
       title={attemptsExhausted
         ? m.editor_attemptsExhaustedTooltip()

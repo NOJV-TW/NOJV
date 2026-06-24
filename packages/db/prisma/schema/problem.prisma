@@ -1,4 +1,3 @@
-
 enum ProblemVisibility {
   public
   private
@@ -26,7 +25,6 @@ enum WorkspaceFileVisibility {
   readonly
   hidden
 }
-
 
 model Problem {
   id         String            @id @default(cuid())
@@ -101,16 +99,16 @@ model ProblemStatementI18n {
 }
 
 model TestcaseSet {
-  id              String                 @id @default(cuid())
-  problemId       String
-  name            String
-  description     String                 @default("") @db.Text
-  weight          Int                    @default(1)
-  ordinal         Int                    @default(0)
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  problem         Problem                @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  testcases       Testcase[]
+  id          String     @id @default(cuid())
+  problemId   String
+  name        String
+  description String     @default("") @db.Text
+  weight      Int        @default(1)
+  ordinal     Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  problem     Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  testcases   Testcase[]
 
   @@unique([problemId, name])
   @@unique([problemId, ordinal])

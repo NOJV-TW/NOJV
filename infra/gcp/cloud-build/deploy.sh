@@ -140,6 +140,9 @@ append_optional_secret GOOGLE_CLIENT_ID nojv-google-client-id
 append_optional_secret GOOGLE_CLIENT_SECRET nojv-google-client-secret
 append_optional_secret RESEND_API_KEY nojv-resend-api-key
 append_optional_secret EMAIL_FROM_DOMAIN nojv-email-from-domain
+append_optional_secret GRAFANA_OTLP_ENDPOINT nojv-grafana-otlp-endpoint
+append_optional_secret GRAFANA_OTLP_INSTANCE_ID nojv-grafana-otlp-instance-id
+append_optional_secret GRAFANA_OTLP_TOKEN nojv-grafana-otlp-token
 
 gcloud builds submit \
   --config infra/gcp/cloud-build/cloudbuild.yaml \
@@ -172,6 +175,7 @@ gcloud run deploy "${SERVICE_PREFIX}-web" \
   --port 3000 \
   --region "$REGION" \
   --ingress internal-and-cloud-load-balancing \
+  --set-env-vars "EXECUTION_BACKEND=${EXECUTION_BACKEND:-kubernetes}" \
   --set-secrets "$WEB_SECRETS" \
   ${NET_FLAGS[@]+"${NET_FLAGS[@]}"}
 

@@ -541,7 +541,7 @@
     <div
       role="tablist"
       aria-label={m.examDetail_subTabsLabel()}
-      class="inline-flex items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
+      class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
     >
       {#each subTabs as tab (tab.key)}
         <button
@@ -627,6 +627,7 @@
     onOpenChange={(v) => (showStartModal = v)}
     examTitle={detail.title}
     problemCount={detail.problems.length}
+    firstProblemId={detail.problems[0]?.id}
     {durationMinutes}
   />
 {/if}

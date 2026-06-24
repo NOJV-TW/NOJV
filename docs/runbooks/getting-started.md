@@ -90,7 +90,7 @@ pnpm db:seed
 Seed creates:
 
 - 5 users — 4 with password `password123` (admin, teacher, ta-student, student); the 5th (`b11902999`) is an OAuth-placeholder with no password
-- 12 problems with testcases
+- 15 problems with testcases (see `packages/db/prisma/seeds/problems.ts` for the authoritative set)
 - 3 contests
 - 1 course ("Operating Systems Lab") with memberships and assessments (students are added directly by the teacher — the join-token flow was removed)
 

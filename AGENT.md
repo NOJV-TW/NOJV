@@ -99,7 +99,7 @@ apps/
 packages/
   core/             Shared Zod schemas, types, pipeline definitions
   db/               Prisma 7 schema, migrations, repositories
-  domain/           Business logic — queries, commands, scoring, stats
+  application/      Business logic — queries, mutations, scoring, stats (@nojv/application)
   redis/            Redis connection, key registry, pub/sub
   storage/          S3-compatible object storage (problem images)
   temporal/         Temporal client + dispatch API + task queues + workflow I/O types (workflows/activities live in apps/worker)

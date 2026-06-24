@@ -11,6 +11,15 @@
 </div>
 
 <style>
+  .markdown-content :global(.katex-display) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.25rem;
+  }
+  .markdown-content :global(.katex) {
+    max-width: 100%;
+  }
+
   .markdown-content :global(p) {
     margin: 0 0 1rem 0;
   }

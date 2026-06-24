@@ -62,9 +62,13 @@
       <button
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-body-sm"
         onclick={() => (expanded[index] = !isExpanded)}
+        aria-expanded={isExpanded}
+        aria-controls={`subtask-panel-${index}`}
         type="button"
       >
-        <span class="text-caption text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
+        <span class="text-caption text-muted-foreground" aria-hidden="true"
+          >{isExpanded ? "▼" : "▶"}</span
+        >
         <span
           class="font-semibold {state === 'full'
             ? 'text-success'
@@ -94,6 +98,7 @@
 
       {#if isExpanded && subtask.cases.length > 0}
         <div
+          id={`subtask-panel-${index}`}
           class="border-t {state === 'full'
             ? 'border-success/30'
             : state === 'partial'

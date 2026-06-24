@@ -93,6 +93,9 @@ export interface ContainerMemoryOptions {
   maxMemoryMb: number;
 }
 
+export const DEFAULT_MEMORY_HEADROOM_MB = 64;
+export const DEFAULT_MAX_MEMORY_MB = 2048;
+
 export function resolveContainerMemoryMb(
   perProblemMemoryMb: number | undefined,
   options: ContainerMemoryOptions,

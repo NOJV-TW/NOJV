@@ -2,6 +2,14 @@ import type * as k8s from "@kubernetes/client-node";
 
 import { PROXY_READY_MARKER, renderAllowlistEnv } from "./egress-proxy";
 import {
+  HARDENED_CONTAINER_SECURITY_CONTEXT,
+  HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
+  SANDBOX_NODE_SELECTOR,
+  SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
+  SANDBOX_TOLERATIONS,
+  UNPINNED_POD_SECURITY_CONTEXT,
+} from "./k8s-pod-spec";
+import {
   ADVANCED_SERVICE_PORT,
   SERVICE_HOST_ENV,
   SERVICE_PORT_ENV,
@@ -12,35 +20,10 @@ export const EGRESS_LABEL_KEY = "nojv.egress";
 export const SIDECAR_ROLE_LABEL_KEY = "nojv.sidecar";
 export const SIDECAR_PORT = ADVANCED_SERVICE_PORT;
 
-const SANDBOX_NODE_SELECTOR = { "nojv-role": "sandbox" };
-const SANDBOX_TOLERATIONS = [
-  { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
-];
-const PROXY_POD_SECURITY_CONTEXT = {
-  runAsUser: 10001,
-  runAsGroup: 10001,
-  fsGroup: 10001,
-  runAsNonRoot: true,
-  seccompProfile: { type: "RuntimeDefault" },
-};
-const SERVICE_POD_SECURITY_CONTEXT = {
-  runAsNonRoot: true,
-  seccompProfile: { type: "RuntimeDefault" },
-};
-const PROXY_CONTAINER_SECURITY_CONTEXT = {
-  allowPrivilegeEscalation: false,
-  capabilities: { drop: ["ALL"] },
-  readOnlyRootFilesystem: true,
-  runAsNonRoot: true,
-  runAsUser: 10001,
-  runAsGroup: 10001,
-};
-const SERVICE_CONTAINER_SECURITY_CONTEXT = {
-  allowPrivilegeEscalation: false,
-  capabilities: { drop: ["ALL"] },
-  readOnlyRootFilesystem: true,
-  runAsNonRoot: true,
-};
+const PROXY_POD_SECURITY_CONTEXT = SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP;
+const SERVICE_POD_SECURITY_CONTEXT = UNPINNED_POD_SECURITY_CONTEXT;
+const PROXY_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED;
+const SERVICE_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT;
 const SIDECAR_TMP_SIZE_LIMIT = "64Mi";
 
 export function runEgressLabel(submissionId: string): string {

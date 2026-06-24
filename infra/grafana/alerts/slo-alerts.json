@@ -53,7 +53,7 @@
     "uid": "nojv-slo-http-error-rate-critical",
     "title": "HTTP 5xx error rate above availability SLO",
     "slo": "API availability - 5xx error rate < 1% over 5m",
-    "expr": "sum(rate(api_request_duration_seconds_count{status=~\"5..\"}[5m])) / sum(rate(api_request_duration_seconds_count[5m]))",
+    "expr": "sum(rate(api_request_duration_seconds_count{status_class=\"5xx\"}[5m])) / sum(rate(api_request_duration_seconds_count[5m]))",
     "threshold": 0.01,
     "for": "5m",
     "severity": "critical",
