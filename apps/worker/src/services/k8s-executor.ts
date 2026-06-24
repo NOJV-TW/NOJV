@@ -31,6 +31,7 @@ import {
   computeJobDeadlineSeconds,
   CONFIGMAP_MAX_BYTES,
 } from "./k8s-configmaps";
+import { scanJsonLinesFromEnd } from "./k8s-log-parse";
 import {
   HARDENED_CONTAINER_SECURITY_CONTEXT,
   SANDBOX_NODE_SELECTOR,
@@ -433,18 +434,9 @@ function parseValidatorOutcomesFromLogs(
   logs: string,
   rawRuns: RawCaseRun[],
 ): Map<number, ValidatorOutcome> | null {
-  const lines = logs.trim().split("\n");
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const trimmed = lines[i]?.trim();
-    if (!trimmed?.startsWith("{")) continue;
-    let json: unknown;
-    try {
-      json = JSON.parse(trimmed);
-    } catch {
-      continue;
-    }
+  return scanJsonLinesFromEnd(logs, (json) => {
     const parsed = parseValidateOutput(json);
-    if (!parsed.success || parsed.data.validatorOutcomes === undefined) continue;
+    if (!parsed.success || parsed.data.validatorOutcomes === undefined) return null;
 
     const outcomes = new Map<number, ValidatorOutcome>();
     for (const o of parsed.data.validatorOutcomes) {
@@ -457,9 +449,7 @@ function parseValidatorOutcomesFromLogs(
       }
     }
     return outcomes;
-  }
-
-  return null;
+  });
 }
 
 function parseCompilationError(logs: string): string | null {
@@ -1225,24 +1215,10 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private parseRunnerOutput(logs: string): SandboxResult | null {
-    const lines = logs.trim().split("\n");
-
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      if (!line) continue;
-
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("{")) continue;
-
-      try {
-        const parsed = parseSandboxResult(JSON.parse(trimmed));
-        if (parsed.success) return parsed.data;
-      } catch {
-        continue;
-      }
-    }
-
-    return null;
+    return scanJsonLinesFromEnd(logs, (json) => {
+      const parsed = parseSandboxResult(json);
+      return parsed.success ? parsed.data : null;
+    });
   }
 
   private async cleanup(jobName: string, namespace: string): Promise<void> {
