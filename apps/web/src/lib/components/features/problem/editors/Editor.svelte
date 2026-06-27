@@ -254,6 +254,7 @@
     <EditorBottomPanel
       bind:runCases={runController.panelRunCases}
       isReadOnly={isSpecialEnv}
+      judgeType={problem.judgeType}
       tab={runController.bottomTab}
       runResult={runController.runResult}
       runStatus={runController.runStatus}

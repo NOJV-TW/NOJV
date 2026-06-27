@@ -72,51 +72,6 @@ import {
   SIDECAR_PORT,
 } from "./k8s-advanced-network";
 
-export {
-  buildRunConfigMapData,
-  buildInteractiveInteractorConfigMapData,
-  buildInteractiveSolutionConfigMapData,
-  buildTestcaseConfigMapData,
-  buildValidateConfigMapData,
-  computeJobDeadlineSeconds,
-} from "./k8s-configmaps";
-export {
-  ADVANCED_GRADER_NAME,
-  ADVANCED_INIT_NAME,
-  ADVANCED_RESULT_MARKER_BEGIN,
-  ADVANCED_RESULT_MARKER_END,
-  ADVANCED_RUN_NAME,
-  ADVANCED_SIDECAR_NAME,
-  ADVANCED_TRANSFER_NAME,
-  advancedPvcName,
-  buildAdvancedConfigMapData,
-  buildAdvancedGradeConfigMapData,
-  buildAdvancedGradeJobManifest,
-  buildAdvancedInitScript,
-  buildAdvancedPvcManifest,
-  buildAdvancedRunJobManifest,
-  buildAdvancedTailScript,
-  buildAdvancedTransferScript,
-  buildAdvancedTransferWaitScript,
-  deriveRunStatusFromJob,
-  parseAdvancedResultLog,
-} from "./k8s-advanced";
-export {
-  buildInteractiveJobManifest,
-  buildInteractorContainerCommand,
-  buildPerCaseSandboxJobManifest,
-  buildSandboxJobManifest,
-  buildSolutionContainerCommand,
-  COMPILE_CONTAINER_NAME,
-  INTERACTIVE_SOCKET_PORT,
-  perCaseContainerName,
-} from "./k8s-job-manifests";
-export type {
-  InteractiveJobManifestParams,
-  PerCaseSandboxJobManifestParams,
-  SandboxJobManifestParams,
-} from "./k8s-job-manifests";
-
 const logger = createLogger("k8s-executor");
 
 export interface K8sExecutorConfig {
@@ -154,6 +109,14 @@ const SIDECAR_READINESS_INTERVAL_MS = 500;
 
 const JOB_DEADLINE_BUFFER_SECONDS = 60;
 const JOB_POLL_INTERVAL_MS = 1_000;
+const POD_SCHEDULE_GRACE_MS = 30_000;
+
+export class SandboxBackpressureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxBackpressureError";
+  }
+}
 
 export interface K8sClientHandles {
   coreApi: k8s.CoreV1Api;
@@ -192,18 +155,12 @@ function parseValidatorOutcomesFromLogs(
 }
 
 function parseCompilationError(logs: string): string | null {
-  const lines = logs.trim().split("\n");
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const trimmed = (lines[i] ?? "").trim();
-    if (!trimmed.startsWith("{")) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as { compilationError?: unknown };
-      return typeof parsed.compilationError === "string" ? parsed.compilationError : null;
-    } catch {
-      continue;
-    }
-  }
-  return null;
+  return (
+    scanJsonLinesFromEnd(logs, (json) => {
+      const { compilationError } = json as { compilationError?: unknown };
+      return { value: typeof compilationError === "string" ? compilationError : null };
+    })?.value ?? null
+  );
 }
 
 export class K8sExecutor implements SandboxExecutor {
@@ -392,6 +349,7 @@ export class K8sExecutor implements SandboxExecutor {
 
       return mapAdvancedResult(request, parsed.data);
     } catch (err) {
+      if (err instanceof SandboxBackpressureError) throw err;
       logger.error("K8s advanced execution failed", {
         submissionId: request.submissionId,
         baseName,
@@ -641,6 +599,7 @@ export class K8sExecutor implements SandboxExecutor {
       };
       return mergeInteractiveCase(testcase, sol, int);
     } catch (err) {
+      if (err instanceof SandboxBackpressureError) throw err;
       logger.error("K8s interactive case failed", {
         submissionId: request.submissionId,
         jobName,
@@ -816,6 +775,7 @@ export class K8sExecutor implements SandboxExecutor {
         parseValidatorOutcomesFromLogs(logs, rawRuns) ?? validatorOutcomesSeForAll(rawRuns)
       );
     } catch (err) {
+      if (err instanceof SandboxBackpressureError) throw err;
       logger.error("K8s validate Job failed", {
         submissionId: request.submissionId,
         jobName,
@@ -904,12 +864,55 @@ export class K8sExecutor implements SandboxExecutor {
     return (await this.waitForJobOutcome(jobName, namespace, deadlineSeconds)).state;
   }
 
+  private jobBlockedReason(job: k8s.V1Job): string | null {
+    const condition = (job.status?.conditions ?? []).find(
+      (c) =>
+        c.status === "True" &&
+        (c.reason === "FailedCreate" ||
+          /exceeded quota|forbidden|FailedCreate/i.test(c.message ?? "")),
+    );
+    return condition ? (condition.message ?? condition.reason ?? "FailedCreate") : null;
+  }
+
+  private async inspectJobPods(
+    jobName: string,
+    namespace: string,
+  ): Promise<{ everStarted: boolean; unschedulableReason: string | null }> {
+    try {
+      const pods = await this.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      });
+      let everStarted = false;
+      let unschedulableReason: string | null = null;
+      for (const pod of pods.items) {
+        const status = pod.status;
+        const phase = status?.phase;
+        if (status?.startTime || phase === "Running" || phase === "Succeeded") {
+          everStarted = true;
+        }
+        if (phase === "Failed" && status?.startTime) {
+          everStarted = true;
+        }
+        const scheduled = (status?.conditions ?? []).find((c) => c.type === "PodScheduled");
+        if (scheduled?.status === "False" && scheduled.reason === "Unschedulable") {
+          unschedulableReason = scheduled.message ?? scheduled.reason;
+        }
+      }
+      return { everStarted, unschedulableReason };
+    } catch {
+      return { everStarted: false, unschedulableReason: null };
+    }
+  }
+
   private async waitForJobOutcome(
     jobName: string,
     namespace: string,
     deadlineSeconds: number,
   ): Promise<{ state: "succeeded" | "failed"; deadlineExceeded: boolean }> {
-    const deadline = Date.now() + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
+    const startedAt = Date.now();
+    const deadline = startedAt + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
+    let everStarted = false;
 
     while (Date.now() < deadline) {
       const job = await this.batchApi.readNamespacedJob({
@@ -919,13 +922,39 @@ export class K8sExecutor implements SandboxExecutor {
 
       if (job.status?.succeeded) return { state: "succeeded", deadlineExceeded: false };
       if (job.status?.failed) {
+        const blockedReason = this.jobBlockedReason(job);
+        if (blockedReason) {
+          throw new SandboxBackpressureError(
+            `Sandbox Job ${jobName} could not create pods (${blockedReason}); retrying with backoff.`,
+          );
+        }
         const deadlineExceeded = (job.status.conditions ?? []).some(
           (c) => c.reason === "DeadlineExceeded",
         );
         return { state: "failed", deadlineExceeded };
       }
 
+      if (!everStarted) {
+        const pods = await this.inspectJobPods(jobName, namespace);
+        everStarted = pods.everStarted;
+
+        if (!everStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
+          const blockedReason = this.jobBlockedReason(job);
+          if (blockedReason || pods.unschedulableReason) {
+            throw new SandboxBackpressureError(
+              `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? pods.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,
+            );
+          }
+        }
+      }
+
       await new Promise((r) => setTimeout(r, JOB_POLL_INTERVAL_MS));
+    }
+
+    if (!everStarted) {
+      throw new SandboxBackpressureError(
+        `Sandbox Job ${jobName} produced no running pod before the deadline (quota/capacity backpressure); retrying with backoff.`,
+      );
     }
 
     return { state: "failed", deadlineExceeded: true };

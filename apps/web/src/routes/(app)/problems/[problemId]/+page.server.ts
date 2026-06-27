@@ -24,7 +24,30 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const userId = actor.id;
   const actorContext = requireAuth(event);
 
-  const problemRow = await getProblemRowById(problemId);
+  const [
+    problemRow,
+    problem,
+    fullTestcaseSets,
+    submissions,
+    editorialContext,
+    canRejudge,
+    bookmarked,
+  ] = await Promise.all([
+    getProblemRowById(problemId),
+    getProblemPageData(problemId),
+    getProblemTestcaseSets(problemId),
+    listProblemSubmissions(userId, problemId),
+    resolveActiveContextForUser(userId, problemId, new Date()),
+    canOperateOnSubmission(actorContext, {
+      id: "",
+      userId,
+      problemId,
+      contestId: null,
+      assessmentId: null,
+      examId: null,
+    }),
+    problemDomain.isBookmarked(userId, problemId),
+  ]);
 
   if (!problemRow) {
     error(404, "Problem not found");
@@ -39,23 +62,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     },
     { contextIncludesProblem: false },
   );
-
-  const [problem, fullTestcaseSets, submissions, editorialContext, canRejudge, bookmarked] =
-    await Promise.all([
-      getProblemPageData(problemId),
-      getProblemTestcaseSets(problemId),
-      listProblemSubmissions(userId, problemId),
-      resolveActiveContextForUser(userId, problemId, new Date()),
-      canOperateOnSubmission(actorContext, {
-        id: "",
-        userId,
-        problemId,
-        contestId: null,
-        assessmentId: null,
-        examId: null,
-      }),
-      problemDomain.isBookmarked(userId, problemId),
-    ]);
 
   const testcaseSetSummaries = fullTestcaseSets.map((set) => ({
     id: set.id,

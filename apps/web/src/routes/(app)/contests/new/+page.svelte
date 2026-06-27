@@ -15,6 +15,8 @@
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
+  import ExamProblemPicker from "$lib/components/features/course/exam/ExamProblemPicker.svelte";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
 
@@ -29,6 +31,7 @@
   } = superForm<typeof data.form.data, FormMessage>(
     untrack(() => data.form),
     {
+      dataType: "json",
       resetForm: false,
       onUpdated({ form }) {
         if (form.message?.kind === "success") {
@@ -45,10 +48,13 @@
 </script>
 
 <PageContainer width="form" class="space-y-6">
-  <div class="flex items-center gap-3">
-    <TrophyIcon aria-hidden="true" class="h-8 w-8 text-primary" />
-    <h1 class="text-title-lg">{m.contestCreate_title()}</h1>
-  </div>
+  <PageHero
+    variant="workspace"
+    breadcrumbHref="/contests"
+    breadcrumbLabel={m.contestCreate_breadcrumb()}
+    eyebrow={m.contestCreate_eyebrow()}
+    title={m.contestCreate_title()}
+  />
 
   <Card variant="surface" size="hero" class="max-w-2xl">
     <form method="POST" action="?/create" use:enhance class="space-y-5">
@@ -263,20 +269,23 @@
       <div>
         <p class="text-xs text-muted-foreground">{m.contestCreate_allowedLanguagesHint()}</p>
         <div
-          class="mt-2 flex flex-wrap gap-3"
+          class="mt-3 flex flex-wrap gap-2"
           role="group"
           aria-label={m.contestCreate_allowedLanguages()}
           aria-describedby={$errors.allowedLanguages ? "allowedLanguages-error" : undefined}
         >
           {#each supportedLanguages as lang (lang)}
-            <label class="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={($form.allowedLanguages ?? []).includes(lang)}
-                onchange={() => toggleLanguage(lang)}
-              />
+            {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors {checked
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border bg-[color:var(--color-panel)] text-foreground hover:border-border-strong'}"
+              onclick={() => toggleLanguage(lang)}
+              aria-pressed={checked}
+            >
               {lang}
-            </label>
+            </button>
           {/each}
         </div>
         {#if $errors.allowedLanguages}<p
@@ -291,24 +300,11 @@
         <ListIcon aria-hidden="true" class="h-4 w-4" />
         <span>{m.contestCreate_problemIds()}</span>
       </div>
-      <div>
-        <input
-          class={inputClassName}
-          id="problemIdsText"
-          name="problemIdsText"
-          type="text"
-          placeholder={m.contestCreate_problemIdsPlaceholder()}
-          bind:value={$form.problemIdsText}
-          aria-invalid={Boolean($errors.problemIdsText)}
-          aria-describedby={$errors.problemIdsText ? "problemIdsText-error" : undefined}
-        />
-        {#if $errors.problemIdsText}<p
-            id="problemIdsText-error"
-            class="mt-1 text-xs text-destructive"
-          >
-            {$errors.problemIdsText}
-          </p>{/if}
-      </div>
+      <ExamProblemPicker
+        candidateProblems={data.candidateProblems}
+        bind:problemIds={$form.problemIds}
+        error={$errors.problemIds}
+      />
 
       <Button type="submit" size="lg" loading={$submitting}>
         <TrophyIcon aria-hidden="true" class="h-4 w-4" />

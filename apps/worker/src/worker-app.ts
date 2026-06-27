@@ -5,9 +5,11 @@ import "./domain-orchestration";
 
 import {
   closeTemporalClient,
+  ensureLifecycleReconciler,
   ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
+  temporalConnectionOptions,
 } from "@nojv/temporal";
 
 const require = createRequire(import.meta.url);
@@ -54,7 +56,12 @@ export class WorkerApp {
     const address = this.env.TEMPORAL_ADDRESS;
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
-    const connection = await NativeConnection.connect({ address });
+    const { tls, apiKey } = temporalConnectionOptions();
+    const connection = await NativeConnection.connect({
+      address,
+      ...(tls !== undefined ? { tls } : {}),
+      ...(apiKey ? { apiKey } : {}),
+    });
     this.connection = connection;
 
     if (mode === "all" || mode === "judge") {
@@ -107,6 +114,7 @@ export class WorkerApp {
       });
       this.workers.push(platformWorker);
       await ensureSubmissionSweeper();
+      await ensureLifecycleReconciler();
     }
 
     await new Promise<void>((resolve) => {

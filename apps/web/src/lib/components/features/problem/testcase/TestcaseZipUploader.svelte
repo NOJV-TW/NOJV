@@ -249,7 +249,10 @@
 
       <div class="grid gap-4">
         <div class="flex items-center justify-end gap-2 text-body-sm">
-          <span class="text-muted-foreground">{m.testcases_totalWeight()}:</span>
+          <span class="text-muted-foreground">
+            {m.testcases_totalWeight()}:
+            <HelpTooltip text={m.testcases_totalWeightHelp()} />
+          </span>
           <span
             class="font-bold tabular-nums {totalPoints === 100
               ? 'text-success'

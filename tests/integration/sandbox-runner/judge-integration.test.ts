@@ -4,9 +4,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
+import { compareStandard } from "@nojv/core";
+
 import { compile, sourceFileName } from "../../../apps/sandbox-runner/src/compiler.js";
-import { judgeStandard } from "../../../apps/sandbox-runner/src/judges/standard.js";
+import { runSolution } from "../../../apps/sandbox-runner/src/judges/standard.js";
 import type { SandboxInput, TestcaseFiles } from "../../../apps/sandbox-runner/src/types.js";
+
+async function judge(
+  runCommand: string[],
+  testcase: TestcaseFiles,
+  expected: string,
+  timeoutMs: number,
+): Promise<string> {
+  const run = await runSolution(runCommand, testcase, timeoutMs);
+  if (run.errorVerdict) return run.errorVerdict;
+  return compareStandard(run.stdout, expected) ? "AC" : "WA";
+}
 
 const TIMEOUT_MS = 10_000;
 const SHORT_TIMEOUT_MS = 500;
@@ -237,8 +250,10 @@ function makeInput(lang: SandboxInput["language"]): SandboxInput {
   };
 }
 
+const DEFAULT_EXPECTED = "8\n";
+
 function makeTestcase(overrides: Partial<TestcaseFiles> = {}): TestcaseFiles {
-  return { index: 0, input: "3 5\n", expected: "8\n", weight: 1, isSample: true, ...overrides };
+  return { index: 0, input: "3 5\n", weight: 1, isSample: true, ...overrides };
 }
 
 async function compileProgram(lang: SandboxInput["language"], source: string) {
@@ -257,8 +272,13 @@ describe("standard judge", () => {
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
-        const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-        expect(verdict.verdict).toBe("AC");
+        const verdict = await judge(
+          result.runCommand,
+          makeTestcase(),
+          DEFAULT_EXPECTED,
+          TIMEOUT_MS,
+        );
+        expect(verdict).toBe("AC");
       },
       compileTestTimeout(name),
     );
@@ -272,12 +292,8 @@ describe("standard judge", () => {
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
-        const verdict = await judgeStandard(
-          result.runCommand,
-          makeTestcase({ expected: "999\n" }),
-          TIMEOUT_MS,
-        );
-        expect(verdict.verdict).toBe("WA");
+        const verdict = await judge(result.runCommand, makeTestcase(), "999\n", TIMEOUT_MS);
+        expect(verdict).toBe("WA");
       },
       compileTestTimeout(name),
     );
@@ -291,8 +307,13 @@ describe("standard judge", () => {
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
-        const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-        expect(verdict.verdict).toBe("RE");
+        const verdict = await judge(
+          result.runCommand,
+          makeTestcase(),
+          DEFAULT_EXPECTED,
+          TIMEOUT_MS,
+        );
+        expect(verdict).toBe("RE");
       },
       compileTestTimeout(name),
     );
@@ -306,12 +327,13 @@ describe("standard judge", () => {
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
-        const verdict = await judgeStandard(
+        const verdict = await judge(
           result.runCommand,
           makeTestcase(),
+          DEFAULT_EXPECTED,
           SHORT_TIMEOUT_MS,
         );
-        expect(verdict.verdict).toBe("TLE");
+        expect(verdict).toBe("TLE");
       },
       compileTestTimeout(name),
     );
@@ -335,16 +357,26 @@ describe("standard judge", () => {
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
-        const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-        expectMleVerdict(name, verdict.verdict);
+        const verdict = await judge(
+          result.runCommand,
+          makeTestcase(),
+          DEFAULT_EXPECTED,
+          TIMEOUT_MS,
+        );
+        expectMleVerdict(name, verdict);
       },
       compileTestTimeout(name),
     );
   }
 
   it("SE — invalid command", async () => {
-    const verdict = await judgeStandard(["/nonexistent/binary"], makeTestcase(), TIMEOUT_MS);
-    expect(verdict.verdict).toBe("SE");
+    const verdict = await judge(
+      ["/nonexistent/binary"],
+      makeTestcase(),
+      DEFAULT_EXPECTED,
+      TIMEOUT_MS,
+    );
+    expect(verdict).toBe("SE");
   });
 });
 
@@ -354,9 +386,9 @@ describe("standard judge edge cases", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    const tc = makeTestcase({ input: "", expected: "" });
-    const verdict = await judgeStandard(result.runCommand, tc, TIMEOUT_MS);
-    expect(verdict.verdict).toBe("AC");
+    const tc = makeTestcase({ input: "" });
+    const verdict = await judge(result.runCommand, tc, "", TIMEOUT_MS);
+    expect(verdict).toBe("AC");
   }, 30_000);
 
   it("CRLF output matches LF expected → AC", async () => {
@@ -367,9 +399,9 @@ describe("standard judge edge cases", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    const tc = makeTestcase({ input: "", expected: "hello\n" });
-    const verdict = await judgeStandard(result.runCommand, tc, TIMEOUT_MS);
-    expect(verdict.verdict).toBe("AC");
+    const tc = makeTestcase({ input: "" });
+    const verdict = await judge(result.runCommand, tc, "hello\n", TIMEOUT_MS);
+    expect(verdict).toBe("AC");
   }, 30_000);
 
   it("trailing whitespace in output still matches if trimEnd matches", async () => {
@@ -377,9 +409,9 @@ describe("standard judge edge cases", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    const tc = makeTestcase({ expected: "8\n" });
-    const verdict = await judgeStandard(result.runCommand, tc, TIMEOUT_MS);
-    expect(verdict.verdict).toBe("AC");
+    const tc = makeTestcase();
+    const verdict = await judge(result.runCommand, tc, "8\n", TIMEOUT_MS);
+    expect(verdict).toBe("AC");
   }, 30_000);
 
   it("score is 100 for AC, 0 for WA", async () => {
@@ -387,14 +419,15 @@ describe("standard judge edge cases", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    const acVerdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-    expect(acVerdict.verdict).toBe("AC");
-
-    const waVerdict = await judgeStandard(
+    const acVerdict = await judge(
       result.runCommand,
-      makeTestcase({ expected: "999\n" }),
+      makeTestcase(),
+      DEFAULT_EXPECTED,
       TIMEOUT_MS,
     );
-    expect(waVerdict.verdict).toBe("WA");
+    expect(acVerdict).toBe("AC");
+
+    const waVerdict = await judge(result.runCommand, makeTestcase(), "999\n", TIMEOUT_MS);
+    expect(waVerdict).toBe("WA");
   }, 30_000);
 });

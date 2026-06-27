@@ -122,24 +122,6 @@ export async function canViewClarifications(
 
 export const canSeeAuthor = isStaffOfContext;
 
-export async function assertCanAskClarification(
-  actor: ActorContext,
-  context: ClarificationContext,
-): Promise<void> {
-  if (!(await canAskClarification(actor, context))) {
-    throw new ForbiddenError("Only participants may ask clarifications.");
-  }
-}
-
-export async function assertCanAnswerInContext(
-  actor: ActorContext,
-  context: ClarificationContext,
-): Promise<void> {
-  if (!(await canAnswerInContext(actor, context))) {
-    throw new ForbiddenError("Not permitted to answer clarifications in this context.");
-  }
-}
-
 export async function assertCanViewClarifications(
   actor: ActorContext,
   context: ClarificationContext,

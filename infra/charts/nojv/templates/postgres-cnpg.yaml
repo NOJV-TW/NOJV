@@ -1,0 +1,60 @@
+{{- if eq .Values.postgres.mode "cnpg" }}
+{{/*
+CloudNativePG Cluster CR. Requires the CloudNativePG operator installed
+cluster-wide (documented prerequisite — its CRDs are not vendored here). The
+operator creates a Secret named <cluster>-app and a Service <cluster>-rw; point
+DATABASE_URL (in the runtime secret) at <cluster>-rw.<namespace>.svc:5432.
+*/}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "nojv.cnpgClusterName" . }}
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  instances: {{ .Values.postgres.cnpg.instances }}
+  imageName: {{ .Values.postgres.cnpg.imageName }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgres.cnpg.database }}
+      owner: {{ .Values.postgres.cnpg.owner }}
+  storage:
+    size: {{ .Values.postgres.cnpg.storageSize }}
+    {{- with .Values.postgres.cnpg.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  {{- if .Values.postgres.cnpg.backup.enabled }}
+  backup:
+    retentionPolicy: {{ .Values.postgres.cnpg.backup.retentionPolicy | quote }}
+    barmanObjectStore:
+      destinationPath: {{ .Values.postgres.cnpg.backup.destinationPath | quote }}
+      {{- with .Values.postgres.cnpg.backup.endpointURL }}
+      endpointURL: {{ . | quote }}
+      {{- end }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Values.postgres.cnpg.backup.s3CredentialsSecret }}
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ .Values.postgres.cnpg.backup.s3CredentialsSecret }}
+          key: ACCESS_SECRET_KEY
+  {{- end }}
+{{- if and .Values.postgres.cnpg.backup.enabled .Values.postgres.cnpg.backup.schedule }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ include "nojv.cnpgClusterName" . }}-backup
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  schedule: {{ .Values.postgres.cnpg.backup.schedule | quote }}
+  backupOwnerReference: self
+  cluster:
+    name: {{ include "nojv.cnpgClusterName" . }}
+{{- end }}
+{{- end }}

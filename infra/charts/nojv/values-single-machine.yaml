@@ -1,0 +1,51 @@
+image:
+  registry: ""
+  repositoryPrefix: nojv
+  tag: latest
+
+postgres:
+  mode: cnpg
+  cnpg:
+    instances: 1
+    storageSize: 5Gi
+    backup:
+      enabled: false
+
+cloudsqlProxy:
+  enabled: false
+
+redis:
+  inCluster: true
+
+storage:
+  inCluster: true
+
+web:
+  replicas: 1
+  hpa:
+    enabled: false
+  ingress:
+    enabled: false
+
+worker:
+  judge:
+    replicas: 1
+  platform:
+    replicas: 1
+
+pdb:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+sandbox:
+  networkPolicy:
+    enabled: true
+  resourceQuota:
+    enabled: true
+    pods: "10"
+    requestsCpu: "4"
+    requestsMemory: "4Gi"
+  limitRange:
+    enabled: true

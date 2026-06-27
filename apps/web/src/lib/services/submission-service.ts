@@ -9,6 +9,7 @@ import {
 } from "@nojv/core";
 
 import { fetchWithCsrf } from "$lib/services/http";
+import { watchSubmissionVerdict } from "$lib/stores/sse";
 
 export interface SubmissionAssessmentContext {
   assessmentId: string;
@@ -41,7 +42,7 @@ export interface ExecuteSubmissionOptions {
 
 const DEFAULT_TIMEOUT_MS = 600_000;
 const INITIAL_POLL_DELAY_MS = 500;
-const MAX_POLL_DELAY_MS = 3_000;
+const MAX_POLL_DELAY_MS = 5_000;
 const POLL_BACKOFF_FACTOR = 1.5;
 
 function resolveSubmissionMode(
@@ -152,43 +153,78 @@ export async function executeSubmission(
 
   onDispatched?.(dispatch);
 
-  const startedAt = Date.now();
-  let pollDelay = INITIAL_POLL_DELAY_MS;
+  const verdictSignal = createVerdictSignal(dispatch.submissionId);
 
-  while (Date.now() - startedAt < timeoutMs) {
-    if (signal?.aborted) return null;
+  try {
+    const startedAt = Date.now();
+    let pollDelay = INITIAL_POLL_DELAY_MS;
 
-    const operation = await pollOnce(dispatch.pollUrl, signal);
-    if (!operation) return null;
+    while (Date.now() - startedAt < timeoutMs) {
+      if (signal?.aborted) return null;
 
-    onOperationUpdate?.(operation);
+      const operation = await pollOnce(dispatch.pollUrl, signal);
+      if (!operation) return null;
 
-    if (operation.result) {
-      return submissionResultSchema.parse(operation.result);
+      onOperationUpdate?.(operation);
+
+      if (operation.result) {
+        return submissionResultSchema.parse(operation.result);
+      }
+
+      const wokeEarly = await waitForPollTick(pollDelay, verdictSignal.promise, signal);
+      if (signal?.aborted) return null;
+      pollDelay = wokeEarly
+        ? INITIAL_POLL_DELAY_MS
+        : Math.min(pollDelay * POLL_BACKOFF_FACTOR, MAX_POLL_DELAY_MS);
     }
 
-    const delayAborted = await sleep(pollDelay, signal);
-    if (delayAborted) return null;
-    pollDelay = Math.min(pollDelay * POLL_BACKOFF_FACTOR, MAX_POLL_DELAY_MS);
+    return null;
+  } finally {
+    verdictSignal.dispose();
   }
-
-  return null;
 }
 
-function sleep(ms: number, signal?: AbortSignal): Promise<boolean> {
-  return new Promise((resolve) => {
+interface VerdictSignal {
+  promise: Promise<void>;
+  dispose: () => void;
+}
+
+function createVerdictSignal(submissionId: string): VerdictSignal {
+  let resolve!: () => void;
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+  const unsubscribe = watchSubmissionVerdict(submissionId, () => {
+    resolve();
+  });
+  return {
+    promise,
+    dispose: unsubscribe,
+  };
+}
+
+async function waitForPollTick(
+  ms: number,
+  verdictPromise: Promise<void>,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<boolean>((resolve) => {
     if (signal?.aborted) {
-      resolve(true);
+      resolve(false);
       return;
     }
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       signal?.removeEventListener("abort", onAbort);
       resolve(false);
     }, ms);
     const onAbort = () => {
-      clearTimeout(timer);
-      resolve(true);
+      if (timer) clearTimeout(timer);
+      resolve(false);
     };
     signal?.addEventListener("abort", onAbort, { once: true });
   });
+  const result = await Promise.race([timeoutPromise, verdictPromise.then(() => true)]);
+  if (timer) clearTimeout(timer);
+  return result;
 }

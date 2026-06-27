@@ -226,6 +226,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       (await testPrisma.participation.findUnique({ where: { id: participation.id } }))?.score,
     ).toBe(0);
 
+    await submissionDomain.snapshotForRejudge(submission.id, teacher.id, null);
     await submissionDomain.completeJudge(submission.id, {
       accepted: true,
       caseResults: [],

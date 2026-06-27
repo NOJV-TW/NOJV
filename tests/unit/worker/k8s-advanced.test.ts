@@ -39,8 +39,8 @@ import {
   buildAdvancedTransferWaitScript,
   deriveRunStatusFromJob,
   parseAdvancedResultLog,
-  K8sExecutor,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/services/k8s-advanced";
+import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
 
 function makeAdvancedRequest(overrides?: {
   imageSource?: "registry" | "tarball";

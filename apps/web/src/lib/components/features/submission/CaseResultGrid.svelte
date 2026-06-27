@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CaseResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatVerdictLabel } from "$lib/utils/verdict-style";
 
   interface Props {
     cases: CaseResult[];
@@ -40,6 +41,7 @@
           : 'hover:brightness-110'}"
         onclick={() => (expandedIndex = expandedIndex === idx ? null : idx)}
         type="button"
+        title={formatVerdictLabel(cr.verdict)}
       >
         #{idx + 1}
         <span class="font-semibold uppercase">{cr.verdict}</span>
@@ -53,6 +55,7 @@
     {:else}
       <span
         class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums {cls}"
+        title={formatVerdictLabel(cr.verdict)}
       >
         #{idx + 1}
         <span class="font-semibold uppercase">{cr.verdict}</span>

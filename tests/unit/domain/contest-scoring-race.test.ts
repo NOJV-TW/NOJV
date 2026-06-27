@@ -64,6 +64,7 @@ function participationFixture(version: number) {
     contest: {
       id: CONTEST_ID,
       startsAt: new Date("2026-04-29T10:00:00Z"),
+      endsAt: new Date("2026-04-29T12:00:00Z"),
       scoringMode: "point_sum",
       problems: [{ problemId: PROBLEM_ID, ordinal: 1, points: 100 }],
     },
@@ -83,10 +84,20 @@ describe("updateContestScores — optimistic locking", () => {
 
     findForContestScoring
       .mockResolvedValueOnce([
-        { problemId: PROBLEM_ID, score: 60, status: "wrong_answer", createdAt: new Date() },
+        {
+          problemId: PROBLEM_ID,
+          score: 60,
+          status: "wrong_answer",
+          createdAt: new Date("2026-04-29T11:00:00Z"),
+        },
       ])
       .mockResolvedValueOnce([
-        { problemId: PROBLEM_ID, score: 80, status: "partial", createdAt: new Date() },
+        {
+          problemId: PROBLEM_ID,
+          score: 80,
+          status: "partial",
+          createdAt: new Date("2026-04-29T11:00:00Z"),
+        },
       ]);
 
     updateWithVersion
@@ -118,7 +129,12 @@ describe("updateContestScores — optimistic locking", () => {
   it("throws ConflictError after exhausting all retry attempts", async () => {
     findContestForScoring.mockResolvedValue(participationFixture(0));
     findForContestScoring.mockResolvedValue([
-      { problemId: PROBLEM_ID, score: 50, status: "partial", createdAt: new Date() },
+      {
+        problemId: PROBLEM_ID,
+        score: 50,
+        status: "partial",
+        createdAt: new Date("2026-04-29T11:00:00Z"),
+      },
     ]);
     updateWithVersion.mockImplementation(() => {
       throw new UnifiedParticipationVersionConflict(PARTICIPATION_ID, 0);

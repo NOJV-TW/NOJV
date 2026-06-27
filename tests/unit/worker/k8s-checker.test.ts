@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import { mergeCheckerResults } from "../../../apps/worker/src/services/check-standard";
 import {
   buildRunConfigMapData,
-  buildSandboxJobManifest,
   buildValidateConfigMapData,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/services/k8s-configmaps";
+import { buildSandboxJobManifest } from "../../../apps/worker/src/services/k8s-job-manifests";
 
 function makeCheckerRequest(overrides?: {
   testcases?: SandboxRequest["testcases"];

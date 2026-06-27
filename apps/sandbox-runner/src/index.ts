@@ -24,7 +24,7 @@ import {
   validateCase,
   validatorTimeoutMs,
 } from "./judges/validate.js";
-import { normalizeRelativePath, type RawCaseRun } from "@nojv/core";
+import { normalizeRelativePath } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
 const ARTIFACT_DIR = "/artifact";
@@ -119,13 +119,6 @@ async function loadTestcasesFromDirs(
 
     const input = await fs.readFile(path.join(tcDir, "input.txt"), "utf-8");
 
-    let expected: string | undefined;
-    try {
-      expected = await fs.readFile(path.join(tcDir, "expected.txt"), "utf-8");
-    } catch {
-      expected = undefined;
-    }
-
     let meta: TestcaseMeta = {};
     try {
       const metaRaw = await fs.readFile(path.join(tcDir, "meta.json"), "utf-8");
@@ -138,7 +131,6 @@ async function loadTestcasesFromDirs(
     testcases.push({
       index,
       input,
-      expected,
       weight: meta.weight ?? DEFAULT_TESTCASE_META.weight,
       isSample: meta.isSample ?? DEFAULT_TESTCASE_META.isSample,
     });
@@ -163,17 +155,7 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
     const index = Number.parseInt(inputFile.split("-")[1] ?? "", 10);
     const input = await fs.readFile(path.join(SUBMISSION_DIR, inputFile), "utf-8");
 
-    let expected: string | undefined;
-    try {
-      expected = await fs.readFile(
-        path.join(SUBMISSION_DIR, `testcase-${String(index)}-expected.txt`),
-        "utf-8",
-      );
-    } catch {
-      expected = undefined;
-    }
-
-    testcases.push({ index, input, expected, ...DEFAULT_TESTCASE_META });
+    testcases.push({ index, input, ...DEFAULT_TESTCASE_META });
   }
 
   return testcases;
@@ -303,35 +285,6 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   );
 }
 
-async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
-  const compileResult = await compileSubmission(workDir, config);
-
-  if (!compileResult.success) {
-    emit({ compilationError: compileResult.error });
-    return;
-  }
-
-  log("Loading testcases...");
-  const testcases = await loadTestcases();
-  log(`Found ${String(testcases.length)} testcase(s).`);
-
-  const rawRuns: RawCaseRun[] = [];
-  for (const testcase of testcases) {
-    log(`Running testcase ${String(testcase.index)}...`);
-    const run = await runSolution(
-      compileResult.runCommand,
-      testcase,
-      config.limits.timeoutMs,
-      config.limits.env,
-    );
-    rawRuns.push(run);
-    log(
-      `Testcase ${String(testcase.index)}: ${run.errorVerdict ?? "ran"} (${String(run.timeMs)}ms)`,
-    );
-  }
-  emit({ rawRuns });
-}
-
 async function runCompilePhase(config: SandboxInput): Promise<void> {
   const compileResult = await compileSubmission(ARTIFACT_DIR, config);
   if (!compileResult.success) {
@@ -424,7 +377,10 @@ async function main(): Promise<void> {
     } else if (config.validate) {
       await runValidate(workDir, config);
     } else {
-      await runJudge(workDir, config);
+      emit({
+        pipelineError:
+          "no phase specified (expected compile, run-case, interactive, or validate).",
+      });
     }
   } finally {
     await cleanupTempDir(workDir);

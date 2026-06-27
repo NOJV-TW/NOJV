@@ -1,6 +1,6 @@
-export * from "./types";
 export * from "./task-queues";
 export { getTemporalClient, closeTemporalClient } from "./client";
+export { temporalConnectionOptions } from "./connection-config";
 export { buildDomainOrchestrationAdapter } from "./orchestration-adapter";
 export {
   dispatchSubmissionJudge,
@@ -10,10 +10,10 @@ export {
   dispatchAssignmentDueSoon,
   dispatchPlagiarismCheck,
   ensureSubmissionSweeper,
+  ensureLifecycleReconciler,
   terminateSubmissionJudge,
-  querySubmissionStatus,
   queryRejudgeProgress,
   cancelRejudge,
-  queryPlagiarismStatus,
   SUBMISSION_SWEEPER_WORKFLOW_ID,
+  LIFECYCLE_RECONCILER_WORKFLOW_ID,
 } from "./dispatch";

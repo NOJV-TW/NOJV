@@ -81,7 +81,6 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/submissions`                                            | POST               | Create submission, dispatch to Temporal                                                        |
 | `/api/submissions/[id]`                                       | GET                | Submission result and verdict                                                                  |
 | `/api/submissions/[id]/source`                                | GET                | Submission source code                                                                         |
-| `/api/submissions/[id]/stream`                                | GET                | SSE: poll Temporal workflow query for status                                                   |
 | `/api/submissions/[id]/rejudge`                               | POST               | Rejudge a single submission (admin/teacher)                                                    |
 | `/api/rejudges`                                               | POST               | Batch rejudge by problem/context filters                                                       |
 | `/api/rejudges/[workflowId]`                                  | GET                | Rejudge progress `{ completed, total }` (Temporal `getProgress` query) for the progress bar    |

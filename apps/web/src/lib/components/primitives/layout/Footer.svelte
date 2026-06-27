@@ -6,7 +6,7 @@
     repoUrl?: string;
   };
 
-  let { repoUrl = "https://github.com/your-org/nojv" }: Props = $props();
+  let { repoUrl = "https://github.com/TakalaWang/NOJV" }: Props = $props();
 
   const year = new Date().getFullYear();
   let issuesUrl = $derived(`${repoUrl.replace(/\/$/, "")}/issues/new`);
@@ -19,6 +19,9 @@
   <nav class="flex flex-wrap items-center gap-x-6 gap-y-2">
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/about"
       >{m.footer_about()}</a
+    >
+    <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/docs"
+      >{m.footer_apiDocs()}</a
     >
     <a
       class="inline-flex items-center gap-1.5 transition-colors duration-fast ease-out-soft hover:text-foreground"

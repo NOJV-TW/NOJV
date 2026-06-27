@@ -18,13 +18,9 @@ export function computeJobDeadlineSeconds(request: SandboxRequest): number {
 
 export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {
   const data: Record<string, string> = {};
-  const shipExpected = request.judgeType !== "standard" && request.judgeType !== "checker";
 
   for (const tc of request.testcases) {
     data[`testcase-${String(tc.index)}-input.txt`] = tc.input;
-    if (shipExpected && tc.output != null) {
-      data[`testcase-${String(tc.index)}-expected.txt`] = tc.output;
-    }
   }
 
   return data;

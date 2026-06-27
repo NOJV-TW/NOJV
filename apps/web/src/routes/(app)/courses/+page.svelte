@@ -5,6 +5,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import TeacherBadge from "$lib/components/features/course/TeacherBadge.svelte";
@@ -99,36 +100,31 @@
 
   {#if visibleCourses.length === 0}
     {#if activeTab === "enrolled"}
-      <div
-        class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
-      >
-        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
-          <GraduationCap aria-hidden="true" class="h-7 w-7 text-muted-foreground/70" />
-        </div>
-        <h3 class="mt-4 text-title font-medium">{m.courses_emptyEnrolledTitle()}</h3>
-        <p class="mt-2 text-body-sm text-muted-foreground">
-          {m.courses_emptyEnrolledDescription()}
-        </p>
+      <div class="animate-in animate-in-2">
+        <EmptyState
+          icon={GraduationCap}
+          title={m.courses_emptyEnrolledTitle()}
+          description={m.courses_emptyEnrolledDescription()}
+          actionHref="/problems"
+          actionLabel={m.courses_emptyEnrolledAction()}
+        />
       </div>
     {:else}
-      <div
-        class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
-      >
-        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
-          <BookOpen aria-hidden="true" class="h-7 w-7 text-muted-foreground/70" />
-        </div>
-        <h3 class="mt-4 text-title font-medium">{m.courses_emptyManagingTitle()}</h3>
-        <p class="mt-2 text-body-sm text-muted-foreground">
-          {m.courses_emptyManagingDescription()}
-        </p>
-        {#if data.canCreate}
-          <div class="mt-5">
-            <Button href="/courses/new">
-              <Plus aria-hidden="true" class="h-4 w-4" />
-              {m.courses_createFirst()}
-            </Button>
-          </div>
-        {/if}
+      <div class="animate-in animate-in-2">
+        <EmptyState
+          variant="onboarding"
+          icon={BookOpen}
+          title={m.courses_emptyManagingTitle()}
+          description={m.courses_emptyManagingDescription()}
+          tips={[
+            m.courses_emptyManagingTip1(),
+            m.courses_emptyManagingTip2(),
+            m.courses_emptyManagingTip3(),
+          ]}
+          actions={data.canCreate
+            ? [{ href: "/courses/new", label: m.courses_createFirst() }]
+            : []}
+        />
       </div>
     {/if}
   {:else}

@@ -1,0 +1,163 @@
+{{/*
+JUDGE Deployment — MUST render first in this file (and this file is the worker
+env source of truth the env-manifest-parity guard scans up to the first
+cloudsql-proxy sidecar). Keep the full K8s + storage env block here, in order.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-worker
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker-judge
+spec:
+  replicas: {{ .Values.worker.judge.replicas }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-worker
+        nojv-role: worker
+    spec:
+      serviceAccountName: {{ include "nojv.fullname" . }}-worker
+      terminationGracePeriodSeconds: 120
+      {{- with .Values.worker.judge.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: {{ include "nojv.image" (dict "root" . "component" "worker") }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          env:
+            - name: PORT
+              value: "8080"
+            - name: WORKER_MODE
+              value: judge
+            - name: EXECUTION_BACKEND
+              value: kubernetes
+            - name: K8S_NAMESPACE
+              value: {{ include "nojv.sandboxNamespace" . }}
+            - name: SANDBOX_IMAGE
+              value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
+            - name: EGRESS_PROXY_IMAGE
+              value: {{ include "nojv.image" (dict "root" . "component" "egressProxy") }}
+            - name: WORKER_CONCURRENCY
+              value: {{ .Values.worker.judge.concurrency | quote }}
+            - name: K8S_CPU_REQUEST
+              value: {{ .Values.worker.sandbox.cpuRequest | quote }}
+            - name: K8S_CPU_LIMIT
+              value: {{ .Values.worker.sandbox.cpuLimit | quote }}
+            - name: K8S_MEMORY_REQUEST
+              value: {{ .Values.worker.sandbox.memoryRequest | quote }}
+            - name: K8S_MEMORY_LIMIT
+              value: {{ .Values.worker.sandbox.memoryLimit | quote }}
+            {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REDIS_URL
+            - name: TEMPORAL_ADDRESS
+              value: {{ .Values.temporal.address | quote }}
+            - name: TEMPORAL_NAMESPACE
+              value: {{ .Values.temporal.namespace | quote }}
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ENDPOINT
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: OTEL_EXPORTER_OTLP_HEADERS
+                  optional: true
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          ports:
+            - containerPort: 8080
+              name: health
+          resources:
+            {{- toYaml .Values.worker.judge.resources | nindent 12 }}
+        {{- if .Values.cloudsqlProxy.enabled }}
+        - name: cloudsql-proxy
+          image: {{ .Values.postgres.cloudsql.proxyImage }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - --address=127.0.0.1
+            - --port=5432
+            - --private-ip
+            - --structured-logs
+            - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
+          env:
+            - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

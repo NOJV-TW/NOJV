@@ -1,0 +1,73 @@
+{{- if .Values.migrator.enabled }}
+{{/*
+DB migration Job — runs as a Helm pre-install/pre-upgrade hook so the schema is
+current before web/workers roll. hook-delete-policy before-hook-creation clears a
+prior Job of the same name so the immutable Job can be recreated on each release.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nojv.fullname" . }}-migrator
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrator
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migrator.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-migrator
+        {{- if .Values.cloudsqlProxy.enabled }}
+        nojv-role: worker
+        {{- end }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.worker.judge.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrator
+          image: {{ include "nojv.image" (dict "root" . "component" "migrator") }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
+        {{- if .Values.cloudsqlProxy.enabled }}
+        - name: cloudsql-proxy
+          image: {{ .Values.postgres.cloudsql.proxyImage }}
+          restartPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - --address=127.0.0.1
+            - --port=5432
+            - --private-ip
+            - --structured-logs
+            - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
+          env:
+            - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+        {{- end }}
+{{- end }}

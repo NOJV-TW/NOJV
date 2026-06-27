@@ -107,6 +107,11 @@ jobs:
       - name: Setup monorepo
         uses: ./.github/actions/setup
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.2.0
+
       - name: Generate Prisma client
         run: pnpm db:generate
 
@@ -135,10 +140,10 @@ jobs:
 
       - name: Apply sandbox namespace, network policy, quota and label node
         run: |
-          kubectl apply -f infra/k8s/sandbox/namespace.yaml
-          kubectl apply -f infra/k8s/sandbox/network-policy.yaml
-          kubectl apply -f infra/k8s/sandbox/resource-quota.yaml
-          kubectl apply -f infra/k8s/sandbox/limit-range.yaml
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml \
+            --show-only templates/namespaces.yaml \
+            --show-only templates/sandbox-policy.yaml \
+            | kubectl apply -f -
           kubectl label node --all nojv-role=sandbox --overwrite
 
       - name: K8s judge integration suite (must not skip)

@@ -1,12 +1,10 @@
 import {
   CancellationScope,
-  defineQuery,
   isCancellation,
   proxyActivities,
-  setHandler,
   workflowInfo,
 } from "@temporalio/workflow";
-import type { SubmissionJudgeInput, SubmissionJudgeStatus } from "@nojv/temporal";
+import type { SubmissionJudgeInput } from "@nojv/core";
 
 import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";
@@ -27,12 +25,7 @@ const judgeSandbox = proxyActivities<typeof judgeActivities>({
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
 const contest = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 
-export const getStatusQuery = defineQuery<SubmissionJudgeStatus>("getStatus");
-
 export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Promise<void> {
-  let status: SubmissionJudgeStatus = "queued";
-  setHandler(getStatusQuery, () => status);
-
   let rejudgeLogId: string | null = null;
   let rejudgeOldStatus: string | null = null;
   if (input.forRejudge) {
@@ -46,10 +39,8 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   }
 
   try {
-    status = "compiling";
     const judgeContext = await judge.fetchJudgeContext(input.submissionId);
 
-    status = "running";
     const result = await judgeSandbox.executeSandbox(
       input.submissionId,
       input.draft,
@@ -67,6 +58,17 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       judgeContext.advanced?.config ?? null,
     );
 
+    if (submission === null) {
+      if (rejudgeLogId) {
+        await judge.finalizeRejudgeLog(
+          input.submissionId,
+          input.forRejudge?.triggeredByUserId ?? null,
+          rejudgeLogId,
+        );
+      }
+      return;
+    }
+
     const dispatch = resolveScoringDispatch(submission);
     if (dispatch.kind === "contest") {
       const contestId = await contest.updateContestScores(dispatch.contestId, dispatch.userId);
@@ -77,7 +79,6 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       await contest.updateExamScores(dispatch.examId, dispatch.userId);
     }
 
-    status = "completed";
     await notification.publishVerdict(submission);
 
     if (rejudgeLogId) {

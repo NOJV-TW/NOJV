@@ -5,22 +5,20 @@ import {
   WorkflowNotFoundError,
 } from "@temporalio/client";
 
-import type { SubmissionJudgeJob } from "@nojv/core";
-import { submissionJudgeJobSchema } from "@nojv/core";
-
-import { getTemporalClient } from "./client";
-import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "./task-queues";
 import type {
   AssignmentDueSoonInput,
   ContestLifecycleInput,
   ExamAutoCloseInput,
   PlagiarismCheckInput,
-  PlagiarismCheckStatus,
   RejudgeInput,
   RejudgeProgress,
   SubmissionJudgeInput,
-  SubmissionJudgeStatus,
-} from "./types";
+  SubmissionJudgeJob,
+} from "@nojv/core";
+import { submissionJudgeJobSchema } from "@nojv/core";
+
+import { getTemporalClient } from "./client";
+import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "./task-queues";
 
 export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
   const validated = submissionJudgeJobSchema.parse(payload);
@@ -61,6 +59,23 @@ export async function ensureSubmissionSweeper(): Promise<void> {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: SUBMISSION_SWEEPER_WORKFLOW_ID,
       cronSchedule: "* * * * *",
+      args: [],
+    });
+  } catch (err) {
+    if (err instanceof WorkflowExecutionAlreadyStartedError) return;
+    throw err;
+  }
+}
+
+export const LIFECYCLE_RECONCILER_WORKFLOW_ID = "lifecycle-timer-reconciler";
+
+export async function ensureLifecycleReconciler(): Promise<void> {
+  const client = await getTemporalClient();
+  try {
+    await client.workflow.start("lifecycleReconcilerWorkflow", {
+      taskQueue: PLATFORM_TASK_QUEUE,
+      workflowId: LIFECYCLE_RECONCILER_WORKFLOW_ID,
+      cronSchedule: "*/5 * * * *",
       args: [],
     });
   } catch (err) {
@@ -136,14 +151,6 @@ function plagiarismWorkflowId(
   return `plagiarism-${targetType}-${targetId}`;
 }
 
-export async function querySubmissionStatus(
-  submissionId: string,
-): Promise<SubmissionJudgeStatus> {
-  const client = await getTemporalClient();
-  const handle = client.workflow.getHandle(`judge-${submissionId}`);
-  return handle.query<SubmissionJudgeStatus>("getStatus");
-}
-
 export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress> {
   const client = await getTemporalClient();
   const handle = client.workflow.getHandle(workflowId);
@@ -154,13 +161,4 @@ export async function cancelRejudge(workflowId: string): Promise<void> {
   const client = await getTemporalClient();
   const handle = client.workflow.getHandle(workflowId);
   await handle.cancel();
-}
-
-export async function queryPlagiarismStatus(
-  targetType: PlagiarismCheckInput["targetType"],
-  targetId: string,
-): Promise<PlagiarismCheckStatus> {
-  const client = await getTemporalClient();
-  const handle = client.workflow.getHandle(plagiarismWorkflowId(targetType, targetId));
-  return handle.query<PlagiarismCheckStatus>("getPlagiarismStatus");
 }

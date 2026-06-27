@@ -3,7 +3,7 @@ import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 import { NotFoundError } from "../shared/errors";
 import { problemLetter } from "../shared/problem-letter";
 import {
-  buildMatrixRowCells,
+  assembleMatrix,
   type MatrixCell,
   type MatrixProblemColumn,
 } from "../shared/submissions-matrix";
@@ -105,27 +105,16 @@ export async function buildSubmissionsMatrix(
     assignmentId,
   });
 
-  const rows: MatrixRow[] = students.map((student) => {
-    const { cells, total } = buildMatrixRowCells({
-      userId: student.userId,
-      problems,
-      scoreIndex,
-      overrides,
-      practiceIndex,
-    });
-    return {
+  return assembleMatrix({
+    problems,
+    participants: students.map((student) => ({
       userId: student.userId,
       displayName: student.user.name,
       handle: student.user.username ?? "",
-      cells,
-      total,
-    };
-  });
-
-  return {
-    problems,
-    rows,
-    totalPoints,
+    })),
+    scoreIndex,
+    overrides,
+    practiceIndex,
     studentCount: students.length,
-  };
+  });
 }
