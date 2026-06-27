@@ -2,6 +2,7 @@ export * from "./actor-context";
 export * from "./context-window";
 export * from "./errors";
 export * from "./ip";
+export * from "./lifecycle-reconciler";
 export * from "./list-aggregations";
 export * from "./page-lock";
 export * from "./orchestration";

@@ -39,10 +39,6 @@ export const submissionRepo = {
     return prisma.submission.findUnique({ where: { id } });
   },
 
-  findStatusById(id: string) {
-    return prisma.submission.findUnique({ where: { id }, select: { status: true } });
-  },
-
   findByIdWithProblemId(id: string) {
     return prisma.submission.findUnique({
       select: {
@@ -632,6 +628,18 @@ export const submissionRepo = {
     return prisma.submission.update({
       data,
       where: { id },
+    });
+  },
+
+  completeIfInProgress(id: string, data: Prisma.SubmissionUpdateInput) {
+    return prisma.submission.updateMany({
+      data,
+      where: {
+        id,
+        status: {
+          in: ["pending_upload", "queued", "compiling", "running"] as SubmissionStatus[],
+        },
+      },
     });
   },
 

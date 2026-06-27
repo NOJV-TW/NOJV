@@ -1,0 +1,85 @@
+image:
+  registry: asia-east1-docker.pkg.dev
+  repositoryPrefix: PROJECT_ID/nojv
+  tag: latest
+
+postgres:
+  mode: cloudsql
+  cloudsql:
+    instanceConnectionName: PROJECT_ID:REGION:INSTANCE
+  cnpg:
+    instances: 3
+    storageSize: 50Gi
+    backup:
+      enabled: true
+      destinationPath: s3://nojv-pg-backups/
+      endpointURL: https://storage.googleapis.com
+      s3CredentialsSecret: nojv-pg-backup-creds
+      retentionPolicy: "30d"
+      schedule: "0 0 3 * * *"
+
+cloudsqlProxy:
+  enabled: true
+redis:
+  inCluster: false
+storage:
+  inCluster: false
+  region: auto
+
+temporal:
+  address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
+  namespace: default
+
+web:
+  replicas: 2
+  nodeEnv: production
+  executionBackend: kubernetes
+  hpa:
+    enabled: true
+    min: 2
+    max: 15
+    targetCPU: 70
+  ingress:
+    enabled: true
+    className: gce
+    host: nojv.example.com
+    tls: []
+
+worker:
+  judge:
+    replicas: 2
+    nodeSelector:
+      nojv-role: worker
+  platform:
+    replicas: 1
+    nodeSelector:
+      nojv-role: worker
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  temporalNamespace: nojv-temporal
+  egress:
+    redisCidr: 10.64.0.10/32
+    cloudsqlCidr: 10.64.1.20/32
+    cloudsqlPort: 3307
+    googleApisCidrs:
+      - 199.36.153.4/30
+      - 199.36.153.8/30
+    apiServerCidrs:
+      - 10.96.0.1/32
+      - 172.16.0.32/28
+
+sandbox:
+  networkPolicy:
+    enabled: true
+  resourceQuota:
+    enabled: true
+    pods: "50"
+    requestsCpu: "25"
+    requestsMemory: "12Gi"
+  limitRange:
+    enabled: true

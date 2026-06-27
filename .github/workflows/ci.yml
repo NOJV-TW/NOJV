@@ -78,6 +78,17 @@ jobs:
           pnpm db:docs
           git diff --exit-code docs/architecture/DATABASE.generated.md
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.2.0
+
+      - name: Lint and render the Helm umbrella chart
+        run: |
+          helm lint infra/charts/nojv
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml >/dev/null
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml >/dev/null
+
       - name: Verify monorepo (build, lint, typecheck, unit tests)
         run: pnpm ci:verify
         env:

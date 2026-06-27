@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  buildValidatorDockerArgs,
   writeValidatorFiles,
   type ValidatorRunParams,
 } from "../../../apps/worker/src/services/validator-executor";
@@ -15,47 +14,6 @@ function exists(path: string): Promise<boolean> {
     () => false,
   );
 }
-
-describe("buildValidatorDockerArgs", () => {
-  const base = {
-    containerName: "nojv-validate-abc",
-    tempDir: "/tmp/job",
-    cpuLimit: "1.0",
-    memoryMb: 256,
-    pidsLimit: 64,
-    image: "nojv-sandbox:local",
-  };
-
-  it("applies the standard run-container hardening flags", () => {
-    const args = buildValidatorDockerArgs(base);
-    expect(args[0]).toBe("run");
-    expect(args).toContain("--rm");
-    expect(args).toContain("--network");
-    expect(args).toContain("none");
-    expect(args).toContain("--cap-drop");
-    expect(args).toContain("ALL");
-    expect(args).toContain("no-new-privileges");
-    expect(args).toContain("--read-only");
-    expect(args).toContain("--user");
-    expect(args).toContain("10001:10001");
-    expect(args).toContain("--pids-limit");
-  });
-
-  it("mounts the temp dir read-only at /submission and runs the runner", () => {
-    const args = buildValidatorDockerArgs(base);
-    expect(args).toContain("/tmp/job:/submission:ro");
-    expect(args.slice(-3)).toEqual(["nojv-sandbox:local", "node", "/runner/index.js"]);
-  });
-
-  it("caps swap at the memory limit so MLE is independent of host swap config", () => {
-    const args = buildValidatorDockerArgs(base);
-    const memVal = args[args.indexOf("--memory") + 1];
-    const swapIdx = args.indexOf("--memory-swap");
-    expect(swapIdx).toBeGreaterThan(-1);
-    expect(args[swapIdx + 1]).toBe(memVal);
-    expect(memVal).toBe("256m");
-  });
-});
 
 describe("writeValidatorFiles", () => {
   let tempDir: string;

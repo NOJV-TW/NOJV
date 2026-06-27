@@ -1,0 +1,60 @@
+{{- if .Values.sandbox.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-sandbox
+  namespace: {{ include "nojv.sandboxNamespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+spec:
+  # SECURITY: DoesNotExist so deny-all skips nojv.egress-labelled advanced Pods (widened by their own per-submission policy).
+  podSelector:
+    matchExpressions:
+      - key: nojv.egress
+        operator: DoesNotExist
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+{{- end }}
+{{- if .Values.sandbox.resourceQuota.enabled }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sandbox-quota
+  namespace: {{ include "nojv.sandboxNamespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+spec:
+  hard:
+    pods: {{ .Values.sandbox.resourceQuota.pods | quote }}
+    requests.cpu: {{ .Values.sandbox.resourceQuota.requestsCpu | quote }}
+    requests.memory: {{ .Values.sandbox.resourceQuota.requestsMemory | quote }}
+{{- end }}
+{{- if .Values.sandbox.limitRange.enabled }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: sandbox-limits
+  namespace: {{ include "nojv.sandboxNamespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: {{ .Values.sandbox.limitRange.default.cpu | quote }}
+        memory: {{ .Values.sandbox.limitRange.default.memory | quote }}
+      defaultRequest:
+        cpu: {{ .Values.sandbox.limitRange.defaultRequest.cpu | quote }}
+        memory: {{ .Values.sandbox.limitRange.defaultRequest.memory | quote }}
+      max:
+        cpu: {{ .Values.sandbox.limitRange.max.cpu | quote }}
+        memory: {{ .Values.sandbox.limitRange.max.memory | quote }}
+      min:
+        cpu: {{ .Values.sandbox.limitRange.min.cpu | quote }}
+        memory: {{ .Values.sandbox.limitRange.min.memory | quote }}
+{{- end }}

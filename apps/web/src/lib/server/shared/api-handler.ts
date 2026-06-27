@@ -61,15 +61,18 @@ function errorResponse(error: unknown, event: RequestEvent): Response {
   return json({ message: classified.message }, { status: classified.status });
 }
 
+function resolveRateLimitKey(event: RequestEvent): string {
+  const userId = event.locals.sessionUser?.id ?? event.locals.apiTokenActor?.userId ?? null;
+  return userId ? `u:${userId}` : getClientIp(event);
+}
+
 function wrapHandler(
   handler: ApiHandler,
   rateLimiter: { consume: (key: string) => Promise<unknown> },
 ): ApiHandler {
   return async (event) => {
-    const ip = getClientIp(event);
-
     try {
-      await rateLimiter.consume(ip);
+      await rateLimiter.consume(resolveRateLimitKey(event));
     } catch {
       return json({ message: "Too many requests" }, { status: 429 });
     }

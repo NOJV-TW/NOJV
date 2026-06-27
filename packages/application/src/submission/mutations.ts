@@ -386,12 +386,12 @@ export async function completeJudge(
   submissionId: string,
   result: SubmissionResult,
   advancedConfigSnapshot: AdvancedConfig | null = null,
-): Promise<CompletedSubmission> {
+): Promise<CompletedSubmission | null> {
   await putVerdictDetail(storage(), submissionId, result);
 
   const verdictSummary = deriveVerdictSummary(result);
 
-  const submission = await submissionRepo.complete(submissionId, {
+  const { count } = await submissionRepo.completeIfInProgress(submissionId, {
     runtimeMs: result.runtimeMs,
     ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
     score: result.score,
@@ -401,6 +401,11 @@ export async function completeJudge(
     advancedConfigSnapshot:
       advancedConfigSnapshot === null ? Prisma.JsonNull : toJsonValue(advancedConfigSnapshot),
   });
+
+  if (count === 0) return null;
+
+  const submission = await submissionRepo.findById(submissionId);
+  if (!submission) return null;
 
   return {
     contestId: submission.contestId,
@@ -432,6 +437,8 @@ export async function snapshotForRejudge(
     oldScore: current.score,
     oldResultJson: current.verdictSummary === null ? null : toJsonValue(current.verdictSummary),
   });
+
+  await submissionRepo.updateStatus(submissionId, "running");
 
   return { logId: row.id, oldStatus: row.oldVerdict };
 }

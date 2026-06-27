@@ -637,8 +637,13 @@
 /* === Cross-page view transitions (progressive enhancement) === */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: var(--duration-normal);
+  animation-duration: var(--duration-fast);
   animation-timing-function: var(--ease-out-soft);
+}
+
+/* Hold the always-dark top bar steady across navigations so it never flickers. */
+.app-nav {
+  view-transition-name: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

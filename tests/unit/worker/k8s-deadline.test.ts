@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
-import { computeJobDeadlineSeconds } from "../../../apps/worker/src/services/k8s-executor";
+import { computeJobDeadlineSeconds } from "../../../apps/worker/src/services/k8s-configmaps";
 
 function mkRequest(timeoutMs: number, numCases: number): SandboxRequest {
   return {

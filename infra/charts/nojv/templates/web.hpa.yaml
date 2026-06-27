@@ -1,0 +1,24 @@
+{{- if .Values.web.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "nojv.fullname" . }}-web
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "nojv.fullname" . }}-web
+  minReplicas: {{ .Values.web.hpa.min }}
+  maxReplicas: {{ .Values.web.hpa.max }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.hpa.targetCPU }}
+{{- end }}

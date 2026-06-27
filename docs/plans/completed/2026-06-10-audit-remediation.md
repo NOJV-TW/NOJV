@@ -243,7 +243,7 @@
 
 ### Task 6.4: Grafana OTel 佈線
 
-- Modify: `docker-compose.yml` prod 加 `GRAFANA_OTLP_*` passthrough(`${VAR:-}`);`apps/worker/src/otel.ts:11-14` + `apps/web/src/lib/server/otel.ts` 缺值時 `NODE_ENV=production` `console.warn` 一行(非靜默)。
+- Modify: `docker-compose.yml` prod 加 `OTEL_EXPORTER_OTLP_*` passthrough(`${VAR:-}`);`apps/worker/src/otel.ts:11-14` + `apps/web/src/lib/server/otel.ts` 缺值時 `NODE_ENV=production` `console.warn` 一行(非靜默)。
 
 ### Task 6.5: 自架備份
 

@@ -1,0 +1,120 @@
+{{- if .Values.observability.collector.enabled }}
+{{/*
+Lean in-cluster OpenTelemetry Collector. Receives the app's OTLP/HTTP metrics
+(point OTEL_EXPORTER_OTLP_ENDPOINT in the runtime secret at this Service:
+  http://<release>-otel-collector.<namespace>.svc:4318)
+and either exposes them at :8889 /metrics for a Prometheus to scrape, or
+remote-writes them when observability.collector.remoteWriteUrl is set.
+Prometheus + Grafana themselves remain a documented prereq (kube-prometheus-stack
+single-machine / Google Managed Prometheus on GKE).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-otel-collector
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch: {}
+    exporters:
+      {{- if .Values.observability.collector.remoteWriteUrl }}
+      prometheusremotewrite:
+        endpoint: {{ .Values.observability.collector.remoteWriteUrl | quote }}
+      {{- else }}
+      prometheus:
+        endpoint: 0.0.0.0:8889
+      {{- end }}
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          {{- if .Values.observability.collector.remoteWriteUrl }}
+          exporters: [prometheusremotewrite]
+          {{- else }}
+          exporters: [prometheus]
+          {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-otel-collector
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-otel-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-otel-collector
+      annotations:
+        checksum/config: {{ .Values.observability.collector.remoteWriteUrl | toString | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: otel-collector
+          image: {{ .Values.observability.collector.image }}
+          args:
+            - --config=/etc/otel/config.yaml
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 4318
+              name: otlp-http
+            {{- if not .Values.observability.collector.remoteWriteUrl }}
+            - containerPort: 8889
+              name: metrics
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otel
+              readOnly: true
+          resources:
+            {{- toYaml .Values.observability.collector.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "nojv.fullname" . }}-otel-collector
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nojv.fullname" . }}-otel-collector
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  selector:
+    app.kubernetes.io/name: nojv-otel-collector
+  ports:
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+    {{- if not .Values.observability.collector.remoteWriteUrl }}
+    - name: metrics
+      port: 8889
+      targetPort: metrics
+    {{- end }}
+{{- end }}

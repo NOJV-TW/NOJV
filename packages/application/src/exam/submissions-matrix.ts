@@ -2,27 +2,22 @@ import { courseMembershipRepo, submissionRepo } from "@nojv/db";
 
 import { problemLetter } from "../shared/problem-letter";
 import {
-  buildMatrixRowCells,
+  assembleMatrix,
   type MatrixCell,
-  type MatrixCellState,
   type MatrixProblemColumn,
 } from "../shared/submissions-matrix";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
-
-export type ExamMatrixCellState = MatrixCellState;
-export type ExamMatrixProblemColumn = MatrixProblemColumn;
-export type ExamMatrixCell = MatrixCell;
 
 export interface ExamMatrixRow {
   userId: string;
   displayName: string;
   handle: string;
-  cells: ExamMatrixCell[];
+  cells: MatrixCell[];
   total: number;
 }
 
 export interface ExamSubmissionsMatrix {
-  problems: ExamMatrixProblemColumn[];
+  problems: MatrixProblemColumn[];
   rows: ExamMatrixRow[];
   totalPoints: number;
   studentCount: number;
@@ -46,7 +41,7 @@ export async function buildExamSubmissionsMatrix(
 ): Promise<ExamSubmissionsMatrix> {
   const students = await courseMembershipRepo.findStudents(input.courseId);
 
-  const problems: ExamMatrixProblemColumn[] = input.problems.map((p) => ({
+  const problems: MatrixProblemColumn[] = input.problems.map((p) => ({
     problemId: p.problemId,
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
@@ -85,26 +80,15 @@ export async function buildExamSubmissionsMatrix(
     });
   }
 
-  const rows: ExamMatrixRow[] = students.map((student) => {
-    const { cells, total } = buildMatrixRowCells({
-      userId: student.userId,
-      problems,
-      scoreIndex,
-      overrides,
-    });
-    return {
+  return assembleMatrix({
+    problems,
+    participants: students.map((student) => ({
       userId: student.userId,
       displayName: student.user.name,
       handle: student.user.username ?? "",
-      cells,
-      total,
-    };
-  });
-
-  return {
-    problems,
-    rows,
-    totalPoints,
+    })),
+    scoreIndex,
+    overrides,
     studentCount: students.length,
-  };
+  });
 }

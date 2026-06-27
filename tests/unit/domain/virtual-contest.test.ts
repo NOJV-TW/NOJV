@@ -53,6 +53,7 @@ vi.mock("@nojv/redis", () => ({
   }),
   keys: {
     scoreboardCache: (contestId: string, variant: string) => `sb:${contestId}:${variant}`,
+    scoreboardLock: (contestId: string, variant: string) => `sb-lock:${contestId}:${variant}`,
   },
 }));
 

@@ -12,10 +12,11 @@
   interface Props {
     problem: ProblemDetail;
     testcaseSets: ProblemTestcaseSetSummary[];
+    allowedLanguages?: string[] | undefined;
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
   }
 
-  let { problem, testcaseSets, dailyAttempts }: Props = $props();
+  let { problem, testcaseSets, allowedLanguages, dailyAttempts }: Props = $props();
 </script>
 
 <div class="p-5">
@@ -98,6 +99,11 @@
     <span class="tabular-nums">
       {m.problemDetail_memoryLimit()}: {problem.memoryLimitMb} MB
     </span>
+    {#if allowedLanguages && allowedLanguages.length > 0}
+      <span>
+        {m.contestDetail_allowedLanguagesLabel()}: {allowedLanguages.join(", ")}
+      </span>
+    {/if}
   </div>
 
   <div class="mt-5 text-body-sm leading-7 text-foreground">

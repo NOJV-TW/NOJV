@@ -1,11 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { ChevronRight, GripVertical, Info, Plus, Search, X } from "@lucide/svelte";
+  import { ChevronRight, Info } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
-  import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
@@ -13,6 +12,8 @@
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule,
   } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
+  import StepCard from "$lib/components/features/coursework/StepCard.svelte";
+  import ExamProblemPicker from "$lib/components/features/course/exam/ExamProblemPicker.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import { toggleArrayItem } from "$lib/utils";
   import type { PageData } from "./$types";
@@ -30,64 +31,7 @@
     { dataType: "json", resetForm: false },
   );
 
-  let searchQuery = $state("");
   let advancedOpen = $state(true);
-
-  const problemById = $derived(new Map(data.candidateProblems?.map((p) => [p.id, p]) ?? []));
-
-  const filteredProblems = $derived.by(() => {
-    const rows = data.candidateProblems ?? [];
-    const selected = new Set($form.problemIds);
-    const q = searchQuery.trim().toLowerCase();
-    const available = rows.filter((p) => !selected.has(p.id));
-    if (q.length === 0) return available.slice(0, 30);
-    return available
-      .filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.id.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q)),
-      )
-      .slice(0, 30);
-  });
-
-  const selectedProblems = $derived(
-    $form.problemIds.map((id) => problemById.get(id)).filter((p) => p !== undefined),
-  );
-
-  function addProblem(id: string) {
-    if (!$form.problemIds.includes(id)) {
-      $form.problemIds = [...$form.problemIds, id];
-    }
-  }
-
-  function removeProblem(id: string) {
-    $form.problemIds = $form.problemIds.filter((x) => x !== id);
-  }
-
-  function moveProblem(fromIdx: number, toIdx: number) {
-    if (toIdx < 0 || toIdx >= $form.problemIds.length || fromIdx === toIdx) return;
-    const next = [...$form.problemIds];
-    const [item] = next.splice(fromIdx, 1);
-    if (item !== undefined) {
-      next.splice(toIdx, 0, item);
-    }
-    $form.problemIds = next;
-  }
-
-  let dragIndex = $state<number | null>(null);
-
-  function handleDragStart(index: number) {
-    dragIndex = index;
-  }
-  function handleDragOver(event: DragEvent) {
-    event.preventDefault();
-  }
-  function handleDrop(dropIndex: number) {
-    if (dragIndex === null) return;
-    moveProblem(dragIndex, dropIndex);
-    dragIndex = null;
-  }
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
@@ -95,18 +39,6 @@
 
   function handleLatePenaltyChange(value: LatePenaltyRule) {
     $form.latePenalty = value;
-  }
-
-  function difficultyClass(d: "easy" | "medium" | "hard"): string {
-    if (d === "easy") return "text-success";
-    if (d === "hard") return "text-destructive";
-    return "text-warning";
-  }
-
-  function difficultyLabel(d: "easy" | "medium" | "hard"): string {
-    if (d === "easy") return m.admin_difficultyEasy();
-    if (d === "hard") return m.admin_difficultyHard();
-    return m.admin_difficultyMedium();
   }
 
   const inputClass =
@@ -130,26 +62,11 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <div
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    <StepCard
+      number={1}
+      title={m.assignmentCreate_basicsTitle()}
+      subtitle={m.assignmentCreate_basicsSubtitle()}
     >
-      <div class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          aria-hidden="true"
-        >
-          1
-        </span>
-        <div>
-          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
-            {m.assignmentCreate_basicsTitle()}
-          </h2>
-          <p class="mt-0.5 text-caption text-muted-foreground">
-            {m.assignmentCreate_basicsSubtitle()}
-          </p>
-        </div>
-      </div>
-
       <div>
         <label class="text-body-sm font-medium" for="title">
           {m.assignmentCreate_titleLabel()}
@@ -167,126 +84,18 @@
           <p class="mt-1 text-caption text-destructive">{$errors.title}</p>
         {/if}
       </div>
-    </div>
+    </StepCard>
 
-    <div
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    <StepCard
+      number={2}
+      title={m.assignmentCreate_problemsTitle()}
+      subtitle={m.assignmentCreate_problemsSubtitle()}
     >
-      <div class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          aria-hidden="true"
-        >
-          2
-        </span>
-        <div>
-          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
-            {m.assignmentCreate_problemsTitle()}
-          </h2>
-          <p class="mt-0.5 text-caption text-muted-foreground">
-            {m.assignmentCreate_problemsSubtitle()}
-          </p>
-        </div>
-      </div>
-
-      <div class="rounded-md border border-border bg-[color:var(--color-panel-strong)]/40">
-        <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
-          <Search class="size-4 text-muted-foreground" aria-hidden="true" />
-          <input
-            type="text"
-            placeholder={m.assignmentCreate_searchPlaceholder()}
-            bind:value={searchQuery}
-            class="flex-1 border-none bg-transparent text-body-sm outline-none"
-          />
-          <span class="text-caption text-muted-foreground">
-            {m.assignmentCreate_resultsCount({ count: filteredProblems.length })}
-          </span>
-        </div>
-        <div class="max-h-[220px] overflow-y-auto p-1.5">
-          {#if filteredProblems.length === 0}
-            <p class="px-3 py-6 text-center text-caption text-muted-foreground">
-              {m.assignmentCreate_noResults()}
-            </p>
-          {:else}
-            {#each filteredProblems as problem (problem.id)}
-              <button
-                type="button"
-                onclick={() => addProblem(problem.id)}
-                class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors duration-fast hover:bg-muted"
-              >
-                <span class="min-w-[80px] font-mono text-caption text-muted-foreground">
-                  #{problem.displayId}
-                </span>
-                <span class="flex-1 text-body-sm font-medium">{problem.title}</span>
-                <span
-                  class="text-micro font-semibold uppercase tracking-wider {difficultyClass(
-                    problem.difficulty,
-                  )}"
-                >
-                  {difficultyLabel(problem.difficulty)}
-                </span>
-                <span
-                  class="flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
-                >
-                  <Plus class="size-3.5" aria-hidden="true" />
-                </span>
-              </button>
-            {/each}
-          {/if}
-        </div>
-      </div>
-
-      {#if selectedProblems.length > 0}
-        <div class="mt-4">
-          <div
-            class="flex items-center justify-between px-1 pb-2 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-          >
-            <span>
-              {m.assignmentCreate_selectedHeader({ count: selectedProblems.length })}
-            </span>
-            <span>{m.assignmentCreate_sortHint()}</span>
-          </div>
-          {#each selectedProblems as problem, index (problem.id)}
-            <div
-              role="listitem"
-              draggable="true"
-              ondragstart={() => handleDragStart(index)}
-              ondragover={handleDragOver}
-              ondrop={() => handleDrop(index)}
-              class="mt-2 grid grid-cols-[auto_auto_1fr_auto_auto_auto] items-center gap-4 rounded-md border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 transition-[border-color,box-shadow] duration-fast hover:border-border-strong hover:shadow-rest"
-            >
-              <span class="cursor-grab text-muted-foreground hover:text-foreground">
-                <GripVertical class="size-4" aria-hidden="true" />
-              </span>
-              <span class="min-w-[20px] text-center text-title-sm text-muted-foreground">
-                {index + 1}
-              </span>
-              <div class="min-w-0">
-                <div class="truncate text-body-sm font-medium">{problem.title}</div>
-                <div class="mt-0.5 font-mono text-caption text-muted-foreground">
-                  #{problem.displayId}
-                </div>
-              </div>
-              <span
-                class="text-micro font-semibold uppercase tracking-wider {difficultyClass(
-                  problem.difficulty,
-                )}"
-              >
-                {difficultyLabel(problem.difficulty)}
-              </span>
-              <Badge variant="muted" size="sm">100</Badge>
-              <button
-                type="button"
-                aria-label={m.assignmentCreate_removeProblem()}
-                onclick={() => removeProblem(problem.id)}
-                class="flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              >
-                <X class="size-3.5" aria-hidden="true" />
-              </button>
-            </div>
-          {/each}
-        </div>
-      {/if}
+      <ExamProblemPicker
+        candidateProblems={data.candidateProblems ?? []}
+        bind:problemIds={$form.problemIds}
+        error={$errors.problemIds}
+      />
 
       <div
         class="mt-4 flex items-start gap-3.5 rounded-md border border-dashed border-info/30 bg-info/5 px-5 py-4 text-body-sm leading-relaxed text-muted-foreground"
@@ -299,33 +108,14 @@
           {m.assignmentCreate_emptyAllowedHint()}
         </div>
       </div>
+    </StepCard>
 
-      {#if $errors.problemIds}
-        <p class="mt-2 text-caption text-destructive">{$errors.problemIds}</p>
-      {/if}
-    </div>
-
-    <div
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    <StepCard
+      number={3}
+      title={m.assignmentCreate_scheduleTitle()}
+      subtitle={m.assignmentCreate_scheduleSubtitle()}
+      required
     >
-      <div class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          aria-hidden="true"
-        >
-          3
-        </span>
-        <div>
-          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
-            {m.assignmentCreate_scheduleTitle()}
-            <span class="text-destructive">*</span>
-          </h2>
-          <p class="mt-0.5 text-caption text-muted-foreground">
-            {m.assignmentCreate_scheduleSubtitle()}
-          </p>
-        </div>
-      </div>
-
       <div class="grid gap-5 md:grid-cols-3">
         <div>
           <label class="text-body-sm font-medium" for="opensAt">
@@ -373,7 +163,7 @@
           {/if}
         </div>
       </div>
-    </div>
+    </StepCard>
 
     <div
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"

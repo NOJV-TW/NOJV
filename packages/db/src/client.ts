@@ -11,6 +11,7 @@ const globalForPrisma = globalThis as typeof globalThis & {
 const environment = parseDatabaseEnv(process.env);
 const adapter = new PrismaPg({
   connectionString: environment.DATABASE_URL,
+  max: environment.DB_POOL_MAX,
 });
 
 export const prisma =

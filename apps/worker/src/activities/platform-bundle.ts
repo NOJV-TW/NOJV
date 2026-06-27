@@ -7,6 +7,7 @@ export {
   updateExamScores,
   closeActiveSessionsForExam,
   sweepStaleSubmissions,
+  reconcileLifecycleWorkflows,
   publishVerdict,
   publishContestEvent,
   fanoutAssignmentDueSoon,

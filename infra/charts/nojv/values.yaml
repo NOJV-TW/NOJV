@@ -1,0 +1,207 @@
+namespace: nojv
+sandboxNamespace: nojv-sandbox
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: asia-east1-docker.pkg.dev
+  repositoryPrefix: PROJECT_ID/nojv
+  tag: ""
+  repositories:
+    web: web
+    worker: worker
+    sandbox: sandbox
+    egressProxy: egress-proxy
+    migrator: migrator
+
+postgres:
+  mode: cnpg
+  cnpg:
+    instances: 1
+    imageName: ghcr.io/cloudnative-pg/postgresql:18
+    storageSize: 10Gi
+    storageClass: ""
+    database: nojv
+    owner: nojv
+    backup:
+      enabled: false
+      destinationPath: ""
+      endpointURL: ""
+      s3CredentialsSecret: ""
+      retentionPolicy: "30d"
+      schedule: "0 0 3 * * *"
+  cloudsql:
+    instanceConnectionName: PROJECT_ID:REGION:INSTANCE
+    proxyImage: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+
+cloudsqlProxy:
+  enabled: false
+
+redis:
+  inCluster: true
+  image: redis:8-alpine
+  storageSize: 1Gi
+  storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+storage:
+  inCluster: true
+  bucket: nojv
+  region: auto
+  minio:
+    image: minio/minio:latest
+    storageSize: 10Gi
+    storageClass: ""
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+temporal:
+  address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
+  namespace: default
+
+observability:
+  collector:
+    enabled: false
+    image: otel/opentelemetry-collector-contrib:0.122.1
+    remoteWriteUrl: ""
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+secrets:
+  runtimeSecretName: nojv-runtime-secrets
+
+web:
+  replicas: 1
+  containerPort: 3000
+  nodeEnv: production
+  executionBackend: kubernetes
+  dbPoolMax: "10"
+  nodeSelector: {}
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 80
+  hpa:
+    enabled: false
+    min: 2
+    max: 15
+    targetCPU: 70
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    host: nojv.example.com
+    path: /
+    pathType: Prefix
+    tls: []
+
+worker:
+  judge:
+    replicas: 2
+    concurrency: "4"
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+    keda:
+      enabled: false
+      min: 2
+      max: 10
+      prometheusAddress: ""
+      query: ""
+      threshold: "20"
+  platform:
+    replicas: 1
+    concurrency: "4"
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  sandbox:
+    cpuRequest: "500m"
+    cpuLimit: "1"
+    memoryRequest: "256Mi"
+    memoryLimit: "512Mi"
+
+pdb:
+  enabled: false
+  minAvailable: 1
+
+sandbox:
+  networkPolicy:
+    enabled: true
+  resourceQuota:
+    enabled: true
+    pods: "50"
+    requestsCpu: "25"
+    requestsMemory: "12Gi"
+  limitRange:
+    enabled: true
+    default:
+      cpu: "1"
+      memory: 512Mi
+    defaultRequest:
+      cpu: "500m"
+      memory: 256Mi
+    max:
+      cpu: "2"
+      memory: 1Gi
+    min:
+      cpu: "100m"
+      memory: 64Mi
+
+networkPolicy:
+  enabled: false
+  temporalNamespace: nojv-temporal
+  egress:
+    redisCidr: 10.64.0.10/32
+    cloudsqlCidr: 10.64.1.20/32
+    cloudsqlPort: 3307
+    googleApisCidrs:
+      - 199.36.153.4/30
+      - 199.36.153.8/30
+    apiServerCidrs:
+      - 10.96.0.1/32
+      - 172.16.0.32/28
+
+migrator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  backoffLimit: 1

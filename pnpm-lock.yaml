@@ -82,7 +82,6 @@ overrides:
   '@prisma/dev>@hono/node-server': ^1.19.13
   '@prisma/dev>hono': '>=4.12.25'
   '@sveltejs/kit>cookie': ^0.7.0
-  sveltekit-superforms>joi: ^18.2.1
   tsx>esbuild: ^0.28.1
 
 patchedDependencies:
@@ -1153,26 +1152,6 @@ packages:
     resolution: {integrity: sha512-wtF6h+DY6M3YaDBPAmvuuA6jV8Sif9MjtOI5euKFWRgCDl5PeDpPsHR9u2l6St5ceY8AZgoNDww5+HvEsXFsGg==}
     engines: {node: '>=6'}
     hasBin: true
-
-  '@hapi/address@5.1.1':
-    resolution: {integrity: sha512-A+po2d/dVoY7cYajycYI43ZbYMXukuopIsqCjh5QzsBCipDtdofHntljDlpccMjIfTy6UOkg+5KPriwYch2bXA==}
-    engines: {node: '>=14.0.0'}
-
-  '@hapi/formula@3.0.2':
-    resolution: {integrity: sha512-hY5YPNXzw1He7s0iqkRQi+uMGh383CGdyyIGYtB+W5N3KHPXoqychklvHhKCC9M3Xtv0OCs/IHw+r4dcHtBYWw==}
-
-  '@hapi/hoek@11.0.7':
-    resolution: {integrity: sha512-HV5undWkKzcB4RZUusqOpcgxOaq6VOAH7zhhIr2g3G8NF/MlFO75SjOr2NfuSx0Mh40+1FqCkagKLJRykUWoFQ==}
-
-  '@hapi/pinpoint@2.0.1':
-    resolution: {integrity: sha512-EKQmr16tM8s16vTT3cA5L0kZZcTMU5DUOZTuvpnY738m+jyP3JIUj+Mm1xc1rsLkGBQ/gVnfKYPwOmPg1tUR4Q==}
-
-  '@hapi/tlds@1.1.7':
-    resolution: {integrity: sha512-MgNjRwy9Ti92yVAixLmDc8dd1bJIKwO9qlWCfFQRwRmUEDPQHYn4G6hwPFvFGUTzAa0FsS+inMjLin7GnyBRhA==}
-    engines: {node: '>=14.0.0'}
-
-  '@hapi/topo@6.0.2':
-    resolution: {integrity: sha512-KR3rD5inZbGMrHmgPxsJ9dbi6zEK+C3ZwUwTa+eMwWLz7oijWUTWD2pMSNNYJAU6Qq+65NkxXjqHr/7LM2Xkqg==}
 
   '@hexagon/base64@1.1.28':
     resolution: {integrity: sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw==}
@@ -4438,10 +4417,6 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  joi@18.2.1:
-    resolution: {integrity: sha512-2/OKlogiESf2Nh3TFCrRjrr9z1DRHeW0I+KReF67+4J0Ns+8hBtHRmoWAZ2OFU6I5+TWLEe6sVlSdXPjHm5UbQ==}
-    engines: {node: '>= 20'}
-
   jose@6.2.3:
     resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==}
 
@@ -5607,7 +5582,11 @@ packages:
     resolution: {integrity: sha512-wBzyqsE0idvEJWuNJ+HCiAtdxa7Z55GZ8jmtlVHJfonrk9bRYC49MoPaloYyFoYuU3QPy6Omna/Qzn1kaIkgew==}
     peerDependencies:
       '@sveltejs/kit': 1.x || 2.x
+      joi: ^17.13.1
       svelte: 3.x || 4.x || >=5.0.0-next.51
+    peerDependenciesMeta:
+      joi:
+        optional: true
 
   swc-loader@0.2.7:
     resolution: {integrity: sha512-nwYWw3Fh9ame3Rtm7StS9SBLpHRRnYcK7bnpF3UKZmesAK0gw2/ADvlURFAINmPvKtDLzp+GBiP9yLoEjg6S9w==}
@@ -6266,6 +6245,9 @@ packages:
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
+ignoredOptionalDependencies:
+  - joi
+
 snapshots:
 
   '@ark/schema@0.56.0':
@@ -6868,28 +6850,6 @@ snapshots:
       long: 5.3.2
       protobufjs: 8.6.4
       yargs: 17.7.2
-
-  '@hapi/address@5.1.1':
-    dependencies:
-      '@hapi/hoek': 11.0.7
-    optional: true
-
-  '@hapi/formula@3.0.2':
-    optional: true
-
-  '@hapi/hoek@11.0.7':
-    optional: true
-
-  '@hapi/pinpoint@2.0.1':
-    optional: true
-
-  '@hapi/tlds@1.1.7':
-    optional: true
-
-  '@hapi/topo@6.0.2':
-    dependencies:
-      '@hapi/hoek': 11.0.7
-    optional: true
 
   '@hexagon/base64@1.1.28': {}
 
@@ -10389,17 +10349,6 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  joi@18.2.1:
-    dependencies:
-      '@hapi/address': 5.1.1
-      '@hapi/formula': 3.0.2
-      '@hapi/hoek': 11.0.7
-      '@hapi/pinpoint': 2.0.1
-      '@hapi/tlds': 1.1.7
-      '@hapi/topo': 6.0.2
-      '@standard-schema/spec': 1.1.0
-    optional: true
-
   jose@6.2.3: {}
 
   js-sha256@0.11.1: {}
@@ -11587,7 +11536,6 @@ snapshots:
       arktype: 2.2.0
       class-validator: 0.14.4
       effect: 3.21.2
-      joi: 18.2.1
       json-schema-to-ts: 3.1.1
       superstruct: 2.0.2
       typebox: 1.1.38

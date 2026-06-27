@@ -6,8 +6,7 @@ import {
   isCancellation,
   log,
 } from "@temporalio/workflow";
-import type { SubmissionDraft } from "@nojv/core";
-import type { RejudgeInput, RejudgeProgress } from "@nojv/temporal";
+import type { RejudgeInput, RejudgeProgress, SubmissionDraft } from "@nojv/core";
 import type * as judgeActivities from "../activities/judge";
 import { submissionJudgeWorkflow } from "./submission-judge";
 import { SHORT_ACTIVITY } from "./activity-options";

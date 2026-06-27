@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SubtaskResultItem } from "@nojv/core";
   import { Badge } from "$lib/components/primitives/ui/badge";
-  import { verdictBadgeVariant } from "$lib/utils/verdict-style";
+  import { verdictBadgeVariant, formatVerdictLabel } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
@@ -36,7 +36,7 @@
 
 <div class="space-y-3">
   <div class="flex items-baseline gap-2">
-    <span class="text-body-sm font-semibold text-foreground">{m.subtask_score()}</span>
+    <span class="text-body-sm font-semibold text-foreground">{m.subtask_breakdownLabel()}</span>
     <span
       class="text-body-lg font-bold tabular-nums {earnedWeight === totalWeight
         ? 'text-success'
@@ -113,8 +113,10 @@
                 <span class="w-12 tabular-nums text-muted-foreground"
                   >{m.subtask_caseLabel({ ordinal: caseResult.index })}</span
                 >
-                <Badge variant={verdictBadgeVariant(caseResult.verdict)} size="xs"
-                  >{caseResult.verdict}</Badge
+                <Badge
+                  variant={verdictBadgeVariant(caseResult.verdict)}
+                  size="xs"
+                  title={formatVerdictLabel(caseResult.verdict)}>{caseResult.verdict}</Badge
                 >
                 <span class="tabular-nums text-muted-foreground">
                   {String(caseResult.timeMs)}ms

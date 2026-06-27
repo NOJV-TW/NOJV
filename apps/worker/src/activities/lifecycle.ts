@@ -2,6 +2,7 @@ import {
   contestDomain,
   examDomain,
   notificationDomain,
+  reconcileLifecycleTimers,
   submissionDomain,
 } from "@nojv/application";
 import { pubsub } from "@nojv/redis";
@@ -49,6 +50,13 @@ export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepSta
     logger.info("stale submission sweep", { ...result });
   }
   return result;
+}
+
+export async function reconcileLifecycleWorkflows(): Promise<void> {
+  const result = await reconcileLifecycleTimers();
+  if (result.exams > 0 || result.contests > 0 || result.assignments > 0) {
+    logger.info("lifecycle timer reconcile", { ...result });
+  }
 }
 
 export const publishVerdict = pubsub.publishVerdict;

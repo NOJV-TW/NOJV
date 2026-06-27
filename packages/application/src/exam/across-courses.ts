@@ -75,8 +75,7 @@ export async function listExamsAcrossCoursesForUser(
     };
   }
 
-  const perCourse = await Promise.all(courseIds.map((id) => examRepo.listByCourseId(id)));
-  const flat = perCourse.flat();
+  const flat = await examRepo.listByCourseIds(courseIds);
 
   const rows: ExamAcrossRow[] = flat.map((e) => {
     const status = deriveStatus(e.startsAt, e.endsAt, now);

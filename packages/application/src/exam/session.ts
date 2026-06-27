@@ -358,11 +358,6 @@ export async function resetStudentIpBinding(
   });
 }
 
-export async function countActiveSessions(examId: string): Promise<number> {
-  const active = await examSessionRepo.findAllActiveForExam(examId);
-  return active.length;
-}
-
 export interface ActiveSessionRow {
   userId: string;
   displayName: string;
