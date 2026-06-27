@@ -253,22 +253,26 @@ Ingress/LB origin is restricted to Cloudflare's CIDR ranges (see
 | Component | Where it runs                           | Scaling                                               |
 | --------- | --------------------------------------- | ----------------------------------------------------- |
 | web       | Chart Deployment (+ HPA on GKE)         | HPA min 2 / max 15 (`web.hpa.*`)                      |
-| worker    | Chart Deployments (judge + platform)    | Static replicas + PodDisruptionBudget (`pdb.enabled`) |
+| worker    | Chart Deployments (judge + platform)    | Static replicas + opt-in KEDA (`worker.judge.keda.*`) |
 | migrator  | Chart pre-install/pre-upgrade Helm hook | One-shot per release                                  |
-| sandbox   | K8s Jobs (`nojv-sandbox`)               | Per-submission, capped by sandbox quota (50)          |
+| sandbox   | K8s Jobs (`nojv-sandbox`)               | Per-submission, quota + node cluster-autoscaler       |
 | postgres  | In-cluster CloudNativePG _or_ Cloud SQL | Vertical (manual) / CNPG instances                    |
 | redis     | In-cluster _or_ Memorystore             | Vertical (manual)                                     |
 | temporal  | Official Temporal Helm chart (prereq)   | Per HA-PRODUCTION.md                                  |
 | images    | Artifact Registry                       | —                                                     |
 | secrets   | Chart runtime secret / Secret Manager   | —                                                     |
 
-> The worker previously used KEDA scaled against BullMQ queue length. BullMQ
-> was replaced by Temporal and the KEDA `ScaledObject` was removed in commit
-> `c1ed096`. Worker throughput is now gated by the `nojv-sandbox`
-> ResourceQuota (50 pods / 25 CPU), not orchestrator count — two static
-> workers comfortably saturate that ceiling. Re-introduce autoscaling only
-> when a real metric (Temporal task-queue backlog or activity
-> schedule-to-start latency) shows the worker layer is the bottleneck.
+> **Autoscaling layers.** A submission burst is absorbed by the **sandbox**
+> layer — one K8s Job per submission, capped by `sandbox.resourceQuota.pods`,
+> with the `pool-sandbox` cluster-autoscaler growing nodes `0 → SANDBOX_MAX_NODES`
+> to run them (raise both for exam scale). Concurrent-user spikes (exam start)
+> are absorbed by the **web** HPA. The **judge worker** dispatcher stays at two
+> static replicas because orchestration is I/O-bound and two workers already
+> saturate the quota — CPU-HPA is the wrong signal. When the quota is raised far
+> enough that dispatch lags, enable the opt-in KEDA `ScaledObject`
+> (`worker.judge.keda.enabled`) — a Prometheus trigger on Temporal task-queue
+> backlog / schedule-to-start latency (requires KEDA + Prometheus scraping
+> Temporal).
 
 ## Helm Deployment
 

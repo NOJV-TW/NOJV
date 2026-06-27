@@ -1,17 +1,12 @@
-# GKE overlay — prefer Google-managed services: Cloud SQL (Postgres), GCS
-# (object storage), Memorystore (Redis). The single-machine overlay keeps the
-# equivalents in-cluster (CloudNativePG / MinIO / Redis Deployment) instead.
 image:
   registry: asia-east1-docker.pkg.dev
   repositoryPrefix: PROJECT_ID/nojv
   tag: latest
 
 postgres:
-  # Google Cloud SQL (managed Postgres + automated backups/PITR via infra/gcp/scripts/setup-backups.sh).
   mode: cloudsql
   cloudsql:
     instanceConnectionName: PROJECT_ID:REGION:INSTANCE
-  # In-cluster fallback if you ever prefer self-hosted DB on GKE (unused while mode=cloudsql).
   cnpg:
     instances: 3
     storageSize: 50Gi
@@ -24,13 +19,11 @@ postgres:
       schedule: "0 0 3 * * *"
 
 cloudsqlProxy:
-  enabled: true # sidecar required by postgres.mode=cloudsql (listens 127.0.0.1:5432)
-
+  enabled: true
 redis:
-  inCluster: false # Google Memorystore — set REDIS_URL in the runtime secret
-
+  inCluster: false
 storage:
-  inCluster: false # Google Cloud Storage (GCS) — set S3_* in the runtime secret
+  inCluster: false
   region: auto
 
 temporal:

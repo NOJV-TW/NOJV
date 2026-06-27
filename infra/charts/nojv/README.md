@@ -68,6 +68,7 @@ infra/charts/nojv/
     ├── web.hpa.yaml                 # guarded by web.hpa.enabled
     ├── web.ingress.yaml             # guarded by web.ingress.enabled (Cloudflare origin)
     ├── worker-judge.deployment.yaml     # WORKER_MODE=judge (rendered FIRST)
+    ├── worker-judge.keda.yaml           # opt-in KEDA ScaledObject (worker.judge.keda.enabled)
     ├── worker-platform.deployment.yaml  # WORKER_MODE=platform
     ├── worker-rbac.yaml             # SA + Role + RoleBinding (manage Jobs in sandbox ns)
     ├── worker-pdb.yaml              # guarded by pdb.enabled
@@ -82,35 +83,36 @@ infra/charts/nojv/
 
 ## Values knobs
 
-| Knob                                                            | Default                                                            | Purpose                                                               |
-| --------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `image.registry` / `image.repositoryPrefix` / `image.tag`       | `asia-east1-docker.pkg.dev` / `PROJECT_ID/nojv` / chart appVersion | image ref composition                                                 |
-| `image.repositories.*`                                          | web/worker/sandbox/egress-proxy/migrator                           | per-component repo suffix                                             |
-| `postgres.mode`                                                 | `cnpg`                                                             | `cnpg` \| `cloudsql` \| `external` — drives `DATABASE_URL` derivation |
-| `postgres.cnpg.instances` / `storageSize`                       | `1` / `10Gi`                                                       | CNPG Cluster size                                                     |
-| `postgres.cnpg.backup.*`                                        | disabled                                                           | barman-cloud `ScheduledBackup`                                        |
-| `postgres.cloudsql.instanceConnectionName`                      | placeholder                                                        | Cloud SQL proxy target                                                |
-| `cloudsqlProxy.enabled`                                         | `false`                                                            | adds the cloud-sql-proxy sidecar (use with `mode=cloudsql`)           |
-| `redis.inCluster`                                               | `true`                                                             | deploy in-cluster Redis, else `REDIS_URL` from secret                 |
-| `storage.inCluster`                                             | `true`                                                             | deploy in-cluster MinIO, else `S3_*` from secret                      |
-| `storage.bucket` / `storage.region`                             | `nojv` / `auto`                                                    | S3 bucket/region                                                      |
-| `temporal.address` / `temporal.namespace`                       | in-cluster Temporal frontend / `default`                           | Temporal client target                                                |
-| `secrets.runtimeSecretName`                                     | `nojv-runtime-secrets`                                             | existing secret to reference                                          |
-| `web.replicas` / `web.resources` / `web.nodeSelector`           | `1` / 256Mi-512Mi                                                  | web sizing                                                            |
-| `web.hpa.{enabled,min,max,targetCPU}`                           | `false` / 2 / 15 / 70                                              | web autoscaling                                                       |
-| `web.ingress.{enabled,className,host,tls}`                      | `false`                                                            | Ingress for Cloudflare origin                                         |
-| `worker.judge.{replicas,concurrency,resources,nodeSelector}`    | `2` / `4`                                                          | judge workers                                                         |
-| `worker.platform.{replicas,concurrency,resources,nodeSelector}` | `1` / `4`                                                          | platform workers                                                      |
-| `worker.sandbox.{cpu,memory}{Request,Limit}`                    | 500m/1 · 256Mi/512Mi                                               | per-sandbox Job hints (K8S\_\* env)                                   |
-| `pdb.enabled` / `pdb.minAvailable`                              | `false` / `1`                                                      | worker PodDisruptionBudgets                                           |
-| `sandbox.networkPolicy.enabled`                                 | `true`                                                             | sandbox deny-all NetworkPolicy                                        |
-| `sandbox.resourceQuota.*`                                       | pods 50, cpu 25, mem 12Gi                                          | sandbox ResourceQuota                                                 |
-| `sandbox.limitRange.*`                                          | per-container defaults/max/min                                     | sandbox LimitRange                                                    |
-| `networkPolicy.enabled`                                         | `false`                                                            | worker-egress NetworkPolicy (set CIDRs first)                         |
-| `networkPolicy.egress.*`                                        | cluster-specific CIDRs                                             | Redis/CloudSQL/GoogleAPIs/API-server egress                           |
-| `observability.collector.enabled`                               | `false`                                                            | deploy the in-cluster OTLP collector                                  |
-| `observability.collector.{image,remoteWriteUrl,resources}`      | contrib image / `""`                                               | collector image; remote-write target (else expose :8889 /metrics)     |
-| `migrator.enabled`                                              | `true`                                                             | run the migration Job as a Helm hook                                  |
+| Knob                                                                    | Default                                                            | Purpose                                                               |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `image.registry` / `image.repositoryPrefix` / `image.tag`               | `asia-east1-docker.pkg.dev` / `PROJECT_ID/nojv` / chart appVersion | image ref composition                                                 |
+| `image.repositories.*`                                                  | web/worker/sandbox/egress-proxy/migrator                           | per-component repo suffix                                             |
+| `postgres.mode`                                                         | `cnpg`                                                             | `cnpg` \| `cloudsql` \| `external` — drives `DATABASE_URL` derivation |
+| `postgres.cnpg.instances` / `storageSize`                               | `1` / `10Gi`                                                       | CNPG Cluster size                                                     |
+| `postgres.cnpg.backup.*`                                                | disabled                                                           | barman-cloud `ScheduledBackup`                                        |
+| `postgres.cloudsql.instanceConnectionName`                              | placeholder                                                        | Cloud SQL proxy target                                                |
+| `cloudsqlProxy.enabled`                                                 | `false`                                                            | adds the cloud-sql-proxy sidecar (use with `mode=cloudsql`)           |
+| `redis.inCluster`                                                       | `true`                                                             | deploy in-cluster Redis, else `REDIS_URL` from secret                 |
+| `storage.inCluster`                                                     | `true`                                                             | deploy in-cluster MinIO, else `S3_*` from secret                      |
+| `storage.bucket` / `storage.region`                                     | `nojv` / `auto`                                                    | S3 bucket/region                                                      |
+| `temporal.address` / `temporal.namespace`                               | in-cluster Temporal frontend / `default`                           | Temporal client target                                                |
+| `secrets.runtimeSecretName`                                             | `nojv-runtime-secrets`                                             | existing secret to reference                                          |
+| `web.replicas` / `web.resources` / `web.nodeSelector`                   | `1` / 256Mi-512Mi                                                  | web sizing                                                            |
+| `web.hpa.{enabled,min,max,targetCPU}`                                   | `false` / 2 / 15 / 70                                              | web autoscaling                                                       |
+| `web.ingress.{enabled,className,host,tls}`                              | `false`                                                            | Ingress for Cloudflare origin                                         |
+| `worker.judge.{replicas,concurrency,resources,nodeSelector}`            | `2` / `4`                                                          | judge workers                                                         |
+| `worker.judge.keda.{enabled,min,max,prometheusAddress,query,threshold}` | `false` / 2 / 10                                                   | opt-in dispatcher autoscaling on Temporal queue (KEDA prereq)         |
+| `worker.platform.{replicas,concurrency,resources,nodeSelector}`         | `1` / `4`                                                          | platform workers                                                      |
+| `worker.sandbox.{cpu,memory}{Request,Limit}`                            | 500m/1 · 256Mi/512Mi                                               | per-sandbox Job hints (K8S\_\* env)                                   |
+| `pdb.enabled` / `pdb.minAvailable`                                      | `false` / `1`                                                      | worker PodDisruptionBudgets                                           |
+| `sandbox.networkPolicy.enabled`                                         | `true`                                                             | sandbox deny-all NetworkPolicy                                        |
+| `sandbox.resourceQuota.*`                                               | pods 50, cpu 25, mem 12Gi                                          | sandbox ResourceQuota                                                 |
+| `sandbox.limitRange.*`                                                  | per-container defaults/max/min                                     | sandbox LimitRange                                                    |
+| `networkPolicy.enabled`                                                 | `false`                                                            | worker-egress NetworkPolicy (set CIDRs first)                         |
+| `networkPolicy.egress.*`                                                | cluster-specific CIDRs                                             | Redis/CloudSQL/GoogleAPIs/API-server egress                           |
+| `observability.collector.enabled`                                       | `false`                                                            | deploy the in-cluster OTLP collector                                  |
+| `observability.collector.{image,remoteWriteUrl,resources}`              | contrib image / `""`                                               | collector image; remote-write target (else expose :8889 /metrics)     |
+| `migrator.enabled`                                                      | `true`                                                             | run the migration Job as a Helm hook                                  |
 
 ## How `DATABASE_URL` is derived
 

@@ -137,17 +137,24 @@ See [`temporal/HA-PRODUCTION.md`](temporal/HA-PRODUCTION.md) for the full set of
 options (Temporal Cloud vs self-hosted HA) and
 [Reliability Invariants](../../../docs/operations/RELIABILITY.md).
 
-## Why No Autoscaler on the Worker
+## Autoscaling (three layers)
 
-Earlier versions used KEDA with BullMQ list-length triggers. BullMQ has been
-replaced by Temporal, so those triggers were scaling on dead Redis keys and
-never fired — the removal is a no-op in effect but cleans up stale config.
-
-Orchestrator work is I/O bound and very cheap: two workers can drive the
-full sandbox ResourceQuota (50 pods / 25 CPU) with room to spare. Bring
-autoscaling back only when a real metric (Temporal task queue backlog or
-activity schedule-to-start latency, exposed via Prometheus) shows the worker
-layer itself is a bottleneck.
+1. **web** — `HorizontalPodAutoscaler` on CPU (`web.hpa.enabled`, min 2 / max 15
+   on GKE). Absorbs concurrent-user spikes such as an exam start. Needs
+   metrics-server.
+2. **judge execution** — the elastic layer for a submission burst. The worker
+   launches one sandbox-runner Job per submission into `nojv-sandbox`; concurrency
+   is capped by the `ResourceQuota` (`sandbox.resourceQuota.pods`) and the
+   `pool-sandbox` cluster-autoscaler grows nodes `0 → SANDBOX_MAX_NODES` to run
+   them. Raise both for exam scale (e.g. `SANDBOX_MAX_NODES=10` +
+   `sandbox.resourceQuota.pods`).
+3. **judge worker (dispatcher)** — fixed `replicas: 2` by default: orchestration
+   is I/O-bound and two workers already saturate the 50-pod quota, and CPU-HPA is
+   the wrong signal for an I/O-bound dispatcher. When you raise the sandbox quota
+   far enough that dispatch lags, turn on the opt-in KEDA `ScaledObject`
+   (`worker.judge.keda.enabled`, a Prometheus trigger on Temporal task-queue
+   backlog / schedule-to-start latency; requires KEDA + Prometheus scraping
+   Temporal).
 
 ## Apply Flow
 

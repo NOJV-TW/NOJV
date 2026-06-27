@@ -1,0 +1,21 @@
+{{- if .Values.worker.judge.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "nojv.fullname" . }}-worker
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker-judge
+spec:
+  scaleTargetRef:
+    name: {{ include "nojv.fullname" . }}-worker
+  minReplicaCount: {{ .Values.worker.judge.keda.min }}
+  maxReplicaCount: {{ .Values.worker.judge.keda.max }}
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: {{ required "worker.judge.keda.prometheusAddress is required when keda.enabled" .Values.worker.judge.keda.prometheusAddress | quote }}
+        query: {{ required "worker.judge.keda.query is required when keda.enabled" .Values.worker.judge.keda.query | quote }}
+        threshold: {{ .Values.worker.judge.keda.threshold | quote }}
+{{- end }}

@@ -1,6 +1,3 @@
-# Default values for the NOJV umbrella chart. Override per environment with
-# values-single-machine.yaml (everything in-cluster) or values-gke.yaml
-# (Google-managed). See README.md for the full knob reference.
 namespace: nojv
 sandboxNamespace: nojv-sandbox
 
@@ -18,8 +15,6 @@ image:
     egressProxy: egress-proxy
     migrator: migrator
 
-# Database: cnpg = in-cluster CloudNativePG (HA + scheduled backup + PITR);
-# cloudsql = Google Cloud SQL via the proxy sidecar; external = DATABASE_URL from the secret.
 postgres:
   mode: cnpg
   cnpg:
@@ -43,7 +38,6 @@ postgres:
 cloudsqlProxy:
   enabled: false
 
-# inCluster true = deploy Redis here; false = external (Memorystore) via REDIS_URL in the secret.
 redis:
   inCluster: true
   image: redis:8-alpine
@@ -57,8 +51,6 @@ redis:
       cpu: 250m
       memory: 256Mi
 
-# Object storage (S3-compatible): inCluster true = deploy MinIO here; false = external
-# (GCS / R2 / S3) via S3_* in the secret. Local dev uses MinIO from docker-compose.
 storage:
   inCluster: true
   bucket: nojv
@@ -79,13 +71,6 @@ temporal:
   address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
   namespace: default
 
-# In-cluster OTLP metrics ingestion. When collector.enabled=true, set
-# OTEL_EXPORTER_OTLP_ENDPOINT (in the runtime secret) to this collector's
-# Service: http://<release>-otel-collector.<namespace>.svc:4318
-# The collector exposes :8889 /metrics for a Prometheus to scrape, unless
-# remoteWriteUrl is set (then it remote-writes there instead). Prometheus +
-# Grafana remain a documented prereq (kube-prometheus-stack / Google Managed
-# Prometheus) — see docs/runbooks/observability-setup.md.
 observability:
   collector:
     enabled: false
@@ -145,6 +130,13 @@ worker:
       limits:
         cpu: "2"
         memory: 1Gi
+    keda:
+      enabled: false
+      min: 2
+      max: 10
+      prometheusAddress: ""
+      query: ""
+      threshold: "20"
   platform:
     replicas: 1
     concurrency: "4"
@@ -189,8 +181,6 @@ sandbox:
       cpu: "100m"
       memory: 64Mi
 
-# Worker egress allow-list. The CIDRs below are GKE/VPC examples — replace with
-# your cluster's Redis / Cloud SQL / API-server / Services-VIP ranges before enabling.
 networkPolicy:
   enabled: false
   temporalNamespace: nojv-temporal
