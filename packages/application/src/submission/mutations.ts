@@ -438,6 +438,8 @@ export async function snapshotForRejudge(
     oldResultJson: current.verdictSummary === null ? null : toJsonValue(current.verdictSummary),
   });
 
+  await submissionRepo.updateStatus(submissionId, "running");
+
   return { logId: row.id, oldStatus: row.oldVerdict };
 }
 
