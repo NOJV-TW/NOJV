@@ -67,6 +67,23 @@ export async function ensureSubmissionSweeper(): Promise<void> {
   }
 }
 
+export const LIFECYCLE_RECONCILER_WORKFLOW_ID = "lifecycle-timer-reconciler";
+
+export async function ensureLifecycleReconciler(): Promise<void> {
+  const client = await getTemporalClient();
+  try {
+    await client.workflow.start("lifecycleReconcilerWorkflow", {
+      taskQueue: PLATFORM_TASK_QUEUE,
+      workflowId: LIFECYCLE_RECONCILER_WORKFLOW_ID,
+      cronSchedule: "*/5 * * * *",
+      args: [],
+    });
+  } catch (err) {
+    if (err instanceof WorkflowExecutionAlreadyStartedError) return;
+    throw err;
+  }
+}
+
 export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
   const client = await getTemporalClient();
   const suffix =

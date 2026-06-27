@@ -391,4 +391,4 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - [Frontend Surface](../architecture/FRONTEND.md)
 - [Deployment Guide](./DEPLOYMENT.md)
 - [Reliability Invariants](./RELIABILITY.md)
-- [Redis Architecture](REDIS.md)
+- [Redis Architecture](../architecture/REDIS.md)

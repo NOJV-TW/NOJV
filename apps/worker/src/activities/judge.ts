@@ -262,8 +262,9 @@ export async function completeSubmission(
   result: SubmissionResult,
   mode: "standard" | "advanced",
   advancedConfig: AdvancedConfig | null = null,
-): Promise<submissionDomain.CompletedSubmission> {
+): Promise<submissionDomain.CompletedSubmission | null> {
   const completed = await submissionDomain.completeJudge(submissionId, result, advancedConfig);
+  if (!completed) return null;
   recordJudgeLatency(judgeLatencyHistogram, {
     startedAtMs: completed.createdAt.getTime(),
     completedAtMs: Date.now(),

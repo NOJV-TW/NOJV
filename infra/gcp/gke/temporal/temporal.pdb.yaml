@@ -1,21 +1,21 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: nojv-worker
-  namespace: nojv
+  name: temporal-server
+  namespace: nojv-temporal
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: nojv-worker
+      app.kubernetes.io/name: temporal-server
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: nojv-worker-platform
-  namespace: nojv
+  name: temporal-postgres
+  namespace: nojv-temporal
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: nojv-worker-platform
+      app.kubernetes.io/name: temporal-postgres

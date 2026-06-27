@@ -37,178 +37,178 @@ function avgScoreFromUserTotals(userTotals: Map<string, number>): number {
   return Math.round(sum / userTotals.size);
 }
 
-export async function aggregateAssignmentClassStats(
+interface ScoreGroupRow {
+  userId: string;
+  _max: { score: number | null };
+}
+
+async function aggregateClassStats<G extends ScoreGroupRow>(
+  rows: { id: string; courseId: string }[],
+  loadScoreGroups: (ids: string[]) => Promise<G[]>,
+  fk: (g: G) => string | null,
+): Promise<Map<string, ClassStats>> {
+  const out = new Map<string, ClassStats>();
+  if (rows.length === 0) return out;
+
+  const ids = rows.map((r) => r.id);
+  const courseIds = Array.from(new Set(rows.map((r) => r.courseId)));
+
+  const [scoreGroups, studentCountByCourse] = await Promise.all([
+    loadScoreGroups(ids),
+    courseMembershipRepo.countStudentsByCourse(courseIds),
+  ]);
+
+  const perTarget = new Map<string, Map<string, number>>();
+  for (const g of scoreGroups) {
+    const tid = fk(g);
+    if (!tid) continue;
+    let userTotals = perTarget.get(tid);
+    if (!userTotals) {
+      userTotals = new Map();
+      perTarget.set(tid, userTotals);
+    }
+    const score = g._max.score ?? 0;
+    userTotals.set(g.userId, (userTotals.get(g.userId) ?? 0) + score);
+  }
+
+  for (const row of rows) {
+    const userTotals = perTarget.get(row.id) ?? new Map<string, number>();
+    out.set(row.id, {
+      submittedUsers: userTotals.size,
+      totalStudents: studentCountByCourse.get(row.courseId) ?? 0,
+      avgScore: avgScoreFromUserTotals(userTotals),
+    });
+  }
+  return out;
+}
+
+interface AcceptedGroupRow {
+  problemId: string;
+}
+
+interface MaxScoreRow {
+  _max: { score: number | null };
+}
+
+interface PointSumRow {
+  _sum: { points: number | null };
+}
+
+async function aggregateMyStatus<
+  A extends AcceptedGroupRow,
+  S extends MaxScoreRow,
+  P extends PointSumRow,
+>(
+  rows: { id: string; problemCount: number }[],
+  loaders: {
+    accepted: () => Promise<A[]>;
+    scores: () => Promise<S[]>;
+    pointSums: () => Promise<P[]>;
+  },
+  fk: (g: A | S) => string | null,
+  pointFk: (g: P) => string,
+): Promise<Map<string, MyStatus>> {
+  const out = new Map<string, MyStatus>();
+  if (rows.length === 0) return out;
+
+  const [accepted, scores, pointSums] = await Promise.all([
+    loaders.accepted(),
+    loaders.scores(),
+    loaders.pointSums(),
+  ]);
+
+  const solvedByTarget = new Map<string, Set<string>>();
+  for (const g of accepted) {
+    const tid = fk(g);
+    if (!tid) continue;
+    let solved = solvedByTarget.get(tid);
+    if (!solved) {
+      solved = new Set();
+      solvedByTarget.set(tid, solved);
+    }
+    solved.add(g.problemId);
+  }
+
+  const scoreByTarget = new Map<string, number>();
+  for (const g of scores) {
+    const tid = fk(g);
+    if (!tid) continue;
+    const score = g._max.score ?? 0;
+    scoreByTarget.set(tid, (scoreByTarget.get(tid) ?? 0) + score);
+  }
+
+  const totalPointsByTarget = new Map<string, number>();
+  for (const g of pointSums) {
+    totalPointsByTarget.set(pointFk(g), g._sum.points ?? 0);
+  }
+
+  for (const row of rows) {
+    out.set(row.id, {
+      solved: solvedByTarget.get(row.id)?.size ?? 0,
+      total: row.problemCount,
+      score: scoreByTarget.get(row.id) ?? 0,
+      totalPoints: totalPointsByTarget.get(row.id) ?? 0,
+    });
+  }
+  return out;
+}
+
+export function aggregateAssignmentClassStats(
   rows: AssignmentRowLike[],
 ): Promise<Map<string, ClassStats>> {
-  const out = new Map<string, ClassStats>();
-  if (rows.length === 0) return out;
-
-  const assignmentIds = rows.map((r) => r.id);
-  const courseIds = Array.from(new Set(rows.map((r) => r.courseId)));
-
-  const [scoreGroups, studentCountByCourse] = await Promise.all([
-    submissionRepo.groupBestScoresByAssessment(assignmentIds),
-    courseMembershipRepo.countStudentsByCourse(courseIds),
-  ]);
-
-  const perAssignment = new Map<string, Map<string, number>>();
-  for (const g of scoreGroups) {
-    const aid = g.assessmentId;
-    if (!aid) continue;
-    let userTotals = perAssignment.get(aid);
-    if (!userTotals) {
-      userTotals = new Map();
-      perAssignment.set(aid, userTotals);
-    }
-    const score = g._max.score ?? 0;
-    userTotals.set(g.userId, (userTotals.get(g.userId) ?? 0) + score);
-  }
-
-  for (const row of rows) {
-    const userTotals = perAssignment.get(row.id) ?? new Map<string, number>();
-    out.set(row.id, {
-      submittedUsers: userTotals.size,
-      totalStudents: studentCountByCourse.get(row.courseId) ?? 0,
-      avgScore: avgScoreFromUserTotals(userTotals),
-    });
-  }
-  return out;
+  return aggregateClassStats(
+    rows,
+    (ids) => submissionRepo.groupBestScoresByAssessment(ids),
+    (g) => g.assessmentId,
+  );
 }
 
-export async function aggregateAssignmentMyStatus(
+export function aggregateAssignmentMyStatus(
   userId: string,
   rows: { id: string; problemCount: number }[],
 ): Promise<Map<string, MyStatus>> {
-  const out = new Map<string, MyStatus>();
-  if (rows.length === 0) return out;
-
   const assignmentIds = rows.map((r) => r.id);
-  const [accepted, scores, pointSums] = await Promise.all([
-    submissionRepo.groupAcceptedByAssessmentForUser({ assessmentIds: assignmentIds, userId }),
-    submissionRepo.groupBestScoresByAssessmentForUser({ assessmentIds: assignmentIds, userId }),
-    assessmentProblemRepo.sumPointsByAssessment(assignmentIds),
-  ]);
-
-  const solvedByAssignment = new Map<string, Set<string>>();
-  for (const g of accepted) {
-    const aid = g.assessmentId;
-    if (!aid) continue;
-    let solved = solvedByAssignment.get(aid);
-    if (!solved) {
-      solved = new Set();
-      solvedByAssignment.set(aid, solved);
-    }
-    solved.add(g.problemId);
-  }
-
-  const scoreByAssignment = new Map<string, number>();
-  for (const g of scores) {
-    const aid = g.assessmentId;
-    if (!aid) continue;
-    const score = g._max.score ?? 0;
-    scoreByAssignment.set(aid, (scoreByAssignment.get(aid) ?? 0) + score);
-  }
-
-  const totalPointsByAssignment = new Map<string, number>();
-  for (const g of pointSums) {
-    totalPointsByAssignment.set(g.assessmentId, g._sum.points ?? 0);
-  }
-
-  for (const row of rows) {
-    out.set(row.id, {
-      solved: solvedByAssignment.get(row.id)?.size ?? 0,
-      total: row.problemCount,
-      score: scoreByAssignment.get(row.id) ?? 0,
-      totalPoints: totalPointsByAssignment.get(row.id) ?? 0,
-    });
-  }
-  return out;
+  return aggregateMyStatus(
+    rows,
+    {
+      accepted: () =>
+        submissionRepo.groupAcceptedByAssessmentForUser({
+          assessmentIds: assignmentIds,
+          userId,
+        }),
+      scores: () =>
+        submissionRepo.groupBestScoresByAssessmentForUser({
+          assessmentIds: assignmentIds,
+          userId,
+        }),
+      pointSums: () => assessmentProblemRepo.sumPointsByAssessment(assignmentIds),
+    },
+    (g) => g.assessmentId,
+    (g) => g.assessmentId,
+  );
 }
 
-export async function aggregateExamClassStats(
-  rows: ExamRowLike[],
-): Promise<Map<string, ClassStats>> {
-  const out = new Map<string, ClassStats>();
-  if (rows.length === 0) return out;
-
-  const examIds = rows.map((r) => r.id);
-  const courseIds = Array.from(new Set(rows.map((r) => r.courseId)));
-
-  const [scoreGroups, studentCountByCourse] = await Promise.all([
-    submissionRepo.groupBestScoresByExam(examIds),
-    courseMembershipRepo.countStudentsByCourse(courseIds),
-  ]);
-
-  const perExam = new Map<string, Map<string, number>>();
-  for (const g of scoreGroups) {
-    const eid = g.examId;
-    if (!eid) continue;
-    let userTotals = perExam.get(eid);
-    if (!userTotals) {
-      userTotals = new Map();
-      perExam.set(eid, userTotals);
-    }
-    const score = g._max.score ?? 0;
-    userTotals.set(g.userId, (userTotals.get(g.userId) ?? 0) + score);
-  }
-
-  for (const row of rows) {
-    const userTotals = perExam.get(row.id) ?? new Map<string, number>();
-    out.set(row.id, {
-      submittedUsers: userTotals.size,
-      totalStudents: studentCountByCourse.get(row.courseId) ?? 0,
-      avgScore: avgScoreFromUserTotals(userTotals),
-    });
-  }
-  return out;
+export function aggregateExamClassStats(rows: ExamRowLike[]): Promise<Map<string, ClassStats>> {
+  return aggregateClassStats(
+    rows,
+    (ids) => submissionRepo.groupBestScoresByExam(ids),
+    (g) => g.examId,
+  );
 }
 
-export async function aggregateExamMyStatus(
+export function aggregateExamMyStatus(
   userId: string,
   rows: { id: string; problemCount: number }[],
 ): Promise<Map<string, MyStatus>> {
-  const out = new Map<string, MyStatus>();
-  if (rows.length === 0) return out;
-
   const examIds = rows.map((r) => r.id);
-  const [accepted, scores, pointSums] = await Promise.all([
-    submissionRepo.groupAcceptedByExamForUser({ examIds, userId }),
-    submissionRepo.groupBestScoresByExamForUser({ examIds, userId }),
-    examProblemRepo.sumPointsByExam(examIds),
-  ]);
-
-  const solvedByExam = new Map<string, Set<string>>();
-  for (const g of accepted) {
-    const eid = g.examId;
-    if (!eid) continue;
-    let solved = solvedByExam.get(eid);
-    if (!solved) {
-      solved = new Set();
-      solvedByExam.set(eid, solved);
-    }
-    solved.add(g.problemId);
-  }
-
-  const scoreByExam = new Map<string, number>();
-  for (const g of scores) {
-    const eid = g.examId;
-    if (!eid) continue;
-    const score = g._max.score ?? 0;
-    scoreByExam.set(eid, (scoreByExam.get(eid) ?? 0) + score);
-  }
-
-  const totalPointsByExam = new Map<string, number>();
-  for (const g of pointSums) {
-    totalPointsByExam.set(g.examId, g._sum.points ?? 0);
-  }
-
-  for (const row of rows) {
-    out.set(row.id, {
-      solved: solvedByExam.get(row.id)?.size ?? 0,
-      total: row.problemCount,
-      score: scoreByExam.get(row.id) ?? 0,
-      totalPoints: totalPointsByExam.get(row.id) ?? 0,
-    });
-  }
-  return out;
+  return aggregateMyStatus(
+    rows,
+    {
+      accepted: () => submissionRepo.groupAcceptedByExamForUser({ examIds, userId }),
+      scores: () => submissionRepo.groupBestScoresByExamForUser({ examIds, userId }),
+      pointSums: () => examProblemRepo.sumPointsByExam(examIds),
+    },
+    (g) => g.examId,
+    (g) => g.examId,
+  );
 }

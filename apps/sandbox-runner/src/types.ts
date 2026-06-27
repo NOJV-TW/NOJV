@@ -81,7 +81,6 @@ export type TestcaseMeta = z.infer<typeof TestcaseMetaSchema>;
 export interface TestcaseFiles {
   index: number;
   input: string;
-  expected?: string | undefined;
   weight: number;
   isSample: boolean;
 }

@@ -631,6 +631,18 @@ export const submissionRepo = {
     });
   },
 
+  completeIfInProgress(id: string, data: Prisma.SubmissionUpdateInput) {
+    return prisma.submission.updateMany({
+      data,
+      where: {
+        id,
+        status: {
+          in: ["pending_upload", "queued", "compiling", "running"] as SubmissionStatus[],
+        },
+      },
+    });
+  },
+
   create(data: Prisma.SubmissionCreateInput) {
     return prisma.submission.create({ data });
   },

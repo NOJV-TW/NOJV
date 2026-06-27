@@ -27,6 +27,8 @@ spec:
       labels:
         app.kubernetes.io/name: temporal-server
     spec:
+      nodeSelector:
+        nojv-role: worker
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

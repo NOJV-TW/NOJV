@@ -5,6 +5,7 @@ import "./domain-orchestration";
 
 import {
   closeTemporalClient,
+  ensureLifecycleReconciler,
   ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
@@ -107,6 +108,7 @@ export class WorkerApp {
       });
       this.workers.push(platformWorker);
       await ensureSubmissionSweeper();
+      await ensureLifecycleReconciler();
     }
 
     await new Promise<void>((resolve) => {

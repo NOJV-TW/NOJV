@@ -4,4 +4,5 @@ export { contestLifecycleWorkflow } from "./contest-lifecycle";
 export { examAutoCloseWorkflow } from "./exam-auto-close";
 export { assignmentDueSoonWorkflow } from "./assignment-due-soon";
 export { submissionSweeperWorkflow } from "./submission-sweeper";
+export { lifecycleReconcilerWorkflow } from "./lifecycle-reconciler";
 export { plagiarismCheckWorkflow } from "./plagiarism-check";

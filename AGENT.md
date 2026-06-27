@@ -59,7 +59,7 @@ when working on a specific area, open the listed doc first.
 
 - **Monorepo**: pnpm workspaces + Turborepo, Node.js >= 24, ESM throughout
 - **Frontend**: SvelteKit + Vite + Tailwind CSS 4 + Bits UI + Monaco Editor
-- **Auth**: better-auth (email/password, GitHub, Google)
+- **Auth**: better-auth (GitHub + Google OAuth; password sign-in admin-only; passkeys for step-up)
 - **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 18, Prisma 7
 - **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)

@@ -9,13 +9,25 @@ spec:
     metadata:
       annotations:
         autoscaling.knative.dev/minScale: "1"
+        # maxScale × DB_POOL_MAX (15 × 10 = 150) is the worst-case connection
+        # count from web alone. Pin a Cloud SQL tier whose `max_connections`
+        # comfortably exceeds that plus the worker pool + migration jobs
+        # (e.g. db-custom-2-7680 ≈ 200; raise the tier or the flag before
+        # increasing maxScale or DB_POOL_MAX).
         autoscaling.knative.dev/maxScale: "15"
         run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE
         run.googleapis.com/vpc-access-connector: VPC_CONNECTOR_NAME
         run.googleapis.com/vpc-access-egress: private-ranges-only
     spec:
-      containerConcurrency: 80
-      timeoutSeconds: 60
+      # Long-lived SSE streams (scoreboard, submission status) hold a request
+      # slot for their whole lifetime, so both knobs are sized for that:
+      # - containerConcurrency 300 leaves headroom for many idle SSE connections
+      #   to share an instance alongside short request/response traffic.
+      # - timeoutSeconds 3600 (Cloud Run max) keeps a stream from being
+      #   force-dropped each minute. The app's MAX_DURATION_MS (apps/web) must be
+      #   set just UNDER this value so the server closes streams gracefully first.
+      containerConcurrency: 300
+      timeoutSeconds: 3600
       containers:
         - image: REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/web:latest
           ports:
@@ -24,11 +36,34 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          # /api/healthz is the dependency-checking health endpoint (DB/Redis/etc.).
+          # startupProbe gates traffic until the instance is actually ready;
+          # livenessProbe lets Cloud Run replace an instance that goes unhealthy
+          # mid-life instead of continuing to serve it.
+          startupProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
           env:
             - name: NODE_ENV
               value: production
             - name: EXECUTION_BACKEND
               value: kubernetes
+            # Per-instance Prisma pg pool cap. 15 instances × 10 = 150 max
+            # connections; keep under Cloud SQL max_connections (see maxScale note).
+            - name: DB_POOL_MAX
+              value: "10"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

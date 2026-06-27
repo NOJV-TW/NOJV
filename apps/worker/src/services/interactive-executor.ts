@@ -13,6 +13,7 @@ import {
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
+import { buildSandboxDockerArgs } from "./docker-args";
 import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { resolveSourceFiles } from "./source-files.js";
@@ -38,51 +39,6 @@ export interface InteractiveExecutorConfig {
 }
 
 type PipedChild = ChildProcessByStdio<Writable, Readable, Readable>;
-
-export function buildContainerArgs(params: {
-  containerName: string;
-  tempDir: string;
-  cpuLimit: string;
-  memoryMb: number;
-  pidsLimit: number;
-  image: string;
-}): string[] {
-  return [
-    "run",
-    "-i",
-    "--rm",
-    "--name",
-    params.containerName,
-    "--network",
-    "none",
-    "--user",
-    "10001:10001",
-    "--cap-drop",
-    "ALL",
-    "--security-opt",
-    "no-new-privileges",
-    "--read-only",
-    "--tmpfs",
-    "/tmp:rw,exec,nosuid,nodev,size=64m",
-    "--tmpfs",
-    "/workspace:rw,exec,nosuid,nodev,size=128m",
-    "-v",
-    `${params.tempDir}:/submission:ro`,
-    "--cpus",
-    params.cpuLimit,
-    "--memory",
-    `${String(params.memoryMb)}m`,
-    "--memory-swap",
-    `${String(params.memoryMb)}m`,
-    "--pids-limit",
-    String(params.pidsLimit),
-    "--env",
-    "HOME=/tmp",
-    params.image,
-    "node",
-    "/runner/index.js",
-  ];
-}
 
 export async function writeSolutionFiles(
   tempDir: string,
@@ -178,26 +134,30 @@ async function runCase(
     }>((resolve) => {
       const solChild = spawn(
         "docker",
-        buildContainerArgs({
+        buildSandboxDockerArgs({
           containerName: solName,
+          networkArgs: ["--network", "none"],
           tempDir: solDir,
           cpuLimit: config.cpuLimit,
           memoryMb: config.memoryMb,
           pidsLimit: config.pidsLimit,
           image: config.image,
+          interactive: true,
         }),
         { env: process.env, stdio: ["pipe", "pipe", "pipe"] },
       ) as PipedChild;
 
       const intChild = spawn(
         "docker",
-        buildContainerArgs({
+        buildSandboxDockerArgs({
           containerName: intName,
+          networkArgs: ["--network", "none"],
           tempDir: intDir,
           cpuLimit: config.cpuLimit,
           memoryMb: config.memoryMb,
           pidsLimit: config.pidsLimit,
           image: config.image,
+          interactive: true,
         }),
         { env: process.env, stdio: ["pipe", "pipe", "pipe"] },
       ) as PipedChild;

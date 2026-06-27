@@ -9,8 +9,10 @@ export {
   dispatchAssignmentDueSoon,
   dispatchPlagiarismCheck,
   ensureSubmissionSweeper,
+  ensureLifecycleReconciler,
   terminateSubmissionJudge,
   queryRejudgeProgress,
   cancelRejudge,
   SUBMISSION_SWEEPER_WORKFLOW_ID,
+  LIFECYCLE_RECONCILER_WORKFLOW_ID,
 } from "./dispatch";

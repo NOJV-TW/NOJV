@@ -58,6 +58,17 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       judgeContext.advanced?.config ?? null,
     );
 
+    if (submission === null) {
+      if (rejudgeLogId) {
+        await judge.finalizeRejudgeLog(
+          input.submissionId,
+          input.forRejudge?.triggeredByUserId ?? null,
+          rejudgeLogId,
+        );
+      }
+      return;
+    }
+
     const dispatch = resolveScoringDispatch(submission);
     if (dispatch.kind === "contest") {
       const contestId = await contest.updateContestScores(dispatch.contestId, dispatch.userId);

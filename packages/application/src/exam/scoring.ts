@@ -18,7 +18,12 @@ export async function updateExamScores(examId: string, userId: string): Promise<
     load: () => participationRepo.findExamForScoring(examId, userId),
     submissions: (p) =>
       submissionRepo.findMany({
-        where: { examId: p.exam.id, userId: p.userId, sampleOnly: false },
+        where: {
+          examId: p.exam.id,
+          userId: p.userId,
+          sampleOnly: false,
+          createdAt: { lte: p.exam.endsAt },
+        },
         orderBy: { createdAt: "asc" },
         select: { createdAt: true, problemId: true, score: true, status: true },
       }),

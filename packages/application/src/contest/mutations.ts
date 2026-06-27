@@ -104,7 +104,7 @@ export async function ensureContestParticipation(
   if (now < contest.startsAt) {
     throw new ForbiddenError("Contest has not started yet.");
   }
-  if (now > contest.endsAt) {
+  if (now >= contest.endsAt) {
     throw new ForbiddenError("Contest has ended.");
   }
 

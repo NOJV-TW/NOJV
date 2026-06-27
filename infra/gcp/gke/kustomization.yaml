@@ -9,3 +9,4 @@ resources:
   - temporal/postgres.yaml
   - temporal/temporal-server.yaml
   - temporal/temporal-ui.yaml
+  - temporal/temporal.pdb.yaml

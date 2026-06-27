@@ -34,7 +34,15 @@ Pods are created with `nodeSelector: nojv-role=sandbox` and a matching
 split, a fork-bomb-style submission could starve the orchestrator and stop
 processing queue — which would then look like "the site is down".
 
-Create the pools with gcloud (replace `CLUSTER_NAME` and `REGION`):
+Create both pools with the committed bootstrap script (so this step is
+reproducible and not a copy-pasted one-off):
+
+```bash
+CLUSTER_NAME=... REGION=... infra/gcp/scripts/create-node-pools.sh
+```
+
+It runs the two `gcloud container node-pools create` commands below (machine
+types / sandbox max-nodes are overridable via env — see the script header):
 
 ```bash
 gcloud container node-pools create pool-worker \
@@ -57,9 +65,9 @@ gcloud container node-pools create pool-sandbox \
 - `network-policy.yaml`: sandbox-deny-egress + worker egress allowlist
 - `runtime-secrets.example.yaml`: placeholder runtime secret manifest
 - `worker-rbac.yaml`: ServiceAccount + Role for creating sandbox Jobs
-- `worker.deployment.yaml`: Temporal worker deployment + Cloud SQL Auth Proxy sidecar
-- `worker.pdb.yaml`: PodDisruptionBudget — keep ≥1 alive during voluntary disruptions
-- `temporal/`: self-hosted Temporal Server + dedicated Postgres + Web UI
+- `worker.deployment.yaml`: two worker Deployments split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform` platform) + Cloud SQL Auth Proxy sidecar
+- `worker.pdb.yaml`: PodDisruptionBudgets for both worker Deployments — keep ≥1 alive during voluntary disruptions
+- `temporal/`: self-hosted Temporal Server + dedicated Postgres + Web UI + PDBs (`temporal.pdb.yaml`); both pinned to `pool-worker` via `nodeSelector`
 
 Sandbox per-pod resource limits (ResourceQuota, LimitRange) live under
 `infra/k8s/sandbox/` and are applied as a **separate second step** (see the
@@ -108,9 +116,18 @@ StatefulSet, 10Gi PVC). Frontend gRPC is exposed at
 `temporal-frontend.nojv-temporal.svc.cluster.local:7233`; the worker
 deployment already points at that.
 
-For HA, switch to the `temporalio/temporal` helm chart and a managed
-Postgres — auto-setup is fine for educational / single-region deploys
-but lacks rolling-upgrade orchestration.
+This is a **single-replica SPOF**. Interim guards (this bundle): a
+PodDisruptionBudget (`minAvailable: 1`) on both the server and its Postgres
+(`temporal/temporal.pdb.yaml`), both pinned to `pool-worker` via `nodeSelector`
+so a sandbox-pool scale-down can't evict them, plus a daily `pg_dump` of the
+Temporal DB to GCS installed by `infra/gcp/scripts/setup-backups.sh`. These
+limit voluntary disruption and data loss but provide no live failover.
+
+For real HA, switch to the `temporalio/temporal` helm chart (separate
+frontend/history/matching, `replicas >= 2`) or Temporal Cloud, backed by a
+managed HA Postgres — auto-setup is fine for educational / single-region
+deploys but lacks rolling-upgrade orchestration. See
+[Reliability Invariants](../../../docs/operations/RELIABILITY.md).
 
 ## Why No Autoscaler on the Worker
 
@@ -126,7 +143,14 @@ layer itself is a bottleneck.
 
 ## Apply Flow
 
-1. Create the two node pools (see above).
+> **Preflight (do not skip):** judging _silently_ fails to schedule without an
+> autoscaling `nojv-role=sandbox` pool — sandbox Jobs sit `Pending` forever and
+> nothing in `kubectl apply` errors. Step 1 below is mandatory before any
+> manifests are applied.
+
+1. Create the two node pools — run `infra/gcp/scripts/create-node-pools.sh`
+   (`CLUSTER_NAME=... REGION=...`), or the equivalent `gcloud` commands under
+   [Node Pool Layout](#node-pool-layout-required).
 2. Replace `PROJECT_ID` and image tags in `worker.deployment.yaml`.
 3. Create a real `nojv-runtime-secrets` secret with the Cloud SQL / Memorystore connection strings **and the object-storage credentials** (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the worker reads submission sources and writes verdict blobs through `@nojv/storage`, so judging fails without them.
 4. Apply the worker manifests:

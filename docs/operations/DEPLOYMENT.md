@@ -174,7 +174,7 @@ If any of the 3 push vars are unset/empty, the SDK no-ops. CI and tests run with
 
 ### First-time stack setup
 
-See [Observability Setup Runbook](runbooks/observability-setup.md).
+See [Observability Setup Runbook](../runbooks/observability-setup.md).
 
 ### Dashboard updates
 
@@ -325,7 +325,7 @@ gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
    - `namespace.yaml` — declares `nojv`, `nojv-sandbox`, `nojv-temporal`.
    - `temporal/` — self-hosted Temporal Server (`temporalio/auto-setup:1.22`) + a dedicated 10 Gi Postgres StatefulSet + the Temporal Web UI, running in `nojv-temporal`.
    - `network-policy.yaml` — `sandbox-deny-egress` (sandbox pods can't talk to anything) and `worker-egress` (worker can only reach Postgres, Redis, Temporal, S3, and the **Kubernetes API server** — the worker creates sandbox Jobs/Pods/NetworkPolicies per submission, so the API-server egress rule is mandatory; fill in your cluster's control-plane CIDR).
-   - `worker-rbac.yaml`, `worker.deployment.yaml`, `worker.pdb.yaml` — RBAC, Deployment (with the Cloud SQL Auth Proxy sidecar — `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0` on `127.0.0.1:5432`, Workload Identity), and PodDisruptionBudget. Sets `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` for the in-cluster Temporal.
+   - `worker-rbac.yaml`, `worker.deployment.yaml`, `worker.pdb.yaml` — RBAC plus **two** Deployments off the same image split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform` platform), each with a PodDisruptionBudget and the Cloud SQL Auth Proxy sidecar (`gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0` on `127.0.0.1:5432`, Workload Identity). Sets `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` for the in-cluster Temporal.
 3. Apply the sandbox namespace guardrails: `kubectl apply -f infra/k8s/sandbox`
    (namespace, NetworkPolicy, ResourceQuota, LimitRange).
 4. **A NetworkPolicy-enforcing CNI is a HARD security requirement on the
@@ -374,7 +374,7 @@ Pre-requisites: two GKE node pools `pool-worker` (untainted) and
 the worker pool via `nodeSelector: nojv-role=worker`; sandbox Jobs are
 created with a matching toleration so a runaway submission can never starve
 the orchestrator. Full `gcloud container node-pools create` recipes live in
-[`infra/gcp/gke/README.md`](../infra/gcp/gke/README.md).
+[`infra/gcp/gke/README.md`](../../infra/gcp/gke/README.md).
 
 ### Dockerfiles
 
@@ -455,7 +455,12 @@ Production depends on Cloudflare being the **only** ingress path so `getClientIp
 
 ## Microservice Deployment
 
-The worker supports three deployment modes via `WORKER_MODE`:
+The worker supports three deployment modes via `WORKER_MODE`. The GKE bundle
+(`infra/gcp/gke/worker.deployment.yaml`) ships the split as two separate
+Deployments off the same image — `nojv-worker` (`WORKER_MODE=judge`, replicas:2)
+and `nojv-worker-platform` (`WORKER_MODE=platform`, replicas:1) — each with its
+own PodDisruptionBudget, so the judge and platform task queues scale and fail
+independently. `WORKER_MODE=all` is used for local dev and docker-compose.
 
 ### Mode: all (Development)
 
@@ -525,7 +530,7 @@ Two scripts under `infra/gcp/scripts/`:
 | `setup-backups.sh`          | One-shot, idempotent. Enables Cloud SQL automated daily backups (30-day retention, in-region) + PITR (14-day WAL) and creates a versioned GCS bucket for cold exports. Run once per environment after provisioning the instance. |
 | `export-postgres-to-gcs.sh` | Daily cold export via `gcloud sql export`. Designed to be triggered by Cloud Scheduler → Cloud Run Job.                                                                                                                          |
 
-See [Backup & Restore Runbook](runbooks/backup-restore.md) for the restore drill and PITR procedure.
+See [Backup & Restore Runbook](../runbooks/backup-restore.md) for the restore drill and PITR procedure.
 
 ## CI Pipeline
 

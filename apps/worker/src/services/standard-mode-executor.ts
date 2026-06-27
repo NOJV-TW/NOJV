@@ -11,6 +11,7 @@ import {
 
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { resolveSourceFiles } from "./source-files.js";
+import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
 import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
@@ -144,64 +145,6 @@ export async function writeSubmissionFiles(
   return sourceFileMap;
 }
 
-export interface StandardDockerArgsParams {
-  containerName: string;
-  networkArgs: string[];
-  tempDir: string;
-  cpuLimit: string;
-  memoryMb: number;
-  pidsLimit: number;
-  image: string;
-  artifactMount?: { hostDir: string; readOnly: boolean };
-  extraEnv?: string[];
-}
-
-export function buildStandardDockerArgs(params: StandardDockerArgsParams): string[] {
-  const artifactArgs = params.artifactMount
-    ? [
-        "-v",
-        `${params.artifactMount.hostDir}:/artifact:${params.artifactMount.readOnly ? "ro" : "rw"}`,
-      ]
-    : [];
-  const extraEnvArgs = (params.extraEnv ?? []).flatMap((kv) => ["--env", kv]);
-
-  return [
-    "run",
-    "--rm",
-    "--name",
-    params.containerName,
-    ...params.networkArgs,
-    "--user",
-    "10001:10001",
-    "--cap-drop",
-    "ALL",
-    "--security-opt",
-    "no-new-privileges",
-    "--read-only",
-    "--tmpfs",
-    "/tmp:rw,exec,nosuid,nodev,size=64m",
-    "--tmpfs",
-    "/workspace:rw,exec,nosuid,nodev,size=128m",
-    "-v",
-    `${params.tempDir}:/submission:ro`,
-    ...artifactArgs,
-    "--cpus",
-    params.cpuLimit,
-    "--memory",
-    `${String(params.memoryMb)}m`,
-    "--memory-swap",
-    `${String(params.memoryMb)}m`,
-    "--pids-limit",
-    String(params.pidsLimit),
-    "--env",
-    "HOME=/tmp",
-    ...extraEnvArgs,
-    params.image,
-    "node",
-    "/runner/index.js",
-  ];
-}
-
 function caseSystemError(index: number, message: string): RawCaseRun {
   return { index, stdout: "", stderr: message, exitCode: -1, timeMs: 0, errorVerdict: "SE" };
 }
@@ -255,7 +198,7 @@ async function runContainer(
   try {
     await writeModeConfig({ kind: "compile" });
     const compileName = `nojv-judge-c-${baseName}`;
-    const compileArgs = buildStandardDockerArgs({
+    const compileArgs = buildSandboxDockerArgs({
       containerName: compileName,
       networkArgs,
       tempDir,
@@ -303,7 +246,7 @@ async function runContainer(
     for (const tc of request.testcases) {
       await writeModeConfig({ kind: "run-case", caseIndex: tc.index, runCommand });
       const caseName = `nojv-judge-r${String(tc.index)}-${baseName}`.slice(0, 60);
-      const caseArgs = buildStandardDockerArgs({
+      const caseArgs = buildSandboxDockerArgs({
         containerName: caseName,
         networkArgs,
         tempDir,

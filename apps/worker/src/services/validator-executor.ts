@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import type { ValidatorOutcome } from "@nojv/core";
 
+import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer } from "./docker-process";
 import { sourceExtension } from "./sandbox-plan";
 import { parseValidateOutput } from "./sandbox-schema";
@@ -29,52 +30,6 @@ export interface ValidatorExecutorConfig {
   image: string;
   memoryMb: number;
   pidsLimit: number;
-}
-
-export interface ValidatorDockerArgsParams {
-  containerName: string;
-  tempDir: string;
-  cpuLimit: string;
-  memoryMb: number;
-  pidsLimit: number;
-  image: string;
-}
-
-export function buildValidatorDockerArgs(params: ValidatorDockerArgsParams): string[] {
-  return [
-    "run",
-    "--rm",
-    "--name",
-    params.containerName,
-    "--network",
-    "none",
-    "--user",
-    "10001:10001",
-    "--cap-drop",
-    "ALL",
-    "--security-opt",
-    "no-new-privileges",
-    "--read-only",
-    "--tmpfs",
-    "/tmp:rw,exec,nosuid,nodev,size=64m",
-    "--tmpfs",
-    "/workspace:rw,exec,nosuid,nodev,size=128m",
-    "-v",
-    `${params.tempDir}:/submission:ro`,
-    "--cpus",
-    params.cpuLimit,
-    "--memory",
-    `${String(params.memoryMb)}m`,
-    "--memory-swap",
-    `${String(params.memoryMb)}m`,
-    "--pids-limit",
-    String(params.pidsLimit),
-    "--env",
-    "HOME=/tmp",
-    params.image,
-    "node",
-    "/runner/index.js",
-  ];
 }
 
 export async function writeValidatorFiles(
@@ -127,8 +82,9 @@ export async function runValidator(
   await writeValidatorFiles(tempDir, params);
 
   const containerName = `nojv-validate-${sanitizeId(params.submissionId).slice(0, 40)}`;
-  const args = buildValidatorDockerArgs({
+  const args = buildSandboxDockerArgs({
     containerName,
+    networkArgs: ["--network", "none"],
     tempDir,
     cpuLimit: config.cpuLimit,
     memoryMb: config.memoryMb,

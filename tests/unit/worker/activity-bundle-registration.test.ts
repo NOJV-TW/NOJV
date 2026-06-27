@@ -20,6 +20,7 @@ const QUEUE_BUNDLES = [
       "workflows/assignment-due-soon.ts",
       "workflows/plagiarism-check.ts",
       "workflows/submission-sweeper.ts",
+      "workflows/lifecycle-reconciler.ts",
     ],
   },
 ];

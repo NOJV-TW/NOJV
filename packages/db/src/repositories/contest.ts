@@ -99,6 +99,13 @@ export const contestRepo = {
     });
   },
 
+  listNeedingTimers(now: Date) {
+    return prisma.contest.findMany({
+      select: { id: true },
+      where: { visibility: "published", endsAt: { gt: now } },
+    });
+  },
+
   count() {
     return prisma.contest.count();
   },
