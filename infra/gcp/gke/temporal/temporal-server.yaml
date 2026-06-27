@@ -1,3 +1,5 @@
+# SINGLE-REPLICA dev/single-node topology — this is a SPOF (no HA failover).
+# For production HA see HA-PRODUCTION.md in this directory (Temporal Cloud or self-host Helm + HA Postgres).
 apiVersion: v1
 kind: Service
 metadata:

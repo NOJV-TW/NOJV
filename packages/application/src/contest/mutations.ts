@@ -26,7 +26,7 @@ export const contestFormSchema = z.object({
   endsAt: z.string().min(1),
   frozenAt: z.string().optional(),
   inviteCode: z.string().max(32).optional(),
-  problemIdsText: z.string().min(1),
+  problemIds: z.array(z.string().min(1)).default([]),
   scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("problem_count"),
   id: slugSchema,

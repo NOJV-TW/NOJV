@@ -1,0 +1,77 @@
+# Starting values for self-host HA Temporal via the official temporalio/temporal Helm chart.
+# Reviewed starting point — NOT cluster-validated here. Pin the chart version and verify
+# `tctl cluster health` before production. See HA-PRODUCTION.md (Option B).
+
+# Stateless services: 2+ replicas each so a node drain/upgrade never stops the cluster.
+server:
+  replicaCount: 2
+  config:
+    persistence:
+      default:
+        driver: sql
+        sql:
+          driver: postgres12
+          # Point at an HA database — a regional Cloud SQL instance reached via the
+          # cloudsql-proxy sidecar (mirror worker.deployment.yaml), or CloudNativePG.
+          # Do NOT use the single-pod in-cluster StatefulSet for production.
+          host: cloudsql-proxy.nojv-temporal.svc.cluster.local
+          port: 5432
+          database: temporal
+          user: temporal
+          existingSecret: temporal-postgres-secret
+      visibility:
+        driver: sql
+        sql:
+          driver: postgres12
+          host: cloudsql-proxy.nojv-temporal.svc.cluster.local
+          port: 5432
+          database: temporal_visibility
+          user: temporal
+          existingSecret: temporal-postgres-secret
+  frontend:
+    replicaCount: 2
+  history:
+    replicaCount: 2
+  matching:
+    replicaCount: 2
+  worker:
+    replicaCount: 2
+  # Pin Temporal to the long-lived worker pool (off the autoscaling sandbox pool).
+  nodeSelector:
+    nojv-role: worker
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# Use SQL visibility (above); no Elasticsearch dependency for this scale.
+elasticsearch:
+  enabled: false
+
+# The chart can deploy its own Postgres/Cassandra — disable it; we use external HA Postgres.
+cassandra:
+  enabled: false
+mysql:
+  enabled: false
+postgresql:
+  enabled: false
+
+# Schema setup runs as the chart's admintools job against the external DB.
+schema:
+  createDatabase:
+    enabled: false
+  setup:
+    enabled: true
+  update:
+    enabled: true
+
+prometheus:
+  enabled: false
+grafana:
+  enabled: false

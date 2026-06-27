@@ -16,6 +16,7 @@
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
+  import ExamProblemPicker from "$lib/components/features/course/exam/ExamProblemPicker.svelte";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
 
@@ -30,6 +31,7 @@
   } = superForm<typeof data.form.data, FormMessage>(
     untrack(() => data.form),
     {
+      dataType: "json",
       resetForm: false,
       onUpdated({ form }) {
         if (form.message?.kind === "success") {
@@ -298,24 +300,11 @@
         <ListIcon aria-hidden="true" class="h-4 w-4" />
         <span>{m.contestCreate_problemIds()}</span>
       </div>
-      <div>
-        <input
-          class={inputClassName}
-          id="problemIdsText"
-          name="problemIdsText"
-          type="text"
-          placeholder={m.contestCreate_problemIdsPlaceholder()}
-          bind:value={$form.problemIdsText}
-          aria-invalid={Boolean($errors.problemIdsText)}
-          aria-describedby={$errors.problemIdsText ? "problemIdsText-error" : undefined}
-        />
-        {#if $errors.problemIdsText}<p
-            id="problemIdsText-error"
-            class="mt-1 text-xs text-destructive"
-          >
-            {$errors.problemIdsText}
-          </p>{/if}
-      </div>
+      <ExamProblemPicker
+        candidateProblems={data.candidateProblems}
+        bind:problemIds={$form.problemIds}
+        error={$errors.problemIds}
+      />
 
       <Button type="submit" size="lg" loading={$submitting}>
         <TrophyIcon aria-hidden="true" class="h-4 w-4" />

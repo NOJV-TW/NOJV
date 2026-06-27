@@ -75,7 +75,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 > **SPOF caveat (current self-hosted topology).** The in-cluster Temporal control plane runs as a **single** `temporalio/auto-setup` replica backed by a **single-pod** `temporal-postgres` StatefulSet — there is no HA failover. Interim guards are in place: a PodDisruptionBudget (`minAvailable: 1`) on both pods and a `nodeSelector: nojv-role=worker` pin (so a sandbox-pool scale-down can't evict them), plus a daily `pg_dump` of the Temporal DB to GCS (installed by `infra/gcp/scripts/setup-backups.sh`). These limit voluntary disruption and data loss but do not provide live failover — a node failure still pauses all workflows until the pod reschedules.
 >
-> **Production hardening:** move Temporal to the official `temporalio/temporal` Helm chart (separate frontend/history/matching services, `replicas >= 2`) or Temporal Cloud, backed by an HA Cloud SQL Postgres instance. This is the durable fix for the SPOF; the interim guards above are a stopgap for single-region educational deploys.
+> **Production hardening:** the durable fix is either Temporal Cloud (managed, 99.9% SLA, from ~$100/mo — switching is config-only since the client now supports TLS + API-key/mTLS auth via `TEMPORAL_API_KEY` / `TEMPORAL_CLIENT_CERT_PATH`) or self-host HA via the official `temporalio/temporal` Helm chart (frontend/history/matching at `replicas >= 2`) backed by an HA Cloud SQL Postgres instance. Options, cost comparison, and a starting Helm values file are in [Temporal HA Production](../../infra/gcp/gke/temporal/HA-PRODUCTION.md). The interim guards above are a stopgap for single-region educational deploys.
 
 ### Worker Unavailable
 

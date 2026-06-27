@@ -6,6 +6,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import StepCard from "$lib/components/features/coursework/StepCard.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import type { PageData } from "./$types";
 
@@ -40,26 +41,11 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <div
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    <StepCard
+      number={1}
+      title={m.coursesNew_basicsTitle()}
+      subtitle={m.coursesNew_basicsSubtitle()}
     >
-      <div class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          aria-hidden="true"
-        >
-          1
-        </span>
-        <div>
-          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
-            {m.coursesNew_basicsTitle()}
-          </h2>
-          <p class="mt-0.5 text-caption text-muted-foreground">
-            {m.coursesNew_basicsSubtitle()}
-          </p>
-        </div>
-      </div>
-
       <div class="space-y-5">
         <div>
           <label class="text-body-sm font-medium" for="title">
@@ -166,7 +152,7 @@
           {m.coursesNew_placeholderInfoBody()}
         </p>
       </div>
-    </div>
+    </StepCard>
 
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"

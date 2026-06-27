@@ -1,5 +1,6 @@
 export * from "./task-queues";
 export { getTemporalClient, closeTemporalClient } from "./client";
+export { temporalConnectionOptions } from "./connection-config";
 export { buildDomainOrchestrationAdapter } from "./orchestration-adapter";
 export {
   dispatchSubmissionJudge,
