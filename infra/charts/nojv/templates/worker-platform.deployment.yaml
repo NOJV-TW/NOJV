@@ -97,23 +97,17 @@ spec:
                   key: S3_SECRET_KEY
             - name: S3_BUCKET
               value: {{ .Values.storage.bucket | quote }}
-            - name: GRAFANA_OTLP_ENDPOINT
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: GRAFANA_OTLP_ENDPOINT
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
                   optional: true
-            - name: GRAFANA_OTLP_INSTANCE_ID
+            - name: OTEL_EXPORTER_OTLP_HEADERS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: GRAFANA_OTLP_INSTANCE_ID
-                  optional: true
-            - name: GRAFANA_OTLP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: GRAFANA_OTLP_TOKEN
+                  key: OTEL_EXPORTER_OTLP_HEADERS
                   optional: true
           livenessProbe:
             httpGet:

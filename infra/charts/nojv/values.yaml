@@ -79,6 +79,26 @@ temporal:
   address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
   namespace: default
 
+# In-cluster OTLP metrics ingestion. When collector.enabled=true, set
+# OTEL_EXPORTER_OTLP_ENDPOINT (in the runtime secret) to this collector's
+# Service: http://<release>-otel-collector.<namespace>.svc:4318
+# The collector exposes :8889 /metrics for a Prometheus to scrape, unless
+# remoteWriteUrl is set (then it remote-writes there instead). Prometheus +
+# Grafana remain a documented prereq (kube-prometheus-stack / Google Managed
+# Prometheus) — see docs/runbooks/observability-setup.md.
+observability:
+  collector:
+    enabled: false
+    image: otel/opentelemetry-collector-contrib:0.122.1
+    remoteWriteUrl: ""
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
 secrets:
   runtimeSecretName: nojv-runtime-secrets
 

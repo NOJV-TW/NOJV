@@ -16,7 +16,7 @@ package time):
 
 1. **Runtime secret** — an existing `Secret` (default name `nojv-runtime-secrets`)
    in the app namespace holding `DATABASE_URL`, `REDIS_URL`, `S3_*`, the web
-   auth secrets, OAuth, and optional Grafana OTLP keys. See
+   auth secrets, OAuth, and optional `OTEL_EXPORTER_OTLP_*` keys. See
    [`secret.example.yaml`](./secret.example.yaml). The chart never templates
    secret values.
 2. **CloudNativePG operator** (only when `postgres.mode=cnpg`) — install
@@ -76,6 +76,7 @@ infra/charts/nojv/
     ├── postgres-cnpg.yaml           # CNPG Cluster + ScheduledBackup (mode==cnpg)
     ├── redis.yaml                   # in-cluster Redis (redis.inCluster)
     ├── minio.yaml                   # in-cluster MinIO (storage.inCluster)
+    ├── otel-collector.yaml          # OTLP collector (observability.collector.enabled)
     └── migrator.job.yaml            # pre-install/pre-upgrade Helm hook
 ```
 
@@ -107,6 +108,8 @@ infra/charts/nojv/
 | `sandbox.limitRange.*`                                          | per-container defaults/max/min                                     | sandbox LimitRange                                                    |
 | `networkPolicy.enabled`                                         | `false`                                                            | worker-egress NetworkPolicy (set CIDRs first)                         |
 | `networkPolicy.egress.*`                                        | cluster-specific CIDRs                                             | Redis/CloudSQL/GoogleAPIs/API-server egress                           |
+| `observability.collector.enabled`                               | `false`                                                            | deploy the in-cluster OTLP collector                                  |
+| `observability.collector.{image,remoteWriteUrl,resources}`      | contrib image / `""`                                               | collector image; remote-write target (else expose :8889 /metrics)     |
 | `migrator.enabled`                                              | `true`                                                             | run the migration Job as a Helm hook                                  |
 
 ## How `DATABASE_URL` is derived
@@ -123,6 +126,27 @@ templated into manifests). `postgres.mode` only drives the surrounding wiring:
   `CLOUDSQL_INSTANCE_CONNECTION_NAME` comes from the runtime secret.
 - **`external`** — `DATABASE_URL` is whatever you put in the secret (managed
   Postgres, RDS, etc.).
+
+## Observability (in-cluster OTLP)
+
+The web + worker apps push standard OTLP/HTTP metrics when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set in the runtime secret. To ingest them
+in-cluster (no external cloud), turn on the lean collector:
+
+```bash
+helm upgrade --install nojv infra/charts/nojv \
+  -f infra/charts/nojv/values-single-machine.yaml \
+  --set observability.collector.enabled=true
+```
+
+Then set `OTEL_EXPORTER_OTLP_ENDPOINT` in the runtime secret to the collector
+Service — `http://nojv-otel-collector.nojv.svc:4318` (no auth header needed). By
+default the collector exposes `:8889 /metrics` for a Prometheus to scrape; set
+`observability.collector.remoteWriteUrl` to remote-write instead. Prometheus +
+Grafana themselves stay a documented prereq (kube-prometheus-stack on
+single-machine, Google Managed Prometheus on GKE) — the single-machine overlay
+leaves the collector **off** by default. See
+[`docs/runbooks/observability-setup.md`](../../../docs/runbooks/observability-setup.md).
 
 ## Notes
 

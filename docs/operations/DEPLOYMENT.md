@@ -169,15 +169,14 @@ Metrics flow Node app → OpenTelemetry SDK → OTLP HTTP → Grafana Cloud Host
 
 Inject via the chart's runtime secret (or GCP Secret Manager → External Secrets):
 
-| Var                                      | Description                                                 |
-| ---------------------------------------- | ----------------------------------------------------------- |
-| `GRAFANA_OTLP_ENDPOINT`                  | `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp` |
-| `GRAFANA_OTLP_INSTANCE_ID`               | Grafana Cloud stack instance ID (numeric)                   |
-| `GRAFANA_OTLP_TOKEN`                     | `glc_*` push token, scope `metrics:write`                   |
-| `OTEL_SERVICE_NAME_WEB` (web only)       | Default `nojv-web`                                          |
-| `OTEL_SERVICE_NAME_WORKER` (worker only) | Default `nojv-worker`                                       |
+| Var                                      | Description                                                                                                                                                                   |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`            | Base URL; apps append `/v1/metrics`. e.g. `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp` or in-cluster collector `http://<release>-otel-collector.<ns>.svc:4318` |
+| `OTEL_EXPORTER_OTLP_HEADERS`             | Optional comma-separated `key=value` headers. Grafana Cloud: `Authorization=Basic <base64(instanceId:token)>`. Omit for an unauthenticated in-cluster collector.              |
+| `OTEL_SERVICE_NAME_WEB` (web only)       | Default `nojv-web`                                                                                                                                                            |
+| `OTEL_SERVICE_NAME_WORKER` (worker only) | Default `nojv-worker`                                                                                                                                                         |
 
-If any of the 3 push vars are unset/empty, the SDK no-ops. CI and tests run without these.
+If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset/empty, the SDK no-ops. CI and tests run without these.
 
 ### First-time stack setup
 

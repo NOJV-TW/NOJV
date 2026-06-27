@@ -9,10 +9,11 @@ old interim mitigations (a single-replica StatefulSet plus PodDisruptionBudget, 
 daily `pg_dump` to GCS) only narrowed the window and have since been retired — Temporal is no longer
 vendored as manifests in this repo.
 
-Today single-machine deploys run a **single-replica Temporal** (auto-setup) via the official chart —
-acceptable for local dev / low-stakes use, with the SPOF understood. Production removes the SPOF by
-using **Temporal Cloud (Option A)** or **self-hosting HA via the official chart (Option B)**, backed
-by a highly-available database.
+Self-hosting via the official chart now works on **both targets** (Option B): `helm-values.ha.yaml`
+(replicas ≥ 2 per role, external HA Postgres) and `helm-values.single-machine.yaml` (1 pod per role,
+in-cluster CNPG). The single-machine file still splits each role into its own pod — but with one pod per
+role it is **not** node-failure HA. Production removes the SPOF with **Temporal Cloud (Option A)** or the
+**HA self-host file (Option B)** backed by a highly-available database.
 
 **Does self-hosting solve it? Yes — but only if you stop running the bundled single-replica
 `auto-setup` image and a single-pod database.** Temporal's frontend/history/matching/worker services
@@ -58,44 +59,76 @@ Cloud (set `temporal.address` in the `nojv` chart values). No code change.
 
 ---
 
-## Option B — Self-host HA on GKE via the official Helm chart
+## Option B — Self-host via the official Helm chart (BOTH targets)
 
-Free software; you run it. Removes both SPOFs: 4 services at `replicas ≥ 2` + an **HA database**.
-Use the official chart (`temporalio/helm-charts`) rather than hand-rolled manifests — getting ringpop
-membership / schema setup right by hand is error-prone.
+Free software; you run it. Use the official chart (`temporalio/helm-charts`, pinned to `temporal/temporal`
+**1.4.x**) rather than hand-rolled manifests — getting ringpop membership / schema setup right by hand is
+error-prone. Each server role (frontend / history / matching / worker) is its **own Deployment** = separate
+pods. Two values files in this directory cover both targets:
 
-**Database — pick one (do NOT keep a single-pod Postgres):**
+| File                              | `server.replicaCount` | Backing store                           | Node-failure HA?                       |
+| --------------------------------- | --------------------- | --------------------------------------- | -------------------------------------- |
+| `helm-values.ha.yaml`             | `2` per role          | external HA Postgres (Cloud SQL / CNPG) | **Yes** (needs ≥2 nodes)               |
+| `helm-values.single-machine.yaml` | `1` per role          | in-cluster CNPG `nojv-pg-rw`            | **No** — separate pods, but 1 pod/role |
 
-- **Managed Cloud SQL (recommended):** a regional (HA) Cloud SQL Postgres instance. Gets automated
-  backups + PITR + failover for free, and removes the `pg_dump`-to-GCS stopgap. Add a `temporal`
-  database to the existing Cloud SQL or provision a dedicated instance; connect via the cloudsql-proxy
-  sidecar — the same pattern the `nojv` chart's worker Deployment templates use via `cloudsqlProxy.enabled`.
-- **In-cluster HA:** the CloudNativePG operator (Postgres cluster with `instances: 3`, synchronous
-  replication, scheduled backups to GCS) — the same operator the `nojv` chart uses for its own Postgres.
+**Single-node = separate pods, NOT node-failure HA.** The single-machine file still splits every role into
+its own Deployment (so you can scale a role independently and roll it without the others), but with one pod
+per role a node drain/loss pauses that role until the pod reschedules. Real node-failure HA needs
+`helm-values.ha.yaml` (replicas ≥ 2) **and ≥ 2 nodes**.
 
-**Deploy (sketch — validate against the chart version you pin):**
+**Database — pick one (do NOT keep a single-pod Postgres for HA):**
+
+- **Managed Cloud SQL (HA file, recommended for prod):** a regional (HA) Cloud SQL Postgres instance.
+  Automated backups + PITR + failover for free. Provision `temporal` + `temporal_visibility` databases and
+  connect via the cloudsql-proxy sidecar (`connectAddr: cloudsql-proxy...:5432` in the values) — the same
+  pattern the `nojv` chart's worker Deployments use via `cloudsqlProxy.enabled`.
+- **In-cluster CNPG (single-machine file):** the same CloudNativePG instance the `nojv` chart provisions
+  (`<release>-pg-rw`, default `nojv-pg-rw`). For HA, raise `postgres.cnpg.instances` to 3 (synchronous
+  replication + scheduled backups).
+
+**One-time DB bootstrap** (both files set `createDatabase: false` — the chart's schema job runs as the
+`temporal` role, which is not a Postgres superuser, so create the databases/role first):
+
+```sql
+CREATE ROLE temporal WITH LOGIN PASSWORD '...';
+CREATE DATABASE temporal OWNER temporal;
+CREATE DATABASE temporal_visibility OWNER temporal;
+```
+
+Store that password in a Secret named `temporal-postgres-secret` (key `password`) — both values files
+reference it via `existingSecret`. The chart's admintools schema job then runs `manageSchema: true`
+against both databases.
+
+**Deploy (either target):**
 
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
+# HA (GKE, external Postgres):
 helm install temporal temporal/temporal \
   -n nojv-temporal --create-namespace \
   -f infra/gcp/gke/temporal/helm-values.ha.yaml
+# Single-node (separate pods, in-cluster CNPG):
+helm install temporal temporal/temporal \
+  -n nojv-temporal --create-namespace \
+  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml
 ```
 
-See `helm-values.ha.yaml` in this directory for a starting values file (external Postgres, replicas≥2,
-Elasticsearch disabled, resources + node pinning). The workers then point at the chart's
-`temporal-frontend` Service; enable TLS via the env vars above if you terminate TLS at the frontend.
+Both files disable the Temporal Web UI (`web.enabled: false`) and use SQL visibility (no Elasticsearch).
+The `nojv` workers point at the chart's `temporal-frontend` Service; enable TLS via the env vars above if
+you terminate TLS at the frontend.
 
-> NOT cluster-validated in this repo. Treat the values file as a reviewed starting point and verify the
-> cluster forms membership (`tctl cluster health`) before cutting production traffic over.
+> NOT cluster-validated in this repo (renders are verified with `helm template`). Treat the values files as
+> reviewed starting points and verify the cluster forms membership (`tctl cluster health`) before cutting
+> production traffic over.
 
 ---
 
-## Option C — Single-replica Temporal (dev / low-stakes only)
+## Option C — Single-replica auto-setup (dev only)
 
-For local dev or a low-stakes deployment where a minutes-long judging pause on a node event is
-acceptable, run a single-replica Temporal via the official chart (auto-setup). **Do not call this
-production-HA.** This is the current single-machine default and the SPOF is documented.
+For local dev where a minutes-long judging pause on a node event is acceptable, the chart's default
+single-replica `auto-setup` path also works. **Do not call this production-HA.** Prefer
+`helm-values.single-machine.yaml` (Option B) even for a single node — it gives you the separate-pods split
+and SQL persistence with one pod per role.
 
 ---
 
@@ -103,5 +136,7 @@ production-HA.** This is the current single-machine default and the SPOF is docu
 
 - **Single school / limited ops time → Option A (Temporal Cloud Essentials, $100/mo).** Cheapest
   correct path; the connection support is already in the code.
-- **Must self-host (cost at scale, data residency) → Option B** with Cloud SQL HA as the database.
-- **Dev / pilot → Option C**, with eyes open about the SPOF.
+- **Must self-host (cost at scale, data residency) → Option B `helm-values.ha.yaml`** with Cloud SQL HA
+  (or CNPG `instances: 3`) as the database, on ≥ 2 nodes.
+- **Single-node self-host (pilot / on-prem one box) → Option B `helm-values.single-machine.yaml`** —
+  separate pods per role, in-cluster CNPG, eyes open that one pod per role is not node-failure HA.

@@ -32,15 +32,17 @@ What it does **not** measure (deliberately, today):
 
 The app pushes **standard OTLP HTTP metrics**, so the Grafana Cloud target is
 swappable for a self-hosted stack — the only required setting is
-`GRAFANA_OTLP_ENDPOINT`; `GRAFANA_OTLP_INSTANCE_ID` / `_TOKEN` are optional and
-only add the Grafana-Cloud basic-auth header when set (so an unauthenticated
-in-cluster collector needs just the endpoint).
+`OTEL_EXPORTER_OTLP_ENDPOINT`; `OTEL_EXPORTER_OTLP_HEADERS` is optional and only
+adds auth (or any other) headers when set (so an unauthenticated in-cluster
+collector needs just the endpoint).
 
-- **Single-machine k8s (lean):** install an OTLP receiver + Prometheus + Grafana
-  in-cluster — e.g. the `kube-prometheus-stack` Helm chart for Prometheus +
-  Grafana, plus a small OpenTelemetry Collector (or Grafana Alloy) with an
-  `otlp` receiver that remote-writes to Prometheus. Point
-  `GRAFANA_OTLP_ENDPOINT` at the collector's OTLP service, add a Prometheus
+- **Single-machine k8s (lean):** the umbrella chart ships an opt-in
+  OpenTelemetry Collector (`observability.collector.enabled=true`) that exposes
+  an `otlp` HTTP receiver and a `/metrics` endpoint for Prometheus to scrape (or
+  remote-writes when `observability.collector.remoteWriteUrl` is set). Point
+  `OTEL_EXPORTER_OTLP_ENDPOINT` at its Service
+  (`http://<release>-otel-collector.<ns>.svc:4318`), install Prometheus +
+  Grafana — e.g. the `kube-prometheus-stack` Helm chart — add a Prometheus
   datasource to Grafana, and import the dashboards in `infra/grafana/dashboards/`.
 - **GKE:** prefer the Google-managed path — **Google Cloud Managed Service for
   Prometheus** (or Cloud Monitoring) ingests the same OTLP, with Grafana (Cloud
@@ -92,9 +94,9 @@ provisioning vars):
 
 ```env
 # OTLP push (consumed by apps/web + apps/worker on boot)
-GRAFANA_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
-GRAFANA_OTLP_INSTANCE_ID=1234567
-GRAFANA_OTLP_TOKEN=glc_...
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
+# Grafana Cloud auth: Basic <base64(instanceId:token)>
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64(1234567:glc_...)>
 
 # Dashboard provisioning (consumed by `pnpm grafana:provision` only)
 GRAFANA_STACK_URL=https://takalawang.grafana.net
@@ -112,8 +114,9 @@ pnpm dev
 Both `apps/web` (Vite) and `apps/worker` (`node --env-file=.env`) load
 `.env` automatically, so no manual sourcing is needed.
 
-Both apps detect the three `GRAFANA_OTLP_*` vars on boot and start the
-SDK. To verify the SDK is actually exporting:
+Both apps detect `OTEL_EXPORTER_OTLP_ENDPOINT` (+ optional
+`OTEL_EXPORTER_OTLP_HEADERS`) on boot and start the SDK. To verify the SDK is
+actually exporting:
 
 ```bash
 OTEL_LOG_LEVEL=DEBUG pnpm dev
@@ -123,7 +126,7 @@ Look for `OTLPExportDelegate items to be sent` (success) or
 `OTLPExporter ... failed` (config issue) in the logs. Successful exports
 happen every 30s.
 
-If any of the three OTLP push vars are unset or empty, the SDK
+If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset or empty, the SDK
 **no-ops** — zero metrics, zero startup cost, zero noise. CI and unit
 tests run without these.
 
@@ -131,12 +134,12 @@ tests run without these.
 
 ### Web (in-cluster)
 
-Inject the three required secrets through the chart's runtime secret (the same
+Inject the OTLP secrets through the chart's runtime secret (the same
 `nojv-runtime-secrets` the web Deployment references):
 
-- `GRAFANA_OTLP_ENDPOINT`
-- `GRAFANA_OTLP_INSTANCE_ID`
-- `GRAFANA_OTLP_TOKEN`
+- `OTEL_EXPORTER_OTLP_ENDPOINT` (required to export)
+- `OTEL_EXPORTER_OTLP_HEADERS` (optional; auth header for Grafana Cloud, omit for
+  an unauthenticated in-cluster collector)
 
 Optional: `OTEL_SERVICE_NAME_WEB` defaults to `nojv-web`.
 
@@ -147,7 +150,7 @@ replacements are short-lived, so the sample loss is negligible over time.
 
 ### Worker (in-cluster)
 
-Same three OTLP secrets from the runtime secret on the worker
+Same OTLP secrets from the runtime secret on the worker
 Deployment. Optional: `OTEL_SERVICE_NAME_WORKER` defaults to `nojv-worker`.
 
 Unlike the web, the worker **does** have an explicit shutdown hook.
@@ -316,7 +319,7 @@ restart the affected Deployment (`kubectl rollout restart`), revoke old.
 
 ## Disabling telemetry
 
-- **Dev**: leave `GRAFANA_OTLP_*` empty. SDK no-ops on boot.
+- **Dev**: leave `OTEL_EXPORTER_OTLP_ENDPOINT` empty. SDK no-ops on boot.
 - **Prod**: same. Removing the secrets from the running revision and
   triggering a redeploy disables export with no code change.
 

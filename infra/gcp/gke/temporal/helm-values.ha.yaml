@@ -1,41 +1,48 @@
-# Starting values for self-host HA Temporal via the official temporalio/temporal Helm chart.
+# Self-host HA Temporal via the official temporal/temporal Helm chart (v1.4.x).
 # Reviewed starting point — NOT cluster-validated here. Pin the chart version and verify
 # `tctl cluster health` before production. See HA-PRODUCTION.md (Option B).
-
-# Stateless services: 2+ replicas each so a node drain/upgrade never stops the cluster.
+#
+#   helm install temporal temporal/temporal \
+#     -n nojv-temporal --create-namespace \
+#     -f infra/gcp/gke/temporal/helm-values.ha.yaml
+#
+# Each server role (frontend/history/matching/worker) is its own Deployment.
+# replicaCount: 2 gives every role 2 pods so a node drain/upgrade never stops the cluster.
 server:
   replicaCount: 2
   config:
     persistence:
-      default:
-        driver: sql
-        sql:
-          driver: postgres12
-          # Point at an HA database — a regional Cloud SQL instance reached via a
-          # cloudsql-proxy sidecar, or CloudNativePG (as the nojv chart provisions).
-          # Do NOT use the single-pod in-cluster StatefulSet for production.
-          host: cloudsql-proxy.nojv-temporal.svc.cluster.local
-          port: 5432
-          database: temporal
-          user: temporal
-          existingSecret: temporal-postgres-secret
-      visibility:
-        driver: sql
-        sql:
-          driver: postgres12
-          host: cloudsql-proxy.nojv-temporal.svc.cluster.local
-          port: 5432
-          database: temporal_visibility
-          user: temporal
-          existingSecret: temporal-postgres-secret
-  frontend:
-    replicaCount: 2
-  history:
-    replicaCount: 2
-  matching:
-    replicaCount: 2
-  worker:
-    replicaCount: 2
+      defaultStore: default
+      visibilityStore: visibility
+      numHistoryShards: 512
+      datastores:
+        # Point at an HA database — a regional Cloud SQL instance reached via a
+        # cloudsql-proxy sidecar, or CloudNativePG (as the nojv chart provisions).
+        # Do NOT use a single-pod in-cluster Postgres for production.
+        default:
+          sql:
+            pluginName: postgres12
+            databaseName: temporal
+            connectAddr: cloudsql-proxy.nojv-temporal.svc.cluster.local:5432
+            connectProtocol: tcp
+            user: temporal
+            existingSecret: temporal-postgres-secret
+            secretKey: password
+            createDatabase: false
+            manageSchema: true
+            maxConns: 20
+        visibility:
+          sql:
+            pluginName: postgres12
+            databaseName: temporal_visibility
+            connectAddr: cloudsql-proxy.nojv-temporal.svc.cluster.local:5432
+            connectProtocol: tcp
+            user: temporal
+            existingSecret: temporal-postgres-secret
+            secretKey: password
+            createDatabase: false
+            manageSchema: true
+            maxConns: 20
   # Pin Temporal to the long-lived worker pool (off the autoscaling sandbox pool).
   nodeSelector:
     nojv-role: worker
@@ -46,32 +53,23 @@ server:
     limits:
       cpu: "1"
       memory: 1Gi
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
+  # Per-role PodDisruptionBudget — keeps >=1 pod up during voluntary disruptions.
+  frontend:
+    podDisruptionBudget:
+      minAvailable: 1
+  history:
+    podDisruptionBudget:
+      minAvailable: 1
+  matching:
+    podDisruptionBudget:
+      minAvailable: 1
+  worker:
+    podDisruptionBudget:
+      minAvailable: 1
 
-# Use SQL visibility (above); no Elasticsearch dependency for this scale.
-elasticsearch:
-  enabled: false
+# Built-in single-pod Postgres/Cassandra/Elasticsearch/Prometheus/Grafana subcharts
+# were removed upstream (v1.0.0-rc.2). SQL visibility (above) needs no Elasticsearch.
 
-# The chart can deploy its own Postgres/Cassandra — disable it; we use external HA Postgres.
-cassandra:
-  enabled: false
-mysql:
-  enabled: false
-postgresql:
-  enabled: false
-
-# Schema setup runs as the chart's admintools job against the external DB.
-schema:
-  createDatabase:
-    enabled: false
-  setup:
-    enabled: true
-  update:
-    enabled: true
-
-prometheus:
-  enabled: false
-grafana:
+# Temporal Web UI — not needed; the nojv app embeds its own dashboards.
+web:
   enabled: false

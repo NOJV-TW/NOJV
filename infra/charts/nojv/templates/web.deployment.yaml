@@ -125,6 +125,18 @@ spec:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: S3_REGION
                   optional: true
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: OTEL_EXPORTER_OTLP_HEADERS
+                  optional: true
           startupProbe:
             httpGet:
               path: /api/healthz
