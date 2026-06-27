@@ -1,3 +1,6 @@
+# Default values for the NOJV umbrella chart. Override per environment with
+# values-single-machine.yaml (everything in-cluster) or values-gke.yaml
+# (Google-managed). See README.md for the full knob reference.
 namespace: nojv
 sandboxNamespace: nojv-sandbox
 
@@ -15,6 +18,8 @@ image:
     egressProxy: egress-proxy
     migrator: migrator
 
+# Database: cnpg = in-cluster CloudNativePG (HA + scheduled backup + PITR);
+# cloudsql = Google Cloud SQL via the proxy sidecar; external = DATABASE_URL from the secret.
 postgres:
   mode: cnpg
   cnpg:
@@ -38,6 +43,7 @@ postgres:
 cloudsqlProxy:
   enabled: false
 
+# inCluster true = deploy Redis here; false = external (Memorystore) via REDIS_URL in the secret.
 redis:
   inCluster: true
   image: redis:8-alpine
@@ -51,6 +57,8 @@ redis:
       cpu: 250m
       memory: 256Mi
 
+# Object storage (S3-compatible): inCluster true = deploy MinIO here; false = external
+# (GCS / R2 / S3) via S3_* in the secret. Local dev uses MinIO from docker-compose.
 storage:
   inCluster: true
   bucket: nojv
@@ -161,6 +169,8 @@ sandbox:
       cpu: "100m"
       memory: 64Mi
 
+# Worker egress allow-list. The CIDRs below are GKE/VPC examples — replace with
+# your cluster's Redis / Cloud SQL / API-server / Services-VIP ranges before enabling.
 networkPolicy:
   enabled: false
   temporalNamespace: nojv-temporal

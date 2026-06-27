@@ -28,6 +28,27 @@ What it does **not** measure (deliberately, today):
 > classes), ~18 for `judge_latency_seconds`, plus single-digit counts for
 > the others — comfortably under cap.
 
+## Self-hosted observability (no external cloud)
+
+The app pushes **standard OTLP HTTP metrics**, so the Grafana Cloud target is
+swappable for a self-hosted stack — the only required setting is
+`GRAFANA_OTLP_ENDPOINT`; `GRAFANA_OTLP_INSTANCE_ID` / `_TOKEN` are optional and
+only add the Grafana-Cloud basic-auth header when set (so an unauthenticated
+in-cluster collector needs just the endpoint).
+
+- **Single-machine k8s (lean):** install an OTLP receiver + Prometheus + Grafana
+  in-cluster — e.g. the `kube-prometheus-stack` Helm chart for Prometheus +
+  Grafana, plus a small OpenTelemetry Collector (or Grafana Alloy) with an
+  `otlp` receiver that remote-writes to Prometheus. Point
+  `GRAFANA_OTLP_ENDPOINT` at the collector's OTLP service, add a Prometheus
+  datasource to Grafana, and import the dashboards in `infra/grafana/dashboards/`.
+- **GKE:** prefer the Google-managed path — **Google Cloud Managed Service for
+  Prometheus** (or Cloud Monitoring) ingests the same OTLP, with Grafana (Cloud
+  Monitoring datasource) or the Cloud console for viewing; nothing to operate.
+- **Either way:** the dashboards (`infra/grafana/dashboards/*.json`) and alerts
+  (`infra/grafana/alerts/*.json`) are portable JSON; `infra/grafana/provision.ts`
+  pushes them to any Grafana stack URL, self-hosted or cloud.
+
 ## First-time setup
 
 ### Grafana Cloud account
