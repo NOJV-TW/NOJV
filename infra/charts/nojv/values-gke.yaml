@@ -1,13 +1,3 @@
-# GKE overlay: HA across a Dataplane-V2 cluster.
-# web HPA (min 2), judge replicas 2 + platform 1, CNPG instances 3,
-# nodeSelector nojv-role=worker, PDBs enabled, NetworkPolicy enforced.
-#
-# Render:
-#   helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml
-#
-# Postgres: default is in-cluster CNPG (instances:3). To use Cloud SQL instead,
-# set postgres.mode=cloudsql and cloudsqlProxy.enabled=true (see comments below).
-
 image:
   registry: asia-east1-docker.pkg.dev
   repositoryPrefix: PROJECT_ID/nojv
@@ -25,23 +15,16 @@ postgres:
       s3CredentialsSecret: nojv-pg-backup-creds
       retentionPolicy: "30d"
       schedule: "0 0 3 * * *"
-  # --- To use Cloud SQL instead of in-cluster CNPG, flip these: ---
-  # mode: cloudsql
-  # cloudsql:
-  #   instanceConnectionName: PROJECT_ID:REGION:INSTANCE
   cloudsql:
     instanceConnectionName: PROJECT_ID:REGION:INSTANCE
 
-# Only meaningful when postgres.mode=cloudsql.
 cloudsqlProxy:
   enabled: false
 
 redis:
-  # GKE production usually points REDIS_URL at Memorystore via the runtime secret.
   inCluster: false
 
 storage:
-  # GKE production usually uses GCS via the runtime secret S3_* values.
   inCluster: false
   region: auto
 
@@ -59,7 +42,6 @@ web:
     max: 15
     targetCPU: 70
   ingress:
-    # Cloudflare proxies to this origin. Provide your ingress class + host.
     enabled: true
     className: gce
     host: nojv.example.com
@@ -79,8 +61,6 @@ pdb:
   enabled: true
   minAvailable: 1
 
-# NetworkPolicy is enforced on Dataplane-V2 clusters. The egress CIDRs below are
-# placeholders — REPLACE with your cluster's Services-VIP and control-plane CIDRs.
 networkPolicy:
   enabled: true
   temporalNamespace: nojv-temporal

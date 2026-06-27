@@ -153,39 +153,18 @@ original stays intact for forensics until you cut over.
 
 ## Local development (Docker Compose) — convenience only, NOT production
 
-For local dev where PostgreSQL/Redis/MinIO run as Compose services with named
-Docker volumes (`postgres_data`, `redis_data`, `minio_data`), an optional
-`postgres-backup` sidecar (`--profile backup`) writes the same gzipped dumps to
-`${BACKUP_DIR:-./backups}`. This is a dev convenience, not the production posture.
-
-### Backup posture
-
-- **PostgreSQL** (`postgres` service, database `nojv`, volume
-  `postgres_data`) holds every durable record and is the only layer that
-  _must_ be backed up. Take a logical dump on a cron schedule (e.g. hourly
-  or daily depending on RPO) with `pg_dump`, and copy the dumps off-host
-  (another machine, an object store, or cloud bucket) — a backup that lives
-  only on the same disk as the data does not survive disk loss.
-- **Redis** (`redis_data`) and **MinIO** (`minio_data`) follow the same
-  rebuild / re-upload stories as the Memorystore and GCS sections below:
-  Redis is derived/ephemeral (rebuilds from Postgres), MinIO holds
-  author-provided assets (re-uploadable). Snapshotting their volumes is
-  optional; the Postgres dump is the load-bearing backup.
-
-### Taking a dump
-
-The repo ships a helper script — `infra/scripts/backup-postgres.sh`, wired
-as the optional `postgres-backup` Compose sidecar (`--profile backup`). It
-writes **plain-SQL gzipped** dumps named `nojv-<stamp>.sql.gz` to
-`${BACKUP_DIR:-./backups}` on a `BACKUP_INTERVAL_SECONDS` loop and prunes
-files older than `BACKUP_RETENTION_DAYS`. Match the restore command to this
-format (`gunzip … | psql`, see step 2 below).
+Local dev runs PostgreSQL/Redis/MinIO as Compose services with named Docker
+volumes (`postgres_data`, `redis_data`, `minio_data`); the app runs from source
+via `pnpm dev`. This is dev data — not a production posture. If you want a dump
+of your local database, take a manual one:
 
 ```bash
-# Automated: run the sidecar (one-shot or looping)
-docker compose --profile backup run --rm postgres-backup once   # single dump
-docker compose --profile backup up -d postgres-backup           # cron loop
+docker compose exec -T postgres \
+  pg_dump -U "${POSTGRES_USER:-postgres}" --no-owner --no-privileges nojv \
+  | gzip -c > "nojv-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 ```
+
+Restore it into a fresh database with `gunzip -c <file>.sql.gz | docker compose exec -T postgres psql -U postgres -d <db>`.
 
 A manual `pg_dump` against the running container works too. Pick the format
 that matches the restore command you intend to use:

@@ -16,5 +16,3 @@ keywords:
 home: https://github.com/nojv
 maintainers:
   - name: NOJV
-# Temporal and CloudNativePG are documented PREREQUISITES, not vendored
-# dependencies — install their operators/servers separately. See README.md.

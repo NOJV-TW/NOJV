@@ -14,28 +14,25 @@ procedure (chart install + prerequisites) is in
 
 ### Services
 
-| Service       | Image                          | Port       | Purpose                          |
-| ------------- | ------------------------------ | ---------- | -------------------------------- |
-| postgres      | postgres:18-alpine             | 5432       | Database (app + Temporal)        |
-| redis         | redis:8-alpine                 | 6379       | Cache, pub/sub, scoreboard       |
-| minio         | minio/minio                    | 9000, 9001 | S3-compatible object storage     |
-| temporal      | temporalio/auto-setup:1.29.1   | 7233       | Workflow engine                  |
-| temporal-ui   | temporalio/ui:2.38.2           | 8080       | Workflow monitoring              |
-| web           | Custom (prod profile)          | 3000       | SvelteKit production build       |
-| worker        | Custom (prod profile)          | 8080       | Temporal worker                  |
-| sandbox-image | Custom (sandbox-build profile) | —          | Build-only: sandbox Docker image |
+| Service     | Image                        | Port       | Purpose                      |
+| ----------- | ---------------------------- | ---------- | ---------------------------- |
+| postgres    | postgres:18-alpine           | 5432       | Database (app + Temporal)    |
+| redis       | redis:8-alpine               | 6379       | Cache, pub/sub, scoreboard   |
+| minio       | minio/minio                  | 9000, 9001 | S3-compatible object storage |
+| temporal    | temporalio/auto-setup:1.29.1 | 7233       | Workflow engine              |
+| temporal-ui | temporalio/ui:2.38.2         | 8080       | Workflow monitoring          |
+
+Compose ships **only** these backing services — the app (web/worker) runs from
+source via `pnpm dev`, and the sandbox image is built with `pnpm sandbox:build`.
+Deployable images are built and shipped by the Helm chart path (see
+[Helm Deployment](#helm-deployment)).
 
 ### Quick Start
 
 ```bash
-# Infrastructure only (for local dev with pnpm dev)
+# Start the local backing services, then run the app from source
 docker compose up -d
-
-# Full production stack
-docker compose --profile prod up -d
-
-# Build sandbox image
-docker compose --profile sandbox-build up sandbox-image
+pnpm dev
 ```
 
 ### Temporal Auto-Setup
@@ -247,8 +244,8 @@ on the spectrum **single-node k3s → multi-node k3s → GKE** ([GKE Rollout](#g
   └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Both web and the workers run **inside the cluster** as chart Deployments. There
-is no Cloud Run — web is fronted by Cloudflare at the edge and the GKE
+Both web and the workers run **inside the cluster** as chart Deployments — there
+is no serverless tier. Web is fronted by Cloudflare at the edge and the GKE
 Ingress/LB origin is restricted to Cloudflare's CIDR ranges (see
 [Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)).
 
@@ -494,8 +491,8 @@ off the same image — `nojv-worker` (`WORKER_MODE=judge`) and
 `nojv-worker-platform` (`WORKER_MODE=platform`) — each with its own
 PodDisruptionBudget (`pdb.enabled`), so the judge and platform task queues scale
 and fail independently. Replica counts come from `worker.judge.replicas` /
-`worker.platform.replicas`. `WORKER_MODE=all` is used for local dev with
-Docker Compose.
+`worker.platform.replicas`. `WORKER_MODE=all` is the default for local dev
+(`pnpm dev`), where a single process runs both task queues.
 
 ### Mode: all (Development)
 

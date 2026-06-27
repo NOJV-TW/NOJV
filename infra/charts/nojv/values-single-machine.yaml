@@ -1,17 +1,4 @@
-# Single-machine overlay: k3s / kind / OrbStack on one node.
-# Everything in-cluster, single replica, no HPA, no Cloud SQL, no PDBs.
-#
-# Render:
-#   helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml
-#
-# Prerequisites still required out-of-band:
-#   - CloudNativePG operator (for the Postgres Cluster CR)
-#   - Temporal Server reachable at temporal.address
-#   - The runtime secret (see secret.example.yaml)
-
 image:
-  # Local single-node clusters usually load images directly (kind load /
-  # k3s ctr import) under a bare name — drop the remote registry.
   registry: ""
   repositoryPrefix: nojv
   tag: latest
@@ -49,9 +36,6 @@ worker:
 pdb:
   enabled: false
 
-# A single-node cluster's CNI usually does not enforce NetworkPolicy; the
-# sandbox deny-all is still rendered (harmless if unenforced) but the worker
-# egress policy, which needs real cluster CIDRs, stays off here.
 networkPolicy:
   enabled: false
 
@@ -60,7 +44,6 @@ sandbox:
     enabled: true
   resourceQuota:
     enabled: true
-    # A single node has far less headroom than a GKE pool.
     pods: "10"
     requestsCpu: "4"
     requestsMemory: "4Gi"

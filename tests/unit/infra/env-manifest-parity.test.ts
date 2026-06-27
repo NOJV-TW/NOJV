@@ -167,17 +167,11 @@ describe("Dockerfiles that frozen-install must ship the pnpm patch files", () =>
 });
 
 describeHelm("production web secret parity across deploy surfaces", () => {
-  const compose = readFileSync(join(repoRoot, "docker-compose.yml"), "utf8");
-
   const requiredWebEnv = ["EDGE_TRUST_SECRET", "S3_REGION"] as const;
 
   it.each(requiredWebEnv)("web Deployment provides %s", (key) => {
     const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
     expect(containerEnvNames(web).has(key)).toBe(true);
-  });
-
-  it.each(["EDGE_TRUST_SECRET"] as const)("docker-compose web service provides %s", (key) => {
-    expect(compose.includes(`${key}:`)).toBe(true);
   });
 });
 

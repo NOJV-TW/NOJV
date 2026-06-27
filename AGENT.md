@@ -36,7 +36,7 @@ when working on a specific area, open the listed doc first.
 | Sandbox isolation, seccomp, capability drop          | [Security Requirements](docs/operations/SECURITY.md)                          |
 | Risk assessment, attacker scenarios                  | [Threat Model](docs/operations/THREAT_MODEL.md)                               |
 | Idempotency, health checks, failure modes            | [Reliability Invariants](docs/operations/RELIABILITY.md)                      |
-| Cloud Run / GKE config, env vars, Cloud Build        | [Deployment Guide](docs/operations/DEPLOYMENT.md)                             |
+| GKE / Helm chart config, env vars, Cloud Build       | [Deployment Guide](docs/operations/DEPLOYMENT.md)                             |
 | Feature scope, product direction, shipped vs planned | [Product Sense](docs/product/PRODUCT_SENSE.md)                                |
 | Multi-step work needing checkpoints                  | [Planning System](docs/product/PLANS.md) → write plan in `docs/plans/active/` |
 | Which runbook for an operational task                | [Runbooks Index](docs/runbooks/README.md)                                     |
@@ -112,10 +112,10 @@ tooling/
 scripts/            Repo-level maintenance scripts (lint guards, etc.)
 
 infra/
+  charts/nojv/      Helm umbrella chart — the single deploy path (single-machine k8s + GKE)
   docker/           Dockerfiles (web, worker, sandbox, migrator)
-  gcp/              Cloud Build, Cloud Run, GKE deployment
+  gcp/              Cloud Build (image build) + GKE / Temporal / backup helpers
   grafana/          Grafana Cloud dashboards + provisioning script
-  k8s/sandbox/      Kubernetes namespace, network policy, resource quota
 
 tests/              Vitest + Playwright test suites
 docs/

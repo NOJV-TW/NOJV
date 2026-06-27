@@ -318,7 +318,7 @@ The `submissionSweeperWorkflow` is a singleton cron started once via
 `pending_upload`/`queued`/`compiling`/`running` past the configured timeout and returns the daily
 attempt (see [Reliability Invariants](../operations/RELIABILITY.md)).
 
-Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, the stale-submission sweeper, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)); the GKE bundle ships the split as two Deployments (`nojv-worker` judge / `nojv-worker-platform` platform), so this isolation is realised in production rather than only available.
+Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, the stale-submission sweeper, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)); the Helm chart (`infra/charts/nojv`) ships the split as two Deployments (`nojv-worker` judge / `nojv-worker-platform` platform), so this isolation is realised in production rather than only available.
 
 ### @nojv/application
 
