@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,38 @@ import { storageEnvSchema } from "../../../packages/storage/src/env";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
+
+function helmAvailable(): boolean {
+  try {
+    execSync("helm version", { cwd: repoRoot, stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let renderedChart: string | undefined;
+function renderChart(): string {
+  if (renderedChart === undefined) {
+    renderedChart = execSync(
+      "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml",
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+  }
+  return renderedChart;
+}
+
+function isolateDoc(render: string, kind: string, name: string): string {
+  const doc = render
+    .split(/^---$/m)
+    .find(
+      (d) => new RegExp(`^kind:\\s*${kind}\\s*$`, "m").test(d) && d.includes(`name: ${name}`),
+    );
+  if (doc === undefined) {
+    throw new Error(`rendered chart has no ${kind}/${name}`);
+  }
+  return doc;
+}
 
 const validK8sEnv: Record<string, string> = {
   NODE_ENV: "production",
@@ -38,53 +71,6 @@ function requiredKubernetesEnvKeys(): string[] {
   return required;
 }
 
-function containerEnvNames(yamlText: string, stopAtSidecar: RegExp): Set<string> {
-  const names = new Set<string>();
-  let inEnv = false;
-  let envIndent = -1;
-  for (const line of yamlText.split("\n")) {
-    if (stopAtSidecar.test(line)) break;
-    const envMatch = /^(\s*)env:\s*$/.exec(line);
-    if (envMatch) {
-      inEnv = true;
-      envIndent = envMatch[1].length;
-      continue;
-    }
-    if (!inEnv) continue;
-    if (line.trim() !== "" && line.length - line.trimStart().length <= envIndent) {
-      inEnv = false;
-      continue;
-    }
-    const nameMatch = /^\s+- name:\s*(\S+)\s*$/.exec(line);
-    if (nameMatch) names.add(nameMatch[1]);
-  }
-  return names;
-}
-
-describe("env schema ↔ deployment manifest parity", () => {
-  it("the valid baseline env parses (sanity check for the drop-one probe)", () => {
-    expect(workerEnvSchema.safeParse(validK8sEnv).success).toBe(true);
-  });
-
-  it("GKE worker manifest provides every env the kubernetes backend requires", () => {
-    const manifest = readFileSync(
-      join(repoRoot, "infra/gcp/gke/worker.deployment.yaml"),
-      "utf8",
-    );
-    const provided = containerEnvNames(manifest, /^\s+- name: cloudsql-proxy\b/);
-    const missing = requiredKubernetesEnvKeys().filter((k) => !provided.has(k));
-    expect(
-      missing,
-      `worker.deployment.yaml is missing required env (worker would crashloop on boot): ${missing.join(", ")}`,
-    ).toEqual([]);
-  });
-
-  it("web Cloud Run manifest sets EXECUTION_BACKEND so advanced-mode gating matches the worker", () => {
-    const manifest = readFileSync(join(repoRoot, "infra/gcp/web.cloudrun.yaml"), "utf8");
-    expect(containerEnvNames(manifest, /\0/).has("EXECUTION_BACKEND")).toBe(true);
-  });
-});
-
 const validStorageEnv: Record<string, string> = {
   NODE_ENV: "production",
   S3_ENDPOINT: "https://storage.googleapis.com",
@@ -102,6 +88,63 @@ function requiredProductionStorageKeys(): string[] {
   }
   return required;
 }
+
+function containerEnvNames(yamlText: string): Set<string> {
+  const names = new Set<string>();
+  let inEnv = false;
+  let envIndent = -1;
+  for (const line of yamlText.split("\n")) {
+    const envMatch = /^(\s*)env:\s*$/.exec(line);
+    if (envMatch) {
+      inEnv = true;
+      envIndent = envMatch[1].length;
+      continue;
+    }
+    if (!inEnv) continue;
+    if (line.trim() !== "" && line.length - line.trimStart().length <= envIndent) {
+      inEnv = false;
+      continue;
+    }
+    const nameMatch = /^\s+- name:\s*(\S+)\s*$/.exec(line);
+    if (nameMatch) names.add(nameMatch[1]);
+  }
+  return names;
+}
+
+const helm = helmAvailable();
+const describeHelm = helm ? describe : describe.skip;
+if (!helm) {
+  describe.skip("env ↔ chart parity (skipped: helm not installed)", () => {
+    it.skip("requires helm to render infra/charts/nojv", () => {});
+  });
+}
+
+describe("env schema baseline (no helm required)", () => {
+  it("the valid baseline env parses (sanity check for the drop-one probe)", () => {
+    expect(workerEnvSchema.safeParse(validK8sEnv).success).toBe(true);
+  });
+
+  it("the production storage baseline parses (sanity check for the drop-one probe)", () => {
+    expect(storageEnvSchema.safeParse(validStorageEnv).success).toBe(true);
+  });
+});
+
+describeHelm("env schema ↔ chart deployment parity", () => {
+  it("GKE worker Deployment provides every env the kubernetes backend requires", () => {
+    const worker = isolateDoc(renderChart(), "Deployment", "nojv-worker");
+    const provided = containerEnvNames(worker);
+    const missing = requiredKubernetesEnvKeys().filter((k) => !provided.has(k));
+    expect(
+      missing,
+      `nojv-worker Deployment is missing required env (worker would crashloop on boot): ${missing.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("web Deployment sets EXECUTION_BACKEND so advanced-mode gating matches the worker", () => {
+    const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
+    expect(containerEnvNames(web).has("EXECUTION_BACKEND")).toBe(true);
+  });
+});
 
 describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {
   const rootPkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
@@ -123,19 +166,14 @@ describe("Dockerfiles that frozen-install must ship the pnpm patch files", () =>
   });
 });
 
-describe("production web secret parity across deploy surfaces", () => {
-  const cloudRun = readFileSync(join(repoRoot, "infra/gcp/web.cloudrun.yaml"), "utf8");
-  const deploySh = readFileSync(join(repoRoot, "infra/gcp/cloud-build/deploy.sh"), "utf8");
+describeHelm("production web secret parity across deploy surfaces", () => {
   const compose = readFileSync(join(repoRoot, "docker-compose.yml"), "utf8");
 
   const requiredWebEnv = ["EDGE_TRUST_SECRET", "S3_REGION"] as const;
 
-  it.each(requiredWebEnv)("web.cloudrun.yaml provides %s", (key) => {
-    expect(containerEnvNames(cloudRun, /\0/).has(key)).toBe(true);
-  });
-
-  it.each(requiredWebEnv)("deploy.sh wires %s into the web Cloud Run secrets", (key) => {
-    expect(deploySh.includes(key)).toBe(true);
+  it.each(requiredWebEnv)("web Deployment provides %s", (key) => {
+    const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
+    expect(containerEnvNames(web).has(key)).toBe(true);
   });
 
   it.each(["EDGE_TRUST_SECRET"] as const)("docker-compose web service provides %s", (key) => {
@@ -143,23 +181,19 @@ describe("production web secret parity across deploy surfaces", () => {
   });
 });
 
-describe("storage env schema ↔ deployment manifest parity", () => {
-  it("the production storage baseline parses (sanity check for the drop-one probe)", () => {
-    expect(storageEnvSchema.safeParse(validStorageEnv).success).toBe(true);
-  });
-
+describeHelm("storage env schema ↔ chart deployment parity", () => {
   it.each([
-    ["GKE worker", "infra/gcp/gke/worker.deployment.yaml", /^\s+- name: cloudsql-proxy\b/],
-    ["web Cloud Run", "infra/gcp/web.cloudrun.yaml", /\0/],
+    ["GKE worker", "nojv-worker"],
+    ["web", "nojv-web"],
   ])(
-    "%s manifest provides every storage credential required in production",
-    (_name, path, stop) => {
-      const manifest = readFileSync(join(repoRoot, path), "utf8");
-      const provided = containerEnvNames(manifest, stop as RegExp);
+    "%s Deployment provides every storage credential required in production",
+    (_name, name) => {
+      const deployment = isolateDoc(renderChart(), "Deployment", name);
+      const provided = containerEnvNames(deployment);
       const missing = requiredProductionStorageKeys().filter((k) => !provided.has(k));
       expect(
         missing,
-        `${path} is missing storage env (judging / image storage would fail in production): ${missing.join(", ")}`,
+        `${name} Deployment is missing storage env (judging / image storage would fail in production): ${missing.join(", ")}`,
       ).toEqual([]);
     },
   );

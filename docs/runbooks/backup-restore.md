@@ -20,20 +20,143 @@ traffic.** Restoring in place over a corrupt primary loses the only forensic
 copy of the corrupt data and risks compounding the problem. Every procedure
 below produces a parallel target first.
 
-> **Two deployment shapes.** The shipped CD path (README → "CD To Remote
-> Server") is a **self-hosted Docker Compose** rollout on a single Linux
-> host — covered in the next section. The GCP sections below
-> (Cloud SQL / Memorystore / GCS) document the managed-cloud posture for
-> environments deployed that way. Use the section matching how the target
-> environment actually runs.
+> **Two deployment shapes.** Production runs as either **single-machine k8s**
+> (k3s/kind, one node) or **GKE** (managed, multi-node). Docker Compose is
+> **local development only** — not a deployment target. Use the section
+> matching how the target environment actually runs: single-machine k8s below,
+> or the GCP/Cloud SQL sections further down.
 
 ---
 
-## Self-hosted Docker Compose — primary user data
+## Single-machine k8s — primary user data
 
-This is the posture for the default self-hosted rollout, where PostgreSQL,
-Redis, and MinIO run as Compose services with named Docker volumes
-(`postgres_data`, `redis_data`, `minio_data`) on one host.
+The load-bearing layer is the **app Postgres**, provisioned by the umbrella
+chart (`infra/charts/nojv`, `postgres.mode=cnpg`) as a **CloudNativePG `Cluster`**
+named `<release>-pg` (for release `nojv`, the cluster is `nojv-pg`, database
+`nojv`). The operator manages its primary on a PVC, the owner credentials in a
+`<cluster>-app` secret, and the `<cluster>-rw` Service that `DATABASE_URL`
+points at. Redis and MinIO follow the rebuild/re-upload stories below (Redis is
+derived from Postgres; MinIO holds re-uploadable author assets). A single node
+has **no HA** — so a _recoverable backup that lives off the DB's own volume_ is
+the load-bearing guarantee: if the node or the database is lost, you can restore.
+
+### Backup posture (CNPG ScheduledBackup → object storage, with PITR)
+
+The chart renders a CloudNativePG `ScheduledBackup` alongside the `Cluster` when
+`postgres.cnpg.backup.enabled=true`. It drives **barman-cloud** backups: periodic
+base backups on a cron `schedule` **plus continuous WAL archiving**, both streamed
+to S3-compatible object storage. Together they give **point-in-time recovery (PITR)** —
+not just the last nightly snapshot. Configure it through values:
+
+```yaml
+postgres:
+  mode: cnpg
+  cnpg:
+    backup:
+      enabled: true
+      destinationPath: s3://nojv-db-backups/nojv-pg
+      endpointURL: https://<account>.r2.cloudflarestorage.com
+      s3CredentialsSecret: nojv-pg-barman
+      retentionPolicy: "30d"
+      schedule: "0 0 3 * * *"
+```
+
+Because the artefacts land in an **off-host** object store (point
+`destinationPath` / `endpointURL` at a bucket the DB PVC does not depend on),
+they survive DB-pod loss, corruption, accidental drops, and node loss. Backups
+older than `postgres.cnpg.backup.retentionPolicy` are pruned by the operator.
+
+Operator commands (use the `kubectl cnpg` plugin):
+
+```bash
+kubectl cnpg status nojv-pg -n nojv                    # cluster health + last backup
+kubectl cnpg backup nojv-pg -n nojv                    # trigger an on-demand backup
+kubectl get backups -n nojv                            # list Backup objects (status/age)
+```
+
+Restore is **not in place** — you bootstrap a **new recovery Cluster** from the
+barman object store and cut over once validated.
+
+### Restore procedure (PITR via a new recovery Cluster)
+
+CNPG recovers by **bootstrapping a brand-new `Cluster`** from the barman object
+store, never by rewinding the live primary. This honours the rule above: the
+original stays intact for forensics until you cut over.
+
+1. **Pick the recovery target.** A specific timestamp (PITR) for user-facing
+   corruption ("a teacher deleted a course at 14:23 UTC"); omit the target to
+   recover to the latest archived WAL for catastrophic loss.
+
+2. **Create a recovery Cluster** that bootstraps from the object store. Apply a
+   `Cluster` CR with `bootstrap.recovery` pointing at an `externalCluster` that
+   reuses the same barman `destinationPath` / `endpointURL` / credentials, and a
+   `recoveryTarget` for PITR:
+
+   ```yaml
+   apiVersion: postgresql.cnpg.io/v1
+   kind: Cluster
+   metadata:
+     name: nojv-pg-restore
+     namespace: nojv
+   spec:
+     instances: 1
+     bootstrap:
+       recovery:
+         source: nojv-pg-barman
+         recoveryTarget:
+           targetTime: "2026-06-27T14:20:00.000Z"
+     externalClusters:
+       - name: nojv-pg-barman
+         barmanObjectStore:
+           destinationPath: s3://nojv-db-backups/nojv-pg
+           endpointURL: https://<account>.r2.cloudflarestorage.com
+           s3Credentials:
+             accessKeyId:
+               name: nojv-pg-barman
+               key: ACCESS_KEY_ID
+             secretAccessKey:
+               name: nojv-pg-barman
+               key: ACCESS_SECRET_KEY
+   ```
+
+   ```bash
+   kubectl apply -f nojv-pg-restore.yaml
+   kubectl cnpg status nojv-pg-restore -n nojv   # wait for the recovery to complete
+   ```
+
+3. **Validate the recovery Cluster before cutover.** Connect through its
+   `nojv-pg-restore-rw` Service and spot-check high-volume tables (`User`,
+   `Problem`, `Submission`, `ContestParticipation`, `ExamParticipation`). Run
+   `SELECT count(*)` against each and confirm the row that triggered the restore
+   is present (or correctly gone, for a PITR rewind past a bad delete).
+
+4. **Cut `DATABASE_URL` over.** Update the runtime secret
+   (`nojv-runtime-secrets`) so `DATABASE_URL` points at the recovery Cluster's
+   `-rw` service (`nojv-pg-restore-rw.nojv.svc.cluster.local`), then restart the
+   in-cluster apps so they pick up the new endpoint:
+
+   ```bash
+   kubectl rollout restart deploy/nojv-web -n nojv
+   kubectl rollout restart deploy/nojv-worker -n nojv
+   kubectl rollout restart deploy/nojv-worker-platform -n nojv
+   ```
+
+5. **Re-point backups at the new primary.** The recovery Cluster starts without
+   its own `ScheduledBackup` — apply the chart's CNPG backup config (or a
+   `ScheduledBackup` CR) against `nojv-pg-restore` so the new primary is covered.
+
+6. **Preserve the original `nojv-pg`** for at least 7 days for forensics before
+   deleting. If post-cutover validation fails, point `DATABASE_URL` back at
+   `nojv-pg-rw` and restart the apps.
+
+---
+
+## Local development (Docker Compose) — convenience only, NOT production
+
+For local dev where PostgreSQL/Redis/MinIO run as Compose services with named
+Docker volumes (`postgres_data`, `redis_data`, `minio_data`), an optional
+`postgres-backup` sidecar (`--profile backup`) writes the same gzipped dumps to
+`${BACKUP_DIR:-./backups}`. This is a dev convenience, not the production posture.
 
 ### Backup posture
 
@@ -250,9 +373,10 @@ primary, and that you have already paged the on-call channel.
 
 4. **Cut traffic over.** Two options, in order of preference:
    - **Promote the clone**: update Secret Manager `nojv-database-url` to the
-     clone's connection string, then restart `web` (Cloud Run revision bump)
-     and `worker` (`kubectl rollout restart deploy/nojv-worker`). Apps pick
-     up the new secret on the next pod start. Estimated downtime: 30–60s.
+     clone's connection string, then restart the in-cluster `web` Deployment
+     (e.g. `kubectl rollout restart deploy/nojv-web`) and `worker`
+     (`kubectl rollout restart deploy/nojv-worker`). Apps pick up the new
+     secret on the next pod start. Estimated downtime: 30–60s.
 
    - **Rename**: stop traffic to `web` and `worker`, rename `nojv-postgres`
      → `nojv-postgres-broken-<date>`, rename `nojv-postgres-restore` →
@@ -455,5 +579,5 @@ a drill, not during a real incident.
 
 - [Incident Recovery](./incident-recovery.md) — availability incidents (worker, Redis, DB HA failover, sandbox)
 - [Reliability Invariants](../operations/RELIABILITY.md) — RPO/RTO targets feeding the retention values above
-- [Deployment Guide](../operations/DEPLOYMENT.md) — secret rotation + Cloud Run / GKE deploy procedures
+- [Deployment Guide](../operations/DEPLOYMENT.md) — secret rotation + Helm deploy (single-machine k8s + GKE) procedures
 - [Database Schema](../architecture/DATABASE.md) — what each Postgres table holds and which restores affect which features

@@ -1,28 +1,16 @@
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: sandbox-deny-egress
-  namespace: nojv-sandbox
-spec:
-  # Selects every sandbox Pod EXCEPT those carrying nojv.egress=<value> (advanced
-  # allowlist/service run + grade Pods), which escape deny-all and are governed by
-  # their own per-submission NetworkPolicy. NetworkPolicy is additive, so deny-all
-  # must NOT match a Pod that a per-submission allow policy needs to widen.
-  podSelector:
-    matchExpressions:
-      - key: nojv.egress
-        operator: DoesNotExist
-  policyTypes:
-    - Egress
-    - Ingress
-  egress: []
-  ingress: []
----
+{{- if .Values.networkPolicy.enabled }}
+{{/*
+worker-egress — ported from infra/gcp/gke/network-policy.yaml. Inert unless the
+cluster CNI enforces NetworkPolicy (GKE Dataplane V2). The CIDRs are
+cluster-specific; set them under .Values.networkPolicy.egress.
+*/}}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: worker-egress
-  namespace: nojv
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
@@ -42,7 +30,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: nojv-temporal
+              name: {{ .Values.networkPolicy.temporalNamespace }}
           podSelector:
             matchLabels:
               app.kubernetes.io/name: temporal-server
@@ -51,31 +39,32 @@ spec:
           protocol: TCP
     - to:
         - ipBlock:
-            cidr: 10.64.0.10/32
+            cidr: {{ .Values.networkPolicy.egress.redisCidr }}
       ports:
         - port: 6379
           protocol: TCP
     - to:
         - ipBlock:
-            cidr: 10.64.1.20/32
+            cidr: {{ .Values.networkPolicy.egress.cloudsqlCidr }}
       ports:
-        - port: 3307
+        - port: {{ .Values.networkPolicy.egress.cloudsqlPort }}
           protocol: TCP
     - to:
+        {{- range .Values.networkPolicy.egress.googleApisCidrs }}
         - ipBlock:
-            cidr: 199.36.153.4/30
-        - ipBlock:
-            cidr: 199.36.153.8/30
+            cidr: {{ . }}
+        {{- end }}
       ports:
         - port: 443
           protocol: TCP
     # kube-apiserver egress (mandatory: worker creates sandbox Jobs per submission).
-    # REPLACE both CIDRs with your cluster's Services-VIP and control-plane (master) CIDRs.
+    # REPLACE these CIDRs with your cluster's Services-VIP and control-plane CIDRs.
     - to:
+        {{- range .Values.networkPolicy.egress.apiServerCidrs }}
         - ipBlock:
-            cidr: 10.96.0.1/32
-        - ipBlock:
-            cidr: 172.16.0.32/28
+            cidr: {{ . }}
+        {{- end }}
       ports:
         - port: 443
           protocol: TCP
+{{- end }}

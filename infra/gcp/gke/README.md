@@ -1,14 +1,17 @@
-# GKE Worker Notes
+# GKE deployment notes for the Helm chart
 
-Use this topology when submissions should execute through Kubernetes-native sandbox jobs.
+GKE-specific guidance for deploying the `nojv` Helm chart (`infra/charts/nojv`,
+values overlay `values-gke.yaml`). The chart renders every workload — these
+notes cover only what is GKE-specific: node pools, the Cloud SQL Auth Proxy, the
+Temporal prerequisite, and the apply flow.
 
-## Recommended Split
+## Topology
 
-- Cloud Run: `web`
-- GKE: `worker` (Temporal task-queue consumer / judge orchestrator)
+- GKE: `web` — in-cluster Deployment behind an Ingress that Cloudflare proxies to
+- GKE: `worker` — Temporal task-queue consumers / judge orchestrators (judge + platform Deployments)
 - GKE Jobs in `nojv-sandbox`: sandbox-runner pods created by the worker
-- Cloud SQL: PostgreSQL
-- Memorystore: Redis
+- Cloud SQL (optional, `postgres.mode=cloudsql`) or in-cluster CloudNativePG: PostgreSQL
+- Memorystore (optional, `redis.inCluster=false`) or in-cluster Redis
 
 ## Why This Exists
 
@@ -60,20 +63,24 @@ gcloud container node-pools create pool-sandbox \
 
 ## Files
 
-- `kustomization.yaml`: worker bundle entrypoint
-- `namespace.yaml`: declares `nojv`, `nojv-sandbox`, `nojv-temporal`
-- `network-policy.yaml`: sandbox-deny-egress + worker egress allowlist
-- `runtime-secrets.example.yaml`: placeholder runtime secret manifest
-- `worker-rbac.yaml`: ServiceAccount + Role for creating sandbox Jobs
-- `worker.deployment.yaml`: two worker Deployments split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform` platform) + Cloud SQL Auth Proxy sidecar
-- `worker.pdb.yaml`: PodDisruptionBudgets for both worker Deployments — keep ≥1 alive during voluntary disruptions
-- `temporal/`: self-hosted Temporal Server + dedicated Postgres + Web UI + PDBs (`temporal.pdb.yaml`); both pinned to `pool-worker` via `nodeSelector`
+All workloads are now rendered by the `nojv` chart at `infra/charts/nojv`; there
+is no kustomize bundle. The chart templates cover what used to be hand-written
+manifests here:
 
-Sandbox per-pod resource limits (ResourceQuota, LimitRange) live under
-`infra/k8s/sandbox/` and are applied as a **separate second step** (see the
-Apply Flow below). `kubectl apply -k infra/gcp/gke` brings up the namespace,
-NetworkPolicy, worker RBAC/deployment/PDB, and Temporal — but **not** the
-sandbox ResourceQuota/LimitRange; those need `kubectl apply -f infra/k8s/sandbox`.
+- worker Deployments split by `WORKER_MODE` → `templates/worker-judge.deployment.yaml` (`nojv-worker` judge) + `templates/worker-platform.deployment.yaml` (`nojv-worker-platform` platform)
+- ServiceAccount + Role for creating sandbox Jobs → `templates/worker-rbac.yaml`
+- PodDisruptionBudgets for both workers (guarded by `pdb.enabled`) → `templates/worker-pdb.yaml`
+- namespaces (`nojv` + `nojv-sandbox`) → `templates/namespaces.yaml`
+- sandbox deny-all NetworkPolicy + ResourceQuota + LimitRange → `templates/sandbox-policy.yaml`
+- worker-egress allowlist NetworkPolicy (guarded by `networkPolicy.enabled`) → `templates/app-network-policy.yaml`
+
+The files that remain in `infra/gcp/gke/` are documentation / value-file inputs,
+not applied manifests:
+
+- `runtime-secrets.example.yaml`: placeholder runtime secret manifest
+- `temporal/helm-values.ha.yaml`: HA values file for the official Temporal chart
+- `temporal/secret.example.yaml`: placeholder Temporal store-credentials secret
+- `temporal/HA-PRODUCTION.md`: Temporal production HA options
 
 ## Cloud SQL Auth Proxy
 
@@ -109,24 +116,25 @@ name (`PROJECT_ID:REGION:INSTANCE`), not the GSA key.
 
 ## Temporal Server
 
-`temporal/` deploys a single-pod Temporal Server using the official
-`temporalio/auto-setup:1.22` image. On first boot the image runs the
-schema migrations against the bundled Postgres (`temporal-postgres`
-StatefulSet, 10Gi PVC). Frontend gRPC is exposed at
-`temporal-frontend.nojv-temporal.svc.cluster.local:7233`; the worker
-deployment already points at that.
+Temporal is a one-time **prerequisite**, installed via the official Helm chart —
+it is no longer vendored as manifests in this repo. The `nojv` chart's workers
+target `temporal-frontend.nojv-temporal.svc.cluster.local:7233`
+(`temporal.address` default).
 
-This is a **single-replica SPOF**. Interim guards (this bundle): a
-PodDisruptionBudget (`minAvailable: 1`) on both the server and its Postgres
-(`temporal/temporal.pdb.yaml`), both pinned to `pool-worker` via `nodeSelector`
-so a sandbox-pool scale-down can't evict them, plus a daily `pg_dump` of the
-Temporal DB to GCS installed by `infra/gcp/scripts/setup-backups.sh`. These
-limit voluntary disruption and data loss but provide no live failover.
+For single-machine / low-stakes deploys, a single-replica Temporal
+(`temporalio/auto-setup`) is acceptable. For production HA on GKE, install the
+official chart with `temporal/helm-values.ha.yaml` (separate
+frontend/history/matching at `replicas >= 2`, backed by an HA database):
 
-For real HA, switch to the `temporalio/temporal` helm chart (separate
-frontend/history/matching, `replicas >= 2`) or Temporal Cloud, backed by a
-managed HA Postgres — auto-setup is fine for educational / single-region
-deploys but lacks rolling-upgrade orchestration. See
+```bash
+helm repo add temporal https://go.temporal.io/helm-charts
+helm install temporal temporal/temporal \
+  -n nojv-temporal --create-namespace \
+  -f infra/gcp/gke/temporal/helm-values.ha.yaml
+```
+
+See [`temporal/HA-PRODUCTION.md`](temporal/HA-PRODUCTION.md) for the full set of
+options (Temporal Cloud vs self-hosted HA) and
 [Reliability Invariants](../../../docs/operations/RELIABILITY.md).
 
 ## Why No Autoscaler on the Worker
@@ -145,17 +153,23 @@ layer itself is a bottleneck.
 
 > **Preflight (do not skip):** judging _silently_ fails to schedule without an
 > autoscaling `nojv-role=sandbox` pool — sandbox Jobs sit `Pending` forever and
-> nothing in `kubectl apply` errors. Step 1 below is mandatory before any
-> manifests are applied.
+> nothing in the Helm install errors. Step 1 below is mandatory before the chart
+> is installed.
 
 1. Create the two node pools — run `infra/gcp/scripts/create-node-pools.sh`
    (`CLUSTER_NAME=... REGION=...`), or the equivalent `gcloud` commands under
    [Node Pool Layout](#node-pool-layout-required).
-2. Replace `PROJECT_ID` and image tags in `worker.deployment.yaml`.
-3. Create a real `nojv-runtime-secrets` secret with the Cloud SQL / Memorystore connection strings **and the object-storage credentials** (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the worker reads submission sources and writes verdict blobs through `@nojv/storage`, so judging fails without them.
-4. Apply the worker manifests:
-   `kubectl apply -k infra/gcp/gke`
-5. Apply the sandbox namespace manifests:
-   `kubectl apply -f infra/k8s/sandbox`
+2. Install the **CloudNativePG operator** cluster-wide (when `postgres.mode=cnpg`,
+   the GKE default) so the chart can render the Postgres `Cluster` / `ScheduledBackup`.
+3. Install **Temporal** via the official Helm chart (see
+   [Temporal Server](#temporal-server)).
+4. Create a real `nojv-runtime-secrets` secret with the Cloud SQL / Memorystore connection strings **and the object-storage credentials** (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the worker reads submission sources and writes verdict blobs through `@nojv/storage`, so judging fails without them.
+5. Install the chart, pinning the image tag `deploy.sh` printed:
+   ```bash
+   helm upgrade --install nojv infra/charts/nojv \
+     -f infra/charts/nojv/values-gke.yaml \
+     -n nojv --create-namespace \
+     --set image.tag=<TAG>
+   ```
 
 This keeps the public control plane separate from the execution namespace while avoiding a long-lived sandbox service.

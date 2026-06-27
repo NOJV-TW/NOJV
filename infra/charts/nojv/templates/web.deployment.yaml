@@ -1,0 +1,178 @@
+{{/*
+Web Deployment — ported from infra/gcp/web.cloudrun.yaml. Web now runs IN GKE
+(not Cloud Run), fronted by Cloudflare. Keeps the /api/healthz startup+liveness
+probes. Secrets come from the runtime secret (never templated here).
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-web
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  {{- if not .Values.web.hpa.enabled }}
+  replicas: {{ .Values.web.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-web
+    spec:
+      terminationGracePeriodSeconds: 60
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: {{ include "nojv.image" (dict "root" . "component" "web") }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          ports:
+            - containerPort: {{ .Values.web.containerPort }}
+              name: http
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.web.nodeEnv | quote }}
+            - name: PORT
+              value: {{ .Values.web.containerPort | quote }}
+            - name: EXECUTION_BACKEND
+              value: {{ .Values.web.executionBackend | quote }}
+            - name: DB_POOL_MAX
+              value: {{ .Values.web.dbPoolMax | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+            {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REDIS_URL
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: BETTER_AUTH_SECRET
+            - name: BETTER_AUTH_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: BETTER_AUTH_URL
+            - name: EDGE_TRUST_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: EDGE_TRUST_SECRET
+            - name: GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GITHUB_CLIENT_ID
+                  optional: true
+            - name: GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GITHUB_CLIENT_SECRET
+                  optional: true
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GOOGLE_CLIENT_ID
+                  optional: true
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GOOGLE_CLIENT_SECRET
+                  optional: true
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ENDPOINT
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_REGION
+                  optional: true
+          startupProbe:
+            httpGet:
+              path: /api/healthz
+              port: {{ .Values.web.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: {{ .Values.web.containerPort }}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+        {{- if .Values.cloudsqlProxy.enabled }}
+        - name: cloudsql-proxy
+          image: {{ .Values.postgres.cloudsql.proxyImage }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - --address=127.0.0.1
+            - --port=5432
+            - --private-ip
+            - --structured-logs
+            - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
+          env:
+            - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

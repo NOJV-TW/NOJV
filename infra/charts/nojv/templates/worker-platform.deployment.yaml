@@ -1,0 +1,170 @@
+{{/*
+PLATFORM Deployment — runs PLATFORM_TASK_QUEUE only (lifecycle reconciler,
+submission sweeper, plagiarism). It never creates sandbox Jobs, but the worker
+env schema still validates the full kubernetes config at boot, so the
+K8s/sandbox vars below are required to avoid a crashloop.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-worker-platform
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker-platform
+spec:
+  replicas: {{ .Values.worker.platform.replicas }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-worker-platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-worker-platform
+        nojv-role: worker
+    spec:
+      serviceAccountName: {{ include "nojv.fullname" . }}-worker
+      terminationGracePeriodSeconds: 120
+      {{- with .Values.worker.platform.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: {{ include "nojv.image" (dict "root" . "component" "worker") }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          env:
+            - name: PORT
+              value: "8080"
+            - name: WORKER_MODE
+              value: platform
+            - name: EXECUTION_BACKEND
+              value: kubernetes
+            - name: K8S_NAMESPACE
+              value: {{ include "nojv.sandboxNamespace" . }}
+            - name: SANDBOX_IMAGE
+              value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
+            - name: EGRESS_PROXY_IMAGE
+              value: {{ include "nojv.image" (dict "root" . "component" "egressProxy") }}
+            - name: WORKER_CONCURRENCY
+              value: {{ .Values.worker.platform.concurrency | quote }}
+            - name: K8S_CPU_REQUEST
+              value: {{ .Values.worker.sandbox.cpuRequest | quote }}
+            - name: K8S_CPU_LIMIT
+              value: {{ .Values.worker.sandbox.cpuLimit | quote }}
+            - name: K8S_MEMORY_REQUEST
+              value: {{ .Values.worker.sandbox.memoryRequest | quote }}
+            - name: K8S_MEMORY_LIMIT
+              value: {{ .Values.worker.sandbox.memoryLimit | quote }}
+            {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REDIS_URL
+            - name: TEMPORAL_ADDRESS
+              value: {{ .Values.temporal.address | quote }}
+            - name: TEMPORAL_NAMESPACE
+              value: {{ .Values.temporal.namespace | quote }}
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ENDPOINT
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+            - name: GRAFANA_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GRAFANA_OTLP_ENDPOINT
+                  optional: true
+            - name: GRAFANA_OTLP_INSTANCE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GRAFANA_OTLP_INSTANCE_ID
+                  optional: true
+            - name: GRAFANA_OTLP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GRAFANA_OTLP_TOKEN
+                  optional: true
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          ports:
+            - containerPort: 8080
+              name: health
+          resources:
+            {{- toYaml .Values.worker.platform.resources | nindent 12 }}
+        {{- if .Values.cloudsqlProxy.enabled }}
+        - name: cloudsql-proxy
+          image: {{ .Values.postgres.cloudsql.proxyImage }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - --address=127.0.0.1
+            - --port=5432
+            - --private-ip
+            - --structured-logs
+            - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
+          env:
+            - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

@@ -46,7 +46,12 @@ Edit `.env` with your values. For local development the defaults work out of the
 
 > **Note:** Local storage is MinIO; `.env.example` ships the matching defaults (`S3_ENDPOINT=http://localhost:9000`, `S3_ACCESS_KEY`/`S3_SECRET_KEY=minioadmin`, `S3_BUCKET=nojv`). The storage client (`packages/storage/src/client.ts`) throws on boot if `S3_ENDPOINT`/`S3_ACCESS_KEY`/`S3_SECRET_KEY` are unset, so keep them set.
 
-## 3. Start Infrastructure
+## 3. Start Infrastructure (local development only)
+
+> Docker Compose is the **local development** path — it starts the backing
+> services as containers so you can run the app from source with `pnpm dev`. It
+> is not a deployment method; production deploys via the Helm chart (see the
+> [Deployment Guide](../operations/DEPLOYMENT.md)).
 
 ```bash
 docker compose up -d

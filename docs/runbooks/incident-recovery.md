@@ -24,16 +24,15 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 ### Detection
 
 - Temporal Web UI shows a rising backlog of open workflows and no recent activity on task queues.
-- `kubectl get pods -n worker` (GKE) or Cloud Run worker service shows `CrashLoopBackOff` / zero ready replicas.
+- Workers run in-cluster in the `nojv` namespace as chart Deployments (`nojv-worker` judge, `nojv-worker-platform`). `kubectl get pods -n nojv -l app.kubernetes.io/component=worker` shows `CrashLoopBackOff` / zero ready replicas.
 - API endpoint contract: `POST /api/submissions` still returns 202 (record lands in DB) but `GET /api/submissions/[id]` never advances past `queued`.
 - Worker `/healthz` endpoint returns non-2xx or times out.
 
 ### Immediate Mitigation
 
 1. **Confirm worker is the culprit, not Temporal itself.** Check Temporal server pod / service — if Temporal is down, jump to its own recovery (it is PostgreSQL-backed, so restart typically suffices).
-2. **Restart the worker deployment:**
-   - GKE: `kubectl rollout restart deploy/worker -n <namespace>`
-   - Cloud Run: re-deploy the current image or bump a no-op env var to trigger a new revision.
+2. **Restart the worker deployment in-cluster:**
+   - `kubectl rollout restart deploy/nojv-worker -n nojv` (judge), and `kubectl rollout restart deploy/nojv-worker-platform -n nojv` if the platform worker is also affected.
 3. Temporal will auto-resume in-flight workflows as soon as a worker reconnects to the task queue — no data loss. Submissions queued during the outage pick up automatically.
 4. If restart fails to stabilise (crashloop continues), scale to zero, inspect logs from the last exit, then scale back.
 
@@ -47,7 +46,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ### Prevention
 
-- PodDisruptionBudget for worker (already in place — see `infra/gcp/gke/worker.pdb.yaml`).
+- PodDisruptionBudget for worker — chart-rendered (`infra/charts/nojv/templates/worker-pdb.yaml`, guarded by `pdb.enabled`).
 - GKE worker Deployment uses static replicas sized for peak submission rate (KEDA-based autoscaling removed in commit `c1ed096`; pending workflows queue in Temporal until capacity returns).
 - OOM and CPU throttling alerts on the worker pool.
 - Canary deploys for `apps/worker`; never promote to production without passing `pnpm ci:verify`.
@@ -81,7 +80,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 - Memory pressure: Redis holds only rate-limiter keys (`rl:*`), the admin-dashboard cache, the 10 s `nojv:sb-throttle:*` keys, and transient pub/sub — there are no scoreboard sorted sets. A leak here usually means a new key pattern skipped its TTL. Check `INFO memory`.
 - Recent changes to Redis key registry (`packages/redis/src/keys.ts`) — did a new key pattern skip TTL?
-- Network policy / firewall: did a recent `infra/k8s/` or Cloud Run ingress change block egress?
+- Network policy / firewall: did a recent chart NetworkPolicy change (`infra/charts/nojv/templates/app-network-policy.yaml`) or Cloudflare/Ingress change block egress?
 - rate-limiter-flexible internal leak: unlikely (library manages TTLs) but verify key count against expectations.
 
 ### Prevention
@@ -144,13 +143,13 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 ### Detection
 
 - Worker logs: `Failed to create sandbox pod`, `ImagePullBackOff`, `containerd: Unknown runtime`, or `Error response from daemon`.
-- GKE: `kubectl get pods -n sandbox` shows `Pending`, `OOMKilled`, or `ContainerCreating` stuck for > 30s.
+- GKE: `kubectl get pods -n nojv-sandbox` shows `Pending`, `OOMKilled`, or `ContainerCreating` stuck for > 30s.
 - Docker daemon logs (local / single-VM deploys): spawn errors, overlayfs mount failures.
-- `kubectl describe resourcequota -n sandbox` near or at limit.
+- `kubectl describe resourcequota -n nojv-sandbox` near or at limit.
 
 ### Immediate Mitigation
 
-1. **Check sandbox namespace quota first** — `kubectl describe resourcequota -n sandbox`. If pods are stuck at the quota ceiling from orphaned old pods, delete completed / failed pods: `kubectl delete pod -n sandbox --field-selector=status.phase=Failed`.
+1. **Check sandbox namespace quota first** — `kubectl describe resourcequota -n nojv-sandbox`. If pods are stuck at the quota ceiling from orphaned old pods, delete completed / failed pods: `kubectl delete pod -n nojv-sandbox --field-selector=status.phase=Failed`.
 2. **If the node pool is out of resources**, drain and replace the affected nodes, or scale the node pool up. Sandbox is pinned to a stable node pool (commit `c1ed096`) — verify that pool has capacity.
 3. **If the sandbox image fails to pull**, check the image registry and the `imagePullSecrets` on the sandbox namespace. Verify the last `pnpm sandbox:build` + push succeeded.
 4. **If the daemon itself is unhealthy** (local Docker or the containerd on a node), restart the daemon / cordon and replace the node.
@@ -160,7 +159,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 - Node resource pressure: `kubectl top nodes`, check for memory / CPU / ephemeral-storage saturation.
 - Recent sandbox image push: did a new base image introduce a seccomp incompatibility? Run the sandbox image smoke test.
-- Kubernetes network policy: `infra/k8s/sandbox/` changes? A new policy may have blocked required egress.
+- Kubernetes network policy: changes to the chart's sandbox policy (`infra/charts/nojv/templates/sandbox-policy.yaml`)? A new policy may have blocked required egress.
 - LimitRange / ResourceQuota: commit `486f608` added process count cap + LimitRange — verify limits match actual workload.
 - Advanced-mode custom images: a poisoned image uploaded by a problem author can stall the entire pool if resource limits are misconfigured. Check the problem most recently updated with a custom image.
 

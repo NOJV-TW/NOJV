@@ -11,8 +11,8 @@ server:
         driver: sql
         sql:
           driver: postgres12
-          # Point at an HA database — a regional Cloud SQL instance reached via the
-          # cloudsql-proxy sidecar (mirror worker.deployment.yaml), or CloudNativePG.
+          # Point at an HA database — a regional Cloud SQL instance reached via a
+          # cloudsql-proxy sidecar, or CloudNativePG (as the nojv chart provisions).
           # Do NOT use the single-pod in-cluster StatefulSet for production.
           host: cloudsql-proxy.nojv-temporal.svc.cluster.local
           port: 5432

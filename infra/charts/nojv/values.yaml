@@ -1,0 +1,247 @@
+# Default values for the NOJV umbrella chart.
+# These are SHARED defaults. Pick an environment overlay on top:
+#   -f values-single-machine.yaml   # k3s / kind, single node
+#   -f values-gke.yaml              # GKE, HA
+#
+# Secrets are NEVER templated here. Create the runtime secret out-of-band
+# (see secret.example.yaml) and reference it via secrets.runtimeSecretName.
+
+# Namespaces created by this chart.
+namespace: nojv
+sandboxNamespace: nojv-sandbox
+
+# Optional name overrides for the standard naming helpers.
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # registry + repositoryPrefix + per-component repo + tag compose the full ref:
+  #   <registry>/<repositoryPrefix>/<repo>:<tag>
+  # e.g. asia-east1-docker.pkg.dev/my-project/nojv/web:0.1.0
+  # Set registry to "" to use a bare repositoryPrefix (e.g. local kind images).
+  registry: asia-east1-docker.pkg.dev
+  repositoryPrefix: PROJECT_ID/nojv
+  # Defaults to .Chart.AppVersion when empty.
+  tag: ""
+  repositories:
+    web: web
+    worker: worker
+    sandbox: sandbox
+    egressProxy: egress-proxy
+    migrator: migrator
+
+# --- PostgreSQL ------------------------------------------------------------
+# mode controls how DATABASE_URL resolves (the literal string always lives in
+# the runtime secret; this just drives sidecars/CRs and documents intent):
+#   cnpg     -> in-cluster CloudNativePG Cluster; point DATABASE_URL at its -rw service.
+#   cloudsql -> Cloud SQL Auth Proxy sidecar on 127.0.0.1:5432.
+#   external -> any external Postgres; DATABASE_URL from the runtime secret verbatim.
+postgres:
+  mode: cnpg
+  cnpg:
+    # Requires the CloudNativePG operator installed cluster-wide (prerequisite).
+    instances: 1
+    imageName: ghcr.io/cloudnative-pg/postgresql:18
+    storageSize: 10Gi
+    storageClass: ""
+    database: nojv
+    owner: nojv
+    # Operator generates a Secret named <cluster>-app with the owner credentials.
+    # Use its -rw service host in DATABASE_URL:
+    #   postgresql://nojv:<pw>@<release>-pg-rw.<namespace>.svc.cluster.local:5432/nojv
+    backup:
+      enabled: false
+      # barman-cloud destination (S3/GCS). Used only when enabled.
+      destinationPath: ""
+      endpointURL: ""
+      # Name of a Secret with ACCESS_KEY_ID / ACCESS_SECRET_KEY keys for barman.
+      s3CredentialsSecret: ""
+      retentionPolicy: "30d"
+      # ScheduledBackup cron (6-field CNPG format: sec min hour dom mon dow).
+      schedule: "0 0 3 * * *"
+  cloudsql:
+    # PROJECT:REGION:INSTANCE — also wire CLOUDSQL_INSTANCE_CONNECTION_NAME into
+    # the runtime secret (the proxy sidecar reads it from there).
+    instanceConnectionName: PROJECT_ID:REGION:INSTANCE
+    proxyImage: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+
+# Cloud SQL Auth Proxy sidecar. Toggle true ONLY with postgres.mode=cloudsql.
+cloudsqlProxy:
+  enabled: false
+
+# --- Redis -----------------------------------------------------------------
+redis:
+  # inCluster true -> deploy a single-replica Redis Deployment+Service+PVC.
+  # When false, REDIS_URL must come from the runtime secret (Memorystore, etc.).
+  inCluster: true
+  image: redis:8-alpine
+  storageSize: 1Gi
+  storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# --- Object storage (S3) ---------------------------------------------------
+storage:
+  # inCluster true -> deploy MinIO (single node) Deployment+Service+PVC and
+  # set the worker/web S3_ENDPOINT to the in-cluster service. When false, S3_*
+  # come entirely from the runtime secret (GCS/R2/S3).
+  inCluster: true
+  bucket: nojv
+  region: auto
+  minio:
+    image: minio/minio:latest
+    storageSize: 10Gi
+    storageClass: ""
+    # MinIO root creds — referenced from the runtime secret (S3_ACCESS_KEY/S3_SECRET_KEY).
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# --- Temporal (separately installed prerequisite) --------------------------
+temporal:
+  address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
+  namespace: default
+
+# --- Secrets ---------------------------------------------------------------
+secrets:
+  # An EXISTING secret in the app namespace holding:
+  #   DATABASE_URL, REDIS_URL, S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY,
+  #   (web also) BETTER_AUTH_SECRET, BETTER_AUTH_URL, EDGE_TRUST_SECRET,
+  #   GITHUB_/GOOGLE_ OAuth, S3_REGION,
+  #   (optional) GRAFANA_OTLP_ENDPOINT/INSTANCE_ID/TOKEN,
+  #   (cloudsql) CLOUDSQL_INSTANCE_CONNECTION_NAME.
+  # See secret.example.yaml. This chart NEVER templates secret values.
+  runtimeSecretName: nojv-runtime-secrets
+
+# --- Web -------------------------------------------------------------------
+web:
+  replicas: 1
+  containerPort: 3000
+  nodeEnv: production
+  executionBackend: kubernetes
+  dbPoolMax: "10"
+  nodeSelector: {}
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 80
+  hpa:
+    enabled: false
+    min: 2
+    max: 15
+    targetCPU: 70
+  ingress:
+    # For a Cloudflare origin (Tunnel or proxied LB). Guarded.
+    enabled: false
+    className: ""
+    annotations: {}
+    host: nojv.example.com
+    path: /
+    pathType: Prefix
+    tls: []
+
+# --- Workers ---------------------------------------------------------------
+worker:
+  # WORKER_MODE=judge — creates sandbox Jobs, CPU-heavy.
+  judge:
+    replicas: 2
+    concurrency: "4"
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+  # WORKER_MODE=platform — reconciler/sweeper/plagiarism, never creates Jobs.
+  platform:
+    replicas: 1
+    concurrency: "4"
+    nodeSelector: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  # Per-sandbox Job resource hints handed to the kubernetes executor.
+  sandbox:
+    cpuRequest: "500m"
+    cpuLimit: "1"
+    memoryRequest: "256Mi"
+    memoryLimit: "512Mi"
+
+# PodDisruptionBudgets for the workers (and CNPG handles its own).
+pdb:
+  enabled: false
+  minAvailable: 1
+
+# --- Sandbox namespace policy ----------------------------------------------
+sandbox:
+  networkPolicy:
+    enabled: true
+  resourceQuota:
+    enabled: true
+    pods: "50"
+    requestsCpu: "25"
+    requestsMemory: "12Gi"
+  limitRange:
+    enabled: true
+    default:
+      cpu: "1"
+      memory: 512Mi
+    defaultRequest:
+      cpu: "500m"
+      memory: 256Mi
+    max:
+      cpu: "2"
+      memory: 1Gi
+    min:
+      cpu: "100m"
+      memory: 64Mi
+
+# --- App-namespace NetworkPolicy (worker egress) ---------------------------
+networkPolicy:
+  # The worker-egress policy from infra/gcp/gke/network-policy.yaml. The CIDRs
+  # are cluster-specific — fill them in for your cluster before enabling on GKE.
+  enabled: false
+  temporalNamespace: nojv-temporal
+  egress:
+    redisCidr: 10.64.0.10/32
+    cloudsqlCidr: 10.64.1.20/32
+    cloudsqlPort: 3307
+    googleApisCidrs:
+      - 199.36.153.4/30
+      - 199.36.153.8/30
+    apiServerCidrs:
+      - 10.96.0.1/32
+      - 172.16.0.32/28
+
+# --- Migrator (Helm pre-install/pre-upgrade hook Job) ----------------------
+migrator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  backoffLimit: 1

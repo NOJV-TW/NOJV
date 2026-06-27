@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,38 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
 
 const EGRESS_KEY = "nojv.egress";
+
+function helmAvailable(): boolean {
+  try {
+    execSync("helm version", { cwd: repoRoot, stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let renderedChart: string | undefined;
+function renderChart(): string {
+  if (renderedChart === undefined) {
+    renderedChart = execSync(
+      "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml",
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+  }
+  return renderedChart;
+}
+
+function isolateDoc(render: string, kind: string, name: string): string {
+  const doc = render
+    .split(/^---$/m)
+    .find(
+      (d) => new RegExp(`^kind:\\s*${kind}\\s*$`, "m").test(d) && d.includes(`name: ${name}`),
+    );
+  if (doc === undefined) {
+    throw new Error(`rendered chart has no ${kind}/${name}`);
+  }
+  return doc;
+}
 
 function denyAllSelectorExpressions(yaml: string): { key: string; operator: string }[] {
   const lines = yaml.split("\n");
@@ -54,49 +87,55 @@ function executorLabelSets(): Record<string, string>[] {
   return sets;
 }
 
-describe("NetworkPolicy deny-all relabel ↔ executor labels (sandbox isolation drift gate)", () => {
-  const denyAllManifests = [
-    "infra/k8s/sandbox/network-policy.yaml",
-    "infra/gcp/gke/network-policy.yaml",
-  ];
+const helm = helmAvailable();
+const describeHelm = helm ? describe : describe.skip;
+if (!helm) {
+  describe.skip("NetworkPolicy ↔ chart parity (skipped: helm not installed)", () => {
+    it.skip("requires helm to render infra/charts/nojv", () => {});
+  });
+}
 
-  it.each(denyAllManifests)(
-    "%s deny-all selects pods WITHOUT nojv.egress (DoesNotExist), so labeled pods escape it",
-    (path) => {
-      const yaml = readFileSync(join(repoRoot, path), "utf8");
-      const expressions = denyAllSelectorExpressions(yaml);
+describeHelm(
+  "NetworkPolicy deny-all relabel ↔ executor labels (sandbox isolation drift gate)",
+  () => {
+    it("sandbox deny-all selects pods WITHOUT nojv.egress (DoesNotExist), so labeled pods escape it", () => {
+      const denyAll = isolateDoc(renderChart(), "NetworkPolicy", "deny-all-sandbox");
+      const expressions = denyAllSelectorExpressions(denyAll);
       expect(
         expressions,
-        `${path} deny-all must select on 'nojv.egress DoesNotExist' so per-submission policies can widen labeled pods`,
+        "deny-all-sandbox must select on 'nojv.egress DoesNotExist' so per-submission policies can widen labeled pods",
       ).toContainEqual({ key: EGRESS_KEY, operator: "DoesNotExist" });
-    },
-  );
+    });
 
-  it("SECURITY: every plain sandbox pod the executor labels stays under deny-all (no nojv.egress)", () => {
-    const labelSets = executorLabelSets();
-    expect(labelSets.length).toBeGreaterThan(0);
-    for (const set of labelSets) {
-      expect(
-        set[EGRESS_KEY],
-        `executor labels ${JSON.stringify(set)} carry ${EGRESS_KEY} → would ESCAPE deny-all without a per-submission policy (standard/checker/interactive/none must stay denied)`,
-      ).toBeUndefined();
-      expect(set.app).toBe("nojv-sandbox");
-    }
-  });
+    it("SECURITY: every plain sandbox pod the executor labels stays under deny-all (no nojv.egress)", () => {
+      const labelSets = executorLabelSets();
+      expect(labelSets.length).toBeGreaterThan(0);
+      for (const set of labelSets) {
+        expect(
+          set[EGRESS_KEY],
+          `executor labels ${JSON.stringify(set)} carry ${EGRESS_KEY} → would ESCAPE deny-all without a per-submission policy (standard/checker/interactive/none must stay denied)`,
+        ).toBeUndefined();
+        expect(set.app).toBe("nojv-sandbox");
+      }
+    });
 
-  it("advanced run/grade builders emit the nojv.egress escape label so per-submission policies apply", () => {
-    const src = readFileSync(
-      join(repoRoot, "apps/worker/src/services/k8s-advanced.ts"),
-      "utf8",
-    );
-    expect(src).toContain('"nojv.egress": params.egressLabel');
-  });
-});
+    it("advanced run/grade builders emit the nojv.egress escape label so per-submission policies apply", () => {
+      const src = readFileSync(
+        join(repoRoot, "apps/worker/src/services/k8s-advanced.ts"),
+        "utf8",
+      );
+      expect(src).toContain('"nojv.egress": params.egressLabel');
+    });
+  },
+);
 
-describe("GKE worker NetworkPolicy egress boundary", () => {
-  const yaml = readFileSync(join(repoRoot, "infra/gcp/gke/network-policy.yaml"), "utf8");
+describeHelm("GKE worker NetworkPolicy egress boundary", () => {
+  function workerEgress(): string {
+    return isolateDoc(renderChart(), "NetworkPolicy", "worker-egress");
+  }
 
   it("does not allow broad worker egress CIDRs", () => {
+    const yaml = workerEgress();
     expect(yaml).not.toContain("cidr: 0.0.0.0/0");
     expect(yaml).not.toContain("cidr: 10.0.0.0/8");
     expect(yaml).not.toContain("cidr: 172.16.0.0/12");
@@ -104,10 +143,11 @@ describe("GKE worker NetworkPolicy egress boundary", () => {
   });
 
   it("does not allow worker egress over cleartext HTTP", () => {
-    expect(yaml).not.toMatch(/port:\s*80\b/);
+    expect(workerEgress()).not.toMatch(/port:\s*80\b/);
   });
 
   it("limits Redis and Cloud SQL private endpoints to exact IPv4 hosts", () => {
+    const yaml = workerEgress();
     const redisRule = /cidr:\s*(\d+\.\d+\.\d+\.\d+\/32)[\s\S]*?port:\s*6379\b/.exec(yaml);
     const cloudSqlRule = /cidr:\s*(\d+\.\d+\.\d+\.\d+\/32)[\s\S]*?port:\s*3307\b/.exec(yaml);
 
@@ -116,6 +156,7 @@ describe("GKE worker NetworkPolicy egress boundary", () => {
   });
 
   it("allows Google APIs only through private or restricted VIPs on TLS", () => {
+    const yaml = workerEgress();
     expect(yaml).toContain("cidr: 199.36.153.4/30");
     expect(yaml).toContain("cidr: 199.36.153.8/30");
     expect(yaml).toMatch(

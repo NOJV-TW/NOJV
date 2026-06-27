@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "nojv.namespace" . }}
+  labels:
+    name: {{ include "nojv.namespace" . }}
+    {{- include "nojv.labels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "nojv.sandboxNamespace" . }}
+  labels:
+    name: {{ include "nojv.sandboxNamespace" . }}
+    {{- include "nojv.labels" . | nindent 4 }}

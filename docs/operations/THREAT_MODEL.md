@@ -110,7 +110,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### Assumptions
 
-1. **TLS termination** happens at the load balancer or reverse proxy (Cloud Run, nginx). The application does not handle TLS directly.
+1. **TLS termination** happens at the edge / load balancer (Cloudflare, GKE Ingress). The application does not handle TLS directly.
 2. **Internal network** between SvelteKit, PostgreSQL, Redis, Temporal, and S3 is not routable from the public internet in production.
 3. **Single-tenant deployment** — one NOJV instance per organization. No multi-tenant isolation concerns.
 4. **Cloudflare is the sole ingress path in production** — `getClientIp(event)` reads `CF-Connecting-IP` only, refuses any fallback to `X-Forwarded-For` / socket address, and fails with 403 if the header is missing. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only).
@@ -235,7 +235,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Attacker stories:**
 
 - **Multi-account cheating**: Student uses multiple accounts to submit from different "identities". _Mitigation_: IP binding detects same-IP multi-account. Admin can view IP violation logs via `/api/exams/[examId]/ip-violations`. _Gap_: No device fingerprinting beyond IP. VPN/proxy can bypass IP binding.
-- **IP spoofing**: Attacker forges IP to bypass IP binding. _Mitigation_: In production the only trusted source is Cloudflare's `CF-Connecting-IP` header (CF edge overwrites any client-supplied value before the request leaves CF). Cloud Run Ingress = "Internal and Cloud Load Balancing" + GCLB Cloud Armor CIDR allowlist restrict ingress to CF's published IP ranges, so direct-to-origin requests carrying a forged `CF-Connecting-IP` cannot reach the app. `X-Forwarded-For` is **never** trusted — `getClientIp(event)` refuses to fall back to it. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only).
+- **IP spoofing**: Attacker forges IP to bypass IP binding. _Mitigation_: In production the only trusted source is Cloudflare's `CF-Connecting-IP` header (CF edge overwrites any client-supplied value before the request leaves CF). The web origin (GKE Ingress / LB) is restricted to Cloudflare via the Cloud Armor CIDR allowlist, so direct-to-origin requests carrying a forged `CF-Connecting-IP` cannot reach the app. `X-Forwarded-For` is **never** trusted — `getClientIp(event)` refuses to fall back to it. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only).
 - **Submission flooding during contest**: Attacker floods submissions to degrade service for other participants. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest `submitCooldownSec` via Redis. Rate limit is per-IP, cross-instance.
 - **Scoreboard manipulation**: Attacker modifies Redis sorted set directly. _Mitigation_: Redis is on internal network only, not publicly accessible. Scores are always verified against PostgreSQL on final computation.
 - **Page lock bypass**: Student disables JavaScript or uses a non-browser client. _Mitigation_: Page lock is client-side enforcement (JavaScript visibility API). It is a deterrent, not a hard guarantee. _Gap_: Determined attacker can bypass with custom HTTP client.

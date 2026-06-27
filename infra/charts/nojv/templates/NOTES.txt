@@ -1,0 +1,36 @@
+NOJV {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}".
+
+Namespaces:
+  app      : {{ include "nojv.namespace" . }}
+  sandbox  : {{ include "nojv.sandboxNamespace" . }}
+
+Components:
+  web        : Deployment {{ include "nojv.fullname" . }}-web  (Service :{{ .Values.web.service.port }}{{ if .Values.web.hpa.enabled }}, HPA {{ .Values.web.hpa.min }}-{{ .Values.web.hpa.max }}{{ end }})
+  worker     : judge x{{ .Values.worker.judge.replicas }} + platform x{{ .Values.worker.platform.replicas }}
+  postgres   : mode={{ .Values.postgres.mode }}{{ if eq .Values.postgres.mode "cnpg" }} (CNPG Cluster {{ include "nojv.cnpgClusterName" . }}, instances {{ .Values.postgres.cnpg.instances }}){{ end }}
+  redis      : {{ if .Values.redis.inCluster }}in-cluster ({{ include "nojv.fullname" . }}-redis){{ else }}external (REDIS_URL from secret){{ end }}
+  storage    : {{ if .Values.storage.inCluster }}in-cluster MinIO ({{ include "nojv.fullname" . }}-minio){{ else }}external S3 (S3_* from secret){{ end }}
+  temporal   : {{ .Values.temporal.address }} (ns {{ .Values.temporal.namespace }})
+
+PREREQUISITES (NOT installed by this chart):
+  1. The runtime secret "{{ include "nojv.runtimeSecretName" . }}" must exist in
+     namespace {{ include "nojv.namespace" . }} (see secret.example.yaml).
+{{- if eq .Values.postgres.mode "cnpg" }}
+  2. The CloudNativePG operator must be installed cluster-wide
+     (this chart only renders the Cluster CR).
+{{- end }}
+  3. A Temporal Server must be reachable at {{ .Values.temporal.address }}.
+
+DATABASE_URL is read from the runtime secret in every postgres.mode:
+{{- if eq .Values.postgres.mode "cnpg" }}
+  point it at the CNPG -rw service: {{ include "nojv.cnpgClusterName" . }}-rw.{{ include "nojv.namespace" . }}.svc.cluster.local:5432
+{{- else if eq .Values.postgres.mode "cloudsql" }}
+  the cloudsql-proxy sidecar exposes it on 127.0.0.1:5432 (cloudsqlProxy.enabled={{ .Values.cloudsqlProxy.enabled }})
+{{- else }}
+  it points at your external Postgres verbatim
+{{- end }}
+
+The migrator Job runs automatically as a pre-install/pre-upgrade hook.
+
+Check rollout:
+  kubectl -n {{ include "nojv.namespace" . }} get deploy,pods

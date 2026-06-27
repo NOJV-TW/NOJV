@@ -108,10 +108,10 @@ tests run without these.
 
 ## Production deployment
 
-### Web (Cloud Run)
+### Web (in-cluster)
 
-Inject via GCP Secret Manager → Cloud Run env. The three required
-secrets:
+Inject the three required secrets through the chart's runtime secret (the same
+`nojv-runtime-secrets` the web Deployment references):
 
 - `GRAFANA_OTLP_ENDPOINT`
 - `GRAFANA_OTLP_INSTANCE_ID`
@@ -121,13 +121,12 @@ Optional: `OTEL_SERVICE_NAME_WEB` defaults to `nojv-web`.
 
 The web SDK relies on the SvelteKit adapter-node lifecycle for shutdown.
 There is **no explicit flush** — the last 0–30s of metrics may be lost if
-the container is killed mid-interval. Accepted trade-off; Cloud Run
-revisions are short-lived and rolling, so the sample loss is negligible
-over time.
+the container is killed mid-interval. Accepted trade-off; rolling Pod
+replacements are short-lived, so the sample loss is negligible over time.
 
-### Worker (GKE)
+### Worker (in-cluster)
 
-Same three OTLP secrets injected as Kubernetes Secrets in the worker
+Same three OTLP secrets from the runtime secret on the worker
 Deployment. Optional: `OTEL_SERVICE_NAME_WORKER` defaults to `nojv-worker`.
 
 Unlike the web, the worker **does** have an explicit shutdown hook.
@@ -291,8 +290,8 @@ likewise configured in the UI under **Alerting → Contact points**.
 4. Revoke the old token from the same Service Account page.
 
 OTLP push tokens (`glc_*`) rotate via **Cloud Portal → Access policies →
-nojv-otlp-push → Tokens**. Same flow: create new, swap into env, restart
-processes (Cloud Run revision / kubectl rollout), revoke old.
+nojv-otlp-push → Tokens**. Same flow: create new, swap into the runtime secret,
+restart the affected Deployment (`kubectl rollout restart`), revoke old.
 
 ## Disabling telemetry
 

@@ -2,13 +2,17 @@
 
 ## The problem this solves
 
-The shipped GKE manifests run Temporal as a **single `temporalio/auto-setup` replica** backed by a
-**single-pod in-cluster Postgres** StatefulSet (`temporal-server.yaml`, `postgres.yaml`). That is the
-**dominant availability gap**: any node drain / GKE upgrade / zone loss stops _all_ judging, exam
-auto-close, and contest lifecycle until the pod reschedules; PVC loss permanently destroys every
-in-flight timer. The interim mitigations already shipped (PodDisruptionBudget, node pinning, daily
-`pg_dump` to GCS — see `temporal.pdb.yaml`, `scripts/setup-backups.sh`) only narrow the window; they
-do **not** remove the single point of failure.
+A **single `temporalio/auto-setup` replica** backed by a **single-pod Postgres** is the historical
+availability gap: any node drain / GKE upgrade / zone loss stops _all_ judging, exam auto-close, and
+contest lifecycle until the pod reschedules; PVC loss permanently destroys every in-flight timer. The
+old interim mitigations (a single-replica StatefulSet plus PodDisruptionBudget, node pinning, and a
+daily `pg_dump` to GCS) only narrowed the window and have since been retired — Temporal is no longer
+vendored as manifests in this repo.
+
+Today single-machine deploys run a **single-replica Temporal** (auto-setup) via the official chart —
+acceptable for local dev / low-stakes use, with the SPOF understood. Production removes the SPOF by
+using **Temporal Cloud (Option A)** or **self-hosting HA via the official chart (Option B)**, backed
+by a highly-available database.
 
 **Does self-hosting solve it? Yes — but only if you stop running the bundled single-replica
 `auto-setup` image and a single-pod database.** Temporal's frontend/history/matching/worker services
@@ -49,7 +53,8 @@ TEMPORAL_API_KEY=<api-key>          # implies TLS; OR use mTLS:
 # TEMPORAL_CLIENT_KEY_PATH=/etc/temporal/tls/client.key
 ```
 
-Then delete the in-cluster `temporal/` manifests from the kustomization. No code change.
+Then don't install the in-cluster Temporal chart; point the workers' `TEMPORAL_ADDRESS` at Temporal
+Cloud (set `temporal.address` in the `nojv` chart values). No code change.
 
 ---
 
@@ -59,14 +64,14 @@ Free software; you run it. Removes both SPOFs: 4 services at `replicas ≥ 2` + 
 Use the official chart (`temporalio/helm-charts`) rather than hand-rolled manifests — getting ringpop
 membership / schema setup right by hand is error-prone.
 
-**Database — pick one (do NOT keep the single-pod StatefulSet):**
+**Database — pick one (do NOT keep a single-pod Postgres):**
 
 - **Managed Cloud SQL (recommended):** a regional (HA) Cloud SQL Postgres instance. Gets automated
   backups + PITR + failover for free, and removes the `pg_dump`-to-GCS stopgap. Add a `temporal`
   database to the existing Cloud SQL or provision a dedicated instance; connect via the cloudsql-proxy
-  sidecar pattern already used by `worker.deployment.yaml`.
+  sidecar — the same pattern the `nojv` chart's worker Deployment templates use via `cloudsqlProxy.enabled`.
 - **In-cluster HA:** the CloudNativePG operator (Postgres cluster with `instances: 3`, synchronous
-  replication, scheduled backups to GCS).
+  replication, scheduled backups to GCS) — the same operator the `nojv` chart uses for its own Postgres.
 
 **Deploy (sketch — validate against the chart version you pin):**
 
@@ -86,11 +91,11 @@ Elasticsearch disabled, resources + node pinning). The workers then point at the
 
 ---
 
-## Option C — Keep single-node + interim mitigations (dev / low-stakes only)
+## Option C — Single-replica Temporal (dev / low-stakes only)
 
 For local dev or a low-stakes deployment where a minutes-long judging pause on a node event is
-acceptable, keep the current manifests with the shipped PDB + node pinning + daily `pg_dump` backup.
-**Do not call this production-HA.** This is the current default and the SPOF is documented.
+acceptable, run a single-replica Temporal via the official chart (auto-setup). **Do not call this
+production-HA.** This is the current single-machine default and the SPOF is documented.
 
 ---
 
