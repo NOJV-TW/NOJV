@@ -26,6 +26,7 @@ function createRateLimiter(
   keyPrefix: string,
   points: number,
   duration: number,
+  failMode: "open" | "closed" = "closed",
 ): RateLimiterLike {
   if (dev) {
     return new RateLimiterMemory({
@@ -40,20 +41,25 @@ function createRateLimiter(
     duration,
     keyPrefix,
   });
+  const memoryFallback =
+    failMode === "open"
+      ? new RateLimiterMemory({ points: points * multiplier, duration })
+      : null;
   return {
     keyPrefix,
     consume(key: string) {
       return redisLimiter.consume(key).catch((err: unknown) => {
         if (err instanceof RateLimiterRes) throw err;
+        if (memoryFallback) return memoryFallback.consume(key);
         throw new RateLimiterFailClosedError();
       });
     },
   };
 }
 
-export const apiRateLimiter = createRateLimiter("rl:api", 60, 60);
-export const writeApiRateLimiter = createRateLimiter("rl:write", 10, 60);
-const formActionRateLimiter = createRateLimiter("rl:form", 20, 60);
+export const apiRateLimiter = createRateLimiter("rl:api", 60, 60, "open");
+export const writeApiRateLimiter = createRateLimiter("rl:write", 10, 60, "open");
+const formActionRateLimiter = createRateLimiter("rl:form", 20, 60, "open");
 
 export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
 

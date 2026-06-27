@@ -419,7 +419,12 @@ describe("standard judge edge cases", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    const acVerdict = await judge(result.runCommand, makeTestcase(), DEFAULT_EXPECTED, TIMEOUT_MS);
+    const acVerdict = await judge(
+      result.runCommand,
+      makeTestcase(),
+      DEFAULT_EXPECTED,
+      TIMEOUT_MS,
+    );
     expect(acVerdict).toBe("AC");
 
     const waVerdict = await judge(result.runCommand, makeTestcase(), "999\n", TIMEOUT_MS);

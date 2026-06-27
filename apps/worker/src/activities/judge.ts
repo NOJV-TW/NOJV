@@ -143,7 +143,7 @@ function buildSandboxTestcases(
 function buildAdvancedPayload(
   judgeContext: submissionDomain.SubmissionJudgeContext,
 ): SandboxRequest["advanced"] | undefined {
-  if (judgeContext.problemType !== "special_env" || !judgeContext.advanced) {
+  if (submissionDomain.deriveJudgeMode(judgeContext) !== "advanced" || !judgeContext.advanced) {
     return undefined;
   }
   const ctx = judgeContext.advanced;

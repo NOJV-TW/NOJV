@@ -33,6 +33,7 @@ export const load: PageServerLoad = async (event) => {
     stats,
     recentSubmissions,
     username: actor.username,
+    platformRole: actor.platformRole,
     analytics,
     streamed,
   };

@@ -200,7 +200,12 @@ print(line.strip())`,
       isSample: true,
     };
 
-    const verdict = await judge(["python3", solutionFile], tc, "hello\tworld  test\n", TIMEOUT_MS);
+    const verdict = await judge(
+      ["python3", solutionFile],
+      tc,
+      "hello\tworld  test\n",
+      TIMEOUT_MS,
+    );
     expect(verdict.verdict).toBe("AC");
   }, 30_000);
 

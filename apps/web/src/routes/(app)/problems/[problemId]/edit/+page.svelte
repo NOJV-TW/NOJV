@@ -271,6 +271,7 @@
         <BasicInfoTab
           formData={data.form}
           problemId={data.problem.id}
+          showRuntimeLimits={data.problem.type !== "multi_file"}
           ondirtychange={(d) => (isDirty = d)}
         />
       {/snippet}

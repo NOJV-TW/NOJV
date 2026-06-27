@@ -20,6 +20,11 @@
     max-width: 100%;
   }
 
+  .markdown-content :global(img) {
+    max-width: 100%;
+    height: auto;
+  }
+
   .markdown-content :global(p) {
     margin: 0 0 1rem 0;
   }

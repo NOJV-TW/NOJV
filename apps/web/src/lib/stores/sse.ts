@@ -12,6 +12,7 @@ import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;
 const listeners = new Map<string, Set<(data: SSEEvent) => void>>();
+const submissionVerdictWatchers = new Map<string, Set<(verdict: string) => void>>();
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 let recoveryListenersRegistered = false;
@@ -63,6 +64,15 @@ export function connectSSE() {
 
       const data = parsed.data;
 
+      if (data.type === SSE_SUBMISSION_VERDICT) {
+        const watchers = submissionVerdictWatchers.get(data.submissionId);
+        if (watchers) {
+          for (const watcher of watchers) {
+            watcher(data.verdict);
+          }
+        }
+      }
+
       const typeListeners = listeners.get(data.type);
       if (typeListeners) {
         for (const listener of typeListeners) {
@@ -110,6 +120,31 @@ export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): ()
   return () => {
     listeners.get(type)?.delete(callback);
   };
+}
+
+export function watchSubmissionVerdict(
+  submissionId: string,
+  callback: (verdict: string) => void,
+): () => void {
+  let set = submissionVerdictWatchers.get(submissionId);
+  if (!set) {
+    set = new Set();
+    submissionVerdictWatchers.set(submissionId, set);
+  }
+  set.add(callback);
+
+  return () => {
+    const current = submissionVerdictWatchers.get(submissionId);
+    if (!current) return;
+    current.delete(callback);
+    if (current.size === 0) {
+      submissionVerdictWatchers.delete(submissionId);
+    }
+  };
+}
+
+export function isSSEConnected(): boolean {
+  return eventSource !== null;
 }
 
 function reconnectIfConnected(): void {

@@ -251,7 +251,7 @@
       <header class="mb-6 flex items-center gap-3">
         <span
           class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          >5</span
+          >4</span
         >
         <div>
           <h2 class="text-title-sm font-medium">
@@ -399,7 +399,7 @@
       <header class="mb-6 flex items-center gap-3">
         <span
           class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          >6</span
+          >5</span
         >
         <div>
           <h2 class="text-title-sm font-medium">

@@ -28,7 +28,7 @@ function makeDisconnectedRedis(): object {
   };
 }
 
-describe("rate limiter fail-closed in production", () => {
+describe("rate limiter fail modes in production", () => {
   beforeEach(() => {
     vi.resetModules();
   });
@@ -44,7 +44,7 @@ describe("rate limiter fail-closed in production", () => {
     await expect(mod.apiRateLimiter.consume("ip-dev")).resolves.toBeDefined();
   });
 
-  it("fails closed in production when Redis rejects consume", async () => {
+  it("auth limiters fail CLOSED when Redis is down in production", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
     vi.doMock("@nojv/redis", () => ({
       createRateLimiterConnection: makeDisconnectedRedis,
@@ -52,15 +52,30 @@ describe("rate limiter fail-closed in production", () => {
     mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
-    await expect(mod.apiRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
+    await expect(mod.signInRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
       mod.__test.RateLimiterFailClosedError,
     );
-    await expect(mod.writeApiRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
+    await expect(mod.otpSendRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
+      mod.__test.RateLimiterFailClosedError,
+    );
+    await expect(mod.stepUpAttemptRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
       mod.__test.RateLimiterFailClosedError,
     );
   });
 
-  it("consumeFormRateLimitInternal returns 429 fail() when Redis is down in production", async () => {
+  it("api/write limiters fail OPEN to an in-process limiter when Redis is down (availability over fail-closed)", async () => {
+    vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
+    vi.doMock("@nojv/redis", () => ({
+      createRateLimiterConnection: makeDisconnectedRedis,
+    }));
+    mockClientIp();
+
+    const mod = await import("$lib/server/shared/rate-limiter");
+    await expect(mod.apiRateLimiter.consume("ip-prod")).resolves.toBeDefined();
+    await expect(mod.writeApiRateLimiter.consume("ip-prod")).resolves.toBeDefined();
+  });
+
+  it("consumeFormRateLimitInternal fails OPEN (returns null) when Redis is down in production", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
     vi.doMock("@nojv/redis", () => ({
       createRateLimiterConnection: makeDisconnectedRedis,
@@ -70,10 +85,7 @@ describe("rate limiter fail-closed in production", () => {
     const mod = await import("$lib/server/shared/rate-limiter");
     const fakeEvent = {} as unknown as Parameters<typeof mod.consumeFormRateLimitInternal>[0];
     const result = await mod.consumeFormRateLimitInternal(fakeEvent);
-    expect(result).not.toBeNull();
-    const failObj = result as unknown as { status: number; data: { error: string } };
-    expect(failObj.status).toBe(429);
-    expect(failObj.data.error).toMatch(/too many requests/i);
+    expect(result).toBeNull();
   });
 });
 

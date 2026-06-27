@@ -3,6 +3,7 @@
   import { Search, X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import FilterChips from "$lib/components/primitives/ui/FilterChips.svelte";
+  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import type { PageData } from "./$types";
@@ -54,10 +55,14 @@
     return trimmed.length > 0 ? trimmed.charAt(0) : "?";
   }
 
-  async function handleRemove(userId: string, label: string) {
-    if (!confirm(m.members_removeConfirm({ name: label }))) return;
+  let pendingRemove = $state<{ userId: string; name: string } | null>(null);
+
+  async function confirmRemove() {
+    const target = pendingRemove;
+    pendingRemove = null;
+    if (!target) return;
     const body = new FormData();
-    body.set("userId", userId);
+    body.set("userId", target.userId);
     const res = await fetch("?/remove", { method: "POST", body });
     if (res.ok) {
       await invalidateAll();
@@ -191,7 +196,7 @@
                 type="button"
                 class="rounded-sm p-1.5 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
                 aria-label={m.members_removeAction()}
-                onclick={() => handleRemove(member.userId, member.name)}
+                onclick={() => (pendingRemove = { userId: member.userId, name: member.name })}
               >
                 <X aria-hidden="true" class="size-4" />
               </button>
@@ -209,4 +214,14 @@
       </p>
     {/if}
   </div>
+
+  <ConfirmDialog
+    open={pendingRemove !== null}
+    title={m.members_removeAction()}
+    message={pendingRemove ? m.members_removeConfirm({ name: pendingRemove.name }) : ""}
+    confirmText={m.members_removeAction()}
+    variant="danger"
+    onconfirm={confirmRemove}
+    oncancel={() => (pendingRemove = null)}
+  />
 </PageContainer>
