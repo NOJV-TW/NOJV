@@ -72,51 +72,6 @@ import {
   SIDECAR_PORT,
 } from "./k8s-advanced-network";
 
-export {
-  buildRunConfigMapData,
-  buildInteractiveInteractorConfigMapData,
-  buildInteractiveSolutionConfigMapData,
-  buildTestcaseConfigMapData,
-  buildValidateConfigMapData,
-  computeJobDeadlineSeconds,
-} from "./k8s-configmaps";
-export {
-  ADVANCED_GRADER_NAME,
-  ADVANCED_INIT_NAME,
-  ADVANCED_RESULT_MARKER_BEGIN,
-  ADVANCED_RESULT_MARKER_END,
-  ADVANCED_RUN_NAME,
-  ADVANCED_SIDECAR_NAME,
-  ADVANCED_TRANSFER_NAME,
-  advancedPvcName,
-  buildAdvancedConfigMapData,
-  buildAdvancedGradeConfigMapData,
-  buildAdvancedGradeJobManifest,
-  buildAdvancedInitScript,
-  buildAdvancedPvcManifest,
-  buildAdvancedRunJobManifest,
-  buildAdvancedTailScript,
-  buildAdvancedTransferScript,
-  buildAdvancedTransferWaitScript,
-  deriveRunStatusFromJob,
-  parseAdvancedResultLog,
-} from "./k8s-advanced";
-export {
-  buildInteractiveJobManifest,
-  buildInteractorContainerCommand,
-  buildPerCaseSandboxJobManifest,
-  buildSandboxJobManifest,
-  buildSolutionContainerCommand,
-  COMPILE_CONTAINER_NAME,
-  INTERACTIVE_SOCKET_PORT,
-  perCaseContainerName,
-} from "./k8s-job-manifests";
-export type {
-  InteractiveJobManifestParams,
-  PerCaseSandboxJobManifestParams,
-  SandboxJobManifestParams,
-} from "./k8s-job-manifests";
-
 const logger = createLogger("k8s-executor");
 
 export interface K8sExecutorConfig {
@@ -192,18 +147,12 @@ function parseValidatorOutcomesFromLogs(
 }
 
 function parseCompilationError(logs: string): string | null {
-  const lines = logs.trim().split("\n");
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const trimmed = (lines[i] ?? "").trim();
-    if (!trimmed.startsWith("{")) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as { compilationError?: unknown };
-      return typeof parsed.compilationError === "string" ? parsed.compilationError : null;
-    } catch {
-      continue;
-    }
-  }
-  return null;
+  return (
+    scanJsonLinesFromEnd(logs, (json) => {
+      const { compilationError } = json as { compilationError?: unknown };
+      return { value: typeof compilationError === "string" ? compilationError : null };
+    })?.value ?? null
+  );
 }
 
 export class K8sExecutor implements SandboxExecutor {

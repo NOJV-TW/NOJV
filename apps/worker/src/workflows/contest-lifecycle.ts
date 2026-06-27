@@ -1,5 +1,5 @@
 import { proxyActivities, sleep } from "@temporalio/workflow";
-import type { ContestLifecycleInput } from "@nojv/temporal";
+import type { ContestLifecycleInput } from "@nojv/core";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 

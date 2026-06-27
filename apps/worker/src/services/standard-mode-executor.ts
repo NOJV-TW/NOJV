@@ -124,14 +124,6 @@ export async function writeSubmissionFiles(
     );
   }
 
-  fileWrites.push(
-    writeFile(
-      join(tempDir, "config.json"),
-      JSON.stringify(buildSandboxConfigJson(request, sourceFileMap)),
-      "utf8",
-    ),
-  );
-
   await Promise.all(fileWrites);
 
   const testcasesDir = join(tempDir, "testcases");

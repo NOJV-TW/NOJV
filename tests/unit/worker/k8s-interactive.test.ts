@@ -2,13 +2,15 @@ import type { SandboxRequest, SandboxTestcase } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
 import {
-  INTERACTIVE_SOCKET_PORT,
   buildInteractiveInteractorConfigMapData,
-  buildInteractiveJobManifest,
   buildInteractiveSolutionConfigMapData,
+} from "../../../apps/worker/src/services/k8s-configmaps";
+import {
+  INTERACTIVE_SOCKET_PORT,
+  buildInteractiveJobManifest,
   buildInteractorContainerCommand,
   buildSolutionContainerCommand,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/services/k8s-job-manifests";
 
 const STUDENT_SOURCE = "print(input())";
 const SECRET_INPUT = "SECRET_INPUT_42\n";

@@ -4,6 +4,7 @@ import {
   submissionResultSchema,
   type AdvancedConfig,
   type Language,
+  type RejudgeInput,
   type SandboxExecutor,
   type SandboxRequest,
   type SubmissionDraft,
@@ -13,7 +14,6 @@ import { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
 import { heartbeat } from "@temporalio/activity";
 
-import type { RejudgeInput } from "@nojv/temporal";
 import { enforceMemoryLimit } from "../services/check-standard";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 

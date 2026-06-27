@@ -172,22 +172,6 @@ export async function listForUserWithCards(userId: string): Promise<{
   return { enrolled, managing };
 }
 
-export async function listUserAssignments(userId: string) {
-  const assignments = await assessmentRepo.listByUser(userId);
-
-  return assignments.map((a) => ({
-    closesAt: a.closesAt.toISOString(),
-    courseId: a.course.id,
-    courseTitle: a.course.title,
-    dueAt: a.dueAt?.toISOString() ?? null,
-    id: a.id,
-    opensAt: a.opensAt.toISOString(),
-    problemCount: a._count.problems,
-    summary: a.summary,
-    title: a.title,
-  }));
-}
-
 export async function getDashboardStats() {
   const [problems, courses] = await Promise.all([
     problemRepo.countPublic(),
@@ -213,60 +197,4 @@ export async function listUpcomingAssignments(userId: string) {
     opensAt: a.opensAt.toISOString(),
     title: a.title,
   }));
-}
-
-export interface GetAssignmentContextOptions {
-  viewerUserId: string;
-  viewerPlatformRole: PlatformRole;
-  now?: Date;
-}
-
-export interface AssignmentContextResult {
-  allowedLanguages: Language[];
-  courseId: string;
-  assignmentId: string;
-  timeStatus: "upcoming" | "open" | "closed";
-  viewerIsManager: boolean;
-}
-
-// intentional-nullable: caller needs absence for inaccessible assignment context.
-export async function getAssignmentContext(
-  courseId: string,
-  assignmentId: string,
-  options: GetAssignmentContextOptions,
-): Promise<AssignmentContextResult | null> {
-  const assignment = await assessmentRepo.findPublishedContextById(courseId, assignmentId);
-  if (!assignment) return null;
-
-  const now = options.now ?? new Date();
-  let timeStatus: "upcoming" | "open" | "closed" = "open";
-  if (now < assignment.opensAt) timeStatus = "upcoming";
-  else if (now > assignment.closesAt) timeStatus = "closed";
-
-  const isAdmin = options.viewerPlatformRole === "admin";
-  const membership = await courseMembershipRepo.findByComposite(
-    assignment.course.id,
-    options.viewerUserId,
-  );
-  const isCourseOwner = assignment.course.ownerId === options.viewerUserId;
-  const isCourseManager =
-    membership?.status === "active" &&
-    (membership.role === "teacher" || membership.role === "ta");
-  const isEnrolledStudent = membership?.status === "active" && membership.role === "student";
-
-  const viewerIsManager = isAdmin || isCourseManager || isCourseOwner;
-
-  if (!viewerIsManager) {
-    if (!isEnrolledStudent) return null;
-    if (timeStatus !== "open") return null;
-    if (assignment.course.archived) return null;
-  }
-
-  return {
-    allowedLanguages: assignment.allowedLanguages,
-    assignmentId: assignment.id,
-    courseId: assignment.course.id,
-    timeStatus,
-    viewerIsManager,
-  };
 }

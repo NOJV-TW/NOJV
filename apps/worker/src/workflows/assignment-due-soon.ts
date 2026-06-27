@@ -1,5 +1,5 @@
 import { proxyActivities, sleep } from "@temporalio/workflow";
-import type { AssignmentDueSoonInput } from "@nojv/temporal";
+import type { AssignmentDueSoonInput } from "@nojv/core";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { SHORT_ACTIVITY } from "./activity-options";
 
