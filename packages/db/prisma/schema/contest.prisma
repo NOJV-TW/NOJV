@@ -5,6 +5,7 @@ enum ContestVisibility {
 
 enum ContestScoringMode {
   problem_count
+  weighted_count
   point_sum
 }
 

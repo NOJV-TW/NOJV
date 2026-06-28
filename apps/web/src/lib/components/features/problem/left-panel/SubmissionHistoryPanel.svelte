@@ -31,12 +31,14 @@
     submissions?: ProblemSubmissionEntry[];
     viewingId?: string | null;
     canRejudge?: boolean;
+    total?: number;
   }
 
   let {
     submissions = $bindable([]),
     viewingId = $bindable(null),
     canRejudge = false,
+    total = 100,
   }: Props = $props();
 
   const viewingEntry = $derived(
@@ -208,7 +210,7 @@
           <span>{entry.language}</span>
           <span class="tabular-nums" title={m.submissionDetail_finalScoreHint()}>
             {m.submissionDetail_finalScoreLabel()}
-            {String(entry.result.score)}/100
+            {String(entry.result.score)}/{total}
           </span>
           <span class="tabular-nums">{formatSmartTimestamp(entry.submittedAt)}</span>
         </div>
@@ -280,7 +282,7 @@
               {#if entry.result.runtimeMs > 0}
                 <span class="tabular-nums">{String(entry.result.runtimeMs)} ms</span>
               {/if}
-              <span class="tabular-nums">{String(entry.result.score)}/100</span>
+              <span class="tabular-nums">{String(entry.result.score)}/{total}</span>
             {/if}
           </div>
         </button>

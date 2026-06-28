@@ -134,6 +134,7 @@ describe("createProblemDefinition", () => {
       run: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
       grade: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
       network: { mode: "none" as const },
+      maxScore: 100,
     };
     await createProblemDefinition(fakeTx, {
       ...baseInput,

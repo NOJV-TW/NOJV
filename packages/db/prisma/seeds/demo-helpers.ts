@@ -193,7 +193,7 @@ export function buildVerdictDetail(args: {
       };
     });
 
-    const score = verdict === "accepted" ? 100 : Math.round((earnedWeight / totalWeight) * 100);
+    const score = verdict === "accepted" ? totalWeight : earnedWeight;
     const accepted = verdict === "accepted";
 
     const detail: SubmissionResult = {
@@ -225,7 +225,8 @@ export function buildVerdictDetail(args: {
   });
 
   const accepted = verdict === "accepted";
-  const score = accepted ? 100 : 0;
+  const totalWeight = testcases.sets.reduce((sum, s) => sum + s.weight, 0);
+  const score = accepted ? (totalWeight > 0 ? totalWeight : 100) : 0;
 
   const detail: SubmissionResult = {
     accepted,

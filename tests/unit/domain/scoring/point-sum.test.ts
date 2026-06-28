@@ -139,6 +139,32 @@ describe("buildPointSumScoreboard", () => {
     expect(late.isFirstBlood).toEqual([false, true]);
   });
 
+  it("uses the per-problem max (problem total) so a full solve counts and a partial contributes its score", () => {
+    const problems = [mkProblem("P1", 1, 200)];
+    const participants = [mkParticipant("full"), mkParticipant("partial")];
+    const submissions = [
+      mkSub("partial", "P1", 120, 5, "wrong_answer"),
+      mkSub("full", "P1", 200, 10),
+    ];
+    const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
+
+    const full = board.find((e) => e.userId === "full")!;
+    const partial = board.find((e) => e.userId === "partial")!;
+
+    expect(full.totalScore).toBe(200);
+    expect(full.problems[0]!.score).toBe(200);
+    expect(full.problems[0]!.firstAcTime).toBe(10 * 60);
+    expect(full.isFirstBlood[0]).toBe(true);
+
+    expect(partial.totalScore).toBe(120);
+    expect(partial.problems[0]!.score).toBe(120);
+    expect(partial.problems[0]!.firstAcTime).toBeNull();
+    expect(partial.isFirstBlood[0]).toBe(false);
+
+    expect(board[0]!.userId).toBe("full");
+    expect(board[0]!.rank).toBe(1);
+  });
+
   it("does not grant first blood if the participant never reaches full points", () => {
     const problems = [mkProblem("P1", 1, 100)];
     const participants = [mkParticipant("u1")];

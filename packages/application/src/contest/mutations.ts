@@ -16,6 +16,8 @@ import {
   scoreboardModeSchema,
   slugSchema,
   type ContestCreate,
+  type ContestProblemInput,
+  type ContestScoringMode,
   type ContestUpdate,
   type Language,
 } from "@nojv/core";
@@ -26,7 +28,16 @@ export const contestFormSchema = z.object({
   endsAt: z.string().min(1),
   frozenAt: z.string().optional(),
   inviteCode: z.string().max(32).optional(),
-  problemIds: z.array(z.string().min(1)).default([]),
+  problems: z
+    .array(
+      z.object({
+        problemId: z.string().trim().min(1),
+        points: z.coerce.number().int().min(1).max(100_000).default(100),
+      }),
+    )
+    .min(1)
+    .max(32)
+    .default([{ problemId: "", points: 100 }]),
   scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("problem_count"),
   id: slugSchema,
@@ -47,6 +58,7 @@ import {
 import { requireContest, requireUser } from "../shared/require";
 import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 
@@ -55,13 +67,15 @@ export type { ActorContext };
 async function resolveAndAttachContestProblems(
   tx: TransactionClient,
   contestId: string,
-  problemIds: string[],
+  problems: ContestProblemInput[],
   allowedLanguages: Language[],
+  scoringMode: ContestScoringMode,
 ) {
-  const problems = await problemRepo.withTx(tx).findMany({
+  const problemIds = problems.map((p) => p.problemId);
+  const found = await problemRepo.withTx(tx).findMany({
     id: { in: problemIds },
   });
-  const problemById = new Map(problems.map((p) => [p.id, p]));
+  const problemById = new Map(found.map((p) => [p.id, p]));
 
   for (const id of problemIds) {
     if (!problemById.has(id)) {
@@ -76,13 +90,17 @@ async function resolveAndAttachContestProblems(
   }
 
   await Promise.all(
-    problemIds.map(async (id, index) => {
-      const problem = problemById.get(id);
+    problems.map(async (entry, index) => {
+      const problem = problemById.get(entry.problemId);
       if (!problem) return;
+      const points =
+        scoringMode === "weighted_count"
+          ? entry.points
+          : await getProblemTotalScore(tx, problem);
       await contestProblemRepo.withTx(tx).create({
         contestId,
         ordinal: index + 1,
-        points: 100,
+        points,
         problemId: problem.id,
       });
     }),
@@ -182,8 +200,9 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
     await resolveAndAttachContestProblems(
       tx,
       contest.id,
-      payload.problemIds,
+      payload.problems,
       payload.allowedLanguages,
+      payload.scoringMode,
     );
 
     return contest;
@@ -225,15 +244,17 @@ export async function updateContestRecord(
       await contestRepo.withTx(tx).update(contest.id, updateData);
     }
 
-    if (payload.problemIds !== undefined) {
+    const editable = contest.visibility === "draft" || contest.startsAt > new Date();
+    if (payload.problems !== undefined && editable) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
       const enforcedLanguages = payload.allowedLanguages ?? contest.allowedLanguages;
       await resolveAndAttachContestProblems(
         tx,
         contest.id,
-        payload.problemIds,
+        payload.problems,
         enforcedLanguages,
+        payload.scoringMode ?? contest.scoringMode,
       );
     }
 

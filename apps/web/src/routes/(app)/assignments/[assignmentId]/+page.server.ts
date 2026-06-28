@@ -11,7 +11,6 @@ import {
 
 const updateProblemsPayloadSchema = z.object({
   problemIds: z.array(z.string()).default([]),
-  points: z.record(z.string(), z.unknown()).default({}),
 });
 import {
   assignmentDomain,
@@ -193,16 +192,9 @@ export const actions = {
     const formData = await event.request.formData();
     const parsed = tryParseJsonField(formData.get("payload"), updateProblemsPayloadSchema);
     if (!parsed.ok) return fail(400, { error: "invalid_payload" });
-    const { problemIds, points: pointsMap } = parsed.data;
+    const { problemIds } = parsed.data;
 
-    const payload: AssessmentUpdate = {
-      problemIds,
-      problemOrdinals: problemIds.map((id) => {
-        const raw = pointsMap[id];
-        const n = typeof raw === "number" && Number.isFinite(raw) ? raw : 100;
-        return { problemId: id, points: n };
-      }),
-    };
+    const payload: AssessmentUpdate = { problemIds };
 
     try {
       await updateAssignmentRecord(actor, assignmentId, payload);

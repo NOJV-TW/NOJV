@@ -73,6 +73,7 @@ export function buildProblemCountScoreboard(
   submissions: SubmissionRow[],
   problems: ScoreboardProblem[],
   showFrozen: boolean,
+  usePoints = false,
 ): ScoreboardEntry[] {
   const frozenAt = session.frozenAt;
 
@@ -102,9 +103,10 @@ export function buildProblemCountScoreboard(
         session.startsAt,
         penaltyPerWrongSec,
       );
-      const score = result.solved ? prob.points : 0;
+      const solveValue = usePoints ? prob.points : 1;
+      const score = result.solved ? solveValue : 0;
       if (result.solved) {
-        totalScore += prob.points;
+        totalScore += solveValue;
         totalPenalty += result.penaltySeconds;
       }
 

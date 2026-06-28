@@ -93,7 +93,7 @@ export const submissionResultSchema = z.object({
   feedback: z.string().min(1).max(MAX_FEEDBACK_LEN),
   runtimeMs: z.number().int().nonnegative(),
   memoryKb: z.number().int().nonnegative().optional(),
-  score: z.number().int().min(0).max(100),
+  score: z.number().int().min(0),
   subtaskResults: z.array(subtaskResultItemSchema).max(1_000).optional(),
   verdict: submissionResultVerdictSchema,
 });

@@ -7,6 +7,7 @@ export {
   IP_VIOLATION_LOG_THROTTLE_SECONDS,
 } from "./proctoring/violation-logger";
 export { listExamIpViolations, listExamIpViolationsForActor } from "./exam/queries";
+export { computeProblemTotalScore, getProblemTotalScore } from "./problem/total-score";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
 export * as apiTokenDomain from "./api-token";

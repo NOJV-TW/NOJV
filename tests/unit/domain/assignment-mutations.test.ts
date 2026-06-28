@@ -10,6 +10,7 @@ const {
   courseMembershipFindByComposite,
   problemFindMany,
   problemWorkspaceFindByProblemId,
+  testcaseSetFindByProblemId,
   assessmentAuditCreate,
 } = vi.hoisted(() => ({
   assessmentFindById: vi.fn(),
@@ -21,6 +22,7 @@ const {
   courseMembershipFindByComposite: vi.fn(),
   problemFindMany: vi.fn(),
   problemWorkspaceFindByProblemId: vi.fn(),
+  testcaseSetFindByProblemId: vi.fn(),
   assessmentAuditCreate: vi.fn(),
 }));
 
@@ -60,6 +62,9 @@ vi.mock("@nojv/db", () => {
     },
     problemWorkspaceFileRepo: {
       findByProblemId: problemWorkspaceFindByProblemId,
+    },
+    testcaseSetRepo: {
+      withTx: () => ({ findByProblemId: testcaseSetFindByProblemId }),
     },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
@@ -130,6 +135,7 @@ describe("updateAssignmentRecord", () => {
     assessmentProblemCreate.mockResolvedValue({});
     problemFindMany.mockResolvedValue([]);
     problemWorkspaceFindByProblemId.mockResolvedValue([]);
+    testcaseSetFindByProblemId.mockResolvedValue([]);
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
       status: "active",
@@ -214,16 +220,20 @@ describe("updateAssignmentRecord", () => {
     ).rejects.toThrow(/permission/i);
   });
 
-  it("wipes and recreates attach rows when problemIds is provided", async () => {
+  it("stores each problem's total (Σ subtask weight) as its max", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ allowedLanguages: [] }));
-    problemFindMany.mockResolvedValue([{ id: "prob_a" }, { id: "prob_b" }]);
+    problemFindMany.mockResolvedValue([
+      { id: "prob_a", type: "full_source" },
+      { id: "prob_b", type: "full_source" },
+    ]);
+    testcaseSetFindByProblemId.mockImplementation(async (problemId: string) => {
+      if (problemId === "prob_a") return [{ weight: 40 }, { weight: 80 }];
+      if (problemId === "prob_b") return [{ weight: 200 }];
+      return [];
+    });
 
     await updateAssignmentRecord(teacherActor, "asg_1", {
       problemIds: ["prob_a", "prob_b"],
-      problemOrdinals: [
-        { problemId: "prob_a", points: 50 },
-        { problemId: "prob_b", points: 75 },
-      ],
     });
 
     expect(assessmentProblemDeleteByAssessmentId).toHaveBeenCalledWith("asg_1");
@@ -231,8 +241,8 @@ describe("updateAssignmentRecord", () => {
     const pointsByProblem = new Map(
       assessmentProblemCreate.mock.calls.map((c) => [c[0].problemId, c[0].points]),
     );
-    expect(pointsByProblem.get("prob_a")).toBe(50);
-    expect(pointsByProblem.get("prob_b")).toBe(75);
+    expect(pointsByProblem.get("prob_a")).toBe(120);
+    expect(pointsByProblem.get("prob_b")).toBe(200);
   });
 
   it("blocks changing opensAt once the assignment is open", async () => {

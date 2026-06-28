@@ -15,6 +15,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors
 import { getDomainOrchestration } from "../shared/orchestration";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 
 async function requireAssignment(tx: TransactionClient, assignmentId: string) {
@@ -93,7 +94,6 @@ async function replaceAssignmentProblems(
   assignmentId: string,
   problemIds: string[],
   allowedLanguages: Language[],
-  pointsByProblem: Map<string, number>,
 ) {
   const problems =
     problemIds.length === 0
@@ -117,10 +117,12 @@ async function replaceAssignmentProblems(
 
   await Promise.all(
     problemIds.map(async (id, index) => {
+      const problem = problemById.get(id);
+      if (!problem) return;
       await assessmentProblemRepo.withTx(tx).create({
         assessmentId: assignmentId,
         ordinal: index + 1,
-        points: pointsByProblem.get(id) ?? 100,
+        points: await getProblemTotalScore(tx, problem),
         problemId: id,
       });
     }),
@@ -176,17 +178,7 @@ export async function updateAssignmentRecord(
 
     if (payload.problemIds !== undefined) {
       const enforcedLanguages = payload.allowedLanguages ?? assignment.allowedLanguages;
-      const pointsByProblem = new Map<string, number>();
-      for (const row of payload.problemOrdinals ?? []) {
-        pointsByProblem.set(row.problemId, row.points);
-      }
-      await replaceAssignmentProblems(
-        tx,
-        assignment.id,
-        payload.problemIds,
-        enforcedLanguages,
-        pointsByProblem,
-      );
+      await replaceAssignmentProblems(tx, assignment.id, payload.problemIds, enforcedLanguages);
     }
 
     return {

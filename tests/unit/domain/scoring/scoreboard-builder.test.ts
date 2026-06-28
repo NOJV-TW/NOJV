@@ -50,7 +50,7 @@ describe("buildScoreboard (dispatcher)", () => {
     mkSub("u2", "P2", 50, 25, "wrong_answer"),
   ];
 
-  it("dispatches to ICPC when scoringMode=problem_count", () => {
+  it("problem_count (解題數): each solved problem is worth 1, ranked by penalty", () => {
     const board = buildScoreboard(
       session,
       "problem_count",
@@ -60,8 +60,25 @@ describe("buildScoreboard (dispatcher)", () => {
       false,
     );
     expect(board[0]!.userId).toBe("u1");
+    expect(board[0]!.totalScore).toBe(1);
+    expect(board[0]!.totalPenalty).toBe(5 * 60);
+    expect(board[1]!.totalScore).toBe(1);
+    expect(board[1]!.totalPenalty).toBe(15 * 60);
+  });
+
+  it("weighted_count (積分制): each solved problem is worth its points, all-or-nothing", () => {
+    const board = buildScoreboard(
+      session,
+      "weighted_count",
+      participants,
+      submissions,
+      problems,
+      false,
+    );
+    expect(board[0]!.userId).toBe("u1");
     expect(board[0]!.totalScore).toBe(100);
     expect(board[0]!.totalPenalty).toBe(5 * 60);
+    // u2's 50 on P2 is a wrong_answer → not solved → contributes nothing
     expect(board[1]!.totalScore).toBe(100);
     expect(board[1]!.totalPenalty).toBe(15 * 60);
   });
@@ -102,7 +119,7 @@ describe("buildScoreboardChartSeries", () => {
     expect(series[0]!.points).toEqual([{ time: 0, score: 0 }]);
   });
 
-  it("ICPC: increments cumulative score only on accepted submissions and ignores duplicates", () => {
+  it("problem_count: each accepted solve increments cumulative score by 1, ignoring duplicates", () => {
     const subsByUser = new Map([
       [
         "u1",
@@ -123,12 +140,31 @@ describe("buildScoreboardChartSeries", () => {
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
+      { time: 10 * 60, score: 1 },
+      { time: 30 * 60, score: 2 },
+    ]);
+  });
+
+  it("weighted_count: each accepted solve increments cumulative score by its points", () => {
+    const subsByUser = new Map([
+      ["u1", [mkSub("u1", "P1", 100, 10), mkSub("u1", "P2", 100, 30)]],
+    ]);
+    const series = buildScoreboardChartSeries(
+      SESSION_START,
+      "weighted_count",
+      ["u1"],
+      subsByUser,
+      new Map(),
+      pointsByProblem,
+    );
+    expect(series[0]!.points).toEqual([
+      { time: 0, score: 0 },
       { time: 10 * 60, score: 100 },
       { time: 30 * 60, score: 200 },
     ]);
   });
 
-  it("ICPC: wrong-answer submissions do not create chart points", () => {
+  it("problem_count: wrong-answer submissions do not create chart points", () => {
     const subsByUser = new Map([
       ["u1", [mkSub("u1", "P1", 0, 5, "wrong_answer"), mkSub("u1", "P1", 100, 10)]],
     ]);
@@ -142,7 +178,7 @@ describe("buildScoreboardChartSeries", () => {
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
-      { time: 10 * 60, score: 100 },
+      { time: 10 * 60, score: 1 },
     ]);
   });
 

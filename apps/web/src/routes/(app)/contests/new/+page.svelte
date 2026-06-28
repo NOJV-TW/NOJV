@@ -11,12 +11,19 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import CodeIcon from "@lucide/svelte/icons/code";
   import ListIcon from "@lucide/svelte/icons/list";
+  import PlusIcon from "@lucide/svelte/icons/plus";
+  import XIcon from "@lucide/svelte/icons/x";
   import { Card } from "$lib/components/primitives/ui/card/index.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
+  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
+  import {
+    contestScoringOptions,
+    contestScoringModeHelp,
+    contestModeUsesPoints,
+  } from "$lib/utils/contest-scoring";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
-  import ExamProblemPicker from "$lib/components/features/course/exam/ExamProblemPicker.svelte";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
 
@@ -42,8 +49,18 @@
     },
   );
 
+  const showPointsInput = $derived(contestModeUsesPoints($form.scoringMode));
+
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
+  }
+
+  function addProblem() {
+    $form.problems = [...$form.problems, { problemId: "", points: 100 }];
+  }
+
+  function removeProblem(index: number) {
+    $form.problems = $form.problems.filter((_, i) => i !== index);
   }
 </script>
 
@@ -151,17 +168,19 @@
         <span>{m.contestCreate_scoringMode()}</span>
       </div>
       <div>
-        <label class="text-sm font-medium" for="scoringMode"
-          >{m.contestCreate_scoringMode()}</label
-        >
+        <label class="flex items-center gap-1.5 text-sm font-medium" for="scoringMode">
+          {m.contestCreate_scoringMode()}
+          <HelpTooltip text={contestScoringModeHelp()} nowrap />
+        </label>
         <select
           class={inputClassName}
           id="scoringMode"
           name="scoringMode"
           bind:value={$form.scoringMode}
         >
-          <option value="problem_count">{m.contestCreate_scoringModeProblemCount()}</option>
-          <option value="point_sum">{m.contestCreate_scoringModePointSum()}</option>
+          {#each contestScoringOptions as opt (opt.value)}
+            <option value={opt.value}>{opt.label()}</option>
+          {/each}
         </select>
       </div>
 
@@ -300,11 +319,51 @@
         <ListIcon aria-hidden="true" class="h-4 w-4" />
         <span>{m.contestCreate_problemIds()}</span>
       </div>
-      <ExamProblemPicker
-        candidateProblems={data.candidateProblems}
-        bind:problemIds={$form.problemIds}
-        error={$errors.problemIds}
-      />
+      <div class="space-y-2">
+        {#each $form.problems as problem, i (i)}
+          <div class="flex items-center gap-2">
+            <span
+              class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
+            >
+              {String.fromCharCode(65 + i)}
+            </span>
+            <input
+              class={inputClassName}
+              type="text"
+              placeholder={m.contestCreate_problemIdsPlaceholder()}
+              bind:value={$form.problems[i]!.problemId}
+              aria-label={m.contestCreate_problemIds()}
+            />
+            {#if showPointsInput}
+              <input
+                class="{inputClassName} w-24 shrink-0"
+                type="number"
+                min="1"
+                step="1"
+                bind:value={$form.problems[i]!.points}
+                aria-label={m.contestCreate_problemPointsLabel()}
+              />
+            {/if}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={$form.problems.length <= 1}
+              onclick={() => removeProblem(i)}
+              aria-label={m.contestCreate_problemRemove()}
+            >
+              <XIcon aria-hidden="true" class="h-4 w-4" />
+            </Button>
+          </div>
+        {/each}
+        <Button type="button" variant="outline" size="sm" onclick={addProblem}>
+          <PlusIcon aria-hidden="true" class="h-4 w-4" />
+          {m.contestCreate_problemAdd()}
+        </Button>
+        {#if typeof $errors.problems === "string" || Array.isArray($errors.problems)}
+          <p class="mt-1 text-xs text-destructive">{m.contestCreate_problemsInvalid()}</p>
+        {/if}
+      </div>
 
       <Button type="submit" size="lg" loading={$submitting}>
         <TrophyIcon aria-hidden="true" class="h-4 w-4" />

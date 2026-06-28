@@ -7,6 +7,7 @@ import {
   problemTestcaseSetCreateSchema,
   safeRelativePath,
   submissionDraftSchema,
+  submissionResultSchema,
 } from "../../../packages/core/src/index";
 
 describe("submissionDraftSchema", () => {
@@ -137,6 +138,30 @@ describe("problemTestcaseSetCreateSchema", () => {
 
     expect(result.cases).toHaveLength(2);
     expect(result.weight).toBe(2);
+  });
+
+  it("accepts subtask weights above the old 0-100 cap", () => {
+    const parsed = problemTestcaseSetCreateSchema.safeParse({
+      cases: [{ output: "3\n", input: "1 2\n" }],
+      name: "Heavy Set",
+      weight: 150,
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe("submissionResultSchema", () => {
+  it("accepts total scores above the old 0-100 cap", () => {
+    const parsed = submissionResultSchema.safeParse({
+      accepted: true,
+      feedback: "All subtasks passed",
+      runtimeMs: 12,
+      score: 200,
+      verdict: "accepted",
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });
 

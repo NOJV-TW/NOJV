@@ -121,6 +121,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             run: { imageRef: "", imageSource: "registry" as const },
             grade: { imageRef: "", imageSource: "registry" as const },
             network: { mode: "none" as const },
+            maxScore: 100,
           },
           timeLimitMs: problem.timeLimitMs,
           memoryLimitMb: problem.memoryLimitMb,

@@ -225,6 +225,7 @@ describe("completeJudge — storage + DB write", () => {
       run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" as const },
       grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" as const },
       network: { mode: "none" as const },
+      maxScore: 100,
     };
 
     await completeJudge("sub_adv", makeResult({ verdict: "accepted", score: 100 }), config);
