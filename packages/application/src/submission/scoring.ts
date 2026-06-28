@@ -165,7 +165,11 @@ export function mapResult(
   const adjustmentRules = judgeContext.adjustment.assignmentAdjustmentRules ?? null;
 
   if (adjustmentRules && adjustmentRules.length > 0) {
-    const problemTotal = totalWeight > 0 ? totalWeight : 100;
+    const problemTotal = judgeContext.advanced
+      ? judgeContext.advanced.config.maxScore
+      : totalWeight > 0
+        ? totalWeight
+        : 100;
     const adjusted = applyAdjustmentRules({
       dueAt: judgeContext.adjustment.dueAt,
       finalDay: judgeContext.adjustment.finalDay,
