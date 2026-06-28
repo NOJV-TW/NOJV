@@ -122,7 +122,9 @@
           {verdictLabel}
         </p>
         <p class="text-display-sm font-semibold tabular-nums">
-          {submission.score}<span class="text-title-sm text-muted-foreground"> / 100</span>
+          {submission.score}<span class="text-title-sm text-muted-foreground">
+            / {submission.totalScore}</span
+          >
         </p>
       </div>
 
