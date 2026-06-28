@@ -1342,7 +1342,7 @@ ALTER TABLE "Submission"
   ADD CONSTRAINT "Submission_single_context_chk"
   CHECK (
     (
-      ("courseAssessmentId" IS NOT NULL)::int +
+      ("assessmentId" IS NOT NULL)::int +
       ("examId" IS NOT NULL)::int +
       ("contestId" IS NOT NULL)::int
     ) <= 1
@@ -1351,14 +1351,14 @@ ALTER TABLE "Submission"
 ALTER TABLE "SubmissionFeedback"
   ADD CONSTRAINT "SubmissionFeedback_single_context_chk"
   CHECK (
-    (("courseAssessmentId" IS NOT NULL)::int +
+    (("assessmentId" IS NOT NULL)::int +
      ("examId" IS NOT NULL)::int) = 1
   );
 
 ALTER TABLE "SubmissionFeedbackAuditLog"
   ADD CONSTRAINT "SubmissionFeedbackAuditLog_single_context_chk"
   CHECK (
-    (("courseAssessmentId" IS NOT NULL)::int +
+    (("assessmentId" IS NOT NULL)::int +
      ("examId" IS NOT NULL)::int) = 1
   );
 
