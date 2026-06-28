@@ -27,7 +27,12 @@ function mkSandbox(verdicts: SandboxVerdict[]): SandboxResult {
   return { testcaseResults: verdicts.map((v, i) => mkCase(i, v)) };
 }
 
-function mkSet(id: string, name: string, testcaseIds: string[], weight: number): TestcaseSetGroup {
+function mkSet(
+  id: string,
+  name: string,
+  testcaseIds: string[],
+  weight: number,
+): TestcaseSetGroup {
   return {
     id,
     name,
@@ -53,7 +58,11 @@ describe("mapResult — score is the sum of passed subtask weights (no 0–100 n
   ];
 
   it("full pass on a 80+120 problem scores the real total of 200", () => {
-    const result = mapResult(mkSandbox(["AC", "AC", "AC", "AC"]), sets as never, NO_ADJUSTMENT as never);
+    const result = mapResult(
+      mkSandbox(["AC", "AC", "AC", "AC"]),
+      sets as never,
+      NO_ADJUSTMENT as never,
+    );
 
     expect(result.verdict).toBe("accepted");
     expect(result.accepted).toBe(true);
@@ -61,7 +70,11 @@ describe("mapResult — score is the sum of passed subtask weights (no 0–100 n
   });
 
   it("passing only the first subtask scores that subtask's weight (80), not a percentage", () => {
-    const result = mapResult(mkSandbox(["AC", "AC", "AC", "WA"]), sets as never, NO_ADJUSTMENT as never);
+    const result = mapResult(
+      mkSandbox(["AC", "AC", "AC", "WA"]),
+      sets as never,
+      NO_ADJUSTMENT as never,
+    );
 
     expect(result.verdict).toBe("wrong_answer");
     expect(result.accepted).toBe(false);
@@ -69,7 +82,11 @@ describe("mapResult — score is the sum of passed subtask weights (no 0–100 n
   });
 
   it("passing only the second subtask scores that subtask's weight (120)", () => {
-    const result = mapResult(mkSandbox(["WA", "AC", "AC", "AC"]), sets as never, NO_ADJUSTMENT as never);
+    const result = mapResult(
+      mkSandbox(["WA", "AC", "AC", "AC"]),
+      sets as never,
+      NO_ADJUSTMENT as never,
+    );
 
     expect(result.verdict).toBe("wrong_answer");
     expect(result.accepted).toBe(false);

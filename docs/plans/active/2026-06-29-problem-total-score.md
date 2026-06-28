@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript ESM, Prisma 7, Zod 4, Vitest, SvelteKit. Scoring lives in `@nojv/application`, schemas in `@nojv/core`, repos in `@nojv/db`.
 
 **Scope decisions (confirmed in brainstorming):**
+
 - Model A: subtask weights ARE absolute points; problem total = `Σ weight`. (Single source of truth.)
 - Full scope: contest + exam + assignment.
 - No backward compatibility; reseed; **update the seed script**.
@@ -25,6 +26,7 @@
 ### Task 1.1: `getProblemTotalScore` helper
 
 **Files:**
+
 - Create: `packages/application/src/problem/total-score.ts`
 - Test: `tests/unit/domain/problem/total-score.test.ts`
 
@@ -38,7 +40,12 @@ import { computeProblemTotalScore } from "@nojv/application";
 
 describe("computeProblemTotalScore", () => {
   it("sums subtask weights for standard problems", () => {
-    expect(computeProblemTotalScore({ type: "full_source", testcaseSets: [{ weight: 80 }, { weight: 120 }] })).toBe(200);
+    expect(
+      computeProblemTotalScore({
+        type: "full_source",
+        testcaseSets: [{ weight: 80 }, { weight: 120 }],
+      }),
+    ).toBe(200);
   });
   it("returns 100 for special_env (advanced) problems", () => {
     expect(computeProblemTotalScore({ type: "special_env", testcaseSets: [] })).toBe(100);
@@ -91,6 +98,7 @@ Export both from `@nojv/application` (barrel in `packages/application/src/index.
 ### Task 1.2: remove 0–100 normalization in `scoring.ts`
 
 **Files:**
+
 - Modify: `packages/application/src/submission/scoring.ts:158-164` and `:201-230`
 - Test: `tests/unit/domain/scoring/*` + any `submission/scoring` test (find with `grep -rl mapResult tests`)
 
@@ -127,6 +135,7 @@ if (allAc && score >= totalWeight) {
 ### Task 1.3: lift the `.max(100)` Zod caps
 
 **Files (modify):**
+
 - `packages/core/src/schemas/submission.ts:96` — `score: z.number().int().min(0)` (drop `.max(100)`)
 - `packages/core/src/schemas/advanced-mode.ts:22` — keep `.max(100)` (advanced stays 100 per scope) **OR** raise only if Task scope expands; leave as-is for now and note it.
 - `packages/core/src/schemas/problem.ts:137,144,150` — subtask `weight` `.max(100)` → `.max(100_000)` (keep `min(1)` / `min(0)`).
@@ -139,6 +148,7 @@ if (allAc && score >= totalWeight) {
 ### Task 1.4: clamp + fallback use the problem total, not 100
 
 **Files:**
+
 - Modify: `packages/application/src/submission/adjustments.ts:153` (`clampScore` caps at 100) and `:54` (time-bonus can exceed total)
 - Modify: `packages/application/src/submission/queries.ts:304` (`fallbackResultForRow` → `accepted ? 100 : 0`)
 
@@ -155,10 +165,12 @@ if (allAc && score >= totalWeight) {
 ### Task 2.1: contest attach + `contestModeUsesPoints`
 
 **Files:**
+
 - Modify: `packages/application/src/contest/mutations.ts` (`resolveAndAttachContestProblems`, ~`:65-100`)
 - Modify: `apps/web/src/lib/utils/contest-scoring.ts` (`contestModeUsesPoints`)
 
 `resolveAndAttachContestProblems` must know the scoring mode (pass `scoringMode` in). Per problem:
+
 - `weighted_count` → `points = entry.points` (teacher award, current behaviour).
 - `point_sum` → `points = await getProblemTotalScore(tx, problem)` (snapshot; ignore any submitted `entry.points`).
 - `problem_count` → `points` irrelevant; set `getProblemTotalScore(...)` (or leave entry.points) — scoring uses `1` regardless.
@@ -188,12 +200,14 @@ No code change expected; add/confirm tests that `point-sum.ts:29/64` (`sub.score
 ## Phase 3 — UI / display
 
 ### Task 3.1: remove teacher points inputs
+
 - `apps/web/src/routes/(app)/courses/[courseId]/exams/new/+page.svelte` & exam settings — remove per-problem points field.
 - Assignment create/settings — remove per-problem points field.
 - `ExamProblemPicker.svelte` / assignment picker — drop points editing.
 - Contest already handled by Task 2.1 (`contestModeUsesPoints` hides point_sum input; settings/new use it).
 
 ### Task 3.2: `/100` → `/{problem total}`
+
 - `apps/web/src/lib/components/features/problem/left-panel/SubmissionHistoryPanel.svelte:211,283`
 - `apps/web/src/routes/(app)/submissions/+page.svelte:143`
 - `apps/web/src/routes/(app)/submissions/[submissionId]/+page.svelte:125`
@@ -201,6 +215,7 @@ No code change expected; add/confirm tests that `point-sum.ts:29/64` (`sub.score
 Each needs the problem total available. Thread it from the loader (compute via `computeProblemTotalScore` on the already-loaded problem/testcaseSets) and render `{score}/{total}`.
 
 ### Task 3.3: `TestcaseZipUploader.svelte`
+
 - `:102` auto-distribute: stop forcing `Math.round(100/count)`; let weights be authored freely.
 - `:226,230,257,261` — drop the `totalPoints === 100` requirement and `{totalPoints}/100`; display the running total as the problem's full score.
 
@@ -211,6 +226,7 @@ Commit per file group. svelte-check after each: `pnpm --filter @nojv/web check`.
 ## Phase 4 — Seed + verification
 
 ### Task 4.1: seed script
+
 **Files:** `packages/db/prisma/seeds/problems.ts` (weights, `:1326`), `demo-helpers.ts:196,228` (hardcoded 100), `contests.ts`, `courses.ts`.
 
 - Give seeded problems meaningful subtask weights (at least one problem with total >100, e.g. `[80,120]=200`, to exercise the new range).
@@ -220,6 +236,7 @@ Commit per file group. svelte-check after each: `pnpm --filter @nojv/web check`.
 Run `pnpm db:push && pnpm db:seed` and spot-check a >100 problem end-to-end.
 
 ### Task 4.2: full verification
+
 - `pnpm db:generate` (only if any schema touched) · `node scripts/check-migrations.mjs`
 - `pnpm --filter @nojv/application typecheck`
 - `pnpm --filter @nojv/web check` (run `paraglide:compile` first if messages changed)
@@ -230,7 +247,8 @@ Run `pnpm db:push && pnpm db:seed` and spot-check a >100 problem end-to-end.
 ---
 
 ## Risks / watch-list
+
 - **Hot judge path:** prefer the sync `computeProblemTotalScore` (from already-loaded testcase sets) over an extra DB query in `scoring.ts`/`adjustments.ts`.
 - **Snapshot staleness:** editing a problem's subtasks after it is attached does NOT update existing exam/assignment/contest `points`. Accepted by design. (A "refresh totals on rejudge" is a possible follow-up — YAGNI now.)
 - **Advanced/`special_env`** stays at total 100; revisit if a custom-scored problem needs >100.
-- **`score >= points` consumers** (`point-sum.ts`, `exam/detail.ts`) are now correct *because* `points` finally equals the real problem total — keep them, don't special-case.
+- **`score >= points` consumers** (`point-sum.ts`, `exam/detail.ts`) are now correct _because_ `points` finally equals the real problem total — keep them, don't special-case.

@@ -4,7 +4,10 @@ import { computeProblemTotalScore } from "@nojv/application";
 describe("computeProblemTotalScore", () => {
   it("sums subtask weights for standard problems", () => {
     expect(
-      computeProblemTotalScore({ type: "full_source", testcaseSets: [{ weight: 80 }, { weight: 120 }] }),
+      computeProblemTotalScore({
+        type: "full_source",
+        testcaseSets: [{ weight: 80 }, { weight: 120 }],
+      }),
     ).toBe(200);
   });
   it("returns 100 for special_env (advanced) problems", () => {
