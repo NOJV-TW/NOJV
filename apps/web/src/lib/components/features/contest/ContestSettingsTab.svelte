@@ -193,7 +193,7 @@
               for="contest-settings-scoringMode"
             >
               {m.contestDetail_settingsScoringModeLabel()}
-              <HelpTooltip text={contestScoringModeHelp()} />
+              <HelpTooltip text={contestScoringModeHelp()} nowrap />
             </label>
             <select
               id="contest-settings-scoringMode"

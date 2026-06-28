@@ -166,7 +166,7 @@
       <div>
         <label class="flex items-center gap-1.5 text-sm font-medium" for="scoringMode">
           {m.contestCreate_scoringMode()}
-          <HelpTooltip text={contestScoringModeHelp()} />
+          <HelpTooltip text={contestScoringModeHelp()} nowrap />
         </label>
         <select
           class={inputClassName}
