@@ -83,6 +83,38 @@ observability:
       limits:
         cpu: 250m
         memory: 256Mi
+  prometheus:
+    enabled: false
+    image: prom/prometheus:v3.4.1
+    retention: "15d"
+    storageSize: 10Gi
+    storageClass: ""
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  grafana:
+    enabled: false
+    image: grafana/grafana:11.6.1
+    adminUser: admin
+    adminPassword: admin
+    service:
+      port: 3000
+    ingress:
+      enabled: false
+      className: ""
+      host: ""
+      tls: []
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
 
 secrets:
   runtimeSecretName: nojv-runtime-secrets

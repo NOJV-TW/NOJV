@@ -36,17 +36,40 @@ swappable for a self-hosted stack — the only required setting is
 adds auth (or any other) headers when set (so an unauthenticated in-cluster
 collector needs just the endpoint).
 
-- **Single-machine k8s (lean):** the umbrella chart ships an opt-in
-  OpenTelemetry Collector (`observability.collector.enabled=true`) that exposes
-  an `otlp` HTTP receiver and a `/metrics` endpoint for Prometheus to scrape (or
-  remote-writes when `observability.collector.remoteWriteUrl` is set). Point
-  `OTEL_EXPORTER_OTLP_ENDPOINT` at its Service
-  (`http://<release>-otel-collector.<ns>.svc:4318`), install Prometheus +
-  Grafana — e.g. the `kube-prometheus-stack` Helm chart — add a Prometheus
-  datasource to Grafana, and import the dashboards in `infra/grafana/dashboards/`.
+- **Single-machine k8s (full in-cluster stack):** the umbrella chart now ships
+  the **whole** metrics stack — collector + Prometheus + Grafana — so there is
+  nothing external to operate. Enable all three:
+
+  ```bash
+  helm upgrade --install nojv infra/charts/nojv \
+    -f infra/charts/nojv/values-single-machine.yaml \
+    --set observability.collector.enabled=true \
+    --set observability.prometheus.enabled=true \
+    --set observability.grafana.enabled=true
+  ```
+
+  - The **collector** (`observability.collector.enabled`) exposes an `otlp` HTTP
+    receiver and a `:8889 /metrics` endpoint. Point
+    `OTEL_EXPORTER_OTLP_ENDPOINT` in the runtime secret at its Service
+    (`http://<release>-otel-collector.<ns>.svc:4318`, no auth header needed).
+  - **Prometheus** (`observability.prometheus.enabled`) scrapes the collector at
+    `<release>-otel-collector.<ns>.svc:8889` every 30s and persists to a PVC.
+  - **Grafana** (`observability.grafana.enabled`) auto-provisions a `Prometheus`
+    datasource (`http://<release>-prometheus.<ns>.svc:9090`, default) and the
+    chart-local dashboards (`infra/charts/nojv/files/grafana-dashboards/`, the
+    chart copy of `infra/grafana/dashboards/`). Each dashboard's
+    `${DS_PROMETHEUS}` template variable resolves to that provisioned datasource
+    automatically — no manual import, no hardcoded UID. Reach Grafana via its
+    Service (`:3000`) or the optional `observability.grafana.ingress` (mirrors the
+    `web.ingress` shape for Cloudflare-fronted access). The admin password comes
+    from `observability.grafana.adminPassword` (default `admin` — **change it**)
+    or, when that value is empty, from `GRAFANA_ADMIN_PASSWORD` in the runtime
+    secret.
+
 - **GKE:** prefer the Google-managed path — **Google Cloud Managed Service for
   Prometheus** (or Cloud Monitoring) ingests the same OTLP, with Grafana (Cloud
   Monitoring datasource) or the Cloud console for viewing; nothing to operate.
+  The GKE overlay therefore leaves all three observability toggles off.
 - **Either way:** the dashboards (`infra/grafana/dashboards/*.json`) and alerts
   (`infra/grafana/alerts/*.json`) are portable JSON; `infra/grafana/provision.ts`
   pushes them to any Grafana stack URL, self-hosted or cloud.
