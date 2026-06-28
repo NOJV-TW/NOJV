@@ -68,7 +68,7 @@ export async function seedContests(prisma: PrismaClient) {
       contestId: springQualifier.id,
       problemId: "problem_graph-docking",
       ordinal: 2,
-      points: 300,
+      points: 200,
     },
     {
       contestId: upcomingCup.id,
@@ -80,13 +80,13 @@ export async function seedContests(prisma: PrismaClient) {
       contestId: upcomingCup.id,
       problemId: "problem_graph-docking",
       ordinal: 2,
-      points: 300,
+      points: 200,
     },
     {
       contestId: upcomingCup.id,
       problemId: "problem_fork-bomb-safeguard",
       ordinal: 3,
-      points: 500,
+      points: 100,
     },
     {
       contestId: liveRound.id,
@@ -98,7 +98,7 @@ export async function seedContests(prisma: PrismaClient) {
       contestId: liveRound.id,
       problemId: "problem_add-two-numbers",
       ordinal: 2,
-      points: 200,
+      points: 100,
     },
   ];
 

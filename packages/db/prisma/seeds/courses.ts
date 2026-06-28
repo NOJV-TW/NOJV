@@ -171,7 +171,7 @@ export async function seedCourses(
   }
 
   const midtermProblemLinks = [
-    { examId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
+    { examId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 200 },
     { examId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 },
     { examId: midterm.id, problemId: "problem_memory-leak-forensics", ordinal: 3, points: 100 },
   ];

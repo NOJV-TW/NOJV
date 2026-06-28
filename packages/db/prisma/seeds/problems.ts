@@ -48,6 +48,7 @@ type SeedTestcase = {
 type SeedTestcaseSet = {
   cases: SeedTestcase[];
   description?: string;
+  weight?: number;
 };
 
 type SeedStatements = Record<SeedLocale, SeedStatement>;
@@ -275,6 +276,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
         },
         hidden: {
           description: "Edges: below-all, above-all, duplicates, single element.",
+          weight: 200,
           cases: [
             { input: "1\n5\n3\n5 4 6\n", output: "0 0 1" },
             { input: "6\n-5 -3 -3 0 4 4\n4\n-3 -10 4 5\n", output: "1 0 4 6" },
@@ -1317,17 +1319,19 @@ export async function seedProblems(
     if (def.testcases) {
       const setEntries = Object.entries(def.testcases);
       for (const [index, [setName, setDef]] of setEntries.entries()) {
+        const weight = setDef.weight ?? (setName === "sample" ? 0 : 100);
         const testcaseSet = await prisma.testcaseSet.upsert({
           create: {
             name: setName,
             description: setDef.description ?? "",
             ordinal: index,
             problemId: problem.id,
-            weight: 1,
+            weight,
           },
           update: {
             description: setDef.description ?? "",
             ordinal: index,
+            weight,
           },
           where: {
             problemId_name: {
