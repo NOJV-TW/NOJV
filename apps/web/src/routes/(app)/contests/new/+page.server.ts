@@ -6,21 +6,17 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
-import { contestDomain, problemDomain } from "@nojv/application";
+import { contestDomain } from "@nojv/application";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
-const { listEditableProblems } = problemDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
   if (!canCreateCourse(actor.platformRole)) {
     redirect(303, "/contests");
   }
-  const [form, candidateProblems] = await Promise.all([
-    superValidate(zod4(contestFormSchema)),
-    listEditableProblems(actor.userId),
-  ]);
-  return { form, candidateProblems };
+  const form = await superValidate(zod4(contestFormSchema));
+  return { form };
 };
 
 export const actions = {

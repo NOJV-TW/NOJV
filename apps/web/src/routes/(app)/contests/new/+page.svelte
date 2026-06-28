@@ -19,7 +19,7 @@
   import {
     contestScoringOptions,
     contestScoringModeHelp,
-    contestModeUsesPointsInput,
+    contestModeUsesPoints,
   } from "$lib/utils/contest-scoring";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -49,7 +49,7 @@
     },
   );
 
-  const showPointsInput = $derived(contestModeUsesPointsInput($form.scoringMode));
+  const showPointsInput = $derived(contestModeUsesPoints($form.scoringMode));
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);

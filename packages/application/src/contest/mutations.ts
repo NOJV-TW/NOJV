@@ -236,7 +236,8 @@ export async function updateContestRecord(
       await contestRepo.withTx(tx).update(contest.id, updateData);
     }
 
-    if (payload.problems !== undefined) {
+    const editable = contest.visibility === "draft" || contest.startsAt > new Date();
+    if (payload.problems !== undefined && editable) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
       const enforcedLanguages = payload.allowedLanguages ?? contest.allowedLanguages;

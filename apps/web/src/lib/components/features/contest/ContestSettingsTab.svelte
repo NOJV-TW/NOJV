@@ -21,7 +21,7 @@
   import {
     contestScoringOptions,
     contestScoringModeHelp,
-    contestModeUsesPointsInput,
+    contestModeUsesPoints,
   } from "$lib/utils/contest-scoring";
   import { cn, inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
@@ -58,7 +58,7 @@
 
   const editableBasics = $derived(isDraft || isUpcoming);
   const editableScoring = $derived(isDraft || isUpcoming);
-  const showPointsInput = $derived(contestModeUsesPointsInput($form.scoringMode));
+  const showPointsInput = $derived(contestModeUsesPoints($form.scoringMode));
 
   function toggleLanguage(lang: Language) {
     if (!editableScoring) return;

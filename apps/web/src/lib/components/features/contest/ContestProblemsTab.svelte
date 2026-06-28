@@ -2,7 +2,7 @@
   import { ListChecks, Lock } from "@lucide/svelte";
   import type { ContestScoringMode } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import { contestModeShowsPoints } from "$lib/utils/contest-scoring";
+  import { contestModeUsesPoints } from "$lib/utils/contest-scoring";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
 
@@ -26,9 +26,7 @@
   let { problems, problemsHidden, contestId, scoringMode, isLive, isPast, isManager }: Props =
     $props();
 
-  // 解題數 (problem_count) ranks by solved count + penalty time — every problem is
-  // worth 1, so no per-problem points are shown. 積分制 / 累分制 surface points.
-  const showPoints = $derived(contestModeShowsPoints(scoringMode));
+  const showPoints = $derived(contestModeUsesPoints(scoringMode));
 </script>
 
 <GlassPanel class="overflow-hidden">
