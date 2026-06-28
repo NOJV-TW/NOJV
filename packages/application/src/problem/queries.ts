@@ -163,7 +163,11 @@ async function mapPersistedProblemDetail(
 
   return {
     acceptanceRate: attempters > 0 ? solvers / attempters : 0,
-    totalScore: computeProblemTotalScore({ type, testcaseSets: problem.testcaseSets ?? [] }),
+    totalScore: computeProblemTotalScore({
+      type,
+      testcaseSets: problem.testcaseSets ?? [],
+      advancedConfig: problem.advancedConfig,
+    }),
     authorUsername: problem.author?.username ?? "course_staff",
     difficulty: problem.difficulty ?? "medium",
     displayId: problem.displayId,

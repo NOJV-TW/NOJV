@@ -19,7 +19,7 @@ const TOP_VERDICT_ALIASES: Record<string, string> = {
 };
 
 export const advancedResultSchema = z.object({
-  score: z.number().min(0).max(100),
+  score: z.number().min(0).max(100_000),
   verdict: z.preprocess(
     (v) => (typeof v === "string" ? (TOP_VERDICT_ALIASES[v.toLowerCase()] ?? v) : v),
     z.enum([
@@ -105,6 +105,7 @@ export const advancedConfigSchema = z.object({
   run: imageRefSchema,
   grade: imageRefSchema,
   network: networkSchema.default({ mode: "none" }),
+  maxScore: z.coerce.number().int().min(1).max(100_000).default(100),
 });
 
 export type AdvancedConfig = z.infer<typeof advancedConfigSchema>;

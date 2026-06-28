@@ -370,6 +370,8 @@
   "advancedConfig_downloadScaffold": "範本",
   "advancedConfig_gradeImage": "評分 image",
   "advancedConfig_hint": "學生程式只在執行 image 中跑(看不到答案);評分 image 持有答案並依執行輸出評分。執行容器最多連到一個網路對象。",
+  "advancedConfig_maxScoreHint": "你的評分 image 給分的總分(例如 250),會作為此題的最高分。",
+  "advancedConfig_maxScoreLabel": "滿分",
   "advancedConfig_modeAllowlist": "允許清單(代理至公開主機)",
   "advancedConfig_modeNone": "無(離線)",
   "advancedConfig_modeService": "服務(助教容器)",

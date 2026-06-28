@@ -87,6 +87,7 @@ export const submissionRepo = {
           select: {
             ...problemMiniSelect,
             type: true,
+            advancedConfig: true,
             testcaseSets: { select: { weight: true } },
           },
         },
@@ -201,6 +202,7 @@ export const submissionRepo = {
           select: {
             ...problemMiniSelect,
             type: true,
+            advancedConfig: true,
             testcaseSets: { select: { weight: true } },
           },
         },

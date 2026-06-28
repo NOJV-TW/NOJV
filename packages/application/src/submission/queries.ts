@@ -121,6 +121,7 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
     totalScore: computeProblemTotalScore({
       type: submission.problem.type,
       testcaseSets: submission.problem.testcaseSets,
+      advancedConfig: submission.problem.advancedConfig,
     }),
     context: buildSubmissionContext(submission),
     submitter: viewerIsStaff
@@ -207,6 +208,7 @@ export async function listUserSubmissions(userId: string) {
       totalScore: computeProblemTotalScore({
         type: s.problem.type,
         testcaseSets: s.problem.testcaseSets,
+        advancedConfig: s.problem.advancedConfig,
       }),
       status: s.status,
       context: deriveSubmissionContextKind(s),

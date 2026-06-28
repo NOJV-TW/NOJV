@@ -1223,6 +1223,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         run: { imageRef: "nojv-demo-advanced-run:local", imageSource: "registry" },
         grade: { imageRef: "nojv-demo-advanced-grade:local", imageSource: "registry" },
         network: { mode: "none" },
+        maxScore: 100,
       },
       statements: {
         "zh-TW": {

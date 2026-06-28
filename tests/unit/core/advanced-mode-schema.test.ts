@@ -56,10 +56,16 @@ describe("advancedResultSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects a score out of [0, 100]", () => {
-    expect(advancedResultSchema.safeParse({ score: 101, verdict: "accepted" }).success).toBe(
-      false,
+  it("accepts a score above 100 (advanced problems can declare a larger total)", () => {
+    expect(advancedResultSchema.safeParse({ score: 250, verdict: "accepted" }).success).toBe(
+      true,
     );
+  });
+
+  it("rejects a score out of [0, 100_000]", () => {
+    expect(
+      advancedResultSchema.safeParse({ score: 100_001, verdict: "accepted" }).success,
+    ).toBe(false);
     expect(advancedResultSchema.safeParse({ score: -1, verdict: "accepted" }).success).toBe(
       false,
     );
@@ -74,6 +80,20 @@ describe("advancedConfigSchema", () => {
     const parsed = advancedConfigSchema.safeParse({ run, grade });
     expect(parsed.success).toBe(true);
     expect(parsed.success && parsed.data.network.mode).toBe("none");
+  });
+
+  it("defaults maxScore to 100 when omitted", () => {
+    const parsed = advancedConfigSchema.safeParse({ run, grade });
+    expect(parsed.success && parsed.data.maxScore).toBe(100);
+  });
+
+  it("accepts an explicit maxScore above 100", () => {
+    const parsed = advancedConfigSchema.safeParse({ run, grade, maxScore: 250 });
+    expect(parsed.success && parsed.data.maxScore).toBe(250);
+  });
+
+  it("rejects a maxScore below 1", () => {
+    expect(advancedConfigSchema.safeParse({ run, grade, maxScore: 0 }).success).toBe(false);
   });
 
   it("accepts an explicit network.mode none", () => {

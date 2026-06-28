@@ -107,7 +107,11 @@ export async function getExamProblemView(options: {
     getProblemTestcaseSets(current.problem.id),
   ]);
 
-  const problemTotal = computeProblemTotalScore({ type: problem.type, testcaseSets });
+  const problemTotal = computeProblemTotalScore({
+    type: problem.type,
+    testcaseSets,
+    advancedConfig: problem.advancedConfig,
+  });
 
   const detailBlobs = await Promise.all(
     submissionRows.map((s) =>
@@ -212,7 +216,11 @@ export async function getExamProblemViewByProblemId(options: {
     getProblemTestcaseSets(current.problem.id),
   ]);
 
-  const problemTotal = computeProblemTotalScore({ type: problem.type, testcaseSets });
+  const problemTotal = computeProblemTotalScore({
+    type: problem.type,
+    testcaseSets,
+    advancedConfig: problem.advancedConfig,
+  });
 
   const detailBlobs = await Promise.all(
     submissionRows.map((s) =>
