@@ -1801,7 +1801,7 @@
   "testcases_subtasksDetected": "偵測到 {count} 個子任務",
   "testcases_totalScoreLabel": "總分公式",
   "testcases_totalWeight": "總權重",
-  "testcases_totalWeightHelp": "子任務權重是相對值。最終分數為 原始總和 ÷ 總權重 × 100，因此總和不一定要等於 100。",
+  "testcases_totalWeightHelp": "每個子任務的權重就是它的分數。題目總分為所有子任務權重的總和，可以是任意數值。",
   "testcases_uploadFailed": "上傳子任務失敗。",
   "testcases_uploadSubtasks": "上傳 {count} 個子任務",
   "testcases_uploadZip": "上傳 ZIP",

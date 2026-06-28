@@ -99,7 +99,7 @@
       newSubtasks.push({
         name: `Subtask ${String(i + 1)}`,
         description: "",
-        points: Math.round(100 / count),
+        points: 100,
         caseIndices: indices,
       });
     }
@@ -222,12 +222,8 @@
         <span class="text-caption text-muted-foreground">
           {m.testcases_subtasksDetected({ count: subtasks.length })}
         </span>
-        <span
-          class="text-caption font-medium tabular-nums {totalPoints === 100
-            ? 'text-success'
-            : 'text-warning'}"
-        >
-          {totalPoints}/100 pts
+        <span class="text-caption font-medium tabular-nums text-muted-foreground">
+          {totalPoints} pts
         </span>
       </div>
 
@@ -253,12 +249,8 @@
             {m.testcases_totalWeight()}:
             <HelpTooltip text={m.testcases_totalWeightHelp()} />
           </span>
-          <span
-            class="font-bold tabular-nums {totalPoints === 100
-              ? 'text-success'
-              : 'text-warning'}"
-          >
-            {totalPoints}/100
+          <span class="font-bold tabular-nums">
+            {totalPoints}
           </span>
         </div>
         {#each subtasks as subtask, si (`subtask-${si}`)}

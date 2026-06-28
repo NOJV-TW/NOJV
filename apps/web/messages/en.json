@@ -1801,7 +1801,7 @@
   "testcases_subtasksDetected": "{count} subtask(s) detected",
   "testcases_totalScoreLabel": "Total score formula",
   "testcases_totalWeight": "Total weight",
-  "testcases_totalWeightHelp": "Subtask weights are relative. The final score is rawSum / totalWeight × 100, so the total does not need to add up to 100.",
+  "testcases_totalWeightHelp": "Each subtask's weight is its point value. The problem's total score is the sum of all subtask weights and can be any number.",
   "testcases_uploadFailed": "Failed to upload subtasks.",
   "testcases_uploadSubtasks": "Upload {count} subtask(s)",
   "testcases_uploadZip": "Upload ZIP",
