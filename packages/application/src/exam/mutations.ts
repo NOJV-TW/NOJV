@@ -14,6 +14,7 @@ import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireCourse, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 
@@ -24,7 +25,6 @@ async function resolveAndAttachExamProblems(
   examId: string,
   problemIds: string[],
   allowedLanguages: Language[],
-  pointOverrides?: Record<string, number>,
 ) {
   const problems = await problemRepo.withTx(tx).findMany({
     id: { in: problemIds },
@@ -47,11 +47,10 @@ async function resolveAndAttachExamProblems(
     problemIds.map(async (id, index) => {
       const problem = problemById.get(id);
       if (!problem) return;
-      const points = pointOverrides?.[id];
       await examProblemRepo.withTx(tx).create({
         examId,
         ordinal: index + 1,
-        points: typeof points === "number" && points >= 0 ? Math.floor(points) : 100,
+        points: await getProblemTotalScore(tx, problem),
         problemId: problem.id,
       });
     }),
@@ -156,15 +155,10 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
   return exam;
 }
 
-export interface UpdateExamOptions {
-  pointOverrides?: Record<string, number>;
-}
-
 export async function updateExamRecord(
   actor: ActorContext,
   examId: string,
   payload: ExamUpdate,
-  options: UpdateExamOptions = {},
 ) {
   const result = await runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
@@ -205,13 +199,7 @@ export async function updateExamRecord(
     if (payload.problemIds !== undefined) {
       await examProblemRepo.withTx(tx).deleteByExamId(exam.id);
       const enforcedLanguages = payload.allowedLanguages ?? exam.allowedLanguages;
-      await resolveAndAttachExamProblems(
-        tx,
-        exam.id,
-        payload.problemIds,
-        enforcedLanguages,
-        options.pointOverrides,
-      );
+      await resolveAndAttachExamProblems(tx, exam.id, payload.problemIds, enforcedLanguages);
     }
 
     return {
