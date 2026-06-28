@@ -56,6 +56,7 @@ type SeedStatements = Record<SeedLocale, SeedStatement>;
 type SeedTestcaseSets = {
   sample: SeedTestcaseSet;
   hidden: SeedTestcaseSet;
+  hidden2?: SeedTestcaseSet;
 };
 
 type SeedProblemType = "full_source" | "multi_file" | "special_env";
@@ -275,12 +276,21 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
           ],
         },
         hidden: {
-          description: "Edges: below-all, above-all, duplicates, single element.",
-          weight: 200,
+          description: "Subtask 1: small arrays — below-all, above-all, duplicates, single element.",
+          weight: 80,
           cases: [
             { input: "1\n5\n3\n5 4 6\n", output: "0 0 1" },
             { input: "6\n-5 -3 -3 0 4 4\n4\n-3 -10 4 5\n", output: "1 0 4 6" },
             { input: "3\n10 20 30\n2\n10 31\n", output: "0 3" },
+          ],
+        },
+        hidden2: {
+          description: "Subtask 2: duplicate-heavy arrays, negative ranges, and larger spreads.",
+          weight: 120,
+          cases: [
+            { input: "6\n2 2 2 5 5 8\n5\n2 5 8 9 1\n", output: "0 3 5 6 0" },
+            { input: "5\n-10 -5 -5 0 3\n4\n-7 -5 4 -10\n", output: "1 1 5 0" },
+            { input: "4\n100 200 300 400\n4\n50 400 401 250\n", output: "0 3 4 2" },
           ],
         },
       },
