@@ -136,7 +136,8 @@ describe("updateExamScores — optimistic locking", () => {
     expect(updateWithVersion).toHaveBeenCalledWith(
       PARTICIPATION_ID,
       0,
-      expect.objectContaining({ score: 100 }),
+      // problem_count scores each solved problem as 1 (解題數), not its points.
+      expect.objectContaining({ score: 1 }),
     );
   });
 

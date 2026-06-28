@@ -20,28 +20,52 @@ const baseContestInput = {
 };
 
 describe("contestCreateSchema", () => {
-  it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
+  it("accepts per-problem {problemId, points} entries with underscore ids", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
+      problems: [
+        { problemId: "problem_warmup-sum", points: 100 },
+        { problemId: "problem_add-two-numbers", points: 300 },
+      ],
     });
 
     expect(result.success).toBe(true);
   });
 
-  it("rejects empty problemIds array", () => {
+  it("defaults points to 100 when omitted", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: [],
+      problems: [{ problemId: "problem_warmup-sum" }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.problems[0]!.points).toBe(100);
+    }
+  });
+
+  it("rejects empty problems array", () => {
+    const result = contestCreateSchema.safeParse({
+      ...baseContestInput,
+      problems: [],
     });
 
     expect(result.success).toBe(false);
   });
 
-  it("rejects problemIds whose entries are empty strings", () => {
+  it("rejects a problem whose problemId is an empty string", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: [""],
+      problems: [{ problemId: "", points: 100 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects points below 1", () => {
+    const result = contestCreateSchema.safeParse({
+      ...baseContestInput,
+      problems: [{ problemId: "problem_warmup-sum", points: 0 }],
     });
 
     expect(result.success).toBe(false);
@@ -50,7 +74,7 @@ describe("contestCreateSchema", () => {
   it("still rejects endsAt earlier than startsAt", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: ["problem_warmup-sum"],
+      problems: [{ problemId: "problem_warmup-sum", points: 100 }],
       startsAt: "2026-05-03T17:00:00.000Z",
       endsAt: "2026-05-03T14:00:00.000Z",
     });

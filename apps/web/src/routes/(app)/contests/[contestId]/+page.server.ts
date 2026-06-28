@@ -119,10 +119,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       });
 
       const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
-      results = buildContestResults(
-        scores,
-        contest.scoringMode === "point_sum" ? totalPoints : 0,
-      );
+      // 解題數 maxes at the problem count (each solve = 1); 積分制 / 累分制 max at the
+      // sum of configured points.
+      const maxScore =
+        contest.scoringMode === "problem_count" ? (contest.problems ?? []).length : totalPoints;
+      results = buildContestResults(scores, maxScore);
 
       settingsForm = await superValidate<ContestSettingsForm, FormMessage>(
         {
@@ -131,6 +132,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
           startsAt: toDateTimeLocal(contest.startsAt),
           endsAt: toDateTimeLocal(contest.endsAt),
           frozenAt: toDateTimeLocal(contest.frozenAt),
+          problems: (contest.problems ?? []).map((p) => ({
+            problemId: p.id,
+            points: p.points,
+          })),
           scoringMode: contest.scoringMode,
           scoreboardMode: contest.scoreboardMode,
           allowedLanguages: contest.allowedLanguages,
@@ -197,6 +202,7 @@ export const actions: Actions = {
       startsAt: toIsoOrUndefined(form.data.startsAt),
       endsAt: toIsoOrUndefined(form.data.endsAt),
       frozenAt: toIsoOrUndefined(form.data.frozenAt),
+      problems: form.data.problems,
       scoringMode: form.data.scoringMode,
       scoreboardMode: form.data.scoreboardMode,
       allowedLanguages: form.data.allowedLanguages,

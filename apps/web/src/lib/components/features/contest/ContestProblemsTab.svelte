@@ -1,7 +1,8 @@
 <script lang="ts">
   import { ListChecks, Lock } from "@lucide/svelte";
+  import type { ContestScoringMode } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
+  import { contestModeShowsPoints } from "$lib/utils/contest-scoring";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
 
@@ -16,18 +17,18 @@
     problems: ProblemSummary[] | null;
     problemsHidden: boolean;
     contestId: string;
+    scoringMode: ContestScoringMode;
     isLive: boolean;
     isPast: boolean;
     isManager: boolean;
   }
 
-  let { problems, problemsHidden, contestId, isLive, isPast, isManager }: Props = $props();
+  let { problems, problemsHidden, contestId, scoringMode, isLive, isPast, isManager }: Props =
+    $props();
 
-  function difficultyOf(p: { points: number }): "easy" | "medium" | "hard" {
-    if (p.points >= 800) return "hard";
-    if (p.points >= 400) return "medium";
-    return "easy";
-  }
+  // 解題數 (problem_count) ranks by solved count + penalty time — every problem is
+  // worth 1, so no per-problem points are shown. 積分制 / 累分制 surface points.
+  const showPoints = $derived(contestModeShowsPoints(scoringMode));
 </script>
 
 <GlassPanel class="overflow-hidden">
@@ -43,7 +44,7 @@
         {m.contestDetail_problemsMeta({
           count: problems.length,
           note: isPast
-            ? m.contestDetail_problemsSortByDifficulty()
+            ? m.contestDetail_problemsOrderNote()
             : m.contestDetail_problemsUnlockOnStart(),
         })}
       {/if}
@@ -73,7 +74,7 @@
               : null}
         <a
           href={enterHref ?? "#"}
-          class="grid grid-cols-[60px_1fr_auto] sm:grid-cols-[60px_1fr_minmax(120px,160px)_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-muted/40 {enterHref
+          class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-muted/40 {enterHref
             ? ''
             : 'pointer-events-none opacity-60'}"
           tabindex={enterHref ? 0 : -1}
@@ -84,31 +85,13 @@
           </div>
           <div class="min-w-0">
             <div class="font-medium truncate">{p.title}</div>
-            <div class="mt-1 flex items-center gap-3">
-              <DifficultyTick level={difficultyOf(p)} />
-              <span
-                class="text-micro font-mono uppercase tracking-wider text-muted-foreground tabular-nums"
+            {#if showPoints}
+              <div
+                class="mt-1 text-micro font-mono uppercase tracking-wider text-muted-foreground tabular-nums"
               >
                 {p.points} pts
-              </span>
-            </div>
-          </div>
-          <div class="hidden sm:block">
-            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
-              {m.contestDetail_problemDifficultyLabel()}
-            </div>
-            <div
-              class="mt-1 h-1.5 rounded-full overflow-hidden"
-              style="background: var(--muted);"
-            >
-              <div
-                class="h-full rounded-full"
-                style="width: {Math.min(
-                  100,
-                  (p.points / 1000) * 100,
-                )}%; background: var(--primary);"
-              ></div>
-            </div>
+              </div>
+            {/if}
           </div>
           <span
             class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"

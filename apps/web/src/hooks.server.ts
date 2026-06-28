@@ -254,6 +254,7 @@ function enforcePasswordChange(event: HandleEvent, cleanPath: string): void {
 }
 
 function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): void {
+  if (getWebEnv().DEV_DISABLE_ADMIN_2FA) return;
   const user = event.locals.sessionUser;
   if (
     user?.platformRole === "admin" &&

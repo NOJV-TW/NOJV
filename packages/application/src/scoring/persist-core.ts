@@ -47,8 +47,10 @@ export function computeProblemCountState(args: {
   problemPoints: ReadonlyMap<string, number>;
   startsAt: Date;
   penaltyPerWrongSec?: number;
+  usePoints?: boolean;
 }): ProblemCountState {
   const { submissions, problemIds, problemPoints, startsAt, penaltyPerWrongSec } = args;
+  const usePoints = args.usePoints ?? false;
 
   const byProblem = new Map<string, { status: string; createdAt: Date }[]>();
   for (const sub of submissions) {
@@ -67,7 +69,7 @@ export function computeProblemCountState(args: {
       penaltyPerWrongSec,
     );
     if (solved) {
-      score += problemPoints.get(problemId) ?? 0;
+      score += usePoints ? (problemPoints.get(problemId) ?? 0) : 1;
       totalPenalty += penaltySeconds;
     }
   }

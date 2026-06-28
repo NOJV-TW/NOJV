@@ -418,9 +418,6 @@
               {m.examCreate_scoringModeLabel()} <span class="text-destructive">*</span>
             </label>
             <select id="scoringMode" class={inputClassName} bind:value={$form.scoringMode}>
-              <option value="problem_count">
-                {m.examCreate_scoringModeProblemCount()}
-              </option>
               <option value="point_sum">{m.examCreate_scoringModePointSum()}</option>
             </select>
           </div>

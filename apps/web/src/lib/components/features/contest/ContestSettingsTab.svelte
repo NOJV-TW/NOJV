@@ -11,10 +11,18 @@
   import { enhance as kitEnhance } from "$app/forms";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import PlusIcon from "@lucide/svelte/icons/plus";
+  import XIcon from "@lucide/svelte/icons/x";
 
   import { supportedLanguages, type Language } from "@nojv/core";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
+  import {
+    contestScoringOptions,
+    contestScoringModeHelp,
+    contestModeUsesPointsInput,
+  } from "$lib/utils/contest-scoring";
   import { cn, inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -50,10 +58,19 @@
 
   const editableBasics = $derived(isDraft || isUpcoming);
   const editableScoring = $derived(isDraft || isUpcoming);
+  const showPointsInput = $derived(contestModeUsesPointsInput($form.scoringMode));
 
   function toggleLanguage(lang: Language) {
     if (!editableScoring) return;
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
+  }
+
+  function addProblem() {
+    $form.problems = [...$form.problems, { problemId: "", points: 100 }];
+  }
+
+  function removeProblem(index: number) {
+    $form.problems = $form.problems.filter((_, i) => i !== index);
   }
 
   function lockHint(): string | null {
@@ -171,8 +188,12 @@
       <div class="space-y-4">
         <div class="grid gap-4 md:grid-cols-2">
           <div>
-            <label class="text-sm font-medium" for="contest-settings-scoringMode">
+            <label
+              class="flex items-center gap-1.5 text-sm font-medium"
+              for="contest-settings-scoringMode"
+            >
               {m.contestDetail_settingsScoringModeLabel()}
+              <HelpTooltip text={contestScoringModeHelp()} />
             </label>
             <select
               id="contest-settings-scoringMode"
@@ -180,8 +201,9 @@
               bind:value={$form.scoringMode}
               disabled={!editableScoring}
             >
-              <option value="problem_count">{m.contestDetail_scoringProblemCount()}</option>
-              <option value="point_sum">{m.contestDetail_scoringPointSum()}</option>
+              {#each contestScoringOptions as opt (opt.value)}
+                <option value={opt.value}>{opt.label()}</option>
+              {/each}
             </select>
           </div>
           <div>
@@ -198,6 +220,56 @@
               <option value="frozen">{m.contestDetail_scoreboardFrozen()}</option>
               <option value="hidden">{m.contestDetail_scoreboardHidden()}</option>
             </select>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-sm font-medium">{m.contestCreate_problemIds()}</div>
+          <div class="mt-2 space-y-2">
+            {#each $form.problems as problem, i (i)}
+              <div class="flex items-center gap-2">
+                <span
+                  class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
+                >
+                  {String.fromCharCode(65 + i)}
+                </span>
+                <input
+                  class={inputClassName}
+                  type="text"
+                  placeholder={m.contestCreate_problemIdsPlaceholder()}
+                  bind:value={$form.problems[i]!.problemId}
+                  disabled={!editableScoring}
+                  aria-label={m.contestCreate_problemIds()}
+                />
+                {#if showPointsInput}
+                  <input
+                    class="{inputClassName} w-24 shrink-0"
+                    type="number"
+                    min="1"
+                    step="1"
+                    bind:value={$form.problems[i]!.points}
+                    disabled={!editableScoring}
+                    aria-label={m.contestCreate_problemPointsLabel()}
+                  />
+                {/if}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={!editableScoring || $form.problems.length <= 1}
+                  onclick={() => removeProblem(i)}
+                  aria-label={m.contestCreate_problemRemove()}
+                >
+                  <XIcon aria-hidden="true" class="h-4 w-4" />
+                </Button>
+              </div>
+            {/each}
+            {#if editableScoring}
+              <Button type="button" variant="outline" size="sm" onclick={addProblem}>
+                <PlusIcon aria-hidden="true" class="h-4 w-4" />
+                {m.contestCreate_problemAdd()}
+              </Button>
+            {/if}
           </div>
         </div>
 

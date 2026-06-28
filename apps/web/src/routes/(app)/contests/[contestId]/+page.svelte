@@ -21,6 +21,7 @@
   } from "$lib/components/features/contest/ContestSettingsTab.svelte";
   import ContestSubmissionsMatrix from "$lib/components/features/contest/ContestSubmissionsMatrix.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
+  import { contestScoringLabel } from "$lib/utils/contest-scoring";
   import { fmtDate } from "$lib/utils/datetime.js";
 
   let { data } = $props();
@@ -71,11 +72,7 @@
   const settingsLiveStatus: ContestLiveStatus = $derived(
     contest.visibility === "draft" ? "draft" : status === "live" ? "running" : status,
   );
-  const scoringLabel = $derived(
-    contest.scoringMode === "problem_count"
-      ? m.contestDetail_scoringProblemCount()
-      : m.contestDetail_scoringPointSum(),
-  );
+  const scoringLabel = $derived(contestScoringLabel(contest.scoringMode));
   const durationMin = $derived(durationMinutes(contest.startsAt, contest.endsAt));
 
   const firstProblem = $derived((contest.problems ?? [])[0] ?? null);
@@ -236,6 +233,7 @@
         problems={contest.problems}
         problemsHidden={contest.problemsHidden}
         contestId={contest.id}
+        scoringMode={contest.scoringMode}
         {isLive}
         {isPast}
         {isManager}
@@ -308,6 +306,7 @@
         problems={contest.problems}
         problemsHidden={contest.problemsHidden}
         contestId={contest.id}
+        scoringMode={contest.scoringMode}
         {isLive}
         {isPast}
         {isManager}

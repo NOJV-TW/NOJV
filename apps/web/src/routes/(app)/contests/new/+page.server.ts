@@ -29,17 +29,13 @@ export const actions = {
     const form = await superValidate(event, zod4(contestFormSchema));
     if (!form.valid) return fail(400, { form });
 
-    const { problemIdsText, startsAt, endsAt, frozenAt, inviteCode, ...rest } = form.data;
+    const { startsAt, endsAt, frozenAt, inviteCode, ...rest } = form.data;
 
     const payload = contestCreateSchema.parse({
       ...rest,
       inviteCode: inviteCode ?? undefined,
       endsAt: new Date(endsAt).toISOString(),
       frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
-      problemIds: problemIdsText
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
       startsAt: new Date(startsAt).toISOString(),
     });
     await createContestRecord(actor, payload);

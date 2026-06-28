@@ -27,6 +27,8 @@ const webEnvSchema = z
     EMAIL_FROM_DOMAIN: z.string().optional(),
 
     EDGE_TRUST_SECRET: z.string().optional(),
+
+    DEV_DISABLE_ADMIN_2FA: z.stringbool().default(false),
   })
   .transform((val) => ({
     ...val,
@@ -49,7 +51,11 @@ const webEnvSchema = z
       message: "EDGE_TRUST_SECRET is required in production and must be at least 32 characters",
       path: ["EDGE_TRUST_SECRET"],
     },
-  );
+  )
+  .refine((val) => !(val.DEV_DISABLE_ADMIN_2FA && val.NODE_ENV === "production"), {
+    message: "DEV_DISABLE_ADMIN_2FA must never be set in production",
+    path: ["DEV_DISABLE_ADMIN_2FA"],
+  });
 
 export type WebEnv = z.output<typeof webEnvSchema>;
 
