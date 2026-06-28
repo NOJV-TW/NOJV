@@ -317,6 +317,14 @@ export const testcaseSetRepo = {
         return tx.testcaseSet.create({ data });
       },
 
+      findByProblemId(problemId: string) {
+        return tx.testcaseSet.findMany({
+          where: { problemId },
+          include: { testcases: { orderBy: { ordinal: "asc" } } },
+          orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }],
+        });
+      },
+
       countByProblem(problemId: string) {
         return tx.testcaseSet.count({ where: { problemId } });
       },
