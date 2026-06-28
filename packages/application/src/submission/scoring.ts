@@ -156,8 +156,7 @@ export function mapResult(
   const subtaskResults = buildSubtaskResults(result, testcaseSets);
 
   const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
-  const rawScoreSum = subtaskResults.reduce((s, st) => s + st.rawScore, 0);
-  let score = totalWeight > 0 ? Math.round((rawScoreSum / totalWeight) * 100) : 0;
+  let score = subtaskResults.reduce((s, st) => s + st.rawScore, 0);
 
   if (result.customScore !== undefined) {
     score = result.customScore;
@@ -200,7 +199,7 @@ export function mapResult(
 
   const allAc = result.testcaseResults.every((t) => t.verdict === "AC");
 
-  if (allAc && score >= 100) {
+  if (allAc && score >= totalWeight) {
     return {
       accepted: true,
       caseResults,
