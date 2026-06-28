@@ -248,7 +248,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 #### `ContestScoringMode`
 
-`problem_count` · `point_sum`
+`problem_count` · `weighted_count` · `point_sum`
 
 #### `ContestVisibility`
 
