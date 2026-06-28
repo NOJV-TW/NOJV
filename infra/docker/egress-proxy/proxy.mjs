@@ -1,9 +1,51 @@
 import { createServer, request as httpRequest } from "node:http";
-import { connect } from "node:net";
+import { connect, isIP, BlockList } from "node:net";
+import { lookup } from "node:dns/promises";
 import { pathToFileURL } from "node:url";
 
 const DEFAULT_PORTS = [80, 443];
 const CONNECT_TIMEOUT_MS = 30_000;
+
+const PRIVATE_RANGES = new BlockList();
+PRIVATE_RANGES.addSubnet("0.0.0.0", 8, "ipv4");
+PRIVATE_RANGES.addSubnet("10.0.0.0", 8, "ipv4");
+PRIVATE_RANGES.addSubnet("100.64.0.0", 10, "ipv4");
+PRIVATE_RANGES.addSubnet("127.0.0.0", 8, "ipv4");
+PRIVATE_RANGES.addSubnet("169.254.0.0", 16, "ipv4");
+PRIVATE_RANGES.addSubnet("172.16.0.0", 12, "ipv4");
+PRIVATE_RANGES.addSubnet("192.168.0.0", 16, "ipv4");
+PRIVATE_RANGES.addAddress("::1", "ipv6");
+PRIVATE_RANGES.addSubnet("fc00::", 7, "ipv6");
+PRIVATE_RANGES.addSubnet("fe80::", 10, "ipv6");
+
+export function isBlockedAddress(ip) {
+  if (process.env.NOJV_PROXY_ALLOW_PRIVATE === "1") return false;
+  const fam = isIP(ip);
+  if (fam === 4) return PRIVATE_RANGES.check(ip, "ipv4");
+  if (fam === 6) {
+    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+    if (mapped && isIP(mapped[1]) === 4) return PRIVATE_RANGES.check(mapped[1], "ipv4");
+    return PRIVATE_RANGES.check(ip, "ipv6");
+  }
+  return true;
+}
+
+async function resolveGuardedAddress(host) {
+  const target = normalizeHost(host);
+  if (!target) return null;
+  if (isIP(target)) return isBlockedAddress(target) ? null : target;
+  let addresses;
+  try {
+    addresses = await lookup(target, { all: true });
+  } catch {
+    return null;
+  }
+  if (addresses.length === 0) return null;
+  for (const { address } of addresses) {
+    if (isBlockedAddress(address)) return null;
+  }
+  return addresses[0].address;
+}
 
 function normalizeHost(host) {
   return host
@@ -66,7 +108,7 @@ function logRequest(host, port, decision) {
   process.stdout.write(`${host}:${String(port)} ${decision}\n`);
 }
 
-function handleConnect(allowlist, req, clientSocket, head) {
+async function handleConnect(allowlist, req, clientSocket, head) {
   const [rawHost, rawPort] = req.url.split(":");
   const host = rawHost ?? "";
   const port = rawPort ? Number(rawPort) : 443;
@@ -78,8 +120,21 @@ function handleConnect(allowlist, req, clientSocket, head) {
     return;
   }
 
+  const ip = await resolveGuardedAddress(host);
+  if (!ip) {
+    logRequest(host, port, "deny-private");
+    clientSocket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+    clientSocket.destroy();
+    return;
+  }
+
   logRequest(host, port, "allow");
-  const upstream = connect(port, host, () => {
+  const upstream = connect(port, ip, () => {
+    if (isBlockedAddress(upstream.remoteAddress ?? "")) {
+      upstream.destroy();
+      clientSocket.destroy();
+      return;
+    }
     upstream.setTimeout(0);
     clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
     if (head && head.length > 0) upstream.write(head);
@@ -101,7 +156,7 @@ function handleConnect(allowlist, req, clientSocket, head) {
   clientSocket.on("close", teardown);
 }
 
-function handleHttp(allowlist, clientReq, clientRes) {
+async function handleHttp(allowlist, clientReq, clientRes) {
   let target;
   try {
     target = new URL(clientReq.url);
@@ -119,14 +174,21 @@ function handleHttp(allowlist, clientReq, clientRes) {
     return;
   }
 
+  const ip = await resolveGuardedAddress(host);
+  if (!ip) {
+    logRequest(host, port, "deny-private");
+    clientRes.writeHead(403).end("Forbidden");
+    return;
+  }
+
   logRequest(host, port, "allow");
   const upstream = httpRequest(
     {
-      host,
+      host: ip,
       port,
       method: clientReq.method,
       path: `${target.pathname}${target.search}`,
-      headers: clientReq.headers,
+      headers: { ...clientReq.headers, host: clientReq.headers.host ?? host },
     },
     (upstreamRes) => {
       clientRes.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.headers);
@@ -143,10 +205,15 @@ function handleHttp(allowlist, clientReq, clientRes) {
 export function createProxyServer(allowlist) {
   const server = createServer();
   server.on("request", (req, res) => {
-    handleHttp(allowlist, req, res);
+    handleHttp(allowlist, req, res).catch(() => {
+      if (!res.headersSent) res.writeHead(502);
+      res.end();
+    });
   });
   server.on("connect", (req, socket, head) => {
-    handleConnect(allowlist, req, socket, head);
+    handleConnect(allowlist, req, socket, head).catch(() => {
+      socket.destroy();
+    });
   });
   return server;
 }

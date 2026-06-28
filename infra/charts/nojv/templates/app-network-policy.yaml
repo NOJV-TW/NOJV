@@ -1,0 +1,69 @@
+{{- if .Values.networkPolicy.enabled }}
+{{/*
+worker-egress — ported from infra/gcp/gke/network-policy.yaml. Inert unless the
+cluster CNI enforces NetworkPolicy (GKE Dataplane V2). The CIDRs are
+cluster-specific; set them under .Values.networkPolicy.egress.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-egress
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      nojv-role: worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: {{ .Values.networkPolicy.temporalNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: temporal-server
+      ports:
+        - port: 7233
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.egress.redisCidr }}
+      ports:
+        - port: 6379
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.egress.cloudsqlCidr }}
+      ports:
+        - port: {{ .Values.networkPolicy.egress.cloudsqlPort }}
+          protocol: TCP
+    - to:
+        {{- range .Values.networkPolicy.egress.googleApisCidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: 443
+          protocol: TCP
+    # REPLACE networkPolicy.egress.apiServerCidrs with your cluster's API-server/Services-VIP CIDRs (worker creates sandbox Jobs).
+    - to:
+        {{- range .Values.networkPolicy.egress.apiServerCidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: 443
+          protocol: TCP
+{{- end }}

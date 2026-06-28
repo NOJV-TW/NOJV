@@ -1,13 +1,18 @@
 import { Client, Connection } from "@temporalio/client";
 
+import { temporalConnectionOptions } from "./connection-config";
+
 let _clientPromise: Promise<Client> | undefined;
 let _connection: Connection | undefined;
 
 export async function getTemporalClient(): Promise<Client> {
   _clientPromise ??= (async () => {
-    const address = process.env.TEMPORAL_ADDRESS ?? "localhost:7233";
-    const namespace = process.env.TEMPORAL_NAMESPACE ?? "default";
-    _connection = await Connection.connect({ address });
+    const { address, namespace, tls, apiKey } = temporalConnectionOptions();
+    _connection = await Connection.connect({
+      address,
+      ...(tls !== undefined ? { tls } : {}),
+      ...(apiKey ? { apiKey } : {}),
+    });
     return new Client({ connection: _connection, namespace });
   })();
   return _clientPromise;

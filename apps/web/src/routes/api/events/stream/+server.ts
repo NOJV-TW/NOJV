@@ -1,18 +1,11 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { keys } from "@nojv/redis";
-import { subscribeSse } from "$lib/server/shared/sse-hub";
 import { clarificationDomain } from "@nojv/application";
 type ClarificationContext = clarificationDomain.ClarificationContext;
 import { createLogger } from "$lib/server/logger";
-import {
-  sseConnectionDuration,
-  sseConnectionDroppedTotal,
-  type SseCloseReason,
-} from "$lib/server/metrics";
-import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
+import { createSseResponse } from "$lib/server/shared/sse-response";
 import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
-import { getClientIp } from "$lib/server/shared/client-ip";
 import { z } from "zod";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
@@ -53,9 +46,6 @@ const sseEnvSchema = z.object({
   REDIS_URL: z.url(),
 });
 
-const MAX_DURATION_MS = 600_000;
-const KEEPALIVE_MS = 30_000;
-
 export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);
   if (!actor || !hasActorUsername(actor)) {
@@ -67,19 +57,14 @@ export const GET: RequestHandler = async (event) => {
     return new Response("SSE not configured", { status: 503 });
   }
 
-  const ip = getClientIp(event);
+  const userId = actor.userId;
   try {
-    await apiRateLimiter.consume(ip);
+    await apiRateLimiter.consume(`u:${userId}`);
   } catch {
     return new Response("Too many requests", { status: 429 });
   }
 
-  const userId = actor.userId;
   const redisUrl = envResult.data.REDIS_URL;
-
-  if (!acquireSseSlot("events", userId)) {
-    return new Response("Too many concurrent connections", { status: 429 });
-  }
 
   const authorizedClarChannels: string[] = [];
   try {
@@ -95,89 +80,19 @@ export const GET: RequestHandler = async (event) => {
       }
     }
   } catch (err) {
-    releaseSseSlot("events", userId);
     logger.warn("SSE clarification authorization failed", { userId, err });
     return new Response("Internal error", { status: 500 });
   }
 
-  let released = false;
-  function releaseOnce() {
-    if (!released) {
-      released = true;
-      releaseSseSlot("events", userId);
-    }
-  }
-
-  const stream = new ReadableStream({
-    start(controller) {
-      const encoder = new TextEncoder();
-      const channels = [
-        keys.userChannel(userId),
-        keys.notificationChannel(userId),
-        ...authorizedClarChannels,
-      ];
-
-      const startMs = performance.now();
-      let closed = false;
-
-      function send(data: string) {
-        try {
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-        } catch {
-          return;
-        }
-      }
-
-      function closeController() {
-        try {
-          controller.close();
-        } catch {
-          return;
-        }
-      }
-
-      const unsubscribe = subscribeSse(redisUrl, channels, (_channel, message) => {
-        send(message);
-      });
-
-      const keepalive = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(": keepalive\n\n"));
-        } catch {
-          cleanup("controller_error");
-        }
-      }, KEEPALIVE_MS);
-
-      const timeout = setTimeout(() => {
-        cleanup("timeout");
-      }, MAX_DURATION_MS);
-
-      function cleanup(reason: SseCloseReason) {
-        if (closed) return;
-        closed = true;
-        releaseOnce();
-        clearInterval(keepalive);
-        clearTimeout(timeout);
-        unsubscribe();
-        closeController();
-
-        sseConnectionDuration.record((performance.now() - startMs) / 1000, {
-          close_reason: reason,
-        });
-        if (reason === "controller_error") {
-          sseConnectionDroppedTotal.add(1);
-        }
-      }
-
-      event.request.signal.addEventListener("abort", () => cleanup("client_abort"));
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "Content-Type": "text/event-stream",
-    },
+  return createSseResponse({
+    channels: [
+      keys.userChannel(userId),
+      keys.notificationChannel(userId),
+      ...authorizedClarChannels,
+    ],
+    slotType: "events",
+    userId,
+    redisUrl,
+    request: event.request,
   });
 };

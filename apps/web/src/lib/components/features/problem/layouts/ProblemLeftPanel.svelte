@@ -21,6 +21,7 @@
     viewingId?: string | null;
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
+    allowedLanguages?: string[] | undefined;
     editorialFormIdSuffix?: string;
   }
 
@@ -35,6 +36,7 @@
     viewingId: initialViewingId = null,
     problem,
     testcaseSets = [],
+    allowedLanguages,
     editorialFormIdSuffix = "",
   }: ProblemLeftPanelProps = $props();
 
@@ -139,7 +141,7 @@
   class="flex-1 overflow-y-auto focus-visible:outline-none"
 >
   {#if leftTab === "description"}
-    <ProblemDescriptionPanel {problem} {testcaseSets} {dailyAttempts} />
+    <ProblemDescriptionPanel {problem} {testcaseSets} {allowedLanguages} {dailyAttempts} />
   {:else if leftTab === "submissions"}
     <SubmissionHistoryPanel bind:submissions bind:viewingId {canRejudge} />
   {:else if editorialsEnabled && leftTab === "editorials"}

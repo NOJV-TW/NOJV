@@ -92,6 +92,13 @@ export const assessmentRepo = {
     });
   },
 
+  listNeedingTimers(now: Date) {
+    return prisma.assessment.findMany({
+      select: { id: true, closesAt: true },
+      where: { status: "published", closesAt: { gt: now } },
+    });
+  },
+
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.assessment.findMany({
       include: {

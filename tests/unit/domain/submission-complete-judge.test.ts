@@ -2,15 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
 
-const { submissionComplete, storageRef } = vi.hoisted(() => ({
+const { submissionComplete, findByIdMock, storageRef } = vi.hoisted(() => ({
   submissionComplete: vi.fn(),
+  findByIdMock: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => ({
   Prisma: { JsonNull: { __jsonNull: true } },
   submissionRepo: {
-    complete: submissionComplete,
+    completeIfInProgress: submissionComplete,
+    findById: findByIdMock,
   },
   problemRepo: { withTx: () => ({}) },
   userRepo: { withTx: () => ({}) },
@@ -114,6 +116,7 @@ describe("deriveVerdictSummary", () => {
 describe("completeJudge — storage + DB write", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    submissionComplete.mockResolvedValue({ count: 1 });
     storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   });
 
@@ -129,7 +132,7 @@ describe("completeJudge — storage + DB write", () => {
         { index: 1, verdict: "AC", timeMs: 7 },
       ],
     });
-    submissionComplete.mockResolvedValue({
+    findByIdMock.mockResolvedValue({
       id: "sub_1",
       contestId: null,
       examId: null,
@@ -185,7 +188,7 @@ describe("completeJudge — storage + DB write", () => {
 
   it("omits memoryKb from the DB update when the result didn't carry it", async () => {
     const result = makeResult({ verdict: "wrong_answer", score: 30 });
-    submissionComplete.mockResolvedValue({
+    findByIdMock.mockResolvedValue({
       id: "sub_3",
       contestId: null,
       examId: null,
@@ -205,7 +208,7 @@ describe("completeJudge — storage + DB write", () => {
   });
 
   it("records the advancedConfig audit snapshot when an advanced config is supplied", async () => {
-    submissionComplete.mockResolvedValue({
+    findByIdMock.mockResolvedValue({
       id: "sub_adv",
       contestId: null,
       examId: null,
@@ -233,7 +236,7 @@ describe("completeJudge — storage + DB write", () => {
   });
 
   it("writes a null advancedConfig snapshot for non-advanced submissions", async () => {
-    submissionComplete.mockResolvedValue({
+    findByIdMock.mockResolvedValue({
       id: "sub_std",
       contestId: null,
       examId: null,

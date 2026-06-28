@@ -11,6 +11,13 @@ import { getRedis, keys } from "@nojv/redis";
 import { NotFoundError } from "../shared/errors";
 
 const SCOREBOARD_CACHE_TTL_SECONDS = 10;
+const SCOREBOARD_LOCK_TTL_SECONDS = 5;
+const SCOREBOARD_LOCK_POLL_ATTEMPTS = 5;
+const SCOREBOARD_LOCK_POLL_INTERVAL_MS = 80;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 import {
   buildScoreboard,
   buildScoreboardChartSeries,
@@ -53,7 +60,11 @@ export async function updateContestScores(
     `${contestId}:${userId}`,
     {
       load: () => participationRepo.findContestForScoring(contestId, userId),
-      submissions: (p) => submissionRepo.findForContestScoring(p.contest.id, p.userId),
+      submissions: async (p) => {
+        const rows = await submissionRepo.findForContestScoring(p.contest.id, p.userId);
+        const endsAt = p.contest.endsAt;
+        return rows.filter((s) => s.createdAt <= endsAt);
+      },
       overrides: (p) => scoreOverrideRepo.findAllByContext("contest", p.contest.id),
       problemIds: (p) => new Set(p.contest.problems.map((cp) => cp.problemId)),
       problemPoints: (p) => new Map(p.contest.problems.map((cp) => [cp.problemId, cp.points])),
@@ -74,13 +85,32 @@ export async function getScoreboard(
   options?: { canSeeLive?: boolean },
 ): Promise<Scoreboard> {
   const canSeeLive = options?.canSeeLive === true;
-  const cacheKey = keys.scoreboardCache(contestId, canSeeLive ? "live" : "public");
-  const cached = await getRedis().get(cacheKey);
+  const variant = canSeeLive ? "live" : "public";
+  const cacheKey = keys.scoreboardCache(contestId, variant);
+  const redis = getRedis();
+
+  const cached = await redis.get(cacheKey);
   if (cached !== null) return JSON.parse(cached) as Scoreboard;
 
-  const result = await computeScoreboard(contestId, canSeeLive);
-  await getRedis().set(cacheKey, JSON.stringify(result), "EX", SCOREBOARD_CACHE_TTL_SECONDS);
-  return result;
+  const lockKey = keys.scoreboardLock(contestId, variant);
+  const acquired = await redis.set(lockKey, "1", "EX", SCOREBOARD_LOCK_TTL_SECONDS, "NX");
+
+  if (acquired !== "OK") {
+    for (let attempt = 0; attempt < SCOREBOARD_LOCK_POLL_ATTEMPTS; attempt++) {
+      await sleep(SCOREBOARD_LOCK_POLL_INTERVAL_MS);
+      const polled = await redis.get(cacheKey);
+      if (polled !== null) return JSON.parse(polled) as Scoreboard;
+    }
+    return computeScoreboard(contestId, canSeeLive);
+  }
+
+  try {
+    const result = await computeScoreboard(contestId, canSeeLive);
+    await redis.set(cacheKey, JSON.stringify(result), "EX", SCOREBOARD_CACHE_TTL_SECONDS);
+    return result;
+  } finally {
+    await redis.del(lockKey).catch(() => undefined);
+  }
 }
 
 async function computeScoreboard(contestId: string, canSeeLive: boolean): Promise<Scoreboard> {
@@ -133,7 +163,10 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
 
   const allSubmissions = await submissionRepo.findForContestScoreboardByContestId(contestId);
 
-  const submissions: SubmissionRow[] = allSubmissions.map((s) => ({
+  const endsAt = contest.endsAt;
+  const inWindow = allSubmissions.filter((s) => s.createdAt <= endsAt);
+
+  const submissions: SubmissionRow[] = inWindow.map((s) => ({
     createdAt: s.createdAt,
     problemId: s.problemId,
     score: s.score,

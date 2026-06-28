@@ -1,6 +1,5 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
-import type { Session } from "better-auth";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
@@ -13,13 +12,6 @@ import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
 
 const logger = createLogger("connections");
-
-const FRESH_WINDOW_MS = 5 * 60 * 1000;
-
-function freshEnough(session: Session | null): boolean {
-  if (!session) return false;
-  return Date.now() - new Date(session.createdAt).getTime() < FRESH_WINDOW_MS;
-}
 
 function formString(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -56,9 +48,6 @@ export const load = async (event: RequestEvent) => {
 export const actions = {
   link: async (event) => {
     requireAuth(event);
-    if (!freshEnough(event.locals.session)) {
-      return fail(403, { needsReauth: true });
-    }
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
       return fail(400, { error: "Unknown provider." });
@@ -75,9 +64,6 @@ export const actions = {
 
   unlink: async (event) => {
     const actor = requireAuth(event);
-    if (!freshEnough(event.locals.session)) {
-      return fail(403, { needsReauth: true });
-    }
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
       return fail(400, { error: "Unknown provider." });
@@ -109,9 +95,6 @@ export const actions = {
 
   deletePasskey: async (event) => {
     const actor = requireAuth(event);
-    if (!freshEnough(event.locals.session)) {
-      return fail(403, { needsReauth: true });
-    }
     const id = formString(await event.request.formData(), "id");
     if (!id) {
       return fail(400, { error: "Missing passkey id." });

@@ -1,0 +1,63 @@
+# Self-host single-node Temporal via the official temporal/temporal Helm chart (v1.4.x).
+# Separate pods per server role (frontend/history/matching/worker) — same split as the HA
+# file — but replicaCount 1 each. This is NOT node-failure HA: one pod per role means a
+# node drain/loss still pauses that role until the pod reschedules. Real HA needs >=2
+# nodes and the helm-values.ha.yaml replica counts. See HA-PRODUCTION.md (Option B/C).
+#
+#   helm install temporal temporal/temporal \
+#     -n nojv-temporal --create-namespace \
+#     -f infra/gcp/gke/temporal/helm-values.single-machine.yaml
+#
+# Backing store: the in-cluster CloudNativePG instance the nojv chart provisions
+# (the <release>-pg-rw Service, default nojv-pg-rw). Create the temporal +
+# temporal_visibility databases and a temporal role first (createDatabase=false
+# because the nojv app user is not a superuser) — see HA-PRODUCTION.md.
+server:
+  replicaCount: 1
+  config:
+    persistence:
+      defaultStore: default
+      visibilityStore: visibility
+      numHistoryShards: 512
+      datastores:
+        default:
+          sql:
+            pluginName: postgres12
+            databaseName: temporal
+            connectAddr: nojv-pg-rw.nojv.svc.cluster.local:5432
+            connectProtocol: tcp
+            user: temporal
+            existingSecret: temporal-postgres-secret
+            secretKey: password
+            createDatabase: false
+            manageSchema: true
+            maxConns: 10
+        visibility:
+          sql:
+            pluginName: postgres12
+            databaseName: temporal_visibility
+            connectAddr: nojv-pg-rw.nojv.svc.cluster.local:5432
+            connectProtocol: tcp
+            user: temporal
+            existingSecret: temporal-postgres-secret
+            secretKey: password
+            createDatabase: false
+            manageSchema: true
+            maxConns: 10
+  # Pin Temporal to the long-lived worker node (off the autoscaling sandbox pool).
+  nodeSelector:
+    nojv-role: worker
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Built-in single-pod Postgres/Cassandra/Elasticsearch/Prometheus/Grafana subcharts
+# were removed upstream (v1.0.0-rc.2). SQL visibility (above) needs no Elasticsearch.
+
+# Temporal Web UI — not needed; the nojv app embeds its own dashboards.
+web:
+  enabled: false

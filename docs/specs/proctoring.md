@@ -181,10 +181,11 @@ true }`.
   writes inside the same transaction as the check, so two near-
   simultaneous first requests serialize; whichever commits first wins
   the pin, the other becomes a binding violation.
-- **CF-Connecting-IP spoofing.** Mitigated by Cloud Run ingress =
-  Internal + Cloud Armor allowlist of Cloudflare CIDR ranges
+- **CF-Connecting-IP spoofing.** Mitigated by restricting the web origin
+  (GKE Ingress / LB) to Cloudflare via the Cloud Armor allowlist of
+  Cloudflare CIDR ranges
   (`docs/operations/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup section). Any
-  direct hit bypassing Cloudflare is blocked at the ingress, so the
+  direct hit bypassing Cloudflare is blocked at the origin, so the
   header is trustworthy inside the app.
 - **Violation mode change mid-exam.** If a teacher flips `block →
 notify` while students are taking the exam, ongoing blocked requests

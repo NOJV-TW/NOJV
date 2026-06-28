@@ -41,6 +41,18 @@ export const examRepo = {
     });
   },
 
+  listByCourseIds(courseIds: string[]) {
+    return prisma.exam.findMany({
+      omit: { plagiarismResults: true },
+      include: examListInclude,
+      orderBy: { startsAt: "desc" },
+      where: {
+        courseId: { in: courseIds },
+        status: "published",
+      },
+    });
+  },
+
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.exam.findMany({
       include: examListInclude,
@@ -86,6 +98,13 @@ export const examRepo = {
         endsAt: { gte: now },
       },
       _count: { _all: true },
+    });
+  },
+
+  listNeedingTimers(now: Date) {
+    return prisma.exam.findMany({
+      select: { id: true, startsAt: true, endsAt: true },
+      where: { status: "published", endsAt: { gt: now } },
     });
   },
 

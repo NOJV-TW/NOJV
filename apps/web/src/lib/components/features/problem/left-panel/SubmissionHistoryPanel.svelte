@@ -206,7 +206,10 @@
 
         <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
           <span>{entry.language}</span>
-          <span class="tabular-nums">{String(entry.result.score)}/100</span>
+          <span class="tabular-nums" title={m.submissionDetail_finalScoreHint()}>
+            {m.submissionDetail_finalScoreLabel()}
+            {String(entry.result.score)}/100
+          </span>
           <span class="tabular-nums">{formatSmartTimestamp(entry.submittedAt)}</span>
         </div>
 

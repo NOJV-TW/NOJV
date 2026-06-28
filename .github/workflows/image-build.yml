@@ -35,8 +35,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build web + worker (prod profile)
-        run: docker compose --profile prod build web worker
-
-      - name: Build migrator
-        run: docker compose --profile deploy build migrator
+      - name: Build runtime images
+        run: |
+          docker build -f infra/docker/web.Dockerfile -t nojv-web .
+          docker build -f infra/docker/worker.Dockerfile -t nojv-worker .
+          docker build -f infra/docker/migrator.Dockerfile -t nojv-migrator .
+          docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox .
+          docker build -t nojv-egress-proxy infra/docker/egress-proxy

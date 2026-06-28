@@ -234,25 +234,6 @@ export async function updateExamRecord(
   return { id: result.id };
 }
 
-export interface ExamLifecycleSnapshot {
-  endsAt: string;
-  scoringMode: string;
-  startsAt: string;
-}
-
-export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycleSnapshot> {
-  const exam = await examRepo.findInfoById(examId);
-  return {
-    endsAt: exam.endsAt.toISOString(),
-    scoringMode: exam.scoringMode,
-    startsAt: exam.startsAt.toISOString(),
-  };
-}
-
-export async function markExamPublished(examId: string): Promise<void> {
-  await examRepo.update(examId, { status: "published" });
-}
-
 async function assertExamManagePermission(
   tx: TransactionClient,
   actor: ActorContext,

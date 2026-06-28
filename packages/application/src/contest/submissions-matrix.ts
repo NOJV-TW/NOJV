@@ -2,28 +2,23 @@ import { submissionRepo } from "@nojv/db";
 
 import { problemLetter } from "../shared/problem-letter";
 import {
-  buildMatrixRowCells,
+  assembleMatrix,
   type MatrixCell,
-  type MatrixCellState,
   type MatrixProblemColumn,
 } from "../shared/submissions-matrix";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 import type { ContestProblemSummary } from "./queries";
 
-export type ContestMatrixCellState = MatrixCellState;
-export type ContestMatrixProblemColumn = MatrixProblemColumn;
-export type ContestMatrixCell = MatrixCell;
-
 export interface ContestMatrixRow {
   userId: string;
   displayName: string;
   handle: string;
-  cells: ContestMatrixCell[];
+  cells: MatrixCell[];
   total: number;
 }
 
 export interface ContestSubmissionsMatrix {
-  problems: ContestMatrixProblemColumn[];
+  problems: MatrixProblemColumn[];
   rows: ContestMatrixRow[];
   totalPoints: number;
   studentCount: number;
@@ -43,7 +38,7 @@ export interface BuildContestMatrixInput {
 export async function buildContestSubmissionsMatrix(
   input: BuildContestMatrixInput,
 ): Promise<ContestSubmissionsMatrix> {
-  const problems: ContestMatrixProblemColumn[] = input.problems.map((p) => ({
+  const problems: MatrixProblemColumn[] = input.problems.map((p) => ({
     problemId: p.id,
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
@@ -84,26 +79,15 @@ export async function buildContestSubmissionsMatrix(
     contestId: input.contestId,
   });
 
-  const rows: ContestMatrixRow[] = input.participants.map((participant) => {
-    const { cells, total } = buildMatrixRowCells({
-      userId: participant.userId,
-      problems,
-      scoreIndex,
-      overrides,
-    });
-    return {
-      userId: participant.userId,
-      displayName: participant.user.name,
-      handle: participant.user.username ?? "",
-      cells,
-      total,
-    };
-  });
-
-  return {
+  return assembleMatrix({
     problems,
-    rows,
-    totalPoints,
+    participants: input.participants.map((p) => ({
+      userId: p.userId,
+      displayName: p.user.name,
+      handle: p.user.username ?? "",
+    })),
+    scoreIndex,
+    overrides,
     studentCount: input.participants.length,
-  };
+  });
 }

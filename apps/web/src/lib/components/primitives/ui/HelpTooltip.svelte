@@ -9,9 +9,7 @@
 
   let { text, nowrap = false }: Props = $props();
 
-  const contentClass = $derived(
-    nowrap ? "whitespace-pre" : "max-w-xs whitespace-pre-line",
-  );
+  const contentClass = $derived(nowrap ? "whitespace-pre" : "max-w-xs whitespace-pre-line");
 </script>
 
 <Tooltip.Provider delayDuration={200}>

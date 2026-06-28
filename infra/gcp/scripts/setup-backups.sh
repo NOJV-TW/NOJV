@@ -6,6 +6,12 @@ set -euo pipefail
 : "${REGION:?REGION is required}"
 : "${BACKUP_BUCKET:?BACKUP_BUCKET is required}"
 
+# Temporal now runs from the official Helm chart against its own managed Postgres
+# (see infra/gcp/gke/temporal/HA-PRODUCTION.md); back that database up through
+# whatever managed instance backs it, not from here. This script covers the app
+# database in Cloud SQL only. The nojv app's own Postgres, when run in-cluster via
+# CloudNativePG (the chart default), is backed up by the chart's ScheduledBackup.
+
 gcloud config set project "$PROJECT_ID" >/dev/null
 
 echo "[1/3] Patching Cloud SQL instance ${SQL_INSTANCE} — automated backups + PITR"

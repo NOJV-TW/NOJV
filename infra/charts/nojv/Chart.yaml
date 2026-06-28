@@ -1,0 +1,18 @@
+apiVersion: v2
+name: nojv
+description: >-
+  NOJV online judge — web, Temporal workers (judge + platform), sandbox
+  namespace policy, and optional in-cluster Redis/MinIO/PostgreSQL (CloudNativePG).
+  One chart, per-environment values for single-machine k8s (k3s/kind) and GKE.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"
+keywords:
+  - online-judge
+  - nojv
+  - temporal
+  - sandbox
+home: https://github.com/nojv
+maintainers:
+  - name: NOJV

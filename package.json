@@ -60,9 +60,11 @@
       "@prisma/dev>@hono/node-server": "^1.19.13",
       "@prisma/dev>hono": ">=4.12.25",
       "@sveltejs/kit>cookie": "^0.7.0",
-      "sveltekit-superforms>joi": "^18.2.1",
       "tsx>esbuild": "^0.28.1"
     },
+    "ignoredOptionalDependencies": [
+      "joi"
+    ],
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
       "@prisma/engines",

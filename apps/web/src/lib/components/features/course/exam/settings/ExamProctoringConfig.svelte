@@ -3,6 +3,7 @@
   import type { ExamSettingsForm } from "@nojv/core";
   import type { FormMessage } from "$lib/types/form-message";
   import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
+  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
 
@@ -26,16 +27,19 @@
     <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
       <input type="checkbox" bind:checked={$form.pageLockEnabled} disabled={!editable} />
       {m.examDetail_settingsPageLockLabel()}
+      <HelpTooltip text={m.examProctoring_pageLockHelp()} />
     </label>
 
     <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
       <input type="checkbox" bind:checked={$form.ipBindingEnabled} disabled={!editable} />
       {m.examDetail_settingsIpBindingLabel()}
+      <HelpTooltip text={m.examProctoring_ipBindingHelp()} />
     </label>
 
     <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
       <input type="checkbox" bind:checked={$form.ipWhitelistEnabled} disabled={!editable} />
       {m.examDetail_settingsIpWhitelistEnabledLabel()}
+      <HelpTooltip text={m.examProctoring_ipWhitelistHelp()} />
     </label>
 
     {#if $form.ipWhitelistEnabled}
@@ -53,6 +57,7 @@
     <div>
       <label class="text-sm font-medium" for="settings-ipViolationMode">
         {m.examDetail_settingsIpViolationModeLabel()}
+        <HelpTooltip text={m.examProctoring_violationModeHelp()} />
       </label>
       <select
         id="settings-ipViolationMode"

@@ -52,10 +52,10 @@ tooling/
 scripts/            Repo-level maintenance scripts (lint guards, etc.)
 
 infra/
+  charts/nojv/      Helm umbrella chart — the single deploy path (single-machine k8s + GKE)
   docker/           Dockerfiles (web, worker, sandbox, migrator)
-  gcp/              Cloud Build, Cloud Run, GKE deployment
+  gcp/              Cloud Build (image build) + GKE / Temporal / backup helpers
   grafana/          Grafana Cloud dashboards + provisioning script
-  k8s/sandbox/      Kubernetes namespace, network policy, resource quota
 
 tests/              Vitest + Playwright test suites
 docs/
@@ -84,7 +84,13 @@ docs/
 - pnpm 10.x
 - Docker Desktop (for local Postgres, Redis, Temporal, and sandbox)
 
-## Local Setup
+## Local Development (Docker Compose)
+
+Docker Compose is the **local development** path only — it is not a deployment
+method. It starts the backing services (Postgres, Redis, MinIO, Temporal,
+Temporal UI) as containers so you can run the app from source with `pnpm dev`.
+For deploying NOJV to a real environment, use the Helm chart (see
+[Deployment](#deployment)).
 
 ```bash
 # 1. Install dependencies
@@ -93,23 +99,36 @@ pnpm install
 # 2. Copy env template
 cp .env.example .env
 
-# 3. Start infrastructure (Postgres, Redis, MinIO, Temporal, Temporal UI)
+# 3. Start local infrastructure (Postgres, Redis, MinIO, Temporal, Temporal UI)
 docker compose up -d
 
 # 4. Build packages and prepare database
 pnpm db:generate
 pnpm build
-pnpm db:push
-pnpm db:seed
+pnpm db:push     # push the Prisma schema to the local DB
+pnpm db:seed     # load demo users / problems / contests
 
 # 5. Build sandbox image (needed for submission judging)
 pnpm sandbox:build
 
-# 6. Start dev servers
+# 6. Start dev servers, then open http://localhost:5173
 pnpm dev
 ```
 
-See [Getting Started Runbook](docs/runbooks/getting-started.md) for detailed bootstrap procedures.
+Each Compose service maps to one local dependency:
+
+| Compose service | Local dependency                              | Reached at            |
+| --------------- | --------------------------------------------- | --------------------- |
+| `postgres`      | App + Temporal database (PostgreSQL 18)       | `localhost:5432`      |
+| `redis`         | Cache / pub-sub / scoreboard (Redis 8)        | `localhost:6379`      |
+| `minio`         | S3-compatible object storage (problem assets) | `localhost:9000/9001` |
+| `temporal`      | Workflow engine (`temporalio/auto-setup`)     | `localhost:7233`      |
+| `temporal-ui`   | Temporal Web UI                               | `localhost:8080`      |
+
+The app itself (web on `localhost:5173`, worker) runs from source via `pnpm dev`
+— not as a Compose service. See the
+[Getting Started Runbook](docs/runbooks/getting-started.md) for detailed
+bootstrap procedures.
 
 ### Local Ports
 
@@ -176,59 +195,50 @@ The worker selects its executor via `EXECUTION_BACKEND` (`docker` locally, `kube
 
 - Workflow: `.github/workflows/ci.yml`
 - Command: `pnpm ci:verify`
-- Checks: formatting, lint, tests, builds, Prisma schema validation, Docker Compose config validation
+- Checks: formatting, lint, tests, builds, Prisma schema validation
 
-## CD To Remote Server
+## Deployment
 
-- CI workflow: `.github/workflows/ci.yml`
-- CD workflow: `.github/workflows/deploy.yml`
-- Trigger: CD runs automatically when CI succeeds for a push to `main`
-- Deploy target: self-hosted Linux runner on remote server
-- Deploy source: exact commit SHA that passed CI
+NOJV deploys to **both** single-machine Kubernetes (k3s / kind on one node)
+and **GKE** through the **same Helm umbrella chart** at `infra/charts/nojv`.
+Container images are built by Cloud Build (`infra/gcp/cloud-build`); the chart
+provisions web, the Temporal workers, the sandbox namespace policy, the
+migrator hook, and (optionally) in-cluster Postgres (CloudNativePG), Redis, and
+MinIO.
 
-The CD workflow performs Docker Compose based rollout on the remote server:
+```bash
+# Single-machine (k3s / kind, one node)
+helm upgrade --install nojv infra/charts/nojv \
+  -f infra/charts/nojv/values-single-machine.yaml -n nojv --create-namespace
 
-1. Start/verify infra services (`postgres`, `redis`, `temporal`, `temporal-ui`)
-2. Build images for the passed commit (`sandbox-image`, `migrator`, `web`, `worker`)
-3. Run database migrations
-4. Deploy `web` and `worker`
-5. Verify endpoint and container health
+# GKE (HA on a Dataplane-V2 cluster)
+helm upgrade --install nojv infra/charts/nojv \
+  -f infra/charts/nojv/values-gke.yaml -n nojv --create-namespace
+```
 
-Required deployment auth values (one source is enough):
+Two one-time prerequisites are installed out-of-band (the chart does not vendor
+them): the **CloudNativePG operator** (provides the Postgres `Cluster` +
+`ScheduledBackup` the chart renders) and the **Temporal Server** (the official
+`temporalio/temporal` Helm chart). In production, **web runs in the cluster**
+behind **Cloudflare** (DNS / TLS / CDN at the edge) — there is no Cloud Run.
 
-1. `.env` in the remote runner workspace
-2. Remote runner environment variables
-
-Required:
-
-- `BETTER_AUTH_SECRET`
-- `BETTER_AUTH_URL`
-
-Optional OAuth:
-
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-
-Note: the deploy workflow keeps runner local `.env` by using checkout with `clean: false`.
-
-See [Deployment Guide](docs/operations/DEPLOYMENT.md) for full operational details.
+See [Deployment Guide](docs/operations/DEPLOYMENT.md) for the full procedure,
+the CNPG backup posture, and the Temporal prerequisite options.
 
 ## Documentation Index
 
-| Document                                              | Description                                         |
-| ----------------------------------------------------- | --------------------------------------------------- |
-| [CLAUDE.md](CLAUDE.md)                                | Agent entrypoint and reading order                  |
-| [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)  | System architecture overview                        |
-| [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                    |
-| [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                  |
-| [Database Schema](docs/architecture/DATABASE.md)      | Models, relationships, enums                        |
-| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub                                 |
-| [Security](docs/operations/SECURITY.md)               | Auth, trust boundaries, sandbox isolation           |
-| [Reliability](docs/operations/RELIABILITY.md)         | Invariants, failure modes, operational expectations |
-| [Deployment](docs/operations/DEPLOYMENT.md)           | Docker Compose, CI/CD rollout, microservice modes   |
-| [Getting Started](docs/runbooks/getting-started.md)   | Bootstrap procedures for new developers             |
+| Document                                              | Description                                           |
+| ----------------------------------------------------- | ----------------------------------------------------- |
+| [CLAUDE.md](CLAUDE.md)                                | Agent entrypoint and reading order                    |
+| [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)  | System architecture overview                          |
+| [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                      |
+| [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                    |
+| [Database Schema](docs/architecture/DATABASE.md)      | Models, relationships, enums                          |
+| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub                                   |
+| [Security](docs/operations/SECURITY.md)               | Auth, trust boundaries, sandbox isolation             |
+| [Reliability](docs/operations/RELIABILITY.md)         | Invariants, failure modes, operational expectations   |
+| [Deployment](docs/operations/DEPLOYMENT.md)           | Helm chart deploy (single-machine k8s + GKE), backups |
+| [Getting Started](docs/runbooks/getting-started.md)   | Bootstrap procedures for new developers               |
 
 ## Design Documents
 

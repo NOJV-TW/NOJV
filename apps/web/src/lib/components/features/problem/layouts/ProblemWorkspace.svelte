@@ -158,6 +158,7 @@
     bind:submissions
     {problem}
     {testcaseSets}
+    {allowedLanguages}
   />
 </div>
 

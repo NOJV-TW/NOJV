@@ -20,8 +20,6 @@ export const load: PageServerLoad = handleLoad(async (event) => {
   event.depends("contest:scoreboard");
   const actor = getActorContext(event);
 
-  const canSeeLive = await canViewLiveContestScoreboard(contestId, actor);
-
   const detail = await getContestDetail(contestId, {
     now: new Date(),
     platformRole: actor?.platformRole ?? null,
@@ -31,6 +29,8 @@ export const load: PageServerLoad = handleLoad(async (event) => {
   if (detail.problemsHidden) {
     redirect(303, `/contests/${contestId}`);
   }
+
+  const canSeeLive = detail.isManager;
 
   const scoreboard = await getScoreboard(contestId, { canSeeLive });
   const chart = await getScoreboardChart(contestId, 10, {

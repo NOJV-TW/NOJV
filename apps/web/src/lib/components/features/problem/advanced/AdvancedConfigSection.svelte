@@ -249,9 +249,17 @@
 {/snippet}
 
 <section class="space-y-6">
-  <header class="space-y-1">
+  <header class="space-y-2">
     <h3 class="text-body-lg font-semibold">{m.advancedConfig_title()}</h3>
     <p class="text-body-sm text-muted-foreground">{m.advancedConfig_hint()}</p>
+    <details class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2">
+      <summary class="cursor-pointer text-caption font-semibold">
+        {m.advancedConfig_contractHelpTitle()}
+      </summary>
+      <p class="mt-2 whitespace-pre-line text-caption text-muted-foreground">
+        {m.advancedConfig_contractHelpBody()}
+      </p>
+    </details>
   </header>
 
   <div class="grid gap-6 md:grid-cols-2">

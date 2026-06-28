@@ -45,8 +45,8 @@ Production trusts **Cloudflare as the sole ingress path**. The client IP used fo
 
 Three layers protect this trust boundary; **all three are required**, and losing any one collapses it:
 
-1. **Cloud Run Ingress = "Internal and Cloud Load Balancing"** — the default `*.a.run.app` URL is rejected, so direct-to-origin is impossible. Traffic must traverse GCLB.
-2. **GCLB Cloud Armor security policy** — source IP allowlist restricted to the official Cloudflare CIDR ranges (<https://www.cloudflare.com/ips-v4> + <https://www.cloudflare.com/ips-v6>). Anything else returns 403 at the LB before reaching Cloud Run.
+1. **Origin restricted to Cloudflare** — web runs in-cluster behind a GKE Ingress / load balancer, and the origin is configured to reject any request that did not arrive through Cloudflare, so direct-to-origin is impossible. Traffic must traverse the Cloudflare edge.
+2. **Cloud Armor / edge allowlist** — the Ingress backend (GCLB) carries a source-IP allowlist restricted to the official Cloudflare CIDR ranges (<https://www.cloudflare.com/ips-v4> + <https://www.cloudflare.com/ips-v6>). Anything else returns 403 at the load balancer before reaching web.
 3. **Application-level check** — `getClientIp(event)` in `apps/web/src/lib/server/shared/client-ip.ts` reads `CF-Connecting-IP`. If the header is missing in production, the request is rejected with 403. **No fallback** to `X-Forwarded-For` or the socket address — a weaker IP source is strictly worse than refusing.
 
 If Cloudflare is ever replaced or removed, update the Cloud Armor allowlist and the header name in `client-ip.ts` **together** — a drift here silently breaks either availability or the spoofing defence.

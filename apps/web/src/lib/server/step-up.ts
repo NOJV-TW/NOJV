@@ -2,8 +2,10 @@ import type { RequestEvent } from "@sveltejs/kit";
 
 import {
   clearStepUp,
+  hasAdminSessionMfa,
   hasFreshStepUp,
   isBackupCodeFormat,
+  markAdminSessionMfa,
   markStepUpFresh,
   markTotpSeen,
   userHasCredentialPassword,
@@ -15,8 +17,10 @@ import { getAuth } from "$lib/auth.server";
 
 export {
   clearStepUp,
+  hasAdminSessionMfa,
   hasFreshStepUp,
   isBackupCodeFormat,
+  markAdminSessionMfa,
   markStepUpFresh,
   markTotpSeen,
   userHasCredentialPassword,

@@ -46,9 +46,9 @@ Use `Read` first to capture the 3 secret values (URL, username, password from th
 # Region: prod-ap-northeast-0  Stack: takalawang  Created: 2026-05-06
 
 # Hosted Prometheus / OTLP push credentials (basic auth: instance_id : token)
-GRAFANA_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
-GRAFANA_OTLP_INSTANCE_ID=<from River block: username>
-GRAFANA_OTLP_TOKEN=<from River block: password>
+# (env vars later renamed to the OpenTelemetry standard OTEL_EXPORTER_OTLP_*)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64(instance_id:token)>
 
 # Grafana service account (dashboard provisioning via /api/dashboards/db)
 GRAFANA_STACK_URL=<existing GRAFANA_STACK_URL>
@@ -76,12 +76,11 @@ Expected: `.gitignore:NN:.secrets/	.secrets/grafana.env`
 **Step 1: Append placeholders**
 
 ```env
-# --- Grafana Cloud observability ---
+# --- OpenTelemetry metrics export ---
 # Get from https://grafana.com/orgs/<your-org>/stacks then "Send Metrics via OTLP"
 # Leave empty to disable telemetry export (no-op SDK)
-GRAFANA_OTLP_ENDPOINT=
-GRAFANA_OTLP_INSTANCE_ID=
-GRAFANA_OTLP_TOKEN=
+OTEL_EXPORTER_OTLP_ENDPOINT=
+OTEL_EXPORTER_OTLP_HEADERS=
 # Optional: separate per-app service name override
 OTEL_SERVICE_NAME_WEB=nojv-web
 OTEL_SERVICE_NAME_WORKER=nojv-worker
@@ -92,10 +91,10 @@ METRICS_TOKEN=
 **Step 2: Verify**
 
 ```bash
-grep -c "GRAFANA_OTLP" /Users/takala/code/NOJV/.env.example
+grep -c "OTEL_EXPORTER_OTLP" /Users/takala/code/NOJV/.env.example
 ```
 
-Expected: `3`
+Expected: `2`
 
 **Step 3: Commit**
 
@@ -183,18 +182,16 @@ let sdk: NodeSDK | null = null;
 
 export function startOtel(): void {
   if (started) return;
-  const endpoint = process.env.GRAFANA_OTLP_ENDPOINT;
-  const instanceId = process.env.GRAFANA_OTLP_INSTANCE_ID;
-  const token = process.env.GRAFANA_OTLP_TOKEN;
-  if (!endpoint || !instanceId || !token) {
+  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  if (!endpoint) {
     return; // no-op when not configured (local dev without metrics)
   }
 
-  const auth = Buffer.from(`${instanceId}:${token}`).toString("base64");
+  const headers = parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
   const exporter = new OTLPMetricExporter({
     url: `${endpoint.replace(/\/$/, "")}/v1/metrics`,
-    headers: { Authorization: `Basic ${auth}` },
+    ...(headers ? { headers } : {}),
   });
 
   sdk = new NodeSDK({

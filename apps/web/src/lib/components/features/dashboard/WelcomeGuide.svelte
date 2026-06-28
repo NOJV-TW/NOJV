@@ -6,34 +6,54 @@
 
   interface Props {
     username?: string;
+    platformRole?: string;
   }
 
-  let { username }: Props = $props();
+  let { username, platformRole }: Props = $props();
+
+  const isStaff = $derived(platformRole === "teacher" || platformRole === "admin");
 
   const title = $derived(
     username
       ? m.dashboard_welcomeGuideTitle({ username })
       : m.dashboard_welcomeGuideTitleAnon(),
   );
+
+  const description = $derived(
+    isStaff
+      ? m.dashboard_welcomeGuideDescriptionStaff()
+      : m.dashboard_welcomeGuideDescriptionStudent(),
+  );
+
+  const actions = $derived(
+    isStaff
+      ? [
+          {
+            href: "/courses/new",
+            label: m.dashboard_welcomeGuideCreateCourse(),
+            variant: "default" as const,
+          },
+          {
+            href: "/problems",
+            label: m.dashboard_welcomeGuideBrowseProblems(),
+            variant: "outline" as const,
+          },
+        ]
+      : [
+          {
+            href: "/problems",
+            label: m.dashboard_welcomeGuideBrowseProblems(),
+            variant: "default" as const,
+          },
+          {
+            href: "/courses",
+            label: m.dashboard_welcomeGuideBrowseCourses(),
+            variant: "outline" as const,
+          },
+        ],
+  );
 </script>
 
 <Card variant="surface" size="lg">
-  <EmptyState
-    variant="onboarding"
-    icon={Rocket}
-    {title}
-    description={m.dashboard_welcomeGuideDescription()}
-    actions={[
-      {
-        href: "/problems",
-        label: m.dashboard_welcomeGuideBrowseProblems(),
-        variant: "default",
-      },
-      {
-        href: "/courses",
-        label: m.dashboard_welcomeGuideBrowseCourses(),
-        variant: "outline",
-      },
-    ]}
-  />
+  <EmptyState variant="onboarding" icon={Rocket} {title} {description} {actions} />
 </Card>

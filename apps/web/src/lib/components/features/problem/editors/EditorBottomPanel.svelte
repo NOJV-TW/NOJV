@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SubmissionResult } from "@nojv/core";
+  import type { JudgeType, SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
 
@@ -11,6 +11,7 @@
   interface Props {
     runCases: RunCase[];
     isReadOnly?: boolean;
+    judgeType?: JudgeType;
     tab: "testcase" | "result";
     runResult: SubmissionResult | null;
     runStatus: string | null;
@@ -21,6 +22,7 @@
   let {
     runCases = $bindable(),
     isReadOnly = false,
+    judgeType,
     tab,
     runResult,
     runStatus,
@@ -164,20 +166,26 @@
             ></textarea>
           </div>
 
-          <div class="mt-3">
-            <p class="text-caption text-muted-foreground">{m.editor_expectLabel()}</p>
-            <textarea
-              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
-              oninput={(e) => {
-                const val = (e.target as HTMLTextAreaElement).value;
-                runCases = runCases.map((tc, i) =>
-                  i === selectedCase ? { ...tc, expectedOutput: val } : tc,
-                );
-              }}
-              rows={2}
-              value={runCases[selectedCase]?.expectedOutput ?? ""}
-            ></textarea>
-          </div>
+          {#if judgeType === "interactive"}
+            <p class="mt-3 text-caption text-muted-foreground">
+              {m.editor_expectInteractiveNote()}
+            </p>
+          {:else}
+            <div class="mt-3">
+              <p class="text-caption text-muted-foreground">{m.editor_expectLabel()}</p>
+              <textarea
+                class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
+                oninput={(e) => {
+                  const val = (e.target as HTMLTextAreaElement).value;
+                  runCases = runCases.map((tc, i) =>
+                    i === selectedCase ? { ...tc, expectedOutput: val } : tc,
+                  );
+                }}
+                rows={2}
+                value={runCases[selectedCase]?.expectedOutput ?? ""}
+              ></textarea>
+            </div>
+          {/if}
         </div>
       {/if}
     {:else}

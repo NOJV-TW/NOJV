@@ -31,7 +31,7 @@ function policyJson(policy: unknown): string {
 
 describe("deny-all relabel — manifest YAML excludes nojv.egress-labeled pods", () => {
   it("the sandbox deny-all NetworkPolicy uses DoesNotExist on nojv.egress", () => {
-    // Mirrors infra/k8s/sandbox/network-policy.yaml + infra/gcp/gke/network-policy.yaml.
+    // Mirrors the deny-all-sandbox NetworkPolicy in infra/charts/nojv/templates/sandbox-policy.yaml.
     // A pod WITH nojv.egress is NOT selected by deny-all (escapes it); one WITHOUT IS.
     const denyAllSelector = {
       matchExpressions: [{ key: EGRESS_LABEL_KEY, operator: "DoesNotExist" }],

@@ -4,6 +4,8 @@ export const keys = {
   scoreboardUpdateThrottle: (contestId: string) => `nojv:sb-throttle:${contestId}`,
   scoreboardCache: (contestId: string, variant: "live" | "public") =>
     `nojv:sb-cache:${contestId}:${variant}`,
+  scoreboardLock: (contestId: string, variant: "live" | "public") =>
+    `nojv:sb-lock:${contestId}:${variant}`,
 
   userChannel: (userId: string) => `nojv:user:${userId}`,
   notificationChannel: (userId: string) => `nojv:notification:${userId}`,
@@ -12,6 +14,7 @@ export const keys = {
     `nojv:clarification:${contextType}:${contextId}`,
 
   apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
+  adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
   twoFactorEnrollConfirm: (tokenHash: string) => `nojv:2fa:enroll-confirm:${tokenHash}`,
   twoFactorEnrollConfirmed: (userId: string) => `nojv:2fa:enroll-confirmed:${userId}`,
   twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,

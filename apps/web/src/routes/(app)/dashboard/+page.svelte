@@ -237,7 +237,7 @@
   />
 
   {#if !hasActivity}
-    <WelcomeGuide username={data.username} />
+    <WelcomeGuide username={data.username} platformRole={data.platformRole} />
   {:else}
     <div class="space-y-6">
       <Card variant="surface" size="lg">

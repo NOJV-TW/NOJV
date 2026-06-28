@@ -239,56 +239,6 @@ export async function getContestById(id: string) {
   return contestRepo.findById(id);
 }
 
-export interface GetContestContextOptions {
-  viewerUserId: string;
-  viewerPlatformRole: PlatformRole;
-  now?: Date;
-}
-
-export interface ContestContextResult {
-  allowedLanguages: Language[];
-  id: string;
-  timeStatus: "upcoming" | "open" | "closed";
-  viewerIsManager: boolean;
-}
-
-function resolveContestTimeStatus(
-  now: Date,
-  startsAt: Date,
-  endsAt: Date,
-): "upcoming" | "open" | "closed" {
-  if (now < startsAt) return "upcoming";
-  if (now > endsAt) return "closed";
-  return "open";
-}
-
-// intentional-nullable: caller needs absence for inaccessible contest context.
-export async function getContestContext(
-  contestId: string,
-  options: GetContestContextOptions,
-): Promise<ContestContextResult | null> {
-  const contest = await contestRepo.findById(contestId);
-  if (contest?.visibility !== "published") return null;
-
-  const now = options.now ?? new Date();
-  const timeStatus = resolveContestTimeStatus(now, contest.startsAt, contest.endsAt);
-
-  const viewerIsManager = canManageContest(
-    options.viewerUserId,
-    { createdByUserId: contest.createdByUserId },
-    options.viewerPlatformRole,
-  );
-
-  if (!viewerIsManager && timeStatus !== "open") return null;
-
-  return {
-    allowedLanguages: contest.allowedLanguages,
-    id: contest.id,
-    timeStatus,
-    viewerIsManager,
-  };
-}
-
 export async function unfreezeContest(contestId: string) {
   const contest = await contestRepo.findById(contestId);
   if (!contest) return null;
