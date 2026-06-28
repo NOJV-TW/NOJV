@@ -17,6 +17,7 @@ import {
   slugSchema,
   type ContestCreate,
   type ContestProblemInput,
+  type ContestScoringMode,
   type ContestUpdate,
   type Language,
 } from "@nojv/core";
@@ -57,6 +58,7 @@ import {
 import { requireContest, requireUser } from "../shared/require";
 import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 
@@ -67,6 +69,7 @@ async function resolveAndAttachContestProblems(
   contestId: string,
   problems: ContestProblemInput[],
   allowedLanguages: Language[],
+  scoringMode: ContestScoringMode,
 ) {
   const problemIds = problems.map((p) => p.problemId);
   const found = await problemRepo.withTx(tx).findMany({
@@ -90,10 +93,14 @@ async function resolveAndAttachContestProblems(
     problems.map(async (entry, index) => {
       const problem = problemById.get(entry.problemId);
       if (!problem) return;
+      const points =
+        scoringMode === "weighted_count"
+          ? entry.points
+          : await getProblemTotalScore(tx, problem);
       await contestProblemRepo.withTx(tx).create({
         contestId,
         ordinal: index + 1,
-        points: entry.points,
+        points,
         problemId: problem.id,
       });
     }),
@@ -195,6 +202,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       contest.id,
       payload.problems,
       payload.allowedLanguages,
+      payload.scoringMode,
     );
 
     return contest;
@@ -246,6 +254,7 @@ export async function updateContestRecord(
         contest.id,
         payload.problems,
         enforcedLanguages,
+        payload.scoringMode ?? contest.scoringMode,
       );
     }
 

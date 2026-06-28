@@ -25,5 +25,5 @@ export function contestScoringModeHelp(): string {
 }
 
 export function contestModeUsesPoints(mode: ContestScoringMode): boolean {
-  return mode === "weighted_count" || mode === "point_sum";
+  return mode === "weighted_count";
 }
