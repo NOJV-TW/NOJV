@@ -30,6 +30,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
+import { hasAdminSessionMfa } from "$lib/server/step-up";
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
@@ -253,16 +254,29 @@ function enforcePasswordChange(event: HandleEvent, cleanPath: string): void {
   }
 }
 
-function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): void {
+async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Promise<void> {
   const user = event.locals.sessionUser;
+  if (user?.platformRole !== "admin" || user.mustChangePassword) {
+    return;
+  }
+  if (getWebEnv().NODE_ENV === "development") {
+    return;
+  }
   if (
-    user?.platformRole === "admin" &&
-    !user.twoFactorEnabled &&
-    !user.mustChangePassword &&
-    cleanPath.startsWith("/admin") &&
-    !cleanPath.startsWith("/api/")
+    cleanPath.startsWith("/api/") ||
+    cleanPath.startsWith("/account/two-factor") ||
+    cleanPath.startsWith("/account/api-tokens/verify") ||
+    cleanPath.startsWith("/complete-profile") ||
+    cleanPath.startsWith("/account/change-password")
   ) {
+    return;
+  }
+  if (!user.twoFactorEnabled) {
     redirect(302, "/account/two-factor");
+  }
+  const sessionId = event.locals.session?.id;
+  if (sessionId && !(await hasAdminSessionMfa(sessionId))) {
+    redirect(302, "/account/api-tokens/verify?returnTo=" + encodeURIComponent(cleanPath));
   }
 }
 
@@ -416,7 +430,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   await loadSession(event);
   enforceAccountState(event, cleanPath);
   enforcePasswordChange(event, cleanPath);
-  enforceAdminTwoFactor(event, cleanPath);
+  await enforceAdminTwoFactor(event, cleanPath);
   await enforcePageLock(event, cleanPath);
 
   const examResponse = await enforceExamGate(event, cleanPath);
