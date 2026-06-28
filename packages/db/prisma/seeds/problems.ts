@@ -276,7 +276,8 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
           ],
         },
         hidden: {
-          description: "Subtask 1: small arrays — below-all, above-all, duplicates, single element.",
+          description:
+            "Subtask 1: small arrays — below-all, above-all, duplicates, single element.",
           weight: 80,
           cases: [
             { input: "1\n5\n3\n5 4 6\n", output: "0 0 1" },
@@ -285,7 +286,8 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
           ],
         },
         hidden2: {
-          description: "Subtask 2: duplicate-heavy arrays, negative ranges, and larger spreads.",
+          description:
+            "Subtask 2: duplicate-heavy arrays, negative ranges, and larger spreads.",
           weight: 120,
           cases: [
             { input: "6\n2 2 2 5 5 8\n5\n2 5 8 9 1\n", output: "0 3 5 6 0" },
