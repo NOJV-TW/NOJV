@@ -2,6 +2,7 @@ import { accountRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 
 const STEPUP_TTL_SECONDS = 600;
+const ADMIN_MFA_TTL_SECONDS = 604800;
 const OTP_DEDUPE_TTL_SECONDS = 120;
 const TOTP_CODE_LENGTH = 6;
 
@@ -26,6 +27,14 @@ export async function hasFreshStepUp(userId: string): Promise<boolean> {
 
 export async function clearStepUp(userId: string): Promise<void> {
   await getRedis().del(keys.apiTokenStepUp(userId));
+}
+
+export async function markAdminSessionMfa(sessionId: string): Promise<void> {
+  await getRedis().set(keys.adminSessionMfa(sessionId), "1", "EX", ADMIN_MFA_TTL_SECONDS);
+}
+
+export async function hasAdminSessionMfa(sessionId: string): Promise<boolean> {
+  return (await getRedis().get(keys.adminSessionMfa(sessionId))) !== null;
 }
 
 export async function markTotpSeen(userId: string, code: string): Promise<void> {

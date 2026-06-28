@@ -8,7 +8,12 @@ import { requireAuth } from "$lib/server/auth";
 import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
-import { clearStepUp, userHasCredentialPassword, verifyStepUpCode } from "$lib/server/step-up";
+import {
+  clearStepUp,
+  markAdminSessionMfa,
+  userHasCredentialPassword,
+  verifyStepUpCode,
+} from "$lib/server/step-up";
 import {
   clearEnrollConfirmed,
   generateEnrollToken,
@@ -166,6 +171,10 @@ export const actions = {
         returnHeaders: true,
       });
       forwardSetCookies(event, headers);
+      const sessionId = event.locals.session?.id;
+      if (actor.platformRole === "admin" && sessionId) {
+        await markAdminSessionMfa(sessionId);
+      }
     } catch {
       return fail(401, { error: "Invalid code. Try again." });
     }

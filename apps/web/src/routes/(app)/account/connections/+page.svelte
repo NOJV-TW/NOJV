@@ -11,7 +11,6 @@
 
   let busy = $state(false);
   let error = $state("");
-  let needsReauth = $state(false);
   let passkeyBusy = $state(false);
 
   const providerLabel: Record<string, string> = { github: "GitHub", google: "Google" };
@@ -47,9 +46,6 @@
         </p>
       </div>
     {/snippet}
-    {#if needsReauth}
-      <p class="text-body-sm text-warning">為了安全,請先重新登入再變更登入方式。</p>
-    {/if}
     {#if error}
       <p class="text-body-sm text-destructive">{error}</p>
     {/if}
@@ -62,13 +58,11 @@
             action={linked ? "?/unlink" : "?/link"}
             use:enhance={() => {
               error = "";
-              needsReauth = false;
               busy = true;
               return async ({ result, update }) => {
                 busy = false;
                 if (result.type === "failure") {
-                  needsReauth = result.data?.needsReauth === true;
-                  error = needsReauth ? "" : ((result.data?.error as string) ?? "");
+                  error = (result.data?.error as string) ?? "";
                   return;
                 }
                 if (result.type === "success" && result.data?.unlinked) {
@@ -108,13 +102,11 @@
             action="?/deletePasskey"
             use:enhance={() => {
               error = "";
-              needsReauth = false;
               busy = true;
               return async ({ result, update }) => {
                 busy = false;
                 if (result.type === "failure") {
-                  needsReauth = result.data?.needsReauth === true;
-                  error = needsReauth ? "" : ((result.data?.error as string) ?? "");
+                  error = (result.data?.error as string) ?? "";
                   return;
                 }
                 toasts.success("已移除 passkey");
