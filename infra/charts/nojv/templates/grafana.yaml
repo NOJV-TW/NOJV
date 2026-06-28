@@ -1,0 +1,181 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-grafana-datasources
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  ds.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: {{ printf "http://%s-prometheus.%s.svc:9090" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+        isDefault: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-grafana-dashboard-provider
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: nojv
+        type: file
+        allowUiUpdates: false
+        options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-grafana-dashboards
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  {{- (.Files.Glob "files/grafana-dashboards/*.json").AsConfig | nindent 2 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-grafana
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-grafana
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-grafana
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grafana
+          image: {{ .Values.observability.grafana.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.observability.grafana.adminUser | quote }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              {{- if .Values.observability.grafana.adminPassword }}
+              value: {{ .Values.observability.grafana.adminPassword | quote }}
+              {{- else }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: GRAFANA_ADMIN_PASSWORD
+                  optional: true
+              {{- end }}
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+          ports:
+            - containerPort: 3000
+              name: http
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.observability.grafana.resources | nindent 12 }}
+      volumes:
+        - name: datasources
+          configMap:
+            name: {{ include "nojv.fullname" . }}-grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: {{ include "nojv.fullname" . }}-grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: {{ include "nojv.fullname" . }}-grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nojv.fullname" . }}-grafana
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  selector:
+    app.kubernetes.io/name: nojv-grafana
+  ports:
+    - name: http
+      port: {{ .Values.observability.grafana.service.port }}
+      targetPort: http
+{{- if .Values.observability.grafana.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "nojv.fullname" . }}-grafana
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  {{- with .Values.observability.grafana.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.observability.grafana.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.observability.grafana.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nojv.fullname" . }}-grafana
+                port:
+                  number: {{ .Values.observability.grafana.service.port }}
+{{- end }}
+{{- end }}
