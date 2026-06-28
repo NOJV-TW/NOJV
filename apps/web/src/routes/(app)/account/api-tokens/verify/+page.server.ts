@@ -3,7 +3,7 @@ import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
-import { markStepUpFresh, verifyStepUpCode } from "$lib/server/step-up";
+import { markAdminSessionMfa, markStepUpFresh, verifyStepUpCode } from "$lib/server/step-up";
 import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 
 const DEFAULT_RETURN_TO = "/account/api-tokens";
@@ -61,6 +61,10 @@ export const actions = {
     }
 
     await markStepUpFresh(actor.userId);
+    const sessionId = event.locals.session?.id;
+    if (actor.platformRole === "admin" && sessionId) {
+      await markAdminSessionMfa(sessionId);
+    }
 
     redirect(303, returnTo);
   },
