@@ -8,6 +8,7 @@ const {
   examFindDetailById,
   storageGetVerdictDetail,
   getProblemPageData,
+  testcaseSetFindByProblemId,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   submissionListByUserAndProblem: vi.fn(),
@@ -16,6 +17,7 @@ const {
   examFindDetailById: vi.fn(),
   storageGetVerdictDetail: vi.fn(),
   getProblemPageData: vi.fn(),
+  testcaseSetFindByProblemId: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -28,6 +30,7 @@ vi.mock("@nojv/db", () => ({
     groupByUserAndProblem: submissionGroupByUserAndProblem,
   },
   examRepo: { findDetailById: examFindDetailById },
+  testcaseSetRepo: { findByProblemId: testcaseSetFindByProblemId },
   contestRepo: { findDetailById: vi.fn() },
   participationRepo: {
     findVirtual: vi.fn(),
@@ -147,7 +150,8 @@ describe("getExamProblemView — verdict-detail blob fallback", () => {
     examFindDetailById.mockResolvedValue(examFixture);
     submissionFindMany.mockResolvedValue([row()]);
     submissionGroupByUserAndProblem.mockResolvedValue([]);
-    getProblemPageData.mockResolvedValue({ id: "prob_1", title: "P1" });
+    getProblemPageData.mockResolvedValue({ id: "prob_1", title: "P1", type: "full_source" });
+    testcaseSetFindByProblemId.mockResolvedValue([]);
   });
 
   it("does not throw when the blob is missing", async () => {
@@ -178,11 +182,27 @@ describe("getExamProblemView — verdict-detail blob fallback", () => {
     expect(view!.submissions).toHaveLength(1);
     expect(view!.submissions[0]!.result.verdict).toBe("wrong_answer");
   });
+
+  it("accepted fallback score is the problem total (sum of subtask weights), not 100", async () => {
+    submissionFindMany.mockResolvedValue([row({ id: "sub_ok", status: "accepted" })]);
+    testcaseSetFindByProblemId.mockResolvedValue([{ weight: 80 }, { weight: 120 }]);
+    storageGetVerdictDetail.mockResolvedValue(null);
+
+    const view = await getExamProblemView({
+      examId: "exam_1",
+      problemIdx: 0,
+      actorUserId: "usr_1",
+    });
+
+    expect(view!.submissions[0]!.result.verdict).toBe("accepted");
+    expect(view!.submissions[0]!.result.score).toBe(200);
+  });
 });
 
 describe("listVirtualContestProblemSubmissions — verdict-detail blob fallback", () => {
   beforeEach(() => {
     submissionListByUserAndProblem.mockResolvedValue([row()]);
+    testcaseSetFindByProblemId.mockResolvedValue([]);
   });
 
   it("does not throw when the blob is missing", async () => {
@@ -202,5 +222,18 @@ describe("listVirtualContestProblemSubmissions — verdict-detail blob fallback"
 
     expect(result).toHaveLength(1);
     expect(result[0]!.result.verdict).toBe("wrong_answer");
+  });
+
+  it("accepted fallback score is the problem total (sum of subtask weights), not 100", async () => {
+    submissionListByUserAndProblem.mockResolvedValue([
+      row({ id: "sub_ok", status: "accepted" }),
+    ]);
+    testcaseSetFindByProblemId.mockResolvedValue([{ weight: 80 }, { weight: 120 }]);
+    storageGetVerdictDetail.mockResolvedValue(null);
+
+    const result = await listVirtualContestProblemSubmissions("vc_1", "usr_1", "prob_1");
+
+    expect(result[0]!.result.verdict).toBe("accepted");
+    expect(result[0]!.result.score).toBe(200);
   });
 });

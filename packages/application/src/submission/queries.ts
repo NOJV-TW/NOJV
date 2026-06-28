@@ -296,12 +296,13 @@ export function narrowSubmissionRow(row: { status: string; language: string }): 
 
 export function fallbackResultForRow(
   verdict: ReturnType<typeof submissionVerdictSchema.parse>,
+  problemTotal: number,
 ): SubmissionResult {
   return {
     accepted: verdict === "accepted",
     feedback: "Verdict details unavailable.",
     runtimeMs: 0,
-    score: verdict === "accepted" ? 100 : 0,
+    score: verdict === "accepted" ? problemTotal : 0,
     verdict,
   };
 }

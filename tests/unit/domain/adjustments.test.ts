@@ -289,4 +289,44 @@ describe("applyAdjustmentRules", () => {
     });
     expect(result.score).toBe(100);
   });
+
+  it("scales a late penalty off the problem total (maxScore: 200), not 100", () => {
+    const result = applyAdjustmentRules({
+      rules: [{ type: "flat_late_penalty", penaltyPct: 20, startFrom: "due" }],
+      submittedAt: oneHourLate,
+      dueAt,
+      finalDay,
+      runtimeMs: 0,
+      rawScore: 200,
+      maxScore: 200,
+    });
+    expect(result.score).toBe(160); // 200 * 0.8, not capped at 100
+  });
+
+  it("clamps a perfect-score bonus to the problem total (maxScore: 200), not 100", () => {
+    const result = applyAdjustmentRules({
+      rules: [{ type: "time_bonus", baselineMs: 1000, maxBonusPercent: 50 }],
+      submittedAt: onTime,
+      dueAt,
+      finalDay,
+      runtimeMs: 0,
+      rawScore: 200,
+      maxScore: 200,
+    });
+    expect(result.score).toBe(200); // 200 + 50 bonus clamped to 200, not 100
+  });
+
+  it("clamps the raw score to [0, maxScore] when maxScore is supplied and no rules", () => {
+    expect(
+      applyAdjustmentRules({
+        rules: null,
+        submittedAt: onTime,
+        dueAt,
+        finalDay,
+        runtimeMs: 0,
+        rawScore: 250,
+        maxScore: 200,
+      }).score,
+    ).toBe(200);
+  });
 });
