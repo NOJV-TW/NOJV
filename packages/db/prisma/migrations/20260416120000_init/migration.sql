@@ -1336,3 +1336,41 @@ CREATE INDEX "ProblemStatementI18n_fts_idx"
 CREATE INDEX "ProblemStatementI18n_trgm_idx"
   ON "ProblemStatementI18n"
   USING GIN ((coalesce("title", '') || ' ' || coalesce("bodyMarkdown", '')) gin_trgm_ops);
+
+-- Raw-SQL CHECK constraints (not modeled by Prisma): single-context + participation invariants.
+ALTER TABLE "Submission"
+  ADD CONSTRAINT "Submission_single_context_chk"
+  CHECK (
+    (
+      ("courseAssessmentId" IS NOT NULL)::int +
+      ("examId" IS NOT NULL)::int +
+      ("contestId" IS NOT NULL)::int
+    ) <= 1
+  );
+
+ALTER TABLE "SubmissionFeedback"
+  ADD CONSTRAINT "SubmissionFeedback_single_context_chk"
+  CHECK (
+    (("courseAssessmentId" IS NOT NULL)::int +
+     ("examId" IS NOT NULL)::int) = 1
+  );
+
+ALTER TABLE "SubmissionFeedbackAuditLog"
+  ADD CONSTRAINT "SubmissionFeedbackAuditLog_single_context_chk"
+  CHECK (
+    (("courseAssessmentId" IS NOT NULL)::int +
+     ("examId" IS NOT NULL)::int) = 1
+  );
+
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_single_context_chk" CHECK (
+    ("type" = 'exam' AND "examId" IS NOT NULL AND "contestId" IS NULL)
+    OR ("type" IN ('contest', 'virtual') AND "contestId" IS NOT NULL AND "examId" IS NULL)
+);
+
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_virtual_window_chk" CHECK (
+    "type" <> 'virtual' OR ("startedAt" IS NOT NULL AND "endsAt" IS NOT NULL)
+);
+
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_ip_exam_only_chk" CHECK (
+    ("ipPin" IS NULL AND "ipGateExemptUntil" IS NULL) OR "type" = 'exam'
+);
