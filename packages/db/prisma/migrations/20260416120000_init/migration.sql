@@ -8,22 +8,25 @@ CREATE TYPE "PlatformRole" AS ENUM ('admin', 'teacher', 'student');
 CREATE TYPE "UserStatus" AS ENUM ('active', 'disabled', 'pending_first_login');
 
 -- CreateEnum
-CREATE TYPE "ContestVisibility" AS ENUM ('draft', 'published', 'archived');
+CREATE TYPE "ApiTokenStatus" AS ENUM ('active', 'revoked');
 
 -- CreateEnum
-CREATE TYPE "ContestScoringMode" AS ENUM ('problem_count', 'point_sum');
+CREATE TYPE "ClarificationContextType" AS ENUM ('contest', 'exam', 'assignment');
 
 -- CreateEnum
-CREATE TYPE "ContestParticipationStatus" AS ENUM ('registered', 'active', 'submitted', 'disqualified');
+CREATE TYPE "ClarificationState" AS ENUM ('pending', 'answered', 'dismissed');
 
 -- CreateEnum
-CREATE TYPE "ExamStatus" AS ENUM ('draft', 'published', 'archived');
+CREATE TYPE "ContestVisibility" AS ENUM ('draft', 'published');
+
+-- CreateEnum
+CREATE TYPE "ContestScoringMode" AS ENUM ('problem_count', 'weighted_count', 'point_sum');
+
+-- CreateEnum
+CREATE TYPE "ExamStatus" AS ENUM ('draft', 'published');
 
 -- CreateEnum
 CREATE TYPE "ExamScoringMode" AS ENUM ('problem_count', 'point_sum');
-
--- CreateEnum
-CREATE TYPE "ExamParticipationStatus" AS ENUM ('registered', 'active', 'submitted', 'disqualified');
 
 -- CreateEnum
 CREATE TYPE "ScoreboardMode" AS ENUM ('hidden', 'live', 'frozen');
@@ -41,13 +44,25 @@ CREATE TYPE "ExamSessionReleaseReason" AS ENUM ('submitted', 'time_up', 'release
 CREATE TYPE "ExamSessionEventType" AS ENUM ('enter', 'leave', 'visibility_lost', 'release', 'auto_close', 'heartbeat');
 
 -- CreateEnum
+CREATE TYPE "ParticipationType" AS ENUM ('contest', 'exam', 'virtual');
+
+-- CreateEnum
+CREATE TYPE "ParticipationStatus" AS ENUM ('registered', 'active', 'submitted', 'disqualified');
+
+-- CreateEnum
 CREATE TYPE "CourseRole" AS ENUM ('teacher', 'ta', 'student');
 
 -- CreateEnum
 CREATE TYPE "CourseMembershipStatus" AS ENUM ('active', 'removed');
 
 -- CreateEnum
-CREATE TYPE "CourseAssessmentStatus" AS ENUM ('draft', 'published', 'archived');
+CREATE TYPE "AssessmentStatus" AS ENUM ('draft', 'published');
+
+-- CreateEnum
+CREATE TYPE "AssessmentAuditAction" AS ENUM ('publish', 'revert_to_draft', 'delete_draft');
+
+-- CreateEnum
+CREATE TYPE "NotificationType" AS ENUM ('assignment_due_soon', 'exam_starting_soon', 'contest_starting_soon', 'course_enrolled', 'announcement_published', 'role_changed', 'clarification_answered');
 
 -- CreateEnum
 CREATE TYPE "AnnouncementStatus" AS ENUM ('draft', 'published', 'archived');
@@ -59,6 +74,9 @@ CREATE TYPE "AnnouncementAudience" AS ENUM ('all', 'students', 'teachers');
 CREATE TYPE "PlagiarismReportStatus" AS ENUM ('pending', 'running', 'completed', 'failed');
 
 -- CreateEnum
+CREATE TYPE "PlagiarismContext" AS ENUM ('assessment', 'exam', 'contest');
+
+-- CreateEnum
 CREATE TYPE "ProblemVisibility" AS ENUM ('public', 'private');
 
 -- CreateEnum
@@ -68,22 +86,28 @@ CREATE TYPE "ProblemStatus" AS ENUM ('draft', 'published');
 CREATE TYPE "ProblemType" AS ENUM ('full_source', 'multi_file', 'special_env');
 
 -- CreateEnum
-CREATE TYPE "ProblemImageSource" AS ENUM ('registry', 'tarball');
-
--- CreateEnum
 CREATE TYPE "ProblemDifficulty" AS ENUM ('easy', 'medium', 'hard');
 
 -- CreateEnum
 CREATE TYPE "WorkspaceFileVisibility" AS ENUM ('editable', 'readonly', 'hidden');
 
 -- CreateEnum
-CREATE TYPE "SubtaskScoringStrategy" AS ENUM ('ALL_OR_NOTHING', 'PROPORTIONAL', 'MINIMUM');
-
--- CreateEnum
 CREATE TYPE "SupportedLanguage" AS ENUM ('c', 'cpp', 'go', 'java', 'javascript', 'python', 'rust', 'typescript');
 
 -- CreateEnum
-CREATE TYPE "SubmissionStatus" AS ENUM ('queued', 'compiling', 'running', 'accepted', 'wrong_answer', 'time_limit_exceeded', 'memory_limit_exceeded', 'runtime_error', 'compile_error');
+CREATE TYPE "SubmissionStatus" AS ENUM ('pending_upload', 'queued', 'compiling', 'running', 'accepted', 'wrong_answer', 'time_limit_exceeded', 'memory_limit_exceeded', 'runtime_error', 'compile_error', 'system_error');
+
+-- CreateEnum
+CREATE TYPE "OverrideContextType" AS ENUM ('assignment', 'exam', 'contest');
+
+-- CreateEnum
+CREATE TYPE "ScoreOverrideAction" AS ENUM ('create', 'update', 'delete');
+
+-- CreateEnum
+CREATE TYPE "SubmissionFeedbackAction" AS ENUM ('create', 'update', 'delete');
+
+-- CreateEnum
+CREATE TYPE "EditorialReportStatus" AS ENUM ('open', 'resolved', 'dismissed');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -97,10 +121,40 @@ CREATE TABLE "User" (
     "platformRole" "PlatformRole" NOT NULL DEFAULT 'student',
     "disabled" BOOLEAN NOT NULL DEFAULT false,
     "status" "UserStatus" NOT NULL DEFAULT 'active',
+    "mustChangePassword" BOOLEAN NOT NULL DEFAULT false,
+    "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TwoFactor" (
+    "id" TEXT NOT NULL,
+    "secret" TEXT NOT NULL,
+    "backupCodes" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "verified" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "TwoFactor_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Passkey" (
+    "id" TEXT NOT NULL,
+    "name" TEXT,
+    "publicKey" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "credentialID" TEXT NOT NULL,
+    "counter" INTEGER NOT NULL,
+    "deviceType" TEXT NOT NULL,
+    "backedUp" BOOLEAN NOT NULL,
+    "transports" TEXT,
+    "aaguid" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Passkey_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -160,9 +214,47 @@ CREATE TABLE "SchoolVerificationToken" (
 );
 
 -- CreateTable
+CREATE TABLE "ApiToken" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "prefix" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "scopes" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "status" "ApiTokenStatus" NOT NULL DEFAULT 'active',
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "lastUsedAt" TIMESTAMP(3),
+    "lastUsedIp" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "revokedAt" TIMESTAMP(3),
+    "revokedById" TEXT,
+
+    CONSTRAINT "ApiToken_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Clarification" (
+    "id" TEXT NOT NULL,
+    "contextType" "ClarificationContextType" NOT NULL,
+    "contextId" TEXT NOT NULL,
+    "problemId" TEXT,
+    "askedByUserId" TEXT NOT NULL,
+    "questionText" TEXT NOT NULL,
+    "answerText" TEXT,
+    "state" "ClarificationState" NOT NULL DEFAULT 'pending',
+    "answeredByUserId" TEXT,
+    "answeredAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "Clarification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Contest" (
     "id" TEXT NOT NULL,
-    "slug" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "summary" TEXT NOT NULL,
     "startsAt" TIMESTAMP(3) NOT NULL,
@@ -173,6 +265,7 @@ CREATE TABLE "Contest" (
     "frozenBoard" BOOLEAN NOT NULL DEFAULT true,
     "frozenAt" TIMESTAMP(3),
     "submitCooldownSec" INTEGER NOT NULL DEFAULT 0,
+    "penaltyMinutesPerWrong" INTEGER NOT NULL DEFAULT 20,
     "allowedLanguages" "SupportedLanguage"[] DEFAULT ARRAY[]::"SupportedLanguage"[],
     "inviteCode" TEXT,
     "createdByUserId" TEXT,
@@ -180,7 +273,7 @@ CREATE TABLE "Contest" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "plagiarismStatus" "PlagiarismReportStatus",
     "plagiarismResults" JSONB,
-    "plagiarismMossReportUrl" TEXT,
+    "plagiarismReportUrl" TEXT,
     "plagiarismTriggeredAt" TIMESTAMP(3),
     "plagiarismCompletedAt" TIMESTAMP(3),
     "plagiarismTriggeredById" TEXT,
@@ -201,25 +294,6 @@ CREATE TABLE "ContestProblem" (
 );
 
 -- CreateTable
-CREATE TABLE "ContestParticipation" (
-    "id" TEXT NOT NULL,
-    "contestId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "status" "ContestParticipationStatus" NOT NULL DEFAULT 'registered',
-    "startedAt" TIMESTAMP(3),
-    "submittedAt" TIMESTAMP(3),
-    "score" INTEGER NOT NULL DEFAULT 0,
-    "penaltySeconds" INTEGER NOT NULL DEFAULT 0,
-    "subtaskScores" JSONB,
-    "boundIp" TEXT,
-    "boundIpClearedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ContestParticipation_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Exam" (
     "id" TEXT NOT NULL,
     "courseId" TEXT NOT NULL,
@@ -230,8 +304,6 @@ CREATE TABLE "Exam" (
     "status" "ExamStatus" NOT NULL DEFAULT 'draft',
     "scoringMode" "ExamScoringMode" NOT NULL DEFAULT 'point_sum',
     "scoreboardMode" "ScoreboardMode" NOT NULL DEFAULT 'hidden',
-    "frozenBoard" BOOLEAN NOT NULL DEFAULT false,
-    "frozenAt" TIMESTAMP(3),
     "submitCooldownSec" INTEGER NOT NULL DEFAULT 0,
     "allowedLanguages" "SupportedLanguage"[] DEFAULT ARRAY[]::"SupportedLanguage"[],
     "pageLockEnabled" BOOLEAN NOT NULL DEFAULT false,
@@ -241,7 +313,7 @@ CREATE TABLE "Exam" (
     "ipViolationMode" "IpViolationMode" NOT NULL DEFAULT 'block',
     "plagiarismStatus" "PlagiarismReportStatus",
     "plagiarismResults" JSONB,
-    "plagiarismMossReportUrl" TEXT,
+    "plagiarismReportUrl" TEXT,
     "plagiarismTriggeredAt" TIMESTAMP(3),
     "plagiarismCompletedAt" TIMESTAMP(3),
     "plagiarismTriggeredById" TEXT,
@@ -265,27 +337,6 @@ CREATE TABLE "ExamProblem" (
 );
 
 -- CreateTable
-CREATE TABLE "ExamParticipation" (
-    "id" TEXT NOT NULL,
-    "examId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "status" "ExamParticipationStatus" NOT NULL DEFAULT 'registered',
-    "registeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "startedAt" TIMESTAMP(3),
-    "submittedAt" TIMESTAMP(3),
-    "disqualifiedAt" TIMESTAMP(3),
-    "disqualifiedReason" TEXT,
-    "score" INTEGER NOT NULL DEFAULT 0,
-    "penaltySeconds" INTEGER NOT NULL DEFAULT 0,
-    "subtaskScores" JSONB,
-    "ipPin" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ExamParticipation_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "IpViolationLog" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -306,7 +357,6 @@ CREATE TABLE "ActiveExamSession" (
     "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "endedAt" TIMESTAMP(3),
     "releaseReason" "ExamSessionReleaseReason",
-    "ipPin" TEXT,
     "lastHeartbeatAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -326,11 +376,37 @@ CREATE TABLE "ExamSessionEvent" (
 );
 
 -- CreateTable
+CREATE TABLE "Participation" (
+    "id" TEXT NOT NULL,
+    "type" "ParticipationType" NOT NULL,
+    "userId" TEXT NOT NULL,
+    "contestId" TEXT,
+    "examId" TEXT,
+    "score" INTEGER NOT NULL DEFAULT 0,
+    "penaltySeconds" INTEGER NOT NULL DEFAULT 0,
+    "subtaskScores" JSONB,
+    "status" "ParticipationStatus" NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 0,
+    "startedAt" TIMESTAMP(3),
+    "submittedAt" TIMESTAMP(3),
+    "ipPin" TEXT,
+    "ipGateExemptUntil" TIMESTAMP(3),
+    "endsAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Participation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Course" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "ownerId" TEXT NOT NULL,
+    "academicYear" INTEGER,
+    "semester" INTEGER,
+    "archived" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -354,17 +430,17 @@ CREATE TABLE "CourseMembership" (
 );
 
 -- CreateTable
-CREATE TABLE "CourseAssessment" (
+CREATE TABLE "Assessment" (
     "id" TEXT NOT NULL,
     "courseId" TEXT NOT NULL,
-    "slug" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "summary" TEXT NOT NULL,
-    "status" "CourseAssessmentStatus" NOT NULL DEFAULT 'draft',
+    "status" "AssessmentStatus" NOT NULL DEFAULT 'draft',
     "opensAt" TIMESTAMP(3) NOT NULL,
     "dueAt" TIMESTAMP(3),
     "closesAt" TIMESTAMP(3) NOT NULL,
     "maxAttemptsPerDay" INTEGER,
+    "attemptResetMinuteOfDay" INTEGER,
     "allowedLanguages" "SupportedLanguage"[] DEFAULT ARRAY[]::"SupportedLanguage"[],
     "adjustmentRules" JSONB,
     "createdByUserId" TEXT NOT NULL,
@@ -372,16 +448,16 @@ CREATE TABLE "CourseAssessment" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "plagiarismStatus" "PlagiarismReportStatus",
     "plagiarismResults" JSONB,
-    "plagiarismMossReportUrl" TEXT,
+    "plagiarismReportUrl" TEXT,
     "plagiarismTriggeredAt" TIMESTAMP(3),
     "plagiarismCompletedAt" TIMESTAMP(3),
     "plagiarismTriggeredById" TEXT,
 
-    CONSTRAINT "CourseAssessment_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Assessment_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "CourseAssessmentProblem" (
+CREATE TABLE "AssessmentProblem" (
     "id" TEXT NOT NULL,
     "assessmentId" TEXT NOT NULL,
     "problemId" TEXT NOT NULL,
@@ -389,7 +465,33 @@ CREATE TABLE "CourseAssessmentProblem" (
     "points" INTEGER NOT NULL DEFAULT 100,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "CourseAssessmentProblem_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "AssessmentProblem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AssessmentAuditLog" (
+    "id" TEXT NOT NULL,
+    "assessmentId" TEXT NOT NULL,
+    "courseId" TEXT NOT NULL,
+    "actorUserId" TEXT,
+    "action" "AssessmentAuditAction" NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AssessmentAuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Notification" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" "NotificationType" NOT NULL,
+    "params" JSONB NOT NULL,
+    "linkUrl" TEXT,
+    "readAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "dedupeKey" TEXT,
+
+    CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -420,8 +522,43 @@ CREATE TABLE "AnnouncementTranslation" (
 );
 
 -- CreateTable
+CREATE TABLE "PlatformSetting" (
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PlatformSetting_pkey" PRIMARY KEY ("key")
+);
+
+-- CreateTable
+CREATE TABLE "PlagiarismPairFlag" (
+    "id" TEXT NOT NULL,
+    "contextType" "PlagiarismContext" NOT NULL,
+    "contextId" TEXT NOT NULL,
+    "pairKey" TEXT NOT NULL,
+    "flaggedBy" TEXT NOT NULL,
+    "flaggedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "note" TEXT,
+
+    CONSTRAINT "PlagiarismPairFlag_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PlagiarismTriggerLog" (
+    "id" TEXT NOT NULL,
+    "contextType" "PlagiarismContext" NOT NULL,
+    "contextId" TEXT NOT NULL,
+    "triggeredByUserId" TEXT,
+    "priorPairCount" INTEGER NOT NULL,
+    "triggeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PlagiarismTriggerLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Problem" (
     "id" TEXT NOT NULL,
+    "displayId" SERIAL NOT NULL,
     "title" TEXT NOT NULL,
     "authorId" TEXT,
     "visibility" "ProblemVisibility" NOT NULL DEFAULT 'public',
@@ -433,12 +570,22 @@ CREATE TABLE "Problem" (
     "memoryLimitMb" INTEGER NOT NULL,
     "judgeConfig" JSONB,
     "samples" JSONB,
-    "advancedImageRef" TEXT,
-    "advancedImageSource" "ProblemImageSource",
+    "advancedConfig" JSONB,
+    "advancedRequiredPaths" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Problem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ProblemBookmark" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "problemId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ProblemBookmark_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -464,7 +611,6 @@ CREATE TABLE "TestcaseSet" (
     "description" TEXT NOT NULL DEFAULT '',
     "weight" INTEGER NOT NULL DEFAULT 1,
     "ordinal" INTEGER NOT NULL DEFAULT 0,
-    "scoringStrategy" "SubtaskScoringStrategy" NOT NULL DEFAULT 'ALL_OR_NOTHING',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -506,19 +652,22 @@ CREATE TABLE "Submission" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "problemId" TEXT NOT NULL,
-    "contestParticipationId" TEXT,
     "examId" TEXT,
     "contestId" TEXT,
+    "participationId" TEXT,
     "courseId" TEXT,
-    "courseAssessmentId" TEXT,
+    "assessmentId" TEXT,
     "sampleOnly" BOOLEAN NOT NULL DEFAULT false,
     "language" "SupportedLanguage" NOT NULL,
-    "sourceCode" TEXT NOT NULL,
+    "sourceStoragePrefix" TEXT NOT NULL,
     "status" "SubmissionStatus" NOT NULL DEFAULT 'queued',
     "score" INTEGER NOT NULL DEFAULT 0,
     "runtimeMs" INTEGER,
     "memoryKb" INTEGER,
-    "verdictDetail" JSONB,
+    "verdictSummary" JSONB,
+    "verdictDetailStorageKey" TEXT,
+    "advancedConfigSnapshot" JSONB,
+    "ipAddress" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -526,26 +675,129 @@ CREATE TABLE "Submission" (
 );
 
 -- CreateTable
+CREATE TABLE "SubmissionRejudgeLog" (
+    "id" TEXT NOT NULL,
+    "submissionId" TEXT NOT NULL,
+    "rejudgedByUserId" TEXT,
+    "rejudgeRunId" TEXT,
+    "oldVerdict" TEXT NOT NULL,
+    "oldScore" INTEGER NOT NULL,
+    "oldResultJson" JSONB,
+    "newVerdict" TEXT,
+    "newScore" INTEGER,
+    "newResultJson" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SubmissionRejudgeLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ScoreOverride" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "problemId" TEXT NOT NULL,
+    "contextType" "OverrideContextType" NOT NULL,
+    "contextId" TEXT NOT NULL,
+    "overrideScore" INTEGER NOT NULL,
+    "reason" TEXT NOT NULL,
+    "createdByUserId" TEXT,
+    "updatedByUserId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ScoreOverride_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ScoreOverrideAuditLog" (
+    "id" TEXT NOT NULL,
+    "overrideId" TEXT,
+    "userId" TEXT NOT NULL,
+    "problemId" TEXT NOT NULL,
+    "contextType" "OverrideContextType" NOT NULL,
+    "contextId" TEXT NOT NULL,
+    "action" "ScoreOverrideAction" NOT NULL,
+    "oldScore" INTEGER,
+    "newScore" INTEGER,
+    "oldReason" TEXT,
+    "newReason" TEXT,
+    "changedByUserId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ScoreOverrideAuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SubmissionFeedback" (
+    "id" TEXT NOT NULL,
+    "studentUserId" TEXT NOT NULL,
+    "problemId" TEXT NOT NULL,
+    "assessmentId" TEXT,
+    "examId" TEXT,
+    "comment" TEXT NOT NULL,
+    "authorUserId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SubmissionFeedback_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SubmissionFeedbackAuditLog" (
+    "id" TEXT NOT NULL,
+    "feedbackId" TEXT,
+    "studentUserId" TEXT NOT NULL,
+    "problemId" TEXT NOT NULL,
+    "assessmentId" TEXT,
+    "examId" TEXT,
+    "action" "SubmissionFeedbackAction" NOT NULL,
+    "oldComment" TEXT,
+    "newComment" TEXT,
+    "changedByUserId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SubmissionFeedbackAuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Editorial" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "problemId" TEXT NOT NULL,
+    "title" TEXT NOT NULL DEFAULT '',
     "content" TEXT NOT NULL,
     "language" "SupportedLanguage" NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Editorial_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "UserDailyActivity" (
+CREATE TABLE "EditorialVote" (
+    "id" TEXT NOT NULL,
+    "editorialId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "date" DATE NOT NULL,
-    "submissionCount" INTEGER NOT NULL DEFAULT 0,
-    "acCount" INTEGER NOT NULL DEFAULT 0,
+    "value" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "UserDailyActivity_pkey" PRIMARY KEY ("userId","date")
+    CONSTRAINT "EditorialVote_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "EditorialReport" (
+    "id" TEXT NOT NULL,
+    "editorialId" TEXT NOT NULL,
+    "reportedByUserId" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
+    "status" "EditorialReportStatus" NOT NULL DEFAULT 'open',
+    "resolvedByUserId" TEXT,
+    "resolvedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "EditorialReport_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -555,7 +807,31 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
 -- CreateIndex
+CREATE INDEX "TwoFactor_secret_idx" ON "TwoFactor"("secret");
+
+-- CreateIndex
+CREATE INDEX "TwoFactor_userId_idx" ON "TwoFactor"("userId");
+
+-- CreateIndex
+CREATE INDEX "Passkey_userId_idx" ON "Passkey"("userId");
+
+-- CreateIndex
+CREATE INDEX "Passkey_credentialID_idx" ON "Passkey"("credentialID");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Session_token_key" ON "Session"("token");
+
+-- CreateIndex
+CREATE INDEX "Session_userId_idx" ON "Session"("userId");
+
+-- CreateIndex
+CREATE INDEX "Account_userId_idx" ON "Account"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Account_providerId_accountId_key" ON "Account"("providerId", "accountId");
+
+-- CreateIndex
+CREATE INDEX "Verification_identifier_idx" ON "Verification"("identifier");
 
 -- CreateIndex
 CREATE INDEX "SchoolVerificationToken_userId_idx" ON "SchoolVerificationToken"("userId");
@@ -564,7 +840,28 @@ CREATE INDEX "SchoolVerificationToken_userId_idx" ON "SchoolVerificationToken"("
 CREATE INDEX "SchoolVerificationToken_expiresAt_idx" ON "SchoolVerificationToken"("expiresAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Contest_slug_key" ON "Contest"("slug");
+CREATE UNIQUE INDEX "ApiToken_prefix_key" ON "ApiToken"("prefix");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ApiToken_tokenHash_key" ON "ApiToken"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "ApiToken_userId_idx" ON "ApiToken"("userId");
+
+-- CreateIndex
+CREATE INDEX "ApiToken_status_idx" ON "ApiToken"("status");
+
+-- CreateIndex
+CREATE INDEX "ApiToken_expiresAt_idx" ON "ApiToken"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "Clarification_contextType_contextId_createdAt_idx" ON "Clarification"("contextType", "contextId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "Clarification_contextType_contextId_state_idx" ON "Clarification"("contextType", "contextId", "state");
+
+-- CreateIndex
+CREATE INDEX "Clarification_askedByUserId_createdAt_idx" ON "Clarification"("askedByUserId", "createdAt" DESC);
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Contest_inviteCode_key" ON "Contest"("inviteCode");
@@ -576,12 +873,6 @@ CREATE UNIQUE INDEX "ContestProblem_contestId_problemId_key" ON "ContestProblem"
 CREATE UNIQUE INDEX "ContestProblem_contestId_ordinal_key" ON "ContestProblem"("contestId", "ordinal");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ContestParticipation_contestId_userId_key" ON "ContestParticipation"("contestId", "userId");
-
--- CreateIndex
-CREATE INDEX "Exam_courseId_idx" ON "Exam"("courseId");
-
--- CreateIndex
 CREATE INDEX "Exam_courseId_status_idx" ON "Exam"("courseId", "status");
 
 -- CreateIndex
@@ -589,12 +880,6 @@ CREATE UNIQUE INDEX "ExamProblem_examId_problemId_key" ON "ExamProblem"("examId"
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ExamProblem_examId_ordinal_key" ON "ExamProblem"("examId", "ordinal");
-
--- CreateIndex
-CREATE INDEX "ExamParticipation_userId_status_idx" ON "ExamParticipation"("userId", "status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ExamParticipation_examId_userId_key" ON "ExamParticipation"("examId", "userId");
 
 -- CreateIndex
 CREATE INDEX "IpViolationLog_examId_createdAt_idx" ON "IpViolationLog"("examId", "createdAt");
@@ -615,6 +900,15 @@ CREATE UNIQUE INDEX "ActiveExamSession_userId_examId_key" ON "ActiveExamSession"
 CREATE INDEX "ExamSessionEvent_sessionId_occurredAt_idx" ON "ExamSessionEvent"("sessionId", "occurredAt");
 
 -- CreateIndex
+CREATE INDEX "Participation_userId_idx" ON "Participation"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Participation_type_contestId_userId_key" ON "Participation"("type", "contestId", "userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Participation_type_examId_userId_key" ON "Participation"("type", "examId", "userId");
+
+-- CreateIndex
 CREATE INDEX "CourseMembership_courseId_role_status_idx" ON "CourseMembership"("courseId", "role", "status");
 
 -- CreateIndex
@@ -624,16 +918,28 @@ CREATE INDEX "CourseMembership_userId_status_idx" ON "CourseMembership"("userId"
 CREATE UNIQUE INDEX "CourseMembership_courseId_userId_key" ON "CourseMembership"("courseId", "userId");
 
 -- CreateIndex
-CREATE INDEX "CourseAssessment_courseId_status_idx" ON "CourseAssessment"("courseId", "status");
+CREATE INDEX "Assessment_courseId_status_idx" ON "Assessment"("courseId", "status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CourseAssessment_courseId_slug_key" ON "CourseAssessment"("courseId", "slug");
+CREATE UNIQUE INDEX "AssessmentProblem_assessmentId_problemId_key" ON "AssessmentProblem"("assessmentId", "problemId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CourseAssessmentProblem_assessmentId_problemId_key" ON "CourseAssessmentProblem"("assessmentId", "problemId");
+CREATE UNIQUE INDEX "AssessmentProblem_assessmentId_ordinal_key" ON "AssessmentProblem"("assessmentId", "ordinal");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CourseAssessmentProblem_assessmentId_ordinal_key" ON "CourseAssessmentProblem"("assessmentId", "ordinal");
+CREATE INDEX "AssessmentAuditLog_assessmentId_createdAt_idx" ON "AssessmentAuditLog"("assessmentId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AssessmentAuditLog_courseId_createdAt_idx" ON "AssessmentAuditLog"("courseId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Notification_userId_createdAt_idx" ON "Notification"("userId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "Notification_userId_readAt_createdAt_idx" ON "Notification"("userId", "readAt", "createdAt" DESC);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Notification_dedupeKey_key" ON "Notification"("dedupeKey");
 
 -- CreateIndex
 CREATE INDEX "Announcement_status_pinned_publishedAt_idx" ON "Announcement"("status", "pinned", "publishedAt");
@@ -643,6 +949,18 @@ CREATE INDEX "Announcement_courseId_status_pinned_publishedAt_idx" ON "Announcem
 
 -- CreateIndex
 CREATE UNIQUE INDEX "AnnouncementTranslation_announcementId_locale_key" ON "AnnouncementTranslation"("announcementId", "locale");
+
+-- CreateIndex
+CREATE INDEX "PlagiarismPairFlag_contextType_contextId_idx" ON "PlagiarismPairFlag"("contextType", "contextId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PlagiarismPairFlag_contextType_contextId_pairKey_key" ON "PlagiarismPairFlag"("contextType", "contextId", "pairKey");
+
+-- CreateIndex
+CREATE INDEX "PlagiarismTriggerLog_contextType_contextId_triggeredAt_idx" ON "PlagiarismTriggerLog"("contextType", "contextId", "triggeredAt" DESC);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Problem_displayId_key" ON "Problem"("displayId");
 
 -- CreateIndex
 CREATE INDEX "Problem_status_visibility_createdAt_idx" ON "Problem"("status", "visibility", "createdAt");
@@ -655,6 +973,12 @@ CREATE INDEX "Problem_difficulty_idx" ON "Problem"("difficulty");
 
 -- CreateIndex
 CREATE INDEX "Problem_tags_idx" ON "Problem" USING GIN ("tags");
+
+-- CreateIndex
+CREATE INDEX "ProblemBookmark_userId_createdAt_idx" ON "ProblemBookmark"("userId", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ProblemBookmark_userId_problemId_key" ON "ProblemBookmark"("userId", "problemId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ProblemStatementI18n_problemId_locale_key" ON "ProblemStatementI18n"("problemId", "locale");
@@ -681,10 +1005,7 @@ CREATE INDEX "Submission_problemId_createdAt_idx" ON "Submission"("problemId", "
 CREATE INDEX "Submission_userId_createdAt_idx" ON "Submission"("userId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "Submission_courseId_courseAssessmentId_createdAt_idx" ON "Submission"("courseId", "courseAssessmentId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Submission_contestParticipationId_problemId_createdAt_idx" ON "Submission"("contestParticipationId", "problemId", "createdAt");
+CREATE INDEX "Submission_courseId_assessmentId_createdAt_idx" ON "Submission"("courseId", "assessmentId", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "Submission_contestId_problemId_createdAt_idx" ON "Submission"("contestId", "problemId", "createdAt");
@@ -693,13 +1014,82 @@ CREATE INDEX "Submission_contestId_problemId_createdAt_idx" ON "Submission"("con
 CREATE INDEX "Submission_examId_problemId_createdAt_idx" ON "Submission"("examId", "problemId", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "Submission_participationId_problemId_createdAt_idx" ON "Submission"("participationId", "problemId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Submission_assessmentId_problemId_createdAt_idx" ON "Submission"("assessmentId", "problemId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Submission_status_updatedAt_idx" ON "Submission"("status", "updatedAt");
+
+-- CreateIndex
+CREATE INDEX "Submission_problemId_sampleOnly_userId_status_idx" ON "Submission"("problemId", "sampleOnly", "userId", "status");
+
+-- CreateIndex
+CREATE INDEX "Submission_createdAt_idx" ON "Submission"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "SubmissionRejudgeLog_submissionId_createdAt_idx" ON "SubmissionRejudgeLog"("submissionId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "SubmissionRejudgeLog_rejudgedByUserId_createdAt_idx" ON "SubmissionRejudgeLog"("rejudgedByUserId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "SubmissionRejudgeLog_createdAt_idx" ON "SubmissionRejudgeLog"("createdAt" DESC);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SubmissionRejudgeLog_submissionId_rejudgeRunId_key" ON "SubmissionRejudgeLog"("submissionId", "rejudgeRunId");
+
+-- CreateIndex
+CREATE INDEX "ScoreOverride_contextType_contextId_idx" ON "ScoreOverride"("contextType", "contextId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ScoreOverride_userId_problemId_contextType_contextId_key" ON "ScoreOverride"("userId", "problemId", "contextType", "contextId");
+
+-- CreateIndex
+CREATE INDEX "ScoreOverrideAuditLog_contextType_contextId_createdAt_idx" ON "ScoreOverrideAuditLog"("contextType", "contextId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "ScoreOverrideAuditLog_userId_problemId_createdAt_idx" ON "ScoreOverrideAuditLog"("userId", "problemId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SubmissionFeedback_assessmentId_problemId_studentUserId_key" ON "SubmissionFeedback"("assessmentId", "problemId", "studentUserId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SubmissionFeedback_examId_problemId_studentUserId_key" ON "SubmissionFeedback"("examId", "problemId", "studentUserId");
+
+-- CreateIndex
+CREATE INDEX "SubmissionFeedbackAuditLog_assessmentId_problemId_createdAt_idx" ON "SubmissionFeedbackAuditLog"("assessmentId", "problemId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "SubmissionFeedbackAuditLog_examId_problemId_createdAt_idx" ON "SubmissionFeedbackAuditLog"("examId", "problemId", "createdAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "SubmissionFeedbackAuditLog_studentUserId_problemId_createdA_idx" ON "SubmissionFeedbackAuditLog"("studentUserId", "problemId", "createdAt" DESC);
+
+-- CreateIndex
 CREATE INDEX "Editorial_problemId_createdAt_idx" ON "Editorial"("problemId", "createdAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Editorial_userId_problemId_language_key" ON "Editorial"("userId", "problemId", "language");
 
 -- CreateIndex
-CREATE INDEX "UserDailyActivity_userId_date_idx" ON "UserDailyActivity"("userId", "date" DESC);
+CREATE INDEX "EditorialVote_editorialId_idx" ON "EditorialVote"("editorialId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EditorialVote_editorialId_userId_key" ON "EditorialVote"("editorialId", "userId");
+
+-- CreateIndex
+CREATE INDEX "EditorialReport_status_createdAt_idx" ON "EditorialReport"("status", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EditorialReport_editorialId_reportedByUserId_key" ON "EditorialReport"("editorialId", "reportedByUserId");
+
+-- AddForeignKey
+ALTER TABLE "TwoFactor" ADD CONSTRAINT "TwoFactor_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Passkey" ADD CONSTRAINT "Passkey_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -711,6 +1101,21 @@ ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId"
 ALTER TABLE "SchoolVerificationToken" ADD CONSTRAINT "SchoolVerificationToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ApiToken" ADD CONSTRAINT "ApiToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ApiToken" ADD CONSTRAINT "ApiToken_revokedById_fkey" FOREIGN KEY ("revokedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Clarification" ADD CONSTRAINT "Clarification_askedByUserId_fkey" FOREIGN KEY ("askedByUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Clarification" ADD CONSTRAINT "Clarification_answeredByUserId_fkey" FOREIGN KEY ("answeredByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Clarification" ADD CONSTRAINT "Clarification_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Contest" ADD CONSTRAINT "Contest_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -720,13 +1125,7 @@ ALTER TABLE "Contest" ADD CONSTRAINT "Contest_plagiarismTriggeredById_fkey" FORE
 ALTER TABLE "ContestProblem" ADD CONSTRAINT "ContestProblem_contestId_fkey" FOREIGN KEY ("contestId") REFERENCES "Contest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ContestProblem" ADD CONSTRAINT "ContestProblem_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ContestParticipation" ADD CONSTRAINT "ContestParticipation_contestId_fkey" FOREIGN KEY ("contestId") REFERENCES "Contest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ContestParticipation" ADD CONSTRAINT "ContestParticipation_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ContestProblem" ADD CONSTRAINT "ContestProblem_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Exam" ADD CONSTRAINT "Exam_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -744,12 +1143,6 @@ ALTER TABLE "ExamProblem" ADD CONSTRAINT "ExamProblem_examId_fkey" FOREIGN KEY (
 ALTER TABLE "ExamProblem" ADD CONSTRAINT "ExamProblem_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ExamParticipation" ADD CONSTRAINT "ExamParticipation_examId_fkey" FOREIGN KEY ("examId") REFERENCES "Exam"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ExamParticipation" ADD CONSTRAINT "ExamParticipation_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "IpViolationLog" ADD CONSTRAINT "IpViolationLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -765,6 +1158,15 @@ ALTER TABLE "ActiveExamSession" ADD CONSTRAINT "ActiveExamSession_examId_fkey" F
 ALTER TABLE "ExamSessionEvent" ADD CONSTRAINT "ExamSessionEvent_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "ActiveExamSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_contestId_fkey" FOREIGN KEY ("contestId") REFERENCES "Contest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_examId_fkey" FOREIGN KEY ("examId") REFERENCES "Exam"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Course" ADD CONSTRAINT "Course_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -777,19 +1179,28 @@ ALTER TABLE "CourseMembership" ADD CONSTRAINT "CourseMembership_userId_fkey" FOR
 ALTER TABLE "CourseMembership" ADD CONSTRAINT "CourseMembership_addedByUserId_fkey" FOREIGN KEY ("addedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CourseAssessment" ADD CONSTRAINT "CourseAssessment_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Assessment" ADD CONSTRAINT "Assessment_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CourseAssessment" ADD CONSTRAINT "CourseAssessment_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Assessment" ADD CONSTRAINT "Assessment_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CourseAssessment" ADD CONSTRAINT "CourseAssessment_plagiarismTriggeredById_fkey" FOREIGN KEY ("plagiarismTriggeredById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Assessment" ADD CONSTRAINT "Assessment_plagiarismTriggeredById_fkey" FOREIGN KEY ("plagiarismTriggeredById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CourseAssessmentProblem" ADD CONSTRAINT "CourseAssessmentProblem_assessmentId_fkey" FOREIGN KEY ("assessmentId") REFERENCES "CourseAssessment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AssessmentProblem" ADD CONSTRAINT "AssessmentProblem_assessmentId_fkey" FOREIGN KEY ("assessmentId") REFERENCES "Assessment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CourseAssessmentProblem" ADD CONSTRAINT "CourseAssessmentProblem_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AssessmentProblem" ADD CONSTRAINT "AssessmentProblem_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AssessmentAuditLog" ADD CONSTRAINT "AssessmentAuditLog_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AssessmentAuditLog" ADD CONSTRAINT "AssessmentAuditLog_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -801,7 +1212,19 @@ ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_courseId_fkey" FOREIGN K
 ALTER TABLE "AnnouncementTranslation" ADD CONSTRAINT "AnnouncementTranslation_announcementId_fkey" FOREIGN KEY ("announcementId") REFERENCES "Announcement"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "PlagiarismPairFlag" ADD CONSTRAINT "PlagiarismPairFlag_flaggedBy_fkey" FOREIGN KEY ("flaggedBy") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PlagiarismTriggerLog" ADD CONSTRAINT "PlagiarismTriggerLog_triggeredByUserId_fkey" FOREIGN KEY ("triggeredByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Problem" ADD CONSTRAINT "Problem_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProblemBookmark" ADD CONSTRAINT "ProblemBookmark_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProblemBookmark" ADD CONSTRAINT "ProblemBookmark_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ProblemStatementI18n" ADD CONSTRAINT "ProblemStatementI18n_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -822,19 +1245,64 @@ ALTER TABLE "Submission" ADD CONSTRAINT "Submission_userId_fkey" FOREIGN KEY ("u
 ALTER TABLE "Submission" ADD CONSTRAINT "Submission_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Submission" ADD CONSTRAINT "Submission_contestParticipationId_fkey" FOREIGN KEY ("contestParticipationId") REFERENCES "ContestParticipation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Submission" ADD CONSTRAINT "Submission_examId_fkey" FOREIGN KEY ("examId") REFERENCES "Exam"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Submission" ADD CONSTRAINT "Submission_examId_fkey" FOREIGN KEY ("examId") REFERENCES "Exam"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Submission" ADD CONSTRAINT "Submission_contestId_fkey" FOREIGN KEY ("contestId") REFERENCES "Contest"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Submission" ADD CONSTRAINT "Submission_contestId_fkey" FOREIGN KEY ("contestId") REFERENCES "Contest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Submission" ADD CONSTRAINT "Submission_participationId_fkey" FOREIGN KEY ("participationId") REFERENCES "Participation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Submission" ADD CONSTRAINT "Submission_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Submission" ADD CONSTRAINT "Submission_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Submission" ADD CONSTRAINT "Submission_courseAssessmentId_fkey" FOREIGN KEY ("courseAssessmentId") REFERENCES "CourseAssessment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Submission" ADD CONSTRAINT "Submission_assessmentId_fkey" FOREIGN KEY ("assessmentId") REFERENCES "Assessment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionRejudgeLog" ADD CONSTRAINT "SubmissionRejudgeLog_submissionId_fkey" FOREIGN KEY ("submissionId") REFERENCES "Submission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionRejudgeLog" ADD CONSTRAINT "SubmissionRejudgeLog_rejudgedByUserId_fkey" FOREIGN KEY ("rejudgedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ScoreOverride" ADD CONSTRAINT "ScoreOverride_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ScoreOverride" ADD CONSTRAINT "ScoreOverride_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ScoreOverride" ADD CONSTRAINT "ScoreOverride_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ScoreOverride" ADD CONSTRAINT "ScoreOverride_updatedByUserId_fkey" FOREIGN KEY ("updatedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ScoreOverrideAuditLog" ADD CONSTRAINT "ScoreOverrideAuditLog_overrideId_fkey" FOREIGN KEY ("overrideId") REFERENCES "ScoreOverride"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ScoreOverrideAuditLog" ADD CONSTRAINT "ScoreOverrideAuditLog_changedByUserId_fkey" FOREIGN KEY ("changedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionFeedback" ADD CONSTRAINT "SubmissionFeedback_studentUserId_fkey" FOREIGN KEY ("studentUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionFeedback" ADD CONSTRAINT "SubmissionFeedback_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionFeedback" ADD CONSTRAINT "SubmissionFeedback_assessmentId_fkey" FOREIGN KEY ("assessmentId") REFERENCES "Assessment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionFeedback" ADD CONSTRAINT "SubmissionFeedback_examId_fkey" FOREIGN KEY ("examId") REFERENCES "Exam"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionFeedback" ADD CONSTRAINT "SubmissionFeedback_authorUserId_fkey" FOREIGN KEY ("authorUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionFeedbackAuditLog" ADD CONSTRAINT "SubmissionFeedbackAuditLog_feedbackId_fkey" FOREIGN KEY ("feedbackId") REFERENCES "SubmissionFeedback"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubmissionFeedbackAuditLog" ADD CONSTRAINT "SubmissionFeedbackAuditLog_changedByUserId_fkey" FOREIGN KEY ("changedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Editorial" ADD CONSTRAINT "Editorial_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -843,5 +1311,66 @@ ALTER TABLE "Editorial" ADD CONSTRAINT "Editorial_userId_fkey" FOREIGN KEY ("use
 ALTER TABLE "Editorial" ADD CONSTRAINT "Editorial_problemId_fkey" FOREIGN KEY ("problemId") REFERENCES "Problem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserDailyActivity" ADD CONSTRAINT "UserDailyActivity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EditorialVote" ADD CONSTRAINT "EditorialVote_editorialId_fkey" FOREIGN KEY ("editorialId") REFERENCES "Editorial"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "EditorialVote" ADD CONSTRAINT "EditorialVote_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EditorialReport" ADD CONSTRAINT "EditorialReport_editorialId_fkey" FOREIGN KEY ("editorialId") REFERENCES "Editorial"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EditorialReport" ADD CONSTRAINT "EditorialReport_reportedByUserId_fkey" FOREIGN KEY ("reportedByUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EditorialReport" ADD CONSTRAINT "EditorialReport_resolvedByUserId_fkey" FOREIGN KEY ("resolvedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+
+-- Raw-SQL search artifacts (not modeled by Prisma): full-text + trigram GIN indexes.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX "ProblemStatementI18n_fts_idx"
+  ON "ProblemStatementI18n"
+  USING GIN (to_tsvector('english', coalesce("title", '') || ' ' || coalesce("bodyMarkdown", '')));
+
+CREATE INDEX "ProblemStatementI18n_trgm_idx"
+  ON "ProblemStatementI18n"
+  USING GIN ((coalesce("title", '') || ' ' || coalesce("bodyMarkdown", '')) gin_trgm_ops);
+
+-- Raw-SQL CHECK constraints (not modeled by Prisma): single-context + participation invariants.
+ALTER TABLE "Submission"
+  ADD CONSTRAINT "Submission_single_context_chk"
+  CHECK (
+    (
+      ("assessmentId" IS NOT NULL)::int +
+      ("examId" IS NOT NULL)::int +
+      ("contestId" IS NOT NULL)::int
+    ) <= 1
+  );
+
+ALTER TABLE "SubmissionFeedback"
+  ADD CONSTRAINT "SubmissionFeedback_single_context_chk"
+  CHECK (
+    (("assessmentId" IS NOT NULL)::int +
+     ("examId" IS NOT NULL)::int) = 1
+  );
+
+ALTER TABLE "SubmissionFeedbackAuditLog"
+  ADD CONSTRAINT "SubmissionFeedbackAuditLog_single_context_chk"
+  CHECK (
+    (("assessmentId" IS NOT NULL)::int +
+     ("examId" IS NOT NULL)::int) = 1
+  );
+
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_single_context_chk" CHECK (
+    ("type" = 'exam' AND "examId" IS NOT NULL AND "contestId" IS NULL)
+    OR ("type" IN ('contest', 'virtual') AND "contestId" IS NOT NULL AND "examId" IS NULL)
+);
+
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_virtual_window_chk" CHECK (
+    "type" <> 'virtual' OR ("startedAt" IS NOT NULL AND "endsAt" IS NOT NULL)
+);
+
+ALTER TABLE "Participation" ADD CONSTRAINT "Participation_ip_exam_only_chk" CHECK (
+    ("ipPin" IS NULL AND "ipGateExemptUntil" IS NULL) OR "type" = 'exam'
+);
