@@ -32,6 +32,7 @@ import {
   assertCourseProblemAccess,
   assertProblemHasWorkspaceForLanguages,
 } from "../problem/permissions";
+import { getProblemTotalScore } from "../problem/total-score";
 
 async function assertCourseManager(
   tx: TransactionClient,
@@ -200,7 +201,7 @@ export async function createCourseAssignmentRecord(
           await assessmentProblemRepo.withTx(tx).create({
             assessmentId: assignment.id,
             ordinal: index + 1,
-            points: 100,
+            points: await getProblemTotalScore(tx, problem),
             problemId: problem.id,
           });
         }),
