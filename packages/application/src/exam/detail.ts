@@ -85,7 +85,7 @@ type ExamDetailData = NonNullable<
 >;
 type ExamDetailProblemRow = ExamDetailData["problems"][number];
 
-function resolveScoredState(score: number, points: number): ExamProblemViewerState {
+export function resolveScoredState(score: number, points: number): ExamProblemViewerState {
   if (score >= points) return "ac";
   if (score > 0) return "partial";
   return "zero";

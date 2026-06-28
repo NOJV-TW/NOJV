@@ -11,6 +11,7 @@
   import ContestPoster from "$lib/components/features/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/features/contest/ContestRowPast.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
+  import { contestScoringLabel } from "$lib/utils/contest-scoring";
 
   let { data, form: actionData } = $props();
 
@@ -23,10 +24,7 @@
     return {
       raw: c,
       status,
-      scoringLabel:
-        c.scoringMode === "problem_count"
-          ? m.contestsList_scoringProblemCount()
-          : m.contestsList_scoringPointSum(),
+      scoringLabel: contestScoringLabel(c.scoringMode),
       durationMin: durationMinutes(c.startsAt, c.endsAt),
     };
   }

@@ -77,7 +77,7 @@ beforeEach(() => {
       { ordinal: 2, points: 100, problem: { title: "P2" }, problemId: "P2" },
     ],
     scoreboardMode: "visible",
-    scoringMode: "problem_count",
+    scoringMode: "weighted_count",
     startsAt: START,
     visibility: "public",
   });
@@ -85,7 +85,7 @@ beforeEach(() => {
   findInfoById.mockResolvedValue({
     endsAt: END,
     frozenAt: FROZEN_AT,
-    scoringMode: "problem_count",
+    scoringMode: "weighted_count",
     startsAt: START,
   });
 

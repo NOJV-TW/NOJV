@@ -7,6 +7,7 @@ import {
 } from "@nojv/core";
 
 import { problemLetter } from "../shared/problem-letter";
+import { getProblemTestcaseSets } from "../problem/queries";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
 import {
   fallbackResultForRow,
@@ -264,12 +265,18 @@ export async function listVirtualContestProblemSubmissions(
   userId: string,
   problemId: string,
 ): Promise<VirtualSubmissionEntry[]> {
-  const submissions = await submissionRepo.listByUserAndProblem({
-    problemId,
-    userId,
-    statusIn: [...submissionVerdicts],
-    participationId,
-  });
+  const [submissions, testcaseSets] = await Promise.all([
+    submissionRepo.listByUserAndProblem({
+      problemId,
+      userId,
+      statusIn: [...submissionVerdicts],
+      participationId,
+    }),
+    getProblemTestcaseSets(problemId),
+  ]);
+
+  const weightSum = testcaseSets.reduce((sum, ts) => sum + ts.weight, 0);
+  const problemTotal = weightSum > 0 ? weightSum : 100;
 
   const detailBlobs = await Promise.all(
     submissions.map((s) =>
@@ -283,7 +290,7 @@ export async function listVirtualContestProblemSubmissions(
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
-      : fallbackResultForRow(verdict);
+      : fallbackResultForRow(verdict, problemTotal);
     return {
       id: s.id,
       language,

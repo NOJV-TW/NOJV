@@ -7,6 +7,7 @@ export interface AdjustmentInputs {
   finalDay: Date | null;
   runtimeMs: number;
   rawScore: number;
+  maxScore?: number;
 }
 
 export function applyAdjustmentRules(inputs: AdjustmentInputs): {
@@ -14,8 +15,9 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   adjustments: { rule: AdjustmentRule["type"]; delta: number }[];
 } {
   const { rules, submittedAt, dueAt, finalDay, runtimeMs, rawScore } = inputs;
+  const maxScore = inputs.maxScore ?? 100;
   if (!rules || rules.length === 0) {
-    return { score: clampScore(rawScore), adjustments: [] };
+    return { score: clampScore(rawScore, maxScore), adjustments: [] };
   }
 
   let score = rawScore;
@@ -26,7 +28,7 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
 
     score = applyRule(rule, score, { submittedAt, dueAt, finalDay, runtimeMs });
 
-    score = clampScore(score);
+    score = clampScore(score, maxScore);
     if (score !== before) {
       log.push({ rule: rule.type, delta: score - before });
     }
@@ -147,9 +149,9 @@ function warnMissingAnchor(ruleType: AdjustmentRule["type"], anchor: "due" | "fi
   );
 }
 
-function clampScore(s: number): number {
+function clampScore(s: number, maxScore: number): number {
   if (Number.isNaN(s)) return 0;
   if (s < 0) return 0;
-  if (s > 100) return 100;
+  if (s > maxScore) return maxScore;
   return Math.round(s);
 }

@@ -9,7 +9,15 @@ import {
   type TimedSession,
 } from "./rank-util";
 
-type ScoringMode = "problem_count" | (string & {});
+type ScoringMode = "problem_count" | "weighted_count" | (string & {});
+
+// problem_count (解題數) and weighted_count (積分制) share the all-or-nothing +
+// penalty algorithm; they differ only in whether a solved problem is worth 1
+// (count) or its configured points (weighted). Anything else (point_sum / 累分制)
+// is the partial-credit best-score sum.
+function isSolveCountMode(scoringMode: ScoringMode): boolean {
+  return scoringMode === "problem_count" || scoringMode === "weighted_count";
+}
 
 export function buildScoreboard(
   session: TimedSession,
@@ -19,8 +27,15 @@ export function buildScoreboard(
   problems: ScoreboardProblem[],
   showFrozen: boolean,
 ): ScoreboardEntry[] {
-  return scoringMode === "problem_count"
-    ? buildProblemCountScoreboard(session, participants, submissions, problems, showFrozen)
+  return isSolveCountMode(scoringMode)
+    ? buildProblemCountScoreboard(
+        session,
+        participants,
+        submissions,
+        problems,
+        showFrozen,
+        scoringMode === "weighted_count",
+      )
     : buildPointSumScoreboard(session, participants, submissions, problems, showFrozen);
 }
 
@@ -47,14 +62,15 @@ export function buildScoreboardChartSeries(
     const userSubs = submissionsByUser.get(userId) ?? [];
     const points: ChartSeriesPoint[] = [{ time: 0, score: 0 }];
 
-    if (scoringMode === "problem_count") {
+    if (isSolveCountMode(scoringMode)) {
+      const usePoints = scoringMode === "weighted_count";
       const solved = new Set<string>();
       let cumScore = 0;
 
       for (const sub of userSubs) {
         if (sub.status === "accepted" && !solved.has(sub.problemId)) {
           solved.add(sub.problemId);
-          cumScore += pointsByProblem.get(sub.problemId) ?? 0;
+          cumScore += usePoints ? (pointsByProblem.get(sub.problemId) ?? 0) : 1;
           points.push({
             score: cumScore,
             time: secondsSince(sessionStartsAt, sub.createdAt),

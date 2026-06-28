@@ -36,15 +36,10 @@
 <a
   {href}
   class="group relative glass hover-lift rounded-xl shadow-rest overflow-hidden fade-up block"
-  style="animation-delay: {delay}ms; {isLive
-    ? 'border-color: color-mix(in oklab, var(--destructive) 30%, transparent); border-width: 2px;'
-    : ''}"
+  style="animation-delay: {delay}ms; border-left: 4px solid {isLive
+    ? 'var(--destructive)'
+    : 'var(--primary)'};"
 >
-  <div
-    class="pointer-events-none absolute inset-0 opacity-[0.06]"
-    style="background: repeating-linear-gradient(135deg, var(--foreground) 0 1px, transparent 1px 24px);"
-  ></div>
-
   <div
     class="relative grid items-stretch gap-0 sm:grid-cols-[1fr_auto]"
     style="min-height: 156px;"

@@ -28,12 +28,10 @@
   let { detail, canEdit, form, class: className }: Props = $props();
 
   let ids = $state<string[]>([]);
-  let pointsMap = $state<Record<string, number>>({});
   let attachInput = $state("");
 
   $effect(() => {
     ids = detail.problems.map((p) => p.id);
-    pointsMap = Object.fromEntries(detail.problems.map((p) => [p.id, p.points]));
   });
 
   const byId = $derived(new Map(detail.problems.map((p) => [p.id, p])));
@@ -109,21 +107,6 @@
                   <span class="font-mono opacity-75">#{problem.displayId}</span>
                 </div>
               </div>
-
-              <label class="flex items-center gap-2 text-caption">
-                <span class="text-muted-foreground">
-                  {m.examDetail_problemsEditPointsLabel()}
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  max="10000"
-                  class="h-8 w-20 rounded-md border border-border bg-[color:var(--color-panel)] px-2 text-sm"
-                  bind:value={pointsMap[id]}
-                  disabled={!canEdit}
-                  name={`points_${id}`}
-                />
-              </label>
 
               {#if canEdit}
                 <div class="flex items-center gap-1">

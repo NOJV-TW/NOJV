@@ -37,6 +37,7 @@ import {
   readValidatorScriptBlob,
   readWorkspaceFileBlob,
 } from "../problem/blobs";
+import { computeProblemTotalScore } from "../problem/total-score";
 import type { ActorContext } from "../shared/actor-context";
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
@@ -112,7 +113,16 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
     memoryKb: submission.memoryKb,
     sampleOnly: submission.sampleOnly,
     result,
-    problem: submission.problem,
+    problem: {
+      id: submission.problem.id,
+      displayId: submission.problem.displayId,
+      title: submission.problem.title,
+    },
+    totalScore: computeProblemTotalScore({
+      type: submission.problem.type,
+      testcaseSets: submission.problem.testcaseSets,
+      advancedConfig: submission.problem.advancedConfig,
+    }),
     context: buildSubmissionContext(submission),
     submitter: viewerIsStaff
       ? { name: submission.user.name, username: submission.user.username }
@@ -195,6 +205,11 @@ export async function listUserSubmissions(userId: string) {
       runtimeMs: s.runtimeMs,
       memoryKb: s.memoryKb,
       score: s.score,
+      totalScore: computeProblemTotalScore({
+        type: s.problem.type,
+        testcaseSets: s.problem.testcaseSets,
+        advancedConfig: s.problem.advancedConfig,
+      }),
       status: s.status,
       context: deriveSubmissionContextKind(s),
     };
@@ -296,12 +311,13 @@ export function narrowSubmissionRow(row: { status: string; language: string }): 
 
 export function fallbackResultForRow(
   verdict: ReturnType<typeof submissionVerdictSchema.parse>,
+  problemTotal: number,
 ): SubmissionResult {
   return {
     accepted: verdict === "accepted",
     feedback: "Verdict details unavailable.",
     runtimeMs: 0,
-    score: verdict === "accepted" ? 100 : 0,
+    score: verdict === "accepted" ? problemTotal : 0,
     verdict,
   };
 }

@@ -10,7 +10,6 @@
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import Marquee from "$lib/components/primitives/visual/Marquee.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
@@ -22,6 +21,7 @@
   } from "$lib/components/features/contest/ContestSettingsTab.svelte";
   import ContestSubmissionsMatrix from "$lib/components/features/contest/ContestSubmissionsMatrix.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
+  import { contestScoringLabel } from "$lib/utils/contest-scoring";
   import { fmtDate } from "$lib/utils/datetime.js";
 
   let { data } = $props();
@@ -72,11 +72,7 @@
   const settingsLiveStatus: ContestLiveStatus = $derived(
     contest.visibility === "draft" ? "draft" : status === "live" ? "running" : status,
   );
-  const scoringLabel = $derived(
-    contest.scoringMode === "problem_count"
-      ? m.contestDetail_scoringProblemCount()
-      : m.contestDetail_scoringPointSum(),
-  );
+  const scoringLabel = $derived(contestScoringLabel(contest.scoringMode));
   const durationMin = $derived(durationMinutes(contest.startsAt, contest.endsAt));
 
   const firstProblem = $derived((contest.problems ?? [])[0] ?? null);
@@ -84,17 +80,51 @@
     isLive && firstProblem
       ? `/contests/${contest.id}/problems/${firstProblem.id}`
       : isPast
-        ? `/contests/${contest.id}/scoreboard`
+        ? `/contests/${contest.id}/upsolve`
         : null,
   );
   const primaryLabel = $derived(
     isLive
       ? m.contestDetail_ctaEnter()
       : isPast
-        ? m.contestDetail_ctaViewSolutions()
+        ? m.contestDetail_actionUpsolve()
         : m.contestDetail_ctaNotStarted(),
   );
 </script>
+
+<!-- Defined at the component root (not inside <PageContainer>) so it stays a
+     local snippet instead of being treated as a snippet prop of PageContainer. -->
+{#snippet actionButtons()}
+  {#if canSetOverride}
+    {#if isPast}
+      <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
+        {m.grading_openButton()}
+      </Button>
+    {:else}
+      <span class="inline-flex items-center text-caption text-muted-foreground">
+        {m.grading_availableAfterClose()}
+      </span>
+    {/if}
+  {/if}
+  <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
+    {m.contestDetail_actionScoreboard()}
+  </Button>
+  {#if isPast}
+    <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/virtual`)}>
+      {m.contestDetail_actionVirtual()}
+    </Button>
+  {/if}
+  {#if primaryHref}
+    <Button onclick={() => void goto(primaryHref)}>
+      {#if isLive}
+        <span class="size-1.5 rounded-full bg-white"></span>
+      {/if}
+      {primaryLabel}
+    </Button>
+  {:else}
+    <Button disabled>{primaryLabel}</Button>
+  {/if}
+{/snippet}
 
 <PageContainer class="space-y-6 fade-up">
   <Crumbs
@@ -102,162 +132,100 @@
   />
 
   <div
-    class="relative overflow-hidden rounded-xl shadow-rest"
-    style="border: 1px solid var(--border); background: {isLive
-      ? 'linear-gradient(135deg, color-mix(in oklab, var(--destructive) 12%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'
-      : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
+    class="overflow-hidden rounded-xl border shadow-rest"
+    style="border-color: var(--border);"
   >
-    <Marquee
-      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} {m
-        .contestDetail_participantsLabel()
-        .toUpperCase()}"
-    />
-
-    <div class="relative px-7 py-9 lg:p-10">
-      <div class="flex flex-wrap items-start gap-6 justify-between">
-        <div class="min-w-0">
-          <div
-            class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
-          >
-            <TypeIcon kind="contest" size={14} />
-            <span>{m.contestDetail_typeLabel()} · {scoringLabel}</span>
-          </div>
-          <div class="mt-3">
-            <StatusPill {status} type="contest" />
-          </div>
-          <h1
-            class="mt-3 font-semibold tracking-tight"
-            style="font-size: clamp(2rem, 4.2vw, 3.5rem); line-height: 1.05;"
-          >
-            {contest.title}
-          </h1>
-          {#if contest.summary}
-            <p class="mt-4 max-w-2xl text-body text-muted-foreground">
-              {contest.summary}
-            </p>
-          {/if}
-        </div>
-
-        <div
-          class="rounded-lg border p-3 min-w-[280px]"
-          style="border-color: var(--border); background: var(--panel);"
-        >
-          <div
-            class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            {#if isLive}
-              <span
-                class="size-1.5 rounded-full live-dot"
-                style="background: oklch(0.55 0.2 27);"
-              ></span>
-            {/if}
-            <span
-              >{isLive
-                ? m.contestDetail_clockRunning()
-                : isPast
-                  ? m.contestDetail_clockEnded()
-                  : m.contestDetail_clockUntilStart()}</span
-            >
-          </div>
-          <div class="mt-2">
-            {#if isPast}
-              <div class="font-mono text-title">{fmtDate(contest.startsAt)}</div>
-            {:else}
-              <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
-            {/if}
-          </div>
-          <div
-            class="mt-3 pt-3 border-t space-y-1 text-caption font-mono"
+    <div class="flex flex-col sm:flex-row">
+      <div class="min-w-0 flex-1 p-5 sm:p-6">
+        <div class="flex flex-wrap items-center gap-2">
+          <StatusPill {status} type="contest" />
+          <span
+            class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-muted-foreground"
             style="border-color: var(--border-subtle);"
           >
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.contestDetail_metaStartsLabel()}</span>
-              <span>{fmtDate(contest.startsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.contestDetail_metaEndsLabel()}</span>
-              <span>{fmtDate(contest.endsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.contestDetail_metaDurationLabel()}</span>
-              <span>{m.contestDetail_metaDurationMinutes({ count: durationMin })}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground"
-                >{m.contestDetail_metaParticipantsLabel()}</span
-              >
-              <span
-                >{m.contestDetail_metaParticipantsCount({
-                  count: contest.participantCount,
-                })}</span
-              >
-            </div>
-          </div>
+            <TypeIcon kind="contest" size={12} />
+            {scoringLabel}
+          </span>
+        </div>
+        <h1 class="mt-3 truncate text-title-lg font-semibold tracking-tight">
+          {contest.title}
+        </h1>
+        <p class="mt-2 font-mono text-caption text-muted-foreground">
+          {contest.problems?.length ?? 0}
+          {m.contestDetail_problemsHeading()} ·
+          {m.contestDetail_metaParticipantsCount({ count: contest.participantCount })}
+          {m.contestDetail_participantsLabel()}
+        </p>
+        {#if contest.summary}
+          <p class="mt-2 line-clamp-1 text-body-sm text-muted-foreground">{contest.summary}</p>
+        {/if}
+      </div>
+
+      <div
+        class="flex shrink-0 flex-col justify-center border-t p-5 sm:min-w-[260px] sm:border-l sm:border-t-0 sm:p-6"
+        style="border-color: var(--border-subtle); background: color-mix(in oklab, var(--panel-strong) 55%, transparent);"
+      >
+        <div
+          class="flex items-center gap-2 font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground"
+        >
+          {#if isLive}
+            <span class="size-1.5 rounded-full live-dot" style="background: oklch(0.55 0.2 27);"
+            ></span>
+          {/if}
+          <span
+            >{isLive
+              ? m.contestDetail_clockRunning()
+              : isPast
+                ? m.contestDetail_clockEnded()
+                : m.contestDetail_clockUntilStart()}</span
+          >
+        </div>
+        <div class="mt-1.5">
+          {#if isPast}
+            <div class="font-mono text-title">{fmtDate(contest.startsAt)}</div>
+          {:else}
+            <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
+          {/if}
+        </div>
+        <div class="mt-3 font-mono text-caption text-muted-foreground">
+          {m.contestDetail_metaStartsLabel()}
+          {fmtDate(contest.startsAt)} ·
+          {m.contestDetail_metaEndsLabel()}
+          {fmtDate(contest.endsAt)} ·
+          {m.contestDetail_metaDurationMinutes({ count: durationMin })}
         </div>
       </div>
     </div>
   </div>
 
-  <div class="flex flex-wrap items-center gap-3">
-    <div class="ml-auto flex flex-wrap gap-3">
-      {#if canSetOverride}
-        {#if isPast}
-          <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
-            {m.grading_openButton()}
-          </Button>
-        {:else}
-          <span class="inline-flex items-center text-caption text-muted-foreground">
-            {m.grading_availableAfterClose()}
-          </span>
-        {/if}
-      {/if}
-      <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
-        {m.contestDetail_actionScoreboard()}
-      </Button>
-      {#if isPast}
-        <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/upsolve`)}>
-          {m.contestDetail_actionUpsolve()}
-        </Button>
-        <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/virtual`)}>
-          {m.contestDetail_actionVirtual()}
-        </Button>
-      {/if}
-      {#if primaryHref}
-        <Button onclick={() => void goto(primaryHref)}>
-          {#if isLive}
-            <span class="size-1.5 rounded-full bg-white"></span>
-          {/if}
-          {primaryLabel}
-        </Button>
-      {:else}
-        <Button disabled>{primaryLabel}</Button>
-      {/if}
-    </div>
-  </div>
-
   {#if isManager}
-    <div
-      role="tablist"
-      aria-label={m.contestDetail_subTabsLabel()}
-      class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
-    >
-      {#each subTabs as tab (tab.key)}
-        {@const isActive = activeSubTab === tab.key}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={isActive}
-          onclick={() => (activeSubTab = tab.key)}
-          class={cn(
-            "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
-            isActive
-              ? "bg-[color:var(--color-primary)]/14 text-primary"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {tab.label}
-        </button>
-      {/each}
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div
+        role="tablist"
+        aria-label={m.contestDetail_subTabsLabel()}
+        class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
+      >
+        {#each subTabs as tab (tab.key)}
+          {@const isActive = activeSubTab === tab.key}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onclick={() => (activeSubTab = tab.key)}
+            class={cn(
+              "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
+              isActive
+                ? "bg-[color:var(--color-primary)]/14 text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {tab.label}
+          </button>
+        {/each}
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        {@render actionButtons()}
+      </div>
     </div>
 
     {#if activeSubTab === "problems"}
@@ -265,6 +233,7 @@
         problems={contest.problems}
         problemsHidden={contest.problemsHidden}
         contestId={contest.id}
+        scoringMode={contest.scoringMode}
         {isLive}
         {isPast}
         {isManager}
@@ -329,11 +298,15 @@
       </GlassPanel>
     {/if}
   {:else}
+    <div class="flex flex-wrap items-center justify-end gap-3">
+      {@render actionButtons()}
+    </div>
     <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
       <ContestProblemsTab
         problems={contest.problems}
         problemsHidden={contest.problemsHidden}
         contestId={contest.id}
+        scoringMode={contest.scoringMode}
         {isLive}
         {isPast}
         {isManager}

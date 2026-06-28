@@ -143,7 +143,12 @@
   {#if leftTab === "description"}
     <ProblemDescriptionPanel {problem} {testcaseSets} {allowedLanguages} {dailyAttempts} />
   {:else if leftTab === "submissions"}
-    <SubmissionHistoryPanel bind:submissions bind:viewingId {canRejudge} />
+    <SubmissionHistoryPanel
+      bind:submissions
+      bind:viewingId
+      {canRejudge}
+      total={problem.totalScore}
+    />
   {:else if editorialsEnabled && leftTab === "editorials"}
     <EditorialListPanel
       problemId={problem.id}

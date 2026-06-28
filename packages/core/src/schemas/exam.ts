@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import {
-  contestScoringModeSchema,
+  examScoringModeSchema,
   ipLockFields,
   ipLockFormFields,
   isoDateTimeSchema,
@@ -21,7 +21,7 @@ const examCreateBaseSchema = z.object({
   pageLockEnabled: z.boolean().default(false),
   problemIds: z.array(z.string().trim().min(1)).max(32).default([]),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
-  scoringMode: contestScoringModeSchema.default("point_sum"),
+  scoringMode: examScoringModeSchema.default("point_sum"),
   startsAt: isoDateTimeSchema,
   status: examPublishStatusSchema.default("draft"),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
@@ -47,7 +47,7 @@ export const examSettingsFormSchema = z.object({
   summary: z.string().trim().max(4_000).default(""),
   startsAt: z.string().default(""),
   endsAt: z.string().default(""),
-  scoringMode: contestScoringModeSchema.default("point_sum"),
+  scoringMode: examScoringModeSchema.default("point_sum"),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),

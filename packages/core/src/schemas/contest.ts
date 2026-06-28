@@ -20,12 +20,19 @@ export const contestSessionSchema = z
     path: ["endsAt"],
   });
 
+export const contestProblemInputSchema = z.object({
+  problemId: z.string().trim().min(1),
+  points: z.coerce.number().int().min(1).max(100_000).default(100),
+});
+
+export type ContestProblemInput = z.infer<typeof contestProblemInputSchema>;
+
 const contestCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: isoDateTimeSchema,
   frozenAt: isoDateTimeSchema.optional(),
   inviteCode: z.string().trim().max(32).optional(),
-  problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
+  problems: z.array(contestProblemInputSchema).min(1).max(32),
   scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("problem_count"),
   id: slugSchema,
@@ -55,6 +62,11 @@ export const contestSettingsFormSchema = z.object({
   startsAt: z.string().default(""),
   endsAt: z.string().default(""),
   frozenAt: z.string().default(""),
+  problems: z
+    .array(contestProblemInputSchema)
+    .min(1)
+    .max(32)
+    .default([{ problemId: "", points: 100 }]),
   scoringMode: contestScoringModeSchema.default("problem_count"),
   scoreboardMode: scoreboardModeSchema.default("live"),
   allowedLanguages: z.array(languageSchema).max(8).default([]),

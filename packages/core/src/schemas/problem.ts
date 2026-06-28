@@ -134,20 +134,20 @@ export const problemJudgeTestcaseSchema = z.object({
   id: z.string().trim().min(1),
   inputFiles: z.record(z.string(), z.string().max(BLOB_FIELD_MAX_BYTES)).optional(),
   input: z.string().max(BLOB_FIELD_MAX_BYTES),
-  weight: z.coerce.number().int().min(1).max(100),
+  weight: z.coerce.number().int().min(1).max(100_000),
 });
 
 export const problemTestcaseSetCreateSchema = z.object({
   cases: z.array(problemTestcaseCaseSchema).min(1).max(256),
   description: z.string().max(5_000).default(""),
   name: z.string().trim().min(1).max(120),
-  weight: z.coerce.number().int().min(1).max(100).default(1),
+  weight: z.coerce.number().int().min(1).max(100_000).default(1),
 });
 
 export const testcaseSetUpdateSchema = z.object({
   description: z.string().max(5_000).optional(),
   name: z.string().trim().min(1).max(120).optional(),
-  weight: z.coerce.number().int().min(0).max(100).optional(),
+  weight: z.coerce.number().int().min(0).max(100_000).optional(),
 });
 
 export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();

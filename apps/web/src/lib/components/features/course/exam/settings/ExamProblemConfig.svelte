@@ -40,7 +40,6 @@
           bind:value={$form.scoringMode}
           disabled={!editable}
         >
-          <option value="problem_count">{m.examDetail_scoringProblemCount()}</option>
           <option value="point_sum">{m.examDetail_scoringPointSum()}</option>
         </select>
       </div>

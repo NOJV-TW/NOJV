@@ -27,6 +27,7 @@ import { NotFoundError } from "../shared/errors";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 import { readWorkspaceFileBlob } from "./blobs";
+import { computeProblemTotalScore } from "./total-score";
 
 export interface ProblemDetail {
   acceptanceRate: number;
@@ -47,6 +48,7 @@ export interface ProblemDetail {
   tags: string[];
   timeLimitMs: number;
   title: string;
+  totalScore: number;
   totalSubmissions: number;
   visibility: ProblemVisibility;
   workspaceFiles: {
@@ -121,6 +123,7 @@ async function mapPersistedProblemDetail(
     type: ProblemType;
     advancedConfig?: unknown;
     advancedRequiredPaths?: string[];
+    testcaseSets?: { weight: number }[];
     workspaceFiles?: {
       language: string;
       path: string;
@@ -160,6 +163,11 @@ async function mapPersistedProblemDetail(
 
   return {
     acceptanceRate: attempters > 0 ? solvers / attempters : 0,
+    totalScore: computeProblemTotalScore({
+      type,
+      testcaseSets: problem.testcaseSets ?? [],
+      advancedConfig: problem.advancedConfig,
+    }),
     authorUsername: problem.author?.username ?? "course_staff",
     difficulty: problem.difficulty ?? "medium",
     displayId: problem.displayId,

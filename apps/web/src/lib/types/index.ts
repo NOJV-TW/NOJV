@@ -57,6 +57,7 @@ export interface ProblemDetail extends ProblemOverview {
   status: ProblemStatus;
   tags: string[];
   timeLimitMs: number;
+  totalScore: number;
   visibility: ProblemVisibility;
   advancedConfig: AdvancedConfig | null;
   advancedRequiredPaths: string[];

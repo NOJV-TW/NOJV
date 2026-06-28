@@ -339,6 +339,7 @@ describe("getJudgeContext", () => {
           run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
           grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
           network: { mode: "none" },
+          maxScore: 100,
         },
         resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
       });
@@ -404,6 +405,7 @@ describe("getJudgeContext", () => {
               run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
               grade: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" },
               network: { mode: "none" },
+              maxScore: 100,
             },
             resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
           },

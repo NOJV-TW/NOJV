@@ -37,6 +37,7 @@
   );
   let localTimeLimitMs = $state(untrack(() => timeLimitMs));
   let localMemoryLimitMb = $state(untrack(() => memoryLimitMb));
+  let localMaxScore = $state(untrack(() => config.maxScore ?? 100));
 
   let allowlistDraft = $state("");
   let allowlistError = $state<string | null>(null);
@@ -124,7 +125,7 @@
         : mode === "service"
           ? { mode, service: { ...service } }
           : { mode };
-    return { run: { ...run }, grade: { ...grade }, network };
+    return { run: { ...run }, grade: { ...grade }, network, maxScore: localMaxScore };
   }
 
   async function save() {
@@ -378,6 +379,19 @@
         max="4096"
         bind:value={localMemoryLimitMb}
       />
+    </label>
+    <label class="text-body-sm">
+      <span class="text-body-sm font-medium">{m.advancedConfig_maxScoreLabel()}</span>
+      <input
+        type="number"
+        class={inputClassName}
+        min="1"
+        max="100000"
+        bind:value={localMaxScore}
+      />
+      <p class="mt-1 text-caption text-muted-foreground">
+        {m.advancedConfig_maxScoreHint()}
+      </p>
     </label>
   </div>
 

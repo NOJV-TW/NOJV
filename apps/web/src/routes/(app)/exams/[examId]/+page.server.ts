@@ -123,7 +123,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             summary: detail.summary,
             startsAt: toDateTimeLocal(detail.startsAt),
             endsAt: toDateTimeLocal(detail.endsAt),
-            scoringMode: detail.scoringMode,
+            // Exams are cumulative-only (累分制); any legacy mode collapses to point_sum.
+            scoringMode: "point_sum",
             scoreboardMode: detail.scoreboardMode,
             allowedLanguages: detail.manager.allowedLanguages,
             submitCooldownSec: detail.manager.submitCooldownSec,
@@ -369,16 +370,8 @@ export const actions = {
       seen.add(id);
       problemIds.push(id);
     }
-    const pointOverrides: Record<string, number> = {};
-    for (const [key, val] of formData.entries()) {
-      if (!key.startsWith("points_")) continue;
-      const id = key.slice("points_".length);
-      const n = Number(val);
-      if (Number.isFinite(n) && n >= 0) pointOverrides[id] = Math.floor(n);
-    }
-
     try {
-      await updateExamRecord(actor, event.params.examId, { problemIds }, { pointOverrides });
+      await updateExamRecord(actor, event.params.examId, { problemIds });
     } catch (err) {
       if (err instanceof HttpError) return fail(err.status, { error: err.message });
       throw err;

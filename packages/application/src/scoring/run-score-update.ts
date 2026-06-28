@@ -52,12 +52,14 @@ export async function runScoreUpdate<P>(
     const problemIds = adapter.problemIds(participation);
 
     try {
-      if (adapter.scoringMode(participation) === "problem_count") {
+      const mode = adapter.scoringMode(participation);
+      if (mode === "problem_count" || mode === "weighted_count") {
         const { score, penaltySeconds } = computeProblemCountState({
           submissions,
           problemIds,
           problemPoints: adapter.problemPoints(participation),
           startsAt: adapter.startsAt(participation),
+          usePoints: mode === "weighted_count",
           ...(adapter.penaltyPerWrongSec
             ? { penaltyPerWrongSec: adapter.penaltyPerWrongSec(participation) }
             : {}),

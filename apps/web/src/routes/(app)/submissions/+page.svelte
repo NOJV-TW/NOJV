@@ -140,7 +140,7 @@
                 <VerdictBadge verdict={sub.status} />
                 <Badge variant="outline" size="xs">{contextLabel(sub.context)}</Badge>
                 <span>{sub.language}</span>
-                <span class="tabular-nums">{sub.score}/100</span>
+                <span class="tabular-nums">{sub.score}/{sub.totalScore}</span>
                 {#if sub.runtimeMs && sub.runtimeMs > 0}
                   <span class="tabular-nums">{sub.runtimeMs} ms</span>
                 {/if}

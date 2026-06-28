@@ -7,8 +7,9 @@ import {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { getProblemPageData } from "../problem/queries";
+import { getProblemPageData, getProblemTestcaseSets } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
+import { computeProblemTotalScore } from "../problem/total-score";
 import {
   fallbackResultForRow,
   getVerdictDetail,
@@ -77,7 +78,7 @@ export async function getExamProblemView(options: {
 
   const problemIds = problems.map((ep) => ep.problem.id);
 
-  const [problem, submissionRows, bestRows] = await Promise.all([
+  const [problem, submissionRows, bestRows, testcaseSets] = await Promise.all([
     getProblemPageData(current.problem.id),
     submissionRepo.findMany({
       where: {
@@ -103,7 +104,14 @@ export async function getExamProblemView(options: {
       problemId: { in: problemIds },
       sampleOnly: false,
     }),
+    getProblemTestcaseSets(current.problem.id),
   ]);
+
+  const problemTotal = computeProblemTotalScore({
+    type: problem.type,
+    testcaseSets,
+    advancedConfig: problem.advancedConfig,
+  });
 
   const detailBlobs = await Promise.all(
     submissionRows.map((s) =>
@@ -117,7 +125,7 @@ export async function getExamProblemView(options: {
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
-      : fallbackResultForRow(verdict);
+      : fallbackResultForRow(verdict, problemTotal);
     return {
       id: s.id,
       language,
@@ -179,7 +187,7 @@ export async function getExamProblemViewByProblemId(options: {
 
   const problemIds = problems.map((ep) => ep.problem.id);
 
-  const [problem, submissionRows, bestRows] = await Promise.all([
+  const [problem, submissionRows, bestRows, testcaseSets] = await Promise.all([
     getProblemPageData(current.problem.id),
     submissionRepo.findMany({
       where: {
@@ -205,7 +213,14 @@ export async function getExamProblemViewByProblemId(options: {
       problemId: { in: problemIds },
       sampleOnly: false,
     }),
+    getProblemTestcaseSets(current.problem.id),
   ]);
+
+  const problemTotal = computeProblemTotalScore({
+    type: problem.type,
+    testcaseSets,
+    advancedConfig: problem.advancedConfig,
+  });
 
   const detailBlobs = await Promise.all(
     submissionRows.map((s) =>
@@ -219,7 +234,7 @@ export async function getExamProblemViewByProblemId(options: {
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
       ? stripStaffFeedback(parsed.data)
-      : fallbackResultForRow(verdict);
+      : fallbackResultForRow(verdict, problemTotal);
     return {
       id: s.id,
       language,

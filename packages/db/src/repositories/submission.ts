@@ -83,7 +83,14 @@ export const submissionRepo = {
         verdictDetailStorageKey: true,
         createdAt: true,
         user: { select: userMiniSelect },
-        problem: { select: problemMiniSelect },
+        problem: {
+          select: {
+            ...problemMiniSelect,
+            type: true,
+            advancedConfig: true,
+            testcaseSets: { select: { weight: true } },
+          },
+        },
         contest: { select: { id: true, title: true } },
         assessment: {
           select: {
@@ -191,7 +198,14 @@ export const submissionRepo = {
         contestId: true,
         assessmentId: true,
         examId: true,
-        problem: { select: problemMiniSelect },
+        problem: {
+          select: {
+            ...problemMiniSelect,
+            type: true,
+            advancedConfig: true,
+            testcaseSets: { select: { weight: true } },
+          },
+        },
       },
       take: opts.take ?? 50,
     });

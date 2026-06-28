@@ -227,7 +227,8 @@ describe("contest queries (real DB)", () => {
 
       const sb = await getScoreboard(contest.id);
       expect(sb.entries).toHaveLength(1);
-      expect(sb.entries[0]!.totalScore).toBe(100);
+      // problem_count (解題數) scores each solved problem as 1, regardless of points.
+      expect(sb.entries[0]!.totalScore).toBe(1);
       expect(sb.entries[0]!.rank).toBe(1);
       expect(sb.scoringMode).toBe("problem_count");
     });

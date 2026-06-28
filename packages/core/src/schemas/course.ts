@@ -168,15 +168,6 @@ export const assessmentUpdateSchema = z.object({
   attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
   opensAt: isoDateTimeSchema.optional(),
   problemIds: z.array(z.string().trim().min(1)).max(32).optional(),
-  problemOrdinals: z
-    .array(
-      z.object({
-        problemId: z.string().trim().min(1),
-        points: z.coerce.number().int().min(0).max(10_000),
-      }),
-    )
-    .max(32)
-    .optional(),
   adjustmentRules: adjustmentRulesSchema.optional(),
   summary: z.string().trim().max(2_000).optional(),
   title: z.string().trim().min(3).max(120).optional(),
