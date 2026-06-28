@@ -17,7 +17,7 @@
 
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
-  import { cn, inputClassName } from "$lib/utils/css";
+  import { cn } from "$lib/utils/css";
 
   interface Props {
     problems: ProblemsTabProblem[];
@@ -41,7 +41,7 @@
     return "text-destructive";
   }
 
-  type EditRow = { problemId: string; title: string; points: number; letter: string };
+  type EditRow = { problemId: string; title: string; letter: string };
 
   let editRows = $state<EditRow[]>([]);
   let searchQuery = $state("");
@@ -52,7 +52,6 @@
     editRows = source.map((p) => ({
       problemId: p.problemId,
       title: p.title,
-      points: p.points,
       letter: p.letter,
     }));
   }
@@ -95,7 +94,6 @@
       {
         problemId: candidate.id,
         title: candidate.title,
-        points: 100,
         letter: letterFor(editRows.length + 1),
       },
     ];
@@ -123,7 +121,6 @@
     errorMsg = null;
     const payload = {
       problemIds: editRows.map((r) => r.problemId),
-      points: Object.fromEntries(editRows.map((r) => [r.problemId, Math.trunc(r.points)])),
     };
     const fd = new FormData();
     fd.set("payload", JSON.stringify(payload));
@@ -208,7 +205,7 @@
       <div class="grid gap-2">
         {#each editRows as row, index (row.problemId)}
           <div
-            class="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3"
+            class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3"
           >
             <div
               class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
@@ -219,16 +216,6 @@
               <div class="truncate text-body-sm font-semibold">{row.title}</div>
               <div class="font-mono text-caption text-muted-foreground">{row.problemId}</div>
             </div>
-            <label class="flex items-center gap-2 text-caption text-muted-foreground">
-              <span>{m.assignmentDetail_problemsEditPointsLabel()}</span>
-              <input
-                type="number"
-                min="0"
-                max="10000"
-                class="{inputClassName} w-24"
-                bind:value={row.points}
-              />
-            </label>
             <div class="flex items-center gap-1">
               <Button
                 variant="ghost"
