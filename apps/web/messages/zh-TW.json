@@ -1064,8 +1064,6 @@
   "dashboard_heatmapAria": "活動熱圖",
   "dashboard_heatmapSummary": "{days} 個活躍日共 {ac} 次 AC",
   "dashboard_heatmapTipAc": "{ac} 次 AC",
-  "dashboard_heatmapTipMeta": "{date} · 共 {submissions} 次提交",
-  "dashboard_heatmapTipMetaAc": "{date} · 共 {ac} 次 AC",
   "dashboard_heatmapTipSub": "{submissions} 次提交",
   "dashboard_heatmapToggleAc": "AC",
   "dashboard_heatmapToggleSub": "提交",

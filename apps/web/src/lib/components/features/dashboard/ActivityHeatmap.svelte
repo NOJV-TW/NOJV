@@ -34,6 +34,16 @@
   let metric = $state<Metric>("ac");
   const countOf = (day: HeatmapDay) => (metric === "ac" ? day.acCount : day.submissionCount);
 
+  const dateFmt = $derived(
+    new Intl.DateTimeFormat(getLocale(), {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }),
+  );
+  const formatDate = (date: string) => dateFmt.format(new Date(`${date}T00:00:00Z`));
+
   // A single shared tooltip (GitHub-style) follows the hovered cell — far cheaper
   // than wrapping all ~365 cells in their own tooltip component.
   let tip = $state<{ day: HeatmapDay; left: number; y: number; above: boolean } | null>(null);
@@ -148,15 +158,13 @@
     style="left: {tip.left}px; top: {tip.y}px;"
     role="status"
   >
-    <div class="text-body-sm font-semibold leading-tight text-popover-foreground">
+    <div class="text-body font-semibold leading-tight text-popover-foreground">
       {metric === "ac"
         ? m.dashboard_heatmapTipAc({ ac: tip.day.acCount })
         : m.dashboard_heatmapTipSub({ submissions: tip.day.submissionCount })}
     </div>
     <div class="mt-0.5 text-micro text-muted-foreground">
-      {metric === "ac"
-        ? m.dashboard_heatmapTipMeta({ date: tip.day.date, submissions: tip.day.submissionCount })
-        : m.dashboard_heatmapTipMetaAc({ date: tip.day.date, ac: tip.day.acCount })}
+      {formatDate(tip.day.date)}
     </div>
   </div>
 {/if}
