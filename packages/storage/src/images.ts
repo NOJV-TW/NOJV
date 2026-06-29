@@ -2,6 +2,7 @@ import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sd
 import type { S3Client } from "@aws-sdk/client-s3";
 import { parseRelativePath } from "@nojv/core";
 import { randomUUID } from "node:crypto";
+import type { Readable } from "node:stream";
 
 import { getStorageEnv } from "./env";
 
@@ -108,7 +109,7 @@ export async function uploadAdvancedImageTarball(
   client: S3Client,
   problemId: string,
   role: AdvancedImageRole,
-  file: Buffer,
+  file: Buffer | Readable,
 ): Promise<string> {
   const key = `problems/${problemId}/advanced-images/${role}/${randomUUID()}.tar`;
 

@@ -13,6 +13,7 @@ const webEnvSchema = z
     REDIS_URL: z.url().default("redis://localhost:6379"),
 
     EXECUTION_BACKEND: z.enum(["docker", "kubernetes"]).default("docker"),
+    ADVANCED_IMAGE_REGISTRY: z.string().trim().min(1).optional(),
 
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),

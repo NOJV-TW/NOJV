@@ -1,4 +1,9 @@
-import { advancedConfigSchema, advancedResultSchema } from "@nojv/core";
+import {
+  advancedConfigSchema,
+  advancedPackageManifestSchema,
+  advancedResultSchema,
+  validateAdvancedResultForMaxScore,
+} from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
 describe("advancedResultSchema", () => {
@@ -69,6 +74,83 @@ describe("advancedResultSchema", () => {
     expect(advancedResultSchema.safeParse({ score: -1, verdict: "accepted" }).success).toBe(
       false,
     );
+  });
+
+  it("rejects fractional scores because submissions persist integer scores", () => {
+    expect(
+      advancedResultSchema.safeParse({ score: 1.5, verdict: "wrong_answer" }).success,
+    ).toBe(false);
+  });
+
+  it("validates score against the problem max score", () => {
+    expect(
+      validateAdvancedResultForMaxScore({ score: 101, verdict: "wrong_answer" }, 100),
+    ).toContain("score 101 exceeds maxScore 100");
+    expect(validateAdvancedResultForMaxScore({ score: 100, verdict: "accepted" }, 100)).toEqual(
+      [],
+    );
+    expect(
+      validateAdvancedResultForMaxScore({ score: 60, verdict: "accepted" }, 100),
+    ).toContain("accepted verdict requires score to equal maxScore");
+  });
+});
+
+describe("advancedPackageManifestSchema", () => {
+  const base = {
+    version: 1,
+    scoring: { maxScore: 250 },
+    resources: { timeLimitMs: 30_000, memoryLimitMb: 1_024 },
+    student: { requiredPaths: ["main.py"] },
+    network: { mode: "none", allowlist: [] },
+    samples: [
+      {
+        name: "full",
+        submission: "samples/full.zip",
+        expect: { verdict: "accepted", score: 250 },
+      },
+      {
+        name: "partial",
+        submission: "samples/partial.zip",
+        expect: { verdict: "wrong_answer", score: 120 },
+      },
+    ],
+  };
+
+  it("accepts the canonical package manifest", () => {
+    expect(advancedPackageManifestSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("requires at least one executable sample", () => {
+    const parsed = advancedPackageManifestSchema.safeParse({ ...base, samples: [] });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects accepted partial-score samples", () => {
+    const parsed = advancedPackageManifestSchema.safeParse({
+      ...base,
+      samples: [
+        {
+          name: "partial",
+          submission: "samples/partial.zip",
+          expect: { verdict: "accepted", score: 120 },
+        },
+      ],
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects samples above maxScore", () => {
+    const parsed = advancedPackageManifestSchema.safeParse({
+      ...base,
+      samples: [
+        {
+          name: "too-high",
+          submission: "samples/high.zip",
+          expect: { verdict: "wrong_answer", score: 251 },
+        },
+      ],
+    });
+    expect(parsed.success).toBe(false);
   });
 });
 

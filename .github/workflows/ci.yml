@@ -114,6 +114,6 @@ jobs:
       # Hard gate: any high or critical advisory fails the build.
       # Moderate/low are reported by `pnpm audit` locally but not gated.
       # Suppress a genuinely-unfixable advisory via
-      # `pnpm.auditConfig.ignoreGhsas` in the root package.json.
+      # `auditConfig.ignoreGhsas` in pnpm-workspace.yaml.
       - name: Audit dependencies (high + critical)
         run: pnpm audit --audit-level high

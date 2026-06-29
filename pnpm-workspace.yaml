@@ -3,6 +3,42 @@ packages:
   - packages/*
   - tooling/*
 
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vmh5-mc38-953g
+    - GHSA-vxpw-j846-p89q
+    - GHSA-hm92-r4w5-c3mj
+
+overrides:
+  kysely: 0.28.17
+  protobufjs: ">=7.6.1"
+  ws: ">=8.21.0"
+  form-data: ">=4.0.6"
+  js-yaml: ^4.2.0
+  ts-deepmerge: ">=8.0.0"
+  monaco-editor>dompurify: ">=3.4.11"
+  isomorphic-dompurify>dompurify: ">=3.4.11"
+  "@prisma/dev>@hono/node-server": ^1.19.13
+  "@prisma/dev>hono": ">=4.12.25"
+  "@sveltejs/kit>cookie": ^0.7.0
+  tsx>esbuild: ^0.28.1
+
+ignoredOptionalDependencies:
+  - joi
+
+onlyBuiltDependencies:
+  - "@dodona/dolos-parsers"
+  - "@prisma/engines"
+  - "@swc/core"
+  - esbuild
+  - prisma
+  - tree-sitter
+  - tree-sitter-compat
+
+patchedDependencies:
+  tree-sitter@0.25.0: patches/tree-sitter@0.25.0.patch
+  "@dodona/dolos-parsers@1.4.1": patches/@dodona__dolos-parsers@1.4.1.patch
+
 catalog:
   # Cross-package shared core deps — must stay version-consistent.
   "@opentelemetry/api": ^1.9.1

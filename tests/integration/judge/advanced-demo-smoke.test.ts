@@ -57,6 +57,7 @@ function advancedRequest(submissionId: string, sourceCode: string): SandboxReque
       network: { mode: "none" },
       totalTimeMs: 30_000,
       memoryMb: 512,
+      maxScore: 100,
     },
   };
 }

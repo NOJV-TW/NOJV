@@ -1,12 +1,10 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
-  advancedConfigSchema,
   languageSchema,
   problemCreateSchema,
   problemTestcaseSetCreateSchema,
   problemTypeSchema,
   problemWorkspaceFileSchema,
-  requiredPathsSchema,
   runtimeSchema,
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
@@ -42,7 +40,6 @@ const {
   deleteTestcaseRecord,
   deleteProblemRecord,
   convertProblemToAdvancedMode,
-  updateAdvancedRequiredPaths,
 } = problemDomain;
 
 const updateWorkspaceSchema = z.object({
@@ -50,16 +47,6 @@ const updateWorkspaceSchema = z.object({
   allowedLanguages: z.array(languageSchema).optional(),
   type: problemTypeSchema.optional(),
   files: z.array(problemWorkspaceFileSchema).max(50),
-});
-
-const advancedConfigSavePayloadSchema = z.object({
-  config: advancedConfigSchema,
-  timeLimitMs: z.coerce.number().int().min(1_000).max(MAX_ADVANCED_TOTAL_TIME_MS),
-  memoryLimitMb: z.coerce.number().int().min(16).max(4_096),
-});
-
-const advancedRequiredPathsSavePayloadSchema = z.object({
-  paths: requiredPathsSchema,
 });
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -117,12 +104,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     validatorScripts,
     advancedConfig: isAdvanced
       ? {
-          config: problem.advancedConfig ?? {
-            run: { imageRef: "", imageSource: "registry" as const },
-            grade: { imageRef: "", imageSource: "registry" as const },
-            network: { mode: "none" as const },
-            maxScore: 100,
-          },
+          config: problem.advancedConfig,
           timeLimitMs: problem.timeLimitMs,
           memoryLimitMb: problem.memoryLimitMb,
           maxTotalTimeMs: MAX_ADVANCED_TOTAL_TIME_MS,
@@ -254,32 +236,5 @@ export const actions: Actions = {
     }
     await convertProblemToAdvancedMode(actor, problemId);
     redirect(303, `/problems/${problemId}/edit`);
-  }),
-
-  updateAdvancedConfig: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const data = parseJsonField(formData.get("data"), advancedConfigSavePayloadSchema);
-    try {
-      await updateProblemRecord(actor, problemId, {
-        type: "special_env",
-        advancedConfig: data.config,
-        timeLimitMs: data.timeLimitMs,
-        memoryLimitMb: data.memoryLimitMb,
-      });
-    } catch (err) {
-      return fail(400, { message: err instanceof Error ? err.message : "Update failed" });
-    }
-    return { success: true };
-  }),
-
-  updateRequiredPaths: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const data = parseJsonField(formData.get("data"), advancedRequiredPathsSavePayloadSchema);
-    try {
-      await updateAdvancedRequiredPaths(actor, problemId, data.paths);
-    } catch (err) {
-      return fail(400, { message: err instanceof Error ? err.message : "Update failed" });
-    }
-    return { success: true };
   }),
 };

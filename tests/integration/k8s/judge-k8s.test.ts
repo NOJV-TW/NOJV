@@ -668,6 +668,7 @@ function advancedRequest(
       network,
       totalTimeMs: 60_000,
       memoryMb: 256,
+      maxScore: 100,
     },
   };
 }
@@ -819,6 +820,7 @@ describe("K8s judge — advanced mode", () => {
           network: { mode: "none" },
           totalTimeMs: 60_000,
           memoryMb: 256,
+          maxScore: 100,
         },
       };
 

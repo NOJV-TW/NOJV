@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 
 import {
   advancedResultSchema,
+  validateAdvancedResultForMaxScore,
   DEFAULT_MAX_MEMORY_MB,
   DEFAULT_MEMORY_HEADROOM_MB,
   resolveContainerMemoryMb,
@@ -344,6 +345,13 @@ export class K8sExecutor implements SandboxExecutor {
         return advancedFallbackResult(
           request,
           `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+        );
+      }
+      const resultIssues = validateAdvancedResultForMaxScore(parsed.data, advanced.maxScore);
+      if (resultIssues.length > 0) {
+        return advancedFallbackResult(
+          request,
+          `Invalid result.json: ${resultIssues.join(", ")}`,
         );
       }
 

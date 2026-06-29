@@ -144,13 +144,17 @@ describeHelm("env schema ↔ chart deployment parity", () => {
     const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
     expect(containerEnvNames(web).has("EXECUTION_BACKEND")).toBe(true);
   });
+
+  it("web Deployment sets ADVANCED_IMAGE_REGISTRY so Kubernetes Advanced packages are enabled by default", () => {
+    const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
+    expect(containerEnvNames(web).has("ADVANCED_IMAGE_REGISTRY")).toBe(true);
+  });
 });
 
 describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {
-  const rootPkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
-    pnpm?: { patchedDependencies?: Record<string, string> };
-  };
-  const hasPatches = Object.keys(rootPkg.pnpm?.patchedDependencies ?? {}).length > 0;
+  const workspaceManifest = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
+  const patchBlock = /^patchedDependencies:\n((?:  .+\n)+)/m.exec(workspaceManifest);
+  const hasPatches = patchBlock !== null && patchBlock[1]!.trim().length > 0;
 
   const dockerDir = join(repoRoot, "infra/docker");
   const frozenInstallDockerfiles = readdirSync(dockerDir)

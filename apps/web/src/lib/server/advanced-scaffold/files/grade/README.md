@@ -16,17 +16,11 @@ leak — that is the whole point of the run/grade split.
 | `nojv_grader.py` | Helper — reads the contract, writes a valid `result.json`. Don't edit.           |
 | `answers/`       | Baked-in **answers** (`case-*.out`). Live ONLY here — never exposed to students. |
 
-## Build & upload
+## Package upload
 
-```sh
-docker build -t my-grade .
-docker save my-grade -o my-grade.tar
-```
-
-Upload `my-grade.tar` as the **grade** image on the problem's Advanced settings
-page (source = tarball), or push to a registry and paste the reference instead.
-Tarball images run on the Docker backend only; on the Kubernetes backend, push
-to a registry and use a registry reference.
+Do not upload this directory by itself. Keep it under `grade/` inside the NOJV
+Advanced package ZIP, alongside `nojv-advanced.yaml` and `run/`. NOJV builds the
+grade image when staff upload the package.
 
 ## The contract
 

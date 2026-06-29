@@ -1,9 +1,5 @@
 import JSZip from "jszip";
 
-export type ScaffoldRole = "run" | "grade" | "service";
-
-export const SCAFFOLD_ROLES: readonly ScaffoldRole[] = ["run", "grade", "service"];
-
 const rawFiles: Record<string, string> = import.meta.glob("./files/**/*", {
   query: "?raw",
   import: "default",
@@ -17,30 +13,64 @@ const SCAFFOLD_FILES: Record<string, string> = Object.fromEntries(
   ]),
 );
 
-export function isScaffoldRole(value: string): value is ScaffoldRole {
-  return (SCAFFOLD_ROLES as readonly string[]).includes(value);
+const MANIFEST = `version: 1
+
+scoring:
+  maxScore: 100
+
+resources:
+  timeLimitMs: 30000
+  memoryLimitMb: 512
+
+student:
+  requiredPaths:
+    - main.py
+
+network:
+  mode: none
+  allowlist: []
+
+samples:
+  - name: full-credit
+    submission: samples/full-credit.zip
+    expect:
+      verdict: accepted
+      score: 100
+`;
+
+function packageEntries(): [string, string][] {
+  return Object.entries(SCAFFOLD_FILES).filter(([path]) => !path.startsWith("service/"));
 }
 
-function entriesForRole(role: ScaffoldRole): [string, string][] {
-  const prefix = `${role}/`;
-  return Object.entries(SCAFFOLD_FILES)
-    .filter(([path]) => path.startsWith(prefix))
-    .map(([path, content]) => [path.slice(prefix.length), content]);
+export function scaffoldEntryNames(): string[] {
+  return [
+    "nojv-advanced.yaml",
+    "samples/full-credit.zip",
+    ...packageEntries().map(([path]) => path),
+  ].sort((a, b) => a.localeCompare(b));
 }
 
-export function scaffoldEntryNames(role: ScaffoldRole): string[] {
-  return entriesForRole(role)
-    .map(([path]) => path)
-    .sort((a, b) => a.localeCompare(b));
+export function scaffoldZipFilename(): string {
+  return "nojv-advanced-package-starter.zip";
 }
 
-export function scaffoldZipFilename(role: ScaffoldRole): string {
-  return `nojv-advanced-${role}-starter.zip`;
-}
-
-export async function buildScaffoldZip(role: ScaffoldRole): Promise<Blob> {
+export async function buildScaffoldZip(): Promise<Blob> {
   const zip = new JSZip();
-  for (const [path, content] of entriesForRole(role)) {
+  zip.file("nojv-advanced.yaml", MANIFEST);
+  const sample = new JSZip();
+  sample.file(
+    "main.py",
+    `import sys
+
+for line in sys.stdin:
+    print(sum(map(int, line.split())))
+`,
+  );
+  zip.file(
+    "samples/full-credit.zip",
+    await sample.generateAsync({ type: "uint8array", compression: "DEFLATE" }),
+  );
+  for (const [path, content] of packageEntries()) {
     zip.file(path, content);
   }
   return zip.generateAsync({ type: "blob", compression: "DEFLATE" });

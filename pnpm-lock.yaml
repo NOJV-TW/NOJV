@@ -447,6 +447,9 @@ importers:
       archiver:
         specifier: ^7.0.1
         version: 7.0.1
+      js-yaml:
+        specifier: ^4.2.0
+        version: 4.2.0
       unzipper:
         specifier: ^0.12.5
         version: 0.12.5
@@ -457,6 +460,9 @@ importers:
       '@types/archiver':
         specifier: ^7.0.0
         version: 7.0.0
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/unzipper':
         specifier: ^0.10.11
         version: 0.10.11

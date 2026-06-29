@@ -1,5 +1,6 @@
 import { getWebEnv } from "./env";
 
 export function isAdvancedModeSupported(): boolean {
-  return getWebEnv().EXECUTION_BACKEND !== "kubernetes";
+  const env = getWebEnv();
+  return env.EXECUTION_BACKEND === "docker" || env.ADVANCED_IMAGE_REGISTRY !== undefined;
 }

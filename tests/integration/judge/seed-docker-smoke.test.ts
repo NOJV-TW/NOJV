@@ -170,6 +170,7 @@ function buildRequest(def: SeedProblemDef, variant: Variant): SandboxRequest {
         network: advanced.network,
         totalTimeMs: 60_000,
         memoryMb: def.memoryLimitMb,
+        maxScore: advanced.maxScore,
       },
     };
   }

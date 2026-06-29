@@ -74,6 +74,7 @@ function makeAdvancedRequest(overrides?: {
       network: overrides?.network ?? { mode: "none" },
       totalTimeMs: overrides?.totalTimeMs ?? 60_000,
       memoryMb: overrides?.memoryMb ?? 512,
+      maxScore: 100,
     },
   };
 }

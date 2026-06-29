@@ -565,14 +565,18 @@ export const internalSchemas = {
     required: ["url"],
   },
 
-  AdvancedImageUploadResponse: {
+  AdvancedPackageUploadResponse: {
     type: "object",
     properties: {
-      key: { type: "string" },
-      role: { type: "string", enum: ["run", "grade", "service"] },
-      persisted: { type: "boolean" },
+      success: { type: "boolean" },
+      builtImages: {
+        type: "array",
+        items: { type: "string", enum: ["run", "grade", "service"] },
+      },
+      maxScore: { type: "number" },
+      requiredPaths: { type: "array", items: { type: "string" } },
     },
-    required: ["key", "role", "persisted"],
+    required: ["success", "builtImages", "maxScore", "requiredPaths"],
   },
   ProblemScore: {
     type: "object",

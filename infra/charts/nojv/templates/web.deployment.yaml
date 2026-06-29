@@ -55,6 +55,8 @@ spec:
               value: {{ .Values.web.containerPort | quote }}
             - name: EXECUTION_BACKEND
               value: {{ .Values.web.executionBackend | quote }}
+            - name: ADVANCED_IMAGE_REGISTRY
+              value: {{ default (printf "%s/%s/advanced" .Values.image.registry .Values.image.repositoryPrefix) .Values.web.advancedImageRegistry | quote }}
             - name: DB_POOL_MAX
               value: {{ .Values.web.dbPoolMax | quote }}
             - name: S3_BUCKET
