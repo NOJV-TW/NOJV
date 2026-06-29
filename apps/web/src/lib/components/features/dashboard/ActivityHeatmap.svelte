@@ -10,10 +10,11 @@
 
   interface Props {
     data: HeatmapDay[];
+    title: string;
     class?: string;
   }
 
-  let { data, class: className = "" }: Props = $props();
+  let { data, title, class: className = "" }: Props = $props();
 
   const INTENSITY = {
     zero: "bg-[color:var(--muted)]/40",
@@ -79,9 +80,10 @@
 </script>
 
 <div class={className}>
-  <div class="mb-3 flex items-center justify-end">
+  <div class="mb-4 flex items-center justify-between gap-3">
+    <h2 class="text-title-sm font-semibold">{title}</h2>
     <div
-      class="inline-flex rounded-full border border-border bg-[color:var(--color-panel)] p-0.5 text-micro font-medium"
+      class="inline-flex shrink-0 rounded-full border border-border bg-[color:var(--color-panel)] p-0.5 text-micro font-medium"
     >
       <button
         type="button"

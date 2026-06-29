@@ -318,12 +318,12 @@
         {@const dailyActivity = activityModel.heatmapDays}
         {@const hasHeatmapData = dailyActivity.some((d) => d.acCount > 0)}
         <Card variant="surface" size="lg">
-          <h2 class="mb-4 text-title-sm font-semibold">
-            {m.dashboard_activityChart()}
-          </h2>
           {#if hasHeatmapData}
-            <ActivityHeatmap data={dailyActivity} />
+            <ActivityHeatmap data={dailyActivity} title={m.dashboard_activityChart()} />
           {:else}
+            <h2 class="mb-4 text-title-sm font-semibold">
+              {m.dashboard_activityChart()}
+            </h2>
             <EmptyState
               variant="minimal"
               icon={LineChart}
