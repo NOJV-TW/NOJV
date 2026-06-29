@@ -10,8 +10,6 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import StreakCard from "$lib/components/features/dashboard/StreakCard.svelte";
-  import WeeklyTrendCard from "$lib/components/features/dashboard/WeeklyTrendCard.svelte";
   import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
   import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
   import { Skeleton } from "$lib/components/primitives/ui/skeleton";
@@ -302,16 +300,6 @@
             </h2>
             <Skeleton class="h-48 w-full" />
           </Card>
-          <div class="grid gap-4 md:grid-cols-2">
-            <Card variant="surface" size="lg">
-              <Skeleton class="mb-4 h-5 w-24" />
-              <Skeleton class="h-20 w-full" />
-            </Card>
-            <Card variant="surface" size="lg">
-              <Skeleton class="mb-4 h-5 w-32" />
-              <Skeleton class="h-40 w-full" />
-            </Card>
-          </div>
         </div>
       {:then activity}
         {@const activityModel = buildActivityModel(activity, new Date(), 365)}
@@ -332,11 +320,6 @@
             />
           {/if}
         </Card>
-
-        <div class="grid gap-4 md:grid-cols-2">
-          <StreakCard streakDays={activityModel.streakDays} />
-          <WeeklyTrendCard data={activityModel.weeklyTrend} />
-        </div>
       {:catch}
         {@render errorCard()}
       {/await}
