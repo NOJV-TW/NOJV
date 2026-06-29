@@ -122,20 +122,20 @@ describe("getDashboardView — populated actor", () => {
     ]);
   });
 
-  it("delegates byTag to aggregateByTag and caps at 8 (+ descending by count)", async () => {
+  it("delegates byTag to aggregateByTag and caps at 20 (+ descending by count)", async () => {
     findRecentByUser.mockResolvedValue([]);
     findDistinctAcByUser.mockResolvedValue(
-      Array.from({ length: 12 }, (_, i) => ({
+      Array.from({ length: 25 }, (_, i) => ({
         problem: { difficulty: "easy", tags: [`tag${i}`] },
       })),
     );
-    count.mockResolvedValue(12);
+    count.mockResolvedValue(25);
     groupByLanguageForUser.mockResolvedValue([]);
     groupByStatusForUser.mockResolvedValue([]);
 
     const view = await getDashboardView("usr_1");
 
-    expect(view.analytics.byTag).toHaveLength(8);
+    expect(view.analytics.byTag).toHaveLength(20);
     view.analytics.byTag.forEach((row) => expect(row.acCount).toBe(1));
   });
 });

@@ -117,34 +117,38 @@
       </button>
     </div>
   </div>
-  <div class="flex gap-2" role="img" aria-label={`${m.dashboard_heatmapAria()}: ${totalAcLabel}`}>
-    <div class="flex flex-col justify-between py-0.5 text-micro text-muted-foreground">
-    {#each weekdayLabels as label, i (i)}
-      {#if i % 2 === 1}
-        <span class="leading-none">{label}</span>
-      {:else}
-        <span class="leading-none">&nbsp;</span>
-      {/if}
-    {/each}
-  </div>
   <div
-    class="grid flex-1 grid-flow-col gap-1"
-    style="grid-template-rows: repeat(7, minmax(0, 1fr)); grid-template-columns: repeat({columnCount}, minmax(0, 1fr));"
+    class="flex gap-2"
+    role="img"
+    aria-label={`${m.dashboard_heatmapAria()}: ${totalAcLabel}`}
   >
-    {#each cells as cell, i (i)}
-      {#if cell === null}
-        <div class="h-4 w-full sm:h-5" aria-hidden="true"></div>
-      {:else}
-        <div
-          class="h-4 w-full rounded-[3px] transition-colors duration-fast hover:ring-1 hover:ring-foreground/40 sm:h-5 {intensityClass(
-            countOf(cell),
-          )}"
-          aria-hidden="true"
-          onmouseenter={(event) => showTip(cell, event)}
-          onmouseleave={hideTip}
-        ></div>
-      {/if}
-    {/each}
+    <div class="flex flex-col justify-between py-0.5 text-micro text-muted-foreground">
+      {#each weekdayLabels as label, i (i)}
+        {#if i % 2 === 1}
+          <span class="leading-none">{label}</span>
+        {:else}
+          <span class="leading-none">&nbsp;</span>
+        {/if}
+      {/each}
+    </div>
+    <div
+      class="grid flex-1 grid-flow-col gap-1"
+      style="grid-template-rows: repeat(7, minmax(0, 1fr)); grid-template-columns: repeat({columnCount}, minmax(0, 1fr));"
+    >
+      {#each cells as cell, i (i)}
+        {#if cell === null}
+          <div class="h-4 w-full sm:h-5" aria-hidden="true"></div>
+        {:else}
+          <div
+            class="h-4 w-full rounded-[3px] transition-colors duration-fast hover:ring-1 hover:ring-foreground/40 sm:h-5 {intensityClass(
+              countOf(cell),
+            )}"
+            aria-hidden="true"
+            onmouseenter={(event) => showTip(cell, event)}
+            onmouseleave={hideTip}
+          ></div>
+        {/if}
+      {/each}
     </div>
   </div>
 </div>

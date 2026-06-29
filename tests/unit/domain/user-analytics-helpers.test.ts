@@ -20,14 +20,14 @@ describe("aggregateByTag", () => {
     ]);
   });
 
-  it("sorts descending by acCount and caps at 8 tags", () => {
-    const rows = Array.from({ length: 12 }, (_, i) => ({
+  it("sorts descending by acCount and caps at 20 tags", () => {
+    const rows = Array.from({ length: 25 }, (_, i) => ({
       problem: { tags: [`tag${i}`] },
     }));
     rows.push({ problem: { tags: ["tag0"] } }, { problem: { tags: ["tag0"] } });
 
     const result = aggregateByTag(rows);
-    expect(result).toHaveLength(8);
+    expect(result).toHaveLength(20);
     expect(result[0]).toEqual({ tag: "tag0", acCount: 3 });
     for (let i = 1; i < result.length; i++) {
       expect(result[i].acCount).toBe(1);
