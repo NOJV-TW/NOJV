@@ -19,10 +19,12 @@
         "verdict-ac": "bg-success/15 text-success border-success/25",
         "verdict-wa": "bg-destructive/15 text-destructive border-destructive/25",
         "verdict-tle": "bg-warning/15 text-warning border-warning/25",
-        "verdict-mle": "bg-warning/15 text-warning border-warning/25",
-        "verdict-re": "bg-destructive/15 text-destructive border-destructive/25",
-        "verdict-ce": "bg-destructive/15 text-destructive border-destructive/25",
-        "verdict-pending": "bg-info/15 text-info border-info/25 animate-pulse",
+        "verdict-mle": "bg-verdict-purple/15 text-verdict-purple border-verdict-purple/30",
+        "verdict-re": "bg-verdict-orange/15 text-verdict-orange border-verdict-orange/30",
+        "verdict-ce": "bg-info/15 text-info border-info/25",
+        "verdict-se": "bg-muted-foreground/12 text-muted-foreground border-muted-foreground/25",
+        "verdict-pending":
+          "bg-verdict-cyan/15 text-verdict-cyan border-verdict-cyan/30 animate-pulse",
         "verdict-partial": "bg-warning/15 text-warning border-warning/25",
       },
       size: {

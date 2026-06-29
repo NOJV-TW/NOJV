@@ -40,6 +40,10 @@
     success: "#2f9d6b",
     warning: "#c98a1a",
     destructive: "#d24a3a",
+    info: "#3b82c4",
+    verdictOrange: "#e0742a",
+    verdictPurple: "#9a5cd0",
+    verdictCyan: "#2bb0b8",
     chart1: "#1d8c9c",
     chart2: "#4d6f8f",
     chart3: "#2f9d6b",
@@ -58,6 +62,10 @@
       success: read("--success", DEFAULT_THEME_COLORS.success),
       warning: read("--warning", DEFAULT_THEME_COLORS.warning),
       destructive: read("--destructive", DEFAULT_THEME_COLORS.destructive),
+      info: read("--info", DEFAULT_THEME_COLORS.info),
+      verdictOrange: read("--verdict-orange", DEFAULT_THEME_COLORS.verdictOrange),
+      verdictPurple: read("--verdict-purple", DEFAULT_THEME_COLORS.verdictPurple),
+      verdictCyan: read("--verdict-cyan", DEFAULT_THEME_COLORS.verdictCyan),
       chart1: read("--chart-1", DEFAULT_THEME_COLORS.chart1),
       chart2: read("--chart-2", DEFAULT_THEME_COLORS.chart2),
       chart3: read("--chart-3", DEFAULT_THEME_COLORS.chart3),
@@ -125,15 +133,16 @@
   });
 
   const verdictPalette = $derived<Record<string, string>>({
-    accepted: themeColors.chart5,
+    accepted: themeColors.success,
     wrong_answer: themeColors.destructive,
+    runtime_error: themeColors.verdictOrange,
     time_limit_exceeded: themeColors.warning,
-    memory_limit_exceeded: themeColors.warning,
-    runtime_error: themeColors.destructive,
-    compile_error: themeColors.destructive,
-    queued: themeColors.mutedFg,
-    compiling: themeColors.mutedFg,
-    running: themeColors.mutedFg,
+    memory_limit_exceeded: themeColors.verdictPurple,
+    compile_error: themeColors.info,
+    system_error: themeColors.mutedFg,
+    queued: themeColors.verdictCyan,
+    compiling: themeColors.verdictCyan,
+    running: themeColors.verdictCyan,
   });
 
   const verdictOption: EChartsOption = $derived({

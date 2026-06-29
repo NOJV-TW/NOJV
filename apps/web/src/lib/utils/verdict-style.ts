@@ -18,9 +18,13 @@ export function difficultyClass(difficulty: string): string {
 }
 
 export type VerdictBadgeVariant =
-  | "success"
-  | "warning"
-  | "destructive"
+  | "verdict-ac"
+  | "verdict-wa"
+  | "verdict-re"
+  | "verdict-tle"
+  | "verdict-mle"
+  | "verdict-ce"
+  | "verdict-se"
   | "verdict-pending"
   | "muted";
 
@@ -53,13 +57,13 @@ const VERDICT_LABEL: Record<string, () => string> = {
 };
 
 const VERDICT_VARIANT: Record<string, VerdictBadgeVariant> = {
-  accepted: "success",
-  wrong_answer: "destructive",
-  runtime_error: "destructive",
-  compile_error: "destructive",
-  time_limit_exceeded: "warning",
-  memory_limit_exceeded: "warning",
-  system_error: "warning",
+  accepted: "verdict-ac",
+  wrong_answer: "verdict-wa",
+  runtime_error: "verdict-re",
+  compile_error: "verdict-ce",
+  time_limit_exceeded: "verdict-tle",
+  memory_limit_exceeded: "verdict-mle",
+  system_error: "verdict-se",
   pending_upload: "verdict-pending",
   queued: "verdict-pending",
   running: "verdict-pending",
@@ -69,15 +73,15 @@ const VERDICT_VARIANT: Record<string, VerdictBadgeVariant> = {
 const VERDICT_TONE: Record<string, string> = {
   accepted: "text-success",
   wrong_answer: "text-destructive",
-  runtime_error: "text-destructive",
-  compile_error: "text-destructive",
+  runtime_error: "text-verdict-orange",
+  compile_error: "text-info",
   time_limit_exceeded: "text-warning",
-  memory_limit_exceeded: "text-warning",
-  system_error: "text-warning",
-  pending_upload: "text-muted-foreground",
-  queued: "text-muted-foreground",
-  running: "text-muted-foreground",
-  compiling: "text-muted-foreground",
+  memory_limit_exceeded: "text-verdict-purple",
+  system_error: "text-muted-foreground",
+  pending_upload: "text-verdict-cyan",
+  queued: "text-verdict-cyan",
+  running: "text-verdict-cyan",
+  compiling: "text-verdict-cyan",
 };
 
 export function verdictBadgeVariant(verdict: string): VerdictBadgeVariant {

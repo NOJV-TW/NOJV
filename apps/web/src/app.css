@@ -85,6 +85,9 @@
   --success: oklch(0.648 0.15 160);
   --warning: oklch(0.75 0.16 75);
   --info: oklch(0.68 0.12 230);
+  --verdict-orange: oklch(0.66 0.18 50);
+  --verdict-purple: oklch(0.56 0.19 305);
+  --verdict-cyan: oklch(0.7 0.11 195);
 
   /* === Border contrast ladder === */
   --border-subtle: rgba(20, 24, 31, 0.06); /* dividers, inner lines */
@@ -204,6 +207,9 @@
   --success: oklch(0.72 0.15 160);
   --warning: oklch(0.82 0.16 75);
   --info: oklch(0.75 0.12 230);
+  --verdict-orange: oklch(0.74 0.17 50);
+  --verdict-purple: oklch(0.68 0.19 305);
+  --verdict-cyan: oklch(0.78 0.11 195);
 
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border: rgba(255, 255, 255, 0.1);
@@ -281,6 +287,9 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-verdict-orange: var(--verdict-orange);
+  --color-verdict-purple: var(--verdict-purple);
+  --color-verdict-cyan: var(--verdict-cyan);
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
