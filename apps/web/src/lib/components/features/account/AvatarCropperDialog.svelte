@@ -128,7 +128,7 @@
           src={img.src}
           alt=""
           draggable="false"
-          class="absolute select-none"
+          class="absolute max-w-none select-none"
           style:left="{imgX}px"
           style:top="{imgY}px"
           style:width="{img.naturalWidth * fitScale * scale}px"
