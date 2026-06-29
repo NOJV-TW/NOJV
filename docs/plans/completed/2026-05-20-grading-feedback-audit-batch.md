@@ -165,8 +165,7 @@ members:
 
 ```ts
 export type FeedbackContext =
-  | { type: "assignment"; assignmentId: string }
-  | { type: "exam"; examId: string };
+  { type: "assignment"; assignmentId: string } | { type: "exam"; examId: string };
 ```
 
 Provide `toContextDbFields` / `fromContextDbFields` returning

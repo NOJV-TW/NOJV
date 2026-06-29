@@ -1,8 +1,22 @@
-# NOJV
+<h1 align="center">NOJV</h1>
 
-Production-oriented Online Judge platform. Supports competitive programming contests (ICPC/IOI), course assessments, practice submissions, and plagiarism detection.
+<p align="center">
+  An open-source online judge for competitive programming and CS courses —
+  contests, course assessments, practice, and plagiarism detection.
+</p>
 
-## What Ships Today
+<p align="center">
+  <a href="https://github.com/TakalaWang/NOJV/actions/workflows/ci.yml"><img src="https://github.com/TakalaWang/NOJV/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node >= 24">
+  <img src="https://img.shields.io/badge/SvelteKit-%2BTemporal-ff3e00" alt="SvelteKit + Temporal">
+</p>
+
+> Self-hostable, sandboxed, and built for real contests and classrooms:
+> ICPC/IOI scoring, DOMjudge-aligned validators, Temporal-orchestrated judging,
+> real-time scoreboards, and AST-based plagiarism detection.
+
+## Features
 
 - **8 languages**: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
 - **3 standard judge types**: Standard (diff), Checker (DOMjudge validator), Interactive (DOMjudge interactor)
@@ -15,62 +29,10 @@ Production-oriented Online Judge platform. Supports competitive programming cont
 - **Real-time**: SSE streaming for submission verdicts and contest events
 - **Orchestration**: Temporal workflows with durable timers and queries
 
-## Architecture at a Glance
-
-```
-Browser ──→ SvelteKit (web) ──→ Temporal Server ──→ Worker ──→ Sandbox
-                │                                      │
-                ├── PostgreSQL (source of truth)        │
-                └── Redis (pub/sub)                    │
-                                                        ├── Docker (local)
-                                                        └── Kubernetes (prod)
-```
-
-See [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) for the full architecture overview.
-
-## Repository Map
-
-```
-apps/
-  web/              SvelteKit frontend + SSR API routes
-  worker/           Temporal worker — judging, lifecycle orchestration
-  sandbox-runner/   Isolated container runtime for code execution
-
-packages/
-  core/             Shared Zod schemas, types, pipeline definitions
-  db/               Prisma 7 schema, migrations, seed script
-  application/      Business logic — queries, mutations, scoring, stats (@nojv/application)
-  redis/            Redis connection, key registry, pub/sub
-  storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal client + dispatch API + task queue constants + types (workflows/activities live in apps/worker)
-
-tooling/
-  eslint/           Shared ESLint 9 flat config
-  prettier/         Shared Prettier config
-  typescript/       Shared TypeScript config
-
-scripts/            Repo-level maintenance scripts (lint guards, etc.)
-
-infra/
-  charts/nojv/      Helm umbrella chart — the single deploy path (single-machine k8s + GKE)
-  docker/           Dockerfiles (web, worker, sandbox, migrator)
-  gcp/              Cloud Build (image build) + GKE / Temporal / backup helpers
-  grafana/          Grafana Cloud dashboards + provisioning script
-
-tests/              Vitest + Playwright test suites
-docs/
-  architecture/     System, frontend, database, redis, judge pipeline, design rules
-  operations/       Deployment, reliability, security, threat model, quality ledger
-  product/          Product sense, planning system
-  runbooks/         Getting started, incident recovery, backup/restore, observability
-  specs/            Per-feature acceptance specs
-  plans/            Active + completed design plans
-```
-
-## Key Technologies
+## Tech Stack
 
 - **Frontend**: SvelteKit, Vite, Tailwind CSS 4, Bits UI, Monaco Editor
-- **Auth**: better-auth (email/password, GitHub, Google)
+- **Auth**: better-auth (GitHub + Google OAuth; admin password sign-in)
 - **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 18, Prisma 7
 - **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
@@ -78,19 +40,13 @@ docs/
 - **Testing**: Vitest, Playwright
 - **Build**: Turborepo, pnpm workspaces, tsdown, esbuild
 
-## Prerequisites
+## Quick Start
 
-- Node.js >= 24.0.0
-- pnpm 10.x
-- Docker Desktop (for local Postgres, Redis, Temporal, and sandbox)
+**Prerequisites:** Node.js >= 24, pnpm 10.x, Docker Desktop (local Postgres, Redis, Temporal, sandbox).
 
-## Local Development (Docker Compose)
-
-Docker Compose is the **local development** path only — it is not a deployment
-method. It starts the backing services (Postgres, Redis, MinIO, Temporal,
-Temporal UI) as containers so you can run the app from source with `pnpm dev`.
-For deploying NOJV to a real environment, use the Helm chart (see
-[Deployment](#deployment)).
+Docker Compose is the **local development** path only — it starts the backing
+services so you can run the app from source with `pnpm dev`. To deploy NOJV, use
+the Helm chart (see [Deployment](#deployment)).
 
 ```bash
 # 1. Install dependencies
@@ -130,73 +86,6 @@ The app itself (web on `localhost:5173`, worker) runs from source via `pnpm dev`
 [Getting Started Runbook](docs/runbooks/getting-started.md) for detailed
 bootstrap procedures.
 
-### Local Ports
-
-| Service       | URL                   |
-| ------------- | --------------------- |
-| Web           | http://localhost:5173 |
-| PostgreSQL    | localhost:5432        |
-| Redis         | localhost:6379        |
-| MinIO API     | http://localhost:9000 |
-| MinIO Console | http://localhost:9001 |
-| Temporal      | localhost:7233        |
-| Temporal UI   | http://localhost:8080 |
-
-### Environment Files
-
-| File           | Purpose                                                        |
-| -------------- | -------------------------------------------------------------- |
-| `.env`         | Database, Redis, Temporal, auth, OAuth, sandbox, worker config |
-| `.env.example` | Template with all required variables and defaults              |
-
-## Developer Workflow
-
-Quick verify for judge/pipeline changes:
-
-```bash
-pnpm -C packages/core build
-pnpm -C apps/sandbox-runner typecheck
-pnpm test:unit -- tests/unit/sandbox-runner
-pnpm test:integration -- tests/integration/sandbox-runner
-```
-
-Full verify before pushing:
-
-```bash
-pnpm format        # Prettier check
-pnpm format:write  # Prettier fix
-pnpm lint
-pnpm test:unit
-pnpm test:integration
-pnpm build
-pnpm typecheck
-pnpm db:validate
-pnpm db:seed:validate
-```
-
-## Sandbox Runtime
-
-Submissions execute inside an isolated sandbox container.
-
-- Dockerfile: `infra/docker/sandbox-runner.Dockerfile`
-- Image tag: `nojv-sandbox:local`
-- Default limits: 1 CPU, 256 MB, 64 pids, `network=none`
-- Hardening: `cap-drop ALL`, `no-new-privileges`, read-only rootfs, `tmpfs /tmp`
-
-Build:
-
-```bash
-pnpm sandbox:build
-```
-
-The worker selects its executor via `EXECUTION_BACKEND` (`docker` locally, `kubernetes` in production).
-
-## CI
-
-- Workflow: `.github/workflows/ci.yml`
-- Command: `pnpm ci:verify`
-- Checks: formatting, lint, tests, builds, Prisma schema validation
-
 ## Deployment
 
 NOJV deploys to **both** single-machine Kubernetes (k3s / kind on one node)
@@ -216,20 +105,14 @@ helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-gke.yaml -n nojv --create-namespace
 ```
 
-Two one-time prerequisites are installed out-of-band (the chart does not vendor
-them): the **CloudNativePG operator** (provides the Postgres `Cluster` +
-`ScheduledBackup` the chart renders) and the **Temporal Server** (the official
-`temporalio/temporal` Helm chart). In production, **web runs in the cluster**
-behind **Cloudflare** (DNS / TLS / CDN at the edge) — there is no Cloud Run.
-
 See [Deployment Guide](docs/operations/DEPLOYMENT.md) for the full procedure,
 the CNPG backup posture, and the Temporal prerequisite options.
 
-## Documentation Index
+## Documentation
 
 | Document                                              | Description                                           |
 | ----------------------------------------------------- | ----------------------------------------------------- |
-| [CLAUDE.md](CLAUDE.md)                                | Agent entrypoint and reading order                    |
+| [CLAUDE.md](CLAUDE.md)                                | Agent entrypoint, reading order, repository layout    |
 | [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)  | System architecture overview                          |
 | [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                      |
 | [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                    |
@@ -240,9 +123,16 @@ the CNPG backup posture, and the Temporal prerequisite options.
 | [Deployment](docs/operations/DEPLOYMENT.md)           | Helm chart deploy (single-machine k8s + GKE), backups |
 | [Getting Started](docs/runbooks/getting-started.md)   | Bootstrap procedures for new developers               |
 
-## Design Documents
+## Contributing
 
-- [Judge Pipeline Extensibility Spec](docs/plans/completed/2026-04-02-judge-pipeline-spec.md)
-- [Temporal Migration Design](docs/plans/completed/2026-04-02-temporal-migration-design.md)
-- [Page Lock & IP Lock Design](docs/plans/completed/2026-03-20-page-lock-ip-lock-design.md)
-- [CP Problem Judge Mapping](docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md)
+Contributions are welcome. Before opening a PR:
+
+1. Read [CLAUDE.md](CLAUDE.md) for the architecture entrypoint and reading order.
+2. Follow the [Getting Started Runbook](docs/runbooks/getting-started.md) to bring up a local stack.
+3. Run `pnpm ci:verify` (formatting, lint, tests, builds, schema validation) before pushing.
+
+Keep changes surgical and the [living docs](docs/) aligned with landed code.
+
+## License
+
+[MIT](LICENSE) © NOJV

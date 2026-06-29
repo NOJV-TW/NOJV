@@ -8,11 +8,7 @@ function solutionCpuSeconds(timeoutMs: number): number {
 
 export function toRawCaseRun(result: RunProcessResult, index: number): RawCaseRun {
   const errorVerdict = classifySolutionVerdict(result, index)?.verdict as
-    | "TLE"
-    | "MLE"
-    | "RE"
-    | "SE"
-    | undefined;
+    "TLE" | "MLE" | "RE" | "SE" | undefined;
   return {
     index,
     stdout: result.stdout,

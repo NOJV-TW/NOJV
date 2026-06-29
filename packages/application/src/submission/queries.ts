@@ -431,14 +431,12 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 
   const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
-    problem.workspaceFiles.map(
-      async (f): Promise<WorkspaceFileEntry> => ({
-        content: await readWorkspaceFileBlob(f.contentKey),
-        language: f.language,
-        path: f.path,
-        visibility: f.visibility,
-      }),
-    ),
+    problem.workspaceFiles.map(async (f): Promise<WorkspaceFileEntry> => ({
+      content: await readWorkspaceFileBlob(f.contentKey),
+      language: f.language,
+      path: f.path,
+      visibility: f.visibility,
+    })),
   );
 
   const assignment = submission.assessment;

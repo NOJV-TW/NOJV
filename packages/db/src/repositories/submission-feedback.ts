@@ -5,8 +5,7 @@ import type { TransactionClient } from "../transaction";
 type TxClient = TransactionClient;
 
 export type SubmissionFeedbackContext =
-  | { assessmentId: string; examId?: undefined }
-  | { examId: string; assessmentId?: undefined };
+  { assessmentId: string; examId?: undefined } | { examId: string; assessmentId?: undefined };
 
 export type SubmissionFeedbackUpsertData = SubmissionFeedbackContext & {
   studentUserId: string;

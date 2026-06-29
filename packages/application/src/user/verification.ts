@@ -29,8 +29,7 @@ export async function initiateSchoolVerification(
 }
 
 export type PeekSchoolResult =
-  | { status: "error"; detail: string }
-  | { status: "valid"; username: string };
+  { status: "error"; detail: string } | { status: "valid"; username: string };
 
 export async function peekSchoolVerification(token: string): Promise<PeekSchoolResult> {
   const record = await schoolVerificationTokenRepo.findById(token);
@@ -48,8 +47,7 @@ export async function peekSchoolVerification(token: string): Promise<PeekSchoolR
 }
 
 export type VerifySchoolResult =
-  | { status: "error"; detail: string }
-  | { status: "success"; username: string };
+  { status: "error"; detail: string } | { status: "success"; username: string };
 
 export async function processSchoolVerification(token: string): Promise<VerifySchoolResult> {
   const record = await schoolVerificationTokenRepo.findById(token);

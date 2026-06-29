@@ -115,9 +115,7 @@ export async function findForRejudge(input: {
   const submissions = await submissionRepo.findForRejudge(where);
   return submissions.map((s) => ({
     submissionId: s.id,
-    draft: {
-      /* same as today */
-    },
+    draft: {/* same as today */},
   }));
 }
 ```
