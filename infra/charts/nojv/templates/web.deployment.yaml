@@ -79,6 +79,15 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: BETTER_AUTH_URL
+            # SvelteKit adapter-node canonical origin — required behind a
+            # TLS-terminating edge (Cloudflare/proxy) so server-side form
+            # actions pass the built-in cross-site Origin (CSRF) check instead
+            # of deriving http:// from the plain-HTTP origin hop.
+            - name: ORIGIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: BETTER_AUTH_URL
             - name: EDGE_TRUST_SECRET
               valueFrom:
                 secretKeyRef:
