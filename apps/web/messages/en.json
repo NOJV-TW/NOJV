@@ -599,6 +599,7 @@
   "auth_adminBadge": "Admin",
   "auth_adminDescription": "Username + password login for testing",
   "auth_adminSignIn": "Admin login",
+  "auth_backToRegularSignIn": "Back to regular sign-in",
   "auth_connectingGithub": "Connecting to GitHub...",
   "auth_connectingGoogle": "Connecting to Google...",
   "auth_continueWithGithub": "Continue with GitHub",

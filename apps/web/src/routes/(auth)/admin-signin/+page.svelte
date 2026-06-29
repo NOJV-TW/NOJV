@@ -158,7 +158,7 @@
         class="text-body-sm text-muted-foreground underline-offset-4 transition-colors duration-fast ease-out-soft hover:text-foreground hover:underline"
         href="/signin"
       >
-        {m.auth_signIn()}
+        {m.auth_backToRegularSignIn()}
       </a>
     </div>
   </Card>

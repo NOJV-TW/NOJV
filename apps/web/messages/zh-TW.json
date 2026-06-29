@@ -599,6 +599,7 @@
   "auth_adminBadge": "管理員",
   "auth_adminDescription": "Username + 密碼登入（測試用）",
   "auth_adminSignIn": "管理員登入",
+  "auth_backToRegularSignIn": "改用一般帳號登入",
   "auth_connectingGithub": "正在連接 GitHub...",
   "auth_connectingGoogle": "正在連接 Google...",
   "auth_continueWithGithub": "使用 GitHub 登入",
