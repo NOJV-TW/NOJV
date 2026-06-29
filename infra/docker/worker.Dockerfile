@@ -23,6 +23,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/temporal/package.json packages/temporal/
 COPY packages/application/package.json packages/application/
 COPY packages/redis/package.json packages/redis/
+COPY packages/storage/package.json packages/storage/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/worker...
 
@@ -30,6 +31,7 @@ RUN pnpm install --frozen-lockfile --filter @nojv/worker...
 COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
 COPY packages/redis/ packages/redis/
+COPY packages/storage/ packages/storage/
 COPY packages/application/ packages/application/
 COPY packages/temporal/ packages/temporal/
 COPY apps/worker/ apps/worker/
@@ -37,6 +39,7 @@ COPY apps/worker/ apps/worker/
 RUN pnpm --filter @nojv/db build
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/redis build
+RUN pnpm --filter @nojv/storage build
 RUN pnpm --filter @nojv/application build
 RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/worker build
@@ -72,6 +75,9 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/application/node_modu
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/dist/ ./packages/redis/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./packages/redis/package.json
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
+COPY --from=builder --chown=appuser:nodejs /build/packages/storage/dist/ ./packages/storage/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/storage/package.json ./packages/storage/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/storage/node_modules/ ./packages/storage/node_modules/
 
 # Prisma generated client output (prisma-client generator)
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/generated/prisma/ ./packages/db/generated/prisma/

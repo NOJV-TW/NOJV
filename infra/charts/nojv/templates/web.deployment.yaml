@@ -59,6 +59,10 @@ spec:
               value: {{ .Values.web.dbPoolMax | quote }}
             - name: S3_BUCKET
               value: {{ .Values.storage.bucket | quote }}
+            - name: TEMPORAL_ADDRESS
+              value: {{ .Values.temporal.address | quote }}
+            - name: TEMPORAL_NAMESPACE
+              value: {{ .Values.temporal.namespace | quote }}
             {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
             - name: REDIS_URL
               valueFrom:
