@@ -37,6 +37,20 @@
     needsReauth = false;
   }
 
+  function downloadBackupCodes() {
+    const blob = new Blob([backupCodes.join("\n") + "\n"], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "nojv-backup-codes.txt";
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const manageReady = $derived(
     data.hasPassword ? managePassword.length > 0 : manageCode.length >= 6,
   );
@@ -92,6 +106,13 @@
                 <li class="rounded bg-muted px-2 py-1">{bc}</li>
               {/each}
             </ul>
+            <button
+              type="button"
+              class={`${secondaryBtnClass} mt-2 self-start`}
+              onclick={downloadBackupCodes}
+            >
+              {m.account_2fa_backupDownload()}
+            </button>
           </div>
         {/if}
         <label class="flex flex-col gap-1.5">
@@ -312,6 +333,13 @@
                 <li class="rounded bg-muted px-2 py-1">{bc}</li>
               {/each}
             </ul>
+            <button
+              type="button"
+              class={`${secondaryBtnClass} mt-2 self-start`}
+              onclick={downloadBackupCodes}
+            >
+              {m.account_2fa_backupDownload()}
+            </button>
           </div>
         {/if}
         <label class="flex items-center gap-2 text-body-sm">

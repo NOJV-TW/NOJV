@@ -18,6 +18,7 @@
   "account_securityTitle": "安全性",
   "account_securityHint": "管理你的密碼與兩階段驗證。",
   "account_2fa_adminRequired": "管理員必須先啟用兩階段驗證才能使用管理區。",
+  "account_2fa_backupDownload": "下載為文字檔",
   "account_2fa_backupInstruction": "請立即儲存這些備援碼。若遺失驗證器,每組可使用一次。",
   "account_2fa_backupTitle": "備援碼",
   "account_2fa_codeLabel": "驗證器產生的 6 位數驗證碼",
