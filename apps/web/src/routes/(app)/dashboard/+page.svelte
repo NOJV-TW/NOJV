@@ -10,7 +10,6 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
   import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
   import { Skeleton } from "$lib/components/primitives/ui/skeleton";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
@@ -461,25 +460,6 @@
           />
         {/if}
       </Card>
-
-      {#await data.streamed.suggestedProblems}
-        <div aria-busy="true" aria-live="polite">
-          <Card variant="surface" size="lg">
-            <Skeleton class="mb-4 h-6 w-40" />
-            <div class="flex flex-col gap-4">
-              <Skeleton class="h-6 w-full" />
-              <Skeleton class="h-6 w-11/12" />
-              <Skeleton class="h-6 w-10/12" />
-              <Skeleton class="h-6 w-9/12" />
-              <Skeleton class="h-6 w-8/12" />
-            </div>
-          </Card>
-        </div>
-      {:then suggestedProblems}
-        <SuggestedProblemsCard problems={suggestedProblems} />
-      {:catch}
-        {@render errorCard()}
-      {/await}
     </div>
   {/if}
 </PageContainer>

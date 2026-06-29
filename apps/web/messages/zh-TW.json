@@ -1077,8 +1077,6 @@
   "dashboard_recentActivity": "最近活動",
   "dashboard_startPracticing": "開始解題來追蹤你的進度",
   "dashboard_subtitle": "近 30 天的練習摘要 — 解題數、AC 率與主題強項一覽。",
-  "dashboard_suggestionsEmpty": "再解幾題就能根據你的強項推薦題目",
-  "dashboard_suggestionsTitle": "為你推薦",
   "dashboard_tagProficiency": "主題熟練度",
   "dashboard_totalAc": "已解題數",
   "dashboard_totalAttempts": "嘗試次數",

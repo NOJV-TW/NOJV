@@ -1077,8 +1077,6 @@
   "dashboard_recentActivity": "Recent Activity",
   "dashboard_startPracticing": "Start solving problems to see your progress here",
   "dashboard_subtitle": "A quick read on the last 30 days of practice — solved counts, AC rate, and topic strengths.",
-  "dashboard_suggestionsEmpty": "Solve a few problems and we'll start recommending what to try next",
-  "dashboard_suggestionsTitle": "Suggested for you",
   "dashboard_tagProficiency": "Topic Proficiency",
   "dashboard_totalAc": "Problems Solved",
   "dashboard_totalAttempts": "Total Attempts",
