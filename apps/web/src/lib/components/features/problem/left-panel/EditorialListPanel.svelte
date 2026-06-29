@@ -245,8 +245,7 @@
           rows="3"
           maxlength="1000"
           placeholder={m.editorialReport_reasonPlaceholder()}
-          bind:value={reportReason}
-        ></textarea>
+          bind:value={reportReason}></textarea>
         <div class="mt-2 flex items-center gap-2">
           <button
             class="rounded-md bg-destructive px-3 py-1.5 text-caption font-medium text-destructive-foreground transition-[background-color] duration-fast ease-out-soft hover:bg-destructive/90 disabled:opacity-50"

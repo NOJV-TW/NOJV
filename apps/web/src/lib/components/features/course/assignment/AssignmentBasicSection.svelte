@@ -48,8 +48,7 @@
         id="settings-summary"
         class="{inputClassName} min-h-24 resize-y"
         bind:value={$form.summary}
-        disabled={!editableBasics}
-      ></textarea>
+        disabled={!editableBasics}></textarea>
     </div>
 
     <div class="grid gap-4 md:grid-cols-3">

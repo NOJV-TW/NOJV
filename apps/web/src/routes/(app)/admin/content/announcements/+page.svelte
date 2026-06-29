@@ -102,8 +102,7 @@
             name="content"
             placeholder={m.admin_announcementsFieldContent()}
             required
-            rows="4"
-          ></textarea>
+            rows="4"></textarea>
         </FormField>
         <FormField label={m.admin_announcement_audience_label()} for="create-audience-all">
           <RadioGroup.Root

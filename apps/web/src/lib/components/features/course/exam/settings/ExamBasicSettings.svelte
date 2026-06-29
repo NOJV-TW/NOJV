@@ -48,8 +48,7 @@
         id="settings-summary"
         class="{inputClassName} min-h-24 resize-y"
         bind:value={$form.summary}
-        disabled={!editable}
-      ></textarea>
+        disabled={!editable}></textarea>
     </div>
   </div>
 </section>

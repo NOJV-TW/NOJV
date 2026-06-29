@@ -109,8 +109,7 @@
             id="summary"
             class="{inputClassName} min-h-24 resize-y"
             placeholder={m.examCreate_summaryPlaceholder()}
-            bind:value={$form.summary}
-          ></textarea>
+            bind:value={$form.summary}></textarea>
           {#if $errors.summary}
             <p class="mt-1 text-xs text-destructive">{$errors.summary}</p>
           {/if}
