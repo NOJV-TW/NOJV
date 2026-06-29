@@ -93,6 +93,10 @@ jobs:
           for img in web worker migrator sandbox egress-proxy; do
             docker save "nojv/${img}:${IMAGE_TAG}" | sudo k3s ctr images import -
           done
+          # Free the Docker build cache now that the images live in containerd.
+          # On a small disk it can balloon to ~8GB and push the node into
+          # DiskPressure during the rollout (evicting pods, incl. Postgres).
+          docker builder prune -af >/dev/null 2>&1 || true
 
       - name: Deploy the Helm chart
         shell: bash
