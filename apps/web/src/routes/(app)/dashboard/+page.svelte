@@ -49,6 +49,7 @@
     chart4: "#c98a1a",
     chart5: "#7a8f6d",
     mutedFg: "#6b7280",
+    foreground: "#1f2937",
     panel: "#ffffff",
   };
   let themeColors = $state({ ...DEFAULT_THEME_COLORS });
@@ -71,6 +72,7 @@
       chart4: read("--chart-4", DEFAULT_THEME_COLORS.chart4),
       chart5: read("--chart-5", DEFAULT_THEME_COLORS.chart5),
       mutedFg: read("--muted-foreground", DEFAULT_THEME_COLORS.mutedFg),
+      foreground: read("--foreground", DEFAULT_THEME_COLORS.foreground),
       panel: read("--color-panel", DEFAULT_THEME_COLORS.panel),
     };
   }
@@ -190,12 +192,16 @@
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    xAxis: { type: "value", axisLabel: { fontSize: 11 }, minInterval: 1 },
+    xAxis: {
+      type: "value",
+      axisLabel: { fontSize: 11, color: themeColors.mutedFg },
+      minInterval: 1,
+    },
     yAxis: {
       type: "category",
       inverse: true,
       data: analytics.byTag.map((g) => g.tag),
-      axisLabel: { fontSize: 12 },
+      axisLabel: { fontSize: 12, color: themeColors.foreground },
     },
     series: [
       {
@@ -269,60 +275,73 @@
     <WelcomeGuide username={data.username} platformRole={data.platformRole} />
   {:else}
     <div class="space-y-6">
-      <Card variant="surface" size="lg">
-        <div class="flex flex-col gap-6">
-          <div class="flex items-baseline justify-between gap-4">
-            <h2 class="text-title-sm font-semibold">{m.dashboard_statsTitle()}</h2>
-            <span class="text-caption text-muted-foreground">
-              {m.dashboard_last30Days()}
-            </span>
-          </div>
-          <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
-            <div class="flex flex-col gap-1">
+      <div class="grid gap-4 lg:grid-cols-2">
+        <Card variant="surface" size="lg">
+          <div class="flex flex-col gap-6">
+            <div class="flex items-baseline justify-between gap-4">
+              <h2 class="text-title-sm font-semibold">{m.dashboard_statsTitle()}</h2>
               <span class="text-caption text-muted-foreground">
-                {m.dashboard_totalAc()}
-              </span>
-              <span class="text-headline font-semibold tabular-nums">
-                {stats.totalAc}
+                {m.dashboard_last30Days()}
               </span>
             </div>
-            <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-              <span class="text-caption text-muted-foreground">
-                {m.dashboard_totalAttempts()}
-              </span>
-              <span class="text-headline font-semibold tabular-nums">
-                {stats.totalAttempts}
-              </span>
-            </div>
-            <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-              <span class="text-caption text-muted-foreground">
-                {m.dashboard_acRate()}
-              </span>
-              <span class="text-headline font-semibold tabular-nums">{acRate}</span>
-            </div>
-            <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-              <span class="text-caption text-muted-foreground">
-                {m.dashboard_practiceDays()}
-              </span>
-              {#await data.streamed.activity}
-                <div aria-busy="true" aria-live="polite">
-                  <Skeleton class="h-8 w-12" />
-                </div>
-              {:then activity}
+            <div class="grid grid-cols-2 gap-x-6 gap-y-5">
+              <div class="flex flex-col gap-1">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_totalAc()}
+                </span>
                 <span class="text-headline font-semibold tabular-nums">
-                  {buildActivityModel(activity, new Date(), 365).heatmapDays.filter(
-                    (d) => d.submissionCount > 0,
-                  ).length}
+                  {stats.totalAc}
                 </span>
-              {:catch}
-                <span class="text-headline font-semibold tabular-nums text-muted-foreground">
-                  —
+              </div>
+              <div class="flex flex-col gap-1 border-l border-border-subtle pl-6">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_totalAttempts()}
                 </span>
-              {/await}
+                <span class="text-headline font-semibold tabular-nums">
+                  {stats.totalAttempts}
+                </span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_acRate()}
+                </span>
+                <span class="text-headline font-semibold tabular-nums">{acRate}</span>
+              </div>
+              <div class="flex flex-col gap-1 border-l border-border-subtle pl-6">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_practiceDays()}
+                </span>
+                {#await data.streamed.activity}
+                  <div aria-busy="true" aria-live="polite">
+                    <Skeleton class="h-8 w-12" />
+                  </div>
+                {:then activity}
+                  <span class="text-headline font-semibold tabular-nums">
+                    {buildActivityModel(activity, new Date(), 365).heatmapDays.filter(
+                      (d) => d.submissionCount > 0,
+                    ).length}
+                  </span>
+                {:catch}
+                  <span class="text-headline font-semibold tabular-nums text-muted-foreground">
+                    —
+                  </span>
+                {/await}
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+
+        <Card variant="surface" size="lg">
+          <h2 class="mb-4 text-title-sm font-semibold">
+            {m.dashboard_tagProficiency()}
+          </h2>
+          {#if hasTagData}
+            <EChart option={tagOption} class="h-56 w-full" />
+          {:else}
+            <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
+          {/if}
+        </Card>
+      </div>
 
       {#await data.streamed.activity}
         <div aria-busy="true" aria-live="polite" class="contents">
@@ -356,64 +375,51 @@
         {@render errorCard()}
       {/await}
 
-      <div class="grid gap-4">
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card variant="surface" size="lg">
           <h2 class="mb-4 text-title-sm font-semibold">
-            {m.dashboard_tagProficiency()}
+            {m.dashboard_difficultyDist()}
           </h2>
-          {#if hasTagData}
-            <EChart option={tagOption} class="h-64 w-full" />
+          {#if hasDifficultyData}
+            <EChart option={difficultyOption} class="h-56 w-full" />
           {:else}
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
           {/if}
         </Card>
 
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Card variant="surface" size="lg">
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_difficultyDist()}
-            </h2>
-            {#if hasDifficultyData}
-              <EChart option={difficultyOption} class="h-56 w-full" />
-            {:else}
-              <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
-            {/if}
-          </Card>
-
-          <Card variant="surface" size="lg">
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_verdictDistribution()}
-            </h2>
-            {#if hasVerdictData}
-              <div class="relative">
-                <EChart option={verdictOption} class="h-56 w-full" />
-                <div
-                  class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
-                >
-                  <span class="text-headline font-semibold leading-none tabular-nums">
-                    {acRate}
-                  </span>
-                  <span class="mt-1 text-caption text-muted-foreground">
-                    {m.dashboard_acRate()}
-                  </span>
-                </div>
+        <Card variant="surface" size="lg">
+          <h2 class="mb-4 text-title-sm font-semibold">
+            {m.dashboard_verdictDistribution()}
+          </h2>
+          {#if hasVerdictData}
+            <div class="relative">
+              <EChart option={verdictOption} class="h-56 w-full" />
+              <div
+                class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
+              >
+                <span class="text-headline font-semibold leading-none tabular-nums">
+                  {acRate}
+                </span>
+                <span class="mt-1 text-caption text-muted-foreground">
+                  {m.dashboard_acRate()}
+                </span>
               </div>
-            {:else}
-              <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
-            {/if}
-          </Card>
+            </div>
+          {:else}
+            <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
+          {/if}
+        </Card>
 
-          <Card variant="surface" size="lg">
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_languageDist()}
-            </h2>
-            {#if hasLanguageData}
-              <EChart option={languageOption} class="h-56 w-full" />
-            {:else}
-              <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
-            {/if}
-          </Card>
-        </div>
+        <Card variant="surface" size="lg">
+          <h2 class="mb-4 text-title-sm font-semibold">
+            {m.dashboard_languageDist()}
+          </h2>
+          {#if hasLanguageData}
+            <EChart option={languageOption} class="h-56 w-full" />
+          {:else}
+            <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
+          {/if}
+        </Card>
       </div>
 
       <Card variant="surface" size="lg">
