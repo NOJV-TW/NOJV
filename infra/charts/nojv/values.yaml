@@ -136,6 +136,9 @@ web:
   service:
     type: ClusterIP
     port: 80
+    # Fixed NodePort (30000–32767) when type=NodePort — keeps a stable host port
+    # for a reverse proxy / tunnel origin across redeploys. Empty = auto-assign.
+    nodePort: ""
   hpa:
     enabled: false
     min: 2
