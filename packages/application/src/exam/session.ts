@@ -14,12 +14,7 @@ import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "../shar
 export type ExamSessionReleaseReason = "submitted" | "time_up" | "released_by_instructor";
 
 export type ExamSessionEventType =
-  | "enter"
-  | "leave"
-  | "visibility_lost"
-  | "release"
-  | "auto_close"
-  | "heartbeat";
+  "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat";
 
 export interface ActiveSessionContext {
   session: {

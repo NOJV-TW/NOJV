@@ -28,11 +28,11 @@ const {
   contestProblemExistsById: vi.fn(() => Promise.resolve(true)),
   examProblemExists: vi.fn(() => Promise.resolve(true)),
   assessmentProblemExists: vi.fn(() => Promise.resolve(true)),
-  findContestParticipation: vi.fn(
-    (): Promise<{ id: string } | null> => Promise.resolve({ id: "p_1" }),
+  findContestParticipation: vi.fn((): Promise<{ id: string } | null> =>
+    Promise.resolve({ id: "p_1" }),
   ),
-  findExamParticipation: vi.fn(
-    (): Promise<{ id: string } | null> => Promise.resolve({ id: "p_2" }),
+  findExamParticipation: vi.fn((): Promise<{ id: string } | null> =>
+    Promise.resolve({ id: "p_2" }),
   ),
   overrideCreate: vi.fn(),
   overrideUpdate: vi.fn(),

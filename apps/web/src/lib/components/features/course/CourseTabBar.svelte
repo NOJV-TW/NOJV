@@ -1,11 +1,6 @@
 <script lang="ts" module>
   export type CourseTabKey =
-    | "overview"
-    | "assignments"
-    | "exams"
-    | "members"
-    | "analytics"
-    | "settings";
+    "overview" | "assignments" | "exams" | "members" | "analytics" | "settings";
 
   export interface CourseTabCounts {
     assignments?: number;

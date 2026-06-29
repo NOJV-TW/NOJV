@@ -2,10 +2,7 @@
   import type { AdjustmentRule } from "@nojv/core";
 
   export type LatePenaltyOptionKey =
-    | "none"
-    | "flat_late_penalty"
-    | "daily_late_penalty"
-    | "final_day_zero";
+    "none" | "flat_late_penalty" | "daily_late_penalty" | "final_day_zero";
 
   export type LatePenaltyRule = Extract<
     AdjustmentRule,

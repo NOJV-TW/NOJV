@@ -18,8 +18,7 @@ const PYTHON_VALIDATOR_WRAPPER = loadWrapper("python-validator.py");
 const PYTHON_INTERACTOR_DOMJUDGE_WRAPPER = loadWrapper("python-interactor-domjudge.py");
 
 export type CompileResult =
-  | { success: true; runCommand: string[] }
-  | { success: false; error: string };
+  { success: true; runCommand: string[] } | { success: false; error: string };
 
 export function sourceFileName(language: SandboxInput["language"]): string {
   return sourceFileNames[language];

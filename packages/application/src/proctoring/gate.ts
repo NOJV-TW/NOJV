@@ -13,8 +13,7 @@ import { checkIpLock, type IpCheckResult } from "../shared/ip";
 export type ProctoringEntityKind = "exam" | "contest";
 
 export type ProctoringVerdict =
-  | { ok: true }
-  | { ok: false; reason: ProctoringDenialReason; redirect?: string };
+  { ok: true } | { ok: false; reason: ProctoringDenialReason; redirect?: string };
 
 export type ProctoringDenialReason =
   | "not_found"

@@ -95,8 +95,7 @@
 
 ```ts
 export type RequiredPathError =
-  | { kind: "missing_file"; path: string }
-  | { kind: "missing_folder"; path: string };
+  { kind: "missing_file"; path: string } | { kind: "missing_folder"; path: string };
 
 export interface RequiredPathsResult {
   ok: boolean;

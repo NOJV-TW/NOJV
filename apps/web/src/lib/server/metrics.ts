@@ -33,7 +33,4 @@ export const sseConnectionDroppedTotal = meter.createCounter("sse_connection_dro
 });
 
 export type SseCloseReason =
-  | "client_abort"
-  | "timeout"
-  | "subscribe_failed"
-  | "controller_error";
+  "client_abort" | "timeout" | "subscribe_failed" | "controller_error";
