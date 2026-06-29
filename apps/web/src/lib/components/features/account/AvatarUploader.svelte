@@ -37,6 +37,19 @@
     fileInput?.click();
   }
 
+  async function uploadErrorMessage(res: Response): Promise<string> {
+    if (res.status === 429) return m.account_avatar_uploadFailed();
+    try {
+      const data = (await res.json()) as { message?: unknown };
+      if (typeof data.message === "string" && data.message.length > 0) {
+        return data.message;
+      }
+    } catch {
+      // fall through to generic message
+    }
+    return m.account_avatar_uploadFailed();
+  }
+
   function onFileChange(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -74,11 +87,15 @@
     if (busy) return;
     busy = true;
     try {
+      if (blob.type !== "image/webp") {
+        toasts.error(m.account_avatar_invalidFormat());
+        return;
+      }
       const fd = new FormData();
       fd.append("file", blob, "avatar.webp");
       const res = await fetch("/api/account/avatar", { method: "PUT", body: fd });
       if (!res.ok) {
-        toasts.error(m.account_avatar_uploadFailed());
+        toasts.error(await uploadErrorMessage(res));
         return;
       }
       toasts.success(m.account_avatar_uploadSuccess());
@@ -96,7 +113,7 @@
     try {
       const res = await fetch("/api/account/avatar", { method: "DELETE" });
       if (!res.ok) {
-        toasts.error(m.account_avatar_uploadFailed());
+        toasts.error(await uploadErrorMessage(res));
         return;
       }
       toasts.success(m.account_avatar_uploadSuccess());
