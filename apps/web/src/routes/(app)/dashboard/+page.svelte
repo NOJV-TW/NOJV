@@ -93,14 +93,22 @@
   ]);
 
   const difficultyOption: EChartsOption = $derived({
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
-    legend: { bottom: 0, textStyle: { fontSize: 11 } },
+    animation: false,
+    tooltip: {
+      trigger: "item",
+      formatter: "{b}: {c} ({d}%)",
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
+    },
+    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
     series: [
       {
         type: "pie",
         radius: ["40%", "70%"],
         center: ["50%", "45%"],
         avoidLabelOverlap: true,
+        emphasis: { disabled: true },
         itemStyle: {
           borderRadius: 6,
           borderColor: themeColors.panel,
@@ -129,15 +137,14 @@
   });
 
   const verdictOption: EChartsOption = $derived({
-    title: {
-      text: acRate,
-      subtext: m.dashboard_acRate(),
-      left: "center",
-      top: "34%",
-      textStyle: { fontSize: 26, fontWeight: 600 },
-      subtextStyle: { fontSize: 12 },
+    animation: false,
+    tooltip: {
+      trigger: "item",
+      formatter: "{b}: {c} ({d}%)",
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
     },
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
     legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
     series: [
       {
@@ -145,6 +152,7 @@
         radius: ["55%", "75%"],
         center: ["50%", "45%"],
         avoidLabelOverlap: true,
+        emphasis: { disabled: true },
         itemStyle: {
           borderRadius: 6,
           borderColor: themeColors.panel,
@@ -165,8 +173,15 @@
   });
 
   const tagOption: EChartsOption = $derived({
+    animation: false,
     grid: { left: 96, right: 24, top: 8, bottom: 24 },
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, transitionDuration: 0 },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
+    },
     xAxis: { type: "value", axisLabel: { fontSize: 11 }, minInterval: 1 },
     yAxis: {
       type: "category",
@@ -185,7 +200,14 @@
   });
 
   const languageOption: EChartsOption = $derived({
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
+    animation: false,
+    tooltip: {
+      trigger: "item",
+      formatter: "{b}: {c} ({d}%)",
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
+    },
     legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
     series: [
       {
@@ -193,6 +215,7 @@
         radius: ["40%", "70%"],
         center: ["50%", "45%"],
         avoidLabelOverlap: true,
+        emphasis: { disabled: true },
         itemStyle: {
           borderRadius: 6,
           borderColor: themeColors.panel,
@@ -353,7 +376,19 @@
               {m.dashboard_verdictDistribution()}
             </h2>
             {#if hasVerdictData}
-              <EChart option={verdictOption} class="h-56 w-full" />
+              <div class="relative">
+                <EChart option={verdictOption} class="h-56 w-full" />
+                <div
+                  class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
+                >
+                  <span class="text-headline font-semibold leading-none tabular-nums">
+                    {acRate}
+                  </span>
+                  <span class="mt-1 text-caption text-muted-foreground">
+                    {m.dashboard_acRate()}
+                  </span>
+                </div>
+              </div>
             {:else}
               <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
             {/if}

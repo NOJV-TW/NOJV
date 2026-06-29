@@ -13,17 +13,34 @@
   let observer: ResizeObserver | undefined;
   let ready = $state(false);
   let lastSerialized = "";
+  let resizeFrame = 0;
 
   onMount(() => {
     import("echarts").then((echarts) => {
       chart = echarts.init(container);
-      observer = new ResizeObserver(() => chart?.resize());
+
+      // Only resize when the container box actually changes. An unguarded
+      // resize() inside ResizeObserver re-fires while hovering (emphasis/tooltip
+      // nudge the layout), redrawing the whole chart — which reads as flicker.
+      let lastW = container.clientWidth;
+      let lastH = container.clientHeight;
+      observer = new ResizeObserver(() => {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (w === lastW && h === lastH) return;
+        lastW = w;
+        lastH = h;
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => chart?.resize());
+      });
       observer.observe(container);
       ready = true;
     });
   });
 
   onDestroy(() => {
+    // onDestroy also runs during SSR teardown, where rAF APIs don't exist.
+    if (typeof cancelAnimationFrame !== "undefined") cancelAnimationFrame(resizeFrame);
     observer?.disconnect();
     chart?.dispose();
   });
