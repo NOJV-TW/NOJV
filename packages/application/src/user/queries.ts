@@ -11,7 +11,7 @@ interface AcRow {
   problem: { tags: string[] };
 }
 
-const MAX_TAGS = 8;
+const MAX_TAGS = 20;
 
 export function aggregateByTag(rows: readonly AcRow[]): TagAcCount[] {
   const counts = new Map<string, number>();

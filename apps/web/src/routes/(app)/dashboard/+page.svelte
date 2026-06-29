@@ -190,9 +190,13 @@
     ],
   });
 
+  const TAG_VISIBLE = 7;
+
+  const tagScrolls = $derived(analytics.byTag.length > TAG_VISIBLE);
+
   const tagOption: EChartsOption = $derived({
     animation: false,
-    grid: { left: 96, right: 24, top: 8, bottom: 24 },
+    grid: { left: 96, right: tagScrolls ? 30 : 24, top: 8, bottom: 24 },
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
@@ -200,6 +204,40 @@
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
+    ...(tagScrolls
+      ? {
+          dataZoom: [
+            {
+              type: "inside",
+              yAxisIndex: 0,
+              startValue: 0,
+              endValue: TAG_VISIBLE - 1,
+              zoomLock: true,
+              zoomOnMouseWheel: false,
+              moveOnMouseWheel: true,
+              moveOnMouseMove: false,
+            },
+            {
+              type: "slider",
+              yAxisIndex: 0,
+              right: 6,
+              width: 10,
+              startValue: 0,
+              endValue: TAG_VISIBLE - 1,
+              zoomLock: true,
+              brushSelect: false,
+              showDetail: false,
+              handleSize: 0,
+              moveHandleSize: 0,
+              fillerColor: "rgba(130,130,145,0.32)",
+              borderColor: "transparent",
+              backgroundColor: "transparent",
+              dataBackground: { lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 } },
+              selectedDataBackground: { lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 } },
+            },
+          ],
+        }
+      : {}),
     xAxis: {
       type: "value",
       axisLabel: { fontSize: 11, color: themeColors.mutedFg },
