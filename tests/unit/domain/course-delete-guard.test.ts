@@ -5,8 +5,8 @@ import { Prisma as RealPrisma } from "../../../packages/db/generated/prisma/clie
 const { findById, deleteCourseFn, runTransaction } = vi.hoisted(() => ({
   findById: vi.fn(),
   deleteCourseFn: vi.fn(),
-  runTransaction: vi.fn(
-    <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({ $executeRaw: async () => 0 }),
+  runTransaction: vi.fn(<T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+    fn({ $executeRaw: async () => 0 }),
   ),
 }));
 

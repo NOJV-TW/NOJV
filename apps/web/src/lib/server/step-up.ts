@@ -58,8 +58,7 @@ export async function hasStepUpFactor(event: RequestEvent): Promise<boolean> {
 }
 
 export type StepUpVerifyResult =
-  | { ok: true }
-  | { ok: false; reason: "malformed" | "replayed" | "invalid" };
+  { ok: true } | { ok: false; reason: "malformed" | "replayed" | "invalid" };
 
 export async function verifyStepUpCode(
   userId: string,

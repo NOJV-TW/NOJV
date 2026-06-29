@@ -18,11 +18,7 @@ export function difficultyClass(difficulty: string): string {
 }
 
 export type VerdictBadgeVariant =
-  | "success"
-  | "warning"
-  | "destructive"
-  | "verdict-pending"
-  | "muted";
+  "success" | "warning" | "destructive" | "verdict-pending" | "muted";
 
 const SHORT_CODE_TO_VERDICT: Record<string, string> = {
   AC: "accepted",
