@@ -84,8 +84,7 @@
     {placeholder}
     bind:value
     {disabled}
-    aria-invalid={ariaInvalid}
-  ></textarea>
+    aria-invalid={ariaInvalid}></textarea>
   {#if importError}
     <p class="mt-1 text-xs text-destructive">{importError}</p>
   {/if}

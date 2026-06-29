@@ -222,8 +222,7 @@
       bind:value={reason}
       disabled={submitting}
       aria-invalid={error != null}
-      aria-describedby={error != null ? "ov-error" : undefined}
-    ></textarea>
+      aria-describedby={error != null ? "ov-error" : undefined}></textarea>
     <p class="text-caption text-muted-foreground">
       {m.override_staff_reasonHint()}
     </p>

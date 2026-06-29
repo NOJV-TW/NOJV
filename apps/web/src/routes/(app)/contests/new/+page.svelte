@@ -119,8 +119,7 @@
           placeholder={m.contestCreate_summaryPlaceholder()}
           bind:value={$form.summary}
           aria-invalid={Boolean($errors.summary)}
-          aria-describedby={$errors.summary ? "summary-error" : undefined}
-        ></textarea>
+          aria-describedby={$errors.summary ? "summary-error" : undefined}></textarea>
         {#if $errors.summary}<p id="summary-error" class="mt-1 text-xs text-destructive">
             {$errors.summary}
           </p>{/if}

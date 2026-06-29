@@ -113,8 +113,7 @@
       rows={3}
       maxlength={ANSWER_MAX}
       class="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-body focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-      disabled={busy}
-    ></textarea>
+      disabled={busy}></textarea>
     <div class="text-caption text-muted-foreground tabular-nums">
       {charCount} / {ANSWER_MAX}
     </div>

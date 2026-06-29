@@ -96,8 +96,7 @@
           bind:value={$form.handles}
           rows="6"
           class="mt-2 w-full rounded-md border border-border bg-background/80 px-4 py-3 font-mono text-body-sm leading-relaxed focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-          placeholder={"b11902001\nb11902024, b11902077\nnewcomer2026"}
-        ></textarea>
+          placeholder={"b11902001\nb11902024, b11902077\nnewcomer2026"}></textarea>
         {#if $errors.handles}
           <p class="mt-1 text-caption text-destructive">{$errors.handles}</p>
         {/if}

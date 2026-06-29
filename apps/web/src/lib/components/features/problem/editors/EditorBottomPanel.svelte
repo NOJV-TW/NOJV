@@ -162,8 +162,7 @@
                 );
               }}
               rows={3}
-              value={runCases[selectedCase]?.input ?? ""}
-            ></textarea>
+              value={runCases[selectedCase]?.input ?? ""}></textarea>
           </div>
 
           {#if judgeType === "interactive"}
@@ -182,8 +181,7 @@
                   );
                 }}
                 rows={2}
-                value={runCases[selectedCase]?.expectedOutput ?? ""}
-              ></textarea>
+                value={runCases[selectedCase]?.expectedOutput ?? ""}></textarea>
             </div>
           {/if}
         </div>
