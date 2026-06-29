@@ -26,6 +26,22 @@ web:
     enabled: false
   ingress:
     enabled: false
+  # Exposed on a fixed NodePort so the host's cloudflared tunnel origin
+  # (localhost:3000 -> nojv-edge-proxy -> this NodePort) stays stable across
+  # redeploys. The edge-proxy injects the x-nojv-edge-secret trust header.
+  service:
+    type: NodePort
+    nodePort: 32198
+
+# In-cluster metrics stack (OTLP collector + Prometheus + Grafana). Apps export
+# OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set in the runtime secret.
+observability:
+  collector:
+    enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
 
 worker:
   judge:

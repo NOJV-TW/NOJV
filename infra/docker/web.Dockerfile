@@ -22,6 +22,15 @@ COPY packages/temporal/package.json packages/temporal/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/web...
 
+# @grpc/grpc-js is marked ssr.external in the web build, so the SSR output emits a
+# bare require('@grpc/grpc-js') at runtime. pnpm leaves it nested in the virtual
+# store with no top-level entry, so hoist a symlink into the root node_modules
+# where Node can resolve it from the build output.
+RUN cd node_modules \
+  && REL="$(ls -d .pnpm/@grpc+grpc-js@*/node_modules/@grpc/grpc-js | head -1)" \
+  && mkdir -p @grpc \
+  && ln -sf "../$REL" @grpc/grpc-js
+
 # 2. Copy source and build in dependency order
 COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/

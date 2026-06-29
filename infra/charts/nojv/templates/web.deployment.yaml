@@ -59,6 +59,10 @@ spec:
               value: {{ .Values.web.dbPoolMax | quote }}
             - name: S3_BUCKET
               value: {{ .Values.storage.bucket | quote }}
+            - name: TEMPORAL_ADDRESS
+              value: {{ .Values.temporal.address | quote }}
+            - name: TEMPORAL_NAMESPACE
+              value: {{ .Values.temporal.namespace | quote }}
             {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
             - name: REDIS_URL
               valueFrom:
@@ -75,6 +79,30 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: BETTER_AUTH_URL
+            # SvelteKit adapter-node canonical origin — required behind a
+            # TLS-terminating edge (Cloudflare/proxy) so server-side form
+            # actions pass the built-in cross-site Origin (CSRF) check instead
+            # of deriving http:// from the plain-HTTP origin hop.
+            - name: ORIGIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: BETTER_AUTH_URL
+            # Transactional email (school-verification, notifications) via Resend.
+            # Optional — the mailer is only constructed when a feature sends mail;
+            # EMAIL_FROM_DOMAIN must be a domain verified in the Resend account.
+            - name: RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: RESEND_API_KEY
+                  optional: true
+            - name: EMAIL_FROM_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: EMAIL_FROM_DOMAIN
+                  optional: true
             - name: EDGE_TRUST_SECRET
               valueFrom:
                 secretKeyRef:

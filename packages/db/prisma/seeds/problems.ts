@@ -1332,7 +1332,11 @@ export async function seedProblems(
     if (def.testcases) {
       const setEntries = Object.entries(def.testcases);
       for (const [index, [setName, setDef]] of setEntries.entries()) {
-        const weight = setDef.weight ?? (setName === "sample" ? 0 : 100);
+        // Subtask weight must be >= 1 (subtaskResultItemSchema rejects 0), so the
+        // judge's executeSandbox result validates. Samples carry a minimal weight
+        // of 1 (vs the scored set's 100) — a correct solution still earns full
+        // marks, and a samples-only pass earns only the 1-point floor.
+        const weight = setDef.weight ?? (setName === "sample" ? 1 : 100);
         const testcaseSet = await prisma.testcaseSet.upsert({
           create: {
             name: setName,
