@@ -271,7 +271,8 @@
     <div class="space-y-6">
       <Card variant="surface" size="lg">
         <div class="flex flex-col gap-6">
-          <div class="flex items-baseline justify-end gap-4">
+          <div class="flex items-baseline justify-between gap-4">
+            <h2 class="text-title-sm font-semibold">{m.dashboard_statsTitle()}</h2>
             <span class="text-caption text-muted-foreground">
               {m.dashboard_last30Days()}
             </span>

@@ -1076,6 +1076,7 @@
   "dashboard_practiceDays": "練習天數",
   "dashboard_recentActivity": "最近活動",
   "dashboard_startPracticing": "開始解題來追蹤你的進度",
+  "dashboard_statsTitle": "數據一覽",
   "dashboard_subtitle": "近 30 天的練習摘要 — 解題數、AC 率與主題強項一覽。",
   "dashboard_tagProficiency": "主題熟練度",
   "dashboard_totalAc": "已解題數",
