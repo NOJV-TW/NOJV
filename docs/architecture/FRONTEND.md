@@ -61,13 +61,14 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 ### Public Static Routes
 
-| Route            | Purpose                                                          |
-| ---------------- | ---------------------------------------------------------------- |
-| `/about`         | Project description, links, contributor names                    |
-| `/legal/privacy` | Privacy policy                                                   |
-| `/legal/terms`   | Terms of service                                                 |
-| `/docs`          | Scalar API reference page for the public OpenAPI document        |
-| `/docs/internal` | Scalar API reference page for the internal (maintainer) document |
+| Route                   | Purpose                                                          |
+| ----------------------- | ---------------------------------------------------------------- |
+| `/about`                | Project description, links, contributor names                    |
+| `/legal/privacy`        | Privacy policy                                                   |
+| `/legal/terms`          | Terms of service                                                 |
+| `/docs`                 | Scalar API reference page for the public OpenAPI document        |
+| `/docs/internal`        | Scalar API reference page for the internal (maintainer) document |
+| `/guides/advanced-mode` | Advanced Mode package guide for instructors                      |
 
 ### API Routes
 
@@ -103,7 +104,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/problems/[id]/storage-usage`                            | GET                | Per-problem object-storage usage                                                               |
 | `/api/problems/[id]/editorials`                               | GET, POST          | Problem editorials (AC-gated)                                                                  |
 | `/api/problems/[id]/images`                                   | POST               | Upload problem image (magic-number validated)                                                  |
-| `/api/problems/[id]/advanced-image`                           | POST               | Upload advanced-mode judge image tarball                                                       |
+| `/api/problems/[id]/advanced-package`                         | POST               | Upload advanced-mode package zip and prebuild judge images                                     |
 | `/api/uploads/image`                                          | POST               | Generic image upload (announcements, editorials)                                               |
 | `/api/account/avatar`                                         | PUT, DELETE        | Replace / remove account avatar                                                                |
 | `/api/notifications`                                          | GET, PATCH, DELETE | List + bulk mark-read (`{action:"markAllRead"}`) + bulk clear-read (`?status=read`)            |

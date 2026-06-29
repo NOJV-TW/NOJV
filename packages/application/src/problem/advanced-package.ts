@@ -30,7 +30,7 @@ import {
   type AdvancedResult,
   type ImageRef,
 } from "@nojv/core";
-import { Prisma, problemRepo, runTransaction } from "@nojv/db";
+import { problemRepo, runTransaction } from "@nojv/db";
 import { deleteAdvancedImageTarball, uploadAdvancedImageTarball } from "@nojv/storage";
 
 import { ConflictError, ValidationError } from "../shared/errors";
@@ -1101,7 +1101,7 @@ async function runOneSample(params: {
     let result: AdvancedResult;
     try {
       const raw = await readFile(join(gradeOutputDir, "result.json"), "utf8");
-      const json = JSON.parse(raw);
+      const json: unknown = JSON.parse(raw);
       const parsed = advancedResultSchema.safeParse(json);
       if (!parsed.success) {
         packageError({
@@ -1344,7 +1344,7 @@ export async function importAdvancedPackage(
       await requireProblem(tx, problemId);
       await problemRepo.withTx(tx).update(problemId, {
         type: "special_env",
-        advancedConfig: advancedConfig as unknown as Prisma.InputJsonValue,
+        advancedConfig,
         advancedRequiredPaths: manifest.student.requiredPaths,
         timeLimitMs: manifest.resources.timeLimitMs,
         memoryLimitMb: manifest.resources.memoryLimitMb,
