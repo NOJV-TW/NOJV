@@ -116,27 +116,6 @@ export const problemRepo = {
     });
   },
 
-  findRecommendations(opts: { excludeIds?: string[]; tags?: string[]; take: number }) {
-    return prisma.problem.findMany({
-      where: {
-        visibility: "public",
-        status: "published",
-        ...(opts.excludeIds && opts.excludeIds.length > 0
-          ? { id: { notIn: opts.excludeIds } }
-          : {}),
-        ...(opts.tags && opts.tags.length > 0 ? { tags: { hasSome: opts.tags } } : {}),
-      },
-      select: {
-        id: true,
-        displayId: true,
-        title: true,
-        tags: true,
-        difficulty: true,
-      },
-      take: opts.take,
-    });
-  },
-
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },

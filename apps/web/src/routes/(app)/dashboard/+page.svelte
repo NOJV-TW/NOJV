@@ -498,7 +498,7 @@
                     <VerdictBadge verdict={sub.status} />
                   </td>
                   <td
-                    class="w-24 whitespace-nowrap py-3.5 text-right text-caption text-muted-foreground"
+                    class="hidden w-24 whitespace-nowrap py-3.5 text-right text-caption text-muted-foreground sm:table-cell"
                   >
                     {sub.language}
                   </td>
