@@ -412,22 +412,35 @@
           {m.dashboard_recentActivity()}
         </h2>
         {#if data.recentSubmissions.length > 0}
-          <ul class="space-y-3">
-            {#each data.recentSubmissions.slice(0, 5) as sub (sub.id)}
-              <li class="flex items-center gap-3 text-body-sm">
-                <time class="shrink-0 text-caption text-muted-foreground tabular-nums">
-                  {relativeTime(sub.createdAt)}
-                </time>
-                <VerdictBadge verdict={sub.status} />
-                <a href="/problems/{sub.problem.id}" class="truncate hover:underline">
-                  {formatProblemDisplayName(sub.problem)}
-                </a>
-                <span class="shrink-0 text-caption text-muted-foreground">
-                  ({sub.language})
-                </span>
-              </li>
-            {/each}
-          </ul>
+          <table class="w-full table-fixed text-body-sm">
+            <tbody class="divide-y divide-border-subtle">
+              {#each data.recentSubmissions.slice(0, 5) as sub (sub.id)}
+                <tr class="transition-colors hover:bg-muted/30">
+                  <td
+                    class="w-24 whitespace-nowrap py-3.5 pr-4 text-caption text-muted-foreground tabular-nums"
+                  >
+                    {relativeTime(sub.createdAt)}
+                  </td>
+                  <td class="py-3.5 pr-6">
+                    <a
+                      href="/problems/{sub.problem.id}"
+                      class="block truncate font-medium hover:underline"
+                    >
+                      {formatProblemDisplayName(sub.problem)}
+                    </a>
+                  </td>
+                  <td class="w-24 py-3.5 pr-4">
+                    <VerdictBadge verdict={sub.status} />
+                  </td>
+                  <td
+                    class="w-24 whitespace-nowrap py-3.5 text-right text-caption text-muted-foreground"
+                  >
+                    {sub.language}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
         {:else}
           <EmptyState
             variant="minimal"
