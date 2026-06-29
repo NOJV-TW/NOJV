@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
-  import { Check, Pencil, X } from "@lucide/svelte";
+  import { Check, ChevronRight, KeyRound, LogIn, Pencil, ShieldCheck, X } from "@lucide/svelte";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
@@ -98,6 +98,11 @@
   const usernameErrorText = $derived(
     $usernameMessage?.kind === "error" ? mapCode($usernameMessage.text) : null,
   );
+
+  const securityLinkClass =
+    "group flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 text-body-sm font-medium transition-colors duration-fast ease-out-soft hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
+  const securityChevronClass =
+    "h-4 w-4 text-muted-foreground transition-transform duration-fast ease-out-soft group-hover:translate-x-0.5";
 
   const usernameLockReason = $derived(
     data.canEditUsername
@@ -292,23 +297,26 @@
           <p class="text-body-sm text-muted-foreground">{m.account_securityHint()}</p>
         </div>
         <div class="flex flex-col gap-2">
-          <a
-            href="/account/change-password"
-            class="text-body-sm text-foreground underline-offset-4 hover:underline"
-          >
-            {m.account_changePassword_title()}
+          <a href="/account/change-password" class={securityLinkClass}>
+            <span class="flex items-center gap-2.5">
+              <KeyRound aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
+              {m.account_changePassword_title()}
+            </span>
+            <ChevronRight aria-hidden="true" class={securityChevronClass} />
           </a>
-          <a
-            href="/account/two-factor"
-            class="text-body-sm text-foreground underline-offset-4 hover:underline"
-          >
-            {m.account_2fa_title()}
+          <a href="/account/two-factor" class={securityLinkClass}>
+            <span class="flex items-center gap-2.5">
+              <ShieldCheck aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
+              {m.account_2fa_title()}
+            </span>
+            <ChevronRight aria-hidden="true" class={securityChevronClass} />
           </a>
-          <a
-            href="/account/connections"
-            class="text-body-sm text-foreground underline-offset-4 hover:underline"
-          >
-            登入方式
+          <a href="/account/connections" class={securityLinkClass}>
+            <span class="flex items-center gap-2.5">
+              <LogIn aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
+              {m.account_loginMethods_title()}
+            </span>
+            <ChevronRight aria-hidden="true" class={securityChevronClass} />
           </a>
         </div>
       </Card>
