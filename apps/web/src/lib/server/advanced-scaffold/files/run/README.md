@@ -15,17 +15,11 @@ that is the separate `grade` image's job. Never bake answers here.
 | `nojv_runner.py` | Helper — reads the contract, runs the student (binary-safe). Don't edit.       |
 | `testcases/`     | Baked-in **inputs** (`case-*.in`). Not secret — the student may see them.      |
 
-## Build & upload
+## Package upload
 
-```sh
-docker build -t my-run .
-docker save my-run -o my-run.tar
-```
-
-Upload `my-run.tar` as the **run** image on the problem's Advanced settings page
-(source = tarball), or push to a registry and paste the reference instead.
-Tarball images run on the Docker backend only; on the Kubernetes backend, push
-to a registry and use a registry reference.
+Do not upload this directory by itself. Keep it under `run/` inside the NOJV
+Advanced package ZIP, alongside `nojv-advanced.yaml` and `grade/`. NOJV builds
+the run image when staff upload the package.
 
 ## The contract
 

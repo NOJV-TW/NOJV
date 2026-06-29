@@ -22,6 +22,7 @@ const request: SandboxRequest = {
     network: { mode: "none" },
     totalTimeMs: 30_000,
     memoryMb: 1_024,
+    maxScore: 100,
   },
 };
 

@@ -153,6 +153,7 @@ function buildAdvancedPayload(
     network: ctx.config.network,
     totalTimeMs: ctx.resourceLimits.totalTimeMs,
     memoryMb: ctx.resourceLimits.memoryMb,
+    maxScore: ctx.config.maxScore,
   };
 }
 

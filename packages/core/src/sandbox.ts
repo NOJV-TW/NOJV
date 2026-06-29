@@ -22,6 +22,7 @@ export interface SandboxAdvancedRequest {
   network: AdvancedConfig["network"];
   totalTimeMs: number;
   memoryMb: number;
+  maxScore: number;
 }
 
 export interface SandboxRequest {

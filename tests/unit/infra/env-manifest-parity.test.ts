@@ -144,6 +144,11 @@ describeHelm("env schema ↔ chart deployment parity", () => {
     const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
     expect(containerEnvNames(web).has("EXECUTION_BACKEND")).toBe(true);
   });
+
+  it("web Deployment sets ADVANCED_IMAGE_REGISTRY so Kubernetes Advanced packages are enabled by default", () => {
+    const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
+    expect(containerEnvNames(web).has("ADVANCED_IMAGE_REGISTRY")).toBe(true);
+  });
 });
 
 describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {

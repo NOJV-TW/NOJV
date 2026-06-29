@@ -8,8 +8,6 @@ const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/t
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
 const ORIGIN = "http://localhost:5173";
-const REGISTRY_REF = "ghcr.io/test-org/test-run:test";
-const REGISTRY_GRADE_REF = "ghcr.io/test-org/test-grade:test";
 const ADVANCED_EXAM_ID = "exam_demo_advanced_active";
 const SEEDED_ADVANCED_PROBLEM_ID = "problem_shell-scripting-lab";
 
@@ -61,7 +59,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     await context.close();
   });
 
-  test("edit page renders the advanced layout for special_env problems and accepts a run/grade config", async ({
+  test("edit page renders the advanced package uploader for special_env problems", async ({
     browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
@@ -69,40 +67,8 @@ test.describe("Advanced Mode Lifecycle", () => {
 
     await page.goto(`/problems/${advancedProblemId}/edit`);
     await expect(page.getByRole("heading", { name: /advanced mode/i })).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: /advanced judge configuration/i }),
-    ).toBeVisible();
-    await expect(page.getByTestId("adv-ref-run")).toBeVisible();
-    await expect(page.getByTestId("adv-ref-grade")).toBeVisible();
-
-    const saveResult = await postFormAction(
-      page,
-      `/problems/${advancedProblemId}/edit?/updateAdvancedConfig`,
-      {
-        data: JSON.stringify({
-          config: {
-            run: { imageRef: REGISTRY_REF, imageSource: "registry" },
-            grade: { imageRef: REGISTRY_GRADE_REF, imageSource: "registry" },
-            network: { mode: "none" },
-          },
-          timeLimitMs: 30_000,
-          memoryLimitMb: 1_024,
-        }),
-      },
-    );
-    expect(saveResult.type).not.toBe("error");
-    expect(saveResult.type).not.toBe("failure");
-
-    await context.close();
-  });
-
-  test("saved run/grade refs persist across a reload", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: teacherAuth });
-    const page = await context.newPage();
-
-    await page.goto(`/problems/${advancedProblemId}/edit`);
-    await expect(page.getByTestId("adv-ref-run")).toHaveValue(REGISTRY_REF);
-    await expect(page.getByTestId("adv-ref-grade")).toHaveValue(REGISTRY_GRADE_REF);
+    await expect(page.getByRole("heading", { name: /advanced package/i })).toBeVisible();
+    await expect(page.getByText(/choose advanced.zip/i)).toBeVisible();
 
     await context.close();
   });

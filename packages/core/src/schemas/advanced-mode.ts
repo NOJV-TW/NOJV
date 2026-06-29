@@ -18,24 +18,45 @@ const TOP_VERDICT_ALIASES: Record<string, string> = {
   ce: "compile_error",
 };
 
+export const advancedCanonicalVerdictSchema = z.enum([
+  "accepted",
+  "wrong_answer",
+  "time_limit_exceeded",
+  "memory_limit_exceeded",
+  "runtime_error",
+  "compile_error",
+]);
+
+export const advancedVerdictSchema = z.preprocess(
+  (v) => (typeof v === "string" ? (TOP_VERDICT_ALIASES[v.toLowerCase()] ?? v) : v),
+  advancedCanonicalVerdictSchema,
+);
+
 export const advancedResultSchema = z.object({
-  score: z.number().min(0).max(100_000),
-  verdict: z.preprocess(
-    (v) => (typeof v === "string" ? (TOP_VERDICT_ALIASES[v.toLowerCase()] ?? v) : v),
-    z.enum([
-      "accepted",
-      "wrong_answer",
-      "time_limit_exceeded",
-      "memory_limit_exceeded",
-      "runtime_error",
-      "compile_error",
-    ]),
-  ),
+  score: z.number().int().min(0).max(100_000),
+  verdict: advancedVerdictSchema,
   feedback: z.string().max(10_000).optional(),
   testcases: z.array(advancedTestcaseResultSchema).max(1_000).optional(),
 });
 
 export type AdvancedResult = z.infer<typeof advancedResultSchema>;
+
+export function validateAdvancedResultForMaxScore(
+  result: AdvancedResult,
+  maxScore: number,
+): string[] {
+  const issues: string[] = [];
+  if (result.score > maxScore) {
+    issues.push(`score ${String(result.score)} exceeds maxScore ${String(maxScore)}`);
+  }
+  if (result.verdict === "accepted" && result.score !== maxScore) {
+    issues.push("accepted verdict requires score to equal maxScore");
+  }
+  if (result.score === maxScore && result.verdict !== "accepted") {
+    issues.push("maxScore result requires accepted verdict");
+  }
+  return issues;
+}
 
 export const imageSourceSchema = z.enum(["registry", "tarball"]);
 

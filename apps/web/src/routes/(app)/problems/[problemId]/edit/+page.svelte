@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
-  import type { AdvancedConfig, Language } from "@nojv/core";
+  import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import ProblemSections from "$lib/components/features/problem/views/ProblemSections.svelte";
@@ -9,8 +9,7 @@
   import TestcaseTab from "$lib/components/features/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/features/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
-  import AdvancedConfigSection from "$lib/components/features/problem/advanced/AdvancedConfigSection.svelte";
-  import RequiredPathsSection from "$lib/components/features/problem/advanced/RequiredPathsSection.svelte";
+  import AdvancedPackageSection from "$lib/components/features/problem/advanced/AdvancedPackageSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import BundleControls from "$lib/components/features/problem/admin/BundleControls.svelte";
@@ -36,8 +35,6 @@
     storageRefreshToken += 1;
   }
 
-  let requiredPaths = $state<string[]>(untrack(() => data.problem.advancedRequiredPaths ?? []));
-
   let isBasicInfoComplete = $derived(
     data.problem.title !== "Untitled Problem" &&
       data.problem.statement !== "" &&
@@ -49,8 +46,8 @@
     data.problem.status === "draft" &&
       (isAdvanced
         ? isBasicInfoComplete &&
-          (data.advancedConfig?.config.run.imageRef ?? "") !== "" &&
-          (data.advancedConfig?.config.grade.imageRef ?? "") !== ""
+          (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
+          (data.advancedConfig?.config?.grade.imageRef ?? "") !== ""
         : data.testcaseSets.length > 0),
   );
 
@@ -136,32 +133,9 @@
     });
   }
 
-  async function saveAdvancedConfig(payload: {
-    config: AdvancedConfig;
-    timeLimitMs: number;
-    memoryLimitMb: number;
-  }): Promise<{ ok: boolean }> {
-    const fd = new FormData();
-    fd.append("data", JSON.stringify(payload));
-    const res = await fetch("?/updateAdvancedConfig", { method: "POST", body: fd });
-    if (res.ok) {
-      toasts.add({ message: m.admin_imageConfigSaved(), type: "success" });
-      await invalidateAll();
-      return { ok: true };
-    }
-    return { ok: false };
-  }
-
-  async function saveRequiredPaths() {
-    const fd = new FormData();
-    fd.append("data", JSON.stringify({ paths: requiredPaths }));
-    const res = await fetch("?/updateRequiredPaths", { method: "POST", body: fd });
-    toasts.add({
-      message: res.ok
-        ? m.advancedRequiredPaths_savedToast()
-        : m.advancedRequiredPaths_saveFailedToast(),
-      type: res.ok ? "success" : "error",
-    });
+  async function handleAdvancedPackageUploaded() {
+    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
+    await invalidateAll();
   }
 </script>
 
@@ -234,26 +208,16 @@
       <section
         class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
       >
-        <AdvancedConfigSection
+        <AdvancedPackageSection
           problemId={data.problem.id}
           config={data.advancedConfig.config}
           timeLimitMs={data.advancedConfig.timeLimitMs}
           memoryLimitMb={data.advancedConfig.memoryLimitMb}
-          maxTotalTimeMs={data.advancedConfig.maxTotalTimeMs}
-          onsave={saveAdvancedConfig}
+          requiredPaths={data.problem.advancedRequiredPaths ?? []}
+          onuploaded={handleAdvancedPackageUploaded}
         />
       </section>
     {/if}
-
-    <section
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <RequiredPathsSection
-        value={requiredPaths}
-        onchange={(next) => (requiredPaths = next)}
-        onsave={saveRequiredPaths}
-      />
-    </section>
   {:else}
     <ProblemSections
       bind:activeSection

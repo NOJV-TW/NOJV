@@ -58,17 +58,11 @@ is listening. The platform polls for that marker before it starts the run
 container, so the student program never races a not-yet-ready service. Print it
 only **after** the socket is bound and listening (the scaffold does this).
 
-## Build & upload
+## Package upload
 
-```sh
-docker build -t my-service .
-docker save my-service -o my-service.tar
-```
-
-Upload `my-service.tar` as the **service** image on the problem's Advanced
-settings page (mode = service), or push to a registry and paste the reference.
-On the Kubernetes backend a registry reference is required (tarball service
-images are refused there).
+Keep this directory under `service/` inside the NOJV Advanced package ZIP and
+set `network.mode: service` in `nojv-advanced.yaml`. NOJV builds the service
+image when staff upload the package.
 
 ## How the run container reaches it
 

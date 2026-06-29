@@ -101,6 +101,7 @@ export type SeedProblemDef = {
   samples?: SeedProblemSample[];
   workspaceFiles?: SeedWorkspaceFile[];
   advancedConfig?: AdvancedConfig;
+  advancedRequiredPaths?: string[];
 };
 
 const hardenedIds = [
@@ -1237,6 +1238,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         network: { mode: "none" },
         maxScore: 100,
       },
+      advancedRequiredPaths: ["main.py"],
       statements: {
         "zh-TW": {
           title: "兩數之和（Advanced 示範）",
@@ -1288,6 +1290,9 @@ export async function seedProblems(
       ...(samples !== undefined ? { samples } : {}),
       ...(def.advancedConfig
         ? { advancedConfig: def.advancedConfig as unknown as Prisma.InputJsonValue }
+        : {}),
+      ...(def.advancedRequiredPaths
+        ? { advancedRequiredPaths: def.advancedRequiredPaths }
         : {}),
     };
 

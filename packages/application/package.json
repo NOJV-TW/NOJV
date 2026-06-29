@@ -23,11 +23,13 @@
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "archiver": "^7.0.1",
+    "js-yaml": "^4.2.0",
     "unzipper": "^0.12.5",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/archiver": "^7.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/unzipper": "^0.10.11",
     "tsdown": "catalog:"
   }

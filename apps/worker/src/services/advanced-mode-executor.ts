@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 
 import {
   advancedResultSchema,
+  validateAdvancedResultForMaxScore,
   type SandboxAdvancedRequest,
   type SandboxRequest,
   type SandboxResult,
@@ -467,6 +468,10 @@ export class AdvancedModeExecutor {
         request,
         `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
       );
+    }
+    const resultIssues = validateAdvancedResultForMaxScore(parsed.data, advanced.maxScore);
+    if (resultIssues.length > 0) {
+      return advancedFallbackResult(request, `Invalid result.json: ${resultIssues.join(", ")}`);
     }
 
     return mapAdvancedResult(request, parsed.data);

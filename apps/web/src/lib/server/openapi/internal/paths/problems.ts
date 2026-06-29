@@ -208,11 +208,11 @@ export const problemsPaths = {
       },
     },
   },
-  "/api/problems/{id}/advanced-image": {
+  "/api/problems/{id}/advanced-package": {
     post: {
       tags: ["Problems Management"],
-      summary: "Upload an advanced problem Docker image tarball for one role",
-      operationId: "uploadAdvancedProblemImage",
+      summary: "Upload one canonical Advanced package ZIP",
+      operationId: "uploadAdvancedProblemPackage",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       requestBody: {
         required: true,
@@ -221,31 +221,27 @@ export const problemsPaths = {
             schema: {
               type: "object",
               properties: {
-                role: {
-                  type: "string",
-                  enum: ["run", "grade", "service"],
-                },
-                tarball: {
+                package: {
                   type: "string",
                   format: "binary",
                 },
               },
-              required: ["role", "tarball"],
+              required: ["package"],
             },
           },
         },
       },
       responses: {
         "200": {
-          description: "Tarball uploaded",
+          description: "Advanced package built and attached to the problem",
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/AdvancedImageUploadResponse" },
+              schema: { $ref: "#/components/schemas/AdvancedPackageUploadResponse" },
             },
           },
         },
         "400": {
-          description: "Missing, invalid, or oversized tarball",
+          description: "Missing, invalid, or unbuildable package",
           content: {
             "application/json": {
               schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -266,19 +262,11 @@ export const problemsPaths = {
   "/api/problems/advanced-scaffold": {
     get: {
       tags: ["Problems Management"],
-      summary: "Download an advanced problem scaffold for one role",
+      summary: "Download a canonical Advanced package scaffold",
       operationId: "downloadAdvancedProblemScaffold",
-      parameters: [
-        {
-          name: "role",
-          in: "query",
-          required: false,
-          schema: { type: "string", enum: ["run", "grade", "service"], default: "run" },
-        },
-      ],
       responses: {
         "200": {
-          description: "Scaffold zip file",
+          description: "Advanced package scaffold zip file",
           content: {
             "application/zip": {
               schema: {
