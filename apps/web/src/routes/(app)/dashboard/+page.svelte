@@ -10,9 +10,6 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import StreakCard from "$lib/components/features/dashboard/StreakCard.svelte";
-  import WeeklyTrendCard from "$lib/components/features/dashboard/WeeklyTrendCard.svelte";
-  import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
   import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
   import { Skeleton } from "$lib/components/primitives/ui/skeleton";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
@@ -42,12 +39,17 @@
     success: "#2f9d6b",
     warning: "#c98a1a",
     destructive: "#d24a3a",
+    info: "#3b82c4",
+    verdictOrange: "#e0742a",
+    verdictPurple: "#9a5cd0",
+    verdictCyan: "#2bb0b8",
     chart1: "#1d8c9c",
     chart2: "#4d6f8f",
     chart3: "#2f9d6b",
     chart4: "#c98a1a",
     chart5: "#7a8f6d",
     mutedFg: "#6b7280",
+    foreground: "#1f2937",
     panel: "#ffffff",
   };
   let themeColors = $state({ ...DEFAULT_THEME_COLORS });
@@ -60,12 +62,17 @@
       success: read("--success", DEFAULT_THEME_COLORS.success),
       warning: read("--warning", DEFAULT_THEME_COLORS.warning),
       destructive: read("--destructive", DEFAULT_THEME_COLORS.destructive),
+      info: read("--info", DEFAULT_THEME_COLORS.info),
+      verdictOrange: read("--verdict-orange", DEFAULT_THEME_COLORS.verdictOrange),
+      verdictPurple: read("--verdict-purple", DEFAULT_THEME_COLORS.verdictPurple),
+      verdictCyan: read("--verdict-cyan", DEFAULT_THEME_COLORS.verdictCyan),
       chart1: read("--chart-1", DEFAULT_THEME_COLORS.chart1),
       chart2: read("--chart-2", DEFAULT_THEME_COLORS.chart2),
       chart3: read("--chart-3", DEFAULT_THEME_COLORS.chart3),
       chart4: read("--chart-4", DEFAULT_THEME_COLORS.chart4),
       chart5: read("--chart-5", DEFAULT_THEME_COLORS.chart5),
       mutedFg: read("--muted-foreground", DEFAULT_THEME_COLORS.mutedFg),
+      foreground: read("--foreground", DEFAULT_THEME_COLORS.foreground),
       panel: read("--color-panel", DEFAULT_THEME_COLORS.panel),
     };
   }
@@ -95,14 +102,26 @@
   ]);
 
   const difficultyOption: EChartsOption = $derived({
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
-    legend: { bottom: 0, textStyle: { fontSize: 11 } },
+    animation: false,
+    tooltip: {
+      trigger: "item",
+      formatter: "{b}: {c} ({d}%)",
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
+    },
+    legend: {
+      bottom: 0,
+      textStyle: { fontSize: 11, color: themeColors.foreground },
+      type: "scroll",
+    },
     series: [
       {
         type: "pie",
         radius: ["40%", "70%"],
         center: ["50%", "45%"],
         avoidLabelOverlap: true,
+        emphasis: { disabled: true },
         itemStyle: {
           borderRadius: 6,
           borderColor: themeColors.panel,
@@ -119,34 +138,39 @@
   });
 
   const verdictPalette = $derived<Record<string, string>>({
-    accepted: themeColors.chart5,
+    accepted: themeColors.success,
     wrong_answer: themeColors.destructive,
+    runtime_error: themeColors.verdictOrange,
     time_limit_exceeded: themeColors.warning,
-    memory_limit_exceeded: themeColors.warning,
-    runtime_error: themeColors.destructive,
-    compile_error: themeColors.destructive,
-    queued: themeColors.mutedFg,
-    compiling: themeColors.mutedFg,
-    running: themeColors.mutedFg,
+    memory_limit_exceeded: themeColors.verdictPurple,
+    compile_error: themeColors.info,
+    system_error: themeColors.mutedFg,
+    queued: themeColors.verdictCyan,
+    compiling: themeColors.verdictCyan,
+    running: themeColors.verdictCyan,
   });
 
   const verdictOption: EChartsOption = $derived({
-    title: {
-      text: acRate,
-      subtext: m.dashboard_acRate(),
-      left: "center",
-      top: "34%",
-      textStyle: { fontSize: 26, fontWeight: 600 },
-      subtextStyle: { fontSize: 12 },
+    animation: false,
+    tooltip: {
+      trigger: "item",
+      formatter: "{b}: {c} ({d}%)",
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
     },
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
-    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
+    legend: {
+      bottom: 0,
+      textStyle: { fontSize: 11, color: themeColors.foreground },
+      type: "scroll",
+    },
     series: [
       {
         type: "pie",
         radius: ["55%", "75%"],
         center: ["50%", "45%"],
         avoidLabelOverlap: true,
+        emphasis: { disabled: true },
         itemStyle: {
           borderRadius: 6,
           borderColor: themeColors.panel,
@@ -166,15 +190,64 @@
     ],
   });
 
+  const TAG_VISIBLE = 7;
+
+  const tagScrolls = $derived(analytics.byTag.length > TAG_VISIBLE);
+
   const tagOption: EChartsOption = $derived({
-    grid: { left: 96, right: 24, top: 8, bottom: 24 },
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, transitionDuration: 0 },
-    xAxis: { type: "value", axisLabel: { fontSize: 11 }, minInterval: 1 },
+    animation: false,
+    grid: { left: 96, right: tagScrolls ? 30 : 24, top: 8, bottom: 24 },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
+    },
+    ...(tagScrolls
+      ? {
+          dataZoom: [
+            {
+              type: "inside",
+              yAxisIndex: 0,
+              startValue: 0,
+              endValue: TAG_VISIBLE - 1,
+              zoomLock: true,
+              zoomOnMouseWheel: false,
+              moveOnMouseWheel: true,
+              moveOnMouseMove: false,
+            },
+            {
+              type: "slider",
+              yAxisIndex: 0,
+              right: 6,
+              width: 10,
+              startValue: 0,
+              endValue: TAG_VISIBLE - 1,
+              zoomLock: true,
+              brushSelect: false,
+              showDetail: false,
+              handleSize: 0,
+              moveHandleSize: 0,
+              fillerColor: "rgba(130,130,145,0.32)",
+              borderColor: "transparent",
+              backgroundColor: "transparent",
+              dataBackground: { lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 } },
+              selectedDataBackground: { lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 } },
+            },
+          ],
+        }
+      : {}),
+    xAxis: {
+      type: "value",
+      axisLabel: { fontSize: 11, color: themeColors.mutedFg },
+      minInterval: 1,
+    },
     yAxis: {
       type: "category",
       inverse: true,
       data: analytics.byTag.map((g) => g.tag),
-      axisLabel: { fontSize: 12 },
+      axisLabel: { fontSize: 12, color: themeColors.foreground },
     },
     series: [
       {
@@ -187,14 +260,26 @@
   });
 
   const languageOption: EChartsOption = $derived({
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
-    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
+    animation: false,
+    tooltip: {
+      trigger: "item",
+      formatter: "{b}: {c} ({d}%)",
+      appendToBody: true,
+      extraCssText: "pointer-events:none;",
+      transitionDuration: 0,
+    },
+    legend: {
+      bottom: 0,
+      textStyle: { fontSize: 11, color: themeColors.foreground },
+      type: "scroll",
+    },
     series: [
       {
         type: "pie",
         radius: ["40%", "70%"],
         center: ["50%", "45%"],
         avoidLabelOverlap: true,
+        emphasis: { disabled: true },
         itemStyle: {
           borderRadius: 6,
           borderColor: themeColors.panel,
@@ -240,59 +325,73 @@
     <WelcomeGuide username={data.username} platformRole={data.platformRole} />
   {:else}
     <div class="space-y-6">
-      <Card variant="surface" size="lg">
-        <div class="flex flex-col gap-6">
-          <div class="flex items-baseline justify-end gap-4">
-            <span class="text-caption text-muted-foreground">
-              {m.dashboard_last30Days()}
-            </span>
-          </div>
-          <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
-            <div class="flex flex-col gap-1">
+      <div class="grid gap-4 lg:grid-cols-2">
+        <Card variant="surface" size="lg">
+          <div class="flex flex-col gap-6">
+            <div class="flex items-baseline justify-between gap-4">
+              <h2 class="text-title-sm font-semibold">{m.dashboard_statsTitle()}</h2>
               <span class="text-caption text-muted-foreground">
-                {m.dashboard_totalAc()}
-              </span>
-              <span class="text-headline font-semibold tabular-nums">
-                {stats.totalAc}
+                {m.dashboard_last30Days()}
               </span>
             </div>
-            <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-              <span class="text-caption text-muted-foreground">
-                {m.dashboard_totalAttempts()}
-              </span>
-              <span class="text-headline font-semibold tabular-nums">
-                {stats.totalAttempts}
-              </span>
-            </div>
-            <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-              <span class="text-caption text-muted-foreground">
-                {m.dashboard_acRate()}
-              </span>
-              <span class="text-headline font-semibold tabular-nums">{acRate}</span>
-            </div>
-            <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-              <span class="text-caption text-muted-foreground">
-                {m.dashboard_practiceDays()}
-              </span>
-              {#await data.streamed.activity}
-                <div aria-busy="true" aria-live="polite">
-                  <Skeleton class="h-8 w-12" />
-                </div>
-              {:then activity}
+            <div class="grid grid-cols-2 gap-x-6 gap-y-5">
+              <div class="flex flex-col gap-1">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_totalAc()}
+                </span>
                 <span class="text-headline font-semibold tabular-nums">
-                  {buildActivityModel(activity, new Date(), 365).heatmapDays.filter(
-                    (d) => d.submissionCount > 0,
-                  ).length}
+                  {stats.totalAc}
                 </span>
-              {:catch}
-                <span class="text-headline font-semibold tabular-nums text-muted-foreground">
-                  —
+              </div>
+              <div class="flex flex-col gap-1 border-l border-border-subtle pl-6">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_totalAttempts()}
                 </span>
-              {/await}
+                <span class="text-headline font-semibold tabular-nums">
+                  {stats.totalAttempts}
+                </span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_acRate()}
+                </span>
+                <span class="text-headline font-semibold tabular-nums">{acRate}</span>
+              </div>
+              <div class="flex flex-col gap-1 border-l border-border-subtle pl-6">
+                <span class="text-caption text-muted-foreground">
+                  {m.dashboard_practiceDays()}
+                </span>
+                {#await data.streamed.activity}
+                  <div aria-busy="true" aria-live="polite">
+                    <Skeleton class="h-8 w-12" />
+                  </div>
+                {:then activity}
+                  <span class="text-headline font-semibold tabular-nums">
+                    {buildActivityModel(activity, new Date(), 365).heatmapDays.filter(
+                      (d) => d.submissionCount > 0,
+                    ).length}
+                  </span>
+                {:catch}
+                  <span class="text-headline font-semibold tabular-nums text-muted-foreground">
+                    —
+                  </span>
+                {/await}
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+
+        <Card variant="surface" size="lg">
+          <h2 class="mb-4 text-title-sm font-semibold">
+            {m.dashboard_tagProficiency()}
+          </h2>
+          {#if hasTagData}
+            <EChart option={tagOption} class="h-56 w-full" />
+          {:else}
+            <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
+          {/if}
+        </Card>
+      </div>
 
       {#await data.streamed.activity}
         <div aria-busy="true" aria-live="polite" class="contents">
@@ -302,28 +401,18 @@
             </h2>
             <Skeleton class="h-48 w-full" />
           </Card>
-          <div class="grid gap-4 md:grid-cols-2">
-            <Card variant="surface" size="lg">
-              <Skeleton class="mb-4 h-5 w-24" />
-              <Skeleton class="h-20 w-full" />
-            </Card>
-            <Card variant="surface" size="lg">
-              <Skeleton class="mb-4 h-5 w-32" />
-              <Skeleton class="h-40 w-full" />
-            </Card>
-          </div>
         </div>
       {:then activity}
         {@const activityModel = buildActivityModel(activity, new Date(), 365)}
         {@const dailyActivity = activityModel.heatmapDays}
         {@const hasHeatmapData = dailyActivity.some((d) => d.acCount > 0)}
         <Card variant="surface" size="lg">
-          <h2 class="mb-4 text-title-sm font-semibold">
-            {m.dashboard_activityChart()}
-          </h2>
           {#if hasHeatmapData}
-            <ActivityHeatmap data={dailyActivity} />
+            <ActivityHeatmap data={dailyActivity} title={m.dashboard_activityChart()} />
           {:else}
+            <h2 class="mb-4 text-title-sm font-semibold">
+              {m.dashboard_activityChart()}
+            </h2>
             <EmptyState
               variant="minimal"
               icon={LineChart}
@@ -332,61 +421,55 @@
             />
           {/if}
         </Card>
-
-        <div class="grid gap-4 md:grid-cols-2">
-          <StreakCard streakDays={activityModel.streakDays} />
-          <WeeklyTrendCard data={activityModel.weeklyTrend} />
-        </div>
       {:catch}
         {@render errorCard()}
       {/await}
 
-      <div class="grid gap-4">
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card variant="surface" size="lg">
           <h2 class="mb-4 text-title-sm font-semibold">
-            {m.dashboard_tagProficiency()}
+            {m.dashboard_difficultyDist()}
           </h2>
-          {#if hasTagData}
-            <EChart option={tagOption} class="h-64 w-full" />
+          {#if hasDifficultyData}
+            <EChart option={difficultyOption} class="h-56 w-full" />
           {:else}
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
           {/if}
         </Card>
 
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Card variant="surface" size="lg">
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_difficultyDist()}
-            </h2>
-            {#if hasDifficultyData}
-              <EChart option={difficultyOption} class="h-56 w-full" />
-            {:else}
-              <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
-            {/if}
-          </Card>
-
-          <Card variant="surface" size="lg">
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_verdictDistribution()}
-            </h2>
-            {#if hasVerdictData}
+        <Card variant="surface" size="lg">
+          <h2 class="mb-4 text-title-sm font-semibold">
+            {m.dashboard_verdictDistribution()}
+          </h2>
+          {#if hasVerdictData}
+            <div class="relative">
               <EChart option={verdictOption} class="h-56 w-full" />
-            {:else}
-              <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
-            {/if}
-          </Card>
+              <div
+                class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
+              >
+                <span class="text-headline font-semibold leading-none tabular-nums">
+                  {acRate}
+                </span>
+                <span class="mt-1 text-caption text-muted-foreground">
+                  {m.dashboard_acRate()}
+                </span>
+              </div>
+            </div>
+          {:else}
+            <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
+          {/if}
+        </Card>
 
-          <Card variant="surface" size="lg">
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_languageDist()}
-            </h2>
-            {#if hasLanguageData}
-              <EChart option={languageOption} class="h-56 w-full" />
-            {:else}
-              <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
-            {/if}
-          </Card>
-        </div>
+        <Card variant="surface" size="lg">
+          <h2 class="mb-4 text-title-sm font-semibold">
+            {m.dashboard_languageDist()}
+          </h2>
+          {#if hasLanguageData}
+            <EChart option={languageOption} class="h-56 w-full" />
+          {:else}
+            <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
+          {/if}
+        </Card>
       </div>
 
       <Card variant="surface" size="lg">
@@ -394,22 +477,35 @@
           {m.dashboard_recentActivity()}
         </h2>
         {#if data.recentSubmissions.length > 0}
-          <ul class="space-y-3">
-            {#each data.recentSubmissions.slice(0, 5) as sub (sub.id)}
-              <li class="flex items-center gap-3 text-body-sm">
-                <time class="shrink-0 text-caption text-muted-foreground tabular-nums">
-                  {relativeTime(sub.createdAt)}
-                </time>
-                <VerdictBadge verdict={sub.status} />
-                <a href="/problems/{sub.problem.id}" class="truncate hover:underline">
-                  {formatProblemDisplayName(sub.problem)}
-                </a>
-                <span class="shrink-0 text-caption text-muted-foreground">
-                  ({sub.language})
-                </span>
-              </li>
-            {/each}
-          </ul>
+          <table class="w-full table-fixed text-body-sm">
+            <tbody class="divide-y divide-border-subtle">
+              {#each data.recentSubmissions.slice(0, 5) as sub (sub.id)}
+                <tr class="transition-colors hover:bg-muted/30">
+                  <td
+                    class="w-24 whitespace-nowrap py-3.5 pr-4 text-caption text-muted-foreground tabular-nums"
+                  >
+                    {relativeTime(sub.createdAt)}
+                  </td>
+                  <td class="py-3.5 pr-6">
+                    <a
+                      href="/problems/{sub.problem.id}"
+                      class="block truncate font-medium hover:underline"
+                    >
+                      {formatProblemDisplayName(sub.problem)}
+                    </a>
+                  </td>
+                  <td class="w-44 py-3.5 pr-4">
+                    <VerdictBadge verdict={sub.status} />
+                  </td>
+                  <td
+                    class="hidden w-24 whitespace-nowrap py-3.5 text-right text-caption text-muted-foreground sm:table-cell"
+                  >
+                    {sub.language}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
         {:else}
           <EmptyState
             variant="minimal"
@@ -421,25 +517,6 @@
           />
         {/if}
       </Card>
-
-      {#await data.streamed.suggestedProblems}
-        <div aria-busy="true" aria-live="polite">
-          <Card variant="surface" size="lg">
-            <Skeleton class="mb-4 h-6 w-40" />
-            <div class="flex flex-col gap-4">
-              <Skeleton class="h-6 w-full" />
-              <Skeleton class="h-6 w-11/12" />
-              <Skeleton class="h-6 w-10/12" />
-              <Skeleton class="h-6 w-9/12" />
-              <Skeleton class="h-6 w-8/12" />
-            </div>
-          </Card>
-        </div>
-      {:then suggestedProblems}
-        <SuggestedProblemsCard problems={suggestedProblems} />
-      {:catch}
-        {@render errorCard()}
-      {/await}
     </div>
   {/if}
 </PageContainer>

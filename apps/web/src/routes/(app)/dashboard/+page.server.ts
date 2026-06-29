@@ -3,7 +3,7 @@ import { userDomain } from "@nojv/application";
 
 import type { PageServerLoad } from "./$types";
 
-const { getDashboardView, getSubmissionActivity, getSuggestedProblems } = userDomain;
+const { getDashboardView, getSubmissionActivity } = userDomain;
 
 const ACTIVITY_WINDOW_DAYS = 365;
 
@@ -20,13 +20,9 @@ export const load: PageServerLoad = async (event) => {
         activity: getSubmissionActivity(actor.userId, since).then((events) =>
           events.map((e) => ({ at: e.createdAt.toISOString(), ac: e.isAc })),
         ),
-        suggestedProblems: getSuggestedProblems(actor.userId),
       }
     : {
         activity: Promise.resolve([] as { at: string; ac: boolean }[]),
-        suggestedProblems: Promise.resolve(
-          [] as Awaited<ReturnType<typeof getSuggestedProblems>>,
-        ),
       };
 
   return {

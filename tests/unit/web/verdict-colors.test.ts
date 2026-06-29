@@ -3,28 +3,28 @@ import { describe, expect, it } from "vitest";
 import { formatVerdictLabel, verdictBadgeVariant, verdictTone } from "$lib/utils/verdict-style";
 
 describe("verdictBadgeVariant", () => {
-  it("maps accepted to success", () => {
-    expect(verdictBadgeVariant("accepted")).toBe("success");
+  it("maps accepted to verdict-ac", () => {
+    expect(verdictBadgeVariant("accepted")).toBe("verdict-ac");
   });
 
-  it("maps wrong_answer to destructive", () => {
-    expect(verdictBadgeVariant("wrong_answer")).toBe("destructive");
+  it("maps wrong_answer to verdict-wa", () => {
+    expect(verdictBadgeVariant("wrong_answer")).toBe("verdict-wa");
   });
 
-  it("maps runtime_error to destructive", () => {
-    expect(verdictBadgeVariant("runtime_error")).toBe("destructive");
+  it("maps runtime_error to verdict-re", () => {
+    expect(verdictBadgeVariant("runtime_error")).toBe("verdict-re");
   });
 
-  it("maps compile_error to destructive", () => {
-    expect(verdictBadgeVariant("compile_error")).toBe("destructive");
+  it("maps compile_error to verdict-ce", () => {
+    expect(verdictBadgeVariant("compile_error")).toBe("verdict-ce");
   });
 
-  it("maps time_limit_exceeded to warning", () => {
-    expect(verdictBadgeVariant("time_limit_exceeded")).toBe("warning");
+  it("maps time_limit_exceeded to verdict-tle", () => {
+    expect(verdictBadgeVariant("time_limit_exceeded")).toBe("verdict-tle");
   });
 
-  it("maps memory_limit_exceeded to warning", () => {
-    expect(verdictBadgeVariant("memory_limit_exceeded")).toBe("warning");
+  it("maps memory_limit_exceeded to verdict-mle", () => {
+    expect(verdictBadgeVariant("memory_limit_exceeded")).toBe("verdict-mle");
   });
 
   it("maps pre-terminal statuses to verdict-pending", () => {
@@ -35,12 +35,12 @@ describe("verdictBadgeVariant", () => {
   });
 
   it("normalizes sandbox short codes", () => {
-    expect(verdictBadgeVariant("AC")).toBe("success");
-    expect(verdictBadgeVariant("WA")).toBe("destructive");
-    expect(verdictBadgeVariant("TLE")).toBe("warning");
-    expect(verdictBadgeVariant("MLE")).toBe("warning");
-    expect(verdictBadgeVariant("RE")).toBe("destructive");
-    expect(verdictBadgeVariant("CE")).toBe("destructive");
+    expect(verdictBadgeVariant("AC")).toBe("verdict-ac");
+    expect(verdictBadgeVariant("WA")).toBe("verdict-wa");
+    expect(verdictBadgeVariant("TLE")).toBe("verdict-tle");
+    expect(verdictBadgeVariant("MLE")).toBe("verdict-mle");
+    expect(verdictBadgeVariant("RE")).toBe("verdict-re");
+    expect(verdictBadgeVariant("CE")).toBe("verdict-ce");
   });
 
   it("falls back to muted for unknown verdicts", () => {

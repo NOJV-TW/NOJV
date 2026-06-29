@@ -10,10 +10,11 @@
 
   interface Props {
     data: HeatmapDay[];
+    title: string;
     class?: string;
   }
 
-  let { data, class: className = "" }: Props = $props();
+  let { data, title, class: className = "" }: Props = $props();
 
   const INTENSITY = {
     zero: "bg-[color:var(--muted)]/40",
@@ -22,19 +23,51 @@
     high: "bg-[color:var(--chart-5)]",
   } as const;
 
-  function intensityClass(acCount: number): string {
-    if (acCount <= 0) return INTENSITY.zero;
-    if (acCount === 1) return INTENSITY.low;
-    if (acCount <= 3) return INTENSITY.mid;
+  function intensityClass(count: number): string {
+    if (count <= 0) return INTENSITY.zero;
+    if (count === 1) return INTENSITY.low;
+    if (count <= 3) return INTENSITY.mid;
     return INTENSITY.high;
   }
 
-  function formatLabel(day: HeatmapDay): string {
-    return m.dashboard_heatmapDayTooltip({
-      date: day.date,
-      ac: day.acCount,
-      submissions: day.submissionCount,
-    });
+  type Metric = "ac" | "submissions";
+  let metric = $state<Metric>("ac");
+  const countOf = (day: HeatmapDay) => (metric === "ac" ? day.acCount : day.submissionCount);
+
+  const dateFmt = $derived(
+    new Intl.DateTimeFormat(getLocale(), {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }),
+  );
+  const formatDate = (date: string) => dateFmt.format(new Date(`${date}T00:00:00Z`));
+
+  // A single shared tooltip (GitHub-style) follows the hovered cell — far cheaper
+  // than wrapping all ~365 cells in their own tooltip component.
+  let tip = $state<{ day: HeatmapDay; left: number; y: number; above: boolean } | null>(null);
+
+  function showTip(day: HeatmapDay, event: MouseEvent) {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const above = rect.top > 48; // flip below the cell when there's no room above
+    tip = {
+      day,
+      left: rect.left + rect.width / 2,
+      y: above ? rect.top - 8 : rect.bottom + 8,
+      above,
+    };
+  }
+
+  function hideTip() {
+    tip = null;
+  }
+
+  // Move the tooltip to <body> so a transformed/overflow-hidden ancestor (the
+  // dashboard's fade-up animation) can't reposition or clip a `fixed` element.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
   }
 
   type Cell = HeatmapDay | null;
@@ -56,36 +89,86 @@
   const totalAcLabel = $derived(m.dashboard_heatmapSummary({ ac: totalAc, days: activeDays }));
 </script>
 
-<div
-  class="flex gap-2 {className}"
-  role="img"
-  aria-label={`${m.dashboard_heatmapAria()}: ${totalAcLabel}`}
->
-  <div class="flex flex-col justify-between py-0.5 text-micro text-muted-foreground">
-    {#each weekdayLabels as label, i (i)}
-      {#if i % 2 === 1}
-        <span class="leading-none">{label}</span>
-      {:else}
-        <span class="leading-none">&nbsp;</span>
-      {/if}
-    {/each}
+<div class={className}>
+  <div class="mb-4 flex items-center justify-between gap-3">
+    <h2 class="text-title-sm font-semibold">{title}</h2>
+    <div
+      class="inline-flex shrink-0 rounded-full border border-border bg-[color:var(--color-panel)] p-0.5 text-micro font-medium"
+    >
+      <button
+        type="button"
+        class="rounded-full px-2.5 py-1 transition-colors {metric === 'ac'
+          ? 'bg-foreground text-background'
+          : 'text-muted-foreground hover:text-foreground'}"
+        aria-pressed={metric === "ac"}
+        onclick={() => (metric = "ac")}
+      >
+        {m.dashboard_heatmapToggleAc()}
+      </button>
+      <button
+        type="button"
+        class="rounded-full px-2.5 py-1 transition-colors {metric === 'submissions'
+          ? 'bg-foreground text-background'
+          : 'text-muted-foreground hover:text-foreground'}"
+        aria-pressed={metric === "submissions"}
+        onclick={() => (metric = "submissions")}
+      >
+        {m.dashboard_heatmapToggleSub()}
+      </button>
+    </div>
   </div>
   <div
-    class="grid flex-1 grid-flow-col gap-1"
-    style="grid-template-rows: repeat(7, minmax(0, 1fr)); grid-template-columns: repeat({columnCount}, minmax(0, 1fr));"
+    class="flex gap-2"
+    role="img"
+    aria-label={`${m.dashboard_heatmapAria()}: ${totalAcLabel}`}
   >
-    {#each cells as cell, i (i)}
-      {#if cell === null}
-        <div class="h-4 w-full sm:h-5" aria-hidden="true"></div>
-      {:else}
-        <div
-          class="h-4 w-full rounded-[3px] transition-colors duration-fast sm:h-5 {intensityClass(
-            cell.acCount,
-          )}"
-          aria-hidden="true"
-          title={formatLabel(cell)}
-        ></div>
-      {/if}
-    {/each}
+    <div class="flex flex-col justify-between py-0.5 text-micro text-muted-foreground">
+      {#each weekdayLabels as label, i (i)}
+        {#if i % 2 === 1}
+          <span class="leading-none">{label}</span>
+        {:else}
+          <span class="leading-none">&nbsp;</span>
+        {/if}
+      {/each}
+    </div>
+    <div
+      class="grid flex-1 grid-flow-col gap-1"
+      style="grid-template-rows: repeat(7, minmax(0, 1fr)); grid-template-columns: repeat({columnCount}, minmax(0, 1fr));"
+    >
+      {#each cells as cell, i (i)}
+        {#if cell === null}
+          <div class="h-4 w-full sm:h-5" aria-hidden="true"></div>
+        {:else}
+          <div
+            class="h-4 w-full rounded-[3px] transition-colors duration-fast hover:ring-1 hover:ring-foreground/40 sm:h-5 {intensityClass(
+              countOf(cell),
+            )}"
+            aria-hidden="true"
+            onmouseenter={(event) => showTip(cell, event)}
+            onmouseleave={hideTip}
+          ></div>
+        {/if}
+      {/each}
+    </div>
   </div>
 </div>
+
+{#if tip}
+  <div
+    use:portal
+    class="pointer-events-none fixed z-[100] -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-3 py-2 shadow-md {tip.above
+      ? '-translate-y-full'
+      : ''}"
+    style="left: {tip.left}px; top: {tip.y}px;"
+    role="status"
+  >
+    <div class="text-body font-semibold leading-tight text-popover-foreground">
+      {metric === "ac"
+        ? m.dashboard_heatmapTipAc({ ac: tip.day.acCount })
+        : m.dashboard_heatmapTipSub({ submissions: tip.day.submissionCount })}
+    </div>
+    <div class="mt-0.5 text-micro text-muted-foreground">
+      {formatDate(tip.day.date)}
+    </div>
+  </div>
+{/if}

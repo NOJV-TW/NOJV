@@ -1,8 +1,6 @@
-import { m } from "$lib/paraglide/messages.js";
-
 export function formatVerdictLabel(verdict: string): string {
   const label = VERDICT_LABEL[normalizeVerdict(verdict)];
-  if (label) return label();
+  if (label) return label;
   return verdict.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -18,7 +16,15 @@ export function difficultyClass(difficulty: string): string {
 }
 
 export type VerdictBadgeVariant =
-  "success" | "warning" | "destructive" | "verdict-pending" | "muted";
+  | "verdict-ac"
+  | "verdict-wa"
+  | "verdict-re"
+  | "verdict-tle"
+  | "verdict-mle"
+  | "verdict-ce"
+  | "verdict-se"
+  | "verdict-pending"
+  | "muted";
 
 const SHORT_CODE_TO_VERDICT: Record<string, string> = {
   AC: "accepted",
@@ -34,28 +40,28 @@ function normalizeVerdict(verdict: string): string {
   return SHORT_CODE_TO_VERDICT[verdict] ?? verdict;
 }
 
-const VERDICT_LABEL: Record<string, () => string> = {
-  accepted: m.verdict_accepted,
-  wrong_answer: m.verdict_wrong_answer,
-  runtime_error: m.verdict_runtime_error,
-  compile_error: m.verdict_compile_error,
-  time_limit_exceeded: m.verdict_time_limit_exceeded,
-  memory_limit_exceeded: m.verdict_memory_limit_exceeded,
-  system_error: m.verdict_system_error,
-  pending_upload: m.verdict_pending_upload,
-  queued: m.verdict_queued,
-  running: m.verdict_running,
-  compiling: m.verdict_compiling,
+const VERDICT_LABEL: Record<string, string> = {
+  accepted: "Accepted",
+  wrong_answer: "Wrong Answer",
+  runtime_error: "Runtime Error",
+  compile_error: "Compile Error",
+  time_limit_exceeded: "Time Limit Exceeded",
+  memory_limit_exceeded: "Memory Limit Exceeded",
+  system_error: "System Error",
+  pending_upload: "Pending",
+  queued: "Queued",
+  running: "Running",
+  compiling: "Compiling",
 };
 
 const VERDICT_VARIANT: Record<string, VerdictBadgeVariant> = {
-  accepted: "success",
-  wrong_answer: "destructive",
-  runtime_error: "destructive",
-  compile_error: "destructive",
-  time_limit_exceeded: "warning",
-  memory_limit_exceeded: "warning",
-  system_error: "warning",
+  accepted: "verdict-ac",
+  wrong_answer: "verdict-wa",
+  runtime_error: "verdict-re",
+  compile_error: "verdict-ce",
+  time_limit_exceeded: "verdict-tle",
+  memory_limit_exceeded: "verdict-mle",
+  system_error: "verdict-se",
   pending_upload: "verdict-pending",
   queued: "verdict-pending",
   running: "verdict-pending",
@@ -65,15 +71,15 @@ const VERDICT_VARIANT: Record<string, VerdictBadgeVariant> = {
 const VERDICT_TONE: Record<string, string> = {
   accepted: "text-success",
   wrong_answer: "text-destructive",
-  runtime_error: "text-destructive",
-  compile_error: "text-destructive",
+  runtime_error: "text-verdict-orange",
+  compile_error: "text-info",
   time_limit_exceeded: "text-warning",
-  memory_limit_exceeded: "text-warning",
-  system_error: "text-warning",
-  pending_upload: "text-muted-foreground",
-  queued: "text-muted-foreground",
-  running: "text-muted-foreground",
-  compiling: "text-muted-foreground",
+  memory_limit_exceeded: "text-verdict-purple",
+  system_error: "text-muted-foreground",
+  pending_upload: "text-verdict-cyan",
+  queued: "text-verdict-cyan",
+  running: "text-verdict-cyan",
+  compiling: "text-verdict-cyan",
 };
 
 export function verdictBadgeVariant(verdict: string): VerdictBadgeVariant {
