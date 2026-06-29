@@ -58,8 +58,7 @@
           class="w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
           rows={3}
           value={editInput}
-          oninput={(e) => onInputChange((e.target as HTMLTextAreaElement).value)}
-        ></textarea>
+          oninput={(e) => onInputChange((e.target as HTMLTextAreaElement).value)}></textarea>
       </label>
       <label class="grid gap-1 text-caption text-muted-foreground">
         {m.testcases_output()}
@@ -67,8 +66,7 @@
           class="w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
           rows={3}
           value={editOutput}
-          oninput={(e) => onOutputChange((e.target as HTMLTextAreaElement).value)}
-        ></textarea>
+          oninput={(e) => onOutputChange((e.target as HTMLTextAreaElement).value)}></textarea>
       </label>
       <div class="flex gap-2">
         <button

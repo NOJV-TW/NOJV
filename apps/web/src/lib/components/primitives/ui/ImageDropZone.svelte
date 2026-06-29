@@ -102,8 +102,7 @@
     onpaste={onPaste}
     class="{className} {isDragOver ? 'ring-2 ring-primary' : ''}"
     hidden={isPreviewing}
-    {...restProps}
-  ></textarea>
+    {...restProps}></textarea>
 
   {#if isPreviewing}
     <div class="{className} overflow-auto" role="region" aria-label={m.imageUpload_preview()}>
