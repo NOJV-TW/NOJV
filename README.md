@@ -29,19 +29,6 @@
 - **Real-time**: SSE streaming for submission verdicts and contest events
 - **Orchestration**: Temporal workflows with durable timers and queries
 
-## Architecture at a Glance
-
-```
-Browser ──→ SvelteKit (web) ──→ Temporal Server ──→ Worker ──→ Sandbox
-                │                                      │
-                ├── PostgreSQL (source of truth)        │
-                └── Redis (pub/sub)                    │
-                                                        ├── Docker (local)
-                                                        └── Kubernetes (prod)
-```
-
-See [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) for the full architecture overview.
-
 ## Tech Stack
 
 - **Frontend**: SvelteKit, Vite, Tailwind CSS 4, Bits UI, Monaco Editor
@@ -148,4 +135,4 @@ Keep changes surgical and the [living docs](docs/) aligned with landed code.
 
 ## License
 
-[MIT](LICENSE) © 2026 Takala Wang
+[MIT](LICENSE) © NOJV
