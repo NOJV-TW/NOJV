@@ -3,6 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import { toasts } from "$lib/stores/toast";
+  import { fetchWithCsrf } from "$lib/services/http";
   import AvatarCropperDialog from "./AvatarCropperDialog.svelte";
 
   interface Props {
@@ -76,7 +77,7 @@
     try {
       const fd = new FormData();
       fd.append("file", blob, "avatar.webp");
-      const res = await fetch("/api/account/avatar", { method: "PUT", body: fd });
+      const res = await fetchWithCsrf("/api/account/avatar", { method: "PUT", body: fd });
       if (!res.ok) {
         toasts.error(m.account_avatar_uploadFailed());
         return;
@@ -94,7 +95,7 @@
     if (busy) return;
     busy = true;
     try {
-      const res = await fetch("/api/account/avatar", { method: "DELETE" });
+      const res = await fetchWithCsrf("/api/account/avatar", { method: "DELETE" });
       if (!res.ok) {
         toasts.error(m.account_avatar_uploadFailed());
         return;
