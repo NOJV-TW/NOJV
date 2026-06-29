@@ -437,7 +437,7 @@
                       {formatProblemDisplayName(sub.problem)}
                     </a>
                   </td>
-                  <td class="w-24 py-3.5 pr-4">
+                  <td class="w-44 py-3.5 pr-4">
                     <VerdictBadge verdict={sub.status} />
                   </td>
                   <td

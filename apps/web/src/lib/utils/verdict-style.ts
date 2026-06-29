@@ -1,8 +1,6 @@
-import { m } from "$lib/paraglide/messages.js";
-
 export function formatVerdictLabel(verdict: string): string {
   const label = VERDICT_LABEL[normalizeVerdict(verdict)];
-  if (label) return label();
+  if (label) return label;
   return verdict.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -42,18 +40,18 @@ function normalizeVerdict(verdict: string): string {
   return SHORT_CODE_TO_VERDICT[verdict] ?? verdict;
 }
 
-const VERDICT_LABEL: Record<string, () => string> = {
-  accepted: m.verdict_accepted,
-  wrong_answer: m.verdict_wrong_answer,
-  runtime_error: m.verdict_runtime_error,
-  compile_error: m.verdict_compile_error,
-  time_limit_exceeded: m.verdict_time_limit_exceeded,
-  memory_limit_exceeded: m.verdict_memory_limit_exceeded,
-  system_error: m.verdict_system_error,
-  pending_upload: m.verdict_pending_upload,
-  queued: m.verdict_queued,
-  running: m.verdict_running,
-  compiling: m.verdict_compiling,
+const VERDICT_LABEL: Record<string, string> = {
+  accepted: "Accepted",
+  wrong_answer: "Wrong Answer",
+  runtime_error: "Runtime Error",
+  compile_error: "Compile Error",
+  time_limit_exceeded: "Time Limit Exceeded",
+  memory_limit_exceeded: "Memory Limit Exceeded",
+  system_error: "System Error",
+  pending_upload: "Pending",
+  queued: "Queued",
+  running: "Running",
+  compiling: "Compiling",
 };
 
 const VERDICT_VARIANT: Record<string, VerdictBadgeVariant> = {
