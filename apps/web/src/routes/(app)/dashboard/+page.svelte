@@ -110,7 +110,11 @@
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
+    legend: {
+      bottom: 0,
+      textStyle: { fontSize: 11, color: themeColors.foreground },
+      type: "scroll",
+    },
     series: [
       {
         type: "pie",
@@ -155,7 +159,11 @@
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
+    legend: {
+      bottom: 0,
+      textStyle: { fontSize: 11, color: themeColors.foreground },
+      type: "scroll",
+    },
     series: [
       {
         type: "pie",
@@ -222,7 +230,11 @@
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
+    legend: {
+      bottom: 0,
+      textStyle: { fontSize: 11, color: themeColors.foreground },
+      type: "scroll",
+    },
     series: [
       {
         type: "pie",
