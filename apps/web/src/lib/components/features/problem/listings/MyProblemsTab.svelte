@@ -7,6 +7,7 @@
     ArrowUpNarrowWide,
     FileCode,
     Pencil,
+    RotateCcw,
     Search,
     Tags,
     Trash2,
@@ -19,6 +20,7 @@
   import type { ProblemDifficulty, ProblemType, ProblemVisibility } from "@nojv/core";
   import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import {
     difficulties,
     filterProblems,
@@ -57,6 +59,7 @@
   let mineDifficulty = $state<Difficulty>("all");
   let mineSelectedTags = $state<Set<string>>(new Set());
   let showMineCardTags = $state(false);
+  let rejudgeProblemId = $state<string | null>(null);
 
   let mineAllTags = $derived([...new Set(editableProblems.flatMap((p) => p.tags))].sort());
 
@@ -77,6 +80,10 @@
     if (next.has(tag)) next.delete(tag);
     else next.add(tag);
     mineSelectedTags = next;
+  }
+
+  function closeRejudgeDialog(open: boolean) {
+    if (!open) rejudgeProblemId = null;
   }
 </script>
 
@@ -178,7 +185,7 @@
     {@const titleHref =
       problem.status === "published"
         ? `/problems/${problem.id}`
-        : `/problems/${problem.id}/edit${problem.type === "special_env" ? "-advanced" : ""}`}
+        : `/problems/${problem.id}/edit`}
     <Card.Root
       variant="surface"
       size="lg"
@@ -238,7 +245,13 @@
         </Badge>
       </div>
       <div class="flex items-center gap-2">
-        <LinkButton href="/problems/{problem.id}/edit" variant="outline" size="sm">
+        {#if problem.status !== "draft"}
+          <Button variant="outline" size="sm" onclick={() => (rejudgeProblemId = problem.id)}>
+            <RotateCcw class="size-3" aria-hidden="true" />
+            {m.rejudge_problem_admin_button()}
+          </Button>
+        {/if}
+        <LinkButton href={`/problems/${problem.id}/edit`} variant="outline" size="sm">
           <Pencil class="size-3" aria-hidden="true" />
           {m.problemDetail_editProblem()}
         </LinkButton>
@@ -257,3 +270,12 @@
     </Card.Root>
   {/each}
 </section>
+
+{#if rejudgeProblemId}
+  <RejudgeDialog
+    problemId={rejudgeProblemId}
+    open={true}
+    scope={{ type: "practice" }}
+    onOpenChange={closeRejudgeDialog}
+  />
+{/if}

@@ -11,7 +11,7 @@ const EXPECTED_ENTRIES = [
   "grade/grader.py",
   "grade/nojv_grader.py",
   "grade/README.md",
-  "nojv-advanced.yaml",
+  "metadata.yaml",
   "run/Dockerfile",
   "run/nojv_runner.py",
   "run/README.md",
@@ -43,12 +43,14 @@ describe("advanced-scaffold", () => {
 
   it("includes the package manifest as the source of truth", async () => {
     const files = await unzip();
-    expect(files["nojv-advanced.yaml"]).toContain("version: 1");
-    expect(files["nojv-advanced.yaml"]).toContain("maxScore: 100");
-    expect(files["nojv-advanced.yaml"]).toContain("requiredPaths:");
-    expect(files["nojv-advanced.yaml"]).toContain("mode: none");
-    expect(files["nojv-advanced.yaml"]).toContain("samples:");
-    expect(files["nojv-advanced.yaml"]).toContain("samples/full-credit.zip");
+    expect(files["metadata.yaml"]).toContain("version: 1");
+    expect(files["metadata.yaml"]).toContain("problem:");
+    expect(files["metadata.yaml"]).toContain("title: Advanced Sum");
+    expect(files["metadata.yaml"]).toContain("maxScore: 100");
+    expect(files["metadata.yaml"]).toContain("requiredPaths:");
+    expect(files["metadata.yaml"]).toContain("mode: none");
+    expect(files["metadata.yaml"]).toContain("samples:");
+    expect(files["metadata.yaml"]).toContain("samples/full-credit.zip");
   });
 
   it("includes a runnable full-credit sample submission zip", async () => {

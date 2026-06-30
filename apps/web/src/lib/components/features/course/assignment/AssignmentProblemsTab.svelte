@@ -12,10 +12,12 @@
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import Plus from "@lucide/svelte/icons/plus";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
 
   import { m } from "$lib/paraglide/messages.js";
+  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css";
 
@@ -23,6 +25,7 @@
     problems: ProblemsTabProblem[];
     assignmentId: string;
     canEdit?: boolean;
+    canRejudge?: boolean;
     candidateProblems?: CandidateProblem[];
     class?: string;
   }
@@ -31,6 +34,7 @@
     problems,
     assignmentId,
     canEdit = false,
+    canRejudge = false,
     candidateProblems = [],
     class: className,
   }: Props = $props();
@@ -47,6 +51,7 @@
   let searchQuery = $state("");
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
+  let rejudgeProblemId = $state<string | null>(null);
 
   function seedRows(source: ProblemsTabProblem[]) {
     editRows = source.map((p) => ({
@@ -132,6 +137,10 @@
     }
     await invalidateAll();
   }
+
+  function closeRejudgeDialog(open: boolean) {
+    if (!open) rejudgeProblemId = null;
+  }
 </script>
 
 <section data-slot="assignment-problems-tab" class={cn("space-y-3", className)}>
@@ -151,39 +160,58 @@
   {#if !canEdit}
     <div class="grid gap-3">
       {#each problems as problem (problem.problemId)}
-        <a
-          href={`/assignments/${assignmentId}/problems/${problem.problemId}`}
-          class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-md border border-border-subtle bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
+        <div
+          class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-md border border-border-subtle bg-[color:var(--color-panel)] px-5 py-4 transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest {canRejudge
+            ? 'sm:grid-cols-[auto_1fr_auto_auto]'
+            : ''}"
         >
-          <div
-            class="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-title-sm font-medium text-muted-foreground"
+          <a
+            href={`/assignments/${assignmentId}/problems/${problem.problemId}`}
+            class="contents no-underline"
           >
-            {problem.letter}
-          </div>
-          <div class="min-w-0">
-            <h4 class="truncate text-body-lg font-semibold text-foreground">
-              {problem.title}
-            </h4>
             <div
-              class="mt-1 flex flex-wrap items-center gap-3 text-caption text-muted-foreground"
+              class="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-title-sm font-medium text-muted-foreground"
             >
-              <span
-                class={cn(
-                  "font-semibold uppercase tracking-[0.08em]",
-                  difficultyClass(problem.difficulty),
-                )}
-              >
-                {problem.difficulty}
-              </span>
-              <span>{problem.points} pts</span>
-              <span class="font-mono opacity-75">{problem.problemId}</span>
+              {problem.letter}
             </div>
-          </div>
-          <div class="text-right text-caption text-muted-foreground tabular-nums leading-snug">
-            <span class="block text-title-sm font-medium text-foreground">—</span>
-            {m.assignmentDetail_teacherProblemsClassPending()}
-          </div>
-        </a>
+            <div class="min-w-0">
+              <h4 class="truncate text-body-lg font-semibold text-foreground">
+                {problem.title}
+              </h4>
+              <div
+                class="mt-1 flex flex-wrap items-center gap-3 text-caption text-muted-foreground"
+              >
+                <span
+                  class={cn(
+                    "font-semibold uppercase tracking-[0.08em]",
+                    difficultyClass(problem.difficulty),
+                  )}
+                >
+                  {problem.difficulty}
+                </span>
+                <span>{problem.points} pts</span>
+                <span class="font-mono opacity-75">{problem.problemId}</span>
+              </div>
+            </div>
+            <div
+              class="text-right text-caption text-muted-foreground tabular-nums leading-snug"
+            >
+              <span class="block text-title-sm font-medium text-foreground">—</span>
+              {m.assignmentDetail_teacherProblemsClassPending()}
+            </div>
+          </a>
+          {#if canRejudge}
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onclick={() => (rejudgeProblemId = problem.problemId)}
+            >
+              <RotateCcw class="size-3" aria-hidden="true" />
+              {m.rejudge_problem_admin_button()}
+            </Button>
+          {/if}
+        </div>
       {/each}
     </div>
   {:else}
@@ -217,6 +245,17 @@
               <div class="font-mono text-caption text-muted-foreground">{row.problemId}</div>
             </div>
             <div class="flex items-center gap-1">
+              {#if canRejudge}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onclick={() => (rejudgeProblemId = row.problemId)}
+                >
+                  <RotateCcw class="size-3" aria-hidden="true" />
+                  {m.rejudge_problem_admin_button()}
+                </Button>
+              {/if}
               <Button
                 variant="ghost"
                 size="icon"
@@ -304,3 +343,12 @@
     </div>
   {/if}
 </section>
+
+{#if rejudgeProblemId}
+  <RejudgeDialog
+    problemId={rejudgeProblemId}
+    open={true}
+    scope={{ type: "assignment", id: assignmentId }}
+    onOpenChange={closeRejudgeDialog}
+  />
+{/if}

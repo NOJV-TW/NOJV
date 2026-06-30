@@ -19,7 +19,7 @@ leak — that is the whole point of the run/grade split.
 ## Package upload
 
 Do not upload this directory by itself. Keep it under `grade/` inside the NOJV
-Advanced package ZIP, alongside `nojv-advanced.yaml` and `run/`. NOJV builds the
+Advanced package ZIP, alongside `metadata.yaml` and `run/`. NOJV builds the
 grade image when staff upload the package.
 
 ## The contract

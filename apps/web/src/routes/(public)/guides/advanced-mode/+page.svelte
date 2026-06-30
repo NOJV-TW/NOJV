@@ -24,7 +24,7 @@
   <Card variant="surface" size="lg" class="space-y-3">
     <h2 class="text-title-md font-semibold">ZIP structure</h2>
     <pre class="overflow-auto rounded bg-black/85 p-4 text-caption text-white">{`advanced.zip
-  nojv-advanced.yaml
+  metadata.yaml
   run/
     Dockerfile
     runner.py
@@ -42,6 +42,24 @@
   <Card variant="surface" size="lg" class="space-y-3">
     <h2 class="text-title-md font-semibold">Manifest</h2>
     <pre class="overflow-auto rounded bg-black/85 p-4 text-caption text-white">{`version: 1
+
+problem:
+  title: Advanced Sum
+  difficulty: medium
+  visibility: private
+  statement: |
+    Read two integers and output their sum.
+  inputFormat: |
+    One line with two integers a and b.
+  outputFormat: |
+    One integer: a + b.
+  examples:
+    - input: |
+        1 2
+      output: |
+        3
+  tags:
+    - advanced
 
 scoring:
   maxScore: 250

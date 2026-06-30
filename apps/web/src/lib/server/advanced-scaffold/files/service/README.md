@@ -61,7 +61,7 @@ only **after** the socket is bound and listening (the scaffold does this).
 ## Package upload
 
 Keep this directory under `service/` inside the NOJV Advanced package ZIP and
-set `network.mode: service` in `nojv-advanced.yaml`. NOJV builds the service
+set `network.mode: service` in `metadata.yaml`. NOJV builds the service
 image when staff upload the package.
 
 ## How the run container reaches it

@@ -11,10 +11,9 @@
   import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
   import AdvancedPackageSection from "$lib/components/features/problem/advanced/AdvancedPackageSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
-  import BundleControls from "$lib/components/features/problem/admin/BundleControls.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
+  import BreadcrumbBackLink from "$lib/components/primitives/layout/BreadcrumbBackLink.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { toasts } from "$lib/stores/toast";
 
@@ -27,13 +26,7 @@
   let isDirty = $state(false);
   let showPublishConfirm = $state(false);
   let showDeleteConfirm = $state(false);
-  let showRejudgeDialog = $state(false);
   let isDeleting = $state(false);
-
-  let storageRefreshToken = $state(0);
-  function bumpStorageRefresh() {
-    storageRefreshToken += 1;
-  }
 
   let isBasicInfoComplete = $derived(
     data.problem.title !== "Untitled Problem" &&
@@ -45,8 +38,7 @@
   let canPublish = $derived(
     data.problem.status === "draft" &&
       (isAdvanced
-        ? isBasicInfoComplete &&
-          (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
+        ? (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
           (data.advancedConfig?.config?.grade.imageRef ?? "") !== ""
         : data.testcaseSets.length > 0),
   );
@@ -99,7 +91,6 @@
       throw new Error(body?.message ?? m.bundle_uploadFailed());
     }
     toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
-    bumpStorageRefresh();
     await invalidateAll();
   }
 
@@ -140,6 +131,8 @@
 </script>
 
 <PageContainer class="space-y-6">
+  <BreadcrumbBackLink href="/problems?tab=mine" label={m.problems_myProblems()} />
+
   <div class="flex items-center gap-3">
     <h1 class="text-title-lg">
       {formatProblemDisplayName({
@@ -161,11 +154,6 @@
       </h2>
     {/if}
     <div class="ml-auto flex items-center gap-2">
-      {#if data.problem.status !== "draft"}
-        <Button variant="outline" size="sm" onclick={() => (showRejudgeDialog = true)}>
-          {m.rejudge_problem_admin_button()}
-        </Button>
-      {/if}
       {#if data.problem.status === "draft"}
         <Button
           variant="outline"
@@ -191,19 +179,7 @@
     </div>
   </div>
 
-  <BundleControls
-    problemId={data.problem.id}
-    refreshToken={storageRefreshToken}
-    onuploaded={bumpStorageRefresh}
-  />
-
   {#if isAdvanced}
-    <section
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <BasicInfoTab formData={data.form} problemId={data.problem.id} />
-    </section>
-
     {#if data.advancedConfig}
       <section
         class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
@@ -211,9 +187,6 @@
         <AdvancedPackageSection
           problemId={data.problem.id}
           config={data.advancedConfig.config}
-          timeLimitMs={data.advancedConfig.timeLimitMs}
-          memoryLimitMb={data.advancedConfig.memoryLimitMb}
-          requiredPaths={data.problem.advancedRequiredPaths ?? []}
           onuploaded={handleAdvancedPackageUploaded}
         />
       </section>
@@ -260,7 +233,6 @@
           problem={data.problem}
           validatorScripts={data.validatorScripts}
           ondirtychange={(d) => (isDirty = d)}
-          onuploaded={bumpStorageRefresh}
         />
       {/snippet}
     </ProblemSections>
@@ -285,11 +257,5 @@
     cancelText={m.admin_cancel()}
     onconfirm={handlePublishConfirmed}
     oncancel={() => (showPublishConfirm = false)}
-  />
-
-  <RejudgeDialog
-    problemId={data.problem.id}
-    open={showRejudgeDialog}
-    onOpenChange={(v) => (showRejudgeDialog = v)}
   />
 </PageContainer>
