@@ -170,6 +170,31 @@
       >{/if}
   </label>
 
+  {#if showRuntimeLimits}
+    <div class="grid gap-4 md:grid-cols-2">
+      <label class="text-body-sm text-muted-foreground">
+        <span>{m.admin_timeLimitMs()}</span>
+        <input
+          class={inputClassName}
+          type="number"
+          min="100"
+          max="30000"
+          bind:value={$form.timeLimitMs}
+        />
+      </label>
+      <label class="text-body-sm text-muted-foreground">
+        <span>{m.admin_memoryLimitMb()}</span>
+        <input
+          class={inputClassName}
+          type="number"
+          min="16"
+          max="1024"
+          bind:value={$form.memoryLimitMb}
+        />
+      </label>
+    </div>
+  {/if}
+
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-body-sm text-muted-foreground">
       <span
@@ -206,31 +231,6 @@
   </div>
 
   <SamplesEditor bind:samples />
-
-  {#if showRuntimeLimits}
-    <div class="grid gap-4 md:grid-cols-2">
-      <label class="text-body-sm text-muted-foreground">
-        <span>{m.admin_timeLimitMs()}</span>
-        <input
-          class={inputClassName}
-          type="number"
-          min="100"
-          max="30000"
-          bind:value={$form.timeLimitMs}
-        />
-      </label>
-      <label class="text-body-sm text-muted-foreground">
-        <span>{m.admin_memoryLimitMb()}</span>
-        <input
-          class={inputClassName}
-          type="number"
-          min="16"
-          max="1024"
-          bind:value={$form.memoryLimitMb}
-        />
-      </label>
-    </div>
-  {/if}
 
   <button
     type="button"
