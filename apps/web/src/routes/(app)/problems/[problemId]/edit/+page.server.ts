@@ -9,6 +9,7 @@ import {
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
   judgeConfigSchema,
+  problemTags,
 } from "@nojv/core";
 import type { ProblemType } from "@nojv/core";
 import { message, superValidate } from "sveltekit-superforms";
@@ -83,7 +84,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       samples: problem.samples,
       statement: problem.statement,
       status: problem.status,
-      tags: problem.tags,
+      tags: problem.tags.filter((tag) => (problemTags as readonly string[]).includes(tag)),
       timeLimitMs: problem.timeLimitMs,
       title: problem.title,
       type: problem.type satisfies ProblemType,

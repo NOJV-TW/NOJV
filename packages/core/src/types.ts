@@ -34,6 +34,39 @@ export const courseMembershipStatuses = ["active", "removed"] as const;
 export const submissionModes = ["practice", "contest", "assignment", "virtual"] as const;
 export const judgeTypes = ["standard", "checker", "interactive"] as const;
 export const problemTypes = ["full_source", "multi_file", "special_env"] as const;
+export const problemTags = [
+  "Array",
+  "String",
+  "Hash Table",
+  "Dynamic Programming",
+  "Math",
+  "Sorting",
+  "Greedy",
+  "Depth-First Search",
+  "Breadth-First Search",
+  "Binary Search",
+  "Tree",
+  "Binary Tree",
+  "Graph",
+  "Matrix",
+  "Two Pointers",
+  "Bit Manipulation",
+  "Stack",
+  "Queue",
+  "Heap (Priority Queue)",
+  "Sliding Window",
+  "Backtracking",
+  "Linked List",
+  "Recursion",
+  "Prefix Sum",
+  "Simulation",
+  "Union Find",
+  "Trie",
+  "Divide and Conquer",
+  "Number Theory",
+  "Design",
+] as const;
+export type ProblemTag = (typeof problemTags)[number];
 export const announcementStatuses = ["draft", "published", "archived"] as const;
 export const announcementAudiences = ["all", "students", "teachers"] as const;
 export const submissionVerdicts = [

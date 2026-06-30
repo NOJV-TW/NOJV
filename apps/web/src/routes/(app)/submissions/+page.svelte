@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Code2, History } from "@lucide/svelte";
+  import { submissionResultVerdicts } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
@@ -35,7 +36,13 @@
   let languageFilter = $state("");
   let titleQuery = $state("");
 
-  let verdictOptions = $derived([...new Set(data.submissions.map((s) => s.status))].sort());
+  const RESULT_VERDICTS: readonly string[] = submissionResultVerdicts;
+  let verdictOptions = $derived([
+    ...RESULT_VERDICTS,
+    ...[...new Set(data.submissions.map((s) => s.status))]
+      .filter((status) => !RESULT_VERDICTS.includes(status))
+      .sort(),
+  ]);
   let languageOptions = $derived([...new Set(data.submissions.map((s) => s.language))].sort());
 
   let filtered = $derived(

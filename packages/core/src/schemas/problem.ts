@@ -6,6 +6,7 @@ import {
   problemStatusSchema,
   problemTypeSchema,
   problemVisibilitySchema,
+  problemTags,
   type Language,
 } from "../types";
 
@@ -76,7 +77,18 @@ const problemCreateObjectSchema = z.object({
     .max(4_000, "validation_tooLong"),
   statement: z.string().trim().min(1, "validation_required").max(12_000, "validation_tooLong"),
   type: problemTypeSchema.default("full_source"),
-  tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  tags: z
+    .array(
+      z
+        .string()
+        .trim()
+        .refine(
+          (tag) => (problemTags as readonly string[]).includes(tag),
+          "validation_invalidTag",
+        ),
+    )
+    .max(20)
+    .default([]),
   timeLimitMs: z.coerce
     .number()
     .int()

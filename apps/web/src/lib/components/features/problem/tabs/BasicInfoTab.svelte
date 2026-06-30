@@ -5,7 +5,7 @@
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
-  import TagInput from "$lib/components/primitives/ui/TagInput.svelte";
+  import TagSelect from "$lib/components/primitives/ui/TagSelect.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import SamplesEditor from "$lib/components/features/problem/statement/SamplesEditor.svelte";
@@ -170,6 +170,31 @@
       >{/if}
   </label>
 
+  {#if showRuntimeLimits}
+    <div class="grid gap-4 md:grid-cols-2">
+      <label class="text-body-sm text-muted-foreground">
+        <span>{m.admin_timeLimitMs()}</span>
+        <input
+          class={inputClassName}
+          type="number"
+          min="100"
+          max="30000"
+          bind:value={$form.timeLimitMs}
+        />
+      </label>
+      <label class="text-body-sm text-muted-foreground">
+        <span>{m.admin_memoryLimitMb()}</span>
+        <input
+          class={inputClassName}
+          type="number"
+          min="16"
+          max="1024"
+          bind:value={$form.memoryLimitMb}
+        />
+      </label>
+    </div>
+  {/if}
+
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-body-sm text-muted-foreground">
       <span
@@ -207,31 +232,6 @@
 
   <SamplesEditor bind:samples />
 
-  {#if showRuntimeLimits}
-    <div class="grid gap-4 md:grid-cols-2">
-      <label class="text-body-sm text-muted-foreground">
-        <span>{m.admin_timeLimitMs()}</span>
-        <input
-          class={inputClassName}
-          type="number"
-          min="100"
-          max="30000"
-          bind:value={$form.timeLimitMs}
-        />
-      </label>
-      <label class="text-body-sm text-muted-foreground">
-        <span>{m.admin_memoryLimitMb()}</span>
-        <input
-          class={inputClassName}
-          type="number"
-          min="16"
-          max="1024"
-          bind:value={$form.memoryLimitMb}
-        />
-      </label>
-    </div>
-  {/if}
-
   <button
     type="button"
     class="text-body-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground text-left"
@@ -245,7 +245,7 @@
       <div class="text-body-sm text-muted-foreground">
         <span>{m.admin_tags()}</span>
         <div class="mt-2">
-          <TagInput bind:tags placeholder={m.admin_tagsPlaceholder()} />
+          <TagSelect bind:tags label={m.admin_tags()} />
         </div>
       </div>
     </div>

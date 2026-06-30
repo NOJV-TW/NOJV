@@ -327,7 +327,6 @@
   "admin_tabUsers": "Users",
   "admin_tabWorkspace": "Workspace",
   "admin_tags": "Tags",
-  "admin_tagsPlaceholder": "Type and press space to add tags",
   "admin_tarballDropHint": "Drop a docker tarball here, or click to browse",
   "admin_tarballUploading": "Uploading…",
   "admin_timeLimitMs": "Time limit (ms)",
