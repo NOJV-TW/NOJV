@@ -245,7 +245,7 @@
       <div class="text-body-sm text-muted-foreground">
         <span>{m.admin_tags()}</span>
         <div class="mt-2">
-          <TagSelect bind:tags />
+          <TagSelect bind:tags label={m.admin_tags()} />
         </div>
       </div>
     </div>

@@ -4,16 +4,12 @@
 
   interface Props {
     tags: string[];
+    label?: string;
   }
 
-  let { tags = $bindable() }: Props = $props();
+  let { tags = $bindable(), label }: Props = $props();
 
   const ALL_TAGS: readonly string[] = problemTags;
-
-  $effect(() => {
-    const valid = tags.filter((tag) => ALL_TAGS.includes(tag));
-    if (valid.length !== tags.length) tags = valid;
-  });
 
   function toggle(tag: string) {
     if (tags.includes(tag)) {
@@ -24,7 +20,7 @@
   }
 </script>
 
-<div class="flex flex-wrap gap-2" role="group">
+<div class="flex flex-wrap gap-2" role="group" aria-label={label}>
   {#each ALL_TAGS as tag (tag)}
     {@const selected = tags.includes(tag)}
     <button
