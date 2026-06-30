@@ -69,8 +69,8 @@ export async function highlightToLines(
   return lines.map((line) =>
     line.map((tok) => ({
       content: tok.content,
-      light: tok.variants[THEME_LIGHT]?.color ?? "",
-      dark: tok.variants[THEME_DARK]?.color ?? "",
+      light: tok.variants.light?.color ?? "",
+      dark: tok.variants.dark?.color ?? "",
     })),
   );
 }
