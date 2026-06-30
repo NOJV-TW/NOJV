@@ -52,6 +52,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
       success: true,
       builtImages: result.builtImages,
       maxScore: result.advancedConfig.maxScore,
+      problem: result.problem,
       requiredPaths: result.requiredPaths,
     });
   } catch (err) {

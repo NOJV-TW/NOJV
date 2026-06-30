@@ -23,6 +23,7 @@ import {
   advancedConfigSchema,
   advancedPackageManifestSchema,
   advancedResultSchema,
+  DEFAULT_LOCALE,
   parseRelativePath,
   validateAdvancedResultForMaxScore,
   type AdvancedConfig,
@@ -30,7 +31,7 @@ import {
   type AdvancedResult,
   type ImageRef,
 } from "@nojv/core";
-import { problemRepo, runTransaction } from "@nojv/db";
+import { problemRepo, problemStatementRepo, runTransaction } from "@nojv/db";
 import { deleteAdvancedImageTarball, uploadAdvancedImageTarball } from "@nojv/storage";
 
 import { ConflictError, ValidationError } from "../shared/errors";
@@ -81,6 +82,7 @@ export class AdvancedPackageError extends Error {
 export interface AdvancedPackageImportResult {
   advancedConfig: AdvancedConfig;
   builtImages: AdvancedImageRole[];
+  problem: AdvancedPackageManifest["problem"];
   requiredPaths: string[];
 }
 
@@ -204,14 +206,14 @@ async function extractPackage(zipBuffer: Buffer, dir: string): Promise<Set<strin
 async function readManifest(root: string): Promise<AdvancedPackageManifest> {
   let raw;
   try {
-    raw = await readFile(join(root, "nojv-advanced.yaml"), "utf8");
+    raw = await readFile(join(root, "metadata.yaml"), "utf8");
   } catch {
     packageError({
       code: "ADV_MANIFEST_MISSING",
       phase: "manifest",
-      file: "nojv-advanced.yaml",
-      message: "Advanced package is missing nojv-advanced.yaml.",
-      fix: "Add nojv-advanced.yaml at the ZIP root.",
+      file: "metadata.yaml",
+      message: "Advanced package is missing metadata.yaml.",
+      fix: "Add metadata.yaml at the ZIP root.",
     });
   }
 
@@ -222,8 +224,8 @@ async function readManifest(root: string): Promise<AdvancedPackageManifest> {
     packageError({
       code: "ADV_MANIFEST_YAML_INVALID",
       phase: "manifest",
-      file: "nojv-advanced.yaml",
-      message: "nojv-advanced.yaml is not valid YAML.",
+      file: "metadata.yaml",
+      message: "metadata.yaml is not valid YAML.",
       fix: err instanceof Error ? err.message : "Fix the YAML syntax.",
     });
   }
@@ -233,8 +235,8 @@ async function readManifest(root: string): Promise<AdvancedPackageManifest> {
     packageError({
       code: "ADV_MANIFEST_INVALID",
       phase: "manifest",
-      file: "nojv-advanced.yaml",
-      message: "nojv-advanced.yaml does not match the Advanced package schema.",
+      file: "metadata.yaml",
+      message: "metadata.yaml does not match the Advanced package schema.",
       fix: parsed.error.issues
         .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
         .join("; "),
@@ -1344,11 +1346,34 @@ export async function importAdvancedPackage(
       await requireProblem(tx, problemId);
       await problemRepo.withTx(tx).update(problemId, {
         type: "special_env",
+        title: manifest.problem.title,
+        difficulty: manifest.problem.difficulty,
+        visibility: manifest.problem.visibility,
+        tags: manifest.problem.tags,
+        samples: manifest.problem.examples,
         advancedConfig,
         advancedRequiredPaths: manifest.student.requiredPaths,
         timeLimitMs: manifest.resources.timeLimitMs,
         memoryLimitMb: manifest.resources.memoryLimitMb,
       });
+      await problemStatementRepo.withTx(tx).upsert(
+        problemId,
+        DEFAULT_LOCALE,
+        {
+          bodyMarkdown: manifest.problem.statement,
+          inputFormat: manifest.problem.inputFormat,
+          locale: DEFAULT_LOCALE,
+          outputFormat: manifest.problem.outputFormat,
+          problemId,
+          title: manifest.problem.title,
+        },
+        {
+          bodyMarkdown: manifest.problem.statement,
+          inputFormat: manifest.problem.inputFormat,
+          outputFormat: manifest.problem.outputFormat,
+          title: manifest.problem.title,
+        },
+      );
     });
 
     await Promise.all(
@@ -1358,6 +1383,7 @@ export async function importAdvancedPackage(
     return {
       advancedConfig,
       builtImages: serviceTag ? ["run", "grade", "service"] : ["run", "grade"],
+      problem: manifest.problem,
       requiredPaths: manifest.student.requiredPaths,
     };
   } catch (err) {

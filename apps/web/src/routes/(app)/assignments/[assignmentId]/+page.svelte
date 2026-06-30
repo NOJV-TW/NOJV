@@ -513,6 +513,7 @@
             problems={detail.problems}
             assignmentId={detail.id}
             canEdit={data.mode === "teacher" && detail.status !== "closed"}
+            canRejudge={data.mode === "teacher"}
             candidateProblems={data.mode === "teacher" ? data.candidateProblems : []}
           />
         {:else if activeSubTab === "submissions"}

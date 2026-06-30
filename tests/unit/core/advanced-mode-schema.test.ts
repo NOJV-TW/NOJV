@@ -98,6 +98,16 @@ describe("advancedResultSchema", () => {
 describe("advancedPackageManifestSchema", () => {
   const base = {
     version: 1,
+    problem: {
+      title: "Advanced Sum",
+      difficulty: "medium",
+      visibility: "private",
+      statement: "Read two integers and output their sum.",
+      inputFormat: "One line with two integers.",
+      outputFormat: "One integer.",
+      examples: [{ input: "1 2\n", output: "3\n" }],
+      tags: ["advanced"],
+    },
     scoring: { maxScore: 250 },
     resources: { timeLimitMs: 30_000, memoryLimitMb: 1_024 },
     student: { requiredPaths: ["main.py"] },

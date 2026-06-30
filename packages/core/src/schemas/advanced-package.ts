@@ -3,6 +3,27 @@ import { z } from "zod";
 import { advancedCanonicalVerdictSchema, MAX_ADVANCED_TOTAL_TIME_MS } from "./advanced-mode";
 import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
+import { problemDifficultySchema, problemVisibilitySchema } from "../types";
+
+const advancedPackageExampleSchema = z
+  .object({
+    input: z.string().max(200_000),
+    output: z.string().max(200_000),
+  })
+  .strict();
+
+const advancedPackageProblemSchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    difficulty: problemDifficultySchema,
+    visibility: problemVisibilitySchema,
+    statement: z.string().trim().min(1).max(12_000),
+    inputFormat: z.string().trim().min(1).max(4_000),
+    outputFormat: z.string().trim().min(1).max(4_000),
+    examples: z.array(advancedPackageExampleSchema).max(5).default([]),
+    tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  })
+  .strict();
 
 const advancedPackageNetworkSchema = z
   .object({
@@ -43,6 +64,7 @@ const advancedPackageSampleSchema = z
 export const advancedPackageManifestSchema = z
   .object({
     version: z.literal(1),
+    problem: advancedPackageProblemSchema,
     scoring: z
       .object({
         maxScore: z.coerce.number().int().min(1).max(100_000),
