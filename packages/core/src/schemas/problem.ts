@@ -82,7 +82,10 @@ const problemCreateObjectSchema = z.object({
       z
         .string()
         .trim()
-        .refine((tag) => (problemTags as readonly string[]).includes(tag), "validation_invalidTag"),
+        .refine(
+          (tag) => (problemTags as readonly string[]).includes(tag),
+          "validation_invalidTag",
+        ),
     )
     .max(20)
     .default([]),
