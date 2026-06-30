@@ -63,13 +63,13 @@
     convertFormEl?.submit();
   }
 
-  const sections = $derived<{ id: string; label: string; icon: string }[]>([
-    { id: "basic", label: m.admin_tabBasicInfo(), icon: "📝" },
+  const sections = $derived<{ id: string; label: string }[]>([
+    { id: "basic", label: m.admin_tabBasicInfo() },
     ...(problemType === "multi_file"
-      ? [{ id: "workspace", label: m.admin_tabWorkspace(), icon: "💻" }]
+      ? [{ id: "workspace", label: m.admin_tabWorkspace() }]
       : []),
-    { id: "testcase", label: m.admin_tabTestcase(), icon: "🧪" },
-    { id: "judge", label: m.admin_tabJudge(), icon: "⚖️" },
+    { id: "testcase", label: m.admin_tabTestcase() },
+    { id: "judge", label: m.admin_tabJudge() },
   ]);
 
   $effect(() => {
@@ -137,7 +137,6 @@
                 type="button"
                 disabled={locked}
               >
-                <span class="text-body">{section.icon}</span>
                 <span class="flex-1 text-left">{section.label}</span>
                 <span class="text-caption text-muted-foreground">{statusBadge(section.id)}</span
                 >
