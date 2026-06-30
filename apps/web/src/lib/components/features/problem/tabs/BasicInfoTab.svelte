@@ -5,7 +5,7 @@
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
-  import TagInput from "$lib/components/primitives/ui/TagInput.svelte";
+  import TagSelect from "$lib/components/primitives/ui/TagSelect.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import SamplesEditor from "$lib/components/features/problem/statement/SamplesEditor.svelte";
@@ -245,7 +245,7 @@
       <div class="text-body-sm text-muted-foreground">
         <span>{m.admin_tags()}</span>
         <div class="mt-2">
-          <TagInput bind:tags placeholder={m.admin_tagsPlaceholder()} />
+          <TagSelect bind:tags placeholder={m.admin_tagsPlaceholder()} />
         </div>
       </div>
     </div>
