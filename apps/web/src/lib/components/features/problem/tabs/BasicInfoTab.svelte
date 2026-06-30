@@ -245,7 +245,7 @@
       <div class="text-body-sm text-muted-foreground">
         <span>{m.admin_tags()}</span>
         <div class="mt-2">
-          <TagSelect bind:tags placeholder={m.admin_tagsPlaceholder()} />
+          <TagSelect bind:tags />
         </div>
       </div>
     </div>
