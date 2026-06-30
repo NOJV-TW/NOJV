@@ -142,10 +142,10 @@ async function persistSeedSubmissions(
 
 export async function seedSubmissions(
   prisma: PrismaClient,
-  refs: { student: User; demoStudents: User[] },
+  refs: { admin: User; student: User; demoStudents: User[] },
 ): Promise<void> {
   const now = Date.now();
-  const { student, demoStudents } = refs;
+  const { admin, student, demoStudents } = refs;
   const storage = createStorageClient();
 
   await prisma.submission.deleteMany({});
@@ -205,6 +205,36 @@ export async function seedSubmissions(
         sampleOnly: true,
       }),
     );
+  }
+
+  const adminRng = new SeededRng(0x5eed_ad01);
+  for (let dayOffset = 180; dayOffset >= 0; dayOffset--) {
+    const isRecent = dayOffset <= 3;
+    const active = isRecent || adminRng.chance(0.6);
+    if (!active) continue;
+
+    const perDay = isRecent ? adminRng.int(2, 5) : adminRng.int(1, 4);
+    for (let k = 0; k < perDay; k++) {
+      const problemId = adminRng.pick(PUBLIC_PRACTICE_PROBLEMS);
+      const verdict = adminRng.pick(PRACTICE_VERDICTS);
+      const within =
+        dayOffset === 0
+          ? now - adminRng.int(5, 55) * 60 * 1000
+          : now -
+            dayOffset * DAY +
+            adminRng.int(8, 22) * HOUR +
+            adminRng.int(0, 59) * 60 * 1000;
+      subs.push(
+        makeSubmission({
+          rng: adminRng,
+          userId: admin.id,
+          problemId,
+          testcases: tc(problemId),
+          verdict,
+          createdAt: new Date(within),
+        }),
+      );
+    }
   }
 
   demoStudents.slice(0, 4).forEach((s, idx) => {

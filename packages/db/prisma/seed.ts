@@ -28,7 +28,7 @@ async function main() {
   await seedContests(prisma);
   await seedCourses(prisma, { teacher, taStudent, student });
   const demoStudents = await seedDemoStudents(prisma, teacher);
-  await seedSubmissions(prisma, { student, demoStudents });
+  await seedSubmissions(prisma, { admin, student, demoStudents });
   await seedEngagement(prisma, { teacher, student, demoStudents });
 
   await prisma.announcement.deleteMany();
