@@ -18,7 +18,7 @@ that is the separate `grade` image's job. Never bake answers here.
 ## Package upload
 
 Do not upload this directory by itself. Keep it under `run/` inside the NOJV
-Advanced package ZIP, alongside `nojv-advanced.yaml` and `grade/`. NOJV builds
+Advanced package ZIP, alongside `metadata.yaml` and `grade/`. NOJV builds
 the run image when staff upload the package.
 
 ## The contract

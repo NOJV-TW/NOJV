@@ -625,6 +625,7 @@
         {detail}
         {liveStatus}
         canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
+        canRejudge={isManager}
         {form}
       />
     {/if}

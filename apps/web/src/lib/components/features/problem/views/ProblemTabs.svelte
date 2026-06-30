@@ -36,7 +36,7 @@
     showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public",
   );
 
-  async function handleCreate(mode: "standard" | "advanced" = "standard") {
+  async function handleCreate(mode: "standard" | "advanced") {
     creating = true;
     showCreateMenu = false;
     try {
@@ -112,37 +112,39 @@
         {m.problems_myProblems()}
       </button>
       <div class="relative ml-auto">
-        <Button
-          disabled={creating}
-          loading={creating}
-          onclick={() => {
-            showCreateMenu = !showCreateMenu;
-          }}
-          class="rounded-full"
-        >
-          <Plus class="size-4" aria-hidden="true" />
-          {creating ? m.common_saving() : m.problems_createNew()}
-          <ChevronDown class="size-3 opacity-70" aria-hidden="true" />
-        </Button>
+        <div class="flex">
+          <Button
+            disabled={creating}
+            loading={creating}
+            onclick={() => void handleCreate("standard")}
+            class="rounded-r-none rounded-l-full"
+          >
+            <Plus class="size-4" aria-hidden="true" />
+            {creating ? m.common_saving() : m.problems_createNew()}
+          </Button>
+          <Button
+            aria-expanded={showCreateMenu}
+            aria-haspopup="menu"
+            aria-label={m.problems_createOptions()}
+            disabled={creating}
+            onclick={() => {
+              showCreateMenu = !showCreateMenu;
+            }}
+            class="rounded-l-none rounded-r-full border-l border-primary-foreground/25 px-2.5"
+          >
+            <ChevronDown class="size-4 opacity-80" aria-hidden="true" />
+          </Button>
+        </div>
         {#if showCreateMenu}
           <div
             class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-hover"
             role="menu"
           >
-            <button
-              class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
-              onclick={() => void handleCreate("standard")}
-              type="button"
-            >
-              <span class="font-semibold">{m.problems_createStandardTitle()}</span>
-              <span class="text-caption text-muted-foreground">
-                {m.problems_createStandardDescription()}
-              </span>
-            </button>
             {#if advancedModeSupported}
               <button
                 class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
                 onclick={() => void handleCreate("advanced")}
+                role="menuitem"
                 type="button"
               >
                 <span class="font-semibold">{m.problems_createAdvancedTitle()}</span>
@@ -151,6 +153,17 @@
                 </span>
               </button>
             {/if}
+            <button
+              class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
+              onclick={() => void handleCreate("standard")}
+              role="menuitem"
+              type="button"
+            >
+              <span class="font-semibold">{m.problems_createStandardTitle()}</span>
+              <span class="text-caption text-muted-foreground">
+                {m.problems_createStandardDescription()}
+              </span>
+            </button>
           </div>
         {/if}
       </div>

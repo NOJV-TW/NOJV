@@ -3,25 +3,24 @@
 
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import { Button } from "$lib/components/primitives/ui/button";
-  import { Input } from "$lib/components/primitives/ui/input";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
 
-  type ContextType = "" | "contest" | "assignment" | "exam";
+  type RejudgeScope =
+    | { type: "practice" }
+    | { type: "assignment"; id: string }
+    | { type: "exam"; id: string }
+    | { type: "contest"; id: string };
 
   interface Props {
     problemId: string;
     open: boolean;
+    scope?: RejudgeScope;
     onOpenChange: (v: boolean) => void;
   }
 
-  let { problemId, open, onOpenChange }: Props = $props();
+  let { problemId, open, scope = { type: "practice" }, onOpenChange }: Props = $props();
 
-  let contextType = $state<ContextType>("");
-  let contextId = $state("");
-  let userIds = $state("");
-  let since = $state("");
-  let until = $state("");
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
@@ -85,11 +84,6 @@
   }
 
   function reset() {
-    contextType = "";
-    contextId = "";
-    userIds = "";
-    since = "";
-    until = "";
     error = null;
     stopPolling();
     workflowId = null;
@@ -105,50 +99,29 @@
 
   onDestroy(stopPolling);
 
-  function validate(): string | null {
-    if (contextType !== "" && contextId.trim() === "") {
-      return "Context id is required when a context type is selected.";
-    }
-    if (since !== "" && until !== "") {
-      if (since >= until) return '"Since" must be earlier than "Until".';
-    }
-    return null;
+  function scopeDescription(): string {
+    if (scope.type === "practice") return m.rejudge_dialog_problemScope();
+    if (scope.type === "assignment") return m.rejudge_dialog_assignmentScope();
+    if (scope.type === "exam") return m.rejudge_dialog_examScope();
+    return m.rejudge_dialog_contestScope();
   }
 
-  function toIsoOrUndef(v: string): string | undefined {
-    if (!v) return undefined;
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return undefined;
-    return d.toISOString();
+  function applyScope(payload: Record<string, unknown>) {
+    if (scope.type === "assignment") payload.assessmentId = scope.id;
+    if (scope.type === "exam") payload.examId = scope.id;
+    if (scope.type === "contest") payload.contestId = scope.id;
   }
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
     if (submitting) return;
 
-    const v = validate();
-    if (v) {
-      error = v;
-      return;
-    }
     error = null;
-
-    const ids = userIds
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
 
     const payload: Record<string, unknown> = {
       problemId,
     };
-    if (contextType === "contest") payload.contestId = contextId.trim();
-    if (contextType === "assignment") payload.assessmentId = contextId.trim();
-    if (contextType === "exam") payload.examId = contextId.trim();
-    if (ids.length > 0) payload.userIds = ids;
-    const sinceIso = toIsoOrUndef(since);
-    const untilIso = toIsoOrUndef(until);
-    if (sinceIso) payload.since = sinceIso;
-    if (untilIso) payload.until = untilIso;
+    applyScope(payload);
 
     submitting = true;
     try {
@@ -188,7 +161,7 @@
     <Dialog.Header>
       <Dialog.Title>{m.rejudge_dialog_title()}</Dialog.Title>
       <Dialog.Description>
-        {workflowId ? m.rejudge_progress_queued() : m.rejudge_dialog_filterCtx()}
+        {workflowId ? m.rejudge_progress_queued() : scopeDescription()}
       </Dialog.Description>
     </Dialog.Header>
 
@@ -231,69 +204,6 @@
       </div>
     {:else}
       <form class="space-y-4" onsubmit={handleSubmit}>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-body-sm font-medium" for="rejudge-context-type">
-            {m.rejudge_dialog_filterCtx()}
-          </label>
-          <select
-            id="rejudge-context-type"
-            class="h-11 rounded-md border border-input bg-background px-3 py-2 text-body-sm"
-            bind:value={contextType}
-            disabled={submitting}
-          >
-            <option value="">{m.rejudge_dialog_contextType_all()}</option>
-            <option value="contest">{m.rejudge_dialog_contextType_contest()}</option>
-            <option value="assignment">{m.rejudge_dialog_contextType_assignment()}</option>
-            <option value="exam">{m.rejudge_dialog_contextType_exam()}</option>
-          </select>
-        </div>
-
-        {#if contextType !== ""}
-          <div class="flex flex-col gap-1.5">
-            <label class="text-body-sm font-medium" for="rejudge-context-id">
-              {m.rejudge_dialog_contextId()}
-            </label>
-            <Input
-              id="rejudge-context-id"
-              bind:value={contextId}
-              placeholder="cuid…"
-              disabled={submitting}
-            />
-          </div>
-        {/if}
-
-        <div class="flex flex-col gap-1.5">
-          <label class="text-body-sm font-medium" for="rejudge-user-ids">
-            {m.rejudge_dialog_userIds()}
-          </label>
-          <Input id="rejudge-user-ids" bind:value={userIds} disabled={submitting} />
-        </div>
-
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-body-sm font-medium" for="rejudge-since">
-              {m.rejudge_dialog_since()}
-            </label>
-            <Input
-              id="rejudge-since"
-              type="datetime-local"
-              bind:value={since}
-              disabled={submitting}
-            />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-body-sm font-medium" for="rejudge-until">
-              {m.rejudge_dialog_until()}
-            </label>
-            <Input
-              id="rejudge-until"
-              type="datetime-local"
-              bind:value={until}
-              disabled={submitting}
-            />
-          </div>
-        </div>
-
         {#if error}
           <p class="text-caption text-destructive" role="alert">{error}</p>
         {/if}

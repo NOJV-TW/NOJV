@@ -8,6 +8,7 @@ const {
   spawnMock,
   problemFindById,
   problemUpdate,
+  problemStatementUpsert,
   uploadAdvancedImageTarball,
   deleteAdvancedImageTarball,
   gradeResult,
@@ -15,6 +16,7 @@ const {
   spawnMock: vi.fn(),
   problemFindById: vi.fn(),
   problemUpdate: vi.fn(),
+  problemStatementUpsert: vi.fn(),
   uploadAdvancedImageTarball: vi.fn(),
   deleteAdvancedImageTarball: vi.fn(),
   gradeResult: { value: { score: 100, verdict: "accepted" } },
@@ -41,6 +43,11 @@ vi.mock("@nojv/db", () => {
     problemRepo: {
       findById: problemFindById,
       withTx: () => withTx,
+    },
+    problemStatementRepo: {
+      withTx: () => ({
+        upsert: problemStatementUpsert,
+      }),
     },
     assessmentProblemRepo: {},
     contestProblemRepo: {},
@@ -101,8 +108,25 @@ async function packageZip(): Promise<Buffer> {
 
   const zip = new JSZip();
   zip.file(
-    "nojv-advanced.yaml",
+    "metadata.yaml",
     `version: 1
+problem:
+  title: Advanced Sum
+  difficulty: medium
+  visibility: private
+  statement: |
+    Read two integers and output their sum.
+  inputFormat: |
+    One line with two integers.
+  outputFormat: |
+    One integer.
+  examples:
+    - input: |
+        1 2
+      output: |
+        3
+  tags:
+    - advanced
 scoring:
   maxScore: 100
 resources:
@@ -145,6 +169,7 @@ describe("importAdvancedPackage", () => {
       advancedConfig: null,
     });
     problemUpdate.mockResolvedValue({ id: "prob_1" });
+    problemStatementUpsert.mockResolvedValue({ problemId: "prob_1", locale: "zh-TW" });
     uploadAdvancedImageTarball.mockImplementation(
       (_storage: unknown, _problemId: string, role: string) =>
         Promise.resolve(`problems/prob_1/advanced-images/${role}/image.tar`),
@@ -160,10 +185,36 @@ describe("importAdvancedPackage", () => {
     const persisted = problemUpdate.mock.calls[0]![1] as {
       advancedConfig: { run: { imageSource: string }; grade: { imageSource: string } };
       advancedRequiredPaths: string[];
+      title: string;
+      difficulty: string;
+      visibility: string;
+      samples: { input: string; output: string }[];
+      tags: string[];
     };
+    expect(persisted.title).toBe("Advanced Sum");
+    expect(persisted.difficulty).toBe("medium");
+    expect(persisted.visibility).toBe("private");
+    expect(persisted.samples).toEqual([{ input: "1 2\n", output: "3\n" }]);
+    expect(persisted.tags).toEqual(["advanced"]);
     expect(persisted.advancedConfig.run.imageSource).toBe("tarball");
     expect(persisted.advancedConfig.grade.imageSource).toBe("tarball");
     expect(persisted.advancedRequiredPaths).toEqual(["main.py"]);
+    expect(problemStatementUpsert).toHaveBeenCalledWith(
+      "prob_1",
+      "zh-TW",
+      expect.objectContaining({
+        bodyMarkdown: "Read two integers and output their sum.",
+        inputFormat: "One line with two integers.",
+        outputFormat: "One integer.",
+        title: "Advanced Sum",
+      }),
+      expect.objectContaining({
+        bodyMarkdown: "Read two integers and output their sum.",
+        inputFormat: "One line with two integers.",
+        outputFormat: "One integer.",
+        title: "Advanced Sum",
+      }),
+    );
     expect(spawnMock.mock.calls.some(([, args]) => args[0] === "run")).toBe(true);
   });
 
@@ -180,5 +231,6 @@ describe("importAdvancedPackage", () => {
       },
     });
     expect(problemUpdate).not.toHaveBeenCalled();
+    expect(problemStatementUpsert).not.toHaveBeenCalled();
   });
 });

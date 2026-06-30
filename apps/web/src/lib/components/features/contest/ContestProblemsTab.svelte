@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { ListChecks, Lock } from "@lucide/svelte";
+  import { ListChecks, Lock, RotateCcw } from "@lucide/svelte";
   import type { ContestScoringMode } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { contestModeUsesPoints } from "$lib/utils/contest-scoring";
+  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
 
   interface ProblemSummary {
@@ -27,6 +29,11 @@
     $props();
 
   const showPoints = $derived(contestModeUsesPoints(scoringMode));
+  let rejudgeProblemId = $state<string | null>(null);
+
+  function closeRejudgeDialog(open: boolean) {
+    if (!open) rejudgeProblemId = null;
+  }
 </script>
 
 <GlassPanel class="overflow-hidden">
@@ -70,35 +77,61 @@
             : isPast
               ? `/problems/${p.id}`
               : null}
-        <a
-          href={enterHref ?? "#"}
-          class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-muted/40 {enterHref
+        <div
+          class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5 transition-colors {enterHref
             ? ''
-            : 'pointer-events-none opacity-60'}"
-          tabindex={enterHref ? 0 : -1}
-          aria-disabled={enterHref ? undefined : true}
+            : 'pointer-events-none opacity-60'} {isManager
+            ? 'sm:grid-cols-[60px_1fr_auto_auto]'
+            : ''} hover:bg-muted/40"
         >
-          <div class="font-mono text-title font-semibold" style="color: var(--primary);">
-            {String.fromCharCode(64 + p.ordinal)}
-          </div>
-          <div class="min-w-0">
-            <div class="font-medium truncate">{p.title}</div>
-            {#if showPoints}
-              <div
-                class="mt-1 text-micro font-mono uppercase tracking-wider text-muted-foreground tabular-nums"
-              >
-                {p.points} pts
-              </div>
-            {/if}
-          </div>
-          <span
-            class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"
-            style="border-color: var(--border-subtle); {enterHref ? '' : 'opacity: 0.5;'}"
+          <a
+            href={enterHref ?? "#"}
+            class="contents no-underline"
+            tabindex={enterHref ? 0 : -1}
+            aria-disabled={enterHref ? undefined : true}
           >
-            {enterHref ? m.contestDetail_problemSolveCta() : "🔒"}
-          </span>
-        </a>
+            <div class="font-mono text-title font-semibold" style="color: var(--primary);">
+              {String.fromCharCode(64 + p.ordinal)}
+            </div>
+            <div class="min-w-0">
+              <div class="font-medium truncate">{p.title}</div>
+              {#if showPoints}
+                <div
+                  class="mt-1 text-micro font-mono uppercase tracking-wider text-muted-foreground tabular-nums"
+                >
+                  {p.points} pts
+                </div>
+              {/if}
+            </div>
+            <span
+              class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"
+              style="border-color: var(--border-subtle); {enterHref ? '' : 'opacity: 0.5;'}"
+            >
+              {enterHref ? m.contestDetail_problemSolveCta() : "🔒"}
+            </span>
+          </a>
+          {#if isManager}
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onclick={() => (rejudgeProblemId = p.id)}
+            >
+              <RotateCcw class="size-3" aria-hidden="true" />
+              {m.rejudge_problem_admin_button()}
+            </Button>
+          {/if}
+        </div>
       {/each}
     {/if}
   </div>
 </GlassPanel>
+
+{#if rejudgeProblemId}
+  <RejudgeDialog
+    problemId={rejudgeProblemId}
+    open={true}
+    scope={{ type: "contest", id: contestId }}
+    onOpenChange={closeRejudgeDialog}
+  />
+{/if}

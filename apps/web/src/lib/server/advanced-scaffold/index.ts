@@ -15,6 +15,24 @@ const SCAFFOLD_FILES: Record<string, string> = Object.fromEntries(
 
 const MANIFEST = `version: 1
 
+problem:
+  title: Advanced Sum
+  difficulty: medium
+  visibility: private
+  statement: |
+    Read two integers and output their sum.
+  inputFormat: |
+    One line with two integers a and b.
+  outputFormat: |
+    One integer: a + b.
+  examples:
+    - input: |
+        1 2
+      output: |
+        3
+  tags:
+    - advanced
+
 scoring:
   maxScore: 100
 
@@ -44,7 +62,7 @@ function packageEntries(): [string, string][] {
 
 export function scaffoldEntryNames(): string[] {
   return [
-    "nojv-advanced.yaml",
+    "metadata.yaml",
     "samples/full-credit.zip",
     ...packageEntries().map(([path]) => path),
   ].sort((a, b) => a.localeCompare(b));
@@ -56,7 +74,7 @@ export function scaffoldZipFilename(): string {
 
 export async function buildScaffoldZip(): Promise<Blob> {
   const zip = new JSZip();
-  zip.file("nojv-advanced.yaml", MANIFEST);
+  zip.file("metadata.yaml", MANIFEST);
   const sample = new JSZip();
   sample.file(
     "main.py",

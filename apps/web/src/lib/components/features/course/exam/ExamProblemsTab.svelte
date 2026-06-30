@@ -9,9 +9,11 @@
   import { enhance } from "$app/forms";
   import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import X from "@lucide/svelte/icons/x";
   import Plus from "@lucide/svelte/icons/plus";
 
+  import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn, inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
@@ -21,14 +23,16 @@
     detail: ProblemsTabDetail;
     liveStatus?: ProblemsLiveStatus;
     canEdit: boolean;
+    canRejudge?: boolean;
     form?: ActionData;
     class?: string;
   }
 
-  let { detail, canEdit, form, class: className }: Props = $props();
+  let { detail, canEdit, canRejudge = false, form, class: className }: Props = $props();
 
   let ids = $state<string[]>([]);
   let attachInput = $state("");
+  let rejudgeProblemId = $state<string | null>(null);
 
   $effect(() => {
     ids = detail.problems.map((p) => p.id);
@@ -53,6 +57,10 @@
     if (d === "easy") return "text-success";
     if (d === "medium") return "text-warning";
     return "text-destructive";
+  }
+
+  function closeRejudgeDialog(open: boolean) {
+    if (!open) rejudgeProblemId = null;
   }
 </script>
 
@@ -110,6 +118,17 @@
 
               {#if canEdit}
                 <div class="flex items-center gap-1">
+                  {#if canRejudge}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onclick={() => (rejudgeProblemId = id)}
+                    >
+                      <RotateCcw class="size-3" aria-hidden="true" />
+                      {m.rejudge_problem_admin_button()}
+                    </Button>
+                  {/if}
                   <button
                     type="button"
                     class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
@@ -138,9 +157,22 @@
                   </button>
                 </div>
               {:else}
-                <Button href={`/problems/${problem.id}`} variant="outline" size="sm">
-                  {m.examDetail_problemPreview()}
-                </Button>
+                <div class="flex items-center gap-2">
+                  {#if canRejudge}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onclick={() => (rejudgeProblemId = problem.id)}
+                    >
+                      <RotateCcw class="size-3" aria-hidden="true" />
+                      {m.rejudge_problem_admin_button()}
+                    </Button>
+                  {/if}
+                  <Button href={`/problems/${problem.id}`} variant="outline" size="sm">
+                    {m.examDetail_problemPreview()}
+                  </Button>
+                </div>
               {/if}
             </li>
           {/if}
@@ -199,3 +231,12 @@
     </form>
   {/if}
 </section>
+
+{#if rejudgeProblemId}
+  <RejudgeDialog
+    problemId={rejudgeProblemId}
+    open={true}
+    scope={{ type: "exam", id: detail.id }}
+    onOpenChange={closeRejudgeDialog}
+  />
+{/if}

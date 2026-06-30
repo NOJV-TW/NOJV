@@ -9,7 +9,6 @@ import {
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
   judgeConfigSchema,
-  MAX_ADVANCED_TOTAL_TIME_MS,
   problemTags,
 } from "@nojv/core";
 import type { ProblemType } from "@nojv/core";
@@ -106,9 +105,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     advancedConfig: isAdvanced
       ? {
           config: problem.advancedConfig,
-          timeLimitMs: problem.timeLimitMs,
-          memoryLimitMb: problem.memoryLimitMb,
-          maxTotalTimeMs: MAX_ADVANCED_TOTAL_TIME_MS,
         }
       : null,
     advancedModeSupported: isAdvancedModeSupported(),
