@@ -195,7 +195,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
     {
       authorId: teacherId,
       title: "Warmup Sum",
-      tags: ["easy"],
+      tags: ["easy", "Array", "Math"],
       type: "full_source" as const,
       id: "problem_warmup-sum",
       memoryLimitMb: 256,
@@ -241,7 +241,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
     {
       authorId: teacherId,
       title: "Binary Search Lower Bound",
-      tags: ["medium"],
+      tags: ["medium", "Binary Search", "Array"],
       type: "full_source" as const,
       id: "problem_graph-docking",
       memoryLimitMb: 256,
@@ -301,7 +301,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
     {
       authorId: teacherId,
       title: "Maze Shortest Path",
-      tags: ["hard"],
+      tags: ["hard", "Breadth-First Search", "Graph", "Matrix"],
       type: "full_source" as const,
       id: "problem_distributed-labyrinth",
       memoryLimitMb: 512,
@@ -349,7 +349,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
     {
       authorId: teacherId,
       title: "Maximum Subarray Sum",
-      tags: ["medium"],
+      tags: ["medium", "Dynamic Programming", "Array"],
       type: "full_source" as const,
       id: "problem_process-log-parser",
       memoryLimitMb: 256,
@@ -396,7 +396,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
     {
       authorId: teacherId,
       title: "0/1 Knapsack",
-      tags: ["hard"],
+      tags: ["hard", "Dynamic Programming", "Array"],
       type: "full_source" as const,
       id: "problem_fork-bomb-safeguard",
       memoryLimitMb: 512,
@@ -444,7 +444,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
     {
       authorId: teacherId,
       title: "Add Two Numbers",
-      tags: ["easy"],
+      tags: ["easy", "Linked List", "Math", "Recursion"],
       type: "full_source" as const,
       id: "problem_add-two-numbers",
       memoryLimitMb: 256,
@@ -490,7 +490,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
     {
       authorId: teacherId,
       title: "Float Compare",
-      tags: ["easy"],
+      tags: ["easy", "Math"],
       type: "full_source" as const,
       id: "problem_float-compare",
       memoryLimitMb: 256,
@@ -548,7 +548,7 @@ wrong(f"expected {expected}, got {actual}")
     {
       authorId: teacherId,
       title: "Any Two Sum (Checker)",
-      tags: ["medium"],
+      tags: ["medium", "Array", "Hash Table", "Two Pointers"],
       type: "full_source" as const,
       id: "problem_any-two-sum",
       memoryLimitMb: 256,
@@ -624,7 +624,7 @@ wrong(f"a[{i}]+a[{j}] != {target}")
     {
       authorId: teacherId,
       title: "Guess the Number",
-      tags: ["medium"],
+      tags: ["medium", "Binary Search"],
       type: "full_source" as const,
       id: "problem_guess-the-number",
       memoryLimitMb: 256,
@@ -693,7 +693,7 @@ wrong(f"failed to guess {secret} within 20 attempts")
     {
       authorId: teacherId,
       title: "Primality Test (Multi-File)",
-      tags: ["hard"],
+      tags: ["hard", "Math", "Number Theory"],
       type: "multi_file" as const,
       id: "problem_stateful-dhcp-parser",
       memoryLimitMb: 256,
@@ -798,7 +798,7 @@ def read_queries() -> List[int]:
     {
       authorId: teacherId,
       title: "Binary Search (Multi-File)",
-      tags: ["hard"],
+      tags: ["hard", "Binary Search", "Array"],
       type: "multi_file" as const,
       id: "problem_memory-leak-forensics",
       memoryLimitMb: 256,
@@ -912,7 +912,7 @@ def read_problem() -> Tuple[List[int], List[int]]:
     {
       authorId: teacherId,
       title: "Any Factor Pair (Multi-File Checker)",
-      tags: ["medium"],
+      tags: ["medium", "Math", "Number Theory"],
       type: "multi_file" as const,
       id: "problem_multi-checker-stats",
       memoryLimitMb: 256,
@@ -1022,7 +1022,7 @@ def read_n() -> int:
     {
       authorId: teacherId,
       title: "Multi-File Bisect (Interactive)",
-      tags: ["medium"],
+      tags: ["medium", "Binary Search"],
       type: "multi_file" as const,
       id: "problem_multi-interactive-bisect",
       memoryLimitMb: 256,
@@ -1151,7 +1151,7 @@ def read_verdict() -> str:
     {
       authorId: teacherId,
       title: "Noisy Oracle Hunt",
-      tags: ["hard"],
+      tags: ["hard", "Binary Search", "Math"],
       type: "full_source" as const,
       id: "problem_noisy-oracle-hunt",
       memoryLimitMb: 256,
@@ -1226,7 +1226,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
     {
       authorId: teacherId,
       title: "Sum of Two Integers (Advanced Demo)",
-      tags: ["medium"],
+      tags: ["medium", "Math", "Bit Manipulation"],
       type: "special_env" as const,
       id: "problem_shell-scripting-lab",
       memoryLimitMb: 512,
