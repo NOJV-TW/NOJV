@@ -9,6 +9,13 @@
   let btnEl: HTMLButtonElement | undefined = $state();
   let dropdownEl: HTMLDivElement | undefined = $state();
 
+  function toggle() {
+    open = !open;
+    if (open && notifications.unreadCount > 0) {
+      void notifications.markAll();
+    }
+  }
+
   function handleClickOutside(e: MouseEvent) {
     if (btnEl?.contains(e.target as Node) || dropdownEl?.contains(e.target as Node)) {
       return;
@@ -49,7 +56,7 @@
       "relative flex size-9 cursor-pointer items-center justify-center rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] text-foreground transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover",
       notifications.isAnimating && "bell-shake",
     )}
-    onclick={() => (open = !open)}
+    onclick={toggle}
     type="button"
   >
     <BellIcon aria-hidden="true" size={18} />
