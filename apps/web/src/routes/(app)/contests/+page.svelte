@@ -7,7 +7,6 @@
   import { Input } from "$lib/components/primitives/ui/input/index.js";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import ContestSection from "$lib/components/features/contest/ContestSection.svelte";
   import ContestPoster from "$lib/components/features/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/features/contest/ContestRowPast.svelte";
@@ -74,24 +73,22 @@
         subtitle={m.contestsList_sectionLiveSubtitle()}
         badge={m.contestsList_sectionLiveBadge()}
       >
-        <GlassPanel class="overflow-hidden">
-          <div class="divide-y" style="border-color: var(--border-subtle);">
-            {#each live as c, i (c.raw.id)}
-              <ContestPoster
-                href="/contests/{c.raw.id}"
-                scoringLabel={c.scoringLabel}
-                status={c.status}
-                title={c.raw.title}
-                summary={c.raw.summary}
-                startsAt={c.raw.startsAt}
-                endsAt={c.raw.endsAt}
-                durationMin={c.durationMin}
-                participants={c.raw.participantCount}
-                delay={i * 80}
-              />
-            {/each}
-          </div>
-        </GlassPanel>
+        <div class="grid gap-2">
+          {#each live as c, i (c.raw.id)}
+            <ContestPoster
+              href="/contests/{c.raw.id}"
+              scoringLabel={c.scoringLabel}
+              status={c.status}
+              title={c.raw.title}
+              summary={c.raw.summary}
+              startsAt={c.raw.startsAt}
+              endsAt={c.raw.endsAt}
+              durationMin={c.durationMin}
+              participants={c.raw.participantCount}
+              delay={i * 80}
+            />
+          {/each}
+        </div>
       </ContestSection>
     {/if}
 
@@ -104,24 +101,22 @@
           {m.contestsList_sectionUpcomingEmpty()}
         </div>
       {:else}
-        <GlassPanel class="overflow-hidden">
-          <div class="divide-y" style="border-color: var(--border-subtle);">
-            {#each upcoming as c, i (c.raw.id)}
-              <ContestPoster
-                href="/contests/{c.raw.id}"
-                scoringLabel={c.scoringLabel}
-                status={c.status}
-                title={c.raw.title}
-                summary={c.raw.summary}
-                startsAt={c.raw.startsAt}
-                endsAt={c.raw.endsAt}
-                durationMin={c.durationMin}
-                participants={c.raw.participantCount}
-                delay={i * 80}
-              />
-            {/each}
-          </div>
-        </GlassPanel>
+        <div class="grid gap-2">
+          {#each upcoming as c, i (c.raw.id)}
+            <ContestPoster
+              href="/contests/{c.raw.id}"
+              scoringLabel={c.scoringLabel}
+              status={c.status}
+              title={c.raw.title}
+              summary={c.raw.summary}
+              startsAt={c.raw.startsAt}
+              endsAt={c.raw.endsAt}
+              durationMin={c.durationMin}
+              participants={c.raw.participantCount}
+              delay={i * 80}
+            />
+          {/each}
+        </div>
       {/if}
     </ContestSection>
 
@@ -130,20 +125,18 @@
         title={m.contestsList_sectionHistoryTitle().toUpperCase()}
         subtitle={m.contestsList_sectionHistorySubtitle()}
       >
-        <GlassPanel class="overflow-hidden">
-          <div class="divide-y" style="border-color: var(--border-subtle);">
-            {#each past as c, i (c.raw.id)}
-              <ContestRowPast
-                href="/contests/{c.raw.id}"
-                scoringLabel={c.scoringLabel}
-                title={c.raw.title}
-                startsAt={c.raw.startsAt}
-                participants={c.raw.participantCount}
-                delay={i * 60}
-              />
-            {/each}
-          </div>
-        </GlassPanel>
+        <div class="grid gap-2">
+          {#each past as c, i (c.raw.id)}
+            <ContestRowPast
+              href="/contests/{c.raw.id}"
+              scoringLabel={c.scoringLabel}
+              title={c.raw.title}
+              startsAt={c.raw.startsAt}
+              participants={c.raw.participantCount}
+              delay={i * 60}
+            />
+          {/each}
+        </div>
       </ContestSection>
     {/if}
 

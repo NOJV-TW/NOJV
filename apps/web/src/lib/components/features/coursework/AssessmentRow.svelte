@@ -38,7 +38,7 @@
 <a
   {href}
   class={cn(
-    "group relative grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 text-foreground no-underline transition-colors hover:bg-muted/40",
+    "group glass hover-lift relative grid grid-cols-[1fr_auto] items-center gap-4 overflow-hidden rounded-xl px-5 py-4 text-foreground no-underline shadow-rest",
     className,
   )}
   style="animation-delay: {delay}ms;"
@@ -51,7 +51,9 @@
 
   <div class="min-w-0">
     <div class="truncate font-medium">{title}</div>
-    <div class="mt-0.5 truncate text-caption font-mono uppercase tracking-wider text-muted-foreground">
+    <div
+      class="mt-0.5 truncate text-caption font-mono uppercase tracking-wider text-muted-foreground"
+    >
       {typeLabel}{context ? ` · ${context}` : ""}
     </div>
   </div>
@@ -60,7 +62,9 @@
     <div class="hidden flex-col items-end gap-1 sm:flex">
       <StatusPill {status} type={kind} />
       {#if timing || foot}
-        <div class="flex items-center gap-2 font-mono text-caption tabular-nums text-muted-foreground">
+        <div
+          class="flex items-center gap-2 font-mono text-caption tabular-nums text-muted-foreground"
+        >
           {#if timing}<span>{@render timing()}</span>{/if}
           {#if timing && foot}<span class="opacity-40">·</span>{/if}
           {#if foot}<span>{@render foot()}</span>{/if}

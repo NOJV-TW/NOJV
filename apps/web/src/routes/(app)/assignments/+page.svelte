@@ -7,7 +7,6 @@
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import AssignmentCard from "$lib/components/features/course/assignment/AssignmentCard.svelte";
-  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -97,13 +96,11 @@
         </a>
       </div>
     {:else}
-      <GlassPanel class="overflow-hidden">
-        <div class="divide-y" style="border-color: var(--border-subtle);">
-          {#each assignments as assignment, i (assignment.id)}
-            <AssignmentCard {assignment} delay={i * 60} />
-          {/each}
-        </div>
-      </GlassPanel>
+      <div class="grid gap-2">
+        {#each assignments as assignment, i (assignment.id)}
+          <AssignmentCard {assignment} delay={i * 60} />
+        {/each}
+      </div>
     {/if}
   </div>
 </PageContainer>
