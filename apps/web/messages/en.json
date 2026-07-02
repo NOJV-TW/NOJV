@@ -1860,5 +1860,6 @@
   "workspace_mustHaveMainFile": "Each enabled language must have an editable file named {filename}",
   "workspace_visibilityEditable": "edit",
   "workspace_visibilityHidden": "hidden",
-  "workspace_visibilityReadonly": "read"
+  "workspace_visibilityReadonly": "read",
+  "contestScoreboard_notStartedHint": "The scoreboard opens once the contest begins."
 }

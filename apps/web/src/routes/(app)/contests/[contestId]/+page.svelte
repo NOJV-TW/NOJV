@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
+  import { toasts } from "$lib/stores/toast";
   import { Button } from "$lib/components/primitives/ui/button";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
@@ -106,7 +107,16 @@
       </span>
     {/if}
   {/if}
-  <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
+  <Button
+    variant="outline"
+    onclick={() => {
+      if (isUpcoming && !isManager) {
+        toasts.warning(m.contestScoreboard_notStartedHint());
+      } else {
+        void goto(`/contests/${contest.id}/scoreboard`);
+      }
+    }}
+  >
     {m.contestDetail_actionScoreboard()}
   </Button>
   {#if isPast}

@@ -58,8 +58,8 @@
     )}
     role={isError ? "alert" : "status"}
     aria-live={isError ? "assertive" : "polite"}
-    in:fade={{ duration: 160 }}
-    out:fade={{ duration: 100 }}
+    in:fade|global={{ duration: 160 }}
+    out:fade|global={{ duration: 100 }}
   >
     {@render body()}
   </div>
@@ -70,8 +70,8 @@
     )}
     role={isError ? "alert" : "status"}
     aria-live={isError ? "assertive" : "polite"}
-    in:fly={{ y: 16, duration: 240, easing: cubicOut }}
-    out:fly={{ y: 8, duration: 140, easing: cubicOut }}
+    in:fly|global={{ x: 24, duration: 240, easing: cubicOut }}
+    out:fly|global={{ x: 24, duration: 180, easing: cubicOut }}
   >
     {@render body()}
   </div>

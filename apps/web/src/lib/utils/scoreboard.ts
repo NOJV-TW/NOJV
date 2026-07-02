@@ -1,3 +1,7 @@
+export function contestNotStarted(startsAt: string | Date, now: Date = new Date()): boolean {
+  return new Date(startsAt).getTime() > now.getTime();
+}
+
 export function entriesAroundUser<T extends { userId: string }>(
   entries: T[],
   userId: string | null,
