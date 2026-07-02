@@ -92,7 +92,6 @@ export async function updateUserRole(
   }
   const updated = await userRepo.update(userId, {
     platformRole: role,
-    // A non-admin can never be a super admin.
     ...(role === "admin" ? {} : { isSuperAdmin: false }),
   });
 

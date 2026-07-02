@@ -43,17 +43,18 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { params, locals } = event;
   const now = new Date();
   const user = locals.user;
+  const actor = getActorContext(event);
 
   const contest = await getContestDetail(params.contestId, {
     userId: user?.id ?? null,
-    platformRole: locals.sessionUser?.platformRole ?? null,
+    platformRole: actor?.platformRole ?? null,
     now,
   });
 
   const showLeaderboard = now >= new Date(contest.startsAt);
   const canSeeLive = await contestDomain.canViewLiveContestScoreboard(
     contest.id,
-    user ? { userId: user.id, platformRole: locals.sessionUser?.platformRole ?? null } : null,
+    user ? { userId: user.id, platformRole: actor?.platformRole ?? null } : null,
   );
   const topEntries = showLeaderboard
     ? await getScoreboard(contest.id, { canSeeLive }).then((sb) =>
@@ -147,7 +148,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     }
   }
 
-  const actor = getActorContext(event);
   let canAskClar = false;
   let canAnswerClar = false;
   let canViewClar = false;

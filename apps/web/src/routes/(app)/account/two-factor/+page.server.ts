@@ -90,7 +90,6 @@ export const load = async (event: RequestEvent) => {
   const actor = requireAuth(event);
   return {
     twoFactorEnabled: event.locals.sessionUser?.twoFactorEnabled ?? false,
-    platformRole: event.locals.sessionUser?.platformRole ?? "student",
     isSuperAdmin: event.locals.sessionUser?.isSuperAdmin ?? false,
     hasPassword: await userHasCredentialPassword(actor.userId),
     enrollConfirmed: await hasEnrollConfirmed(actor.userId),
