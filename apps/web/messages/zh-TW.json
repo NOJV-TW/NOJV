@@ -1534,6 +1534,8 @@
   "mobile_workspaceBlockerTitle": "請使用桌面版瀏覽器作答",
   "navigation_account": "帳號",
   "navigation_admin": "管理後台",
+  "userMenu_enterAdminMode": "切換到管理模式",
+  "userMenu_exitAdminMode": "離開管理模式",
   "navigation_assignments": "作業",
   "navigation_contests": "競賽",
   "navigation_courses": "課程",

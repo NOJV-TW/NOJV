@@ -110,6 +110,7 @@ function createAuth() {
       additionalFields: {
         disabled: { type: "boolean", defaultValue: false, input: false },
         platformRole: { type: "string", defaultValue: "student", input: false },
+        isSuperAdmin: { type: "boolean", defaultValue: false, input: false },
         status: { type: "string", defaultValue: "active", input: false },
         mustChangePassword: { type: "boolean", defaultValue: false, input: false },
       },
@@ -142,8 +143,8 @@ function createAuth() {
           const userId = newSession?.user.id;
           if (userId) {
             await getRedis().set(keys.apiTokenStepUp(userId), "1", "EX", 600);
-            const role = (newSession.user as { platformRole?: string }).platformRole;
-            if (role === "admin") {
+            const isSuperAdmin = (newSession.user as { isSuperAdmin?: boolean }).isSuperAdmin;
+            if (isSuperAdmin) {
               await getRedis().set(
                 keys.adminSessionMfa(newSession.session.id),
                 "1",

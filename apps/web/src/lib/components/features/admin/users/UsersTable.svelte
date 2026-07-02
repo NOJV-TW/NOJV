@@ -24,9 +24,10 @@
   interface Props {
     users: UsersTableUser[];
     actorId: string | undefined;
+    canManageAdmins: boolean;
   }
 
-  let { users, actorId }: Props = $props();
+  let { users, actorId, canManageAdmins }: Props = $props();
 
   let editingUserId = $state<string | null>(null);
   let draftRole = $state<PlatformRole>("student");
@@ -156,7 +157,9 @@
                   class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
                   bind:value={draftRole}
                 >
-                  <option value="admin">{m.common_roleAdmin()}</option>
+                  {#if canManageAdmins}
+                    <option value="admin">{m.common_roleAdmin()}</option>
+                  {/if}
                   <option value="teacher">{m.common_roleTeacher()}</option>
                   <option value="student">{m.common_roleStudent()}</option>
                 </select>
@@ -183,6 +186,10 @@
                   </Button>
                 </div>
               </form>
+            {:else if user.platformRole === "admin" && !canManageAdmins}
+              <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
+                {roleLabel(user.platformRole)}
+              </Badge>
             {:else}
               <button
                 type="button"

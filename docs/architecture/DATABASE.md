@@ -135,15 +135,16 @@ erDiagram
 
 Central identity. Links to sessions, OAuth accounts, submissions, course memberships, contest participations, and stats.
 
-| Field             | Type         | Notes                                                                                          |
-| ----------------- | ------------ | ---------------------------------------------------------------------------------------------- |
-| `email`           | String       | Unique                                                                                         |
-| `username`        | String?      | Unique, optional until profile completion                                                      |
-| `displayUsername` | String?      | better-auth display variant of `username` (original-case copy)                                 |
-| `name`            | String       | Required display name (better-auth core field)                                                 |
-| `platformRole`    | PlatformRole | Default: student                                                                               |
-| `status`          | UserStatus   | active / disabled / pending_first_login — see schema/auth.prisma for the placeholder-user flow |
-| `disabled`        | Boolean      | Admin soft-lock used by better-auth sign-in checks                                             |
+| Field             | Type         | Notes                                                                                                             |
+| ----------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `email`           | String       | Unique                                                                                                            |
+| `username`        | String?      | Unique, optional until profile completion                                                                         |
+| `displayUsername` | String?      | better-auth display variant of `username` (original-case copy)                                                    |
+| `name`            | String       | Required display name (better-auth core field)                                                                    |
+| `platformRole`    | PlatformRole | Default: student. `admin` grants admin capability (exercised only via the session admin-mode toggle)              |
+| `isSuperAdmin`    | Boolean      | Default: false. `true` only when `platformRole = admin`; super admins grant/revoke admin and require 2FA at login |
+| `status`          | UserStatus   | active / disabled / pending_first_login — see schema/auth.prisma for the placeholder-user flow                    |
+| `disabled`        | Boolean      | Admin soft-lock used by better-auth sign-in checks                                                                |
 
 ### Problem
 

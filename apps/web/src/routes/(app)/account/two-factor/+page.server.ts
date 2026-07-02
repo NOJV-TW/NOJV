@@ -91,6 +91,7 @@ export const load = async (event: RequestEvent) => {
   return {
     twoFactorEnabled: event.locals.sessionUser?.twoFactorEnabled ?? false,
     platformRole: event.locals.sessionUser?.platformRole ?? "student",
+    isSuperAdmin: event.locals.sessionUser?.isSuperAdmin ?? false,
     hasPassword: await userHasCredentialPassword(actor.userId),
     enrollConfirmed: await hasEnrollConfirmed(actor.userId),
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
@@ -172,7 +173,7 @@ export const actions = {
       });
       forwardSetCookies(event, headers);
       const sessionId = event.locals.session?.id;
-      if (actor.platformRole === "admin" && sessionId) {
+      if (event.locals.sessionUser?.isSuperAdmin && sessionId) {
         await markAdminSessionMfa(sessionId);
       }
     } catch {

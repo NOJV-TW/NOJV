@@ -42,7 +42,11 @@
         description={m.admin_usersEmptyHint()}
       />
     {:else}
-      <UsersTable users={data.users} actorId={data.actor?.userId} />
+      <UsersTable
+        users={data.users}
+        actorId={data.actor?.userId}
+        canManageAdmins={data.canManageAdmins}
+      />
     {/if}
   </Card>
 
