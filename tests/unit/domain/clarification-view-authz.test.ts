@@ -57,6 +57,7 @@ const sampleRow = {
   questionText: "Is the input 1-indexed?",
   answerText: "Yes.",
   state: "answered",
+  isPublic: true,
   askedByUserId: "usr_asker",
   askedBy: { id: "usr_asker", username: "asker", name: "Asker" },
   answeredBy: { id: "usr_organizer", username: "org", name: "Organizer" },

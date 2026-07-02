@@ -15,6 +15,8 @@ export interface ClarificationItem {
   answeredBy: { id: string; username: string; name: string } | null;
   answeredAt: string | null;
   createdAt: string;
+  isPublic: boolean;
+  isMine: boolean;
 }
 
 export interface ClarificationsStore {
@@ -23,17 +25,17 @@ export interface ClarificationsStore {
   init(): Promise<void>;
   handleSse(event: ClarificationSSEEvent): void;
   ask(questionText: string, problemId: string | null): Promise<void>;
-  answer(id: string, answerText: string): Promise<void>;
+  answer(id: string, answerText: string, isPublic: boolean): Promise<void>;
   dismiss(id: string): Promise<void>;
   delete(id: string): Promise<void>;
   canned(id: string, templateKey: "noComment" | "readProblem" | "yes" | "no"): Promise<void>;
   markTabVisited(): void;
 }
 
-async function answer(id: string, answerText: string): Promise<void> {
+async function answer(id: string, answerText: string, isPublic: boolean): Promise<void> {
   const r = await fetchWithCsrf(`/api/clarifications/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ answerText }),
+    body: JSON.stringify({ answerText, isPublic }),
   });
   if (!r.ok) throw new Error("Answer failed");
 }
@@ -85,12 +87,19 @@ export function createClarificationsStore(
     if (event.payload.contextType !== contextType || event.payload.contextId !== contextId) {
       return;
     }
-    const incoming = event.payload as ClarificationItem;
+    const payload = event.payload;
     if (event.action === "deleted") {
-      items = items.filter((i) => i.id !== incoming.id);
+      items = items.filter((i) => i.id !== payload.id);
       return;
     }
-    const idx = items.findIndex((i) => i.id === incoming.id);
+    const idx = items.findIndex((i) => i.id === payload.id);
+    // Broadcast clarifications are always public; keep any existing "mine" flag
+    // (the SSE payload is viewer-agnostic and cannot know it).
+    const incoming = {
+      ...payload,
+      isPublic: true,
+      isMine: idx >= 0 ? (items[idx]?.isMine ?? false) : false,
+    } as ClarificationItem;
     if (idx >= 0) {
       items[idx] = incoming;
     } else {
@@ -115,6 +124,11 @@ export function createClarificationsStore(
         message?: string;
       };
       throw new Error(body.message ?? "Ask failed");
+    }
+    // New questions are not broadcast to peers, so add ours from the response.
+    const created = (await r.json().catch(() => null)) as ClarificationItem | null;
+    if (created && !items.some((i) => i.id === created.id)) {
+      items = [...items, created];
     }
   }
 

@@ -72,6 +72,7 @@ function clarificationRow(
     contextId: string;
     askedByUserId: string;
     deletedAt: Date | null;
+    isPublic: boolean;
   }> = {},
 ) {
   return {
@@ -83,6 +84,7 @@ function clarificationRow(
     questionText: "How does this work?",
     answerText: null,
     state: "pending" as const,
+    isPublic: true,
     answeredByUserId: null,
     answeredAt: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),

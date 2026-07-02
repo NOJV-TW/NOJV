@@ -11,6 +11,7 @@ export interface ProjectedClarification extends Omit<
   askedByUserId: string | null;
   askedBy: { id: string; username: string; name: string } | null;
   answeredBy: { id: string; username: string; name: string } | null;
+  isMine: boolean;
 }
 
 function normalizeUser(
@@ -20,12 +21,17 @@ function normalizeUser(
   return { id: u.id, username: u.username ?? "", name: u.name };
 }
 
-export function projectRow(row: ClarificationRow, isStaff: boolean): ProjectedClarification {
+export function projectRow(
+  row: ClarificationRow,
+  isStaff: boolean,
+  viewerUserId?: string | null,
+): ProjectedClarification {
   return {
     ...row,
     askedByUserId: isStaff ? row.askedByUserId : null,
     askedBy: isStaff ? normalizeUser(row.askedBy) : null,
     answeredBy: normalizeUser(row.answeredBy),
+    isMine: viewerUserId != null && row.askedByUserId === viewerUserId,
   };
 }
 
@@ -38,7 +44,11 @@ export async function listForViewer(
   const db = toContextDbFields(context);
   const rows = await clarificationRepo.listForContext(db.contextType, db.contextId, since);
   const isStaff = await canSeeAuthor(viewer, context);
-  return rows.map((r) => projectRow(r, isStaff));
+  // Non-staff see only their own questions plus questions staff made public.
+  const visible = isStaff
+    ? rows
+    : rows.filter((r) => r.askedByUserId === viewer.userId || r.isPublic);
+  return visible.map((r) => projectRow(r, isStaff, viewer.userId));
 }
 
 export function buildClarificationLink(context: ClarificationContext, id: string): string {

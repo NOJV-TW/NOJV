@@ -65,6 +65,8 @@ import {
   ValidationError,
 } from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
+import { canManageContest } from "./permissions";
+import type { PlatformRole } from "@nojv/core";
 import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
@@ -120,6 +122,7 @@ export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
   contestId: string,
+  platformRole?: PlatformRole | null,
 ) {
   const contest = await requireContest(tx, contestId);
 
@@ -135,11 +138,15 @@ export async function ensureContestParticipation(
     throw new ForbiddenError("Contest has ended.");
   }
 
-  const existing = await participationRepo
-    .withTx(tx)
-    .findContestParticipation(contestId, userId);
-  if (!existing) {
-    throw new ForbiddenError("You must join the contest before submitting.");
+  // Participants must join before submitting; managers/admins are auto-joined
+  // (operational access, consistent with the contest problem-route gate).
+  if (!canManageContest(userId, contest, platformRole)) {
+    const existing = await participationRepo
+      .withTx(tx)
+      .findContestParticipation(contestId, userId);
+    if (!existing) {
+      throw new ForbiddenError("You must join the contest before submitting.");
+    }
   }
 
   const participation = await participationRepo

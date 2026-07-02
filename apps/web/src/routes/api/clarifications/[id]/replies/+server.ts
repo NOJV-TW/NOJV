@@ -32,6 +32,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const body = cannedSchema.parse(await event.request.json());
 
   const answerText = CANNED_TEMPLATES[body.templateKey];
-  const updated = await clarificationDomain.answer(actor, id, { answerText });
+  const updated = await clarificationDomain.answer(actor, id, { answerText, isPublic: true });
   return json(updated);
 });

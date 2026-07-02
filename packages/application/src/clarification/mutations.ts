@@ -38,6 +38,8 @@ export interface AskInput {
 
 export interface AnswerInput {
   answerText: string;
+  /** Public answers are broadcast to every participant; private ones stay with the asker. */
+  isPublic: boolean;
 }
 
 export async function ask(
@@ -75,9 +77,11 @@ export async function ask(
     askedByUserId: actor.userId,
     questionText: text,
   });
-  await publishClarificationEvent("created", row);
+  // Do NOT broadcast the new question to peers — pending questions are visible
+  // only to the asker (who gets it from this response) and to staff (on load).
+  // Broadcasting raw questions live is a leak vector during exams/contests.
   const isStaff = await canSeeAuthor(actor, input.context);
-  return projectRow(row, isStaff);
+  return projectRow(row, isStaff, actor.userId);
 }
 
 export async function answer(
@@ -105,8 +109,12 @@ export async function answer(
     answeredByUserId: actor.userId,
     state: "answered",
     answeredAt: row.answeredAt ?? new Date(),
+    isPublic: input.isPublic,
   });
-  await publishClarificationEvent("updated", updated);
+  // Only public answers reach peers; private ones notify just the asker (below).
+  if (updated.isPublic) {
+    await publishClarificationEvent("updated", updated);
+  }
 
   if (wasPending) {
     await notificationDomain
@@ -123,7 +131,7 @@ export async function answer(
       })
       .catch(() => undefined);
   }
-  return projectRow(updated, true);
+  return projectRow(updated, true, actor.userId);
 }
 
 export async function dismiss(
@@ -140,8 +148,7 @@ export async function dismiss(
     throw new ConflictError("Answered clarifications cannot be dismissed.");
   }
   const updated = await clarificationRepo.updateState(id, "dismissed");
-  await publishClarificationEvent("dismissed", updated);
-  return projectRow(updated, true);
+  return projectRow(updated, true, actor.userId);
 }
 
 export async function deleteClarification(actor: ActorContext, id: string): Promise<void> {
@@ -156,7 +163,10 @@ export async function deleteClarification(actor: ActorContext, id: string): Prom
   }
 
   const deleted = await clarificationRepo.softDelete(id);
-  await publishClarificationEvent("deleted", deleted);
+  // Only peers who could see it (public) need the removal broadcast.
+  if (deleted.isPublic) {
+    await publishClarificationEvent("deleted", deleted);
+  }
 }
 
 async function publishClarificationEvent(

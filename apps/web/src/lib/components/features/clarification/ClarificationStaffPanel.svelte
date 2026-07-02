@@ -16,6 +16,7 @@
 
   let answerText = $state("");
   let busy = $state(false);
+  let isPublic = $state(true);
 
   const ANSWER_MIN = 1;
   const ANSWER_MAX = 1000;
@@ -26,7 +27,7 @@
     if (!canSubmit) return;
     busy = true;
     try {
-      await store.answer(item.id, answerText);
+      await store.answer(item.id, answerText, isPublic);
       answerText = "";
       toasts.success(m.clarification_toastAnswered());
     } catch (err) {
@@ -119,12 +120,25 @@
     </div>
   </label>
 
-  <div class="flex flex-wrap items-center justify-end gap-2">
-    <Button variant="outline" size="sm" type="button" disabled={busy} onclick={handleDismiss}>
-      {m.clarification_staff_dismissBtn()}
-    </Button>
-    <Button type="button" size="sm" disabled={!canSubmit} onclick={submit}>
-      {m.clarification_staff_submitBtn()}
-    </Button>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <label
+      class="flex cursor-pointer select-none items-center gap-2 text-caption text-muted-foreground"
+    >
+      <input
+        type="checkbox"
+        bind:checked={isPublic}
+        class="size-4 rounded"
+        style="accent-color: var(--primary);"
+      />
+      <span>{m.clarification_staff_publicToggle()}</span>
+    </label>
+    <div class="flex items-center gap-2">
+      <Button variant="outline" size="sm" type="button" disabled={busy} onclick={handleDismiss}>
+        {m.clarification_staff_dismissBtn()}
+      </Button>
+      <Button type="button" size="sm" disabled={!canSubmit} onclick={submit}>
+        {m.clarification_staff_submitBtn()}
+      </Button>
+    </div>
   </div>
 </div>

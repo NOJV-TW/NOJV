@@ -63,6 +63,9 @@
 >
   <header class="flex flex-wrap items-center gap-3">
     <Badge variant={stateVariant} size="sm">{stateLabel}</Badge>
+    {#if item.isMine}
+      <Badge variant="muted" size="sm">{m.clarification_mine()}</Badge>
+    {/if}
     <span class="text-body-sm font-medium text-foreground">{askerLabel}</span>
     <span
       class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
@@ -101,6 +104,11 @@
       class="mt-4 rounded-lg border border-border-subtle bg-[color:var(--color-panel-strong)] p-2"
     >
       <p class="whitespace-pre-wrap text-body text-foreground">{item.answerText}</p>
+      {#if !item.isPublic}
+        <p class="mt-2 text-caption font-medium text-muted-foreground">
+          {m.clarification_privateReply()}
+        </p>
+      {/if}
       {#if item.answeredBy}
         <p class="mt-2 text-caption text-muted-foreground">
           {m.clarification_answerBy({ name: item.answeredBy.name })}
