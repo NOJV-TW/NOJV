@@ -1,5 +1,6 @@
 import { courseMembershipRepo, submissionRepo } from "@nojv/db";
 
+import { getProblemTotalScores } from "../problem/total-score";
 import { problemLetter } from "../shared/problem-letter";
 import {
   assembleMatrix,
@@ -41,12 +42,13 @@ export async function buildExamSubmissionsMatrix(
 ): Promise<ExamSubmissionsMatrix> {
   const students = await courseMembershipRepo.findStudents(input.courseId);
 
+  const maxByProblem = await getProblemTotalScores(input.problems.map((p) => p.problemId));
   const problems: MatrixProblemColumn[] = input.problems.map((p) => ({
     problemId: p.problemId,
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
     title: p.title,
-    points: p.points,
+    points: maxByProblem.get(p.problemId) ?? p.points,
   }));
   const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
 

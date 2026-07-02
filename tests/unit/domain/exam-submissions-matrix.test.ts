@@ -1,15 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findStudents, groupByUserAndProblem, findAllOverrides } = vi.hoisted(() => ({
-  findStudents: vi.fn(),
-  groupByUserAndProblem: vi.fn(),
-  findAllOverrides: vi.fn(() => Promise.resolve([])),
-}));
+const { findStudents, groupByUserAndProblem, findAllOverrides, findScoringInputsByIds } =
+  vi.hoisted(() => ({
+    findStudents: vi.fn(),
+    groupByUserAndProblem: vi.fn(),
+    findAllOverrides: vi.fn(() => Promise.resolve([])),
+    // Live per-problem max = 100 per problem (matches the input points below).
+    findScoringInputsByIds: vi.fn((ids: string[]) =>
+      Promise.resolve(
+        ids.map((id) => ({
+          id,
+          type: "full_source",
+          advancedConfig: null,
+          testcaseSets: [{ weight: 100 }],
+        })),
+      ),
+    ),
+  }));
 
 vi.mock("@nojv/db", () => ({
   courseMembershipRepo: { findStudents },
   submissionRepo: { groupByUserAndProblem },
   scoreOverrideRepo: { findAllByContext: findAllOverrides },
+  problemRepo: { findScoringInputsByIds },
 }));
 
 import { examDomain } from "@nojv/application";

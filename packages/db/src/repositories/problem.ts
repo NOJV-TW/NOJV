@@ -123,6 +123,18 @@ export const problemRepo = {
     });
   },
 
+  findScoringInputsByIds(ids: string[]) {
+    return prisma.problem.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        type: true,
+        advancedConfig: true,
+        testcaseSets: { select: { weight: true } },
+      },
+    });
+  },
+
   async updateAdvancedRequiredPaths(id: string, paths: string[]): Promise<void> {
     await prisma.problem.update({
       where: { id },

@@ -9,6 +9,7 @@ const {
   storageGetVerdictDetail,
   getProblemPageData,
   testcaseSetFindByProblemId,
+  findScoringInputsByIds,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   submissionListByUserAndProblem: vi.fn(),
@@ -18,12 +19,22 @@ const {
   storageGetVerdictDetail: vi.fn(),
   getProblemPageData: vi.fn(),
   testcaseSetFindByProblemId: vi.fn(),
+  findScoringInputsByIds: vi.fn((ids: string[]) =>
+    Promise.resolve(
+      ids.map((id) => ({
+        id,
+        type: "full_source",
+        advancedConfig: null,
+        testcaseSets: [{ weight: 100 }],
+      })),
+    ),
+  ),
 }));
 
 vi.mock("@nojv/db", () => ({
   Prisma: {},
   assessmentRepo: { findByCourseAndId: vi.fn() },
-  problemRepo: { findById: problemFindById },
+  problemRepo: { findById: problemFindById, findScoringInputsByIds },
   submissionRepo: {
     listByUserAndProblem: submissionListByUserAndProblem,
     findMany: submissionFindMany,

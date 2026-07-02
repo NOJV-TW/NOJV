@@ -1,6 +1,8 @@
 import { assessmentProblemRepo, assessmentRepo, submissionRepo } from "@nojv/db";
 import { submissionVerdicts } from "@nojv/core";
 
+import { getProblemTotalScores } from "../problem/total-score";
+
 export async function getAssignmentWithCourseId(assignmentId: string) {
   return assessmentRepo.findByIdWithCourseId(assignmentId);
 }
@@ -48,12 +50,14 @@ export async function listAssignmentProblemSiblings(options: {
     }
   }
 
+  const maxByProblem = await getProblemTotalScores(problemIds);
+
   return ordered.map((r, index) => ({
     id: r.problemId,
     letter: index < 26 ? String.fromCodePoint(65 + index) : String(index + 1),
     title: r.problem.title,
     bestScore: bestByProblemId.get(r.problemId),
-    maxScore: r.points,
+    maxScore: maxByProblem.get(r.problemId) ?? r.points,
     isActive: r.problemId === options.activeProblemId,
     href: `/assignments/${options.assignmentId}/problems/${r.problemId}`,
   }));
@@ -68,8 +72,12 @@ export async function listStudentsBelowMaxScore(
   const problems = await assessmentProblemRepo.findByAssessmentId(assignmentId);
   if (problems.length === 0) return userIds;
 
-  const pointsByProblem = new Map(problems.map((p) => [p.problemId, p.points]));
-  const totalMax = problems.reduce((sum, p) => sum + p.points, 0);
+  const maxByProblem = await getProblemTotalScores(problems.map((p) => p.problemId));
+  const pointsByProblem = new Map(
+    problems.map((p) => [p.problemId, maxByProblem.get(p.problemId) ?? p.points]),
+  );
+  let totalMax = 0;
+  for (const v of pointsByProblem.values()) totalMax += v;
   if (totalMax === 0) return userIds;
 
   const grouped = await submissionRepo.groupBestScores({

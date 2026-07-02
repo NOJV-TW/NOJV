@@ -278,12 +278,12 @@ export const examProblemRepo = {
       .then((row) => row !== null);
   },
 
-  sumPointsByExam(examIds: string[]) {
-    if (examIds.length === 0) return Promise.resolve([]);
-    return prisma.examProblem.groupBy({
-      by: ["examId"],
-      _sum: { points: true },
+  listProblemLinks(examIds: string[]) {
+    if (examIds.length === 0)
+      return Promise.resolve([] as { examId: string; problemId: string }[]);
+    return prisma.examProblem.findMany({
       where: { examId: { in: examIds } },
+      select: { examId: true, problemId: true },
     });
   },
 

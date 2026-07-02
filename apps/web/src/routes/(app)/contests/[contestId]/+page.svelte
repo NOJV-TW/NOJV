@@ -10,7 +10,10 @@
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
@@ -141,72 +144,53 @@
     items={[{ label: m.navigation_contests(), href: "/contests" }, { label: contest.id }]}
   />
 
-  <div
-    class="overflow-hidden rounded-xl border shadow-rest"
-    style="border-color: var(--border);"
+  <AssessmentHero
+    kind="contest"
+    typeLabel={m.contestDetail_typeLabel()}
+    context={scoringLabel}
+    title={contest.title}
+    summary={contest.summary}
   >
-    <div class="flex flex-col sm:flex-row">
-      <div class="min-w-0 flex-1 p-5 sm:p-6">
-        <div class="flex flex-wrap items-center gap-2">
-          <StatusPill {status} type="contest" />
-          <span
-            class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-muted-foreground"
-            style="border-color: var(--border-subtle);"
-          >
-            <TypeIcon kind="contest" size={12} />
-            {scoringLabel}
-          </span>
-        </div>
-        <h1 class="mt-3 truncate text-title-lg font-semibold tracking-tight">
-          {contest.title}
-        </h1>
-        <p class="mt-2 font-mono text-caption text-muted-foreground">
-          {contest.problems?.length ?? 0}
-          {m.contestDetail_problemsHeading()} ·
-          {m.contestDetail_metaParticipantsCount({ count: contest.participantCount })}
-          {m.contestDetail_participantsLabel()}
-        </p>
-        {#if contest.summary}
-          <p class="mt-2 line-clamp-1 text-body-sm text-muted-foreground">{contest.summary}</p>
-        {/if}
-      </div>
-
-      <div
-        class="flex shrink-0 flex-col justify-center border-t p-5 sm:min-w-[260px] sm:border-l sm:border-t-0 sm:p-6"
-        style="border-color: var(--border-subtle); background: color-mix(in oklab, var(--panel-strong) 55%, transparent);"
+    {#snippet badges()}
+      <StatusPill {status} type="contest" />
+      <span
+        class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-muted-foreground"
+        style="border-color: var(--border-subtle);"
       >
-        <div
-          class="flex items-center gap-2 font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground"
-        >
-          {#if isLive}
-            <span class="size-1.5 rounded-full live-dot" style="background: oklch(0.55 0.2 27);"
-            ></span>
-          {/if}
-          <span
-            >{isLive
-              ? m.contestDetail_clockRunning()
-              : isPast
-                ? m.contestDetail_clockEnded()
-                : m.contestDetail_clockUntilStart()}</span
-          >
-        </div>
-        <div class="mt-1.5">
-          {#if isPast}
-            <div class="font-mono text-title">{fmtDate(contest.startsAt)}</div>
-          {:else}
-            <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
-          {/if}
-        </div>
-        <div class="mt-3 font-mono text-caption text-muted-foreground">
-          {m.contestDetail_metaStartsLabel()}
-          {fmtDate(contest.startsAt)} ·
-          {m.contestDetail_metaEndsLabel()}
-          {fmtDate(contest.endsAt)} ·
-          {m.contestDetail_metaDurationMinutes({ count: durationMin })}
-        </div>
-      </div>
-    </div>
-  </div>
+        <TypeIcon kind="contest" size={12} />
+        {scoringLabel}
+      </span>
+    {/snippet}
+  </AssessmentHero>
+
+  <StatRail>
+    <StatTile
+      label={isLive
+        ? m.contestDetail_clockRunning()
+        : isPast
+          ? m.contestDetail_clockEnded()
+          : m.contestDetail_clockUntilStart()}
+    >
+      {#snippet value()}
+        {#if isPast}
+          <span class="font-mono">{fmtDate(contest.startsAt)}</span>
+        {:else}
+          <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
+        {/if}
+      {/snippet}
+    </StatTile>
+    <StatTile label={m.contestDetail_participantsLabel()}>
+      {#snippet value()}
+        {m.contestDetail_participantsCount({ count: contest.participantCount })}
+      {/snippet}
+    </StatTile>
+    <StatTile label={m.contestDetail_scoringLabel()}>
+      {#snippet value()}{scoringLabel}{/snippet}
+    </StatTile>
+    <StatTile label={m.contestDetail_scoreboardLabel()}>
+      {#snippet value()}{contest.scoreboardMode}{/snippet}
+    </StatTile>
+  </StatRail>
 
   {#if isManager}
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -285,6 +269,17 @@
         />
       </GlassPanel>
     {:else if activeSubTab === "settings"}
+      {#if contest.inviteCode}
+        <GlassPanel class="p-5">
+          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-2">
+            {m.contestDetail_inviteCode()}
+          </div>
+          <div class="select-all font-mono text-body">{contest.inviteCode}</div>
+          <p class="mt-2 text-caption text-muted-foreground">
+            {m.contestDetail_inviteCodeHint()}
+          </p>
+        </GlassPanel>
+      {/if}
       {#if data.settingsForm}
         <ContestSettingsTab form={data.settingsForm} liveStatus={settingsLiveStatus} />
       {:else}
@@ -366,42 +361,6 @@
             </ul>
           </GlassPanel>
         {/if}
-
-        <GlassPanel class="p-5">
-          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3">
-            {m.contestDetail_formatInfoHeading()}
-          </div>
-          <dl class="space-y-2.5 text-body-sm">
-            <div class="flex justify-between">
-              <dt class="text-muted-foreground">{m.contestDetail_scoringLabel()}</dt>
-              <dd class="font-mono">{scoringLabel}</dd>
-            </div>
-            <div class="flex justify-between">
-              <dt class="text-muted-foreground">{m.contestDetail_scoreboardLabel()}</dt>
-              <dd class="font-mono">{contest.scoreboardMode}</dd>
-            </div>
-            <div class="flex justify-between">
-              <dt class="text-muted-foreground">{m.contestDetail_participantsLabel()}</dt>
-              <dd class="font-mono">
-                {m.contestDetail_participantsCount({ count: contest.participantCount })}
-              </dd>
-            </div>
-            {#if contest.submitCooldownSec > 0}
-              <div class="flex justify-between">
-                <dt class="text-muted-foreground">{m.contestDetail_submitCooldownLabel()}</dt>
-                <dd class="font-mono">{contest.submitCooldownSec}s</dd>
-              </div>
-            {/if}
-            {#if contest.allowedLanguages.length > 0}
-              <div class="flex justify-between gap-3">
-                <dt class="text-muted-foreground">{m.contestDetail_allowedLanguagesLabel()}</dt>
-                <dd class="font-mono text-right truncate">
-                  {contest.allowedLanguages.join(", ")}
-                </dd>
-              </div>
-            {/if}
-          </dl>
-        </GlassPanel>
       </div>
     </div>
 

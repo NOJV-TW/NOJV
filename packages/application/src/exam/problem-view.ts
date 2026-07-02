@@ -9,7 +9,7 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { getProblemPageData, getProblemTestcaseSets } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
-import { computeProblemTotalScore } from "../problem/total-score";
+import { computeProblemTotalScore, getProblemTotalScores } from "../problem/total-score";
 import {
   fallbackResultForRow,
   getVerdictDetail,
@@ -142,12 +142,14 @@ export async function getExamProblemView(options: {
     }
   }
 
+  const maxByProblem = await getProblemTotalScores(problemIds);
+
   const siblingProblems: ExamProblemViewSibling[] = problems.map((ep, index) => ({
     id: ep.problem.id,
     letter: letterForIndex(index),
     title: ep.problem.title,
     bestScore: bestByProblemId.get(ep.problem.id),
-    maxScore: ep.points,
+    maxScore: maxByProblem.get(ep.problem.id) ?? ep.points,
     isActive: index === options.problemIdx,
     href: `/exams/${exam.id}/problems/${String(index)}`,
   }));
@@ -251,12 +253,14 @@ export async function getExamProblemViewByProblemId(options: {
     }
   }
 
+  const maxByProblem = await getProblemTotalScores(problemIds);
+
   const siblingProblems: ExamProblemViewSibling[] = problems.map((ep, index) => ({
     id: ep.problem.id,
     letter: letterForIndex(index),
     title: ep.problem.title,
     bestScore: bestByProblemId.get(ep.problem.id),
-    maxScore: ep.points,
+    maxScore: maxByProblem.get(ep.problem.id) ?? ep.points,
     isActive: index === activeIdx,
     href: `/exams/${exam.id}/problems/${ep.problem.id}`,
   }));

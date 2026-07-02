@@ -1,6 +1,7 @@
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 
 import { NotFoundError } from "../shared/errors";
+import { getProblemTotalScores } from "../problem/total-score";
 import { problemLetter } from "../shared/problem-letter";
 import {
   assembleMatrix,
@@ -42,12 +43,15 @@ export async function buildSubmissionsMatrix(
   ]);
   if (!assignment) throw new NotFoundError("Assignment not found.");
 
+  const maxByProblem = await getProblemTotalScores(
+    assignment.problems.map((p) => p.problem.id),
+  );
   const problems: MatrixProblemColumn[] = assignment.problems.map((p) => ({
     problemId: p.problem.id,
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
     title: p.problem.title,
-    points: p.points,
+    points: maxByProblem.get(p.problem.id) ?? p.points,
   }));
   const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
 

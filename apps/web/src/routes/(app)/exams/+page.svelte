@@ -6,6 +6,7 @@
   import { buttonVariants } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import ExamRow from "$lib/components/features/course/exam/ExamRow.svelte";
   import type { PageData } from "./$types";
 
@@ -107,11 +108,13 @@
         </a>
       </div>
     {:else}
-      <div class="grid gap-4">
-        {#each sorted as exam, i (exam.id)}
-          <ExamRow {exam} delay={i * 80} />
-        {/each}
-      </div>
+      <GlassPanel class="overflow-hidden">
+        <div class="divide-y" style="border-color: var(--border-subtle);">
+          {#each sorted as exam, i (exam.id)}
+            <ExamRow {exam} delay={i * 80} />
+          {/each}
+        </div>
+      </GlassPanel>
     {/if}
   </div>
 </PageContainer>

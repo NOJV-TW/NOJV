@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 import {
   contestProblemRepo,
   contestRepo,
@@ -23,30 +21,41 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-export const contestFormSchema = z.object({
-  allowedLanguages: z.array(languageSchema).max(8).default([]),
-  endsAt: z.string().min(1),
-  frozenAt: z.string().optional(),
-  inviteCode: z.string().max(32).optional(),
-  problems: z
-    .array(
-      z.object({
-        problemId: z.string().trim().min(1),
-        points: z.coerce.number().int().min(1).max(100_000).default(100),
-      }),
-    )
-    .min(1)
-    .max(32)
-    .default([{ problemId: "", points: 100 }]),
-  scoreboardMode: scoreboardModeSchema.default("live"),
-  scoringMode: contestScoringModeSchema.default("problem_count"),
-  id: slugSchema,
-  startsAt: z.string().min(1),
-  submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
-  penaltyMinutesPerWrong: z.coerce.number().int().min(0).max(1440).default(20),
-  summary: z.string().min(8).max(4_000),
-  title: z.string().min(3).max(120),
-});
+export const contestFormSchema = z
+  .object({
+    allowedLanguages: z.array(languageSchema).max(8).default([]),
+    endsAt: z.string().min(1),
+    frozenAt: z.string().optional(),
+    inviteCode: z.string().max(32).optional(),
+    isPublic: z.boolean().default(true),
+    problems: z
+      .array(
+        z.object({
+          problemId: z.string().trim().min(1),
+          points: z.coerce.number().int().min(1).max(100_000).default(100),
+        }),
+      )
+      .min(1)
+      .max(32)
+      .default([{ problemId: "", points: 100 }]),
+    scoreboardMode: scoreboardModeSchema.default("live"),
+    scoringMode: contestScoringModeSchema.default("problem_count"),
+    id: slugSchema,
+    startsAt: z.string().min(1),
+    submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
+    penaltyMinutesPerWrong: z.coerce.number().int().min(0).max(1440).default(20),
+    summary: z.string().min(8).max(4_000),
+    title: z.string().min(3).max(120),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.isPublic && (data.inviteCode ?? "").trim().length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Invite code is required for private contests.",
+        path: ["inviteCode"],
+      });
+    }
+  });
 
 import type { ActorContext } from "../shared/actor-context";
 import {
@@ -178,7 +187,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     await requireUser(tx, actor.userId);
 
-    const inviteCode = payload.inviteCode ?? crypto.randomBytes(4).toString("hex");
+    const inviteCode = payload.inviteCode ?? null;
 
     const contest = await contestRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
@@ -210,6 +219,23 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
   await getDomainOrchestration().dispatchContestLifecycle({ contestId: contest.id });
   return contest;
+}
+
+export async function joinContestByCode(
+  actor: ActorContext,
+  code: string,
+): Promise<{ contestId: string }> {
+  const contest = await contestRepo.findByInviteCode(code);
+  if (contest?.visibility !== "published") {
+    throw new NotFoundError("No contest matches that invite code.");
+  }
+
+  await runTransaction(async (tx) => {
+    await requireUser(tx, actor.userId);
+    await participationRepo.withTx(tx).upsertContestRegistered(contest.id, actor.userId);
+  });
+
+  return { contestId: contest.id };
 }
 
 export async function updateContestRecord(

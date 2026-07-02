@@ -29,6 +29,7 @@ export const load: PageServerLoad = async (event) => {
     stats,
     recentSubmissions,
     username: actor.username,
+    displayName: actor.displayName,
     platformRole: actor.platformRole,
     analytics,
     streamed,

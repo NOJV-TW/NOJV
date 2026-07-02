@@ -90,7 +90,7 @@
             tabindex={enterHref ? 0 : -1}
             aria-disabled={enterHref ? undefined : true}
           >
-            <div class="font-mono text-title font-semibold" style="color: var(--primary);">
+            <div class="font-mono text-body font-semibold text-muted-foreground">
               {String.fromCharCode(64 + p.ordinal)}
             </div>
             <div class="min-w-0">

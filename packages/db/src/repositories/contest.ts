@@ -33,7 +33,19 @@ export const contestRepo = {
       omit: { plagiarismResults: true },
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
-      where: { visibility: "published" },
+      where: { visibility: "published", inviteCode: null },
+    });
+  },
+
+  listParticipatedContestsForUser(userId: string) {
+    return prisma.contest.findMany({
+      omit: { plagiarismResults: true },
+      include: contestListInclude,
+      orderBy: { startsAt: "desc" },
+      where: {
+        visibility: "published",
+        participations: { some: { type: "contest", userId } },
+      },
     });
   },
 

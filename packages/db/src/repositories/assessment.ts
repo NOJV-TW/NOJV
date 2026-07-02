@@ -324,12 +324,12 @@ export const assessmentProblemRepo = {
       .then((row) => row !== null);
   },
 
-  sumPointsByAssessment(assessmentIds: string[]) {
-    if (assessmentIds.length === 0) return Promise.resolve([]);
-    return prisma.assessmentProblem.groupBy({
-      by: ["assessmentId"],
-      _sum: { points: true },
+  listProblemLinks(assessmentIds: string[]) {
+    if (assessmentIds.length === 0)
+      return Promise.resolve([] as { assessmentId: string; problemId: string }[]);
+    return prisma.assessmentProblem.findMany({
       where: { assessmentId: { in: assessmentIds } },
+      select: { assessmentId: true, problemId: true },
     });
   },
 

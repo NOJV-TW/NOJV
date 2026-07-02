@@ -2,6 +2,7 @@ import { courseMembershipRepo, examRepo, participationRepo, submissionRepo } fro
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { getOverridesForContext } from "../scoring/resolve-final-score";
+import { getProblemTotalScores } from "../problem/total-score";
 
 export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
 
@@ -95,6 +96,7 @@ async function computeViewerScores(
   examId: string,
   viewerUserId: string,
   problemRows: ExamDetailProblemRow[],
+  maxByProblem: Map<string, number>,
 ): Promise<{
   viewerStateByProblem: Map<string, ExamProblemViewerState>;
   viewerTotalScore: number;
@@ -118,6 +120,7 @@ async function computeViewerScores(
   const viewerStateByProblem = new Map<string, ExamProblemViewerState>();
   let total = 0;
   for (const ep of problemRows) {
+    const max = maxByProblem.get(ep.problem.id) ?? ep.points;
     const overrideKey = `${viewerUserId}::${ep.problem.id}`;
     const override = overrides.get(overrideKey);
     const hit = bestByProblem.get(ep.problem.id);
@@ -125,13 +128,13 @@ async function computeViewerScores(
     let state: ExamProblemViewerState;
     if (override !== undefined) {
       score = override;
-      state = resolveScoredState(override, ep.points);
+      state = resolveScoredState(override, max);
     } else if (!hit || hit.count === 0) {
       score = 0;
       state = "empty";
     } else {
       score = hit.best;
-      state = resolveScoredState(hit.best, ep.points);
+      state = resolveScoredState(hit.best, max);
     }
     viewerStateByProblem.set(ep.problem.id, state);
     total += score;
@@ -165,11 +168,14 @@ export async function getExamDetailPage(
 
   const problemRows = hideProblemsFromViewer ? [] : exam.problems;
 
+  const maxByProblem = await getProblemTotalScores(problemRows.map((ep) => ep.problem.id));
+  const maxFor = (ep: ExamDetailProblemRow) => maxByProblem.get(ep.problem.id) ?? ep.points;
+
   const enrichWithViewerScores =
     !options.isManager && derivedStatus === "ended" && problemRows.length > 0;
 
   const viewerScores = enrichWithViewerScores
-    ? await computeViewerScores(examId, options.viewerUserId, problemRows)
+    ? await computeViewerScores(examId, options.viewerUserId, problemRows, maxByProblem)
     : {
         viewerStateByProblem: new Map<string, ExamProblemViewerState>(),
         viewerTotalScore: null,
@@ -181,7 +187,7 @@ export async function getExamDetailPage(
     displayId: ep.problem.displayId,
     title: ep.problem.title,
     difficulty: ep.problem.difficulty,
-    points: ep.points,
+    points: maxFor(ep),
     ordinal: ep.ordinal,
     letter: letterFromOrdinal(ep.ordinal),
     viewerState: viewerStateByProblem.get(ep.problem.id) ?? null,

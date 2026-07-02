@@ -13,9 +13,15 @@
 
   let { image, name }: Props = $props();
   let imageBroken = $state(false);
+  let imgEl: HTMLImageElement | undefined = $state();
   $effect(() => {
     void image;
     imageBroken = false;
+  });
+  $effect(() => {
+    if (imgEl?.complete && imgEl.naturalWidth === 0) {
+      imageBroken = true;
+    }
   });
 
   const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -130,10 +136,11 @@
     type="button"
     onclick={pickFile}
     aria-label={m.account_avatar_change()}
-    class="group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-title-sm font-semibold text-muted-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+    class="group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-title-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
   >
     {#if image && !imageBroken}
       <img
+        bind:this={imgEl}
         src={image}
         alt=""
         class="size-full object-cover"

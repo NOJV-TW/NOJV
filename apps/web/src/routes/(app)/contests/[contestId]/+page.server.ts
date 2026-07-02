@@ -166,7 +166,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   }
 
   return {
-    contest,
+    contest: { ...contest, inviteCode: contest.isManager ? contest.inviteCode : null },
     canSetOverride,
     overrideStudents,
     topEntries,

@@ -3,9 +3,9 @@
   import { cn } from "$lib/utils/css.js";
   import { ChevronRight, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import CornerMark from "$lib/components/primitives/visual/CornerMark.svelte";
-  import DotGrid from "$lib/components/primitives/visual/DotGrid.svelte";
-  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
+  import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
@@ -157,90 +157,83 @@
 <PageContainer class="space-y-6 fade-up">
   <Crumbs items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]} />
 
-  <div
-    class="relative overflow-hidden rounded-xl border-2 shadow-rest"
-    style="border-color: var(--border); background: var(--panel);"
+  <AssessmentHero
+    kind="exam"
+    typeLabel={m.examDetail_typeLabel()}
+    context={examCode}
+    title={detail.title}
+    summary={detail.summary}
   >
-    <CornerMark pos="tl" />
-    <CornerMark pos="tr" />
-    <CornerMark pos="bl" />
-    <CornerMark pos="br" />
-    <DotGrid opacity={0.12} />
-
-    <div class="relative p-7 lg:p-10">
-      <div class="flex flex-wrap items-start justify-between gap-6">
-        <div class="min-w-0">
-          <div
-            class="flex items-center gap-2 font-mono text-micro uppercase tracking-[0.2em] text-muted-foreground"
-          >
-            <TypeIcon kind="exam" size={14} />
-            <span>{m.examDetail_typeLabel()}</span>
-            <span class="opacity-60">|</span>
-            <span>{examCode}</span>
-          </div>
-          <div class="mt-3 flex flex-wrap items-center gap-3">
-            <StatusPill status={pillStatus(liveStatus)} type="exam" />
-            {#if past && !isManager && detail.viewerScore !== null}
-              <div
-                class="flex items-baseline gap-1.5 rounded-full px-3 py-1 font-mono text-caption tabular-nums"
-                style="background: color-mix(in oklab, var(--primary) 10%, transparent);"
-              >
-                <span class="text-micro uppercase tracking-wider text-muted-foreground"
-                  >{m.examDetail_scoreLabel()}</span
-                >
-                <span class="font-semibold" style="color: var(--primary);">
-                  {detail.viewerScore}
-                </span>
-                <span class="text-muted-foreground">/ {detail.totalPoints}</span>
-              </div>
-            {/if}
-          </div>
-          <h1 class="mt-3 text-headline font-semibold tracking-tight lg:text-display">
-            {detail.title}
-          </h1>
-          {#if detail.summary}
-            <p class="mt-4 max-w-2xl text-body text-muted-foreground">{detail.summary}</p>
-          {/if}
-        </div>
-
+    {#snippet badges()}
+      <StatusPill status={pillStatus(liveStatus)} type="exam" />
+      {#if past && !isManager && detail.viewerScore !== null}
         <div
-          class="min-w-[260px] rounded-lg border border-dashed p-3"
-          style="border-color: var(--border-strong);"
+          class="flex items-baseline gap-1.5 rounded-full px-3 py-1 font-mono text-caption tabular-nums"
+          style="background: color-mix(in oklab, var(--primary) 10%, transparent);"
         >
-          <div class="font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground">
-            {past
-              ? m.examDetail_clockHeld()
-              : liveStatus === "running"
-                ? m.examDetail_clockRunning()
-                : m.examDetail_clockUntilStart()}
-          </div>
-          <div class="mt-2">
-            {#if past}
-              <div class="font-mono text-title">{fmtDate(detail.startsAt)}</div>
-            {:else if liveStatus === "running"}
-              <Countdown iso={detail.endsAt} />
-            {:else}
-              <Countdown iso={detail.startsAt} />
-            {/if}
-          </div>
-          <div class="mt-3 space-y-1 border-t border-border-subtle pt-3 font-mono text-caption">
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.examDetail_clockStartsLabel()}</span>
-              <span>{fmtDate(detail.startsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.examDetail_clockEndsLabel()}</span>
-              <span>{fmtDate(detail.endsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.examDetail_clockDurationLabel()}</span>
-              <span>{m.examDetail_durationMinutes({ count: durationMinutes })}</span>
-            </div>
-          </div>
+          <span class="text-micro uppercase tracking-wider text-muted-foreground"
+            >{m.examDetail_scoreLabel()}</span
+          >
+          <span class="font-semibold" style="color: var(--primary);">
+            {detail.viewerScore}
+          </span>
+          <span class="text-muted-foreground">/ {detail.totalPoints}</span>
         </div>
-      </div>
-    </div>
-  </div>
+      {/if}
+    {/snippet}
+  </AssessmentHero>
+
+  <StatRail>
+    <StatTile
+      label={past
+        ? m.examDetail_clockHeld()
+        : liveStatus === "running"
+          ? m.examDetail_clockRunning()
+          : m.examDetail_clockUntilStart()}
+    >
+      {#snippet value()}
+        {#if past}
+          <span class="font-mono">{fmtDate(detail.startsAt)}</span>
+        {:else if liveStatus === "running"}
+          <Countdown iso={detail.endsAt} />
+        {:else}
+          <Countdown iso={detail.startsAt} />
+        {/if}
+      {/snippet}
+    </StatTile>
+    <StatTile label={m.examDetail_clockDurationLabel()}>
+      {#snippet value()}{m.examDetail_durationMinutes({ count: durationMinutes })}{/snippet}
+    </StatTile>
+    <StatTile label={m.examRow_scoringPointSum()}>
+      {#snippet value()}{detail.totalPoints}{/snippet}
+    </StatTile>
+    {#if past && !isManager && detail.viewerScore !== null}
+      <StatTile label={m.examDetail_scoreLabel()}>
+        {#snippet value()}
+          <span style="color: var(--primary);">{detail.viewerScore}</span>
+          <span class="text-body-sm text-muted-foreground"> / {detail.totalPoints}</span>
+        {/snippet}
+      </StatTile>
+    {:else}
+      <StatTile label={m.examDetail_settingsSectionProctoring()}>
+        {#snippet value()}
+          {#if detail.pageLockEnabled || detail.ipBindingEnabled || detail.ipWhitelistEnabled}
+            <span class="text-title-sm">
+              {[
+                detail.pageLockEnabled ? m.examDetail_featurePageLock() : null,
+                detail.ipBindingEnabled ? m.examDetail_featureIpBinding() : null,
+                detail.ipWhitelistEnabled ? m.examDetail_featureIpWhitelist() : null,
+              ]
+                .filter(Boolean)
+                .join(m.examDetail_featuresSeparator())}
+            </span>
+          {:else}
+            <span class="text-muted-foreground">—</span>
+          {/if}
+        {/snippet}
+      </StatTile>
+    {/if}
+  </StatRail>
 
   {#if form?.error}
     <div
