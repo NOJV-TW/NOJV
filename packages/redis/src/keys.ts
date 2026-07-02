@@ -12,6 +12,8 @@ export const keys = {
   contestChannel: (contestId: string) => `nojv:contest:${contestId}`,
   clarificationChannel: (contextType: string, contextId: string) =>
     `nojv:clarification:${contextType}:${contextId}`,
+  clarificationStaffChannel: (contextType: string, contextId: string) =>
+    `nojv:clarification-staff:${contextType}:${contextId}`,
 
   apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
   adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,

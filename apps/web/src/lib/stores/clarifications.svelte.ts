@@ -93,11 +93,8 @@ export function createClarificationsStore(
       return;
     }
     const idx = items.findIndex((i) => i.id === payload.id);
-    // Broadcast clarifications are always public; keep any existing "mine" flag
-    // (the SSE payload is viewer-agnostic and cannot know it).
     const incoming = {
       ...payload,
-      isPublic: true,
       isMine: idx >= 0 ? (items[idx]?.isMine ?? false) : false,
     } as ClarificationItem;
     if (idx >= 0) {
@@ -125,7 +122,6 @@ export function createClarificationsStore(
       };
       throw new Error(body.message ?? "Ask failed");
     }
-    // New questions are not broadcast to peers, so add ours from the response.
     const created = (await r.json().catch(() => null)) as ClarificationItem | null;
     if (created && !items.some((i) => i.id === created.id)) {
       items = [...items, created];

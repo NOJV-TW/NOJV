@@ -10,7 +10,6 @@
     examTitle: string;
     problemCount: number;
     durationMinutes: number;
-    firstProblemId?: string | undefined;
     action?: string;
   }
 
@@ -20,7 +19,6 @@
     examTitle,
     problemCount,
     durationMinutes,
-    firstProblemId,
     action = "?/startExam",
   }: Props = $props();
 

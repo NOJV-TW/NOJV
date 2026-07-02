@@ -77,9 +77,7 @@ export async function ask(
     askedByUserId: actor.userId,
     questionText: text,
   });
-  // Do NOT broadcast the new question to peers — pending questions are visible
-  // only to the asker (who gets it from this response) and to staff (on load).
-  // Broadcasting raw questions live is a leak vector during exams/contests.
+  await publishClarificationEvent("created", row, "staff");
   const isStaff = await canSeeAuthor(actor, input.context);
   return projectRow(row, isStaff, actor.userId);
 }
@@ -111,10 +109,7 @@ export async function answer(
     answeredAt: row.answeredAt ?? new Date(),
     isPublic: input.isPublic,
   });
-  // Only public answers reach peers; private ones notify just the asker (below).
-  if (updated.isPublic) {
-    await publishClarificationEvent("updated", updated);
-  }
+  await publishClarificationEvent("updated", updated, updated.isPublic ? "public" : "staff");
 
   if (wasPending) {
     await notificationDomain
@@ -148,6 +143,7 @@ export async function dismiss(
     throw new ConflictError("Answered clarifications cannot be dismissed.");
   }
   const updated = await clarificationRepo.updateState(id, "dismissed");
+  await publishClarificationEvent("dismissed", updated, "staff");
   return projectRow(updated, true, actor.userId);
 }
 
@@ -163,37 +159,36 @@ export async function deleteClarification(actor: ActorContext, id: string): Prom
   }
 
   const deleted = await clarificationRepo.softDelete(id);
-  // Only peers who could see it (public) need the removal broadcast.
-  if (deleted.isPublic) {
-    await publishClarificationEvent("deleted", deleted);
-  }
+  await publishClarificationEvent("deleted", deleted, deleted.isPublic ? "public" : "staff");
 }
 
 async function publishClarificationEvent(
   action: ClarificationSSEEvent["action"],
   row: ClarificationRow,
+  target: "public" | "staff",
 ): Promise<void> {
-  const masked = projectRow(row, false);
+  const projected = projectRow(row, target === "staff");
   const event: ClarificationSSEEvent = {
     type: SSE_CLARIFICATION,
     action,
     payload: {
-      id: masked.id,
-      contextType: masked.contextType,
-      contextId: masked.contextId,
-      problemId: masked.problemId,
-      questionText: masked.questionText,
-      answerText: masked.answerText,
-      state: masked.state,
-      askedByUserId: masked.askedByUserId,
-      askedBy: masked.askedBy,
-      answeredByUserId: masked.answeredByUserId,
-      answeredBy: masked.answeredBy,
-      answeredAt: masked.answeredAt ? masked.answeredAt.toISOString() : null,
-      createdAt: masked.createdAt.toISOString(),
+      id: projected.id,
+      contextType: projected.contextType,
+      contextId: projected.contextId,
+      problemId: projected.problemId,
+      questionText: projected.questionText,
+      answerText: projected.answerText,
+      state: projected.state,
+      isPublic: row.isPublic,
+      askedByUserId: projected.askedByUserId,
+      askedBy: projected.askedBy,
+      answeredByUserId: projected.answeredByUserId,
+      answeredBy: projected.answeredBy,
+      answeredAt: projected.answeredAt ? projected.answeredAt.toISOString() : null,
+      createdAt: projected.createdAt.toISOString(),
     },
   };
-  await pubsub.publishClarification(row.contextType, row.contextId, event);
+  await pubsub.publishClarification(row.contextType, row.contextId, event, target);
 }
 
 async function assertProblemInContext(
