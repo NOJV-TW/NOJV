@@ -322,7 +322,7 @@
   />
 
   {#if !hasActivity}
-    <WelcomeGuide username={data.username} platformRole={data.platformRole} />
+    <WelcomeGuide username={data.displayName} platformRole={data.platformRole} />
   {:else}
     <div class="space-y-6">
       <div class="grid gap-4 lg:grid-cols-2">

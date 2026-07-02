@@ -10,7 +10,6 @@
     examTitle: string;
     problemCount: number;
     durationMinutes: number;
-    firstProblemId?: string | undefined;
     action?: string;
   }
 
@@ -20,7 +19,6 @@
     examTitle,
     problemCount,
     durationMinutes,
-    firstProblemId,
     action = "?/startExam",
   }: Props = $props();
 
@@ -114,10 +112,6 @@
             await update();
             if (result.type === "success") {
               onOpenChange(false);
-              const base = window.location.pathname.replace(/\/$/, "");
-              window.location.href = firstProblemId
-                ? `${base}/problems/${firstProblemId}`
-                : base;
             }
             submitting = false;
           };

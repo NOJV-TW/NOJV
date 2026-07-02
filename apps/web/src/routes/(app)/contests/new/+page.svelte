@@ -259,26 +259,42 @@
       </div>
 
       <div>
-        <label class="text-sm font-medium" for="inviteCode"
-          >{m.contestCreate_inviteCode()}</label
-        >
-        <input
-          class={inputClassName}
-          id="inviteCode"
-          name="inviteCode"
-          type="text"
-          placeholder={m.contestCreate_inviteCodePlaceholder()}
-          bind:value={$form.inviteCode}
-          aria-invalid={Boolean($errors.inviteCode)}
-          aria-describedby={$errors.inviteCode ? "inviteCode-error" : undefined}
-        />
-        {#if $errors.inviteCode}<p id="inviteCode-error" class="mt-1 text-xs text-destructive">
-            {$errors.inviteCode}
-          </p>{/if}
+        <label class="text-sm font-medium" for="isPublic">{m.contestCreate_visibility()}</label>
+        <select class={inputClassName} id="isPublic" bind:value={$form.isPublic}>
+          <option value={true}>{m.contestCreate_visibilityPublic()}</option>
+          <option value={false}>{m.contestCreate_visibilityPrivate()}</option>
+        </select>
         <p class="mt-1 text-xs text-muted-foreground">
-          {m.contestCreate_inviteCodeHint()}
+          {m.contestCreate_visibilityHint()}
         </p>
       </div>
+
+      {#if !$form.isPublic}
+        <div>
+          <label class="text-sm font-medium" for="inviteCode"
+            >{m.contestCreate_inviteCode()}</label
+          >
+          <input
+            class={inputClassName}
+            id="inviteCode"
+            name="inviteCode"
+            type="text"
+            placeholder={m.contestCreate_inviteCodePlaceholder()}
+            bind:value={$form.inviteCode}
+            aria-invalid={Boolean($errors.inviteCode)}
+            aria-describedby={$errors.inviteCode ? "inviteCode-error" : undefined}
+          />
+          {#if $errors.inviteCode}<p
+              id="inviteCode-error"
+              class="mt-1 text-xs text-destructive"
+            >
+              {$errors.inviteCode}
+            </p>{/if}
+          <p class="mt-1 text-xs text-muted-foreground">
+            {m.contestCreate_inviteCodeHint()}
+          </p>
+        </div>
+      {/if}
 
       <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
         <CodeIcon aria-hidden="true" class="h-4 w-4" />

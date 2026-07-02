@@ -264,7 +264,7 @@ export async function createQueuedSubmissionRecord(
     }
 
     const contestResult = payload.contestId
-      ? await ensureContestParticipation(tx, user.id, payload.contestId)
+      ? await ensureContestParticipation(tx, user.id, payload.contestId, actor.platformRole)
       : null;
 
     if (contestResult) {

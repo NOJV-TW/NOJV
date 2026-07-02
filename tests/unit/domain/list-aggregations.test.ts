@@ -8,8 +8,9 @@ const {
   groupAcceptedByExamForUser,
   groupBestScoresByExamForUser,
   countStudentsByCourse,
-  sumPointsByAssessment,
-  sumPointsByExam,
+  listAssessmentProblemLinks,
+  listExamProblemLinks,
+  findScoringInputsByIds,
 } = vi.hoisted(() => ({
   groupBestScoresByAssessment: vi.fn(),
   groupAcceptedByAssessmentForUser: vi.fn(),
@@ -18,8 +19,9 @@ const {
   groupAcceptedByExamForUser: vi.fn(),
   groupBestScoresByExamForUser: vi.fn(),
   countStudentsByCourse: vi.fn(),
-  sumPointsByAssessment: vi.fn(),
-  sumPointsByExam: vi.fn(),
+  listAssessmentProblemLinks: vi.fn(),
+  listExamProblemLinks: vi.fn(),
+  findScoringInputsByIds: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -32,8 +34,9 @@ vi.mock("@nojv/db", () => ({
     groupBestScoresByExamForUser,
   },
   courseMembershipRepo: { countStudentsByCourse },
-  assessmentProblemRepo: { sumPointsByAssessment },
-  examProblemRepo: { sumPointsByExam },
+  assessmentProblemRepo: { listProblemLinks: listAssessmentProblemLinks },
+  examProblemRepo: { listProblemLinks: listExamProblemLinks },
+  problemRepo: { findScoringInputsByIds },
 }));
 
 import {
@@ -43,6 +46,14 @@ import {
   aggregateExamMyStatus,
 } from "@nojv/application";
 
+// A standard full_source problem whose subtask weights sum to `weight`.
+const scoringInput = (id: string, weight: number) => ({
+  id,
+  type: "full_source" as const,
+  advancedConfig: null,
+  testcaseSets: [{ weight }],
+});
+
 beforeEach(() => {
   groupBestScoresByAssessment.mockReset();
   groupAcceptedByAssessmentForUser.mockReset();
@@ -51,8 +62,9 @@ beforeEach(() => {
   groupAcceptedByExamForUser.mockReset();
   groupBestScoresByExamForUser.mockReset();
   countStudentsByCourse.mockReset();
-  sumPointsByAssessment.mockReset();
-  sumPointsByExam.mockReset();
+  listAssessmentProblemLinks.mockReset().mockResolvedValue([]);
+  listExamProblemLinks.mockReset().mockResolvedValue([]);
+  findScoringInputsByIds.mockReset().mockResolvedValue([]);
 });
 
 describe("aggregateAssignmentClassStats", () => {
@@ -118,7 +130,7 @@ describe("aggregateAssignmentMyStatus", () => {
     expect(groupAcceptedByAssessmentForUser).not.toHaveBeenCalled();
   });
 
-  it("counts distinct accepted problems and sums best scores per assessment", async () => {
+  it("counts distinct accepted problems and sums live per-problem max as totalPoints", async () => {
     groupAcceptedByAssessmentForUser.mockResolvedValue([
       { assessmentId: "a1", problemId: "p1" },
       { assessmentId: "a1", problemId: "p2" },
@@ -129,9 +141,15 @@ describe("aggregateAssignmentMyStatus", () => {
       { assessmentId: "a1", problemId: "p2", _max: { score: 60 } },
       { assessmentId: "a2", problemId: "p3", _max: { score: 100 } },
     ]);
-    sumPointsByAssessment.mockResolvedValue([
-      { assessmentId: "a1", _sum: { points: 200 } },
-      { assessmentId: "a2", _sum: { points: 100 } },
+    listAssessmentProblemLinks.mockResolvedValue([
+      { assessmentId: "a1", problemId: "p1" },
+      { assessmentId: "a1", problemId: "p2" },
+      { assessmentId: "a2", problemId: "p3" },
+    ]);
+    findScoringInputsByIds.mockResolvedValue([
+      scoringInput("p1", 100),
+      scoringInput("p2", 100),
+      scoringInput("p3", 100),
     ]);
     const out = await aggregateAssignmentMyStatus("u1", [
       { id: "a1", problemCount: 5 },
@@ -141,10 +159,10 @@ describe("aggregateAssignmentMyStatus", () => {
     expect(out.get("a2")).toEqual({ solved: 1, total: 3, score: 100, totalPoints: 100 });
   });
 
-  it("returns zeros when the user has no submissions and points haven't been set", async () => {
+  it("returns zeros when the user has no submissions and no problems are linked", async () => {
     groupAcceptedByAssessmentForUser.mockResolvedValue([]);
     groupBestScoresByAssessmentForUser.mockResolvedValue([]);
-    sumPointsByAssessment.mockResolvedValue([]);
+    listAssessmentProblemLinks.mockResolvedValue([]);
     const out = await aggregateAssignmentMyStatus("u1", [{ id: "a1", problemCount: 4 }]);
     expect(out.get("a1")).toEqual({ solved: 0, total: 4, score: 0, totalPoints: 0 });
   });
@@ -163,7 +181,7 @@ describe("aggregateExamClassStats", () => {
 });
 
 describe("aggregateExamMyStatus", () => {
-  it("counts distinct accepted exam problems and sums best scores for the user", async () => {
+  it("counts distinct accepted exam problems and sums live per-problem max", async () => {
     groupAcceptedByExamForUser.mockResolvedValue([
       { examId: "e1", problemId: "p1" },
       { examId: "e1", problemId: "p2" },
@@ -172,7 +190,14 @@ describe("aggregateExamMyStatus", () => {
       { examId: "e1", problemId: "p1", _max: { score: 100 } },
       { examId: "e1", problemId: "p2", _max: { score: 40 } },
     ]);
-    sumPointsByExam.mockResolvedValue([{ examId: "e1", _sum: { points: 200 } }]);
+    listExamProblemLinks.mockResolvedValue([
+      { examId: "e1", problemId: "p1" },
+      { examId: "e1", problemId: "p2" },
+    ]);
+    findScoringInputsByIds.mockResolvedValue([
+      scoringInput("p1", 100),
+      scoringInput("p2", 100),
+    ]);
     const out = await aggregateExamMyStatus("u1", [{ id: "e1", problemCount: 4 }]);
     expect(out.get("e1")).toEqual({ solved: 2, total: 4, score: 140, totalPoints: 200 });
   });

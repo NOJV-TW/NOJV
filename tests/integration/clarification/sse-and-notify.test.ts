@@ -40,15 +40,23 @@ async function seedContestWithParticipant() {
 }
 
 describe("clarification — SSE round trip + notification (real DB + Redis)", () => {
-  it("ask publishes a 'created' SSE event with masked asker identity", async () => {
+  it("ask publishes a 'created' event on the staff channel (real identity), never to peers", async () => {
     const { organizer: _organizer, contestant, contest } = await seedContestWithParticipant();
 
-    const sub = createSubscriber(process.env.REDIS_URL ?? "redis://localhost:6379");
-    const events: { action: string; payload: Record<string, unknown> }[] = [];
-    sub.on("message", (_channel, msg) => {
-      events.push(JSON.parse(msg) as { action: string; payload: Record<string, unknown> });
+    const staffSub = createSubscriber(process.env.REDIS_URL ?? "redis://localhost:6379");
+    const publicSub = createSubscriber(process.env.REDIS_URL ?? "redis://localhost:6379");
+    const staffEvents: { action: string; payload: Record<string, unknown> }[] = [];
+    const publicEvents: { action: string; payload: Record<string, unknown> }[] = [];
+    staffSub.on("message", (_channel, msg) => {
+      staffEvents.push(JSON.parse(msg) as { action: string; payload: Record<string, unknown> });
     });
-    await sub.subscribe(keys.clarificationChannel("contest", contest.id));
+    publicSub.on("message", (_channel, msg) => {
+      publicEvents.push(
+        JSON.parse(msg) as { action: string; payload: Record<string, unknown> },
+      );
+    });
+    await staffSub.subscribe(keys.clarificationStaffChannel("contest", contest.id));
+    await publicSub.subscribe(keys.clarificationChannel("contest", contest.id));
 
     try {
       await clarificationDomain.ask(actorFor(contestant), {
@@ -57,19 +65,21 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       });
 
       const deadline = Date.now() + 1000;
-      while (events.length === 0 && Date.now() < deadline) {
+      while (staffEvents.length === 0 && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 25));
       }
 
-      expect(events).toHaveLength(1);
-      const event = events[0]!;
+      expect(staffEvents).toHaveLength(1);
+      const event = staffEvents[0]!;
       expect(event.action).toBe("created");
       expect(event.payload.contextType).toBe("contest");
       expect(event.payload.contextId).toBe(contest.id);
-      expect(event.payload.askedByUserId).toBeNull();
-      expect(event.payload.askedBy).toBeNull();
+      expect(event.payload.askedByUserId).toBe(contestant.id);
+      expect((event.payload.askedBy as { id: string } | null)?.id).toBe(contestant.id);
+      expect(publicEvents).toHaveLength(0);
     } finally {
-      await sub.quit();
+      await staffSub.quit();
+      await publicSub.quit();
     }
   });
 
@@ -91,6 +101,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     try {
       await clarificationDomain.answer(actorFor(organizer), asked.id, {
         answerText: "Yes, mod 1e9+7.",
+        isPublic: true,
       });
 
       const deadline = Date.now() + 1000;

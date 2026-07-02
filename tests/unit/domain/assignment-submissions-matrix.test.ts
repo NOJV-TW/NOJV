@@ -1,19 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findDetailById, findStudents, groupByUserAndProblem, findAllOverrides } = vi.hoisted(
-  () => ({
-    findDetailById: vi.fn(),
-    findStudents: vi.fn(),
-    groupByUserAndProblem: vi.fn(),
-    findAllOverrides: vi.fn(() => Promise.resolve([])),
-  }),
-);
+const {
+  findDetailById,
+  findStudents,
+  groupByUserAndProblem,
+  findAllOverrides,
+  findScoringInputsByIds,
+} = vi.hoisted(() => ({
+  findDetailById: vi.fn(),
+  findStudents: vi.fn(),
+  groupByUserAndProblem: vi.fn(),
+  findAllOverrides: vi.fn(() => Promise.resolve([])),
+  // Live per-problem max = 100 per problem (matches the fixture points).
+  findScoringInputsByIds: vi.fn((ids: string[]) =>
+    Promise.resolve(
+      ids.map((id) => ({
+        id,
+        type: "full_source",
+        advancedConfig: null,
+        testcaseSets: [{ weight: 100 }],
+      })),
+    ),
+  ),
+}));
 
 vi.mock("@nojv/db", () => ({
   assessmentRepo: { findDetailById },
   courseMembershipRepo: { findStudents },
   submissionRepo: { groupByUserAndProblem },
   scoreOverrideRepo: { findAllByContext: findAllOverrides },
+  problemRepo: { findScoringInputsByIds },
 }));
 
 import { courseDomain } from "@nojv/application";

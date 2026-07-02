@@ -28,6 +28,7 @@ export interface ClarificationAnswerUpdate {
   answeredByUserId: string;
   state: ClarificationState;
   answeredAt: Date;
+  isPublic: boolean;
 }
 
 export const clarificationRepo = {
@@ -72,6 +73,7 @@ export const clarificationRepo = {
         answeredByUserId: data.answeredByUserId,
         state: data.state,
         answeredAt: data.answeredAt,
+        isPublic: data.isPublic,
       },
       include: clarificationInclude,
     });

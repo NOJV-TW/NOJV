@@ -2,7 +2,7 @@
   import { ChevronRight, Info } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
-  import { formatDateTimeCompact, fmtDate, fmtWeekday } from "$lib/utils/datetime";
+  import { formatDateTimeCompact } from "$lib/utils/datetime";
   import AssignmentProblemsTab from "$lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
   import AssignmentSubmissionsMatrix from "$lib/components/features/course/assignment/AssignmentSubmissionsMatrix.svelte";
   import AssignmentResultsTab from "$lib/components/features/course/assignment/AssignmentResultsTab.svelte";
@@ -15,8 +15,9 @@
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
-  import DotGrid from "$lib/components/primitives/visual/DotGrid.svelte";
-  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
+  import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
@@ -152,6 +153,23 @@
   const targetIso = $derived(detail.dueAt ?? detail.closesAt);
 </script>
 
+{#snippet gradingActions()}
+  {#if assignmentClosed}
+    <Button
+      variant="outline"
+      size="sm"
+      type="button"
+      onclick={() => (showOverrideDrawer = true)}
+    >
+      {m.grading_openButton()}
+    </Button>
+  {:else}
+    <p class="text-caption text-muted-foreground">
+      {m.grading_availableAfterClose()}
+    </p>
+  {/if}
+{/snippet}
+
 <PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[
@@ -160,124 +178,57 @@
     ]}
   />
 
-  <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
-    <GlassPanel class="relative overflow-hidden p-7 lg:p-9">
-      <DotGrid opacity={0.18} />
-      <div class="relative">
-        <div
-          class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
+  <AssessmentHero
+    kind="assignment"
+    typeLabel={m.assignmentDetail_typeLabel()}
+    context={data.course.title}
+    title={detail.title}
+    summary={detail.summary}
+    actions={data.mode === "teacher" && canSetOverride ? gradingActions : undefined}
+  >
+    {#snippet badges()}
+      <StatusPill {status} type="assignment" />
+      {#if data.mode === "teacher"}
+        <span
+          class="inline-flex items-center rounded-full px-2.5 py-1 text-micro font-mono uppercase tracking-wider"
+          style="background: color-mix(in oklab, var(--info) 12%, transparent); color: var(--info);"
         >
-          <TypeIcon kind="assignment" size={14} />
-          <span>{m.assignmentDetail_typeLabel()} · {data.course.title}</span>
-        </div>
-        <div class="mt-3 flex items-baseline gap-3 flex-wrap">
-          <StatusPill {status} type="assignment" />
-          {#if data.mode === "teacher"}
-            <span
-              class="inline-flex items-center rounded-full px-2.5 py-1 text-micro font-mono uppercase tracking-wider"
-              style="background: color-mix(in oklab, var(--info) 12%, transparent); color: var(--info);"
-            >
-              Manager View
-            </span>
+          Manager View
+        </span>
+      {/if}
+    {/snippet}
+  </AssessmentHero>
+
+  <StatRail>
+    <StatTile
+      label={detail.dueAt ? m.assignmentDetail_metaDueAt() : m.assignmentDetail_metaClosesAt()}
+    >
+      {#snippet value()}<Countdown iso={targetIso} />{/snippet}
+    </StatTile>
+    <StatTile label={m.assignmentDetail_metaProgress()}>
+      {#snippet value()}
+        {solved}<span class="text-muted-foreground"
+          >/{m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}</span
+        >
+      {/snippet}
+    </StatTile>
+    <StatTile label={m.assignmentDetail_metaScore()}>
+      {#snippet value()}
+        {myScore}<span class="text-muted-foreground">/{detail.totalPoints}</span>
+      {/snippet}
+    </StatTile>
+    <StatTile label={m.assignmentDetail_metaAllowedLanguages()}>
+      {#snippet value()}
+        <span class="text-title-sm">
+          {#if detail.allowedLanguages.length > 0}
+            {detail.allowedLanguages.map(languageLabel).join(" / ")}
+          {:else}
+            {m.assignmentDetail_metaAttemptsUnlimited2()}
           {/if}
-        </div>
-        <h1
-          class="mt-2 font-semibold tracking-tight"
-          style="font-size: clamp(2rem, 4vw, 3rem); line-height: 1.05;"
-        >
-          {detail.title}
-        </h1>
-        {#if detail.summary}
-          <p class="mt-5 max-w-2xl text-body text-muted-foreground">
-            {detail.summary}
-          </p>
-        {/if}
-        {#if data.mode === "teacher" && canSetOverride}
-          <div class="mt-6">
-            {#if assignmentClosed}
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onclick={() => (showOverrideDrawer = true)}
-              >
-                {m.grading_openButton()}
-              </Button>
-            {:else}
-              <p class="text-caption text-muted-foreground">
-                {m.grading_availableAfterClose()}
-              </p>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    </GlassPanel>
-
-    <div class="space-y-4">
-      <GlassPanel class="p-5">
-        <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
-          {detail.dueAt ? m.assignmentDetail_metaDueAt() : m.assignmentDetail_metaClosesAt()}
-        </div>
-        <div class="mt-1 text-title font-semibold">
-          {fmtDate(targetIso)}
-          {m.coursework_weekdayPrefix({ day: fmtWeekday(targetIso) })}
-        </div>
-        <div class="mt-3"><Countdown iso={targetIso} /></div>
-        {#if detail.dueAt && detail.dueAt !== detail.closesAt}
-          <div class="mt-3 text-caption text-muted-foreground font-mono">
-            {m.assignmentDetail_metaContinueUntil({ when: fmtDate(detail.closesAt) })}
-          </div>
-        {/if}
-      </GlassPanel>
-
-      <GlassPanel class="p-5">
-        <div class="grid grid-cols-2 gap-y-3 text-body-sm">
-          <div>
-            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
-              {m.assignmentDetail_metaProgress()}
-            </div>
-            <div class="mt-0.5 font-mono">
-              <span class="font-semibold">{solved}</span> / {m.assignmentDetail_problemsCountWithUnit(
-                { count: detail.problemCount },
-              )}
-            </div>
-          </div>
-          <div>
-            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
-              {m.assignmentDetail_metaScore()}
-            </div>
-            <div class="mt-0.5 font-mono">
-              <span class="font-semibold">{myScore}</span> / {detail.totalPoints}
-            </div>
-          </div>
-          <div>
-            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
-              {m.assignmentDetail_metaDailyAttempts()}
-            </div>
-            <div class="mt-0.5">
-              {#if detail.maxAttemptsPerDay}
-                {m.assignmentDetail_metaAttemptsCount({ count: detail.maxAttemptsPerDay })}
-              {:else}
-                {m.assignmentDetail_metaAttemptsUnlimited2()}
-              {/if}
-            </div>
-          </div>
-          <div>
-            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
-              {m.assignmentDetail_metaAllowedLanguages()}
-            </div>
-            <div class="mt-0.5">
-              {#if detail.allowedLanguages.length > 0}
-                {detail.allowedLanguages.map(languageLabel).join(" / ")}
-              {:else}
-                {m.assignmentDetail_metaAttemptsUnlimited2()}
-              {/if}
-            </div>
-          </div>
-        </div>
-      </GlassPanel>
-    </div>
-  </div>
+        </span>
+      {/snippet}
+    </StatTile>
+  </StatRail>
 
   {#if data.mode === "student"}
     <GlassPanel class="overflow-hidden">
@@ -420,8 +371,6 @@
       {:else}
         <div class="divide-y" style="border-color: var(--border-subtle);">
           {#each detail.myRecentSubmissions as entry (entry.id)}
-            {@const maxScore =
-              detail.problems.find((p) => p.problemId === entry.problemId)?.points ?? 100}
             <a
               href={`/submissions/${entry.id}`}
               class="grid grid-cols-[120px_1fr_auto_auto_auto] items-center gap-4 px-6 py-3 text-inherit no-underline hover:bg-muted/40 transition-colors font-mono text-body-sm"
@@ -443,7 +392,9 @@
               </span>
               <span class="whitespace-nowrap tabular-nums">
                 <span class="inline-block w-8 text-right">{entry.score}</span>
-                <span class="text-muted-foreground"> / {maxScore}</span>
+                {#if entry.maxScore !== null}
+                  <span class="text-muted-foreground"> / {entry.maxScore}</span>
+                {/if}
               </span>
               <ChevronRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             </a>
@@ -470,23 +421,24 @@
     {/if}
   {:else}
     <GlassPanel class="overflow-hidden">
-      <nav
-        aria-label={m.assignmentDetail_sectionsNavLabel()}
-        class="border-b px-2"
-        style="border-color: var(--border-subtle);"
-      >
-        <div class="flex flex-wrap items-center gap-1">
+      <div class="border-b px-4 py-3" style="border-color: var(--border-subtle);">
+        <div
+          role="tablist"
+          aria-label={m.assignmentDetail_sectionsNavLabel()}
+          class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
+        >
           {#each subTabs as tab (tab.key)}
             {@const isActive = activeSubTab === tab.key}
             <button
               type="button"
-              aria-current={isActive ? "page" : undefined}
+              role="tab"
+              aria-selected={isActive}
               onclick={() => (activeSubTab = tab.key)}
               class={cn(
-                "-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3 text-body-sm font-medium transition-colors duration-fast ease-out-soft",
+                "inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
                 isActive
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
+                  ? "bg-[color:var(--color-primary)]/14 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <span>{tab.label}</span>
@@ -495,7 +447,7 @@
                   class={cn(
                     "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums",
                     isActive
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-[color:var(--color-primary)]/20 text-primary"
                       : "bg-muted text-muted-foreground",
                   )}
                 >
@@ -505,7 +457,7 @@
             </button>
           {/each}
         </div>
-      </nav>
+      </div>
 
       <div class="p-6">
         {#if activeSubTab === "problems"}

@@ -165,8 +165,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     ]);
   }
 
+  let hasJoined = false;
+  if (actor && hasActorUsername(actor) && !contest.isManager) {
+    hasJoined =
+      (await contestDomain.findViewerContestParticipation(actor.userId, contest.id)) !== null;
+  }
+
   return {
-    contest,
+    contest: { ...contest, inviteCode: contest.isManager ? contest.inviteCode : null },
+    hasJoined,
     canSetOverride,
     overrideStudents,
     topEntries,
@@ -229,6 +236,17 @@ export const actions: Actions = {
     }
 
     return message<FormMessage>(form, { kind: "success", text: "Saved." });
+  }),
+
+  joinContest: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
+    try {
+      await contestDomain.joinContest(actor, event.params.contestId);
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+    return { success: true };
   }),
 
   publishContest: withRateLimit(async (event) => {

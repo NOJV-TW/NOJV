@@ -44,6 +44,7 @@ export interface ContestDetail {
   endsAt: string;
   frozenAt: string | null;
   id: string;
+  inviteCode: string | null;
   isManager: boolean;
   participantCount: number;
   problems: ContestProblemSummary[] | null;
@@ -98,6 +99,7 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
     endsAt: contest.endsAt.toISOString(),
     frozenAt: contest.frozenAt?.toISOString() ?? null,
     id: contest.id,
+    inviteCode: contest.inviteCode,
     participantCount: contest._count.participations,
     problems: contest.problems.map((cp) => ({
       id: cp.problem.id,
@@ -129,15 +131,18 @@ export async function listContestsForUser(
     return { managed: [], participable: rows.map(mapContestListItem) };
   }
 
-  const [managedRows, participableRows] = await Promise.all([
+  const [managedRows, publishedRows, participatedRows] = await Promise.all([
     contestRepo.listManagedForUser(userId),
     contestRepo.listPublished(),
+    contestRepo.listParticipatedContestsForUser(userId),
   ]);
 
   const managedIds = new Set(managedRows.map((c) => c.id));
-  const participable = participableRows
-    .filter((c) => !managedIds.has(c.id))
-    .map(mapContestListItem);
+  const byId = new Map<string, ContestWithCounts>();
+  for (const c of [...publishedRows, ...participatedRows]) {
+    if (!managedIds.has(c.id)) byId.set(c.id, c);
+  }
+  const participable = [...byId.values()].map(mapContestListItem);
 
   const managed: ContestListItemForUser[] = managedRows.map((row) => ({
     ...mapContestListItem(row),
@@ -170,6 +175,14 @@ function resolveVisibility(
   };
 }
 
+export function canAccessContest(args: {
+  inviteCode: string | null;
+  isManager: boolean;
+  hasParticipation: boolean;
+}): boolean {
+  return args.inviteCode == null || args.isManager || args.hasParticipation;
+}
+
 export async function getContestDetail(
   contestId: string,
   options: ContestDetailOptions,
@@ -185,6 +198,14 @@ export async function getContestDetail(
     contest,
     options.now,
   );
+
+  const hasParticipation =
+    contest.inviteCode != null && !isManager && options.userId != null
+      ? (await participationRepo.findContestParticipation(contestId, options.userId)) != null
+      : false;
+  if (!canAccessContest({ inviteCode: contest.inviteCode, isManager, hasParticipation })) {
+    throw new NotFoundError(`Contest not found: ${contestId}`);
+  }
 
   const base = mapContestDetail(contest);
   return {
@@ -215,6 +236,16 @@ export async function getContestWorkspaceData(
   const base = mapContestDetail(contest);
   const participation = await participationRepo.findContestParticipation(contestId, userId);
 
+  if (
+    !canAccessContest({
+      inviteCode: contest.inviteCode,
+      isManager,
+      hasParticipation: participation != null,
+    })
+  ) {
+    throw new NotFoundError(`Contest not found: ${contestId}`);
+  }
+
   return {
     ...base,
     isManager,
@@ -231,10 +262,6 @@ export async function getContestWorkspaceData(
   };
 }
 
-export async function findContestByInviteCode(inviteCode: string) {
-  return contestRepo.findByInviteCode(inviteCode);
-}
-
 export async function getContestById(id: string) {
   return contestRepo.findById(id);
 }
@@ -248,6 +275,15 @@ export async function unfreezeContest(contestId: string) {
 
 export async function listContestParticipantsWithUser(contestId: string) {
   return participationRepo.listContestParticipantsWithUser(contestId);
+}
+
+/** Viewer's contest participation, or null if they have not joined. */
+export async function findViewerContestParticipation(
+  userId: string,
+  contestId: string,
+): Promise<{ status: string } | null> {
+  const p = await participationRepo.findContestParticipation(contestId, userId);
+  return p ? { status: p.status } : null;
 }
 
 export interface ContestProblemSibling {

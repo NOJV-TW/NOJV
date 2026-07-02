@@ -3,6 +3,7 @@ import { adjustmentRulesSchema, type AdjustmentRule, type Language } from "@nojv
 
 import { NotFoundError } from "../shared/errors";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
+import { getProblemTotalScores } from "../problem/total-score";
 
 function extractLatePenalty(raw: unknown): AdjustmentRule | null {
   const parsed = adjustmentRulesSchema.safeParse(raw);
@@ -45,6 +46,7 @@ export interface AssignmentDetailSubmissionLogEntry {
   problemTitle: string;
   status: string;
   score: number;
+  maxScore: number | null;
   createdAt: string;
 }
 
@@ -161,7 +163,7 @@ function buildRecentSubmissionLog(
   problems: AssignmentDetailProblem[],
 ): AssignmentDetailSubmissionLogEntry[] {
   const problemLookup = new Map(
-    problems.map((p) => [p.problemId, { letter: p.letter, title: p.title }]),
+    problems.map((p) => [p.problemId, { letter: p.letter, title: p.title, points: p.points }]),
   );
   return recent.map((s) => {
     const p = problemLookup.get(s.problemId);
@@ -172,6 +174,7 @@ function buildRecentSubmissionLog(
       problemTitle: p?.title ?? "",
       status: s.status,
       score: s.score,
+      maxScore: p?.points ?? null,
       createdAt: s.createdAt.toISOString(),
     };
   });
@@ -194,6 +197,10 @@ export async function getAssignmentDetail(
 
   const hideProblemsFromViewer = !options.isManager && status === "upcoming";
 
+  const maxByProblem = await getProblemTotalScores(row.problems.map((p) => p.problem.id));
+  const maxFor = (p: (typeof row.problems)[number]) =>
+    maxByProblem.get(p.problem.id) ?? p.points;
+
   const problems: AssignmentDetailProblem[] = hideProblemsFromViewer
     ? []
     : row.problems.map((p) => ({
@@ -203,13 +210,11 @@ export async function getAssignmentDetail(
         displayId: p.problem.displayId,
         title: p.problem.title,
         difficulty: p.problem.difficulty,
-        points: p.points,
+        points: maxFor(p),
         myStatus: null,
       }));
 
-  const totalPoints = hideProblemsFromViewer
-    ? row.problems.reduce((sum, p) => sum + p.points, 0)
-    : problems.reduce((sum, p) => sum + p.points, 0);
+  const totalPoints = row.problems.reduce((sum, p) => sum + maxFor(p), 0);
 
   let myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null = null;
 

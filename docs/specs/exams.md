@@ -20,9 +20,10 @@ practice-after-close route at `/problems/[id]`.
   `ipViolationMode: block | notify`, so that the lab's network / seat
   assignment is the only place the exam can be taken.
 - As a **student**, I want a clear "start exam" action that creates my
-  session, pins my IP (when binding is on), and redirects me to the exam
-  workspace, so that the proctoring contract is explicit and reversible
-  only by the instructor or the auto-close workflow.
+  session, pins my IP (when binding is on), and then reveals the exam's
+  problem list on the exam page (rather than jumping straight into the
+  first problem), so that the proctoring contract is explicit and
+  reversible only by the instructor or the auto-close workflow.
 - As a **student**, I want mid-exam navigation to any non-exam page to
   auto-redirect me back and log a `visibility_lost` event, so that the
   page lock is enforced without silently failing.
@@ -136,6 +137,24 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - GIVEN the parent course is `archived: true`,
   WHEN start runs,
   THEN `ForbiddenError("This course is archived; new exam sessions are not allowed.")`.
+
+### Session — post-start problem list
+
+- GIVEN a student with an active session on a running exam E
+  (`getActiveSessionContext` resolves to E), WHEN they load
+  `/exams/[examId]`, THEN the loader returns `hasActiveSession: true` and
+  the page renders the assignment-style problem list (one row per problem
+  linking to `/exams/E/problems/[id]`) in place of the pre-start rules
+  card. The `startExam` action and `ExamStartModal` reload the exam page —
+  they do NOT redirect straight into the first problem.
+- GIVEN a student with no active session on E, WHEN they load
+  `/exams/[examId]` while it is running, THEN the pre-start rules / "start
+  exam" CTA card is shown and no problem list is rendered.
+- GIVEN a user without an active session on E, WHEN they request
+  `/exams/E/problems/[problemId]`, THEN `requireActiveSessionForUserExam`
+  throws `ForbiddenError("No active exam session for this exam.")` —
+  problem access requires a started, still-open session. Once `endsAt`
+  passes the loader instead 302s to `/problems/[problemId]?ended=exam`.
 
 ### Session — page lock (hooks.server.ts)
 
@@ -270,6 +289,30 @@ available after it closes.")` (shared post-close gate via
 - Students may additionally use the practice-after-close route through
   `/problems/[id]` (no context) to re-attempt the problems.
 
+### Clarifications (Q&A) visibility
+
+These rules are context-agnostic (`ClarificationContext` = assignment |
+exam | contest) and apply identically to all three assessment types; the
+contest spec links here rather than restating them.
+
+- GIVEN a staff answerer (course teacher/TA or platform admin), WHEN
+  `answer(id, { isPublic })` is called, THEN the reply is stored with
+  `Clarification.isPublic` set to the chosen flag. `isPublic: true`
+  broadcasts an `updated` clarification SSE event to every participant on
+  the public channel; `isPublic: false` goes to the staff-only channel
+  (answerers see it live) and reaches the asker via a
+  `clarification_answered` notification.
+- GIVEN a non-staff viewer, WHEN `listForViewer` runs, THEN they receive
+  ONLY their own questions plus staff-published (`isPublic`) ones, each
+  flagged `isMine`; author identity is masked on rows that aren't theirs.
+- WHEN a participant `ask`s a question, THEN NO SSE event is pushed to
+  peers — pending / unpublished questions are never shown live to other
+  participants (this closes the live-exam/contest leak vector). The asker
+  sees their own from the mutation response; the question is pushed live to
+  staff on the staff-only channel (and staff also see all on load).
+- `Clarification.isPublic` defaults `false`; the introducing migration
+  backfills pre-existing answered rows to `true`.
+
 ## Edge Cases & Failure Modes
 
 - **IP whitelist: `ipWhitelistEnabled=true` + empty list.** Fail-closed —
@@ -320,6 +363,10 @@ available after it closes.")` (shared post-close gate via
   exam + contest).
 - `packages/application/src/audit/queries.ts` —
   `listAuditTimelineForContext`.
+- `packages/application/src/clarification/` — `ask`, `answer`
+  (`isPublic` per reply), `listForViewer` (own + public for non-staff),
+  `canViewClarifications` / `canSeeAuthor`; SSE broadcasts fire only for
+  public content.
 
 ### Schema
 

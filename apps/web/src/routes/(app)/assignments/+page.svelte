@@ -96,7 +96,7 @@
         </a>
       </div>
     {:else}
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div class="grid gap-2">
         {#each assignments as assignment, i (assignment.id)}
           <AssignmentCard {assignment} delay={i * 60} />
         {/each}

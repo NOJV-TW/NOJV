@@ -65,6 +65,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     activeSessions,
     feedback,
     auditEvents,
+    viewerSession,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -87,6 +88,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isManager
       ? auditDomain.listAuditTimelineForContext({ type: "exam", examId })
       : Promise.resolve([] as auditDomain.AuditEvent[]),
+    isManager
+      ? Promise.resolve(null)
+      : examDomain.session.getActiveSessionContext(actor.userId),
   ]);
 
   const auditActorNames = isManager
@@ -138,8 +142,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         )
       : null;
 
+  const hasActiveSession = viewerSession?.session.examId === examId;
+
   return {
     detail,
+    hasActiveSession,
     matrix,
     isManager,
     activeSessions,

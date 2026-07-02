@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 import {
   contestProblemRepo,
   contestRepo,
@@ -23,30 +21,41 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-export const contestFormSchema = z.object({
-  allowedLanguages: z.array(languageSchema).max(8).default([]),
-  endsAt: z.string().min(1),
-  frozenAt: z.string().optional(),
-  inviteCode: z.string().max(32).optional(),
-  problems: z
-    .array(
-      z.object({
-        problemId: z.string().trim().min(1),
-        points: z.coerce.number().int().min(1).max(100_000).default(100),
-      }),
-    )
-    .min(1)
-    .max(32)
-    .default([{ problemId: "", points: 100 }]),
-  scoreboardMode: scoreboardModeSchema.default("live"),
-  scoringMode: contestScoringModeSchema.default("problem_count"),
-  id: slugSchema,
-  startsAt: z.string().min(1),
-  submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
-  penaltyMinutesPerWrong: z.coerce.number().int().min(0).max(1440).default(20),
-  summary: z.string().min(8).max(4_000),
-  title: z.string().min(3).max(120),
-});
+export const contestFormSchema = z
+  .object({
+    allowedLanguages: z.array(languageSchema).max(8).default([]),
+    endsAt: z.string().min(1),
+    frozenAt: z.string().optional(),
+    inviteCode: z.string().max(32).optional(),
+    isPublic: z.boolean().default(true),
+    problems: z
+      .array(
+        z.object({
+          problemId: z.string().trim().min(1),
+          points: z.coerce.number().int().min(1).max(100_000).default(100),
+        }),
+      )
+      .min(1)
+      .max(32)
+      .default([{ problemId: "", points: 100 }]),
+    scoreboardMode: scoreboardModeSchema.default("live"),
+    scoringMode: contestScoringModeSchema.default("problem_count"),
+    id: slugSchema,
+    startsAt: z.string().min(1),
+    submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
+    penaltyMinutesPerWrong: z.coerce.number().int().min(0).max(1440).default(20),
+    summary: z.string().min(8).max(4_000),
+    title: z.string().min(3).max(120),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.isPublic && (data.inviteCode ?? "").trim().length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Invite code is required for private contests.",
+        path: ["inviteCode"],
+      });
+    }
+  });
 
 import type { ActorContext } from "../shared/actor-context";
 import {
@@ -56,6 +65,8 @@ import {
   ValidationError,
 } from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
+import { canManageContest } from "./permissions";
+import type { PlatformRole } from "@nojv/core";
 import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
@@ -111,6 +122,7 @@ export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
   contestId: string,
+  platformRole?: PlatformRole | null,
 ) {
   const contest = await requireContest(tx, contestId);
 
@@ -124,6 +136,17 @@ export async function ensureContestParticipation(
   }
   if (now >= contest.endsAt) {
     throw new ForbiddenError("Contest has ended.");
+  }
+
+  // Participants must join before submitting; managers/admins are auto-joined
+  // (operational access, consistent with the contest problem-route gate).
+  if (!canManageContest(userId, contest, platformRole)) {
+    const existing = await participationRepo
+      .withTx(tx)
+      .findContestParticipation(contestId, userId);
+    if (!existing) {
+      throw new ForbiddenError("You must join the contest before submitting.");
+    }
   }
 
   const participation = await participationRepo
@@ -178,7 +201,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     await requireUser(tx, actor.userId);
 
-    const inviteCode = payload.inviteCode ?? crypto.randomBytes(4).toString("hex");
+    const inviteCode = payload.inviteCode ?? null;
 
     const contest = await contestRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
@@ -210,6 +233,49 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
   await getDomainOrchestration().dispatchContestLifecycle({ contestId: contest.id });
   return contest;
+}
+
+export async function joinContestByCode(
+  actor: ActorContext,
+  code: string,
+): Promise<{ contestId: string }> {
+  const contest = await contestRepo.findByInviteCode(code);
+  if (contest?.visibility !== "published") {
+    throw new NotFoundError("No contest matches that invite code.");
+  }
+
+  await runTransaction(async (tx) => {
+    await requireUser(tx, actor.userId);
+    await participationRepo.withTx(tx).upsertContestRegistered(contest.id, actor.userId);
+  });
+
+  return { contestId: contest.id };
+}
+
+/**
+ * Explicit join for a PUBLIC contest (no invite code). Registers the actor as a
+ * participant so they may submit. Allowed before and during the contest (until
+ * it ends). Private/invite-code contests must be joined via `joinContestByCode`.
+ */
+export async function joinContest(
+  actor: ActorContext,
+  contestId: string,
+): Promise<{ contestId: string }> {
+  await runTransaction(async (tx) => {
+    const contest = await requireContest(tx, contestId);
+    if (contest.visibility !== "published") {
+      throw new NotFoundError(`Contest not found: ${contestId}`);
+    }
+    if (contest.inviteCode) {
+      throw new ForbiddenError("This contest requires an invite code to join.");
+    }
+    if (new Date() >= contest.endsAt) {
+      throw new ForbiddenError("Contest has ended.");
+    }
+    await requireUser(tx, actor.userId);
+    await participationRepo.withTx(tx).upsertContestRegistered(contest.id, actor.userId);
+  });
+  return { contestId };
 }
 
 export async function updateContestRecord(

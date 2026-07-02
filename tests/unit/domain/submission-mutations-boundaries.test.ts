@@ -9,6 +9,7 @@ const {
   userUpdate,
   contestRepoFindById,
   participationUpsertContestActive,
+  participationFindContest,
   workspaceFindByProblemId,
   submissionFindMostRecent,
   submissionCreate,
@@ -26,6 +27,7 @@ const {
   userUpdate: vi.fn(),
   contestRepoFindById: vi.fn(),
   participationUpsertContestActive: vi.fn(),
+  participationFindContest: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   submissionCreate: vi.fn(),
@@ -64,7 +66,10 @@ vi.mock("@nojv/db", () => ({
     withTx: () => ({ findLink: txContestProblemFindFirst }),
   },
   participationRepo: {
-    withTx: () => ({ upsertContestActive: participationUpsertContestActive }),
+    withTx: () => ({
+      upsertContestActive: participationUpsertContestActive,
+      findContestParticipation: participationFindContest,
+    }),
   },
   examSessionRepo: {
     withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
@@ -150,6 +155,8 @@ function setupCommonProblemDefaults() {
     id,
     status,
   }));
+  // Default: the submitter has joined the contest (join gating covered elsewhere).
+  participationFindContest.mockResolvedValue({ id: "part_1", status: "active" });
 }
 
 describe("createQueuedSubmissionRecord — contest cooldown", () => {

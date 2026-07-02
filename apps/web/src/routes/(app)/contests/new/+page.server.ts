@@ -5,7 +5,8 @@ import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, requireAuth } from "$lib/server/auth";
-import { withAction } from "$lib/server/shared/action-handlers";
+import { classifyError } from "$lib/server/shared/handle-action-error";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { contestDomain } from "@nojv/application";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
@@ -20,7 +21,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  create: withAction(async (event) => {
+  create: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     if (!canCreateCourse(actor.platformRole)) {
       redirect(303, "/contests");
@@ -29,16 +30,22 @@ export const actions = {
     const form = await superValidate(event, zod4(contestFormSchema));
     if (!form.valid) return fail(400, { form });
 
-    const { startsAt, endsAt, frozenAt, inviteCode, ...rest } = form.data;
+    const { startsAt, endsAt, frozenAt, inviteCode, isPublic, ...rest } = form.data;
 
-    const payload = contestCreateSchema.parse({
-      ...rest,
-      inviteCode: inviteCode ?? undefined,
-      endsAt: new Date(endsAt).toISOString(),
-      frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
-      startsAt: new Date(startsAt).toISOString(),
-    });
-    await createContestRecord(actor, payload);
+    try {
+      const payload = contestCreateSchema.parse({
+        ...rest,
+        inviteCode: isPublic ? undefined : (inviteCode ?? undefined),
+        endsAt: new Date(endsAt).toISOString(),
+        frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
+        startsAt: new Date(startsAt).toISOString(),
+      });
+      await createContestRecord(actor, payload);
+    } catch (err) {
+      const classified = classifyError(err);
+      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+    }
+
     return message(form, { kind: "success", text: "ok" });
   }),
 } satisfies Actions;

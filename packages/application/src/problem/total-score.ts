@@ -1,5 +1,5 @@
 import { advancedConfigSchema, type ProblemType } from "@nojv/core";
-import { testcaseSetRepo, type TransactionClient } from "@nojv/db";
+import { problemRepo, testcaseSetRepo, type TransactionClient } from "@nojv/db";
 
 function advancedMaxScore(advancedConfig: unknown): number {
   const parsed = advancedConfigSchema.safeParse(advancedConfig);
@@ -24,4 +24,28 @@ export async function getProblemTotalScore(
   const sets = await testcaseSetRepo.withTx(tx).findByProblemId(problem.id);
   const sum = sets.reduce((s, t) => s + t.weight, 0);
   return sum > 0 ? sum : 100;
+}
+
+/**
+ * Batch-computes each problem's real maximum score (cumulative subtask weights,
+ * or the advanced-config max for special_env problems) straight from the DB.
+ * Use this to source score denominators for display instead of the possibly
+ * stale `points` snapshot stored on assessment/exam problem links.
+ */
+export async function getProblemTotalScores(
+  problemIds: string[],
+): Promise<Map<string, number>> {
+  const ids = [...new Set(problemIds)];
+  if (ids.length === 0) return new Map();
+  const problems = await problemRepo.findScoringInputsByIds(ids);
+  return new Map(
+    problems.map((p) => [
+      p.id,
+      computeProblemTotalScore({
+        type: p.type,
+        testcaseSets: p.testcaseSets,
+        advancedConfig: p.advancedConfig,
+      }),
+    ]),
+  );
 }

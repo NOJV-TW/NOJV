@@ -39,6 +39,15 @@ Custom components in `$lib/components/primitives/ui/`:
 | HelpTooltip   | `CircleHelp` icon with Bits UI Tooltip for inline help text          |
 | ImageDropZone | Textarea with drag-and-drop + paste image upload, markdown insertion |
 
+Assessment surface components (shared across assignment / exam / contest, see [Assessment Surfaces](#assessment-surfaces)):
+
+| Component      | Location              | Purpose                                                                                                                                                                                                                                     |
+| -------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AssessmentHero | `features/coursework` | Unified detail-page hero on a `GlassPanel`: type eyebrow + `badges`/`actions` snippets, big title, summary, per-type accent (left stripe + tinted icon badge + corner wash)                                                                 |
+| AssessmentRow  | `features/coursework` | Unified list row — standalone glass strip (rounded, `shadow-rest`, `hover-lift`, left accent stripe, `StatusPill` + mono type-eyebrow); the per-type list wrappers (AssignmentCard/ExamRow/ContestPoster/ContestRowPast) now delegate to it |
+| StatRail       | `primitives/visual`   | `flex flex-wrap` row of stat tiles shown under the hero                                                                                                                                                                                     |
+| StatTile       | `primitives/visual`   | Single glass tile: `label` + `value` snippet (the 4 key facts per assessment type)                                                                                                                                                          |
+
 ### Typography
 
 Three font families, all self-hosted via `@fontsource`:
@@ -70,6 +79,14 @@ Custom tokens beyond the standard set:
 
 - `--panel` / `--color-panel`: card background for surface panels
 - `--panel-strong`: higher-opacity variant for nested panels (e.g., locale switcher pill)
+
+**Type-identity accents** (assessment surfaces): three tokens give each assessment kind a stable identity colour — used for the icon badge, left edge stripe, and hero corner wash only. These are **identity**, not status: `StatusPill` and the semantic status tokens above stay state-based. Consumed via `type-accent.ts` (`typeAccentVar(kind)`), not hardcoded in components.
+
+| Token               | Light                    | Dark                     | Kind       |
+| ------------------- | ------------------------ | ------------------------ | ---------- |
+| `--type-assignment` | `var(--primary)` (teal)  | `var(--primary)` (teal)  | assignment |
+| `--type-exam`       | `#5b6fd6` (indigo)       | `#8593e8` (indigo)       | exam       |
+| `--type-contest`    | `var(--chart-4)` (amber) | `var(--chart-4)` (amber) | contest    |
 
 Selection highlight uses the primary color at 18% opacity (light) / 25% opacity (dark).
 
@@ -127,6 +144,14 @@ The primary problem-solving surface is a resizable split-pane layout (`ProblemWo
 ### Problem Editor (Admin/Teacher)
 
 Five-tab interface (`ProblemTabs.svelte`): Basic Info, Submission, Testcase, Judge, Scoring. Active tab indicated with a bottom-border primary color stripe. Publish button appears in the tab bar when ready (green `rounded-full` pill), disabled with tooltip when validation fails.
+
+### Assessment surfaces
+
+Assignment, exam, and contest pages share one visual grammar (components above):
+
+- **Detail pages** open with an `AssessmentHero` followed by a `StatRail` of `StatTile`s — each type surfaces its most-important 4 facts (assignment: due countdown / progress / score / languages; exam: time / duration / total points / score-or-security; contest: time / participants / scoring / scoreboard).
+- **List pages** render items as spaced `AssessmentRow` glass strips inside a `grid gap-2` wrapper (same treatment as the submissions list), replacing the old bespoke `AssignmentCard` / `ExamRow` / `ContestPoster` / `ContestRowPast` looks.
+- Every surface carries a **6px (`w-1.5`) left accent stripe** in the type-identity colour (see [Type-identity accents](#color-system)); the `AssessmentHero` eyebrow additionally shows a tinted `TypeIcon` badge (list rows use the stripe + a mono type-eyebrow instead).
 
 ### Verdict Display
 

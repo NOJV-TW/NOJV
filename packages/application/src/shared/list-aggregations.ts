@@ -5,6 +5,8 @@ import {
   submissionRepo,
 } from "@nojv/db";
 
+import { getProblemTotalScores } from "../problem/total-score";
+
 export interface ClassStats {
   submittedUsers: number;
   totalStudents: number;
@@ -90,31 +92,37 @@ interface MaxScoreRow {
   _max: { score: number | null };
 }
 
-interface PointSumRow {
-  _sum: { points: number | null };
+/**
+ * Live per-target max: sum each problem's real total score (from DB testcase
+ * weights) across a target's problem links, instead of the stale stored points.
+ */
+async function liveTotalPointsByTarget(
+  links: { targetId: string; problemId: string }[],
+): Promise<Map<string, number>> {
+  const maxByProblem = await getProblemTotalScores(links.map((l) => l.problemId));
+  const out = new Map<string, number>();
+  for (const l of links) {
+    out.set(l.targetId, (out.get(l.targetId) ?? 0) + (maxByProblem.get(l.problemId) ?? 0));
+  }
+  return out;
 }
 
-async function aggregateMyStatus<
-  A extends AcceptedGroupRow,
-  S extends MaxScoreRow,
-  P extends PointSumRow,
->(
+async function aggregateMyStatus<A extends AcceptedGroupRow, S extends MaxScoreRow>(
   rows: { id: string; problemCount: number }[],
   loaders: {
     accepted: () => Promise<A[]>;
     scores: () => Promise<S[]>;
-    pointSums: () => Promise<P[]>;
+    totalPoints: () => Promise<Map<string, number>>;
   },
   fk: (g: A | S) => string | null,
-  pointFk: (g: P) => string,
 ): Promise<Map<string, MyStatus>> {
   const out = new Map<string, MyStatus>();
   if (rows.length === 0) return out;
 
-  const [accepted, scores, pointSums] = await Promise.all([
+  const [accepted, scores, totalPointsByTarget] = await Promise.all([
     loaders.accepted(),
     loaders.scores(),
-    loaders.pointSums(),
+    loaders.totalPoints(),
   ]);
 
   const solvedByTarget = new Map<string, Set<string>>();
@@ -135,11 +143,6 @@ async function aggregateMyStatus<
     if (!tid) continue;
     const score = g._max.score ?? 0;
     scoreByTarget.set(tid, (scoreByTarget.get(tid) ?? 0) + score);
-  }
-
-  const totalPointsByTarget = new Map<string, number>();
-  for (const g of pointSums) {
-    totalPointsByTarget.set(pointFk(g), g._sum.points ?? 0);
   }
 
   for (const row of rows) {
@@ -181,9 +184,13 @@ export function aggregateAssignmentMyStatus(
           assessmentIds: assignmentIds,
           userId,
         }),
-      pointSums: () => assessmentProblemRepo.sumPointsByAssessment(assignmentIds),
+      totalPoints: async () => {
+        const links = await assessmentProblemRepo.listProblemLinks(assignmentIds);
+        return liveTotalPointsByTarget(
+          links.map((l) => ({ targetId: l.assessmentId, problemId: l.problemId })),
+        );
+      },
     },
-    (g) => g.assessmentId,
     (g) => g.assessmentId,
   );
 }
@@ -206,9 +213,13 @@ export function aggregateExamMyStatus(
     {
       accepted: () => submissionRepo.groupAcceptedByExamForUser({ examIds, userId }),
       scores: () => submissionRepo.groupBestScoresByExamForUser({ examIds, userId }),
-      pointSums: () => examProblemRepo.sumPointsByExam(examIds),
+      totalPoints: async () => {
+        const links = await examProblemRepo.listProblemLinks(examIds);
+        return liveTotalPointsByTarget(
+          links.map((l) => ({ targetId: l.examId, problemId: l.problemId })),
+        );
+      },
     },
-    (g) => g.examId,
     (g) => g.examId,
   );
 }

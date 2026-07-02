@@ -72,6 +72,7 @@ function clarificationRow(
     contextId: string;
     askedByUserId: string;
     deletedAt: Date | null;
+    isPublic: boolean;
   }> = {},
 ) {
   return {
@@ -83,6 +84,7 @@ function clarificationRow(
     questionText: "How does this work?",
     answerText: null,
     state: "pending" as const,
+    isPublic: true,
     answeredByUserId: null,
     answeredAt: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -162,8 +164,11 @@ describe("deleteClarification", () => {
     expect(clarificationSoftDelete).not.toHaveBeenCalled();
   });
 
-  it("publishes a `deleted` SSE event after a successful soft-delete", async () => {
+  it("broadcasts a public row's deletion to peers on the public channel", async () => {
     clarificationFindById.mockResolvedValue(clarificationRow({ askedByUserId: "usr_asker" }));
+    clarificationSoftDelete.mockResolvedValue(
+      clarificationRow({ isPublic: true, deletedAt: new Date() }),
+    );
 
     await deleteClarification(actor({ userId: "usr_asker" }), "clr_1");
 
@@ -171,6 +176,23 @@ describe("deleteClarification", () => {
       "contest",
       "ctst_1",
       expect.objectContaining({ action: "deleted" }),
+      "public",
+    );
+  });
+
+  it("routes a private/pending row's deletion to the staff-only channel", async () => {
+    clarificationFindById.mockResolvedValue(clarificationRow({ askedByUserId: "usr_asker" }));
+    clarificationSoftDelete.mockResolvedValue(
+      clarificationRow({ isPublic: false, deletedAt: new Date() }),
+    );
+
+    await deleteClarification(actor({ userId: "usr_asker" }), "clr_1");
+
+    expect(publishClarification).toHaveBeenCalledWith(
+      "contest",
+      "ctst_1",
+      expect.objectContaining({ action: "deleted" }),
+      "staff",
     );
   });
 });

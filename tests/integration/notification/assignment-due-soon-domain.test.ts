@@ -22,6 +22,10 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
 
     const problemA = await createTestProblem({ authorId: teacher.id });
     const problemB = await createTestProblem({ authorId: teacher.id });
+    await testPrisma.testcaseSet.updateMany({
+      where: { problemId: { in: [problemA.id, problemB.id] } },
+      data: { weight: 10 },
+    });
 
     const closesAt = new Date(Date.now() + 48 * 3600_000);
     const assessment = await testPrisma.assessment.create({

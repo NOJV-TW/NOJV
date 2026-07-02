@@ -6,12 +6,14 @@ const {
   groupBestScoresByAssessment,
   groupStatusByAssessments,
   countUserStatsByProblemForAssessments,
+  findScoringInputsByIds,
 } = vi.hoisted(() => ({
   listPublishedWithProblemsByCourse: vi.fn(),
   findStudents: vi.fn(),
   groupBestScoresByAssessment: vi.fn(),
   groupStatusByAssessments: vi.fn(),
   countUserStatsByProblemForAssessments: vi.fn(),
+  findScoringInputsByIds: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -22,6 +24,7 @@ vi.mock("@nojv/db", () => ({
     groupStatusByAssessments,
     countUserStatsByProblemForAssessments,
   },
+  problemRepo: { findScoringInputsByIds },
 }));
 
 import { courseDomain } from "@nojv/application";
@@ -38,6 +41,17 @@ beforeEach(() => {
   groupBestScoresByAssessment.mockReset();
   groupStatusByAssessments.mockReset();
   countUserStatsByProblemForAssessments.mockReset();
+  // Live per-problem max = 100 per problem (matches the fixture points).
+  findScoringInputsByIds.mockReset().mockImplementation((ids: string[]) =>
+    Promise.resolve(
+      ids.map((id) => ({
+        id,
+        type: "full_source",
+        advancedConfig: null,
+        testcaseSets: [{ weight: 100 }],
+      })),
+    ),
+  );
 });
 
 describe("getCourseAnalytics", () => {

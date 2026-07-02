@@ -120,8 +120,12 @@ export async function publishClarification(
   contextType: string,
   contextId: string,
   event: ClarificationSSEEvent,
+  target: "public" | "staff" = "public",
 ): Promise<void> {
-  const channel = keys.clarificationChannel(contextType, contextId);
+  const channel =
+    target === "staff"
+      ? keys.clarificationStaffChannel(contextType, contextId)
+      : keys.clarificationChannel(contextType, contextId);
   await bestEffort("clarification", channel, async () => {
     await publishEvent(channel, event);
   });

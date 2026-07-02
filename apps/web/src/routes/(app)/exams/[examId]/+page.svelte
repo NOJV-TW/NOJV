@@ -3,9 +3,9 @@
   import { cn } from "$lib/utils/css.js";
   import { ChevronRight, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import CornerMark from "$lib/components/primitives/visual/CornerMark.svelte";
-  import DotGrid from "$lib/components/primitives/visual/DotGrid.svelte";
-  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
+  import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
@@ -27,6 +27,7 @@
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   const detail = $derived(data.detail);
+  const hasActiveSession = $derived(data.hasActiveSession ?? false);
   const isManager = $derived(data.isManager);
 
   let nowMs = $state(Date.now());
@@ -157,90 +158,83 @@
 <PageContainer class="space-y-6 fade-up">
   <Crumbs items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]} />
 
-  <div
-    class="relative overflow-hidden rounded-xl border-2 shadow-rest"
-    style="border-color: var(--border); background: var(--panel);"
+  <AssessmentHero
+    kind="exam"
+    typeLabel={m.examDetail_typeLabel()}
+    context={examCode}
+    title={detail.title}
+    summary={detail.summary}
   >
-    <CornerMark pos="tl" />
-    <CornerMark pos="tr" />
-    <CornerMark pos="bl" />
-    <CornerMark pos="br" />
-    <DotGrid opacity={0.12} />
-
-    <div class="relative p-7 lg:p-10">
-      <div class="flex flex-wrap items-start justify-between gap-6">
-        <div class="min-w-0">
-          <div
-            class="flex items-center gap-2 font-mono text-micro uppercase tracking-[0.2em] text-muted-foreground"
-          >
-            <TypeIcon kind="exam" size={14} />
-            <span>{m.examDetail_typeLabel()}</span>
-            <span class="opacity-60">|</span>
-            <span>{examCode}</span>
-          </div>
-          <div class="mt-3 flex flex-wrap items-center gap-3">
-            <StatusPill status={pillStatus(liveStatus)} type="exam" />
-            {#if past && !isManager && detail.viewerScore !== null}
-              <div
-                class="flex items-baseline gap-1.5 rounded-full px-3 py-1 font-mono text-caption tabular-nums"
-                style="background: color-mix(in oklab, var(--primary) 10%, transparent);"
-              >
-                <span class="text-micro uppercase tracking-wider text-muted-foreground"
-                  >{m.examDetail_scoreLabel()}</span
-                >
-                <span class="font-semibold" style="color: var(--primary);">
-                  {detail.viewerScore}
-                </span>
-                <span class="text-muted-foreground">/ {detail.totalPoints}</span>
-              </div>
-            {/if}
-          </div>
-          <h1 class="mt-3 text-headline font-semibold tracking-tight lg:text-display">
-            {detail.title}
-          </h1>
-          {#if detail.summary}
-            <p class="mt-4 max-w-2xl text-body text-muted-foreground">{detail.summary}</p>
-          {/if}
-        </div>
-
+    {#snippet badges()}
+      <StatusPill status={pillStatus(liveStatus)} type="exam" />
+      {#if past && !isManager && detail.viewerScore !== null}
         <div
-          class="min-w-[260px] rounded-lg border border-dashed p-3"
-          style="border-color: var(--border-strong);"
+          class="flex items-baseline gap-1.5 rounded-full px-3 py-1 font-mono text-caption tabular-nums"
+          style="background: color-mix(in oklab, var(--primary) 10%, transparent);"
         >
-          <div class="font-mono text-micro uppercase tracking-[0.18em] text-muted-foreground">
-            {past
-              ? m.examDetail_clockHeld()
-              : liveStatus === "running"
-                ? m.examDetail_clockRunning()
-                : m.examDetail_clockUntilStart()}
-          </div>
-          <div class="mt-2">
-            {#if past}
-              <div class="font-mono text-title">{fmtDate(detail.startsAt)}</div>
-            {:else if liveStatus === "running"}
-              <Countdown iso={detail.endsAt} />
-            {:else}
-              <Countdown iso={detail.startsAt} />
-            {/if}
-          </div>
-          <div class="mt-3 space-y-1 border-t border-border-subtle pt-3 font-mono text-caption">
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.examDetail_clockStartsLabel()}</span>
-              <span>{fmtDate(detail.startsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.examDetail_clockEndsLabel()}</span>
-              <span>{fmtDate(detail.endsAt)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">{m.examDetail_clockDurationLabel()}</span>
-              <span>{m.examDetail_durationMinutes({ count: durationMinutes })}</span>
-            </div>
-          </div>
+          <span class="text-micro uppercase tracking-wider text-muted-foreground"
+            >{m.examDetail_scoreLabel()}</span
+          >
+          <span class="font-semibold" style="color: var(--primary);">
+            {detail.viewerScore}
+          </span>
+          <span class="text-muted-foreground">/ {detail.totalPoints}</span>
         </div>
-      </div>
-    </div>
-  </div>
+      {/if}
+    {/snippet}
+  </AssessmentHero>
+
+  <StatRail>
+    <StatTile
+      label={past
+        ? m.examDetail_clockHeld()
+        : liveStatus === "running"
+          ? m.examDetail_clockRunning()
+          : m.examDetail_clockUntilStart()}
+    >
+      {#snippet value()}
+        {#if past}
+          <span class="font-mono">{fmtDate(detail.startsAt)}</span>
+        {:else if liveStatus === "running"}
+          <Countdown iso={detail.endsAt} />
+        {:else}
+          <Countdown iso={detail.startsAt} />
+        {/if}
+      {/snippet}
+    </StatTile>
+    <StatTile label={m.examDetail_clockDurationLabel()}>
+      {#snippet value()}{m.examDetail_durationMinutes({ count: durationMinutes })}{/snippet}
+    </StatTile>
+    <StatTile label={m.examDetail_pointsLabel()}>
+      {#snippet value()}{detail.totalPoints}{/snippet}
+    </StatTile>
+    {#if past && !isManager && detail.viewerScore !== null}
+      <StatTile label={m.examDetail_scoreLabel()}>
+        {#snippet value()}
+          <span style="color: var(--primary);">{detail.viewerScore}</span>
+          <span class="text-body-sm text-muted-foreground"> / {detail.totalPoints}</span>
+        {/snippet}
+      </StatTile>
+    {:else}
+      <StatTile label={m.examDetail_settingsSectionProctoring()}>
+        {#snippet value()}
+          {#if detail.pageLockEnabled || detail.ipBindingEnabled || detail.ipWhitelistEnabled}
+            <span class="text-title-sm">
+              {[
+                detail.pageLockEnabled ? m.examDetail_featurePageLock() : null,
+                detail.ipBindingEnabled ? m.examDetail_featureIpBinding() : null,
+                detail.ipWhitelistEnabled ? m.examDetail_featureIpWhitelist() : null,
+              ]
+                .filter(Boolean)
+                .join(m.examDetail_featuresSeparator())}
+            </span>
+          {:else}
+            <span class="text-muted-foreground">—</span>
+          {/if}
+        {/snippet}
+      </StatTile>
+    {/if}
+  </StatRail>
 
   {#if form?.error}
     <div
@@ -373,90 +367,126 @@
         </GlassPanel>
       {/if}
     {:else}
-      <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <GlassPanel class="p-7">
-          <div class="flex items-start justify-between gap-3">
-            <h2 class="flex items-center gap-2 text-title font-semibold">
-              <span class="size-1.5 rounded-full bg-primary"></span>
-              {m.examDetail_studentRulesHeading()}
-            </h2>
-          </div>
-          <ul class="mt-4 space-y-2.5">
-            {#each rules as r, i (i)}
-              <li class="flex items-start gap-3 text-body-sm">
-                <span
-                  class="mt-0.5 font-mono text-micro uppercase tracking-wider tabular-nums text-muted-foreground"
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <span>{r}</span>
-              </li>
-            {/each}
-          </ul>
-
-          <div class="mt-6 border-t border-border-subtle pt-5">
-            <div
-              class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
-            >
-              {m.examDetail_studentAllowedLanguagesHeading()}
-            </div>
-            <div class="flex flex-wrap gap-2">
-              {#each allowedLanguages as l (l)}
-                <span
-                  class="rounded-full bg-muted px-2.5 py-1 font-mono text-caption text-muted-foreground"
-                  >{l}</span
-                >
-              {/each}
-            </div>
-          </div>
-        </GlassPanel>
-
-        <GlassPanel class="flex flex-col gap-4 p-6">
-          <div>
-            <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-              {m.examDetail_studentPrepEyebrow()}
-            </div>
-            <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
-          </div>
-          <ul class="space-y-2 text-body-sm">
-            {#each studentPrepRules as rule (rule)}
-              <li class="flex items-start gap-2">
-                <span
-                  class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                  style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-                >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
-                  >
-                </span>
-                <span>{rule}</span>
-              </li>
-            {/each}
-          </ul>
-          <button
-            type="button"
-            disabled={liveStatus !== "running"}
-            onclick={() => (showStartModal = true)}
-            class="mt-auto w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+      {#if hasActiveSession && liveStatus === "running"}
+        <GlassPanel class="overflow-hidden">
+          <div
+            class="flex items-center justify-between border-b border-border-subtle px-6 py-4"
           >
-            {m.examDetail_studentStartButton()}
-          </button>
-          <p class="text-center text-caption text-muted-foreground">
-            {#if liveStatus === "running"}
-              {m.examDetail_studentStartHintRunning()}
-            {:else if liveStatus === "upcoming"}
-              {m.examDetail_studentStartHintUpcoming()}
-            {:else}
-              {m.examDetail_studentStartHintNotOpen()}
-            {/if}
-          </p>
+            <h2 class="text-title font-semibold">{m.examDetail_studentProblemsHeading()}</h2>
+            <Countdown iso={detail.endsAt} isCompact />
+          </div>
+          <div class="divide-y" style="border-color: var(--border-subtle);">
+            {#each detail.problems as p (p.id)}
+              <a
+                href={`/exams/${detail.id}/problems/${p.id}`}
+                class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40"
+              >
+                <div class="font-mono text-body font-semibold text-muted-foreground">
+                  {p.letter}
+                </div>
+                <div>
+                  <div class="font-medium">{p.title}</div>
+                  <div class="mt-1 flex items-center gap-3">
+                    <DifficultyTick level={p.difficulty} />
+                  </div>
+                </div>
+                <span
+                  class="inline-flex items-center gap-1 font-mono text-caption uppercase tracking-wider"
+                  style="color: var(--primary);"
+                >
+                  {m.examDetail_problemSolve()}
+                  <ChevronRight aria-hidden="true" class="size-3.5" />
+                </span>
+              </a>
+            {/each}
+          </div>
         </GlassPanel>
-      </div>
+      {:else}
+        <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
+          <GlassPanel class="p-7">
+            <div class="flex items-start justify-between gap-3">
+              <h2 class="flex items-center gap-2 text-title font-semibold">
+                <span class="size-1.5 rounded-full bg-primary"></span>
+                {m.examDetail_studentRulesHeading()}
+              </h2>
+            </div>
+            <ul class="mt-4 space-y-2.5">
+              {#each rules as r, i (i)}
+                <li class="flex items-start gap-3 text-body-sm">
+                  <span
+                    class="mt-0.5 font-mono text-micro uppercase tracking-wider tabular-nums text-muted-foreground"
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span>{r}</span>
+                </li>
+              {/each}
+            </ul>
+
+            <div class="mt-6 border-t border-border-subtle pt-5">
+              <div
+                class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
+              >
+                {m.examDetail_studentAllowedLanguagesHeading()}
+              </div>
+              <div class="flex flex-wrap gap-2">
+                {#each allowedLanguages as l (l)}
+                  <span
+                    class="rounded-full bg-muted px-2.5 py-1 font-mono text-caption text-muted-foreground"
+                    >{l}</span
+                  >
+                {/each}
+              </div>
+            </div>
+          </GlassPanel>
+
+          <GlassPanel class="flex flex-col gap-4 p-6">
+            <div>
+              <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+                {m.examDetail_studentPrepEyebrow()}
+              </div>
+              <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
+            </div>
+            <ul class="space-y-2 text-body-sm">
+              {#each studentPrepRules as rule (rule)}
+                <li class="flex items-start gap-2">
+                  <span
+                    class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
+                    style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+                    >
+                  </span>
+                  <span>{rule}</span>
+                </li>
+              {/each}
+            </ul>
+            <button
+              type="button"
+              disabled={liveStatus !== "running"}
+              onclick={() => (showStartModal = true)}
+              class="mt-auto w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {m.examDetail_studentStartButton()}
+            </button>
+            <p class="text-center text-caption text-muted-foreground">
+              {#if liveStatus === "running"}
+                {m.examDetail_studentStartHintRunning()}
+              {:else if liveStatus === "upcoming"}
+                {m.examDetail_studentStartHintUpcoming()}
+              {:else}
+                {m.examDetail_studentStartHintNotOpen()}
+              {/if}
+            </p>
+          </GlassPanel>
+        </div>
+      {/if}
 
       {#if data.clarification.canView}
         <GlassPanel class="p-7">
@@ -638,7 +668,6 @@
     onOpenChange={(v) => (showStartModal = v)}
     examTitle={detail.title}
     problemCount={detail.problems.length}
-    firstProblemId={detail.problems[0]?.id}
     {durationMinutes}
   />
 {/if}

@@ -161,6 +161,20 @@ export const participationRepo = {
         });
       },
 
+      upsertContestRegistered(contestId: string, userId: string) {
+        return tx.participation.upsert({
+          where: { type_contestId_userId: { type: "contest", contestId, userId } },
+          create: { type: "contest", contestId, userId, status: "registered" },
+          update: {},
+        });
+      },
+
+      findContestParticipation(contestId: string, userId: string) {
+        return tx.participation.findUnique({
+          where: { type_contestId_userId: { type: "contest", contestId, userId } },
+        });
+      },
+
       findExamParticipation(examId: string, userId: string) {
         return tx.participation.findUnique({
           where: { type_examId_userId: { type: "exam", examId, userId } },

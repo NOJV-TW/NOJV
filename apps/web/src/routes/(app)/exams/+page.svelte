@@ -107,7 +107,7 @@
         </a>
       </div>
     {:else}
-      <div class="grid gap-4">
+      <div class="grid gap-2">
         {#each sorted as exam, i (exam.id)}
           <ExamRow {exam} delay={i * 80} />
         {/each}

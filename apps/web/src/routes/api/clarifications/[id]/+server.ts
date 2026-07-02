@@ -12,6 +12,7 @@ const patchSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("answer"),
     answerText: z.string().min(1).max(1000),
+    isPublic: z.boolean().default(true),
   }),
   z.object({
     kind: z.literal("dismiss"),
@@ -24,7 +25,11 @@ function parseBody(raw: unknown): z.infer<typeof patchSchema> {
     if (obj.kind === undefined) {
       if (obj.state === "dismissed") return patchSchema.parse({ kind: "dismiss" });
       if (typeof obj.answerText === "string") {
-        return patchSchema.parse({ kind: "answer", answerText: obj.answerText });
+        return patchSchema.parse({
+          kind: "answer",
+          answerText: obj.answerText,
+          isPublic: obj.isPublic,
+        });
       }
     }
   }
@@ -50,6 +55,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
 
   const updated = await clarificationDomain.answer(actor, id, {
     answerText: parsed.answerText,
+    isPublic: parsed.isPublic,
   });
   return json(updated);
 });

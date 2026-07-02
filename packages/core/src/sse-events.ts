@@ -48,6 +48,7 @@ const clarificationEventSchema = z.object({
     questionText: z.string(),
     answerText: z.string().nullable(),
     state: z.enum(["pending", "answered", "dismissed"]),
+    isPublic: z.boolean(),
     askedByUserId: z.string().nullable(),
     askedBy: z
       .object({

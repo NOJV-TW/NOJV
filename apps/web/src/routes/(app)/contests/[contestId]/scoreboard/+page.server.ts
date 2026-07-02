@@ -5,6 +5,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { getActorContext, requireAuth } from "$lib/server/auth";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { contestNotStarted } from "$lib/utils/scoreboard";
 import { contestDomain } from "@nojv/application";
 
 const {
@@ -26,7 +27,7 @@ export const load: PageServerLoad = handleLoad(async (event) => {
     userId: actor?.userId ?? null,
   });
 
-  if (detail.problemsHidden) {
+  if (contestNotStarted(detail.startsAt) && !detail.isManager) {
     redirect(303, `/contests/${contestId}`);
   }
 

@@ -1,5 +1,7 @@
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 
+import { getProblemTotalScores } from "../problem/total-score";
+
 export interface AssessmentSummary {
   assessmentId: string;
   title: string;
@@ -66,10 +68,11 @@ export async function getCourseAnalytics(courseId: string): Promise<CourseAnalyt
     };
   }
 
-  const [scoreGroups, verdictGroups, problemStats] = await Promise.all([
+  const [scoreGroups, verdictGroups, problemStats, maxByProblem] = await Promise.all([
     submissionRepo.groupBestScoresByAssessment(assessmentIds),
     submissionRepo.groupStatusByAssessments(assessmentIds),
     submissionRepo.countUserStatsByProblemForAssessments(assessmentIds),
+    getProblemTotalScores(assessments.flatMap((a) => a.problems.map((p) => p.problem.id))),
   ]);
 
   const bestScore = new Map<string, number>();
@@ -80,7 +83,7 @@ export async function getCourseAnalytics(courseId: string): Promise<CourseAnalyt
   }
 
   const assessmentSummaries = assessments.map((assessment) =>
-    summarizeAssessment(assessment, students, bestScore),
+    summarizeAssessment(assessment, students, bestScore, maxByProblem),
   );
 
   const hardestProblems = rankHardestProblems(assessments, problemStats);
@@ -110,6 +113,7 @@ function summarizeAssessment(
   assessment: AssessmentWithProblems,
   students: StudentRow[],
   bestScore: Map<string, number>,
+  maxByProblem: Map<string, number>,
 ): AssessmentSummary {
   const problemIds = assessment.problems.map((p) => p.problem.id);
 
@@ -130,7 +134,7 @@ function summarizeAssessment(
       }
       attempted = true;
       total += score;
-      if (score < (problemPoints(assessment, problemId) ?? Infinity)) {
+      if (score < (maxByProblem.get(problemId) ?? Infinity)) {
         completedAll = false;
       }
     }
@@ -150,13 +154,6 @@ function summarizeAssessment(
     avgScore: submitterCount === 0 ? 0 : Math.round(scoreSum / submitterCount),
     completionRate: students.length === 0 ? 0 : completedCount / students.length,
   };
-}
-
-function problemPoints(
-  assessment: AssessmentWithProblems,
-  problemId: string,
-): number | undefined {
-  return assessment.problems.find((p) => p.problem.id === problemId)?.points;
 }
 
 function rankHardestProblems(

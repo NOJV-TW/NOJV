@@ -7,9 +7,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
+  import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
   import { diffMs, fmtCountdown } from "$lib/utils/datetime";
 
   interface Props {
@@ -62,81 +61,37 @@
   const isManagerRow = $derived(assignment.classStats !== null);
 </script>
 
-<a
+<AssessmentRow
   href={`/assignments/${assignment.id}`}
-  class="group glass hover-lift rounded-xl p-4 shadow-rest fade-up block no-underline text-foreground"
-  style="animation-delay: {String(delay)}ms; {urgent
-    ? 'border-color: color-mix(in oklab, var(--primary) 35%, transparent);'
-    : ''}"
+  kind="assignment"
+  typeLabel={m.assignmentDetail_typeLabel()}
+  context={assignment.courseTitle}
+  title={assignment.title}
+  {status}
+  {delay}
 >
-  <div
-    class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.18em] text-muted-foreground"
-  >
-    <TypeIcon kind="assignment" size={12} />
-    <span class="truncate">{assignment.courseTitle}</span>
-    {#if isManagerRow}
-      <span
-        class="ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-micro font-medium"
-        style="background: color-mix(in oklab, var(--info) 12%, transparent); color: var(--info);"
-      >
-        {m.assignmentCard_managerBadge()}
-      </span>
-    {/if}
-  </div>
-
-  <div class="mt-3">
-    <h3 class="text-title font-semibold leading-tight">
-      {assignment.title}
-    </h3>
-    <div class="mt-1.5 flex items-center gap-2 text-caption text-muted-foreground">
-      {#if assignment.closesAt && countdown}
-        {#if countdown.past}
-          <span class="font-mono">{m.countdown_past()}</span>
-        {:else}
-          <span class="font-mono">{m.assignmentCard_countdownPrefix()}</span>
-          <Countdown iso={assignment.closesAt} isCompact />
-          {#if urgent}
-            <span
-              class="text-micro font-mono uppercase tracking-wider"
-              style="color: var(--primary);"
-            >
-              · {m.assignmentCard_dueSoon()}
-            </span>
-          {/if}
-        {/if}
+  {#snippet timing()}
+    {#if assignment.closesAt && countdown}
+      {#if countdown.past}
+        {m.countdown_past()}
       {:else}
-        <span class="font-mono">{m.assignmentCard_unscheduled()}</span>
+        {m.assignmentCard_countdownPrefix()}
+        <Countdown iso={assignment.closesAt} isCompact />
+        {#if urgent}
+          <span style="color: var(--primary);">· {m.assignmentCard_dueSoon()}</span>
+        {/if}
       {/if}
-    </div>
-  </div>
-
-  <div
-    class="mt-5 pt-4 border-t flex items-center justify-between"
-    style="border-color: var(--border-subtle);"
-  >
-    <StatusPill {status} type="assignment" />
-    <div class="text-right">
-      <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
-        {#if isManagerRow}
-          {m.assignmentCard_submittedLabel()}
-        {:else if showScore}
-          {m.assignmentCard_scoreLabel()}
-        {:else}
-          {m.assignmentCard_progressLabel()}
-        {/if}
-      </div>
-      <div class="mt-0.5 font-mono">
-        {#if isManagerRow && assignment.classStats}
-          <span class="text-body font-semibold">{assignment.classStats.submittedUsers}</span>
-          <span class="text-muted-foreground"> / {assignment.classStats.totalStudents}</span>
-        {:else if showScore}
-          <span class="text-body font-semibold">{score}</span>
-          <span class="text-muted-foreground"> / {totalPoints}</span>
-        {:else}
-          <span class="text-body font-semibold">{solved}</span>
-          <span class="text-muted-foreground"> / {total}</span>
-        {/if}
-      </div>
-    </div>
-  </div>
-</a>
+    {:else}
+      {m.assignmentCard_unscheduled()}
+    {/if}
+  {/snippet}
+  {#snippet foot()}
+    {#if isManagerRow && assignment.classStats}
+      {assignment.classStats.submittedUsers} / {assignment.classStats.totalStudents}
+    {:else if showScore}
+      {score} / {totalPoints}
+    {:else}
+      {solved} / {total}
+    {/if}
+  {/snippet}
+</AssessmentRow>

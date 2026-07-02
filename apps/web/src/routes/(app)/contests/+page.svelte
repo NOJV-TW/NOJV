@@ -73,7 +73,7 @@
         subtitle={m.contestsList_sectionLiveSubtitle()}
         badge={m.contestsList_sectionLiveBadge()}
       >
-        <div class="grid gap-4">
+        <div class="grid gap-2">
           {#each live as c, i (c.raw.id)}
             <ContestPoster
               href="/contests/{c.raw.id}"
@@ -101,7 +101,7 @@
           {m.contestsList_sectionUpcomingEmpty()}
         </div>
       {:else}
-        <div class="grid gap-4">
+        <div class="grid gap-2">
           {#each upcoming as c, i (c.raw.id)}
             <ContestPoster
               href="/contests/{c.raw.id}"
@@ -125,7 +125,7 @@
         title={m.contestsList_sectionHistoryTitle().toUpperCase()}
         subtitle={m.contestsList_sectionHistorySubtitle()}
       >
-        <div class="grid gap-3">
+        <div class="grid gap-2">
           {#each past as c, i (c.raw.id)}
             <ContestRowPast
               href="/contests/{c.raw.id}"

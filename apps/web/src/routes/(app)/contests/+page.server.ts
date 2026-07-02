@@ -7,7 +7,7 @@ import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
 import { contestDomain } from "@nojv/application";
 
-const { findContestByInviteCode, listContestsForUser } = contestDomain;
+const { joinContestByCode, listContestsForUser } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
@@ -17,7 +17,7 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions = {
   joinByCode: withAction(async (event) => {
-    requireAuth(event);
+    const actor = requireAuth(event);
 
     const formData = await event.request.formData();
     const code = readString(formData, "code");
@@ -26,12 +26,13 @@ export const actions = {
       return fail(400, { codeError: m.contestsList_codeErrorEmpty() });
     }
 
-    const contest = await findContestByInviteCode(code);
-
-    if (contest?.visibility !== "published") {
+    let contestId: string;
+    try {
+      ({ contestId } = await joinContestByCode(actor, code));
+    } catch {
       return fail(404, { codeError: m.contestsList_codeErrorInvalid() });
     }
 
-    redirect(303, `/contests/${contest.id}`);
+    redirect(303, `/contests/${contestId}`);
   }),
 } satisfies Actions;

@@ -103,6 +103,11 @@
   --chart-4: #c98a1a; /* amber */
   --chart-5: #7a8f6d; /* sage */
 
+  /* Assessment type identity accents — icon badge + edge + wash, NOT status colors */
+  --type-assignment: var(--primary); /* teal */
+  --type-exam: #5b6fd6; /* indigo */
+  --type-contest: var(--chart-4); /* amber / gold */
+
   /* Leaderboard medal ranks */
   --rank-gold: #d4a054;
   --rank-silver: #a0a0a0;
@@ -222,6 +227,10 @@
   --chart-3: #4cc08a;
   --chart-4: #e0b25a;
   --chart-5: #9cb086;
+
+  --type-assignment: var(--primary); /* teal */
+  --type-exam: #8593e8; /* indigo (dark) */
+  --type-contest: var(--chart-4); /* amber / gold */
 
   --rank-gold: #e0b56a;
   --rank-silver: #b4b4b4;
