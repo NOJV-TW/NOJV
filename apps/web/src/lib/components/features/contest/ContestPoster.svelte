@@ -46,6 +46,8 @@
     <Countdown iso={isLive ? endsAt : startsAt} isCompact />
   {/snippet}
   {#snippet foot()}
-    {m.contestPoster_participantsLabel()}{m.contestPoster_participantsCount({ count: participants })}
+    {m.contestPoster_participantsLabel()}{m.contestPoster_participantsCount({
+      count: participants,
+    })}
   {/snippet}
 </AssessmentRow>

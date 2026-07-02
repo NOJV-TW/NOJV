@@ -73,7 +73,12 @@ describe("getProblemTotalScores", () => {
 
   it("maps each problem id to its live cumulative max score", async () => {
     findScoringInputsByIds.mockResolvedValue([
-      { id: "p1", type: "full_source", advancedConfig: null, testcaseSets: [{ weight: 30 }, { weight: 70 }] },
+      {
+        id: "p1",
+        type: "full_source",
+        advancedConfig: null,
+        testcaseSets: [{ weight: 30 }, { weight: 70 }],
+      },
       { id: "p2", type: "special_env", advancedConfig: null, testcaseSets: [] },
     ]);
     const out = await getProblemTotalScores(["p1", "p2", "p1"]);
