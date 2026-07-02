@@ -231,6 +231,7 @@ Indexes & constraints: `@@index([identifier])`
 | `questionText` | `String` | `@db.Text` |
 | `answerText` | `String?` | `@db.Text` |
 | `state` | `ClarificationState` | `@default(pending)` |
+| `isPublic` | `Boolean` | `@default(false)` |
 | `answeredByUserId` | `String?` | — |
 | `answeredAt` | `DateTime?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |

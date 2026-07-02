@@ -21,9 +21,10 @@ freeze/unfreeze for the final reveal.
   frozen snapshot.
 - As a **contest creator**, I want a per-problem `submitCooldownSec` so that
   participants can't spam the judge.
-- As a **participant**, I want to join a private contest via the invite
-  code flow and have my participation created on first submission, so that
-  I don't need to pre-register.
+- As a **participant**, I want to explicitly join a contest before I can
+  submit — the invite-code flow for private contests, a "Join contest"
+  button for public ones — so that entering a contest is a deliberate act
+  and the roster reflects who actually opted in.
 - As a **participant**, I want the contest detail page to hide the problem
   list until `startsAt`, so that early joiners can't read problems.
 - As a **participant**, I want the scoreboard to stay frozen at the
@@ -45,8 +46,11 @@ freeze/unfreeze for the final reveal.
 - ICPC scoring (`scoring.computeProblemCountPenalty`): solved count +
   penalty seconds = `(firstAC - startsAt) + 20*min * wrongBefore`.
 - IOI scoring: sum of best scores across attached problems.
-- Participation auto-created on first submission
-  (`ensureContestParticipation`).
+- Explicit join required before submitting: `joinContest` (public) /
+  `joinContestByCode` (private) register a `ContestParticipation`
+  (`status: 'registered'`); on first submit `ensureContestParticipation`
+  rejects a non-joined non-manager and upgrades the existing row to
+  `active`. Managers / admins are auto-joined (exempt from the gate).
 - Submit cooldown enforcement (`checkSubmitCooldown`).
 - Scoreboard build/read (computed live from PostgreSQL — `contest.participations`
   - submissions — on every fetch; no Redis zset backing).
@@ -55,8 +59,9 @@ freeze/unfreeze for the final reveal.
   submissions after the freeze point) when `frozenAt < now` or mode ===
   `frozen`; unfreeze clears `frozenBoard`.
 - Scoreboard chart series (top-N + time-series by user).
-- Invite-code join flow (`joinByCode` action; redirects to
-  `/contests/[id]` — participation is still lazy).
+- Join flow: invite-code `joinByCode` action (private) and public
+  `?/joinContest` action; both redirect back to `/contests/[id]` and
+  create a `registered` `ContestParticipation` at join time.
 - Visibility gating: `getContestDetail` throws `NotFoundError` for any
   non-`published` contest — including for the creator/admin (there is no
   manager-only draft preview). In practice the draft state is
@@ -128,9 +133,15 @@ false` regardless of time window, and the problem list is returned.
 
 ### Participation
 
-- GIVEN a `published` contest with `now >= startsAt && now <= endsAt`,
-  WHEN a user submits to a contest problem, THEN
-  `ensureContestParticipation` upserts a row with `status: 'active'`.
+- GIVEN a `published` running contest and a non-manager who has NOT
+  joined, WHEN they submit to a contest problem, THEN
+  `ensureContestParticipation` throws
+  `ForbiddenError("You must join the contest before submitting.")`.
+  Managers / admins bypass this via `canManageContest` and are auto-joined.
+- GIVEN a joined participant (a `registered`/`active` row exists) on a
+  `published` contest with `now >= startsAt && now <= endsAt`, WHEN they
+  submit, THEN `ensureContestParticipation` upserts the row to
+  `status: 'active'`.
 - GIVEN `now < startsAt`, WHEN participation is attempted, THEN
   `ForbiddenError("Contest has not started yet.")`.
 - GIVEN `now > endsAt`, WHEN participation is attempted, THEN
@@ -140,12 +151,42 @@ false` regardless of time window, and the problem list is returned.
 ### Invite code join
 
 - GIVEN a valid invite code for a `published` contest, WHEN the user POSTs
-  `joinByCode`, THEN the loader redirects to `/contests/[contestId]`.
-  Participation is NOT created at join time — only on first submit.
+  `joinByCode`, THEN `joinContestByCode` registers a `ContestParticipation`
+  (`status: 'registered'`) and the action redirects to
+  `/contests/[contestId]`.
 - GIVEN an invite code that doesn't match any `published` contest,
   THEN `fail(404, { codeError: m.contestsList_codeErrorInvalid() })`.
 - GIVEN an empty code, THEN
   `fail(400, { codeError: m.contestsList_codeErrorEmpty() })`.
+
+### Join gating (public contests)
+
+- GIVEN a `published` public (no `inviteCode`) contest that has not ended,
+  WHEN a non-manager POSTs `?/joinContest`, THEN `joinContest` registers a
+  `ContestParticipation` (`status: 'registered'`) — joining is allowed
+  both before and during the contest window.
+- GIVEN a contest that has an `inviteCode`, WHEN `joinContest` runs, THEN
+  `ForbiddenError("This contest requires an invite code to join.")` —
+  private contests must be joined via `joinContestByCode`.
+- GIVEN `now >= endsAt`, WHEN `joinContest` runs, THEN
+  `ForbiddenError("Contest has ended.")`.
+- GIVEN a non-manager who has NOT joined, WHEN they open
+  `/contests/[id]/problems/[problemId]` on a running contest, THEN the
+  loader redirects (`303`) back to `/contests/[id]` — the problem route
+  requires a `ContestParticipation` row (managers are exempt).
+- GIVEN the contest detail page and a non-manager viewer who hasn't joined
+  a running/upcoming contest (`needsJoin`), THEN the primary CTA is
+  "Join contest" (posts `?/joinContest`); once joined it becomes
+  "Enter contest". Managers always see "Enter contest". `hasJoined` is
+  derived from `findViewerContestParticipation` (any status).
+
+### Clarifications (Q&A) visibility
+
+Shared across assignments, exams, and contests: staff choose public/private
+per answer, non-staff see only their own questions plus staff-published
+ones, and pending questions are never pushed live to peers. See
+`docs/specs/exams.md` → **Clarifications (Q&A) visibility** for the full
+Given/When/Then criteria.
 
 ### Scoring — ICPC (problem_count)
 
@@ -237,12 +278,13 @@ grading is only available after it closes.")` (shared post-close gate
 - WHEN they POST to `/api/submissions` without contest context, THEN
   the submission is accepted as practice (no scoreboard write, no
   participation update).
-- GIVEN an ended contest the user NEVER submitted to (no
-  `ContestParticipation` row — e.g. a public contest they only
-  browsed), WHEN they visit `/problems/[id]`, THEN the historical-
-  participant clause does NOT fire; access falls back to the ordinary
-  problem-visibility rules. Practice-after-close is a participant
-  perk, not a public post-contest unlock.
+- GIVEN an ended contest the user NEVER joined (no `ContestParticipation`
+  row — e.g. a public contest they only browsed without joining), WHEN
+  they visit `/problems/[id]`, THEN the historical-participant clause does
+  NOT fire; access falls back to the ordinary problem-visibility rules.
+  Practice-after-close is a participant perk, not a public post-contest
+  unlock. (The gate keys on the participation row's existence, so a user
+  who joined but never submitted still qualifies.)
 
 ## Edge Cases & Failure Modes
 
@@ -276,14 +318,15 @@ grading is only available after it closes.")` (shared post-close gate
 
 - `packages/application/src/contest/mutations.ts` —
   `createContestRecord`, `updateContestRecord`,
-  `ensureContestParticipation`, `checkSubmitCooldown`,
-  `activateContest`, `freezeContestBoard`, `finalizeContest`,
-  `resolveAndAttachContestProblems`.
+  `ensureContestParticipation` (join-gate + upgrade-to-active),
+  `joinContest` (public), `joinContestByCode` (invite),
+  `checkSubmitCooldown`, `activateContest`, `freezeContestBoard`,
+  `finalizeContest`, `resolveAndAttachContestProblems`.
 - `packages/application/src/contest/queries.ts` —
   `listPublicContests`, `listContestsForUser`,
   `getContestDetail`, `getContestWorkspaceData`,
-  `findContestByInviteCode`, `getContestContext`,
-  `unfreezeContest`.
+  `findContestByInviteCode`, `findViewerContestParticipation`,
+  `getContestContext`, `unfreezeContest`.
 - `packages/application/src/contest/scoring.ts` —
   `updateContestScores`, `getScoreboard`, `getScoreboardChart`.
 - `packages/application/src/contest/permissions.ts` — `canManageContest`.
