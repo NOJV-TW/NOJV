@@ -34,7 +34,7 @@
 
 <GlassPanel class={cn("relative overflow-hidden p-7 lg:p-9", className)}>
   <span
-    class="pointer-events-none absolute inset-y-0 left-0 w-[3px]"
+    class="pointer-events-none absolute inset-y-0 left-0 w-1.5"
     style="background: {accent};"
     aria-hidden="true"
   ></span>

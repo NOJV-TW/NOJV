@@ -44,7 +44,7 @@
   style="animation-delay: {delay}ms;"
 >
   <span
-    class="pointer-events-none absolute inset-y-0 left-0 w-[2px]"
+    class="pointer-events-none absolute inset-y-0 left-0 w-1.5"
     style="background: {accent};"
     aria-hidden="true"
   ></span>
