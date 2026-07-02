@@ -153,6 +153,23 @@
   const targetIso = $derived(detail.dueAt ?? detail.closesAt);
 </script>
 
+{#snippet gradingActions()}
+  {#if assignmentClosed}
+    <Button
+      variant="outline"
+      size="sm"
+      type="button"
+      onclick={() => (showOverrideDrawer = true)}
+    >
+      {m.grading_openButton()}
+    </Button>
+  {:else}
+    <p class="text-caption text-muted-foreground">
+      {m.grading_availableAfterClose()}
+    </p>
+  {/if}
+{/snippet}
+
 <PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[
@@ -167,6 +184,7 @@
     context={data.course.title}
     title={detail.title}
     summary={detail.summary}
+    actions={data.mode === "teacher" && canSetOverride ? gradingActions : undefined}
   >
     {#snippet badges()}
       <StatusPill {status} type="assignment" />
@@ -177,24 +195,6 @@
         >
           Manager View
         </span>
-      {/if}
-    {/snippet}
-    {#snippet actions()}
-      {#if data.mode === "teacher" && canSetOverride}
-        {#if assignmentClosed}
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onclick={() => (showOverrideDrawer = true)}
-          >
-            {m.grading_openButton()}
-          </Button>
-        {:else}
-          <p class="text-caption text-muted-foreground">
-            {m.grading_availableAfterClose()}
-          </p>
-        {/if}
       {/if}
     {/snippet}
   </AssessmentHero>
@@ -222,17 +222,6 @@
         <span class="text-title-sm">
           {#if detail.allowedLanguages.length > 0}
             {detail.allowedLanguages.map(languageLabel).join(" / ")}
-          {:else}
-            {m.assignmentDetail_metaAttemptsUnlimited2()}
-          {/if}
-        </span>
-      {/snippet}
-    </StatTile>
-    <StatTile label={m.assignmentDetail_metaDailyAttempts()}>
-      {#snippet value()}
-        <span class="text-title-sm">
-          {#if detail.maxAttemptsPerDay}
-            {m.assignmentDetail_metaAttemptsCount({ count: detail.maxAttemptsPerDay })}
           {:else}
             {m.assignmentDetail_metaAttemptsUnlimited2()}
           {/if}

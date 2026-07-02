@@ -27,6 +27,7 @@
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   const detail = $derived(data.detail);
+  const hasActiveSession = $derived(data.hasActiveSession ?? false);
   const isManager = $derived(data.isManager);
 
   let nowMs = $state(Date.now());
@@ -204,7 +205,7 @@
     <StatTile label={m.examDetail_clockDurationLabel()}>
       {#snippet value()}{m.examDetail_durationMinutes({ count: durationMinutes })}{/snippet}
     </StatTile>
-    <StatTile label={m.examRow_scoringPointSum()}>
+    <StatTile label={m.examDetail_pointsLabel()}>
       {#snippet value()}{detail.totalPoints}{/snippet}
     </StatTile>
     {#if past && !isManager && detail.viewerScore !== null}
@@ -366,90 +367,126 @@
         </GlassPanel>
       {/if}
     {:else}
-      <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <GlassPanel class="p-7">
-          <div class="flex items-start justify-between gap-3">
-            <h2 class="flex items-center gap-2 text-title font-semibold">
-              <span class="size-1.5 rounded-full bg-primary"></span>
-              {m.examDetail_studentRulesHeading()}
-            </h2>
-          </div>
-          <ul class="mt-4 space-y-2.5">
-            {#each rules as r, i (i)}
-              <li class="flex items-start gap-3 text-body-sm">
-                <span
-                  class="mt-0.5 font-mono text-micro uppercase tracking-wider tabular-nums text-muted-foreground"
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <span>{r}</span>
-              </li>
-            {/each}
-          </ul>
-
-          <div class="mt-6 border-t border-border-subtle pt-5">
-            <div
-              class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
-            >
-              {m.examDetail_studentAllowedLanguagesHeading()}
-            </div>
-            <div class="flex flex-wrap gap-2">
-              {#each allowedLanguages as l (l)}
-                <span
-                  class="rounded-full bg-muted px-2.5 py-1 font-mono text-caption text-muted-foreground"
-                  >{l}</span
-                >
-              {/each}
-            </div>
-          </div>
-        </GlassPanel>
-
-        <GlassPanel class="flex flex-col gap-4 p-6">
-          <div>
-            <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-              {m.examDetail_studentPrepEyebrow()}
-            </div>
-            <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
-          </div>
-          <ul class="space-y-2 text-body-sm">
-            {#each studentPrepRules as rule (rule)}
-              <li class="flex items-start gap-2">
-                <span
-                  class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                  style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
-                >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
-                  >
-                </span>
-                <span>{rule}</span>
-              </li>
-            {/each}
-          </ul>
-          <button
-            type="button"
-            disabled={liveStatus !== "running"}
-            onclick={() => (showStartModal = true)}
-            class="mt-auto w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+      {#if hasActiveSession && liveStatus === "running"}
+        <GlassPanel class="overflow-hidden">
+          <div
+            class="flex items-center justify-between border-b border-border-subtle px-6 py-4"
           >
-            {m.examDetail_studentStartButton()}
-          </button>
-          <p class="text-center text-caption text-muted-foreground">
-            {#if liveStatus === "running"}
-              {m.examDetail_studentStartHintRunning()}
-            {:else if liveStatus === "upcoming"}
-              {m.examDetail_studentStartHintUpcoming()}
-            {:else}
-              {m.examDetail_studentStartHintNotOpen()}
-            {/if}
-          </p>
+            <h2 class="text-title font-semibold">{m.examDetail_studentProblemsHeading()}</h2>
+            <Countdown iso={detail.endsAt} isCompact />
+          </div>
+          <div class="divide-y" style="border-color: var(--border-subtle);">
+            {#each detail.problems as p (p.id)}
+              <a
+                href={`/exams/${detail.id}/problems/${p.id}`}
+                class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40"
+              >
+                <div class="font-mono text-body font-semibold text-muted-foreground">
+                  {p.letter}
+                </div>
+                <div>
+                  <div class="font-medium">{p.title}</div>
+                  <div class="mt-1 flex items-center gap-3">
+                    <DifficultyTick level={p.difficulty} />
+                  </div>
+                </div>
+                <span
+                  class="inline-flex items-center gap-1 font-mono text-caption uppercase tracking-wider"
+                  style="color: var(--primary);"
+                >
+                  {m.examDetail_problemSolve()}
+                  <ChevronRight aria-hidden="true" class="size-3.5" />
+                </span>
+              </a>
+            {/each}
+          </div>
         </GlassPanel>
-      </div>
+      {:else}
+        <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
+          <GlassPanel class="p-7">
+            <div class="flex items-start justify-between gap-3">
+              <h2 class="flex items-center gap-2 text-title font-semibold">
+                <span class="size-1.5 rounded-full bg-primary"></span>
+                {m.examDetail_studentRulesHeading()}
+              </h2>
+            </div>
+            <ul class="mt-4 space-y-2.5">
+              {#each rules as r, i (i)}
+                <li class="flex items-start gap-3 text-body-sm">
+                  <span
+                    class="mt-0.5 font-mono text-micro uppercase tracking-wider tabular-nums text-muted-foreground"
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span>{r}</span>
+                </li>
+              {/each}
+            </ul>
+
+            <div class="mt-6 border-t border-border-subtle pt-5">
+              <div
+                class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
+              >
+                {m.examDetail_studentAllowedLanguagesHeading()}
+              </div>
+              <div class="flex flex-wrap gap-2">
+                {#each allowedLanguages as l (l)}
+                  <span
+                    class="rounded-full bg-muted px-2.5 py-1 font-mono text-caption text-muted-foreground"
+                    >{l}</span
+                  >
+                {/each}
+              </div>
+            </div>
+          </GlassPanel>
+
+          <GlassPanel class="flex flex-col gap-4 p-6">
+            <div>
+              <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+                {m.examDetail_studentPrepEyebrow()}
+              </div>
+              <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
+            </div>
+            <ul class="space-y-2 text-body-sm">
+              {#each studentPrepRules as rule (rule)}
+                <li class="flex items-start gap-2">
+                  <span
+                    class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
+                    style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
+                    >
+                  </span>
+                  <span>{rule}</span>
+                </li>
+              {/each}
+            </ul>
+            <button
+              type="button"
+              disabled={liveStatus !== "running"}
+              onclick={() => (showStartModal = true)}
+              class="mt-auto w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {m.examDetail_studentStartButton()}
+            </button>
+            <p class="text-center text-caption text-muted-foreground">
+              {#if liveStatus === "running"}
+                {m.examDetail_studentStartHintRunning()}
+              {:else if liveStatus === "upcoming"}
+                {m.examDetail_studentStartHintUpcoming()}
+              {:else}
+                {m.examDetail_studentStartHintNotOpen()}
+              {/if}
+            </p>
+          </GlassPanel>
+        </div>
+      {/if}
 
       {#if data.clarification.canView}
         <GlassPanel class="p-7">

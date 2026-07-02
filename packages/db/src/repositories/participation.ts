@@ -169,6 +169,12 @@ export const participationRepo = {
         });
       },
 
+      findContestParticipation(contestId: string, userId: string) {
+        return tx.participation.findUnique({
+          where: { type_contestId_userId: { type: "contest", contestId, userId } },
+        });
+      },
+
       findExamParticipation(examId: string, userId: string) {
         return tx.participation.findUnique({
           where: { type_examId_userId: { type: "exam", examId, userId } },

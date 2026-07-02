@@ -1,9 +1,13 @@
-import type { CourseworkKind } from "./StatusPill.svelte";
-
 /**
  * Per-type identity accent (icon badge, edge stripe, hero wash). This is an
  * identity marker, not a status color — status meaning stays on StatusPill.
  */
-export function typeAccentVar(kind: CourseworkKind): string {
-  return `var(--type-${kind})`;
+const ACCENT = {
+  assignment: "var(--type-assignment)",
+  exam: "var(--type-exam)",
+  contest: "var(--type-contest)",
+} as const;
+
+export function typeAccentVar(kind: keyof typeof ACCENT): string {
+  return ACCENT[kind];
 }

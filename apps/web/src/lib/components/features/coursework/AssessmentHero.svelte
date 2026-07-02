@@ -14,12 +14,20 @@
     title: string;
     summary?: string;
     badges?: Snippet;
-    actions?: Snippet;
+    actions?: Snippet | undefined;
     class?: string;
   }
 
-  let { kind, typeLabel, context, title, summary, badges, actions, class: className }: Props =
-    $props();
+  let {
+    kind,
+    typeLabel,
+    context,
+    title,
+    summary,
+    badges,
+    actions,
+    class: className,
+  }: Props = $props();
 
   const accent = $derived(typeAccentVar(kind));
 </script>

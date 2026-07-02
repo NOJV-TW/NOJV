@@ -277,6 +277,15 @@ export async function listContestParticipantsWithUser(contestId: string) {
   return participationRepo.listContestParticipantsWithUser(contestId);
 }
 
+/** Viewer's contest participation, or null if they have not joined. */
+export async function findViewerContestParticipation(
+  userId: string,
+  contestId: string,
+): Promise<{ status: string } | null> {
+  const p = await participationRepo.findContestParticipation(contestId, userId);
+  return p ? { status: p.status } : null;
+}
+
 export interface ContestProblemSibling {
   id: string;
   letter: string;

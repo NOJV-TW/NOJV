@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { enhance } from "$app/forms";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
   import { toasts } from "$lib/stores/toast";
@@ -15,7 +16,6 @@
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
-  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import ContestProblemsTab from "$lib/components/features/contest/ContestProblemsTab.svelte";
@@ -73,11 +73,20 @@
   const isLive = $derived(status === "live");
   const isPast = $derived(status === "ended");
   const isUpcoming = $derived(status === "upcoming");
+  const hasJoined = $derived(data.hasJoined ?? false);
+  const needsJoin = $derived(!isManager && !isPast && !hasJoined);
   const settingsLiveStatus: ContestLiveStatus = $derived(
     contest.visibility === "draft" ? "draft" : status === "live" ? "running" : status,
   );
   const scoringLabel = $derived(contestScoringLabel(contest.scoringMode));
   const durationMin = $derived(durationMinutes(contest.startsAt, contest.endsAt));
+  const scoreboardModeLabel = $derived(
+    contest.scoreboardMode === "hidden"
+      ? m.contestDetail_scoreboardModeHidden()
+      : contest.scoreboardMode === "frozen"
+        ? m.contestDetail_scoreboardModeFrozen()
+        : m.contestDetail_scoreboardModeLive(),
+  );
 
   const firstProblem = $derived((contest.problems ?? [])[0] ?? null);
   const primaryHref = $derived(
@@ -127,7 +136,11 @@
       {m.contestDetail_actionVirtual()}
     </Button>
   {/if}
-  {#if primaryHref}
+  {#if needsJoin}
+    <form method="POST" action="?/joinContest" use:enhance class="contents">
+      <Button type="submit">{m.contestDetail_ctaJoin()}</Button>
+    </form>
+  {:else if primaryHref}
     <Button onclick={() => void goto(primaryHref)}>
       {#if isLive}
         <span class="size-1.5 rounded-full bg-white"></span>
@@ -147,19 +160,12 @@
   <AssessmentHero
     kind="contest"
     typeLabel={m.contestDetail_typeLabel()}
-    context={scoringLabel}
+    context={m.contestPoster_durationMinutes({ count: durationMin })}
     title={contest.title}
     summary={contest.summary}
   >
     {#snippet badges()}
       <StatusPill {status} type="contest" />
-      <span
-        class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-micro uppercase tracking-[0.12em] text-muted-foreground"
-        style="border-color: var(--border-subtle);"
-      >
-        <TypeIcon kind="contest" size={12} />
-        {scoringLabel}
-      </span>
     {/snippet}
   </AssessmentHero>
 
@@ -188,7 +194,7 @@
       {#snippet value()}{scoringLabel}{/snippet}
     </StatTile>
     <StatTile label={m.contestDetail_scoreboardLabel()}>
-      {#snippet value()}{contest.scoreboardMode}{/snippet}
+      {#snippet value()}{scoreboardModeLabel}{/snippet}
     </StatTile>
   </StatRail>
 

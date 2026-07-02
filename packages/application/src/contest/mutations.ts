@@ -135,6 +135,13 @@ export async function ensureContestParticipation(
     throw new ForbiddenError("Contest has ended.");
   }
 
+  const existing = await participationRepo
+    .withTx(tx)
+    .findContestParticipation(contestId, userId);
+  if (!existing) {
+    throw new ForbiddenError("You must join the contest before submitting.");
+  }
+
   const participation = await participationRepo
     .withTx(tx)
     .upsertContestActive(contest.id, userId, new Date());
@@ -236,6 +243,32 @@ export async function joinContestByCode(
   });
 
   return { contestId: contest.id };
+}
+
+/**
+ * Explicit join for a PUBLIC contest (no invite code). Registers the actor as a
+ * participant so they may submit. Allowed before and during the contest (until
+ * it ends). Private/invite-code contests must be joined via `joinContestByCode`.
+ */
+export async function joinContest(
+  actor: ActorContext,
+  contestId: string,
+): Promise<{ contestId: string }> {
+  await runTransaction(async (tx) => {
+    const contest = await requireContest(tx, contestId);
+    if (contest.visibility !== "published") {
+      throw new NotFoundError(`Contest not found: ${contestId}`);
+    }
+    if (contest.inviteCode) {
+      throw new ForbiddenError("This contest requires an invite code to join.");
+    }
+    if (new Date() >= contest.endsAt) {
+      throw new ForbiddenError("Contest has ended.");
+    }
+    await requireUser(tx, actor.userId);
+    await participationRepo.withTx(tx).upsertContestRegistered(contest.id, actor.userId);
+  });
+  return { contestId };
 }
 
 export async function updateContestRecord(
