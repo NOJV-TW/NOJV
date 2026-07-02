@@ -298,16 +298,18 @@ contest spec links here rather than restating them.
 - GIVEN a staff answerer (course teacher/TA or platform admin), WHEN
   `answer(id, { isPublic })` is called, THEN the reply is stored with
   `Clarification.isPublic` set to the chosen flag. `isPublic: true`
-  broadcasts an `updated` clarification SSE event to every participant;
-  `isPublic: false` reaches only the asker (via a
-  `clarification_answered` notification).
+  broadcasts an `updated` clarification SSE event to every participant on
+  the public channel; `isPublic: false` goes to the staff-only channel
+  (answerers see it live) and reaches the asker via a
+  `clarification_answered` notification.
 - GIVEN a non-staff viewer, WHEN `listForViewer` runs, THEN they receive
   ONLY their own questions plus staff-published (`isPublic`) ones, each
   flagged `isMine`; author identity is masked on rows that aren't theirs.
 - WHEN a participant `ask`s a question, THEN NO SSE event is pushed to
   peers — pending / unpublished questions are never shown live to other
   participants (this closes the live-exam/contest leak vector). The asker
-  sees their own from the mutation response; staff see all on load.
+  sees their own from the mutation response; the question is pushed live to
+  staff on the staff-only channel (and staff also see all on load).
 - `Clarification.isPublic` defaults `false`; the introducing migration
   backfills pre-existing answered rows to `true`.
 
