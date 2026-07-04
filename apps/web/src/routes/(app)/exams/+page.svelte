@@ -34,6 +34,19 @@
     }),
   );
 
+  // On the "all" tab, split into ended-vs-not sections like the contests page.
+  const groups = $derived(
+    currentFilter !== "all"
+      ? []
+      : [
+          { key: "running", label: m.examsTop_filterRunning() },
+          { key: "upcoming", label: m.examsTop_filterUpcoming() },
+          { key: "ended", label: m.examsTop_filterEnded() },
+        ]
+          .map((g) => ({ ...g, items: sorted.filter((e) => e.status === g.key) }))
+          .filter((g) => g.items.length > 0),
+  );
+
   const tabs = $derived([
     { key: "all", label: m.examsTop_filterAll(), count: counts.all },
     { key: "running", label: m.examsTop_filterRunning(), count: counts.running },
@@ -105,6 +118,25 @@
         >
           {m.common_browseMyCourses()}
         </a>
+      </div>
+    {:else if currentFilter === "all"}
+      <div class="space-y-8">
+        {#each groups as g (g.key)}
+          <section>
+            <div class="mb-4 flex items-end gap-3">
+              <span class="text-body font-semibold">{g.label}</span>
+              <span class="text-caption text-muted-foreground tabular-nums"
+                >{g.items.length}</span
+              >
+              <div class="ml-1 flex-1 border-t border-border-subtle"></div>
+            </div>
+            <div class="grid gap-2">
+              {#each g.items as exam, i (exam.id)}
+                <ExamRow {exam} delay={i * 80} />
+              {/each}
+            </div>
+          </section>
+        {/each}
       </div>
     {:else}
       <div class="grid gap-2">
