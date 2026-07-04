@@ -3,7 +3,6 @@ import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { keys } from "@nojv/redis";
 import { contestDomain } from "@nojv/application";
 import { createSseResponse } from "$lib/server/shared/sse-response";
-import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
 import { z } from "zod";
 
 const sseEnvSchema = z.object({
@@ -22,12 +21,6 @@ export const GET: RequestHandler = async (event) => {
   }
 
   const userId = actor.userId;
-  try {
-    await apiRateLimiter.consume(`u:${userId}`);
-  } catch {
-    return new Response("Too many requests", { status: 429 });
-  }
-
   const { contestId } = event.params;
   const redisUrl = envResult.data.REDIS_URL;
 
