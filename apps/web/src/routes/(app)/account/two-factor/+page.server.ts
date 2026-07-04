@@ -116,6 +116,7 @@ export const actions = {
     }
     const token = generateEnrollToken();
     await storeEnrollConfirm(actor.userId, token);
+    if (!env.BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL is required");
     const confirmUrl = `${env.BETTER_AUTH_URL}/account/two-factor/confirm?token=${token}`;
     await getMailer().sendEmail({
       to: actor.email,

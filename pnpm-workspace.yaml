@@ -51,7 +51,7 @@ catalog:
 
   # Temporal client + worker SDKs must match versions.
   "@temporalio/client": ^1.19.0
-  "@temporalio/common": ^1.16.2
+  "@temporalio/common": ^1.19.0
   "@temporalio/worker": ^1.19.0
   "@temporalio/testing": ^1.19.0
   "@temporalio/workflow": ^1.19.0
