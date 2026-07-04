@@ -76,6 +76,14 @@ jobs:
           echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
           echo "Resolved image tag: $IMAGE_TAG"
 
+          # Capture the currently-deployed tag (the rollback target) BEFORE the
+          # upgrade so the cleanup step can retain its images as a re-import
+          # source for 'helm rollback'. Empty on the very first deploy.
+          PREV_TAG="$(kubectl -n "$NAMESPACE" get deploy nojv-web \
+            -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null | sed 's/.*://')"
+          echo "PREV_TAG=$PREV_TAG" >> "$GITHUB_ENV"
+          echo "Rollback-target image tag: ${PREV_TAG:-<none>}"
+
       - name: Build runtime images for this commit
         shell: bash
         run: |
@@ -146,7 +154,31 @@ jobs:
             echo "::error::No prior Helm release to roll back to — manual recovery required."
           fi
 
-      - name: Clean up dangling images
+      - name: Prune old runtime images
         if: always()
         shell: bash
-        run: docker image prune -f --filter "until=168h"
+        run: |
+          set -euo pipefail
+          # Every deploy leaves a full set of TAGGED nojv/*:<sha> images behind.
+          # They are never dangling, so `docker image prune` alone never reclaims
+          # them and they accumulate (host docker uses the containerd image store,
+          # so this fills /var/lib/containerd → DiskPressure → kubelet evicts pods
+          # AND image-GCs the running nojv images out of k3s containerd → the web
+          # pods hit ImagePullBackOff and the site 502s). Keep only the current
+          # tag and the rollback-target tag (as a re-import source for rollback),
+          # delete every other nojv/* tag.
+          mapfile -t DELETE < <(
+            docker images --format '{{.Repository}}:{{.Tag}}|{{.Repository}}|{{.Tag}}' \
+              | awk -F'|' -v cur="${IMAGE_TAG:-}" -v prev="${PREV_TAG:-}" \
+                  '$2 ~ /^nojv\// && $3 != "<none>" && $3 != cur && $3 != prev { print $1 }'
+          )
+          if [ "${#DELETE[@]}" -gt 0 ]; then
+            printf 'Removing %d stale nojv image tag(s):\n' "${#DELETE[@]}"
+            printf '  %s\n' "${DELETE[@]}"
+            docker rmi "${DELETE[@]}" || true
+          else
+            echo "No stale nojv image tags to remove."
+          fi
+          # Reclaim any now-untagged layers.
+          docker image prune -f >/dev/null 2>&1 || true
+          echo "Disk after prune:"; df -h / | tail -1
