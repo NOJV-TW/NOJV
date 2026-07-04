@@ -76,14 +76,13 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 Optional to boot, but **required at runtime for any email-sending flow** —
 school-email verification, passwordless/2FA enrollment, and API-token step-up
-OTP all throw if these are unset (`apps/web/src/lib/server/mailer/resend.ts`).
+OTP all throw if these are unset (`apps/web/src/lib/server/mailer/gmail.ts`).
 Deploy these whenever those features are in use.
 
-| Variable            | Purpose                            |
-| ------------------- | ---------------------------------- |
-| `EMAIL_PROVIDER`    | Mailer backend: `resend` (default) |
-| `RESEND_API_KEY`    | Resend email service API key       |
-| `EMAIL_FROM_DOMAIN` | Sender domain for emails           |
+| Variable             | Purpose                                              |
+| -------------------- | ---------------------------------------------------- |
+| `GMAIL_USER`         | Gmail address emails are sent from                   |
+| `GMAIL_APP_PASSWORD` | Google account app password (not the login password) |
 
 ### Temporal
 

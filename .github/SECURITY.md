@@ -12,7 +12,7 @@ channels instead:
 
 1. **GitHub Private Vulnerability Reporting** (preferred):
    <https://github.com/TakalaWang/NOJV/security/advisories/new>
-2. **Email**: `ccwangtakala@gmail.com` with subject prefix `[NOJV security]`
+2. **Email**: `nojv.tw@gmail.com` with subject prefix `[NOJV security]`
 
 Please include:
 
