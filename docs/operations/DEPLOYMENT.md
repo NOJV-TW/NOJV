@@ -249,18 +249,18 @@ Ingress/LB origin is restricted to Cloudflare's CIDR ranges (see
 
 ### Service Mapping
 
-| Component | Where it runs                                                     | Scaling                                               |
-| --------- | ----------------------------------------------------------------- | ----------------------------------------------------- |
-| web       | Chart Deployment (+ HPA on GKE)                                   | HPA min 2 / max 15 (`web.hpa.*`)                      |
-| worker    | Chart Deployments (judge + platform)                              | Static replicas + opt-in KEDA (`worker.judge.keda.*`) |
-| migrator  | Chart pre-install/pre-upgrade Helm hook                           | One-shot per release                                  |
-| seed      | Chart post-install/post-upgrade Helm hook (opt-in `seed.enabled`) | One-shot per release                                  |
-| sandbox   | K8s Jobs (`nojv-sandbox`)                                         | Per-submission, quota + node cluster-autoscaler       |
-| postgres  | In-cluster CloudNativePG _or_ Cloud SQL                           | Vertical (manual) / CNPG instances                    |
-| redis     | In-cluster _or_ Memorystore                                       | Vertical (manual)                                     |
-| temporal  | Official Temporal Helm chart (prereq)                             | Per HA-PRODUCTION.md                                  |
-| images    | Artifact Registry                                                 | —                                                     |
-| secrets   | Chart runtime secret / Secret Manager                             | —                                                     |
+| Component | Where it runs                                        | Scaling                                               |
+| --------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| web       | Chart Deployment (+ HPA on GKE)                      | HPA min 2 / max 15 (`web.hpa.*`)                      |
+| worker    | Chart Deployments (judge + platform)                 | Static replicas + opt-in KEDA (`worker.judge.keda.*`) |
+| migrator  | Chart pre-install/pre-upgrade Helm hook              | One-shot per release                                  |
+| seed      | Chart post-install Helm hook (opt-in `seed.enabled`) | One-shot per release                                  |
+| sandbox   | K8s Jobs (`nojv-sandbox`)                            | Per-submission, quota + node cluster-autoscaler       |
+| postgres  | In-cluster CloudNativePG _or_ Cloud SQL              | Vertical (manual) / CNPG instances                    |
+| redis     | In-cluster _or_ Memorystore                          | Vertical (manual)                                     |
+| temporal  | Official Temporal Helm chart (prereq)                | Per HA-PRODUCTION.md                                  |
+| images    | Artifact Registry                                    | —                                                     |
+| secrets   | Chart runtime secret / Secret Manager                | —                                                     |
 
 > **Autoscaling layers.** A submission burst is absorbed by the **sandbox**
 > layer — one K8s Job per submission, capped by `sandbox.resourceQuota.pods`,
