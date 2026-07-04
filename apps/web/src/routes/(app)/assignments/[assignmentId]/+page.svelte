@@ -16,6 +16,7 @@
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
   import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
   import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
@@ -186,6 +187,17 @@
     summary={detail.summary}
     actions={data.mode === "teacher" && canSetOverride ? gradingActions : undefined}
   >
+    {#snippet aside(accent)}
+      {#if detail.opensAt && targetIso}
+        <HeroSchedule
+          {accent}
+          startIso={detail.opensAt}
+          endIso={targetIso}
+          startLabel={m.schedule_opens()}
+          endLabel={m.schedule_closes()}
+        />
+      {/if}
+    {/snippet}
     {#snippet badges()}
       <StatusPill {status} type="assignment" />
       {#if data.mode === "teacher"}
