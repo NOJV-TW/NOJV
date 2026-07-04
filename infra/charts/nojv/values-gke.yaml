@@ -26,6 +26,9 @@ storage:
   inCluster: false
   region: auto
 
+seed:
+  enabled: true
+
 temporal:
   address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
   namespace: default
