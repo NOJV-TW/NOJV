@@ -1164,6 +1164,7 @@
   "editorials_downvote": "倒讚",
   "editorials_empty": "尚無題解",
   "editorials_language": "語言",
+  "editorials_lockedDuringEvent": "此題目前列於進行中的作業或考試，結束後才會開放題解。",
   "editorials_solveFirst": "請先解決此題才能查看題解",
   "editorials_submit": "提交題解",
   "editorials_submitError": "無法提交題解。",

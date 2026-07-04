@@ -1164,6 +1164,7 @@
   "editorials_downvote": "Downvote",
   "editorials_empty": "No editorials yet",
   "editorials_language": "Language",
+  "editorials_lockedDuringEvent": "This problem is part of an ongoing assessment or exam. Editorials open once it ends.",
   "editorials_solveFirst": "Solve this problem first to view editorials",
   "editorials_submit": "Submit Editorial",
   "editorials_submitError": "Could not submit the editorial.",
