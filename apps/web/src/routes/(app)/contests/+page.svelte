@@ -9,7 +9,6 @@
   import { Input } from "$lib/components/primitives/ui/input/index.js";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import ContestSection from "$lib/components/features/contest/ContestSection.svelte";
   import ContestPoster from "$lib/components/features/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/features/contest/ContestRowPast.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
@@ -65,6 +64,15 @@
     { key: "upcoming", label: m.contestsList_tabUpcoming(), count: upcoming.length },
     { key: "ended", label: m.contestsList_tabEnded(), count: past.length },
   ]);
+
+  // "all" tab sections, labelled like the assignments/exams overview pages.
+  const allGroups = $derived(
+    [
+      { key: "live", label: m.contestsList_tabLive(), items: live, past: false },
+      { key: "upcoming", label: m.contestsList_tabUpcoming(), items: upcoming, past: false },
+      { key: "ended", label: m.contestsList_tabEnded(), items: past, past: true },
+    ].filter((g) => g.items.length > 0),
+  );
 </script>
 
 <PageContainer>
@@ -76,17 +84,6 @@
     >
       {#snippet icon()}
         <Trophy class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-      {/snippet}
-      {#snippet actions()}
-        {#if data.loggedIn}
-          <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
-            {m.contestsList_joinByCode()}
-          </Button>
-          <Button href="/contests/new">
-            <Plus aria-hidden="true" class="h-4 w-4" />
-            {m.contestsList_create()}
-          </Button>
-        {/if}
       {/snippet}
     </PageHeader>
 
@@ -158,44 +155,43 @@
           </button>
         {/each}
       </div>
+      {#if data.loggedIn}
+        <div class="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onclick={() => (joinDialogOpen = true)}
+          >
+            {m.contestsList_joinByCode()}
+          </Button>
+          <Button href="/contests/new" size="sm">
+            <Plus aria-hidden="true" class="h-4 w-4" />
+            {m.contestsList_create()}
+          </Button>
+        </div>
+      {/if}
     </div>
 
     {#if currentTab === "all"}
-      <div class="space-y-8">
-        {#if live.length > 0}
-          <ContestSection
-            title={m.contestsList_sectionLiveTitle().toUpperCase()}
-            subtitle={m.contestsList_sectionLiveSubtitle()}
-            badge={m.contestsList_sectionLiveBadge()}
-          >
-            {@render posterGrid(live)}
-          </ContestSection>
-        {/if}
-
-        <ContestSection
-          title={m.contestsList_sectionUpcomingTitle().toUpperCase()}
-          subtitle={m.contestsList_sectionUpcomingSubtitle()}
-        >
-          {#if upcoming.length === 0}
-            <div
-              class="glass rounded-xl px-6 py-10 text-center text-body-sm text-muted-foreground"
-            >
-              {m.contestsList_sectionUpcomingEmpty()}
-            </div>
-          {:else}
-            {@render posterGrid(upcoming)}
-          {/if}
-        </ContestSection>
-
-        {#if past.length > 0}
-          <ContestSection
-            title={m.contestsList_sectionHistoryTitle().toUpperCase()}
-            subtitle={m.contestsList_sectionHistorySubtitle()}
-          >
-            {@render pastGrid(past)}
-          </ContestSection>
-        {/if}
-      </div>
+      {#if all.length === 0}
+        {@render emptyBox()}
+      {:else}
+        <div class="space-y-8">
+          {#each allGroups as g (g.key)}
+            <section>
+              <div class="mb-4 flex items-end gap-3">
+                <span class="text-body font-semibold">{g.label}</span>
+                <span class="text-caption text-muted-foreground tabular-nums"
+                  >{g.items.length}</span
+                >
+                <div class="ml-1 flex-1 border-t border-border-subtle"></div>
+              </div>
+              {#if g.past}{@render pastGrid(g.items)}{:else}{@render posterGrid(g.items)}{/if}
+            </section>
+          {/each}
+        </div>
+      {/if}
     {:else if currentTab === "live"}
       {#if live.length === 0}{@render emptyBox()}{:else}{@render posterGrid(live)}{/if}
     {:else if currentTab === "upcoming"}
