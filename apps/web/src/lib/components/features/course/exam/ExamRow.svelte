@@ -27,6 +27,7 @@
   context={exam.courseTitle}
   title={exam.title}
   status={pillStatus(exam.status)}
+  dateIso={exam.startsAt}
   {delay}
 >
   {#snippet timing()}

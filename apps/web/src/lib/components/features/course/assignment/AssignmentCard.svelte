@@ -68,6 +68,7 @@
   context={assignment.courseTitle}
   title={assignment.title}
   {status}
+  dateIso={assignment.closesAt}
   {delay}
 >
   {#snippet timing()}

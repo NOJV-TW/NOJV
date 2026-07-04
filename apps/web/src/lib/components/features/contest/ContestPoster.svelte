@@ -39,6 +39,7 @@
   context={scoringLabel}
   {title}
   {status}
+  dateIso={startsAt}
   {delay}
 >
   {#snippet timing()}

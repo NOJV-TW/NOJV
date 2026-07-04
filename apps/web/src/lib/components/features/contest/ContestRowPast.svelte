@@ -22,6 +22,7 @@
   context={scoringLabel}
   {title}
   status="ended"
+  dateIso={startsAt}
   {delay}
 >
   {#snippet foot()}
