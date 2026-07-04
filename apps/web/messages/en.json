@@ -1051,6 +1051,7 @@
   "courses_emptyEnrolledDescription": "When a teacher adds you to a course, it will show up here.",
   "courses_emptyEnrolledTitle": "No courses yet",
   "courses_emptyManagingDescription": "You are not listed as teacher or TA on any course yet.",
+  "courses_emptyManagingStudentDescription": "Course management is for teachers and TAs.\nTo help run a course, ask its teacher to add you as a TA.",
   "courses_emptyManagingTip1": "1. Create a course",
   "courses_emptyManagingTip2": "2. Add students from the members tab",
   "courses_emptyManagingTip3": "3. Publish an assignment or exam",

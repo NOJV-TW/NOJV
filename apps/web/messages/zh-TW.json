@@ -1051,6 +1051,7 @@
   "courses_emptyEnrolledDescription": "當老師把你加入課程時，這裡會顯示所有你修的課。",
   "courses_emptyEnrolledTitle": "還沒有修課",
   "courses_emptyManagingDescription": "目前你還沒有擔任任何課程的教師或助教。",
+  "courses_emptyManagingStudentDescription": "課程管理僅開放給教師與助教。\n想協助管理課程，請課程教師將你加入為助教。",
   "courses_emptyManagingTip1": "1. 建立課程",
   "courses_emptyManagingTip2": "2. 從成員分頁加入學生",
   "courses_emptyManagingTip3": "3. 發布作業或考試",

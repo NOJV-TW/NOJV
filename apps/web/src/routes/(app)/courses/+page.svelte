@@ -109,7 +109,7 @@
           actionLabel={m.courses_emptyEnrolledAction()}
         />
       </div>
-    {:else}
+    {:else if data.canCreate}
       <div class="animate-in animate-in-2">
         <EmptyState
           variant="onboarding"
@@ -121,9 +121,15 @@
             m.courses_emptyManagingTip2(),
             m.courses_emptyManagingTip3(),
           ]}
-          actions={data.canCreate
-            ? [{ href: "/courses/new", label: m.courses_createFirst() }]
-            : []}
+          actions={[{ href: "/courses/new", label: m.courses_createFirst() }]}
+        />
+      </div>
+    {:else}
+      <div class="animate-in animate-in-2">
+        <EmptyState
+          icon={BookOpen}
+          title={m.courses_emptyManagingTitle()}
+          description={m.courses_emptyManagingStudentDescription()}
         />
       </div>
     {/if}
