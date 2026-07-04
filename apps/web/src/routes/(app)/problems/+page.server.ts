@@ -1,6 +1,7 @@
 import type { PageServerLoad } from "./$types";
 import { canCreateProblem, problemDomain } from "@nojv/application";
 import { problemTypeSchema, judgeTypeSchema } from "@nojv/core";
+import { getActorContext } from "$lib/server/auth";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 
 const { listEditableProblems, listProblemCards } = problemDomain;
@@ -50,9 +51,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     userId ? listEditableProblems(userId, sort) : Promise.resolve(null),
   ]);
 
-  const sessionUser = locals.sessionUser;
-  const canCreate =
-    !!sessionUser && canCreateProblem(sessionUser.platformRole, sessionUser.emailVerified);
+  const actor = getActorContext({ locals });
+  const canCreate = !!actor && canCreateProblem(actor.platformRole, actor.emailVerified);
 
   return {
     editableProblems,

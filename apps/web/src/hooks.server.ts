@@ -30,7 +30,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
-import { hasAdminSessionMfa } from "$lib/server/step-up";
+import { hasAdminMode, hasAdminSessionMfa } from "$lib/server/step-up";
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
@@ -254,9 +254,16 @@ function enforcePasswordChange(event: HandleEvent, cleanPath: string): void {
   }
 }
 
+async function resolveAdminMode(event: HandleEvent): Promise<void> {
+  const user = event.locals.sessionUser;
+  const sessionId = event.locals.session?.id;
+  event.locals.adminModeActive =
+    user?.platformRole === "admin" && !!sessionId && (await hasAdminMode(sessionId));
+}
+
 async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Promise<void> {
   const user = event.locals.sessionUser;
-  if (user?.platformRole !== "admin" || user.mustChangePassword) {
+  if (!user?.isSuperAdmin || user.mustChangePassword) {
     return;
   }
   if (getWebEnv().NODE_ENV === "development") {
@@ -409,6 +416,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.requestId = deriveRequestId(event.request.headers);
   event.locals.apiToken = null;
   event.locals.apiTokenActor = null;
+  event.locals.adminModeActive = false;
 
   const cleanPath = stripLocalePrefix(event.url.pathname);
 
@@ -430,6 +438,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   await loadSession(event);
   enforceAccountState(event, cleanPath);
   enforcePasswordChange(event, cleanPath);
+  await resolveAdminMode(event);
   await enforceAdminTwoFactor(event, cleanPath);
   await enforcePageLock(event, cleanPath);
 

@@ -106,7 +106,7 @@ export const userRepo = {
   findDisabledStatus(id: string) {
     return prisma.user.findUnique({
       where: { id },
-      select: { disabled: true },
+      select: { disabled: true, isSuperAdmin: true },
     });
   },
 

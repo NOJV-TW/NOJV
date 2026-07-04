@@ -1534,6 +1534,8 @@
   "mobile_workspaceBlockerTitle": "Use a desktop browser to solve",
   "navigation_account": "Account",
   "navigation_admin": "Admin",
+  "userMenu_enterAdminMode": "Switch to admin mode",
+  "userMenu_exitAdminMode": "Exit admin mode",
   "navigation_assignments": "Assignments",
   "navigation_contests": "Contests",
   "navigation_courses": "Courses",

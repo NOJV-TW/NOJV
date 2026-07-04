@@ -54,6 +54,7 @@ async function main() {
       email,
       username,
       platformRole: "admin",
+      isSuperAdmin: true,
       emailVerified: true,
       mustChangePassword: true,
     },

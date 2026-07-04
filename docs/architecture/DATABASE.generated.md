@@ -144,6 +144,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `emailVerified` | `Boolean` | `@default(false)` |
 | `image` | `String?` | — |
 | `platformRole` | `PlatformRole` | `@default(student)` |
+| `isSuperAdmin` | `Boolean` | `@default(false)` |
 | `disabled` | `Boolean` | `@default(false)` |
 | `status` | `UserStatus` | `@default(active)` |
 | `mustChangePassword` | `Boolean` | `@default(false)` |

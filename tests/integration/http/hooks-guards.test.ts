@@ -27,19 +27,24 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     expect(res.headers.get("location")).toBe("/account/change-password");
   }, 30_000);
 
-  it("redirects an admin without 2FA to the two-factor setup on /admin", async () => {
-    const user = await createTestUser({ username: "admin_user", platformRole: "admin" });
+  it("redirects a super admin without 2FA to the two-factor setup on /admin", async () => {
+    const user = await createTestUser({
+      username: "admin_user",
+      platformRole: "admin",
+      isSuperAdmin: true,
+    });
     const res = await callRoute({ path: "/admin", module: NO_RESOLVE, user });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/account/two-factor");
   }, 30_000);
 
-  it("redirects an admin with 2FA but an unverified session to step-up verify", async () => {
+  it("redirects a super admin with 2FA but an unverified session to step-up verify", async () => {
     const { getRedis, keys } = await import("@nojv/redis");
     await getRedis().del(keys.adminSessionMfa("test-session"));
     const user = await createTestUser({
       username: "admin_2fa_unverified",
       platformRole: "admin",
+      isSuperAdmin: true,
       twoFactorEnabled: true,
     });
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
@@ -49,12 +54,13 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     );
   }, 30_000);
 
-  it("allows an admin whose session already passed 2FA", async () => {
+  it("allows a super admin whose session already passed 2FA", async () => {
     const { getRedis, keys } = await import("@nojv/redis");
     await getRedis().set(keys.adminSessionMfa("test-session"), "1", "EX", 600);
     const user = await createTestUser({
       username: "admin_2fa_verified",
       platformRole: "admin",
+      isSuperAdmin: true,
       twoFactorEnabled: true,
     });
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });

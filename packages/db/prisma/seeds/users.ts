@@ -11,8 +11,9 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "admin@nojv.local",
       username: "admin",
       platformRole: "admin",
+      isSuperAdmin: true,
     },
-    update: {},
+    update: { isSuperAdmin: true },
     where: { username: "admin" },
   });
 

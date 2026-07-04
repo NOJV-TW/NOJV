@@ -25,6 +25,10 @@
 
   let currentLocale = $derived(getLocale());
   let user = $derived(page.data.user);
+  let actingAsAdmin = $derived(page.data.actingAsAdmin ?? false);
+  let effectiveRole = $derived(
+    user?.platformRole === "admin" && !actingAsAdmin ? "student" : user?.platformRole,
+  );
   let currentPath = $derived(page.url.pathname);
 
   type NavItem = { href: string; label: string; icon: Component };
@@ -36,7 +40,7 @@
           { href: "/problems", label: m.navigation_problems(), icon: Code2 },
           { href: "/submissions", label: m.navigation_submissions(), icon: History },
           { href: "/courses", label: m.navigation_courses(), icon: GraduationCap },
-          ...(user.platformRole === "student"
+          ...(effectiveRole === "student"
             ? [
                 {
                   href: "/assignments",
@@ -47,7 +51,7 @@
               ]
             : []),
           { href: "/contests", label: m.navigation_contests(), icon: Trophy },
-          ...(user.platformRole === "admin"
+          ...(actingAsAdmin
             ? [{ href: "/admin", label: m.navigation_admin(), icon: Shield }]
             : []),
         ]

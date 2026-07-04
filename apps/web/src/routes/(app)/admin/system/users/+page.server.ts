@@ -14,7 +14,7 @@ function isPlatformRole(value: string): value is PlatformRole {
   return (PLATFORM_ROLES as readonly string[]).includes(value);
 }
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
   const search = url.searchParams.get("search") ?? "";
   const roleFilter = url.searchParams.get("role") ?? "";
   const page = Math.max(1, Number(url.searchParams.get("page") ?? "1"));
@@ -25,7 +25,15 @@ export const load: PageServerLoad = async ({ url }) => {
     page,
   });
 
-  return { users, totalCount, page, totalPages, search, roleFilter };
+  return {
+    users,
+    totalCount,
+    page,
+    totalPages,
+    search,
+    roleFilter,
+    canManageAdmins: locals.sessionUser?.isSuperAdmin === true,
+  };
 };
 
 export const actions = {
@@ -45,7 +53,7 @@ export const actions = {
       return fail(400, { error: "Cannot change your own role." });
     }
 
-    await updateUserRole(userId, role);
+    await updateUserRole(event.locals.sessionUser?.isSuperAdmin === true, userId, role);
     return { success: true };
   }),
 
@@ -63,7 +71,10 @@ export const actions = {
       return fail(400, { error: "Cannot disable yourself." });
     }
 
-    const result = await toggleUserDisabled(userId);
+    const result = await toggleUserDisabled(
+      event.locals.sessionUser?.isSuperAdmin === true,
+      userId,
+    );
     if (!result) return fail(404, { error: "User not found." });
 
     return { success: true };

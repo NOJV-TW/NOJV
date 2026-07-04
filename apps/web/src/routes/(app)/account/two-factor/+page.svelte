@@ -139,7 +139,7 @@
           </button>
         </div>
       {:else}
-        {#if data.platformRole === "admin" && !data.twoFactorEnabled}
+        {#if data.isSuperAdmin && !data.twoFactorEnabled}
           <p
             class="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-body-sm text-warning-foreground"
           >

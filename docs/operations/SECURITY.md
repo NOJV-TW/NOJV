@@ -23,6 +23,8 @@ Security requirements are first-class because this system handles authentication
 - Use `requireAuth(event)` for page routes and `requireApiAuth(event)` for API routes. Never skip authentication checks.
 - Use `canEditProblem(platformRole)` for problem mutations. Use `isCourseStaff(role)` for course access.
 - Effective course role = `max(platformRole, courseRole)` via `resolveEffectiveCourseRole()`. Admin overrides all.
+- **Two-tier admin (sudo model).** An `admin` account browses as a normal user by default; admin power is granted only while it has toggled into "admin mode" for the session. `getActorContext` computes an **effective** `platformRole` (`resolveEffectivePlatformRole`) that downgrades a de-elevated admin to `student`, so every existing `platformRole === "admin"` check stays off until the toggle is on. The toggle is stored per-session in Redis (`keys.adminMode(sessionId)`) and flipped via `POST /api/admin-mode` (admin accounts only). Do NOT read `sessionUser.platformRole` for power decisions — use `actor.platformRole` (effective) so the toggle is honoured.
+- **Super admin** = `isSuperAdmin && platformRole === "admin"`. Only super admins may grant/revoke the `admin` role (`updateUserRole` enforces it) or disable another super admin, and only super-admin logins are forced through the 2FA gate (`enforceAdminTwoFactor`, `hooks.server.ts`). Read `sessionUser.isSuperAdmin` (stored, toggle-independent) for these checks, never the effective role.
 - Use Prisma parameterized queries for all database access. Never construct SQL strings.
 - Use DOMPurify for all user-authored markdown rendering. The sanitizer is configured in `$lib/markdown.ts`.
 - Keep `.env` untracked and treat `.env.example` as a shape-only template without real values.
