@@ -241,3 +241,7 @@ migrator:
       cpu: 500m
       memory: 512Mi
   backoffLimit: 1
+
+seed:
+  enabled: false
+  backoffLimit: 1

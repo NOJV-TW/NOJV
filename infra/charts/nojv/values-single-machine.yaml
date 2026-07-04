@@ -20,6 +20,9 @@ redis:
 storage:
   inCluster: true
 
+seed:
+  enabled: true
+
 web:
   replicas: 1
   hpa:

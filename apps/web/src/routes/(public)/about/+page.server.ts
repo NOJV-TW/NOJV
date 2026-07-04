@@ -3,7 +3,7 @@ import type { PageServerLoad } from "./$types";
 export const load: PageServerLoad = () => {
   return {
     repoUrl: "https://github.com/TakalaWang/NOJV",
-    contactEmail: "ccwangtakala@gmail.com",
+    contactEmail: "nojv.tw@gmail.com",
     developers: [
       { id: "a" as const, name: "Takala", github: "TakalaWang" },
       { id: "b" as const, name: "Roku", github: "RokuSennyou" },

@@ -90,20 +90,20 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: BETTER_AUTH_URL
-            # Transactional email (school-verification, notifications) via Resend.
+            # Transactional email (school-verification, notifications) via Gmail SMTP.
             # Optional — the mailer is only constructed when a feature sends mail;
-            # EMAIL_FROM_DOMAIN must be a domain verified in the Resend account.
-            - name: RESEND_API_KEY
+            # GMAIL_APP_PASSWORD is a Google account app password, not the login password.
+            - name: GMAIL_USER
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: RESEND_API_KEY
+                  key: GMAIL_USER
                   optional: true
-            - name: EMAIL_FROM_DOMAIN
+            - name: GMAIL_APP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: EMAIL_FROM_DOMAIN
+                  key: GMAIL_APP_PASSWORD
                   optional: true
             - name: EDGE_TRUST_SECRET
               valueFrom:
