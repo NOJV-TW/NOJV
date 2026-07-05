@@ -148,22 +148,22 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 
 ### Problem
 
-| Field                   | Type              | Notes                                                                                                                         |
-| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `id`                    | String            | CUID, primary key                                                                                                             |
-| `displayId`             | Int               | Unique auto-increment counter — short human-friendly ID for URLs and UI                                                       |
-| `title`                 | String            | Problem title                                                                                                                 |
-| `visibility`            | ProblemVisibility | public or private (course-only)                                                                                               |
-| `status`                | ProblemStatus     | draft or published                                                                                                            |
-| `type`                  | ProblemType       | full_source, multi_file, or special_env                                                                                       |
-| `difficulty`            | ProblemDifficulty | easy, medium, or hard (dedicated column; NOT a tag)                                                                           |
-| `tags`                  | String[]          | Free-form topic/skill tags (difficulty lives on its own column)                                                               |
-| `timeLimitMs`           | Int               | Execution time limit (per-case for standard, total for special_env)                                                           |
-| `memoryLimitMb`         | Int               | Memory limit                                                                                                                  |
-| `judgeConfig`           | Json?             | Unified judge configuration (ignored when `type === "special_env"`)                                                           |
-| `samples`               | Json?             | `{ input, output }[]` sample I/O pairs                                                                                        |
-| `advancedConfig`        | Json?             | special_env only — `{ run, grade, network }`; run/grade are `{ imageRef, imageSource }` (registry ref or tarball storage key) |
-| `advancedRequiredPaths` | String[]          | special_env only — paths the TA image expects (trailing `/` = directory marker)                                               |
+| Field                   | Type              | Notes                                                                                                                                                                                                                                     |
+| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | String            | CUID, primary key                                                                                                                                                                                                                         |
+| `displayId`             | Int?              | Unique human-friendly number ("#N") shown in the UI. Null while a draft; assigned `max(displayId)+1` (under an advisory lock) the first time the problem is published, then never changes. Routes/foreign keys use `id` (cuid), not this. |
+| `title`                 | String            | Problem title                                                                                                                                                                                                                             |
+| `visibility`            | ProblemVisibility | public or private (course-only)                                                                                                                                                                                                           |
+| `status`                | ProblemStatus     | draft or published                                                                                                                                                                                                                        |
+| `type`                  | ProblemType       | full_source, multi_file, or special_env                                                                                                                                                                                                   |
+| `difficulty`            | ProblemDifficulty | easy, medium, or hard (dedicated column; NOT a tag)                                                                                                                                                                                       |
+| `tags`                  | String[]          | Free-form topic/skill tags (difficulty lives on its own column)                                                                                                                                                                           |
+| `timeLimitMs`           | Int               | Execution time limit (per-case for standard, total for special_env)                                                                                                                                                                       |
+| `memoryLimitMb`         | Int               | Memory limit                                                                                                                                                                                                                              |
+| `judgeConfig`           | Json?             | Unified judge configuration (ignored when `type === "special_env"`)                                                                                                                                                                       |
+| `samples`               | Json?             | `{ input, output }[]` sample I/O pairs                                                                                                                                                                                                    |
+| `advancedConfig`        | Json?             | special_env only — `{ run, grade, network }`; run/grade are `{ imageRef, imageSource }` (registry ref or tarball storage key)                                                                                                             |
+| `advancedRequiredPaths` | String[]          | special_env only — paths the TA image expects (trailing `/` = directory marker)                                                                                                                                                           |
 
 ### Submission
 

@@ -67,7 +67,8 @@ export async function createProblemDefinition(
     difficulty: input.difficulty ?? "medium",
     memoryLimitMb: input.memoryLimitMb ?? 256,
     samples: Prisma.JsonNull,
-    status: input.status ?? "published",
+    // Draft by default: displayId is assigned only on publish (updateProblemRecord).
+    status: input.status ?? "draft",
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
     type,
