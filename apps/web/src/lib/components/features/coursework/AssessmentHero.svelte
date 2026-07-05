@@ -43,7 +43,9 @@
         </div>
       {/if}
 
-      <h1 class="mt-2 text-headline lg:text-display font-semibold tracking-tight line-clamp-2">
+      <h1
+        class="mt-2 pb-1 text-headline lg:text-display font-semibold tracking-tight line-clamp-2"
+      >
         {title}
       </h1>
 
