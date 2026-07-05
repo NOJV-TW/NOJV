@@ -80,7 +80,7 @@
   <section class="animate-[fade-up_700ms_var(--ease-out-soft)_240ms_both]">
     <Card variant="strong" size="hero" class="text-center">
       <h2 class="text-title-lg font-bold text-foreground">{m.about_openSourceTitle()}</h2>
-      <p class="mx-auto mt-3 max-w-2xl text-body-lg text-muted-foreground">
+      <p class="mx-auto mt-3 max-w-2xl text-body-sm text-muted-foreground">
         {m.about_openSourceBody()}
       </p>
       <div class="mt-6 flex flex-wrap justify-center gap-3">
@@ -101,6 +101,9 @@
       <h2 class="text-title-lg font-bold text-foreground">{m.about_contactTitle()}</h2>
       <p class="mx-auto mt-3 max-w-2xl text-body-sm text-muted-foreground">
         {m.about_contactBody()}
+      </p>
+      <p class="mx-auto mt-2 max-w-2xl text-body-sm text-muted-foreground">
+        {m.about_contactDiscord()}
       </p>
       <div class="mt-5 flex justify-center">
         <Button href={`mailto:${data.contactEmail}`} variant="outline">

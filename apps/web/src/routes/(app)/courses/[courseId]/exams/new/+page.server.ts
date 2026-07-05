@@ -26,23 +26,44 @@ import type { FormMessage } from "$lib/types/form-message";
 const { createExamRecord } = examDomain;
 const { listEditableProblems } = problemDomain;
 
-const examFormSchema = z.object({
-  courseId: z.string().min(1),
-  title: z.string().trim().max(120).default(""),
-  summary: z.string().trim().max(4_000).default(""),
-  problemIds: z.array(z.string().min(1)).default([]),
-  startsAt: z.string().default(""),
-  endsAt: z.string().default(""),
-  allowedLanguages: z.array(languageSchema).max(8).default([]),
-  pageLockEnabled: z.boolean().default(false),
-  ipBindingEnabled: z.boolean().default(false),
-  ipViolationMode: ipViolationModeSchema.default("block"),
-  ipWhitelistEnabled: z.boolean().default(false),
-  ipWhitelistText: z.string().max(IP_WHITELIST_MAX_TEXT_LENGTH).default(""),
-  scoringMode: contestScoringModeSchema.default("point_sum"),
-  scoreboardMode: scoreboardModeSchema.default("hidden"),
-  submitCooldownSec: z.coerce.number().int().min(0).max(3_600).default(0),
-});
+const examFormSchema = z
+  .object({
+    courseId: z.string().min(1),
+    title: z.string().trim().min(3).max(120),
+    summary: z.string().trim().max(4_000).default(""),
+    problemIds: z.array(z.string().min(1)).default([]),
+    startsAt: z.string().trim().min(1),
+    endsAt: z.string().trim().min(1),
+    allowedLanguages: z.array(languageSchema).max(8).default([]),
+    pageLockEnabled: z.boolean().default(false),
+    ipBindingEnabled: z.boolean().default(false),
+    ipViolationMode: ipViolationModeSchema.default("block"),
+    ipWhitelistEnabled: z.boolean().default(false),
+    ipWhitelistText: z.string().max(IP_WHITELIST_MAX_TEXT_LENGTH).default(""),
+    scoringMode: contestScoringModeSchema.default("point_sum"),
+    scoreboardMode: scoreboardModeSchema.default("hidden"),
+    submitCooldownSec: z.coerce.number().int().min(0).max(3_600).default(0),
+  })
+  .superRefine((value, ctx) => {
+    const startsAt = new Date(value.startsAt);
+    const endsAt = new Date(value.endsAt);
+
+    if (Number.isNaN(startsAt.getTime())) {
+      ctx.addIssue({ code: "custom", message: "Invalid startsAt", path: ["startsAt"] });
+      return;
+    }
+    if (Number.isNaN(endsAt.getTime())) {
+      ctx.addIssue({ code: "custom", message: "Invalid endsAt", path: ["endsAt"] });
+      return;
+    }
+    if (endsAt <= startsAt) {
+      ctx.addIssue({
+        code: "custom",
+        message: "endsAt must be later than startsAt",
+        path: ["endsAt"],
+      });
+    }
+  });
 
 type ExamFormData = z.infer<typeof examFormSchema>;
 

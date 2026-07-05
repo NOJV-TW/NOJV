@@ -1,15 +1,20 @@
 <script lang="ts">
+  import Mail from "@lucide/svelte/icons/mail";
   import { m } from "$lib/paraglide/messages.js";
   import GithubMark from "./GithubMark.svelte";
+  import DiscordMark from "./DiscordMark.svelte";
 
   type Props = {
     repoUrl?: string;
+    contactEmail?: string;
   };
 
-  let { repoUrl = "https://github.com/TakalaWang/NOJV" }: Props = $props();
+  let {
+    repoUrl = "https://github.com/NOJV-TW/NOJV",
+    contactEmail = "nojv.tw@gmail.com",
+  }: Props = $props();
 
   const year = new Date().getFullYear();
-  let issuesUrl = $derived(`${repoUrl.replace(/\/$/, "")}/issues/new`);
 </script>
 
 <footer
@@ -25,6 +30,13 @@
     >
     <a
       class="inline-flex items-center gap-1.5 transition-colors duration-fast ease-out-soft hover:text-foreground"
+      href={`mailto:${contactEmail}`}
+    >
+      <Mail aria-hidden="true" class="size-3.5" />
+      {m.footer_contact()}
+    </a>
+    <a
+      class="inline-flex items-center gap-1.5 transition-colors duration-fast ease-out-soft hover:text-foreground"
       href={repoUrl}
       target="_blank"
       rel="noreferrer noopener"
@@ -33,17 +45,14 @@
       {m.footer_projectGithub()}
     </a>
     <a
-      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
-      href={issuesUrl}
-      target="_blank"
-      rel="noreferrer noopener">{m.footer_contact()}</a
-    >
-    <a
-      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
+      class="inline-flex items-center gap-1.5 transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="https://discord.gg/69JkbePMSM"
       target="_blank"
-      rel="noreferrer noopener">{m.footer_discord()}</a
+      rel="noreferrer noopener"
     >
+      <DiscordMark class="size-3.5" />
+      {m.footer_discord()}
+    </a>
     <a
       class="transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/legal/privacy">{m.footer_privacy()}</a
