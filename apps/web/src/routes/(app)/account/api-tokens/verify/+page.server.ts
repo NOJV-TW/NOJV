@@ -62,7 +62,7 @@ export const actions = {
 
     await markStepUpFresh(actor.userId);
     const sessionId = event.locals.session?.id;
-    if (actor.platformRole === "admin" && sessionId) {
+    if (event.locals.sessionUser?.isSuperAdmin && sessionId) {
       await markAdminSessionMfa(sessionId);
     }
 

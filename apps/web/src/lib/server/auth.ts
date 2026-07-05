@@ -25,6 +25,19 @@ export interface ActorContext {
 
 export type CompletedActorContext = ActorContext & { username: string };
 
+/**
+ * Admin accounts browse as a normal user until they toggle into "admin mode".
+ * When de-elevated, their effective platform role is `student`, so every
+ * admin-power check downstream stays off until they opt in.
+ */
+export function resolveEffectivePlatformRole(
+  storedRole: PlatformRole,
+  adminModeActive: boolean,
+): PlatformRole {
+  if (storedRole === "admin" && !adminModeActive) return "student";
+  return storedRole;
+}
+
 export function getActorContext(event: Pick<RequestEvent, "locals">): ActorContext | null {
   if (event.locals.apiTokenActor) {
     return event.locals.apiTokenActor;
@@ -41,7 +54,10 @@ export function getActorContext(event: Pick<RequestEvent, "locals">): ActorConte
     email: sessionUser.email,
     emailVerified: sessionUser.emailVerified,
     username: sessionUser.username,
-    platformRole: sessionUser.platformRole,
+    platformRole: resolveEffectivePlatformRole(
+      sessionUser.platformRole,
+      event.locals.adminModeActive,
+    ),
     userId: sessionUser.id,
   };
 }

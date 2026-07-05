@@ -76,14 +76,13 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 Optional to boot, but **required at runtime for any email-sending flow** —
 school-email verification, passwordless/2FA enrollment, and API-token step-up
-OTP all throw if these are unset (`apps/web/src/lib/server/mailer/resend.ts`).
+OTP all throw if these are unset (`apps/web/src/lib/server/mailer/gmail.ts`).
 Deploy these whenever those features are in use.
 
-| Variable            | Purpose                            |
-| ------------------- | ---------------------------------- |
-| `EMAIL_PROVIDER`    | Mailer backend: `resend` (default) |
-| `RESEND_API_KEY`    | Resend email service API key       |
-| `EMAIL_FROM_DOMAIN` | Sender domain for emails           |
+| Variable             | Purpose                                              |
+| -------------------- | ---------------------------------------------------- |
+| `GMAIL_USER`         | Gmail address emails are sent from                   |
+| `GMAIL_APP_PASSWORD` | Google account app password (not the login password) |
 
 ### Temporal
 
@@ -250,17 +249,18 @@ Ingress/LB origin is restricted to Cloudflare's CIDR ranges (see
 
 ### Service Mapping
 
-| Component | Where it runs                           | Scaling                                               |
-| --------- | --------------------------------------- | ----------------------------------------------------- |
-| web       | Chart Deployment (+ HPA on GKE)         | HPA min 2 / max 15 (`web.hpa.*`)                      |
-| worker    | Chart Deployments (judge + platform)    | Static replicas + opt-in KEDA (`worker.judge.keda.*`) |
-| migrator  | Chart pre-install/pre-upgrade Helm hook | One-shot per release                                  |
-| sandbox   | K8s Jobs (`nojv-sandbox`)               | Per-submission, quota + node cluster-autoscaler       |
-| postgres  | In-cluster CloudNativePG _or_ Cloud SQL | Vertical (manual) / CNPG instances                    |
-| redis     | In-cluster _or_ Memorystore             | Vertical (manual)                                     |
-| temporal  | Official Temporal Helm chart (prereq)   | Per HA-PRODUCTION.md                                  |
-| images    | Artifact Registry                       | —                                                     |
-| secrets   | Chart runtime secret / Secret Manager   | —                                                     |
+| Component | Where it runs                                        | Scaling                                               |
+| --------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| web       | Chart Deployment (+ HPA on GKE)                      | HPA min 2 / max 15 (`web.hpa.*`)                      |
+| worker    | Chart Deployments (judge + platform)                 | Static replicas + opt-in KEDA (`worker.judge.keda.*`) |
+| migrator  | Chart pre-install/pre-upgrade Helm hook              | One-shot per release                                  |
+| seed      | Chart post-install Helm hook (opt-in `seed.enabled`) | One-shot per release                                  |
+| sandbox   | K8s Jobs (`nojv-sandbox`)                            | Per-submission, quota + node cluster-autoscaler       |
+| postgres  | In-cluster CloudNativePG _or_ Cloud SQL              | Vertical (manual) / CNPG instances                    |
+| redis     | In-cluster _or_ Memorystore                          | Vertical (manual)                                     |
+| temporal  | Official Temporal Helm chart (prereq)                | Per HA-PRODUCTION.md                                  |
+| images    | Artifact Registry                                    | —                                                     |
+| secrets   | Chart runtime secret / Secret Manager                | —                                                     |
 
 > **Autoscaling layers.** A submission burst is absorbed by the **sandbox**
 > layer — one K8s Job per submission, capped by `sandbox.resourceQuota.pods`,
@@ -299,7 +299,10 @@ helm upgrade --install nojv infra/charts/nojv \
 1. **Runtime secret** — an existing `Secret` (default `nojv-runtime-secrets`) in
    the app namespace holding `DATABASE_URL`, `REDIS_URL`, the `S3_*` keys, the
    web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`/`EDGE_TRUST_SECRET`),
-   OAuth, and optional Grafana OTLP keys. Copy and fill
+   OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
+   `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` the seed hook
+   provisions the super admin from (password ≥ 12 chars, single-use). Copy and
+   fill
    [`infra/charts/nojv/secret.example.yaml`](../../infra/charts/nojv/secret.example.yaml);
    the chart never templates secret values.
 2. **CloudNativePG operator** (when `postgres.mode=cnpg`) — `kubectl apply` the

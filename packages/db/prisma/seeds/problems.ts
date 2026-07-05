@@ -1254,6 +1254,703 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         },
       },
     },
+    {
+      authorId: teacherId,
+      id: "problem_palindrome-check",
+      title: "Palindrome Check",
+      type: "full_source",
+      tags: ["easy", "String"],
+      memoryLimitMb: 256,
+      timeLimitMs: 1000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "迴文判斷",
+          body: "回文（palindrome）是指從左讀到右和從右讀到左都相同的字串，例如 `level`、`racecar`。\n\n給定一個只由小寫英文字母組成的字串 $s$，判斷它是否為回文。若是，輸出 `Yes`；否則輸出 `No`。",
+          inputFormat:
+            "一行，包含一個只由小寫英文字母組成的字串 $s$（$1 \\le |s| \\le 1000$）。",
+          outputFormat: "一行，若 $s$ 為回文則輸出 `Yes`，否則輸出 `No`。",
+        },
+        en: {
+          title: "Palindrome Check",
+          body: "A palindrome is a string that reads the same forwards and backwards, such as `level` or `racecar`.\n\nGiven a string $s$ consisting only of lowercase English letters, decide whether it is a palindrome. Print `Yes` if it is, otherwise print `No`.",
+          inputFormat:
+            "A single line containing a string $s$ of lowercase English letters ($1 \\le |s| \\le 1000$).",
+          outputFormat: "A single line: `Yes` if $s$ is a palindrome, otherwise `No`.",
+        },
+      },
+      samples: [
+        {
+          input: "level",
+          output: "Yes",
+        },
+        {
+          input: "hello",
+          output: "No",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "level",
+              output: "Yes",
+            },
+            {
+              input: "hello",
+              output: "No",
+            },
+            {
+              input: "a",
+              output: "Yes",
+            },
+          ],
+        },
+        hidden: {
+          description:
+            "Hidden cases: even/odd palindromes, single character, non-palindromes, and large inputs.",
+          cases: [
+            {
+              input: "abba",
+              output: "Yes",
+            },
+            {
+              input: "abcba",
+              output: "Yes",
+            },
+            {
+              input: "ab",
+              output: "No",
+            },
+            {
+              input: "z",
+              output: "Yes",
+            },
+            {
+              input: "abca",
+              output: "No",
+            },
+            {
+              input:
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              output: "Yes",
+            },
+            {
+              input:
+                "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababc",
+              output: "No",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_fibonacci-number",
+      title: "Fibonacci Number",
+      type: "full_source",
+      tags: ["easy", "Recursion"],
+      memoryLimitMb: 256,
+      timeLimitMs: 1000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "費氏數列",
+          body: "費氏數列（Fibonacci sequence）定義如下：\n\n$$F(0) = 0,\\quad F(1) = 1,\\quad F(n) = F(n-1) + F(n-2)\\ (n \\ge 2)$$\n\n給定一個整數 $n$，輸出第 $n$ 項 $F(n)$。",
+          inputFormat: "一行，包含一個整數 $n$（$0 \\le n \\le 90$）。",
+          outputFormat: "一行，輸出 $F(n)$ 的值。",
+        },
+        en: {
+          title: "Fibonacci Number",
+          body: "The Fibonacci sequence is defined by:\n\n$$F(0) = 0,\\quad F(1) = 1,\\quad F(n) = F(n-1) + F(n-2)\\ (n \\ge 2)$$\n\nGiven an integer $n$, print the $n$-th term $F(n)$.",
+          inputFormat: "A single line containing one integer $n$ ($0 \\le n \\le 90$).",
+          outputFormat: "A single line containing the value of $F(n)$.",
+        },
+      },
+      samples: [
+        {
+          input: "0",
+          output: "0",
+        },
+        {
+          input: "10",
+          output: "55",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "0",
+              output: "0",
+            },
+            {
+              input: "1",
+              output: "1",
+            },
+            {
+              input: "10",
+              output: "55",
+            },
+          ],
+        },
+        hidden: {
+          description: "Hidden cases: base values, mid-range terms, and the maximum n = 90.",
+          cases: [
+            {
+              input: "2",
+              output: "1",
+            },
+            {
+              input: "7",
+              output: "13",
+            },
+            {
+              input: "20",
+              output: "6765",
+            },
+            {
+              input: "50",
+              output: "12586269025",
+            },
+            {
+              input: "90",
+              output: "2880067194370816120",
+            },
+            {
+              input: "45",
+              output: "1134903170",
+            },
+            {
+              input: "13",
+              output: "233",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_max-subarray-kadane",
+      title: "Maximum Subarray Sum",
+      type: "full_source",
+      tags: ["medium", "DP"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "最大連續子陣列和",
+          body: "給定一個長度為 $N$ 的整數陣列，找出「連續且非空」的子陣列中，元素總和最大的那一個，並輸出其總和。\n\n這是經典的 Kadane 演算法題：以線性時間維護「以目前位置結尾的最大子陣列和」。注意陣列可能全為負數，此時答案為最大的單一元素。",
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 10^5$）。\\n\\n第二行 $N$ 個以空白分隔的整數 $a_i$（$-10^4 \\le a_i \\le 10^4$）。",
+          outputFormat: "一行，輸出最大連續子陣列和。",
+        },
+        en: {
+          title: "Maximum Subarray Sum",
+          body: "Given an array of $N$ integers, find the contiguous, non-empty subarray with the largest sum and print that sum.\n\nThis is the classic Kadane's algorithm task: maintain, in linear time, the maximum subarray sum ending at the current position. Note that the array may be entirely negative, in which case the answer is the largest single element.",
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$).\\n\\nThe second line contains $N$ space-separated integers $a_i$ ($-10^4 \\le a_i \\le 10^4$).",
+          outputFormat: "A single line containing the maximum contiguous subarray sum.",
+        },
+      },
+      samples: [
+        {
+          input: "9\n-2 1 -3 4 -1 2 1 -5 4",
+          output: "6",
+        },
+        {
+          input: "5\n1 2 3 4 5",
+          output: "15",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "9\n-2 1 -3 4 -1 2 1 -5 4",
+              output: "6",
+            },
+            {
+              input: "5\n1 2 3 4 5",
+              output: "15",
+            },
+            {
+              input: "3\n-5 -2 -9",
+              output: "-2",
+            },
+          ],
+        },
+        hidden: {
+          description:
+            "Hidden cases: single element, all-negative arrays, mixed signs, all zeros, and extreme values.",
+          cases: [
+            {
+              input: "1\n7",
+              output: "7",
+            },
+            {
+              input: "1\n-7",
+              output: "-7",
+            },
+            {
+              input: "4\n-1 -2 -3 -4",
+              output: "-1",
+            },
+            {
+              input: "8\n-2 -3 4 -1 -2 1 5 -3",
+              output: "7",
+            },
+            {
+              input: "6\n5 -9 6 -2 3 1",
+              output: "8",
+            },
+            {
+              input: "5\n0 0 0 0 0",
+              output: "0",
+            },
+            {
+              input: "10\n10000 -10000 10000 -10000 10000 -10000 10000 -10000 10000 -10000",
+              output: "10000",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_grid-bfs-steps",
+      title: "Shortest Steps in a Grid",
+      type: "full_source",
+      tags: ["medium", "Graph"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "格子圖最短步數",
+          body: "給定一個 $R \\times C$ 的格子圖，每一格是下列字元之一：\n\n- `S`：起點（恰好一個）\n- `G`：終點（恰好一個）\n- `.`：可通行的空格\n- `#`：牆壁，不可進入\n\n從 `S` 出發，每一步可往上、下、左、右移動到相鄰且非牆壁的格子。求到達 `G` 所需的最少步數；若無法到達，輸出 `-1`。",
+          inputFormat:
+            "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 500$）。\\n\\n接下來 $R$ 行，每行 $C$ 個字元，描述格子圖。保證恰有一個 `S` 與一個 `G`。",
+          outputFormat: "一行，輸出從 `S` 到 `G` 的最少步數，若不可達則輸出 `-1`。",
+        },
+        en: {
+          title: "Shortest Steps in a Grid",
+          body: "You are given an $R \\times C$ grid. Each cell is one of:\n\n- `S`: the start (exactly one)\n- `G`: the goal (exactly one)\n- `.`: an open, walkable cell\n- `#`: a wall that cannot be entered\n\nStarting at `S`, each step moves up, down, left, or right into an adjacent non-wall cell. Report the minimum number of steps needed to reach `G`, or `-1` if it cannot be reached.",
+          inputFormat:
+            "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 500$).\\n\\nThe next $R$ lines each contain $C$ characters describing the grid. Exactly one `S` and one `G` are guaranteed.",
+          outputFormat:
+            "A single line: the minimum number of steps from `S` to `G`, or `-1` if unreachable.",
+        },
+      },
+      samples: [
+        {
+          input: "3 3\nS..\n.#.\n..G",
+          output: "4",
+        },
+        {
+          input: "1 5\nS...G",
+          output: "4",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "3 3\nS..\n.#.\n..G",
+              output: "4",
+            },
+            {
+              input: "1 5\nS...G",
+              output: "4",
+            },
+            {
+              input: "2 3\nS#G\n...",
+              output: "4",
+            },
+          ],
+        },
+        hidden: {
+          description:
+            "Hidden cases: adjacent goal, detours around walls, an unreachable goal, and larger grids.",
+          cases: [
+            {
+              input: "1 2\nSG",
+              output: "1",
+            },
+            {
+              input: "5 5\nS....\n####.\n....G\n.####\n.....",
+              output: "6",
+            },
+            {
+              input: "3 3\nS.#\n.##\n##G",
+              output: "-1",
+            },
+            {
+              input: "4 6\nS.....\n.####.\n.####.\n.....G",
+              output: "8",
+            },
+            {
+              input: "2 2\nSG\n..",
+              output: "1",
+            },
+            {
+              input: "1 7\nS.....G",
+              output: "6",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_sort-and-unique",
+      title: "Sort and Deduplicate",
+      type: "full_source",
+      tags: ["easy", "Sorting"],
+      memoryLimitMb: 256,
+      timeLimitMs: 1000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "排序與去重",
+          body: "給定 $N$ 個整數，將它們去除重複後，由小到大排序，並在一行輸出所有相異的值（以單一空白分隔）。",
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 10^5$）。\\n\\n第二行 $N$ 個以空白分隔的整數 $a_i$（$-10^9 \\le a_i \\le 10^9$）。",
+          outputFormat: "一行，由小到大輸出所有相異的整數，相鄰兩數以單一空白分隔。",
+        },
+        en: {
+          title: "Sort and Deduplicate",
+          body: "Given $N$ integers, remove duplicates and sort the remaining distinct values in ascending order. Print them on a single line separated by single spaces.",
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$).\\n\\nThe second line contains $N$ space-separated integers $a_i$ ($-10^9 \\le a_i \\le 10^9$).",
+          outputFormat:
+            "A single line with the distinct values in ascending order, separated by single spaces.",
+        },
+      },
+      samples: [
+        {
+          input: "5\n3 1 2 3 1",
+          output: "1 2 3",
+        },
+        {
+          input: "4\n5 5 5 5",
+          output: "5",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "5\n3 1 2 3 1",
+              output: "1 2 3",
+            },
+            {
+              input: "4\n5 5 5 5",
+              output: "5",
+            },
+            {
+              input: "1\n42",
+              output: "42",
+            },
+          ],
+        },
+        hidden: {
+          description:
+            "Hidden cases: negatives, extreme bounds, reverse-sorted, single element, and many duplicates.",
+          cases: [
+            {
+              input: "6\n-1 -1 0 2 2 3",
+              output: "-1 0 2 3",
+            },
+            {
+              input: "5\n1000000000 -1000000000 0 1000000000 -1000000000",
+              output: "-1000000000 0 1000000000",
+            },
+            {
+              input: "8\n8 7 6 5 4 3 2 1",
+              output: "1 2 3 4 5 6 7 8",
+            },
+            {
+              input: "1\n-1000000000",
+              output: "-1000000000",
+            },
+            {
+              input: "7\n0 0 0 0 0 0 1",
+              output: "0 1",
+            },
+            {
+              input: "10\n5 4 4 3 3 3 2 2 2 2",
+              output: "2 3 4 5",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_greatest-common-divisor",
+      title: "Greatest Common Divisor",
+      type: "full_source",
+      tags: ["easy", "Math"],
+      memoryLimitMb: 256,
+      timeLimitMs: 1000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "最大公因數",
+          body: "給定兩個正整數 $a$ 與 $b$，輸出它們的最大公因數 $\\gcd(a, b)$，也就是能同時整除 $a$ 與 $b$ 的最大正整數。\n\n可用歐幾里得（輾轉相除）演算法在 $O(\\log \\min(a,b))$ 時間求解。",
+          inputFormat:
+            "一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \\le a, b \\le 10^{18}$）。",
+          outputFormat: "一行，輸出 $\\gcd(a, b)$。",
+        },
+        en: {
+          title: "Greatest Common Divisor",
+          body: "Given two positive integers $a$ and $b$, print their greatest common divisor $\\gcd(a, b)$ — the largest positive integer that divides both $a$ and $b$.\n\nThe Euclidean algorithm solves this in $O(\\log \\min(a,b))$ time.",
+          inputFormat:
+            "A single line containing two space-separated positive integers $a$ and $b$ ($1 \\le a, b \\le 10^{18}$).",
+          outputFormat: "A single line containing $\\gcd(a, b)$.",
+        },
+      },
+      samples: [
+        {
+          input: "12 18",
+          output: "6",
+        },
+        {
+          input: "7 13",
+          output: "1",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "12 18",
+              output: "6",
+            },
+            {
+              input: "7 13",
+              output: "1",
+            },
+            {
+              input: "100 10",
+              output: "10",
+            },
+          ],
+        },
+        hidden: {
+          description:
+            "Hidden cases: gcd of 1, coprime pairs, divisor relationships, and 18-digit values.",
+          cases: [
+            {
+              input: "1 1",
+              output: "1",
+            },
+            {
+              input: "1000000000000000000 999999999999999999",
+              output: "1",
+            },
+            {
+              input: "48 36",
+              output: "12",
+            },
+            {
+              input: "17 51",
+              output: "17",
+            },
+            {
+              input: "1000000007 998244353",
+              output: "1",
+            },
+            {
+              input: "999999999999999999 3",
+              output: "3",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_balanced-brackets",
+      title: "Balanced Brackets",
+      type: "full_source",
+      tags: ["easy", "Stack"],
+      memoryLimitMb: 256,
+      timeLimitMs: 1000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "括號匹配",
+          body: "給定一個只由六種括號字元 `(`、`)`、`[`、`]`、`{`、`}` 組成的字串，判斷它是否為「合法配對」。\n\n合法的定義是：每個開括號都能與型別相同、且順序正確的閉括號配對，例如 `()[]{}` 與 `{[()]}` 是合法的，而 `([)]` 與 `(]` 不是。\n\n若合法，輸出 `Yes`；否則輸出 `No`。這是經典的堆疊（stack）題。",
+          inputFormat: "一行，包含一個只由 `()[]{}` 組成的字串 $s$（$1 \\le |s| \\le 10^5$）。",
+          outputFormat: "一行，若括號合法配對則輸出 `Yes`，否則輸出 `No`。",
+        },
+        en: {
+          title: "Balanced Brackets",
+          body: "Given a string made only of the six bracket characters `(`, `)`, `[`, `]`, `{`, `}`, decide whether it is correctly balanced.\n\nBalanced means every opening bracket is matched by a closing bracket of the same type in the correct order — for example `()[]{}` and `{[()]}` are balanced, while `([)]` and `(]` are not.\n\nPrint `Yes` if balanced, otherwise `No`. This is a classic stack problem.",
+          inputFormat:
+            "A single line containing a string $s$ made only of `()[]{}` ($1 \\le |s| \\le 10^5$).",
+          outputFormat: "A single line: `Yes` if the brackets are balanced, otherwise `No`.",
+        },
+      },
+      samples: [
+        {
+          input: "()[]{}",
+          output: "Yes",
+        },
+        {
+          input: "([)]",
+          output: "No",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "()[]{}",
+              output: "Yes",
+            },
+            {
+              input: "([)]",
+              output: "No",
+            },
+            {
+              input: "{[()]}",
+              output: "Yes",
+            },
+          ],
+        },
+        hidden: {
+          description:
+            "Hidden cases: single unmatched brackets, wrong nesting, deep nesting, and long balanced strings.",
+          cases: [
+            {
+              input: "(",
+              output: "No",
+            },
+            {
+              input: ")",
+              output: "No",
+            },
+            {
+              input: "(]",
+              output: "No",
+            },
+            {
+              input: "(((())))",
+              output: "Yes",
+            },
+            {
+              input: "{[}]",
+              output: "No",
+            },
+            {
+              input:
+                "()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()",
+              output: "Yes",
+            },
+            {
+              input: "([{}])[]{()}",
+              output: "Yes",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_knapsack-01",
+      title: "0/1 Knapsack",
+      type: "full_source",
+      tags: ["medium", "DP"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public",
+      statements: {
+        "zh-TW": {
+          title: "0/1 背包問題",
+          body: "你有一個容量為 $W$ 的背包，以及 $N$ 件物品。第 $i$ 件物品的重量為 $w_i$、價值為 $v_i$，每件物品最多只能拿一次。\n\n請選出總重量不超過 $W$ 的物品組合，使得總價值最大，並輸出這個最大總價值。\n\n這是經典的 0/1 背包動態規劃題，狀態為 $dp[c] =$「容量為 $c$ 時的最大價值」。",
+          inputFormat:
+            "第一行兩個整數 $N$ 和 $W$（$1 \\le N \\le 100$，$0 \\le W \\le 10^4$）。\\n\\n接下來 $N$ 行，每行兩個整數 $w_i$ 和 $v_i$（$1 \\le w_i \\le 10^4$，$1 \\le v_i \\le 10^9$），表示第 $i$ 件物品的重量與價值。",
+          outputFormat: "一行，輸出可獲得的最大總價值。",
+        },
+        en: {
+          title: "0/1 Knapsack",
+          body: 'You have a knapsack of capacity $W$ and $N$ items. Item $i$ has weight $w_i$ and value $v_i$, and each item may be taken at most once.\n\nChoose a subset of items whose total weight does not exceed $W$ so that the total value is maximized, and print that maximum total value.\n\nThis is the classic 0/1 knapsack DP with state $dp[c] =$ "best value achievable with capacity $c$".',
+          inputFormat:
+            "The first line contains two integers $N$ and $W$ ($1 \\le N \\le 100$, $0 \\le W \\le 10^4$).\\n\\nEach of the next $N$ lines contains two integers $w_i$ and $v_i$ ($1 \\le w_i \\le 10^4$, $1 \\le v_i \\le 10^9$), the weight and value of item $i$.",
+          outputFormat: "A single line containing the maximum achievable total value.",
+        },
+      },
+      samples: [
+        {
+          input: "3 5\n2 3\n3 4\n4 5",
+          output: "7",
+        },
+        {
+          input: "4 10\n5 10\n4 40\n6 30\n3 50",
+          output: "90",
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Public sample cases shown on the problem page.",
+          cases: [
+            {
+              input: "3 5\n2 3\n3 4\n4 5",
+              output: "7",
+            },
+            {
+              input: "4 10\n5 10\n4 40\n6 30\n3 50",
+              output: "90",
+            },
+            {
+              input: "2 0\n1 5\n2 7",
+              output: "0",
+            },
+          ],
+        },
+        hidden: {
+          description:
+            "Hidden cases: item too heavy, exact fit, zero capacity, and large values near 10^9.",
+          cases: [
+            {
+              input: "1 5\n6 100",
+              output: "0",
+            },
+            {
+              input: "1 5\n5 100",
+              output: "100",
+            },
+            {
+              input: "3 6\n1 1\n2 6\n5 18",
+              output: "19",
+            },
+            {
+              input: "5 10\n2 3\n2 3\n6 5\n5 6\n4 4",
+              output: "12",
+            },
+            {
+              input: "4 7\n1 1\n3 4\n4 5\n5 7",
+              output: "9",
+            },
+            {
+              input: "3 10000\n5000 1000000000\n5000 1000000000\n5000 1000000000",
+              output: "2000000000",
+            },
+          ],
+        },
+      },
+    },
   ];
 }
 

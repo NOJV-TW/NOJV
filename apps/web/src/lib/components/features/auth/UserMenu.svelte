@@ -3,11 +3,38 @@
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth.client";
+  import { fetchWithCsrf } from "$lib/services/http";
   import UserIcon from "@lucide/svelte/icons/user";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
+  import ShieldIcon from "@lucide/svelte/icons/shield";
 
   let user = $derived(page.data.user);
   let session = $derived(page.data.session);
+  let canActAsAdmin = $derived(page.data.canActAsAdmin ?? false);
+  let actingAsAdmin = $derived(page.data.actingAsAdmin ?? false);
+  let adminBusy = $state(false);
+
+  async function toggleAdminMode() {
+    if (adminBusy) return;
+    adminBusy = true;
+    const next = !actingAsAdmin;
+    try {
+      const r = await fetchWithCsrf("/api/admin-mode", {
+        method: "POST",
+        body: JSON.stringify({ active: next }),
+      });
+      if (!r.ok) return;
+      open = false;
+      await invalidateAll();
+      if (next) {
+        await goto("/admin");
+      } else if (page.url.pathname.startsWith("/admin")) {
+        await goto("/dashboard");
+      }
+    } finally {
+      adminBusy = false;
+    }
+  }
 
   let open = $state(false);
   let btnEl: HTMLButtonElement | undefined = $state();
@@ -86,6 +113,20 @@
             <UserIcon aria-hidden="true" size={16} />
             {m.navigation_account()}
           </a>
+        {/if}
+
+        {#if canActAsAdmin}
+          <button
+            class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            class:text-primary={actingAsAdmin}
+            onclick={toggleAdminMode}
+            disabled={adminBusy}
+            type="button"
+            role="menuitem"
+          >
+            <ShieldIcon aria-hidden="true" size={16} />
+            {actingAsAdmin ? m.userMenu_exitAdminMode() : m.userMenu_enterAdminMode()}
+          </button>
         {/if}
 
         <button

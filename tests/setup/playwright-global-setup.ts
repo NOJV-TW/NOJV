@@ -1,7 +1,23 @@
-import { chromium, type FullConfig } from "@playwright/test";
+import { chromium, type FullConfig, type Page } from "@playwright/test";
 import path from "node:path";
 
 const AUTH_DIR = path.resolve(import.meta.dirname, "../fixtures/auth-states");
+
+/**
+ * Admin accounts default to their de-elevated identity, so pre-elevate the
+ * shared admin session into admin mode via the real toggle; the admin-panel
+ * e2e specs assume the backend is reachable. The de-elevated default and the
+ * toggle round-trip are covered by a dedicated spec.
+ */
+async function elevateAdminSession(page: Page, baseURL: string): Promise<void> {
+  const res = await page.request.post(`${baseURL}/api/admin-mode`, {
+    headers: { "x-requested-with": "fetch" },
+    data: { active: true },
+  });
+  if (!res.ok()) {
+    throw new Error(`Failed to elevate admin session: HTTP ${String(res.status())}`);
+  }
+}
 
 const roles = [
   { name: "admin", email: "admin@nojv.local", password: "password123" },
@@ -26,6 +42,10 @@ export default async function globalSetup(config: FullConfig) {
     await page.waitForURL((url) => !url.pathname.includes("signin"), {
       timeout: 15000,
     });
+
+    if (role.name === "admin") {
+      await elevateAdminSession(page, baseURL);
+    }
 
     await context.storageState({ path: path.join(AUTH_DIR, `${role.name}.json`) });
     await context.close();

@@ -1,6 +1,7 @@
 import { submissionRepo, userRepo, type Prisma } from "@nojv/db";
 
 import * as notificationDomain from "../notification";
+import { ForbiddenError } from "../shared/errors";
 
 export interface TagAcCount {
   tag: string;
@@ -79,9 +80,20 @@ export async function listUsersPaginated(params: UserSearchParams) {
   return { users, totalCount, page, totalPages: Math.max(1, Math.ceil(totalCount / take)) };
 }
 
-export async function updateUserRole(userId: string, role: "admin" | "teacher" | "student") {
+export async function updateUserRole(
+  actorIsSuperAdmin: boolean,
+  userId: string,
+  role: "admin" | "teacher" | "student",
+) {
   const existing = await userRepo.findById(userId);
-  const updated = await userRepo.update(userId, { platformRole: role });
+  const involvesAdmin = role === "admin" || existing?.platformRole === "admin";
+  if (involvesAdmin && !actorIsSuperAdmin) {
+    throw new ForbiddenError("Only a super admin can grant or remove the admin role.");
+  }
+  const updated = await userRepo.update(userId, {
+    platformRole: role,
+    ...(role === "admin" ? {} : { isSuperAdmin: false }),
+  });
 
   if (existing && existing.platformRole !== role) {
     await notificationDomain.createNotification({
@@ -95,9 +107,12 @@ export async function updateUserRole(userId: string, role: "admin" | "teacher" |
   return updated;
 }
 
-export async function toggleUserDisabled(userId: string) {
+export async function toggleUserDisabled(actorIsSuperAdmin: boolean, userId: string) {
   const user = await userRepo.findDisabledStatus(userId);
   if (!user) return null;
+  if (user.isSuperAdmin && !actorIsSuperAdmin) {
+    throw new ForbiddenError("Only a super admin can disable a super admin.");
+  }
   return userRepo.update(userId, { disabled: !user.disabled });
 }
 

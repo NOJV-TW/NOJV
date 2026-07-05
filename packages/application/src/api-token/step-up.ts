@@ -37,6 +37,18 @@ export async function hasAdminSessionMfa(sessionId: string): Promise<boolean> {
   return (await getRedis().get(keys.adminSessionMfa(sessionId))) !== null;
 }
 
+export async function markAdminMode(sessionId: string): Promise<void> {
+  await getRedis().set(keys.adminMode(sessionId), "1", "EX", ADMIN_MFA_TTL_SECONDS);
+}
+
+export async function hasAdminMode(sessionId: string): Promise<boolean> {
+  return (await getRedis().get(keys.adminMode(sessionId))) !== null;
+}
+
+export async function clearAdminMode(sessionId: string): Promise<void> {
+  await getRedis().del(keys.adminMode(sessionId));
+}
+
 export async function markTotpSeen(userId: string, code: string): Promise<void> {
   await getRedis().set(keys.twoFactorTotpSeen(userId, code), "1", "EX", OTP_DEDUPE_TTL_SECONDS);
 }

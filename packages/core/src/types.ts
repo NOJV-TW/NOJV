@@ -196,6 +196,7 @@ export const sessionUserSchema = z.object({
   id: z.string(),
   name: z.string(),
   platformRole: platformRoleSchema,
+  isSuperAdmin: z.boolean().default(false),
   status: userStatusSchema.default("active"),
   mustChangePassword: z.boolean().default(false),
   twoFactorEnabled: z.boolean().default(false),

@@ -5,7 +5,6 @@ import { clarificationDomain } from "@nojv/application";
 type ClarificationContext = clarificationDomain.ClarificationContext;
 import { createLogger } from "$lib/server/logger";
 import { createSseResponse } from "$lib/server/shared/sse-response";
-import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
 import { z } from "zod";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
@@ -58,12 +57,6 @@ export const GET: RequestHandler = async (event) => {
   }
 
   const userId = actor.userId;
-  try {
-    await apiRateLimiter.consume(`u:${userId}`);
-  } catch {
-    return new Response("Too many requests", { status: 429 });
-  }
-
   const redisUrl = envResult.data.REDIS_URL;
 
   const authorizedClarChannels: string[] = [];

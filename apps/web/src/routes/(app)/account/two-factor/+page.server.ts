@@ -90,7 +90,7 @@ export const load = async (event: RequestEvent) => {
   const actor = requireAuth(event);
   return {
     twoFactorEnabled: event.locals.sessionUser?.twoFactorEnabled ?? false,
-    platformRole: event.locals.sessionUser?.platformRole ?? "student",
+    isSuperAdmin: event.locals.sessionUser?.isSuperAdmin ?? false,
     hasPassword: await userHasCredentialPassword(actor.userId),
     enrollConfirmed: await hasEnrollConfirmed(actor.userId),
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
@@ -116,6 +116,7 @@ export const actions = {
     }
     const token = generateEnrollToken();
     await storeEnrollConfirm(actor.userId, token);
+    if (!env.BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL is required");
     const confirmUrl = `${env.BETTER_AUTH_URL}/account/two-factor/confirm?token=${token}`;
     await getMailer().sendEmail({
       to: actor.email,
@@ -172,7 +173,7 @@ export const actions = {
       });
       forwardSetCookies(event, headers);
       const sessionId = event.locals.session?.id;
-      if (actor.platformRole === "admin" && sessionId) {
+      if (event.locals.sessionUser?.isSuperAdmin && sessionId) {
         await markAdminSessionMfa(sessionId);
       }
     } catch {

@@ -9,7 +9,7 @@ describe("updateUserRole notifications", () => {
   it("writes a role_changed notification when the role actually changes", async () => {
     const target = await createTestUser({ platformRole: "student" });
 
-    await userDomain.updateUserRole(target.id, "teacher");
+    await userDomain.updateUserRole(true, target.id, "teacher");
 
     const rows = await notificationRepo.listRecent(target.id, 10);
     expect(rows).toHaveLength(1);
@@ -24,7 +24,7 @@ describe("updateUserRole notifications", () => {
   it("does NOT write a notification when role is unchanged", async () => {
     const target = await createTestUser({ platformRole: "teacher" });
 
-    await userDomain.updateUserRole(target.id, "teacher");
+    await userDomain.updateUserRole(true, target.id, "teacher");
 
     const rows = await notificationRepo.listRecent(target.id, 10);
     expect(rows).toHaveLength(0);
@@ -33,9 +33,9 @@ describe("updateUserRole notifications", () => {
   it("writes exactly one row per actual transition across multiple calls", async () => {
     const target = await createTestUser({ platformRole: "student" });
 
-    await userDomain.updateUserRole(target.id, "teacher"); // student -> teacher
-    await userDomain.updateUserRole(target.id, "teacher"); // no-op
-    await userDomain.updateUserRole(target.id, "admin"); // teacher -> admin
+    await userDomain.updateUserRole(true, target.id, "teacher"); // student -> teacher
+    await userDomain.updateUserRole(true, target.id, "teacher"); // no-op
+    await userDomain.updateUserRole(true, target.id, "admin"); // teacher -> admin
 
     const rows = await notificationRepo.listRecent(target.id, 10);
     expect(rows).toHaveLength(2);

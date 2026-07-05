@@ -1,0 +1,117 @@
+{{- if .Values.seed.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nojv.fullname" . }}-seed
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: seed
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.seed.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-seed
+        {{- if .Values.cloudsqlProxy.enabled }}
+        nojv-role: worker
+        {{- end }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.worker.judge.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      containers:
+        - name: seed
+          image: {{ include "nojv.image" (dict "root" . "component" "migrator") }}
+          command: ["sh", "-lc", "pnpm -C packages/db exec node --import tsx prisma/prod-seed.ts"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: HOME
+              value: /tmp
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+            {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ENDPOINT
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_REGION
+                  optional: true
+            - name: SEED_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SEED_ADMIN_USERNAME
+            - name: SEED_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SEED_ADMIN_EMAIL
+            - name: SEED_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SEED_ADMIN_PASSWORD
+        {{- if .Values.cloudsqlProxy.enabled }}
+        - name: cloudsql-proxy
+          image: {{ .Values.postgres.cloudsql.proxyImage }}
+          restartPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - --address=127.0.0.1
+            - --port=5432
+            - --private-ip
+            - --structured-logs
+            - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
+          env:
+            - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+        {{- end }}
+{{- end }}

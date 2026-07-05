@@ -23,9 +23,8 @@ const webEnvSchema = z
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-    EMAIL_PROVIDER: z.enum(["resend"]).default("resend"),
-    RESEND_API_KEY: z.string().optional(),
-    EMAIL_FROM_DOMAIN: z.string().optional(),
+    GMAIL_USER: z.string().optional(),
+    GMAIL_APP_PASSWORD: z.string().optional(),
 
     EDGE_TRUST_SECRET: z.string().optional(),
   })
