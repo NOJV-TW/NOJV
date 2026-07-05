@@ -6,7 +6,7 @@
     repoUrl?: string;
   };
 
-  let { repoUrl = "https://github.com/TakalaWang/NOJV" }: Props = $props();
+  let { repoUrl = "https://github.com/NOJV-TW/NOJV" }: Props = $props();
 
   const year = new Date().getFullYear();
   let issuesUrl = $derived(`${repoUrl.replace(/\/$/, "")}/issues/new`);
