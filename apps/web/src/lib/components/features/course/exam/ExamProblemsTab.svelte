@@ -112,7 +112,11 @@
                   <span class={difficultyClass(problem.difficulty)}>
                     {problem.difficulty}
                   </span>
-                  <span class="font-mono opacity-75">#{problem.displayId}</span>
+                  <span class="font-mono opacity-75"
+                    >{problem.displayId == null
+                      ? m.common_problemDraft()
+                      : `#${problem.displayId}`}</span
+                  >
                 </div>
               </div>
 

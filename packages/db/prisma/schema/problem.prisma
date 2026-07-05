@@ -28,7 +28,7 @@ enum WorkspaceFileVisibility {
 
 model Problem {
   id         String            @id @default(cuid())
-  displayId  Int               @unique @default(autoincrement())
+  displayId  Int?              @unique
   title      String
   authorId   String?
   visibility ProblemVisibility @default(public)

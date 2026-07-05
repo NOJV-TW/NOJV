@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, ChevronDown, ChevronUp } from "@lucide/svelte";
+  import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Lock } from "@lucide/svelte";
   import { editorialListResponseSchema, supportedLanguages, type Language } from "@nojv/core";
   import { page } from "$app/state";
   import type { ProblemEditorialEntry } from "$lib/types";
@@ -9,6 +9,7 @@
   import { toasts } from "$lib/stores/toast";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
 
   interface Props {
     problemId: string;
@@ -22,6 +23,7 @@
   let editorials = $state<ProblemEditorialEntry[]>([]);
   let editorialsLoaded = $state(false);
   let editorialsLoading = $state(false);
+  let editorialsForbidden = $state(false);
   let showEditorialForm = $state(false);
   let editorialTitle = $state("");
   let editorialContent = $state("");
@@ -118,8 +120,15 @@
       if (res.ok) {
         const parsed = editorialListResponseSchema.safeParse(await res.json());
         editorials = parsed.success ? (parsed.data as ProblemEditorialEntry[]) : [];
-        editorialsLoaded = true;
+        editorialsForbidden = false;
+      } else {
+        // Server is the source of truth: a stale in-session AC can leave hasAc
+        // optimistic (e.g. the problem got re-locked by an active assessment),
+        // so the gate returns 403. Record it instead of retrying forever.
+        editorialsForbidden = res.status === 403;
       }
+      // Mark loaded on any settled response so the $effect stops re-firing.
+      editorialsLoaded = true;
     } finally {
       editorialsLoading = false;
     }
@@ -161,10 +170,12 @@
 </script>
 
 <div class="p-5">
-  {#if !hasAc}
-    <p class="py-8 text-center text-body-sm text-muted-foreground">
-      {m.editorials_solveFirst()}
-    </p>
+  {#if !hasAc || editorialsForbidden}
+    <EmptyState
+      variant="minimal"
+      icon={Lock}
+      title={editorialsForbidden ? m.editorials_lockedDuringEvent() : m.editorials_solveFirst()}
+    />
   {:else if editorialsLoading && !editorialsLoaded}
     <div class="flex items-center justify-center py-8">
       <div
@@ -334,9 +345,7 @@
     {/if}
 
     {#if editorials.length === 0}
-      <p class="py-8 text-center text-body-sm text-muted-foreground">
-        {m.editorials_empty()}
-      </p>
+      <EmptyState variant="minimal" icon={BookOpen} title={m.editorials_empty()} />
     {:else}
       <ul class="flex flex-col gap-2">
         {#each editorials as editorial (editorial.id)}

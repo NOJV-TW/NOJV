@@ -1,6 +1,7 @@
 import {
   assessmentProblemRepo,
   contestProblemRepo,
+  courseMembershipRepo,
   examProblemRepo,
   problemRepo,
   problemWorkspaceFileRepo,
@@ -10,6 +11,20 @@ import type { Language, PlatformRole } from "@nojv/core";
 import { entryFileNameFor } from "@nojv/core";
 
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import { canCreateProblem } from "../shared/permissions";
+
+/**
+ * Whether a user may author problems: platform teachers/admins, verified
+ * accounts, or staff (teacher/TA) of any non-archived course.
+ */
+export async function canAuthorProblems(actor: {
+  userId: string;
+  platformRole: PlatformRole;
+  emailVerified: boolean;
+}): Promise<boolean> {
+  if (canCreateProblem(actor.platformRole, actor.emailVerified)) return true;
+  return courseMembershipRepo.hasActiveStaffMembership(actor.userId);
+}
 
 export interface ProblemActorContext {
   userId: string;

@@ -41,6 +41,11 @@
   };
 
   const EXAM: Record<string, Def> = {
+    draft: {
+      label: () => m.statusPill_exam_draft(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
     scheduled: {
       label: () => m.statusPill_exam_scheduled(),
       cls: "bg-muted text-muted-foreground",

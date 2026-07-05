@@ -113,6 +113,18 @@ export const courseRepo = {
 };
 
 export const courseMembershipRepo = {
+  async hasActiveStaffMembership(userId: string): Promise<boolean> {
+    const count = await prisma.courseMembership.count({
+      where: {
+        userId,
+        status: "active",
+        role: { in: ["teacher", "ta"] },
+        course: { archived: false },
+      },
+    });
+    return count > 0;
+  },
+
   countStudents(courseIds: string[]) {
     return prisma.courseMembership.count({
       where: {

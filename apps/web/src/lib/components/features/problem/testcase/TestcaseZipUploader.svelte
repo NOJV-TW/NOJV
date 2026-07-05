@@ -110,22 +110,21 @@
     uploadSaving = true;
     onError(null);
     try {
-      await Promise.all(
-        subtasks
-          .filter((subtask) => subtask.caseIndices.length > 0)
-          .map((subtask) =>
-            postProblemAction(problemId, "createTestcaseSet", {
-              data: JSON.stringify({
-                cases: subtask.caseIndices.map((idx) => ({
-                  input: parsedCases[idx]?.input ?? "",
-                  output: parsedCases[idx]?.output ?? "",
-                })),
-                name: subtask.name,
-                weight: subtask.points,
-              }),
-            }),
-          ),
-      );
+      // Sequential, not Promise.all: the server assigns each set's ordinal from
+      // max(ordinal)+1, so parallel creates race to the same ordinal and collide
+      // on the [problemId, ordinal] unique constraint — only one would survive.
+      for (const subtask of subtasks.filter((s) => s.caseIndices.length > 0)) {
+        await postProblemAction(problemId, "createTestcaseSet", {
+          data: JSON.stringify({
+            cases: subtask.caseIndices.map((idx) => ({
+              input: parsedCases[idx]?.input ?? "",
+              output: parsedCases[idx]?.output ?? "",
+            })),
+            name: subtask.name,
+            weight: subtask.points,
+          }),
+        });
+      }
       parsedCases = [];
       subtasks = [];
       zipRawFiles = [];

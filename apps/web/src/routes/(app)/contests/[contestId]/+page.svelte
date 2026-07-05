@@ -15,6 +15,7 @@
   import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
@@ -164,6 +165,15 @@
     title={contest.title}
     summary={contest.summary}
   >
+    {#snippet aside(accent)}
+      <HeroSchedule
+        {accent}
+        startIso={contest.startsAt}
+        endIso={contest.endsAt}
+        startLabel={m.schedule_starts()}
+        endLabel={m.schedule_ends()}
+      />
+    {/snippet}
     {#snippet badges()}
       <StatusPill {status} type="contest" />
     {/snippet}

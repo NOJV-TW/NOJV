@@ -4,7 +4,7 @@ import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
-import { canCreateProblem, problemDomain } from "@nojv/application";
+import { problemDomain } from "@nojv/application";
 
 const { createProblemRecord } = problemDomain;
 
@@ -12,7 +12,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
 
-  if (!canCreateProblem(actor.platformRole, actor.emailVerified)) {
+  if (!(await problemDomain.canAuthorProblems(actor))) {
     error(403, "Not authorized to create problems");
   }
 

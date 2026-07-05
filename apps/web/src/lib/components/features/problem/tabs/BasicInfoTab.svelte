@@ -84,7 +84,7 @@
 <form class="grid gap-4" method="POST" action="?/update" use:enhance>
   <label class="text-body-sm text-muted-foreground">
     <span>{m.admin_title()} <span class="text-destructive">*</span></span>
-    <input class={inputClassName} name="title" bind:value={$form.title} required />
+    <input class={inputClassName} name="title" bind:value={$form.title} />
     {#if attempted && $errors.title}<span class="text-body-sm text-destructive"
         >{tr($errors.title)}</span
       >{/if}
@@ -163,7 +163,6 @@
       name="statement"
       bind:value={$form.statement}
       {problemId}
-      required
     />
     {#if attempted && $errors.statement}<span class="text-body-sm text-destructive"
         >{tr($errors.statement)}</span
@@ -206,7 +205,6 @@
         name="inputFormat"
         bind:value={$form.inputFormat}
         {problemId}
-        required
       />
       {#if attempted && $errors.inputFormat}<span class="text-body-sm text-destructive"
           >{tr($errors.inputFormat)}</span
@@ -222,7 +220,6 @@
         name="outputFormat"
         bind:value={$form.outputFormat}
         {problemId}
-        required
       />
       {#if attempted && $errors.outputFormat}<span class="text-body-sm text-destructive"
           >{tr($errors.outputFormat)}</span

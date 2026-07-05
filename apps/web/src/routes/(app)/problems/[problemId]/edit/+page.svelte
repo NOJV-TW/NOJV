@@ -29,10 +29,22 @@
   let isDeleting = $state(false);
 
   let isBasicInfoComplete = $derived(
-    data.problem.title !== "Untitled Problem" &&
+    data.problem.title.trim() !== "" &&
+      data.problem.title !== "Untitled Problem" &&
       data.problem.statement !== "" &&
       data.problem.inputFormat !== "" &&
       data.problem.outputFormat !== "",
+  );
+
+  let missingBasicFields = $derived(
+    [
+      data.problem.title === "Untitled Problem" || data.problem.title.trim() === ""
+        ? m.admin_title()
+        : null,
+      data.problem.statement === "" ? m.admin_statement() : null,
+      data.problem.inputFormat === "" ? m.admin_inputFormat() : null,
+      data.problem.outputFormat === "" ? m.admin_outputFormat() : null,
+    ].filter((label): label is NonNullable<typeof label> => label !== null),
   );
 
   let canPublish = $derived(
@@ -162,7 +174,7 @@
           disabled={isDeleting}
           onclick={() => (showDeleteConfirm = true)}
         >
-          {isDeleting ? m.common_deleting() : m.common_delete()}
+          {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
         </Button>
       {/if}
       {#if isAdvanced && data.problem.status === "draft"}
@@ -200,6 +212,7 @@
       {canPublish}
       {isPublishing}
       {isBasicInfoComplete}
+      {missingBasicFields}
       testcaseCount={data.testcaseSets.length}
       bind:isDirty
       onpublish={handlePublishClick}

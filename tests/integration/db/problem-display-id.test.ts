@@ -3,27 +3,24 @@ import { describe, expect, it } from "vitest";
 import { createTestProblem, testPrisma } from "../../fixtures/factories";
 
 describe("Problem.displayId (real DB)", () => {
-  it("assigns unique, monotonically increasing displayIds to new problems", async () => {
-    const baseline = (await testPrisma.problem.aggregate({ _max: { displayId: true } }))._max
-      .displayId;
-    const start = baseline ?? 0;
+  it("drafts have no displayId; published problems get one", async () => {
+    const draft = await createTestProblem({ status: "draft" });
+    expect(draft.displayId).toBeNull();
+
+    const published = await createTestProblem({ status: "published" });
+    expect(published.displayId).not.toBeNull();
+  });
+
+  it("assigns unique, increasing displayIds as problems are published", async () => {
+    const baseline =
+      (await testPrisma.problem.aggregate({ _max: { displayId: true } }))._max.displayId ?? 0;
 
     const a = await createTestProblem();
     const b = await createTestProblem();
     const c = await createTestProblem();
 
-    expect(a.displayId).toBe(start + 1);
-    expect(b.displayId).toBe(start + 2);
-    expect(c.displayId).toBe(start + 3);
-  });
-
-  it("never reuses a displayId after deletion", async () => {
-    const a = await createTestProblem();
-    const skippedId = a.displayId;
-
-    await testPrisma.problem.delete({ where: { id: a.id } });
-
-    const b = await createTestProblem();
-    expect(b.displayId).toBeGreaterThan(skippedId);
+    expect(a.displayId).toBe(baseline + 1);
+    expect(b.displayId).toBe(baseline + 2);
+    expect(c.displayId).toBe(baseline + 3);
   });
 });

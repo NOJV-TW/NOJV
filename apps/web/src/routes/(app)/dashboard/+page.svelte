@@ -194,6 +194,11 @@
 
   const tagScrolls = $derived(analytics.byTag.length > TAG_VISIBLE);
 
+  // Pin the value axis to the global max so scrolling the tag list doesn't
+  // rescale it — a bar of 3 must stay shorter than a bar of 5 regardless of
+  // which rows are currently in view.
+  const tagMax = $derived(Math.max(1, ...analytics.byTag.map((g) => g.acCount)));
+
   const tagOption: EChartsOption = $derived({
     animation: false,
     grid: { left: 96, right: tagScrolls ? 30 : 24, top: 8, bottom: 24 },
@@ -240,6 +245,8 @@
       : {}),
     xAxis: {
       type: "value",
+      min: 0,
+      max: tagMax,
       axisLabel: { fontSize: 11, color: themeColors.mutedFg },
       minInterval: 1,
     },

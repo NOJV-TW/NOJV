@@ -9,7 +9,7 @@
 
   interface CandidateProblem {
     difficulty: string;
-    displayId: number | string;
+    displayId: number | string | null;
     id: string;
     tags: string[];
     title: string;
@@ -108,7 +108,7 @@
         onclick={() => addProblem(problem.id)}
       >
         <span class="min-w-[96px] font-mono text-caption text-muted-foreground">
-          #{problem.displayId}
+          {problem.displayId == null ? m.common_problemDraft() : `#${problem.displayId}`}
         </span>
         <span class="flex-1 text-body-sm font-medium">{problem.title}</span>
         <span
@@ -151,7 +151,7 @@
           <div class="min-w-0 flex-1">
             <div class="truncate text-body-sm font-medium">{problem.title}</div>
             <div class="font-mono text-caption text-muted-foreground">
-              #{problem.displayId}
+              {problem.displayId == null ? m.common_problemDraft() : `#${problem.displayId}`}
             </div>
           </div>
           <span

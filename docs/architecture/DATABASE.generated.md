@@ -756,7 +756,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `displayId` | `Int` | `@unique @default(autoincrement())` |
+| `displayId` | `Int?` | `@unique` |
 | `title` | `String` | — |
 | `authorId` | `String?` | — |
 | `visibility` | `ProblemVisibility` | `@default(public)` |

@@ -165,7 +165,7 @@
         >
           {#each analytics.hardestProblems as problem (problem.problemId)}
             <a
-              href={`/problems/${problem.displayId}`}
+              href={`/problems/${problem.problemId}`}
               class="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-primary/[0.03]"
             >
               <div class="min-w-0">

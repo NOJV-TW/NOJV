@@ -104,7 +104,10 @@ const problemCreateObjectSchema = z.object({
   advancedRequiredPaths: requiredPathsSchema.optional(),
 });
 
-export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, ctx) => {
+function refineAdvancedConfig(
+  data: z.infer<typeof problemCreateObjectSchema>,
+  ctx: z.RefinementCtx,
+) {
   const isSpecialEnv = data.type === "special_env";
   const hasAdvancedConfig = data.advancedConfig !== undefined;
 
@@ -132,7 +135,21 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
       });
     }
   }
+}
+
+export const problemCreateSchema = problemCreateObjectSchema.superRefine(refineAdvancedConfig);
+
+// Draft saves persist whatever the author has filled so far, so the content
+// fields may be empty. Completeness (non-empty title/statement/formats) is
+// enforced only when publishing, not on every draft save.
+const problemDraftObjectSchema = problemCreateObjectSchema.extend({
+  title: z.string().trim().max(120, "validation_tooLong"),
+  statement: z.string().trim().max(12_000, "validation_tooLong"),
+  inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+  outputFormat: z.string().trim().max(4_000, "validation_tooLong"),
 });
+
+export const problemDraftSchema = problemDraftObjectSchema.superRefine(refineAdvancedConfig);
 
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
@@ -167,7 +184,7 @@ export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();
 export const problemOverviewSchema = z.object({
   acceptanceRate: z.number().min(0).max(1),
   difficulty: problemDifficultySchema,
-  displayId: z.number().int().positive(),
+  displayId: z.number().int().positive().nullable(),
   id: z.string().min(1),
   title: z.string().min(1),
   totalSubmissions: z.number().int().nonnegative(),

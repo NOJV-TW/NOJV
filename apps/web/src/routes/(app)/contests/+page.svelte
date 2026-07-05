@@ -1,5 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import { Plus, Trophy } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
@@ -7,7 +9,6 @@
   import { Input } from "$lib/components/primitives/ui/input/index.js";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import ContestSection from "$lib/components/features/contest/ContestSection.svelte";
   import ContestPoster from "$lib/components/features/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/features/contest/ContestRowPast.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
@@ -42,6 +43,36 @@
       .sort((a, b) => new Date(a.raw.startsAt).getTime() - new Date(b.raw.startsAt).getTime()),
   );
   const past = $derived(all.filter((x) => x.status === "ended"));
+
+  // Top classification tabs, matching the assignments/exams overview pages.
+  const currentTab = $derived(page.url.searchParams.get("tab") ?? "all");
+
+  function setTab(next: string) {
+    const url = new URL(page.url);
+    if (next === "all") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    void goto(`?${url.searchParams.toString()}`, {
+      keepFocus: true,
+      replaceState: true,
+      noScroll: true,
+    });
+  }
+
+  const tabs = $derived([
+    { key: "all", label: m.contestsList_tabAll(), count: all.length },
+    { key: "live", label: m.contestsList_tabLive(), count: live.length },
+    { key: "upcoming", label: m.contestsList_tabUpcoming(), count: upcoming.length },
+    { key: "ended", label: m.contestsList_tabEnded(), count: past.length },
+  ]);
+
+  // "all" tab sections, labelled like the assignments/exams overview pages.
+  const allGroups = $derived(
+    [
+      { key: "live", label: m.contestsList_tabLive(), items: live, past: false },
+      { key: "upcoming", label: m.contestsList_tabUpcoming(), items: upcoming, past: false },
+      { key: "ended", label: m.contestsList_tabEnded(), items: past, past: true },
+    ].filter((g) => g.items.length > 0),
+  );
 </script>
 
 <PageContainer>
@@ -54,90 +85,119 @@
       {#snippet icon()}
         <Trophy class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
       {/snippet}
-      {#snippet actions()}
-        {#if data.loggedIn}
-          <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
+    </PageHeader>
+
+    {#snippet posterGrid(items: typeof all)}
+      <div class="grid gap-2">
+        {#each items as c, i (c.raw.id)}
+          <ContestPoster
+            href="/contests/{c.raw.id}"
+            scoringLabel={c.scoringLabel}
+            status={c.status}
+            title={c.raw.title}
+            summary={c.raw.summary}
+            startsAt={c.raw.startsAt}
+            endsAt={c.raw.endsAt}
+            durationMin={c.durationMin}
+            participants={c.raw.participantCount}
+            delay={i * 80}
+          />
+        {/each}
+      </div>
+    {/snippet}
+
+    {#snippet pastGrid(items: typeof all)}
+      <div class="grid gap-2">
+        {#each items as c, i (c.raw.id)}
+          <ContestRowPast
+            href="/contests/{c.raw.id}"
+            scoringLabel={c.scoringLabel}
+            title={c.raw.title}
+            startsAt={c.raw.startsAt}
+            participants={c.raw.participantCount}
+            delay={i * 60}
+          />
+        {/each}
+      </div>
+    {/snippet}
+
+    {#snippet emptyBox()}
+      <div class="glass rounded-xl px-6 py-10 text-center text-body-sm text-muted-foreground">
+        {m.contestsList_tabEmpty()}
+      </div>
+    {/snippet}
+
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
+      <div
+        role="tablist"
+        aria-label={m.contestsList_heroTitle()}
+        class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+      >
+        {#each tabs as tab (tab.key)}
+          {@const isActive = tab.key === currentTab}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onclick={() => setTab(tab.key)}
+            class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'}"
+          >
+            <span>{tab.label}</span>
+            <span
+              class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground'}"
+            >
+              {tab.count}
+            </span>
+          </button>
+        {/each}
+      </div>
+      {#if data.loggedIn}
+        <div class="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onclick={() => (joinDialogOpen = true)}
+          >
             {m.contestsList_joinByCode()}
           </Button>
-          <Button href="/contests/new">
+          <Button href="/contests/new" size="sm">
             <Plus aria-hidden="true" class="h-4 w-4" />
             {m.contestsList_create()}
           </Button>
-        {/if}
-      {/snippet}
-    </PageHeader>
-
-    {#if live.length > 0}
-      <ContestSection
-        title={m.contestsList_sectionLiveTitle().toUpperCase()}
-        subtitle={m.contestsList_sectionLiveSubtitle()}
-        badge={m.contestsList_sectionLiveBadge()}
-      >
-        <div class="grid gap-2">
-          {#each live as c, i (c.raw.id)}
-            <ContestPoster
-              href="/contests/{c.raw.id}"
-              scoringLabel={c.scoringLabel}
-              status={c.status}
-              title={c.raw.title}
-              summary={c.raw.summary}
-              startsAt={c.raw.startsAt}
-              endsAt={c.raw.endsAt}
-              durationMin={c.durationMin}
-              participants={c.raw.participantCount}
-              delay={i * 80}
-            />
-          {/each}
         </div>
-      </ContestSection>
-    {/if}
+      {/if}
+    </div>
 
-    <ContestSection
-      title={m.contestsList_sectionUpcomingTitle().toUpperCase()}
-      subtitle={m.contestsList_sectionUpcomingSubtitle()}
-    >
-      {#if upcoming.length === 0}
-        <div class="glass rounded-xl px-6 py-10 text-center text-body-sm text-muted-foreground">
-          {m.contestsList_sectionUpcomingEmpty()}
-        </div>
+    {#if currentTab === "all"}
+      {#if all.length === 0}
+        {@render emptyBox()}
       {:else}
-        <div class="grid gap-2">
-          {#each upcoming as c, i (c.raw.id)}
-            <ContestPoster
-              href="/contests/{c.raw.id}"
-              scoringLabel={c.scoringLabel}
-              status={c.status}
-              title={c.raw.title}
-              summary={c.raw.summary}
-              startsAt={c.raw.startsAt}
-              endsAt={c.raw.endsAt}
-              durationMin={c.durationMin}
-              participants={c.raw.participantCount}
-              delay={i * 80}
-            />
+        <div class="space-y-8">
+          {#each allGroups as g (g.key)}
+            <section>
+              <div class="mb-4 flex items-end gap-3">
+                <span class="text-body font-semibold">{g.label}</span>
+                <span class="text-caption text-muted-foreground tabular-nums"
+                  >{g.items.length}</span
+                >
+                <div class="ml-1 flex-1 border-t border-border-subtle"></div>
+              </div>
+              {#if g.past}{@render pastGrid(g.items)}{:else}{@render posterGrid(g.items)}{/if}
+            </section>
           {/each}
         </div>
       {/if}
-    </ContestSection>
-
-    {#if past.length > 0}
-      <ContestSection
-        title={m.contestsList_sectionHistoryTitle().toUpperCase()}
-        subtitle={m.contestsList_sectionHistorySubtitle()}
-      >
-        <div class="grid gap-2">
-          {#each past as c, i (c.raw.id)}
-            <ContestRowPast
-              href="/contests/{c.raw.id}"
-              scoringLabel={c.scoringLabel}
-              title={c.raw.title}
-              startsAt={c.raw.startsAt}
-              participants={c.raw.participantCount}
-              delay={i * 60}
-            />
-          {/each}
-        </div>
-      </ContestSection>
+    {:else if currentTab === "live"}
+      {#if live.length === 0}{@render emptyBox()}{:else}{@render posterGrid(live)}{/if}
+    {:else if currentTab === "upcoming"}
+      {#if upcoming.length === 0}{@render emptyBox()}{:else}{@render posterGrid(upcoming)}{/if}
+    {:else}
+      {#if past.length === 0}{@render emptyBox()}{:else}{@render pastGrid(past)}{/if}
     {/if}
 
     <Dialog.Root bind:open={joinDialogOpen}>

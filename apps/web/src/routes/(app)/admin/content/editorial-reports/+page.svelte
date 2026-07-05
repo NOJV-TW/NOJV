@@ -51,7 +51,9 @@
             {#each data.reports as report (report.id)}
               <tr class="border-b border-border-subtle align-top">
                 <td class="px-3 py-3">
-                  <span class="font-medium">{report.problem.displayId}</span>
+                  <span class="font-medium"
+                    >{report.problem.displayId ?? m.common_problemDraft()}</span
+                  >
                   <span class="text-muted-foreground"> · {report.problem.title}</span>
                   {#if report.editorialDeleted}
                     <Badge variant="muted" size="xs">

@@ -1,6 +1,6 @@
 import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { canCreateProblem, problemDomain } from "@nojv/application";
+import { problemDomain } from "@nojv/application";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { getWebEnv } from "$lib/server/env";
@@ -9,7 +9,7 @@ const ADVANCED_PACKAGE_MAX_BYTES = 128 * 1024 * 1024;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  if (!canCreateProblem(actor.platformRole, actor.emailVerified)) {
+  if (!(await problemDomain.canAuthorProblems(actor))) {
     error(403, "Not authorized to edit problems");
   }
   const env = getWebEnv();

@@ -1,7 +1,20 @@
 <script lang="ts" module>
-  function pillStatus(s: "running" | "upcoming" | "ended"): string {
+  export interface ExamRowData {
+    id: string;
+    title: string;
+    courseTitle: string;
+    status: "draft" | "upcoming" | "running" | "ended";
+    startsAt: string | null;
+    endsAt: string | null;
+    durationMinutes: number | null;
+    scoringMode: "problem_count" | "weighted_count" | "point_sum";
+    myStatus: { score: number; totalPoints: number } | null;
+  }
+
+  function pillStatus(s: ExamRowData["status"]): string {
     if (s === "running") return "in_progress";
     if (s === "upcoming") return "scheduled";
+    if (s === "draft") return "draft";
     return "ended";
   }
 </script>
@@ -10,10 +23,9 @@
   import { m } from "$lib/paraglide/messages.js";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
-  import type { examDomain } from "@nojv/application";
 
   interface Props {
-    exam: examDomain.ExamAcrossRow;
+    exam: ExamRowData;
     delay?: number;
   }
 
@@ -27,25 +39,31 @@
   context={exam.courseTitle}
   title={exam.title}
   status={pillStatus(exam.status)}
+  dateIso={exam.startsAt}
   {delay}
 >
   {#snippet timing()}
-    {#if exam.status === "upcoming"}
+    {#if exam.status === "upcoming" && exam.startsAt}
       {m.examRow_ctaUpcoming()} <Countdown iso={exam.startsAt} isCompact />
-    {:else if exam.status === "running"}
+    {:else if exam.status === "running" && exam.endsAt}
       {m.examRow_ctaRunning()} <Countdown iso={exam.endsAt} isCompact />
-    {:else if exam.myStatus}
-      {m.examRow_scoreLabel()}
-      <span class="font-semibold text-foreground">{exam.myStatus.score}</span>
-      / {exam.myStatus.totalPoints}
-    {:else}
-      {m.examRow_ctaEnded()}
-      {new Date(exam.endsAt).getMonth() + 1}/{new Date(exam.endsAt).getDate()}
+    {:else if exam.status === "ended"}
+      {#if exam.myStatus}
+        {m.examRow_scoreLabel()}
+        <span class="font-semibold text-foreground">{exam.myStatus.score}</span>
+        / {exam.myStatus.totalPoints}
+      {:else if exam.endsAt}
+        {m.examRow_ctaEnded()}
+        {new Date(exam.endsAt).getMonth() + 1}/{new Date(exam.endsAt).getDate()}
+      {/if}
     {/if}
   {/snippet}
   {#snippet foot()}
-    {m.examRow_durationLabel()}
-    {m.examDetail_durationMinutes({ count: exam.durationMinutes })} · {m.examRow_scoringLabel()}
+    {#if exam.durationMinutes != null}
+      {m.examRow_durationLabel()}
+      {m.examDetail_durationMinutes({ count: exam.durationMinutes })} ·
+    {/if}
+    {m.examRow_scoringLabel()}
     {exam.scoringMode === "point_sum"
       ? m.examRow_scoringPointSum()
       : m.examRow_scoringProblemCount()}

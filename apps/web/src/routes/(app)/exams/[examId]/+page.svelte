@@ -4,6 +4,7 @@
   import { ChevronRight, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
   import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
   import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
@@ -165,6 +166,15 @@
     title={detail.title}
     summary={detail.summary}
   >
+    {#snippet aside(accent)}
+      <HeroSchedule
+        {accent}
+        startIso={detail.startsAt}
+        endIso={detail.endsAt}
+        startLabel={m.schedule_starts()}
+        endLabel={m.schedule_ends()}
+      />
+    {/snippet}
     {#snippet badges()}
       <StatusPill status={pillStatus(liveStatus)} type="exam" />
       {#if past && !isManager && detail.viewerScore !== null}

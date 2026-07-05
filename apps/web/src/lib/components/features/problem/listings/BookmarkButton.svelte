@@ -2,6 +2,7 @@
   import { Bookmark } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
+  import { toasts } from "$lib/stores/toast";
   import { cn } from "$lib/utils/css.js";
 
   interface Props {
@@ -31,8 +32,12 @@
       if (!res.ok) throw new Error("toggle failed");
       const body = (await res.json()) as { bookmarked: boolean };
       override = body.bookmarked;
+      toasts.success(
+        body.bookmarked ? m.problems_bookmarkAdded() : m.problems_bookmarkRemoved(),
+      );
     } catch {
       override = previous;
+      toasts.error(m.problems_bookmarkError());
     } finally {
       pending = false;
     }

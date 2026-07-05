@@ -99,7 +99,7 @@
     </h3>
     {#if description}
       <p
-        class="mt-1 max-w-sm text-[length:var(--text-body-sm)] text-muted-foreground [text-wrap:pretty]"
+        class="mt-1 max-w-sm whitespace-pre-line text-[length:var(--text-body-sm)] text-muted-foreground [text-wrap:pretty]"
       >
         {description}
       </p>

@@ -166,6 +166,17 @@ export const problemRepo = {
       lockForUpdate(problemId: string) {
         return tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${problemId} FOR UPDATE`;
       },
+
+      // Serializes concurrent publishes so max(displayId)+1 can't collide.
+      // $executeRaw (not $queryRaw) — the function returns void, which
+      // $queryRaw cannot deserialize.
+      acquireDisplayIdLock() {
+        return tx.$executeRaw`SELECT pg_advisory_xact_lock(4711)`;
+      },
+
+      maxDisplayId() {
+        return tx.problem.aggregate({ _max: { displayId: true } });
+      },
     };
   },
 };

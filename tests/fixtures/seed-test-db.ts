@@ -49,7 +49,6 @@ export const TABLES = [
 export async function truncateAllTables() {
   const tableNames = TABLES.map((t) => `"${t}"`).join(", ");
   await testPrisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableNames} CASCADE`);
-  await testPrisma.$executeRawUnsafe(`ALTER SEQUENCE "Problem_displayId_seq" RESTART WITH 1`);
 }
 
 export async function disconnectTestDb() {
