@@ -3,6 +3,7 @@
   import type { ProblemType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { Tooltip } from "bits-ui";
+  import { toasts } from "$lib/stores/toast";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
 
@@ -13,6 +14,7 @@
     showPublish?: boolean;
     isPublishing?: boolean;
     isBasicInfoComplete?: boolean;
+    missingBasicFields?: string[];
     isDirty?: boolean;
     testcaseCount?: number;
     showConvertToAdvanced?: boolean;
@@ -30,6 +32,7 @@
     showPublish = false,
     isPublishing = false,
     isBasicInfoComplete = false,
+    missingBasicFields = [],
     isDirty = $bindable(false),
     testcaseCount = 0,
     showConvertToAdvanced = false,
@@ -132,10 +135,15 @@
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
                 onclick={() => {
-                  if (!locked) handleSectionClick(section.id);
+                  if (locked) {
+                    toasts.error(
+                      m.admin_tabLockedFields({ fields: missingBasicFields.join(", ") }),
+                    );
+                  } else {
+                    handleSectionClick(section.id);
+                  }
                 }}
                 type="button"
-                disabled={locked}
               >
                 <span class="flex-1 text-left">{section.label}</span>
                 <span class="text-caption text-muted-foreground">{statusBadge(section.id)}</span

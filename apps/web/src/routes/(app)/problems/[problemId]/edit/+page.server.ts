@@ -1,7 +1,7 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
   languageSchema,
-  problemCreateSchema,
+  problemDraftSchema,
   problemTestcaseSetCreateSchema,
   problemTypeSchema,
   problemWorkspaceFileSchema,
@@ -93,7 +93,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         ? { advancedConfig: problem.advancedConfig }
         : {}),
     },
-    zod4(problemCreateSchema),
+    zod4(problemDraftSchema),
   );
 
   return {
@@ -142,7 +142,7 @@ const saveJudgeConfig = problemEditAction(async ({ actor, problemId, event }) =>
 
 export const actions: Actions = {
   update: problemEditAction(async ({ actor, problemId, event }) => {
-    const form = await superValidate(event, zod4(problemCreateSchema));
+    const form = await superValidate(event, zod4(problemDraftSchema));
     if (!form.valid) return fail(400, { form });
     await updateProblemRecord(actor, problemId, form.data);
     return message(form, "ok");

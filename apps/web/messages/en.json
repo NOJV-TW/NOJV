@@ -322,6 +322,7 @@
   "admin_tabRejudges": "Rejudge log",
   "admin_tabJudge": "Judge Settings",
   "admin_tabLocked": "Please complete and save basic info first",
+  "admin_tabLockedFields": "Fill in and save these in Basic Info first: {fields}",
   "admin_tabOverview": "Overview",
   "admin_tabTestcase": "Testcase Management",
   "admin_tabUsers": "Users",

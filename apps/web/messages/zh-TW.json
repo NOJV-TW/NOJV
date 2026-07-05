@@ -322,6 +322,7 @@
   "admin_tabRejudges": "重判紀錄",
   "admin_tabJudge": "判題設定",
   "admin_tabLocked": "請先完成並儲存基本資訊",
+  "admin_tabLockedFields": "請先在「基本資訊」填寫並儲存：{fields}",
   "admin_tabOverview": "總覽",
   "admin_tabTestcase": "測資管理",
   "admin_tabUsers": "使用者",
