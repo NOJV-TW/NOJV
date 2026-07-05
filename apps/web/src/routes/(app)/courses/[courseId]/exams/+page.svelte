@@ -11,6 +11,26 @@
 
   const { exams, canCreate } = $derived(data);
   const courseId = $derived(page.params.courseId ?? "");
+
+  const groups = $derived(
+    [
+      {
+        key: "running",
+        label: m.examsTop_filterRunning(),
+        items: exams.filter((e) => e.status === "running"),
+      },
+      {
+        key: "upcoming",
+        label: m.examsTop_filterUpcoming(),
+        items: exams.filter((e) => e.status === "upcoming" || e.status === "draft"),
+      },
+      {
+        key: "ended",
+        label: m.examsTop_filterEnded(),
+        items: exams.filter((e) => e.status === "ended"),
+      },
+    ].filter((g) => g.items.length > 0),
+  );
 </script>
 
 <PageContainer class="space-y-6">
@@ -30,9 +50,21 @@
       {m.examsList_empty()}
     </div>
   {:else}
-    <div class="animate-in animate-in-2 grid gap-2">
-      {#each exams as exam, i (exam.id)}
-        <ExamRow exam={{ ...exam, courseTitle: "" }} delay={i * 80} />
+    <div class="animate-in animate-in-2 space-y-8">
+      {#each groups as g (g.key)}
+        <section>
+          <div class="mb-4 flex items-end gap-3">
+            <span class="text-body font-semibold">{g.label}</span>
+            <span class="text-caption text-muted-foreground tabular-nums">{g.items.length}</span
+            >
+            <div class="ml-1 flex-1 border-t border-border-subtle"></div>
+          </div>
+          <div class="grid gap-2">
+            {#each g.items as exam, i (exam.id)}
+              <ExamRow exam={{ ...exam, courseTitle: "" }} delay={i * 80} />
+            {/each}
+          </div>
+        </section>
       {/each}
     </div>
   {/if}

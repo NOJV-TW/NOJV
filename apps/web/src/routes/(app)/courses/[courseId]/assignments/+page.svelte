@@ -11,6 +11,26 @@
 
   const { assignments, canCreate } = $derived(data);
   const courseId = $derived(page.params.courseId ?? "");
+
+  const groups = $derived(
+    [
+      {
+        key: "open",
+        label: m.assignmentsList_tabOpen(),
+        items: assignments.filter((a) => a.status === "open"),
+      },
+      {
+        key: "upcoming",
+        label: m.assignmentsList_tabUpcoming(),
+        items: assignments.filter((a) => a.status === "upcoming" || a.status === "draft"),
+      },
+      {
+        key: "closed",
+        label: m.assignmentsList_tabClosed(),
+        items: assignments.filter((a) => a.status === "closed"),
+      },
+    ].filter((g) => g.items.length > 0),
+  );
 </script>
 
 <PageContainer class="space-y-6">
@@ -30,12 +50,24 @@
       {m.courseAssignments_empty()}
     </div>
   {:else}
-    <div class="animate-in animate-in-2 grid gap-2">
-      {#each assignments as assignment, i (assignment.id)}
-        <AssignmentCard
-          assignment={{ ...assignment, courseId, courseTitle: "" }}
-          delay={i * 60}
-        />
+    <div class="animate-in animate-in-2 space-y-8">
+      {#each groups as g (g.key)}
+        <section>
+          <div class="mb-4 flex items-end gap-3">
+            <span class="text-body font-semibold">{g.label}</span>
+            <span class="text-caption text-muted-foreground tabular-nums">{g.items.length}</span
+            >
+            <div class="ml-1 flex-1 border-t border-border-subtle"></div>
+          </div>
+          <div class="grid gap-2">
+            {#each g.items as assignment, i (assignment.id)}
+              <AssignmentCard
+                assignment={{ ...assignment, courseId, courseTitle: "" }}
+                delay={i * 60}
+              />
+            {/each}
+          </div>
+        </section>
       {/each}
     </div>
   {/if}
