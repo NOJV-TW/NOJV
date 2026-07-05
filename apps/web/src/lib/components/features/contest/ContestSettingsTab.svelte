@@ -8,7 +8,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import { enhance as kitEnhance } from "$app/forms";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import PlusIcon from "@lucide/svelte/icons/plus";
@@ -55,6 +54,8 @@
   const isUpcoming = $derived(liveStatus === "upcoming");
   const isRunning = $derived(liveStatus === "running");
   const isEnded = $derived(liveStatus === "ended");
+
+  let confirmingDelete = $state(false);
 
   const editableBasics = $derived(isDraft || isUpcoming);
   const editableScoring = $derived(isDraft || isUpcoming);
@@ -354,41 +355,64 @@
       </div>
     </section>
 
-    <div class="flex items-center justify-end gap-2">
-      <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
-        {m.contestDetail_settingsSaveButton()}
-      </Button>
-    </div>
-  </form>
-
-  <section
-    class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-  >
-    <h3 class="mb-4 text-title-sm font-medium">
-      {m.contestDetail_settingsSectionLifecycle()}
-    </h3>
-
-    <div class="flex flex-wrap items-center gap-3">
-      {#if isDraft}
-        <form method="POST" action="?/publishContest" use:kitEnhance class="contents">
-          <Button type="submit" size="sm" variant="default" disabled={$submitting}>
-            <Send class="mr-1 size-4" aria-hidden="true" />
-            {m.contestDetail_settingsPublishButton()}
-          </Button>
-        </form>
-        <form method="POST" action="?/deleteContest" use:kitEnhance class="contents">
-          <Button type="submit" size="sm" variant="destructive" disabled={$submitting}>
+    {#if confirmingDelete}
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <span class="mr-auto text-caption text-muted-foreground">
+          {m.contestDetail_settingsDeleteConfirmBody()}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={$submitting}
+          onclick={() => (confirmingDelete = false)}
+        >
+          {m.contestDetail_settingsDeleteConfirmCancel()}
+        </Button>
+        <Button
+          type="submit"
+          formaction="?/deleteContest"
+          variant="destructive"
+          size="sm"
+          disabled={$submitting}
+        >
+          <Trash2 class="mr-1 size-4" aria-hidden="true" />
+          {m.contestDetail_settingsDeleteConfirmConfirm()}
+        </Button>
+      </div>
+    {:else}
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        {#if isDraft}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="mr-auto text-destructive hover:text-destructive"
+            disabled={$submitting}
+            onclick={() => (confirmingDelete = true)}
+          >
             <Trash2 class="mr-1 size-4" aria-hidden="true" />
             {m.contestDetail_settingsDeleteButton()}
           </Button>
-        </form>
-      {/if}
+        {/if}
 
-      {#if isUpcoming || isRunning}
-        <span class="text-caption text-muted-foreground">
-          {m.contestDetail_settingsLifecycleNoop()}
-        </span>
-      {/if}
-    </div>
-  </section>
+        <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
+          {m.contestDetail_settingsSaveButton()}
+        </Button>
+
+        {#if isDraft}
+          <Button
+            type="submit"
+            formaction="?/publishContest"
+            variant="default"
+            size="sm"
+            disabled={$submitting}
+          >
+            <Send class="mr-1 size-4" aria-hidden="true" />
+            {m.contestDetail_settingsPublishButton()}
+          </Button>
+        {/if}
+      </div>
+    {/if}
+  </form>
 </section>
