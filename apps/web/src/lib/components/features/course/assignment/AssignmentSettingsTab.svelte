@@ -1,8 +1,6 @@
 <script lang="ts" module>
-  import type { courseDomain } from "@nojv/application";
   import type { AssessmentSettingsFormData } from "@nojv/core";
 
-  export type SettingsTabDetail = courseDomain.AssignmentDetail;
   export type SettingsLiveStatus = "draft" | "upcoming" | "open" | "closed";
   export type { AssessmentSettingsFormData };
 </script>
@@ -12,6 +10,9 @@
   import { superForm, type SuperValidated } from "sveltekit-superforms";
 
   import { supportedLanguages, type Language } from "@nojv/core";
+  import Send from "@lucide/svelte/icons/send";
+  import Undo2 from "@lucide/svelte/icons/undo-2";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import { cn, inputClassName } from "$lib/utils/css";
@@ -19,7 +20,6 @@
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
-  import AssignmentLifecycleSection from "./AssignmentLifecycleSection.svelte";
   import AssignmentBasicSection from "./AssignmentBasicSection.svelte";
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule,
@@ -27,12 +27,11 @@
 
   interface Props {
     form: SuperValidated<AssessmentSettingsFormData, FormMessage>;
-    detail: SettingsTabDetail;
     liveStatus: SettingsLiveStatus;
     class?: string;
   }
 
-  let { form: formProp, detail, liveStatus, class: className }: Props = $props();
+  let { form: formProp, liveStatus, class: className }: Props = $props();
 
   const {
     form,
@@ -70,6 +69,8 @@
   }
 
   const lockMsg = $derived(lockHint());
+
+  let confirmingDelete = $state(false);
 </script>
 
 <section data-slot="assignment-settings-tab" class={cn("space-y-6", className)}>
@@ -189,18 +190,77 @@
       </div>
     </section>
 
-    <div class="flex items-center justify-end gap-2">
-      <Button type="submit" variant="default" size="sm" disabled={$submitting || isClosed}>
-        {m.assignmentDetail_settingsSaveButton()}
-      </Button>
-    </div>
-  </form>
+    {#if confirmingDelete}
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <span class="mr-auto text-caption text-muted-foreground">
+          {m.assignmentDetail_settingsDeleteConfirmBody()}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={$submitting}
+          onclick={() => (confirmingDelete = false)}
+        >
+          {m.assignmentDetail_settingsDeleteConfirmCancel()}
+        </Button>
+        <Button
+          type="submit"
+          formaction="?/deleteAssignment"
+          variant="destructive"
+          size="sm"
+          disabled={$submitting}
+        >
+          <Trash2 class="mr-1 size-4" aria-hidden="true" />
+          {m.assignmentDetail_settingsDeleteConfirmConfirm()}
+        </Button>
+      </div>
+    {:else}
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        {#if isDraft}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="mr-auto text-destructive hover:text-destructive"
+            disabled={$submitting}
+            onclick={() => (confirmingDelete = true)}
+          >
+            <Trash2 class="mr-1 size-4" aria-hidden="true" />
+            {m.assignmentDetail_settingsDeleteButton()}
+          </Button>
+        {/if}
 
-  <AssignmentLifecycleSection
-    {isDraft}
-    {isUpcoming}
-    submitting={$submitting}
-    {enhance}
-    auditLog={detail.auditLog}
-  />
+        {#if isUpcoming}
+          <Button
+            type="submit"
+            formaction="?/revertToDraft"
+            variant="outline"
+            size="sm"
+            disabled={$submitting}
+          >
+            <Undo2 class="mr-1 size-4" aria-hidden="true" />
+            {m.assignmentDetail_settingsRevertToDraftButton()}
+          </Button>
+        {/if}
+
+        <Button type="submit" variant="default" size="sm" disabled={$submitting || isClosed}>
+          {m.assignmentDetail_settingsSaveButton()}
+        </Button>
+
+        {#if isDraft}
+          <Button
+            type="submit"
+            formaction="?/publishAssignment"
+            variant="default"
+            size="sm"
+            disabled={$submitting}
+          >
+            <Send class="mr-1 size-4" aria-hidden="true" />
+            {m.assignmentDetail_settingsPublishButton()}
+          </Button>
+        {/if}
+      </div>
+    {/if}
+  </form>
 </section>

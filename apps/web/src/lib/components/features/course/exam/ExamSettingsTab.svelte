@@ -12,7 +12,6 @@
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Send from "@lucide/svelte/icons/send";
-  import AlertTriangle from "@lucide/svelte/icons/alert-triangle";
 
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
@@ -117,90 +116,64 @@
 
     <ExamProctoringConfig {form} editable={editableProctoring} />
 
-    <div class="flex items-center justify-end gap-2">
-      <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
-        {m.examDetail_settingsSaveButton()}
-      </Button>
-    </div>
-  </form>
-
-  <section
-    class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-  >
-    <h3 class="mb-4 text-title-sm font-medium">
-      {m.examDetail_settingsSectionLifecycle()}
-    </h3>
-
-    <div class="flex flex-wrap items-center gap-3">
-      {#if isDraft}
-        <form method="POST" action="?/publishExam" use:enhance class="contents">
-          <Button type="submit" size="sm" variant="default" disabled={$submitting}>
-            <Send class="mr-1 size-4" aria-hidden="true" />
-            {m.examDetail_settingsPublishButton()}
-          </Button>
-        </form>
-      {/if}
-
-      {#if !isDraft && !isRunning && !isEnded}
-        <span class="text-caption text-muted-foreground">
-          {m.examDetail_settingsLifecycleNoop()}
+    {#if confirmingDelete}
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <span class="mr-auto text-caption text-muted-foreground">
+          {m.examDetail_settingsDeleteConfirmBody()}
         </span>
-      {/if}
-    </div>
-  </section>
-
-  {#if isDraft}
-    <section
-      class="space-y-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] px-6 py-5"
-    >
-      <div class="flex items-baseline gap-2">
-        <AlertTriangle class="size-4 shrink-0 text-destructive" aria-hidden="true" />
-        <h4 class="text-body-lg font-medium text-destructive">
-          {m.examDetail_settingsDangerZone()}
-        </h4>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={$submitting}
+          onclick={() => (confirmingDelete = false)}
+        >
+          {m.examDetail_settingsDeleteConfirmCancel()}
+        </Button>
+        <Button
+          type="submit"
+          formaction="?/deleteExam"
+          variant="destructive"
+          size="sm"
+          disabled={$submitting}
+        >
+          <Trash2 class="mr-1 size-4" aria-hidden="true" />
+          {m.examDetail_settingsDeleteConfirmConfirm()}
+        </Button>
       </div>
-
-      {#if !confirmingDelete}
-        <div class="flex items-center justify-between gap-4">
-          <p class="text-caption text-muted-foreground">
-            {m.examDetail_settingsDeleteConfirmBody()}
-          </p>
+    {:else}
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        {#if isDraft}
           <Button
-            variant="destructive"
-            size="sm"
             type="button"
+            variant="ghost"
+            size="sm"
+            class="mr-auto text-destructive hover:text-destructive"
+            disabled={$submitting}
             onclick={() => (confirmingDelete = true)}
           >
             <Trash2 class="mr-1 size-4" aria-hidden="true" />
             {m.examDetail_settingsDeleteButton()}
           </Button>
-        </div>
-      {:else}
-        <div class="rounded-md border border-destructive/40 bg-destructive/[0.06] px-4 py-3">
-          <div class="font-semibold text-destructive">
-            {m.examDetail_settingsDeleteConfirmTitle()}
-          </div>
-          <p class="mt-1 text-caption text-muted-foreground">
-            {m.examDetail_settingsDeleteConfirmBody()}
-          </p>
-          <div class="mt-3 flex items-center justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onclick={() => (confirmingDelete = false)}
-              disabled={$submitting}
-            >
-              {m.examDetail_settingsDeleteConfirmCancel()}
-            </Button>
-            <form method="POST" action="?/deleteExam" use:enhance class="contents">
-              <Button type="submit" variant="destructive" size="sm" disabled={$submitting}>
-                {m.examDetail_settingsDeleteConfirmConfirm()}
-              </Button>
-            </form>
-          </div>
-        </div>
-      {/if}
-    </section>
-  {/if}
+        {/if}
+
+        <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
+          {m.examDetail_settingsSaveButton()}
+        </Button>
+
+        {#if isDraft}
+          <Button
+            type="submit"
+            formaction="?/publishExam"
+            variant="default"
+            size="sm"
+            disabled={$submitting}
+          >
+            <Send class="mr-1 size-4" aria-hidden="true" />
+            {m.examDetail_settingsPublishButton()}
+          </Button>
+        {/if}
+      </div>
+    {/if}
+  </form>
 </section>
