@@ -10,6 +10,7 @@ import {
 } from "$lib/server/account-connections";
 import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
+import { renderEmail } from "$lib/server/mailer/template";
 
 const logger = createLogger("connections");
 
@@ -20,7 +21,13 @@ function formString(formData: FormData, name: string): string {
 
 function changeEmailHtml(provider: string, action: "linked" | "unlinked"): string {
   const verb = action === "linked" ? "新增了" : "移除了";
-  return `<p>你的 NOJV 帳號剛${verb}一個登入方式:<strong>${provider}</strong>。</p><p>若這不是你本人操作,請立即聯絡管理員並檢查帳號安全。</p>`;
+  const verbEn = action === "linked" ? "added to" : "removed from";
+  return renderEmail({
+    heading: "帳號登入方式變更 · Sign-in method changed",
+    intro: `<p>你的 NOJV 帳號剛${verb}一個登入方式：<strong>${provider}</strong>。</p><p>A sign-in method was just ${verbEn} your NOJV account: <strong>${provider}</strong>.</p>`,
+    outro:
+      "若這不是你本人操作，請立即聯絡管理員並檢查帳號安全。<br>If this wasn't you, contact an administrator and secure your account.",
+  });
 }
 
 async function listProviderIds(event: RequestEvent): Promise<string[]> {

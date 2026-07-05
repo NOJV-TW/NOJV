@@ -7,6 +7,7 @@ import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
+import { renderEmail } from "$lib/server/mailer/template";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   clearStepUp,
@@ -73,11 +74,24 @@ function formString(formData: FormData, name: string): string {
 }
 
 function confirmEmailHtml(url: string): string {
-  return `<p>有人正在為你的 NOJV 帳號啟用兩步驟驗證。</p><p>請點擊下方連結前往確認頁面,並在頁面上確認:</p><p><a href="${url}" style="display:inline-block;padding:12px 32px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:9999px;font-weight:600">確認啟用兩步驟驗證</a></p><p>此連結 10 分鐘內有效。若你並未要求啟用,請忽略這封信並儘速確認帳號安全。</p>`;
+  return renderEmail({
+    heading: "確認啟用兩步驟驗證 · Confirm two-factor setup",
+    intro:
+      "<p>有人正在為你的 NOJV 帳號啟用兩步驟驗證。請點擊下方按鈕前往確認頁面。</p><p>Someone is enabling two-factor authentication on your NOJV account. Click the button below to confirm.</p>",
+    action: { url, label: "確認啟用 · Confirm" },
+    outro:
+      "此連結 10 分鐘內有效。若你並未要求啟用，請忽略這封信並儘速確認帳號安全。<br>This link is valid for 10 minutes. If you didn't request this, ignore this email and secure your account.",
+  });
 }
 
 function enabledEmailHtml(): string {
-  return `<p>你的 NOJV 帳號已成功啟用兩步驟驗證(TOTP)。</p><p>從現在起,管理 API 權杖等敏感操作會要求輸入驗證器產生的驗證碼。</p><p>若這不是你本人操作,請立即聯絡管理員。</p>`;
+  return renderEmail({
+    heading: "已啟用兩步驟驗證 · Two-factor enabled",
+    intro:
+      "<p>你的 NOJV 帳號已成功啟用兩步驟驗證 (TOTP)。從現在起，管理 API 權杖等敏感操作會要求輸入驗證器產生的驗證碼。</p><p>Two-factor authentication (TOTP) is now enabled on your NOJV account. Sensitive actions such as managing API tokens will now require a code from your authenticator.</p>",
+    outro:
+      "若這不是你本人操作，請立即聯絡管理員。<br>If this wasn't you, contact an administrator immediately.",
+  });
 }
 
 const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid", string> = {

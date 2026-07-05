@@ -40,6 +40,12 @@
     >
     <a
       class="transition-colors duration-fast ease-out-soft hover:text-foreground"
+      href="https://discord.gg/69JkbePMSM"
+      target="_blank"
+      rel="noreferrer noopener">{m.footer_discord()}</a
+    >
+    <a
+      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/legal/privacy">{m.footer_privacy()}</a
     >
     <a
