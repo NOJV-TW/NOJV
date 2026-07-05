@@ -177,12 +177,16 @@
           {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
         </Button>
       {/if}
-      {#if isAdvanced && data.problem.status === "draft"}
+      {#if data.problem.status === "draft"}
         <Button
           size="sm"
           loading={isPublishing}
           disabled={!canPublish || isPublishing}
-          title={canPublish ? undefined : m.admin_advancedPublishHint()}
+          title={canPublish
+            ? undefined
+            : isAdvanced
+              ? m.admin_advancedPublishHint()
+              : m.admin_publishTooltip()}
           onclick={handlePublishClick}
         >
           {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
@@ -207,15 +211,11 @@
     <ProblemSections
       bind:activeSection
       problemType={data.problem.type}
-      showPublish={data.problem.status === "draft"}
       showConvertToAdvanced={data.advancedModeSupported}
-      {canPublish}
-      {isPublishing}
       {isBasicInfoComplete}
       {missingBasicFields}
       testcaseCount={data.testcaseSets.length}
       bind:isDirty
-      onpublish={handlePublishClick}
     >
       {#snippet basic()}
         <BasicInfoTab

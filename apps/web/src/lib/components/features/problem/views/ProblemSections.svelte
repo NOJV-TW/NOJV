@@ -10,15 +10,11 @@
   interface Props {
     activeSection?: string;
     problemType: ProblemType;
-    canPublish?: boolean;
-    showPublish?: boolean;
-    isPublishing?: boolean;
     isBasicInfoComplete?: boolean;
     missingBasicFields?: string[];
     isDirty?: boolean;
     testcaseCount?: number;
     showConvertToAdvanced?: boolean;
-    onpublish?: () => void;
     basic?: Snippet;
     workspace?: Snippet;
     testcase?: Snippet;
@@ -28,15 +24,11 @@
   let {
     activeSection = $bindable("basic"),
     problemType,
-    canPublish = false,
-    showPublish = false,
-    isPublishing = false,
     isBasicInfoComplete = false,
     missingBasicFields = [],
     isDirty = $bindable(false),
     testcaseCount = 0,
     showConvertToAdvanced = false,
-    onpublish,
     basic,
     workspace,
     testcase,
@@ -165,42 +157,6 @@
         </li>
       {/each}
     </ul>
-
-    {#if showPublish}
-      <div class="mt-4 border-t border-border-subtle pt-4">
-        {#if canPublish}
-          <button
-            class="w-full rounded-full bg-success px-4 py-2 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={isPublishing}
-            type="button"
-            onclick={() => onpublish?.()}
-          >
-            {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
-          </button>
-        {:else}
-          <Tooltip.Provider delayDuration={200}>
-            <Tooltip.Root>
-              <Tooltip.Trigger
-                class="w-full cursor-not-allowed rounded-full bg-muted px-4 py-2 text-caption font-semibold text-muted-foreground/50"
-                type="button"
-                onclick={(e: MouseEvent) => e.preventDefault()}
-              >
-                {m.admin_publishProblem()}
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content
-                  class="z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
-                  sideOffset={4}
-                >
-                  {m.admin_publishTooltip()}
-                  <Tooltip.Arrow class="fill-popover stroke-border" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        {/if}
-      </div>
-    {/if}
 
     {#if showConvertToAdvanced}
       <div class="mt-6 border-t border-border-subtle pt-4">

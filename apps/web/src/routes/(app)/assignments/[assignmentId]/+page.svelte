@@ -508,7 +508,6 @@
         {:else if activeSubTab === "settings" && data.mode === "teacher"}
           <AssignmentSettingsTab
             form={data.settingsForm}
-            {detail}
             liveStatus={deriveAssignmentLiveStatus(
               data.assignment.status,
               detail.opensAt,
