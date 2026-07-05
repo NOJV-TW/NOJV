@@ -1744,6 +1744,7 @@
   "statusPill_assignment_submitted": "已交卷",
   "statusPill_contest_ended": "已結束",
   "statusPill_contest_upcoming": "即將開始",
+  "statusPill_exam_draft": "草稿",
   "statusPill_exam_ended": "已結束",
   "statusPill_exam_inProgress": "應試中",
   "statusPill_exam_open": "已開放",

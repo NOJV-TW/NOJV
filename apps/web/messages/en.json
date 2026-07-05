@@ -1744,6 +1744,7 @@
   "statusPill_assignment_submitted": "Submitted",
   "statusPill_contest_ended": "Ended",
   "statusPill_contest_upcoming": "Upcoming",
+  "statusPill_exam_draft": "Draft",
   "statusPill_exam_ended": "Ended",
   "statusPill_exam_inProgress": "Sitting",
   "statusPill_exam_open": "Open",
