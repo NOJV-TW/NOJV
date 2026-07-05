@@ -174,7 +174,7 @@
           disabled={isDeleting}
           onclick={() => (showDeleteConfirm = true)}
         >
-          {isDeleting ? m.common_deleting() : m.common_delete()}
+          {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
         </Button>
       {/if}
       {#if isAdvanced && data.problem.status === "draft"}
