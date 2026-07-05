@@ -31,7 +31,7 @@
 
   export interface EditableProblemCard {
     difficulty: ProblemDifficulty;
-    displayId: number;
+    displayId: number | null;
     id: string;
     judgeType: string;
     type: ProblemType;

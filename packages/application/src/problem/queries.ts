@@ -33,7 +33,7 @@ export interface ProblemDetail {
   acceptanceRate: number;
   authorUsername: string;
   difficulty: ProblemDifficulty;
-  displayId: number;
+  displayId: number | null;
   id: string;
   inputFormat: string;
   judgeConfig: JudgeConfig;
@@ -103,7 +103,7 @@ async function mapPersistedProblemDetail(
   problem: {
     author?: { username: string | null } | null;
     title: string;
-    displayId: number;
+    displayId: number | null;
     id: string;
     difficulty?: ProblemDifficulty;
     judgeConfig?: unknown;
@@ -214,7 +214,7 @@ export interface ProblemCardWithStatus {
   acceptanceRate: number;
   bookmarked: boolean;
   difficulty: ProblemDifficulty;
-  displayId: number;
+  displayId: number | null;
   id: string;
   judgeType: JudgeType;
   type: ProblemType;

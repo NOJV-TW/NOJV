@@ -1270,7 +1270,7 @@ export async function seedProblems(
 
   validateProblemDefinitions(problemDefs);
 
-  for (const def of problemDefs) {
+  for (const [problemIndex, def] of problemDefs.entries()) {
     const judgeConfig = await persistJudgeConfig(
       storage as unknown as SeedStorageClient,
       def.id,
@@ -1284,6 +1284,7 @@ export async function seedProblems(
       tags: stripDifficultyTags(def.tags),
       type: def.type,
       status: def.status ?? "published",
+      displayId: (def.status ?? "published") === "published" ? problemIndex + 1 : null,
       ...(judgeConfig !== undefined
         ? { judgeConfig: judgeConfig as unknown as Prisma.InputJsonValue }
         : {}),

@@ -90,6 +90,14 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
   void _tags;
   void _slug;
 
+  const status = overrides.status ?? "published";
+  // Mirror production: a displayId ("#N") is assigned only when published.
+  const displayId =
+    status === "published"
+      ? ((await testPrisma.problem.aggregate({ _max: { displayId: true } }))._max.displayId ??
+          0) + 1
+      : null;
+
   const problem = await testPrisma.problem.create({
     data: {
       id,
@@ -100,10 +108,11 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
       timeLimitMs: overrides.timeLimitMs ?? 1000,
       memoryLimitMb: overrides.memoryLimitMb ?? 256,
       visibility: overrides.visibility ?? "public",
-      status: overrides.status ?? "published",
       samples: overrides.samples ?? [{ input: "1 2", output: "3" }],
       ...rest,
       authorId,
+      status,
+      displayId,
     },
   });
 

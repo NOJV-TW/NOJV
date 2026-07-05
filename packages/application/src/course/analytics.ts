@@ -13,7 +13,7 @@ export interface AssessmentSummary {
 
 export interface HardestProblem {
   problemId: string;
-  displayId: number;
+  displayId: number | null;
   title: string;
   attempters: number;
   solvers: number;
@@ -160,7 +160,7 @@ function rankHardestProblems(
   assessments: AssessmentWithProblems[],
   problemStats: { problemId: string; attempters: number; solvers: number }[],
 ): HardestProblem[] {
-  const problemMeta = new Map<string, { displayId: number; title: string }>();
+  const problemMeta = new Map<string, { displayId: number | null; title: string }>();
   for (const assessment of assessments) {
     for (const link of assessment.problems) {
       if (!problemMeta.has(link.problem.id)) {

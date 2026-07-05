@@ -26,7 +26,7 @@ export interface AssignmentDetailProblem {
   problemId: string;
   letter: string;
   ordinal: number;
-  displayId: number;
+  displayId: number | null;
   title: string;
   difficulty: "easy" | "medium" | "hard";
   points: number;

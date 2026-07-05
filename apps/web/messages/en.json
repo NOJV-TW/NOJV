@@ -688,6 +688,7 @@
   "common_language_python": "Python",
   "common_pinned": "Pinned",
   "common_problemDisplayId": "#{id}",
+  "common_problemDraft": "Draft",
   "common_readingFile": "Reading file…",
   "common_resizeBottomPanel": "Resize bottom panel",
   "common_resizeFilesPanel": "Resize files panel",

@@ -184,6 +184,17 @@ export async function updateProblemRecord(
 
     assertSpecialEnvImageConsistency(payload, problem);
 
+    // A problem gets its public displayId ("#N") the first time it is published.
+    if (
+      payload.status === "published" &&
+      problem.status !== "published" &&
+      problem.displayId == null
+    ) {
+      await problemRepo.withTx(tx).acquireDisplayIdLock();
+      const agg = await problemRepo.withTx(tx).maxDisplayId();
+      updateData.displayId = (agg._max.displayId ?? 0) + 1;
+    }
+
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
     }

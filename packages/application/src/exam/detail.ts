@@ -10,7 +10,7 @@ export type ExamProblemViewerState = "ac" | "partial" | "zero" | "empty";
 
 export interface ExamDetailProblem {
   id: string;
-  displayId: number;
+  displayId: number | null;
   title: string;
   difficulty: "easy" | "medium" | "hard";
   points: number;

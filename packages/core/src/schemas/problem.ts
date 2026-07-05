@@ -167,7 +167,7 @@ export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();
 export const problemOverviewSchema = z.object({
   acceptanceRate: z.number().min(0).max(1),
   difficulty: problemDifficultySchema,
-  displayId: z.number().int().positive(),
+  displayId: z.number().int().positive().nullable(),
   id: z.string().min(1),
   title: z.string().min(1),
   totalSubmissions: z.number().int().nonnegative(),
