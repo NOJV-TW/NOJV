@@ -105,11 +105,6 @@ spec:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: GMAIL_APP_PASSWORD
                   optional: true
-            - name: EDGE_TRUST_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: EDGE_TRUST_SECRET
             - name: GITHUB_CLIENT_ID
               valueFrom:
                 secretKeyRef:

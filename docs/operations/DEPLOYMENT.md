@@ -49,13 +49,12 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Required
 
-| Variable             | Default                                              | Purpose                                                                                                                                                 |
-| -------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5432/nojv` | PostgreSQL connection                                                                                                                                   |
-| `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                                                                                                                                        |
-| `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production)                                                                                                           |
-| `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects                                                                                                                        |
-| `EDGE_TRUST_SECRET`  | —                                                    | Shared secret for the Cloudflare→app edge trust header. **Required in production (≥32) — web refuses to boot without it.** See [SECURITY](SECURITY.md). |
+| Variable             | Default                                              | Purpose                                       |
+| -------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5432/nojv` | PostgreSQL connection                         |
+| `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                              |
+| `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production) |
+| `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects              |
 
 ### Web
 
@@ -305,7 +304,7 @@ helm upgrade --install nojv infra/charts/nojv \
 
 1. **Runtime secret** — an existing `Secret` (default `nojv-runtime-secrets`) in
    the app namespace holding `DATABASE_URL`, `REDIS_URL`, the `S3_*` keys, the
-   web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`/`EDGE_TRUST_SECRET`),
+   web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`),
    OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
    `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` the seed hook
    provisions the super admin from (password ≥ 12 chars, single-use). Copy and
