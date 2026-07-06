@@ -66,11 +66,20 @@ jobs:
           PREFIX: ghcr.io/nojv-tw
         run: |
           set -euo pipefail
+          # buildx + a per-image registry cache (a `:buildcache` tag in GHCR).
+          # Unchanged layers are restored from cache, so an image whose inputs
+          # didn't change rebuilds in seconds. GHCR (public) has no storage
+          # limit, unlike the 10GB repo-wide GitHub Actions cache.
           build() {
             local name="$1" dockerfile="$2" ctx="$3"
-            docker build -f "$dockerfile" -t "${PREFIX}/${name}:${TAG}" -t "${PREFIX}/${name}:main" "$ctx"
-            docker push "${PREFIX}/${name}:${TAG}"
-            docker push "${PREFIX}/${name}:main"
+            local ref="${PREFIX}/${name}"
+            docker buildx build \
+              -f "$dockerfile" \
+              -t "${ref}:${TAG}" -t "${ref}:main" \
+              --cache-from "type=registry,ref=${ref}:buildcache" \
+              --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
+              --push \
+              "$ctx"
           }
           build nojv-web          infra/docker/web.Dockerfile            .
           build nojv-worker       infra/docker/worker.Dockerfile         .
