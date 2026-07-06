@@ -214,6 +214,13 @@ single-machine values overlay, and covers all three autoscaling layers
 (per-submission judge Pods, worker replicas, node join). It is the entry point
 on the spectrum **single-node k3s → multi-node k3s → GKE** ([GKE Rollout](#gke-rollout)).
 
+**CD pipeline (`.github/workflows/deploy.yml`).** On merge to `main`, after CI
+passes, a GitHub-hosted job builds and pushes the runtime images to GHCR
+(`ghcr.io/nojv-tw/nojv-{web,worker,sandbox,egress-proxy,migrator}:<sha>`), then
+the self-hosted runner on the k3s box runs `helm upgrade` — k3s pulls the images
+from GHCR (no local `docker build`/`ctr import`). One-time: set those five GHCR
+packages to **Public** so k3s can pull without an imagePullSecret.
+
 ## GCP Production Architecture
 
 ```
