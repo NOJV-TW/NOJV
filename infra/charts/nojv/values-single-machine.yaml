@@ -1,7 +1,15 @@
 image:
-  registry: ""
-  repositoryPrefix: nojv
+  # Images are built + pushed to GHCR by the CD pipeline (.github/workflows/deploy.yml)
+  # and pulled by k3s. `tag` is overridden per-deploy with the commit SHA via --set.
+  registry: ghcr.io
+  repositoryPrefix: nojv-tw
   tag: latest
+  repositories:
+    web: nojv-web
+    worker: nojv-worker
+    sandbox: nojv-sandbox
+    egressProxy: nojv-egress-proxy
+    migrator: nojv-migrator
 
 postgres:
   mode: cnpg
