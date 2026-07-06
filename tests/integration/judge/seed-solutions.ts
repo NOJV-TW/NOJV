@@ -383,6 +383,108 @@ for line in sys.stdin:
     print(a * b)
 `;
 
+const PALINDROME_CORRECT = `s = input().strip()
+print("Yes" if s == s[::-1] else "No")
+`;
+
+const PALINDROME_WRONG = `input()
+print("Yes")
+`;
+
+const FIB_CORRECT = `n = int(input())
+a, b = 0, 1
+for _ in range(n):
+    a, b = b, a + b
+print(a)
+`;
+
+const FIB_WRONG = `n = int(input())
+a, b = 0, 1
+for _ in range(n):
+    a, b = b, a + b
+print(b)
+`;
+
+const SORT_UNIQUE_CORRECT = `import sys
+data = sys.stdin.read().split()
+n = int(data[0])
+vals = sorted(set(int(x) for x in data[1 : 1 + n]))
+print(" ".join(str(v) for v in vals))
+`;
+
+const SORT_UNIQUE_WRONG = `import sys
+data = sys.stdin.read().split()
+n = int(data[0])
+vals = sorted(int(x) for x in data[1 : 1 + n])
+print(" ".join(str(v) for v in vals))
+`;
+
+const GCD_CORRECT = `import math
+a, b = map(int, input().split())
+print(math.gcd(a, b))
+`;
+
+const GCD_WRONG = `a, b = map(int, input().split())
+print(min(a, b))
+`;
+
+const BRACKETS_CORRECT = `s = input().strip()
+pairs = {")": "(", "]": "[", "}": "{"}
+st = []
+ok = True
+for ch in s:
+    if ch in "([{":
+        st.append(ch)
+    elif not st or st.pop() != pairs[ch]:
+        ok = False
+        break
+print("Yes" if ok and not st else "No")
+`;
+
+const BRACKETS_WRONG = `s = input().strip()
+opens = sum(1 for c in s if c in "([{")
+print("Yes" if opens * 2 == len(s) else "No")
+`;
+
+const GRID_BFS_CORRECT = `import sys
+from collections import deque
+data = sys.stdin.read().splitlines()
+R, C = map(int, data[0].split())
+grid = data[1 : 1 + R]
+start = goal = None
+for r in range(R):
+    for c in range(C):
+        if grid[r][c] == "S":
+            start = (r, c)
+        elif grid[r][c] == "G":
+            goal = (r, c)
+dist = [[-1] * C for _ in range(R)]
+dist[start[0]][start[1]] = 0
+q = deque([start])
+while q:
+    r, c = q.popleft()
+    for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < R and 0 <= nc < C and grid[nr][nc] != "#" and dist[nr][nc] < 0:
+            dist[nr][nc] = dist[r][c] + 1
+            q.append((nr, nc))
+print(dist[goal[0]][goal[1]])
+`;
+
+const GRID_BFS_WRONG = `import sys
+data = sys.stdin.read().splitlines()
+R, C = map(int, data[0].split())
+grid = data[1 : 1 + R]
+s = g = None
+for r in range(R):
+    for c in range(C):
+        if grid[r][c] == "S":
+            s = (r, c)
+        elif grid[r][c] == "G":
+            g = (r, c)
+print(abs(s[0] - g[0]) + abs(s[1] - g[1]))
+`;
+
 export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
   "problem_warmup-sum": {
     language: "python",
@@ -473,5 +575,45 @@ export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
       sourceFiles: [{ path: "main.py", content: ADVANCED_SUM_WRONG }],
       expectVerdict: "WA",
     },
+  },
+  "problem_palindrome-check": {
+    language: "python",
+    correct: { sourceCode: PALINDROME_CORRECT },
+    wrong: { sourceCode: PALINDROME_WRONG, expectVerdict: "WA" },
+  },
+  "problem_fibonacci-number": {
+    language: "python",
+    correct: { sourceCode: FIB_CORRECT },
+    wrong: { sourceCode: FIB_WRONG, expectVerdict: "WA" },
+  },
+  "problem_max-subarray-kadane": {
+    language: "python",
+    correct: { sourceCode: KADANE_CORRECT },
+    wrong: { sourceCode: KADANE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_grid-bfs-steps": {
+    language: "python",
+    correct: { sourceCode: GRID_BFS_CORRECT },
+    wrong: { sourceCode: GRID_BFS_WRONG, expectVerdict: "WA" },
+  },
+  "problem_sort-and-unique": {
+    language: "python",
+    correct: { sourceCode: SORT_UNIQUE_CORRECT },
+    wrong: { sourceCode: SORT_UNIQUE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_greatest-common-divisor": {
+    language: "python",
+    correct: { sourceCode: GCD_CORRECT },
+    wrong: { sourceCode: GCD_WRONG, expectVerdict: "WA" },
+  },
+  "problem_balanced-brackets": {
+    language: "python",
+    correct: { sourceCode: BRACKETS_CORRECT },
+    wrong: { sourceCode: BRACKETS_WRONG, expectVerdict: "WA" },
+  },
+  "problem_knapsack-01": {
+    language: "python",
+    correct: { sourceCode: KNAPSACK_CORRECT },
+    wrong: { sourceCode: KNAPSACK_WRONG, expectVerdict: "WA" },
   },
 };
