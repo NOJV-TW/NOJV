@@ -154,6 +154,14 @@ web:
     pathType: Prefix
     tls: []
 
+edge:
+  cloudflared:
+    enabled: false
+    image: cloudflare/cloudflared:2026.6.1
+    replicas: 2
+    tunnelId: ""
+    credentialsSecret: nojv-cloudflared-creds
+
 worker:
   judge:
     replicas: 2

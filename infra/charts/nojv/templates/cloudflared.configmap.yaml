@@ -1,0 +1,17 @@
+{{- if .Values.edge.cloudflared.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-cloudflared
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cloudflared
+data:
+  config.yml: |
+    tunnel: {{ .Values.edge.cloudflared.tunnelId }}
+    credentials-file: /etc/cloudflared-creds/creds.json
+    metrics: 0.0.0.0:2000
+    ingress:
+      - service: http://{{ include "nojv.fullname" . }}-web.{{ include "nojv.namespace" . }}.svc.cluster.local:80
+{{- end }}
