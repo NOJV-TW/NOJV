@@ -1,6 +1,4 @@
 image:
-  # Images are built + pushed to GHCR by the CD pipeline (.github/workflows/deploy.yml)
-  # and pulled by k3s. `tag` is overridden per-deploy with the commit SHA via --set.
   registry: ghcr.io
   repositoryPrefix: nojv-tw
   tag: latest
@@ -37,15 +35,14 @@ web:
     enabled: false
   ingress:
     enabled: false
-  # Exposed on a fixed NodePort so the host's cloudflared tunnel origin
-  # (localhost:3000 -> nojv-edge-proxy -> this NodePort) stays stable across
-  # redeploys. The edge-proxy injects the x-nojv-edge-secret trust header.
   service:
     type: NodePort
     nodePort: 32198
 
-# In-cluster metrics stack (OTLP collector + Prometheus + Grafana). Apps export
-# OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set in the runtime secret.
+edge:
+  cloudflared:
+    enabled: true
+
 observability:
   collector:
     enabled: true

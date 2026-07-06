@@ -137,8 +137,6 @@ web:
   service:
     type: ClusterIP
     port: 80
-    # Fixed NodePort (30000–32767) when type=NodePort — keeps a stable host port
-    # for a reverse proxy / tunnel origin across redeploys. Empty = auto-assign.
     nodePort: ""
   hpa:
     enabled: false
@@ -153,6 +151,13 @@ web:
     path: /
     pathType: Prefix
     tls: []
+
+edge:
+  cloudflared:
+    enabled: false
+    image: cloudflare/cloudflared:2026.6.1
+    replicas: 2
+    tokenSecret: nojv-cloudflared-token
 
 worker:
   judge:
