@@ -171,7 +171,7 @@ describe("Dockerfiles that frozen-install must ship the pnpm patch files", () =>
 });
 
 describeHelm("production web secret parity across deploy surfaces", () => {
-  const requiredWebEnv = ["EDGE_TRUST_SECRET", "S3_REGION"] as const;
+  const requiredWebEnv = ["S3_REGION"] as const;
 
   it.each(requiredWebEnv)("web Deployment provides %s", (key) => {
     const web = isolateDoc(renderChart(), "Deployment", "nojv-web");

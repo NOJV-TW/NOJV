@@ -36,8 +36,7 @@ web:
   ingress:
     enabled: false
   service:
-    type: NodePort
-    nodePort: 32198
+    type: ClusterIP
 
 edge:
   cloudflared:
