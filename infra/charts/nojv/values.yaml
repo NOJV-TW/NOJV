@@ -157,8 +157,7 @@ edge:
     enabled: false
     image: cloudflare/cloudflared:2026.6.1
     replicas: 2
-    tunnelId: ""
-    credentialsSecret: nojv-cloudflared-creds
+    tokenSecret: nojv-cloudflared-token
 
 worker:
   judge:

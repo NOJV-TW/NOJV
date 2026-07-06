@@ -42,7 +42,6 @@ web:
 edge:
   cloudflared:
     enabled: true
-    tunnelId: e5fec4e3-f991-4237-91cb-2f8e1e172d03
 
 observability:
   collector:
