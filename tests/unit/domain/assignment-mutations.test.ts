@@ -91,6 +91,7 @@ beforeEach(() => {
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(async () => {}),
+    getRejudgeTriggeredBy: vi.fn(async () => null),
     probeTemporal: vi.fn(async () => {}),
     queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
     terminateSubmissionJudge: vi.fn(async () => {}),

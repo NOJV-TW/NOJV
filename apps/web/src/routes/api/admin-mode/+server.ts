@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
 import { clearAdminMode, markAdminMode } from "$lib/server/step-up";
 
 const bodySchema = z.object({ active: z.boolean() });
@@ -20,7 +20,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     throw new HttpError("No active session.", 401);
   }
 
-  const { active } = bodySchema.parse(await event.request.json());
+  const { active } = bodySchema.parse(await readJsonBody(event));
   if (active) {
     await markAdminMode(sessionId);
   } else {

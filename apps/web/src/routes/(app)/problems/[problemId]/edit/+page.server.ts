@@ -83,7 +83,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       outputFormat: problem.outputFormat,
       samples: problem.samples,
       statement: problem.statement,
-      status: problem.status,
       tags: problem.tags.filter((tag) => (problemTags as readonly string[]).includes(tag)),
       timeLimitMs: problem.timeLimitMs,
       title: problem.title,

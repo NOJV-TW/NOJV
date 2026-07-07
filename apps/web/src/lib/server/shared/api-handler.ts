@@ -25,6 +25,36 @@ export function assertJsonBodyWithinLimit(
   }
 }
 
+async function readBodyTextWithinLimit(request: Request, maxBytes: number): Promise<string> {
+  const stream = request.body;
+  if (stream === null) return request.text();
+
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel();
+      error(413, "Request body too large");
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  text += decoder.decode();
+  return text;
+}
+
+export async function readJsonBody(
+  event: RequestEvent,
+  maxBytes: number = JSON_BODY_LIMIT_BYTES,
+): Promise<unknown> {
+  const text = await readBodyTextWithinLimit(event.request, maxBytes);
+  return JSON.parse(text);
+}
+
 function zodErrorResponse(error: ZodError, event: RequestEvent): Response {
   logger.warn("API validation failed", {
     issues: error.issues.map((issue) => ({

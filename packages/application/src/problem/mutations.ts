@@ -18,7 +18,7 @@ import type {
   ProblemUpdate,
   ProblemVisibility,
 } from "@nojv/core";
-import { DEFAULT_LOCALE, judgeConfigSchema } from "@nojv/core";
+import { advancedConfigSchema, DEFAULT_LOCALE, judgeConfigSchema } from "@nojv/core";
 
 import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -174,6 +174,25 @@ function assertSpecialEnvImageConsistency(
   }
 }
 
+async function assertProblemPublishable(
+  tx: TransactionClient,
+  problem: { id: string; type: ProblemType; advancedConfig: unknown },
+): Promise<void> {
+  if (problem.type === "special_env") {
+    if (!advancedConfigSchema.safeParse(problem.advancedConfig).success) {
+      throw new ConflictError(
+        "Advanced-mode problems require run and grade images before publishing.",
+      );
+    }
+    return;
+  }
+
+  const testcaseSetCount = await testcaseSetRepo.withTx(tx).countByProblem(problem.id);
+  if (testcaseSetCount === 0) {
+    throw new ConflictError("Problems require at least one testcase set before publishing.");
+  }
+}
+
 export async function updateProblemRecord(
   actor: ProblemActorContext,
   problemId: string,
@@ -186,6 +205,10 @@ export async function updateProblemRecord(
 
     if (payload.status === "draft" && problem.status === "published") {
       throw new ConflictError("Published problems cannot be reverted to draft.");
+    }
+
+    if (payload.status === "published" && problem.status !== "published") {
+      await assertProblemPublishable(tx, problem);
     }
 
     const updateData = buildProblemUpdateData(payload);

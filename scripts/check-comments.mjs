@@ -37,12 +37,18 @@ function isAllowed(content) {
 
 function maskNonScript(source) {
   const chars = source.split("").map((ch) => (ch === "\n" ? "\n" : " "));
-  const re = /<script[^>]*>([\s\S]*?)<\/script\s*>/gi;
-  let match;
-  while ((match = re.exec(source)) !== null) {
-    const body = match[1];
-    const start = match.index + match[0].indexOf(body);
-    for (let k = 0; k < body.length; k++) chars[start + k] = body[k];
+  const lower = source.toLowerCase();
+  let cursor = 0;
+  while (cursor < source.length) {
+    const open = lower.indexOf("<script", cursor);
+    if (open === -1) break;
+    const openEnd = source.indexOf(">", open);
+    if (openEnd === -1) break;
+    const bodyStart = openEnd + 1;
+    const close = lower.indexOf("</script", bodyStart);
+    const bodyEnd = close === -1 ? source.length : close;
+    for (let k = bodyStart; k < bodyEnd; k++) chars[k] = source[k];
+    cursor = close === -1 ? source.length : close + "</script".length;
   }
   return chars.join("");
 }

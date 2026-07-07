@@ -7,11 +7,15 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/application";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
-  requireApiAuth(event);
+  const actor = requireApiAuth(event);
   const { workflowId } = event.params;
   if (!workflowId) return json({ message: "Missing workflowId" }, { status: 400 });
 
   try {
+    const triggeredBy = await submissionDomain.getRejudgeTriggeredBy(workflowId);
+    if (actor.platformRole !== "admin" && triggeredBy !== actor.userId) {
+      return json({ message: "Forbidden" }, { status: 403 });
+    }
     const progress = await submissionDomain.queryRejudgeProgress(workflowId);
     return json({ ...progress, done: false });
   } catch {

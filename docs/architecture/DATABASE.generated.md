@@ -23,7 +23,7 @@ _44 models and 37 enums across 9 schema files._
 
 #### `UserStatus`
 
-`active` · `disabled` · `pending_first_login`
+`active` · `pending_first_login`
 
 ### Models
 

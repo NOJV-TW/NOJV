@@ -5,7 +5,11 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { plagiarismDomain } from "@nojv/application";
-import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
+import {
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+  readJsonBody,
+} from "$lib/server/shared/api-handler";
 
 const { flagPair, buildPairKey } = plagiarismDomain;
 
@@ -21,7 +25,7 @@ const flagBodySchema = z.object({
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const body = (await event.request.json()) as unknown;
+  const body = await readJsonBody(event);
   const parsed = flagBodySchema.parse(body);
 
   const pairKey = buildPairKey(parsed.userAId, parsed.userBId, parsed.problemId);

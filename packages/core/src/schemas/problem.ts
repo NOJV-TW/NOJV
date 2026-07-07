@@ -105,7 +105,10 @@ const problemCreateObjectSchema = z.object({
 });
 
 function refineAdvancedConfig(
-  data: z.infer<typeof problemCreateObjectSchema>,
+  data: Pick<
+    z.infer<typeof problemCreateObjectSchema>,
+    "type" | "advancedConfig" | "advancedRequiredPaths"
+  >,
   ctx: z.RefinementCtx,
 ) {
   const isSpecialEnv = data.type === "special_env";
@@ -139,7 +142,7 @@ function refineAdvancedConfig(
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine(refineAdvancedConfig);
 
-const problemDraftObjectSchema = problemCreateObjectSchema.extend({
+const problemDraftObjectSchema = problemCreateObjectSchema.omit({ status: true }).extend({
   title: z.string().trim().max(120, "validation_tooLong"),
   statement: z.string().trim().max(12_000, "validation_tooLong"),
   inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
@@ -188,6 +191,7 @@ export const problemOverviewSchema = z.object({
 });
 
 export type ProblemCreate = z.infer<typeof problemCreateSchema>;
+export type ProblemDraft = z.infer<typeof problemDraftSchema>;
 export type ProblemUpdate = z.infer<typeof problemUpdateSchema>;
 export type ProblemJudgeTestcase = z.infer<typeof problemJudgeTestcaseSchema>;
 export type ProblemTestcaseSetCreate = z.infer<typeof problemTestcaseSetCreateSchema>;

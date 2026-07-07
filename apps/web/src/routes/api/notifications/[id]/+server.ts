@@ -4,7 +4,11 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
+import {
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+  readJsonBody,
+} from "$lib/server/shared/api-handler";
 import { notificationDomain } from "@nojv/application";
 
 const patchSchema = z.object({
@@ -18,7 +22,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing notification id." }, { status: 400 });
 
-  patchSchema.parse(await event.request.json());
+  patchSchema.parse(await readJsonBody(event));
   const updated = await notificationDomain.markAsRead(actor.userId, id);
   return json({ updated });
 });

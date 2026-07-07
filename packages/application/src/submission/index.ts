@@ -62,5 +62,6 @@ export {
   cancelRejudge,
   dispatchRejudge,
   dispatchSubmissionJudge,
+  getRejudgeTriggeredBy,
   queryRejudgeProgress,
 } from "./rejudge-control";

@@ -19,15 +19,26 @@
 
 **⚠️ 意外發現並修復的部署地雷（deployment-critical）**：main 的 lockfile 已把整個 Temporal stack 浮動到 `@temporalio/* 1.19.0` + `protobufjs 8.6.6`，這個組合 **module load 就 crash**（`root must be an instance of a protobufjs Root`）。main 只因本地 node_modules 停在舊的 1.18.1/8.6.4 才沒爆，且 `ci:verify` 只跑 unit 不跑 integration 所以 CI 沒抓到——**任何 fresh install（CI integration、正式 Docker image build）都會產生會 crash 的 worker**。已於 `pnpm-workspace.yaml` overrides 把 Temporal 全 pin 回 1.18.1 + protobufjs pin 8.6.4（仍滿足既有 `>=7.6.1` 安全下限），還原 main 實測可用的組合。
 
-**刻意 defer / 降級（非未做，是不值得硬做）**：
-- P3 markdown CSS 注入 → **降級為 low-risk 待辦**：agent 的屬性 allowlist 破壞了既有安全測試且更弱（KaTeX 的 inline style 與 overlay 屬性天生重疊，只有「位置」能區分且該判斷可偽造）。正解是 two-pass 渲染（KaTeX→trusted HTML、strip 全部 user style、splice），屬 math pipeline 重構，對一個 LOW 的非 script CSS 注入不成比例。已還原原行為。
-- P3 body-size chunked 繞道 → **降級為 low-risk 待辦**：agent 的「拒絕缺 content-length」破壞了刻意寬鬆的既有測試、且可能誤擋合法 client。正解是邊讀 stream 邊計 byte。已還原原行為。
-- B3 admin dashboard 快取 safeParse → **skip**：型別是複雜巢狀推斷、需建模 Date→string 還原，自寫資料且已 try/catch 回 null、TTL 300s 自癒，硬寫大 schema 屬過度工程。
-- UserStatus enum 去重 → **skip**：需 Prisma migration，超出 edit-only sweep，留待專門 PR。
+**第一批曾降級的兩個 LOW + 所有 follow-up，已於第二批全數完成**（見下方「第二批」節）。
 
 **順帶修掉 5 個 PR #206 遺留的 pre-existing 測試失敗**（已驗證在乾淨 main 上也紅）：seed-test-db TABLES 補 `AdminAuditLog`、FRONTEND.md admin route map 同步（`/admin/system/users`→`/admin/users` 等）、app-layout-auth 測試補 `event.url`、two-factor 測試 mock 補 `listPasskeys`。
 
-**待使用者處理（我無法自動完成）**：P0-1 Postgres 備份 + MinIO 鏡像的**實際啟用**需你建立 R2 憑證 secret（`ACCESS_KEY_ID`/`ACCESS_SECRET_KEY`）→ 翻 `backup.enabled: true` → 跑一次還原演練；步驟見 INFRA 章節與 RELIABILITY.md/backup-restore.md。node fs 告警的 datasource 需指向 in-cluster Prometheus 或 remote_write。rejudge cancel/progress ownership authz（需 Temporal memo，LOW，現由不可猜 UUID 緩解）與 publish-via-update 竄改（需 schema strip + load 同動）留作 follow-up。
+**待使用者處理（我無法自動完成）**：P0-1 Postgres 備份 + MinIO 鏡像的**實際啟用**——alpha 階段依指示先不做，已開 **Issue #209** 記錄正式上線前的完整啟用步驟（R2 secret → flip flag → 驗證 → 還原演練）。node fs 告警的 datasource 需指向 in-cluster Prometheus 或 remote_write。
+
+---
+
+## 第二批：follow-up + 降級項全數完成（2026-07-08，6 個平行 agent）
+
+使用者指示「兩個降級 LOW + 所有 follow-up 通通完成」。全部做完，重新驗證全綠（unit 1792、typecheck 18/18 web 0/0、lint、integration 309、helm、format）。
+
+- **markdown CSS 注入（正解，非還原）**：two-pass 非可偽造做法——每次 render 用 `crypto.randomUUID()` nonce 包住 marked-katex 產出的 token（`data-katex-nonce`），DOMPurify hook 只在帶「當次 nonce」的子樹保留 `style`，其餘一律剝除。使用者無法在自己的 markdown 內偽造 nonce，`class="katex"` 不再是信任訊號。三個既有安全測試全保留。無新增依賴。
+- **body-size chunked 繞道（正解）**：新增 `readJsonBody`／`readBodyTextWithinLimit`，邊讀 stream 邊計 byte，超過即 `reader.cancel()` + 413，與 content-length header 無關；17 條 API route 換過來（`submissions` 保留 2MB per-route cap）。`assertJsonBodyWithinLimit`（寬鬆 header 預檢）與其 4 測試不動。
+- **admin dashboard 快取 safeParse**：`adminDashboardSerializedSchema`（比對 DB select 逐欄建模）取代裸 `as`；stale/mistyped blob 被拒並重算。
+- **UserStatus enum 去重**：drop 未用的 `disabled` enum 值（`User.disabled` 布林是唯一真相）；schema + core const + canonical `_new/_old` swap migration（`20260708000000_drop_userstatus_disabled`，帶防禦 UPDATE + check-migrations override 標記）。順修測試裡殘留的 `status:"disabled"`。
+- **rejudge cancel/progress ownership authz**：dispatch 時把 `triggeredByUserId` 寫進 Temporal memo，經 orchestration adapter 讀回，endpoint 要求 self-or-admin 否則 403（fail-closed）；app 層不直接 import `@temporalio/*`。
+- **publish-via-update 竄改**：draft-save schema omit `status` + load 不再帶 status default；`updateProblemRecord` 加 **server-side** `assertProblemPublishable`（發現 `canPublish` 原本只在 client）——空殼題即使繞過前端也擋下。
+
+**CodeQL / CI**：新 `@nojv/sandbox-docker` 補進 web+worker Dockerfile（build+dist copy）；DATABASE.generated.md resync；`check-comments.mjs` 改 regex-free（消 `js/bad-tag-filter` 誤報）。api-token / grafana 的既有 CodeQL 告警是 pre-existing 假陽性（API token 本就 SHA-256），不在本 PR diff、不擋 check。
 
 ---
 

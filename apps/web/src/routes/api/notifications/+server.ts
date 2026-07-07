@@ -8,6 +8,7 @@ import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
+  readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { notificationDomain } from "@nojv/application";
 
@@ -31,7 +32,7 @@ const patchSchema = z.object({
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  patchSchema.parse(await event.request.json());
+  patchSchema.parse(await readJsonBody(event));
   const updated = await notificationDomain.markAllAsRead(actor.userId);
   return json({ updated });
 });

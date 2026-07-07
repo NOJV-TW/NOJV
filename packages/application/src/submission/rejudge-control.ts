@@ -21,6 +21,11 @@ export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeP
   return getDomainOrchestration().queryRejudgeProgress(workflowId);
 }
 
+export async function getRejudgeTriggeredBy(workflowId: string): Promise<string | null> {
+  assertRejudgeWorkflowId(workflowId);
+  return getDomainOrchestration().getRejudgeTriggeredBy(workflowId);
+}
+
 export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
   return getDomainOrchestration().dispatchRejudge(input);
 }

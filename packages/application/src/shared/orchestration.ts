@@ -24,6 +24,7 @@ export interface DomainOrchestrationAdapter {
   dispatchPlagiarismCheck(input: PlagiarismCheckInput): Promise<void>;
   dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }>;
   dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void>;
+  getRejudgeTriggeredBy(workflowId: string): Promise<string | null>;
   probeTemporal(): Promise<void>;
   queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress>;
   terminateSubmissionJudge(submissionId: string, reason: string): Promise<void>;

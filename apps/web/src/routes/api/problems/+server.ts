@@ -2,7 +2,11 @@ import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
+import {
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+  readJsonBody,
+} from "$lib/server/shared/api-handler";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 import { problemDomain } from "@nojv/application";
 
@@ -16,7 +20,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(403, "Not authorized to create problems");
   }
 
-  const body = (await event.request.json().catch(() => null)) as {
+  const body = (await readJsonBody(event).catch(() => null)) as {
     mode?: unknown;
   } | null;
   const mode = body?.mode;

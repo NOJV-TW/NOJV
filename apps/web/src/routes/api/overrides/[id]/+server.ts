@@ -5,7 +5,11 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
+import {
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+  readJsonBody,
+} from "$lib/server/shared/api-handler";
 import { scoreOverrideDomain } from "@nojv/application";
 
 const patchSchema = z.object({
@@ -23,7 +27,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const id = requireId(event);
-  const raw = patchSchema.parse(await event.request.json());
+  const raw = patchSchema.parse(await readJsonBody(event));
   const patch: Parameters<typeof scoreOverrideDomain.updateOverride>[2] = {
     ...(raw.overrideScore !== undefined ? { overrideScore: raw.overrideScore } : {}),
     ...(raw.reason !== undefined ? { reason: raw.reason } : {}),

@@ -8,6 +8,7 @@ import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
+  readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { editorialDomain, problemDomain } from "@nojv/application";
 
@@ -67,7 +68,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     context,
     "Solve this problem first to post an editorial.",
   );
-  const payload = editorialSubmitSchema.parse(await event.request.json());
+  const payload = editorialSubmitSchema.parse(await readJsonBody(event));
 
   const editorial = await upsertEditorial(
     actor.userId,

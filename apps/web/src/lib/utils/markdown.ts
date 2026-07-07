@@ -2,7 +2,22 @@ import DOMPurify from "isomorphic-dompurify";
 import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
 
-marked.use(markedKatex({ throwOnError: false, nonStandard: true }));
+const NONCE_ATTR = "data-katex-nonce";
+
+let currentNonce = "";
+
+const katexExtension = markedKatex({ throwOnError: false, nonStandard: true });
+for (const ext of katexExtension.extensions ?? []) {
+  if (!("renderer" in ext) || typeof ext.renderer !== "function") continue;
+  const render = ext.renderer;
+  ext.renderer = function renderKatexWithNonce(token) {
+    const html = render.call(this, token);
+    return typeof html === "string"
+      ? `<span ${NONCE_ATTR}="${currentNonce}">${html}</span>`
+      : html;
+  };
+}
+marked.use(katexExtension);
 
 const KATEX_TAGS = [
   "math",
@@ -88,23 +103,25 @@ const PURIFY_CONFIG = {
   ADD_ATTR: KATEX_ATTRS,
 };
 
-function isInsideKatexSubtree(node: Element | null): boolean {
+function isInsideTrustedKatex(node: Element | null): boolean {
+  if (currentNonce === "") return false;
   for (let el: Element | null = node; el != null; el = el.parentElement) {
-    for (const cls of el.classList) {
-      if (cls.startsWith("katex")) return true;
-    }
+    if (el.getAttribute(NONCE_ATTR) === currentNonce) return true;
   }
   return false;
 }
 
 DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
   if (data.attrName === "style") {
-    data.keepAttr = isInsideKatexSubtree(node);
+    data.keepAttr = isInsideTrustedKatex(node);
   }
 });
 
 export function renderMarkdown(content: string): string {
-  return DOMPurify.sanitize(marked.parse(content, { async: false }), PURIFY_CONFIG);
+  currentNonce = crypto.randomUUID();
+  const html = DOMPurify.sanitize(marked.parse(content, { async: false }), PURIFY_CONFIG);
+  currentNonce = "";
+  return html;
 }
 
 export { marked };

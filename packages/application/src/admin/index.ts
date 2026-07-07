@@ -1,3 +1,4 @@
+import { languageSchema, submissionOperationStatusSchema } from "@nojv/core";
 import {
   contestRepo,
   courseRepo,
@@ -8,6 +9,7 @@ import {
   userRepo,
 } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
+import { z } from "zod";
 
 import { getDomainOrchestration } from "../shared/orchestration";
 
@@ -34,7 +36,9 @@ function subDays(date: Date, days: number): Date {
 function reviveCachedAdminDashboard(raw: string | null): AdminDashboard | null {
   if (!raw) return null;
   try {
-    return reviveAdminDashboard(JSON.parse(raw) as AdminDashboardSerialized);
+    const parsed = adminDashboardSerializedSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return null;
+    return reviveAdminDashboard(parsed.data);
   } catch {
     return null;
   }
@@ -171,11 +175,66 @@ async function computeAdminDashboard() {
 }
 
 type AdminDashboard = Awaited<ReturnType<typeof computeAdminDashboard>>;
-type AdminDashboardSerialized = Omit<AdminDashboard, "recentErrors"> & {
-  recentErrors: (Omit<AdminDashboard["recentErrors"][number], "createdAt"> & {
-    createdAt: string;
-  })[];
-};
+
+const adminDashboardSerializedSchema = z.object({
+  kpi: z.object({
+    totalUsers: z.number(),
+    disabledUsers: z.number(),
+    totalCourses: z.number(),
+    totalProblems: z.number(),
+    totalContests: z.number(),
+    totalAssignments: z.number(),
+    submissions7dTotal: z.number(),
+    acceptedRate7d: z.number(),
+  }),
+  roleCounts: z.object({
+    admin: z.number(),
+    teacher: z.number(),
+    student: z.number(),
+  }),
+  statusBreakdown: z.array(
+    z.object({
+      name: submissionOperationStatusSchema,
+      value: z.number(),
+    }),
+  ),
+  dailySeries: z.array(
+    z.object({
+      day: z.string(),
+      label: z.string(),
+      total: z.number(),
+      accepted: z.number(),
+    }),
+  ),
+  topFailingProblems: z.array(
+    z.object({
+      problemId: z.string(),
+      id: z.string(),
+      title: z.string(),
+      errorCount: z.number(),
+    }),
+  ),
+  recentErrors: z.array(
+    z.object({
+      id: z.string(),
+      status: submissionOperationStatusSchema,
+      language: languageSchema,
+      createdAt: z.string(),
+      user: z.object({
+        username: z.string().nullable(),
+        name: z.string(),
+      }),
+      problem: z.object({
+        id: z.string(),
+        displayId: z.number().nullable(),
+        title: z.string(),
+      }),
+    }),
+  ),
+  dbOk: z.boolean(),
+});
+
+type AdminDashboardSerialized = z.infer<typeof adminDashboardSerializedSchema>;
 
 function reviveAdminDashboard(payload: AdminDashboardSerialized): AdminDashboard {
   return {

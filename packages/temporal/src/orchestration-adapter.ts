@@ -8,6 +8,7 @@ import {
   dispatchPlagiarismCheck,
   dispatchRejudge,
   dispatchSubmissionJudge,
+  getRejudgeTriggeredBy,
   queryRejudgeProgress,
   terminateSubmissionJudge,
 } from "./dispatch";
@@ -22,6 +23,7 @@ export function buildDomainOrchestrationAdapter() {
     dispatchPlagiarismCheck,
     dispatchRejudge,
     dispatchSubmissionJudge,
+    getRejudgeTriggeredBy,
     async probeTemporal() {
       const client = await getTemporalClient();
       await client.connection.workflowService.getSystemInfo({});
