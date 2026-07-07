@@ -11,6 +11,7 @@ spec:
     spec:
       chart: infra/charts/nojv
       valuesFiles:
+        - infra/charts/nojv/values.yaml
         - infra/charts/nojv/values-single-machine.yaml
       sourceRef:
         kind: GitRepository

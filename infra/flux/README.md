@@ -6,10 +6,41 @@ the cluster, watches this git repo + GHCR, and reconciles the existing
 runner from the production attack surface (see
 `docs/plans/active/2026-07-08-flux-gitops-cutover.md`).
 
-## What CI does after cutover
+## Current state (2026-07-08) — LIVE, one credential step remaining
 
-CI (public repo, GitHub-hosted runners) only builds and pushes images to GHCR.
-It holds **no** cluster credentials. Nothing pushes into the cluster.
+- ✅ Flux v2.9.1 installed (core + image-automation controllers), all healthy.
+- ✅ `GitRepository/nojv` clones this repo; `HelmRelease/nojv` **manages the
+  deployment** (adopted the release, rev 36, verified healthy on `main-722`).
+- ✅ `ImageRepository`/`ImagePolicy` scan GHCR and resolve the newest `main-<N>`
+  tag (read-only, credential-free).
+- ✅ Image build moved to the GitHub-hosted `build-images.yml`; the self-hosted
+  `deploy.yml` is deleted. CI holds **no** cluster credentials.
+- ❌ **`ImageUpdateAutomation` (the git commit-back that closes auto-pull) is
+  NOT active — it needs git write, and the org has deploy keys DISABLED.**
+  Until a write credential exists, a new build is deployed by bumping the tag:
+  `kubectl -n nojv patch helmrelease nojv --type merge -p '{"spec":{"values":{"image":{"tag":"main-<N>"}}}}'`
+  (find `<N>` via `flux get image policy nojv`).
+
+## To finish auto-pull (needs one credential — user action)
+
+Deploy keys are disabled org-wide, so pick one:
+
+- **Enable deploy keys** for NOJV-TW/NOJV (Org → Settings → repo policies),
+  then `flux create secret git nojv-git --url=ssh://git@github.com/NOJV-TW/NOJV.git --private-key-file=<key>`,
+  switch the `GitRepository` to that SSH URL + secret, and `kubectl apply`
+  `image-automation.yaml`.
+- **Or** create a fine-grained PAT / GitHub App with `contents:write` and use
+  `flux create secret git` with the token; same wiring.
+
+Once wired: a merge to main → `build-images.yml` pushes `main-<N+1>` → the
+ImagePolicy picks it → ImageUpdateAutomation commits the bump to git → the
+HelmRelease upgrades. Fully hands-off.
+
+## What CI does now
+
+`build-images.yml` (GitHub-hosted) builds and pushes images to GHCR on every
+push to main. It holds **no** cluster credentials. Nothing pushes into the
+cluster — Flux pulls.
 
 ## Files
 
