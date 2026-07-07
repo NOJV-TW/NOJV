@@ -1,5 +1,4 @@
 import {
-  courseMembershipRepo,
   examProblemRepo,
   examRepo,
   problemRepo,
@@ -11,6 +10,7 @@ import type { ExamCreate, ExamUpdate, Language } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import { isCourseStaffTx } from "../shared/permissions";
 import { requireCourse, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
@@ -81,12 +81,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
     const course = await requireCourse(tx, payload.courseId);
 
     if (actor.platformRole === "student") {
-      const membership = await courseMembershipRepo
-        .withTx(tx)
-        .findByComposite(course.id, actor.userId);
-      const allowed =
-        membership?.status === "active" &&
-        (membership.role === "teacher" || membership.role === "ta");
+      const allowed = await isCourseStaffTx(tx, actor.userId, course.id);
       if (!allowed) {
         throw new ForbiddenError("Only course teachers and TAs may create exams.");
       }
@@ -143,12 +138,7 @@ export async function updateExamRecord(
     const exam = await requireExam(tx, examId);
 
     if (exam.createdByUserId !== actor.userId) {
-      const membership = await courseMembershipRepo
-        .withTx(tx)
-        .findByComposite(exam.courseId, actor.userId);
-      const allowed =
-        membership?.status === "active" &&
-        (membership.role === "teacher" || membership.role === "ta");
+      const allowed = await isCourseStaffTx(tx, actor.userId, exam.courseId);
       if (!allowed) {
         throw new ForbiddenError("You do not have permission to edit this exam.");
       }
@@ -207,12 +197,7 @@ async function assertExamManagePermission(
   exam: { createdByUserId: string | null; courseId: string },
 ) {
   if (exam.createdByUserId === actor.userId) return;
-  const membership = await courseMembershipRepo
-    .withTx(tx)
-    .findByComposite(exam.courseId, actor.userId);
-  const allowed =
-    membership?.status === "active" &&
-    (membership.role === "teacher" || membership.role === "ta");
+  const allowed = await isCourseStaffTx(tx, actor.userId, exam.courseId);
   if (!allowed) {
     throw new ForbiddenError("You do not have permission to manage this exam.");
   }

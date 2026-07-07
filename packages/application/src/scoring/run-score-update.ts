@@ -42,8 +42,6 @@ export async function runScoreUpdate<P>(
   participationId: string,
   adapter: ScoringUpdate<P>,
 ): Promise<P | null> {
-  let overrides: readonly OverrideRow[] | undefined;
-
   for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
     const participation = await adapter.load();
     if (!participation) return null;
@@ -66,7 +64,7 @@ export async function runScoreUpdate<P>(
         });
         await adapter.persist(participation, { score, penaltySeconds });
       } else {
-        overrides ??= await adapter.overrides(participation);
+        const overrides = await adapter.overrides(participation);
         const { totalScore, subtaskScores } = computeBestScoreState({
           submissions,
           problemIds,

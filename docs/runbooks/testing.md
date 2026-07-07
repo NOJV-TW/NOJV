@@ -40,8 +40,10 @@ Rules of thumb:
 pnpm test:unit          # Vitest unit tests across all packages and apps
 pnpm test:integration   # Vitest integration tests (needs DB + Redis + Temporal up)
 pnpm test:e2e           # Playwright E2E (local only; not part of CI)
-pnpm ci:verify          # The full CI pipeline locally: format + db:generate + typecheck + lint + build + test
+pnpm ci:verify          # Fast local gate — no PG/Redis needed (see below for what it does NOT cover)
 ```
+
+`ci:verify` runs the dependency-free subset only: `format` + the `lint:*` guards + `db:generate` + `turbo run build typecheck lint` + `typecheck:tests` + `test:unit`. It deliberately does **not** stand up Postgres or Redis, so it does **not** run: integration tests, the coverage gate (`pnpm test:coverage`), the migration schema-drift check (`prisma migrate diff --exit-code`), or `helm lint`. Those run only in CI (`.github/workflows/ci.yml`), which provisions PG + Redis first. A green `ci:verify` locally is necessary but not sufficient — CI is the source of truth.
 
 Turbo task wiring lives in `turbo.json`. `test:unit` does not depend on `build` — unit tests should run fast and in isolation.
 

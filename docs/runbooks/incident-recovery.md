@@ -59,14 +59,14 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 - SSE clients receive keepalives but no real events (no verdict notifications, no lifecycle signals, no scoreboard-update nudges).
 - The contest scoreboard page still loads — it is computed from Postgres, not Redis — but live updates stop, so it relies on its 30 s polling fallback.
-- **Rate limiting fails closed**: in production the limiters reject requests when Redis is unreachable, so writes / sign-ins start returning 429 (this is the main user-facing impact). Cooldown is unaffected — it uses Postgres advisory locks, not Redis.
+- **Rate limiting is mixed-mode**: the `api` / `write` / `form` tiers fail **open** — they fall back to a per-process in-memory limiter when Redis is unreachable, so normal reads / writes keep working. Only the **auth** tier (sign-in, 2FA OTP, step-up) fails **closed**, so sign-ins / 2FA start returning 429 (this is the main user-facing impact). Cooldown is unaffected — it uses Postgres advisory locks, not Redis.
 - The admin-dashboard read-through cache (`nojv:cache:admin-dashboard`) misses and recomputes from Postgres (fail-open).
 
 ### Detection
 
 - `/api/healthz` reports degraded (Redis probe failing).
 - Web app logs: spike of `Redis ECONNREFUSED`, `MOVED`, or `READONLY` errors.
-- Write / sign-in routes return 429 (rate limiter fail-closed); SSE-dependent pages show no live updates.
+- Sign-in / 2FA routes return 429 (auth-tier rate limiter fails closed); read / write routes keep working on the in-memory fallback; SSE-dependent pages show no live updates.
 - Memorystore / Redis monitoring: connection count → 0 or memory at eviction threshold.
 
 ### Immediate Mitigation
@@ -74,7 +74,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 1. **Check Memorystore / Redis instance state** (GCP console or equivalent). If it is failing over automatically, wait 30–60s for the standby to promote.
 2. If the instance is stuck, restart / recreate it (managed Redis UI or `gcloud redis instances failover`).
 3. **Flushing Redis is essentially harmless to data, even during a contest.** Leaderboards are computed from Postgres on read, submit cooldown uses Postgres advisory locks, and scoreboard freeze is gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns (no Redis snapshot). The only loss is in-flight pub/sub nudges, which clients recover via the 30 s poll / SSE reconnect. The admin-dashboard cache refills lazily.
-4. Platform stays **partially up** through the outage: submissions still process (Temporal is independent), auth still works (Postgres-backed). Users lose real-time push only, and writes/sign-ins are rate-limited closed until Redis returns.
+4. Platform stays **partially up** through the outage: submissions still process (Temporal is independent), session auth still works (Postgres-backed), and reads / writes keep flowing on the rate-limiter's in-memory fallback. Users lose real-time push, and new sign-ins / 2FA are rate-limited closed (429) until Redis returns.
 
 ### Root-Cause Investigation
 
@@ -170,6 +170,44 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 - Sandbox image smoke test on every build (runs `hello world` in each supported language).
 - Alerting on sandbox namespace quota utilisation and `SE` verdict rate.
 - Review advanced-mode image uploads for obvious abuse patterns before enabling on public problems.
+
+---
+
+## Scenario E: node disk pressure / CNPG unavailable (single-machine)
+
+Codifies the 2026-07-04 incident: the single-machine runner's disk filled with accumulated container images, containerd went into disk pressure, the CloudNativePG operator and Postgres pod were evicted, the migrator Helm hook failed, and deploys silently stalled on the old version.
+
+### Symptoms
+
+- Deploys "succeed" from the runner's view but production stays on the **old version** — a shipped fix (e.g. an SSE repair) never actually goes live.
+- The migrator Helm hook Job fails with `BackoffLimitExceeded`; the release upgrade hangs or rolls back.
+- `helm` / `kubectl` operations against the DB error with `no endpoints available for cnpg-webhook-service` — the decisive clue that the CNPG operator itself is down (disk full), not just a bad migration.
+
+### Detection
+
+- `df -h` on the node shows the root / containerd partition at or near 100 %.
+- `kubectl describe node` shows a `DiskPressure` condition / taint; pods show `Evicted`.
+- `kubectl get pods -n nojv` shows `nojv-pg-1` (and the CNPG operator pod) `Evicted`, `Pending`, or not `Ready`.
+- Deploy workflow logs show the migrator hook Job hitting `BackoffLimitExceeded`.
+
+### Immediate Mitigation
+
+1. **Confirm disk is the root cause:** `df -h` on the node. Disk pressure cascades into every other symptom here.
+2. **Reclaim space:** `crictl rmi --prune` to drop unused container images (in the incident, two passes took usage from ~73 % → ~31 %). Also clear stale logs if needed.
+3. **Bring CNPG back:** `kubectl rollout restart` the CloudNativePG operator deployment, then restart the Postgres cluster pod. Wait until `nojv-pg` is healthy (`kubectl get cluster -n nojv`, PG pod `Ready`, webhook endpoints present).
+4. **If the release is wedged**, `helm rollback` to the last-known-good revision to unstick it.
+5. **Re-run the deploy** workflow once the DB and migrator hook are healthy; verify production is actually on the new version.
+
+### Root-Cause Investigation
+
+- Image accumulation: every deploy left additional image tags on the node until the disk filled. PR #193 now prunes images down to the current + rollback tags on each deploy — verify that pruning ran.
+- Check for other disk hogs: oversized logs, orphaned emptyDir / PVC data, leftover build artifacts.
+
+### Prevention
+
+- Per-deploy image pruning (PR #193) — keep only current + rollback tags.
+- Disk-usage alert on the runner / node well below the eviction threshold.
+- Monitor the `DiskPressure` node condition and CNPG instance health (see `nojv-pg-not-ready` in [Reliability Invariants](../operations/RELIABILITY.md)).
 
 ---
 

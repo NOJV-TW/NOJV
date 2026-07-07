@@ -383,6 +383,8 @@ async function enforceExamGate(
     });
   }
 
+  event.locals.examGate = { entityId: examCtx.exam.id, verdict };
+
   const denial = resolveExamGateDenial(verdict, cleanPath);
   if (denial) {
     return denyExamGate({
@@ -417,6 +419,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.apiToken = null;
   event.locals.apiTokenActor = null;
   event.locals.adminModeActive = false;
+  event.locals.examGate = null;
 
   const cleanPath = stripLocalePrefix(event.url.pathname);
 
@@ -475,6 +478,17 @@ export const handleError: HandleServerError = ({ error, event, status, message }
       url: event.url.pathname,
     });
     return { message: classified.message };
+  }
+
+  if (status < 500) {
+    errorLogger.warn("Client error", {
+      err: error instanceof Error ? error.message : String(error),
+      method: event.request.method,
+      requestId,
+      status,
+      url: event.url.pathname,
+    });
+    return { message };
   }
 
   errorLogger.error("Unhandled server error", {

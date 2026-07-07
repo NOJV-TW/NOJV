@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "infra/flux/**"
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

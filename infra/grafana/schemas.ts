@@ -20,6 +20,7 @@ export const AlertRuleDefSchema = z.object({
   for: z.string().min(1),
   severity: z.string().min(1),
   summary: z.string().min(1),
+  noDataState: z.enum(["OK", "Alerting", "NoData", "KeepLast"]).optional(),
 });
 
 export const AlertRuleDefsSchema = z.array(AlertRuleDefSchema);

@@ -22,6 +22,21 @@ data:
           - targets:
               - {{ printf "%s-node-exporter.%s.svc:9100" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
       {{- end }}
+      {{- if eq .Values.postgres.mode "cnpg" }}
+      - job_name: cnpg-postgres
+        static_configs:
+          - targets:
+              - {{ printf "%s-metrics.%s.svc:9187" (include "nojv.cnpgClusterName" .) (include "nojv.namespace" .) | quote }}
+      {{- end }}
+    {{- with .Values.observability.prometheus.remoteWrite.url }}
+    remote_write:
+      - url: {{ . | quote }}
+        {{- if $.Values.observability.prometheus.remoteWrite.username }}
+        basic_auth:
+          username: {{ $.Values.observability.prometheus.remoteWrite.username | quote }}
+          password_file: /etc/prometheus-secrets/remote-write-password
+        {{- end }}
+    {{- end }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -61,7 +76,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-prometheus
       annotations:
-        checksum/config: {{ printf "%s-%v" (.Values.observability.prometheus.retention | toString) .Values.observability.prometheus.nodeExporter.enabled | sha256sum }}
+        checksum/config: {{ printf "%s-%v-%s-%s-%s" (.Values.observability.prometheus.retention | toString) .Values.observability.prometheus.nodeExporter.enabled .Values.observability.prometheus.remoteWrite.url .Values.observability.prometheus.remoteWrite.username .Values.postgres.mode | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true
@@ -90,6 +105,11 @@ spec:
               readOnly: true
             - name: data
               mountPath: /prometheus
+            {{- if .Values.observability.prometheus.remoteWrite.url }}
+            - name: remote-write-secret
+              mountPath: /etc/prometheus-secrets
+              readOnly: true
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /-/healthy
@@ -111,6 +131,14 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "nojv.fullname" . }}-prometheus
+        {{- if .Values.observability.prometheus.remoteWrite.url }}
+        - name: remote-write-secret
+          secret:
+            secretName: {{ include "nojv.runtimeSecretName" . }}
+            items:
+              - key: GRAFANA_CLOUD_PROM_PASSWORD
+                path: remote-write-password
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

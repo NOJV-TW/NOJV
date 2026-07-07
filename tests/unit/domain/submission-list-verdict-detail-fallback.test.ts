@@ -194,7 +194,7 @@ describe("getExamProblemView — verdict-detail blob fallback", () => {
     expect(view!.submissions[0]!.result.verdict).toBe("wrong_answer");
   });
 
-  it("accepted fallback score is the problem total (sum of subtask weights), not 100", async () => {
+  it("accepted submission score comes from the DB row, not synthesized from subtask weights", async () => {
     submissionFindMany.mockResolvedValue([row({ id: "sub_ok", status: "accepted" })]);
     testcaseSetFindByProblemId.mockResolvedValue([{ weight: 80 }, { weight: 120 }]);
     storageGetVerdictDetail.mockResolvedValue(null);
@@ -206,7 +206,7 @@ describe("getExamProblemView — verdict-detail blob fallback", () => {
     });
 
     expect(view!.submissions[0]!.result.verdict).toBe("accepted");
-    expect(view!.submissions[0]!.result.score).toBe(200);
+    expect(view!.submissions[0]!.result.score).toBe(100);
   });
 });
 
@@ -235,7 +235,7 @@ describe("listVirtualContestProblemSubmissions — verdict-detail blob fallback"
     expect(result[0]!.result.verdict).toBe("wrong_answer");
   });
 
-  it("accepted fallback score is the problem total (sum of subtask weights), not 100", async () => {
+  it("accepted submission score comes from the DB row, not synthesized from subtask weights", async () => {
     submissionListByUserAndProblem.mockResolvedValue([
       row({ id: "sub_ok", status: "accepted" }),
     ]);
@@ -245,6 +245,6 @@ describe("listVirtualContestProblemSubmissions — verdict-detail blob fallback"
     const result = await listVirtualContestProblemSubmissions("vc_1", "usr_1", "prob_1");
 
     expect(result[0]!.result.verdict).toBe("accepted");
-    expect(result[0]!.result.score).toBe(200);
+    expect(result[0]!.result.score).toBe(100);
   });
 });

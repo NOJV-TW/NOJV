@@ -7,6 +7,9 @@ on:
       - "pnpm-lock.yaml"
       - "**/package.json"
       - "docker-compose.yml"
+      - "tsconfig.base.json"
+      - "turbo.json"
+      - "pnpm-workspace.yaml"
 
 concurrency:
   group: image-build-${{ github.workflow }}-${{ github.ref }}

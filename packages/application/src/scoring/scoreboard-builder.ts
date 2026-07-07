@@ -1,5 +1,5 @@
 import { buildProblemCountScoreboard } from "./problem-count";
-import { buildPointSumScoreboard } from "./point-sum";
+import { buildPointSumScoreboard, type ScoreOverrideRow } from "./point-sum";
 import {
   secondsSince,
   type ParticipantRow,
@@ -26,6 +26,7 @@ export function buildScoreboard(
   submissions: SubmissionRow[],
   problems: ScoreboardProblem[],
   showFrozen: boolean,
+  overrides: readonly ScoreOverrideRow[] = [],
 ): ScoreboardEntry[] {
   return isSolveCountMode(scoringMode)
     ? buildProblemCountScoreboard(
@@ -36,7 +37,14 @@ export function buildScoreboard(
         showFrozen,
         scoringMode === "weighted_count",
       )
-    : buildPointSumScoreboard(session, participants, submissions, problems, showFrozen);
+    : buildPointSumScoreboard(
+        session,
+        participants,
+        submissions,
+        problems,
+        showFrozen,
+        overrides,
+      );
 }
 
 export interface ChartSeriesPoint {

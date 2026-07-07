@@ -39,9 +39,9 @@ async function assertScoringModeSupportsOverride(context: ScoreOverrideContext):
   } else {
     return;
   }
-  if (scoringMode === "problem_count") {
+  if (scoringMode !== "point_sum") {
     throw new ValidationError(
-      "Score overrides are not supported for ICPC-style (problem-count) scoring.",
+      "Score overrides are only supported for point-sum (partial-credit) scoring.",
     );
   }
 }

@@ -90,6 +90,8 @@ erDiagram
 
 ## Enums
 
+> These rows are curated by hand. Update them alongside any enum change in `packages/db/prisma/schema/` — the CI drift gate only diffs the generated `DATABASE.generated.md`, not this file.
+
 | Enum                       | Values                                                                                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SupportedLanguage`        | c, cpp, go, java, javascript, python, rust, typescript                                                                                                     |
@@ -106,7 +108,7 @@ erDiagram
 | `AssessmentStatus`         | draft, published                                                                                                                                           |
 | `AssessmentAuditAction`    | publish, revert_to_draft, delete_draft                                                                                                                     |
 | `ContestVisibility`        | draft, published                                                                                                                                           |
-| `ContestScoringMode`       | problem_count, point_sum                                                                                                                                   |
+| `ContestScoringMode`       | problem_count, weighted_count, point_sum                                                                                                                   |
 | `ParticipationType`        | contest, exam, virtual (discriminator on the unified `Participation` model; `status` is a `String`, not a Prisma enum)                                     |
 | `ExamStatus`               | draft, published                                                                                                                                           |
 | `ExamScoringMode`          | problem_count, point_sum                                                                                                                                   |
@@ -170,7 +172,7 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 | Field                     | Type             | Notes                                                                                                                                                                     |
 | ------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `status`                  | SubmissionStatus | Upload / judge progress / verdict. `pending_upload` is the post-DB, pre-S3 staging state; `system_error` is the terminal platform-fault verdict                           |
-| `score`                   | Int              | 0-100                                                                                                                                                                     |
+| `score`                   | Int              | Points awarded; scale is the problem's subtask-weight sum (sum of testcase-set weights, or 100 when unweighted), not a fixed 0-100                                        |
 | `examId`                  | String?          | FK to `Exam` when the submission was made inside an exam                                                                                                                  |
 | `contestId`               | String?          | FK to `Contest` when the submission was made inside a contest                                                                                                             |
 | `participationId`         | String?          | FK to `Participation` — set for virtual-contest replays (carries the per-user `type = virtual` participation row)                                                         |

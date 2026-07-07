@@ -1,0 +1,24 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: nojv
+  namespace: flux-system
+spec:
+  interval: 1m
+  ref:
+    branch: main
+  url: https://github.com/NOJV-TW/NOJV.git
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nojv
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./infra/flux
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: nojv
+  wait: true

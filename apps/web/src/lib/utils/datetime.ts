@@ -94,7 +94,7 @@ export interface FmtDateOptions {
 export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   if (opts.dateOnly) return `${String(d.getMonth() + 1)}/${String(d.getDate())}`;
-  return formatPart(d);
+  return formatDateTimeCompact(d);
 }
 
 export function diffMs(iso: string | Date, now: Date = new Date()): number {
@@ -118,22 +118,4 @@ export function fmtCountdown(ms: number): CountdownParts {
   const mins = Math.floor((ms % 3_600_000) / 60_000);
   const secs = Math.floor((ms % 60_000) / 1_000);
   return { label: m.countdown_remaining(), d: days, h: hours, m: mins, s: secs, past: false };
-}
-
-export function formatRelativeFromNow(value: string | Date, now: Date = new Date()): string {
-  const d = typeof value === "string" ? new Date(value) : value;
-  const diffMs = d.getTime() - now.getTime();
-  const abs = Math.abs(diffMs);
-
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto" });
-  if (abs < hour) {
-    const mins = Math.round(diffMs / minute) || (diffMs < 0 ? -1 : 1);
-    return rtf.format(mins, "minute");
-  }
-  if (abs < day) return rtf.format(Math.round(diffMs / hour), "hour");
-  return rtf.format(Math.round(diffMs / day), "day");
 }

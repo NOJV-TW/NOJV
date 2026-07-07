@@ -17,9 +17,9 @@
   const PRIMARY_STYLE =
     "background: color-mix(in oklab, var(--primary) 14%, transparent); color: var(--primary); border-color: color-mix(in oklab, var(--primary) 32%, transparent);";
   const DESTRUCTIVE_STYLE =
-    "background: color-mix(in oklab, var(--destructive) 14%, transparent); color: oklch(0.55 0.2 27); border-color: color-mix(in oklab, var(--destructive) 32%, transparent);";
+    "background: color-mix(in oklab, var(--destructive) 14%, transparent); color: var(--destructive); border-color: color-mix(in oklab, var(--destructive) 32%, transparent);";
   const INFO_STYLE =
-    "background: color-mix(in oklab, var(--info) 15%, transparent); color: oklch(0.45 0.12 230); border-color: color-mix(in oklab, var(--info) 32%, transparent);";
+    "background: color-mix(in oklab, var(--info) 15%, transparent); color: var(--info); border-color: color-mix(in oklab, var(--info) 32%, transparent);";
 
   const ASSIGNMENT: Record<string, Def> = {
     not_started: {

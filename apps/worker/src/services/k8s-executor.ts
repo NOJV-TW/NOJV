@@ -31,6 +31,7 @@ import {
   buildValidateConfigMapData,
   computeJobDeadlineSeconds,
   CONFIGMAP_MAX_BYTES,
+  JOB_DEADLINE_FLOOR_SECONDS,
 } from "./k8s-configmaps";
 import {
   buildInteractiveJobManifest,
@@ -377,16 +378,12 @@ export class K8sExecutor implements SandboxExecutor {
 
       return mapAdvancedResult(request, parsed.data);
     } catch (err) {
-      if (err instanceof SandboxBackpressureError) throw err;
       logger.error("K8s advanced execution failed", {
         submissionId: request.submissionId,
         baseName,
         err: err instanceof Error ? err.message : String(err),
       });
-      return advancedFallbackResult(
-        request,
-        `Advanced sandbox failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      throw err;
     } finally {
       await this.cleanupJob(runJobName, ns);
       await this.cleanupJob(gradeJobName, ns);
@@ -580,7 +577,10 @@ export class K8sExecutor implements SandboxExecutor {
         buildInteractiveInteractorConfigMapData(request, testcase),
       );
 
-      const deadlineSeconds = Math.ceil(request.limits.timeoutMs / 1000) + 30;
+      const deadlineSeconds = Math.max(
+        Math.ceil(request.limits.timeoutMs / 1000) + 30,
+        JOB_DEADLINE_FLOOR_SECONDS,
+      );
       await this.batchApi.createNamespacedJob({
         namespace,
         body: buildInteractiveJobManifest({
@@ -920,7 +920,12 @@ export class K8sExecutor implements SandboxExecutor {
   private async inspectJobPods(
     jobName: string,
     namespace: string,
-  ): Promise<{ everStarted: boolean; unschedulableReason: string | null }> {
+  ): Promise<{
+    everStarted: boolean;
+    unschedulableReason: string | null;
+    containerRunning: boolean;
+    imagePullBackOff: string | null;
+  }> {
     try {
       const pods = await this.coreApi.listNamespacedPod({
         namespace,
@@ -928,6 +933,8 @@ export class K8sExecutor implements SandboxExecutor {
       });
       let everStarted = false;
       let unschedulableReason: string | null = null;
+      let containerRunning = false;
+      let imagePullBackOff: string | null = null;
       for (const pod of pods.items) {
         const status = pod.status;
         const phase = status?.phase;
@@ -937,14 +944,31 @@ export class K8sExecutor implements SandboxExecutor {
         if (phase === "Failed" && status?.startTime) {
           everStarted = true;
         }
+        for (const cs of [
+          ...(status?.initContainerStatuses ?? []),
+          ...(status?.containerStatuses ?? []),
+        ]) {
+          if (cs.state?.running || cs.state?.terminated) {
+            containerRunning = true;
+          }
+          const waitingReason = cs.state?.waiting?.reason;
+          if (waitingReason === "ImagePullBackOff" || waitingReason === "ErrImagePull") {
+            imagePullBackOff = cs.state?.waiting?.message ?? waitingReason;
+          }
+        }
         const scheduled = (status?.conditions ?? []).find((c) => c.type === "PodScheduled");
         if (scheduled?.status === "False" && scheduled.reason === "Unschedulable") {
           unschedulableReason = scheduled.message ?? scheduled.reason;
         }
       }
-      return { everStarted, unschedulableReason };
+      return { everStarted, unschedulableReason, containerRunning, imagePullBackOff };
     } catch {
-      return { everStarted: false, unschedulableReason: null };
+      return {
+        everStarted: false,
+        unschedulableReason: null,
+        containerRunning: false,
+        imagePullBackOff: null,
+      };
     }
   }
 
@@ -956,6 +980,7 @@ export class K8sExecutor implements SandboxExecutor {
     const startedAt = Date.now();
     const deadline = startedAt + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
     let everStarted = false;
+    let containerRunning = false;
 
     while (Date.now() < deadline) {
       const job = await this.batchApi.readNamespacedJob({
@@ -977,16 +1002,27 @@ export class K8sExecutor implements SandboxExecutor {
         return { state: "failed", deadlineExceeded };
       }
 
-      if (!everStarted) {
+      if (!containerRunning) {
         const pods = await this.inspectJobPods(jobName, namespace);
-        everStarted = pods.everStarted;
 
-        if (!everStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
-          const blockedReason = this.jobBlockedReason(job);
-          if (blockedReason || pods.unschedulableReason) {
-            throw new SandboxBackpressureError(
-              `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? pods.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,
-            );
+        if (pods.imagePullBackOff) {
+          throw new SandboxBackpressureError(
+            `Sandbox Job ${jobName} pod cannot pull its image (${pods.imagePullBackOff}); retrying with backoff.`,
+          );
+        }
+
+        containerRunning = pods.containerRunning;
+
+        if (!everStarted) {
+          everStarted = pods.everStarted;
+
+          if (!everStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
+            const blockedReason = this.jobBlockedReason(job);
+            if (blockedReason || pods.unschedulableReason) {
+              throw new SandboxBackpressureError(
+                `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? pods.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,
+              );
+            }
           }
         }
       }

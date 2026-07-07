@@ -54,6 +54,13 @@ export const contestFormSchema = z
         path: ["inviteCode"],
       });
     }
+    if (data.scoreboardMode === "frozen" && (data.frozenAt ?? "").trim().length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Freeze time is required when the scoreboard mode is frozen.",
+        path: ["frozenAt"],
+      });
+    }
   });
 
 import type { ActorContext } from "../shared/actor-context";

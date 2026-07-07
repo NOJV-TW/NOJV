@@ -24,12 +24,12 @@
     try {
       const res = await authClient.signIn.passkey();
       if (res?.error) {
-        passkeyError = res.error.message ?? "Passkey 驗證失敗。";
+        passkeyError = res.error.message ?? m.account_passkey_verifyFailed();
         return;
       }
       await goto(data.returnTo ?? "/account/api-tokens");
     } catch {
-      passkeyError = "Passkey 驗證失敗。";
+      passkeyError = m.account_passkey_verifyFailed();
     } finally {
       passkeyBusy = false;
     }
@@ -107,7 +107,7 @@
             disabled={passkeyBusy}
             onclick={stepUpWithPasskey}
           >
-            使用 passkey 驗證
+            {m.account_passkey_verifyButton()}
           </Button>
         </div>
       {/if}

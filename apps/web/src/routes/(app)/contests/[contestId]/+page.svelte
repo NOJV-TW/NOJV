@@ -56,6 +56,7 @@
   ]);
 
   let showOverrideDrawer = $state(false);
+  let joining = $state(false);
   const canSetOverride = $derived(data.canSetOverride);
   const overrideStudents = $derived(data.overrideStudents);
   const overrideProblems = $derived(
@@ -138,8 +139,27 @@
     </Button>
   {/if}
   {#if needsJoin}
-    <form method="POST" action="?/joinContest" use:enhance class="contents">
-      <Button type="submit">{m.contestDetail_ctaJoin()}</Button>
+    <form
+      method="POST"
+      action="?/joinContest"
+      class="contents"
+      use:enhance={() => {
+        joining = true;
+        return async ({ result, update }) => {
+          joining = false;
+          if (result.type === "failure") {
+            toasts.error(
+              typeof result.data?.error === "string" ? result.data.error : m.error_unexpected(),
+            );
+            return;
+          }
+          await update();
+        };
+      }}
+    >
+      <Button type="submit" loading={joining} disabled={joining}
+        >{m.contestDetail_ctaJoin()}</Button
+      >
     </form>
   {:else if primaryHref}
     <Button onclick={() => void goto(primaryHref)}>

@@ -24,11 +24,13 @@
 
   let hasAgreed = $state(false);
   let submitting = $state(false);
+  let errorMessage = $state<string | null>(null);
 
   $effect(() => {
     if (!open) {
       hasAgreed = false;
       submitting = false;
+      errorMessage = null;
     }
   });
 </script>
@@ -46,7 +48,7 @@
           <AlertTriangle
             aria-hidden="true"
             class="size-5"
-            style="color: oklch(0.55 0.2 27);"
+            style="color: var(--destructive);"
             strokeWidth={2}
           />
         </div>
@@ -95,6 +97,15 @@
       <span>{m.examStartModal_agree()}</span>
     </label>
 
+    {#if errorMessage}
+      <p
+        class="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+        role="alert"
+      >
+        {errorMessage}
+      </p>
+    {/if}
+
     <Dialog.Footer class="mt-4 flex justify-end gap-3">
       <button
         type="button"
@@ -107,11 +118,17 @@
         method="POST"
         {action}
         use:enhance={() => {
+          errorMessage = null;
           submitting = true;
           return async ({ result, update }) => {
             await update();
             if (result.type === "success") {
               onOpenChange(false);
+            } else if (result.type === "failure") {
+              errorMessage =
+                typeof result.data?.error === "string"
+                  ? result.data.error
+                  : m.error_unexpected();
             }
             submitting = false;
           };

@@ -1,7 +1,6 @@
 import {
   assessmentRepo,
   contestRepo,
-  courseMembershipRepo,
   examRepo,
   plagiarismPairFlagRepo,
   type PlagiarismContext,
@@ -10,6 +9,7 @@ import {
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import { isCourseStaff } from "../shared/permissions";
 
 export type { PlagiarismContext };
 
@@ -24,12 +24,6 @@ export function buildPairKey(userAId: string, userBId: string, problemId: string
   return `${sorted[0]}|${sorted[1]}|${problemId}`;
 }
 
-async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {
-  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
-  if (membership?.status !== "active") return false;
-  return membership.role === "teacher" || membership.role === "ta";
-}
-
 async function canManagePlagiarismFlag(
   actor: ActorContext,
   contextType: PlagiarismContext,
@@ -41,12 +35,12 @@ async function canManagePlagiarismFlag(
     case "assessment": {
       const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
       if (!assignment) return false;
-      return isCourseTeacherOrTa(actor.userId, assignment.courseId);
+      return isCourseStaff(actor.userId, assignment.courseId);
     }
     case "exam": {
       const exam = await examRepo.findById(contextId);
       if (!exam) return false;
-      return isCourseTeacherOrTa(actor.userId, exam.courseId);
+      return isCourseStaff(actor.userId, exam.courseId);
     }
     case "contest": {
       const contest = await contestRepo.findById(contextId);

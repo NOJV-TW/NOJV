@@ -52,6 +52,7 @@ spec:
       containers:
         - name: minio
           image: {{ .Values.storage.minio.image }}
+          imagePullPolicy: IfNotPresent
           args:
             - server
             - /data

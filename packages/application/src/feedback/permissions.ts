@@ -1,15 +1,10 @@
-import { assessmentRepo, courseMembershipRepo, examRepo } from "@nojv/db";
+import { assessmentRepo, examRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
 import { assertContextClosed } from "../shared/context-window";
 import { ForbiddenError } from "../shared/errors";
+import { isCourseStaff } from "../shared/permissions";
 import type { FeedbackContext } from "./types";
-
-async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {
-  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
-  if (membership?.status !== "active") return false;
-  return membership.role === "teacher" || membership.role === "ta";
-}
 
 export async function canWriteFeedback(
   actor: ActorContext,
@@ -21,12 +16,12 @@ export async function canWriteFeedback(
     case "assignment": {
       const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
       if (!assignment) return false;
-      return isCourseTeacherOrTa(actor.userId, assignment.courseId);
+      return isCourseStaff(actor.userId, assignment.courseId);
     }
     case "exam": {
       const exam = await examRepo.findById(context.examId);
       if (!exam) return false;
-      return isCourseTeacherOrTa(actor.userId, exam.courseId);
+      return isCourseStaff(actor.userId, exam.courseId);
     }
   }
 }

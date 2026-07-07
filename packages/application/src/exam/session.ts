@@ -10,6 +10,7 @@ import {
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "../shared/errors";
+import { isCourseStaffTx } from "../shared/permissions";
 
 export type ExamSessionReleaseReason = "submitted" | "time_up" | "released_by_instructor";
 
@@ -291,12 +292,7 @@ export async function releaseSessionAsInstructor(
       throw new NotFoundError(`Exam not found: ${examId}`);
     }
 
-    const callerMembership = await courseMembershipRepo
-      .withTx(tx)
-      .findByComposite(exam.courseId, actor.userId);
-    const isStaff =
-      callerMembership?.status === "active" &&
-      (callerMembership.role === "teacher" || callerMembership.role === "ta");
+    const isStaff = await isCourseStaffTx(tx, actor.userId, exam.courseId);
     if (!isStaff) {
       throw new ForbiddenError("Only course staff can release exam sessions.");
     }
@@ -337,12 +333,7 @@ export async function resetStudentIpBinding(
       throw new NotFoundError(`Exam not found: ${examId}`);
     }
 
-    const callerMembership = await courseMembershipRepo
-      .withTx(tx)
-      .findByComposite(exam.courseId, actor.userId);
-    const isStaff =
-      callerMembership?.status === "active" &&
-      (callerMembership.role === "teacher" || callerMembership.role === "ta");
+    const isStaff = await isCourseStaffTx(tx, actor.userId, exam.courseId);
     if (!isStaff) {
       throw new ForbiddenError("Only course staff can reset a student's IP binding.");
     }
@@ -380,12 +371,7 @@ export async function releaseAllSessionsAsInstructor(
       throw new NotFoundError(`Exam not found: ${examId}`);
     }
 
-    const callerMembership = await courseMembershipRepo
-      .withTx(tx)
-      .findByComposite(exam.courseId, actor.userId);
-    const isStaff =
-      callerMembership?.status === "active" &&
-      (callerMembership.role === "teacher" || callerMembership.role === "ta");
+    const isStaff = await isCourseStaffTx(tx, actor.userId, exam.courseId);
     if (!isStaff) {
       throw new ForbiddenError("Only course staff can release exam sessions.");
     }

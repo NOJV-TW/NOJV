@@ -251,22 +251,38 @@ export const actions: Actions = {
 
   publishContest: withRateLimit(async (event) => {
     const actor = requireAuth(event);
+    const form = await superValidate<ContestSettingsForm, FormMessage>(
+      event,
+      zod4(contestSettingsFormSchema),
+    );
     try {
       await publishContest(actor, event.params.contestId);
     } catch (err) {
       const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: classified.message },
+        { status: 400 },
+      );
     }
     return { success: true };
   }),
 
   deleteContest: withRateLimit(async (event) => {
     const actor = requireAuth(event);
+    const form = await superValidate<ContestSettingsForm, FormMessage>(
+      event,
+      zod4(contestSettingsFormSchema),
+    );
     try {
       await deleteContestDraft(actor, event.params.contestId);
     } catch (err) {
       const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: classified.message },
+        { status: 400 },
+      );
     }
     redirect(303, "/contests");
   }),

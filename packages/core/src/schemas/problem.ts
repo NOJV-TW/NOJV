@@ -10,14 +10,13 @@ import {
   type Language,
 } from "../types";
 
-import { advancedConfigSchema, imageSourceSchema } from "./advanced-mode";
+import { advancedConfigSchema, type imageSourceSchema } from "./advanced-mode";
 import { judgeConfigSchema } from "./judge-config";
 import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
 
 const BLOB_FIELD_MAX_BYTES = 16 * 1024 * 1024;
 
-export const problemImageSourceSchema = imageSourceSchema;
 export type ProblemImageSource = z.infer<typeof imageSourceSchema>;
 
 export const problemSampleSchema = z.object({

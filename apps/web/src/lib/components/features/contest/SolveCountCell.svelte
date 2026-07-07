@@ -37,14 +37,14 @@
     {/if}
     <span
       class="font-mono text-caption font-semibold tabular-nums"
-      style="color: oklch(0.4 0.13 160);"
+      style="color: var(--success);"
     >
       {fmtTime(firstAcTime)}
     </span>
     {#if attempts > 0}
       <span
         class="font-mono text-[10px] tabular-nums opacity-70"
-        style="color: oklch(0.45 0.13 160);"
+        style="color: var(--success);"
       >
         +{attempts}
       </span>
@@ -65,10 +65,10 @@
     class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1 min-w-[60px]"
     style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
   >
-    <span class="font-mono text-caption font-semibold" style="color: oklch(0.5 0.18 27);">
+    <span class="font-mono text-caption font-semibold" style="color: var(--destructive);">
       −{attempts}
     </span>
-    <span class="font-mono text-[10px]" style="color: oklch(0.55 0.18 27);"
+    <span class="font-mono text-[10px]" style="color: var(--destructive);"
       >{m.scoreboard_wa()}</span
     >
   </div>
