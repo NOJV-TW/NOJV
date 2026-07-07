@@ -13,18 +13,6 @@ permissions:
   contents: read
   packages: write
 
-# Runtime images are built + pushed to GHCR (ghcr.io/nojv-tw/nojv-*) by the
-# build-push job on a GitHub-hosted runner, then the deploy job on the
-# self-hosted runner pulls them into the single-machine k3s cluster via
-# `helm upgrade` (k3s pulls from GHCR — no local docker build/import).
-#
-# One-time prerequisites on the runner's cluster (NOT done here):
-#   - k3s with a NetworkPolicy-enforcing CNI (Calico/Cilium) — see docs/runbooks/k8s-single-machine.md
-#   - the CloudNativePG operator (provides the Postgres Cluster CRD)
-#   - Temporal via the official Helm chart (temporal-frontend Service)
-#   - the nojv-runtime-secrets Secret in namespace nojv (DATABASE_URL/REDIS_URL/S3_*/EDGE_TRUST_SECRET/...)
-#   - the GHCR packages (nojv-web/worker/sandbox/egress-proxy/migrator) set to Public
-#     so k3s can pull them without an imagePullSecret.
 jobs:
   build-push:
     name: Build & push images to GHCR
@@ -68,9 +56,14 @@ jobs:
           set -euo pipefail
           build() {
             local name="$1" dockerfile="$2" ctx="$3"
-            docker build -f "$dockerfile" -t "${PREFIX}/${name}:${TAG}" -t "${PREFIX}/${name}:main" "$ctx"
-            docker push "${PREFIX}/${name}:${TAG}"
-            docker push "${PREFIX}/${name}:main"
+            local ref="${PREFIX}/${name}"
+            docker buildx build \
+              -f "$dockerfile" \
+              -t "${ref}:${TAG}" -t "${ref}:main" \
+              --cache-from "type=registry,ref=${ref}:buildcache" \
+              --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
+              --push \
+              "$ctx"
           }
           build nojv-web          infra/docker/web.Dockerfile            .
           build nojv-worker       infra/docker/worker.Dockerfile         .

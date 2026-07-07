@@ -1,8 +1,5 @@
 name: Image Build
 
-# PR-only smoke test that the runtime images still build. On push to main the
-# CD pipeline (deploy.yml) builds AND pushes the images to GHCR, so a push
-# trigger here would be redundant.
 on:
   pull_request:
     paths:
