@@ -21,6 +21,11 @@ export * as clarificationDomain from "./clarification";
 export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
 export * as editorialDomain from "./editorial";
+export {
+  listUpcomingAssessments,
+  type UpcomingAssessment,
+  type UpcomingAssessmentType,
+} from "./home/upcoming-assessments";
 export * as examDomain from "./exam";
 export * as feedbackDomain from "./feedback";
 export * as notificationDomain from "./notification";
