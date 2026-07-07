@@ -1,8 +1,28 @@
 # Flux GitOps Cutover — Remove the Self-Hosted Runner From Production
 
-Status: **Planned** (not yet executed). This document is the design; the
-cutover itself runs from the production box in a maintenance window and is
-tracked here until it lands, then moves to `completed/`.
+Status: **LIVE** (executed 2026-07-08). Flux v2.9.1 is installed and manages the
+`nojv` release from git (HelmRelease adopted, verified healthy on `main-722`);
+image build moved to GitHub-hosted `build-images.yml`; the self-hosted deploy
+job is deleted and **the runner is deregistered** (P0 closed). The one part NOT
+done is fully-automatic image auto-pull — see "Remaining" below. Move to
+`completed/` once that lands.
+
+## Remaining — automatic image propagation (needs a governance decision)
+
+Chart/config changes in git auto-deploy today (Flux reconciles on each main
+revision). New **image** tags do not auto-deploy yet, because the commit-back
+that bumps the deployed tag is blocked two ways: the org has **deploy keys
+disabled**, and **main is protected** (PR + approval required), so no bot can
+push an image-bump commit to main. Pick one, then wire `ImageUpdateAutomation`
+(or a CI-driven bump) per `infra/flux/README.md`:
+
+- enable deploy keys + add the Flux bot to the branch-protection bypass, or
+- point `ImageUpdateAutomation` at a dedicated unprotected image-update branch
+  that the `GitRepository` tracks, or
+- a fine-grained PAT / GitHub App with a bypass.
+
+Interim: deploy a new image by bumping the HelmRelease tag (one command, in the
+README).
 
 ## Why
 
