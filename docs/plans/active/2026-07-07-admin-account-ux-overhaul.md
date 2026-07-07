@@ -14,9 +14,9 @@
 
 - [x] 項 8 — 清本地 stale build artifacts(`.svelte-kit`/`build`);IP gate source 正常、61 測試綠、cf-connecting-ip 正確,prod 走 GHCR clean build 不受影響。
 - [x] 項 1 — admin 切換鈕過期:`(app)/+layout.server.ts` 加 `void event.url.pathname` 讓 layout load 每次導覽重評估 `canActAsAdmin`/`actingAsAdmin`。根因是 layout server load 被快取、client 導覽不重跑,`canActAsAdmin`(=`platformRole==="admin"`,stored role 非 effective)停在過期值;新增 passkey 的 `invalidateAll()` 只是巧合刷新。
-- [ ] 項 2 — 帳號頁「變更密碼」對所有人顯示(缺 hasPassword gate)。`account/+page.svelte:300` 連結無條件;`change-password/+page.server.ts` load 已算 `fnHasPassword` 但未 gate。修:主頁連結加 gate + change-password load 無密碼 redirect。只有 super admin 有密碼。
-- [ ] 項 3 — passkey 從「登入方式」(connections)移到「兩階段驗證」(two-factor)。passkey 與 TOTP 都是 step-up 因子(`step-up.ts:60` `hasStepUpFactor = twoFactorEnabled || passkeys.length>0`)。passkey UI 在 `connections/+page.svelte:90-136`,搬到 two-factor;server load `listPasskeys` 一起搬。
-- [ ] 項 4 — OAuth(Google/GitHub)上移帳號主頁直接顯示。目前藏在 `connections/+page.svelte:52-88`(`listLinkedProviderIds`)。搬到 `account/+page.svelte` 主頁 + `account/+page.server.ts` load。passkey+oauth 都搬走後 **刪掉 connections 路由**。
+- [ ] 項 2 — 帳號頁「變更密碼」對所有人顯示(缺 hasPassword gate)。⚠️ **之前做過且 typecheck 綠,但被並行 reset 丟失,要重做**:`account/+page.server.ts` load 加 `hasPassword: await userHasCredentialPassword(locals.user.id)`(import 自 `$lib/server/step-up`);`account/+page.svelte` 的變更密碼連結包 `{#if data.hasPassword}`;`change-password/+page.server.ts` load 無密碼時 `redirect(303,"/account")`。只有 super admin 有密碼。
+- [x] 項 3 — **DONE(commit `91a113b7`)**:passkey 從 connections 移到 two-factor(load `listPasskeys` + `deletePasskey` action + `addPasskey` UI,獨立 Card 放在 TOTP 卡片下方)。
+- [x] 項 4 — **DONE(commit `91a113b7`)**:OAuth 上移 account 主頁(load `providers` + `link`/`unlink` action + OAuth Card 放在安全性卡片下方);**`account/connections/` 資料夾已刪除**。
 - [ ] 項 6c — timeout 走 .env:`packages/application/src/submission/sweep.ts` `getSubmissionPendingTimeoutMinutes` 改讀 `process.env`(預設 10);移除 `setSubmissionPendingTimeoutMinutes` + platform_setting 讀寫;`packages/core/.../platform-settings.ts` 的 KEY/DEFAULT 清掉;worker+web env manifest 要加(注意 env-manifest-parity 測試 + `.default()`);`.env.example`/DEPLOYMENT.md 加 `SUBMISSION_PENDING_TIMEOUT_MINUTES`。**worker 也讀 timeout,兩邊 env 都要。**
 - [ ] 項 6d — 新增 admin 全站提交視圖(目前不存在,只有 rejudge log)。需 `packages/application/src/submission/queries.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`);新 route `admin/submissions`。
 - [ ] 項 5 + 7 — admin 身分組 UI 重造 + tab 重造。**待設計對齊(見下),先不動手。**
