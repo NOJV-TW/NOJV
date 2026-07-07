@@ -21,16 +21,30 @@
 - [ ] 項 6d — 新增 admin 全站提交視圖(目前不存在,只有 rejudge log)。需 `packages/application/src/submission/queries.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`);新 route `admin/submissions`。
 - [ ] 項 5 + 7 — admin 身分組 UI 重造 + tab 重造。**待設計對齊(見下),先不動手。**
 
-## 待使用者拍板的設計問題(admin 身分組區塊,項 5/7)
+## admin 身分組/tab 設計(已定案 2026-07-07,待實作)
 
-使用者對這塊有很多想法,做之前要敲定:
+1. **super admin 不顯示** — 角色欄一律顯示 admin/teacher/student 的本地化,不露「super admin」字樣。
+2. **權限規則**:一般 admin **不能**停用/封禁/刪除/改動其他 admin(platformRole===admin)帳號,**只有 super admin 可**;一般 admin 只管 teacher/student。**server action 要 enforce,不只前端隱藏。**
+3. **編輯用下拉選單(dropdown menu)**,**不要用 badge 當按鈕(醜)**。每列一個下拉,操作集中:變更角色(選 student/teacher/admin)、停用/啟用、刪除帳號。
+4. **新增「刪除帳號」操作**;詳情頁不做(沒明確內容)。domain `deleteUser`(判斷 hard/soft + cascade)+ 記 audit。
+5. **URL 統一平級**:`/admin`、`/admin/users`、`/admin/submissions`、`/admin/announcements`、`/admin/editorial-reports`、`/admin/audit`。搬移現有 route 資料夾(users 從 `/system/`、announcements+editorial-reports 從 `/content/` 拉到平級)+ 更新 `admin/+layout.svelte` tab 清單/label/active 判斷。
+6. **移除 rejudge 獨立 tab**(log 資料保留,不獨立 tab)。**新增稽核 audit 頁 `/admin/audit`**:記錄 admin 重要操作。
+   - 新 Prisma model `AdminAuditLog`:id、actorId、actorName(snapshot)、action(如 `user.role_change`/`user.disable`/`user.enable`/`user.delete`/`editorial_report.resolve`/`editorial_report.dismiss`/`announcement.create`/`announcement.delete`)、targetType?、targetId?、summary、createdAt。產 migration。
+   - `packages/application` 加 audit repo + `recordAdminAudit` + `listAdminAuditPaged`。
+   - 記錄點:admin 改角色/停用/啟用/刪除、editorial-reports resolve/dismiss、announcements create/delete。
+   - `/admin/audit` 頁分頁列出(時間/操作者/動作/對象/摘要)。
+7. **項 5 順帶修的 bug**:role diff/confirm/toast 套 `roleLabel()`(別印英文 slug,修 `zh-TW.json:363/364`);狀態(使用中/已停用)vs 動作(停用帳號/啟用帳號)文案分清;filter `goto` 帶 `{keepFocus:true,noScroll:true}` 不跳動、search 與 role 行為一致;危險操作一致 confirm。
+8. **項 6d**:新增 `/admin/submissions` 全站提交(目前不存在)。`packages/application/.../submission/queries.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`)。
+9. **項 6c**(我負責,未做):timeout 走 .env(預設 10 分),`sweep.ts` 改讀 `process.env`、移除 `setSubmissionPendingTimeoutMinutes`+platform_setting、`platform-settings.ts` KEY/DEFAULT 清掉、web+worker env manifest(注意 env-manifest-parity + `.default()`)、`.env.example`/DEPLOYMENT.md 加 `SUBMISSION_PENDING_TIMEOUT_MINUTES`。**同時要移除 admin/rejudges 頁的 timeout 設定 UI + updatePendingTimeout action。**
+10. **全程不寫註解。** i18n 改 `messages/*.json` 後必 `pnpm --filter @nojv/web paraglide:compile`。
 
-1. **super admin 怎麼顯示?** 單獨顯示「super admin」/ 就顯示「admin」/ 完全不顯示 super 身份?
-   - 我的建議:super admin 是內部權限層(能發收 admin、登入強制 2FA),對一般人不暴露「super admin」字樣;admin 管理清單裡用小標記讓其他 admin 認得,公開場合顯示「管理員」。
-2. **身分組編輯方式**(使用者說「很怪」):目前是點「角色」欄的 badge 進 inline `<select>` 編輯(`UsersTable.svelte:104-205`),入口隱形。要改成什麼?(明確按鈕 / 下拉選單 / dialog?)
-3. **admin 對使用者的操作有哪些?** 目前只有 2 個(改角色、停用/啟用),且分散兩欄。使用者覺得「應該有更多操作」。要加什麼?(重設密碼?查看詳情?刪除?)
-4. **admin tab 結構**(項 7):目前 URL 分組不一致(`/system/users`、`/content/announcements`、`/content/editorial-reports`、`/rejudges`)。要怎麼統一 + 加入新的「提交」tab?
-5. **rejudge log** 要獨立 tab 還是併進新的「提交」視圖?
+## ⏸ 帳號頁批(項 2/3/4)暫停 — 待與使用者討論
+
+使用者要再討論帳號頁呈現,**先不動**。已定方向(供參考,未實作):
+- 項 2:`account/+page.svelte:300` 變更密碼連結 + `change-password` load 加 `hasPassword` gate(`userHasCredentialPassword`);只有 super admin 有密碼。
+- 項 3:passkey 從 `connections/+page.svelte:90-136` 搬到 `two-factor`(跟 TOTP 同頁,都是 step-up)。
+- 項 4:OAuth(`connections` 的 providers link/unlink,用 `getAuth().api`,含 email 通知 + `wouldOrphanAccount` 檢查)上移 `account` 主頁;passkey+oauth 都搬走後刪 `connections` 路由。
+- 注意:`connections/+page.svelte` 目前是**硬編中文**(非 paraglide),搬移時決定要不要轉 `m.`。
 
 ## 調查發現的其他 bug(項 5 已知,重造時一併修)
 
