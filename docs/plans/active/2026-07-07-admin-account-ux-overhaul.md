@@ -52,6 +52,22 @@
 - 項 4:OAuth(`connections` 的 providers link/unlink,用 `getAuth().api`,含 email 通知 + `wouldOrphanAccount` 檢查)上移 `account` 主頁;passkey+oauth 都搬走後刪 `connections` 路由。
 - 注意:`connections/+page.svelte` 目前是**硬編中文**(非 paraglide),搬移時決定要不要轉 `m.`。
 
+## 2FA + API token 行為設計(2026-07-07 討論定案,待實作)
+
+**規則:**
+
+- **一般帳號(含一般 admin)**:平常 OAuth 登入**不需 2FA**;開啟 2FA(設 passkey/TOTP)前先寄 **email OTP** 確認本人、通過才能設;調整 2FA 要**重跑 email OTP**;**進 API token 設定頁前要 step-up**(passkey/TOTP),一般 admin 與一般使用者規則完全相同。
+- **super admin**(無 email):**第一次登入強制**設 passkey/TOTP(跳過 email OTP,靠 `freshEnough(session)` 剛登入即可設);**之後每次登入強制 2FA**。
+- **API token 入口**:頭像下拉(`UserMenu.svelte`)加「API 權杖」連結 → `/account/api-tokens`(頁已存在,只缺入口,這就是使用者「找不到設定 token 的地方」)。
+
+**待實作:**
+
+1. 「登入強制 2FA」範圍**從所有 admin 縮到只有 super admin**(一般 admin 不強制)。查現況:記憶中是 `adminSessionMfa` 對所有 platformRole===admin 生效,要改成只 `isSuperAdmin`。
+2. super admin 無 email 的 enroll 路徑:確認/補 `freshEnough` 能讓第一次登入直接設 passkey/TOTP(不寄 email);第一次登入後強制導向設定。
+3. 確認「調整 2FA(改 passkey/TOTP)每次都要重驗 email OTP」現況是否已如此。
+4. `UserMenu.svelte` 加 API token 入口連結(小、確定要做)。
+5. 進 `/account/api-tokens` 的 step-up gate 對「一般使用者 + 一般 admin」都套用、規則一致。
+
 ## 調查發現的其他 bug(項 5 已知,重造時一併修)
 
 - 角色 diff/confirm/toast 直接印英文 slug(`student`/`admin`)沒套 `roleLabel()`(`UsersTable.svelte:121-140,166-173`;`zh-TW.json:363/364` 甚至寫死 "admin")。
