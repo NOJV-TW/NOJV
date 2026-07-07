@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -66,3 +66,17 @@ jobs:
           build nojv-migrator     infra/docker/migrator.Dockerfile       .
           build nojv-sandbox      infra/docker/sandbox-runner.Dockerfile .
           build nojv-egress-proxy infra/docker/egress-proxy/Dockerfile   infra/docker/egress-proxy
+
+      - name: Publish tag to the deploy branch (Flux tracks it → auto-pull)
+        shell: bash
+        env:
+          BUILD_TAG: main-${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          git config user.name "nojv-deploy-bot"
+          git config user.email "nojv-deploy-bot@users.noreply.github.com"
+          git checkout -B deploy
+          sed -i -E "s|^( +tag: ).*|\1${BUILD_TAG}|" infra/flux/helmrelease.yaml
+          git add infra/flux/helmrelease.yaml
+          git commit -m "deploy: ${BUILD_TAG}"
+          git push --force origin deploy
