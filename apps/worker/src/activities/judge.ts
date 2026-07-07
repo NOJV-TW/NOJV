@@ -38,8 +38,8 @@ export type TestcaseSetGroup = submissionDomain.TestcaseSetGroup;
 
 export async function fetchJudgeContext(
   submissionId: string,
-): Promise<submissionDomain.SubmissionJudgeContext> {
-  return submissionDomain.getJudgeContext(submissionId);
+): Promise<submissionDomain.JudgeDispatchMeta> {
+  return submissionDomain.getJudgeDispatchMeta(submissionId);
 }
 
 export function mergeSandboxSources(
@@ -160,7 +160,6 @@ function buildAdvancedPayload(
 export async function executeSandbox(
   submissionId: string,
   draft: SubmissionDraft,
-  judgeContext: submissionDomain.SubmissionJudgeContext,
 ): Promise<SubmissionResult> {
   const executor = getExecutor();
 
@@ -178,6 +177,8 @@ export async function executeSandbox(
       feedback: "Submission sources missing from storage; marked as system_error.",
     };
   }
+
+  const judgeContext = await submissionDomain.getJudgeContext(submissionId);
 
   const useSamples = draft.sampleOnly === true;
   const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";

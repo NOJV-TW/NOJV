@@ -21,7 +21,7 @@ export const apiTokenScopes = [
   "assignments:read",
   "admin:read",
 ] as const;
-export const userStatuses = ["active", "disabled", "pending_first_login"] as const;
+export const userStatuses = ["active", "pending_first_login"] as const;
 export const courseRoles = ["teacher", "ta", "student"] as const;
 export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as const;
 export const problemDifficulties = ["easy", "medium", "hard"] as const;
@@ -146,6 +146,7 @@ export type ProblemType = z.infer<typeof problemTypeSchema>;
 export type SubmissionMode = z.infer<typeof submissionModeSchema>;
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
+export type SubmissionOperationStatus = z.infer<typeof submissionOperationStatusSchema>;
 
 export const ipViolationModes = ["block", "notify"] as const;
 export const ipViolationModeSchema = z.enum(ipViolationModes);

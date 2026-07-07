@@ -87,6 +87,7 @@ export interface K8sExecutorConfig {
   egressProxyImage?: string;
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
+  maxParallelCases?: number;
 }
 
 function parseMemoryLimitMb(value: string): number {
@@ -111,6 +112,25 @@ const SIDECAR_READINESS_INTERVAL_MS = 500;
 const JOB_DEADLINE_BUFFER_SECONDS = 60;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const POD_SCHEDULE_GRACE_MS = 30_000;
+
+const DEFAULT_MAX_PARALLEL_CASES = 4;
+
+export function chunkCaseIndices(indices: number[], size: number): number[][] {
+  const chunkSize = Math.max(1, size);
+  const chunks: number[][] = [];
+  for (let i = 0; i < indices.length; i += chunkSize) {
+    chunks.push(indices.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+function resolveMaxParallelCases(config: Pick<K8sExecutorConfig, "maxParallelCases">): number {
+  if (config.maxParallelCases !== undefined && config.maxParallelCases > 0) {
+    return config.maxParallelCases;
+  }
+  const fromEnv = Number.parseInt(process.env.SANDBOX_MAX_PARALLEL_CASES ?? "", 10);
+  return Number.isInteger(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_MAX_PARALLEL_CASES;
+}
 
 export class SandboxBackpressureError extends Error {
   constructor(message: string) {
@@ -683,50 +703,65 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async runPerCasePod(request: SandboxRequest): Promise<SandboxResult> {
-    const jobName = `judge-${request.submissionId}`;
     const ns = this.config.namespace;
-    const caseIndices = request.testcases.map((tc) => tc.index);
+    const allCaseIndices = request.testcases.map((tc) => tc.index);
 
-    if (caseIndices.length === 0) return { testcaseResults: [] };
+    if (allCaseIndices.length === 0) return { testcaseResults: [] };
 
-    try {
-      const deadlineSeconds = computeJobDeadlineSeconds(request);
-      await this.createConfigMap(jobName, ns, buildRunConfigMapData(request));
-      await this.createPerCaseJob(
-        jobName,
-        ns,
-        jobName,
-        deadlineSeconds,
-        caseIndices,
-        resolveK8sMemoryLimit(request, this.config),
-      );
+    const waves = chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
+    const memoryLimit = resolveK8sMemoryLimit(request, this.config);
+    const rawRuns: RawCaseRun[] = [];
 
-      await this.waitForJobCompletion(jobName, ns, deadlineSeconds);
+    for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
+      const waveCaseIndices = waves[waveIndex] ?? [];
+      const jobName =
+        waves.length === 1
+          ? `judge-${request.submissionId}`
+          : `judge-${request.submissionId}-w${String(waveIndex)}`;
+      const waveRequest: SandboxRequest = {
+        ...request,
+        testcases: request.testcases.filter((tc) => waveCaseIndices.includes(tc.index)),
+      };
+      const deadlineSeconds = computeJobDeadlineSeconds(waveRequest);
 
-      const compileLog = await this.getContainerLogs(jobName, ns, COMPILE_CONTAINER_NAME);
-      const compileError = parseCompilationError(compileLog);
-      if (compileError) return { testcaseResults: [], compilationError: compileError };
-
-      const rawRuns: RawCaseRun[] = [];
-      for (const index of caseIndices) {
-        const logs = await this.getContainerLogs(jobName, ns, perCaseContainerName(index));
-        const parsed = logs ? this.parseRunnerOutput(logs) : null;
-        const run = parsed?.rawRuns?.[0];
-        rawRuns.push(
-          run ?? {
-            index,
-            stdout: "",
-            stderr: parsed?.pipelineError ?? "Case container produced no result.",
-            exitCode: -1,
-            timeMs: 0,
-            errorVerdict: "SE",
-          },
+      try {
+        await this.createConfigMap(jobName, ns, buildRunConfigMapData(waveRequest));
+        await this.createPerCaseJob(
+          jobName,
+          ns,
+          jobName,
+          deadlineSeconds,
+          waveCaseIndices,
+          memoryLimit,
         );
+
+        await this.waitForJobCompletion(jobName, ns, deadlineSeconds);
+
+        const compileLog = await this.getContainerLogs(jobName, ns, COMPILE_CONTAINER_NAME);
+        const compileError = parseCompilationError(compileLog);
+        if (compileError) return { testcaseResults: [], compilationError: compileError };
+
+        for (const index of waveCaseIndices) {
+          const logs = await this.getContainerLogs(jobName, ns, perCaseContainerName(index));
+          const parsed = logs ? this.parseRunnerOutput(logs) : null;
+          const run = parsed?.rawRuns?.[0];
+          rawRuns.push(
+            run ?? {
+              index,
+              stdout: "",
+              stderr: parsed?.pipelineError ?? "Case container produced no result.",
+              exitCode: -1,
+              timeMs: 0,
+              errorVerdict: "SE",
+            },
+          );
+        }
+      } finally {
+        await this.cleanup(jobName, ns);
       }
-      return { testcaseResults: [], rawRuns };
-    } finally {
-      await this.cleanup(jobName, ns);
     }
+
+    return { testcaseResults: [], rawRuns };
   }
 
   private async executeRunOnly(request: SandboxRequest): Promise<SandboxResult> {

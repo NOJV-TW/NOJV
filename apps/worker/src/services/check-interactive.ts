@@ -1,11 +1,8 @@
 import {
-  INTERACTIVE_RUN_MARKER,
-  INTERACTIVE_VALIDATE_MARKER,
-  parseMarkedLine,
-  type InteractiveRunReport,
+  parseInteractiveRunReport,
+  parseInteractiveValidatorReport,
   type SandboxTestcase,
   type SandboxTestcaseResult,
-  type ValidatorOutcome,
 } from "@nojv/core";
 
 export interface InteractiveSideResult {
@@ -34,14 +31,8 @@ export function mergeInteractiveCase(
   if (sol.spawnError) return se(sol.stderr, "Sandbox failed to start.");
   if (int.spawnError) return se(int.stderr, "Interactor failed to start (system error).");
 
-  const run = parseMarkedLine(
-    sol.stderr,
-    INTERACTIVE_RUN_MARKER,
-  ) as InteractiveRunReport | null;
-  const outcome = parseMarkedLine(
-    int.stderr,
-    INTERACTIVE_VALIDATE_MARKER,
-  ) as ValidatorOutcome | null;
+  const run = parseInteractiveRunReport(sol.stderr);
+  const outcome = parseInteractiveValidatorReport(int.stderr);
 
   if (!run) return se(sol.stderr, "Interactive run produced no result (system error).");
 

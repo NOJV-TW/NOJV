@@ -10,14 +10,21 @@ import type {
 
 import { ConfigurationError } from "./errors";
 
+export interface SubmissionJudgeState {
+  status: string;
+  running: boolean;
+}
+
 export interface DomainOrchestrationAdapter {
   cancelRejudge(workflowId: string): Promise<void>;
+  describeSubmissionJudge(submissionId: string): Promise<SubmissionJudgeState | null>;
   dispatchAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   dispatchContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   dispatchPlagiarismCheck(input: PlagiarismCheckInput): Promise<void>;
   dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }>;
   dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void>;
+  getRejudgeTriggeredBy(workflowId: string): Promise<string | null>;
   probeTemporal(): Promise<void>;
   queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress>;
   terminateSubmissionJudge(submissionId: string, reason: string): Promise<void>;

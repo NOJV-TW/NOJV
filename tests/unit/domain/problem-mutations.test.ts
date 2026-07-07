@@ -348,7 +348,12 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
     displayName: "Author",
     email: "author@example.com",
   };
-  const ownedProblem = { id: "prob_1", authorId: "usr_author", visibility: "private" };
+  const ownedProblem = {
+    id: "prob_1",
+    authorId: "usr_author",
+    visibility: "private",
+    status: "draft",
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -368,5 +373,13 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
 
     await expect(deleteProblemRecord(actor, "prob_1")).resolves.toBeDefined();
     expect(problemDelete).toHaveBeenCalledWith("prob_1");
+  });
+
+  it("refuses to delete a published problem, guarding its submission history", async () => {
+    problemFindById.mockResolvedValue({ ...ownedProblem, status: "published" });
+    problemHasContextLinks.mockResolvedValue(false);
+
+    await expect(deleteProblemRecord(actor, "prob_1")).rejects.toBeInstanceOf(ConflictError);
+    expect(problemDelete).not.toHaveBeenCalled();
   });
 });

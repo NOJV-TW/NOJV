@@ -11,6 +11,7 @@ import {
   advancedConfigSchema,
   judgeConfigSchema,
   languageSchema,
+  submissionResultSchema,
   submissionVerdicts,
   submissionVerdictSchema,
   verdictSummarySchema,
@@ -42,7 +43,7 @@ import type { ActorContext } from "../shared/actor-context";
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
-import { stripStaffFeedback } from "./scoring";
+import { sanitizeStudentResult } from "./scoring";
 import type {
   AdjustmentContext,
   AdvancedModeContext,
@@ -77,8 +78,12 @@ export async function getSubmissionSources(submissionId: string): Promise<Submis
   return storageGetSubmissionSources(storage(), submissionId);
 }
 
+// intentional-nullable: no verdict-detail blob exists until a submission is judged; a malformed or stale blob is treated as absent.
 export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult | null> {
-  return storageGetVerdictDetail<SubmissionResult>(storage(), submissionId);
+  const raw = await storageGetVerdictDetail(storage(), submissionId);
+  if (raw === null) return null;
+  const parsed = submissionResultSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
@@ -98,7 +103,9 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
     ? await getVerdictDetail(submissionId)
     : null;
   const result =
-    rawResult === null || viewerIsStaff ? rawResult : stripStaffFeedback(rawResult);
+    rawResult === null || viewerIsStaff
+      ? rawResult
+      : sanitizeStudentResult(rawResult, { sampleOnly: submission.sampleOnly });
 
   const sources = await getSubmissionSources(submissionId);
 
@@ -511,6 +518,28 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     workspaceFiles,
     advanced,
   };
+}
+
+export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced">;
+
+export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeDispatchMeta> {
+  const submission = await submissionRepo.findByIdForDispatchMeta(submissionId);
+  if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
+
+  const { problem } = submission;
+  const advancedConfig = parseAdvancedConfig(problem.advancedConfig, submissionId);
+  const advanced: AdvancedModeContext | null =
+    problem.type === "special_env" && advancedConfig !== null
+      ? {
+          config: advancedConfig,
+          resourceLimits: {
+            totalTimeMs: problem.timeLimitMs,
+            memoryMb: problem.memoryLimitMb,
+          },
+        }
+      : null;
+
+  return { problemType: problem.type, advanced };
 }
 
 function collectSamples(problem: { samples: unknown }): ProblemSample[] {

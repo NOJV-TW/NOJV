@@ -71,6 +71,24 @@ test.describe("Problem Lifecycle", () => {
   test("teacher publishes the problem", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
+
+    const testcaseRes = await page.request.post(
+      `/problems/${problemId}/edit?/createTestcaseSet`,
+      {
+        form: {
+          data: JSON.stringify({
+            name: "Sample",
+            weight: 1,
+            cases: [{ input: "1 2", output: "3" }],
+          }),
+        },
+        headers: formActionHeaders,
+      },
+    );
+    const testcaseBody = await testcaseRes.json();
+    expect(testcaseBody.type).not.toBe("error");
+    expect(testcaseBody.type).not.toBe("failure");
+
     const res = await page.request.post(`/problems/${problemId}/edit?/publish`, {
       form: {},
       headers: formActionHeaders,

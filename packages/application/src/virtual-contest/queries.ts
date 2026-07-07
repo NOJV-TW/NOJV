@@ -14,7 +14,7 @@ import {
   getVerdictDetail,
   narrowSubmissionRow,
 } from "../submission/queries";
-import { stripStaffFeedback } from "../submission/scoring";
+import { sanitizeStudentResult } from "../submission/scoring";
 import {
   buildScoreboard,
   type ParticipantRow,
@@ -289,7 +289,7 @@ export async function listVirtualContestProblemSubmissions(
     const raw = detailBlobs[idx];
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
-      ? stripStaffFeedback(parsed.data)
+      ? sanitizeStudentResult(parsed.data, { sampleOnly: false })
       : fallbackResultForRow(verdict, problemTotal);
     return {
       id: s.id,

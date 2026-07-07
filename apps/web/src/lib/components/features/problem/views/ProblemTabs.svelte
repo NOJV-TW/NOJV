@@ -6,6 +6,7 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { fetchWithCsrf } from "$lib/services/http";
+  import { toasts } from "$lib/stores/toast";
   import type { problemDomain } from "@nojv/application";
   import PublicProblemsTab from "../listings/PublicProblemsTab.svelte";
   import MyProblemsTab, { type EditableProblemCard } from "../listings/MyProblemsTab.svelte";
@@ -30,6 +31,8 @@
 
   let creating = $state(false);
   let showCreateMenu = $state(false);
+  let menuToggleEl = $state<HTMLElement | null>(null);
+  let menuEl = $state<HTMLDivElement | undefined>();
 
   let currentUrl = $derived(page.url);
   let tab = $derived<"public" | "mine">(
@@ -44,13 +47,43 @@
         method: "POST",
         body: JSON.stringify({ mode }),
       });
-      if (!res.ok) throw new Error("Failed to create problem");
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message ?? m.problems_createFailed());
+      }
       const body = (await res.json()) as { id: string; mode: "standard" | "advanced" };
       await goto(`/problems/${body.id}/edit`);
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : m.problems_createFailed());
     } finally {
       creating = false;
     }
   }
+
+  function handleMenuClickOutside(e: MouseEvent) {
+    if (menuToggleEl?.contains(e.target as Node) || menuEl?.contains(e.target as Node)) {
+      return;
+    }
+    showCreateMenu = false;
+  }
+
+  function handleMenuKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape") {
+      showCreateMenu = false;
+      menuToggleEl?.focus();
+    }
+  }
+
+  $effect(() => {
+    if (showCreateMenu) {
+      document.addEventListener("mousedown", handleMenuClickOutside);
+      document.addEventListener("keydown", handleMenuKeydown);
+      return () => {
+        document.removeEventListener("mousedown", handleMenuClickOutside);
+        document.removeEventListener("keydown", handleMenuKeydown);
+      };
+    }
+  });
 
   function setTab(nextTab: "public" | "mine") {
     const params = new URLSearchParams(currentUrl.searchParams);
@@ -77,14 +110,21 @@
     if (!deletingProblemId) return;
     showDeleteConfirm = false;
     isDeleting = true;
-    const fd = new FormData();
-    await fetch(`/problems/${deletingProblemId}/edit?/deleteProblem`, {
-      method: "POST",
-      body: fd,
-    });
-    isDeleting = false;
-    deletingProblemId = null;
-    await invalidateAll();
+    const problemId = deletingProblemId;
+    try {
+      const fd = new FormData();
+      const res = await fetch(`/problems/${problemId}/edit?/deleteProblem`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) throw new Error(m.problems_deleteFailed());
+      await invalidateAll();
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : m.problems_deleteFailed());
+    } finally {
+      isDeleting = false;
+      deletingProblemId = null;
+    }
   }
 </script>
 
@@ -123,6 +163,7 @@
             {creating ? m.common_saving() : m.problems_createNew()}
           </Button>
           <Button
+            bind:ref={menuToggleEl}
             aria-expanded={showCreateMenu}
             aria-haspopup="menu"
             aria-label={m.problems_createOptions()}
@@ -137,6 +178,7 @@
         </div>
         {#if showCreateMenu}
           <div
+            bind:this={menuEl}
             class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-hover"
             role="menu"
           >

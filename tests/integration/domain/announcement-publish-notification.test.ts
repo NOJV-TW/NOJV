@@ -114,7 +114,6 @@ describe("announcement publish fan-out", () => {
 
   it("skips users whose status is not active", async () => {
     const active = await createTestUser({ status: "active" });
-    const disabled = await createTestUser({ status: "disabled" });
     const pending = await createTestUser({ status: "pending_first_login" });
 
     await announcementDomain.createAnnouncement({
@@ -125,7 +124,6 @@ describe("announcement publish fan-out", () => {
     });
 
     expect(await countNotificationsByType(active.id, "announcement_published")).toBe(1);
-    expect(await countNotificationsByType(disabled.id, "announcement_published")).toBe(0);
     expect(await countNotificationsByType(pending.id, "announcement_published")).toBe(0);
   });
 

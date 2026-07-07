@@ -3,10 +3,24 @@
   import ToastProvider from "$lib/components/primitives/ui/ToastProvider.svelte";
   import { useGlobalShortcuts } from "$lib/stores/shortcuts.svelte.js";
   import { onNavigate } from "$app/navigation";
+  import { navigating } from "$app/state";
 
   let { children } = $props();
 
   useGlobalShortcuts();
+
+  let showProgress = $state(false);
+
+  $effect(() => {
+    if (!navigating.to) {
+      showProgress = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      showProgress = true;
+    }, 150);
+    return () => clearTimeout(timer);
+  });
 
   onNavigate((navigation) => {
     if (
@@ -24,6 +38,47 @@
   });
 </script>
 
+{#if showProgress}
+  <div class="nav-progress" aria-hidden="true">
+    <span class="nav-progress__bar bg-primary"></span>
+  </div>
+{/if}
+
 {@render children()}
 
 <ToastProvider />
+
+<style>
+  .nav-progress {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 100;
+    height: 2px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .nav-progress__bar {
+    display: block;
+    height: 100%;
+    width: 40%;
+    border-radius: 9999px;
+    animation: nav-progress-slide 1.1s ease-in-out infinite;
+  }
+
+  @keyframes nav-progress-slide {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(360%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-progress__bar {
+      width: 100%;
+      animation: none;
+    }
+  }
+</style>

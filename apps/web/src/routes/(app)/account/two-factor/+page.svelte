@@ -1,6 +1,6 @@
 <script lang="ts">
   import QRCode from "qrcode";
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
   import { authClient } from "$lib/auth.client";
@@ -13,7 +13,9 @@
 
   let { data }: { data: PageData } = $props();
 
-  let phase = $state<"idle" | "linkSent" | "setup">(data.enrollConfirmed ? "linkSent" : "idle");
+  let phase = $state<"idle" | "linkSent" | "setup">(
+    untrack(() => (data.enrollConfirmed ? "linkSent" : "idle")),
+  );
   let code = $state("");
   let password = $state("");
   let manageCode = $state("");

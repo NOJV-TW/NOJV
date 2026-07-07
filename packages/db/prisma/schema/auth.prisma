@@ -6,7 +6,6 @@ enum PlatformRole {
 
 enum UserStatus {
   active
-  disabled
   pending_first_login
 }
 

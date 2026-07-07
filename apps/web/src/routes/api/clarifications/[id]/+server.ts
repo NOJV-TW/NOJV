@@ -5,7 +5,11 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
+import {
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+  readJsonBody,
+} from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/application";
 
 const patchSchema = z.discriminatedUnion("kind", [
@@ -46,7 +50,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const id = requireId(event);
-  const parsed = parseBody(await event.request.json());
+  const parsed = parseBody(await readJsonBody(event));
 
   if (parsed.kind === "dismiss") {
     const updated = await clarificationDomain.dismiss(actor, id);

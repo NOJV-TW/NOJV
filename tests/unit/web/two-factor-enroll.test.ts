@@ -61,6 +61,7 @@ vi.mock("$lib/auth.server", () => ({
       verifyTOTP: verifyTotpMock,
       disableTwoFactor: disableTwoFactorMock,
       generateBackupCodes: generateBackupCodesMock,
+      listPasskeys: () => Promise.resolve([]),
     },
   }),
 }));

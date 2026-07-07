@@ -21,15 +21,17 @@ function readExpiry(formData: FormData): number {
   return Number.parseInt(readString(formData, "expiresInDays"), 10);
 }
 
-function classifyActionError(err: unknown): { message: string; status: 400 | 403 | 404 | 500 } {
+function classifyActionError(err: unknown): {
+  errorKey: string;
+  status: 400 | 403 | 404 | 500;
+} {
   if (err instanceof Error) {
     const status = "status" in err && typeof err.status === "number" ? err.status : 500;
-    if (status === 400 || status === 403 || status === 404) {
-      return { message: err.message, status };
-    }
-    return { message: err.message, status: 500 };
+    if (status === 400) return { errorKey: "invalid", status: 400 };
+    if (status === 403) return { errorKey: "forbidden", status: 403 };
+    if (status === 404) return { errorKey: "notFound", status: 404 };
   }
-  return { message: "Unexpected API token error.", status: 500 };
+  return { errorKey: "unexpected", status: 500 };
 }
 
 export const load = async (event: RequestEvent) => {
@@ -76,8 +78,8 @@ export const actions = {
       });
       return { kind: "created" as const, token: result.token, tokenItem: result.item };
     } catch (err) {
-      const { message, status } = classifyActionError(err);
-      return fail(status, { error: message });
+      const { errorKey, status } = classifyActionError(err);
+      return fail(status, { errorKey });
     }
   }),
 
@@ -102,8 +104,8 @@ export const actions = {
       });
       return { kind: "updated" as const };
     } catch (err) {
-      const { message, status } = classifyActionError(err);
-      return fail(status, { error: message });
+      const { errorKey, status } = classifyActionError(err);
+      return fail(status, { errorKey });
     }
   }),
 
@@ -124,8 +126,8 @@ export const actions = {
       });
       return { kind: "rotated" as const, token: result.token, tokenItem: result.item };
     } catch (err) {
-      const { message, status } = classifyActionError(err);
-      return fail(status, { error: message });
+      const { errorKey, status } = classifyActionError(err);
+      return fail(status, { errorKey });
     }
   }),
 
@@ -147,8 +149,8 @@ export const actions = {
       });
       return { kind: "revoked" as const };
     } catch (err) {
-      const { message, status } = classifyActionError(err);
-      return fail(status, { error: message });
+      const { errorKey, status } = classifyActionError(err);
+      return fail(status, { errorKey });
     }
   }),
 } satisfies Actions;

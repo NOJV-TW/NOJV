@@ -18,7 +18,7 @@ import type {
   ProblemUpdate,
   ProblemVisibility,
 } from "@nojv/core";
-import { DEFAULT_LOCALE, judgeConfigSchema } from "@nojv/core";
+import { advancedConfigSchema, DEFAULT_LOCALE, judgeConfigSchema } from "@nojv/core";
 
 import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -67,7 +67,6 @@ export async function createProblemDefinition(
     difficulty: input.difficulty ?? "medium",
     memoryLimitMb: input.memoryLimitMb ?? 256,
     samples: Prisma.JsonNull,
-    // Draft by default: displayId is assigned only on publish (updateProblemRecord).
     status: input.status ?? "draft",
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
@@ -100,6 +99,10 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   assertProblemOwnership(problem, actor);
+
+  if (problem.status !== "draft") {
+    throw new ConflictError("Only draft problems can be deleted.");
+  }
 
   if (await problemRepo.hasContextLinks(problemId)) {
     throw new ConflictError(
@@ -171,6 +174,25 @@ function assertSpecialEnvImageConsistency(
   }
 }
 
+async function assertProblemPublishable(
+  tx: TransactionClient,
+  problem: { id: string; type: ProblemType; advancedConfig: unknown },
+): Promise<void> {
+  if (problem.type === "special_env") {
+    if (!advancedConfigSchema.safeParse(problem.advancedConfig).success) {
+      throw new ConflictError(
+        "Advanced-mode problems require run and grade images before publishing.",
+      );
+    }
+    return;
+  }
+
+  const testcaseSetCount = await testcaseSetRepo.withTx(tx).countByProblem(problem.id);
+  if (testcaseSetCount === 0) {
+    throw new ConflictError("Problems require at least one testcase set before publishing.");
+  }
+}
+
 export async function updateProblemRecord(
   actor: ProblemActorContext,
   problemId: string,
@@ -181,11 +203,18 @@ export async function updateProblemRecord(
 
     assertProblemOwnership(problem, actor);
 
+    if (payload.status === "draft" && problem.status === "published") {
+      throw new ConflictError("Published problems cannot be reverted to draft.");
+    }
+
+    if (payload.status === "published" && problem.status !== "published") {
+      await assertProblemPublishable(tx, problem);
+    }
+
     const updateData = buildProblemUpdateData(payload);
 
     assertSpecialEnvImageConsistency(payload, problem);
 
-    // A problem gets its public displayId ("#N") the first time it is published.
     if (
       payload.status === "published" &&
       problem.status !== "published" &&

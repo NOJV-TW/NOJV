@@ -39,26 +39,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
       sourceCode: "print(1)",
     };
 
-    const judgeContext = {
-      problemType: "full_source",
-      judgeType: "standard",
-      samples: [],
-      testcaseSets: [],
-      workspaceFiles: [],
-      runtime: { timeLimitMs: 1_000, memoryLimitMb: 256, env: {} },
-      checkerScript: null,
-      interactorScript: null,
-      advanced: null,
-      compareOptions: null,
-      adjustment: {
-        assignmentAdjustmentRules: null,
-        dueAt: null,
-        finalDay: null,
-        submittedAt: new Date(0),
-      },
-    } as unknown as Parameters<typeof executeSandbox>[2];
-
-    const result = await executeSandbox("sub_missing", draft, judgeContext);
+    const result = await executeSandbox("sub_missing", draft);
 
     expect(executor.execute).not.toHaveBeenCalled();
     expect(updateStatusMock).toHaveBeenCalledTimes(1);

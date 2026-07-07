@@ -1,0 +1,99 @@
+{{- if and .Values.storage.inCluster .Values.storage.minio.backup.enabled }}
+{{/*
+Off-host mirror of the in-cluster MinIO bucket → an S3/R2 target the MinIO PVC
+does not depend on. In-cluster MinIO holds the ONLY copy of student submission
+sources, so this is a data-safety backup. Rendered only when
+storage.inCluster AND storage.minio.backup.enabled — disabled = nothing here, so
+no dangling reference to storage.minio.backup.credentialsSecret. Uses
+`mc mirror --overwrite` (no --remove: objects deleted from the source are kept
+in the mirror as an extra safety net). See docs/runbooks/backup-restore.md.
+*/}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "nojv.fullname" . }}-minio-backup
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio-backup
+spec:
+  schedule: {{ .Values.storage.minio.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: nojv-minio-backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          volumes:
+            - name: mc-home
+              emptyDir: {}
+          containers:
+            - name: mc
+              image: {{ .Values.storage.minio.backup.image }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  mc alias set src "$SRC_ENDPOINT" "$SRC_ACCESS_KEY" "$SRC_SECRET_KEY"
+                  mc alias set dst "$DST_ENDPOINT" "$DST_ACCESS_KEY" "$DST_SECRET_KEY"
+                  mc mb --ignore-existing "dst/$DST_BUCKET"
+                  mc mirror --overwrite "src/$SRC_BUCKET" "dst/$DST_BUCKET"
+              volumeMounts:
+                - name: mc-home
+                  mountPath: /tmp
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: MC_CONFIG_DIR
+                  value: /tmp/.mc
+                - name: SRC_ENDPOINT
+                  value: {{ printf "http://%s-minio.%s.svc:9000" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+                - name: SRC_BUCKET
+                  value: {{ .Values.storage.bucket | quote }}
+                - name: SRC_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "nojv.runtimeSecretName" . }}
+                      key: S3_ACCESS_KEY
+                - name: SRC_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "nojv.runtimeSecretName" . }}
+                      key: S3_SECRET_KEY
+                - name: DST_ENDPOINT
+                  value: {{ .Values.storage.minio.backup.destinationEndpoint | quote }}
+                - name: DST_BUCKET
+                  value: {{ .Values.storage.minio.backup.destinationBucket | quote }}
+                - name: AWS_REGION
+                  value: {{ .Values.storage.minio.backup.destinationRegion | quote }}
+                - name: DST_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.storage.minio.backup.credentialsSecret }}
+                      key: ACCESS_KEY_ID
+                - name: DST_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.storage.minio.backup.credentialsSecret }}
+                      key: ACCESS_SECRET_KEY
+              resources:
+                {{- toYaml .Values.storage.minio.backup.resources | nindent 16 }}
+{{- end }}

@@ -58,5 +58,35 @@
     "for": "5m",
     "severity": "critical",
     "summary": "HTTP 5xx error rate has exceeded 1% for 5 minutes — service availability SLO is breached. Page on-call immediately."
+  },
+  {
+    "uid": "nojv-node-disk-usage",
+    "title": "Node filesystem usage over 80%",
+    "slo": "Node disk headroom - filesystem usage < 80%",
+    "expr": "max(1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|ramfs\"}))",
+    "threshold": 0.8,
+    "for": "10m",
+    "severity": "critical",
+    "summary": "A node filesystem has exceeded 80% usage for 10m. This is the detection gap behind the 2026-07-04 disk-full incident (containerd wedged → CNPG evicted). Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
+  },
+  {
+    "uid": "nojv-pg-not-ready",
+    "title": "Postgres (CloudNativePG) instance not ready",
+    "slo": "Database availability - all CNPG instances reachable",
+    "expr": "count(up{job=\"cnpg-postgres\"} == 0)",
+    "threshold": 0,
+    "for": "2m",
+    "severity": "critical",
+    "summary": "One or more CloudNativePG Postgres instances failed scrape (not ready) for 2m. Postgres is the single durable store — a down instance means degraded or total outage. Dormant until a CNPG metrics scrape target (job=cnpg-postgres) is wired; see docs/operations/RELIABILITY.md."
+  },
+  {
+    "uid": "nojv-pg-backup-stale",
+    "title": "Postgres backup older than 26h",
+    "slo": "Backup freshness - last successful base backup < 26h old",
+    "expr": "(time() - max(cnpg_collector_last_available_backup_timestamp)) / 3600",
+    "threshold": 26,
+    "for": "30m",
+    "severity": "warning",
+    "summary": "The most recent CloudNativePG base backup is over 26h old (daily schedule + margin). Harmless while backups are off (metric absent → no data → OK); fires only once postgres.cnpg.backup.enabled is set and the CNPG metrics are scraped. See docs/runbooks/backup-restore.md."
   }
 ]

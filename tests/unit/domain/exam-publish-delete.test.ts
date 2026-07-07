@@ -89,12 +89,14 @@ function publishableExam(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   configureDomainOrchestration({
     cancelRejudge: vi.fn(async () => {}),
+    describeSubmissionJudge: vi.fn(async () => null),
     dispatchAssignmentDueSoon: vi.fn(async () => {}),
     dispatchContestLifecycle: vi.fn(async () => {}),
     dispatchExamAutoClose,
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(async () => {}),
+    getRejudgeTriggeredBy: vi.fn(async () => null),
     probeTemporal: vi.fn(async () => {}),
     queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
     terminateSubmissionJudge: vi.fn(async () => {}),

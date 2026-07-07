@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import type { ProblemCreate, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
+  import type { ProblemDraft, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
@@ -13,7 +13,7 @@
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
   interface Props {
-    formData: SuperValidated<ProblemCreate>;
+    formData: SuperValidated<ProblemDraft>;
     problemId: string;
     showRuntimeLimits?: boolean;
     ondirtychange?: (dirty: boolean) => void;

@@ -8,7 +8,7 @@ import type { SubmissionJudgeInput } from "@nojv/core";
 
 import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";
-import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
+import { NOTIFICATION_ACTIVITY, PLATFORM_QUEUE, SHORT_ACTIVITY } from "./activity-options";
 import { resolveScoringDispatch } from "./submission-judge-helpers";
 
 const judge = proxyActivities<typeof judgeActivities>({
@@ -23,7 +23,14 @@ const judgeSandbox = proxyActivities<typeof judgeActivities>({
 });
 
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
-const contest = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
+const platformNotification = proxyActivities<typeof lifecycleActivities>({
+  ...NOTIFICATION_ACTIVITY,
+  taskQueue: PLATFORM_QUEUE,
+});
+const platformContest = proxyActivities<typeof lifecycleActivities>({
+  ...SHORT_ACTIVITY,
+  taskQueue: PLATFORM_QUEUE,
+});
 
 export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Promise<void> {
   let rejudgeLogId: string | null = null;
@@ -39,23 +46,17 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   }
 
   try {
-    const judgeContext = await judge.fetchJudgeContext(input.submissionId);
+    const meta = await judge.fetchJudgeContext(input.submissionId);
 
-    const result = await judgeSandbox.executeSandbox(
-      input.submissionId,
-      input.draft,
-      judgeContext,
-    );
+    const result = await judgeSandbox.executeSandbox(input.submissionId, input.draft);
 
     const mode: "standard" | "advanced" =
-      judgeContext.problemType === "special_env" && judgeContext.advanced !== null
-        ? "advanced"
-        : "standard";
+      meta.problemType === "special_env" && meta.advanced !== null ? "advanced" : "standard";
     const submission = await judge.completeSubmission(
       input.submissionId,
       result,
       mode,
-      judgeContext.advanced?.config ?? null,
+      meta.advanced?.config ?? null,
     );
 
     if (submission === null) {
@@ -71,15 +72,18 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
 
     const dispatch = resolveScoringDispatch(submission);
     if (dispatch.kind === "contest") {
-      const contestId = await contest.updateContestScores(dispatch.contestId, dispatch.userId);
+      const contestId = await platformContest.updateContestScores(
+        dispatch.contestId,
+        dispatch.userId,
+      );
       if (contestId) {
         await notification.publishScoreboardUpdate(contestId);
       }
     } else if (dispatch.kind === "exam") {
-      await contest.updateExamScores(dispatch.examId, dispatch.userId);
+      await platformContest.updateExamScores(dispatch.examId, dispatch.userId);
     }
 
-    await notification.publishVerdict(submission);
+    await platformNotification.publishVerdict(submission);
 
     if (rejudgeLogId) {
       await judge.finalizeRejudgeLog(

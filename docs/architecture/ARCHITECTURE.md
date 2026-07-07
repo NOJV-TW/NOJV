@@ -60,12 +60,13 @@ packages/
   db/               Prisma schema, migrations, repositories (depends: core; +redis, storage in seed/ops scripts only)
   redis/            Connection, key registry, pub/sub (depends: core)
   storage/          S3-compatible object storage for images (depends: none)
+  sandbox-docker/   Shared hardened docker sandbox args for advanced packages (depends: none)
   temporal/         Temporal client + dispatch API + workflow I/O types + task queue constants (depends: core)
-  application/      Business logic — @nojv/application (depends: core, db, redis, storage)
+  application/      Business logic — @nojv/application (depends: core, db, redis, storage, sandbox-docker)
 
 apps/
   web/              SvelteKit BFF (depends: core, application, temporal, db, redis, storage)
-  worker/           Temporal worker boot + activity implementations (depends: core, temporal, application, db, redis, storage)
+  worker/           Temporal worker boot + activity implementations (depends: core, temporal, application, db, redis, storage, sandbox-docker)
   sandbox-runner/   Isolated sandbox (depends: core only)
 ```
 
@@ -87,36 +88,39 @@ No cycles. `application` exposes orchestration-shaped functions, but reaches Tem
 
 ### Dependency Rules
 
-| Package          | May import                                                          | Must NOT import                                                                |
-| ---------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `core`           | (nothing)                                                           | everything                                                                     |
-| `db`             | `core` ¶                                                            | application, temporal; redis/storage from `src/`                               |
-| `redis`          | `core`                                                              | application, db, temporal                                                      |
-| `application`    | `core`, `db`, `redis`, `storage` \*                                 | temporal, `@nojv/temporal/workflows`, web, worker                              |
-| `temporal`       | `core`                                                              | db, redis, application, web, worker (must stay self-contained to avoid cycles) |
-| `storage`        | (none of `@nojv/*`)                                                 | everything `@nojv/*`                                                           |
-| `web`            | `core`, `application`, `temporal` ‖, `storage` ※, `redis` †, `db` ‡ | temporal/workflows                                                             |
-| `worker`         | `core`, `temporal`, `application`, `db`, `redis`, `storage` §       | web                                                                            |
-| `sandbox-runner` | `core`                                                              | everything else                                                                |
+| Package          | May import                                                                      | Must NOT import                                                                |
+| ---------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `core`           | (nothing)                                                                       | everything                                                                     |
+| `db`             | `core` ¶                                                                        | application, temporal; redis/storage from `src/`                               |
+| `redis`          | `core`                                                                          | application, db, temporal                                                      |
+| `application`    | `core`, `db`, `redis`, `storage`, `sandbox-docker` \*                           | temporal, `@nojv/temporal/workflows`, web, worker                              |
+| `temporal`       | `core`                                                                          | db, redis, application, web, worker (must stay self-contained to avoid cycles) |
+| `storage`        | (none of `@nojv/*`)                                                             | everything `@nojv/*`                                                           |
+| `sandbox-docker` | (none of `@nojv/*`)                                                             | everything `@nojv/*`                                                           |
+| `web`            | `core`, `application`, `temporal` ‖, `storage` ※, `redis` †, `db` ‡             | temporal/workflows                                                             |
+| `worker`         | `core`, `temporal`, `application`, `db`, `redis`, `storage`, `sandbox-docker` § | web                                                                            |
+| `sandbox-runner` | `core`                                                                          | everything else                                                                |
 
 \* `application` reaches into `storage` from `problem/blobs.ts` to write
 problem image blobs alongside the DB row inside the same transaction.
 The transaction would lose atomicity if storage writes lived in `web`.
 
-† `web` uses `@nojv/redis` directly in four files that want the raw
+† `web` uses `@nojv/redis` directly in five files that want the raw
 Redis client rather than a domain-shaped wrapper: the SSE subscriber
 (`api/events/stream`), the contest scoreboard SSE stream
 (`contests/[contestId]/scoreboard/stream`), the shared SSE hub
-(`shared/sse-hub.ts`), and `RateLimiterRedis` (`shared/rate-limiter.ts`).
+(`shared/sse-hub.ts`), `RateLimiterRedis` (`shared/rate-limiter.ts`), and
+`auth.server.ts` (a better-auth hook writes the API-token step-up flag).
 Everything else goes through `@nojv/application`. The `no-restricted-imports`
 ESLint rule in `apps/web/eslint.config.mjs` is the single source of truth —
 it enforces this and lists the exact allow-list of files.
 
-‡ `web` uses `@nojv/db` only via `prismaAdapterClient` from
-`src/lib/auth.server.ts`, where the better-auth Prisma adapter
-requires a raw `PrismaClient`. All other route / loader / action code
-goes through `@nojv/application`; the ESLint rule above blocks new direct
-`@nojv/db` imports outside `auth.server.ts`.
+‡ `web` uses `@nojv/db` only from `src/lib/auth.server.ts`: the
+better-auth Prisma adapter requires a raw `PrismaClient`
+(`prismaAdapterClient`), and the same file's sign-in hook calls `userRepo`
+to attach placeholder accounts to the authenticated user. All other route /
+loader / action code goes through `@nojv/application`; the ESLint rule above
+blocks new direct `@nojv/db` imports outside `auth.server.ts`.
 
 ‖ `web` imports the `@nojv/temporal` root entry only in
 `src/lib/server/domain-orchestration.ts`, where it adapts Temporal
@@ -162,7 +166,7 @@ Responsibilities:
 - Serves OpenAPI 3.1 documents (`/api/openapi.{public,internal}.json`) and Scalar reference pages (`/docs`, `/docs/internal`) describing the existing API surface — documentation-only, assembled in `src/lib/server/openapi/` (internal paths split per-tag under `openapi/internal/`); a unit test (`tests/unit/openapi-contract.test.ts`) guards the docs against route drift
 
 Directly accesses: Redis (SSE subscriber + `RateLimiterRedis`), DB
-(better-auth adapter + a few repository-direct routes), and Temporal
+(better-auth adapter + `userRepo`, both in `auth.server.ts`), and Temporal
 only through `src/lib/server/domain-orchestration.ts`, which configures
 `@nojv/application`'s orchestration adapter. See the table above for why.
 

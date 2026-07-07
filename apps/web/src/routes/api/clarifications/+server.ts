@@ -8,6 +8,7 @@ import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
+  readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/application";
 
@@ -59,7 +60,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const body = askSchema.parse(await event.request.json());
+  const body = askSchema.parse(await readJsonBody(event));
   const row = await clarificationDomain.ask(actor, {
     context: body.context,
     problemId: body.problemId ?? null,

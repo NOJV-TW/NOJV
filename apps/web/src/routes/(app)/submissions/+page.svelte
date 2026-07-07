@@ -1,7 +1,9 @@
 <script lang="ts">
   import { Code2, History } from "@lucide/svelte";
   import { submissionResultVerdicts } from "@nojv/core";
+  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import { watchSubmissionVerdict } from "$lib/stores/sse";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
@@ -57,6 +59,27 @@
       return true;
     }),
   );
+
+  const PENDING_STATUSES = new Set(["pending_upload", "queued", "compiling", "running"]);
+  const pendingIds = $derived(
+    data.submissions.filter((sub) => PENDING_STATUSES.has(sub.status)).map((sub) => sub.id),
+  );
+
+  $effect(() => {
+    if (pendingIds.length === 0) return;
+    const unwatchers = pendingIds.map((id) =>
+      watchSubmissionVerdict(id, () => {
+        void invalidateAll();
+      }),
+    );
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") void invalidateAll();
+    }, 5000);
+    return () => {
+      for (const unwatch of unwatchers) unwatch();
+      clearInterval(interval);
+    };
+  });
 </script>
 
 <PageContainer>

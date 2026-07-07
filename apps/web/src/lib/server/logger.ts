@@ -1,5 +1,4 @@
 import pino, { type LoggerOptions } from "pino";
-import type { RequestEvent } from "@sveltejs/kit";
 
 const isGcpProduction =
   process.env.NODE_ENV === "production" &&
@@ -54,16 +53,4 @@ function wrap(child: pino.Logger): Logger {
 
 export function createLogger(context: string): Logger {
   return wrap(base.child({ context }));
-}
-
-export function getLogger(
-  context: string,
-  event: Pick<RequestEvent, "locals"> | { locals: { requestId?: string } },
-): Logger {
-  const requestId = event.locals.requestId;
-  const bindings: Record<string, string> = { context };
-  if (typeof requestId === "string" && requestId.length > 0) {
-    bindings.requestId = requestId;
-  }
-  return wrap(base.child(bindings));
 }

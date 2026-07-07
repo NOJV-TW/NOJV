@@ -22,6 +22,7 @@
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
     "@nojv/redis": "workspace:*",
+    "@nojv/sandbox-docker": "workspace:*",
     "@nojv/storage": "workspace:*",
     "@nojv/temporal": "workspace:*",
     "@opentelemetry/api": "catalog:",

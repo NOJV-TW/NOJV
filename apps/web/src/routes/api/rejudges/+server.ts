@@ -4,7 +4,11 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { writeApiHandler, assertJsonBodyWithinLimit } from "$lib/server/shared/api-handler";
+import {
+  writeApiHandler,
+  assertJsonBodyWithinLimit,
+  readJsonBody,
+} from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/application";
 
 const batchSchema = z.object({
@@ -20,7 +24,7 @@ const batchSchema = z.object({
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const body = batchSchema.parse(await event.request.json());
+  const body = batchSchema.parse(await readJsonBody(event));
 
   const batchInput: Parameters<typeof submissionDomain.dispatchRejudge>[0] = {
     mode: "batch",

@@ -5,12 +5,14 @@ import { load } from "../../../apps/web/src/routes/(app)/+layout.server";
 interface FakeEvent {
   locals: { session: unknown; sessionUser: unknown };
   cookies: { get: (name: string) => string | undefined };
+  url: URL;
 }
 
 function fakeEvent(over: Partial<FakeEvent["locals"]>, cookie?: string): FakeEvent {
   return {
     locals: { session: null, sessionUser: null, ...over },
     cookies: { get: () => cookie },
+    url: new URL("http://localhost/"),
   };
 }
 

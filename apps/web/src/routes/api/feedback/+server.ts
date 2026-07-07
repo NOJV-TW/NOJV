@@ -8,6 +8,7 @@ import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
+  readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { feedbackUpsertSchema } from "@nojv/core";
 import { feedbackDomain } from "@nojv/application";
@@ -46,7 +47,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 export const PUT: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const { context, ...input } = upsertSchema.parse(await event.request.json());
+  const { context, ...input } = upsertSchema.parse(await readJsonBody(event));
 
   const row = await feedbackDomain.upsertFeedback(actor, { context, input });
   return json(row);

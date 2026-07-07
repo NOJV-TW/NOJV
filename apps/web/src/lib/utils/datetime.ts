@@ -97,21 +97,6 @@ export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
   return formatPart(d);
 }
 
-const WEEKDAY_MESSAGES = [
-  m.weekday_short_0,
-  m.weekday_short_1,
-  m.weekday_short_2,
-  m.weekday_short_3,
-  m.weekday_short_4,
-  m.weekday_short_5,
-  m.weekday_short_6,
-] as const;
-
-export function fmtWeekday(iso: string | Date): string {
-  const d = typeof iso === "string" ? new Date(iso) : iso;
-  return WEEKDAY_MESSAGES[d.getDay()]?.() ?? "";
-}
-
 export function diffMs(iso: string | Date, now: Date = new Date()): number {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return d.getTime() - now.getTime();

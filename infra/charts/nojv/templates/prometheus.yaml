@@ -16,6 +16,12 @@ data:
         static_configs:
           - targets:
               - {{ printf "%s-otel-collector.%s.svc:8889" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+      {{- if .Values.observability.prometheus.nodeExporter.enabled }}
+      - job_name: node-exporter
+        static_configs:
+          - targets:
+              - {{ printf "%s-node-exporter.%s.svc:9100" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -55,7 +61,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-prometheus
       annotations:
-        checksum/config: {{ .Values.observability.prometheus.retention | toString | sha256sum }}
+        checksum/config: {{ printf "%s-%v" (.Values.observability.prometheus.retention | toString) .Values.observability.prometheus.nodeExporter.enabled | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true

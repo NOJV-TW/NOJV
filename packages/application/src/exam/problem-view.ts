@@ -15,7 +15,7 @@ import {
   getVerdictDetail,
   narrowSubmissionRow,
 } from "../submission/queries";
-import { stripStaffFeedback } from "../submission/scoring";
+import { sanitizeStudentResult } from "../submission/scoring";
 
 function letterForIndex(index: number): string {
   if (index < 0) return String(index + 1);
@@ -124,7 +124,7 @@ export async function getExamProblemView(options: {
     const raw = detailBlobs[idx];
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
-      ? stripStaffFeedback(parsed.data)
+      ? sanitizeStudentResult(parsed.data, { sampleOnly: false })
       : fallbackResultForRow(verdict, problemTotal);
     return {
       id: s.id,
@@ -235,7 +235,7 @@ export async function getExamProblemViewByProblemId(options: {
     const raw = detailBlobs[idx];
     const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
     const result = parsed?.success
-      ? stripStaffFeedback(parsed.data)
+      ? sanitizeStudentResult(parsed.data, { sampleOnly: false })
       : fallbackResultForRow(verdict, problemTotal);
     return {
       id: s.id,

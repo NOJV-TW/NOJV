@@ -24,10 +24,19 @@ postgres:
     storageClass: ""
     database: nojv
     owner: nojv
+    # CloudNativePG barman-cloud backup → S3/R2 object storage (base backups +
+    # continuous WAL archiving = point-in-time recovery). DEFAULT OFF: turning it
+    # on requires an existing credentials Secret (see s3CredentialsSecret), so the
+    # Cluster CR cannot reconcile until that Secret exists. Flip enabled=true only
+    # AFTER creating the Secret. See docs/runbooks/backup-restore.md.
     backup:
       enabled: false
+      # Bucket path the base backups + WAL land in, e.g. s3://nojv-db-backups/nojv-pg
       destinationPath: ""
+      # S3-compatible endpoint. Cloudflare R2: https://<account>.r2.cloudflarestorage.com
+      # (leave empty for AWS S3; set https://storage.googleapis.com for GCS).
       endpointURL: ""
+      # Name of a Secret in this namespace with keys ACCESS_KEY_ID / ACCESS_SECRET_KEY.
       s3CredentialsSecret: ""
       retentionPolicy: "30d"
       schedule: "0 0 3 * * *"
@@ -66,6 +75,31 @@ storage:
       limits:
         cpu: 500m
         memory: 512Mi
+    # Off-host mirror of the in-cluster MinIO bucket → S3/R2 (mc mirror CronJob).
+    # In-cluster MinIO holds the ONLY copy of student submission sources, so this
+    # is a data-safety backup, not a convenience. DEFAULT OFF: turning it on
+    # requires the credentialsSecret below to exist (else the CronJob fails). The
+    # CronJob is only rendered when storage.inCluster AND backup.enabled are true.
+    # See docs/runbooks/backup-restore.md.
+    backup:
+      enabled: false
+      image: minio/mc:latest
+      # Cron (UTC). Default 04:00, an hour after the Postgres backup at 03:00.
+      schedule: "0 4 * * *"
+      # Off-host mirror target (an S3/R2 endpoint the MinIO PVC does not depend on).
+      destinationEndpoint: "" # e.g. https://<account>.r2.cloudflarestorage.com
+      destinationBucket: "" # e.g. nojv-minio-mirror
+      destinationRegion: "auto"
+      # Secret in this namespace with keys ACCESS_KEY_ID / ACCESS_SECRET_KEY
+      # (can be the SAME Secret as postgres.cnpg.backup.s3CredentialsSecret).
+      credentialsSecret: ""
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
 
 temporal:
   address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
@@ -96,6 +130,22 @@ observability:
       limits:
         cpu: 500m
         memory: 1Gi
+    # Node/disk metrics source (host filesystem, memory, load). Closes the
+    # detection gap behind the 2026-07-04 disk-full incident: without it,
+    # Prometheus has no node_filesystem_* series and the disk-usage alert in
+    # infra/grafana/alerts/slo-alerts.json has no data to fire on. When enabled,
+    # prometheus.yml gains a static scrape job for the DaemonSet's ClusterIP
+    # Service (correct on a single node; on multi-node use kube-prometheus).
+    nodeExporter:
+      enabled: false
+      image: prom/node-exporter:v1.9.1
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
   grafana:
     enabled: false
     image: grafana/grafana:11.6.1

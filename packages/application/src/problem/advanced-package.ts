@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
 
 import { load as loadYaml } from "js-yaml";
-import { Open, type Entry as ZipEntry, type File as ZipFile } from "unzipper";
+import { Open } from "unzipper";
 
 import {
   advancedConfigSchema,
@@ -33,12 +33,24 @@ import {
 } from "@nojv/core";
 import { problemRepo, problemStatementRepo, runTransaction } from "@nojv/db";
 import { deleteAdvancedImageTarball, uploadAdvancedImageTarball } from "@nojv/storage";
+import {
+  ADVANCED_SERVICE_PORT,
+  EGRESS_PROXY_IMAGE,
+  EGRESS_PROXY_PORT,
+  PROXY_READY_MARKER,
+  SANDBOX_RUN_USER,
+  SERVICE_NETWORK_ALIAS,
+  SERVICE_READY_MARKER,
+  buildAdvancedProxyArgs,
+  buildAdvancedServiceArgs,
+} from "@nojv/sandbox-docker";
 
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { storage } from "../shared/storage-singleton";
 
 import { assertProblemEditAccess, type ProblemActorContext } from "./permissions";
+import { readZipEntryBounded } from "./zip-utils";
 
 const MAX_ADVANCED_PACKAGE_ENTRIES = 1_000;
 const MAX_ADVANCED_PACKAGE_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
@@ -50,13 +62,6 @@ const MAX_ADVANCED_SAMPLE_OUTPUT_BYTES = 1024 * 1024 * 1024;
 const DOCKER_LOG_LIMIT = 20_000;
 const SAMPLE_CPU_LIMIT = "1";
 const SAMPLE_PIDS_LIMIT = 256;
-const RUN_USER = "10001:10001";
-const SERVICE_NETWORK_ALIAS = "service";
-const SERVICE_PORT = 8888;
-const SERVICE_READY_MARKER = "NOJV_SERVICE_READY";
-const PROXY_IMAGE = "nojv-egress-proxy:local";
-const PROXY_PORT = 8888;
-const PROXY_READY_MARKER = "NOJV_PROXY_READY";
 
 type AdvancedImageRole = "run" | "grade" | "service";
 
@@ -116,55 +121,6 @@ function normalizePackagePath(path: string): string | null {
   }
 }
 
-async function readEntryBounded(entry: ZipFile, maxBytes: number): Promise<Buffer> {
-  if (maxBytes <= 0) {
-    throw new ConflictError(
-      `Advanced package exceeds ${String(MAX_ADVANCED_PACKAGE_UNCOMPRESSED_BYTES)} bytes uncompressed.`,
-    );
-  }
-  const stream: ZipEntry = entry.stream();
-  return new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    let settled = false;
-    const drainEntry = (): void => {
-      try {
-        void stream
-          .autodrain()
-          .promise()
-          .catch(() => undefined);
-      } catch {
-        return;
-      }
-    };
-    stream.on("data", (chunk: Buffer) => {
-      if (settled) return;
-      total += chunk.length;
-      if (total > maxBytes) {
-        settled = true;
-        drainEntry();
-        reject(
-          new ConflictError(
-            `Advanced package entry "${entry.path}" exceeds the uncompressed size limit.`,
-          ),
-        );
-        return;
-      }
-      chunks.push(chunk);
-    });
-    stream.on("end", () => {
-      if (settled) return;
-      settled = true;
-      resolve(Buffer.concat(chunks));
-    });
-    stream.on("error", (err: Error) => {
-      if (settled) return;
-      settled = true;
-      reject(err);
-    });
-  });
-}
-
 async function extractPackage(zipBuffer: Buffer, dir: string): Promise<Set<string>> {
   let archive;
   try {
@@ -190,9 +146,13 @@ async function extractPackage(zipBuffer: Buffer, dir: string): Promise<Set<strin
   for (const entry of fileEntries) {
     const relPath = normalizePackagePath(entry.path);
     if (relPath === null) continue;
-    const buf = await readEntryBounded(
+    const buf = await readZipEntryBounded(
       entry,
       MAX_ADVANCED_PACKAGE_UNCOMPRESSED_BYTES - totalBytes,
+      (path) =>
+        new ConflictError(
+          `Advanced package entry "${path}" exceeds the uncompressed size limit.`,
+        ),
     );
     totalBytes += buf.byteLength;
     const dest = join(dir, relPath);
@@ -296,39 +256,11 @@ function boundedLogAppend(current: string, chunk: Buffer): string {
   return next.length > DOCKER_LOG_LIMIT ? next.slice(next.length - DOCKER_LOG_LIMIT) : next;
 }
 
-function runDocker(args: string[], failure: Omit<AdvancedPackageIssue, "logs">): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
-    let logs = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      logs = boundedLogAppend(logs, chunk);
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      logs = boundedLogAppend(logs, chunk);
-    });
-    child.on("error", (err) => {
-      reject(
-        new AdvancedPackageError({
-          ...failure,
-          message: `${failure.message}: ${err.message}`,
-          logs,
-        }),
-      );
-    });
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(
-        new AdvancedPackageError({
-          ...failure,
-          message: `${failure.message}: docker exited with code ${String(code)}`,
-          logs,
-        }),
-      );
-    });
-  });
+async function runDocker(
+  args: string[],
+  failure: Omit<AdvancedPackageIssue, "logs">,
+): Promise<void> {
+  await runDockerText(args, failure);
 }
 
 function runDockerText(
@@ -535,44 +467,6 @@ interface ImageRefs {
   service?: ImageRef;
 }
 
-async function readSampleEntryBounded(entry: ZipFile, remainingBytes: number): Promise<Buffer> {
-  if (remainingBytes <= 0) {
-    throw new ConflictError(
-      `Advanced sample submission exceeds ${String(MAX_ADVANCED_SAMPLE_BYTES)} bytes uncompressed.`,
-    );
-  }
-  const stream: ZipEntry = entry.stream();
-  return new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    let settled = false;
-    stream.on("data", (chunk: Buffer) => {
-      if (settled) return;
-      total += chunk.length;
-      if (total > remainingBytes) {
-        settled = true;
-        void stream
-          .autodrain()
-          .promise()
-          .catch(() => undefined);
-        reject(new ConflictError(`Advanced sample entry "${entry.path}" is too large.`));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    stream.on("end", () => {
-      if (settled) return;
-      settled = true;
-      resolve(Buffer.concat(chunks));
-    });
-    stream.on("error", (err: Error) => {
-      if (settled) return;
-      settled = true;
-      reject(err);
-    });
-  });
-}
-
 async function extractSampleSubmission(
   sampleZipPath: string,
   submissionDir: string,
@@ -605,7 +499,11 @@ async function extractSampleSubmission(
   for (const entry of fileEntries) {
     const relPath = normalizePackagePath(entry.path);
     if (relPath === null) continue;
-    const buf = await readSampleEntryBounded(entry, MAX_ADVANCED_SAMPLE_BYTES - totalBytes);
+    const buf = await readZipEntryBounded(
+      entry,
+      MAX_ADVANCED_SAMPLE_BYTES - totalBytes,
+      (path) => new ConflictError(`Advanced sample entry "${path}" is too large.`),
+    );
     totalBytes += buf.byteLength;
     const dest = join(submissionDir, relPath);
     await mkdir(dirname(dest), { recursive: true });
@@ -692,7 +590,7 @@ function buildSampleRunArgs(params: {
     "--security-opt",
     "no-new-privileges",
     "--user",
-    RUN_USER,
+    SANDBOX_RUN_USER,
     "--read-only",
     "--tmpfs",
     "/tmp:rw,exec,nosuid,nodev,size=64m",
@@ -831,35 +729,14 @@ async function startSampleService(params: {
 }): Promise<string> {
   const containerName = sampleContainerName(params.problemId, params.sampleName, "svc");
   await runDocker(
-    [
-      "run",
-      "-d",
-      "--rm",
-      "--name",
+    buildAdvancedServiceArgs({
       containerName,
-      "--network",
-      params.internalNetwork,
-      "--network-alias",
-      SERVICE_NETWORK_ALIAS,
-      "--env",
-      `PORT=${String(SERVICE_PORT)}`,
-      "--cap-drop",
-      "ALL",
-      "--security-opt",
-      "no-new-privileges",
-      "--read-only",
-      "--tmpfs",
-      "/tmp:rw,exec,nosuid,nodev,size=64m",
-      "--memory",
-      `${String(params.memoryMb)}m`,
-      "--memory-swap",
-      `${String(params.memoryMb)}m`,
-      "--cpus",
-      SAMPLE_CPU_LIMIT,
-      "--pids-limit",
-      String(SAMPLE_PIDS_LIMIT),
-      params.imageRef,
-    ],
+      internalName: params.internalNetwork,
+      imageRef: params.imageRef,
+      memoryMb: params.memoryMb,
+      cpuLimit: SAMPLE_CPU_LIMIT,
+      pidsLimit: SAMPLE_PIDS_LIMIT,
+    }),
     {
       code: "ADV_SAMPLE_SERVICE_START_FAILED",
       phase: "sample",
@@ -891,45 +768,17 @@ async function startSampleProxy(params: {
 }): Promise<string> {
   const containerName = sampleContainerName(params.problemId, params.sampleName, "proxy");
   await runDocker(
-    [
-      "run",
-      "-d",
-      "--rm",
-      "--name",
+    buildAdvancedProxyArgs({
       containerName,
-      "--network",
-      params.internalNetwork,
-      "--user",
-      RUN_USER,
-      "--cap-drop",
-      "ALL",
-      "--security-opt",
-      "no-new-privileges",
-      "--read-only",
-      "--tmpfs",
-      "/tmp:rw,exec,nosuid,nodev,size=16m",
-      "--memory",
-      "128m",
-      "--memory-swap",
-      "128m",
-      "--cpus",
-      "0.25",
-      "--pids-limit",
-      "128",
-      "--env",
-      `NOJV_ALLOWLIST=${params.allowlist
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join(",")}`,
-      "--env",
-      `NOJV_PROXY_PORT=${String(PROXY_PORT)}`,
-      PROXY_IMAGE,
-    ],
+      internalName: params.internalNetwork,
+      allowlist: params.allowlist,
+      port: EGRESS_PROXY_PORT,
+    }),
     {
       code: "ADV_SAMPLE_PROXY_START_FAILED",
       phase: "sample",
       message: "Failed to start the sample egress proxy.",
-      fix: `Build ${PROXY_IMAGE} or switch network.mode to none/service.`,
+      fix: `Build ${EGRESS_PROXY_IMAGE} or switch network.mode to none/service.`,
     },
   );
   try {
@@ -1017,7 +866,9 @@ async function runOneSample(params: {
       });
       startedContainers.push(serviceContainer);
       networkArgs = ["--network", networks.internal];
-      extraEnv = { NOJV_SERVICE_HOST: `${SERVICE_NETWORK_ALIAS}:${String(SERVICE_PORT)}` };
+      extraEnv = {
+        NOJV_SERVICE_HOST: `${SERVICE_NETWORK_ALIAS}:${String(ADVANCED_SERVICE_PORT)}`,
+      };
     } else if (params.manifest.network.mode === "allowlist") {
       networks = await createSampleNetworks(params.problemId, params.sample.name);
       const proxyContainer = await startSampleProxy({
@@ -1029,7 +880,7 @@ async function runOneSample(params: {
       });
       startedContainers.push(proxyContainer);
       networkArgs = ["--network", networks.internal];
-      const proxyUrl = `http://${proxyContainer}:${String(PROXY_PORT)}`;
+      const proxyUrl = `http://${proxyContainer}:${String(EGRESS_PROXY_PORT)}`;
       extraEnv = {
         HTTP_PROXY: proxyUrl,
         HTTPS_PROXY: proxyUrl,

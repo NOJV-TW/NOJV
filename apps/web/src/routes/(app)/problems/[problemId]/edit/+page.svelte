@@ -178,15 +178,15 @@
         </Button>
       {/if}
       {#if data.problem.status === "draft"}
+        {#if !canPublish}
+          <span class="max-w-[16rem] text-right text-caption text-muted-foreground">
+            {isAdvanced ? m.admin_advancedPublishHint() : m.admin_publishTooltip()}
+          </span>
+        {/if}
         <Button
           size="sm"
           loading={isPublishing}
           disabled={!canPublish || isPublishing}
-          title={canPublish
-            ? undefined
-            : isAdvanced
-              ? m.admin_advancedPublishHint()
-              : m.admin_publishTooltip()}
           onclick={handlePublishClick}
         >
           {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}

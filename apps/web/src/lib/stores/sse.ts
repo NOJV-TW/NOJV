@@ -143,10 +143,6 @@ export function watchSubmissionVerdict(
   };
 }
 
-export function isSSEConnected(): boolean {
-  return eventSource !== null;
-}
-
 function reconnectIfConnected(): void {
   if (!browser) return;
   if (!eventSource) return;

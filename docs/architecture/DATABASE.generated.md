@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_43 models and 36 enums across 9 schema files._
+_44 models and 37 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -23,7 +23,7 @@ _43 models and 36 enums across 9 schema files._
 
 #### `UserStatus`
 
-`active` · `disabled` · `pending_first_login`
+`active` · `pending_first_login`
 
 ### Models
 
@@ -631,6 +631,10 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 
 ### Enums
 
+#### `AdminAuditAction`
+
+`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `editorial_report_resolve` · `editorial_report_dismiss` · `announcement_create` · `announcement_delete`
+
 #### `AnnouncementAudience`
 
 `all` · `students` · `teachers`
@@ -644,6 +648,21 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 `pending` · `running` · `completed` · `failed`
 
 ### Models
+
+#### `AdminAuditLog`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `actorId` | `String?` | — |
+| `actorName` | `String` | — |
+| `action` | `AdminAuditAction` | — |
+| `targetType` | `String?` | — |
+| `targetId` | `String?` | — |
+| `summary` | `String` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+
+Indexes & constraints: `@@index([createdAt])`
 
 #### `Announcement`
 

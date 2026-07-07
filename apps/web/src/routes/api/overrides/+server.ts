@@ -8,6 +8,7 @@ import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
+  readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { scoreOverrideDomain } from "@nojv/application";
 
@@ -52,7 +53,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const body = createSchema.parse(await event.request.json());
+  const body = createSchema.parse(await readJsonBody(event));
 
   const row = await scoreOverrideDomain.createOverride(actor, body);
   return json(row, { status: 201 });
