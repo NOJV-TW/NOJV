@@ -1,8 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { enhance } from "$app/forms";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
-  import { Check, ChevronRight, KeyRound, LogIn, Pencil, ShieldCheck, X } from "@lucide/svelte";
+  import { Check, ChevronRight, KeyRound, Pencil, ShieldCheck, X } from "@lucide/svelte";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
@@ -17,6 +18,10 @@
 
   let editingName = $state(false);
   let editingUsername = $state(false);
+
+  let oauthBusy = $state(false);
+  let oauthError = $state("");
+  const providerLabel: Record<string, string> = { github: "GitHub", google: "Google" };
 
   function mapCode(code: string): string {
     switch (code) {
@@ -311,13 +316,57 @@
             </span>
             <ChevronRight aria-hidden="true" class={securityChevronClass} />
           </a>
-          <a href="/account/connections" class={securityLinkClass}>
-            <span class="flex items-center gap-2.5">
-              <LogIn aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
-              {m.account_loginMethods_title()}
-            </span>
-            <ChevronRight aria-hidden="true" class={securityChevronClass} />
-          </a>
+        </div>
+      </Card>
+
+      <Card variant="surface" size="md">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-title-sm">登入方式</h2>
+          <p class="text-body-sm text-muted-foreground">
+            綁定 Google 或 GitHub,之後任一種都能登入同一個帳號。
+          </p>
+        </div>
+        {#if oauthError}
+          <p class="text-body-sm text-destructive" role="alert">{oauthError}</p>
+        {/if}
+        <div class="flex flex-col gap-3">
+          {#each data.providers as { provider, linked } (provider)}
+            <div
+              class="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3"
+            >
+              <span class="text-body-sm font-medium">{providerLabel[provider] ?? provider}</span>
+              <form
+                method="POST"
+                action={linked ? "?/unlink" : "?/link"}
+                use:enhance={() => {
+                  oauthError = "";
+                  oauthBusy = true;
+                  return async ({ result, update }) => {
+                    oauthBusy = false;
+                    if (result.type === "failure") {
+                      oauthError = (result.data?.error as string) ?? "";
+                      return;
+                    }
+                    if (result.type === "success" && result.data?.unlinked) {
+                      toasts.success(`已移除 ${providerLabel[provider] ?? provider}`);
+                    }
+                    await update();
+                  };
+                }}
+              >
+                <input type="hidden" name="provider" value={provider} />
+                <button
+                  type="submit"
+                  disabled={oauthBusy}
+                  class="rounded-md border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50 {linked
+                    ? 'border-destructive/40 text-destructive'
+                    : 'border-border'}"
+                >
+                  {linked ? "解除綁定" : "綁定"}
+                </button>
+              </form>
+            </div>
+          {/each}
         </div>
       </Card>
     </div>

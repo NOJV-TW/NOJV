@@ -94,6 +94,16 @@ function enabledEmailHtml(): string {
   });
 }
 
+function passkeyRemovedEmailHtml(): string {
+  return renderEmail({
+    heading: "帳號登入方式變更 · Sign-in method changed",
+    intro:
+      "<p>你的 NOJV 帳號剛移除了一個登入方式：<strong>passkey</strong>。</p><p>A sign-in method was just removed from your NOJV account: <strong>passkey</strong>.</p>",
+    outro:
+      "若這不是你本人操作，請立即聯絡管理員並檢查帳號安全。<br>If this wasn't you, contact an administrator and secure your account.",
+  });
+}
+
 const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid", string> = {
   malformed: "Enter a 6-digit code or a backup code.",
   replayed: "That code was already used. Wait for a new code.",
@@ -102,12 +112,18 @@ const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid", string>
 
 export const load = async (event: RequestEvent) => {
   const actor = requireAuth(event);
+  const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
   return {
     twoFactorEnabled: event.locals.sessionUser?.twoFactorEnabled ?? false,
     isSuperAdmin: event.locals.sessionUser?.isSuperAdmin ?? false,
     hasPassword: await userHasCredentialPassword(actor.userId),
     enrollConfirmed: await hasEnrollConfirmed(actor.userId),
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
+    passkeys: passkeys.map((p) => ({
+      id: p.id,
+      name: p.name ?? "Passkey",
+      createdAt: p.createdAt,
+    })),
   };
 };
 
@@ -288,5 +304,30 @@ export const actions = {
         error: "Could not regenerate codes. Check your password and try again.",
       });
     }
+  },
+
+  deletePasskey: async (event) => {
+    const actor = requireAuth(event);
+    const id = formString(await event.request.formData(), "id");
+    if (!id) {
+      return fail(400, { error: "Missing passkey id." });
+    }
+    try {
+      await getAuth().api.deletePasskey({ body: { id }, headers: event.request.headers });
+    } catch {
+      return fail(400, { error: "Could not remove this passkey." });
+    }
+    try {
+      await getMailer().sendEmail({
+        to: actor.email,
+        subject: "NOJV 帳號登入方式變更",
+        html: passkeyRemovedEmailHtml(),
+      });
+    } catch (err) {
+      logger.error("passkey delete notification email failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return { deletedPasskey: true };
   },
 } satisfies Actions;

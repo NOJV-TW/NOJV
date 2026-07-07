@@ -1,16 +1,49 @@
 import { userDomain } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
+import { getAuth } from "$lib/auth.server";
 import { isReservedUsername } from "$lib/utils/school";
 import { requireAuth } from "$lib/server/auth";
+import {
+  isLinkProvider,
+  LINKABLE_PROVIDERS,
+  wouldOrphanAccount,
+} from "$lib/server/account-connections";
+import { createLogger } from "$lib/server/logger";
+import { getMailer } from "$lib/server/mailer";
+import { renderEmail } from "$lib/server/mailer/template";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { nameSchema, usernameSchema } from "./schemas";
+
+const connectionsLogger = createLogger("account-connections");
+
+function formString(formData: FormData, name: string): string {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+function changeEmailHtml(provider: string, action: "linked" | "unlinked"): string {
+  const verb = action === "linked" ? "新增了" : "移除了";
+  const verbEn = action === "linked" ? "added to" : "removed from";
+  return renderEmail({
+    heading: "帳號登入方式變更 · Sign-in method changed",
+    intro: `<p>你的 NOJV 帳號剛${verb}一個登入方式：<strong>${provider}</strong>。</p><p>A sign-in method was just ${verbEn} your NOJV account: <strong>${provider}</strong>.</p>`,
+    outro:
+      "若這不是你本人操作，請立即聯絡管理員並檢查帳號安全。<br>If this wasn't you, contact an administrator and secure your account.",
+  });
+}
+
+async function listProviderIds(event: RequestEvent): Promise<string[]> {
+  const accounts = await getAuth().api.listUserAccounts({ headers: event.request.headers });
+  return accounts.map((account) => account.providerId);
+}
 
 const ERROR_STATUS: Record<string, number> = {
   VERIFIED_LOCKED: 409,
@@ -47,6 +80,8 @@ export const load: PageServerLoad = async (event) => {
   const nameForm = await superValidate({ name: locals.user.name }, zod4(nameSchema));
   const usernameForm = await superValidate({ username: username ?? "" }, zod4(usernameSchema));
 
+  const linkedProviderIds = await listProviderIds(event);
+
   return {
     email: locals.user.email,
     username: username ?? "\u2014",
@@ -57,6 +92,10 @@ export const load: PageServerLoad = async (event) => {
     platformRole,
     nameForm,
     usernameForm,
+    providers: LINKABLE_PROVIDERS.map((provider) => ({
+      provider,
+      linked: linkedProviderIds.includes(provider),
+    })),
   };
 };
 
@@ -109,4 +148,51 @@ export const actions = {
       text: merged ? "MERGED" : "OK",
     });
   }),
+
+  link: async (event) => {
+    requireAuth(event);
+    const provider = formString(await event.request.formData(), "provider");
+    if (!isLinkProvider(provider)) {
+      return fail(400, { error: "Unknown provider." });
+    }
+    const res = await getAuth().api.linkSocialAccount({
+      body: { provider, callbackURL: "/account" },
+      headers: event.request.headers,
+    });
+    if (res.url) {
+      redirect(303, res.url);
+    }
+    return fail(400, { error: "Could not start linking." });
+  },
+
+  unlink: async (event) => {
+    const actor = requireAuth(event);
+    const provider = formString(await event.request.formData(), "provider");
+    if (!isLinkProvider(provider)) {
+      return fail(400, { error: "Unknown provider." });
+    }
+    if (wouldOrphanAccount(await listProviderIds(event), provider)) {
+      return fail(400, { error: "You can't remove your only sign-in method." });
+    }
+    try {
+      await getAuth().api.unlinkAccount({
+        body: { providerId: provider },
+        headers: event.request.headers,
+      });
+    } catch {
+      return fail(400, { error: "Could not unlink this provider." });
+    }
+    try {
+      await getMailer().sendEmail({
+        to: actor.email,
+        subject: "NOJV 帳號登入方式變更",
+        html: changeEmailHtml(provider, "unlinked"),
+      });
+    } catch (err) {
+      connectionsLogger.error("unlink notification email failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return { unlinked: provider };
+  },
 } satisfies Actions;
