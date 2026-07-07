@@ -10,6 +10,8 @@ kind: Cluster
 metadata:
   name: {{ include "nojv.cnpgClusterName" . }}
   namespace: {{ include "nojv.namespace" . }}
+  annotations:
+    "helm.sh/resource-policy": keep
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres

@@ -17,7 +17,11 @@ metadata:
 spec:
   interval: 5m
   path: ./infra/flux
-  prune: true
+  # prune stays false: the CNPG database Cluster CR is Helm-managed on local-path
+  # storage; a prune cascade could delete it and destroy student data. Do not
+  # enable until the DB has resource-policy:keep, PV Retain, and a rehearsed
+  # restore. See docs/plans/active/2026-07-08-flux-gitops-cutover.md.
+  prune: false
   sourceRef:
     kind: GitRepository
     name: nojv

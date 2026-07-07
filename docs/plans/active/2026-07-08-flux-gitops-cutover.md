@@ -92,9 +92,28 @@ Tunnel topology already allows. Nothing pushes in.
   build-push to GHCR (the HEAD-freshness guard + prune stay on the build side).
 - Deregister the self-hosted runner + revoke its token (closes the P0).
 
+## ⛔ Hard prerequisite — DB durability (do NOT cut over until ALL true)
+
+A 2026-07-08 prod inspection found the student database **one accident away from
+total, irreversible loss**, which a `prune`-capable GitOps controller would make
+far more likely. Handing Flux the `nojv` release before these hold is negligent:
+
+- [x] **PV reclaim = Retain** on `nojv-pg-1` and `nojv-minio` (was `Delete` on
+      `local-path` → PVC deletion = data gone). Patched live 2026-07-08; also
+      set this on any re-provisioned volume.
+- [x] **`helm.sh/resource-policy: keep`** on the CNPG `Cluster` CR (chart) so
+      helm/helm-controller can never delete it.
+- [x] **Flux `Kustomization` `prune: false`** (`infra/flux/git-repository.yaml`).
+      Do not flip to `true` while the DB is in the pruned set.
+- [ ] **CNPG backups enabled + a restore rehearsed** (Issue #209 — currently
+      NO `ScheduledBackup`/`Backup` objects exist). This is the real launch
+      blocker; needs the R2/S3 credentials secret. **Cutover is gated on this.**
+
 ## Migration Phases
 
 Each phase is independently verifiable; do not proceed on a failed check.
+Phase 0 is the prerequisite gate above — do not start phase 1 until backups
+are enabled and a restore has been rehearsed.
 
 1. **Prep credentials.** Create a git deploy key (write) for the image-
    automation commits and a GHCR read token for image scanning (images are
@@ -131,8 +150,12 @@ Each phase is independently verifiable; do not proceed on a failed check.
   `main`, which `ci.yml` (`on: push`) would rebuild. Mitigate: give `ci.yml` a
   `paths-ignore: [infra/flux/image-tag.yaml]`, or have the automation commit
   with a bot identity CI skips. **Decide before step 5.**
-- **Release ownership handoff.** Flux adopting the live `nojv` release can
-  churn resources. Rehearse with `flux diff`; keep PVCs on any reinstall.
+- **Release ownership handoff (DATA-LOSS RISK).** Flux adopting the live `nojv`
+  release runs helm against a release that contains the Helm-managed CNPG
+  `Cluster` CR. A bad reconcile / prune could delete the Cluster → the operator
+  drops the PVC. Mitigated by the prerequisite gate above (Retain PVs +
+  resource-policy:keep + prune:false + backups). Rehearse with `flux diff`;
+  never `helm uninstall` without confirming PVs are Retain and backed up.
 - **Secrets in an open repo.** `nojv-runtime-secrets` stays created out-of-band
   (current posture). If we ever want secrets in git, adopt SOPS or Sealed
   Secrets — **follow-up, not required for cutover.**
