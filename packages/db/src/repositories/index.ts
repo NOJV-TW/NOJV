@@ -1,4 +1,6 @@
 export { accountRepo } from "./account";
+export { adminAuditLogRepo } from "./admin-audit";
+export type { AdminAuditLogCreateInput } from "./admin-audit";
 export { announcementRepo } from "./announcement";
 export { authCleanupRepo } from "./auth-cleanup";
 export { announcementTranslationRepo } from "./announcement-translation";

@@ -62,6 +62,8 @@ spec:
               value: {{ include "nojv.image" (dict "root" . "component" "egressProxy") }}
             - name: WORKER_CONCURRENCY
               value: {{ .Values.worker.platform.concurrency | quote }}
+            - name: SUBMISSION_PENDING_TIMEOUT_MINUTES
+              value: {{ .Values.worker.platform.submissionPendingTimeoutMinutes | quote }}
             - name: K8S_CPU_REQUEST
               value: {{ .Values.worker.sandbox.cpuRequest | quote }}
             - name: K8S_CPU_LIMIT

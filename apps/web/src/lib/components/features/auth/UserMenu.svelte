@@ -7,6 +7,7 @@
   import UserIcon from "@lucide/svelte/icons/user";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import ShieldIcon from "@lucide/svelte/icons/shield";
+  import KeyRoundIcon from "@lucide/svelte/icons/key-round";
 
   let user = $derived(page.data.user);
   let session = $derived(page.data.session);
@@ -103,7 +104,7 @@
         <div class="border-b border-border-subtle px-4 py-2.5">
           <p class="truncate text-body-sm font-medium">{user.name}</p>
           <p class="truncate text-caption text-muted-foreground">
-            {user.email}
+            {user.username ? `@${user.username}` : user.email}
           </p>
         </div>
 
@@ -116,6 +117,16 @@
           >
             <UserIcon aria-hidden="true" size={16} />
             {m.navigation_account()}
+          </a>
+
+          <a
+            class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
+            href="/account/api-tokens"
+            onclick={() => (open = false)}
+            role="menuitem"
+          >
+            <KeyRoundIcon aria-hidden="true" size={16} />
+            {m.userMenu_apiTokens()}
           </a>
         {/if}
 

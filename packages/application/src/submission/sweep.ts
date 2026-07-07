@@ -1,35 +1,20 @@
 import {
   DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES,
-  SUBMISSION_PENDING_TIMEOUT_SETTING_KEY,
   submissionPendingTimeoutMinutesSchema,
 } from "@nojv/core";
-import {
-  authCleanupRepo,
-  platformSettingRepo,
-  submissionRejudgeLogRepo,
-  submissionRepo,
-} from "@nojv/db";
+import { authCleanupRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 
-import { ValidationError } from "../shared/errors";
 import { getDomainOrchestration } from "../shared/orchestration";
 
 const PENDING_STATUSES = ["pending_upload", "queued", "compiling", "running"];
 
 const REJUDGE_LOG_RETENTION_DAYS = 90;
 
-export async function getSubmissionPendingTimeoutMinutes(): Promise<number> {
-  const row = await platformSettingRepo.get(SUBMISSION_PENDING_TIMEOUT_SETTING_KEY);
-  if (!row) return DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES;
-  const parsed = submissionPendingTimeoutMinutesSchema.safeParse(row.value);
+export function getSubmissionPendingTimeoutMinutes(): number {
+  const parsed = submissionPendingTimeoutMinutesSchema.safeParse(
+    process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES,
+  );
   return parsed.success ? parsed.data : DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES;
-}
-
-export async function setSubmissionPendingTimeoutMinutes(minutes: number): Promise<void> {
-  const parsed = submissionPendingTimeoutMinutesSchema.safeParse(minutes);
-  if (!parsed.success) {
-    throw new ValidationError("Pending timeout must be between 10 and 1440 minutes.");
-  }
-  await platformSettingRepo.set(SUBMISSION_PENDING_TIMEOUT_SETTING_KEY, String(parsed.data));
 }
 
 export interface SweepStaleSubmissionsResult {
@@ -42,7 +27,7 @@ export interface SweepStaleSubmissionsResult {
 }
 
 export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResult> {
-  const timeoutMinutes = await getSubmissionPendingTimeoutMinutes();
+  const timeoutMinutes = getSubmissionPendingTimeoutMinutes();
   const cutoff = new Date(Date.now() - timeoutMinutes * 60_000);
   const stale = await submissionRepo.findStalePendingIds(cutoff);
 

@@ -110,6 +110,34 @@ export const userRepo = {
     });
   },
 
+  async countDeletionBlockers(id: string): Promise<number> {
+    const [ownedCourses, createdAssessments] = await Promise.all([
+      prisma.course.count({ where: { ownerId: id } }),
+      prisma.assessment.count({ where: { createdByUserId: id } }),
+    ]);
+    return ownedCourses + createdAssessments;
+  },
+
+  delete(id: string) {
+    return prisma.user.delete({ where: { id } });
+  },
+
+  anonymizeAndDisable(id: string) {
+    return prisma.user.update({
+      where: { id },
+      data: {
+        disabled: true,
+        isSuperAdmin: false,
+        platformRole: "student",
+        username: null,
+        displayUsername: null,
+        image: null,
+        name: "Deleted user",
+        email: `deleted+${id}@deleted.nojv.local`,
+      },
+    });
+  },
+
   createPlaceholder(input: { username: string; addedByUserId: string | null }) {
     return prisma.user.create({
       data: {

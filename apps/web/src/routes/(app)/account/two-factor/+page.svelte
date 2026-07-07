@@ -3,6 +3,7 @@
   import { onDestroy } from "svelte";
   import { enhance } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
+  import { authClient } from "$lib/auth.client";
   import { m } from "$lib/paraglide/messages.js";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -26,6 +27,29 @@
   let savedBackupCodes = $state(false);
   let verified = $state<{ redirectTo: string | null } | null>(null);
   let redirectTimer: ReturnType<typeof setTimeout> | undefined;
+
+  let passkeyBusy = $state(false);
+  let passkeyError = $state("");
+
+  async function addPasskey() {
+    passkeyError = "";
+    passkeyBusy = true;
+    try {
+      const res = await authClient.passkey.addPasskey({
+        name: `Passkey ${data.passkeys.length + 1}`,
+      });
+      if (res?.error) {
+        passkeyError = res.error.message ?? "無法新增 passkey。";
+        return;
+      }
+      toasts.success("已新增 passkey");
+      await invalidateAll();
+    } catch {
+      passkeyError = "無法新增 passkey。";
+    } finally {
+      passkeyBusy = false;
+    }
+  }
 
   function secretFromUri(uri: string): string {
     try {
@@ -462,6 +486,61 @@
           </form>
         {/if}
       {/if}
+    </Card>
+
+    <Card variant="surface" size="md">
+      <div class="flex flex-col gap-1">
+        <h2 class="text-title-sm">Passkey</h2>
+        <p class="text-body-sm text-muted-foreground">
+          用裝置的生物辨識或 PIN 進行敏感操作驗證,不需密碼,適用任何登入方式。
+        </p>
+      </div>
+      {#if passkeyError}
+        <p class="text-caption text-destructive" role="alert">{passkeyError}</p>
+      {/if}
+      <div class="flex flex-col gap-3">
+        {#each data.passkeys as passkey (passkey.id)}
+          <div
+            class="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3"
+          >
+            <span class="text-body-sm font-medium">{passkey.name}</span>
+            <form
+              method="POST"
+              action="?/deletePasskey"
+              use:enhance={() => {
+                passkeyError = "";
+                passkeyBusy = true;
+                return async ({ result, update }) => {
+                  passkeyBusy = false;
+                  if (result.type === "failure") {
+                    passkeyError = (result.data?.error as string) ?? "";
+                    return;
+                  }
+                  toasts.success("已移除 passkey");
+                  await update();
+                };
+              }}
+            >
+              <input type="hidden" name="id" value={passkey.id} />
+              <button
+                type="submit"
+                disabled={passkeyBusy}
+                class="rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                移除
+              </button>
+            </form>
+          </div>
+        {/each}
+        <button
+          type="button"
+          onclick={addPasskey}
+          disabled={passkeyBusy}
+          class="self-start rounded-md border border-border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          新增 passkey
+        </button>
+      </div>
     </Card>
   </Section>
 </PageContainer>

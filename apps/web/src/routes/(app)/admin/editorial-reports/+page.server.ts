@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
-import { editorialDomain } from "@nojv/application";
+import { auditDomain, editorialDomain } from "@nojv/application";
 
 const { listEditorialReports, resolveEditorialReport } = editorialDomain;
 
@@ -41,6 +41,14 @@ export const actions = {
     if (!id) return fail(400, { error: "ID is required." });
 
     await resolveEditorialReport(actor, id, "resolve");
+    await auditDomain.recordAdminAudit({
+      actorId: actor.userId,
+      actorName: actor.displayName,
+      action: "editorial_report_resolve",
+      targetType: "editorial_report",
+      targetId: id,
+      summary: id,
+    });
     return { success: true };
   }),
 
@@ -50,6 +58,14 @@ export const actions = {
     if (!id) return fail(400, { error: "ID is required." });
 
     await resolveEditorialReport(actor, id, "dismiss");
+    await auditDomain.recordAdminAudit({
+      actorId: actor.userId,
+      actorName: actor.displayName,
+      action: "editorial_report_dismiss",
+      targetType: "editorial_report",
+      targetId: id,
+      summary: id,
+    });
     return { success: true };
   }),
 } satisfies Actions;

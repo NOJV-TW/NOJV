@@ -1,5 +1,6 @@
 export {
   countAssignmentProblemAttemptsInWindow,
+  listAllSubmissionsPaged,
   listRejudgeLogsPaged,
   deriveJudgeMode,
   deriveSubmissionMode,
@@ -49,7 +50,6 @@ export {
 } from "./scoring";
 export {
   getSubmissionPendingTimeoutMinutes,
-  setSubmissionPendingTimeoutMinutes,
   sweepStaleSubmissions,
   type SweepStaleSubmissionsResult,
 } from "./sweep";

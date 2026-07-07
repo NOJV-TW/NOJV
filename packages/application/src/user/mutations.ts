@@ -69,6 +69,33 @@ const USERNAME_FORMAT_RE = /^[a-z0-9._-]+$/;
 const USERNAME_MAX_LENGTH = 64;
 const NAME_MAX_LENGTH = 64;
 
+export interface DeleteUserResult {
+  mode: "hard" | "soft";
+  name: string;
+}
+
+export async function deleteUser(
+  actorIsSuperAdmin: boolean,
+  userId: string,
+): Promise<DeleteUserResult | null> {
+  const user = await userRepo.findById(userId);
+  if (!user) return null;
+
+  const involvesAdmin = user.platformRole === "admin" || user.isSuperAdmin;
+  if (involvesAdmin && !actorIsSuperAdmin) {
+    throw new ForbiddenError("Only a super admin can delete an admin account.");
+  }
+
+  const blockers = await userRepo.countDeletionBlockers(userId);
+  if (blockers > 0) {
+    await userRepo.anonymizeAndDisable(userId);
+    return { mode: "soft", name: user.name };
+  }
+
+  await userRepo.delete(userId);
+  return { mode: "hard", name: user.name };
+}
+
 export async function renameName(userId: string, newName: string): Promise<void> {
   const trimmed = newName.trim();
   if (trimmed.length === 0 || trimmed.length > NAME_MAX_LENGTH) {
