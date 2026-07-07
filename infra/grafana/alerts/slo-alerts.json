@@ -7,7 +7,8 @@
     "threshold": 15,
     "for": "10m",
     "severity": "warning",
-    "summary": "Simple-problem judge p95 latency has exceeded the 15s SLO for 10m."
+    "noDataState": "Alerting",
+    "summary": "Simple-problem judge p95 latency has exceeded the 15s SLO for 10m (or the judge_latency_seconds metric is absent — a dead judging tier now pages instead of silently mapping NoData to OK)."
   },
   {
     "uid": "nojv-slo-judge-latency-advanced",
@@ -17,7 +18,19 @@
     "threshold": 60,
     "for": "10m",
     "severity": "warning",
-    "summary": "Advanced-mode judge p95 latency has exceeded the 60s SLO for 10m."
+    "noDataState": "Alerting",
+    "summary": "Advanced-mode judge p95 latency has exceeded the 60s SLO for 10m (or the judge_latency_seconds metric is absent — a dead judging tier now pages instead of silently mapping NoData to OK)."
+  },
+  {
+    "uid": "nojv-submissions-stuck",
+    "title": "Submissions stuck in a non-terminal state",
+    "slo": "No submission sits pending/judging past the sweeper timeout",
+    "expr": "max(nojv_submissions_stuck)",
+    "threshold": 0,
+    "for": "10m",
+    "severity": "critical",
+    "noDataState": "NoData",
+    "summary": "One or more submissions have sat in a non-terminal (pending/judging) state past the pending-timeout for 10m — the positive signal for a dead judging tier that judge-latency NoData alone can mask. Placeholder expr: requires a SQL/exporter-backed gauge nojv_submissions_stuck (count of submissions in a non-terminal state older than the pending timeout). Sits in NoData until that exporter is wired; see docs/operations/RELIABILITY.md."
   },
   {
     "uid": "nojv-slo-api-latency",

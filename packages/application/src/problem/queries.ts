@@ -14,10 +14,12 @@ import {
   judgeConfigSchema,
   judgeTypes,
   problemDifficultySchema,
+  problemSampleSchema,
   type AdvancedConfig,
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
+  type ProblemSample,
   type ProblemStatus,
   type ProblemType,
   type ProblemVisibility,
@@ -62,19 +64,15 @@ export interface ProblemDetail {
   advancedRequiredPaths: string[];
 }
 
-function buildProblemSamples(problem: {
-  samples?: unknown;
-}): { input: string; output: string }[] {
+export function buildProblemSamples(problem: { samples?: unknown }): ProblemSample[] {
   if (!Array.isArray(problem.samples)) return [];
-  return problem.samples
-    .filter(
-      (s): s is { input: string; output: string } =>
-        typeof s === "object" &&
-        s !== null &&
-        typeof (s as { input?: unknown }).input === "string" &&
-        typeof (s as { output?: unknown }).output === "string",
-    )
-    .map((s) => ({ input: s.input, output: s.output }));
+  const samples: ProblemSample[] = [];
+  for (const entry of problem.samples) {
+    const parsed = problemSampleSchema.safeParse(entry);
+    if (parsed.success) samples.push(parsed.data);
+    if (samples.length === 5) break;
+  }
+  return samples;
 }
 
 export function buildStarterByLanguage(

@@ -1,21 +1,9 @@
-import {
-  assessmentRepo,
-  contestRepo,
-  courseMembershipRepo,
-  examRepo,
-  problemRepo,
-  submissionRepo,
-} from "@nojv/db";
+import { assessmentRepo, contestRepo, examRepo, problemRepo, submissionRepo } from "@nojv/db";
 import type { RejudgeInput } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";
-
-async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {
-  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
-  if (membership?.status !== "active") return false;
-  return membership.role === "teacher" || membership.role === "ta";
-}
+import { isCourseStaff } from "../shared/permissions";
 
 export async function canOperateOnSubmission(
   actor: ActorContext,
@@ -38,13 +26,13 @@ export async function canOperateOnSubmission(
   if (submission.assessmentId) {
     const assignment = await assessmentRepo.findByIdWithCourseId(submission.assessmentId);
     if (!assignment) return false;
-    return isCourseTeacherOrTa(actor.userId, assignment.courseId);
+    return isCourseStaff(actor.userId, assignment.courseId);
   }
 
   if (submission.examId) {
     const exam = await examRepo.findById(submission.examId);
     if (!exam) return false;
-    return isCourseTeacherOrTa(actor.userId, exam.courseId);
+    return isCourseStaff(actor.userId, exam.courseId);
   }
 
   const problem = await problemRepo.findById(submission.problemId);
@@ -83,7 +71,7 @@ export async function assertBatchRejudgeAccess(
 
   if (input.assessmentId) {
     const assignment = await assessmentRepo.findByIdWithCourseId(input.assessmentId);
-    if (!assignment || !(await isCourseTeacherOrTa(actor.userId, assignment.courseId))) {
+    if (!assignment || !(await isCourseStaff(actor.userId, assignment.courseId))) {
       throw new ForbiddenError("Not course staff for this assignment.");
     }
     return;
@@ -91,7 +79,7 @@ export async function assertBatchRejudgeAccess(
 
   if (input.examId) {
     const exam = await examRepo.findById(input.examId);
-    if (!exam || !(await isCourseTeacherOrTa(actor.userId, exam.courseId))) {
+    if (!exam || !(await isCourseStaff(actor.userId, exam.courseId))) {
       throw new ForbiddenError("Not course staff for this exam.");
     }
     return;

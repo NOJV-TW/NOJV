@@ -8,6 +8,7 @@ import {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
+import { problemLetter } from "../shared/problem-letter";
 import { canManageContest } from "./permissions";
 
 export interface ContestListItem {
@@ -296,12 +297,6 @@ export interface ContestProblemSibling {
   href: string;
 }
 
-function letterForIndex(index: number): string {
-  if (index < 0) return String(index + 1);
-  if (index < 26) return String.fromCodePoint(65 + index);
-  return String(index + 1);
-}
-
 export async function listContestProblemSiblings(options: {
   contestId: string;
   problems: ContestProblemSummary[];
@@ -329,7 +324,7 @@ export async function listContestProblemSiblings(options: {
 
   return options.problems.map((p, index) => ({
     id: p.id,
-    letter: letterForIndex(index),
+    letter: problemLetter(index + 1),
     title: p.title,
     bestScore: bestByProblemId.get(p.id),
     maxScore: p.points,

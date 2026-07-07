@@ -323,9 +323,9 @@
 
       <Card variant="surface" size="md">
         <div class="flex flex-col gap-1">
-          <h2 class="text-title-sm">登入方式</h2>
+          <h2 class="text-title-sm">{m.account_connections_title()}</h2>
           <p class="text-body-sm text-muted-foreground">
-            綁定 Google 或 GitHub,之後任一種都能登入同一個帳號。
+            {m.account_connections_hint()}
           </p>
         </div>
         {#if oauthError}
@@ -351,7 +351,11 @@
                       return;
                     }
                     if (result.type === "success" && result.data?.unlinked) {
-                      toasts.success(`已移除 ${providerLabel[provider] ?? provider}`);
+                      toasts.success(
+                        m.account_connections_unlinked({
+                          provider: providerLabel[provider] ?? provider,
+                        }),
+                      );
                     }
                     await update();
                   };
@@ -365,7 +369,7 @@
                     ? 'border-destructive/40 text-destructive'
                     : 'border-border'}"
                 >
-                  {linked ? "解除綁定" : "綁定"}
+                  {linked ? m.account_connections_unlink() : m.account_connections_link()}
                 </button>
               </form>
             </div>

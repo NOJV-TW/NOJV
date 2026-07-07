@@ -3,7 +3,6 @@ export {
   listAllSubmissionsPaged,
   listRejudgeLogsPaged,
   deriveJudgeMode,
-  deriveSubmissionMode,
   findOneForRejudge,
   getJudgeContext,
   getJudgeDispatchMeta,

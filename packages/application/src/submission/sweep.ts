@@ -32,10 +32,20 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
   const cutoff = new Date(Date.now() - timeoutMinutes * 60_000);
   const stale = await submissionRepo.findStalePendingIds(cutoff);
 
+  const openRejudgeSubmissionIds = new Set(
+    (await submissionRejudgeLogRepo.listForSubmissionIds(stale.map((s) => s.id)))
+      .filter((log) => log.newVerdict === null)
+      .map((log) => log.submissionId),
+  );
+
   let killed = 0;
   let failed = 0;
   let skipped = 0;
   for (const { id } of stale) {
+    if (openRejudgeSubmissionIds.has(id)) {
+      skipped += 1;
+      continue;
+    }
     try {
       const state = await getDomainOrchestration().describeSubmissionJudge(id);
       if (state?.running) {

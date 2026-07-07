@@ -42,6 +42,7 @@ spec:
           containers:
             - name: mc
               image: {{ .Values.storage.minio.backup.image }}
+              imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true

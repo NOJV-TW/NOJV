@@ -210,11 +210,12 @@ export const actions = {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
+    const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
     try {
       await publishAssignment(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
+      return message(form, { kind: "error", text: classified.message }, { status: 400 });
     }
 
     return { success: true };
@@ -224,11 +225,12 @@ export const actions = {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
+    const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
     try {
       await revertAssignmentToDraft(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
+      return message(form, { kind: "error", text: classified.message }, { status: 400 });
     }
 
     return { success: true };
@@ -238,11 +240,12 @@ export const actions = {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
+    const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
     try {
       await deleteAssignmentDraft(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
+      return message(form, { kind: "error", text: classified.message }, { status: 400 });
     }
 
     redirect(303, "/assignments");

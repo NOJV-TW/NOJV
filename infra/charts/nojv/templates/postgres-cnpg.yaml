@@ -57,4 +57,20 @@ spec:
   cluster:
     name: {{ include "nojv.cnpgClusterName" . }}
 {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nojv.cnpgClusterName" . }}-metrics
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  selector:
+    cnpg.io/cluster: {{ include "nojv.cnpgClusterName" . }}
+  ports:
+    - name: metrics
+      port: 9187
+      targetPort: 9187
 {{- end }}

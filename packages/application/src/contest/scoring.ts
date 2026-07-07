@@ -11,7 +11,7 @@ import {
   type ContestScoringMode,
   type ScoreboardMode,
 } from "@nojv/core";
-import { getRedis, keys } from "@nojv/redis";
+import { createRateLimiterConnection, keys } from "@nojv/redis";
 import { z } from "zod";
 
 import { NotFoundError } from "../shared/errors";
@@ -20,6 +20,13 @@ const SCOREBOARD_CACHE_TTL_SECONDS = 10;
 const SCOREBOARD_LOCK_TTL_SECONDS = 5;
 const SCOREBOARD_LOCK_POLL_ATTEMPTS = 5;
 const SCOREBOARD_LOCK_POLL_INTERVAL_MS = 80;
+
+let scoreboardRedisClient: ReturnType<typeof createRateLimiterConnection> | undefined;
+
+function scoreboardRedis(): ReturnType<typeof createRateLimiterConnection> {
+  scoreboardRedisClient ??= createRateLimiterConnection();
+  return scoreboardRedisClient;
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -90,6 +97,16 @@ const scoreboardSchema = z.object({
   isFrozen: z.boolean(),
 });
 
+const scoreboardChartSchema = z.object({
+  series: z.array(
+    z.object({
+      userId: z.string(),
+      username: z.string(),
+      points: z.array(z.object({ time: z.number(), score: z.number() })),
+    }),
+  ),
+});
+
 type ContestParticipationWithContest = NonNullable<
   Awaited<ReturnType<typeof participationRepo.findContestForScoring>>
 >;
@@ -122,6 +139,34 @@ export async function updateContestScores(
   return participation ? participation.contest.id : null;
 }
 
+async function readCachedScoreboard(
+  redis: ReturnType<typeof scoreboardRedis>,
+  cacheKey: string,
+): Promise<Scoreboard | null> {
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached === null) return null;
+    const parsed = scoreboardSchema.safeParse(JSON.parse(cached));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readCachedChart(
+  redis: ReturnType<typeof scoreboardRedis>,
+  cacheKey: string,
+): Promise<ScoreboardChart | null> {
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached === null) return null;
+    const parsed = scoreboardChartSchema.safeParse(JSON.parse(cached));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getScoreboard(
   contestId: string,
   options?: { canSeeLive?: boolean },
@@ -129,32 +174,34 @@ export async function getScoreboard(
   const canSeeLive = options?.canSeeLive === true;
   const variant = canSeeLive ? "live" : "public";
   const cacheKey = keys.scoreboardCache(contestId, variant);
-  const redis = getRedis();
+  const lockKey = keys.scoreboardLock(contestId, variant);
+  const redis = scoreboardRedis();
 
-  const cached = await redis.get(cacheKey);
-  if (cached !== null) {
-    const parsed = scoreboardSchema.safeParse(JSON.parse(cached));
-    if (parsed.success) return parsed.data;
+  const cached = await readCachedScoreboard(redis, cacheKey);
+  if (cached) return cached;
+
+  let acquired: boolean;
+  try {
+    acquired =
+      (await redis.set(lockKey, "1", "EX", SCOREBOARD_LOCK_TTL_SECONDS, "NX")) === "OK";
+  } catch {
+    return computeScoreboard(contestId, canSeeLive);
   }
 
-  const lockKey = keys.scoreboardLock(contestId, variant);
-  const acquired = await redis.set(lockKey, "1", "EX", SCOREBOARD_LOCK_TTL_SECONDS, "NX");
-
-  if (acquired !== "OK") {
+  if (!acquired) {
     for (let attempt = 0; attempt < SCOREBOARD_LOCK_POLL_ATTEMPTS; attempt++) {
       await sleep(SCOREBOARD_LOCK_POLL_INTERVAL_MS);
-      const polled = await redis.get(cacheKey);
-      if (polled !== null) {
-        const parsed = scoreboardSchema.safeParse(JSON.parse(polled));
-        if (parsed.success) return parsed.data;
-      }
+      const polled = await readCachedScoreboard(redis, cacheKey);
+      if (polled) return polled;
     }
     return computeScoreboard(contestId, canSeeLive);
   }
 
   try {
     const result = await computeScoreboard(contestId, canSeeLive);
-    await redis.set(cacheKey, JSON.stringify(result), "EX", SCOREBOARD_CACHE_TTL_SECONDS);
+    await redis
+      .set(cacheKey, JSON.stringify(result), "EX", SCOREBOARD_CACHE_TTL_SECONDS)
+      .catch(() => undefined);
     return result;
   } finally {
     await redis.del(lockKey).catch(() => undefined);
@@ -170,6 +217,8 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
 
   const now = new Date();
   const scoreboardMode = contest.scoreboardMode;
+  const effectiveFrozenAt =
+    scoreboardMode === "frozen" && contest.frozenAt == null ? now : contest.frozenAt;
   const showFrozen =
     !canSeeLive &&
     (scoreboardMode === "frozen" ||
@@ -187,7 +236,7 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
   if (scoreboardMode === "hidden" && !canSeeLive) {
     return {
       entries: [],
-      frozenAt: contest.frozenAt?.toISOString() ?? null,
+      frozenAt: effectiveFrozenAt?.toISOString() ?? null,
       isFrozen: false,
       problems,
       scoreboardMode,
@@ -201,7 +250,7 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
   if (participants.length === 0) {
     return {
       entries: [],
-      frozenAt: contest.frozenAt?.toISOString() ?? null,
+      frozenAt: effectiveFrozenAt?.toISOString() ?? null,
       isFrozen: showFrozen,
       problems,
       scoreboardMode,
@@ -226,9 +275,14 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
     id: contest.id,
     startsAt: contest.startsAt,
     endsAt: contest.endsAt,
-    frozenAt: contest.frozenAt,
+    frozenAt: effectiveFrozenAt,
     penaltyPerWrongSec: contest.penaltyMinutesPerWrong * 60,
   };
+
+  const overrides =
+    scoringMode === "point_sum"
+      ? await scoreOverrideRepo.findAllByContext("contest", contestId)
+      : [];
 
   const entries = buildScoreboard(
     session,
@@ -237,11 +291,12 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
     submissions,
     problems,
     showFrozen,
+    overrides,
   );
 
   return {
     entries,
-    frozenAt: contest.frozenAt?.toISOString() ?? null,
+    frozenAt: effectiveFrozenAt?.toISOString() ?? null,
     isFrozen: showFrozen,
     problems,
     scoreboardMode,
@@ -254,6 +309,13 @@ export async function getScoreboardChart(
   topN: number,
   options?: { canSeeLive?: boolean; precomputed?: Scoreboard },
 ): Promise<ScoreboardChart> {
+  const variant = options?.canSeeLive === true ? "live" : "public";
+  const chartCacheKey = keys.scoreboardChartCache(contestId, variant, topN);
+  const redis = scoreboardRedis();
+
+  const cachedChart = await readCachedChart(redis, chartCacheKey);
+  if (cachedChart) return cachedChart;
+
   const scoreboardData =
     options?.precomputed ??
     (await getScoreboard(contestId, { canSeeLive: options?.canSeeLive === true }));
@@ -304,5 +366,11 @@ export async function getScoreboardChart(
     pointsMap,
   );
 
-  return { series };
+  const result: ScoreboardChart = { series };
+  try {
+    await redis.set(chartCacheKey, JSON.stringify(result), "EX", SCOREBOARD_CACHE_TTL_SECONDS);
+  } catch {
+    return result;
+  }
+  return result;
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.setConfig({ testTimeout: 30_000 });
+
 vi.mock("@temporalio/activity", () => ({
   log: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));

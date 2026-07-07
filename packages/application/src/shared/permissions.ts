@@ -4,6 +4,7 @@ import type {
   EffectiveCourseRole,
   PlatformRole,
 } from "@nojv/core";
+import { courseMembershipRepo, type TransactionClient } from "@nojv/db";
 
 export interface CourseMembershipRow {
   courseId: string;
@@ -34,4 +35,20 @@ export function canEditProblem(platformRole: PlatformRole): boolean {
 export function canCreateProblem(platformRole: PlatformRole, emailVerified: boolean): boolean {
   if (canEditProblem(platformRole)) return true;
   return emailVerified;
+}
+
+export async function isCourseStaff(userId: string, courseId: string): Promise<boolean> {
+  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
+  if (membership?.status !== "active") return false;
+  return membership.role === "teacher" || membership.role === "ta";
+}
+
+export async function isCourseStaffTx(
+  tx: TransactionClient,
+  userId: string,
+  courseId: string,
+): Promise<boolean> {
+  const membership = await courseMembershipRepo.withTx(tx).findByComposite(courseId, userId);
+  if (membership?.status !== "active") return false;
+  return membership.role === "teacher" || membership.role === "ta";
 }

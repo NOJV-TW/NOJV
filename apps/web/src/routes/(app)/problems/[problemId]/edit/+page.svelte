@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { deserialize } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
@@ -115,10 +116,21 @@
     isDeleting = true;
     const fd = new FormData();
     fetch(`?/deleteProblem`, { method: "POST", body: fd, redirect: "follow" })
-      .then(() => {
-        window.location.href = "/problems?tab=mine";
+      .then(async (res) => {
+        if (res.ok) {
+          window.location.href = "/problems?tab=mine";
+          return;
+        }
+        const result = deserialize(await res.text());
+        toasts.error(
+          result.type === "failure" && typeof result.data?.error === "string"
+            ? result.data.error
+            : m.error_unexpected(),
+        );
+        isDeleting = false;
       })
       .catch(() => {
+        toasts.error(m.error_unexpected());
         isDeleting = false;
       });
   }
@@ -127,13 +139,26 @@
     showPublishConfirm = false;
     isPublishing = true;
     const fd = new FormData();
-    fetch(`?/publish`, { method: "POST", body: fd }).then(async (res) => {
-      if (res.ok) {
-        await invalidateAll();
-        toasts.success(m.admin_publishSuccess());
-      }
-      isPublishing = false;
-    });
+    fetch(`?/publish`, { method: "POST", body: fd })
+      .then(async (res) => {
+        if (res.ok) {
+          await invalidateAll();
+          toasts.success(m.admin_publishSuccess());
+        } else {
+          const result = deserialize(await res.text());
+          toasts.error(
+            result.type === "failure" && typeof result.data?.error === "string"
+              ? result.data.error
+              : m.error_unexpected(),
+          );
+        }
+      })
+      .catch(() => {
+        toasts.error(m.error_unexpected());
+      })
+      .finally(() => {
+        isPublishing = false;
+      });
   }
 
   async function handleAdvancedPackageUploaded() {

@@ -4,6 +4,8 @@ export const keys = {
   scoreboardUpdateThrottle: (contestId: string) => `nojv:sb-throttle:${contestId}`,
   scoreboardCache: (contestId: string, variant: "live" | "public") =>
     `nojv:sb-cache:${contestId}:${variant}`,
+  scoreboardChartCache: (contestId: string, variant: "live" | "public", topN: number) =>
+    `nojv:sb-chart-cache:${contestId}:${variant}:${String(topN)}`,
   scoreboardLock: (contestId: string, variant: "live" | "public") =>
     `nojv:sb-lock:${contestId}:${variant}`,
 

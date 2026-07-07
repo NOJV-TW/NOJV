@@ -20,10 +20,8 @@ import {
   type JudgeConfig,
   type Language,
   type ProblemJudgeTestcase,
-  type ProblemSample,
   type Runtime,
   type SubmissionDraft,
-  type SubmissionMode,
   type SubmissionResult,
 } from "@nojv/core";
 import {
@@ -39,6 +37,7 @@ import {
   readWorkspaceFileBlob,
 } from "../problem/blobs";
 import { computeProblemTotalScore } from "../problem/total-score";
+import { buildProblemSamples } from "../problem/queries";
 import type { ActorContext } from "../shared/actor-context";
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
@@ -99,15 +98,14 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
 
   const language = languageSchema.parse(submission.language);
 
-  const rawResult = submission.verdictDetailStorageKey
-    ? await getVerdictDetail(submissionId)
-    : null;
+  const [rawResult, sources] = await Promise.all([
+    submission.verdictDetailStorageKey ? getVerdictDetail(submissionId) : Promise.resolve(null),
+    getSubmissionSources(submissionId),
+  ]);
   const result =
     rawResult === null || viewerIsStaff
       ? rawResult
       : sanitizeStudentResult(rawResult, { sampleOnly: submission.sampleOnly });
-
-  const sources = await getSubmissionSources(submissionId);
 
   return {
     id: submission.id,
@@ -341,28 +339,6 @@ export function narrowSubmissionRow(row: { status: string; language: string }): 
   };
 }
 
-export function fallbackResultForRow(
-  verdict: ReturnType<typeof submissionVerdictSchema.parse>,
-  problemTotal: number,
-): SubmissionResult {
-  return {
-    accepted: verdict === "accepted",
-    feedback: "Verdict details unavailable.",
-    runtimeMs: 0,
-    score: verdict === "accepted" ? problemTotal : 0,
-    verdict,
-  };
-}
-
-export function deriveSubmissionMode(s: {
-  contestId: string | null;
-  assessmentId: string | null;
-}): SubmissionMode {
-  if (s.contestId) return "contest";
-  if (s.assessmentId) return "assignment";
-  return "practice";
-}
-
 const inputFileKeysSchema = z.record(z.string(), z.string());
 
 const DEFAULT_JUDGE_CONFIG: JudgeConfig = { type: "standard" };
@@ -454,7 +430,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     }),
   );
 
-  const samples = collectSamples(problem);
+  const samples = buildProblemSamples(problem);
 
   const runtime: Runtime = judgeConfig.runtime ?? {
     env: {},
@@ -542,18 +518,12 @@ export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeD
   return { problemType: problem.type, advanced };
 }
 
-function collectSamples(problem: { samples: unknown }): ProblemSample[] {
-  if (!Array.isArray(problem.samples)) return [];
-  return problem.samples
-    .filter(
-      (s): s is { input: string; output: string } =>
-        typeof s === "object" &&
-        s !== null &&
-        typeof (s as { input?: unknown }).input === "string" &&
-        typeof (s as { output?: unknown }).output === "string",
-    )
-    .map((s) => ({ input: s.input, output: s.output }));
-}
+const IN_FLIGHT_SUBMISSION_STATUSES = [
+  "pending_upload",
+  "queued",
+  "compiling",
+  "running",
+] as const;
 
 export async function listForRejudge(input: {
   problemId: string;
@@ -567,6 +537,7 @@ export async function listForRejudge(input: {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
     sampleOnly: false,
+    status: { notIn: [...IN_FLIGHT_SUBMISSION_STATUSES] },
   };
 
   if (input.contestId) {
@@ -605,6 +576,9 @@ export async function findOneForRejudge(
 ): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
+  if ((IN_FLIGHT_SUBMISSION_STATUSES as readonly string[]).includes(submission.status)) {
+    return null;
+  }
   return {
     submissionId: submission.id,
     draft: {

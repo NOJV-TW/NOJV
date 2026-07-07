@@ -13,14 +13,31 @@ import {
   type TimedSession,
 } from "./rank-util";
 
+export interface ScoreOverrideRow {
+  userId: string;
+  problemId: string;
+  overrideScore: number;
+}
+
 export function buildPointSumScoreboard(
   session: TimedSession,
   participants: ParticipantRow[],
   submissions: SubmissionRow[],
   problems: ScoreboardProblem[],
   showFrozen: boolean,
+  overrides: readonly ScoreOverrideRow[] = [],
 ): ScoreboardEntry[] {
   const frozenAt = session.frozenAt;
+
+  const overrideByUser = new Map<string, Map<string, number>>();
+  for (const o of overrides) {
+    let byProblem = overrideByUser.get(o.userId);
+    if (!byProblem) {
+      byProblem = new Map();
+      overrideByUser.set(o.userId, byProblem);
+    }
+    byProblem.set(o.problemId, o.overrideScore);
+  }
 
   const firstFullByProblem = new Map<string, string>();
   for (const sub of submissions) {
@@ -62,6 +79,11 @@ export function buildPointSumScoreboard(
         if (sub.status === "accepted" && firstAcTime == null) {
           firstAcTime = secondsSince(session.startsAt, sub.createdAt);
         }
+      }
+
+      const override = overrideByUser.get(p.userId)?.get(prob.id);
+      if (override !== undefined) {
+        bestScore = override;
       }
 
       totalScore += bestScore;

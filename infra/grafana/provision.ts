@@ -63,7 +63,7 @@ export function buildAlertRule(def: AlertRuleDef, ctx: AlertRuleContext) {
     ruleGroup: "NOJV SLO",
     orgID: 1,
     for: def.for,
-    noDataState: "OK",
+    noDataState: def.noDataState ?? "OK",
     execErrState: "Error",
     labels: { severity: def.severity, team: "nojv" },
     annotations: { summary: def.summary, slo: def.slo },

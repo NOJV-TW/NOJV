@@ -2,6 +2,7 @@
   import { ShieldCheck, XCircle } from "@lucide/svelte";
 
   import { enhance } from "$app/forms";
+  import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
 
@@ -22,18 +23,22 @@
         <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-primary/15">
           <ShieldCheck class="h-8 w-8 text-primary" aria-hidden="true" />
         </div>
-        <h1 class="text-title-lg font-semibold">確認啟用兩步驟驗證</h1>
-        <p class="text-body-sm text-muted-foreground">確認後請回到設定頁面繼續完成啟用。</p>
-        <Button type="submit" variant="default">確認</Button>
+        <h1 class="text-title-lg font-semibold">{m.account_2fa_confirmTitle()}</h1>
+        <p class="text-body-sm text-muted-foreground">{m.account_2fa_confirmBody()}</p>
+        <Button type="submit" variant="default">{m.common_confirm()}</Button>
       </form>
     {:else}
       <div class="flex flex-col items-center gap-4">
         <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-destructive/15">
           <XCircle class="h-8 w-8 text-destructive" aria-hidden="true" />
         </div>
-        <h1 class="text-title-lg font-semibold text-destructive">連結無效或已過期</h1>
-        <p class="text-body-sm text-muted-foreground">請回到設定頁面重新寄送確認信。</p>
-        <Button href="/account/two-factor" variant="outline">返回設定</Button>
+        <h1 class="text-title-lg font-semibold text-destructive">
+          {m.account_2fa_confirmInvalidTitle()}
+        </h1>
+        <p class="text-body-sm text-muted-foreground">{m.account_2fa_confirmInvalidBody()}</p>
+        <Button href="/account/two-factor" variant="outline"
+          >{m.account_2fa_confirmBackButton()}</Button
+        >
       </div>
     {/if}
   </Card>

@@ -346,22 +346,38 @@ export const actions = {
 
   publishExam: withRateLimit(async (event) => {
     const actor = requireAuth(event);
+    const form = await superValidate<ExamSettingsForm, FormMessage>(
+      event,
+      zod4(examSettingsFormSchema),
+    );
     try {
       await publishExam(actor, event.params.examId);
     } catch (err) {
-      if (err instanceof HttpError) return fail(err.status, { error: err.message });
-      throw err;
+      const classified = classifyError(err);
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: classified.message },
+        { status: 400 },
+      );
     }
     return { success: true };
   }),
 
   deleteExam: withRateLimit(async (event) => {
     const actor = requireAuth(event);
+    const form = await superValidate<ExamSettingsForm, FormMessage>(
+      event,
+      zod4(examSettingsFormSchema),
+    );
     try {
       await deleteExamDraft(actor, event.params.examId);
     } catch (err) {
-      if (err instanceof HttpError) return fail(err.status, { error: err.message });
-      throw err;
+      const classified = classifyError(err);
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: classified.message },
+        { status: 400 },
+      );
     }
     redirect(303, "/exams");
   }),

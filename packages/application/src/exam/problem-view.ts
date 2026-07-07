@@ -1,27 +1,17 @@
 import { examRepo, submissionRepo } from "@nojv/db";
 import {
-  submissionResultSchema,
   submissionVerdicts,
+  verdictSummarySchema,
   type Language,
   type SubmissionResult,
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { getProblemPageData, getProblemTestcaseSets } from "../problem/queries";
+import { problemLetter } from "../shared/problem-letter";
+import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
-import { computeProblemTotalScore, getProblemTotalScores } from "../problem/total-score";
-import {
-  fallbackResultForRow,
-  getVerdictDetail,
-  narrowSubmissionRow,
-} from "../submission/queries";
-import { sanitizeStudentResult } from "../submission/scoring";
-
-function letterForIndex(index: number): string {
-  if (index < 0) return String(index + 1);
-  if (index < 26) return String.fromCodePoint(65 + index);
-  return String(index + 1);
-}
+import { getProblemTotalScores } from "../problem/total-score";
+import { narrowSubmissionRow } from "../submission/queries";
 
 export interface ExamProblemViewSibling {
   id: string;
@@ -67,107 +57,13 @@ export async function getExamProblemView(options: {
   if (exam?.status !== "published") {
     throw new NotFoundError(`Exam not found: ${options.examId}`);
   }
-
-  const problems = exam.problems;
-  if (options.problemIdx < 0 || options.problemIdx >= problems.length) {
-    return null;
-  }
-
-  const current = problems[options.problemIdx];
-  if (!current) return null;
-
-  const problemIds = problems.map((ep) => ep.problem.id);
-
-  const [problem, submissionRows, bestRows, testcaseSets] = await Promise.all([
-    getProblemPageData(current.problem.id),
-    submissionRepo.findMany({
-      where: {
-        examId: options.examId,
-        userId: options.actorUserId,
-        problemId: current.problem.id,
-        sampleOnly: false,
-        status: { in: [...submissionVerdicts] },
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        createdAt: true,
-        language: true,
-        status: true,
-        verdictDetailStorageKey: true,
-      },
-      take: 50,
-    }),
-    submissionRepo.groupByUserAndProblem({
-      examId: options.examId,
-      userId: options.actorUserId,
-      problemId: { in: problemIds },
-      sampleOnly: false,
-    }),
-    getProblemTestcaseSets(current.problem.id),
-  ]);
-
-  const problemTotal = computeProblemTotalScore({
-    type: problem.type,
-    testcaseSets,
-    advancedConfig: problem.advancedConfig,
+  const problemId = exam.problems[options.problemIdx]?.problem.id;
+  if (problemId === undefined) return null;
+  return getExamProblemViewByProblemId({
+    examId: options.examId,
+    problemId,
+    actorUserId: options.actorUserId,
   });
-
-  const detailBlobs = await Promise.all(
-    submissionRows.map((s) =>
-      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
-    ),
-  );
-
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
-    const { verdict, language } = narrowSubmissionRow(s);
-    const raw = detailBlobs[idx];
-    const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
-    const result = parsed?.success
-      ? sanitizeStudentResult(parsed.data, { sampleOnly: false })
-      : fallbackResultForRow(verdict, problemTotal);
-    return {
-      id: s.id,
-      language,
-      result,
-      submittedAt: s.createdAt.toISOString(),
-      context: "exam" as const,
-    };
-  });
-
-  const bestByProblemId = new Map<string, number>();
-  for (const row of bestRows) {
-    if (row._max.score !== null) {
-      bestByProblemId.set(row.problemId, row._max.score);
-    }
-  }
-
-  const maxByProblem = await getProblemTotalScores(problemIds);
-
-  const siblingProblems: ExamProblemViewSibling[] = problems.map((ep, index) => ({
-    id: ep.problem.id,
-    letter: letterForIndex(index),
-    title: ep.problem.title,
-    bestScore: bestByProblemId.get(ep.problem.id),
-    maxScore: maxByProblem.get(ep.problem.id) ?? ep.points,
-    isActive: index === options.problemIdx,
-    href: `/exams/${exam.id}/problems/${String(index)}`,
-  }));
-
-  return {
-    problem,
-    submissions,
-    siblingProblems,
-    exam: {
-      id: exam.id,
-      courseId: exam.courseId,
-      title: exam.title,
-      startsAt: exam.startsAt.toISOString(),
-      endsAt: exam.endsAt.toISOString(),
-    },
-    examTitle: exam.title,
-    courseLabel: exam.course.title,
-  };
 }
 
 export async function getExamProblemViewByProblemId(options: {
@@ -189,7 +85,7 @@ export async function getExamProblemViewByProblemId(options: {
 
   const problemIds = problems.map((ep) => ep.problem.id);
 
-  const [problem, submissionRows, bestRows, testcaseSets] = await Promise.all([
+  const [problem, submissionRows, bestRows] = await Promise.all([
     getProblemPageData(current.problem.id),
     submissionRepo.findMany({
       where: {
@@ -205,7 +101,9 @@ export async function getExamProblemViewByProblemId(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetailStorageKey: true,
+        score: true,
+        runtimeMs: true,
+        verdictSummary: true,
       },
       take: 50,
     }),
@@ -215,28 +113,22 @@ export async function getExamProblemViewByProblemId(options: {
       problemId: { in: problemIds },
       sampleOnly: false,
     }),
-    getProblemTestcaseSets(current.problem.id),
   ]);
 
-  const problemTotal = computeProblemTotalScore({
-    type: problem.type,
-    testcaseSets,
-    advancedConfig: problem.advancedConfig,
-  });
-
-  const detailBlobs = await Promise.all(
-    submissionRows.map((s) =>
-      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
-    ),
-  );
-
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s, idx) => {
+  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
     const { verdict, language } = narrowSubmissionRow(s);
-    const raw = detailBlobs[idx];
-    const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
-    const result = parsed?.success
-      ? sanitizeStudentResult(parsed.data, { sampleOnly: false })
-      : fallbackResultForRow(verdict, problemTotal);
+    const parsedSummary =
+      s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
+    const summary = parsedSummary?.success ? parsedSummary.data : null;
+    const result: SubmissionResult = {
+      accepted: verdict === "accepted",
+      verdict,
+      score: s.score,
+      runtimeMs: s.runtimeMs ?? 0,
+      feedback:
+        summary?.compilerErrorTruncated ??
+        (verdict === "accepted" ? "Accepted." : "Verdict details unavailable."),
+    };
     return {
       id: s.id,
       language,
@@ -257,7 +149,7 @@ export async function getExamProblemViewByProblemId(options: {
 
   const siblingProblems: ExamProblemViewSibling[] = problems.map((ep, index) => ({
     id: ep.problem.id,
-    letter: letterForIndex(index),
+    letter: problemLetter(index + 1),
     title: ep.problem.title,
     bestScore: bestByProblemId.get(ep.problem.id),
     maxScore: maxByProblem.get(ep.problem.id) ?? ep.points,

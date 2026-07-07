@@ -63,6 +63,7 @@ fi
 echo "==> [4/4] NOJV umbrella chart (values-$OVERLAY.yaml)"
 echo "    (requires the nojv-runtime-secrets Secret in namespace $NS)"
 helm upgrade --install nojv "$CHART_DIR" \
+  -n "$NS" --create-namespace \
   -f "$CHART_DIR/values-$OVERLAY.yaml"
 
 echo "==> Done. Verify: kubectl -n $NS get pods && kubectl -n $TEMPORAL_NS get pods"

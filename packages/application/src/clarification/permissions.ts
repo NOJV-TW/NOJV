@@ -8,13 +8,8 @@ import {
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";
+import { isCourseStaff } from "../shared/permissions";
 import type { ClarificationContext } from "./types";
-
-async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {
-  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
-  if (membership?.status !== "active") return false;
-  return membership.role === "teacher" || membership.role === "ta";
-}
 
 async function hasContestParticipation(userId: string, contestId: string): Promise<boolean> {
   const ids = await participationRepo.listContestParticipantUserIds(contestId);
@@ -65,12 +60,12 @@ async function isStaffOfContext(
     case "exam": {
       const exam = await examRepo.findById(context.examId);
       if (!exam) return false;
-      return isCourseTeacherOrTa(actor.userId, exam.courseId);
+      return isCourseStaff(actor.userId, exam.courseId);
     }
     case "assignment": {
       const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
       if (!assignment) return false;
-      return isCourseTeacherOrTa(actor.userId, assignment.courseId);
+      return isCourseStaff(actor.userId, assignment.courseId);
     }
   }
 }

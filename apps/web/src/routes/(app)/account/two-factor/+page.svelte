@@ -41,13 +41,13 @@
         name: `Passkey ${data.passkeys.length + 1}`,
       });
       if (res?.error) {
-        passkeyError = res.error.message ?? "無法新增 passkey。";
+        passkeyError = res.error.message ?? m.account_passkey_addError();
         return;
       }
-      toasts.success("已新增 passkey");
+      toasts.success(m.account_passkey_addSuccess());
       await invalidateAll();
     } catch {
-      passkeyError = "無法新增 passkey。";
+      passkeyError = m.account_passkey_addError();
     } finally {
       passkeyBusy = false;
     }
@@ -494,7 +494,7 @@
       <div class="flex flex-col gap-1">
         <h2 class="text-title-sm">Passkey</h2>
         <p class="text-body-sm text-muted-foreground">
-          用裝置的生物辨識或 PIN 進行敏感操作驗證,不需密碼,適用任何登入方式。
+          {m.account_passkey_description()}
         </p>
       </div>
       {#if passkeyError}
@@ -518,7 +518,7 @@
                     passkeyError = (result.data?.error as string) ?? "";
                     return;
                   }
-                  toasts.success("已移除 passkey");
+                  toasts.success(m.account_passkey_removeSuccess());
                   await update();
                 };
               }}
@@ -529,7 +529,7 @@
                 disabled={passkeyBusy}
                 class="rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive disabled:cursor-not-allowed disabled:opacity-50"
               >
-                移除
+                {m.account_passkey_remove()}
               </button>
             </form>
           </div>
@@ -540,7 +540,7 @@
           disabled={passkeyBusy}
           class="self-start rounded-md border border-border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
-          新增 passkey
+          {m.account_passkey_add()}
         </button>
       </div>
     </Card>

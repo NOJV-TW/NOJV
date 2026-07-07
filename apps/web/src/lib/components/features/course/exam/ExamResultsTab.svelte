@@ -48,9 +48,9 @@
   function cellColor(score: number, max: number): string {
     if (max <= 0) return "var(--muted-foreground)";
     const ratio = score / max;
-    if (ratio >= 1) return "oklch(0.45 0.13 160)";
+    if (ratio >= 1) return "var(--success)";
     if (ratio >= 0.5) return "var(--foreground)";
-    if (ratio > 0) return "oklch(0.55 0.13 70)";
+    if (ratio > 0) return "var(--warning)";
     return "var(--muted-foreground)";
   }
 </script>

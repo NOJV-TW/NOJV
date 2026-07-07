@@ -3,7 +3,7 @@ import type { RawCaseRun, SandboxRequest, SandboxTestcase } from "@nojv/core";
 import { resolveSourceFiles } from "./source-files.js";
 import { buildSandboxConfigJson, sourceExtension } from "./sandbox-plan";
 
-const JOB_DEADLINE_FLOOR_SECONDS = 120;
+export const JOB_DEADLINE_FLOOR_SECONDS = 120;
 const JOB_DEADLINE_CAP_SECONDS = 1_800;
 const JOB_DEADLINE_BUFFER_SECONDS = 60;
 

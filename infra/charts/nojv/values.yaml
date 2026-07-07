@@ -65,7 +65,7 @@ storage:
   bucket: nojv
   region: auto
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     storageSize: 10Gi
     storageClass: ""
     resources:
@@ -83,7 +83,7 @@ storage:
     # See docs/runbooks/backup-restore.md.
     backup:
       enabled: false
-      image: minio/mc:latest
+      image: minio/mc:RELEASE.2025-04-16T18-13-26Z
       # Cron (UTC). Default 04:00, an hour after the Postgres backup at 03:00.
       schedule: "0 4 * * *"
       # Off-host mirror target (an S3/R2 endpoint the MinIO PVC does not depend on).
@@ -123,6 +123,13 @@ observability:
     retention: "15d"
     storageSize: 10Gi
     storageClass: ""
+    # Push scraped series to Grafana Cloud Prometheus. OPT-IN: leave url empty to
+    # disable (no remote_write block rendered). When set, username is the Grafana
+    # Cloud instance ID (not secret) and the password is read from the runtime
+    # secret key GRAFANA_CLOUD_PROM_PASSWORD, mounted as a file (never templated).
+    remoteWrite:
+      url: ""
+      username: ""
     resources:
       requests:
         cpu: 100m
@@ -150,7 +157,7 @@ observability:
     enabled: false
     image: grafana/grafana:11.6.1
     adminUser: admin
-    adminPassword: admin
+    adminPassword: ""
     service:
       port: 3000
     ingress:
@@ -251,6 +258,9 @@ pdb:
   minAvailable: 1
 
 sandbox:
+  prepull:
+    enabled: true
+    backoffLimit: 1
   networkPolicy:
     enabled: true
   resourceQuota:

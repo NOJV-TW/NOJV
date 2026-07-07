@@ -164,7 +164,7 @@
       const startedAt = Date.now();
       let pollDelay = 500;
 
-      while (Date.now() - startedAt < 30_000) {
+      while (Date.now() - startedAt < 600_000) {
         if (destroyed) return;
 
         const poll = await fetch(dispatch.pollUrl, { cache: "no-store", signal });
@@ -192,7 +192,7 @@
         pollDelay = Math.min(pollDelay * 1.5, 3000);
       }
 
-      throw new Error("Submission polling timed out.");
+      throw new Error(m.advancedMode_judgingInProgress());
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
       submitError = err instanceof Error ? err.message : m.editor_submitFailed();

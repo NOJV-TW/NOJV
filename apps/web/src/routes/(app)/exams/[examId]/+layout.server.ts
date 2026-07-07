@@ -42,12 +42,16 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const isManager = canManageCourse(effectiveRole) || isCourseOwner;
 
   if (!isManager) {
-    const verdict = await proctoringDomain.checkProctoringGate({
-      entityKind: "exam",
-      entityId: examId,
-      userId: actor.userId,
-      ip: getClientIp(event),
-    });
+    const cachedGate = event.locals.examGate;
+    const verdict =
+      cachedGate?.entityId === examId
+        ? cachedGate.verdict
+        : await proctoringDomain.checkProctoringGate({
+            entityKind: "exam",
+            entityId: examId,
+            userId: actor.userId,
+            ip: getClientIp(event),
+          });
 
     if (!verdict.ok) {
       switch (verdict.reason) {

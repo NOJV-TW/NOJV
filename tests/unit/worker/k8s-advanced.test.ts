@@ -1122,14 +1122,15 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     ]);
   });
 
-  it("Job creation failure → cleanup (incl. PVC) still runs in finally", async () => {
+  it("Job creation failure → rethrows for Temporal retry, cleanup (incl. PVC) still runs in finally", async () => {
     const record = emptyRecord();
     const executor = new K8sExecutor(
       EXEC_CONFIG,
       buildFakeClients(record, { throwOnJobCreate: true }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    await expect(executor.execute(makeAdvancedRequest())).rejects.toThrow(
+      "simulated job create failure",
+    );
     expect(record.pvcsDeleted).toHaveLength(1);
     expect(record.configMapsDeleted.some((c) => c.name === "judge-sub-adv-1-run-input")).toBe(
       true,

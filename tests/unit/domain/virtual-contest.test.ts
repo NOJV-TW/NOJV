@@ -41,12 +41,17 @@ vi.mock("@nojv/db", () => ({
     createVirtual: participationCreateVirtual,
     findContestScoreboardParticipants: participationFindContestScoreboardParticipants,
   },
-  scoreOverrideRepo: {},
+  scoreOverrideRepo: { findAllByContext: vi.fn(() => Promise.resolve([])) },
   UnifiedParticipationVersionConflict: class extends Error {},
 }));
 
 vi.mock("@nojv/redis", () => ({
   getRedis: () => ({
+    get: async () => null,
+    set: async () => "OK",
+    del: async () => 0,
+  }),
+  createRateLimiterConnection: () => ({
     get: async () => null,
     set: async () => "OK",
     del: async () => 0,

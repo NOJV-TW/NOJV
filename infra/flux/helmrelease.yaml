@@ -1,0 +1,31 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nojv
+  namespace: nojv
+spec:
+  interval: 5m
+  releaseName: nojv
+  targetNamespace: nojv
+  chart:
+    spec:
+      chart: infra/charts/nojv
+      valuesFiles:
+        - infra/charts/nojv/values-single-machine.yaml
+      sourceRef:
+        kind: GitRepository
+        name: nojv
+        namespace: flux-system
+      reconcileStrategy: Revision
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  values:
+    image:
+      # {"$imagepolicy": "flux-system:nojv:tag"}
+      tag: latest

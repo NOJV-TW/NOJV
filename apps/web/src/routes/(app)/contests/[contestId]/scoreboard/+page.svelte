@@ -206,7 +206,7 @@
         <div
           class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
         >
-          <span class="size-1.5 rounded-full live-dot" style="background: oklch(0.55 0.2 27);"
+          <span class="size-1.5 rounded-full live-dot" style="background: var(--destructive);"
           ></span>
           <span>{m.contestDetail_frozen().toUpperCase()}</span>
         </div>
@@ -257,7 +257,7 @@
             ? 'color-mix(in oklab, var(--primary) 14%, transparent)'
             : 'color-mix(in oklab, var(--chart-3) 18%, transparent)'}; color: {isSolveCount
             ? 'var(--primary)'
-            : 'oklch(0.45 0.13 245)'};"
+            : 'var(--info)'};"
         >
           {isSolveCount
             ? m.contestScoreboard_formatSolveCount()

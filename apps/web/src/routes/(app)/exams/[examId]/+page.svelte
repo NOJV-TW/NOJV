@@ -318,7 +318,7 @@
                 {:else if verdict === "partial"}
                   <span
                     class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-caption uppercase tracking-wider"
-                    style="background: color-mix(in oklab, var(--chart-4) 22%, transparent); color: oklch(0.55 0.13 70);"
+                    style="background: color-mix(in oklab, var(--chart-4) 22%, transparent); color: var(--warning);"
                   >
                     Partial
                   </span>
@@ -462,7 +462,7 @@
                 <li class="flex items-start gap-2">
                   <span
                     class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                    style="background: color-mix(in oklab, var(--success) 18%, transparent); color: oklch(0.45 0.13 160);"
+                    style="background: color-mix(in oklab, var(--success) 18%, transparent); color: var(--success);"
                   >
                     <svg
                       width="10"

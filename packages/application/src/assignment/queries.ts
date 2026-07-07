@@ -2,6 +2,7 @@ import { assessmentProblemRepo, assessmentRepo, submissionRepo } from "@nojv/db"
 import { submissionVerdicts } from "@nojv/core";
 
 import { getProblemTotalScores } from "../problem/total-score";
+import { problemLetter } from "../shared/problem-letter";
 
 export async function getAssignmentWithCourseId(assignmentId: string) {
   return assessmentRepo.findByIdWithCourseId(assignmentId);
@@ -54,7 +55,7 @@ export async function listAssignmentProblemSiblings(options: {
 
   return ordered.map((r, index) => ({
     id: r.problemId,
-    letter: index < 26 ? String.fromCodePoint(65 + index) : String(index + 1),
+    letter: problemLetter(index + 1),
     title: r.problem.title,
     bestScore: bestByProblemId.get(r.problemId),
     maxScore: maxByProblem.get(r.problemId) ?? r.points,

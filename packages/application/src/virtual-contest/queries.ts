@@ -1,20 +1,16 @@
 import { contestRepo, participationRepo, submissionRepo } from "@nojv/db";
 import type { languageSchema } from "@nojv/core";
 import {
-  submissionResultSchema,
   submissionVerdicts,
+  verdictSummarySchema,
   type ContestScoringMode,
+  type submissionResultSchema,
+  type SubmissionResult,
 } from "@nojv/core";
 
 import { problemLetter } from "../shared/problem-letter";
-import { getProblemTestcaseSets } from "../problem/queries";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
-import {
-  fallbackResultForRow,
-  getVerdictDetail,
-  narrowSubmissionRow,
-} from "../submission/queries";
-import { sanitizeStudentResult } from "../submission/scoring";
+import { narrowSubmissionRow } from "../submission/queries";
 import {
   buildScoreboard,
   type ParticipantRow,
@@ -265,32 +261,27 @@ export async function listVirtualContestProblemSubmissions(
   userId: string,
   problemId: string,
 ): Promise<VirtualSubmissionEntry[]> {
-  const [submissions, testcaseSets] = await Promise.all([
-    submissionRepo.listByUserAndProblem({
-      problemId,
-      userId,
-      statusIn: [...submissionVerdicts],
-      participationId,
-    }),
-    getProblemTestcaseSets(problemId),
-  ]);
+  const submissions = await submissionRepo.listByUserAndProblem({
+    problemId,
+    userId,
+    statusIn: [...submissionVerdicts],
+    participationId,
+  });
 
-  const weightSum = testcaseSets.reduce((sum, ts) => sum + ts.weight, 0);
-  const problemTotal = weightSum > 0 ? weightSum : 100;
-
-  const detailBlobs = await Promise.all(
-    submissions.map((s) =>
-      s.verdictDetailStorageKey ? getVerdictDetail(s.id) : Promise.resolve(null),
-    ),
-  );
-
-  return submissions.map((s, idx) => {
+  return submissions.map((s) => {
     const { verdict, language } = narrowSubmissionRow(s);
-    const raw = detailBlobs[idx];
-    const parsed = raw == null ? null : submissionResultSchema.safeParse(raw);
-    const result = parsed?.success
-      ? sanitizeStudentResult(parsed.data, { sampleOnly: false })
-      : fallbackResultForRow(verdict, problemTotal);
+    const parsedSummary =
+      s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
+    const summary = parsedSummary?.success ? parsedSummary.data : null;
+    const result: SubmissionResult = {
+      accepted: verdict === "accepted",
+      verdict,
+      score: s.score,
+      runtimeMs: s.runtimeMs ?? 0,
+      feedback:
+        summary?.compilerErrorTruncated ??
+        (verdict === "accepted" ? "Accepted." : "Verdict details unavailable."),
+    };
     return {
       id: s.id,
       language,

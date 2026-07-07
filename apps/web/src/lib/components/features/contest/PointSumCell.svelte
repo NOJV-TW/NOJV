@@ -28,11 +28,11 @@
   >
     <span
       class="font-mono text-caption font-semibold tabular-nums"
-      style="color: oklch(0.4 0.13 160);"
+      style="color: var(--success);"
     >
       +{score}
     </span>
-    <span class="font-mono text-micro tabular-nums" style="color: oklch(0.45 0.13 160);">
+    <span class="font-mono text-micro tabular-nums" style="color: var(--success);">
       {fmtTime(firstAcTime)}
     </span>
   </div>
@@ -51,10 +51,10 @@
     class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
     style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
   >
-    <span class="font-mono text-caption font-semibold" style="color: oklch(0.5 0.18 27);">
+    <span class="font-mono text-caption font-semibold" style="color: var(--destructive);">
       −{attempts}
     </span>
-    <span class="font-mono text-micro" style="color: oklch(0.55 0.18 27);"
+    <span class="font-mono text-micro" style="color: var(--destructive);"
       >{m.scoreboard_try()}</span
     >
   </div>

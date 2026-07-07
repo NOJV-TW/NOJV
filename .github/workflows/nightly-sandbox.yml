@@ -95,7 +95,6 @@ jobs:
 
   k8s-isolation:
     name: K8s sandbox backend (real cluster, REQUIRE_K8S)
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:

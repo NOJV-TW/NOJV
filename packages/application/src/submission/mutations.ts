@@ -415,6 +415,7 @@ export async function completeJudge(
   await putVerdictDetail(storage(), submissionId, result);
 
   const verdictSummary = deriveVerdictSummary(result);
+  const verdictDetailStorageKey = submissionVerdictDetailKey(submissionId);
 
   const { count } = await submissionRepo.completeIfInProgress(submissionId, {
     runtimeMs: result.runtimeMs,
@@ -422,15 +423,21 @@ export async function completeJudge(
     score: result.score,
     status: result.verdict,
     verdictSummary: toJsonValue(verdictSummary),
-    verdictDetailStorageKey: submissionVerdictDetailKey(submissionId),
+    verdictDetailStorageKey,
     advancedConfigSnapshot:
       advancedConfigSnapshot === null ? Prisma.JsonNull : toJsonValue(advancedConfigSnapshot),
   });
 
-  if (count === 0) return null;
-
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
+
+  if (count === 0) {
+    const matchesThisRun =
+      submission.status === result.verdict &&
+      submission.score === result.score &&
+      submission.verdictDetailStorageKey === verdictDetailStorageKey;
+    if (!matchesThisRun) return null;
+  }
 
   return {
     contestId: submission.contestId,

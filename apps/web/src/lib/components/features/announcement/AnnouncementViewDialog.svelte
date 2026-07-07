@@ -3,7 +3,8 @@
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
-  import { formatDateTimeCompact, formatRelativeFromNow } from "$lib/utils/datetime";
+  import { formatDateTimeCompact } from "$lib/utils/datetime";
+  import { relativeTime } from "$lib/utils/relative-time";
 
   interface AnnouncementView {
     title: string;
@@ -40,7 +41,7 @@
         </div>
         <Dialog.Description>
           {announcement.authorName} ·
-          {formatRelativeFromNow(announcement.createdAt)} ·
+          {relativeTime(announcement.createdAt)} ·
           {formatDateTimeCompact(announcement.createdAt)}
         </Dialog.Description>
       </Dialog.Header>

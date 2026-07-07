@@ -31,11 +31,35 @@ jobs:
     timeout-minutes: 40
     outputs:
       image_tag: ${{ steps.tag.outputs.image_tag }}
+      stale: ${{ steps.freshness.outputs.stale }}
     steps:
       - name: Check out passed commit
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.event.inputs.ref }}
+
+      - name: Guard against stale re-run
+        id: freshness
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "workflow_run" ]; then
+            echo "Event $EVENT_NAME — freshness guard skipped (manual dispatch is the rollback override)."
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --quiet origin main
+          head_sha="$(git rev-parse HEAD)"
+          origin_sha="$(git rev-parse FETCH_HEAD)"
+          if [ "$head_sha" != "$origin_sha" ]; then
+            echo "::notice::Checked-out HEAD $head_sha is not current origin/main $origin_sha — skipping stale deploy."
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "HEAD $head_sha is current origin/main — proceeding."
+          echo "stale=false" >> "$GITHUB_OUTPUT"
 
       - name: Resolve image tag
         id: tag
@@ -55,9 +79,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push runtime images
+        if: steps.freshness.outputs.stale != 'true'
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.image_tag }}
+          BUILD_TAG: main-${{ github.run_number }}
           PREFIX: ghcr.io/nojv-tw
         run: |
           set -euo pipefail
@@ -66,7 +92,7 @@ jobs:
             local ref="${PREFIX}/${name}"
             docker buildx build \
               -f "$dockerfile" \
-              -t "${ref}:${TAG}" -t "${ref}:main" \
+              -t "${ref}:${TAG}" -t "${ref}:main" -t "${ref}:${BUILD_TAG}" \
               --cache-from "type=registry,ref=${ref}:buildcache" \
               --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
               --push \
@@ -81,6 +107,7 @@ jobs:
   deploy:
     name: Deploy Passed Commit
     needs: build-push
+    if: needs.build-push.outputs.stale != 'true'
     runs-on:
       - self-hosted
       - linux
@@ -138,6 +165,32 @@ jobs:
           kubectl -n "$NAMESPACE" rollout status deploy/nojv-worker --timeout=300s
           kubectl -n "$NAMESPACE" rollout status deploy/nojv-worker-platform --timeout=300s
           kubectl -n "$NAMESPACE" get pods
+
+      - name: Prune stale images (keep current + previous)
+        shell: bash
+        env:
+          PREFIX: ghcr.io/nojv-tw
+        run: |
+          set +e
+          current_rev=$(helm -n "$NAMESPACE" history "$RELEASE" -o json | jq -r 'max_by(.revision).revision')
+          prev_tag=$(helm -n "$NAMESPACE" get values "$RELEASE" --revision "$((current_rev - 1))" -a -o json 2>/dev/null | jq -r '.image.tag // empty')
+          if [ -z "$prev_tag" ]; then
+            echo "::notice::Could not resolve previous image tag — skipping prune to preserve the rollback target."
+            true
+          else
+            echo "Keeping image tags on this node: $IMAGE_TAG (current), $prev_tag (previous), main"
+            for ref in $(sudo crictl images -o json | jq -r --arg p "$PREFIX/" '.images[].repoTags[]? | select(startswith($p))'); do
+              tag="${ref##*:}"
+              case "$tag" in
+                "$IMAGE_TAG" | "$prev_tag" | main) ;;
+                *)
+                  echo "Removing stale image $ref"
+                  sudo crictl rmi "$ref"
+                  ;;
+              esac
+            done
+            true
+          fi
 
       - name: Dump diagnostics on failure
         if: failure()
