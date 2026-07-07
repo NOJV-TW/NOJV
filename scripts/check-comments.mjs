@@ -37,7 +37,7 @@ function isAllowed(content) {
 
 function maskNonScript(source) {
   const chars = source.split("").map((ch) => (ch === "\n" ? "\n" : " "));
-  const re = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+  const re = /<script[^>]*>([\s\S]*?)<\/script\s*>/gi;
   let match;
   while ((match = re.exec(source)) !== null) {
     const body = match[1];
