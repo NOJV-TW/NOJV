@@ -6,41 +6,38 @@ the cluster, watches this git repo + GHCR, and reconciles the existing
 runner from the production attack surface (see
 `docs/plans/active/2026-07-08-flux-gitops-cutover.md`).
 
-## Current state (2026-07-08) — LIVE, one credential step remaining
+## How auto-pull works (CI-driven via the `deploy` branch)
 
-- ✅ Flux v2.9.1 installed (core + image-automation controllers), all healthy.
-- ✅ `GitRepository/nojv` clones this repo; `HelmRelease/nojv` **manages the
-  deployment** (adopted the release, rev 36, verified healthy on `main-722`).
-- ✅ `ImageRepository`/`ImagePolicy` scan GHCR and resolve the newest `main-<N>`
-  tag (read-only, credential-free).
-- ✅ Image build moved to the GitHub-hosted `build-images.yml`; the self-hosted
-  `deploy.yml` is deleted. CI holds **no** cluster credentials.
-- ❌ **`ImageUpdateAutomation` (the git commit-back that closes auto-pull) is
-  NOT active — it needs git write, and the org has deploy keys DISABLED.**
-  Until a write credential exists, a new build is deployed by bumping the tag:
-  `kubectl -n nojv patch helmrelease nojv --type merge -p '{"spec":{"values":{"image":{"tag":"main-<N>"}}}}'`
-  (find `<N>` via `flux get image policy nojv`).
+The org has **deploy keys disabled** and **main is branch-protected** (PR +
+approval), so neither a cluster-side Flux `ImageUpdateAutomation` nor a bot can
+push image bumps to main. Instead the image tag is published by CI to a
+dedicated **`deploy` branch** that Flux tracks — no cluster git-write, no
+change to main's protection:
 
-## To finish auto-pull (needs one credential — user action)
+```
+push to main
+  → build-images.yml (GitHub-hosted): build + push images to GHCR,
+    then `git checkout -B deploy`, write the new main-<run_number> tag into
+    infra/flux/helmrelease.yaml, and force-push the deploy branch (GITHUB_TOKEN,
+    contents: write — allowed on the unprotected deploy branch)
+  → GitRepository/nojv tracks `deploy`
+  → Kustomization/nojv applies helmrelease.yaml → HelmRelease upgrades to the
+    new tag → pods roll. Hands-off.
+```
 
-Deploy keys are disabled org-wide, so pick one:
+`deploy` is always `main` + the built tag (force-reset each build), so chart /
+config changes and image changes both flow through automatically. Pushing to
+`deploy` does not re-trigger CI (build-images and ci only trigger on main).
 
-- **Enable deploy keys** for NOJV-TW/NOJV (Org → Settings → repo policies),
-  then `flux create secret git nojv-git --url=ssh://git@github.com/NOJV-TW/NOJV.git --private-key-file=<key>`,
-  switch the `GitRepository` to that SSH URL + secret, and `kubectl apply`
-  `image-automation.yaml`.
-- **Or** create a fine-grained PAT / GitHub App with `contents:write` and use
-  `flux create secret git` with the token; same wiring.
+## Live state (2026-07-08)
 
-Once wired: a merge to main → `build-images.yml` pushes `main-<N+1>` → the
-ImagePolicy picks it → ImageUpdateAutomation commits the bump to git → the
-HelmRelease upgrades. Fully hands-off.
+- ✅ Flux v2.9.1 installed; `GitRepository` + `HelmRelease` manage the release
+  from the `deploy` branch (adopted the existing release, verified healthy).
+- ✅ Image build is GitHub-hosted (`build-images.yml`); self-hosted `deploy.yml`
+  deleted; runner deregistered. CI holds **no cluster credentials**.
 
-## What CI does now
-
-`build-images.yml` (GitHub-hosted) builds and pushes images to GHCR on every
-push to main. It holds **no** cluster credentials. Nothing pushes into the
-cluster — Flux pulls.
+Manual deploy override (e.g. a rollback):
+`kubectl -n nojv patch helmrelease nojv --type merge -p '{"spec":{"values":{"image":{"tag":"main-<N>"}}}}'`
 
 ## Files
 

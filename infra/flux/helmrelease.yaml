@@ -28,5 +28,5 @@ spec:
       remediateLastFailure: true
   values:
     image:
-      # {"$imagepolicy": "flux-system:nojv:tag"}
+      # tag is rewritten by build-images.yml on the deploy branch each build
       tag: main-722
