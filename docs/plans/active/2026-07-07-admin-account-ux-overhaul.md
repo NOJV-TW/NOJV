@@ -35,7 +35,13 @@
    - `/admin/audit` 頁分頁列出(時間/操作者/動作/對象/摘要)。
 7. **項 5 順帶修的 bug**:role diff/confirm/toast 套 `roleLabel()`(別印英文 slug,修 `zh-TW.json:363/364`);狀態(使用中/已停用)vs 動作(停用帳號/啟用帳號)文案分清;filter `goto` 帶 `{keepFocus:true,noScroll:true}` 不跳動、search 與 role 行為一致;危險操作一致 confirm。
 8. **項 6d**:新增 `/admin/submissions` 全站提交(目前不存在)。`packages/application/.../submission/queries.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`)。
-9. **項 6c**(我負責,未做):timeout 走 .env(預設 10 分),`sweep.ts` 改讀 `process.env`、移除 `setSubmissionPendingTimeoutMinutes`+platform_setting、`platform-settings.ts` KEY/DEFAULT 清掉、web+worker env manifest(注意 env-manifest-parity + `.default()`)、`.env.example`/DEPLOYMENT.md 加 `SUBMISSION_PENDING_TIMEOUT_MINUTES`。**同時要移除 admin/rejudges 頁的 timeout 設定 UI + updatePendingTimeout action。**
+9. **項 6c**(未做):timeout 走 .env(預設 10 分)。做法(以下是試做過的正確方向):
+   - `packages/application/src/submission/sweep.ts` 的 `getSubmissionPendingTimeoutMinutes` 改讀 `process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES`(用 `submissionPendingTimeoutMinutesSchema` 驗證、fallback `DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES`),改成**同步**函式(呼叫處 `sweepStaleSubmissions` 內移掉 `await`);移除 `setSubmissionPendingTimeoutMinutes` 函式 + `platformSettingRepo` / `SUBMISSION_PENDING_TIMEOUT_SETTING_KEY` / `ValidationError` 這幾個 import。
+   - `packages/core/src/schemas/platform-settings.ts`:`DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES` 改 **10**;`SUBMISSION_PENDING_TIMEOUT_SETTING_KEY` 等 rejudges UI 移除後一起清掉(否則 orphan);`submissionPendingTimeoutMinutesSchema` 保留(sweep 仍用它驗證)。
+   - **⚠️ timeout 一定要上 Helm(使用者特別提醒):`infra/charts/nojv/templates/worker.deployment.yaml` 加 `SUBMISSION_PENDING_TIMEOUT_MINUTES` env(worker 跑 sweep,值從 chart values 注入),`infra/charts/nojv/values.yaml` + `values-single-machine.yaml` 加預設。** web tier 不跑 sweep、不需要。
+   - `.env.example` + `docs/operations/DEPLOYMENT.md` 補 `SUBMISSION_PENDING_TIMEOUT_MINUTES` 說明。
+   - env-manifest-parity:sweep 直接讀 `process.env`(不經 web/worker env schema),所以不用動 env schema;若之後要納入 schema,記得 `.default()` 否則被當 required → crashloop。
+   - **admin/rejudges 頁的 timeout 設定 UI + `updatePendingTimeout` action + `setSubmissionPendingTimeoutMinutes` 呼叫要移除**(併在 admin 批,因為 rejudge tab 本來就要移除)。
 10. **全程不寫註解。** i18n 改 `messages/*.json` 後必 `pnpm --filter @nojv/web paraglide:compile`。
 
 ## ⏸ 帳號頁批(項 2/3/4)暫停 — 待與使用者討論
