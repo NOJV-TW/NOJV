@@ -97,6 +97,12 @@ function createAuth() {
         sameSite: "lax",
       },
     },
+    session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: 30,
+      },
+    },
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,

@@ -17,7 +17,9 @@ export function assertJsonBodyWithinLimit(
   event: RequestEvent,
   maxBytes: number = JSON_BODY_LIMIT_BYTES,
 ): void {
-  const declared = Number(event.request.headers.get("content-length") ?? "0");
+  const header = event.request.headers.get("content-length");
+  if (header === null) return;
+  const declared = Number(header);
   if (Number.isFinite(declared) && declared > maxBytes) {
     error(413, "Request body too large");
   }

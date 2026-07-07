@@ -2,6 +2,7 @@
   import { invalidateAll } from "$app/navigation";
   import { Search, X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { toasts } from "$lib/stores/toast";
   import FilterChips from "$lib/components/primitives/ui/FilterChips.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
@@ -61,21 +62,37 @@
     const target = pendingRemove;
     pendingRemove = null;
     if (!target) return;
-    const body = new FormData();
-    body.set("userId", target.userId);
-    const res = await fetch("?/remove", { method: "POST", body });
-    if (res.ok) {
+    try {
+      const body = new FormData();
+      body.set("userId", target.userId);
+      const res = await fetch("?/remove", { method: "POST", body });
+      if (!res.ok) {
+        toasts.error(m.members_removeError());
+        return;
+      }
       await invalidateAll();
+    } catch {
+      toasts.error(m.members_removeError());
     }
   }
 
-  async function handleRoleChange(userId: string, role: string) {
-    const body = new FormData();
-    body.set("userId", userId);
-    body.set("role", role);
-    const res = await fetch("?/changeRole", { method: "POST", body });
-    if (res.ok) {
+  async function handleRoleChange(event: Event, userId: string, previousRole: string) {
+    const select = event.currentTarget as HTMLSelectElement;
+    const role = select.value;
+    try {
+      const body = new FormData();
+      body.set("userId", userId);
+      body.set("role", role);
+      const res = await fetch("?/changeRole", { method: "POST", body });
+      if (!res.ok) {
+        select.value = previousRole;
+        toasts.error(m.members_roleChangeError());
+        return;
+      }
       await invalidateAll();
+    } catch {
+      select.value = previousRole;
+      toasts.error(m.members_roleChangeError());
     }
   }
 
@@ -179,8 +196,7 @@
               <select
                 class="rounded-md border border-border bg-transparent py-1.5 pl-3 pr-2 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 value={member.role}
-                onchange={(e) =>
-                  handleRoleChange(member.userId, (e.currentTarget as HTMLSelectElement).value)}
+                onchange={(e) => handleRoleChange(e, member.userId, member.role)}
               >
                 <option value="student">{m.members_roleStudent()}</option>
                 <option value="ta">{m.members_roleTa()}</option>

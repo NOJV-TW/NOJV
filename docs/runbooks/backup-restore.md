@@ -35,10 +35,14 @@ chart (`infra/charts/nojv`, `postgres.mode=cnpg`) as a **CloudNativePG `Cluster`
 named `<release>-pg` (for release `nojv`, the cluster is `nojv-pg`, database
 `nojv`). The operator manages its primary on a PVC, the owner credentials in a
 `<cluster>-app` secret, and the `<cluster>-rw` Service that `DATABASE_URL`
-points at. Redis and MinIO follow the rebuild/re-upload stories below (Redis is
-derived from Postgres; MinIO holds re-uploadable author assets). A single node
-has **no HA** — so a _recoverable backup that lives off the DB's own volume_ is
-the load-bearing guarantee: if the node or the database is lost, you can restore.
+points at. Redis is derived from Postgres (rebuild story below). **MinIO is
+NOT re-uploadable** — it is the single copy of student **submission sources**
+(`submissions/<id>/sources/`) and advanced-mode verdict detail (Postgres has no
+source column), so it needs its own off-host backup and must be restored
+**alongside** Postgres — see [MinIO — submission sources](#minio--submission-sources-single-machine)
+below. A single node has **no HA** — so a _recoverable backup that lives off the
+DB's own volume_ is the load-bearing guarantee: if the node or the database is
+lost, you can restore.
 
 ### Backup posture (CNPG ScheduledBackup → object storage, with PITR)
 
@@ -148,6 +152,76 @@ original stays intact for forensics until you cut over.
 6. **Preserve the original `nojv-pg`** for at least 7 days for forensics before
    deleting. If post-cutover validation fails, point `DATABASE_URL` back at
    `nojv-pg-rw` and restart the apps.
+
+## MinIO — submission sources (single-machine)
+
+In-cluster MinIO holds the **only** copy of student **submission source code**
+(`submissions/<id>/sources/`) plus problem images and advanced-mode verdict
+detail. Postgres has no source column, so losing MinIO permanently destroys
+submission sources, code-review artefacts, and the evidence behind existing
+plagiarism `PairFlag`s — and a later rejudge of an affected submission flips its
+verdict to `system_error`. MinIO is a single replica on a single `local-path`
+PVC with **no** versioning or replication, so it needs an **off-host** backup
+just like Postgres.
+
+### Backup posture (mc mirror → off-host S3/R2, flag-gated)
+
+The chart renders a `CronJob` (`<release>-minio-backup`) that runs
+`mc mirror --overwrite` from the in-cluster bucket to an off-host S3/R2 target
+when `storage.inCluster` **and** `storage.minio.backup.enabled` are both true.
+It is **OFF by default** — it depends on a credentials Secret that must exist
+first, so enabling it without the Secret would make the CronJob fail. The mirror
+does **not** pass `--remove`, so an object deleted from the live bucket is kept
+in the mirror as an extra safety net. Configure through values:
+
+```yaml
+storage:
+  minio:
+    backup:
+      enabled: true
+      destinationEndpoint: https://<account>.r2.cloudflarestorage.com
+      destinationBucket: nojv-minio-mirror
+      destinationRegion: auto
+      credentialsSecret: nojv-minio-mirror # keys: ACCESS_KEY_ID / ACCESS_SECRET_KEY
+      schedule: "0 4 * * *" # daily 04:00 UTC, an hour after the Postgres backup
+```
+
+Create the credentials Secret first (it may be the **same** R2 account/Secret as
+the Postgres barman backup):
+
+```bash
+kubectl -n nojv create secret generic nojv-minio-mirror \
+  --from-literal=ACCESS_KEY_ID=<r2-access-key> \
+  --from-literal=ACCESS_SECRET_KEY=<r2-secret-key>
+```
+
+Then set `enabled: true`, redeploy, and check the first run:
+
+```bash
+kubectl -n nojv get cronjob nojv-minio-backup
+kubectl -n nojv logs job/$(kubectl -n nojv get jobs -o name | grep minio-backup | head -1 | cut -d/ -f2)
+```
+
+### Restore procedure (mirror → new/rebuilt MinIO, ordered with the DB)
+
+Restore MinIO **together with** Postgres, to a point **at or after** the DB
+restore target — a submission row in Postgres whose source object is missing in
+MinIO will fail rejudge and read as `system_error`. Restoring MinIO slightly
+_ahead_ of the DB is safe (extra orphan objects are harmless); restoring it
+_behind_ the DB is not.
+
+1. Bring up a clean MinIO (the chart's `<release>-minio`, or recreate its PVC).
+2. Mirror the off-host copy back into it — reverse the backup direction:
+
+   ```bash
+   mc alias set src https://<account>.r2.cloudflarestorage.com <key> <secret>
+   mc alias set dst http://nojv-minio.nojv.svc:9000 <s3-access-key> <s3-secret-key>
+   mc mirror --overwrite src/nojv-minio-mirror dst/nojv
+   ```
+
+3. Validate: spot-check that a handful of recent `submissions/<id>/sources/`
+   keys resolve, then confirm one affected submission rejudges to a real verdict
+   (not `system_error`) rather than failing on a missing object.
 
 ---
 
@@ -449,14 +523,21 @@ visible state will jump.
 
 ---
 
-## GCS object storage — problem images & testcases
+## GCS / R2 object storage — submission sources, problem images & testcases
 
 ### Backup posture
 
-Problem images and (for advanced-mode problems) testcase blobs live in a
-GCS bucket fronted by `@nojv/storage`. These are **author-provided assets**;
-losing them means problem pages render broken images and TAs need to
-re-upload, but no submission data is at risk.
+The object-storage bucket fronted by `@nojv/storage` holds three things:
+**student submission sources** (`submissions/<id>/sources/`), advanced-mode
+verdict detail, and author-provided problem images / testcase blobs. The
+submission sources are the load-bearing case — since PR #73/#74 moved sources to
+object storage, Postgres has **no** source column, so this bucket is the **only**
+copy. Losing it permanently destroys submission code (and, on rejudge, flips the
+affected verdicts to `system_error`); the author assets are the lesser loss
+(broken problem images, TAs re-upload). Treat this bucket as **irreplaceable
+primary data** and restore it **alongside** Postgres, to a point at or after the
+DB restore target (see the [MinIO](#minio--submission-sources-single-machine)
+ordering note — the same rule applies here).
 
 ### Enabling cross-region replication
 
@@ -523,8 +604,10 @@ gcloud storage cp gs://nojv-problem-assets/problems/<id>/banner.png#171440000000
 
 For a region-level outage on a dual-region bucket: nothing to do — reads
 automatically serve from the surviving region. For a single-region bucket
-that lost its only copy, the data is gone; ask problem authors to
-re-upload.
+that lost its only copy, the data is gone: problem authors can re-upload
+images/testcases, but **submission sources cannot be reconstructed** — which
+is why cross-region replication + versioning (above) are mandatory for this
+bucket, not optional.
 
 ---
 

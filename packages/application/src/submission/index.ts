@@ -6,6 +6,8 @@ export {
   deriveSubmissionMode,
   findOneForRejudge,
   getJudgeContext,
+  getJudgeDispatchMeta,
+  type JudgeDispatchMeta,
   getSubmissionById,
   getSubmissionDetail,
   getSubmissionForUser,
@@ -23,6 +25,7 @@ export {
   finalizeRejudgeLog,
   restoreSubmissionAfterCancelledRejudge,
   snapshotForRejudge,
+  submitAndDispatch,
   updateSubmissionStatus,
   type ActorContext as SubmissionActorContext,
 } from "./mutations";
@@ -44,6 +47,7 @@ export {
 export {
   buildSubtaskResults,
   mapResult,
+  sanitizeStudentResult,
   stripStaffFeedback,
   verdictMap,
   type SubtaskResultItem,

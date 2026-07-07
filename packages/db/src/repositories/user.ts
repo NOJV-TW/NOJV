@@ -111,11 +111,13 @@ export const userRepo = {
   },
 
   async countDeletionBlockers(id: string): Promise<number> {
-    const [ownedCourses, createdAssessments] = await Promise.all([
+    const [ownedCourses, createdAssessments, submissions, participations] = await Promise.all([
       prisma.course.count({ where: { ownerId: id } }),
       prisma.assessment.count({ where: { createdByUserId: id } }),
+      prisma.submission.count({ where: { userId: id } }),
+      prisma.participation.count({ where: { userId: id } }),
     ]);
-    return ownedCourses + createdAssessments;
+    return ownedCourses + createdAssessments + submissions + participations;
   },
 
   delete(id: string) {

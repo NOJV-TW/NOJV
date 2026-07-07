@@ -84,6 +84,7 @@ const dispatchAssignmentDueSoon = vi.fn(async () => {});
 beforeEach(() => {
   configureDomainOrchestration({
     cancelRejudge: vi.fn(async () => {}),
+    describeSubmissionJudge: vi.fn(async () => null),
     dispatchAssignmentDueSoon,
     dispatchContestLifecycle: vi.fn(async () => {}),
     dispatchExamAutoClose: vi.fn(async () => {}),

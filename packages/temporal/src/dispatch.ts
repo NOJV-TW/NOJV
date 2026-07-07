@@ -50,6 +50,26 @@ export async function terminateSubmissionJudge(
   }
 }
 
+export interface SubmissionJudgeState {
+  status: string;
+  running: boolean;
+}
+
+export async function describeSubmissionJudge(
+  submissionId: string,
+): Promise<SubmissionJudgeState | null> {
+  const client = await getTemporalClient();
+  const handle = client.workflow.getHandle(`judge-${submissionId}`);
+  try {
+    const description = await handle.describe();
+    const status = description.status.name;
+    return { status, running: status === "RUNNING" };
+  } catch (err) {
+    if (err instanceof WorkflowNotFoundError) return null;
+    throw err;
+  }
+}
+
 export const SUBMISSION_SWEEPER_WORKFLOW_ID = "submission-pending-sweeper";
 
 export async function ensureSubmissionSweeper(): Promise<void> {

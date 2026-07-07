@@ -139,9 +139,6 @@ function refineAdvancedConfig(
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine(refineAdvancedConfig);
 
-// Draft saves persist whatever the author has filled so far, so the content
-// fields may be empty. Completeness (non-empty title/statement/formats) is
-// enforced only when publishing, not on every draft save.
 const problemDraftObjectSchema = problemCreateObjectSchema.extend({
   title: z.string().trim().max(120, "validation_tooLong"),
   statement: z.string().trim().max(12_000, "validation_tooLong"),

@@ -12,7 +12,14 @@ const ALLOWED: Record<string, string[]> = {
   db: [],
   redis: ["@nojv/core"],
   storage: ["@nojv/core"],
-  application: ["@nojv/core", "@nojv/db", "@nojv/redis", "@nojv/storage"],
+  "sandbox-docker": [],
+  application: [
+    "@nojv/core",
+    "@nojv/db",
+    "@nojv/redis",
+    "@nojv/storage",
+    "@nojv/sandbox-docker",
+  ],
   temporal: ["@nojv/core"],
 };
 

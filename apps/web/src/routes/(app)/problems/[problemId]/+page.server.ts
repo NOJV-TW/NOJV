@@ -55,11 +55,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   await assertProblemViewAccess(
     { id: problemRow.id, authorId: problemRow.authorId, visibility: problemRow.visibility },
-    {
-      userId,
-      username: actor.username ?? "",
-      platformRole: actor.platformRole,
-    },
+    actorContext,
     { contextIncludesProblem: false },
   );
 

@@ -1,3 +1,5 @@
+import { SERVICE_READY_MARKER, buildAdvancedServiceArgs } from "@nojv/sandbox-docker";
+
 import {
   collectContainerLogs,
   forceRemoveContainer,
@@ -6,12 +8,14 @@ import {
   sanitizeId,
 } from "./docker-process";
 
-export const SERVICE_NETWORK_ALIAS = "service";
-export const SERVICE_HOST_ENV = "NOJV_SERVICE_HOST";
-export const SERVICE_PORT_ENV = "PORT";
-export const SERVICE_READY_MARKER = "NOJV_SERVICE_READY";
+export {
+  ADVANCED_SERVICE_PORT,
+  SERVICE_NETWORK_ALIAS,
+  SERVICE_PORT_ENV,
+  SERVICE_READY_MARKER,
+} from "@nojv/sandbox-docker";
 
-export const ADVANCED_SERVICE_PORT = 8888;
+export const SERVICE_HOST_ENV = "NOJV_SERVICE_HOST";
 
 const READINESS_TIMEOUT_MS = 5_000;
 const READINESS_INTERVAL_MS = 100;
@@ -28,35 +32,7 @@ export function buildStartServiceArgs(params: {
   cpuLimit: string;
   pidsLimit: number;
 }): string[] {
-  return [
-    "run",
-    "-d",
-    "--rm",
-    "--name",
-    params.containerName,
-    "--network",
-    params.internalName,
-    "--network-alias",
-    SERVICE_NETWORK_ALIAS,
-    "-e",
-    `${SERVICE_PORT_ENV}=${String(ADVANCED_SERVICE_PORT)}`,
-    "--cap-drop",
-    "ALL",
-    "--security-opt",
-    "no-new-privileges",
-    "--read-only",
-    "--tmpfs",
-    "/tmp:rw,exec,nosuid,nodev,size=64m",
-    "--memory",
-    `${String(params.memoryMb)}m`,
-    "--memory-swap",
-    `${String(params.memoryMb)}m`,
-    "--cpus",
-    params.cpuLimit,
-    "--pids-limit",
-    String(params.pidsLimit),
-    params.imageRef,
-  ];
+  return buildAdvancedServiceArgs(params);
 }
 
 export interface ServiceContainerHandle {

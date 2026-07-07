@@ -146,6 +146,7 @@ export type ProblemType = z.infer<typeof problemTypeSchema>;
 export type SubmissionMode = z.infer<typeof submissionModeSchema>;
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
+export type SubmissionOperationStatus = z.infer<typeof submissionOperationStatusSchema>;
 
 export const ipViolationModes = ["block", "notify"] as const;
 export const ipViolationModeSchema = z.enum(ipViolationModes);

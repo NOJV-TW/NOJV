@@ -40,32 +40,47 @@ const componentSandboxRule = [
   },
 ];
 
-const layerBoundaryRule = [
-  "error",
-  {
-    paths: ["@nojv/temporal"].map((name) => ({
-      name,
-      message: `${name} is server-only and reached through @nojv/application (dispatch helpers). Do not import it from apps/web.`,
-    })),
-    patterns: [
-      {
-        group: ["@nojv/db", "@nojv/db/*"],
-        message:
-          "apps/web should go through @nojv/application. The only exception is src/lib/auth.server.ts (better-auth Prisma adapter).",
-      },
-      {
-        group: ["@nojv/redis", "@nojv/redis/*"],
-        message:
-          "apps/web should go through @nojv/application. Exceptions: src/lib/server/shared/rate-limiter.ts and src/routes/api/events/stream/+server.ts.",
-      },
-      {
-        group: ["@nojv/storage", "@nojv/storage/*"],
-        message:
-          "apps/web should go through @nojv/application or src/lib/server/storage/* adapters.",
-      },
-    ],
-  },
-];
+const layerBoundaryTemporalPath = {
+  name: "@nojv/temporal",
+  message:
+    "@nojv/temporal is server-only and reached through @nojv/application (dispatch helpers). Do not import it from apps/web.",
+};
+
+const layerBoundaryDbPattern = {
+  group: ["@nojv/db", "@nojv/db/*"],
+  message:
+    "apps/web should go through @nojv/application. The only exception is src/lib/auth.server.ts (better-auth Prisma adapter).",
+};
+
+const layerBoundaryRedisPattern = {
+  group: ["@nojv/redis", "@nojv/redis/*"],
+  message:
+    "apps/web should go through @nojv/application. Exceptions: src/lib/server/shared/rate-limiter.ts and src/routes/api/events/stream/+server.ts.",
+};
+
+const layerBoundaryStoragePattern = {
+  group: ["@nojv/storage", "@nojv/storage/*"],
+  message: "apps/web should go through @nojv/application or src/lib/server/storage/* adapters.",
+};
+
+function layerBoundaryRule({
+  allowTemporal = false,
+  allowDb = false,
+  allowRedis = false,
+  allowStorage = false,
+} = {}) {
+  const patterns = [];
+  if (!allowDb) patterns.push(layerBoundaryDbPattern);
+  if (!allowRedis) patterns.push(layerBoundaryRedisPattern);
+  if (!allowStorage) patterns.push(layerBoundaryStoragePattern);
+  return [
+    "error",
+    {
+      paths: allowTemporal ? [] : [layerBoundaryTemporalPath],
+      patterns,
+    },
+  ];
+}
 
 const primitivesNoFeaturesRule = [
   "error",
@@ -172,21 +187,36 @@ export default [
       "src/lib/components/**/*.svelte",
     ],
     rules: {
-      "no-restricted-imports": layerBoundaryRule,
+      "no-restricted-imports": layerBoundaryRule(),
+    },
+  },
+  {
+    files: ["src/lib/auth.server.ts"],
+    rules: {
+      "no-restricted-imports": layerBoundaryRule({ allowDb: true, allowRedis: true }),
+    },
+  },
+  {
+    files: ["src/lib/server/domain-orchestration.ts"],
+    rules: {
+      "no-restricted-imports": layerBoundaryRule({ allowTemporal: true }),
+    },
+  },
+  {
+    files: ["src/lib/server/storage/**/*.ts"],
+    rules: {
+      "no-restricted-imports": layerBoundaryRule({ allowStorage: true }),
     },
   },
   {
     files: [
-      "src/lib/auth.server.ts",
-      "src/lib/server/domain-orchestration.ts",
-      "src/lib/server/storage/**/*.ts",
       "src/lib/server/shared/rate-limiter.ts",
       "src/lib/server/shared/sse-hub.ts",
       "src/routes/api/events/stream/+server.ts",
       "src/routes/**/scoreboard/stream/+server.ts",
     ],
     rules: {
-      "no-restricted-imports": "off",
+      "no-restricted-imports": layerBoundaryRule({ allowRedis: true }),
     },
   },
 ];

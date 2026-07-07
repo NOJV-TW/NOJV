@@ -19,6 +19,7 @@ import {
   validateRequiredPaths,
   type AdvancedConfig,
   type SubmissionDraft,
+  type SubmissionOperationStatus,
   type SubmissionResult,
   type VerdictSummary,
 } from "@nojv/core";
@@ -44,9 +45,12 @@ import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
+import { dispatchSubmissionJudge } from "./rejudge-control";
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
+
+type SubmissionStatus = SubmissionOperationStatus;
 
 type SubmissionProblem = Awaited<ReturnType<typeof requireProblem>>;
 type SubmissionCourseContext = Awaited<ReturnType<typeof requireCourseAssignment>>;
@@ -335,9 +339,30 @@ export async function createQueuedSubmissionRecord(
   });
 }
 
+export async function submitAndDispatch(
+  payload: SubmissionDraft,
+  actor: ActorContext,
+  clientIp: string,
+) {
+  const submission = await createQueuedSubmissionRecord(payload, actor, clientIp);
+
+  const judgeDraft: SubmissionDraft = { ...payload };
+  delete judgeDraft.sourceCode;
+  delete judgeDraft.sourceFiles;
+
+  try {
+    await dispatchSubmissionJudge({ draft: judgeDraft, submissionId: submission.id });
+  } catch (err) {
+    await submissionRepo.updateStatus(submission.id, "system_error").catch(() => undefined);
+    throw err;
+  }
+
+  return submission;
+}
+
 export async function updateSubmissionStatus(
   submissionId: string,
-  status: string,
+  status: SubmissionStatus,
 ): Promise<void> {
   await submissionRepo.updateStatus(submissionId, status);
 }

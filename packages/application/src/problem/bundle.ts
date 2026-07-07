@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
 
 import archiver from "archiver";
-import { Open, type Entry as ZipEntry, type File as ZipFile } from "unzipper";
+import { Open, type File as ZipFile } from "unzipper";
 
 import type { Prisma } from "@nojv/db";
 import {
@@ -24,6 +24,7 @@ import {
 } from "./blobs";
 import { assertProblemEditAccess, type ProblemActorContext } from "./permissions";
 import { PROBLEM_STORAGE_BUDGET_BYTES } from "./storage-budget";
+import { readZipEntryBounded } from "./zip-utils";
 
 import {
   checkerKey as checkerKeyFor,
@@ -201,7 +202,14 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
 
   for (const entry of fileEntries) {
     const remaining = MAX_BUNDLE_UNCOMPRESSED_BYTES - runningBytes;
-    const buf = await readEntryBounded(entry, remaining);
+    const buf = await readZipEntryBounded(
+      entry,
+      remaining,
+      (path) =>
+        new ConflictError(
+          `Bundle entry "${path}" pushes inflated total past ${String(MAX_BUNDLE_UNCOMPRESSED_BYTES)} bytes.`,
+        ),
+    );
     runningBytes += buf.byteLength;
     const text = buf.toString("utf8");
 
@@ -217,60 +225,6 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
     interactor: acc.interactor,
     totalBytes: runningBytes,
   };
-}
-
-async function readEntryBounded(entry: ZipFile, maxBytes: number): Promise<Buffer> {
-  if (maxBytes <= 0) {
-    throw new ConflictError(
-      `Bundle exceeds ${String(MAX_BUNDLE_UNCOMPRESSED_BYTES)} bytes uncompressed.`,
-    );
-  }
-  const stream: ZipEntry = entry.stream();
-  return new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    let settled = false;
-    const drainEntry = (): void => {
-      try {
-        void stream
-          .autodrain()
-          .promise()
-          .catch(() => undefined);
-      } catch {
-        return;
-      }
-    };
-
-    const onData = (chunk: Buffer): void => {
-      if (settled) return;
-      total += chunk.length;
-      if (total > maxBytes) {
-        settled = true;
-        drainEntry();
-        reject(
-          new ConflictError(
-            `Bundle entry "${entry.path}" pushes inflated total past ${String(MAX_BUNDLE_UNCOMPRESSED_BYTES)} bytes.`,
-          ),
-        );
-        return;
-      }
-      chunks.push(chunk);
-    };
-    const onEnd = (): void => {
-      if (settled) return;
-      settled = true;
-      resolve(Buffer.concat(chunks));
-    };
-    const onError = (err: Error): void => {
-      if (settled) return;
-      settled = true;
-      reject(err);
-    };
-
-    stream.on("data", onData);
-    stream.on("end", onEnd);
-    stream.on("error", onError);
-  });
 }
 
 interface PreparedTestcase {

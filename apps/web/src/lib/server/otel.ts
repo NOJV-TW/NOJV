@@ -19,7 +19,7 @@ function parseOtlpHeaders(raw: string | undefined): Record<string, string> | und
   return Object.keys(headers).length > 0 ? headers : undefined;
 }
 
-export function startOtel(): void {
+function startOtel(): void {
   if (started) return;
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
   if (!endpoint) {

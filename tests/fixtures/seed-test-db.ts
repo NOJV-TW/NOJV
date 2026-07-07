@@ -1,6 +1,7 @@
 import { testPrisma } from "./factories";
 
 export const TABLES = [
+  "AdminAuditLog",
   "Clarification",
   "SubmissionFeedbackAuditLog",
   "SubmissionFeedback",

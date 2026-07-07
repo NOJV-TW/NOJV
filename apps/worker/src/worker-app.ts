@@ -109,7 +109,7 @@ export class WorkerApp {
         taskQueue: PLATFORM_TASK_QUEUE,
         workflowsPath: require.resolve("./workflows/index.js"),
         activities: await import("./activities/platform-bundle.js"),
-        maxConcurrentActivityTaskExecutions: 10,
+        maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
         shutdownGraceTime: "30s",
       });
       this.workers.push(platformWorker);

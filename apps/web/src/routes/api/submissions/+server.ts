@@ -20,22 +20,11 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const payload = submissionDraftSchema.parse(await event.request.json());
 
-  const submission = await submissionDomain.createQueuedSubmissionRecord(
+  const submission = await submissionDomain.submitAndDispatch(
     payload,
     actor,
     getClientIp(event),
   );
-  try {
-    await submissionDomain.dispatchSubmissionJudge({
-      draft: payload,
-      submissionId: submission.id,
-    });
-  } catch (err) {
-    await submissionDomain
-      .updateSubmissionStatus(submission.id, "system_error")
-      .catch(() => undefined);
-    throw err;
-  }
 
   return json(
     {

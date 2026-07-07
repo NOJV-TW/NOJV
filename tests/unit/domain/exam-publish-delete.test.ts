@@ -89,6 +89,7 @@ function publishableExam(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   configureDomainOrchestration({
     cancelRejudge: vi.fn(async () => {}),
+    describeSubmissionJudge: vi.fn(async () => null),
     dispatchAssignmentDueSoon: vi.fn(async () => {}),
     dispatchContestLifecycle: vi.fn(async () => {}),
     dispatchExamAutoClose,

@@ -5,8 +5,14 @@ import {
   scoreOverrideRepo,
   submissionRepo,
 } from "@nojv/db";
-import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
+import {
+  contestScoringModeSchema,
+  scoreboardModeSchema,
+  type ContestScoringMode,
+  type ScoreboardMode,
+} from "@nojv/core";
 import { getRedis, keys } from "@nojv/redis";
+import { z } from "zod";
 
 import { NotFoundError } from "../shared/errors";
 
@@ -47,6 +53,42 @@ export interface ScoreboardChart {
     points: { time: number; score: number }[];
   }[];
 }
+
+const scoreboardSchema = z.object({
+  entries: z.array(
+    z.object({
+      rank: z.number(),
+      userId: z.string(),
+      username: z.string(),
+      displayName: z.string(),
+      totalScore: z.number(),
+      totalPenalty: z.number(),
+      problems: z.array(
+        z.object({
+          problemId: z.string(),
+          score: z.number(),
+          attempts: z.number(),
+          firstAcTime: z.number().nullable(),
+          isFrozen: z.boolean(),
+          isPending: z.boolean(),
+        }),
+      ),
+      isFirstBlood: z.array(z.boolean()),
+    }),
+  ),
+  problems: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      ordinal: z.number(),
+      points: z.number(),
+    }),
+  ),
+  scoringMode: contestScoringModeSchema,
+  scoreboardMode: scoreboardModeSchema,
+  frozenAt: z.string().nullable(),
+  isFrozen: z.boolean(),
+});
 
 type ContestParticipationWithContest = NonNullable<
   Awaited<ReturnType<typeof participationRepo.findContestForScoring>>
@@ -90,7 +132,10 @@ export async function getScoreboard(
   const redis = getRedis();
 
   const cached = await redis.get(cacheKey);
-  if (cached !== null) return JSON.parse(cached) as Scoreboard;
+  if (cached !== null) {
+    const parsed = scoreboardSchema.safeParse(JSON.parse(cached));
+    if (parsed.success) return parsed.data;
+  }
 
   const lockKey = keys.scoreboardLock(contestId, variant);
   const acquired = await redis.set(lockKey, "1", "EX", SCOREBOARD_LOCK_TTL_SECONDS, "NX");
@@ -99,7 +144,10 @@ export async function getScoreboard(
     for (let attempt = 0; attempt < SCOREBOARD_LOCK_POLL_ATTEMPTS; attempt++) {
       await sleep(SCOREBOARD_LOCK_POLL_INTERVAL_MS);
       const polled = await redis.get(cacheKey);
-      if (polled !== null) return JSON.parse(polled) as Scoreboard;
+      if (polled !== null) {
+        const parsed = scoreboardSchema.safeParse(JSON.parse(polled));
+        if (parsed.success) return parsed.data;
+      }
     }
     return computeScoreboard(contestId, canSeeLive);
   }

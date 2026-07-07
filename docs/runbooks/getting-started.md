@@ -122,7 +122,7 @@ This starts:
 
 1. Open http://localhost:5173 — should see the landing page
 2. Open http://localhost:8080 — Temporal UI should show the `default` namespace
-3. Sign in with a seeded user (check seed data for email/password)
+3. Sign in with a seeded account — the `/signin` OAuth buttons (GitHub / Google) need the optional OAuth credentials, so for local dev use password sign-in at `/admin-signin` (linked as "Admin login" from `/signin`) with a seeded account such as the seeded admin (check seed data for credentials)
 4. Navigate to a problem, write code, and submit — should see the judge process in Temporal UI
 
 ## Common Tasks

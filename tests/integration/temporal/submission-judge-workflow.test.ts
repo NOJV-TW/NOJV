@@ -54,13 +54,19 @@ const baseInput = {
 } as never;
 
 async function runWorker(activities: Activities, body: () => Promise<void>): Promise<void> {
-  const worker = await Worker.create({
+  const judgeWorker = await Worker.create({
     connection: env.nativeConnection,
     taskQueue: "judge-test",
     workflowsPath,
     activities,
   });
-  await worker.runUntil(body());
+  const platformWorker = await Worker.create({
+    connection: env.nativeConnection,
+    taskQueue: "platform",
+    workflowsPath,
+    activities,
+  });
+  await judgeWorker.runUntil(platformWorker.runUntil(body()));
 }
 
 describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {

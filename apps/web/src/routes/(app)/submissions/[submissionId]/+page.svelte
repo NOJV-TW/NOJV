@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ArrowLeft, Check, Copy, Download } from "@lucide/svelte";
+  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import { watchSubmissionVerdict } from "$lib/stores/sse";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
@@ -22,6 +24,20 @@
       verdict === "compiling" ||
       verdict === "running",
   );
+
+  $effect(() => {
+    if (!isPending) return;
+    const unwatch = watchSubmissionVerdict(submission.id, () => {
+      void invalidateAll();
+    });
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") void invalidateAll();
+    }, 5000);
+    return () => {
+      unwatch();
+      clearInterval(interval);
+    };
+  });
 
   const submittedAt = $derived(formatDateTime(submission.createdAt));
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);
@@ -218,9 +234,10 @@
 
       {#if isPending}
         <p
-          class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
+          class="flex flex-col items-center gap-1 rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
         >
-          {m.submissionDetail_judging()}
+          <span>{m.submissionDetail_judging()}</span>
+          <span class="text-caption">{m.submissionDetail_autoRefreshing()}</span>
         </p>
       {:else if result?.feedback}
         <div class="flex flex-col gap-1.5">

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { terminateSubmissionJudge } = vi.hoisted(() => ({
+const { terminateSubmissionJudge, describeSubmissionJudge } = vi.hoisted(() => ({
   terminateSubmissionJudge: vi.fn(),
+  describeSubmissionJudge: vi.fn(),
 }));
 
 import { submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
@@ -22,8 +23,11 @@ async function backdateUpdatedAt(submissionId: string, minutesAgo: number) {
 
 beforeEach(() => {
   terminateSubmissionJudge.mockReset();
+  describeSubmissionJudge.mockReset();
+  describeSubmissionJudge.mockResolvedValue(null);
   configureDomainOrchestration({
     cancelRejudge: vi.fn(async () => {}),
+    describeSubmissionJudge,
     dispatchAssignmentDueSoon: vi.fn(async () => {}),
     dispatchContestLifecycle: vi.fn(async () => {}),
     dispatchExamAutoClose: vi.fn(async () => {}),
@@ -98,6 +102,19 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(staleRow?.status).toBe("system_error");
     expect(freshRow?.status).toBe("running");
     expect(terminalRow?.status).toBe("accepted");
+  });
+
+  it("skips a stale row whose judge workflow is still RUNNING (backlog, not a hang)", async () => {
+    describeSubmissionJudge.mockResolvedValue({ status: "RUNNING", running: true });
+    const stale = await createTestSubmission({ status: "running" });
+    await backdateUpdatedAt(stale.id, 60);
+
+    const result = await submissionDomain.sweepStaleSubmissions();
+
+    expect(terminateSubmissionJudge).not.toHaveBeenCalled();
+    expect(result.skipped).toBeGreaterThanOrEqual(1);
+    const row = await submissionRepo.findById(stale.id);
+    expect(row?.status).toBe("running");
   });
 
   it("uses the timeout threshold from the environment", async () => {

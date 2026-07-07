@@ -9,12 +9,15 @@ import { z } from "zod";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
 
+const MAX_CLARIFICATION_SUBS = 25;
+
 type ClarificationContextType = "contest" | "exam" | "assignment";
 
 function parseClarificationSubs(url: URL): ClarificationContext[] {
   const out: ClarificationContext[] = [];
   const seen = new Set<string>();
   for (const raw of url.searchParams.getAll("clarificationSub")) {
+    if (out.length >= MAX_CLARIFICATION_SUBS) break;
     const idx = raw.indexOf(":");
     if (idx <= 0 || idx === raw.length - 1) continue;
     const contextType = raw.slice(0, idx);

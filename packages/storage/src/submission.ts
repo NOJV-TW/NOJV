@@ -79,13 +79,14 @@ export async function putVerdictDetail(
   await putText(client, submissionVerdictDetailKey(submissionId), JSON.stringify(detail));
 }
 
-export async function getVerdictDetail<T>(
+export async function getVerdictDetail(
   client: S3Client,
   submissionId: string,
-): Promise<T | null> {
+): Promise<unknown> {
   try {
     const body = await getText(client, submissionVerdictDetailKey(submissionId));
-    return JSON.parse(body) as T;
+    const parsed: unknown = JSON.parse(body);
+    return parsed;
   } catch (err) {
     if (isNotFoundError(err)) {
       return null;

@@ -1,6 +1,7 @@
 import { getTemporalClient } from "./client";
 import {
   cancelRejudge,
+  describeSubmissionJudge,
   dispatchAssignmentDueSoon,
   dispatchContestLifecycle,
   dispatchExamAutoClose,
@@ -14,6 +15,7 @@ import {
 export function buildDomainOrchestrationAdapter() {
   return {
     cancelRejudge,
+    describeSubmissionJudge,
     dispatchAssignmentDueSoon,
     dispatchContestLifecycle,
     dispatchExamAutoClose,

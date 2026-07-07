@@ -15,7 +15,7 @@ import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
 import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
-import { parseSandboxResult } from "./sandbox-schema";
+import { parseCompileOutput, parseSandboxResult } from "./sandbox-schema";
 import { runValidator, type ValidatorCase } from "./validator-executor";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
@@ -224,12 +224,16 @@ async function runContainer(
       );
     }
 
-    let compileOut: { compilationError?: string; runCommand?: string[] };
+    let compileParsed;
     try {
-      compileOut = JSON.parse(compile.stdout) as typeof compileOut;
+      compileParsed = parseCompileOutput(JSON.parse(compile.stdout));
     } catch {
       return sandboxSystemError(`Failed to parse compile output.\nstdout: ${compile.stdout}`);
     }
+    if (!compileParsed.success) {
+      return sandboxSystemError(`Invalid compile output.\nstdout: ${compile.stdout}`);
+    }
+    const compileOut = compileParsed.data;
     if (compileOut.compilationError) {
       return { testcaseResults: [], compilationError: compileOut.compilationError };
     }

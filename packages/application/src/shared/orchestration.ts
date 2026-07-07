@@ -10,8 +10,14 @@ import type {
 
 import { ConfigurationError } from "./errors";
 
+export interface SubmissionJudgeState {
+  status: string;
+  running: boolean;
+}
+
 export interface DomainOrchestrationAdapter {
   cancelRejudge(workflowId: string): Promise<void>;
+  describeSubmissionJudge(submissionId: string): Promise<SubmissionJudgeState | null>;
   dispatchAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   dispatchContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void>;

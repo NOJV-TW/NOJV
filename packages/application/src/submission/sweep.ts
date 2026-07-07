@@ -21,6 +21,7 @@ export interface SweepStaleSubmissionsResult {
   scanned: number;
   killed: number;
   failed: number;
+  skipped: number;
   rejudgeLogsPruned: number;
   expiredSessionsPruned: number;
   expiredVerificationsPruned: number;
@@ -33,8 +34,14 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
 
   let killed = 0;
   let failed = 0;
+  let skipped = 0;
   for (const { id } of stale) {
     try {
+      const state = await getDomainOrchestration().describeSubmissionJudge(id);
+      if (state?.running) {
+        skipped += 1;
+        continue;
+      }
       await getDomainOrchestration().terminateSubmissionJudge(
         id,
         "submission pending timeout exceeded",
@@ -63,6 +70,7 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
     scanned: stale.length,
     killed,
     failed,
+    skipped,
     rejudgeLogsPruned: pruned.count,
     expiredSessionsPruned: expiredSessions.count,
     expiredVerificationsPruned: expiredVerifications.count,

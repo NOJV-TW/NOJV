@@ -38,7 +38,13 @@ export function parseSandboxResult(
 ): { success: true; data: SandboxResult } | { success: false } {
   const result = rawSchema.safeParse(data);
   if (!result.success) return { success: false };
-  return { success: true, data: result.data as unknown as SandboxResult };
+  return {
+    success: true,
+    data: {
+      ...result.data,
+      testcaseResults: result.data.testcaseResults ?? [],
+    } as SandboxResult,
+  };
 }
 
 const validatorCaseOutcomeSchema = z.object({
@@ -65,5 +71,27 @@ export function parseValidateOutput(
 ): { success: true; data: ValidateOutput } | { success: false } {
   const result = validateOutputSchema.safeParse(data);
   if (!result.success) return { success: false };
-  return { success: true, data: result.data as unknown as ValidateOutput };
+  return { success: true, data: result.data as ValidateOutput };
+}
+
+const compileOutputSchema = z.object({
+  compilationError: z.string().optional(),
+  runCommand: z.array(z.string()).optional(),
+});
+
+export interface CompileOutput {
+  compilationError?: string;
+  runCommand?: string[];
+}
+
+export function parseCompileOutput(
+  data: unknown,
+): { success: true; data: CompileOutput } | { success: false } {
+  const result = compileOutputSchema.safeParse(data);
+  if (!result.success) return { success: false };
+  const output: CompileOutput = {};
+  if (result.data.compilationError !== undefined)
+    output.compilationError = result.data.compilationError;
+  if (result.data.runCommand !== undefined) output.runCommand = result.data.runCommand;
+  return { success: true, data: output };
 }

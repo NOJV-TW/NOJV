@@ -67,7 +67,6 @@ export async function createProblemDefinition(
     difficulty: input.difficulty ?? "medium",
     memoryLimitMb: input.memoryLimitMb ?? 256,
     samples: Prisma.JsonNull,
-    // Draft by default: displayId is assigned only on publish (updateProblemRecord).
     status: input.status ?? "draft",
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
@@ -100,6 +99,10 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   assertProblemOwnership(problem, actor);
+
+  if (problem.status !== "draft") {
+    throw new ConflictError("Only draft problems can be deleted.");
+  }
 
   if (await problemRepo.hasContextLinks(problemId)) {
     throw new ConflictError(
@@ -181,11 +184,14 @@ export async function updateProblemRecord(
 
     assertProblemOwnership(problem, actor);
 
+    if (payload.status === "draft" && problem.status === "published") {
+      throw new ConflictError("Published problems cannot be reverted to draft.");
+    }
+
     const updateData = buildProblemUpdateData(payload);
 
     assertSpecialEnvImageConsistency(payload, problem);
 
-    // A problem gets its public displayId ("#N") the first time it is published.
     if (
       payload.status === "published" &&
       problem.status !== "published" &&

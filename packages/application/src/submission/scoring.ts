@@ -290,3 +290,32 @@ export function stripStaffFeedback(result: SubmissionResult): SubmissionResult {
       : {}),
   };
 }
+
+export function sanitizeStudentResult(
+  result: SubmissionResult,
+  options: { sampleOnly: boolean },
+): SubmissionResult {
+  const stripCase = (c: CaseResult): CaseResult => {
+    const copy: CaseResult = { ...c };
+    delete copy.staffFeedback;
+    if (!options.sampleOnly) {
+      delete copy.stdout;
+      delete copy.stderr;
+    }
+    return copy;
+  };
+  return {
+    ...result,
+    ...(result.caseResults !== undefined
+      ? { caseResults: result.caseResults.map(stripCase) }
+      : {}),
+    ...(result.subtaskResults !== undefined
+      ? {
+          subtaskResults: result.subtaskResults.map((s) => ({
+            ...s,
+            cases: s.cases.map(stripCase),
+          })),
+        }
+      : {}),
+  };
+}

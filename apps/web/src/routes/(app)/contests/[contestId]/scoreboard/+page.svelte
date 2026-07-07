@@ -50,6 +50,7 @@
   import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
+  import { toasts } from "$lib/stores/toast";
   import { entriesAroundUser } from "$lib/utils/scoreboard";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
@@ -117,9 +118,13 @@
     try {
       const fd = new FormData();
       const res = await fetch("?/unfreeze", { method: "POST", body: fd });
-      if (res.ok) {
-        await invalidate("contest:scoreboard");
+      if (!res.ok) {
+        toasts.error(m.contestScoreboard_unfreezeError());
+        return;
       }
+      await invalidate("contest:scoreboard");
+    } catch {
+      toasts.error(m.contestScoreboard_unfreezeError());
     } finally {
       unfreezing = false;
     }

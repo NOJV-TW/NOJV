@@ -221,6 +221,34 @@ the self-hosted runner on the k3s box runs `helm upgrade` — k3s pulls the imag
 from GHCR (no local `docker build`/`ctr import`). One-time: set those five GHCR
 packages to **Public** so k3s can pull without an imagePullSecret.
 
+### Single-machine capacity ceiling (static — autoscaling is wired but inert)
+
+The single-machine deployment is **fully static**. The autoscaling layers that
+the [GKE picture](#scaling-strategy) below relies on are configured in the chart
+but **do not take effect on one box** — do not size a rollout as if bursts will
+be absorbed automatically:
+
+| Tier     | Single-machine (`values-single-machine.yaml`) | Autoscaling on one box                                                               |
+| -------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| web      | 1 replica (`web.hpa.enabled: false`)          | HPA is off in the overlay — no scale-out on request load.                            |
+| judge    | 1 worker, `WORKER_CONCURRENCY=4`              | KEDA `ScaledObject` is opt-in and its shipped query is a placeholder — inert.        |
+| platform | 1 worker                                      | Static.                                                                              |
+| sandbox  | quota `4` CPU / `10` pods, one node           | No cluster-autoscaler exists (no nodes to add), so the node-scaling layer is absent. |
+
+**Real concurrent-submission ceiling.** On the Kubernetes backend a submission's
+judge Job currently requests CPU **per testcase container**, so an N-testcase
+problem asks for roughly `N × K8S_CPU_REQUEST` against the `4`-CPU sandbox quota.
+Today that means only a couple of small problems judge concurrently, and a
+problem above ~8 testcases cannot be admitted at all (this is the P0-3 defect —
+see the [remediation plan](../plans/active/2026-07-07-system-health-check-remediation.md)).
+**After the P0-3 fix** decouples pod request from testcase count, the ceiling
+becomes `sandbox.resourceQuota.requestsCpu ÷ per-pod request` concurrent
+submissions — classroom scale, not exam-hall scale. Size `sandbox.resourceQuota.*`
+to your class, and treat a burst as **queue-and-drain** (submissions back up in
+the Temporal judge queue and clear as capacity frees), not as autoscale. To go
+beyond one box, add nodes (multi-node k3s) or move to GKE, where the HPA/KEDA/
+cluster-autoscaler layers below actually engage.
+
 ## GCP Production Architecture
 
 ```
@@ -551,6 +579,12 @@ Contest count   ──► Platform workers handle lifecycle (low overhead).
 To raise the sandbox throughput ceiling, bump `sandbox.resourceQuota.*` in your
 values overlay (then `helm upgrade`) and the `pool-sandbox` autoscaler
 max-nodes, not the worker replica count.
+
+> The numbers above (quota `50` pods / `25` CPU, judge `2` replicas, a
+> node-autoscaled sandbox pool) are the **GKE** overlay. The **single-machine**
+> overlay is static and smaller — 1 judge worker, quota `10` pods / `4` CPU, one
+> node, no cluster-autoscaler — with a correspondingly lower ceiling; see
+> [Single-machine capacity ceiling](#single-machine-capacity-ceiling-static--autoscaling-is-wired-but-inert).
 
 ## Database Migrations
 

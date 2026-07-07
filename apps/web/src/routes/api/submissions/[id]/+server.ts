@@ -7,12 +7,12 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/application";
 import { submissionResultSchema } from "@nojv/core";
 
-const { getSubmissionForUser, getVerdictDetail, stripStaffFeedback } = submissionDomain;
+const { getSubmissionForUser, getVerdictDetail, sanitizeStudentResult } = submissionDomain;
 
-function sanitizeVerdictDetail(raw: unknown): unknown {
+function sanitizeVerdictDetail(raw: unknown, sampleOnly: boolean): unknown {
   if (raw === null || raw === undefined) return raw;
   const parsed = submissionResultSchema.safeParse(raw);
-  return parsed.success ? stripStaffFeedback(parsed.data) : null;
+  return parsed.success ? sanitizeStudentResult(parsed.data, { sampleOnly }) : null;
 }
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -30,7 +30,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const detail = submission.verdictDetailStorageKey ? await getVerdictDetail(id) : null;
 
   return json({
-    result: sanitizeVerdictDetail(detail),
+    result: sanitizeVerdictDetail(detail, submission.sampleOnly),
     status: submission.status,
     submissionId: submission.id,
   });

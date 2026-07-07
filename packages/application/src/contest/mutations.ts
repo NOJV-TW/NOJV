@@ -4,7 +4,6 @@ import {
   participationRepo,
   problemRepo,
   runTransaction,
-  submissionRepo,
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
@@ -72,6 +71,7 @@ import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
+import { enforceSubmitCooldown } from "../shared/submit-cooldown";
 
 export type { ActorContext };
 
@@ -163,28 +163,7 @@ export async function checkSubmitCooldown(
   problemId: string,
   cooldownSec: number,
 ) {
-  if (cooldownSec <= 0) return;
-
-  const lockKey = `${contestId}:${userId}:${problemId}`;
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
-
-  const cutoff = new Date(Date.now() - cooldownSec * 1000);
-
-  const recentSubmission = await submissionRepo.withTx(tx).findMostRecent({
-    contestId,
-    userId,
-    problemId,
-    sampleOnly: false,
-    createdAt: { gte: cutoff },
-  });
-
-  if (recentSubmission) {
-    const waitUntil = new Date(recentSubmission.createdAt.getTime() + cooldownSec * 1000);
-    const remainingSec = Math.ceil((waitUntil.getTime() - Date.now()) / 1000);
-    throw new ForbiddenError(
-      `Submit cooldown active. Please wait ${String(remainingSec)} seconds.`,
-    );
-  }
+  await enforceSubmitCooldown(tx, { contestId }, userId, problemId, cooldownSec);
 }
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {

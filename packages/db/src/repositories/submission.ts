@@ -112,6 +112,22 @@ export const submissionRepo = {
     });
   },
 
+  findByIdForDispatchMeta(id: string) {
+    return prisma.submission.findUnique({
+      where: { id },
+      select: {
+        problem: {
+          select: {
+            type: true,
+            advancedConfig: true,
+            timeLimitMs: true,
+            memoryLimitMb: true,
+          },
+        },
+      },
+    });
+  },
+
   findByIdWithJudgeContext(id: string) {
     return prisma.submission.findUnique({
       include: {
@@ -649,9 +665,9 @@ export const submissionRepo = {
     });
   },
 
-  updateStatus(id: string, status: string) {
+  updateStatus(id: string, status: SubmissionStatus) {
     return prisma.submission.update({
-      data: { status } as Prisma.SubmissionUncheckedUpdateInput,
+      data: { status },
       where: { id },
     });
   },

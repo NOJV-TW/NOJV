@@ -23,10 +23,8 @@ export function buildPointSumScoreboard(
   const frozenAt = session.frozenAt;
 
   const firstFullByProblem = new Map<string, string>();
-  const pointsByProblem = new Map(problems.map((p) => [p.id, p.points]));
   for (const sub of submissions) {
-    const maxPts = pointsByProblem.get(sub.problemId);
-    if (maxPts != null && sub.score >= maxPts && !firstFullByProblem.has(sub.problemId)) {
+    if (sub.status === "accepted" && !firstFullByProblem.has(sub.problemId)) {
       firstFullByProblem.set(sub.problemId, sub.userId);
     }
   }
@@ -61,7 +59,7 @@ export function buildPointSumScoreboard(
             lastImprovementTime = subTime;
           }
         }
-        if (sub.score >= prob.points && firstAcTime == null) {
+        if (sub.status === "accepted" && firstAcTime == null) {
           firstAcTime = secondsSince(session.startsAt, sub.createdAt);
         }
       }
