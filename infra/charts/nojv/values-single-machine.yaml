@@ -55,6 +55,7 @@ worker:
     replicas: 1
   platform:
     replicas: 1
+    submissionPendingTimeoutMinutes: 10
 
 pdb:
   enabled: false

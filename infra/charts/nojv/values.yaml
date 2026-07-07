@@ -181,6 +181,7 @@ worker:
   platform:
     replicas: 1
     concurrency: "4"
+    submissionPendingTimeoutMinutes: 10
     nodeSelector: {}
     resources:
       requests:

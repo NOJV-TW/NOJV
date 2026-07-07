@@ -20,7 +20,7 @@
     const params = new URLSearchParams();
     if (searchValue) params.set("search", searchValue);
     if (roleValue) params.set("role", roleValue);
-    goto(`/admin/system/users?${params.toString()}`);
+    goto(`/admin/users?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 </script>
 

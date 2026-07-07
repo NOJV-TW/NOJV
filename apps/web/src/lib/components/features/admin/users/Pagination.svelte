@@ -16,7 +16,7 @@
     params.set("page", String(target));
     if (search) params.set("search", search);
     if (roleFilter) params.set("role", roleFilter);
-    return `/admin/system/users?${params.toString()}`;
+    return `/admin/users?${params.toString()}`;
   }
 </script>
 

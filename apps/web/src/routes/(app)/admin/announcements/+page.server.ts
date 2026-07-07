@@ -5,7 +5,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
-import { announcementDomain } from "@nojv/application";
+import { announcementDomain, auditDomain } from "@nojv/application";
 
 function requireAdmin(event: RequestEvent) {
   const actor = requireAuth(event);
@@ -85,7 +85,7 @@ export const actions = {
       return fail(400, { error: "Title and content are required." });
     }
 
-    await createAnnouncement({
+    const created = await createAnnouncement({
       title,
       content,
       pinned: readCheckbox(formData, "pinned"),
@@ -93,6 +93,15 @@ export const actions = {
       audience: readAudience(formData),
       expiresAt: readExpiresAt(formData),
       createdByUserId: actor.userId,
+    });
+
+    await auditDomain.recordAdminAudit({
+      actorId: actor.userId,
+      actorName: actor.displayName,
+      action: "announcement_create",
+      targetType: "announcement",
+      targetId: created.id,
+      summary: title,
     });
 
     return { success: true };
@@ -122,11 +131,19 @@ export const actions = {
   }),
 
   delete: withAction(async (event) => {
-    requireAdmin(event);
+    const actor = requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
     await deleteAnnouncement(id);
+    await auditDomain.recordAdminAudit({
+      actorId: actor.userId,
+      actorName: actor.displayName,
+      action: "announcement_delete",
+      targetType: "announcement",
+      targetId: id,
+      summary: id,
+    });
     return { success: true };
   }),
 

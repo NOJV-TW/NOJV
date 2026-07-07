@@ -302,13 +302,15 @@
           <p class="text-body-sm text-muted-foreground">{m.account_securityHint()}</p>
         </div>
         <div class="flex flex-col gap-2">
-          <a href="/account/change-password" class={securityLinkClass}>
-            <span class="flex items-center gap-2.5">
-              <KeyRound aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
-              {m.account_changePassword_title()}
-            </span>
-            <ChevronRight aria-hidden="true" class={securityChevronClass} />
-          </a>
+          {#if data.hasPassword}
+            <a href="/account/change-password" class={securityLinkClass}>
+              <span class="flex items-center gap-2.5">
+                <KeyRound aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
+                {m.account_changePassword_title()}
+              </span>
+              <ChevronRight aria-hidden="true" class={securityChevronClass} />
+            </a>
+          {/if}
           <a href="/account/two-factor" class={securityLinkClass}>
             <span class="flex items-center gap-2.5">
               <ShieldCheck aria-hidden="true" class="h-4 w-4 text-muted-foreground" />

@@ -52,3 +52,27 @@ model PlatformSetting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+enum AdminAuditAction {
+  user_role_change
+  user_disable
+  user_enable
+  user_delete
+  editorial_report_resolve
+  editorial_report_dismiss
+  announcement_create
+  announcement_delete
+}
+
+model AdminAuditLog {
+  id         String           @id @default(cuid())
+  actorId    String?
+  actorName  String
+  action     AdminAuditAction
+  targetType String?
+  targetId   String?
+  summary    String
+  createdAt  DateTime         @default(now())
+
+  @@index([createdAt])
+}

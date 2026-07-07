@@ -1,16 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { terminateSubmissionJudge } = vi.hoisted(() => ({
   terminateSubmissionJudge: vi.fn(),
 }));
 
-import { SUBMISSION_PENDING_TIMEOUT_SETTING_KEY } from "@nojv/core";
-import { platformSettingRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
-import {
-  configureDomainOrchestration,
-  submissionDomain,
-  ValidationError,
-} from "@nojv/application";
+import { submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
+import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
 
 import {
   createTestCourse,
@@ -105,16 +100,21 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(terminalRow?.status).toBe("accepted");
   });
 
-  it("uses the configured timeout threshold", async () => {
-    await submissionDomain.setSubmissionPendingTimeoutMinutes(10);
+  it("uses the timeout threshold from the environment", async () => {
+    const previous = process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
+    process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = "10";
+    try {
+      const beyondCustom = await createTestSubmission({ status: "queued" });
+      await backdateUpdatedAt(beyondCustom.id, 15);
 
-    const beyondCustom = await createTestSubmission({ status: "queued" });
-    await backdateUpdatedAt(beyondCustom.id, 15);
+      await submissionDomain.sweepStaleSubmissions();
 
-    await submissionDomain.sweepStaleSubmissions();
-
-    const row = await submissionRepo.findById(beyondCustom.id);
-    expect(row?.status).toBe("system_error");
+      const row = await submissionRepo.findById(beyondCustom.id);
+      expect(row?.status).toBe("system_error");
+    } finally {
+      if (previous === undefined) delete process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
+      else process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = previous;
+    }
   });
 
   it("skips marking when workflow termination fails", async () => {
@@ -162,23 +162,26 @@ describe("sweepStaleSubmissions (real DB)", () => {
   });
 });
 
-describe("submission pending timeout setting (real DB)", () => {
-  it("falls back to the default when unset or invalid", async () => {
-    expect(await submissionDomain.getSubmissionPendingTimeoutMinutes()).toBe(30);
-
-    await platformSettingRepo.set(SUBMISSION_PENDING_TIMEOUT_SETTING_KEY, "garbage");
-    expect(await submissionDomain.getSubmissionPendingTimeoutMinutes()).toBe(30);
+describe("submission pending timeout setting (env)", () => {
+  const previous = process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
+  afterEach(() => {
+    if (previous === undefined) delete process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
+    else process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = previous;
   });
 
-  it("persists valid values and rejects out-of-range ones", async () => {
-    await submissionDomain.setSubmissionPendingTimeoutMinutes(60);
-    expect(await submissionDomain.getSubmissionPendingTimeoutMinutes()).toBe(60);
+  it("falls back to the default when unset or invalid", () => {
+    delete process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
+    expect(submissionDomain.getSubmissionPendingTimeoutMinutes()).toBe(10);
 
-    await expect(submissionDomain.setSubmissionPendingTimeoutMinutes(5)).rejects.toThrow(
-      ValidationError,
-    );
-    await expect(submissionDomain.setSubmissionPendingTimeoutMinutes(2000)).rejects.toThrow(
-      ValidationError,
-    );
+    process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = "garbage";
+    expect(submissionDomain.getSubmissionPendingTimeoutMinutes()).toBe(10);
+
+    process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = "5";
+    expect(submissionDomain.getSubmissionPendingTimeoutMinutes()).toBe(10);
+  });
+
+  it("reads valid in-range values from the environment", () => {
+    process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = "60";
+    expect(submissionDomain.getSubmissionPendingTimeoutMinutes()).toBe(60);
   });
 });

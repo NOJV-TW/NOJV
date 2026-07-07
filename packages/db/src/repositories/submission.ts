@@ -211,6 +211,31 @@ export const submissionRepo = {
     });
   },
 
+  listAllPaged(opts: { limit: number; cursor?: string; userId?: string; problemId?: string }) {
+    const where: Prisma.SubmissionWhereInput = { sampleOnly: false };
+    if (opts.userId) where.userId = opts.userId;
+    if (opts.problemId) where.problemId = opts.problemId;
+
+    return prisma.submission.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: opts.limit + 1,
+      ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        score: true,
+        status: true,
+        contestId: true,
+        examId: true,
+        assessmentId: true,
+        problem: { select: problemMiniSelect },
+        user: { select: userMiniSelect },
+      },
+    });
+  },
+
   count(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.count({ where });
   },

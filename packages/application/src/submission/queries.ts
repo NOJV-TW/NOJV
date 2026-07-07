@@ -229,6 +229,31 @@ export async function listRejudgeLogsPaged(opts: {
   return { items, nextCursor };
 }
 
+export async function listAllSubmissionsPaged(opts: {
+  limit: number;
+  cursor?: string;
+  userId?: string;
+  problemId?: string;
+}) {
+  const rows = await submissionRepo.listAllPaged(opts);
+  const hasMore = rows.length > opts.limit;
+  const items = hasMore ? rows.slice(0, opts.limit) : rows;
+  const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+  return {
+    items: items.map((s) => ({
+      id: s.id,
+      createdAt: s.createdAt,
+      language: s.language,
+      score: s.score,
+      status: s.status,
+      context: deriveSubmissionContextKind(s),
+      problem: s.problem,
+      user: s.user,
+    })),
+    nextCursor,
+  };
+}
+
 export async function countAssignmentProblemAttemptsInWindow(
   userId: string,
   assignmentId: string,

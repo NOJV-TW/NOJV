@@ -5,6 +5,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
+import { userHasCredentialPassword } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 
@@ -14,6 +15,9 @@ import { changePasswordSchema } from "./schemas";
 export const load: PageServerLoad = async (event) => {
   if (!event.locals.user) {
     redirect(302, "/signin");
+  }
+  if (!(await userHasCredentialPassword(event.locals.user.id))) {
+    redirect(303, "/account");
   }
   const form = await superValidate(zod4(changePasswordSchema));
   return {

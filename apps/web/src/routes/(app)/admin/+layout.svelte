@@ -7,19 +7,21 @@
 
   const tabs = [
     { href: "/admin", key: "overview" as const },
-    { href: "/admin/system/users", key: "users" as const },
-    { href: "/admin/content/announcements", key: "announcements" as const },
-    { href: "/admin/content/editorial-reports", key: "editorialReports" as const },
-    { href: "/admin/rejudges", key: "rejudges" as const },
+    { href: "/admin/users", key: "users" as const },
+    { href: "/admin/submissions", key: "submissions" as const },
+    { href: "/admin/announcements", key: "announcements" as const },
+    { href: "/admin/editorial-reports", key: "editorialReports" as const },
+    { href: "/admin/audit", key: "audit" as const },
   ];
 
   function tabLabel(
-    key: "overview" | "users" | "announcements" | "editorialReports" | "rejudges",
+    key: "overview" | "users" | "submissions" | "announcements" | "editorialReports" | "audit",
   ): string {
     if (key === "overview") return m.admin_tabOverview();
     if (key === "users") return m.admin_tabUsers();
+    if (key === "submissions") return m.admin_tabSubmissions();
     if (key === "editorialReports") return m.admin_tabEditorialReports();
-    if (key === "rejudges") return m.admin_tabRejudges();
+    if (key === "audit") return m.admin_tabAudit();
     return m.admin_tabAnnouncements();
   }
 

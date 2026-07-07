@@ -14,9 +14,8 @@
 
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { CalendarClock, Mail, User, UserCog } from "@lucide/svelte";
+  import { CalendarClock, Mail, MoreHorizontal, Trash2, User, UserCog } from "@lucide/svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
-  import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/components/primitives/ui/toast";
   import { formatDate } from "$lib/utils/datetime";
@@ -29,17 +28,24 @@
 
   let { users, actorId, canManageAdmins }: Props = $props();
 
-  let editingUserId = $state<string | null>(null);
-  let draftRole = $state<PlatformRole>("student");
+  let openMenuId = $state<string | null>(null);
 
-  function beginEditRole(user: { id: string; platformRole: PlatformRole }) {
-    editingUserId = user.id;
-    draftRole = user.platformRole;
+  function toggleMenu(id: string) {
+    openMenuId = openMenuId === id ? null : id;
   }
 
-  function cancelEditRole() {
-    editingUserId = null;
+  function closeMenu() {
+    openMenuId = null;
   }
+
+  $effect(() => {
+    if (openMenuId === null) return;
+    function onKeydown(e: KeyboardEvent) {
+      if (e.key === "Escape") closeMenu();
+    }
+    document.addEventListener("keydown", onKeydown);
+    return () => document.removeEventListener("keydown", onKeydown);
+  });
 
   function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
     if (role === "admin") return "warning";
@@ -52,7 +58,31 @@
     if (role === "teacher") return m.common_roleTeacher();
     return m.common_roleStudent();
   }
+
+  const assignableRoles = $derived<PlatformRole[]>(
+    canManageAdmins ? ["admin", "teacher", "student"] : ["teacher", "student"],
+  );
+
+  function canManage(user: UsersTableUser): boolean {
+    if (user.id === actorId) return false;
+    if (user.platformRole === "admin" && !canManageAdmins) return false;
+    return true;
+  }
+
+  function displayName(user: UsersTableUser): string {
+    return user.username ?? user.name;
+  }
 </script>
+
+<svelte:window
+  onclick={(e) => {
+    if (openMenuId === null) return;
+    const target = e.target as HTMLElement;
+    if (!target.closest("[role='menu']") && !target.closest("[aria-haspopup='menu']")) {
+      closeMenu();
+    }
+  }}
+/>
 
 <div class="overflow-x-auto">
   <table class="w-full text-body-sm">
@@ -85,7 +115,7 @@
             />{m.admin_usersCreated()}
           </span>
         </th>
-        <th class="px-5 py-3 font-medium">
+        <th class="px-5 py-3 text-right font-medium">
           <span class="inline-flex items-center gap-1">
             <UserCog
               aria-hidden="true"
@@ -102,170 +132,189 @@
           <td class="px-5 py-3">{user.email}</td>
           <td class="px-5 py-3">{user.name}</td>
           <td class="px-5 py-3">
-            {#if editingUserId === user.id}
-              <form
-                method="POST"
-                action="?/updateRole"
-                class="flex flex-col gap-2"
-                use:enhance={({ cancel, formData }) => {
-                  const submittedRole = String(formData.get("role") ?? "");
-                  const targetUsername = user.username ?? user.name;
-
-                  if (user.id === actorId) {
-                    toasts.error(m.admin_usersRoleSelfBlocked());
-                    cancel();
-                    return;
-                  }
-
-                  if (user.platformRole === "admin" && submittedRole !== "admin") {
-                    const ok = confirm(
-                      m.admin_usersRoleDemoteConfirm({
-                        username: targetUsername,
-                        to: submittedRole,
-                      }),
-                    );
-                    if (!ok) {
-                      cancel();
-                      return;
-                    }
-                  }
-
-                  return async ({ result, update }) => {
-                    if (result.type === "success") {
-                      toasts.success(
-                        m.admin_usersRoleUpdateSuccess({
-                          username: targetUsername,
-                          to: submittedRole,
-                        }),
-                      );
-                      editingUserId = null;
-                      await update();
-                    } else if (result.type === "failure") {
-                      const err =
-                        (result.data as { error?: string } | undefined)?.error ??
-                        m.admin_usersRoleUpdateFailed();
-                      toasts.error(err);
-                    } else {
-                      await update();
-                    }
-                  };
-                }}
-              >
-                <input type="hidden" name="userId" value={user.id} />
-                <input type="hidden" name="role" value={draftRole} />
-                <select
-                  class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
-                  bind:value={draftRole}
-                >
-                  {#if canManageAdmins}
-                    <option value="admin">{m.common_roleAdmin()}</option>
-                  {/if}
-                  <option value="teacher">{m.common_roleTeacher()}</option>
-                  <option value="student">{m.common_roleStudent()}</option>
-                </select>
-                {#if draftRole !== user.platformRole}
-                  <p class="text-caption text-muted-foreground">
-                    {m.admin_usersRoleChangeDiff({
-                      username: user.username ?? user.name,
-                      from: user.platformRole,
-                      to: draftRole,
-                    })}
-                  </p>
-                {/if}
-                <div class="flex items-center gap-1">
-                  <Button
-                    type="submit"
-                    variant="default"
-                    size="sm"
-                    disabled={draftRole === user.platformRole}
-                  >
-                    {m.common_save()}
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onclick={cancelEditRole}>
-                    {m.common_cancel()}
-                  </Button>
-                </div>
-              </form>
-            {:else if user.platformRole === "admin" && !canManageAdmins}
-              <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
-                {roleLabel(user.platformRole)}
-              </Badge>
-            {:else}
-              <button
-                type="button"
-                class="inline-flex cursor-pointer items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={m.admin_usersRoleEdit()}
-                onclick={() => beginEditRole({ id: user.id, platformRole: user.platformRole })}
-              >
-                <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
-                  {roleLabel(user.platformRole)}
-                </Badge>
-              </button>
-            {/if}
+            <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
+              {roleLabel(user.platformRole)}
+            </Badge>
           </td>
           <td class="px-5 py-3">
             {#if user.disabled}
-              <Badge variant="destructive" size="xs">{m.admin_usersDisabled()}</Badge>
+              <Badge variant="destructive" size="xs">{m.admin_usersStatusDisabled()}</Badge>
             {:else}
-              <Badge variant="success" size="xs" dot>{m.admin_usersActive()}</Badge>
+              <Badge variant="success" size="xs" dot>{m.admin_usersStatusActive()}</Badge>
             {/if}
           </td>
           <td class="px-5 py-3 text-caption text-muted-foreground">
             {formatDate(user.createdAt)}
           </td>
-          <td class="px-5 py-3">
-            <form
-              method="POST"
-              action="?/toggleDisabled"
-              use:enhance={({ cancel }) => {
-                const targetUsername = user.username ?? user.name;
-                const willDisable = !user.disabled;
+          <td class="px-5 py-3 text-right">
+            {#if canManage(user)}
+              <div class="relative inline-block text-left">
+                <button
+                  type="button"
+                  class="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={m.admin_usersActions()}
+                  aria-haspopup="menu"
+                  aria-expanded={openMenuId === user.id}
+                  onclick={() => toggleMenu(user.id)}
+                >
+                  <MoreHorizontal aria-hidden="true" class="h-4 w-4" />
+                </button>
 
-                if (user.id === actorId) {
-                  toasts.error(m.admin_usersDisableSelfBlocked());
-                  cancel();
-                  return;
-                }
+                {#if openMenuId === user.id}
+                  <div
+                    class="absolute right-0 top-full z-50 mt-1 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-left text-popover-foreground shadow-modal"
+                    role="menu"
+                    tabindex="-1"
+                  >
+                    <p
+                      class="px-3 py-1.5 text-caption font-medium uppercase tracking-wider text-muted-foreground"
+                    >
+                      {m.admin_usersRole()}
+                    </p>
+                    {#each assignableRoles as targetRole (targetRole)}
+                      <form
+                        method="POST"
+                        action="?/updateRole"
+                        use:enhance={({ cancel }) => {
+                          const name = displayName(user);
+                          const isDangerous =
+                            user.platformRole === "admin" || targetRole === "admin";
+                          if (isDangerous) {
+                            const ok = confirm(
+                              m.admin_usersRoleChangeConfirm({
+                                username: name,
+                                to: roleLabel(targetRole),
+                              }),
+                            );
+                            if (!ok) {
+                              cancel();
+                              return;
+                            }
+                          }
+                          closeMenu();
+                          return async ({ result, update }) => {
+                            if (result.type === "success") {
+                              toasts.success(
+                                m.admin_usersRoleUpdateSuccess({
+                                  username: name,
+                                  to: roleLabel(targetRole),
+                                }),
+                              );
+                              await update();
+                            } else if (result.type === "failure") {
+                              const err =
+                                (result.data as { error?: string } | undefined)?.error ??
+                                m.admin_usersRoleUpdateFailed();
+                              toasts.error(err);
+                            } else {
+                              await update();
+                            }
+                          };
+                        }}
+                      >
+                        <input type="hidden" name="userId" value={user.id} />
+                        <input type="hidden" name="role" value={targetRole} />
+                        <button
+                          type="submit"
+                          class="flex w-full items-center justify-between gap-2 px-3 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+                          disabled={targetRole === user.platformRole}
+                          role="menuitem"
+                        >
+                          <span>{roleLabel(targetRole)}</span>
+                          {#if targetRole === user.platformRole}
+                            <span class="text-caption text-muted-foreground">•</span>
+                          {/if}
+                        </button>
+                      </form>
+                    {/each}
 
-                if (willDisable) {
-                  const ok = confirm(m.admin_usersDisableConfirm({ username: targetUsername }));
-                  if (!ok) {
-                    cancel();
-                    return;
-                  }
-                }
+                    <div class="my-1 border-t border-border-subtle"></div>
 
-                return async ({ result, update }) => {
-                  if (result.type === "success") {
-                    toasts.success(
-                      willDisable
-                        ? m.admin_usersDisableSuccess({ username: targetUsername })
-                        : m.admin_usersEnableSuccess({ username: targetUsername }),
-                    );
-                    await update();
-                  } else if (result.type === "failure") {
-                    const err =
-                      (result.data as { error?: string } | undefined)?.error ??
-                      m.admin_usersDisableFailed();
-                    toasts.error(err);
-                  } else {
-                    await update();
-                  }
-                };
-              }}
-            >
-              <input type="hidden" name="userId" value={user.id} />
-              <Button
-                type="submit"
-                variant={user.disabled ? "outline" : "ghost"}
-                size="sm"
-                class={user.disabled
-                  ? "text-success hover:bg-success/10"
-                  : "text-destructive hover:bg-destructive/10"}
-              >
-                {user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
-              </Button>
-            </form>
+                    <form
+                      method="POST"
+                      action="?/toggleDisabled"
+                      use:enhance={({ cancel }) => {
+                        const name = displayName(user);
+                        const willDisable = !user.disabled;
+                        if (willDisable) {
+                          const ok = confirm(m.admin_usersDisableConfirm({ username: name }));
+                          if (!ok) {
+                            cancel();
+                            return;
+                          }
+                        }
+                        closeMenu();
+                        return async ({ result, update }) => {
+                          if (result.type === "success") {
+                            toasts.success(
+                              willDisable
+                                ? m.admin_usersDisableSuccess({ username: name })
+                                : m.admin_usersEnableSuccess({ username: name }),
+                            );
+                            await update();
+                          } else if (result.type === "failure") {
+                            const err =
+                              (result.data as { error?: string } | undefined)?.error ??
+                              m.admin_usersDisableFailed();
+                            toasts.error(err);
+                          } else {
+                            await update();
+                          }
+                        };
+                      }}
+                    >
+                      <input type="hidden" name="userId" value={user.id} />
+                      <button
+                        type="submit"
+                        class="flex w-full items-center px-3 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
+                        role="menuitem"
+                      >
+                        {user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
+                      </button>
+                    </form>
+
+                    <form
+                      method="POST"
+                      action="?/deleteUser"
+                      use:enhance={({ cancel }) => {
+                        const name = displayName(user);
+                        const ok = confirm(m.admin_usersDeleteConfirm({ username: name }));
+                        if (!ok) {
+                          cancel();
+                          return;
+                        }
+                        closeMenu();
+                        return async ({ result, update }) => {
+                          if (result.type === "success") {
+                            toasts.success(m.admin_usersDeleteSuccess({ username: name }));
+                            await update();
+                          } else if (result.type === "failure") {
+                            const err =
+                              (result.data as { error?: string } | undefined)?.error ??
+                              m.admin_usersDeleteFailed();
+                            toasts.error(err);
+                          } else {
+                            await update();
+                          }
+                        };
+                      }}
+                    >
+                      <input type="hidden" name="userId" value={user.id} />
+                      <button
+                        type="submit"
+                        class="flex w-full items-center gap-2 px-3 py-2 text-body-sm text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10"
+                        role="menuitem"
+                      >
+                        <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
+                        {m.admin_usersDeleteAccount()}
+                      </button>
+                    </form>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <span class="text-caption text-muted-foreground">—</span>
+            {/if}
           </td>
         </tr>
       {/each}

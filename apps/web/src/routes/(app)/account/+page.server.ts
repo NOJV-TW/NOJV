@@ -12,6 +12,7 @@ import {
   LINKABLE_PROVIDERS,
   wouldOrphanAccount,
 } from "$lib/server/account-connections";
+import { userHasCredentialPassword } from "$lib/server/step-up";
 import { createLogger } from "$lib/server/logger";
 import { getMailer } from "$lib/server/mailer";
 import { renderEmail } from "$lib/server/mailer/template";
@@ -81,9 +82,11 @@ export const load: PageServerLoad = async (event) => {
   const usernameForm = await superValidate({ username: username ?? "" }, zod4(usernameSchema));
 
   const linkedProviderIds = await listProviderIds(event);
+  const hasPassword = await userHasCredentialPassword(locals.user.id);
 
   return {
     email: locals.user.email,
+    hasPassword,
     username: username ?? "\u2014",
     isSchoolVerified,
     canEditUsername,
