@@ -1,10 +1,10 @@
 import type { PageServerLoad } from "./$types";
 
-import { courseDomain } from "@nojv/application";
+import { courseDomain, listUpcomingAssessments } from "@nojv/application";
 import { DEFAULT_LOCALE } from "@nojv/core";
 import { getActorContext } from "$lib/server/auth";
 
-const { listAnnouncements, listUpcomingAssignments } = courseDomain;
+const { listAnnouncements } = courseDomain;
 import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/utils/coursework-path";
 
 interface AnnouncementTranslationRow {
@@ -45,21 +45,22 @@ export const load: PageServerLoad = async (event) => {
     const announcements = await listAnnouncements(actor);
     return {
       announcements: announcements.map(flattenAnnouncement),
-      assignments: [],
+      assessments: [],
     };
   }
 
-  const now = new Date().toISOString();
-  const [announcements, rawAssignments] = await Promise.all([
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const [announcements, rawAssessments] = await Promise.all([
     listAnnouncements(actor),
-    listUpcomingAssignments(user.id),
+    listUpcomingAssessments(user.id, now),
   ]);
 
-  const assignments = rawAssignments.map((a) => {
+  const assessments = rawAssessments.map((a) => {
     const windowState = deriveAssignmentWindowState({
       closesAt: a.closesAt,
       dueAt: a.dueAt,
-      now,
+      now: nowIso,
       opensAt: a.opensAt,
     });
     return {
@@ -72,6 +73,6 @@ export const load: PageServerLoad = async (event) => {
 
   return {
     announcements: announcements.map(flattenAnnouncement),
-    assignments,
+    assessments,
   };
 };
