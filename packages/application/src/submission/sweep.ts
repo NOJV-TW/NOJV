@@ -34,7 +34,7 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
 
   const openRejudgeSubmissionIds = new Set(
     (await submissionRejudgeLogRepo.listForSubmissionIds(stale.map((s) => s.id)))
-      .filter((log) => log.newVerdict === null)
+      .filter((log) => log.newVerdict === null && log.createdAt >= cutoff)
       .map((log) => log.submissionId),
   );
 

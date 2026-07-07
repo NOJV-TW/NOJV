@@ -46,7 +46,6 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.image_tag }}
-          BUILD_TAG: main-${{ github.run_number }}
           PREFIX: ghcr.io/nojv-tw
         run: |
           set -euo pipefail
@@ -55,7 +54,7 @@ jobs:
             local ref="${PREFIX}/${name}"
             docker buildx build \
               -f "$dockerfile" \
-              -t "${ref}:${TAG}" -t "${ref}:main" -t "${ref}:${BUILD_TAG}" \
+              -t "${ref}:${TAG}" -t "${ref}:main" \
               --cache-from "type=registry,ref=${ref}:buildcache" \
               --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
               --push \
@@ -70,13 +69,13 @@ jobs:
       - name: Publish tag to the deploy branch (Flux tracks it → auto-pull)
         shell: bash
         env:
-          BUILD_TAG: main-${{ github.run_number }}
+          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
         run: |
           set -euo pipefail
           git config user.name "nojv-deploy-bot"
           git config user.email "nojv-deploy-bot@users.noreply.github.com"
           git checkout -B deploy
-          sed -i -E "s|^( +tag: ).*|\1${BUILD_TAG}|" infra/flux/helmrelease.yaml
+          sed -i -E "s|^( +tag: ).*|\1${IMAGE_TAG}|" infra/flux/helmrelease.yaml
           git add infra/flux/helmrelease.yaml
-          git commit -m "deploy: ${BUILD_TAG}"
+          git commit -m "deploy: ${IMAGE_TAG}"
           git push --force origin deploy

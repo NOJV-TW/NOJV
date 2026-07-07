@@ -178,6 +178,46 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(oldRow).toBeNull();
     expect(recentRow).not.toBeNull();
   });
+
+  it("reaps a stale submission whose open rejudge log is old (dead rejudge, e.g. worker OOM)", async () => {
+    const stale = await createTestSubmission({ status: "running" });
+    await backdateUpdatedAt(stale.id, 60);
+    const deadLog = await submissionRejudgeLogRepo.create({
+      submissionId: stale.id,
+      rejudgedByUserId: null,
+      rejudgeRunId: null,
+      oldVerdict: "accepted",
+      oldScore: 100,
+      oldResultJson: null,
+    });
+    const past = new Date(Date.now() - 60 * 60_000);
+    await testPrisma.$executeRaw`UPDATE "SubmissionRejudgeLog" SET "createdAt" = ${past} WHERE "id" = ${deadLog.id}`;
+
+    await submissionDomain.sweepStaleSubmissions();
+
+    expect(terminateSubmissionJudge).toHaveBeenCalledWith(stale.id, expect.any(String));
+    const row = await submissionRepo.findById(stale.id);
+    expect(row?.status).toBe("system_error");
+  });
+
+  it("skips a stale submission whose open rejudge log is recent (rejudge in-flight)", async () => {
+    const stale = await createTestSubmission({ status: "running" });
+    await backdateUpdatedAt(stale.id, 60);
+    await submissionRejudgeLogRepo.create({
+      submissionId: stale.id,
+      rejudgedByUserId: null,
+      rejudgeRunId: null,
+      oldVerdict: "accepted",
+      oldScore: 100,
+      oldResultJson: null,
+    });
+
+    await submissionDomain.sweepStaleSubmissions();
+
+    expect(terminateSubmissionJudge).not.toHaveBeenCalledWith(stale.id, expect.any(String));
+    const row = await submissionRepo.findById(stale.id);
+    expect(row?.status).toBe("running");
+  });
 });
 
 describe("submission pending timeout setting (env)", () => {
