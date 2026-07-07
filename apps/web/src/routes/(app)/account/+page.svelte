@@ -336,7 +336,8 @@
             <div
               class="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3"
             >
-              <span class="text-body-sm font-medium">{providerLabel[provider] ?? provider}</span>
+              <span class="text-body-sm font-medium">{providerLabel[provider] ?? provider}</span
+              >
               <form
                 method="POST"
                 action={linked ? "?/unlink" : "?/link"}

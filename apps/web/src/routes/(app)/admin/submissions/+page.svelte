@@ -56,7 +56,9 @@
         bind:value={problemFilter}
         placeholder={m.admin_submissions_filterProblem()}
       />
-      <Button type="submit" size="sm" variant="outline">{m.admin_submissions_filterBtn()}</Button>
+      <Button type="submit" size="sm" variant="outline"
+        >{m.admin_submissions_filterBtn()}</Button
+      >
     </form>
   </div>
 
@@ -89,7 +91,9 @@
                   {formatDateTime(sub.createdAt)}
                 </a>
               </td>
-              <td class="px-3 py-2 text-caption">{sub.user?.username ?? sub.user?.name ?? "—"}</td>
+              <td class="px-3 py-2 text-caption"
+                >{sub.user?.username ?? sub.user?.name ?? "—"}</td
+              >
               <td class="px-3 py-2">
                 <a class="hover:underline" href="/problems/{sub.problem.id}">
                   {sub.problem.title}

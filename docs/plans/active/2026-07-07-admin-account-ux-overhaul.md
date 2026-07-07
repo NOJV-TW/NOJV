@@ -47,6 +47,7 @@
 ## ⏸ 帳號頁批(項 2/3/4)暫停 — 待與使用者討論
 
 使用者要再討論帳號頁呈現,**先不動**。已定方向(供參考,未實作):
+
 - 項 2:`account/+page.svelte:300` 變更密碼連結 + `change-password` load 加 `hasPassword` gate(`userHasCredentialPassword`);只有 super admin 有密碼。
 - 項 3:passkey 從 `connections/+page.svelte:90-136` 搬到 `two-factor`(跟 TOTP 同頁,都是 step-up)。
 - 項 4:OAuth(`connections` 的 providers link/unlink,用 `getAuth().api`,含 email 通知 + `wouldOrphanAccount` 檢查)上移 `account` 主頁;passkey+oauth 都搬走後刪 `connections` 路由。
