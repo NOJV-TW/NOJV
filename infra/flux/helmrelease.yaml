@@ -28,4 +28,4 @@ spec:
   values:
     image:
       # {"$imagepolicy": "flux-system:nojv:tag"}
-      tag: latest
+      tag: main-722
