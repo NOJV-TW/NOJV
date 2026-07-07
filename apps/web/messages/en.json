@@ -1534,6 +1534,7 @@
   "navigation_admin": "Admin",
   "userMenu_enterAdminMode": "Switch to admin mode",
   "userMenu_exitAdminMode": "Exit admin mode",
+  "userMenu_apiTokens": "API tokens",
   "navigation_assignments": "Assignments",
   "navigation_contests": "Contests",
   "navigation_courses": "Courses",
