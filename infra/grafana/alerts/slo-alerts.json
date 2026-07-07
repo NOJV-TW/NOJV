@@ -3,12 +3,12 @@
     "uid": "nojv-slo-judge-latency-simple",
     "title": "Judge latency p95 over SLO (simple problems)",
     "slo": "Judge latency (simple, <=20 testcases) - p95 < 15s",
-    "expr": "histogram_quantile(0.95, sum by (le) (rate(judge_latency_seconds_bucket{mode=\"simple\"}[15m])))",
+    "expr": "histogram_quantile(0.95, sum by (le) (rate(judge_latency_seconds_bucket{mode=\"standard\"}[15m])))",
     "threshold": 15,
     "for": "10m",
     "severity": "warning",
-    "noDataState": "Alerting",
-    "summary": "Simple-problem judge p95 latency has exceeded the 15s SLO for 10m (or the judge_latency_seconds metric is absent — a dead judging tier now pages instead of silently mapping NoData to OK)."
+    "noDataState": "OK",
+    "summary": "Standard-problem judge p95 latency has exceeded the 15s SLO for 10m. NoData maps to OK (an idle window has no observations); a dead judging tier is caught by the nojv-submissions-stuck positive signal instead."
   },
   {
     "uid": "nojv-slo-judge-latency-advanced",
@@ -18,8 +18,8 @@
     "threshold": 60,
     "for": "10m",
     "severity": "warning",
-    "noDataState": "Alerting",
-    "summary": "Advanced-mode judge p95 latency has exceeded the 60s SLO for 10m (or the judge_latency_seconds metric is absent — a dead judging tier now pages instead of silently mapping NoData to OK)."
+    "noDataState": "OK",
+    "summary": "Advanced-mode judge p95 latency has exceeded the 60s SLO for 10m. NoData maps to OK (an idle window has no observations); a dead judging tier is caught by the nojv-submissions-stuck positive signal instead."
   },
   {
     "uid": "nojv-submissions-stuck",
