@@ -129,4 +129,25 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
     );
     expect(activities.finalizeRejudgeLog).not.toHaveBeenCalled();
   });
+
+  it("non-cancellation failure during a rejudge restores the prior status", async () => {
+    const activities = buildActivities({
+      executeSandbox: vi.fn(async () => {
+        throw new Error("sandbox infra failure");
+      }),
+    });
+    await runWorker(activities, async () => {
+      const handle = await env.client.workflow.start(submissionJudgeWorkflow, {
+        args: [{ ...baseInput, forRejudge: { triggeredByUserId: "usr_admin" } }],
+        taskQueue: "judge-test",
+        workflowId: `wf-fail-${String(Date.now())}`,
+      });
+      await expect(handle.result()).rejects.toThrow();
+    });
+    expect(activities.restoreSubmissionForCancelledRejudge).toHaveBeenCalledWith(
+      "sub_1",
+      "accepted",
+    );
+    expect(activities.finalizeRejudgeLog).not.toHaveBeenCalled();
+  });
 });

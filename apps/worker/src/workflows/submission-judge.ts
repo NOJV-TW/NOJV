@@ -1,9 +1,4 @@
-import {
-  CancellationScope,
-  isCancellation,
-  proxyActivities,
-  workflowInfo,
-} from "@temporalio/workflow";
+import { CancellationScope, proxyActivities, workflowInfo } from "@temporalio/workflow";
 import type { SubmissionJudgeInput } from "@nojv/core";
 
 import type * as judgeActivities from "../activities/judge";
@@ -94,7 +89,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
     }
   } catch (err) {
     const restoreTo = rejudgeOldStatus;
-    if (restoreTo !== null && isCancellation(err)) {
+    if (restoreTo !== null) {
       await CancellationScope.nonCancellable(() =>
         judge.restoreSubmissionForCancelledRejudge(input.submissionId, restoreTo),
       );
