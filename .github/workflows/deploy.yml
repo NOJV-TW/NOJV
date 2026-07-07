@@ -4,6 +4,12 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref/sha to deploy (defaults to main HEAD)"
+        required: false
+        default: main
 
 concurrency:
   group: cd-remote-server
@@ -18,9 +24,10 @@ jobs:
     name: Build & push images to GHCR
     runs-on: ubuntu-latest
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event.workflow_run.head_branch == 'main')
     timeout-minutes: 40
     outputs:
       image_tag: ${{ steps.tag.outputs.image_tag }}
@@ -28,7 +35,7 @@ jobs:
       - name: Check out passed commit
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.event.inputs.ref }}
 
       - name: Resolve image tag
         id: tag
@@ -83,12 +90,12 @@ jobs:
       NAMESPACE: nojv
       RELEASE: nojv
       IMAGE_TAG: ${{ needs.build-push.outputs.image_tag }}
-      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.event.inputs.ref }}
     steps:
       - name: Check out passed commit
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.event.inputs.ref }}
           clean: false
 
       - name: Preflight checks
