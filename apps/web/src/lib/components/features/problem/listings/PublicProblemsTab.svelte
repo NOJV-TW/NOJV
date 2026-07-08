@@ -95,7 +95,11 @@
       {m.problems_openFilters()}
     </button>
 
-    <section class="grid gap-4">
+    <section
+      class="grid gap-4 sm:gap-x-8 {loggedIn
+        ? 'sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto]'
+        : 'sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]'}"
+    >
       {#if publicResult.totalCount === 0 && !hasActiveFilters}
         <EmptyState
           icon={FileCode}
@@ -122,7 +126,7 @@
 
       {#if publicResult.problems.length > 0}
         <div
-          class="hidden border border-transparent px-4 text-caption font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center sm:gap-x-8"
+          class="hidden border border-transparent px-4 text-caption font-medium uppercase tracking-wide text-muted-foreground sm:col-span-full sm:grid sm:grid-cols-subgrid sm:items-center"
         >
           <span>{m.problems_columnProblem()}</span>
           <span class="min-w-24 text-center">{m.problemDetail_problemTypeTitle()}</span>
@@ -139,7 +143,7 @@
           size="lg"
           interactive
           style="animation-delay: {Math.min(index * 30, 300)}ms"
-          class="relative grid gap-x-8 gap-y-3 px-4 py-3 motion-safe:animate-[fade-up_400ms_var(--ease-out-soft)_both] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
+          class="relative grid gap-x-8 gap-y-3 px-4 py-3 motion-safe:animate-[fade-up_400ms_var(--ease-out-soft)_both] sm:col-span-full sm:grid-cols-subgrid sm:items-center"
         >
           <div class="flex min-w-0 items-center gap-3">
             {#if problem.status === "ac"}
