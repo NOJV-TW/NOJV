@@ -15,9 +15,8 @@ describe("problem seed hardening", () => {
           timeLimitMs: 1000,
           visibility: "public",
           judgeConfig: { type: "interactive" },
-          statements: {
-            "zh-TW": { title: "壞題", body: "壞題" },
-            en: { title: "Broken", body: "Broken" },
+          statement: {
+            body: "壞題",
           },
           testcases: {
             sample: {
@@ -44,9 +43,8 @@ describe("problem seed hardening", () => {
           timeLimitMs: 1000,
           visibility: "public",
           judgeConfig: { type: "checker" },
-          statements: {
-            "zh-TW": { title: "壞題", body: "壞題" },
-            en: { title: "Broken", body: "Broken" },
+          statement: {
+            body: "壞題",
           },
           testcases: {
             sample: {

@@ -7,7 +7,6 @@ export * from "./shared/list-aggregations";
 export * from "./shared/orchestration";
 export * from "./shared/page-lock";
 export * from "./shared/permissions";
-export * from "./shared/pick-problem-statement";
 export * from "./api-token";
 export { canManageContest } from "./contest/permissions";
 export { canManageExam } from "./exam/permissions";

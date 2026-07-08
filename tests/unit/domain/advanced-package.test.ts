@@ -201,18 +201,15 @@ describe("importAdvancedPackage", () => {
     expect(persisted.advancedRequiredPaths).toEqual(["main.py"]);
     expect(problemStatementUpsert).toHaveBeenCalledWith(
       "prob_1",
-      "zh-TW",
       expect.objectContaining({
         bodyMarkdown: "Read two integers and output their sum.",
         inputFormat: "One line with two integers.",
         outputFormat: "One integer.",
-        title: "Advanced Sum",
       }),
       expect.objectContaining({
         bodyMarkdown: "Read two integers and output their sum.",
         inputFormat: "One line with two integers.",
         outputFormat: "One integer.",
-        title: "Advanced Sum",
       }),
     );
     expect(spawnMock.mock.calls.some(([, args]) => args[0] === "run")).toBe(true);

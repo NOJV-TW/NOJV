@@ -169,7 +169,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 ## Internationalization
 
 - Locales: `en` (`baseLocale`, default), `zh-TW`. Unprefixed routes serve `en`; only `/zh-TW` is URL-prefixed
-- Problem statements: per-locale in `ProblemStatementI18n` table
+- Problem statements are not localized: one `ProblemStatement` row per problem, title on `Problem.title`
 - UI strings: Inlang Paraglide JS with message files in `apps/web/messages/{en,zh-TW}.json` (compiled into `apps/web/src/lib/paraglide/`)
 - User locale preference stored in `User.locale`
 

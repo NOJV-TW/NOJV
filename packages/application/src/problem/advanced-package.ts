@@ -23,7 +23,6 @@ import {
   advancedConfigSchema,
   advancedPackageManifestSchema,
   advancedResultSchema,
-  DEFAULT_LOCALE,
   parseRelativePath,
   validateAdvancedResultForMaxScore,
   type AdvancedConfig,
@@ -1209,20 +1208,16 @@ export async function importAdvancedPackage(
       });
       await problemStatementRepo.withTx(tx).upsert(
         problemId,
-        DEFAULT_LOCALE,
         {
           bodyMarkdown: manifest.problem.statement,
           inputFormat: manifest.problem.inputFormat,
-          locale: DEFAULT_LOCALE,
           outputFormat: manifest.problem.outputFormat,
           problemId,
-          title: manifest.problem.title,
         },
         {
           bodyMarkdown: manifest.problem.statement,
           inputFormat: manifest.problem.inputFormat,
           outputFormat: manifest.problem.outputFormat,
-          title: manifest.problem.title,
         },
       );
     });

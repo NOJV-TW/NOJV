@@ -29,7 +29,7 @@ export const TABLES = [
   "Editorial",
   "Testcase",
   "TestcaseSet",
-  "ProblemStatementI18n",
+  "ProblemStatement",
   "ProblemWorkspaceFile",
   "ProblemBookmark",
   "Problem",

@@ -51,7 +51,7 @@ model Problem {
   updatedAt DateTime @updatedAt
 
   author             User?                  @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-  statements         ProblemStatementI18n[]
+  statement          ProblemStatement?
   testcaseSets       TestcaseSet[]
   workspaceFiles     ProblemWorkspaceFile[]
   submissions        Submission[]
@@ -83,19 +83,15 @@ model ProblemBookmark {
   @@index([userId, createdAt])
 }
 
-model ProblemStatementI18n {
+model ProblemStatement {
   id           String   @id @default(cuid())
-  problemId    String
-  locale       String
-  title        String
+  problemId    String   @unique
   bodyMarkdown String   @db.Text
   inputFormat  String   @default("") @db.Text
   outputFormat String   @default("") @db.Text
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   problem      Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
-
-  @@unique([problemId, locale])
 }
 
 model TestcaseSet {

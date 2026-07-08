@@ -133,7 +133,7 @@ describe("DB-backed read model", () => {
   it("throws NotFoundError when a problem id is not found", async () => {
     findDetailById.mockResolvedValue(null);
 
-    await expect(getProblemPageData("nonexistent-problem", "en")).rejects.toThrow(
+    await expect(getProblemPageData("nonexistent-problem")).rejects.toThrow(
       "Problem not found: nonexistent-problem",
     );
   });
@@ -145,15 +145,11 @@ describe("DB-backed read model", () => {
       difficulty: "easy",
       title: "A+B Problem",
       id: "prob_ab",
-      statements: [
-        {
-          bodyMarkdown: "Given two integers, compute their sum.",
-          inputFormat: "Two integers a and b",
-          locale: "en",
-          outputFormat: "A single integer",
-          title: "A+B Problem",
-        },
-      ],
+      statement: {
+        bodyMarkdown: "Given two integers, compute their sum.",
+        inputFormat: "Two integers a and b",
+        outputFormat: "A single integer",
+      },
       tags: ["easy", "math", "beginner"],
       type: "full_source",
       samples: [{ input: "1 2\n", output: "3\n" }],
@@ -161,7 +157,7 @@ describe("DB-backed read model", () => {
     });
     countSubmissions.mockResolvedValue(5);
 
-    const detail = await getProblemPageData("prob_ab", "en");
+    const detail = await getProblemPageData("prob_ab");
 
     expect(detail).not.toBeNull();
     expect(detail?.title).toBe("A+B Problem");
@@ -200,15 +196,11 @@ describe("DB-backed read model", () => {
       author: { username: "teacher" },
       title: "Fill in the Blanks",
       id: "prob_blanks",
-      statements: [
-        {
-          bodyMarkdown: "Implement the missing function.",
-          inputFormat: "",
-          locale: "en",
-          outputFormat: "",
-          title: "Fill in the Blanks",
-        },
-      ],
+      statement: {
+        bodyMarkdown: "Implement the missing function.",
+        inputFormat: "",
+        outputFormat: "",
+      },
       tags: ["easy"],
       type: "multi_file",
       samples: [],
@@ -242,7 +234,7 @@ describe("DB-backed read model", () => {
     });
     countSubmissions.mockResolvedValue(0);
 
-    const detail = await getProblemPageData("prob_blanks", "en");
+    const detail = await getProblemPageData("prob_blanks");
 
     expect(detail).not.toBeNull();
     expect(detail?.workspaceFiles).toHaveLength(3);
