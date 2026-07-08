@@ -1,28 +1,24 @@
 # Flux GitOps Cutover — Remove the Self-Hosted Runner From Production
 
-Status: **LIVE** (executed 2026-07-08). Flux v2.9.1 is installed and manages the
-`nojv` release from git (HelmRelease adopted, verified healthy on `main-722`);
-image build moved to GitHub-hosted `build-images.yml`; the self-hosted deploy
-job is deleted and **the runner is deregistered** (P0 closed). The one part NOT
-done is fully-automatic image auto-pull — see "Remaining" below. Move to
-`completed/` once that lands.
+Status: **COMPLETED** (2026-07-08). Flux v2.9.1 manages the `nojv` release from
+git; **fully-automatic image auto-pull is live** (CI-driven `deploy` branch, see
+below); image build is GitHub-hosted (`build-images.yml`); the self-hosted deploy
+job is deleted and **the runner is fully removed** (API-deregistered on both
+repos + systemd service uninstalled + directory deleted). **P0 closed.**
 
-## Remaining — automatic image propagation (needs a governance decision)
+## How auto-pull works (CI-driven `deploy` branch)
 
-Chart/config changes in git auto-deploy today (Flux reconciles on each main
-revision). New **image** tags do not auto-deploy yet, because the commit-back
-that bumps the deployed tag is blocked two ways: the org has **deploy keys
-disabled**, and **main is protected** (PR + approval required), so no bot can
-push an image-bump commit to main. Pick one, then wire `ImageUpdateAutomation`
-(or a CI-driven bump) per `infra/flux/README.md`:
+The org disables deploy keys and main is branch-protected (PR + approval), so
+neither a cluster-side `ImageUpdateAutomation` nor a bot can push image bumps to
+main. Instead CI publishes the image (git sha) tag to a dedicated **unprotected
+`deploy` branch** that Flux tracks — no cluster git-write, no change to main's
+protection:
 
-- enable deploy keys + add the Flux bot to the branch-protection bypass, or
-- point `ImageUpdateAutomation` at a dedicated unprotected image-update branch
-  that the `GitRepository` tracks, or
-- a fine-grained PAT / GitHub App with a bypass.
-
-Interim: deploy a new image by bumping the HelmRelease tag (one command, in the
-README).
+- `build-images.yml` (GitHub-hosted, `contents: write`) builds + pushes images,
+  then force-updates the `deploy` branch with the new sha in `helmrelease.yaml`.
+- `GitRepository/nojv` tracks `deploy`; `Kustomization/nojv` applies the
+  HelmRelease → helm upgrade. Verified hands-off (a merge to main rolls prod in
+  ~80 s). See `infra/flux/README.md`.
 
 ## Why
 

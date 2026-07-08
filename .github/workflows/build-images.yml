@@ -6,6 +6,8 @@ on:
       - main
     paths-ignore:
       - "infra/flux/**"
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:
 
 concurrency:
