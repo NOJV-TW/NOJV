@@ -1,6 +1,7 @@
 import type { Language, SubmissionResult } from "@nojv/core";
 import { m } from "$lib/paraglide/messages.js";
 import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
+import { toasts } from "$lib/stores/toast";
 import type { ProblemDetail } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -127,9 +128,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     const controller = new AbortController();
     inflightSubmits.add(controller);
     isSubmitting = true;
-    runResult = null;
-    runError = null;
-    runStatus = m.editor_submitting();
 
     const language = args.language();
     const source = projectSubmittedSource({
@@ -175,15 +173,16 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       ) {
         cooldownUntil = Date.now() + err.retryAfterSec * 1000;
       } else {
-        runError =
-          err instanceof SubmissionRequestError
-            ? messageForSubmitError(err.code)
-            : m.editor_submitFailed();
-        bottomTab = "result";
+        toasts.add({
+          type: "error",
+          message:
+            err instanceof SubmissionRequestError
+              ? messageForSubmitError(err.code)
+              : m.editor_submitFailed(),
+        });
       }
     } finally {
       isSubmitting = false;
-      runStatus = null;
       inflightSubmits.delete(controller);
     }
   }

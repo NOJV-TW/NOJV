@@ -183,7 +183,10 @@
       category: "actions",
       allowInInputs: true,
       handler: () => {
-        if (!runController.isSubmitting && hasSubmittableSource) void runController.submit();
+        if (!runController.isSubmitting && hasSubmittableSource) {
+          isFullscreen = false;
+          void runController.submit();
+        }
       },
     }),
   );
@@ -248,7 +251,10 @@
     lastSavedAt={draftController.currentLastSavedAt}
     cooldownUntil={runController.cooldownUntil}
     onRun={() => void runController.run()}
-    onSubmit={() => void runController.submit()}
+    onSubmit={() => {
+      isFullscreen = false;
+      void runController.submit();
+    }}
   />
 
   <EditorResizeHandle

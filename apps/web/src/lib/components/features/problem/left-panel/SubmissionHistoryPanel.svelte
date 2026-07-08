@@ -223,9 +223,15 @@
             <CaseResultGrid cases={entry.result.caseResults} />
           </div>
         {:else if entry.result.feedback}
-          <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
-            {entry.result.feedback}
-          </p>
+          {#if ["compile_error", "runtime_error", "system_error"].includes(entry.result.verdict)}
+            <pre
+              class="mt-3 max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{entry
+                .result.feedback}</pre>
+          {:else}
+            <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
+              {entry.result.feedback}
+            </p>
+          {/if}
         {/if}
 
         <div class="mt-5">
