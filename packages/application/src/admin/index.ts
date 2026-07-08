@@ -13,6 +13,9 @@ import { z } from "zod";
 
 import { getDomainOrchestration } from "../shared/orchestration";
 
+export { getSystemHealth } from "./system-health";
+export type { HealthStatus, SystemHealthReport } from "./system-health";
+
 const ADMIN_DASHBOARD_CACHE_TTL_SECONDS = 300;
 
 function dayKey(date: Date): string {

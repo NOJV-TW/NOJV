@@ -16,10 +16,14 @@
   interface Props {
     open: boolean;
     items: MobileNavLink[];
+    courseworkLabel: string;
+    courseworkItems: MobileNavLink[];
+    adminItems: MobileNavLink[];
     onclose: () => void;
   }
 
-  let { open, items, onclose }: Props = $props();
+  let { open, items, courseworkLabel, courseworkItems, adminItems, onclose }: Props =
+    $props();
 
   const uid = $props.id();
 
@@ -65,20 +69,42 @@
       </button>
     </header>
 
+    {#snippet navRow(item: MobileNavLink)}
+      {@const Icon = item.icon}
+      <a
+        class="mb-1 flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {item.active
+          ? 'bg-accent/60 text-foreground'
+          : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'}"
+        href={item.href}
+        aria-current={item.active ? "page" : undefined}
+        onclick={onclose}
+      >
+        <Icon class="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+        <span>{item.label}</span>
+      </a>
+    {/snippet}
+
     <nav class="flex-1 overflow-y-auto px-3 py-3">
       {#each items as item (item.href)}
-        {@const Icon = item.icon}
-        <a
-          class="mb-1 flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {item.active
-            ? 'bg-accent/60 text-foreground'
-            : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'}"
-          href={item.href}
-          aria-current={item.active ? "page" : undefined}
-          onclick={onclose}
-        >
-          <Icon class="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-          <span>{item.label}</span>
-        </a>
+        {@render navRow(item)}
+      {/each}
+
+      {#if courseworkItems.length > 0}
+        <div class="mt-2" role="group" aria-labelledby="{uid}-coursework">
+          <p
+            id="{uid}-coursework"
+            class="px-3 pb-1 pt-2 text-caption font-semibold text-muted-foreground"
+          >
+            {courseworkLabel}
+          </p>
+          {#each courseworkItems as item (item.href)}
+            {@render navRow(item)}
+          {/each}
+        </div>
+      {/if}
+
+      {#each adminItems as item (item.href)}
+        {@render navRow(item)}
       {/each}
     </nav>
   </div>

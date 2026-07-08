@@ -13,19 +13,24 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import {
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
+    Ban,
     CalendarClock,
+    CircleCheck,
     Mail,
     MoreHorizontal,
     Trash2,
     User,
     UserCog,
+    X,
   } from "@lucide/svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/components/primitives/ui/toast";
@@ -38,6 +43,22 @@
   }
 
   let { users, actorId, canManageAdmins }: Props = $props();
+
+  let selected = $state<Set<string>>(new Set());
+
+  $effect(() => {
+    void users;
+    untrack(() => {
+      if (selected.size > 0) selected = new Set();
+    });
+  });
+
+  function toggleRow(id: string) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selected = next;
+  }
 
   let openMenuId = $state<string | null>(null);
   let menuEl = $state<HTMLDivElement | undefined>();
@@ -233,6 +254,39 @@
     pending = null;
     form?.requestSubmit();
   }
+
+  const selectableUsers = $derived(sortedUsers.filter(canManage));
+  const allSelected = $derived(
+    selectableUsers.length > 0 && selectableUsers.every((u) => selected.has(u.id)),
+  );
+  const someSelected = $derived(selected.size > 0 && !allSelected);
+  const selectedIdsJson = $derived(JSON.stringify([...selected]));
+
+  function toggleAll() {
+    selected = allSelected ? new Set() : new Set(selectableUsers.map((u) => u.id));
+  }
+
+  function bulkResult(successMessage: (count: number) => string) {
+    return async ({
+      result,
+      update,
+    }: {
+      result: { type: string; data?: Record<string, unknown> };
+      update: () => Promise<void>;
+    }) => {
+      if (result.type === "success") {
+        const affected = Number(result.data?.affected ?? 0);
+        toasts.success(successMessage(affected));
+        await update();
+      } else if (result.type === "failure") {
+        const err =
+          (result.data as { error?: string } | undefined)?.error ?? m.admin_usersBulkFailed();
+        toasts.error(err);
+      } else {
+        await update();
+      }
+    };
+  }
 </script>
 
 <svelte:window
@@ -245,10 +299,105 @@
   }}
 />
 
+{#if selected.size > 0}
+  <div
+    class="flex flex-wrap items-center gap-3 border-b border-border-subtle bg-muted/40 px-5 py-3"
+  >
+    <span class="text-body-sm font-medium">
+      {m.admin_usersBulkSelected({ count: selected.size })}
+    </span>
+    <div class="ml-auto flex flex-wrap items-center gap-2">
+      <form
+        method="POST"
+        action="?/bulkSetDisabled"
+        use:enhance={() => bulkResult((count) => m.admin_usersBulkDisableSuccess({ count }))}
+      >
+        <input type="hidden" name="userIds" value={selectedIdsJson} />
+        <input type="hidden" name="disabled" value="true" />
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          onclick={(e) =>
+            requestConfirm(e, {
+              title: m.admin_usersBulkDisable(),
+              message: m.admin_usersBulkDisableConfirm({ count: selected.size }),
+              confirmText: m.admin_usersBulkDisable(),
+              variant: "default",
+            })}
+        >
+          <Ban aria-hidden="true" class="h-3.5 w-3.5" />
+          {m.admin_usersBulkDisable()}
+        </Button>
+      </form>
+      <form
+        method="POST"
+        action="?/bulkSetDisabled"
+        use:enhance={() => bulkResult((count) => m.admin_usersBulkEnableSuccess({ count }))}
+      >
+        <input type="hidden" name="userIds" value={selectedIdsJson} />
+        <input type="hidden" name="disabled" value="false" />
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          onclick={(e) =>
+            requestConfirm(e, {
+              title: m.admin_usersBulkEnable(),
+              message: m.admin_usersBulkEnableConfirm({ count: selected.size }),
+              confirmText: m.admin_usersBulkEnable(),
+              variant: "default",
+            })}
+        >
+          <CircleCheck aria-hidden="true" class="h-3.5 w-3.5" />
+          {m.admin_usersBulkEnable()}
+        </Button>
+      </form>
+      <form
+        method="POST"
+        action="?/bulkDelete"
+        use:enhance={() => bulkResult((count) => m.admin_usersBulkDeleteSuccess({ count }))}
+      >
+        <input type="hidden" name="userIds" value={selectedIdsJson} />
+        <Button
+          type="submit"
+          variant="destructive"
+          size="sm"
+          onclick={(e) =>
+            requestConfirm(e, {
+              title: m.admin_usersBulkDelete(),
+              message: m.admin_usersBulkDeleteConfirm({ count: selected.size }),
+              confirmText: m.admin_usersBulkDelete(),
+              variant: "danger",
+            })}
+        >
+          <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
+          {m.admin_usersBulkDelete()}
+        </Button>
+      </form>
+      <Button variant="ghost" size="sm" onclick={() => (selected = new Set())}>
+        <X aria-hidden="true" class="h-3.5 w-3.5" />
+        {m.admin_usersBulkClear()}
+      </Button>
+    </div>
+  </div>
+{/if}
+
 <div class="overflow-x-auto">
   <table class="w-full text-body-sm">
     <thead>
       <tr class="border-b border-border-subtle text-left">
+        <th class="w-10 px-5 py-3">
+          <input
+            type="checkbox"
+            class="size-4 cursor-pointer accent-primary"
+            checked={allSelected}
+            indeterminate={someSelected}
+            disabled={selectableUsers.length === 0}
+            aria-label={m.admin_usersSelectAll()}
+            onchange={toggleAll}
+          />
+        </th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("username")}>
           <button
             type="button"
@@ -325,6 +474,17 @@
     <tbody>
       {#each sortedUsers as user (user.id)}
         <tr class="border-b border-border-subtle last:border-b-0">
+          <td class="px-5 py-3">
+            {#if canManage(user)}
+              <input
+                type="checkbox"
+                class="size-4 cursor-pointer accent-primary"
+                checked={selected.has(user.id)}
+                aria-label={m.admin_usersSelectRow({ username: displayName(user) })}
+                onchange={() => toggleRow(user.id)}
+              />
+            {/if}
+          </td>
           <td class="px-5 py-3 font-mono text-caption">{user.username ?? "—"}</td>
           <td class="px-5 py-3">{user.email}</td>
           <td class="px-5 py-3">{user.name}</td>

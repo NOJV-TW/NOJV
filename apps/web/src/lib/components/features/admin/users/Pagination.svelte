@@ -7,15 +7,17 @@
     totalPages: number;
     search: string;
     roleFilter: string;
+    statusFilter: string;
   }
 
-  let { page, totalPages, search, roleFilter }: Props = $props();
+  let { page, totalPages, search, roleFilter, statusFilter }: Props = $props();
 
   function hrefFor(target: number): string {
     const params = new URLSearchParams();
     params.set("page", String(target));
     if (search) params.set("search", search);
     if (roleFilter) params.set("role", roleFilter);
+    if (statusFilter) params.set("status", statusFilter);
     return `/admin/users?${params.toString()}`;
   }
 </script>

@@ -14,11 +14,13 @@
 
   let searchValue = $state(untrack(() => data.search));
   let roleValue = $state(untrack(() => data.roleFilter));
+  let statusValue = $state(untrack(() => data.statusFilter));
 
   function applyFilters() {
     const params = new URLSearchParams();
     if (searchValue) params.set("search", searchValue);
     if (roleValue) params.set("role", roleValue);
+    if (statusValue) params.set("status", statusValue);
     goto(`/admin/users?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 </script>
@@ -34,7 +36,12 @@
     </p>
   </header>
 
-  <FilterBar bind:search={searchValue} bind:role={roleValue} onApply={applyFilters} />
+  <FilterBar
+    bind:search={searchValue}
+    bind:role={roleValue}
+    bind:status={statusValue}
+    onApply={applyFilters}
+  />
 
   <Card variant="surface" size="lg" class="overflow-hidden p-0">
     {#if data.users.length === 0}
@@ -58,5 +65,6 @@
     totalPages={data.totalPages}
     search={data.search}
     roleFilter={data.roleFilter}
+    statusFilter={data.statusFilter}
   />
 </PageContainer>

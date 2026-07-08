@@ -5,11 +5,14 @@
     BookOpen,
     Bug,
     CheckCircle2,
+    Cpu,
     Database,
     PieChart,
+    Server,
     ShieldCheck,
     Trophy,
     Users,
+    Workflow,
   } from "@lucide/svelte";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
@@ -130,6 +133,12 @@
       },
     ],
   }));
+
+  const infraRows = $derived([
+    { label: m.admin_healthDatabase(), icon: Database, status: data.health.database },
+    { label: m.admin_healthRedis(), icon: Server, status: data.health.redis },
+    { label: m.admin_healthTemporal(), icon: Workflow, status: data.health.temporal },
+  ]);
 </script>
 
 <PageContainer class="space-y-6">
@@ -184,18 +193,41 @@
         </p>
       </div>
       <div class="space-y-2 text-body-sm">
-        <div
-          class="flex items-center justify-between rounded-sm border border-border-subtle px-3 py-2"
-        >
-          <span class="inline-flex items-center gap-1"
-            ><Database aria-hidden="true" class="h-3.5 w-3.5" />
-            {m.admin_overviewDatabase()}</span
+        {#each infraRows as row (row.label)}
+          {@const Icon = row.icon}
+          <div
+            class="flex items-center justify-between rounded-sm border border-border-subtle px-3 py-2"
           >
-          {#if data.dbOk}
-            <Badge variant="success" size="sm" dot>{m.admin_overviewConnected()}</Badge>
-          {:else}
-            <Badge variant="destructive" size="sm" dot>{m.admin_overviewDisconnected()}</Badge>
-          {/if}
+            <span class="inline-flex items-center gap-1"
+              ><Icon aria-hidden="true" class="h-3.5 w-3.5" />
+              {row.label}</span
+            >
+            {#if row.status === "ok"}
+              <Badge variant="success" size="sm" dot>{m.admin_healthStatusOk()}</Badge>
+            {:else}
+              <Badge variant="destructive" size="sm" dot>{m.admin_healthStatusDown()}</Badge>
+            {/if}
+          </div>
+        {/each}
+
+        <div class="rounded-sm border border-border-subtle px-3 py-2">
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center gap-1"
+              ><Cpu aria-hidden="true" class="h-3.5 w-3.5" />
+              {m.admin_healthJudgeWorker()}</span
+            >
+            {#if data.health.staleJudging > 0}
+              <Badge variant="warning" size="sm" dot>{m.admin_healthStatusDegraded()}</Badge>
+            {:else}
+              <Badge variant="success" size="sm" dot>{m.admin_healthStatusOk()}</Badge>
+            {/if}
+          </div>
+          <p class="mt-1 text-caption text-muted-foreground">
+            {m.admin_healthPending({ count: data.health.pendingJudging })}{#if data.health.staleJudging > 0}
+              · <span class="text-warning"
+                >{m.admin_healthStale({ count: data.health.staleJudging })}</span
+              >{/if}
+          </p>
         </div>
       </div>
     </Card>
