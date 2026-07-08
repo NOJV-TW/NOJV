@@ -46,6 +46,27 @@ Manual deploy override (e.g. a rollback):
 | `git-repository.yaml`   | `GitRepository` (this repo, `main`) + root `Kustomization` that applies this directory                               |
 | `helmrelease.yaml`      | `HelmRelease` wrapping `infra/charts/nojv` with `values-single-machine.yaml`; image tag is automation-managed        |
 | `image-automation.yaml` | `ImageRepository` (scans GHCR) + `ImagePolicy` (newest build) + `ImageUpdateAutomation` (writes the tag back to git) |
+| `notification-provider.yaml` | `Provider` (`type: discord`) pointing at the `discord-webhook` Secret — see Notifications below |
+| `notification-alert.yaml` | `Alert` firing on every `HelmRelease/nojv` reconcile at `info` severity (success **and** failure) |
+
+## Notifications (Discord)
+
+Flux's `notification-controller` posts a message to a Discord channel on every
+`nojv` deploy — both success and failure (`eventSeverity: info`; change to
+`error` to be pinged on failures only).
+
+The webhook URL is a **secret and is never committed** (this repo is public). It
+lives in a `discord-webhook` Secret in `flux-system`, created out-of-band on the
+prod box:
+
+```bash
+# Discord: channel → Edit Channel → Integrations → Webhooks → New Webhook → Copy URL
+kubectl -n flux-system create secret generic discord-webhook \
+  --from-literal=address='https://discord.com/api/webhooks/<id>/<token>'
+```
+
+The committed `Provider` only references the Secret by name. Verify wiring:
+`flux -n flux-system get alert` and `... get provider` (both should be Ready).
 
 ## One-time cutover (run from the prod box, in a maintenance window)
 
