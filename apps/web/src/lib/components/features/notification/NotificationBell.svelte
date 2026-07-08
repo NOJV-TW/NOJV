@@ -1,5 +1,7 @@
 <script lang="ts">
   import BellIcon from "@lucide/svelte/icons/bell";
+  import { fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import { m } from "$lib/paraglide/messages.js";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { cn } from "$lib/utils/css.js";
@@ -8,6 +10,18 @@
   let open = $state(false);
   let btnEl: HTMLButtonElement | undefined = $state();
   let dropdownEl: HTMLDivElement | undefined = $state();
+  let prefersReducedMotion = $state(false);
+
+  $effect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    prefersReducedMotion = mq.matches;
+    const handler = (e: MediaQueryListEvent) => {
+      prefersReducedMotion = e.matches;
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  });
 
   function toggle() {
     open = !open;
@@ -74,6 +88,7 @@
     <div
       bind:this={dropdownEl}
       class="absolute right-0 top-full z-50 mt-2 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-modal backdrop-blur-sm"
+      transition:fly={{ y: -6, duration: prefersReducedMotion ? 0 : 180, easing: cubicOut }}
     >
       <NotificationDropdown />
     </div>

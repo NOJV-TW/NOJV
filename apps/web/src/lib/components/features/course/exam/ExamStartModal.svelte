@@ -130,6 +130,8 @@
                 typeof result.data?.error === "string"
                   ? result.data.error
                   : m.error_unexpected();
+            } else {
+              errorMessage = m.error_unexpected();
             }
             submitting = false;
           };

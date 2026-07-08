@@ -138,7 +138,7 @@
         <p class="text-title-lg font-semibold leading-tight {verdictClass}">
           {verdictLabel}
         </p>
-        <p class="text-display-sm font-semibold tabular-nums">
+        <p class="text-headline font-semibold tabular-nums">
           {submission.score}<span class="text-title-sm text-muted-foreground">
             / {submission.totalScore}</span
           >
@@ -150,7 +150,7 @@
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_runtime()}
           </dt>
-          <dd class="text-body-md font-medium tabular-nums">
+          <dd class="text-body font-medium tabular-nums">
             {#if runtimeMs !== null && runtimeMs > 0}
               {runtimeMs}<span class="text-body-sm text-muted-foreground"> ms</span>
             {:else}
@@ -162,7 +162,7 @@
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_memory()}
           </dt>
-          <dd class="text-body-md font-medium tabular-nums">
+          <dd class="text-body font-medium tabular-nums">
             {#if memoryKb !== null && memoryKb > 0}
               {formatMemory(memoryKb)}
             {:else}
@@ -174,7 +174,7 @@
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_language()}
           </dt>
-          <dd class="text-body-md font-medium">{languageLabel(submission.language)}</dd>
+          <dd class="text-body font-medium">{languageLabel(submission.language)}</dd>
         </div>
         <div class="flex flex-col gap-0.5">
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">

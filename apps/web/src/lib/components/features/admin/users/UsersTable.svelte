@@ -42,6 +42,13 @@
   let openMenuId = $state<string | null>(null);
   let menuEl = $state<HTMLDivElement | undefined>();
   let triggerEl = $state<HTMLButtonElement | undefined>();
+  let menuPos = $state<{ top: number; right: number } | null>(null);
+
+  function computeMenuPos() {
+    if (!triggerEl) return;
+    const rect = triggerEl.getBoundingClientRect();
+    menuPos = { top: rect.bottom + 4, right: window.innerWidth - rect.right };
+  }
 
   function toggleMenu(id: string, e: MouseEvent) {
     if (openMenuId === id) {
@@ -49,6 +56,7 @@
     } else {
       openMenuId = id;
       triggerEl = e.currentTarget as HTMLButtonElement;
+      computeMenuPos();
     }
   }
 
@@ -67,7 +75,13 @@
       }
     }
     document.addEventListener("keydown", onKeydown);
-    return () => document.removeEventListener("keydown", onKeydown);
+    window.addEventListener("scroll", computeMenuPos, true);
+    window.addEventListener("resize", computeMenuPos);
+    return () => {
+      document.removeEventListener("keydown", onKeydown);
+      window.removeEventListener("scroll", computeMenuPos, true);
+      window.removeEventListener("resize", computeMenuPos);
+    };
   });
 
   function onMenuKeydown(e: KeyboardEvent) {
@@ -343,10 +357,11 @@
                   <MoreHorizontal aria-hidden="true" class="h-4 w-4" />
                 </button>
 
-                {#if openMenuId === user.id}
+                {#if openMenuId === user.id && menuPos}
                   <div
                     bind:this={menuEl}
-                    class="absolute right-0 top-full z-50 mt-1 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-left text-popover-foreground shadow-modal"
+                    class="fixed z-50 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-left text-popover-foreground shadow-modal"
+                    style="top: {menuPos.top}px; right: {menuPos.right}px;"
                     role="menu"
                     tabindex="-1"
                     onkeydown={onMenuKeydown}

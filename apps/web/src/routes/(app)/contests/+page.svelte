@@ -127,6 +127,29 @@
       </div>
     {/snippet}
 
+    {#snippet firstUseBox()}
+      <div class="glass rounded-xl px-6 py-12 text-center">
+        <p class="text-body font-semibold">{m.contestsList_emptyAllTitle()}</p>
+        <p class="mt-1 text-body-sm text-muted-foreground">{m.contestsList_emptyAllBody()}</p>
+        {#if data.loggedIn}
+          <div class="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onclick={() => (joinDialogOpen = true)}
+            >
+              {m.contestsList_joinByCode()}
+            </Button>
+            <Button href="/contests/new" size="sm">
+              <Plus aria-hidden="true" class="h-4 w-4" />
+              {m.contestsList_create()}
+            </Button>
+          </div>
+        {/if}
+      </div>
+    {/snippet}
+
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
       <div
         role="tablist"
@@ -175,7 +198,7 @@
 
     {#if currentTab === "all"}
       {#if all.length === 0}
-        {@render emptyBox()}
+        {@render firstUseBox()}
       {:else}
         <div class="space-y-8">
           {#each allGroups as g (g.key)}

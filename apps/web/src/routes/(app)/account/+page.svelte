@@ -138,7 +138,7 @@
 <PageContainer width="form">
   <Section>
     {#snippet header()}
-      <h1 class="text-title-lg">{m.navigation_account()}</h1>
+      <h1 class="text-title-lg font-semibold">{m.navigation_account()}</h1>
     {/snippet}
 
     <div class="flex flex-col gap-6">

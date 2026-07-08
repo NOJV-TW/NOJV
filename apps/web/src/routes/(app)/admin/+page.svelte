@@ -134,7 +134,7 @@
 
 <PageContainer class="space-y-6">
   <header class="animate-in space-y-1">
-    <h1 class="text-h3 font-semibold">{m.admin_overviewTitle()}</h1>
+    <h1 class="text-title-lg font-semibold">{m.admin_overviewTitle()}</h1>
     <p class="text-caption text-muted-foreground">{m.admin_overviewSubtitle()}</p>
   </header>
 

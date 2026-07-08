@@ -24,8 +24,8 @@
   const ASSIGNMENT: Record<string, Def> = {
     not_started: {
       label: () => m.statusPill_assignment_notStarted(),
-      cls: "bg-muted text-muted-foreground",
-      style: NEUTRAL_STYLE,
+      cls: "",
+      style: INFO_STYLE,
     },
     in_progress: {
       label: () => m.statusPill_assignment_inProgress(),
@@ -48,8 +48,8 @@
     },
     scheduled: {
       label: () => m.statusPill_exam_scheduled(),
-      cls: "bg-muted text-muted-foreground",
-      style: NEUTRAL_STYLE,
+      cls: "",
+      style: INFO_STYLE,
     },
     open: { label: () => m.statusPill_exam_open(), cls: "", style: PRIMARY_STYLE },
     in_progress: {
@@ -68,8 +68,8 @@
   const CONTEST: Record<string, Def> = {
     upcoming: {
       label: () => m.statusPill_contest_upcoming(),
-      cls: "bg-muted text-muted-foreground",
-      style: NEUTRAL_STYLE,
+      cls: "",
+      style: INFO_STYLE,
     },
     live: { label: () => "LIVE", cls: "", style: DESTRUCTIVE_STYLE },
     ended: {

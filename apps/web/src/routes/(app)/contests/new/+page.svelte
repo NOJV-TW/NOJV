@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
+  import { problemLetter } from "$lib/components/features/contest/format";
   import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -91,6 +92,7 @@
         {#if $errors.id}<p id="id-error" class="mt-1 text-xs text-destructive">
             {$errors.id}
           </p>{/if}
+        <p class="mt-1 text-xs text-muted-foreground">{m.contestCreate_slugHint()}</p>
       </div>
 
       <div>
@@ -340,7 +342,7 @@
             <span
               class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
             >
-              {String.fromCharCode(65 + i)}
+              {problemLetter(i + 1)}
             </span>
             <input
               class={inputClassName}

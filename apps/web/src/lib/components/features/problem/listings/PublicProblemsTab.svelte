@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { CheckCircle2, FileCode, ListFilter, Search, XCircle } from "@lucide/svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
   import * as Card from "$lib/components/primitives/ui/card";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
@@ -20,9 +21,10 @@
   interface Props {
     publicResult: problemDomain.ProblemListResult;
     loggedIn: boolean;
+    showCreate?: boolean;
   }
 
-  let { publicResult, loggedIn }: Props = $props();
+  let { publicResult, loggedIn, showCreate = false }: Props = $props();
 
   let currentUrl = $derived(page.url);
   let currentPage = $derived(publicResult.page);
@@ -43,6 +45,15 @@
     else params.delete("page");
     const qs = params.toString();
     void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: false });
+  }
+
+  function clearFilters() {
+    const params = new URLSearchParams(currentUrl.searchParams);
+    for (const key of ["q", "difficulty", "status", "types", "judge", "tags", "page"]) {
+      params.delete(key);
+    }
+    const qs = params.toString();
+    void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
   }
 
   let paginationPages = $derived.by(() => {
@@ -86,9 +97,27 @@
 
     <section class="grid gap-4">
       {#if publicResult.totalCount === 0 && !hasActiveFilters}
-        <EmptyState icon={FileCode} title={m.problems_empty()} />
+        <EmptyState
+          icon={FileCode}
+          variant="onboarding"
+          title={m.problems_empty()}
+          description={m.problems_emptyDescription()}
+          actions={showCreate
+            ? [{ href: "?tab=mine", label: m.problems_createFirst() }]
+            : [{ href: "/courses", label: m.dashboard_welcomeGuideBrowseCourses() }]}
+        />
       {:else if publicResult.problems.length === 0}
-        <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} />
+        <div class="flex flex-col items-center gap-4 py-16">
+          <EmptyState
+            icon={Search}
+            variant="minimal"
+            title={m.problems_noResults()}
+            class="py-0"
+          />
+          <Button variant="outline" size="sm" onclick={clearFilters}>
+            {m.problems_clearFilters()}
+          </Button>
+        </div>
       {/if}
 
       {#if publicResult.problems.length > 0}
@@ -193,7 +222,7 @@
       <nav class="flex justify-center gap-2 pt-2" aria-label={m.problems_pagination()}>
         {#if currentPage > 1}
           <button
-            class="rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)]"
+            class="inline-flex items-center justify-center rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
             onclick={() => goToPage(currentPage - 1)}
             type="button"
             aria-label={m.problems_previousPage()}
@@ -206,7 +235,7 @@
             <span class="px-2 py-1 text-body-sm text-muted-foreground">&hellip;</span>
           {:else}
             <button
-              class="rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft {p ===
+              class="inline-flex items-center justify-center rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11 {p ===
               currentPage
                 ? 'border-primary bg-primary text-white'
                 : 'border-border hover:bg-[color:var(--color-panel)]'}"
@@ -219,7 +248,7 @@
         {/each}
         {#if currentPage < totalPages}
           <button
-            class="rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)]"
+            class="inline-flex items-center justify-center rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
             onclick={() => goToPage(currentPage + 1)}
             type="button"
             aria-label={m.problems_nextPage()}

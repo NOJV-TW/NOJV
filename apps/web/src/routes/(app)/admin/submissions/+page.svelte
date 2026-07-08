@@ -45,7 +45,7 @@
 
 <PageContainer class="animate-in animate-in-2 space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <h1 class="text-h3 font-semibold">{m.admin_submissions_title()}</h1>
+    <h1 class="text-title-lg font-semibold">{m.admin_submissions_title()}</h1>
     <form class="flex flex-wrap items-center gap-2" onsubmit={applyFilter}>
       <Input
         class="h-9 w-48"

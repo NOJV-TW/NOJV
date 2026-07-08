@@ -196,13 +196,15 @@ export const submissionRepo = {
     });
   },
 
-  listByUser(opts: { userId: string; take?: number }) {
+  listByUser(opts: { userId: string; limit: number; cursor?: string }) {
     return prisma.submission.findMany({
       where: {
         userId: opts.userId,
         sampleOnly: false,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: opts.limit + 1,
+      ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
       select: {
         id: true,
         createdAt: true,
@@ -223,7 +225,6 @@ export const submissionRepo = {
           },
         },
       },
-      take: opts.take ?? 50,
     });
   },
 

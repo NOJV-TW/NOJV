@@ -18,9 +18,9 @@
 
   const INTENSITY = {
     zero: "bg-[color:var(--muted)]/40",
-    low: "bg-[color:color-mix(in_oklch,var(--chart-5)_30%,transparent)]",
-    mid: "bg-[color:color-mix(in_oklch,var(--chart-5)_60%,transparent)]",
-    high: "bg-[color:var(--chart-5)]",
+    low: "bg-[color:color-mix(in_oklch,var(--success)_25%,transparent)]",
+    mid: "bg-[color:color-mix(in_oklch,var(--success)_55%,transparent)]",
+    high: "bg-[color:var(--success)]",
   } as const;
 
   function intensityClass(count: number): string {

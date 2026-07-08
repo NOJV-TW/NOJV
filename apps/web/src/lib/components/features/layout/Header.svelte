@@ -6,6 +6,7 @@
     FileCheck,
     GraduationCap,
     History,
+    Languages,
     LayoutDashboard,
     Menu,
     Shield,
@@ -20,10 +21,16 @@
   import MobileNavDrawer from "./MobileNavDrawer.svelte";
   import BrandLogo from "$lib/components/primitives/layout/BrandLogo.svelte";
   import ThemeToggle from "$lib/components/primitives/layout/ThemeToggle.svelte";
+  import { IconButton } from "$lib/components/primitives/ui/button/index.js";
 
   let { immersive = false }: { immersive?: boolean } = $props();
 
   const localeLabels: Record<string, string> = { en: "English", "zh-TW": "中文" };
+
+  function cycleLocale() {
+    const idx = locales.indexOf(currentLocale);
+    setLocale(locales[(idx + 1) % locales.length]!);
+  }
 
   let currentLocale = $derived(getLocale());
   let user = $derived(page.data.user);
@@ -157,7 +164,7 @@
 
     <div class="ml-auto flex items-center gap-2">
       <div
-        class="flex items-center gap-1 rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] p-1 text-caption"
+        class="hidden items-center gap-1 rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] p-1 text-caption lg:flex"
         role="group"
         aria-label={m.common_language()}
       >
@@ -177,6 +184,16 @@
           </button>
         {/each}
       </div>
+      <IconButton
+        variant="ghost"
+        size="sm"
+        class="lg:hidden"
+        label={m.nav_switchLanguage()}
+        title={m.nav_switchLanguage()}
+        onclick={cycleLocale}
+      >
+        <Languages aria-hidden="true" class="size-4" />
+      </IconButton>
       <ThemeToggle />
       {#if user}
         <NotificationBell />

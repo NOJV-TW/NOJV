@@ -17,6 +17,40 @@
 
   type SubmissionRow = (typeof data.submissions)[number];
 
+  let loaded = $state<SubmissionRow[]>([]);
+  let moreCursor = $state<string | null>(null);
+  let loadingMore = $state(false);
+
+  const activeCursor = $derived(loaded.length === 0 ? data.nextCursor : moreCursor);
+
+  const allRows = $derived.by(() => {
+    const seen = new Set<string>();
+    const rows: SubmissionRow[] = [];
+    for (const row of [...data.submissions, ...loaded]) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
+    }
+    return rows;
+  });
+
+  async function loadMore() {
+    if (loadingMore || !activeCursor) return;
+    loadingMore = true;
+    try {
+      const res = await fetch(`/api/submissions?cursor=${encodeURIComponent(activeCursor)}`);
+      if (!res.ok) return;
+      const page = (await res.json()) as {
+        items: SubmissionRow[];
+        nextCursor: string | null;
+      };
+      loaded = [...loaded, ...page.items];
+      moreCursor = page.nextCursor;
+    } finally {
+      loadingMore = false;
+    }
+  }
+
   function formatMemory(kb: number): string {
     if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
     return `${String(kb)} KB`;
@@ -42,14 +76,14 @@
   const RESULT_VERDICTS: readonly string[] = submissionResultVerdicts;
   let verdictOptions = $derived([
     ...RESULT_VERDICTS,
-    ...[...new Set(data.submissions.map((s) => s.status))]
+    ...[...new Set(allRows.map((s) => s.status))]
       .filter((status) => !RESULT_VERDICTS.includes(status))
       .sort(),
   ]);
-  let languageOptions = $derived([...new Set(data.submissions.map((s) => s.language))].sort());
+  let languageOptions = $derived([...new Set(allRows.map((s) => s.language))].sort());
 
   let filtered = $derived(
-    data.submissions.filter((sub) => {
+    allRows.filter((sub) => {
       if (verdictFilter && sub.status !== verdictFilter) return false;
       if (languageFilter && sub.language !== languageFilter) return false;
       if (
@@ -63,7 +97,7 @@
 
   const PENDING_STATUSES = new Set(["pending_upload", "queued", "compiling", "running"]);
   const pendingIds = $derived(
-    data.submissions.filter((sub) => PENDING_STATUSES.has(sub.status)).map((sub) => sub.id),
+    allRows.filter((sub) => PENDING_STATUSES.has(sub.status)).map((sub) => sub.id),
   );
 
   $effect(() => {
@@ -95,7 +129,7 @@
       {/snippet}
     </PageHeader>
 
-    {#if data.submissions.length === 0}
+    {#if allRows.length === 0}
       <EmptyState
         variant="onboarding"
         icon={Code2}
@@ -181,6 +215,19 @@
               </div>
             </a>
           {/each}
+        </div>
+      {/if}
+
+      {#if activeCursor}
+        <div class="mt-4 flex justify-center">
+          <button
+            class="inline-flex min-h-11 items-center rounded-full border border-border px-5 py-2 text-body-sm font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            disabled={loadingMore}
+            onclick={loadMore}
+          >
+            {m.submissions_loadMore()}
+          </button>
         </div>
       {/if}
     {/if}

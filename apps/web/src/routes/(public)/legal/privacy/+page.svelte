@@ -7,7 +7,7 @@
   <title>{m.legal_privacyTitle()} · NOJV</title>
 </svelte:head>
 
-<div class="legal-prose mx-auto w-full max-w-3xl pt-6">
+<div class="legal-prose mx-auto w-full max-w-[70ch] pt-6">
   <h1 class="text-title-lg font-bold leading-tight text-foreground sm:text-display">
     {m.legal_privacyTitle()}
   </h1>

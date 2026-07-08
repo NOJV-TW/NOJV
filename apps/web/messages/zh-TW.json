@@ -2001,5 +2001,19 @@
   "examProctoring_releaseAllConfirmBody": "釋放全部 {count} 個進行中的作答階段？學生將被登出考試。",
   "members_roleChangeSuccess": "角色已更新。",
   "members_roleFor": "變更 {name} 的角色",
-  "problems_columnProblem": "題目"
+  "problems_columnProblem": "題目",
+  "contestCreate_slugHint": "用於競賽的網址。僅限小寫英文字母、數字與連字號。",
+  "contestsList_emptyAllBody": "你可以參加或管理的競賽會顯示在這裡。",
+  "contestsList_emptyAllTitle": "尚無競賽",
+  "courseOverview_noAssignmentsPracticeCta": "先開始練習題目吧",
+  "nav_switchLanguage": "切換語言",
+  "problemDetail_sourceLoadFailed": "無法載入原始碼。",
+  "problems_clearFilters": "清除篩選",
+  "problems_createFirst": "建立你的第一道題目",
+  "problems_emptyDescription": "已發布的公開題目會顯示在這裡，供所有人練習。",
+  "submissions_loadMore": "載入更多",
+  "submit_error_dailyLimit": "您已達今日的提交次數上限，請於每日重置後再試。",
+  "submit_error_ipBlocked": "您目前的網路不允許進行此次提交，請連接指定網路或向監考老師求助。",
+  "submit_error_languageNotAllowed": "此處不允許所選的程式語言。",
+  "submit_error_windowClosed": "此測驗目前不接受提交。"
 }

@@ -22,6 +22,7 @@
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { Tabs } from "$lib/components/primitives/ui/tabs";
   import { fmtDate } from "$lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
@@ -566,41 +567,21 @@
       </div>
     {/if}
 
-    <div
-      role="tablist"
-      aria-label={m.examDetail_subTabsLabel()}
-      class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
+    <Tabs
+      tabs={subTabs}
+      bind:value={activeSubTabKey}
+      label={m.examDetail_subTabsLabel()}
+      id="exam-manage"
     >
-      {#each subTabs as tab (tab.key)}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSubTabKey === tab.key}
-          onclick={() => (activeSubTabKey = tab.key)}
-          class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-          tab.key
-            ? 'bg-[color:var(--color-primary)]/14 text-primary'
-            : 'text-muted-foreground hover:text-foreground'}"
-        >
-          {tab.label}
-        </button>
-      {/each}
-    </div>
-
-    {#if activeSubTabKey === "submissions" && data.matrix}
-      <GlassPanel class="p-5">
+      {#if activeSubTabKey === "submissions" && data.matrix}
         <ExamSubmissionsMatrix
           matrix={data.matrix}
           examId={detail.id}
           oncellclick={canSetOverride ? gradeCell : undefined}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "results" && data.results}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "results" && data.results}
         <ExamResultsTab data={data.results} />
-      </GlassPanel>
-    {:else if activeSubTabKey === "plagiarism"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
@@ -618,18 +599,14 @@
               }))
             : []}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "proctoring"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "proctoring"}
         <ExamProctoringTab
           violations={data.ipViolations ?? []}
           activeSessions={data.activeSessions ?? []}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "settings" && data.settingsForm}
-      <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
-    {:else if activeSubTabKey === "clarifications"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "settings" && data.settingsForm}
+        <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
+      {:else if activeSubTabKey === "clarifications"}
         <ClarificationTab
           contextType="exam"
           contextId={detail.id}
@@ -637,21 +614,19 @@
           canAnswer={data.clarification.canAnswer}
           problems={clarificationProblems}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "audit"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "audit"}
         <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
-      </GlassPanel>
-    {:else}
-      <ExamProblemsTab
-        {detail}
-        {liveStatus}
-        canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
-        canRejudge={isManager}
-        candidateProblems={data.candidateProblems}
-        {form}
-      />
-    {/if}
+      {:else}
+        <ExamProblemsTab
+          {detail}
+          {liveStatus}
+          canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
+          canRejudge={isManager}
+          candidateProblems={data.candidateProblems}
+          {form}
+        />
+      {/if}
+    </Tabs>
   {/if}
 </PageContainer>
 

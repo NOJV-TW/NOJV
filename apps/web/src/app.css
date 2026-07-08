@@ -117,6 +117,7 @@
   --rank-gold: #d4a054;
   --rank-silver: #a0a0a0;
   --rank-bronze: #cd7f32;
+  --rank-foreground: #241a06;
 
   /* Sidebar */
   --sidebar: #eef1f4;
@@ -244,6 +245,7 @@
   --rank-gold: #e0b56a;
   --rank-silver: #b4b4b4;
   --rank-bronze: #d98f48;
+  --rank-foreground: #241a06;
 
   --sidebar: #1b222b;
   --sidebar-foreground: #e6ebf2;
@@ -321,6 +323,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-rank-foreground: var(--rank-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -551,6 +554,12 @@
   .focus-ring:focus-visible {
     @apply outline-none ring-[3px] ring-ring/50 ring-offset-2 ring-offset-background;
   }
+
+  .eyebrow {
+    font-size: var(--text-caption);
+    font-weight: 500;
+    letter-spacing: 0.025em;
+  }
 }
 
 :is(.dark) body {
@@ -606,6 +615,10 @@
 
 .fade-up {
   animation: fade-up 700ms var(--ease-out-soft) both;
+}
+
+.content-fade-in {
+  animation: fade-in var(--duration-normal) var(--ease-out-soft) both;
 }
 
 .live-dot {

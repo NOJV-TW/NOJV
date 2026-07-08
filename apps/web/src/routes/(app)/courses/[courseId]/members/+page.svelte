@@ -7,6 +7,7 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { formatDate } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -98,8 +99,7 @@
   }
 
   function formatJoined(iso: string): string {
-    const d = new Date(iso);
-    const date = `${d.getMonth() + 1}/${d.getDate()}`;
+    const date = formatDate(iso, { month: "short", day: "numeric", year: undefined });
     return m.members_joinedOn({ date });
   }
 </script>

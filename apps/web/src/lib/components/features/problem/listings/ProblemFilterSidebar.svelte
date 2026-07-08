@@ -116,7 +116,7 @@
     aria-checked={checked}
     {onclick}
     class={cn(
-      "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-body-sm font-medium transition-[color,background-color,border-color] duration-fast ease-out-soft",
+      "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-body-sm font-medium transition-[color,background-color,border-color] duration-fast ease-out-soft pointer-coarse:min-h-11",
       checked
         ? "border-primary bg-primary/10 text-foreground"
         : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground",

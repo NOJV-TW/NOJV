@@ -9,6 +9,19 @@
 
   let isUnread = $derived(item.readAt === null);
 
+  function roleLabel(role: string): string {
+    switch (role) {
+      case "admin":
+        return m.common_roleAdmin();
+      case "teacher":
+        return m.common_roleTeacher();
+      case "student":
+        return m.common_roleStudent();
+      default:
+        return role;
+    }
+  }
+
   function renderText(n: NotificationItem): string {
     const p = (n.params ?? {}) as Record<string, string>;
     switch (n.type) {
@@ -26,7 +39,7 @@
         return m.notification_announcement_published({ title: title ?? "" });
       }
       case "role_changed":
-        return m.notification_role_changed({ newRole: p.newRole ?? "" });
+        return m.notification_role_changed({ newRole: roleLabel(p.newRole ?? "") });
       case "clarification_answered":
         return m.notification_clarification_answered({
           questionPreview: p.questionPreview ?? "",

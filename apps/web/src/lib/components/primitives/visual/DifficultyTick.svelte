@@ -13,7 +13,7 @@
 
   const RANK: Record<Difficulty, number> = { easy: 1, medium: 2, hard: 3 };
   const HEIGHTS = [6, 9, 12] as const;
-  const COLORS = ["var(--chart-5)", "var(--chart-4)", "var(--destructive)"] as const;
+  const COLORS = ["var(--success)", "var(--warning)", "var(--destructive)"] as const;
   const LABELS: Record<Difficulty, () => string> = {
     easy: m.admin_difficultyEasy,
     medium: m.admin_difficultyMedium,

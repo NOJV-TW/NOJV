@@ -1,6 +1,6 @@
 import type { Language, SubmissionResult } from "@nojv/core";
 import { m } from "$lib/paraglide/messages.js";
-import { executeSubmission } from "$lib/services/submission-service";
+import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
 import type { ProblemDetail } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -98,17 +98,29 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       runResult = await runSubmission(true);
       runStatus = null;
     } catch (err) {
-      runError = err instanceof Error ? err.message : m.editor_runFailed();
+      runError =
+        err instanceof SubmissionRequestError
+          ? messageForSubmitError(err.code)
+          : m.editor_runFailed();
       runStatus = null;
     } finally {
       isRunning = false;
     }
   }
 
-  function parseCooldownSeconds(message: string): number | null {
-    if (!/cooldown/i.test(message)) return null;
-    const match = /(\d+)/.exec(message);
-    return match ? Number(match[1]) : null;
+  function messageForSubmitError(code: string | null): string {
+    switch (code) {
+      case "daily_limit":
+        return m.submit_error_dailyLimit();
+      case "window_closed":
+        return m.submit_error_windowClosed();
+      case "ip_blocked":
+        return m.submit_error_ipBlocked();
+      case "language_not_allowed":
+        return m.submit_error_languageNotAllowed();
+      default:
+        return m.editor_submitFailed();
+    }
   }
 
   async function submit() {
@@ -155,12 +167,18 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         args.onSubmissionComplete?.(dispatched.submissionId, result, language, source);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : m.editor_submitFailed();
-      const cooldownSec = parseCooldownSeconds(message);
-      if (cooldownSec != null && cooldownSec > 0) {
-        cooldownUntil = Date.now() + cooldownSec * 1000;
+      if (
+        err instanceof SubmissionRequestError &&
+        err.code === "submit_cooldown" &&
+        err.retryAfterSec != null &&
+        err.retryAfterSec > 0
+      ) {
+        cooldownUntil = Date.now() + err.retryAfterSec * 1000;
       } else {
-        runError = message;
+        runError =
+          err instanceof SubmissionRequestError
+            ? messageForSubmitError(err.code)
+            : m.editor_submitFailed();
         bottomTab = "result";
       }
     } finally {

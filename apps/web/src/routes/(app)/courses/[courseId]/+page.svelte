@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    ArrowRight,
     CalendarClock,
     ChevronRight,
     ClipboardList,
@@ -253,10 +254,14 @@
       </header>
 
       {#if assignments.length === 0}
-        <div
-          class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
-        >
-          {m.courseOverview_noAssignments()}
+        <div class="rounded-xl border border-dashed border-border px-6 py-8 text-center">
+          <p class="text-body-sm text-muted-foreground">{m.courseOverview_noAssignments()}</p>
+          {#if !isManager}
+            <Button variant="outline" size="sm" href="/problems" class="mt-4">
+              {m.courseOverview_noAssignmentsPracticeCta()}
+              <ArrowRight aria-hidden="true" class="h-4 w-4" />
+            </Button>
+          {/if}
         </div>
       {:else}
         <div class="grid gap-3">
