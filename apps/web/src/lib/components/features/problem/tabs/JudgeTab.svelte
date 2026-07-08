@@ -74,6 +74,10 @@
     ondirtychange?.(dirtySnapshot() !== initialConfig);
   });
 
+  export function save() {
+    void handleSave();
+  }
+
   async function handleSave() {
     saving = true;
     saveMessage = "";
@@ -311,21 +315,15 @@
     {/if}
   </div>
 
-  <div class="mt-2 flex justify-end">
-    <div class="flex items-center gap-3">
-      <button
-        class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={saving}
-        type="button"
-        onclick={() => void handleSave()}
-      >
-        {saving ? m.common_saving() : m.common_saveDraft()}
-      </button>
-      {#if saveMessage === "saved"}
+  {#if saving || saveMessage}
+    <div class="mt-2 flex items-center justify-end gap-3">
+      {#if saving}
+        <span class="text-body-sm text-muted-foreground">{m.common_saving()}</span>
+      {:else if saveMessage === "saved"}
         <span class="text-body-sm text-success">{m.admin_saved()}</span>
       {:else if saveMessage === "error"}
         <span class="text-body-sm text-destructive">{m.admin_saveFailed()}</span>
       {/if}
     </div>
-  </div>
+  {/if}
 </div>

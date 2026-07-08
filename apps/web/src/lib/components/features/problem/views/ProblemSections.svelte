@@ -6,6 +6,7 @@
   import { toasts } from "$lib/stores/toast";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
+  import EditRail from "./EditRail.svelte";
 
   interface Props {
     activeSection?: string;
@@ -15,6 +16,8 @@
     isDirty?: boolean;
     testcaseCount?: number;
     showConvertToAdvanced?: boolean;
+    railActions?: Snippet;
+    dangerActions?: Snippet;
     basic?: Snippet;
     workspace?: Snippet;
     testcase?: Snippet;
@@ -29,6 +32,8 @@
     isDirty = $bindable(false),
     testcaseCount = 0,
     showConvertToAdvanced = false,
+    railActions,
+    dangerActions,
     basic,
     workspace,
     testcase,
@@ -110,61 +115,62 @@
 </script>
 
 <div class="flex gap-6">
-  <nav
-    class="w-52 shrink-0 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-rest"
-  >
-    <ul class="space-y-1">
-      {#each sections as section (section.id)}
-        {@const locked = isLocked(section.id)}
-        <li>
-          <Tooltip.Provider delayDuration={200}>
-            <Tooltip.Root>
-              <Tooltip.Trigger
-                class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft
+  <EditRail>
+    {#snippet nav()}
+      <ul class="space-y-1">
+        {#each sections as section (section.id)}
+          {@const locked = isLocked(section.id)}
+          <li>
+            <Tooltip.Provider delayDuration={200}>
+              <Tooltip.Root>
+                <Tooltip.Trigger
+                  class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft
                   {locked
-                  ? 'cursor-not-allowed text-muted-foreground/40'
-                  : activeSection === section.id
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
-                onclick={() => {
-                  if (locked) {
-                    toasts.error(
-                      m.admin_tabLockedFields({ fields: missingBasicFields.join(", ") }),
-                    );
-                  } else {
-                    handleSectionClick(section.id);
-                  }
-                }}
-                type="button"
-              >
-                <span class="flex-1 text-left">{section.label}</span>
-                <span class="text-caption text-muted-foreground">{statusBadge(section.id)}</span
+                    ? 'cursor-not-allowed text-muted-foreground/40'
+                    : activeSection === section.id
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'}"
+                  onclick={() => {
+                    if (locked) {
+                      toasts.error(
+                        m.admin_tabLockedFields({ fields: missingBasicFields.join(", ") }),
+                      );
+                    } else {
+                      handleSectionClick(section.id);
+                    }
+                  }}
+                  type="button"
                 >
-              </Tooltip.Trigger>
-              {#if locked}
-                <Tooltip.Portal>
-                  <Tooltip.Content
-                    class="z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
-                    sideOffset={4}
+                  <span class="flex-1 text-left">{section.label}</span>
+                  <span class="text-caption text-muted-foreground"
+                    >{statusBadge(section.id)}</span
                   >
-                    {m.admin_tabLocked()}
-                    <Tooltip.Arrow class="fill-popover stroke-border" />
-                  </Tooltip.Content>
-                </Tooltip.Portal>
-              {/if}
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        </li>
-      {/each}
-    </ul>
+                </Tooltip.Trigger>
+                {#if locked}
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      class="z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
+                      sideOffset={4}
+                    >
+                      {m.admin_tabLocked()}
+                      <Tooltip.Arrow class="fill-popover stroke-border" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                {/if}
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          </li>
+        {/each}
+      </ul>
+    {/snippet}
 
-    {#if showConvertToAdvanced}
-      <div class="mt-6 border-t border-border-subtle pt-4">
-        <p class="mb-2 text-micro leading-relaxed text-muted-foreground">
+    {#snippet actions()}
+      {#if railActions}
+        {@render railActions()}
+      {/if}
+      {#if showConvertToAdvanced}
+        <p class="px-1 text-micro leading-relaxed text-muted-foreground">
           {m.admin_convertToAdvancedHint()}
-        </p>
-        <p class="mb-3 text-micro leading-relaxed text-warning">
-          {m.admin_convertToAdvancedInlineWarning()}
         </p>
         <button
           class="w-full rounded-full border border-border px-4 py-2 text-caption font-medium text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:border-warning hover:text-warning disabled:cursor-not-allowed disabled:opacity-60"
@@ -174,9 +180,12 @@
         >
           {converting ? m.admin_convertToAdvancedConverting() : m.admin_convertToAdvanced()}
         </button>
-      </div>
-    {/if}
-  </nav>
+      {/if}
+      {#if dangerActions}
+        {@render dangerActions()}
+      {/if}
+    {/snippet}
+  </EditRail>
 
   <div class="min-w-0 flex-1">
     {#if activeSection === "basic" && basic}
