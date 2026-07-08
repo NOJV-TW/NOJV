@@ -617,10 +617,6 @@
   animation: fade-up 700ms var(--ease-out-soft) both;
 }
 
-.content-fade-in {
-  animation: fade-in var(--duration-normal) var(--ease-out-soft) both;
-}
-
 .live-dot {
   background: var(--primary);
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent);

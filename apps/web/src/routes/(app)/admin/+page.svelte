@@ -166,7 +166,11 @@
         </h2>
         <span class="text-caption text-muted-foreground">{m.admin_overviewLast14d()}</span>
       </div>
-      <EChart option={dailyOption} class="h-70 w-full" />
+      <EChart
+        option={dailyOption}
+        ariaLabel={m.admin_overviewSubmissionTrend()}
+        class="h-70 w-full"
+      />
     </Card>
 
     <Card variant="surface" size="md" class="self-start">
@@ -206,7 +210,11 @@
         </h2>
         <p class="mt-1 text-caption text-muted-foreground">{m.admin_overviewRoleSubtitle()}</p>
       </div>
-      <EChart option={roleOption} class="h-60 w-full" />
+      <EChart
+        option={roleOption}
+        ariaLabel={m.admin_overviewUserRoleDist()}
+        class="h-60 w-full"
+      />
     </Card>
 
     <Card variant="surface" size="md">
@@ -219,7 +227,11 @@
           {m.admin_overviewStatusSubtitle()}
         </p>
       </div>
-      <EChart option={statusOption} class="h-60 w-full" />
+      <EChart
+        option={statusOption}
+        ariaLabel={m.admin_overviewStatusDist()}
+        class="h-60 w-full"
+      />
     </Card>
   </section>
 

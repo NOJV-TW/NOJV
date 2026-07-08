@@ -62,7 +62,7 @@
         onclick={() => (value = tab.key)}
         onkeydown={onTabKeydown}
         class={cn(
-          "inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3.5 text-body-sm font-medium transition-colors",
+          "focus-ring inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3.5 text-body-sm font-medium transition-colors",
           isActive
             ? "bg-[color:var(--color-primary)]/14 text-primary"
             : "text-muted-foreground hover:text-foreground",

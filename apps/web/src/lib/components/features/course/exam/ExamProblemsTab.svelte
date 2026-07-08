@@ -92,10 +92,7 @@
   }
 </script>
 
-<section
-  data-slot="exam-problems-tab"
-  class={cn("rounded-xl border border-border bg-[color:var(--color-panel)] p-4", className)}
->
+<section data-slot="exam-problems-tab" class={cn(className)}>
   <header class="mb-4 flex flex-wrap items-center justify-between gap-2">
     <h2 class="text-title font-medium">
       {m.examDetail_problemsEditHeading()}

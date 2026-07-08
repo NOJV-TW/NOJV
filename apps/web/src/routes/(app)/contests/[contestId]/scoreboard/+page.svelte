@@ -61,6 +61,7 @@
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import RankBadge from "$lib/components/primitives/visual/RankBadge.svelte";
   import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
   import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
@@ -247,7 +248,7 @@
 
     {#if contestLive}
       <div class="text-center">
-        <div class="text-caption font-medium uppercase tracking-wide text-muted-foreground">
+        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
           {m.contests_timeLeft()}
         </div>
         <div class="mt-1">
@@ -299,7 +300,7 @@
           class="font-mono text-micro uppercase tracking-wider px-2 py-0.5 rounded-sm"
           style="background: {isSolveCount
             ? 'color-mix(in oklab, var(--primary) 14%, transparent)'
-            : 'color-mix(in oklab, var(--chart-3) 18%, transparent)'}; color: {isSolveCount
+            : 'color-mix(in oklab, var(--info) 18%, transparent)'}; color: {isSolveCount
             ? 'var(--primary)'
             : 'var(--info)'};"
         >
@@ -358,9 +359,7 @@
     </div>
 
     {#if scoreboard.entries.length === 0}
-      <div class="px-6 py-16 text-center text-body-sm text-muted-foreground">
-        {m.contestScoreboard_empty()}
-      </div>
+      <EmptyState icon={Trophy} title={m.contestScoreboard_empty()} />
     {:else if isSolveCount}
       <div class="overflow-auto max-h-[70vh]">
         <table class="w-full text-body-sm">

@@ -59,6 +59,19 @@
     }
   }
 
+  function roleLabel(role: string): string {
+    switch (role) {
+      case "admin":
+        return m.common_roleAdmin();
+      case "teacher":
+        return m.common_roleTeacher();
+      case "student":
+        return m.common_roleStudent();
+      default:
+        return role;
+    }
+  }
+
   const {
     form: nameForm,
     errors: nameErrors,
@@ -305,7 +318,7 @@
               {m.account_role()}
             </dt>
             <dd>
-              <Badge variant="muted" size="sm">{data.platformRole}</Badge>
+              <Badge variant="muted" size="sm">{roleLabel(data.platformRole)}</Badge>
             </dd>
           </div>
         </dl>

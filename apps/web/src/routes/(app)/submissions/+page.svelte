@@ -221,12 +221,20 @@
       {#if activeCursor}
         <div class="mt-4 flex justify-center">
           <button
-            class="inline-flex min-h-11 items-center rounded-full border border-border px-5 py-2 text-body-sm font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2 text-body-sm font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
             disabled={loadingMore}
             onclick={loadMore}
           >
-            {m.submissions_loadMore()}
+            {#if loadingMore}
+              <span
+                class="size-3.5 animate-spin rounded-full border-2 border-border border-t-foreground"
+                aria-hidden="true"
+              ></span>
+              {m.submissions_loadingMore()}
+            {:else}
+              {m.submissions_loadMore()}
+            {/if}
           </button>
         </div>
       {/if}

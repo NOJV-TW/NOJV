@@ -2015,5 +2015,6 @@
   "submit_error_dailyLimit": "您已達今日的提交次數上限，請於每日重置後再試。",
   "submit_error_ipBlocked": "您目前的網路不允許進行此次提交，請連接指定網路或向監考老師求助。",
   "submit_error_languageNotAllowed": "此處不允許所選的程式語言。",
-  "submit_error_windowClosed": "此測驗目前不接受提交。"
+  "submit_error_windowClosed": "此測驗目前不接受提交。",
+  "submissions_loadingMore": "載入中…"
 }

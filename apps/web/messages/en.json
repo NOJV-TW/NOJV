@@ -2015,5 +2015,6 @@
   "submit_error_dailyLimit": "You've reached today's submission limit. Try again after the daily reset.",
   "submit_error_ipBlocked": "Your network isn't permitted for this submission. Connect to the required network or ask your proctor.",
   "submit_error_languageNotAllowed": "The selected programming language isn't allowed here.",
-  "submit_error_windowClosed": "This assessment isn't accepting submissions right now."
+  "submit_error_windowClosed": "This assessment isn't accepting submissions right now.",
+  "submissions_loadingMore": "Loading…"
 }

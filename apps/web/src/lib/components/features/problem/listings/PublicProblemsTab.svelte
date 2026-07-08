@@ -237,7 +237,7 @@
             <button
               class="inline-flex items-center justify-center rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11 {p ===
               currentPage
-                ? 'border-primary bg-primary text-white'
+                ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border hover:bg-[color:var(--color-panel)]'}"
               onclick={() => goToPage(p)}
               type="button"

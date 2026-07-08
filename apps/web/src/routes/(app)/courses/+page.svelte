@@ -142,7 +142,7 @@
             ? 'opacity-60 hover:opacity-100'
             : ''}"
         >
-          <div class="mb-3.5 flex items-center justify-end gap-3">
+          <div class="mb-3.5 flex items-center justify-end">
             {#if course.role === "teacher"}
               <TeacherBadge role="teacher" />
             {:else if course.role === "ta"}

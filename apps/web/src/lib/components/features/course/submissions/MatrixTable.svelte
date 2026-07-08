@@ -97,7 +97,7 @@
           {#each row.cells as cell (cell.problemId)}
             <td
               class={cn(
-                "border-b border-r border-border-subtle text-center text-body-sm transition-[background-color,color] duration-300 ease-out",
+                "border-b border-r border-border-subtle text-center text-body-sm transition-[background-color,color] duration-normal ease-out-soft",
                 !oncellclick && "px-3 py-3",
                 cell.state === "ac" && "bg-success/15 font-semibold text-success",
                 cell.state === "partial" && "bg-warning/12 text-warning",

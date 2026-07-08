@@ -81,7 +81,7 @@
         type="button"
       >
         <ChevronRight
-          class="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out-soft {isExpanded
+          class="size-3.5 shrink-0 text-muted-foreground transition-transform duration-fast ease-out-soft {isExpanded
             ? 'rotate-90'
             : ''}"
           aria-hidden="true"
