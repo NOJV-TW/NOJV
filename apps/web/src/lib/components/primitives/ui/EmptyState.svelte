@@ -53,7 +53,7 @@
     </h3>
     {#if description}
       <p
-        class="mt-2 max-w-lg text-[length:var(--text-body)] text-muted-foreground [text-wrap:pretty]"
+        class="mt-2 max-w-lg whitespace-pre-line text-[length:var(--text-body)] text-muted-foreground [text-wrap:pretty]"
       >
         {description}
       </p>
