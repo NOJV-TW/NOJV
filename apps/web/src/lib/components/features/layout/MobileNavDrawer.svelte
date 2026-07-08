@@ -22,8 +22,7 @@
     onclose: () => void;
   }
 
-  let { open, items, courseworkLabel, courseworkItems, adminItems, onclose }: Props =
-    $props();
+  let { open, items, courseworkLabel, courseworkItems, adminItems, onclose }: Props = $props();
 
   const uid = $props.id();
 

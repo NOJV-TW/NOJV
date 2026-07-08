@@ -223,7 +223,9 @@
             {/if}
           </div>
           <p class="mt-1 text-caption text-muted-foreground">
-            {m.admin_healthPending({ count: data.health.pendingJudging })}{#if data.health.staleJudging > 0}
+            {m.admin_healthPending({
+              count: data.health.pendingJudging,
+            })}{#if data.health.staleJudging > 0}
               · <span class="text-warning"
                 >{m.admin_healthStale({ count: data.health.staleJudging })}</span
               >{/if}
