@@ -25,7 +25,7 @@
     bind:this={ref}
     data-slot={dataSlot}
     class={cn(
-      "border-input bg-background selection:bg-primary dark:bg-input/30 selection:text-primary-foreground placeholder:text-muted-foreground flex h-10 w-full min-w-0 rounded-md border px-3 pt-2 text-sm font-medium shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft",
+      "border-input bg-background selection:bg-primary dark:bg-input/30 selection:text-primary-foreground placeholder:text-muted-foreground flex h-10 w-full min-w-0 rounded-md border px-3 pt-2 text-base md:text-sm font-medium shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft",
       "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
       "focus-ring focus-visible:border-ring",
       "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
@@ -41,7 +41,7 @@
     bind:this={ref}
     data-slot={dataSlot}
     class={cn(
-      "border-input bg-background selection:bg-primary dark:bg-input/30 selection:text-primary-foreground placeholder:text-muted-foreground flex h-10 w-full min-w-0 rounded-md border px-3 py-2 text-sm shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft [&[type=number]]:tabular-nums",
+      "border-input bg-background selection:bg-primary dark:bg-input/30 selection:text-primary-foreground placeholder:text-muted-foreground flex h-10 w-full min-w-0 rounded-md border px-3 py-2 text-base md:text-sm shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft [&[type=number]]:tabular-nums",
       "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
       "focus-ring focus-visible:border-ring",
       "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
