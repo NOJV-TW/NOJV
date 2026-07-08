@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import { m } from "$lib/paraglide/messages.js";
   import ToastProvider from "$lib/components/primitives/ui/ToastProvider.svelte";
   import { useGlobalShortcuts } from "$lib/stores/shortcuts.svelte.js";
   import { onNavigate } from "$app/navigation";
@@ -37,6 +38,17 @@
     });
   });
 </script>
+
+<svelte:head>
+  <meta property="og:site_name" content="NOJV" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="NOJV" />
+  <meta property="og:description" content={m.home_productDescription()} />
+  <meta property="og:image" content="https://nojv.tw/og.png" />
+  <meta property="og:image:width" content="2400" />
+  <meta property="og:image:height" content="1260" />
+  <meta name="twitter:card" content="summary_large_image" />
+</svelte:head>
 
 {#if showProgress}
   <div class="nav-progress" aria-hidden="true">
