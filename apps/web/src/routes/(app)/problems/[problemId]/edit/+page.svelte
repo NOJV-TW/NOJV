@@ -27,6 +27,8 @@
   let basicTab = $state<BasicInfoTab | null>(null);
   let workspaceTab = $state<WorkspaceSection | null>(null);
   let judgeTab = $state<JudgeTab | null>(null);
+  let advancedSection = $state<AdvancedPackageSection | null>(null);
+  let advancedUploadReady = $state(false);
 
   let activeSectionSavable = $derived(
     activeSection === "basic" || activeSection === "workspace" || activeSection === "judge",
@@ -220,32 +222,43 @@
   {#if isAdvanced}
     {#snippet advancedActions()}
       <Button
-        size="sm"
-        class="w-full"
-        loading={isPublishing}
-        disabled={!canPublish || isPublishing}
-        onclick={handlePublishClick}
-      >
-        {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
-      </Button>
-      {#if !canPublish}
-        <p class="px-1 text-micro leading-relaxed text-muted-foreground">
-          {m.admin_advancedPublishHint()}
-        </p>
-      {/if}
-      <Button
         variant="outline"
         size="sm"
         class="w-full"
-        loading={isDeleting}
-        disabled={isDeleting}
-        onclick={() => (showDeleteConfirm = true)}
+        disabled={!advancedUploadReady}
+        onclick={() => advancedSection?.save()}
       >
-        {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
+        {m.advancedPackage_uploadPackage()}
       </Button>
+      {#if data.problem.status === "draft"}
+        <Button
+          size="sm"
+          class="w-full"
+          loading={isPublishing}
+          disabled={!canPublish || isPublishing}
+          onclick={handlePublishClick}
+        >
+          {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
+        </Button>
+        {#if !canPublish}
+          <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+            {m.admin_advancedPublishHint()}
+          </p>
+        {/if}
+        <Button
+          variant="outline"
+          size="sm"
+          class="w-full"
+          loading={isDeleting}
+          disabled={isDeleting}
+          onclick={() => (showDeleteConfirm = true)}
+        >
+          {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
+        </Button>
+      {/if}
     {/snippet}
     <div class="flex gap-6">
-      <EditRail actions={data.problem.status === "draft" ? advancedActions : undefined}>
+      <EditRail actions={advancedActions}>
         {#snippet nav()}
           <ol class="space-y-1">
             {#each advancedSteps as step, i (step.label)}
@@ -287,6 +300,8 @@
             class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
           >
             <AdvancedPackageSection
+              bind:this={advancedSection}
+              bind:uploadReady={advancedUploadReady}
               problemId={data.problem.id}
               config={data.advancedConfig.config}
               onuploaded={handleAdvancedPackageUploaded}

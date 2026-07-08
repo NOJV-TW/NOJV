@@ -19,9 +19,14 @@
     problemId: string;
     config: AdvancedConfig | null;
     onuploaded: () => Promise<void>;
+    uploadReady?: boolean;
   }
 
-  let { problemId, config, onuploaded }: Props = $props();
+  let { problemId, config, onuploaded, uploadReady = $bindable(false) }: Props = $props();
+
+  export function save() {
+    void uploadSelectedZip();
+  }
 
   let uploading = $state(false);
   let readingZip = $state(false);
@@ -141,6 +146,10 @@
   function resetManifest() {
     manifestYaml = originalManifestYaml;
   }
+
+  $effect(() => {
+    uploadReady = selectedZip !== null && !uploading && !readingZip;
+  });
 </script>
 
 <section class="space-y-4">
@@ -193,10 +202,6 @@
           <Button variant="outline" size="sm" onclick={downloadManifest} disabled={uploading}>
             <Download class="size-4" aria-hidden="true" />
             {m.advancedPackage_downloadYaml()}
-          </Button>
-          <Button size="sm" onclick={() => void uploadSelectedZip()} loading={uploading}>
-            <Upload class="size-4" aria-hidden="true" />
-            {m.advancedPackage_uploadPackage()}
           </Button>
         </div>
       </div>
