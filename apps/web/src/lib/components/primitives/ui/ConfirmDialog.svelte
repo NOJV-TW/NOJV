@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as Dialog from "$lib/components/primitives/ui/dialog";
+  import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
@@ -32,23 +33,15 @@
     </Dialog.Header>
     <p class="text-sm text-muted-foreground">{message}</p>
     <Dialog.Footer>
-      <button
-        class="inline-flex items-center justify-center rounded-full border border-border px-5 py-2.5 text-sm font-medium transition hover:bg-muted"
-        type="button"
-        onclick={() => oncancel?.()}
-      >
+      <Button variant="outline" onclick={() => oncancel?.()}>
         {cancelText}
-      </button>
-      <button
-        class="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 {variant ===
-        'danger'
-          ? 'bg-destructive hover:bg-destructive/90'
-          : 'bg-primary hover:bg-primary/90'}"
-        type="button"
+      </Button>
+      <Button
+        variant={variant === "danger" ? "destructive" : "default"}
         onclick={() => onconfirm?.()}
       >
         {confirmText}
-      </button>
+      </Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

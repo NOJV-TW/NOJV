@@ -103,36 +103,39 @@
 
   const difficultyOption: EChartsOption = $derived({
     animation: false,
+    grid: { left: 72, right: 24, top: 8, bottom: 24 },
     tooltip: {
-      trigger: "item",
-      formatter: "{b}: {c} ({d}%)",
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
       appendToBody: true,
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    legend: {
-      bottom: 0,
-      textStyle: { fontSize: 11, color: themeColors.foreground },
-      type: "scroll",
+    xAxis: {
+      type: "value",
+      min: 0,
+      minInterval: 1,
+      axisLabel: { fontSize: 11, color: themeColors.mutedFg },
+    },
+    yAxis: {
+      type: "category",
+      inverse: true,
+      data: analytics.byDifficulty.map((d) => d.difficulty),
+      axisLabel: {
+        fontSize: 12,
+        color: themeColors.foreground,
+        formatter: (v: string) => v.charAt(0).toUpperCase() + v.slice(1),
+      },
     },
     series: [
       {
-        type: "pie",
-        radius: ["40%", "70%"],
-        center: ["50%", "45%"],
-        avoidLabelOverlap: true,
-        emphasis: { disabled: true },
-        itemStyle: {
-          borderRadius: 6,
-          borderColor: themeColors.panel,
-          borderWidth: 2,
-        },
-        label: { show: false },
+        type: "bar",
         data: analytics.byDifficulty.map((d) => ({
-          name: d.difficulty,
           value: d.acCount,
           itemStyle: { color: difficultyColor[d.difficulty] ?? themeColors.mutedFg },
         })),
+        itemStyle: { borderRadius: [0, 4, 4, 0] },
+        barMaxWidth: 18,
       },
     ],
   });
@@ -180,11 +183,7 @@
         data: analytics.byVerdict.map((v) => ({
           name: formatVerdictLabel(v.status),
           value: v.count,
-          itemStyle: {
-            color: verdictPalette[v.status] ?? themeColors.mutedFg,
-            borderWidth: v.status === "accepted" ? 3 : 2,
-            opacity: v.status === "accepted" ? 1 : 0.5,
-          },
+          itemStyle: { color: verdictPalette[v.status] ?? themeColors.mutedFg },
         })),
       },
     ],
@@ -268,38 +267,37 @@
 
   const languageOption: EChartsOption = $derived({
     animation: false,
+    grid: { left: 96, right: 24, top: 8, bottom: 24 },
     tooltip: {
-      trigger: "item",
-      formatter: "{b}: {c} ({d}%)",
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
       appendToBody: true,
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    legend: {
-      bottom: 0,
-      textStyle: { fontSize: 11, color: themeColors.foreground },
-      type: "scroll",
+    xAxis: {
+      type: "value",
+      min: 0,
+      minInterval: 1,
+      axisLabel: { fontSize: 11, color: themeColors.mutedFg },
+    },
+    yAxis: {
+      type: "category",
+      inverse: true,
+      data: analytics.byLanguage.map((l) => l.language),
+      axisLabel: { fontSize: 12, color: themeColors.foreground },
     },
     series: [
       {
-        type: "pie",
-        radius: ["40%", "70%"],
-        center: ["50%", "45%"],
-        avoidLabelOverlap: true,
-        emphasis: { disabled: true },
-        itemStyle: {
-          borderRadius: 6,
-          borderColor: themeColors.panel,
-          borderWidth: 2,
-        },
-        label: { show: false },
+        type: "bar",
         data: analytics.byLanguage.map((l, i) => ({
-          name: l.language,
           value: l.count,
           itemStyle: {
             color: languagePalette[i % languagePalette.length] ?? themeColors.mutedFg,
           },
         })),
+        itemStyle: { borderRadius: [0, 4, 4, 0] },
+        barMaxWidth: 18,
       },
     ],
   });
@@ -449,19 +447,7 @@
             {m.dashboard_verdictDistribution()}
           </h2>
           {#if hasVerdictData}
-            <div class="relative">
-              <EChart option={verdictOption} class="h-56 w-full" />
-              <div
-                class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
-              >
-                <span class="text-headline font-semibold leading-none tabular-nums">
-                  {acRate}
-                </span>
-                <span class="mt-1 text-caption text-muted-foreground">
-                  {m.dashboard_acRate()}
-                </span>
-              </div>
-            </div>
+            <EChart option={verdictOption} class="h-56 w-full" />
           {:else}
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
           {/if}

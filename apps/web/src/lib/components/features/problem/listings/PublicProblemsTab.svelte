@@ -91,6 +91,19 @@
         <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} />
       {/if}
 
+      {#if publicResult.problems.length > 0}
+        <div
+          class="hidden border border-transparent px-4 text-caption font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center sm:gap-x-8"
+        >
+          <span>{m.problems_columnProblem()}</span>
+          <span class="min-w-24 text-center">{m.problemDetail_problemTypeTitle()}</span>
+          <span class="min-w-24 text-center">{m.problemDetail_judgeMethodTitle()}</span>
+          <span class="min-w-20 text-center">{m.common_difficulty()}</span>
+          <span class="min-w-16 text-center">{m.common_acceptance()}</span>
+          {#if loggedIn}<span aria-hidden="true"></span>{/if}
+        </div>
+      {/if}
+
       {#each publicResult.problems as problem, index (problem.id)}
         <Card.Root
           variant="surface"
@@ -128,7 +141,7 @@
                 <div class="mt-1.5 flex flex-wrap items-center gap-1">
                   {#each problem.tags as tag (tag)}
                     <span
-                      class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass()}"
+                      class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-caption font-medium capitalize leading-none {tagClass()}"
                     >
                       {tag}
                     </span>
@@ -138,13 +151,13 @@
             </div>
           </div>
           <div class="flex min-w-24 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">
+            <p class="text-body-sm text-muted-foreground sm:hidden">
               {m.problemDetail_problemTypeTitle()}
             </p>
             <p class="mt-1 text-body font-semibold">{renderProblemType(problem.type)}</p>
           </div>
           <div class="flex min-w-24 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">
+            <p class="text-body-sm text-muted-foreground sm:hidden">
               {m.problemDetail_judgeMethodTitle()}
             </p>
             <p class="mt-1 text-body font-semibold">
@@ -152,7 +165,7 @@
             </p>
           </div>
           <div class="flex min-w-20 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
+            <p class="text-body-sm text-muted-foreground sm:hidden">{m.common_difficulty()}</p>
             <span
               class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
                 problem.difficulty,
@@ -162,7 +175,7 @@
             </span>
           </div>
           <div class="flex min-w-16 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">{m.common_acceptance()}</p>
+            <p class="text-body-sm text-muted-foreground sm:hidden">{m.common_acceptance()}</p>
             <p class="mt-1 text-body-lg font-semibold tabular-nums">
               {formatAcceptanceRate(problem.acceptanceRate, problem.totalSubmissions)}
             </p>

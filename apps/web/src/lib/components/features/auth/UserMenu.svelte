@@ -59,6 +59,7 @@
     if (open) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleKeydown);
+      dropdownEl?.querySelector<HTMLElement>("a[href], button:not([disabled])")?.focus();
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
         document.removeEventListener("keydown", handleKeydown);
@@ -85,7 +86,6 @@
       onclick={() => (open = !open)}
       title={user.name}
       type="button"
-      aria-haspopup="menu"
       aria-expanded={open}
     >
       {#if user.image}
@@ -99,7 +99,6 @@
       <div
         bind:this={dropdownEl}
         class="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
-        role="menu"
       >
         <div class="border-b border-border-subtle px-4 py-2.5">
           <p class="truncate text-body-sm font-medium">{user.name}</p>
@@ -113,7 +112,6 @@
             class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
             href="/account"
             onclick={() => (open = false)}
-            role="menuitem"
           >
             <UserIcon aria-hidden="true" size={16} />
             {m.navigation_account()}
@@ -123,7 +121,6 @@
             class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
             href="/account/api-tokens"
             onclick={() => (open = false)}
-            role="menuitem"
           >
             <KeyRoundIcon aria-hidden="true" size={16} />
             {m.userMenu_apiTokens()}
@@ -137,7 +134,6 @@
             onclick={toggleAdminMode}
             disabled={adminBusy}
             type="button"
-            role="menuitem"
           >
             <ShieldIcon aria-hidden="true" size={16} />
             {actingAsAdmin ? m.userMenu_exitAdminMode() : m.userMenu_enterAdminMode()}
@@ -148,7 +144,6 @@
           class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10"
           onclick={handleSignOut}
           type="button"
-          role="menuitem"
         >
           <LogOutIcon aria-hidden="true" size={16} />
           {m.auth_signOut()}

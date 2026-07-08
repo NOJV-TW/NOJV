@@ -100,7 +100,7 @@
                 "border-b border-r border-border-subtle text-center text-body-sm",
                 !oncellclick && "px-3 py-3",
                 cell.state === "ac" && "bg-success/15 font-semibold text-success",
-                cell.state === "partial" && "bg-destructive/10 text-destructive",
+                cell.state === "partial" && "bg-warning/12 text-warning",
                 cell.state === "zero" && "bg-destructive/20 font-semibold text-destructive",
                 cell.state === "empty" && "text-muted-foreground",
               )}

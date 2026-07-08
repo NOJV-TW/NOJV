@@ -16,6 +16,8 @@
 
   import { m } from "$lib/paraglide/messages.js";
   import { formatIpForDisplay } from "$lib/utils/format-ip";
+  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
+  import { toasts } from "$lib/stores/toast";
 
   interface Props {
     context: ExamTopStripContext;
@@ -81,9 +83,16 @@
     }
   });
 
-  async function handleEnd(): Promise<void> {
+  let endConfirmOpen = $state(false);
+
+  function handleEnd(): void {
     if (ending) return;
-    if (!window.confirm(m.examMode_submitEndConfirm())) return;
+    endConfirmOpen = true;
+  }
+
+  async function performEnd(): Promise<void> {
+    endConfirmOpen = false;
+    if (ending) return;
     ending = true;
     try {
       const fd = new FormData();
@@ -93,13 +102,13 @@
       });
       if (!res.ok) {
         ending = false;
-        window.alert(m.examMode_submitEndFailed());
+        toasts.error(m.examMode_submitEndFailed());
         return;
       }
       await goto(`/exams/${context.examId}`);
     } catch {
       ending = false;
-      window.alert(m.examMode_submitEndFailed());
+      toasts.error(m.examMode_submitEndFailed());
     }
   }
 </script>
@@ -162,3 +171,13 @@
     </button>
   </div>
 </header>
+
+<ConfirmDialog
+  bind:open={endConfirmOpen}
+  variant="danger"
+  title={m.examMode_submitEndConfirmTitle()}
+  message={m.examMode_submitEndConfirm()}
+  confirmText={m.examMode_submitEndButton()}
+  onconfirm={performEnd}
+  oncancel={() => (endConfirmOpen = false)}
+/>

@@ -7,6 +7,7 @@
     type ProblemType,
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
+  import { languageLabel } from "$lib/utils/language-labels";
 
   interface Props {
     value: Language;
@@ -62,6 +63,6 @@
   {value}
 >
   {#each availableLanguages as entry (entry)}
-    <option value={entry}>{entry}</option>
+    <option value={entry}>{languageLabel(entry)}</option>
   {/each}
 </select>

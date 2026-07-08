@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { AlertTriangle } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { Button } from "$lib/components/primitives/ui/button";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
 
   interface Props {
@@ -134,13 +135,9 @@
           };
         }}
       >
-        <button
-          type="submit"
-          disabled={!hasAgreed || submitting}
-          class="rounded-md bg-primary px-5 py-2 text-body-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <Button type="submit" variant="default" disabled={!hasAgreed} loading={submitting}>
           {m.examStartModal_start()}
-        </button>
+        </Button>
       </form>
     </Dialog.Footer>
   </Dialog.Content>

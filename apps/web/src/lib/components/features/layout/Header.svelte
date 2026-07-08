@@ -23,6 +23,8 @@
 
   let { immersive = false }: { immersive?: boolean } = $props();
 
+  const localeLabels: Record<string, string> = { en: "English", "zh-TW": "中文" };
+
   let currentLocale = $derived(getLocale());
   let user = $derived(page.data.user);
   let actingAsAdmin = $derived(page.data.actingAsAdmin ?? false);
@@ -147,9 +149,7 @@
             aria-current={item.active ? "page" : undefined}
           >
             <Icon class="size-[22px]" strokeWidth={1.85} aria-hidden="true" />
-            <span class="text-[0.66rem] font-bold uppercase tracking-[0.09em]"
-              >{item.label}</span
-            >
+            <span class="text-caption font-medium">{item.label}</span>
           </a>
         {/each}
       </nav>
@@ -173,7 +173,7 @@
             type="button"
             aria-pressed={entry === currentLocale}
           >
-            {entry}
+            {localeLabels[entry] ?? entry}
           </button>
         {/each}
       </div>

@@ -47,6 +47,7 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
+  import { Snowflake, Trophy } from "@lucide/svelte";
   import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
@@ -71,18 +72,34 @@
   let unfreezing = $state(false);
   let lastRefreshed = $state(Date.now());
   let justRefreshed = $state(false);
+  let refreshing = $state(false);
+  let nowTick = $state(Date.now());
+
+  const secondsSinceRefresh = $derived(
+    Math.max(0, Math.round((nowTick - lastRefreshed) / 1000)),
+  );
 
   const AUTO_REFRESH_MS = 30_000;
   const SSE_DEBOUNCE_MS = 1500;
   onMount(() => {
     async function refresh() {
-      await invalidate("contest:scoreboard");
+      refreshing = true;
+      try {
+        await invalidate("contest:scoreboard");
+      } finally {
+        refreshing = false;
+      }
       lastRefreshed = Date.now();
+      nowTick = Date.now();
       justRefreshed = true;
       setTimeout(() => {
         justRefreshed = false;
       }, 1200);
     }
+
+    const tick = setInterval(() => {
+      nowTick = Date.now();
+    }, 1000);
 
     let debounce: ReturnType<typeof setTimeout> | null = null;
     function debouncedRefresh() {
@@ -108,6 +125,7 @@
     return () => {
       source.close();
       clearInterval(interval);
+      clearInterval(tick);
       if (debounce) clearTimeout(debounce);
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -147,7 +165,8 @@
 
   function avatarBg(name: string): string {
     const code = name.charCodeAt(0) || 65;
-    return `hsl(${String((code * 7) % 360)} 30% 65%)`;
+    const token = chartColors[code % chartColors.length] ?? "var(--chart-1)";
+    return `color-mix(in oklab, ${token} 65%, var(--panel))`;
   }
 
   const chartPaths = $derived(buildChartPaths(chart.series, 800, 300, 40));
@@ -167,21 +186,7 @@
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M8 4h8v3a4 4 0 0 1-8 0V4z" />
-          <path d="M16 5h3v2a3 3 0 0 1-3 3M8 5H5v2a3 3 0 0 0 3 3" />
-          <path d="M10 11v4M14 11v4" />
-          <path d="M8 20h8M9 20l1-3h4l1 3" />
-        </svg>
+        <Trophy aria-hidden="true" class="size-3.5" />
         <span
           >{m.contestDetail_scoreboard()} · {isSolveCount
             ? m.contestScoreboard_formatSolveCount()
@@ -200,14 +205,14 @@
 
     {#if scoreboard.isFrozen}
       <div
-        class="rounded-lg border border-dashed p-2 min-w-[200px]"
-        style="border-color: color-mix(in oklab, var(--destructive) 35%, transparent);"
+        class="rounded-lg border p-2 min-w-[200px]"
+        style="border-color: color-mix(in oklab, var(--info) 35%, transparent); background: color-mix(in oklab, var(--info) 8%, transparent);"
       >
         <div
-          class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
+          class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider"
+          style="color: var(--info);"
         >
-          <span class="size-1.5 rounded-full live-dot" style="background: var(--destructive);"
-          ></span>
+          <Snowflake aria-hidden="true" class="size-3.5" />
           <span>{m.contestDetail_frozen().toUpperCase()}</span>
         </div>
         <div class="mt-1 font-mono text-caption text-muted-foreground">
@@ -271,12 +276,23 @@
       </div>
       <div class="flex items-center gap-3">
         <span
-          class="text-caption text-muted-foreground tabular-nums transition-opacity {justRefreshed
+          class="flex items-center gap-1.5 text-caption text-muted-foreground tabular-nums transition-opacity {justRefreshed
             ? 'opacity-100'
             : 'opacity-60'}"
+          title={m.contestScoreboard_autoRefresh()}
           aria-live="polite"
         >
-          {m.contestScoreboard_autoRefresh()}
+          <span
+            class="size-1.5 rounded-full"
+            style="background: {refreshing ? 'var(--info)' : 'var(--success)'};"
+          ></span>
+          {#if refreshing}
+            {m.contestScoreboard_updating()}
+          {:else if secondsSinceRefresh < 5}
+            {m.contestScoreboard_updatedJustNow()}
+          {:else}
+            {m.contestScoreboard_updatedAgo({ seconds: secondsSinceRefresh })}
+          {/if}
         </span>
         {#if data.canUnfreeze && scoreboard.frozenAt}
           <Button
@@ -321,7 +337,7 @@
               {#each scoreboard.problems as p (p.id)}
                 <th class="text-center px-2 py-3 w-[72px]">
                   <div class="font-bold text-foreground">
-                    {String.fromCharCode(65 + p.ordinal)}
+                    {String.fromCharCode(64 + p.ordinal)}
                   </div>
                   <div
                     class="opacity-50 normal-case text-[10px] mt-0.5 truncate"
@@ -405,7 +421,7 @@
               {#each scoreboard.problems as p (p.id)}
                 <th class="text-center px-3 py-3 w-24">
                   <div class="font-bold text-foreground">
-                    {String.fromCharCode(65 + p.ordinal)}
+                    {String.fromCharCode(64 + p.ordinal)}
                   </div>
                   <div
                     class="block font-normal text-muted-foreground tabular-nums text-[10px] mt-0.5"

@@ -10,6 +10,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
+  import { languageLabel } from "$lib/utils/language-labels";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
 
   let { data } = $props();
@@ -130,7 +131,7 @@
           >
             <option value="">{m.submissions_filterAll()}</option>
             {#each languageOptions as lang (lang)}
-              <option value={lang}>{lang}</option>
+              <option value={lang}>{languageLabel(lang)}</option>
             {/each}
           </select>
         </label>
@@ -169,7 +170,7 @@
               >
                 <VerdictBadge verdict={sub.status} />
                 <Badge variant="outline" size="xs">{contextLabel(sub.context)}</Badge>
-                <span>{sub.language}</span>
+                <span>{languageLabel(sub.language)}</span>
                 <span class="tabular-nums">{sub.score}/{sub.totalScore}</span>
                 {#if sub.runtimeMs && sub.runtimeMs > 0}
                   <span class="tabular-nums">{sub.runtimeMs} ms</span>

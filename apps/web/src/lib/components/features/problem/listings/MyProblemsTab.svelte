@@ -116,7 +116,7 @@
       <button
         class="rounded-full border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {mineDifficulty ===
         d
-          ? 'border-primary bg-primary text-white'
+          ? 'border-foreground bg-foreground text-background'
           : 'border-border hover:bg-[color:var(--color-panel)]'}"
         onclick={() => {
           mineDifficulty = d;
@@ -163,7 +163,7 @@
           class="rounded-full border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {mineSelectedTags.has(
             tag,
           )
-            ? 'border-primary bg-primary text-white'
+            ? 'border-primary bg-primary/10 text-foreground'
             : 'border-border hover:bg-[color:var(--color-panel)]'}"
           onclick={() => toggleMineTag(tag)}
           type="button"
@@ -202,7 +202,7 @@
           <div class="mt-1.5 flex flex-wrap items-center gap-1">
             {#each problem.tags as tag (tag)}
               <span
-                class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass()}"
+                class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-caption font-medium capitalize leading-none {tagClass()}"
               >
                 {tag}
               </span>

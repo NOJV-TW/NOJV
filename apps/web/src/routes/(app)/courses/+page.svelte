@@ -142,12 +142,7 @@
             ? 'opacity-60 hover:opacity-100'
             : ''}"
         >
-          <div class="mb-3.5 flex items-center justify-between gap-3">
-            <span
-              class="font-mono text-caption uppercase tracking-[0.08em] text-muted-foreground"
-            >
-              {course.id.slice(0, 8)}
-            </span>
+          <div class="mb-3.5 flex items-center justify-end gap-3">
             {#if course.role === "teacher"}
               <TeacherBadge role="teacher" />
             {:else if course.role === "ta"}

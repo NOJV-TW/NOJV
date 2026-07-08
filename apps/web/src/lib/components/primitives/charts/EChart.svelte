@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import type { ECharts, EChartsOption } from "echarts";
+  import { Skeleton } from "$lib/components/primitives/ui/skeleton";
 
   interface Props {
     option: EChartsOption;
     class?: string;
+    ariaLabel?: string;
   }
 
-  let { option, class: className = "" }: Props = $props();
+  let { option, class: className = "", ariaLabel }: Props = $props();
   let container: HTMLDivElement;
   let chart: ECharts | undefined;
   let observer: ResizeObserver | undefined;
@@ -54,4 +56,16 @@
   });
 </script>
 
-<div bind:this={container} class={className}></div>
+<div class="relative {className}">
+  <div
+    bind:this={container}
+    class="h-full w-full"
+    role={ariaLabel ? "img" : undefined}
+    aria-label={ariaLabel}
+  ></div>
+  {#if !ready}
+    <div class="absolute inset-0">
+      <Skeleton class="h-full w-full" />
+    </div>
+  {/if}
+</div>

@@ -11,9 +11,6 @@
 
   function toggle() {
     open = !open;
-    if (open && notifications.unreadCount > 0) {
-      void notifications.markAll();
-    }
   }
 
   function handleClickOutside(e: MouseEvent) {
@@ -34,6 +31,7 @@
     if (open) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleKeydown);
+      dropdownEl?.querySelector<HTMLElement>("a[href], button:not([disabled])")?.focus();
       return () => {
         document.removeEventListener("mousedown", handleClickOutside);
         document.removeEventListener("keydown", handleKeydown);
@@ -50,7 +48,6 @@
   <button
     bind:this={btnEl}
     aria-expanded={open}
-    aria-haspopup="menu"
     aria-label={m.notification_bell_ariaLabel()}
     class={cn(
       "relative flex size-9 cursor-pointer items-center justify-center rounded-full border border-border-subtle bg-[color:var(--color-panel-strong)] text-foreground transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover",

@@ -33,6 +33,8 @@
   }
 
   let { violations, activeSessions, class: className }: Props = $props();
+
+  let confirmingReleaseAll = $state(false);
 </script>
 
 <Card class={className}>
@@ -45,11 +47,45 @@
         {m.examProctoring_sessionsActive({ count: activeSessions.length })}
       </p>
     </div>
-    <form method="POST" action="?/releaseAllSessions" use:enhance>
-      <Button type="submit" variant="outline" size="sm" disabled={activeSessions.length === 0}>
+    {#if confirmingReleaseAll}
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <span class="mr-auto text-caption text-muted-foreground">
+          {m.examProctoring_releaseAllConfirmBody({ count: activeSessions.length })}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onclick={() => (confirmingReleaseAll = false)}
+        >
+          {m.common_cancel()}
+        </Button>
+        <form
+          method="POST"
+          action="?/releaseAllSessions"
+          use:enhance={() => {
+            return async ({ update }) => {
+              await update();
+              confirmingReleaseAll = false;
+            };
+          }}
+        >
+          <Button type="submit" variant="destructive" size="sm">
+            {m.examProctoring_releaseAllConfirm()}
+          </Button>
+        </form>
+      </div>
+    {:else}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={activeSessions.length === 0}
+        onclick={() => (confirmingReleaseAll = true)}
+      >
         {m.examProctoring_releaseAll()}
       </Button>
-    </form>
+    {/if}
   </div>
 
   {#if activeSessions.length > 0}

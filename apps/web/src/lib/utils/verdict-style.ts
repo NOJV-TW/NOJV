@@ -9,9 +9,10 @@ export function tagClass(): string {
 }
 
 export function difficultyClass(difficulty: string): string {
-  if (difficulty === "easy") return "bg-success/15 text-success border-success/25";
-  if (difficulty === "medium") return "bg-warning/15 text-warning border-warning/25";
-  if (difficulty === "hard") return "bg-destructive/15 text-destructive border-destructive/25";
+  if (difficulty === "easy") return "bg-success/15 text-success-strong border-success/25";
+  if (difficulty === "medium") return "bg-warning/15 text-warning-strong border-warning/25";
+  if (difficulty === "hard")
+    return "bg-destructive/15 text-destructive-strong border-destructive/25";
   return "bg-muted text-muted-foreground border-border";
 }
 

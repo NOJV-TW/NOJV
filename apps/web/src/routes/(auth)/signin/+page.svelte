@@ -12,9 +12,9 @@
 
     <OAuthButtons />
 
-    <div class="text-center">
+    <div class="border-t border-border pt-3 text-center">
       <a
-        class="text-body-sm text-muted-foreground underline-offset-4 transition-colors duration-fast ease-out-soft hover:text-foreground hover:underline"
+        class="text-caption text-muted-foreground underline-offset-4 transition-colors duration-fast ease-out-soft hover:text-foreground hover:underline"
         href="/admin-signin"
       >
         {m.auth_adminSignIn()}

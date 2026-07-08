@@ -28,10 +28,11 @@
     success: "#2f9d6b",
     destructive: "#d24a3a",
     warning: "#c98a1a",
-    info: "#4d6f8f",
+    chart1: "#1d8c9c",
     chart2: "#4d6f8f",
-    chart3: "#2f9d6b",
+    chart5: "#7a8f6d",
     mutedFg: "#6b7280",
+    foreground: "#1a1a1a",
   };
   let tokenColors = $state({ ...DEFAULT_VERDICT_COLORS });
 
@@ -43,10 +44,11 @@
       success: read("--success", DEFAULT_VERDICT_COLORS.success),
       destructive: read("--destructive", DEFAULT_VERDICT_COLORS.destructive),
       warning: read("--warning", DEFAULT_VERDICT_COLORS.warning),
-      info: read("--info", DEFAULT_VERDICT_COLORS.info),
+      chart1: read("--chart-1", DEFAULT_VERDICT_COLORS.chart1),
       chart2: read("--chart-2", DEFAULT_VERDICT_COLORS.chart2),
-      chart3: read("--chart-3", DEFAULT_VERDICT_COLORS.chart3),
+      chart5: read("--chart-5", DEFAULT_VERDICT_COLORS.chart5),
       mutedFg: read("--muted-foreground", DEFAULT_VERDICT_COLORS.mutedFg),
+      foreground: read("--foreground", DEFAULT_VERDICT_COLORS.foreground),
     };
   }
 
@@ -64,9 +66,9 @@
     accepted: tokenColors.success,
     wrong_answer: tokenColors.destructive,
     time_limit_exceeded: tokenColors.warning,
-    memory_limit_exceeded: tokenColors.chart3,
-    runtime_error: tokenColors.chart2,
-    compile_error: tokenColors.info,
+    memory_limit_exceeded: tokenColors.chart2,
+    runtime_error: tokenColors.chart1,
+    compile_error: tokenColors.chart5,
     queued: tokenColors.mutedFg,
     running: tokenColors.mutedFg,
   });
@@ -78,6 +80,12 @@
       {
         type: "pie",
         radius: ["42%", "68%"],
+        label: {
+          formatter: "{d}%",
+          fontSize: 11,
+          color: tokenColors.foreground,
+        },
+        labelLine: { length: 8, length2: 6 },
         data: analytics.verdictDistribution.map((entry) => ({
           name: formatVerdictLabel(entry.status),
           value: entry.count,
@@ -85,6 +93,18 @@
         })),
       },
     ],
+  });
+
+  const verdictAriaLabel = $derived.by(() => {
+    const total = analytics.verdictDistribution.reduce((sum, entry) => sum + entry.count, 0);
+    if (total === 0) return m.courseAnalytics_verdictsTitle();
+    const breakdown = analytics.verdictDistribution
+      .map(
+        (entry) =>
+          `${formatVerdictLabel(entry.status)} ${Math.round((entry.count / total) * 100)}%`,
+      )
+      .join(", ");
+    return m.courseAnalytics_verdictsChartAria({ breakdown });
   });
 
   function acRateTone(acRate: number): "destructive" | "warning" | "muted" {
@@ -200,7 +220,7 @@
             description={m.courseAnalytics_verdictsEmptyDescription()}
           />
         {:else}
-          <EChart option={verdictOption} class="h-64 w-full" />
+          <EChart option={verdictOption} ariaLabel={verdictAriaLabel} class="h-64 w-full" />
         {/if}
       </Card>
     </section>

@@ -156,7 +156,7 @@ export const actions = {
     requireAuth(event);
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
-      return fail(400, { error: "Unknown provider." });
+      return fail(400, { error: "unknownProvider" });
     }
     const res = await getAuth().api.linkSocialAccount({
       body: { provider, callbackURL: "/account" },
@@ -165,17 +165,17 @@ export const actions = {
     if (res.url) {
       redirect(303, res.url);
     }
-    return fail(400, { error: "Could not start linking." });
+    return fail(400, { error: "linkFailed" });
   },
 
   unlink: async (event) => {
     const actor = requireAuth(event);
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
-      return fail(400, { error: "Unknown provider." });
+      return fail(400, { error: "unknownProvider" });
     }
     if (wouldOrphanAccount(await listProviderIds(event), provider)) {
-      return fail(400, { error: "You can't remove your only sign-in method." });
+      return fail(400, { error: "orphan" });
     }
     try {
       await getAuth().api.unlinkAccount({
@@ -183,7 +183,7 @@ export const actions = {
         headers: event.request.headers,
       });
     } catch {
-      return fail(400, { error: "Could not unlink this provider." });
+      return fail(400, { error: "unlinkFailed" });
     }
     try {
       await getMailer().sendEmail({

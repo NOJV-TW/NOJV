@@ -39,6 +39,7 @@ export interface EditorRunController {
   readonly runResult: SubmissionResult | null;
   readonly runStatus: string | null;
   readonly runError: string | null;
+  readonly cooldownUntil: number | null;
   panelRunCases: { input: string; expectedOutput: string }[];
   setBottomTab: (tab: "testcase" | "result") => void;
   run: () => Promise<void>;
@@ -53,6 +54,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
+  let cooldownUntil = $state<number | null>(null);
   let panelRunCases = $state<{ input: string; expectedOutput: string }[]>(
     args.initialSamples.map((s) => ({ input: s.input, expectedOutput: s.output })),
   );
@@ -103,10 +105,19 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     }
   }
 
+  function parseCooldownSeconds(message: string): number | null {
+    if (!/cooldown/i.test(message)) return null;
+    const match = /(\d+)/.exec(message);
+    return match ? Number(match[1]) : null;
+  }
+
   async function submit() {
     const controller = new AbortController();
     inflightSubmits.add(controller);
     isSubmitting = true;
+    runResult = null;
+    runError = null;
+    runStatus = m.editor_submitting();
 
     const language = args.language();
     const source = projectSubmittedSource({
@@ -144,10 +155,17 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         args.onSubmissionComplete?.(dispatched.submissionId, result, language, source);
       }
     } catch (err) {
-      runError = err instanceof Error ? err.message : m.editor_submitFailed();
-      bottomTab = "result";
+      const message = err instanceof Error ? err.message : m.editor_submitFailed();
+      const cooldownSec = parseCooldownSeconds(message);
+      if (cooldownSec != null && cooldownSec > 0) {
+        cooldownUntil = Date.now() + cooldownSec * 1000;
+      } else {
+        runError = message;
+        bottomTab = "result";
+      }
     } finally {
       isSubmitting = false;
+      runStatus = null;
       inflightSubmits.delete(controller);
     }
   }
@@ -170,6 +188,9 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     },
     get runError() {
       return runError;
+    },
+    get cooldownUntil() {
+      return cooldownUntil;
     },
     get panelRunCases() {
       return panelRunCases;

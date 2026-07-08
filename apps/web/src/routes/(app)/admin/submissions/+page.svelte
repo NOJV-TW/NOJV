@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { goto } from "$app/navigation";
 
   import type { PageData } from "./$types";
   import { m } from "$lib/paraglide/messages.js";
@@ -29,7 +30,7 @@
     const p = problemFilter.trim();
     if (u) params.set("userId", u);
     if (p) params.set("problemId", p);
-    window.location.search = params.toString();
+    goto(`/admin/submissions?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
   let nextHref = $derived.by(() => {

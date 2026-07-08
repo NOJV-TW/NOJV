@@ -320,7 +320,7 @@
                     class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-caption uppercase tracking-wider"
                     style="background: color-mix(in oklab, var(--chart-4) 22%, transparent); color: var(--warning);"
                   >
-                    Partial
+                    {m.examDetail_verdictPartial()}
                   </span>
                 {:else if verdict === "zero"}
                   <span
@@ -420,18 +420,14 @@
                 {m.examDetail_studentRulesHeading()}
               </h2>
             </div>
-            <ul class="mt-4 space-y-2.5">
+            <ol class="mt-4 space-y-2.5">
               {#each rules as r, i (i)}
                 <li class="flex items-start gap-3 text-body-sm">
-                  <span
-                    class="mt-0.5 font-mono text-micro uppercase tracking-wider tabular-nums text-muted-foreground"
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
+                  <span class="mt-px tabular-nums text-muted-foreground">{i + 1}.</span>
                   <span>{r}</span>
                 </li>
               {/each}
-            </ul>
+            </ol>
 
             <div class="mt-6 border-t border-border-subtle pt-5">
               <div
@@ -552,22 +548,8 @@
       </p>
     </GlassPanel>
 
-    <div class="flex flex-wrap gap-2">
-      <button
-        type="button"
-        onclick={() => (activeSubTabKey = "results")}
-        class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-      >
-        {m.examDetail_managerClassResultsLink()}
-      </button>
-      <button
-        type="button"
-        onclick={() => (activeSubTabKey = "submissions")}
-        class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-      >
-        {m.examDetail_managerSubmissionMatrixLink()}
-      </button>
-      {#if canSetOverride}
+    {#if canSetOverride}
+      <div class="flex flex-wrap gap-2">
         {#if past}
           <button
             type="button"
@@ -581,8 +563,8 @@
             {m.grading_availableAfterClose()}
           </span>
         {/if}
-      {/if}
-    </div>
+      </div>
+    {/if}
 
     <div
       role="tablist"
@@ -666,6 +648,7 @@
         {liveStatus}
         canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
         canRejudge={isManager}
+        candidateProblems={data.candidateProblems}
         {form}
       />
     {/if}

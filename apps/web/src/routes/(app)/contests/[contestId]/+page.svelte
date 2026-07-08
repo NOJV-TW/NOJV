@@ -43,12 +43,14 @@
     | "audit";
   let activeSubTab = $state<SubTabKey>("problems");
 
-  const subTabs: { key: SubTabKey; label: string }[] = $derived([
+  const primaryTabs: { key: SubTabKey; label: string }[] = $derived([
     { key: "problems", label: m.contestDetail_subTabProblems() },
     { key: "submissions", label: m.contestDetail_subTabSubmissions() },
     { key: "results", label: m.contestDetail_subTabResults() },
-    { key: "plagiarism", label: m.contestDetail_subTabPlagiarism() },
     { key: "settings", label: m.contestDetail_subTabSettings() },
+  ]);
+  const inspectTabs: { key: SubTabKey; label: string }[] = $derived([
+    { key: "plagiarism", label: m.contestDetail_subTabPlagiarism() },
     ...(data.clarification.canView
       ? [{ key: "clarifications" as const, label: m.contestDetail_subTabClarifications() }]
       : []),
@@ -109,6 +111,24 @@
 
 <!-- Defined at the component root (not inside <PageContainer>) so it stays a
      local snippet instead of being treated as a snippet prop of PageContainer. -->
+{#snippet tabButton(tab: { key: SubTabKey; label: string })}
+  {@const isActive = activeSubTab === tab.key}
+  <button
+    type="button"
+    role="tab"
+    aria-selected={isActive}
+    onclick={() => (activeSubTab = tab.key)}
+    class={cn(
+      "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
+      isActive
+        ? "bg-[color:var(--color-primary)]/14 text-primary"
+        : "text-muted-foreground hover:text-foreground",
+    )}
+  >
+    {tab.label}
+  </button>
+{/snippet}
+
 {#snippet actionButtons()}
   {#if canSetOverride}
     {#if isPast}
@@ -235,22 +255,12 @@
         aria-label={m.contestDetail_subTabsLabel()}
         class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
       >
-        {#each subTabs as tab (tab.key)}
-          {@const isActive = activeSubTab === tab.key}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onclick={() => (activeSubTab = tab.key)}
-            class={cn(
-              "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
-              isActive
-                ? "bg-[color:var(--color-primary)]/14 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab.label}
-          </button>
+        {#each primaryTabs as tab (tab.key)}
+          {@render tabButton(tab)}
+        {/each}
+        <span class="mx-1 h-5 w-px bg-border" aria-hidden="true"></span>
+        {#each inspectTabs as tab (tab.key)}
+          {@render tabButton(tab)}
         {/each}
       </div>
       <div class="flex flex-wrap items-center gap-3">

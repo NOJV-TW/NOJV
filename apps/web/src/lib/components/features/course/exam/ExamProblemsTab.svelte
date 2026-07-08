@@ -1,8 +1,11 @@
 <script lang="ts" module>
-  import type { examDomain } from "@nojv/application";
+  import type { examDomain, problemDomain } from "@nojv/application";
 
   export type ProblemsTabDetail = examDomain.ExamDetailPage;
   export type ProblemsLiveStatus = "draft" | "upcoming" | "running" | "ended";
+  export type CandidateProblem = Awaited<
+    ReturnType<typeof problemDomain.listEditableProblems>
+  >[number];
 </script>
 
 <script lang="ts">
@@ -10,12 +13,13 @@
   import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
   import Plus from "@lucide/svelte/icons/plus";
 
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
-  import { cn, inputClassName } from "$lib/utils/css";
+  import { cn } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
   import type { ActionData } from "../../../../../routes/(app)/exams/[examId]/$types";
 
@@ -24,14 +28,22 @@
     liveStatus?: ProblemsLiveStatus;
     canEdit: boolean;
     canRejudge?: boolean;
+    candidateProblems?: CandidateProblem[];
     form?: ActionData;
     class?: string;
   }
 
-  let { detail, canEdit, canRejudge = false, form, class: className }: Props = $props();
+  let {
+    detail,
+    canEdit,
+    canRejudge = false,
+    candidateProblems = [],
+    form,
+    class: className,
+  }: Props = $props();
 
   let ids = $state<string[]>([]);
-  let attachInput = $state("");
+  let attachSearch = $state("");
   let rejudgeProblemId = $state<string | null>(null);
 
   $effect(() => {
@@ -39,6 +51,21 @@
   });
 
   const byId = $derived(new Map(detail.problems.map((p) => [p.id, p])));
+
+  const filteredCandidates = $derived.by(() => {
+    const selected = new Set(ids);
+    const q = attachSearch.trim().toLowerCase();
+    const pool = candidateProblems.filter((c) => !selected.has(c.id));
+    if (!q) return pool.slice(0, 20);
+    return pool
+      .filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.id.toLowerCase().includes(q) ||
+          c.tags.some((t) => t.toLowerCase().includes(q)),
+      )
+      .slice(0, 20);
+  });
 
   function move(id: string, delta: -1 | 1) {
     const idx = ids.indexOf(id);
@@ -53,10 +80,11 @@
     ids = ids.filter((x) => x !== id);
   }
 
-  function difficultyClass(d: "easy" | "medium" | "hard"): string {
+  function difficultyClass(d: string): string {
     if (d === "easy") return "text-success";
     if (d === "medium") return "text-warning";
-    return "text-destructive";
+    if (d === "hard") return "text-destructive";
+    return "text-muted-foreground";
   }
 
   function closeRejudgeDialog(open: boolean) {
@@ -198,41 +226,62 @@
   {/if}
 
   {#if canEdit}
-    <form
-      method="POST"
-      action="?/updateProblems"
-      use:enhance
-      class="mt-6 flex items-end gap-2 border-t border-border-subtle pt-4"
-    >
-      <div class="flex-1">
-        <label class="text-caption font-semibold text-muted-foreground" for="attach-input">
-          {m.examDetail_problemsEditAttachLabel()}
-        </label>
-        <input
-          id="attach-input"
-          type="text"
-          class={inputClassName}
-          bind:value={attachInput}
-          placeholder="prob_01JA…"
-        />
+    <div class="mt-6 border-t border-border-subtle pt-4">
+      <div class="mb-2 text-caption font-semibold text-muted-foreground">
+        {m.examDetail_problemsEditAttachLabel()}
       </div>
-
-      {#each ids as id (id)}
-        <input type="hidden" name="problemIds" value={id} />
-      {/each}
-      {#if attachInput.trim().length > 0}
-        <input type="hidden" name="problemIds" value={attachInput.trim()} />
-      {/if}
-      <Button
-        type="submit"
-        size="sm"
-        variant="outline"
-        disabled={attachInput.trim().length === 0}
-      >
-        <Plus class="mr-1 h-4 w-4" aria-hidden="true" />
-        {m.examDetail_problemsEditAttachButton()}
-      </Button>
-    </form>
+      <div class="rounded-md border border-border bg-[color:var(--color-panel)]/60">
+        <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
+          <Search class="size-4 text-muted-foreground" aria-hidden="true" />
+          <input
+            type="text"
+            class="flex-1 bg-transparent text-body-sm outline-none"
+            placeholder={m.examCreate_problemSearchPlaceholder()}
+            bind:value={attachSearch}
+          />
+          <span class="text-caption text-muted-foreground">
+            {m.examCreate_problemSearchCount({ count: filteredCandidates.length })}
+          </span>
+        </div>
+        <div class="max-h-56 overflow-y-auto p-1.5">
+          {#each filteredCandidates as candidate (candidate.id)}
+            <form method="POST" action="?/updateProblems" use:enhance>
+              {#each ids as id (id)}
+                <input type="hidden" name="problemIds" value={id} />
+              {/each}
+              <input type="hidden" name="problemIds" value={candidate.id} />
+              <button
+                type="submit"
+                class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted"
+              >
+                <span class="min-w-[96px] font-mono text-caption text-muted-foreground">
+                  {candidate.displayId == null
+                    ? m.common_problemDraft()
+                    : `#${candidate.displayId}`}
+                </span>
+                <span class="flex-1 text-body-sm font-medium">{candidate.title}</span>
+                <span
+                  class="text-micro font-semibold uppercase tracking-[0.08em] {difficultyClass(
+                    candidate.difficulty,
+                  )}"
+                >
+                  {candidate.difficulty}
+                </span>
+                <span
+                  class="flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
+                >
+                  <Plus class="size-3.5" aria-hidden="true" />
+                </span>
+              </button>
+            </form>
+          {:else}
+            <p class="px-3 py-6 text-center text-body-sm text-muted-foreground">
+              {m.examCreate_problemSearchEmpty()}
+            </p>
+          {/each}
+        </div>
+      </div>
+    </div>
   {/if}
 </section>
 

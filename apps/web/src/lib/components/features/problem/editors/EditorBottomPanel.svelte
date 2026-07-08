@@ -2,6 +2,7 @@
   import type { JudgeType, SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
+  import { Badge } from "$lib/components/primitives/ui/badge";
 
   interface RunCase {
     input: string;
@@ -173,7 +174,7 @@
             <div class="mt-3">
               <p class="text-caption text-muted-foreground">{m.editor_expectLabel()}</p>
               <textarea
-                class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
+                class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
                 oninput={(e) => {
                   const val = (e.target as HTMLTextAreaElement).value;
                   runCases = runCases.map((tc, i) =>
@@ -198,6 +199,7 @@
               >
                 {runVerdictLabel}
               </span>
+              <Badge variant="muted" size="xs">{m.editor_samplesOnly()}</Badge>
               {#if runResult.runtimeMs > 0}
                 <span class="text-caption text-muted-foreground tabular-nums">
                   {m.submissionDetail_runtime()}: {String(runResult.runtimeMs)} ms

@@ -46,8 +46,7 @@
       data-active={active ? "true" : undefined}
       onclick={() => select(option.value)}
       class={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-body-sm font-medium transition-[color,background-color,border-color,transform] duration-fast ease-out-soft",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "focus-ring inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-body-sm font-medium transition-[color,background-color,border-color,transform] duration-fast ease-out-soft",
         active
           ? "border-foreground bg-foreground text-background"
           : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground",

@@ -196,21 +196,11 @@
   {#if allTags.length > 0}
     <div>
       {@render heading(m.problems_filterTags())}
-      <div class="flex flex-wrap gap-2" role="group" aria-label={m.problems_filterByTag()}>
+      <div class="flex flex-col gap-2" role="group" aria-label={m.problems_filterByTag()}>
         {#each allTags as tag (tag)}
-          <button
-            type="button"
-            aria-pressed={selectedTags.has(tag)}
-            onclick={() => toggleInSet(selectedTags, tag, "tags")}
-            class={cn(
-              "rounded-full border px-3 py-1 text-caption font-medium capitalize transition-[color,background-color,border-color] duration-fast ease-out-soft",
-              selectedTags.has(tag)
-                ? "border-primary bg-primary text-white"
-                : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground",
-            )}
-          >
-            {tag}
-          </button>
+          {@render checkRow(selectedTags.has(tag), tag, () =>
+            toggleInSet(selectedTags, tag, "tags"),
+          )}
         {/each}
       </div>
     </div>

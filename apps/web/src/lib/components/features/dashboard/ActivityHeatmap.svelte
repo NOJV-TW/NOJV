@@ -90,31 +90,44 @@
 </script>
 
 <div class={className}>
-  <div class="mb-4 flex items-center justify-between gap-3">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <h2 class="text-title-sm font-semibold">{title}</h2>
-    <div
-      class="inline-flex shrink-0 rounded-full border border-border bg-[color:var(--color-panel)] p-0.5 text-micro font-medium"
-    >
-      <button
-        type="button"
-        class="rounded-full px-2.5 py-1 transition-colors {metric === 'ac'
-          ? 'bg-foreground text-background'
-          : 'text-muted-foreground hover:text-foreground'}"
-        aria-pressed={metric === "ac"}
-        onclick={() => (metric = "ac")}
+    <div class="flex items-center gap-3">
+      <div
+        class="hidden items-center gap-1 text-micro text-muted-foreground sm:flex"
+        aria-hidden="true"
       >
-        {m.dashboard_heatmapToggleAc()}
-      </button>
-      <button
-        type="button"
-        class="rounded-full px-2.5 py-1 transition-colors {metric === 'submissions'
-          ? 'bg-foreground text-background'
-          : 'text-muted-foreground hover:text-foreground'}"
-        aria-pressed={metric === "submissions"}
-        onclick={() => (metric = "submissions")}
+        <span>{m.dashboard_heatmapLegendLess()}</span>
+        <span class="size-3 rounded-[3px] {INTENSITY.zero}"></span>
+        <span class="size-3 rounded-[3px] {INTENSITY.low}"></span>
+        <span class="size-3 rounded-[3px] {INTENSITY.mid}"></span>
+        <span class="size-3 rounded-[3px] {INTENSITY.high}"></span>
+        <span>{m.dashboard_heatmapLegendMore()}</span>
+      </div>
+      <div
+        class="inline-flex shrink-0 rounded-full border border-border bg-[color:var(--color-panel)] p-0.5 text-micro font-medium"
       >
-        {m.dashboard_heatmapToggleSub()}
-      </button>
+        <button
+          type="button"
+          class="rounded-full px-2.5 py-1 transition-colors {metric === 'ac'
+            ? 'bg-foreground text-background'
+            : 'text-muted-foreground hover:text-foreground'}"
+          aria-pressed={metric === "ac"}
+          onclick={() => (metric = "ac")}
+        >
+          {m.dashboard_heatmapToggleAc()}
+        </button>
+        <button
+          type="button"
+          class="rounded-full px-2.5 py-1 transition-colors {metric === 'submissions'
+            ? 'bg-foreground text-background'
+            : 'text-muted-foreground hover:text-foreground'}"
+          aria-pressed={metric === "submissions"}
+          onclick={() => (metric = "submissions")}
+        >
+          {m.dashboard_heatmapToggleSub()}
+        </button>
+      </div>
     </div>
   </div>
   <div

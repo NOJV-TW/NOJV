@@ -205,7 +205,7 @@
           class="inline-flex items-center rounded-full px-2.5 py-1 text-micro font-mono uppercase tracking-wider"
           style="background: color-mix(in oklab, var(--info) 12%, transparent); color: var(--info);"
         >
-          Manager View
+          {m.assignmentDetail_managerViewBadge()}
         </span>
       {/if}
     {/snippet}

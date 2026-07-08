@@ -44,8 +44,8 @@
   let relative = $derived(relativeTime(item.createdAt));
   let commonClass = $derived(
     cn(
-      "flex w-full items-start gap-3 border-l-2 px-4 py-3 text-left transition-colors duration-fast ease-out-soft hover:bg-accent",
-      isUnread ? "border-primary" : "border-transparent opacity-60",
+      "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-fast ease-out-soft hover:bg-accent",
+      !isUnread && "opacity-60",
     ),
   );
 </script>

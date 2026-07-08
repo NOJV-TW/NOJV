@@ -16,6 +16,7 @@ import {
   HttpError,
   listExamIpViolations,
   plagiarismDomain,
+  problemDomain,
   proctoringDomain,
   scoreOverrideDomain,
   userDomain,
@@ -66,6 +67,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     feedback,
     auditEvents,
     viewerSession,
+    candidateProblems,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -91,6 +93,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isManager
       ? Promise.resolve(null)
       : examDomain.session.getActiveSessionContext(actor.userId),
+    isManager ? problemDomain.listEditableProblems(actor.userId) : Promise.resolve([]),
   ]);
 
   const auditActorNames = isManager
@@ -175,6 +178,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     feedback: feedback.map((f) => ({ problemId: f.problemId, comment: f.comment })),
     auditEvents,
     auditActorNames,
+    candidateProblems,
   };
 });
 
