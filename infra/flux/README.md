@@ -41,13 +41,13 @@ Manual deploy override (e.g. a rollback):
 
 ## Files
 
-| File                    | Purpose                                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `git-repository.yaml`   | `GitRepository` (this repo, `main`) + root `Kustomization` that applies this directory                               |
-| `helmrelease.yaml`      | `HelmRelease` wrapping `infra/charts/nojv` with `values-single-machine.yaml`; image tag is automation-managed        |
-| `image-automation.yaml` | `ImageRepository` (scans GHCR) + `ImagePolicy` (newest build) + `ImageUpdateAutomation` (writes the tag back to git) |
-| `notification-provider.yaml` | `Provider` (`type: discord`) pointing at the `discord-webhook` Secret — see Notifications below |
-| `notification-alert.yaml` | `Alert` firing on every `HelmRelease/nojv` reconcile at `info` severity (success **and** failure) |
+| File                         | Purpose                                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `git-repository.yaml`        | `GitRepository` (this repo, `main`) + root `Kustomization` that applies this directory                               |
+| `helmrelease.yaml`           | `HelmRelease` wrapping `infra/charts/nojv` with `values-single-machine.yaml`; image tag is automation-managed        |
+| `image-automation.yaml`      | `ImageRepository` (scans GHCR) + `ImagePolicy` (newest build) + `ImageUpdateAutomation` (writes the tag back to git) |
+| `notification-provider.yaml` | `Provider` (`type: discord`) pointing at the `discord-webhook` Secret — see Notifications below                      |
+| `notification-alert.yaml`    | `Alert` firing on every `HelmRelease/nojv` reconcile at `info` severity (success **and** failure)                    |
 
 ## Notifications (Discord)
 
