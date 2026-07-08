@@ -22,6 +22,11 @@
   let { formData, problemId, showRuntimeLimits = false, ondirtychange }: Props = $props();
 
   let attempted = $state(false);
+  let formEl = $state<HTMLFormElement | null>(null);
+
+  export function save() {
+    formEl?.requestSubmit();
+  }
 
   const {
     form,
@@ -81,7 +86,7 @@
   };
 </script>
 
-<form class="grid gap-4" method="POST" action="?/update" use:enhance>
+<form bind:this={formEl} class="grid gap-4" method="POST" action="?/update" use:enhance>
   <label class="text-body-sm text-muted-foreground">
     <span>{m.admin_title()} <span class="text-destructive">*</span></span>
     <input class={inputClassName} name="title" bind:value={$form.title} />
@@ -248,20 +253,13 @@
     </div>
   {/if}
 
-  <div class="mt-2 flex items-center justify-end gap-3">
-    <button
-      class="inline-flex rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-      disabled={$submitting}
-      type="submit"
-    >
+  {#if $submitting || $formMessage}
+    <div class="mt-2 flex items-center justify-end gap-3">
       {#if $submitting}
-        {m.common_saving()}
+        <span class="text-body-sm text-muted-foreground">{m.common_saving()}</span>
       {:else}
-        {m.common_saveDraft()}
+        <span class="text-body-sm text-success">{m.common_saved()}</span>
       {/if}
-    </button>
-    {#if $formMessage}
-      <span class="text-body-sm text-success">{m.common_saved()}</span>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </form>

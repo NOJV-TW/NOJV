@@ -144,61 +144,12 @@
 </script>
 
 <section class="space-y-4">
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h3 class="text-body-lg font-semibold">{m.advancedPackage_title()}</h3>
-      <p class="text-body-sm text-muted-foreground">
-        {m.advancedPackage_intro()}
-      </p>
-    </div>
-    <div class="flex gap-2">
-      <Button variant="outline" size="sm" href="/api/problems/advanced-scaffold"
-        >{m.advancedPackage_template()}</Button
-      >
-      <Button variant="outline" size="sm" href="/guides/advanced-mode"
-        >{m.advancedPackage_guide()}</Button
-      >
-    </div>
+  <div>
+    <h3 class="text-body-lg font-semibold">{m.advancedPackage_title()}</h3>
+    <p class="text-body-sm text-muted-foreground">
+      {m.advancedPackage_intro()}
+    </p>
   </div>
-
-  <ol class="grid gap-3 text-body-sm sm:grid-cols-3">
-    <li class="flex gap-3">
-      <span
-        class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-caption font-semibold text-primary-foreground"
-        >1</span
-      >
-      <div>
-        <p class="font-semibold">{m.advancedPackage_stepTemplateTitle()}</p>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.advancedPackage_stepTemplateBody()}
-        </p>
-      </div>
-    </li>
-    <li class="flex gap-3">
-      <span
-        class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-caption font-semibold text-primary-foreground"
-        >2</span
-      >
-      <div>
-        <p class="font-semibold">{m.advancedPackage_stepEditTitle()}</p>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.advancedPackage_stepEditBody()}
-        </p>
-      </div>
-    </li>
-    <li class="flex gap-3">
-      <span
-        class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-caption font-semibold text-primary-foreground"
-        >3</span
-      >
-      <div>
-        <p class="font-semibold">{m.advancedPackage_stepUploadTitle()}</p>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.advancedPackage_stepUploadBody()}
-        </p>
-      </div>
-    </li>
-  </ol>
 
   <label
     class="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border-subtle bg-[color:var(--color-surface)] px-4 py-8 text-center transition hover:border-border"

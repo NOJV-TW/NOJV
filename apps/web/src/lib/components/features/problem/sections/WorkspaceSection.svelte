@@ -13,7 +13,6 @@
   import WorkspaceRuntimeSection from "$lib/components/features/problem/workspace/WorkspaceRuntimeSection.svelte";
   import WorkspaceLanguagesSection from "$lib/components/features/problem/workspace/WorkspaceLanguagesSection.svelte";
   import WorkspaceFilesSection from "$lib/components/features/problem/workspace/WorkspaceFilesSection.svelte";
-  import WorkspaceSaveBar from "$lib/components/features/problem/workspace/WorkspaceSaveBar.svelte";
   import type { WorkspaceFile } from "$lib/components/features/problem/workspace/WorkspaceFileEditor.svelte";
 
   export type { WorkspaceMode };
@@ -159,6 +158,10 @@
     return null;
   }
 
+  export function save() {
+    void handleSave();
+  }
+
   async function handleSave() {
     const validationError = validateBeforeSave();
     if (validationError !== null) {
@@ -227,5 +230,17 @@
     onDeleteFile={deleteFile}
     {onUploadFile}
   />
-  <WorkspaceSaveBar {saving} {saveMessage} onSave={() => void handleSave()} />
+  {#if saving || saveMessage}
+    <div class="flex items-center justify-end gap-3">
+      {#if saving}
+        <span class="text-body-sm text-muted-foreground">{m.common_saving()}</span>
+      {:else if saveMessage === "saved"}
+        <span class="text-body-sm text-success">{m.admin_saved()}</span>
+      {:else if saveMessage === "error"}
+        <span class="text-body-sm text-destructive">{m.admin_saveFailed()}</span>
+      {:else if saveMessage !== ""}
+        <span class="text-body-sm text-destructive">{saveMessage}</span>
+      {/if}
+    </div>
+  {/if}
 </div>
