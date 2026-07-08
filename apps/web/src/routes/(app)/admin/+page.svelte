@@ -5,16 +5,18 @@
     BookOpen,
     Bug,
     CheckCircle2,
+    Cpu,
     Database,
     PieChart,
+    Server,
     ShieldCheck,
     Trophy,
     Users,
+    Workflow,
   } from "@lucide/svelte";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import StatCard from "$lib/components/primitives/ui/StatCard.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
@@ -131,14 +133,19 @@
       },
     ],
   }));
+
+  const infraRows = $derived([
+    { label: m.admin_healthDatabase(), icon: Database, status: data.health.database },
+    { label: m.admin_healthRedis(), icon: Server, status: data.health.redis },
+    { label: m.admin_healthTemporal(), icon: Workflow, status: data.health.temporal },
+  ]);
 </script>
 
 <PageContainer class="space-y-6">
-  <PageHeader
-    eyebrow={m.admin_eyebrow()}
-    title={m.admin_overviewTitle()}
-    description={m.admin_overviewSubtitle()}
-  />
+  <header class="animate-in space-y-1">
+    <h1 class="text-title-lg font-semibold">{m.admin_overviewTitle()}</h1>
+    <p class="text-caption text-muted-foreground">{m.admin_overviewSubtitle()}</p>
+  </header>
 
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
     <StatCard label={m.admin_overviewUsers()} value={data.kpi.totalUsers} icon={Users} />
@@ -162,22 +169,22 @@
   <section class="grid gap-4 xl:grid-cols-3">
     <Card variant="surface" size="md" class="xl:col-span-2">
       <div class="flex items-center justify-between">
-        <h2
-          class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-        >
+        <h2 class="inline-flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
           <BarChart3 aria-hidden="true" class="h-3.5 w-3.5" />
           {m.admin_overviewSubmissionTrend()}
         </h2>
         <span class="text-caption text-muted-foreground">{m.admin_overviewLast14d()}</span>
       </div>
-      <EChart option={dailyOption} class="h-70 w-full" />
+      <EChart
+        option={dailyOption}
+        ariaLabel={m.admin_overviewSubmissionTrend()}
+        class="h-70 w-full"
+      />
     </Card>
 
-    <Card variant="surface" size="md">
+    <Card variant="surface" size="md" class="self-start">
       <div>
-        <h2
-          class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-        >
+        <h2 class="inline-flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
           <ShieldCheck aria-hidden="true" class="h-3.5 w-3.5" />
           {m.admin_overviewHealth()}
         </h2>
@@ -186,18 +193,43 @@
         </p>
       </div>
       <div class="space-y-2 text-body-sm">
-        <div
-          class="flex items-center justify-between rounded-sm border border-border-subtle px-3 py-2"
-        >
-          <span class="inline-flex items-center gap-1"
-            ><Database aria-hidden="true" class="h-3.5 w-3.5" />
-            {m.admin_overviewDatabase()}</span
+        {#each infraRows as row (row.label)}
+          {@const Icon = row.icon}
+          <div
+            class="flex items-center justify-between rounded-sm border border-border-subtle px-3 py-2"
           >
-          {#if data.dbOk}
-            <Badge variant="success" size="sm" dot>{m.admin_overviewConnected()}</Badge>
-          {:else}
-            <Badge variant="destructive" size="sm" dot>{m.admin_overviewDisconnected()}</Badge>
-          {/if}
+            <span class="inline-flex items-center gap-1"
+              ><Icon aria-hidden="true" class="h-3.5 w-3.5" />
+              {row.label}</span
+            >
+            {#if row.status === "ok"}
+              <Badge variant="success" size="sm" dot>{m.admin_healthStatusOk()}</Badge>
+            {:else}
+              <Badge variant="destructive" size="sm" dot>{m.admin_healthStatusDown()}</Badge>
+            {/if}
+          </div>
+        {/each}
+
+        <div class="rounded-sm border border-border-subtle px-3 py-2">
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center gap-1"
+              ><Cpu aria-hidden="true" class="h-3.5 w-3.5" />
+              {m.admin_healthJudgeWorker()}</span
+            >
+            {#if data.health.staleJudging > 0}
+              <Badge variant="warning" size="sm" dot>{m.admin_healthStatusDegraded()}</Badge>
+            {:else}
+              <Badge variant="success" size="sm" dot>{m.admin_healthStatusOk()}</Badge>
+            {/if}
+          </div>
+          <p class="mt-1 text-caption text-muted-foreground">
+            {m.admin_healthPending({
+              count: data.health.pendingJudging,
+            })}{#if data.health.staleJudging > 0}
+              · <span class="text-warning"
+                >{m.admin_healthStale({ count: data.health.staleJudging })}</span
+              >{/if}
+          </p>
         </div>
       </div>
     </Card>
@@ -206,22 +238,22 @@
   <section class="grid gap-4 xl:grid-cols-2">
     <Card variant="surface" size="md">
       <div>
-        <h2
-          class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-        >
+        <h2 class="inline-flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
           <Users aria-hidden="true" class="h-3.5 w-3.5" />
           {m.admin_overviewUserRoleDist()}
         </h2>
         <p class="mt-1 text-caption text-muted-foreground">{m.admin_overviewRoleSubtitle()}</p>
       </div>
-      <EChart option={roleOption} class="h-60 w-full" />
+      <EChart
+        option={roleOption}
+        ariaLabel={m.admin_overviewUserRoleDist()}
+        class="h-60 w-full"
+      />
     </Card>
 
     <Card variant="surface" size="md">
       <div>
-        <h2
-          class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-        >
+        <h2 class="inline-flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
           <PieChart aria-hidden="true" class="h-3.5 w-3.5" />
           {m.admin_overviewStatusDist()}
         </h2>
@@ -229,15 +261,17 @@
           {m.admin_overviewStatusSubtitle()}
         </p>
       </div>
-      <EChart option={statusOption} class="h-60 w-full" />
+      <EChart
+        option={statusOption}
+        ariaLabel={m.admin_overviewStatusDist()}
+        class="h-60 w-full"
+      />
     </Card>
   </section>
 
   <section class="grid gap-4 xl:grid-cols-2">
     <Card variant="surface" size="md">
-      <h2
-        class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-      >
+      <h2 class="inline-flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
         <AlertTriangle aria-hidden="true" class="h-3.5 w-3.5" />
         {m.admin_overviewTopFailing()}
       </h2>
@@ -262,9 +296,7 @@
     </Card>
 
     <Card variant="surface" size="md">
-      <h2
-        class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-      >
+      <h2 class="inline-flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
         <Bug aria-hidden="true" class="h-3.5 w-3.5" />
         {m.admin_overviewRecentErrors()}
       </h2>
@@ -279,7 +311,7 @@
               >
                 <th class="px-3 py-2 font-medium">{m.admin_overviewTime()}</th>
                 <th class="px-3 py-2 font-medium">{m.admin_overviewProblem()}</th>
-                <th class="px-3 py-2 font-medium">{m.admin_overviewUsers()}</th>
+                <th class="px-3 py-2 font-medium">{m.admin_overviewUser()}</th>
                 <th class="px-3 py-2 font-medium">{m.admin_overviewStatus()}</th>
               </tr>
             </thead>

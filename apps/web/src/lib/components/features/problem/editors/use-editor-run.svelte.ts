@@ -1,6 +1,6 @@
 import type { Language, SubmissionResult } from "@nojv/core";
 import { m } from "$lib/paraglide/messages.js";
-import { executeSubmission } from "$lib/services/submission-service";
+import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
 import type { ProblemDetail } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -39,6 +39,7 @@ export interface EditorRunController {
   readonly runResult: SubmissionResult | null;
   readonly runStatus: string | null;
   readonly runError: string | null;
+  readonly cooldownUntil: number | null;
   panelRunCases: { input: string; expectedOutput: string }[];
   setBottomTab: (tab: "testcase" | "result") => void;
   run: () => Promise<void>;
@@ -53,6 +54,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
+  let cooldownUntil = $state<number | null>(null);
   let panelRunCases = $state<{ input: string; expectedOutput: string }[]>(
     args.initialSamples.map((s) => ({ input: s.input, expectedOutput: s.output })),
   );
@@ -96,10 +98,28 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       runResult = await runSubmission(true);
       runStatus = null;
     } catch (err) {
-      runError = err instanceof Error ? err.message : m.editor_runFailed();
+      runError =
+        err instanceof SubmissionRequestError
+          ? messageForSubmitError(err.code)
+          : m.editor_runFailed();
       runStatus = null;
     } finally {
       isRunning = false;
+    }
+  }
+
+  function messageForSubmitError(code: string | null): string {
+    switch (code) {
+      case "daily_limit":
+        return m.submit_error_dailyLimit();
+      case "window_closed":
+        return m.submit_error_windowClosed();
+      case "ip_blocked":
+        return m.submit_error_ipBlocked();
+      case "language_not_allowed":
+        return m.submit_error_languageNotAllowed();
+      default:
+        return m.editor_submitFailed();
     }
   }
 
@@ -107,6 +127,9 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     const controller = new AbortController();
     inflightSubmits.add(controller);
     isSubmitting = true;
+    runResult = null;
+    runError = null;
+    runStatus = m.editor_submitting();
 
     const language = args.language();
     const source = projectSubmittedSource({
@@ -144,10 +167,23 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         args.onSubmissionComplete?.(dispatched.submissionId, result, language, source);
       }
     } catch (err) {
-      runError = err instanceof Error ? err.message : m.editor_submitFailed();
-      bottomTab = "result";
+      if (
+        err instanceof SubmissionRequestError &&
+        err.code === "submit_cooldown" &&
+        err.retryAfterSec != null &&
+        err.retryAfterSec > 0
+      ) {
+        cooldownUntil = Date.now() + err.retryAfterSec * 1000;
+      } else {
+        runError =
+          err instanceof SubmissionRequestError
+            ? messageForSubmitError(err.code)
+            : m.editor_submitFailed();
+        bottomTab = "result";
+      }
     } finally {
       isSubmitting = false;
+      runStatus = null;
       inflightSubmits.delete(controller);
     }
   }
@@ -170,6 +206,9 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     },
     get runError() {
       return runError;
+    },
+    get cooldownUntil() {
+      return cooldownUntil;
     },
     get panelRunCases() {
       return panelRunCases;

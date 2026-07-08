@@ -26,10 +26,10 @@
 
   function statusStyle(status: contestDomain.UpsolveStatus): string {
     if (status === "solved") {
-      return "background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success);";
+      return "background: color-mix(in oklab, var(--success) 16%, transparent); color: color-mix(in oklab, var(--success) 50%, var(--foreground));";
     }
     if (status === "attempted") {
-      return "background: color-mix(in oklab, var(--warning) 20%, transparent); color: var(--warning);";
+      return "background: color-mix(in oklab, var(--warning) 20%, transparent); color: color-mix(in oklab, var(--warning) 50%, var(--foreground));";
     }
     return "background: var(--muted); color: var(--muted-foreground);";
   }

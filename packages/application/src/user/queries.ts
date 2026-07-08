@@ -46,6 +46,7 @@ export async function listUserDisplayNames(
 export interface UserSearchParams {
   search?: string;
   roleFilter?: string;
+  statusFilter?: "active" | "disabled";
   page?: number;
   take?: number;
 }
@@ -71,6 +72,12 @@ export async function listUsersPaginated(params: UserSearchParams) {
     params.roleFilter === "student"
   ) {
     where.platformRole = params.roleFilter;
+  }
+
+  if (params.statusFilter === "disabled") {
+    where.disabled = true;
+  } else if (params.statusFilter === "active") {
+    where.disabled = false;
   }
 
   const [users, totalCount] = await Promise.all([
@@ -107,13 +114,29 @@ export async function updateUserRole(
   return updated;
 }
 
-export async function toggleUserDisabled(actorIsSuperAdmin: boolean, userId: string) {
+async function guardDisableTarget(actorIsSuperAdmin: boolean, userId: string) {
   const user = await userRepo.findDisabledStatus(userId);
   if (!user) return null;
   if (user.isSuperAdmin && !actorIsSuperAdmin) {
     throw new ForbiddenError("Only a super admin can disable a super admin.");
   }
+  return user;
+}
+
+export async function toggleUserDisabled(actorIsSuperAdmin: boolean, userId: string) {
+  const user = await guardDisableTarget(actorIsSuperAdmin, userId);
+  if (!user) return null;
   return userRepo.update(userId, { disabled: !user.disabled });
+}
+
+export async function setUserDisabled(
+  actorIsSuperAdmin: boolean,
+  userId: string,
+  disabled: boolean,
+) {
+  const user = await guardDisableTarget(actorIsSuperAdmin, userId);
+  if (!user) return null;
+  return userRepo.update(userId, { disabled });
 }
 
 export interface DashboardStats {

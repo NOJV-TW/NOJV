@@ -9,6 +9,7 @@
   import EditorTopBar from "./EditorTopBar.svelte";
   import EditorActionBar from "./EditorActionBar.svelte";
   import EditorResizeHandle from "./EditorResizeHandle.svelte";
+  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { type DraftContext } from "$lib/stores/code-draft";
   import { shortcuts } from "$lib/stores/shortcuts.svelte";
   import {
@@ -89,9 +90,14 @@
     language: () => language,
   });
 
+  let resetConfirmOpen = $state(false);
+
   function handleReset() {
-    if (typeof window === "undefined") return;
-    if (!window.confirm(m.editor_resetConfirm())) return;
+    resetConfirmOpen = true;
+  }
+
+  function confirmReset() {
+    resetConfirmOpen = false;
     if (isWorkspaceMode) {
       workspaceFiles.resetCurrentLanguage();
     } else {
@@ -240,6 +246,7 @@
     draftEnabled={draftController.enabled}
     isDirty={draftController.isDirty}
     lastSavedAt={draftController.currentLastSavedAt}
+    cooldownUntil={runController.cooldownUntil}
     onRun={() => void runController.run()}
     onSubmit={() => void runController.submit()}
   />
@@ -262,4 +269,14 @@
       ontabchange={(next) => runController.setBottomTab(next)}
     />
   </div>
+
+  <ConfirmDialog
+    bind:open={resetConfirmOpen}
+    variant="danger"
+    title={m.editor_resetConfirmTitle()}
+    message={m.editor_resetConfirm()}
+    confirmText={m.editor_reset()}
+    onconfirm={confirmReset}
+    oncancel={() => (resetConfirmOpen = false)}
+  />
 </div>

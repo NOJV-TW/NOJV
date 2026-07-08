@@ -23,6 +23,23 @@
   let oauthError = $state("");
   const providerLabel: Record<string, string> = { github: "GitHub", google: "Google" };
 
+  const linkedCount = $derived(data.providers.filter((p) => p.linked).length);
+
+  function mapOAuthError(code: string): string {
+    switch (code) {
+      case "orphan":
+        return m.account_connections_error_orphan();
+      case "unknownProvider":
+        return m.account_connections_error_unknownProvider();
+      case "linkFailed":
+        return m.account_connections_error_linkFailed();
+      case "unlinkFailed":
+        return m.account_connections_error_unlinkFailed();
+      default:
+        return m.account_connections_error_unexpected();
+    }
+  }
+
   function mapCode(code: string): string {
     switch (code) {
       case "VERIFIED_LOCKED":
@@ -39,6 +56,19 @@
         return m.account_nameRequired();
       default:
         return code;
+    }
+  }
+
+  function roleLabel(role: string): string {
+    switch (role) {
+      case "admin":
+        return m.common_roleAdmin();
+      case "teacher":
+        return m.common_roleTeacher();
+      case "student":
+        return m.common_roleStudent();
+      default:
+        return role;
     }
   }
 
@@ -121,7 +151,7 @@
 <PageContainer width="form">
   <Section>
     {#snippet header()}
-      <h1 class="text-title-lg">{m.navigation_account()}</h1>
+      <h1 class="text-title-lg font-semibold">{m.navigation_account()}</h1>
     {/snippet}
 
     <div class="flex flex-col gap-6">
@@ -288,7 +318,7 @@
               {m.account_role()}
             </dt>
             <dd>
-              <Badge variant="muted" size="sm">{data.platformRole}</Badge>
+              <Badge variant="muted" size="sm">{roleLabel(data.platformRole)}</Badge>
             </dd>
           </div>
         </dl>
@@ -333,45 +363,53 @@
         {/if}
         <div class="flex flex-col gap-3">
           {#each data.providers as { provider, linked } (provider)}
-            <div
-              class="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3"
-            >
-              <span class="text-body-sm font-medium">{providerLabel[provider] ?? provider}</span
-              >
-              <form
-                method="POST"
-                action={linked ? "?/unlink" : "?/link"}
-                use:enhance={() => {
-                  oauthError = "";
-                  oauthBusy = true;
-                  return async ({ result, update }) => {
-                    oauthBusy = false;
-                    if (result.type === "failure") {
-                      oauthError = (result.data?.error as string) ?? "";
-                      return;
-                    }
-                    if (result.type === "success" && result.data?.unlinked) {
-                      toasts.success(
-                        m.account_connections_unlinked({
-                          provider: providerLabel[provider] ?? provider,
-                        }),
-                      );
-                    }
-                    await update();
-                  };
-                }}
-              >
-                <input type="hidden" name="provider" value={provider} />
-                <button
-                  type="submit"
-                  disabled={oauthBusy}
-                  class="rounded-md border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50 {linked
-                    ? 'border-destructive/40 text-destructive'
-                    : 'border-border'}"
+            {@const lastMethod = linked && linkedCount === 1 && !data.hasPassword}
+            <div class="flex flex-col gap-1 rounded-md border border-border px-4 py-3">
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-body-sm font-medium"
+                  >{providerLabel[provider] ?? provider}</span
                 >
-                  {linked ? m.account_connections_unlink() : m.account_connections_link()}
-                </button>
-              </form>
+                <form
+                  method="POST"
+                  action={linked ? "?/unlink" : "?/link"}
+                  use:enhance={() => {
+                    oauthError = "";
+                    oauthBusy = true;
+                    return async ({ result, update }) => {
+                      oauthBusy = false;
+                      if (result.type === "failure") {
+                        oauthError = mapOAuthError((result.data?.error as string) ?? "");
+                        return;
+                      }
+                      if (result.type === "success" && result.data?.unlinked) {
+                        toasts.success(
+                          m.account_connections_unlinked({
+                            provider: providerLabel[provider] ?? provider,
+                          }),
+                        );
+                      }
+                      await update();
+                    };
+                  }}
+                >
+                  <input type="hidden" name="provider" value={provider} />
+                  <button
+                    type="submit"
+                    disabled={oauthBusy || lastMethod}
+                    title={lastMethod ? m.account_connections_lastMethodHint() : undefined}
+                    class="rounded-md border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50 {linked
+                      ? 'border-destructive/40 text-destructive'
+                      : 'border-border'}"
+                  >
+                    {linked ? m.account_connections_unlink() : m.account_connections_link()}
+                  </button>
+                </form>
+              </div>
+              {#if lastMethod}
+                <p class="text-caption text-muted-foreground">
+                  {m.account_connections_lastMethodHint()}
+                </p>
+              {/if}
             </div>
           {/each}
         </div>

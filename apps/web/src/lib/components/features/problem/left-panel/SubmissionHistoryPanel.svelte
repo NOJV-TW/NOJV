@@ -46,6 +46,7 @@
   );
 
   let loadingSourceId = $state<string | null>(null);
+  let sourceErrorIds = $state(new Set<string>());
   let loadingDetailId = $state<string | null>(null);
   let detailLoadedIds = $state(new Set<string>());
   let rejudgingId = $state<string | null>(null);
@@ -93,10 +94,8 @@
         if (cancelled) return;
         const currentIdx = submissions.findIndex((s) => s.id === entryId);
         if (currentIdx === -1) return;
-        submissions[currentIdx] = {
-          ...submissions[currentIdx]!,
-          sourceCode: "// Failed to load source code.",
-        };
+        submissions[currentIdx] = { ...submissions[currentIdx]!, sourceCode: "" };
+        sourceErrorIds = new Set([...sourceErrorIds, entryId]);
       })
       .finally(() => {
         if (!cancelled && loadingSourceId === entryId) loadingSourceId = null;
@@ -239,6 +238,13 @@
                 >{m.problemDetail_loadingSource()}</span
               >
             </div>
+          {:else if entry.id && sourceErrorIds.has(entry.id)}
+            <p
+              class="rounded-md bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
+              role="alert"
+            >
+              {m.problemDetail_sourceLoadFailed()}
+            </p>
           {:else}
             <CodeBlock code={entry.sourceCode ?? ""} language={entry.language} />
           {/if}

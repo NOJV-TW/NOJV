@@ -28,7 +28,7 @@
       aria-pressed={selected}
       onclick={() => toggle(tag)}
       class={cn(
-        "rounded-full border px-3 py-1 text-caption font-medium transition-[color,background-color,border-color] duration-fast ease-out-soft",
+        "focus-ring rounded-full border px-3 py-1 text-caption font-medium transition-[color,background-color,border-color] duration-fast ease-out-soft",
         selected
           ? "border-primary bg-primary text-white"
           : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground",

@@ -82,6 +82,12 @@
     mineSelectedTags = next;
   }
 
+  function clearMineFilters() {
+    mineSearch = "";
+    mineDifficulty = "all";
+    mineSelectedTags = new Set();
+  }
+
   function closeRejudgeDialog(open: boolean) {
     if (!open) rejudgeProblemId = null;
   }
@@ -114,9 +120,9 @@
     </span>
     {#each difficulties as d (d)}
       <button
-        class="rounded-full border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {mineDifficulty ===
+        class="inline-flex items-center justify-center rounded-full border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft pointer-coarse:min-h-11 {mineDifficulty ===
         d
-          ? 'border-primary bg-primary text-white'
+          ? 'border-foreground bg-foreground text-background'
           : 'border-border hover:bg-[color:var(--color-panel)]'}"
         onclick={() => {
           mineDifficulty = d;
@@ -127,7 +133,7 @@
       </button>
     {/each}
     <button
-      class="ml-auto inline-flex items-center justify-center rounded-full border border-border bg-[color:var(--color-panel)] p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent hover:text-foreground"
+      class="ml-auto inline-flex items-center justify-center rounded-full border border-border bg-[color:var(--color-panel)] p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
       onclick={toggleSort}
       type="button"
       aria-label={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
@@ -140,7 +146,7 @@
       {/if}
     </button>
     <button
-      class="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
+      class="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15 pointer-coarse:min-h-11"
       aria-pressed={showMineCardTags}
       onclick={() => {
         showMineCardTags = !showMineCardTags;
@@ -160,10 +166,10 @@
     >
       {#each mineAllTags as tag (tag)}
         <button
-          class="rounded-full border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {mineSelectedTags.has(
+          class="inline-flex items-center justify-center rounded-full border px-3 py-1 text-caption font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft pointer-coarse:min-h-11 {mineSelectedTags.has(
             tag,
           )
-            ? 'border-primary bg-primary text-white'
+            ? 'border-primary bg-primary/10 text-foreground'
             : 'border-border hover:bg-[color:var(--color-panel)]'}"
           onclick={() => toggleMineTag(tag)}
           type="button"
@@ -179,7 +185,12 @@
   {#if editableProblems.length === 0}
     <EmptyState icon={FileCode} title={m.problems_myProblemsEmpty()} />
   {:else if mineFiltered.length === 0}
-    <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} />
+    <div class="flex flex-col items-center gap-4 py-16">
+      <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} class="py-0" />
+      <Button variant="outline" size="sm" onclick={clearMineFilters}>
+        {m.problems_clearFilters()}
+      </Button>
+    </div>
   {/if}
   {#each mineFiltered as problem (problem.id)}
     {@const titleHref =
@@ -202,7 +213,7 @@
           <div class="mt-1.5 flex flex-wrap items-center gap-1">
             {#each problem.tags as tag (tag)}
               <span
-                class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass()}"
+                class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-caption font-medium capitalize leading-none {tagClass()}"
               >
                 {tag}
               </span>

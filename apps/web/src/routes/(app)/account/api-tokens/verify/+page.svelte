@@ -93,7 +93,9 @@
 
       {#if data.hasPasskey}
         <div
-          class="flex flex-col gap-2 {data.hasTotp ? 'mt-4 border-t border-border pt-4' : ''}"
+          class="flex flex-col gap-2 {data.hasTotp
+            ? 'mt-4 border-t border-border-subtle pt-4'
+            : ''}"
         >
           {#if passkeyError}
             <p class="text-caption text-destructive" role="alert">{passkeyError}</p>

@@ -5,8 +5,13 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const { listUserSubmissions } = submissionDomain;
 
+const PAGE_SIZE = 50;
+
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
-  const submissions = await listUserSubmissions(actor.userId);
-  return { submissions };
+  const { items, nextCursor } = await listUserSubmissions({
+    userId: actor.userId,
+    limit: PAGE_SIZE,
+  });
+  return { submissions: items, nextCursor };
 });

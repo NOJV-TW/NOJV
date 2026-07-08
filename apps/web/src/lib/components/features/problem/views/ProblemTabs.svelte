@@ -213,7 +213,7 @@
   </div>
 
   {#if tab === "public"}
-    <PublicProblemsTab {publicResult} {loggedIn} />
+    <PublicProblemsTab {publicResult} {loggedIn} showCreate={showCreate ?? false} />
   {:else if tab === "mine" && showCreate}
     <MyProblemsTab
       editableProblems={editableProblems ?? []}

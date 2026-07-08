@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { CheckCircle2, FileCode, ListFilter, Search, XCircle } from "@lucide/svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
   import * as Card from "$lib/components/primitives/ui/card";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
@@ -20,9 +21,10 @@
   interface Props {
     publicResult: problemDomain.ProblemListResult;
     loggedIn: boolean;
+    showCreate?: boolean;
   }
 
-  let { publicResult, loggedIn }: Props = $props();
+  let { publicResult, loggedIn, showCreate = false }: Props = $props();
 
   let currentUrl = $derived(page.url);
   let currentPage = $derived(publicResult.page);
@@ -43,6 +45,15 @@
     else params.delete("page");
     const qs = params.toString();
     void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: false });
+  }
+
+  function clearFilters() {
+    const params = new URLSearchParams(currentUrl.searchParams);
+    for (const key of ["q", "difficulty", "status", "types", "judge", "tags", "page"]) {
+      params.delete(key);
+    }
+    const qs = params.toString();
+    void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
   }
 
   let paginationPages = $derived.by(() => {
@@ -86,9 +97,40 @@
 
     <section class="grid gap-4">
       {#if publicResult.totalCount === 0 && !hasActiveFilters}
-        <EmptyState icon={FileCode} title={m.problems_empty()} />
+        <EmptyState
+          icon={FileCode}
+          variant="onboarding"
+          title={m.problems_empty()}
+          description={m.problems_emptyDescription()}
+          actions={showCreate
+            ? [{ href: "?tab=mine", label: m.problems_createFirst() }]
+            : [{ href: "/courses", label: m.dashboard_welcomeGuideBrowseCourses() }]}
+        />
       {:else if publicResult.problems.length === 0}
-        <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} />
+        <div class="flex flex-col items-center gap-4 py-16">
+          <EmptyState
+            icon={Search}
+            variant="minimal"
+            title={m.problems_noResults()}
+            class="py-0"
+          />
+          <Button variant="outline" size="sm" onclick={clearFilters}>
+            {m.problems_clearFilters()}
+          </Button>
+        </div>
+      {/if}
+
+      {#if publicResult.problems.length > 0}
+        <div
+          class="hidden border border-transparent px-4 text-caption font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center sm:gap-x-8"
+        >
+          <span>{m.problems_columnProblem()}</span>
+          <span class="min-w-24 text-center">{m.problemDetail_problemTypeTitle()}</span>
+          <span class="min-w-24 text-center">{m.problemDetail_judgeMethodTitle()}</span>
+          <span class="min-w-20 text-center">{m.common_difficulty()}</span>
+          <span class="min-w-16 text-center">{m.common_acceptance()}</span>
+          {#if loggedIn}<span aria-hidden="true"></span>{/if}
+        </div>
       {/if}
 
       {#each publicResult.problems as problem, index (problem.id)}
@@ -128,7 +170,7 @@
                 <div class="mt-1.5 flex flex-wrap items-center gap-1">
                   {#each problem.tags as tag (tag)}
                     <span
-                      class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass()}"
+                      class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-caption font-medium capitalize leading-none {tagClass()}"
                     >
                       {tag}
                     </span>
@@ -138,13 +180,13 @@
             </div>
           </div>
           <div class="flex min-w-24 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">
+            <p class="text-body-sm text-muted-foreground sm:hidden">
               {m.problemDetail_problemTypeTitle()}
             </p>
             <p class="mt-1 text-body font-semibold">{renderProblemType(problem.type)}</p>
           </div>
           <div class="flex min-w-24 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">
+            <p class="text-body-sm text-muted-foreground sm:hidden">
               {m.problemDetail_judgeMethodTitle()}
             </p>
             <p class="mt-1 text-body font-semibold">
@@ -152,7 +194,7 @@
             </p>
           </div>
           <div class="flex min-w-20 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
+            <p class="text-body-sm text-muted-foreground sm:hidden">{m.common_difficulty()}</p>
             <span
               class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
                 problem.difficulty,
@@ -162,7 +204,7 @@
             </span>
           </div>
           <div class="flex min-w-16 flex-col items-center text-center">
-            <p class="text-body-sm text-muted-foreground">{m.common_acceptance()}</p>
+            <p class="text-body-sm text-muted-foreground sm:hidden">{m.common_acceptance()}</p>
             <p class="mt-1 text-body-lg font-semibold tabular-nums">
               {formatAcceptanceRate(problem.acceptanceRate, problem.totalSubmissions)}
             </p>
@@ -180,7 +222,7 @@
       <nav class="flex justify-center gap-2 pt-2" aria-label={m.problems_pagination()}>
         {#if currentPage > 1}
           <button
-            class="rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)]"
+            class="inline-flex items-center justify-center rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
             onclick={() => goToPage(currentPage - 1)}
             type="button"
             aria-label={m.problems_previousPage()}
@@ -193,9 +235,9 @@
             <span class="px-2 py-1 text-body-sm text-muted-foreground">&hellip;</span>
           {:else}
             <button
-              class="rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft {p ===
+              class="inline-flex items-center justify-center rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11 {p ===
               currentPage
-                ? 'border-primary bg-primary text-white'
+                ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border hover:bg-[color:var(--color-panel)]'}"
               onclick={() => goToPage(p)}
               type="button"
@@ -206,7 +248,7 @@
         {/each}
         {#if currentPage < totalPages}
           <button
-            class="rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)]"
+            class="inline-flex items-center justify-center rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
             onclick={() => goToPage(currentPage + 1)}
             type="button"
             aria-label={m.problems_nextPage()}

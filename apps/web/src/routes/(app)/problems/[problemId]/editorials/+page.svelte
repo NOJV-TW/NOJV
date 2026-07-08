@@ -7,6 +7,7 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { toasts } from "$lib/stores/toast";
   import { formatDate } from "$lib/utils/datetime";
+  import { languageLabel } from "$lib/utils/language-labels";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
@@ -93,7 +94,7 @@
                     m.editorial_unknownAuthor()}
                 </span>
                 <span class="rounded-full bg-muted px-2 py-0.5 text-micro font-medium">
-                  {editorial.language}
+                  {languageLabel(editorial.language)}
                 </span>
                 <span class="tabular-nums">
                   {formatDate(editorial.createdAt)}

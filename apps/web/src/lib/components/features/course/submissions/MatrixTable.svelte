@@ -85,7 +85,7 @@
       {#each rows as row (row.userId)}
         <tr>
           <td
-            class="sticky left-0 z-[1] border-b border-r border-border-subtle bg-[color:var(--color-panel)] px-5 py-3 text-left"
+            class="sticky left-0 z-[1] border-b border-r border-border-subtle bg-background px-5 py-3 text-left before:absolute before:inset-0 before:-z-[1] before:bg-[color:var(--color-panel)] before:content-['']"
           >
             <div class="font-medium tracking-[-0.005em] text-foreground">{row.displayName}</div>
             {#if row.handle}
@@ -97,10 +97,10 @@
           {#each row.cells as cell (cell.problemId)}
             <td
               class={cn(
-                "border-b border-r border-border-subtle text-center text-body-sm",
+                "border-b border-r border-border-subtle text-center text-body-sm transition-[background-color,color] duration-normal ease-out-soft",
                 !oncellclick && "px-3 py-3",
                 cell.state === "ac" && "bg-success/15 font-semibold text-success",
-                cell.state === "partial" && "bg-destructive/10 text-destructive",
+                cell.state === "partial" && "bg-warning/12 text-warning",
                 cell.state === "zero" && "bg-destructive/20 font-semibold text-destructive",
                 cell.state === "empty" && "text-muted-foreground",
               )}

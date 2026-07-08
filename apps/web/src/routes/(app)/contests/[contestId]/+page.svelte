@@ -3,9 +3,9 @@
   import { goto } from "$app/navigation";
   import { enhance } from "$app/forms";
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
   import { toasts } from "$lib/stores/toast";
   import { Button } from "$lib/components/primitives/ui/button";
+  import { Tabs } from "$lib/components/primitives/ui/tabs";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
@@ -25,7 +25,11 @@
     type ContestLiveStatus,
   } from "$lib/components/features/contest/ContestSettingsTab.svelte";
   import ContestSubmissionsMatrix from "$lib/components/features/contest/ContestSubmissionsMatrix.svelte";
-  import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
+  import {
+    contestStatusFor,
+    durationMinutes,
+    problemLetter,
+  } from "$lib/components/features/contest/format";
   import { contestScoringLabel } from "$lib/utils/contest-scoring";
   import { fmtDate } from "$lib/utils/datetime.js";
 
@@ -43,17 +47,20 @@
     | "audit";
   let activeSubTab = $state<SubTabKey>("problems");
 
-  const subTabs: { key: SubTabKey; label: string }[] = $derived([
+  const primaryTabs: { key: SubTabKey; label: string }[] = $derived([
     { key: "problems", label: m.contestDetail_subTabProblems() },
     { key: "submissions", label: m.contestDetail_subTabSubmissions() },
     { key: "results", label: m.contestDetail_subTabResults() },
-    { key: "plagiarism", label: m.contestDetail_subTabPlagiarism() },
     { key: "settings", label: m.contestDetail_subTabSettings() },
+  ]);
+  const inspectTabs: { key: SubTabKey; label: string }[] = $derived([
+    { key: "plagiarism", label: m.contestDetail_subTabPlagiarism() },
     ...(data.clarification.canView
       ? [{ key: "clarifications" as const, label: m.contestDetail_subTabClarifications() }]
       : []),
     { key: "audit", label: m.contestDetail_subTabAudit() },
   ]);
+  const subTabs = $derived([...primaryTabs, ...inspectTabs]);
 
   let showOverrideDrawer = $state(false);
   let joining = $state(false);
@@ -107,8 +114,6 @@
   );
 </script>
 
-<!-- Defined at the component root (not inside <PageContainer>) so it stays a
-     local snippet instead of being treated as a snippet prop of PageContainer. -->
 {#snippet actionButtons()}
   {#if canSetOverride}
     {#if isPast}
@@ -229,70 +234,50 @@
   </StatRail>
 
   {#if isManager}
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div
-        role="tablist"
-        aria-label={m.contestDetail_subTabsLabel()}
-        class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
-      >
-        {#each subTabs as tab (tab.key)}
-          {@const isActive = activeSubTab === tab.key}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onclick={() => (activeSubTab = tab.key)}
-            class={cn(
-              "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
-              isActive
-                ? "bg-[color:var(--color-primary)]/14 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab.label}
-          </button>
-        {/each}
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
-        {@render actionButtons()}
-      </div>
+    <div class="flex flex-wrap items-center justify-end gap-3">
+      {@render actionButtons()}
     </div>
 
-    {#if activeSubTab === "problems"}
-      <ContestProblemsTab
-        problems={contest.problems}
-        problemsHidden={contest.problemsHidden}
-        contestId={contest.id}
-        scoringMode={contest.scoringMode}
-        {isLive}
-        {isPast}
-        {isManager}
-      />
-    {:else if activeSubTab === "submissions"}
-      {#if data.matrix}
-        <ContestSubmissionsMatrix matrix={data.matrix} contestId={contest.id} />
-      {:else}
-        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
-          {m.contestDetail_submissionsTabPlaceholder()}
-        </GlassPanel>
-      {/if}
-    {:else if activeSubTab === "results"}
-      {#if data.results}
-        <ContestResultsTab data={data.results} />
-      {:else}
-        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
-          {m.contestDetail_resultsTabUnavailable()}
-        </GlassPanel>
-      {/if}
-    {:else if activeSubTab === "plagiarism"}
-      <GlassPanel class="p-5">
+    <Tabs
+      tabs={subTabs}
+      bind:value={activeSubTab}
+      label={m.contestDetail_subTabsLabel()}
+      id="contest-manage"
+    >
+      {#if activeSubTab === "problems"}
+        <ContestProblemsTab
+          problems={contest.problems}
+          problemsHidden={contest.problemsHidden}
+          contestId={contest.id}
+          scoringMode={contest.scoringMode}
+          {isLive}
+          {isPast}
+          {isManager}
+        />
+      {:else if activeSubTab === "submissions"}
+        {#if data.matrix}
+          <ContestSubmissionsMatrix matrix={data.matrix} contestId={contest.id} />
+        {:else}
+          <div class="py-12 text-center text-body text-muted-foreground">
+            {m.contestDetail_submissionsTabPlaceholder()}
+          </div>
+        {/if}
+      {:else if activeSubTab === "results"}
+        {#if data.results}
+          <ContestResultsTab data={data.results} />
+        {:else}
+          <div class="py-12 text-center text-body text-muted-foreground">
+            {m.contestDetail_resultsTabUnavailable()}
+          </div>
+        {/if}
+      {:else if activeSubTab === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
           diffContext={{ type: "contest", id: contest.id }}
           problems={(contest.problems ?? []).map((p, i) => ({
             problemId: p.id,
-            letter: String.fromCharCode(65 + i),
+            letter: problemLetter(i + 1),
             title: p.title,
           }))}
           students={data.matrix
@@ -303,28 +288,28 @@
               }))
             : []}
         />
-      </GlassPanel>
-    {:else if activeSubTab === "settings"}
-      {#if contest.inviteCode}
-        <GlassPanel class="p-5">
-          <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-2">
-            {m.contestDetail_inviteCode()}
+      {:else if activeSubTab === "settings"}
+        {#if contest.inviteCode}
+          <div class="mb-5 rounded-lg border border-border-subtle p-4">
+            <div
+              class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
+            >
+              {m.contestDetail_inviteCode()}
+            </div>
+            <div class="select-all font-mono text-body">{contest.inviteCode}</div>
+            <p class="mt-2 text-caption text-muted-foreground">
+              {m.contestDetail_inviteCodeHint()}
+            </p>
           </div>
-          <div class="select-all font-mono text-body">{contest.inviteCode}</div>
-          <p class="mt-2 text-caption text-muted-foreground">
-            {m.contestDetail_inviteCodeHint()}
-          </p>
-        </GlassPanel>
-      {/if}
-      {#if data.settingsForm}
-        <ContestSettingsTab form={data.settingsForm} liveStatus={settingsLiveStatus} />
-      {:else}
-        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
-          {m.contestDetail_settingsTabPlaceholder()}
-        </GlassPanel>
-      {/if}
-    {:else if activeSubTab === "clarifications" && data.clarification.canView}
-      <GlassPanel class="p-6">
+        {/if}
+        {#if data.settingsForm}
+          <ContestSettingsTab form={data.settingsForm} liveStatus={settingsLiveStatus} />
+        {:else}
+          <div class="py-12 text-center text-body text-muted-foreground">
+            {m.contestDetail_settingsTabPlaceholder()}
+          </div>
+        {/if}
+      {:else if activeSubTab === "clarifications" && data.clarification.canView}
         <ClarificationTab
           contextType="contest"
           contextId={contest.id}
@@ -332,12 +317,10 @@
           canAnswer={data.clarification.canAnswer}
           problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
         />
-      </GlassPanel>
-    {:else if activeSubTab === "audit"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTab === "audit"}
         <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
-      </GlassPanel>
-    {/if}
+      {/if}
+    </Tabs>
   {:else}
     <div class="flex flex-wrap items-center justify-end gap-3">
       {@render actionButtons()}

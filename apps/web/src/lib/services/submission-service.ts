@@ -21,6 +21,17 @@ export interface SubmissionWorkspaceFile {
   content: string;
 }
 
+export class SubmissionRequestError extends Error {
+  constructor(
+    message: string,
+    readonly code: string | null,
+    readonly retryAfterSec: number | null,
+  ) {
+    super(message);
+    this.name = "SubmissionRequestError";
+  }
+}
+
 export interface SubmissionRequest {
   assessment?: SubmissionAssessmentContext | undefined;
   contestId?: string | undefined;
@@ -110,8 +121,11 @@ async function postSubmission(
   }
 
   if (!response.ok) {
-    const parsed = apiErrorSchema.safeParse(await response.json());
-    throw new Error(parsed.success ? parsed.data.message : "Submission failed.");
+    const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    const message = typeof body?.message === "string" ? body.message : "Submission failed.";
+    const code = typeof body?.code === "string" ? body.code : null;
+    const retryAfterSec = typeof body?.retryAfterSec === "number" ? body.retryAfterSec : null;
+    throw new SubmissionRequestError(message, code, retryAfterSec);
   }
 
   return submissionDispatchResponseSchema.parse(await response.json());

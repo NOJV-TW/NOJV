@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { SubtaskResultItem } from "@nojv/core";
+  import { ChevronRight } from "@lucide/svelte";
+  import { slide } from "svelte/transition";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { verdictBadgeVariant, formatVerdictLabel } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
@@ -11,6 +13,18 @@
   let { subtaskResults }: Props = $props();
 
   let expanded = $state<Record<number, boolean>>({});
+
+  let prefersReducedMotion = $state(false);
+  $effect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    prefersReducedMotion = mq.matches;
+    const handler = (e: MediaQueryListEvent) => {
+      prefersReducedMotion = e.matches;
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  });
 
   function earnedOf(s: SubtaskResultItem): number {
     return Math.round(s.rawScore ?? (s.passed ? s.weight : 0));
@@ -66,9 +80,12 @@
         aria-controls={`subtask-panel-${index}`}
         type="button"
       >
-        <span class="text-caption text-muted-foreground" aria-hidden="true"
-          >{isExpanded ? "▼" : "▶"}</span
-        >
+        <ChevronRight
+          class="size-3.5 shrink-0 text-muted-foreground transition-transform duration-fast ease-out-soft {isExpanded
+            ? 'rotate-90'
+            : ''}"
+          aria-hidden="true"
+        />
         <span
           class="font-semibold {state === 'full'
             ? 'text-success'
@@ -99,6 +116,7 @@
       {#if isExpanded && subtask.cases.length > 0}
         <div
           id={`subtask-panel-${index}`}
+          transition:slide={{ duration: prefersReducedMotion ? 0 : 200 }}
           class="border-t {state === 'full'
             ? 'border-success/30'
             : state === 'partial'

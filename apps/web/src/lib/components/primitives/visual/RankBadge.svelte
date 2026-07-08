@@ -19,7 +19,7 @@
 <span
   class="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md font-mono font-bold tabular-nums {rank <=
   3
-    ? 'text-primary-foreground'
+    ? 'text-rank-foreground'
     : 'text-muted-foreground'}"
   style="background: {bg};"
 >

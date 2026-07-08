@@ -34,6 +34,7 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/storage/avatars/[userId]": "exam-safe",
   "/api/storage/problem-images/[problemId]/[filename]": "exam-safe",
   "/api/storage/user-content-images/[userId]/[filename]": "exam-safe",
+  "/api/submissions": "exam-safe",
   "/api/submissions/[id]": "exam-safe",
   "/api/submissions/[id]/source": "exam-safe",
 };

@@ -225,7 +225,7 @@
         </button>
       </div>
       <div class="min-w-0 flex-1">
-        <h2 class="text-body-md font-semibold leading-snug">{displayTitle(editorial)}</h2>
+        <h2 class="text-body font-semibold leading-snug">{displayTitle(editorial)}</h2>
         <div class="mt-1 flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
           <span>{m.editorials_by()} {editorial.user.name ?? editorial.user.username}</span>
           <span class="rounded-full bg-muted px-2 py-0.5 font-medium">{editorial.language}</span
@@ -244,7 +244,7 @@
       </div>
     </div>
 
-    <div class="text-body-sm leading-7">
+    <div class="text-body leading-relaxed">
       <MarkdownRenderer content={editorial.content} />
     </div>
 

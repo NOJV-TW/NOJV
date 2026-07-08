@@ -43,6 +43,7 @@ export const load: PageServerLoad = handleLoad(async (event) => {
     canUnfreeze: canSeeLive,
     chart,
     contestId,
+    endsAt: detail.endsAt,
     scoreboard,
   };
 });

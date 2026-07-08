@@ -17,7 +17,7 @@
   </span>
   <span class="inline-flex items-center gap-1.5">
     <span
-      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-destructive/10"
+      class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-warning/12"
     ></span>
     {labels.legendPartial()}
   </span>

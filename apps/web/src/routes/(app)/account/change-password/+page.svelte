@@ -65,7 +65,7 @@
 
       <form method="POST" use:enhance class="flex flex-col gap-4">
         <label class="flex flex-col gap-1.5">
-          <span class="text-caption uppercase tracking-wide text-muted-foreground">
+          <span class="text-body-sm font-medium">
             {m.account_changePassword_current()}
           </span>
           <input
@@ -79,7 +79,7 @@
         </label>
 
         <label class="flex flex-col gap-1.5">
-          <span class="text-caption uppercase tracking-wide text-muted-foreground">
+          <span class="text-body-sm font-medium">
             {m.account_changePassword_new()}
           </span>
           <input
@@ -96,7 +96,7 @@
         </label>
 
         <label class="flex flex-col gap-1.5">
-          <span class="text-caption uppercase tracking-wide text-muted-foreground">
+          <span class="text-body-sm font-medium">
             {m.account_changePassword_confirm()}
           </span>
           <input

@@ -32,6 +32,9 @@
   role="separator"
   aria-orientation="horizontal"
   aria-label={m.common_resizeBottomPanel()}
+  aria-valuemin={minHeight}
+  aria-valuemax={maxHeight}
+  aria-valuenow={Math.round(height)}
   tabindex="0"
   onmousedown={onMouseDown}
   {onkeydown}

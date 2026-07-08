@@ -4,7 +4,6 @@
   import { Users } from "@lucide/svelte";
   import { Card } from "$lib/components/primitives/ui/card";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import FilterBar from "$lib/components/features/admin/users/FilterBar.svelte";
   import UsersTable from "$lib/components/features/admin/users/UsersTable.svelte";
@@ -15,23 +14,34 @@
 
   let searchValue = $state(untrack(() => data.search));
   let roleValue = $state(untrack(() => data.roleFilter));
+  let statusValue = $state(untrack(() => data.statusFilter));
 
   function applyFilters() {
     const params = new URLSearchParams();
     if (searchValue) params.set("search", searchValue);
     if (roleValue) params.set("role", roleValue);
+    if (statusValue) params.set("status", statusValue);
     goto(`/admin/users?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 </script>
 
 <PageContainer class="space-y-4">
-  <PageHeader
-    eyebrow={m.admin_eyebrow()}
-    title={m.admin_usersTitle()}
-    description={`${m.admin_usersFound({ count: data.totalCount })} · ${m.admin_usersPageOf({ page: data.page, totalPages: data.totalPages })}`}
-  />
+  <header class="animate-in space-y-1">
+    <h1 class="text-title-lg font-semibold">{m.admin_usersTitle()}</h1>
+    <p class="text-caption text-muted-foreground">
+      {m.admin_usersFound({ count: data.totalCount })} · {m.admin_usersPageOf({
+        page: data.page,
+        totalPages: data.totalPages,
+      })}
+    </p>
+  </header>
 
-  <FilterBar bind:search={searchValue} bind:role={roleValue} onApply={applyFilters} />
+  <FilterBar
+    bind:search={searchValue}
+    bind:role={roleValue}
+    bind:status={statusValue}
+    onApply={applyFilters}
+  />
 
   <Card variant="surface" size="lg" class="overflow-hidden p-0">
     {#if data.users.length === 0}
@@ -55,5 +65,6 @@
     totalPages={data.totalPages}
     search={data.search}
     roleFilter={data.roleFilter}
+    statusFilter={data.statusFilter}
   />
 </PageContainer>

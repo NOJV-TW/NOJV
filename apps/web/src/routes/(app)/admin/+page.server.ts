@@ -1,8 +1,9 @@
 import type { PageServerLoad } from "./$types";
 import { adminDomain } from "@nojv/application";
 
-const { getAdminDashboard } = adminDomain;
+const { getAdminDashboard, getSystemHealth } = adminDomain;
 
 export const load: PageServerLoad = async () => {
-  return getAdminDashboard();
+  const [dashboard, health] = await Promise.all([getAdminDashboard(), getSystemHealth()]);
+  return { ...dashboard, health };
 };

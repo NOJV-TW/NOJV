@@ -3,6 +3,7 @@
   import type { ContestScoringMode } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { contestModeUsesPoints } from "$lib/utils/contest-scoring";
+  import { problemLetter } from "$lib/components/features/contest/format";
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -91,7 +92,7 @@
             aria-disabled={enterHref ? undefined : true}
           >
             <div class="font-mono text-body font-semibold text-muted-foreground">
-              {String.fromCharCode(64 + p.ordinal)}
+              {problemLetter(p.ordinal)}
             </div>
             <div class="min-w-0">
               <div class="font-medium truncate">{p.title}</div>

@@ -34,7 +34,7 @@
 </script>
 
 <PageContainer class="animate-in animate-in-2 space-y-4">
-  <h1 class="text-h3 font-semibold">{m.admin_audit_title()}</h1>
+  <h1 class="text-title-lg font-semibold">{m.admin_audit_title()}</h1>
 
   {#if data.entries.length === 0}
     <p

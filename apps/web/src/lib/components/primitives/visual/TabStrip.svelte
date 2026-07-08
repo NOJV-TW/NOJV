@@ -23,7 +23,7 @@
     <button
       type="button"
       onclick={() => onChange(t.value)}
-      class="rounded-full px-3 py-1.5 transition-colors {activeTabValue === t.value
+      class="focus-ring rounded-full px-3 py-1.5 transition-colors {activeTabValue === t.value
         ? 'bg-primary text-primary-foreground'
         : 'text-muted-foreground hover:text-foreground'}"
     >

@@ -28,11 +28,14 @@
   >
     <span
       class="font-mono text-caption font-semibold tabular-nums"
-      style="color: var(--success);"
+      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
     >
       +{score}
     </span>
-    <span class="font-mono text-micro tabular-nums" style="color: var(--success);">
+    <span
+      class="font-mono text-micro tabular-nums"
+      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
+    >
       {fmtTime(firstAcTime)}
     </span>
   </div>
@@ -41,8 +44,13 @@
     class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
     style="background: color-mix(in oklab, var(--info) 14%, transparent);"
   >
-    <span class="font-mono text-caption font-semibold" style="color: var(--info);">?</span>
-    <span class="font-mono text-micro" style="color: var(--info);"
+    <span
+      class="font-mono text-caption font-semibold"
+      style="color: color-mix(in oklab, var(--info) 50%, var(--foreground));">?</span
+    >
+    <span
+      class="font-mono text-micro"
+      style="color: color-mix(in oklab, var(--info) 50%, var(--foreground));"
       >{m.scoreboard_pending()}</span
     >
   </div>
@@ -51,10 +59,15 @@
     class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
     style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
   >
-    <span class="font-mono text-caption font-semibold" style="color: var(--destructive);">
+    <span
+      class="font-mono text-caption font-semibold"
+      style="color: color-mix(in oklab, var(--destructive) 50%, var(--foreground));"
+    >
       −{attempts}
     </span>
-    <span class="font-mono text-micro" style="color: var(--destructive);"
+    <span
+      class="font-mono text-micro"
+      style="color: color-mix(in oklab, var(--destructive) 50%, var(--foreground));"
       >{m.scoreboard_try()}</span
     >
   </div>

@@ -10,6 +10,7 @@
     draftEnabled?: boolean;
     isDirty?: boolean;
     lastSavedAt?: number | null;
+    cooldownUntil?: number | null;
     onRun: () => void;
     onSubmit: () => void;
   }
@@ -23,11 +24,28 @@
     draftEnabled = false,
     isDirty = false,
     lastSavedAt = null,
+    cooldownUntil = null,
     onRun,
     onSubmit,
   }: Props = $props();
 
   let disabled = $derived(availableLanguageCount === 0 || !hasSubmittableSource);
+
+  let now = $state(Date.now());
+  let cooldownRemaining = $derived(
+    cooldownUntil != null ? Math.max(0, Math.ceil((cooldownUntil - now) / 1000)) : 0,
+  );
+
+  $effect(() => {
+    const until = cooldownUntil;
+    if (until == null || until <= Date.now()) return;
+    now = Date.now();
+    const id = setInterval(() => {
+      now = Date.now();
+      if (until <= now) clearInterval(id);
+    }, 250);
+    return () => clearInterval(id);
+  });
 </script>
 
 <div
@@ -36,8 +54,8 @@
   <div class="flex items-center gap-2">
     {#if draftEnabled}
       {#if isDirty}
-        <span class="flex items-center gap-1.5 text-caption font-medium text-amber-500">
-          <span class="inline-block size-1.5 animate-pulse rounded-full bg-amber-500"></span>
+        <span class="flex items-center gap-1.5 text-caption font-medium text-warning">
+          <span class="inline-block size-1.5 animate-pulse rounded-full bg-warning"></span>
           {m.draft_unsaved()}
         </span>
       {:else if lastSavedAt != null}
@@ -61,7 +79,7 @@
     </button>
     <button
       class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={isSubmitting || disabled || attemptsExhausted}
+      disabled={isSubmitting || disabled || attemptsExhausted || cooldownRemaining > 0}
       aria-busy={isSubmitting}
       onclick={onSubmit}
       title={attemptsExhausted
@@ -71,7 +89,13 @@
           : undefined}
       type="button"
     >
-      {isSubmitting ? m.editor_submitting() : m.editor_submitButton()}
+      {#if cooldownRemaining > 0}
+        {m.editor_submitCooldown({ seconds: cooldownRemaining })}
+      {:else if isSubmitting}
+        {m.editor_submitting()}
+      {:else}
+        {m.editor_submitButton()}
+      {/if}
     </button>
   </div>
 </div>

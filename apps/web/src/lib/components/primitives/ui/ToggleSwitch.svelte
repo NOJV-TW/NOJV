@@ -5,7 +5,7 @@
 <label class="flex cursor-pointer items-center">
   <input type="checkbox" class="peer sr-only" bind:checked />
   <span
-    class="relative mt-2 block h-5 w-10 flex-shrink-0 rounded-full border border-border bg-muted transition-colors peer-checked:border-primary peer-checked:bg-primary"
+    class="relative block h-5 w-10 flex-shrink-0 rounded-full border border-border bg-muted transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
     aria-hidden="true"
   >
     <span

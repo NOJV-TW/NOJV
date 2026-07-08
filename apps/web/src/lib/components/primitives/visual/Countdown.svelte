@@ -18,7 +18,18 @@
     return () => clearInterval(id);
   });
 
-  const c = $derived(fmtCountdown(diffMs(iso, new Date(now))));
+  const remainingMs = $derived(diffMs(iso, new Date(now)));
+  const c = $derived(fmtCountdown(remainingMs));
+
+  const toneClass = $derived(
+    c.past
+      ? "text-muted-foreground"
+      : remainingMs <= 60_000
+        ? "text-destructive"
+        : remainingMs <= 300_000
+          ? "text-warning"
+          : "",
+  );
 
   function pad(n: number): string {
     return n < 10 ? `0${String(n)}` : String(n);
@@ -26,7 +37,7 @@
 </script>
 
 {#if isCompact}
-  <span class="font-mono tabular-nums">
+  <span class="font-mono tabular-nums {toneClass}">
     {#if c.past}
       {m.countdown_past()}
     {:else if c.d > 0}
@@ -41,15 +52,15 @@
       <span class="text-muted-foreground">{m.countdown_past()}</span>
     {:else}
       {#if c.d > 0}
-        <span class="text-title font-bold">{c.d}</span>
+        <span class="text-title font-bold {toneClass}">{c.d}</span>
         <span class="text-caption text-muted-foreground mr-1">d</span>
       {/if}
-      <span class="text-title font-bold">{pad(c.h)}</span>
+      <span class="text-title font-bold {toneClass}">{pad(c.h)}</span>
       <span class="text-caption text-muted-foreground">h</span>
-      <span class="text-title font-bold">{pad(c.m)}</span>
+      <span class="text-title font-bold {toneClass}">{pad(c.m)}</span>
       <span class="text-caption text-muted-foreground">m</span>
       {#if c.d === 0}
-        <span class="text-title font-bold">{pad(c.s)}</span>
+        <span class="text-title font-bold {toneClass}">{pad(c.s)}</span>
         <span class="text-caption text-muted-foreground">s</span>
       {/if}
     {/if}

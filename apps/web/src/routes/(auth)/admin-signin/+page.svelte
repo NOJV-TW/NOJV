@@ -84,7 +84,7 @@
         <Badge variant="outline" size="sm">{m.auth_adminBadge()}</Badge>
       </div>
       <p class="mt-2 text-body-sm text-muted-foreground">
-        {m.auth_adminDescription()}
+        {m.auth_adminSignInHint()}
       </p>
     </div>
 

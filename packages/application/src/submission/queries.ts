@@ -195,30 +195,40 @@ function buildSubmissionContext(submission: {
   return { kind: "practice" as const };
 }
 
-export async function listUserSubmissions(userId: string) {
-  const submissions = await submissionRepo.listByUser({ userId });
+export async function listUserSubmissions(opts: {
+  userId: string;
+  limit: number;
+  cursor?: string;
+}) {
+  const rows = await submissionRepo.listByUser(opts);
+  const hasMore = rows.length > opts.limit;
+  const items = hasMore ? rows.slice(0, opts.limit) : rows;
+  const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
 
-  return submissions.map((s) => {
-    const language = languageSchema.parse(s.language);
+  return {
+    items: items.map((s) => {
+      const language = languageSchema.parse(s.language);
 
-    return {
-      createdAt: s.createdAt.toISOString(),
-      id: s.id,
-      language,
-      problemId: s.problem.id,
-      problemTitle: s.problem.title,
-      runtimeMs: s.runtimeMs,
-      memoryKb: s.memoryKb,
-      score: s.score,
-      totalScore: computeProblemTotalScore({
-        type: s.problem.type,
-        testcaseSets: s.problem.testcaseSets,
-        advancedConfig: s.problem.advancedConfig,
-      }),
-      status: s.status,
-      context: deriveSubmissionContextKind(s),
-    };
-  });
+      return {
+        createdAt: s.createdAt.toISOString(),
+        id: s.id,
+        language,
+        problemId: s.problem.id,
+        problemTitle: s.problem.title,
+        runtimeMs: s.runtimeMs,
+        memoryKb: s.memoryKb,
+        score: s.score,
+        totalScore: computeProblemTotalScore({
+          type: s.problem.type,
+          testcaseSets: s.problem.testcaseSets,
+          advancedConfig: s.problem.advancedConfig,
+        }),
+        status: s.status,
+        context: deriveSubmissionContextKind(s),
+      };
+    }),
+    nextCursor,
+  };
 }
 
 export async function listRejudgeLogsPaged(opts: {

@@ -25,6 +25,7 @@
   import { cn, inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
+  import { problemLetter } from "$lib/components/features/contest/format";
   import type { FormMessage } from "$lib/types/form-message";
 
   interface Props {
@@ -231,7 +232,7 @@
                 <span
                   class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
                 >
-                  {String.fromCharCode(65 + i)}
+                  {problemLetter(i + 1)}
                 </span>
                 <input
                   class={inputClassName}

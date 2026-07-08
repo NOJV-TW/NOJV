@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { invalidateAll } from "$app/navigation";
+  import { fade } from "svelte/transition";
   import { AlertTriangle, Code2, LineChart, PieChart } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
@@ -23,6 +24,19 @@
   const stats = $derived(data.stats);
   const analytics = $derived(data.analytics);
   const hasActivity = $derived(stats.totalAttempts > 0);
+
+  let prefersReducedMotion = $state(false);
+  $effect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    prefersReducedMotion = mq.matches;
+    const handler = (e: MediaQueryListEvent) => {
+      prefersReducedMotion = e.matches;
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  });
+  const fadeIn = $derived({ duration: prefersReducedMotion ? 0 : 180 });
 
   const acRate = $derived(
     stats.totalAttempts > 0
@@ -103,36 +117,39 @@
 
   const difficultyOption: EChartsOption = $derived({
     animation: false,
+    grid: { left: 72, right: 24, top: 8, bottom: 24 },
     tooltip: {
-      trigger: "item",
-      formatter: "{b}: {c} ({d}%)",
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
       appendToBody: true,
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    legend: {
-      bottom: 0,
-      textStyle: { fontSize: 11, color: themeColors.foreground },
-      type: "scroll",
+    xAxis: {
+      type: "value",
+      min: 0,
+      minInterval: 1,
+      axisLabel: { fontSize: 11, color: themeColors.mutedFg },
+    },
+    yAxis: {
+      type: "category",
+      inverse: true,
+      data: analytics.byDifficulty.map((d) => d.difficulty),
+      axisLabel: {
+        fontSize: 12,
+        color: themeColors.foreground,
+        formatter: (v: string) => v.charAt(0).toUpperCase() + v.slice(1),
+      },
     },
     series: [
       {
-        type: "pie",
-        radius: ["40%", "70%"],
-        center: ["50%", "45%"],
-        avoidLabelOverlap: true,
-        emphasis: { disabled: true },
-        itemStyle: {
-          borderRadius: 6,
-          borderColor: themeColors.panel,
-          borderWidth: 2,
-        },
-        label: { show: false },
+        type: "bar",
         data: analytics.byDifficulty.map((d) => ({
-          name: d.difficulty,
           value: d.acCount,
           itemStyle: { color: difficultyColor[d.difficulty] ?? themeColors.mutedFg },
         })),
+        itemStyle: { borderRadius: [0, 4, 4, 0] },
+        barMaxWidth: 18,
       },
     ],
   });
@@ -180,11 +197,7 @@
         data: analytics.byVerdict.map((v) => ({
           name: formatVerdictLabel(v.status),
           value: v.count,
-          itemStyle: {
-            color: verdictPalette[v.status] ?? themeColors.mutedFg,
-            borderWidth: v.status === "accepted" ? 3 : 2,
-            opacity: v.status === "accepted" ? 1 : 0.5,
-          },
+          itemStyle: { color: verdictPalette[v.status] ?? themeColors.mutedFg },
         })),
       },
     ],
@@ -268,38 +281,37 @@
 
   const languageOption: EChartsOption = $derived({
     animation: false,
+    grid: { left: 96, right: 24, top: 8, bottom: 24 },
     tooltip: {
-      trigger: "item",
-      formatter: "{b}: {c} ({d}%)",
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
       appendToBody: true,
       extraCssText: "pointer-events:none;",
       transitionDuration: 0,
     },
-    legend: {
-      bottom: 0,
-      textStyle: { fontSize: 11, color: themeColors.foreground },
-      type: "scroll",
+    xAxis: {
+      type: "value",
+      min: 0,
+      minInterval: 1,
+      axisLabel: { fontSize: 11, color: themeColors.mutedFg },
+    },
+    yAxis: {
+      type: "category",
+      inverse: true,
+      data: analytics.byLanguage.map((l) => l.language),
+      axisLabel: { fontSize: 12, color: themeColors.foreground },
     },
     series: [
       {
-        type: "pie",
-        radius: ["40%", "70%"],
-        center: ["50%", "45%"],
-        avoidLabelOverlap: true,
-        emphasis: { disabled: true },
-        itemStyle: {
-          borderRadius: 6,
-          borderColor: themeColors.panel,
-          borderWidth: 2,
-        },
-        label: { show: false },
+        type: "bar",
         data: analytics.byLanguage.map((l, i) => ({
-          name: l.language,
           value: l.count,
           itemStyle: {
             color: languagePalette[i % languagePalette.length] ?? themeColors.mutedFg,
           },
         })),
+        itemStyle: { borderRadius: [0, 4, 4, 0] },
+        barMaxWidth: 18,
       },
     ],
   });
@@ -332,7 +344,7 @@
     <WelcomeGuide username={data.displayName} platformRole={data.platformRole} />
   {:else}
     <div class="space-y-6">
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <Card variant="surface" size="lg">
           <div class="flex flex-col gap-6">
             <div class="flex items-baseline justify-between gap-4">
@@ -346,7 +358,7 @@
                 <span class="text-caption text-muted-foreground">
                   {m.dashboard_totalAc()}
                 </span>
-                <span class="text-headline font-semibold tabular-nums">
+                <span class="text-headline font-semibold tabular-nums text-success">
                   {stats.totalAc}
                 </span>
               </div>
@@ -373,7 +385,7 @@
                     <Skeleton class="h-8 w-12" />
                   </div>
                 {:then activity}
-                  <span class="text-headline font-semibold tabular-nums">
+                  <span in:fade={fadeIn} class="text-headline font-semibold tabular-nums">
                     {buildActivityModel(activity, new Date(), 365).heatmapDays.filter(
                       (d) => d.submissionCount > 0,
                     ).length}
@@ -388,6 +400,42 @@
           </div>
         </Card>
 
+        {#await data.streamed.activity}
+          <div aria-busy="true" aria-live="polite">
+            <Card variant="surface" size="lg">
+              <h2 class="mb-4 text-title-sm font-semibold">
+                {m.dashboard_activityChart()}
+              </h2>
+              <Skeleton class="h-48 w-full" />
+            </Card>
+          </div>
+        {:then activity}
+          {@const activityModel = buildActivityModel(activity, new Date(), 365)}
+          {@const dailyActivity = activityModel.heatmapDays}
+          {@const hasHeatmapData = dailyActivity.some((d) => d.acCount > 0)}
+          <div in:fade={fadeIn}>
+            <Card variant="surface" size="lg">
+              {#if hasHeatmapData}
+                <ActivityHeatmap data={dailyActivity} title={m.dashboard_activityChart()} />
+              {:else}
+                <h2 class="mb-4 text-title-sm font-semibold">
+                  {m.dashboard_activityChart()}
+                </h2>
+                <EmptyState
+                  variant="minimal"
+                  icon={LineChart}
+                  title={m.dashboard_noActivity()}
+                  description={m.dashboard_startPracticing()}
+                />
+              {/if}
+            </Card>
+          </div>
+        {:catch}
+          {@render errorCard()}
+        {/await}
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
         <Card variant="surface" size="lg">
           <h2 class="mb-4 text-title-sm font-semibold">
             {m.dashboard_tagProficiency()}
@@ -398,41 +446,7 @@
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
           {/if}
         </Card>
-      </div>
 
-      {#await data.streamed.activity}
-        <div aria-busy="true" aria-live="polite" class="contents">
-          <Card variant="surface" size="lg">
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_activityChart()}
-            </h2>
-            <Skeleton class="h-48 w-full" />
-          </Card>
-        </div>
-      {:then activity}
-        {@const activityModel = buildActivityModel(activity, new Date(), 365)}
-        {@const dailyActivity = activityModel.heatmapDays}
-        {@const hasHeatmapData = dailyActivity.some((d) => d.acCount > 0)}
-        <Card variant="surface" size="lg">
-          {#if hasHeatmapData}
-            <ActivityHeatmap data={dailyActivity} title={m.dashboard_activityChart()} />
-          {:else}
-            <h2 class="mb-4 text-title-sm font-semibold">
-              {m.dashboard_activityChart()}
-            </h2>
-            <EmptyState
-              variant="minimal"
-              icon={LineChart}
-              title={m.dashboard_noActivity()}
-              description={m.dashboard_startPracticing()}
-            />
-          {/if}
-        </Card>
-      {:catch}
-        {@render errorCard()}
-      {/await}
-
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card variant="surface" size="lg">
           <h2 class="mb-4 text-title-sm font-semibold">
             {m.dashboard_difficultyDist()}
@@ -449,19 +463,7 @@
             {m.dashboard_verdictDistribution()}
           </h2>
           {#if hasVerdictData}
-            <div class="relative">
-              <EChart option={verdictOption} class="h-56 w-full" />
-              <div
-                class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
-              >
-                <span class="text-headline font-semibold leading-none tabular-nums">
-                  {acRate}
-                </span>
-                <span class="mt-1 text-caption text-muted-foreground">
-                  {m.dashboard_acRate()}
-                </span>
-              </div>
-            </div>
+            <EChart option={verdictOption} class="h-56 w-full" />
           {:else}
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
           {/if}

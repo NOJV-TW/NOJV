@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
-  import { ChevronRight, Pencil } from "@lucide/svelte";
+  import { ChevronRight, Monitor, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
   import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
@@ -22,6 +22,7 @@
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { Tabs } from "$lib/components/primitives/ui/tabs";
   import { fmtDate } from "$lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
@@ -318,9 +319,9 @@
                 {:else if verdict === "partial"}
                   <span
                     class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-caption uppercase tracking-wider"
-                    style="background: color-mix(in oklab, var(--chart-4) 22%, transparent); color: var(--warning);"
+                    style="background: color-mix(in oklab, var(--chart-4) 22%, transparent); color: var(--warning-strong);"
                   >
-                    Partial
+                    {m.examDetail_verdictPartial()}
                   </span>
                 {:else if verdict === "zero"}
                   <span
@@ -420,18 +421,14 @@
                 {m.examDetail_studentRulesHeading()}
               </h2>
             </div>
-            <ul class="mt-4 space-y-2.5">
+            <ol class="mt-4 space-y-2.5">
               {#each rules as r, i (i)}
                 <li class="flex items-start gap-3 text-body-sm">
-                  <span
-                    class="mt-0.5 font-mono text-micro uppercase tracking-wider tabular-nums text-muted-foreground"
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
+                  <span class="mt-px tabular-nums text-muted-foreground">{i + 1}.</span>
                   <span>{r}</span>
                 </li>
               {/each}
-            </ul>
+            </ol>
 
             <div class="mt-6 border-t border-border-subtle pt-5">
               <div
@@ -462,7 +459,7 @@
                 <li class="flex items-start gap-2">
                   <span
                     class="mt-0.5 inline-flex size-4 items-center justify-center rounded-full"
-                    style="background: color-mix(in oklab, var(--success) 18%, transparent); color: var(--success);"
+                    style="background: color-mix(in oklab, var(--success) 18%, transparent); color: var(--success-strong);"
                   >
                     <svg
                       width="10"
@@ -477,23 +474,34 @@
                 </li>
               {/each}
             </ul>
-            <button
-              type="button"
-              disabled={liveStatus !== "running"}
-              onclick={() => (showStartModal = true)}
-              class="mt-auto w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+            <div class="mt-auto hidden lg:block">
+              <button
+                type="button"
+                disabled={liveStatus !== "running"}
+                onclick={() => (showStartModal = true)}
+                class="w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {m.examDetail_studentStartButton()}
+              </button>
+              <p class="mt-2 text-center text-caption text-muted-foreground">
+                {#if liveStatus === "running"}
+                  {m.examDetail_studentStartHintRunning()}
+                {:else if liveStatus === "upcoming"}
+                  {m.examDetail_studentStartHintUpcoming()}
+                {:else}
+                  {m.examDetail_studentStartHintNotOpen()}
+                {/if}
+              </p>
+            </div>
+            <div
+              class="mt-auto flex flex-col items-center gap-2 rounded-md border border-border-subtle bg-[color:var(--color-panel)] px-4 py-5 text-center lg:hidden"
             >
-              {m.examDetail_studentStartButton()}
-            </button>
-            <p class="text-center text-caption text-muted-foreground">
-              {#if liveStatus === "running"}
-                {m.examDetail_studentStartHintRunning()}
-              {:else if liveStatus === "upcoming"}
-                {m.examDetail_studentStartHintUpcoming()}
-              {:else}
-                {m.examDetail_studentStartHintNotOpen()}
-              {/if}
-            </p>
+              <Monitor class="size-6 text-primary" aria-hidden="true" />
+              <p class="text-body-sm font-semibold">{m.mobile_examStartBlockedTitle()}</p>
+              <p class="text-caption text-muted-foreground [text-wrap:pretty]">
+                {m.mobile_examStartBlockedDescription()}
+              </p>
+            </div>
           </GlassPanel>
         </div>
       {/if}
@@ -552,22 +560,8 @@
       </p>
     </GlassPanel>
 
-    <div class="flex flex-wrap gap-2">
-      <button
-        type="button"
-        onclick={() => (activeSubTabKey = "results")}
-        class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-      >
-        {m.examDetail_managerClassResultsLink()}
-      </button>
-      <button
-        type="button"
-        onclick={() => (activeSubTabKey = "submissions")}
-        class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-      >
-        {m.examDetail_managerSubmissionMatrixLink()}
-      </button>
-      {#if canSetOverride}
+    {#if canSetOverride}
+      <div class="flex flex-wrap gap-2">
         {#if past}
           <button
             type="button"
@@ -581,44 +575,24 @@
             {m.grading_availableAfterClose()}
           </span>
         {/if}
-      {/if}
-    </div>
+      </div>
+    {/if}
 
-    <div
-      role="tablist"
-      aria-label={m.examDetail_subTabsLabel()}
-      class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
+    <Tabs
+      tabs={subTabs}
+      bind:value={activeSubTabKey}
+      label={m.examDetail_subTabsLabel()}
+      id="exam-manage"
     >
-      {#each subTabs as tab (tab.key)}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSubTabKey === tab.key}
-          onclick={() => (activeSubTabKey = tab.key)}
-          class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
-          tab.key
-            ? 'bg-[color:var(--color-primary)]/14 text-primary'
-            : 'text-muted-foreground hover:text-foreground'}"
-        >
-          {tab.label}
-        </button>
-      {/each}
-    </div>
-
-    {#if activeSubTabKey === "submissions" && data.matrix}
-      <GlassPanel class="p-5">
+      {#if activeSubTabKey === "submissions" && data.matrix}
         <ExamSubmissionsMatrix
           matrix={data.matrix}
           examId={detail.id}
           oncellclick={canSetOverride ? gradeCell : undefined}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "results" && data.results}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "results" && data.results}
         <ExamResultsTab data={data.results} />
-      </GlassPanel>
-    {:else if activeSubTabKey === "plagiarism"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
@@ -636,18 +610,14 @@
               }))
             : []}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "proctoring"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "proctoring"}
         <ExamProctoringTab
           violations={data.ipViolations ?? []}
           activeSessions={data.activeSessions ?? []}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "settings" && data.settingsForm}
-      <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
-    {:else if activeSubTabKey === "clarifications"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "settings" && data.settingsForm}
+        <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
+      {:else if activeSubTabKey === "clarifications"}
         <ClarificationTab
           contextType="exam"
           contextId={detail.id}
@@ -655,20 +625,19 @@
           canAnswer={data.clarification.canAnswer}
           problems={clarificationProblems}
         />
-      </GlassPanel>
-    {:else if activeSubTabKey === "audit"}
-      <GlassPanel class="p-5">
+      {:else if activeSubTabKey === "audit"}
         <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
-      </GlassPanel>
-    {:else}
-      <ExamProblemsTab
-        {detail}
-        {liveStatus}
-        canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
-        canRejudge={isManager}
-        {form}
-      />
-    {/if}
+      {:else}
+        <ExamProblemsTab
+          {detail}
+          {liveStatus}
+          canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
+          canRejudge={isManager}
+          candidateProblems={data.candidateProblems}
+          {form}
+        />
+      {/if}
+    </Tabs>
   {/if}
 </PageContainer>
 

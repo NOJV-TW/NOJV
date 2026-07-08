@@ -46,17 +46,25 @@
 </script>
 
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { flip } from "svelte/animate";
+  import { cubicOut } from "svelte/easing";
+  import { Snowflake, Trophy } from "@lucide/svelte";
   import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import { entriesAroundUser } from "$lib/utils/scoreboard";
+  import { problemLetter } from "$lib/components/features/contest/format";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
+  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import RankBadge from "$lib/components/primitives/visual/RankBadge.svelte";
+  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
+  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import SolveCountCell from "$lib/components/features/contest/SolveCountCell.svelte";
   import PointSumCell from "$lib/components/features/contest/PointSumCell.svelte";
@@ -71,18 +79,34 @@
   let unfreezing = $state(false);
   let lastRefreshed = $state(Date.now());
   let justRefreshed = $state(false);
+  let refreshing = $state(false);
+  let nowTick = $state(Date.now());
+
+  const secondsSinceRefresh = $derived(
+    Math.max(0, Math.round((nowTick - lastRefreshed) / 1000)),
+  );
 
   const AUTO_REFRESH_MS = 30_000;
   const SSE_DEBOUNCE_MS = 1500;
   onMount(() => {
     async function refresh() {
-      await invalidate("contest:scoreboard");
+      refreshing = true;
+      try {
+        await invalidate("contest:scoreboard");
+      } finally {
+        refreshing = false;
+      }
       lastRefreshed = Date.now();
+      nowTick = Date.now();
       justRefreshed = true;
       setTimeout(() => {
         justRefreshed = false;
       }, 1200);
     }
+
+    const tick = setInterval(() => {
+      nowTick = Date.now();
+    }, 1000);
 
     let debounce: ReturnType<typeof setTimeout> | null = null;
     function debouncedRefresh() {
@@ -108,6 +132,7 @@
     return () => {
       source.close();
       clearInterval(interval);
+      clearInterval(tick);
       if (debounce) clearTimeout(debounce);
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -147,8 +172,45 @@
 
   function avatarBg(name: string): string {
     const code = name.charCodeAt(0) || 65;
-    return `hsl(${String((code * 7) % 360)} 30% 65%)`;
+    const token = chartColors[code % chartColors.length] ?? "var(--chart-1)";
+    return `color-mix(in oklab, ${token} 65%, var(--panel))`;
   }
+
+  const contestLive = $derived(new Date(data.endsAt).getTime() > nowTick);
+
+  function stickyBg(isMe: boolean): string {
+    const base = "linear-gradient(var(--panel), var(--panel)), var(--background)";
+    return isMe
+      ? `linear-gradient(color-mix(in oklab, var(--primary) 8%, transparent), color-mix(in oklab, var(--primary) 8%, transparent)), ${base}`
+      : base;
+  }
+
+  let prefersReducedMotion = $state(false);
+  $effect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    prefersReducedMotion = mq.matches;
+    const handler = (e: MediaQueryListEvent) => {
+      prefersReducedMotion = e.matches;
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  });
+
+  let rankPulse = $state(false);
+  let prevRank: number | null = null;
+  let pulseTimer: ReturnType<typeof setTimeout> | null = null;
+  $effect(() => {
+    const r = myRow?.rank ?? null;
+    untrack(() => {
+      if (prevRank !== null && r !== null && r !== prevRank) {
+        rankPulse = true;
+        if (pulseTimer) clearTimeout(pulseTimer);
+        pulseTimer = setTimeout(() => (rankPulse = false), 800);
+      }
+      prevRank = r;
+    });
+  });
 
   const chartPaths = $derived(buildChartPaths(chart.series, 800, 300, 40));
 </script>
@@ -167,21 +229,7 @@
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M8 4h8v3a4 4 0 0 1-8 0V4z" />
-          <path d="M16 5h3v2a3 3 0 0 1-3 3M8 5H5v2a3 3 0 0 0 3 3" />
-          <path d="M10 11v4M14 11v4" />
-          <path d="M8 20h8M9 20l1-3h4l1 3" />
-        </svg>
+        <Trophy aria-hidden="true" class="size-3.5" />
         <span
           >{m.contestDetail_scoreboard()} · {isSolveCount
             ? m.contestScoreboard_formatSolveCount()
@@ -198,16 +246,27 @@
       </p>
     </div>
 
+    {#if contestLive}
+      <div class="text-center">
+        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
+          {m.contests_timeLeft()}
+        </div>
+        <div class="mt-1">
+          <Countdown iso={data.endsAt} />
+        </div>
+      </div>
+    {/if}
+
     {#if scoreboard.isFrozen}
       <div
-        class="rounded-lg border border-dashed p-2 min-w-[200px]"
-        style="border-color: color-mix(in oklab, var(--destructive) 35%, transparent);"
+        class="rounded-lg border p-2 min-w-[200px]"
+        style="border-color: color-mix(in oklab, var(--info) 35%, transparent); background: color-mix(in oklab, var(--info) 8%, transparent);"
       >
         <div
-          class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
+          class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider"
+          style="color: var(--info);"
         >
-          <span class="size-1.5 rounded-full live-dot" style="background: var(--destructive);"
-          ></span>
+          <Snowflake aria-hidden="true" class="size-3.5" />
           <span>{m.contestDetail_frozen().toUpperCase()}</span>
         </div>
         <div class="mt-1 font-mono text-caption text-muted-foreground">
@@ -216,32 +275,18 @@
       </div>
     {/if}
 
-    <div class="grid grid-cols-3 gap-5 text-center">
-      <div>
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.contestScoreboard_kpiEntries()}
-        </div>
-        <div class="mt-1 text-title font-semibold tabular-nums">
-          {scoreboard.entries.length}
-        </div>
-      </div>
-      <div>
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.contestScoreboard_kpiProblems()}
-        </div>
-        <div class="mt-1 text-title font-semibold tabular-nums">
-          {scoreboard.problems.length}
-        </div>
-      </div>
-      <div>
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.contestScoreboard_kpiYourRank()}
-        </div>
-        <div class="mt-1 text-title font-semibold tabular-nums" style="color: var(--primary);">
-          #{myRow?.rank ?? "—"}
-        </div>
-      </div>
-    </div>
+    <StatRail>
+      <StatTile label={m.contestScoreboard_kpiEntries()}>
+        {#snippet value()}{scoreboard.entries.length}{/snippet}
+      </StatTile>
+      <StatTile label={m.contestScoreboard_kpiProblems()}>
+        {#snippet value()}{scoreboard.problems.length}{/snippet}
+      </StatTile>
+      <StatTile label={m.contestScoreboard_kpiYourRank()}>
+        {#snippet value()}<span style="color: var(--primary);">#{myRow?.rank ?? "—"}</span
+          >{/snippet}
+      </StatTile>
+    </StatRail>
   </div>
 
   <GlassPanel class="overflow-hidden">
@@ -255,7 +300,7 @@
           class="font-mono text-micro uppercase tracking-wider px-2 py-0.5 rounded-sm"
           style="background: {isSolveCount
             ? 'color-mix(in oklab, var(--primary) 14%, transparent)'
-            : 'color-mix(in oklab, var(--chart-3) 18%, transparent)'}; color: {isSolveCount
+            : 'color-mix(in oklab, var(--info) 18%, transparent)'}; color: {isSolveCount
             ? 'var(--primary)'
             : 'var(--info)'};"
         >
@@ -271,12 +316,23 @@
       </div>
       <div class="flex items-center gap-3">
         <span
-          class="text-caption text-muted-foreground tabular-nums transition-opacity {justRefreshed
+          class="flex items-center gap-1.5 text-caption text-muted-foreground tabular-nums transition-opacity {justRefreshed
             ? 'opacity-100'
             : 'opacity-60'}"
+          title={m.contestScoreboard_autoRefresh()}
           aria-live="polite"
         >
-          {m.contestScoreboard_autoRefresh()}
+          <span
+            class="size-1.5 rounded-full"
+            style="background: {refreshing ? 'var(--info)' : 'var(--success)'};"
+          ></span>
+          {#if refreshing}
+            {m.contestScoreboard_updating()}
+          {:else if secondsSinceRefresh < 5}
+            {m.contestScoreboard_updatedJustNow()}
+          {:else}
+            {m.contestScoreboard_updatedAgo({ seconds: secondsSinceRefresh })}
+          {/if}
         </span>
         {#if data.canUnfreeze && scoreboard.frozenAt}
           <Button
@@ -303,30 +359,28 @@
     </div>
 
     {#if scoreboard.entries.length === 0}
-      <div class="px-6 py-16 text-center text-body-sm text-muted-foreground">
-        {m.contestScoreboard_empty()}
-      </div>
+      <EmptyState icon={Trophy} title={m.contestScoreboard_empty()} />
     {:else if isSolveCount}
-      <div class="overflow-x-auto">
+      <div class="overflow-auto max-h-[70vh]">
         <table class="w-full text-body-sm">
           <thead>
-            <tr
-              class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-              style="background: color-mix(in oklab, var(--muted) 60%, transparent);"
-            >
-              <th class="text-left px-6 py-3 w-16">#</th>
-              <th class="text-left px-4 py-3">{m.contestScoreboard_colParticipant()}</th>
-              <th class="text-center px-3 py-3 w-20">{m.contestScoreboard_colSolved()}</th>
-              <th class="text-center px-3 py-3 w-24">{m.contestScoreboard_colPenalty()}</th>
+            <tr class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
+              <th class="sticky left-0 top-0 z-30 bg-muted text-left px-2 py-3 w-16">#</th>
+              <th class="sticky left-16 top-0 z-30 bg-muted text-left px-4 py-3"
+                >{m.contestScoreboard_colParticipant()}</th
+              >
+              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-20"
+                >{m.contestScoreboard_colSolved()}</th
+              >
+              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24"
+                >{m.contestScoreboard_colPenalty()}</th
+              >
               {#each scoreboard.problems as p (p.id)}
-                <th class="text-center px-2 py-3 w-[72px]">
+                <th class="sticky top-0 z-20 bg-muted text-center px-2 py-3 w-[72px]">
                   <div class="font-bold text-foreground">
-                    {String.fromCharCode(65 + p.ordinal)}
+                    {problemLetter(p.ordinal)}
                   </div>
-                  <div
-                    class="opacity-50 normal-case text-[10px] mt-0.5 truncate"
-                    title={p.title}
-                  >
+                  <div class="normal-case text-caption mt-0.5 truncate" title={p.title}>
                     {p.title}
                   </div>
                 </th>
@@ -336,17 +390,26 @@
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
             {#each displayEntries as r (r.username)}
               <tr
+                animate:flip={{ duration: prefersReducedMotion ? 0 : 320, easing: cubicOut }}
                 class="transition-colors {r.userId === myRow?.userId
-                  ? ''
+                  ? rankPulse
+                    ? 'motion-safe:animate-[pulse-soft_0.7s_ease-in-out]'
+                    : ''
                   : 'hover:bg-muted/40'}"
                 style={r.userId === myRow?.userId
                   ? "background: color-mix(in oklab, var(--primary) 8%, transparent); outline: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);"
                   : ""}
               >
-                <td class="px-6 py-3 align-middle">
+                <td
+                  class="sticky left-0 z-20 px-2 py-3 align-middle"
+                  style="background: {stickyBg(r.userId === myRow?.userId)};"
+                >
                   <RankBadge rank={r.rank} />
                 </td>
-                <td class="px-4 py-3 align-middle">
+                <td
+                  class="sticky left-16 z-10 px-4 py-3 align-middle"
+                  style="background: {stickyBg(r.userId === myRow?.userId)};"
+                >
                   <div class="flex items-center gap-2.5">
                     <div
                       class="size-7 rounded-full"
@@ -392,23 +455,24 @@
         </table>
       </div>
     {:else}
-      <div class="overflow-x-auto">
+      <div class="overflow-auto max-h-[70vh]">
         <table class="w-full text-body-sm">
           <thead>
-            <tr
-              class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-              style="background: color-mix(in oklab, var(--muted) 60%, transparent);"
-            >
-              <th class="text-left px-6 py-3 w-16">#</th>
-              <th class="text-left px-4 py-3">{m.contestScoreboard_colParticipant()}</th>
-              <th class="text-right px-4 py-3 w-24">{m.contestScoreboard_colTotal()}</th>
+            <tr class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
+              <th class="sticky left-0 top-0 z-30 bg-muted text-left px-2 py-3 w-16">#</th>
+              <th class="sticky left-16 top-0 z-30 bg-muted text-left px-4 py-3"
+                >{m.contestScoreboard_colParticipant()}</th
+              >
+              <th class="sticky top-0 z-20 bg-muted text-right px-4 py-3 w-24"
+                >{m.contestScoreboard_colTotal()}</th
+              >
               {#each scoreboard.problems as p (p.id)}
-                <th class="text-center px-3 py-3 w-24">
+                <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24">
                   <div class="font-bold text-foreground">
-                    {String.fromCharCode(65 + p.ordinal)}
+                    {problemLetter(p.ordinal)}
                   </div>
                   <div
-                    class="block font-normal text-muted-foreground tabular-nums text-[10px] mt-0.5"
+                    class="block font-normal text-muted-foreground tabular-nums text-caption mt-0.5"
                   >
                     {p.points}
                   </div>
@@ -419,17 +483,26 @@
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
             {#each displayEntries as r (r.username)}
               <tr
+                animate:flip={{ duration: prefersReducedMotion ? 0 : 320, easing: cubicOut }}
                 class="transition-colors {r.userId === myRow?.userId
-                  ? ''
+                  ? rankPulse
+                    ? 'motion-safe:animate-[pulse-soft_0.7s_ease-in-out]'
+                    : ''
                   : 'hover:bg-muted/40'}"
                 style={r.userId === myRow?.userId
                   ? "background: color-mix(in oklab, var(--primary) 8%, transparent); outline: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);"
                   : ""}
               >
-                <td class="px-6 py-3 align-middle">
+                <td
+                  class="sticky left-0 z-20 px-2 py-3 align-middle"
+                  style="background: {stickyBg(r.userId === myRow?.userId)};"
+                >
                   <RankBadge rank={r.rank} />
                 </td>
-                <td class="px-4 py-3 align-middle">
+                <td
+                  class="sticky left-16 z-10 px-4 py-3 align-middle"
+                  style="background: {stickyBg(r.userId === myRow?.userId)};"
+                >
                   <div class="flex items-center gap-2.5">
                     <div
                       class="size-7 rounded-full"
@@ -506,7 +579,7 @@
             <span class="size-2.5 rounded bg-muted"></span>
             {m.contestScoreboard_legendUntried()}
           </span>
-          <span class="ml-auto opacity-70">{m.contestScoreboard_legendPenaltyFormula()}</span>
+          <span class="ml-auto">{m.contestScoreboard_legendPenaltyFormula()}</span>
         {:else}
           <span class="flex items-center gap-1.5">
             <span
@@ -526,7 +599,7 @@
             <span class="size-2.5 rounded bg-muted"></span>
             {m.contestScoreboard_legendUntried()}
           </span>
-          <span class="ml-auto opacity-70">{m.contestScoreboard_legendDecayFormula()}</span>
+          <span class="ml-auto">{m.contestScoreboard_legendDecayFormula()}</span>
         {/if}
       </div>
     {/if}

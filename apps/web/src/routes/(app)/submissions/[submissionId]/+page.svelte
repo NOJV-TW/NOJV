@@ -5,6 +5,7 @@
   import { watchSubmissionVerdict } from "$lib/stores/sse";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
+  import { languageLabel } from "$lib/utils/language-labels";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
@@ -137,7 +138,7 @@
         <p class="text-title-lg font-semibold leading-tight {verdictClass}">
           {verdictLabel}
         </p>
-        <p class="text-display-sm font-semibold tabular-nums">
+        <p class="text-headline font-semibold tabular-nums">
           {submission.score}<span class="text-title-sm text-muted-foreground">
             / {submission.totalScore}</span
           >
@@ -149,7 +150,7 @@
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_runtime()}
           </dt>
-          <dd class="text-body-md font-medium tabular-nums">
+          <dd class="text-body font-medium tabular-nums">
             {#if runtimeMs !== null && runtimeMs > 0}
               {runtimeMs}<span class="text-body-sm text-muted-foreground"> ms</span>
             {:else}
@@ -161,7 +162,7 @@
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_memory()}
           </dt>
-          <dd class="text-body-md font-medium tabular-nums">
+          <dd class="text-body font-medium tabular-nums">
             {#if memoryKb !== null && memoryKb > 0}
               {formatMemory(memoryKb)}
             {:else}
@@ -173,7 +174,7 @@
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_language()}
           </dt>
-          <dd class="text-body-md font-medium">{submission.language}</dd>
+          <dd class="text-body font-medium">{languageLabel(submission.language)}</dd>
         </div>
         <div class="flex flex-col gap-0.5">
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -279,7 +280,7 @@
         class="flex items-center justify-between gap-3 border-b border-border-subtle bg-muted/60 px-4 py-2"
       >
         <div class="flex items-center gap-2 text-caption text-muted-foreground">
-          <span class="font-medium text-foreground">{submission.language}</span>
+          <span class="font-medium text-foreground">{languageLabel(submission.language)}</span>
           <span>·</span>
           <span class="tabular-nums"
             >{m.submissionDetail_lineCount({ count: displayLines.length })}</span

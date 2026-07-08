@@ -10,6 +10,7 @@
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
+  import { Tabs } from "$lib/components/primitives/ui/tabs";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
@@ -205,7 +206,7 @@
           class="inline-flex items-center rounded-full px-2.5 py-1 text-micro font-mono uppercase tracking-wider"
           style="background: color-mix(in oklab, var(--info) 12%, transparent); color: var(--info);"
         >
-          Manager View
+          {m.assignmentDetail_managerViewBadge()}
         </span>
       {/if}
     {/snippet}
@@ -432,101 +433,66 @@
       </GlassPanel>
     {/if}
   {:else}
-    <GlassPanel class="overflow-hidden">
-      <div class="border-b px-4 py-3" style="border-color: var(--border-subtle);">
-        <div
-          role="tablist"
-          aria-label={m.assignmentDetail_sectionsNavLabel()}
-          class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
-        >
-          {#each subTabs as tab (tab.key)}
-            {@const isActive = activeSubTab === tab.key}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onclick={() => (activeSubTab = tab.key)}
-              class={cn(
-                "inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
-                isActive
-                  ? "bg-[color:var(--color-primary)]/14 text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span>{tab.label}</span>
-              {#if tab.count !== undefined}
-                <span
-                  class={cn(
-                    "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums",
-                    isActive
-                      ? "bg-[color:var(--color-primary)]/20 text-primary"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {tab.count}
-                </span>
-              {/if}
-            </button>
-          {/each}
-        </div>
-      </div>
-
-      <div class="p-6">
-        {#if activeSubTab === "problems"}
-          <AssignmentProblemsTab
-            problems={detail.problems}
-            assignmentId={detail.id}
-            canEdit={data.mode === "teacher" && detail.status !== "closed"}
-            canRejudge={data.mode === "teacher"}
-            candidateProblems={data.mode === "teacher" ? data.candidateProblems : []}
-          />
-        {:else if activeSubTab === "submissions"}
-          <AssignmentSubmissionsMatrix
-            matrix={data.matrix}
-            courseId={detail.courseId}
-            assignmentId={detail.id}
-            oncellclick={canSetOverride ? gradeCell : undefined}
-          />
-        {:else if activeSubTab === "results" && data.results}
-          <AssignmentResultsTab data={data.results} />
-        {:else if activeSubTab === "plagiarism"}
-          <AssignmentPlagiarismReport
-            report={data.plagiarism}
-            flags={data.plagiarismFlags ?? []}
-            diffContext={{ type: "assessment", id: detail.id }}
-            problems={detail.problems.map((p) => ({
-              problemId: p.problemId,
-              letter: p.letter,
-              title: p.title,
-            }))}
-            students={data.matrix.rows.map((r) => ({
-              userId: r.userId,
-              displayName: r.displayName,
-              handle: r.handle,
-            }))}
-          />
-        {:else if activeSubTab === "settings" && data.mode === "teacher"}
-          <AssignmentSettingsTab
-            form={data.settingsForm}
-            liveStatus={deriveAssignmentLiveStatus(
-              data.assignment.status,
-              detail.opensAt,
-              detail.closesAt,
-            )}
-          />
-        {:else if activeSubTab === "clarifications"}
-          <ClarificationTab
-            contextType="assignment"
-            contextId={detail.id}
-            canAsk={data.clarification.canAsk}
-            canAnswer={data.clarification.canAnswer}
-            problems={clarificationProblems}
-          />
-        {:else if activeSubTab === "audit" && data.mode === "teacher"}
-          <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
-        {/if}
-      </div>
-    </GlassPanel>
+    <Tabs
+      tabs={subTabs}
+      bind:value={activeSubTab}
+      label={m.assignmentDetail_sectionsNavLabel()}
+      id="assignment-manage"
+    >
+      {#if activeSubTab === "problems"}
+        <AssignmentProblemsTab
+          problems={detail.problems}
+          assignmentId={detail.id}
+          canEdit={data.mode === "teacher" && detail.status !== "closed"}
+          canRejudge={data.mode === "teacher"}
+          candidateProblems={data.mode === "teacher" ? data.candidateProblems : []}
+        />
+      {:else if activeSubTab === "submissions"}
+        <AssignmentSubmissionsMatrix
+          matrix={data.matrix}
+          courseId={detail.courseId}
+          assignmentId={detail.id}
+          oncellclick={canSetOverride ? gradeCell : undefined}
+        />
+      {:else if activeSubTab === "results" && data.results}
+        <AssignmentResultsTab data={data.results} />
+      {:else if activeSubTab === "plagiarism"}
+        <AssignmentPlagiarismReport
+          report={data.plagiarism}
+          flags={data.plagiarismFlags ?? []}
+          diffContext={{ type: "assessment", id: detail.id }}
+          problems={detail.problems.map((p) => ({
+            problemId: p.problemId,
+            letter: p.letter,
+            title: p.title,
+          }))}
+          students={data.matrix.rows.map((r) => ({
+            userId: r.userId,
+            displayName: r.displayName,
+            handle: r.handle,
+          }))}
+        />
+      {:else if activeSubTab === "settings" && data.mode === "teacher"}
+        <AssignmentSettingsTab
+          form={data.settingsForm}
+          liveStatus={deriveAssignmentLiveStatus(
+            data.assignment.status,
+            detail.opensAt,
+            detail.closesAt,
+          )}
+        />
+      {:else if activeSubTab === "clarifications"}
+        <ClarificationTab
+          contextType="assignment"
+          contextId={detail.id}
+          canAsk={data.clarification.canAsk}
+          canAnswer={data.clarification.canAnswer}
+          problems={clarificationProblems}
+        />
+      {:else if activeSubTab === "audit" && data.mode === "teacher"}
+        <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
+      {/if}
+    </Tabs>
   {/if}
 </PageContainer>
 

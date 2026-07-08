@@ -106,14 +106,14 @@
     {/if}
   </div>
 
-  <div class="mt-5 text-body-sm leading-7 text-foreground">
+  <div class="mt-5 text-body leading-relaxed text-foreground">
     <MarkdownRenderer content={problem.statement} />
   </div>
 
   {#if problem.inputFormat}
     <div class="mt-5">
       <p class="text-body-sm font-semibold">{m.problemDetail_inputFormat()}:</p>
-      <div class="mt-1 text-body-sm leading-7 text-muted-foreground">
+      <div class="mt-1 text-body leading-relaxed text-muted-foreground">
         <MarkdownRenderer content={problem.inputFormat} />
       </div>
     </div>
@@ -122,7 +122,7 @@
   {#if problem.outputFormat}
     <div class="mt-4">
       <p class="text-body-sm font-semibold">{m.problemDetail_outputFormat()}:</p>
-      <div class="mt-1 text-body-sm leading-7 text-muted-foreground">
+      <div class="mt-1 text-body leading-relaxed text-muted-foreground">
         <MarkdownRenderer content={problem.outputFormat} />
       </div>
     </div>

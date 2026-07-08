@@ -80,9 +80,10 @@
       {/if}
       {#if $formMessage?.kind === "success"}
         <div
-          class="rounded-md border border-l-4 border-success/25 border-l-success bg-success/5 px-4 py-3 text-body-sm text-success md:col-span-2"
+          class="flex items-start gap-3 rounded-md border border-success/25 bg-success/5 px-4 py-3 text-body-sm text-success md:col-span-2"
         >
-          {$formMessage.text}
+          <Check class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{$formMessage.text}</span>
         </div>
       {/if}
 

@@ -7,6 +7,7 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import { formatDate } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -90,6 +91,7 @@
         return;
       }
       await invalidateAll();
+      toasts.success(m.members_roleChangeSuccess());
     } catch {
       select.value = previousRole;
       toasts.error(m.members_roleChangeError());
@@ -97,8 +99,7 @@
   }
 
   function formatJoined(iso: string): string {
-    const d = new Date(iso);
-    const date = `${d.getMonth() + 1}/${d.getDate()}`;
+    const date = formatDate(iso, { month: "short", day: "numeric", year: undefined });
     return m.members_joinedOn({ date });
   }
 </script>
@@ -195,6 +196,7 @@
             {:else if isManager}
               <select
                 class="rounded-md border border-border bg-transparent py-1.5 pl-3 pr-2 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                aria-label={m.members_roleFor({ name: member.name })}
                 value={member.role}
                 onchange={(e) => handleRoleChange(e, member.userId, member.role)}
               >

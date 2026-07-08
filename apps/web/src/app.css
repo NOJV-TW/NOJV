@@ -89,6 +89,11 @@
   --verdict-purple: oklch(0.56 0.19 305);
   --verdict-cyan: oklch(0.7 0.11 195);
 
+  /* Status text darkened for legible on-tint labels (>=4.5:1 over a 15% wash) */
+  --success-strong: oklch(0.43 0.13 160);
+  --warning-strong: oklch(0.47 0.12 75);
+  --destructive-strong: oklch(0.5 0.22 27.325);
+
   /* === Border contrast ladder === */
   --border-subtle: rgba(20, 24, 31, 0.06); /* dividers, inner lines */
   --border: rgba(20, 24, 31, 0.1); /* default card / input */
@@ -112,6 +117,7 @@
   --rank-gold: #d4a054;
   --rank-silver: #a0a0a0;
   --rank-bronze: #cd7f32;
+  --rank-foreground: #241a06;
 
   /* Sidebar */
   --sidebar: #eef1f4;
@@ -216,6 +222,10 @@
   --verdict-purple: oklch(0.68 0.19 305);
   --verdict-cyan: oklch(0.78 0.11 195);
 
+  --success-strong: oklch(0.82 0.15 160);
+  --warning-strong: oklch(0.86 0.16 75);
+  --destructive-strong: oklch(0.78 0.19 22.216);
+
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.18);
@@ -235,6 +245,7 @@
   --rank-gold: #e0b56a;
   --rank-silver: #b4b4b4;
   --rank-bronze: #d98f48;
+  --rank-foreground: #241a06;
 
   --sidebar: #1b222b;
   --sidebar-foreground: #e6ebf2;
@@ -299,6 +310,9 @@
   --color-verdict-orange: var(--verdict-orange);
   --color-verdict-purple: var(--verdict-purple);
   --color-verdict-cyan: var(--verdict-cyan);
+  --color-success-strong: var(--success-strong);
+  --color-warning-strong: var(--warning-strong);
+  --color-destructive-strong: var(--destructive-strong);
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
@@ -309,6 +323,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-rank-foreground: var(--rank-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -532,6 +547,18 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+@layer components {
+  .focus-ring:focus-visible {
+    @apply outline-none ring-[3px] ring-ring/50 ring-offset-2 ring-offset-background;
+  }
+
+  .eyebrow {
+    font-size: var(--text-caption);
+    font-weight: 500;
+    letter-spacing: 0.025em;
   }
 }
 

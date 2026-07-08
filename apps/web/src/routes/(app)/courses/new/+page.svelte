@@ -142,7 +142,7 @@
       </div>
 
       <div
-        class="mt-5 flex items-start gap-3 rounded-md border border-info/20 border-l-4 border-l-info bg-info/5 px-4 py-3.5 text-body-sm leading-snug text-muted-foreground"
+        class="mt-5 flex items-start gap-3 rounded-md border border-info/20 bg-info/5 px-4 py-3.5 text-body-sm leading-snug text-muted-foreground"
       >
         <Info class="mt-0.5 size-5 shrink-0 text-info" aria-hidden="true" />
         <p>
