@@ -2016,5 +2016,7 @@
   "submit_error_ipBlocked": "您目前的網路不允許進行此次提交，請連接指定網路或向監考老師求助。",
   "submit_error_languageNotAllowed": "此處不允許所選的程式語言。",
   "submit_error_windowClosed": "此測驗目前不接受提交。",
-  "submissions_loadingMore": "載入中…"
+  "submissions_loadingMore": "載入中…",
+  "mobile_examStartBlockedTitle": "請使用電腦開始考試",
+  "mobile_examStartBlockedDescription": "考試無法在手機上作答。你可以在這裡查看考試資訊，開始與作答請使用電腦版瀏覽器。"
 }

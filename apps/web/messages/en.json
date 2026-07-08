@@ -2016,5 +2016,7 @@
   "submit_error_ipBlocked": "Your network isn't permitted for this submission. Connect to the required network or ask your proctor.",
   "submit_error_languageNotAllowed": "The selected programming language isn't allowed here.",
   "submit_error_windowClosed": "This assessment isn't accepting submissions right now.",
-  "submissions_loadingMore": "Loading…"
+  "submissions_loadingMore": "Loading…",
+  "mobile_examStartBlockedTitle": "Start this exam on a desktop",
+  "mobile_examStartBlockedDescription": "Exams can't be taken on a phone. Review the details here, then use a desktop browser to start and answer."
 }

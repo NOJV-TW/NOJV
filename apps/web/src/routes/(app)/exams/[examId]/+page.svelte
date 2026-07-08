@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
-  import { ChevronRight, Pencil } from "@lucide/svelte";
+  import { ChevronRight, Monitor, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
   import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
@@ -474,23 +474,34 @@
                 </li>
               {/each}
             </ul>
-            <button
-              type="button"
-              disabled={liveStatus !== "running"}
-              onclick={() => (showStartModal = true)}
-              class="mt-auto w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+            <div class="mt-auto hidden lg:block">
+              <button
+                type="button"
+                disabled={liveStatus !== "running"}
+                onclick={() => (showStartModal = true)}
+                class="w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {m.examDetail_studentStartButton()}
+              </button>
+              <p class="mt-2 text-center text-caption text-muted-foreground">
+                {#if liveStatus === "running"}
+                  {m.examDetail_studentStartHintRunning()}
+                {:else if liveStatus === "upcoming"}
+                  {m.examDetail_studentStartHintUpcoming()}
+                {:else}
+                  {m.examDetail_studentStartHintNotOpen()}
+                {/if}
+              </p>
+            </div>
+            <div
+              class="mt-auto flex flex-col items-center gap-2 rounded-md border border-border-subtle bg-[color:var(--color-panel)] px-4 py-5 text-center lg:hidden"
             >
-              {m.examDetail_studentStartButton()}
-            </button>
-            <p class="text-center text-caption text-muted-foreground">
-              {#if liveStatus === "running"}
-                {m.examDetail_studentStartHintRunning()}
-              {:else if liveStatus === "upcoming"}
-                {m.examDetail_studentStartHintUpcoming()}
-              {:else}
-                {m.examDetail_studentStartHintNotOpen()}
-              {/if}
-            </p>
+              <Monitor class="size-6 text-primary" aria-hidden="true" />
+              <p class="text-body-sm font-semibold">{m.mobile_examStartBlockedTitle()}</p>
+              <p class="text-caption text-muted-foreground [text-wrap:pretty]">
+                {m.mobile_examStartBlockedDescription()}
+              </p>
+            </div>
           </GlassPanel>
         </div>
       {/if}
