@@ -66,7 +66,7 @@ kubectl -n flux-system create secret generic discord-webhook \
 ```
 
 The committed `Provider` only references the Secret by name. Verify wiring:
-`flux -n flux-system get alert` and `... get provider` (both should be Ready).
+`flux -n flux-system get alerts` and `flux -n flux-system get providers` (both should be Ready).
 
 ## One-time cutover (run from the prod box, in a maintenance window)
 
