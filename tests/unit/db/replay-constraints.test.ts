@@ -23,7 +23,7 @@ describe("collectReplayStatements", () => {
 
   it("replays the FTS expression GIN but skips the schema-expressible array GIN", () => {
     const joined = creates.join("\n");
-    expect(joined).toContain("ProblemStatementI18n_fts_idx");
+    expect(joined).toContain("ProblemStatement_fts_idx");
     expect(joined).not.toContain("Problem_tags_idx");
   });
 

@@ -8,7 +8,6 @@ import {
   testcaseSetRepo,
 } from "@nojv/db";
 import {
-  DEFAULT_LOCALE,
   LANGUAGE_TEMPLATES,
   advancedConfigSchema,
   judgeConfigSchema,
@@ -26,7 +25,6 @@ import {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 import { readWorkspaceFileBlob } from "./blobs";
 import { computeProblemTotalScore } from "./total-score";
@@ -107,13 +105,11 @@ async function mapPersistedProblemDetail(
     judgeConfig?: unknown;
     memoryLimitMb?: number;
     samples?: unknown;
-    statements?: {
+    statement?: {
       bodyMarkdown: string;
       inputFormat?: string;
-      locale: string;
       outputFormat?: string;
-      title: string;
-    }[];
+    } | null;
     tags?: string[];
     status?: ProblemStatus;
     timeLimitMs?: number;
@@ -131,12 +127,11 @@ async function mapPersistedProblemDetail(
       description?: string;
     }[];
   },
-  locale: string,
   attempters: number,
   solvers: number,
 ): Promise<ProblemDetail> {
   const tags = problem.tags ?? [];
-  const localized = pickProblemStatement(problem.statements, locale, problem.title, "");
+  const statement = problem.statement ?? null;
 
   const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
     type: "standard",
@@ -170,19 +165,19 @@ async function mapPersistedProblemDetail(
     difficulty: problem.difficulty ?? "medium",
     displayId: problem.displayId,
     id: problem.id,
-    inputFormat: localized.inputFormat,
+    inputFormat: statement?.inputFormat ?? "",
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
-    outputFormat: localized.outputFormat,
+    outputFormat: statement?.outputFormat ?? "",
     type,
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(type, visibleWorkspaceFiles),
-    statement: localized.statement,
+    statement: statement?.bodyMarkdown ?? "",
     status: problem.status ?? "published",
     tags,
     timeLimitMs: problem.timeLimitMs ?? 1_000,
-    title: localized.title,
+    title: problem.title,
     totalSubmissions: attempters,
     visibility: problem.visibility,
     workspaceFiles: visibleWorkspaceFiles,
@@ -416,7 +411,7 @@ export async function listEditableProblems(userId: string, sort: "asc" | "desc" 
   });
 }
 
-export async function getProblemPageData(id: string, locale: string = DEFAULT_LOCALE) {
+export async function getProblemPageData(id: string) {
   const persistedProblem = await problemRepo.findDetailById(id);
 
   if (!persistedProblem) {
@@ -427,7 +422,6 @@ export async function getProblemPageData(id: string, locale: string = DEFAULT_LO
 
   return await mapPersistedProblemDetail(
     persistedProblem,
-    locale,
     stats?.attempters ?? 0,
     stats?.solvers ?? 0,
   );

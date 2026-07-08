@@ -19,7 +19,7 @@ User ──┬── Session
        ├── Editorial
        └── IpViolationLog
 
-Problem ──┬── ProblemStatementI18n (locale-specific content)
+Problem ──┬── ProblemStatement (single statement per problem)
           ├── TestcaseSet ──→ Testcase (standard mode: graded only)
           ├── ProblemWorkspaceFile (per-language files with visibility + editable regions)
           ├── ContestProblem ──→ Contest
@@ -275,7 +275,7 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `PlagiarismPairFlag`         | Per-pair staff review state (survives plagiarism re-runs)                                                                                                                                                                      | `schema/plagiarism.prisma`    |
 | `PlagiarismTriggerLog`       | Append-only log of plagiarism-check triggers (context, triggerer, priorPairCount)                                                                                                                                              | `schema/plagiarism.prisma`    |
 | `Problem`                    | Problem metadata (type, difficulty, limits, judge config, samples)                                                                                                                                                             | `schema/problem.prisma`       |
-| `ProblemStatementI18n`       | Per-locale problem statement (title, body, input / output format)                                                                                                                                                              | `schema/problem.prisma`       |
+| `ProblemStatement`           | Problem statement body + input / output format (title lives on `Problem.title`)                                                                                                                                                | `schema/problem.prisma`       |
 | `TestcaseSet`                | Named subtask on a problem (weight, scoring strategy)                                                                                                                                                                          | `schema/problem.prisma`       |
 | `Testcase`                   | Individual graded case (S3 keys for input / output / aux files)                                                                                                                                                                | `schema/problem.prisma`       |
 | `ProblemWorkspaceFile`       | Per-language workspace file (path, content S3 key, visibility, order)                                                                                                                                                          | `schema/problem.prisma`       |

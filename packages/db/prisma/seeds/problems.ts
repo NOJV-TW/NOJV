@@ -2007,30 +2007,21 @@ export async function seedProblems(
       where: { id: def.id },
     });
 
-    for (const [locale, stmt] of Object.entries(def.statements)) {
-      await prisma.problemStatementI18n.upsert({
-        create: {
-          bodyMarkdown: stmt.body,
-          inputFormat: stmt.inputFormat ?? "",
-          outputFormat: stmt.outputFormat ?? "",
-          locale,
-          problemId: problem.id,
-          title: stmt.title,
-        },
-        update: {
-          bodyMarkdown: stmt.body,
-          inputFormat: stmt.inputFormat ?? "",
-          outputFormat: stmt.outputFormat ?? "",
-          title: stmt.title,
-        },
-        where: {
-          problemId_locale: {
-            locale,
-            problemId: problem.id,
-          },
-        },
-      });
-    }
+    const stmt = def.statements["zh-TW"];
+    await prisma.problemStatement.upsert({
+      create: {
+        bodyMarkdown: stmt.body,
+        inputFormat: stmt.inputFormat ?? "",
+        outputFormat: stmt.outputFormat ?? "",
+        problemId: problem.id,
+      },
+      update: {
+        bodyMarkdown: stmt.body,
+        inputFormat: stmt.inputFormat ?? "",
+        outputFormat: stmt.outputFormat ?? "",
+      },
+      where: { problemId: problem.id },
+    });
 
     if (def.testcases) {
       const setEntries = Object.entries(def.testcases);

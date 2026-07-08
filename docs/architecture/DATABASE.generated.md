@@ -792,7 +792,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `author` | `User?` | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)` |
-| `statements` | `ProblemStatementI18n[]` | — |
+| `statement` | `ProblemStatement?` | — |
 | `testcaseSets` | `TestcaseSet[]` | — |
 | `workspaceFiles` | `ProblemWorkspaceFile[]` | — |
 | `submissions` | `Submission[]` | — |
@@ -820,22 +820,18 @@ Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([aut
 
 Indexes & constraints: `@@unique([userId, problemId])`, `@@index([userId, createdAt])`
 
-#### `ProblemStatementI18n`
+#### `ProblemStatement`
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `problemId` | `String` | — |
-| `locale` | `String` | — |
-| `title` | `String` | — |
+| `problemId` | `String` | `@unique` |
 | `bodyMarkdown` | `String` | `@db.Text` |
 | `inputFormat` | `String` | `@default("") @db.Text` |
 | `outputFormat` | `String` | `@default("") @db.Text` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
-
-Indexes & constraints: `@@unique([problemId, locale])`
 
 #### `ProblemWorkspaceFile`
 

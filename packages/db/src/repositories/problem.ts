@@ -17,7 +17,7 @@ export const problemRepo = {
           select: { submissions: true },
         },
         author: { select: { username: true } },
-        statements: true,
+        statement: true,
         workspaceFiles: {
           orderBy: [{ language: "asc" }, { orderIndex: "asc" }, { path: "asc" }],
         },
@@ -184,36 +184,41 @@ export const problemRepo = {
 export const problemStatementRepo = {
   fullTextSearch(query: string) {
     return prisma.$queryRaw<{ problemId: string }[]>`
-      SELECT DISTINCT "problemId" FROM "ProblemStatementI18n"
-      WHERE to_tsvector('english', coalesce("title", '') || ' ' || coalesce("bodyMarkdown", ''))
+      SELECT DISTINCT "problemId" FROM "ProblemStatement"
+      WHERE to_tsvector('english', coalesce("bodyMarkdown", ''))
       @@ plainto_tsquery('english', ${query})
+      UNION
+      SELECT "id" AS "problemId" FROM "Problem"
+      WHERE to_tsvector('english', "title") @@ plainto_tsquery('english', ${query})
     `;
   },
 
   likeSearch(query: string) {
     const pattern = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     return prisma.$queryRaw<{ problemId: string }[]>`
-      SELECT DISTINCT "problemId" FROM "ProblemStatementI18n"
-      WHERE coalesce("title", '') || ' ' || coalesce("bodyMarkdown", '') ILIKE ${pattern}
+      SELECT DISTINCT "problemId" FROM "ProblemStatement"
+      WHERE coalesce("bodyMarkdown", '') ILIKE ${pattern}
+      UNION
+      SELECT "id" AS "problemId" FROM "Problem"
+      WHERE "title" ILIKE ${pattern}
     `;
   },
 
   withTx(tx: TxClient) {
     return {
-      create(data: Prisma.ProblemStatementI18nUncheckedCreateInput) {
-        return tx.problemStatementI18n.create({ data });
+      create(data: Prisma.ProblemStatementUncheckedCreateInput) {
+        return tx.problemStatement.create({ data });
       },
 
       upsert(
         problemId: string,
-        locale: string,
-        createData: Prisma.ProblemStatementI18nUncheckedCreateInput,
-        updateData: Prisma.ProblemStatementI18nUncheckedUpdateInput,
+        createData: Prisma.ProblemStatementUncheckedCreateInput,
+        updateData: Prisma.ProblemStatementUncheckedUpdateInput,
       ) {
-        return tx.problemStatementI18n.upsert({
+        return tx.problemStatement.upsert({
           create: createData,
           update: updateData,
-          where: { problemId_locale: { locale, problemId } },
+          where: { problemId },
         });
       },
     };

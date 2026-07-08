@@ -10,7 +10,7 @@ export const problemPreviewSelect = {
   id: true,
   displayId: true,
   title: true,
-  statements: true,
+  statement: true,
 } satisfies Prisma.ProblemSelect;
 
 export const problemTeacherMiniSelect = {

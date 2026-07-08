@@ -116,11 +116,9 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     },
   });
 
-  await testPrisma.problemStatementI18n.create({
+  await testPrisma.problemStatement.create({
     data: {
       problemId: problem.id,
-      locale: "en",
-      title: problem.title,
       bodyMarkdown: "Test problem body",
       inputFormat: "Test input format",
       outputFormat: "Test output format",

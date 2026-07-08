@@ -15,7 +15,7 @@ function createMockPrisma() {
         return problemById.get(id) ?? null;
       },
     },
-    problemStatementI18n: {
+    problemStatement: {
       upsert: async () => ({}),
     },
     testcaseSet: {

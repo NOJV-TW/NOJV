@@ -18,7 +18,7 @@ import type {
   ProblemUpdate,
   ProblemVisibility,
 } from "@nojv/core";
-import { advancedConfigSchema, DEFAULT_LOCALE, judgeConfigSchema } from "@nojv/core";
+import { advancedConfigSchema, judgeConfigSchema } from "@nojv/core";
 
 import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -85,10 +85,8 @@ export async function createProblemDefinition(
     await problemStatementRepo.withTx(tx).create({
       bodyMarkdown: input.statement,
       inputFormat: input.inputFormat ?? "",
-      locale: DEFAULT_LOCALE,
       outputFormat: input.outputFormat ?? "",
       problemId: problem.id,
-      title: input.title,
     });
   }
 
@@ -236,20 +234,16 @@ export async function updateProblemRecord(
     ) {
       await problemStatementRepo.withTx(tx).upsert(
         problem.id,
-        DEFAULT_LOCALE,
         {
           bodyMarkdown: payload.statement ?? "",
           inputFormat: payload.inputFormat ?? "",
-          locale: DEFAULT_LOCALE,
           outputFormat: payload.outputFormat ?? "",
           problemId: problem.id,
-          title: payload.title ?? problem.title,
         },
         {
           ...(payload.statement !== undefined ? { bodyMarkdown: payload.statement } : {}),
           ...(payload.inputFormat !== undefined ? { inputFormat: payload.inputFormat } : {}),
           ...(payload.outputFormat !== undefined ? { outputFormat: payload.outputFormat } : {}),
-          ...(payload.title !== undefined ? { title: payload.title } : {}),
         },
       );
     }
