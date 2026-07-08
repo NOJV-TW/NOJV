@@ -200,7 +200,7 @@ export const problemStatementRepo = {
       WHERE coalesce("bodyMarkdown", '') ILIKE ${pattern}
       UNION
       SELECT "id" AS "problemId" FROM "Problem"
-      WHERE "title" ILIKE ${pattern}
+      WHERE coalesce("title", '') ILIKE ${pattern}
     `;
   },
 

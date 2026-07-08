@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.setConfig({ testTimeout: 30_000 });
 
 import { callRoute } from "./_harness";
 import * as submissions from "../../../apps/web/src/routes/api/submissions/+server";

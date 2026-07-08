@@ -36,4 +36,4 @@ CREATE INDEX "Problem_title_fts_idx"
 
 CREATE INDEX "Problem_title_trgm_idx"
   ON "Problem"
-  USING GIN ("title" gin_trgm_ops);
+  USING GIN ((coalesce("title", '')) gin_trgm_ops);
