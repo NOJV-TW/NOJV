@@ -273,9 +273,14 @@
                 {/if}
               </div>
             {:else if runResult.feedback}
-              <p class="mt-2 text-body-sm leading-6 text-muted-foreground">
-                {runResult.feedback}
-              </p>
+              {#if ["compile_error", "runtime_error", "system_error"].includes(runResult.verdict)}
+                <pre
+                  class="mt-3 max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{runResult.feedback}</pre>
+              {:else}
+                <p class="mt-2 text-body-sm leading-6 text-muted-foreground">
+                  {runResult.feedback}
+                </p>
+              {/if}
             {/if}
           </div>
         {:else if runStatus}

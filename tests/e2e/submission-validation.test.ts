@@ -78,7 +78,7 @@ test.describe("Submission Validation", () => {
     const page = await context.newPage();
     await page.goto(`/problems/${PROBLEM_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByRole("button", { name: /^(run|執行)$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(test|測試)$/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /^(submit|繳交)$/i })).toBeVisible();
     await context.close();
   });

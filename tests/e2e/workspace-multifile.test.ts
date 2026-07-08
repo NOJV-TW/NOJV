@@ -13,7 +13,7 @@ test.describe("Problem workspace UI", () => {
     await expect(page.getByRole("button", { name: /^(submit|繳交)$/i })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByRole("button", { name: /^(run|執行)$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(test|測試)$/i })).toBeVisible();
     await context.close();
   });
 
