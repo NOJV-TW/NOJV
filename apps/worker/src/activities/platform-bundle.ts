@@ -10,6 +10,7 @@ export {
   reconcileLifecycleWorkflows,
   publishVerdict,
   publishContestEvent,
+  fanoutAssignmentStarted,
   fanoutAssignmentDueSoon,
   fanoutExamStartingSoon,
   fanoutContestStartingSoon,

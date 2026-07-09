@@ -93,7 +93,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       score: 5,
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
 
     const rowsA = await notificationRepo.listRecent(studentA.id, 10);
     const rowsB = await notificationRepo.listRecent(studentB.id, 10);
@@ -138,8 +138,8 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       },
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(1);
@@ -165,7 +165,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       },
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -191,9 +191,118 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       },
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
+  });
+
+  it("targets only students whose lead-day preference matches the checkpoint", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+
+    const assessment = await testPrisma.assessment.create({
+      data: {
+        courseId: course.id,
+        createdByUserId: teacher.id,
+        title: "Lead Days",
+        summary: "Per-user lead days",
+        status: "published",
+        opensAt: new Date(Date.now() - 7 * 24 * 3600_000),
+        closesAt: new Date(Date.now() + 5 * 24 * 3600_000),
+      },
+    });
+
+    const wantsThree = await createTestUser({ platformRole: "student" });
+    const wantsOne = await createTestUser({ platformRole: "student" });
+    const wantsDefault = await createTestUser({ platformRole: "student" });
+    for (const s of [wantsThree, wantsOne, wantsDefault]) {
+      await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: s.id, role: "student", status: "active" },
+      });
+    }
+    await testPrisma.notificationPreference.create({
+      data: { userId: wantsThree.id, assignmentDueSoonLeadDays: 3 },
+    });
+    await testPrisma.notificationPreference.create({
+      data: { userId: wantsOne.id, assignmentDueSoonLeadDays: 1 },
+    });
+
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
+
+    expect(await notificationRepo.listRecent(wantsThree.id, 10)).toHaveLength(1);
+    expect(await notificationRepo.listRecent(wantsOne.id, 10)).toHaveLength(0);
+    expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(1);
+
+    await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 1);
+
+    expect(await notificationRepo.listRecent(wantsThree.id, 10)).toHaveLength(0);
+    expect(await notificationRepo.listRecent(wantsOne.id, 10)).toHaveLength(1);
+    expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(0);
+  });
+});
+
+describe("notificationDomain.fanoutAssignmentStarted", () => {
+  beforeEach(async () => {
+    await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+  });
+
+  it("notifies every active student regardless of score, once per student", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+
+    const problem = await createTestProblem({ authorId: teacher.id });
+    await testPrisma.testcaseSet.updateMany({
+      where: { problemId: problem.id },
+      data: { weight: 10 },
+    });
+
+    const assessment = await testPrisma.assessment.create({
+      data: {
+        courseId: course.id,
+        createdByUserId: teacher.id,
+        title: "Kickoff",
+        summary: "Started",
+        status: "published",
+        opensAt: new Date(Date.now() - 3600_000),
+        closesAt: new Date(Date.now() + 48 * 3600_000),
+      },
+    });
+    await testPrisma.assessmentProblem.create({
+      data: { assessmentId: assessment.id, problemId: problem.id, ordinal: 1, points: 10 },
+    });
+
+    const maxed = await createTestUser({ platformRole: "student" });
+    const fresh = await createTestUser({ platformRole: "student" });
+    for (const s of [maxed, fresh]) {
+      await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: s.id, role: "student", status: "active" },
+      });
+    }
+    await createTestSubmission({
+      userId: maxed.id,
+      problemId: problem.id,
+      courseId: course.id,
+      assessmentId: assessment.id,
+      status: "accepted",
+      score: 10,
+    });
+
+    await notificationDomain.fanoutAssignmentStarted(assessment.id);
+    await notificationDomain.fanoutAssignmentStarted(assessment.id);
+
+    const rowsMaxed = await notificationRepo.listRecent(maxed.id, 10);
+    const rowsFresh = await notificationRepo.listRecent(fresh.id, 10);
+    expect(rowsMaxed).toHaveLength(1);
+    expect(rowsFresh).toHaveLength(1);
+
+    const row = rowsFresh[0]!;
+    expect(row.type).toBe("assignment_started");
+    expect(row.linkUrl).toBe(`/assignments/${assessment.id}`);
+    const params = row.params as { assignmentId: string; courseId: string; title: string };
+    expect(params.assignmentId).toBe(assessment.id);
+    expect(params.courseId).toBe(course.id);
+    expect(params.title).toBe("Kickoff");
   });
 });

@@ -94,7 +94,7 @@ export const assessmentRepo = {
 
   listNeedingTimers(now: Date) {
     return prisma.assessment.findMany({
-      select: { id: true, closesAt: true },
+      select: { id: true, opensAt: true, closesAt: true },
       where: { status: "published", closesAt: { gt: now } },
     });
   },

@@ -321,6 +321,7 @@ describe("publishAssignment", () => {
     });
     expect(dispatchAssignmentDueSoon).toHaveBeenCalledWith({
       assignmentId: "asg_1",
+      opensAt: new Date("2030-01-01T00:00:00Z").toISOString(),
       closesAt: new Date("2030-01-15T00:00:00Z").toISOString(),
     });
   });

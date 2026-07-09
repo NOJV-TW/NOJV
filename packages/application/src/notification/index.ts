@@ -12,6 +12,7 @@ import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
 
 import { listStudentsBelowMaxScore } from "../assignment";
 import { hasEmailSpec, maybeSendEmails } from "./email";
+import { getEffectiveNotificationPreferences } from "./preferences";
 
 export {
   getNotificationPreferences,
@@ -117,7 +118,34 @@ export async function deleteAll(userId: string, opts?: { onlyRead?: boolean }) {
   return notificationRepo.deleteAll(userId, opts);
 }
 
-export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {
+export async function fanoutAssignmentStarted(assignmentId: string): Promise<void> {
+  const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
+  if (!assignment) return;
+  if (assignment.status !== "published") return;
+  if (assignment.closesAt.getTime() <= Date.now()) return;
+
+  const studentIds = await courseMembershipRepo.listActiveStudentUserIds(assignment.courseId);
+  if (studentIds.length === 0) return;
+
+  await createNotificationBatch(
+    studentIds.map((userId) => ({
+      userId,
+      type: "assignment_started",
+      params: {
+        courseId: assignment.courseId,
+        assignmentId: assignment.id,
+        title: assignment.title,
+      },
+      linkUrl: `/assignments/${assignment.id}`,
+      dedupeKey: `assignment_started:${assignment.id}:${userId}`,
+    })),
+  );
+}
+
+export async function fanoutAssignmentDueSoon(
+  assignmentId: string,
+  leadDays: number,
+): Promise<void> {
   const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
   if (!assignment) return;
   if (assignment.status !== "published") return;
@@ -129,9 +157,15 @@ export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<voi
   const notYetMaxed = await listStudentsBelowMaxScore(assignmentId, studentIds);
   if (notYetMaxed.length === 0) return;
 
+  const prefs = await getEffectiveNotificationPreferences(notYetMaxed);
+  const targeted = notYetMaxed.filter(
+    (userId) => prefs.get(userId)?.assignmentDueSoonLeadDays === leadDays,
+  );
+  if (targeted.length === 0) return;
+
   const dueAtIso = assignment.closesAt.toISOString();
   await createNotificationBatch(
-    notYetMaxed.map((userId) => ({
+    targeted.map((userId) => ({
       userId,
       type: "assignment_due_soon",
       params: {
@@ -146,7 +180,7 @@ export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<voi
   );
 }
 
-export async function fanoutExamStartingSoon(examId: string): Promise<void> {
+export async function fanoutExamStartingSoon(examId: string, leadDays: number): Promise<void> {
   const exam = await examRepo.findById(examId);
   if (!exam) return;
   if (exam.status !== "published") return;
@@ -155,9 +189,15 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
   const participantIds = await participationRepo.listExamParticipantUserIds(examId);
   if (participantIds.length === 0) return;
 
+  const prefs = await getEffectiveNotificationPreferences(participantIds);
+  const targeted = participantIds.filter(
+    (userId) => prefs.get(userId)?.examStartingLeadDays === leadDays,
+  );
+  if (targeted.length === 0) return;
+
   const startsAtIso = exam.startsAt.toISOString();
   await createNotificationBatch(
-    participantIds.map((userId) => ({
+    targeted.map((userId) => ({
       userId,
       type: "exam_starting_soon",
       params: {
@@ -172,7 +212,10 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
   );
 }
 
-export async function fanoutContestStartingSoon(contestId: string): Promise<void> {
+export async function fanoutContestStartingSoon(
+  contestId: string,
+  leadDays: number,
+): Promise<void> {
   const contest = await contestRepo.findById(contestId);
   if (!contest) return;
   if (contest.visibility !== "published") return;
@@ -181,9 +224,15 @@ export async function fanoutContestStartingSoon(contestId: string): Promise<void
   const participantIds = await participationRepo.listContestParticipantUserIds(contestId);
   if (participantIds.length === 0) return;
 
+  const prefs = await getEffectiveNotificationPreferences(participantIds);
+  const targeted = participantIds.filter(
+    (userId) => prefs.get(userId)?.contestStartingLeadDays === leadDays,
+  );
+  if (targeted.length === 0) return;
+
   const startsAtIso = contest.startsAt.toISOString();
   await createNotificationBatch(
-    participantIds.map((userId) => ({
+    targeted.map((userId) => ({
       userId,
       type: "contest_starting_soon",
       params: {

@@ -154,6 +154,8 @@ export async function updateAssignmentRecord(
       new Date(payload.closesAt).getTime() !== assignment.closesAt.getTime();
     const effectiveClosesAt =
       payload.closesAt !== undefined ? new Date(payload.closesAt) : assignment.closesAt;
+    const effectiveOpensAt =
+      payload.opensAt !== undefined ? new Date(payload.opensAt) : assignment.opensAt;
 
     const updateData: Prisma.AssessmentUncheckedUpdateInput = stripUndefined({
       title: payload.title,
@@ -185,6 +187,7 @@ export async function updateAssignmentRecord(
       id: assignment.id,
       status: assignment.status,
       closesChanged,
+      opensAt: effectiveOpensAt,
       closesAt: effectiveClosesAt,
     };
   });
@@ -192,6 +195,7 @@ export async function updateAssignmentRecord(
   if (result.status === "published" && result.closesChanged) {
     await getDomainOrchestration().dispatchAssignmentDueSoon({
       assignmentId: result.id,
+      opensAt: result.opensAt.toISOString(),
       closesAt: result.closesAt.toISOString(),
     });
   }
@@ -244,11 +248,12 @@ export async function publishAssignment(
       action: "publish",
     });
 
-    return { id: assignment.id, closesAt: assignment.closesAt };
+    return { id: assignment.id, opensAt: assignment.opensAt, closesAt: assignment.closesAt };
   });
 
   await getDomainOrchestration().dispatchAssignmentDueSoon({
     assignmentId: published.id,
+    opensAt: published.opensAt.toISOString(),
     closesAt: published.closesAt.toISOString(),
   });
 }
