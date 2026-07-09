@@ -86,7 +86,7 @@ function navSteps(): DriveStep[] {
       "bottom",
     ),
     ...step(
-      '[data-tour="nav-coursework"]',
+      '[data-tour="nav-assignments"]',
       m.tour_student_courseworkTitle(),
       m.tour_student_courseworkBody(),
       "bottom",
