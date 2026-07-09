@@ -122,6 +122,7 @@ export async function fanoutAssignmentStarted(assignmentId: string): Promise<voi
   const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
   if (!assignment) return;
   if (assignment.status !== "published") return;
+  if (assignment.opensAt.getTime() > Date.now()) return;
   if (assignment.closesAt.getTime() <= Date.now()) return;
 
   const studentIds = await courseMembershipRepo.listActiveStudentUserIds(assignment.courseId);

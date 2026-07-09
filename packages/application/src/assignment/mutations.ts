@@ -152,6 +152,9 @@ export async function updateAssignmentRecord(
     const closesChanged =
       payload.closesAt !== undefined &&
       new Date(payload.closesAt).getTime() !== assignment.closesAt.getTime();
+    const opensChanged =
+      payload.opensAt !== undefined &&
+      new Date(payload.opensAt).getTime() !== assignment.opensAt.getTime();
     const effectiveClosesAt =
       payload.closesAt !== undefined ? new Date(payload.closesAt) : assignment.closesAt;
     const effectiveOpensAt =
@@ -187,12 +190,13 @@ export async function updateAssignmentRecord(
       id: assignment.id,
       status: assignment.status,
       closesChanged,
+      opensChanged,
       opensAt: effectiveOpensAt,
       closesAt: effectiveClosesAt,
     };
   });
 
-  if (result.status === "published" && result.closesChanged) {
+  if (result.status === "published" && (result.closesChanged || result.opensChanged)) {
     await getDomainOrchestration().dispatchAssignmentDueSoon({
       assignmentId: result.id,
       opensAt: result.opensAt.toISOString(),
