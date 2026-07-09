@@ -116,7 +116,7 @@
     aria-checked={checked}
     {onclick}
     class={cn(
-      "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-body-sm font-medium transition-[color,background-color,border-color] duration-fast ease-out-soft pointer-coarse:min-h-11",
+      "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-body-sm font-medium transition-[color,background-color,border-color] duration-fast ease-out-soft",
       checked
         ? "border-primary bg-primary/10 text-foreground"
         : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground",
@@ -196,11 +196,21 @@
   {#if allTags.length > 0}
     <div>
       {@render heading(m.problems_filterTags())}
-      <div class="flex flex-col gap-2" role="group" aria-label={m.problems_filterByTag()}>
+      <div class="flex flex-wrap gap-2" role="group" aria-label={m.problems_filterByTag()}>
         {#each allTags as tag (tag)}
-          {@render checkRow(selectedTags.has(tag), tag, () =>
-            toggleInSet(selectedTags, tag, "tags"),
-          )}
+          <button
+            type="button"
+            aria-pressed={selectedTags.has(tag)}
+            onclick={() => toggleInSet(selectedTags, tag, "tags")}
+            class={cn(
+              "rounded-full border px-3 py-1 text-caption font-medium capitalize transition-[color,background-color,border-color] duration-fast ease-out-soft",
+              selectedTags.has(tag)
+                ? "border-primary bg-primary text-white"
+                : "border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground",
+            )}
+          >
+            {tag}
+          </button>
         {/each}
       </div>
     </div>
