@@ -36,6 +36,7 @@ export const TABLES = [
   "AnnouncementTranslation",
   "Announcement",
   "Notification",
+  "NotificationPreference",
   "PlatformSetting",
   "SchoolVerificationToken",
   "Verification",
