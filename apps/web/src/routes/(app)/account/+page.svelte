@@ -5,6 +5,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
   import {
+    Bell,
     Check,
     ChevronRight,
     Compass,
@@ -15,6 +16,7 @@
   } from "@lucide/svelte";
   import { replayStudentTour } from "$lib/onboarding/student-tour";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
+  import NotificationPreferencesDialog from "$lib/components/features/account/NotificationPreferencesDialog.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -28,6 +30,7 @@
 
   let editingName = $state(false);
   let editingUsername = $state(false);
+  let notificationsOpen = $state(false);
 
   let oauthBusy = $state(false);
   let oauthError = $state("");
@@ -386,6 +389,24 @@
 
       <Card variant="surface" size="md">
         <div class="flex flex-col gap-1">
+          <h2 class="text-title-sm">{m.account_notifications_title()}</h2>
+          <p class="text-body-sm text-muted-foreground">{m.account_notifications_hint()}</p>
+        </div>
+        <button
+          type="button"
+          class={securityLinkClass}
+          onclick={() => (notificationsOpen = true)}
+        >
+          <span class="flex items-center gap-2.5">
+            <Bell aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
+            {m.account_notifications_manage()}
+          </span>
+          <ChevronRight aria-hidden="true" class={securityChevronClass} />
+        </button>
+      </Card>
+
+      <Card variant="surface" size="md">
+        <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_connections_title()}</h2>
           <p class="text-body-sm text-muted-foreground">
             {m.account_connections_hint()}
@@ -450,3 +471,5 @@
     </div>
   </Section>
 </PageContainer>
+
+<NotificationPreferencesDialog bind:open={notificationsOpen} data={data.notificationForm} />
