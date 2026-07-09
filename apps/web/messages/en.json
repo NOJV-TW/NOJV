@@ -1822,6 +1822,8 @@
   "tour_student_problemsBody": "Every problem you can practice lives here. Pick one, write your code, and see the verdict the moment you submit.",
   "tour_student_coursesTitle": "Courses",
   "tour_student_coursesBody": "Join a course with the invite code from your teacher to see its assignments and exams.",
+  "tour_student_courseworkTitle": "Course activities",
+  "tour_student_courseworkBody": "Click here to see all your course activities — assignments, exams, and contests in one place.",
   "tour_student_submissionsTitle": "Submissions",
   "tour_student_submissionsBody": "Every submission you make and its verdict are kept here, so you can revisit your history anytime.",
   "tour_student_doneTitle": "Start solving",

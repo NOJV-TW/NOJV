@@ -231,6 +231,7 @@
             <button
               bind:this={courseworkBtnEl}
               type="button"
+              data-tour="nav-coursework"
               class={cn(
                 "flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-xl px-3.5 py-2 transition-colors duration-fast ease-out-soft",
                 courseworkActive

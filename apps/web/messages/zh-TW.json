@@ -1821,6 +1821,8 @@
   "tour_student_problemsBody": "所有可以練習的題目都在這裡。挑一題、寫程式，送出後立刻看到判定結果。",
   "tour_student_coursesTitle": "課程",
   "tour_student_coursesBody": "用老師給的邀請碼加入課程，就能看到課程的作業與考試。",
+  "tour_student_courseworkTitle": "課程活動",
+  "tour_student_courseworkBody": "點這裡可以看各種課程活動——作業、考試與競賽都在這裡。",
   "tour_student_submissionsTitle": "提交紀錄",
   "tour_student_submissionsBody": "你每一次送出的程式碼與判定結果都會留在這裡，隨時可以回顧。",
   "tour_student_doneTitle": "開始解題",

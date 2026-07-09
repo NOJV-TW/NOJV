@@ -85,6 +85,12 @@ function navSteps(): DriveStep[] {
       m.tour_student_coursesBody(),
       "bottom",
     ),
+    ...step(
+      '[data-tour="nav-coursework"]',
+      m.tour_student_courseworkTitle(),
+      m.tour_student_courseworkBody(),
+      "bottom",
+    ),
   ];
 }
 
