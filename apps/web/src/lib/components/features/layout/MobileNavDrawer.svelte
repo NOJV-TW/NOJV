@@ -16,13 +16,11 @@
   interface Props {
     open: boolean;
     items: MobileNavLink[];
-    courseworkLabel: string;
-    courseworkItems: MobileNavLink[];
     adminItems: MobileNavLink[];
     onclose: () => void;
   }
 
-  let { open, items, courseworkLabel, courseworkItems, adminItems, onclose }: Props = $props();
+  let { open, items, adminItems, onclose }: Props = $props();
 
   const uid = $props.id();
 
@@ -87,20 +85,6 @@
       {#each items as item (item.href)}
         {@render navRow(item)}
       {/each}
-
-      {#if courseworkItems.length > 0}
-        <div class="mt-2" role="group" aria-labelledby="{uid}-coursework">
-          <p
-            id="{uid}-coursework"
-            class="px-3 pb-1 pt-2 text-caption font-semibold text-muted-foreground"
-          >
-            {courseworkLabel}
-          </p>
-          {#each courseworkItems as item (item.href)}
-            {@render navRow(item)}
-          {/each}
-        </div>
-      {/if}
 
       {#each adminItems as item (item.href)}
         {@render navRow(item)}

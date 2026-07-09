@@ -49,6 +49,7 @@
 </script>
 
 <div
+  data-tour="problem-actions"
   class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-1"
 >
   <div class="flex items-center gap-2">

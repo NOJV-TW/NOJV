@@ -110,7 +110,7 @@
         </p>
       {:else}
         <div>
-          <div class="flex items-center gap-1">
+          <div class="flex items-center gap-1" data-tour="problem-samples">
             {#each runCases as _, index (`tab-${index}`)}
               <div
                 class="group flex items-center rounded-md transition-[background-color] duration-fast ease-out-soft {selectedCase ===

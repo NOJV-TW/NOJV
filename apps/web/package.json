@@ -42,6 +42,7 @@
     "better-auth": "^1.6.23",
     "bits-ui": "^2.18.1",
     "clsx": "^2.1.1",
+    "driver.js": "^1.6.0",
     "echarts": "^6.1.0",
     "ioredis": "catalog:",
     "isomorphic-dompurify": "^3.18.0",

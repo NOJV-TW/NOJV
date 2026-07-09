@@ -698,3 +698,49 @@
     animation: none !important;
   }
 }
+
+/* Onboarding tour (driver.js) popover — themed to the app's tokens. */
+.driver-popover.nojv-tour {
+  background: var(--color-panel, #fff);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-modal, 0 12px 40px rgba(0, 0, 0, 0.22));
+  max-width: 22rem;
+}
+.driver-popover.nojv-tour .driver-popover-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.driver-popover.nojv-tour .driver-popover-description {
+  color: var(--muted-foreground);
+  line-height: 1.55;
+}
+.driver-popover.nojv-tour .driver-popover-progress-text {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.driver-popover.nojv-tour .driver-popover-arrow {
+  color: var(--color-panel, #fff);
+}
+.driver-popover.nojv-tour button.driver-popover-next-btn {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: 9999px;
+  padding: 0.4rem 0.9rem;
+  font-weight: 600;
+  text-shadow: none;
+}
+.driver-popover.nojv-tour button.driver-popover-prev-btn {
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 0.4rem 0.9rem;
+  text-shadow: none;
+}
+.driver-popover.nojv-tour button.driver-popover-close-btn {
+  color: var(--muted-foreground);
+}

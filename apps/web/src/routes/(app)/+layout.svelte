@@ -1,11 +1,20 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/state";
+  import { afterNavigate } from "$app/navigation";
   import Header from "$lib/components/features/layout/Header.svelte";
   import Footer from "$lib/components/primitives/layout/Footer.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { connectSSE, disconnectSSE } from "$lib/stores/sse";
+  import { onStudentNavigate } from "$lib/onboarding/student-tour";
+
+  afterNavigate(() => {
+    const sessionUser = page.data.user;
+    if (sessionUser?.platformRole === "student") {
+      onStudentNavigate(page.url.pathname, sessionUser.id);
+    }
+  });
 
   let { children } = $props();
   let user = $derived(page.data.user);

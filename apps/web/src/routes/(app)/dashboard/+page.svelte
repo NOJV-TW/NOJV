@@ -333,7 +333,7 @@
   {:else}
     <div class="space-y-6">
       <div class="grid gap-4 lg:grid-cols-2">
-        <Card variant="surface" size="lg">
+        <Card variant="surface" size="lg" data-tour="dashboard-stats">
           <div class="flex flex-col gap-6">
             <div class="flex items-baseline justify-between gap-4">
               <h2 class="text-title-sm font-semibold">{m.dashboard_statsTitle()}</h2>
@@ -388,7 +388,7 @@
           </div>
         </Card>
 
-        <Card variant="surface" size="lg">
+        <Card variant="surface" size="lg" data-tour="dashboard-charts">
           <h2 class="mb-4 text-title-sm font-semibold">
             {m.dashboard_tagProficiency()}
           </h2>
@@ -413,7 +413,7 @@
         {@const activityModel = buildActivityModel(activity, new Date(), 365)}
         {@const dailyActivity = activityModel.heatmapDays}
         {@const hasHeatmapData = dailyActivity.some((d) => d.acCount > 0)}
-        <Card variant="surface" size="lg">
+        <Card variant="surface" size="lg" data-tour="dashboard-heatmap">
           {#if hasHeatmapData}
             <ActivityHeatmap data={dailyActivity} title={m.dashboard_activityChart()} />
           {:else}
@@ -432,7 +432,7 @@
         {@render errorCard()}
       {/await}
 
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-tour="dashboard-distributions">
         <Card variant="surface" size="lg">
           <h2 class="mb-4 text-title-sm font-semibold">
             {m.dashboard_difficultyDist()}
@@ -479,7 +479,7 @@
         </Card>
       </div>
 
-      <Card variant="surface" size="lg">
+      <Card variant="surface" size="lg" data-tour="dashboard-recent">
         <h2 class="mb-4 text-title-sm font-semibold">
           {m.dashboard_recentActivity()}
         </h2>

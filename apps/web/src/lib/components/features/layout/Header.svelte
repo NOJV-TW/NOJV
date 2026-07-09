@@ -1,14 +1,12 @@
 <script lang="ts">
   import { page } from "$app/state";
   import {
-    ChevronDown,
     ClipboardList,
     Code2,
     FileCheck,
     GraduationCap,
     History,
     Languages,
-    Layers,
     LayoutDashboard,
     Menu,
     Shield,
@@ -54,13 +52,6 @@
           { href: "/problems", label: m.navigation_problems(), icon: Code2 },
           { href: "/submissions", label: m.navigation_submissions(), icon: History },
           { href: "/courses", label: m.navigation_courses(), icon: GraduationCap },
-        ]
-      : [],
-  );
-
-  let courseworkItems = $derived<NavItem[]>(
-    signedIn
-      ? [
           ...(effectiveRole === "student"
             ? [
                 {
@@ -92,48 +83,13 @@
   }
 
   let baseNavLinks = $derived(withActive(baseNavItems));
-  let courseworkLinks = $derived(withActive(courseworkItems));
   let adminLinks = $derived(withActive(adminItems));
-  let courseworkActive = $derived(courseworkLinks.some((link) => link.active));
 
   let mobileNavOpen = $state(false);
-  let courseworkOpen = $state(false);
-  let courseworkBtnEl: HTMLButtonElement | undefined = $state();
-  let courseworkDropdownEl: HTMLDivElement | undefined = $state();
-
-  function handleCourseworkClickOutside(event: MouseEvent) {
-    if (
-      courseworkBtnEl?.contains(event.target as Node) ||
-      courseworkDropdownEl?.contains(event.target as Node)
-    ) {
-      return;
-    }
-    courseworkOpen = false;
-  }
-
-  function handleCourseworkKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      courseworkOpen = false;
-      courseworkBtnEl?.focus();
-    }
-  }
-
-  $effect(() => {
-    if (courseworkOpen) {
-      document.addEventListener("mousedown", handleCourseworkClickOutside);
-      document.addEventListener("keydown", handleCourseworkKeydown);
-      courseworkDropdownEl?.querySelector<HTMLElement>("a[href]")?.focus();
-      return () => {
-        document.removeEventListener("mousedown", handleCourseworkClickOutside);
-        document.removeEventListener("keydown", handleCourseworkKeydown);
-      };
-    }
-  });
 
   $effect(() => {
     void currentPath;
     mobileNavOpen = false;
-    courseworkOpen = false;
   });
 </script>
 
@@ -206,6 +162,7 @@
             : "text-muted-foreground hover:bg-accent hover:text-foreground",
         )}
         href={item.href}
+        data-tour={`nav-${item.href.replace(/^\//, "")}`}
         aria-current={item.active ? "page" : undefined}
       >
         <Icon class="size-[22px]" strokeWidth={1.85} aria-hidden="true" />
@@ -214,70 +171,14 @@
     {/snippet}
 
     {#if signedIn}
-      <nav class="hidden items-stretch gap-1 lg:flex" aria-label="Primary">
+      <nav
+        class="hidden items-stretch gap-1 lg:flex"
+        aria-label="Primary"
+        data-tour="nav-primary"
+      >
         {#each baseNavLinks as item (item.href)}
           {@render topLink(item)}
         {/each}
-
-        {#if courseworkLinks.length === 1}
-          {@render topLink(courseworkLinks[0]!)}
-        {:else if courseworkLinks.length > 1}
-          <div class="relative flex">
-            <button
-              bind:this={courseworkBtnEl}
-              type="button"
-              class={cn(
-                "flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-xl px-3.5 py-2 transition-colors duration-fast ease-out-soft",
-                courseworkActive
-                  ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-fg)]"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-              aria-haspopup="menu"
-              aria-expanded={courseworkOpen}
-              onclick={() => (courseworkOpen = !courseworkOpen)}
-            >
-              <Layers class="size-[22px]" strokeWidth={1.85} aria-hidden="true" />
-              <span class="flex items-center gap-0.5 text-caption font-medium">
-                {m.nav_coursework()}
-                <ChevronDown
-                  class={cn(
-                    "size-3 transition-transform duration-fast ease-out-soft",
-                    courseworkOpen && "rotate-180",
-                  )}
-                  aria-hidden="true"
-                />
-              </span>
-            </button>
-
-            {#if courseworkOpen}
-              <div
-                bind:this={courseworkDropdownEl}
-                class="absolute left-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
-                role="menu"
-                aria-label={m.nav_coursework()}
-              >
-                {#each courseworkLinks as item (item.href)}
-                  {@const Icon = item.icon}
-                  <a
-                    class={cn(
-                      "flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft",
-                      item.active
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-accent hover:text-accent-foreground",
-                    )}
-                    href={item.href}
-                    role="menuitem"
-                    aria-current={item.active ? "page" : undefined}
-                    onclick={() => (courseworkOpen = false)}
-                  >
-                    <Icon class="size-4 shrink-0" strokeWidth={1.85} aria-hidden="true" />
-                    {item.label}
-                  </a>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        {/if}
 
         {#each adminLinks as item (item.href)}
           {@render topLink(item)}
@@ -330,8 +231,6 @@
   <MobileNavDrawer
     open={mobileNavOpen}
     items={baseNavLinks}
-    courseworkLabel={m.nav_coursework()}
-    courseworkItems={courseworkLinks}
     adminItems={adminLinks}
     onclose={() => (mobileNavOpen = false)}
   />

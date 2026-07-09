@@ -19,7 +19,7 @@
   let { problem, testcaseSets, allowedLanguages, dailyAttempts }: Props = $props();
 </script>
 
-<div class="p-5">
+<div class="p-5" data-tour="problem-statement">
   <div class="flex items-center gap-3">
     <h1 class="text-body-lg font-semibold leading-snug">
       {formatProblemDisplayName(problem)}
