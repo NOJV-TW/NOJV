@@ -30,8 +30,15 @@ describe("computeReminderCheckpoints", () => {
     expect(out.map((c) => c.leadDays)).toEqual([3, 2, 1]);
   });
 
-  it("excludes a checkpoint that lands exactly on now", () => {
-    const now = target - 3 * DAY;
+  it("retains a checkpoint that passed within the grace window", () => {
+    const now = target - 3 * DAY + 5 * 60_000;
+    const out = computeReminderCheckpoints(target, 0, now);
+
+    expect(out.map((c) => c.leadDays)).toEqual([3, 2, 1]);
+  });
+
+  it("skips a checkpoint that passed beyond the grace window", () => {
+    const now = target - 3 * DAY + 15 * 60_000;
     const out = computeReminderCheckpoints(target, 0, now);
 
     expect(out.map((c) => c.leadDays)).toEqual([2, 1]);

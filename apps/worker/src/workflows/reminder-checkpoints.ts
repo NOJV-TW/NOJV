@@ -3,6 +3,8 @@ export interface Checkpoint {
   leadDays: number;
 }
 
+const GRACE_MS = 10 * 60_000;
+
 export function computeReminderCheckpoints(
   targetMs: number,
   notBeforeMs: number,
@@ -14,7 +16,7 @@ export function computeReminderCheckpoints(
   for (let n = maxLeadDays; n >= 1; n--) {
     const at = targetMs - n * DAY;
     if (at < notBeforeMs) continue;
-    if (at <= nowMs) continue;
+    if (at <= nowMs - GRACE_MS) continue;
     out.push({ atMs: at, leadDays: n });
   }
   return out;
