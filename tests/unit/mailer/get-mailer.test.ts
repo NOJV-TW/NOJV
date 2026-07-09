@@ -7,10 +7,13 @@ const { createTransport, sendMail } = vi.hoisted(() => {
 
 vi.mock("nodemailer", () => ({ default: { createTransport } }));
 
-import { getMailer } from "@nojv/mailer";
-
 const SMTP_KEYS = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const;
 let saved: Record<string, string | undefined>;
+
+async function importMailer() {
+  vi.resetModules();
+  return import("@nojv/mailer");
+}
 
 beforeEach(() => {
   saved = Object.fromEntries(SMTP_KEYS.map((k) => [k, process.env[k]]));
@@ -28,6 +31,7 @@ afterEach(() => {
 
 describe("getMailer", () => {
   it("returns a no-op mailer when SMTP is unconfigured", async () => {
+    const { getMailer } = await importMailer();
     const mailer = getMailer();
     await expect(
       mailer.sendEmail({ to: "a@b.c", subject: "s", html: "<p>h</p>" }),
@@ -38,6 +42,7 @@ describe("getMailer", () => {
 
   it("returns a no-op mailer when only SMTP_HOST is set", async () => {
     process.env.SMTP_HOST = "smtp.example.com";
+    const { getMailer } = await importMailer();
     await getMailer().sendEmail({ to: "a@b.c", subject: "s", html: "<p>h</p>" });
     expect(createTransport).not.toHaveBeenCalled();
   });
@@ -47,6 +52,7 @@ describe("getMailer", () => {
     process.env.SMTP_PORT = "465";
     process.env.SMTP_USER = "user@example.com";
     process.env.SMTP_PASS = "pw";
+    const { getMailer } = await importMailer();
     await getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" });
     expect(createTransport).toHaveBeenCalledWith({
       host: "smtp.example.com",
@@ -68,6 +74,7 @@ describe("getMailer", () => {
     process.env.SMTP_USER = "user@example.com";
     process.env.SMTP_PASS = "pw";
     process.env.SMTP_FROM = "NOJV <no-reply@nojv.tw>";
+    const { getMailer } = await importMailer();
     await getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" });
     expect(createTransport).toHaveBeenCalledWith(
       expect.objectContaining({ port: 587, secure: false }),
@@ -75,5 +82,17 @@ describe("getMailer", () => {
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({ from: "NOJV <no-reply@nojv.tw>" }),
     );
+  });
+
+  it("memoizes the mailer across calls", async () => {
+    process.env.SMTP_HOST = "smtp.example.com";
+    process.env.SMTP_PORT = "465";
+    process.env.SMTP_USER = "user@example.com";
+    process.env.SMTP_PASS = "pw";
+    const { getMailer } = await importMailer();
+    const first = getMailer();
+    const second = getMailer();
+    expect(first).toBe(second);
+    expect(createTransport).toHaveBeenCalledTimes(1);
   });
 });

@@ -18,6 +18,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/application/package.json packages/application/
 COPY packages/redis/package.json packages/redis/
 COPY packages/storage/package.json packages/storage/
+COPY packages/mailer/package.json packages/mailer/
 COPY packages/sandbox-docker/package.json packages/sandbox-docker/
 COPY packages/temporal/package.json packages/temporal/
 
@@ -37,6 +38,7 @@ COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
 COPY packages/redis/ packages/redis/
 COPY packages/storage/ packages/storage/
+COPY packages/mailer/ packages/mailer/
 COPY packages/sandbox-docker/ packages/sandbox-docker/
 COPY packages/temporal/ packages/temporal/
 COPY packages/application/ packages/application/
@@ -46,6 +48,7 @@ RUN pnpm --filter @nojv/db build
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/redis build
 RUN pnpm --filter @nojv/storage build
+RUN pnpm --filter @nojv/mailer build
 RUN pnpm --filter @nojv/sandbox-docker build
 RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/application build
@@ -81,6 +84,9 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/dist/ ./packages/storage/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/package.json ./packages/storage/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/dist/ ./packages/mailer/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/package.json ./packages/mailer/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/node_modules/ ./packages/mailer/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/sandbox-docker/dist/ ./packages/sandbox-docker/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/sandbox-docker/package.json ./packages/sandbox-docker/package.json
 

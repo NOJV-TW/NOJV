@@ -16,16 +16,13 @@ const envSchema = z.object({
   APP_BASE_URL: z.string().default("https://nojv.tw"),
 });
 
-let warnedUnconfigured = false;
+let cachedMailer: Mailer | undefined;
 
-export function getMailer(): Mailer {
+function createMailer(): Mailer {
   const env = envSchema.parse(process.env);
 
   if (!env.SMTP_HOST || !env.SMTP_USER) {
-    if (!warnedUnconfigured) {
-      warnedUnconfigured = true;
-      console.warn("[mailer] SMTP is not configured; email sending is disabled (no-op).");
-    }
+    console.warn("[mailer] SMTP is not configured; email sending is disabled (no-op).");
     return {
       sendEmail: () => Promise.resolve(),
     };
@@ -44,6 +41,11 @@ export function getMailer(): Mailer {
       await transporter.sendMail({ from, to, subject, html });
     },
   };
+}
+
+export function getMailer(): Mailer {
+  cachedMailer ??= createMailer();
+  return cachedMailer;
 }
 
 export function getAppBaseUrl(): string {
