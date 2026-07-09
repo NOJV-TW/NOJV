@@ -38,6 +38,7 @@ const BASE: Config = {
   overlayOpacity: 0.6,
   stageRadius: 12,
   popoverClass: "nojv-tour",
+  overlayClickBehavior: "nextStep", // click anywhere (incl. the dimmed area) to advance
 };
 
 // One live intro at a time. driver.js appends its overlay to <body>, so it
@@ -102,6 +103,24 @@ function dashboardSteps(): DriveStep[] {
       m.tour_student_dashChartsTitle(),
       m.tour_student_dashChartsBody(),
       "bottom",
+    ),
+    ...step(
+      '[data-tour="dashboard-heatmap"]',
+      m.tour_student_dashHeatmapTitle(),
+      m.tour_student_dashHeatmapBody(),
+      "top",
+    ),
+    ...step(
+      '[data-tour="dashboard-distributions"]',
+      m.tour_student_dashDistTitle(),
+      m.tour_student_dashDistBody(),
+      "top",
+    ),
+    ...step(
+      '[data-tour="dashboard-recent"]',
+      m.tour_student_dashRecentTitle(),
+      m.tour_student_dashRecentBody(),
+      "top",
     ),
   ];
 }
