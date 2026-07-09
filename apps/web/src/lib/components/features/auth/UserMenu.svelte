@@ -8,12 +8,9 @@
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import ShieldIcon from "@lucide/svelte/icons/shield";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
-  import CompassIcon from "@lucide/svelte/icons/compass";
-  import { replayStudentTour } from "$lib/onboarding/student-tour";
 
   let user = $derived(page.data.user);
   let session = $derived(page.data.session);
-  let isStudent = $derived(user?.platformRole === "student");
   let canActAsAdmin = $derived(page.data.canActAsAdmin ?? false);
   let actingAsAdmin = $derived(page.data.actingAsAdmin ?? false);
   let adminBusy = $state(false);
@@ -128,20 +125,6 @@
             <KeyRoundIcon aria-hidden="true" size={16} />
             {m.userMenu_apiTokens()}
           </a>
-        {/if}
-
-        {#if isStudent}
-          <button
-            class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
-            onclick={() => {
-              open = false;
-              replayStudentTour();
-            }}
-            type="button"
-          >
-            <CompassIcon aria-hidden="true" size={16} />
-            {m.userMenu_replayTour()}
-          </button>
         {/if}
 
         {#if canActAsAdmin}

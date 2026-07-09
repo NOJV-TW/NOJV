@@ -18,6 +18,8 @@
   "about_viewOnGithub": "View on GitHub",
   "account_securityTitle": "Security",
   "account_securityHint": "Manage your password and two-factor authentication.",
+  "account_tourTitle": "Onboarding tour",
+  "account_tourHint": "Replay the feature intros shown on each page.",
   "account_2fa_adminRequired": "Admins must enable two-factor authentication before using the admin area.",
   "account_2fa_backupDownload": "Download as text file",
   "account_2fa_backupInstruction": "Save these backup codes now. Each can be used once if you lose your authenticator.",

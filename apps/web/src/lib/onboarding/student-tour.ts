@@ -27,7 +27,7 @@ function clearAllSeen() {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(SEEN_PREFIX)) localStorage.removeItem(k);
+      if (k?.startsWith(SEEN_PREFIX)) localStorage.removeItem(k);
     }
   } catch {
     // ignore
@@ -247,6 +247,6 @@ export function replayStudentTour(): void {
   if (typeof window === "undefined") return;
   clearAllSeen();
   teardownForNav();
-  const nav = INTROS[0]!;
-  runIntro(nav.key, nav.build(), nav.pad);
+  const nav = INTROS.find((intro) => intro.key === "nav");
+  if (nav) runIntro(nav.key, nav.build(), nav.pad);
 }
