@@ -59,6 +59,8 @@ describe("getMailer", () => {
       port: 465,
       secure: true,
       auth: { user: "user@example.com", pass: "pw" },
+      pool: true,
+      maxConnections: 3,
     });
     expect(sendMail).toHaveBeenCalledWith({
       from: "NOJV <user@example.com>",

@@ -4,21 +4,20 @@ import {
   courseMembershipRepo,
   examRepo,
   notificationRepo,
-  notificationPreferenceRepo,
   participationRepo,
   type NotificationCreateInput,
 } from "@nojv/db";
 import { pubsub } from "@nojv/redis";
-import {
-  SSE_NOTIFICATION,
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  notificationPreferencesSchema,
-  type NotificationPreferences,
-  type NotificationSSEEvent,
-} from "@nojv/core";
+import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
 
 import { listStudentsBelowMaxScore } from "../assignment";
-import { maybeSendEmails } from "./email";
+import { hasEmailSpec, maybeSendEmails } from "./email";
+
+export {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  getEffectiveNotificationPreferences,
+} from "./preferences";
 
 const NO_SKIPPED_DEDUPE_KEYS: ReadonlySet<string> = new Set<string>();
 
@@ -41,6 +40,7 @@ function toSseEvent(row: {
 
 export async function createNotification(input: NotificationCreateInput) {
   const skipped =
+    hasEmailSpec(input.type) &&
     input.dedupeKey != null &&
     (await notificationRepo.listExistingDedupeKeys([input.dedupeKey])).length > 0
       ? new Set([input.dedupeKey])
@@ -59,7 +59,9 @@ export async function createNotification(input: NotificationCreateInput) {
 export async function createNotificationBatch(inputs: NotificationCreateInput[]) {
   if (inputs.length === 0) return 0;
 
-  const dedupeKeys = inputs.map((i) => i.dedupeKey).filter((k): k is string => k != null);
+  const dedupeKeys = inputs.some((i) => hasEmailSpec(i.type))
+    ? inputs.map((i) => i.dedupeKey).filter((k): k is string => k != null)
+    : [];
   const skipped: ReadonlySet<string> =
     dedupeKeys.length > 0
       ? new Set(await notificationRepo.listExistingDedupeKeys(dedupeKeys))
@@ -168,39 +170,6 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
       dedupeKey: `exam_starting_soon:${exam.id}:${userId}`,
     })),
   );
-}
-
-export async function getNotificationPreferences(userId: string) {
-  return notificationPreferencesSchema.parse(
-    (await notificationPreferenceRepo.get(userId)) ?? {},
-  );
-}
-
-export async function updateNotificationPreferences(userId: string, input: unknown) {
-  const prefs = notificationPreferencesSchema.parse(input);
-  const row = await notificationPreferenceRepo.upsert(userId, prefs);
-  return notificationPreferencesSchema.parse(row);
-}
-
-export async function getEffectiveNotificationPreferences(
-  userIds: string[],
-): Promise<Map<string, NotificationPreferences>> {
-  const uniqueIds = Array.from(new Set(userIds));
-  const result = new Map<string, NotificationPreferences>();
-  if (uniqueIds.length === 0) return result;
-
-  const rows = await notificationPreferenceRepo.findManyByUserIds(uniqueIds);
-  const byUserId = new Map(rows.map((row) => [row.userId, row]));
-
-  for (const userId of uniqueIds) {
-    const row = byUserId.get(userId);
-    result.set(
-      userId,
-      row ? notificationPreferencesSchema.parse(row) : DEFAULT_NOTIFICATION_PREFERENCES,
-    );
-  }
-
-  return result;
 }
 
 export async function fanoutContestStartingSoon(contestId: string): Promise<void> {

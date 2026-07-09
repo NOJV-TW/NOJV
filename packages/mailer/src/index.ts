@@ -33,6 +33,8 @@ function createMailer(): Mailer {
     port: env.SMTP_PORT,
     secure: env.SMTP_PORT === 465,
     auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+    pool: true,
+    maxConnections: 3,
   });
   const from = env.SMTP_FROM || `NOJV <${env.SMTP_USER}>`;
 

@@ -226,4 +226,43 @@ describe("maybeSendEmails", () => {
     expect(arg.subject).toBe("【NOJV】你的題解〈二分搜解法〉已被移除");
     expect(arg.html).toContain("二分搜解法");
   });
+
+  it("escapes HTML in the body but leaves the subject as plain text", async () => {
+    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
+
+    await maybeSendEmails(
+      [
+        {
+          userId: "u1",
+          type: "assignment_started",
+          params: { title: '<a href="evil">x</a>' },
+          linkUrl: "/assignments/a1",
+        },
+      ],
+      NO_SKIP,
+    );
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const arg = sendEmail.mock.calls[0][0] as { subject: string; html: string };
+    expect(arg.subject).toBe('【NOJV】作業「<a href="evil">x</a>」已開始');
+    expect(arg.html).toContain("&lt;a href=&quot;evil&quot;&gt;x&lt;/a&gt;");
+    expect(arg.html).not.toContain('<a href="evil">');
+  });
+
+  it("skips a wanted user missing from the email lookup", async () => {
+    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
+
+    await maybeSendEmails(
+      ["u1", "u2"].map((userId) => ({
+        userId,
+        type: "course_enrolled" as const,
+        params: { courseId: "c1", courseName: "演算法" },
+        linkUrl: "/courses/c1",
+      })),
+      NO_SKIP,
+    );
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "u1@example.com" }));
+  });
 });
