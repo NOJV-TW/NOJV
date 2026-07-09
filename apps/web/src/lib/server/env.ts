@@ -22,9 +22,6 @@ const webEnvSchema = z
     GITHUB_CLIENT_SECRET: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
-
-    GMAIL_USER: z.string().optional(),
-    GMAIL_APP_PASSWORD: z.string().optional(),
   })
   .transform((val) => ({
     ...val,

@@ -90,20 +90,44 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: BETTER_AUTH_URL
-            # Transactional email (school-verification, notifications) via Gmail SMTP.
-            # Optional — the mailer is only constructed when a feature sends mail;
-            # GMAIL_APP_PASSWORD is a Google account app password, not the login password.
-            - name: GMAIL_USER
+            # Transactional email (school-verification, notifications) via SMTP.
+            # Optional — @nojv/mailer is a no-op until SMTP_HOST and SMTP_USER are
+            # both set; SMTP_PASS is a provider app password, not a login password.
+            - name: SMTP_HOST
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: GMAIL_USER
+                  key: SMTP_HOST
                   optional: true
-            - name: GMAIL_APP_PASSWORD
+            - name: SMTP_PORT
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: GMAIL_APP_PASSWORD
+                  key: SMTP_PORT
+                  optional: true
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_USER
+                  optional: true
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_PASS
+                  optional: true
+            - name: SMTP_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_FROM
+                  optional: true
+            - name: APP_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: BETTER_AUTH_URL
                   optional: true
             - name: GITHUB_CLIENT_ID
               valueFrom:

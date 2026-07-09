@@ -1,4 +1,5 @@
 import { userDomain } from "@nojv/application";
+import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
@@ -14,8 +15,6 @@ import {
 } from "$lib/server/account-connections";
 import { userHasCredentialPassword } from "$lib/server/step-up";
 import { createLogger } from "$lib/server/logger";
-import { getMailer } from "$lib/server/mailer";
-import { renderEmail } from "$lib/server/mailer/template";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";

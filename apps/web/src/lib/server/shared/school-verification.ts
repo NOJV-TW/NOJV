@@ -1,10 +1,9 @@
 import { fail } from "@sveltejs/kit";
 import { env } from "$env/dynamic/private";
 import { userDomain } from "@nojv/application";
+import { getMailer, renderEmail } from "@nojv/mailer";
 
 import { createLogger } from "../logger";
-import { getMailer } from "../mailer";
-import { renderEmail } from "../mailer/template";
 import { withAction } from "./action-handlers";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 

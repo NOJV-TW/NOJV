@@ -1,3 +1,4 @@
+import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 import type { Session } from "better-auth";
@@ -6,8 +7,6 @@ import { env } from "$env/dynamic/private";
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import { createLogger } from "$lib/server/logger";
-import { getMailer } from "$lib/server/mailer";
-import { renderEmail } from "$lib/server/mailer/template";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   clearStepUp,

@@ -111,6 +111,44 @@ spec:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: OTEL_EXPORTER_OTLP_HEADERS
                   optional: true
+            # Transactional email (notifications) via SMTP. Optional — @nojv/mailer
+            # is a no-op until SMTP_HOST and SMTP_USER are both set.
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_HOST
+                  optional: true
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_PORT
+                  optional: true
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_USER
+                  optional: true
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_PASS
+                  optional: true
+            - name: SMTP_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_FROM
+                  optional: true
+            - name: APP_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: BETTER_AUTH_URL
+                  optional: true
           livenessProbe:
             httpGet:
               path: /livez

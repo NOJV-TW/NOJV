@@ -42,7 +42,7 @@ Edit `.env` with your values. For local development the defaults work out of the
 | `BODY_SIZE_LIMIT`         | 64 MiB upload cap for adapter-node (prod profile only; Vite dev ignores it) |
 | `GITHUB_CLIENT_ID/SECRET` | Optional: create a GitHub OAuth App                                         |
 | `GOOGLE_CLIENT_ID/SECRET` | Optional: create a Google OAuth App                                         |
-| `GMAIL_USER/APP_PASSWORD` | Optional: Gmail SMTP creds needed for email verification                    |
+| `SMTP_HOST/USER/PASS`     | Optional: SMTP creds for email flows (mailer is a no-op until host+user set) |
 
 > **Note:** Local storage is MinIO; `.env.example` ships the matching defaults (`S3_ENDPOINT=http://localhost:9000`, `S3_ACCESS_KEY`/`S3_SECRET_KEY=minioadmin`, `S3_BUCKET=nojv`). The storage client (`packages/storage/src/client.ts`) throws on boot if `S3_ENDPOINT`/`S3_ACCESS_KEY`/`S3_SECRET_KEY` are unset, so keep them set.
 

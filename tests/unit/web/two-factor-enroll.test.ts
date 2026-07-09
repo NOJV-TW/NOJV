@@ -50,7 +50,8 @@ vi.mock("$lib/server/two-factor-enroll", () => ({
   clearEnrollConfirmed: clearEnrollConfirmedMock,
 }));
 
-vi.mock("$lib/server/mailer", () => ({
+vi.mock("@nojv/mailer", async (importActual) => ({
+  ...(await importActual<typeof import("@nojv/mailer")>()),
   getMailer: () => ({ sendEmail: sendEmailMock }),
 }));
 
