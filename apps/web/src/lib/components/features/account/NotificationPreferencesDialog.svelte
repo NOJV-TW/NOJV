@@ -27,6 +27,8 @@
           toasts.success(m.account_notifications_saved());
           void invalidateAll();
           open = false;
+        } else if (!form.valid) {
+          toasts.error(m.account_notifications_saveFailed());
         }
       },
     },

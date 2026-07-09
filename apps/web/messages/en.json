@@ -26,6 +26,7 @@
   "account_notifications_manage": "Manage notifications",
   "account_notifications_dialogHint": "Toggle the emails you want to receive.",
   "account_notifications_saved": "Notification preferences saved",
+  "account_notifications_saveFailed": "Could not save notification preferences. Check your entries and try again.",
   "account_notifications_emailOnlyHint": "These switches only affect emails. In-app notifications are always delivered.",
   "account_notifications_leadDays": "Days before",
   "account_notifications_groupAssignments": "Assignments",
