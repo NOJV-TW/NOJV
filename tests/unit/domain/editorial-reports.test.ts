@@ -35,6 +35,10 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { count: submissionCount },
 }));
 
+const { createNotification } = vi.hoisted(() => ({ createNotification: vi.fn() }));
+
+vi.mock("../../../packages/application/src/notification", () => ({ createNotification }));
+
 import { editorialDomain } from "@nojv/application";
 
 const { reportEditorial, listEditorialReports, resolveEditorialReport, canViewEditorials } =
@@ -70,6 +74,7 @@ function editorialRow(
     id: "ed_1",
     userId: "usr_author",
     problemId: "prob_1",
+    title: "My editorial",
     content: "body",
     language: "cpp",
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -88,6 +93,8 @@ beforeEach(() => {
   reportUpdateStatus.mockReset();
   reportListByStatus.mockReset();
   submissionCount.mockReset();
+  createNotification.mockReset();
+  createNotification.mockResolvedValue(undefined);
 });
 
 describe("reportEditorial", () => {
@@ -185,6 +192,7 @@ describe("resolveEditorialReport", () => {
 
   it("resolve soft-deletes the editorial and marks the report resolved", async () => {
     reportFindById.mockResolvedValue({ id: "rep_1", editorialId: "ed_1" });
+    editorialFindById.mockResolvedValue(editorialRow());
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveEditorialReport(actor("usr_admin", "admin"), "rep_1", "resolve");
@@ -196,6 +204,42 @@ describe("resolveEditorialReport", () => {
     );
   });
 
+  it("resolve notifies the author that their editorial was removed", async () => {
+    reportFindById.mockResolvedValue({ id: "rep_1", editorialId: "ed_1" });
+    editorialFindById.mockResolvedValue(editorialRow());
+    reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
+
+    await resolveEditorialReport(actor("usr_admin", "admin"), "rep_1", "resolve");
+
+    expect(createNotification).toHaveBeenCalledWith({
+      userId: "usr_author",
+      type: "editorial_removed",
+      params: { problemId: "prob_1", title: "My editorial" },
+      linkUrl: "/problems/prob_1",
+    });
+  });
+
+  it("resolve does not notify when the editorial no longer exists", async () => {
+    reportFindById.mockResolvedValue({ id: "rep_1", editorialId: "ed_1" });
+    editorialFindById.mockResolvedValue(null);
+    reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
+
+    await resolveEditorialReport(actor("usr_admin", "admin"), "rep_1", "resolve");
+
+    expect(editorialSoftDelete).toHaveBeenCalledWith("ed_1");
+    expect(createNotification).not.toHaveBeenCalled();
+  });
+
+  it("resolve does not notify when the editorial is already removed", async () => {
+    reportFindById.mockResolvedValue({ id: "rep_1", editorialId: "ed_1" });
+    editorialFindById.mockResolvedValue(editorialRow({ deletedAt: new Date() }));
+    reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
+
+    await resolveEditorialReport(actor("usr_admin", "admin"), "rep_1", "resolve");
+
+    expect(createNotification).not.toHaveBeenCalled();
+  });
+
   it("dismiss does not soft-delete the editorial", async () => {
     reportFindById.mockResolvedValue({ id: "rep_1", editorialId: "ed_1" });
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "dismissed" });
@@ -203,6 +247,7 @@ describe("resolveEditorialReport", () => {
     await resolveEditorialReport(actor("usr_admin", "admin"), "rep_1", "dismiss");
 
     expect(editorialSoftDelete).not.toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",
       expect.objectContaining({ status: "dismissed", resolvedByUserId: "usr_admin" }),
