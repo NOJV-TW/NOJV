@@ -46,6 +46,7 @@
 
 <button
   type="button"
+  data-tour="problem-bookmark"
   onclick={toggle}
   disabled={pending}
   aria-pressed={active}

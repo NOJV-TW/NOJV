@@ -142,6 +142,7 @@
           variant="surface"
           size="lg"
           interactive
+          data-tour={index === 0 ? "first-problem" : undefined}
           style="animation-delay: {Math.min(index * 30, 300)}ms"
           class="relative grid gap-x-8 gap-y-3 px-4 py-3 motion-safe:animate-[fade-up_400ms_var(--ease-out-soft)_both] sm:col-span-full sm:grid-cols-subgrid sm:items-center"
         >
