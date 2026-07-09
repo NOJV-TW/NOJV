@@ -9,7 +9,7 @@
   import ShieldIcon from "@lucide/svelte/icons/shield";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import CompassIcon from "@lucide/svelte/icons/compass";
-  import { startStudentTour } from "$lib/onboarding/student-tour";
+  import { replayStudentTour } from "$lib/onboarding/student-tour";
 
   let user = $derived(page.data.user);
   let session = $derived(page.data.session);
@@ -135,7 +135,7 @@
             class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
             onclick={() => {
               open = false;
-              startStudentTour();
+              replayStudentTour();
             }}
             type="button"
           >

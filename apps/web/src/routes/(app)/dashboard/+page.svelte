@@ -11,7 +11,6 @@
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
-  import StudentTour from "$lib/components/features/onboarding/StudentTour.svelte";
   import { Skeleton } from "$lib/components/primitives/ui/skeleton";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
@@ -329,16 +328,12 @@
     description={m.dashboard_subtitle()}
   />
 
-  {#if data.platformRole === "student"}
-    <StudentTour />
-  {/if}
-
   {#if !hasActivity}
     <WelcomeGuide username={data.displayName} platformRole={data.platformRole} />
   {:else}
     <div class="space-y-6">
       <div class="grid gap-4 lg:grid-cols-2">
-        <Card variant="surface" size="lg">
+        <Card variant="surface" size="lg" data-tour="dashboard-stats">
           <div class="flex flex-col gap-6">
             <div class="flex items-baseline justify-between gap-4">
               <h2 class="text-title-sm font-semibold">{m.dashboard_statsTitle()}</h2>
@@ -393,7 +388,7 @@
           </div>
         </Card>
 
-        <Card variant="surface" size="lg">
+        <Card variant="surface" size="lg" data-tour="dashboard-charts">
           <h2 class="mb-4 text-title-sm font-semibold">
             {m.dashboard_tagProficiency()}
           </h2>

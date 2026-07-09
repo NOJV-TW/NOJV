@@ -7,9 +7,11 @@
   import { m } from "$lib/paraglide/messages.js";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { connectSSE, disconnectSSE } from "$lib/stores/sse";
-  import { resumeStudentTour } from "$lib/onboarding/student-tour";
+  import { onStudentNavigate } from "$lib/onboarding/student-tour";
 
-  afterNavigate(() => resumeStudentTour(page.url.pathname));
+  afterNavigate(() => {
+    if (page.data.user?.platformRole === "student") onStudentNavigate(page.url.pathname);
+  });
 
   let { children } = $props();
   let user = $derived(page.data.user);
