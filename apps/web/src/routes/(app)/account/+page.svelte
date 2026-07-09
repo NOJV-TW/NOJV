@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
+  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
   import {
@@ -369,11 +370,14 @@
           <button
             type="button"
             class="{securityLinkClass} w-full text-left"
-            onclick={replayStudentTour}
+            onclick={() => {
+              const sessionUser = page.data.user;
+              if (sessionUser) replayStudentTour(sessionUser.id);
+            }}
           >
             <span class="flex items-center gap-2.5">
               <Compass aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
-              {m.userMenu_replayTour()}
+              {m.account_tourReplay()}
             </span>
             <ChevronRight aria-hidden="true" class={securityChevronClass} />
           </button>

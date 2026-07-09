@@ -10,7 +10,10 @@
   import { onStudentNavigate } from "$lib/onboarding/student-tour";
 
   afterNavigate(() => {
-    if (page.data.user?.platformRole === "student") onStudentNavigate(page.url.pathname);
+    const sessionUser = page.data.user;
+    if (sessionUser?.platformRole === "student") {
+      onStudentNavigate(page.url.pathname, sessionUser.id);
+    }
   });
 
   let { children } = $props();

@@ -2,35 +2,40 @@ import { driver, type Config, type Driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { m } from "$lib/paraglide/messages.js";
 
-// Each page owns its own intro, keyed independently so it fires the first time
-// that page is visited — no forced cross-page walk.
 const SEEN_PREFIX = "nojv:tour:seen:";
 const PROBLEM_DETAIL = /^\/problems\/[^/]+$/;
 
 type Side = "top" | "bottom" | "left" | "right";
 
+let uid = "";
+
+function seenKey(key: string): string {
+  return `${SEEN_PREFIX}${uid}:${key}`;
+}
+
 function seen(key: string): boolean {
   try {
-    return localStorage.getItem(SEEN_PREFIX + key) === "1";
+    return localStorage.getItem(seenKey(key)) === "1";
   } catch {
     return false;
   }
 }
 function markSeen(key: string) {
   try {
-    localStorage.setItem(SEEN_PREFIX + key, "1");
+    localStorage.setItem(seenKey(key), "1");
   } catch {
-    // storage blocked — intro just re-runs next visit
+    return;
   }
 }
 function clearAllSeen() {
   try {
+    const prefix = `${SEEN_PREFIX}${uid}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k?.startsWith(SEEN_PREFIX)) localStorage.removeItem(k);
+      if (k?.startsWith(prefix)) localStorage.removeItem(k);
     }
   } catch {
-    // ignore
+    return;
   }
 }
 
@@ -38,14 +43,12 @@ const BASE: Config = {
   overlayOpacity: 0.6,
   stageRadius: 12,
   popoverClass: "nojv-tour",
-  overlayClickBehavior: "nextStep", // click anywhere (incl. the dimmed area) to advance
+  overlayClickBehavior: "nextStep",
 };
 
-// One live intro at a time. driver.js appends its overlay to <body>, so it
-// survives SvelteKit navigations; we tear it down ourselves. A "silent"
-// teardown (we left the page) must not chain to the next intro.
 let active: Driver | null = null;
 let silent = false;
+let pendingTimer: number | undefined;
 
 function step(sel: string, title: string, description: string, side: Side): DriveStep[] {
   return typeof document !== "undefined" && document.querySelector(sel)
@@ -94,8 +97,6 @@ function navSteps(): DriveStep[] {
   ];
 }
 
-// Data-gated by element presence: on an empty dashboard the charts aren't
-// rendered, so this yields no steps and stays unseen until there's data.
 function dashboardSteps(): DriveStep[] {
   return [
     ...step(
@@ -190,6 +191,8 @@ const INTROS: Intro[] = [
 ];
 
 function runIntro(key: string, steps: DriveStep[], pad: number) {
+  let closedByUser = false;
+  let reachedLastStep = false;
   const d = driver({
     ...BASE,
     stagePadding: pad,
@@ -200,13 +203,18 @@ function runIntro(key: string, steps: DriveStep[], pad: number) {
     prevBtnText: m.tour_prev(),
     doneBtnText: m.tour_done(),
     steps,
+    onCloseClick: () => {
+      closedByUser = true;
+      d.destroy();
+    },
+    onHighlighted: () => {
+      if (d.isLastStep()) reachedLastStep = true;
+    },
     onDestroyed: () => {
       if (active === d) active = null;
       markSeen(key);
-      // Chain to the next unseen intro on the same page (e.g. nav → dashboard
-      // stats) — unless we were torn down because the user left the page.
-      if (!silent) {
-        window.setTimeout(() => maybeRunIntro(window.location.pathname), 200);
+      if (!silent && !closedByUser && reachedLastStep) {
+        scheduleIntro(window.location.pathname, 200);
       }
     },
   });
@@ -221,30 +229,35 @@ function maybeRunIntro(pathname: string) {
   for (const intro of INTROS) {
     if (!intro.match(pathname) || seen(intro.key)) continue;
     const steps = intro.build();
-    if (steps.length === 0) continue; // elements absent (e.g. dashboard w/o data)
+    if (steps.length === 0) continue;
     runIntro(intro.key, steps, intro.pad);
     return;
   }
 }
 
+function scheduleIntro(pathname: string, delay: number) {
+  window.clearTimeout(pendingTimer);
+  pendingTimer = window.setTimeout(() => maybeRunIntro(pathname), delay);
+}
+
 function teardownForNav() {
+  window.clearTimeout(pendingTimer);
   if (!active) return;
   silent = true;
   active.destroy();
   silent = false;
 }
 
-// Called by the (app) layout after every navigation.
-export function onStudentNavigate(pathname: string): void {
+export function onStudentNavigate(pathname: string, userId: string): void {
   if (typeof window === "undefined") return;
+  uid = userId;
   teardownForNav();
-  window.setTimeout(() => maybeRunIntro(pathname), 350);
+  scheduleIntro(pathname, 350);
 }
 
-// "Replay tour" from the user menu: reset every page's flag and start over from
-// the nav intro; subsequent page intros re-fire as the student browses.
-export function replayStudentTour(): void {
+export function replayStudentTour(userId: string): void {
   if (typeof window === "undefined") return;
+  uid = userId;
   clearAllSeen();
   teardownForNav();
   const nav = INTROS.find((intro) => intro.key === "nav");
