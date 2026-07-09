@@ -206,6 +206,7 @@
             : "text-muted-foreground hover:bg-accent hover:text-foreground",
         )}
         href={item.href}
+        data-tour={`nav-${item.href.replace(/^\//, "")}`}
         aria-current={item.active ? "page" : undefined}
       >
         <Icon class="size-[22px]" strokeWidth={1.85} aria-hidden="true" />
@@ -214,7 +215,11 @@
     {/snippet}
 
     {#if signedIn}
-      <nav class="hidden items-stretch gap-1 lg:flex" aria-label="Primary">
+      <nav
+        class="hidden items-stretch gap-1 lg:flex"
+        aria-label="Primary"
+        data-tour="nav-primary"
+      >
         {#each baseNavLinks as item (item.href)}
           {@render topLink(item)}
         {/each}
