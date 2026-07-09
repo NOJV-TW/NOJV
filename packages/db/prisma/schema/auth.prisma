@@ -54,6 +54,7 @@ model User {
   ipViolationLogs                IpViolationLog[]
   activeExamSessions             ActiveExamSession[]          @relation("ActiveExamSessionUser")
   notifications                  Notification[]
+  notificationPreference         NotificationPreference?
   triggeredRejudgeLogs           SubmissionRejudgeLog[]
   asOverrideStudent              ScoreOverride[]              @relation("ScoreOverrideUser")
   createdScoreOverrides          ScoreOverride[]              @relation("ScoreOverrideCreator")

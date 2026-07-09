@@ -1,4 +1,5 @@
 enum NotificationType {
+  assignment_started
   assignment_due_soon
   exam_starting_soon
   contest_starting_soon
@@ -6,6 +7,7 @@ enum NotificationType {
   announcement_published
   role_changed
   clarification_answered
+  editorial_removed
 }
 
 model Notification {
@@ -23,4 +25,22 @@ model Notification {
   @@unique([dedupeKey])
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, readAt, createdAt(sort: Desc)])
+}
+
+model NotificationPreference {
+  userId                    String  @id
+  emailAssignmentStarted    Boolean @default(true)
+  emailAssignmentDueSoon    Boolean @default(true)
+  assignmentDueSoonLeadDays Int     @default(3)
+  emailExamStarting         Boolean @default(true)
+  examStartingLeadDays      Int     @default(1)
+  emailContestStarting      Boolean @default(true)
+  contestStartingLeadDays   Int     @default(1)
+  emailSystemAnnouncement   Boolean @default(true)
+  emailCourseAnnouncement   Boolean @default(true)
+  emailCourseEnrolled       Boolean @default(true)
+  emailRoleChanged          Boolean @default(true)
+  emailEditorialRemoved     Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
