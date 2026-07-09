@@ -40,6 +40,7 @@
 </script>
 
 <svelte:head>
+  <title>NOJV</title>
   <meta property="og:site_name" content="NOJV" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="NOJV" />
