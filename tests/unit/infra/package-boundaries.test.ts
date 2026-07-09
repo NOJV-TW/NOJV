@@ -19,6 +19,7 @@ const ALLOWED: Record<string, string[]> = {
     "@nojv/redis",
     "@nojv/storage",
     "@nojv/sandbox-docker",
+    "@nojv/mailer",
   ],
   temporal: ["@nojv/core"],
 };

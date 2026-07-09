@@ -18,6 +18,9 @@ import {
 } from "@nojv/core";
 
 import { listStudentsBelowMaxScore } from "../assignment";
+import { maybeSendEmails } from "./email";
+
+const NO_SKIPPED_DEDUPE_KEYS: ReadonlySet<string> = new Set<string>();
 
 function toSseEvent(row: {
   id: string;
@@ -37,13 +40,30 @@ function toSseEvent(row: {
 }
 
 export async function createNotification(input: NotificationCreateInput) {
+  const skipped =
+    input.dedupeKey != null &&
+    (await notificationRepo.listExistingDedupeKeys([input.dedupeKey])).length > 0
+      ? new Set([input.dedupeKey])
+      : NO_SKIPPED_DEDUPE_KEYS;
+
   const row = await notificationRepo.createAndCap(input);
   await pubsub.publishNotification(input.userId, toSseEvent(row));
+
+  void maybeSendEmails([input], skipped).catch((err: unknown) =>
+    console.warn("[notification-email] dispatch failed:", err),
+  );
+
   return row;
 }
 
 export async function createNotificationBatch(inputs: NotificationCreateInput[]) {
   if (inputs.length === 0) return 0;
+
+  const dedupeKeys = inputs.map((i) => i.dedupeKey).filter((k): k is string => k != null);
+  const skipped: ReadonlySet<string> =
+    dedupeKeys.length > 0
+      ? new Set(await notificationRepo.listExistingDedupeKeys(dedupeKeys))
+      : NO_SKIPPED_DEDUPE_KEYS;
 
   const BATCH = 500;
   let total = 0;
@@ -62,6 +82,10 @@ export async function createNotificationBatch(inputs: NotificationCreateInput[])
       linkUrl: sample.linkUrl ?? null,
     });
   }
+
+  void maybeSendEmails(inputs, skipped).catch((err: unknown) =>
+    console.warn("[notification-email] dispatch failed:", err),
+  );
 
   return total;
 }

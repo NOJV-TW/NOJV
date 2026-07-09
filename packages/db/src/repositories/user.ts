@@ -56,6 +56,13 @@ export const userRepo = {
     });
   },
 
+  listEmailByIds(ids: readonly string[]) {
+    return prisma.user.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, email: true, emailVerified: true },
+    });
+  },
+
   listPaginated(opts: { where: Prisma.UserWhereInput; skip: number; take: number }) {
     return prisma.user.findMany({
       where: opts.where,

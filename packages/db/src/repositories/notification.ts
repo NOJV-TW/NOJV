@@ -90,6 +90,15 @@ export const notificationRepo = {
     return result.count;
   },
 
+  async listExistingDedupeKeys(keys: string[]): Promise<string[]> {
+    if (keys.length === 0) return [];
+    const rows = await prisma.notification.findMany({
+      where: { dedupeKey: { in: keys } },
+      select: { dedupeKey: true },
+    });
+    return rows.map((r) => r.dedupeKey).filter((k): k is string => k != null);
+  },
+
   async markRead(userId: string, notificationId: string) {
     const row = await prisma.notification.updateMany({
       where: { id: notificationId, userId, readAt: null },

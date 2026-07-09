@@ -19,4 +19,6 @@ export const notificationPreferencesSchema = z.object({
 
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
 
-export const DEFAULT_NOTIFICATION_PREFERENCES = notificationPreferencesSchema.parse({});
+export const DEFAULT_NOTIFICATION_PREFERENCES = Object.freeze(
+  notificationPreferencesSchema.parse({}),
+);
