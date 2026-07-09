@@ -9,6 +9,7 @@
 **Tech Stack:** Prisma 7、Temporal workflow(deterministic!)、nodemailer、SvelteKit form action + superForm、Bits UI Dialog/Switch、paraglide。
 
 **Conventions(全程遵守):**
+
 - 不寫註解。TDD:先寫測試看它 fail 再實作。每個 task 結尾 commit。
 - 測試放置與跑法見 `docs/runbooks/testing.md`。unit: `pnpm test:unit`,integration: `pnpm test:integration`(需本機 stack)。
 - schema 改動後:`pnpm db:generate`;dev DB 用 `pnpm db:push`(**不可** `migrate dev`);prod migration 手寫 SQL 檔(參考 `packages/db/prisma/migrations/` 既有格式,並跑 `node scripts/check-migrations.mjs` 驗證)。
@@ -21,6 +22,7 @@
 ### Task 1: Schema — NotificationPreference + 新 NotificationType
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/notification.prisma`
 - Create: `packages/db/prisma/migrations/<timestamp>_notification_preference/migration.sql`
 
@@ -59,6 +61,7 @@ model NotificationPreference {
 ### Task 2: `packages/mailer` — 通用 SMTP mailer 抽出
 
 **Files:**
+
 - Create: `packages/mailer/`(package.json、tsconfig、src/index.ts、src/template.ts、src/types.ts)— 結構抄 `packages/storage`
 - Delete: `apps/web/src/lib/server/mailer/`(gmail.ts/index.ts/template.ts/types.ts)
 - Modify: web 內三個 import 點(`shared/school-verification.ts`、`routes/(app)/account/+page.server.ts`、`routes/(app)/account/two-factor/+page.server.ts`)
@@ -80,9 +83,9 @@ const envSchema = z.object({
 });
 ```
 
-`SMTP_HOST` 或 `SMTP_USER` 空 → no-op mailer + 一次性 warning log。`from = SMTP_FROM || \`NOJV <${SMTP_USER}>\``。`template.ts`、`types.ts` 原封搬過去,另 export `getAppBaseUrl()`。lazy singleton(參考原 `getMailer`)。
+`SMTP_HOST` 或 `SMTP_USER` 空 → no-op mailer + 一次性 warning log。`from = SMTP_FROM || \`NOJV <${SMTP_USER}>\``。`template.ts`、`types.ts`原封搬過去,另 export`getAppBaseUrl()`。lazy singleton(參考原 `getMailer`)。
 
-**Step 3:** web 三處 import 改 `@nojv/mailer`;刪原目錄;web env.ts 移除 GMAIL_*。全 repo grep `GMAIL` 清乾淨(**helm/docs/env-manifest 也要**,`infra/charts/nojv/README.md` 有 env-manifest 說明,worker-judge.deployment.yaml 有 parity 慣例 —— 新 env 一律有 default,不會觸發 required crashloop,但 manifest 文件要同步)。helm:web + worker(platform/judge 兩個 deployment 都看,platform worker 才需要)加 SMTP_* env(secret keys 沿用既有 secret,新增 SMTP_USER/SMTP_PASS keys;values 檔照既有模式)。
+**Step 3:** web 三處 import 改 `@nojv/mailer`;刪原目錄;web env.ts 移除 GMAIL__。全 repo grep `GMAIL` 清乾淨(**helm/docs/env-manifest 也要**,`infra/charts/nojv/README.md` 有 env-manifest 說明,worker-judge.deployment.yaml 有 parity 慣例 —— 新 env 一律有 default,不會觸發 required crashloop,但 manifest 文件要同步)。helm:web + worker(platform/judge 兩個 deployment 都看,platform worker 才需要)加 SMTP__ env(secret keys 沿用既有 secret,新增 SMTP_USER/SMTP_PASS keys;values 檔照既有模式)。
 
 **Step 4:** worker 端:`apps/worker` package.json 加 `@nojv/mailer` dep(application 那層引用,見 Task 4 —— 實際 dep 加在 `packages/application`)。
 
@@ -93,6 +96,7 @@ const envSchema = z.object({
 ### Task 3: 偏好 repo + core schema + application 存取
 
 **Files:**
+
 - Create: `packages/db/src/repositories/notification-preference.ts`(記得在 repo index export)
 - Create: `packages/core/src/notification-preferences.ts`(記得 index export)
 - Modify: `packages/application/src/notification/index.ts`(加 getPreferences/updatePreferences)
@@ -119,6 +123,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = notificationPreferencesSchema.pa
 ```
 
 **Step 2:** repo 方法:
+
 - `get(userId)` → row | null
 - `upsert(userId, prefs)`
 - `getEffectiveMap(userIds: string[]): Promise<Map<string, NotificationPreferences>>` — 一次 `findMany({ where: { userId: { in } } })`,缺 row 的補 `DEFAULT_NOTIFICATION_PREFERENCES`
@@ -133,6 +138,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = notificationPreferencesSchema.pa
 ### Task 4: Email 發送層 — 掛進 createNotification(Batch)
 
 **Files:**
+
 - Create: `packages/application/src/notification/email.ts`
 - Modify: `packages/application/src/notification/index.ts`
 - Modify: `packages/db/src/repositories/notification.ts`(加 `listExistingDedupeKeys(keys: string[]): Promise<Set<string>>`)
@@ -160,6 +166,7 @@ const EMAIL_SPECS: Partial<Record<NotificationType, EmailSpec>> = {
 文案雙語(中文為主、英文附註,參考既有 template 的 fallback 寫法);subject 例:`【NOJV】作業「${title}」已開始`。announcement 因 system/course 開關不同,prefKey 用 `(params) => params.courseId ? "emailCourseAnnouncement" : "emailSystemAnnouncement"`(把 prefKey 定義成函式統一處理)。announcement 的 params 目前沒有 courseId —— 在 `announcement/mutations.ts` 的 `fanoutAnnouncementPublished` params 補上 `courseId`。
 
 `maybeSendEmails(inputs: NotificationCreateInput[], skippedDedupeKeys: Set<string>)`:
+
 1. 過濾:type 有 spec、dedupeKey 不在 skipped。
 2. `getEffectiveMap` 查偏好,prefKey false 的剔除。
 3. `userRepo.listEmailByIds` 拿 email,`emailVerified === false` 剔除,placeholder email(`@deleted.nojv.local` 等 synthesize 的)剔除。
@@ -177,6 +184,7 @@ const EMAIL_SPECS: Partial<Record<NotificationType, EmailSpec>> = {
 ### Task 5: 排程 fanout 改 checkpoint 制
 
 **Files:**
+
 - Create: `apps/worker/src/workflows/reminder-checkpoints.ts`(純函式,好測)
 - Modify: `apps/worker/src/workflows/assignment-due-soon.ts`、`exam-auto-close.ts`、`contest-lifecycle.ts`
 - Modify: `apps/worker/src/activities/lifecycle.ts`、`packages/application/src/notification/index.ts`(fanout 簽名加 leadDays;新 `fanoutAssignmentStarted`)
@@ -187,9 +195,15 @@ const EMAIL_SPECS: Partial<Record<NotificationType, EmailSpec>> = {
 **Step 1(test first):** 純函式:
 
 ```ts
-export interface Checkpoint { atMs: number; leadDays: number }
+export interface Checkpoint {
+  atMs: number;
+  leadDays: number;
+}
 export function computeReminderCheckpoints(
-  targetMs: number, notBeforeMs: number, nowMs: number, maxLeadDays = 7,
+  targetMs: number,
+  notBeforeMs: number,
+  nowMs: number,
+  maxLeadDays = 7,
 ): Checkpoint[] {
   const DAY = 86_400_000;
   const out: Checkpoint[] = [];
@@ -208,6 +222,7 @@ export function computeReminderCheckpoints(
 **Step 2:** workflows(Temporal 內 `Date.now()` 是 deterministic 的,現有 code 就這樣用):
 
 `assignmentDueSoonWorkflow`:
+
 ```
 opensAtMs = Date.parse(input.opensAt); closesAtMs = Date.parse(input.closesAt)
 if (closesAtMs > Date.now()) {
@@ -223,6 +238,7 @@ for (cp of computeReminderCheckpoints(closesAtMs, opensAtMs, Date.now())) {
 `examAutoCloseWorkflow` / `contestLifecycleWorkflow`:把 `START_REMINDER_MINUTES=15` 的單點提醒換成 checkpoint 迴圈(target=startsAt,notBefore=0,即 `-Infinity` 等效;exam 用 `fanoutExamStartingSoon(examId, leadDays)`),之後原本的 start/close 流程不動。
 
 **Step 3:** fanout 改動(application/notification/index.ts):
+
 - `fanoutAssignmentStarted(assignmentId)`:對象 = 課程 active 學生(不濾 maxed);type `assignment_started`;dedupeKey `assignment_started:${id}:${userId}`;linkUrl 同 due_soon。
 - `fanoutAssignmentDueSoon(assignmentId, leadDays)`:原邏輯 + 最後用 `getEffectiveMap` 濾 `assignmentDueSoonLeadDays === leadDays`。
 - `fanoutExamStartingSoon(examId, leadDays)` / `fanoutContestStartingSoon(contestId, leadDays)`:同樣濾 `examStartingLeadDays` / `contestStartingLeadDays`。
@@ -239,6 +255,7 @@ for (cp of computeReminderCheckpoints(closesAtMs, opensAtMs, Date.now())) {
 ### Task 6: editorial_removed 通知
 
 **Files:**
+
 - Modify: `packages/application/src/editorial/reports.ts`(`resolveEditorialReport` action==="resolve" 分支)
 
 softDelete 前先 `editorialRepo.findById(report.editorialId)` 拿 title/problemId/userId,softDelete 後:
@@ -259,6 +276,7 @@ await notificationDomain.createNotification({
 ### Task 7: 設定 UI — /account 欄位 + Modal
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/account/+page.server.ts`(load 回 prefs + superForm;action `updateNotificationPreferences`,套 `consumeFormRateLimit`)
 - Modify: `apps/web/src/routes/(app)/account/+page.svelte`(新列)
 - Create: `apps/web/src/lib/components/features/account/NotificationPreferencesDialog.svelte`(目錄不存在就看 features/ 下慣例放)
@@ -287,6 +305,7 @@ server:zod schema 直接用 `@nojv/core` 的 `notificationPreferencesSchema`;成
 ### Task 9: Prod env(merge + deploy 後)
 
 `ssh nn@ssh.nojv.tw`:
+
 1. 找既有含 GMAIL_USER 的 secret:`sudo kubectl -n nojv get secret -o name` + describe。
 2. 加 SMTP keys(值:SMTP_HOST=smtp.gmail.com、SMTP_PORT=465、SMTP_USER=<gmail>、SMTP_PASS=<app password>,沿用原 GMAIL 值)。
 3. Flux rollout 後驗證:web/worker pod env 有 SMTP_*;實測一封(改個偏好、發個測試公告或看 worker log)。

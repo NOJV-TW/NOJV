@@ -79,14 +79,14 @@ passwordless/2FA enrollment, API-token step-up OTP, notifications) silently skip
 delivery rather than throwing. Set these whenever those features are in use.
 Consumed by both the web app and the platform worker.
 
-| Variable       | Purpose                                                        |
-| -------------- | -------------------------------------------------------------- |
-| `SMTP_HOST`    | SMTP host (empty → mailer no-op)                               |
+| Variable       | Purpose                                                             |
+| -------------- | ------------------------------------------------------------------- |
+| `SMTP_HOST`    | SMTP host (empty → mailer no-op)                                    |
 | `SMTP_PORT`    | SMTP port; `465` → implicit TLS, otherwise STARTTLS (default `465`) |
-| `SMTP_USER`    | SMTP username (empty → mailer no-op)                           |
-| `SMTP_PASS`    | SMTP password / provider app password (not the login password) |
-| `SMTP_FROM`    | Sender header; defaults to `NOJV <SMTP_USER>` when empty       |
-| `APP_BASE_URL` | Base URL for email links (default `https://nojv.tw`)           |
+| `SMTP_USER`    | SMTP username (empty → mailer no-op)                                |
+| `SMTP_PASS`    | SMTP password / provider app password (not the login password)      |
+| `SMTP_FROM`    | Sender header; defaults to `NOJV <SMTP_USER>` when empty            |
+| `APP_BASE_URL` | Base URL for email links (default `https://nojv.tw`)                |
 
 ### Temporal
 

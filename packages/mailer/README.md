@@ -17,14 +17,14 @@
 
 ## 環境變數
 
-| 變數           | 預設               | 說明                                    |
-| -------------- | ------------------ | --------------------------------------- |
-| `SMTP_HOST`    | `""`               | SMTP 主機;空 → no-op mailer             |
-| `SMTP_PORT`    | `465`              | SMTP 埠;`465` → `secure: true`          |
-| `SMTP_USER`    | `""`               | SMTP 帳號;空 → no-op mailer             |
-| `SMTP_PASS`    | `""`               | SMTP 密碼                               |
-| `SMTP_FROM`    | `NOJV <SMTP_USER>` | 寄件者;空則以 `SMTP_USER` 組            |
-| `APP_BASE_URL` | `https://nojv.tw`  | email 連結基底 URL                      |
+| 變數           | 預設               | 說明                           |
+| -------------- | ------------------ | ------------------------------ |
+| `SMTP_HOST`    | `""`               | SMTP 主機;空 → no-op mailer    |
+| `SMTP_PORT`    | `465`              | SMTP 埠;`465` → `secure: true` |
+| `SMTP_USER`    | `""`               | SMTP 帳號;空 → no-op mailer    |
+| `SMTP_PASS`    | `""`               | SMTP 密碼                      |
+| `SMTP_FROM`    | `NOJV <SMTP_USER>` | 寄件者;空則以 `SMTP_USER` 組   |
+| `APP_BASE_URL` | `https://nojv.tw`  | email 連結基底 URL             |
 
 ## 依賴
 

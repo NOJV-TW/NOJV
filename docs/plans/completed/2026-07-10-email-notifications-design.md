@@ -9,17 +9,17 @@
 
 ## 通知種類
 
-| 事件 | 站內 type | 觸發 | email 開關 | 提前天數 |
-| --- | --- | --- | --- | --- |
-| 作業開始 | `assignment_started`(新增) | opensAt(已過則發布時立即) | ✓ | — |
-| 作業即將截止 | `assignment_due_soon` | closesAt − N 天 | ✓ | 1–7,預設 3 |
-| 考試即將開始 | `exam_starting_soon` | startsAt − N 天 | ✓ | 1–7,預設 1 |
-| 比賽即將開始 | `contest_starting_soon` | startsAt − N 天 | ✓ | 1–7,預設 1 |
-| 系統公告 | `announcement_published`(courseId null) | 發布時 | ✓ | — |
-| 課程公告 | `announcement_published`(courseId 非 null) | 發布時 | ✓ | — |
-| 被加入課程 | `course_enrolled` | enroll mutation | ✓ | — |
-| 角色變更 | `role_changed` | role mutation | ✓ | — |
-| 題解審核結果 | `editorial_reviewed`(新增,站內+email 一起補) | 審核 mutation | ✓ | — |
+| 事件         | 站內 type                                    | 觸發                      | email 開關 | 提前天數   |
+| ------------ | -------------------------------------------- | ------------------------- | ---------- | ---------- |
+| 作業開始     | `assignment_started`(新增)                   | opensAt(已過則發布時立即) | ✓          | —          |
+| 作業即將截止 | `assignment_due_soon`                        | closesAt − N 天           | ✓          | 1–7,預設 3 |
+| 考試即將開始 | `exam_starting_soon`                         | startsAt − N 天           | ✓          | 1–7,預設 1 |
+| 比賽即將開始 | `contest_starting_soon`                      | startsAt − N 天           | ✓          | 1–7,預設 1 |
+| 系統公告     | `announcement_published`(courseId null)      | 發布時                    | ✓          | —          |
+| 課程公告     | `announcement_published`(courseId 非 null)   | 發布時                    | ✓          | —          |
+| 被加入課程   | `course_enrolled`                            | enroll mutation           | ✓          | —          |
+| 角色變更     | `role_changed`                               | role mutation             | ✓          | —          |
+| 題解審核結果 | `editorial_reviewed`(新增,站內+email 一起補) | 審核 mutation             | ✓          | —          |
 
 明確不做:作業到期(截止當下)通知、提問被回覆 email。
 
