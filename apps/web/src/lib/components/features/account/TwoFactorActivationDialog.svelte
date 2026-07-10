@@ -144,9 +144,11 @@
           </div>
         </form>
       {:else if phase === "idle"}
-        <p class="text-body-sm text-muted-foreground">
-          {activated ? m.account_2fa_deactivate_emailHint() : m.account_2fa_activate_intro()}
-        </p>
+        {#if activated}
+          <p class="text-body-sm text-muted-foreground">
+            {m.account_2fa_deactivate_emailHint()}
+          </p>
+        {/if}
         <form
           method="POST"
           action="?/sendEmailOtp"

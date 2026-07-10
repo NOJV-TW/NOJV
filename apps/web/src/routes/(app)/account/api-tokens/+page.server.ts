@@ -3,16 +3,15 @@ import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { ForbiddenError, requireAuth } from "$lib/server/auth";
-import { hasTokenPageMfa, isTwoFactorActivated } from "$lib/server/step-up";
+import { hasFreshStepUp, hasTokenPageMfa, isTwoFactorActivated } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 
-async function requireTokenPageAccess(event: RequestEvent): Promise<void> {
+async function requireTokenMutationStepUp(event: RequestEvent): Promise<void> {
   const actor = requireAuth(event);
   if (!(await isTwoFactorActivated(actor.userId))) {
     throw new ForbiddenError("Two-factor authentication is required.");
   }
-  const sessionId = event.locals.session?.id;
-  if (!sessionId || !(await hasTokenPageMfa(sessionId))) {
+  if (!(await hasFreshStepUp(actor.userId))) {
     throw new ForbiddenError("Step-up verification required.");
   }
 }
@@ -74,7 +73,7 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      await requireTokenPageAccess(event);
+      await requireTokenMutationStepUp(event);
       const formData = await event.request.formData();
       const result = await apiTokenDomain.createApiToken({
         expiresInDays: readExpiry(formData),
@@ -94,7 +93,7 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      await requireTokenPageAccess(event);
+      await requireTokenMutationStepUp(event);
       const formData = await event.request.formData();
       await apiTokenDomain.updateApiToken({
         expiresInDays: readExpiry(formData),
@@ -115,7 +114,7 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      await requireTokenPageAccess(event);
+      await requireTokenMutationStepUp(event);
       const formData = await event.request.formData();
       const result = await apiTokenDomain.rotateApiToken({
         id: readString(formData, "id"),
@@ -132,7 +131,7 @@ export const actions = {
     const actor = requireAuth(event);
 
     try {
-      await requireTokenPageAccess(event);
+      await requireTokenMutationStepUp(event);
       const formData = await event.request.formData();
       await apiTokenDomain.revokeApiToken({
         id: readString(formData, "id"),

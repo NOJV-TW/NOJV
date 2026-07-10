@@ -308,6 +308,25 @@ describe("deactivate", () => {
     const result = await actions.deactivate(makeEvent({ twoFactorEnabled: true }));
     expect(result).toMatchObject({ status: 403, data: { needsStepUp: true } });
   });
+
+  it("does not accept an activation change grant (grant is only for adding methods)", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    hasChangeGrantMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(false);
+    // no otp supplied → falls through to needsStepUp despite the grant
+    const result = await actions.deactivate(makeEvent({ body: form({}) }));
+    expect(result).toMatchObject({ status: 403, data: { needsStepUp: true } });
+    expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
+  it("fails 429 when the step-up attempt rate limit is exceeded", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    stepUpConsumeMock.mockRejectedValue(new Error("rate limited"));
+    const result = await actions.deactivate(
+      makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
+    );
+    expect(result).toMatchObject({ status: 429 });
+  });
 });
 
 describe("enable (add TOTP)", () => {
@@ -318,8 +337,9 @@ describe("enable (add TOTP)", () => {
     expect(enableTwoFactorMock).not.toHaveBeenCalled();
   });
 
-  it("password user: passes the password to enableTwoFactor", async () => {
+  it("password user with an activation grant: passes the password to enableTwoFactor", async () => {
     isTwoFactorActivatedMock.mockResolvedValue(true);
+    hasChangeGrantMock.mockResolvedValue(true);
     userHasCredentialPasswordMock.mockResolvedValue(true);
     enableTwoFactorMock.mockResolvedValue({
       totpURI: "otpauth://totp/NOJV:a?secret=ABC",
@@ -331,6 +351,14 @@ describe("enable (add TOTP)", () => {
       headers: expect.any(Headers),
     });
     expect(result).toMatchObject({ totpURI: "otpauth://totp/NOJV:a?secret=ABC" });
+  });
+
+  it("password alone is not a step-up: no grant/device/otp returns needsStepUp", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    userHasCredentialPasswordMock.mockResolvedValue(true);
+    const result = await actions.enable(makeEvent({ body: form({ password: "hunter2" }) }));
+    expect(result).toMatchObject({ status: 403, data: { needsStepUp: true } });
+    expect(enableTwoFactorMock).not.toHaveBeenCalled();
   });
 
   it("passwordless user with a recent activation grant: enables with an empty body", async () => {
@@ -388,12 +416,18 @@ describe("disable (remove TOTP)", () => {
     expect(disableTwoFactorMock).not.toHaveBeenCalled();
   });
 
-  it("password user: passes the password to disableTwoFactor", async () => {
+  it("password user: requires a device code AND passes the password to disableTwoFactor", async () => {
     userHasCredentialPasswordMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     disableTwoFactorMock.mockResolvedValue({ headers: new Headers() });
     const result = await actions.disable(
-      makeEvent({ twoFactorEnabled: true, body: form({ password: "hunter2" }) }),
+      makeEvent({
+        twoFactorEnabled: true,
+        body: form({ password: "hunter2", code: "123456" }),
+      }),
     );
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
     expect(disableTwoFactorMock).toHaveBeenCalledWith({
       body: { password: "hunter2" },
       headers: expect.any(Headers),
@@ -401,6 +435,16 @@ describe("disable (remove TOTP)", () => {
     });
     expect(clearStepUpMock).toHaveBeenCalledWith("usr_1");
     expect(result).toEqual({ disabled: true });
+  });
+
+  it("password user without a device code: returns needsStepUp (password alone is insufficient)", async () => {
+    userHasCredentialPasswordMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(true);
+    const result = await actions.disable(
+      makeEvent({ twoFactorEnabled: true, body: form({ password: "hunter2" }) }),
+    );
+    expect(result).toMatchObject({ status: 403, data: { needsStepUp: true } });
+    expect(disableTwoFactorMock).not.toHaveBeenCalled();
   });
 
   it("passwordless user: verifies a device code then disables", async () => {
@@ -420,12 +464,21 @@ describe("disable (remove TOTP)", () => {
 });
 
 describe("regenerate", () => {
-  it("password user: returns fresh backup codes", async () => {
+  it("password user: requires a device code AND the password, returns fresh backup codes", async () => {
     userHasCredentialPasswordMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     generateBackupCodesMock.mockResolvedValue({ status: true, backupCodes: ["11111-22222"] });
     const result = await actions.regenerate(
-      makeEvent({ twoFactorEnabled: true, body: form({ password: "hunter2" }) }),
+      makeEvent({
+        twoFactorEnabled: true,
+        body: form({ password: "hunter2", code: "123456" }),
+      }),
     );
+    expect(generateBackupCodesMock).toHaveBeenCalledWith({
+      body: { password: "hunter2" },
+      headers: expect.any(Headers),
+    });
     expect(result).toEqual({ backupCodes: ["11111-22222"] });
   });
 

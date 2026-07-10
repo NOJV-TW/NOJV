@@ -65,8 +65,14 @@
     phase = "setup";
   }
 
+  // Managing (disable / regenerate) requires a device step-up (TOTP or backup
+  // code) for everyone; password accounts additionally need their password
+  // because better-auth requires it for these operations.
   const manageReady = $derived(
-    hasPassword ? managePassword.length > 0 : manageCode.length >= 6,
+    manageCode.length >= 6 && (!hasPassword || managePassword.length > 0),
+  );
+  const enrollReady = $derived(
+    (!hasPassword || password.length > 0) && (!needsOtp || enrollOtp.length >= 6),
   );
 
   const inputClass =
@@ -115,24 +121,28 @@
         {/if}
         <label class="flex flex-col gap-1.5">
           <span class="text-caption uppercase tracking-wide text-muted-foreground">
-            {hasPassword ? m.account_2fa_passwordLabel() : m.account_2fa_manageCodeLabel()}
+            {m.account_2fa_manageCodeLabel()}
           </span>
-          {#if hasPassword}
+          <input
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            bind:value={manageCode}
+            class={inputClass}
+          />
+        </label>
+        {#if hasPassword}
+          <label class="flex flex-col gap-1.5">
+            <span class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_2fa_passwordLabel()}
+            </span>
             <input
               type="password"
               autocomplete="current-password"
               bind:value={managePassword}
               class={inputClass}
             />
-          {:else}
-            <input
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              bind:value={manageCode}
-              class={inputClass}
-            />
-          {/if}
-        </label>
+          </label>
+        {/if}
         <div class="flex flex-wrap gap-2">
           <form
             method="POST"
@@ -190,43 +200,6 @@
             </button>
           </form>
         </div>
-      {:else if hasPassword && phase === "idle"}
-        <p class="text-body-sm">{m.account_2fa_passwordIntro()}</p>
-        <form
-          class="flex flex-col gap-3"
-          method="POST"
-          action="?/enable"
-          use:enhance={() => {
-            reset();
-            busy = true;
-            return async ({ result }) => {
-              busy = false;
-              if (result.type === "failure") {
-                error = (result.data?.error as string) ?? "";
-                return;
-              }
-              if (result.type === "success" && result.data) {
-                await onEnrolled(result.data);
-              }
-            };
-          }}
-        >
-          <label class="flex flex-col gap-1.5">
-            <span class="text-caption uppercase tracking-wide text-muted-foreground">
-              {m.account_2fa_passwordLabel()}
-            </span>
-            <input
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              bind:value={password}
-              class={inputClass}
-            />
-          </label>
-          <button type="submit" class={btnClass} disabled={busy || password.length === 0}>
-            {m.account_2fa_enable()}
-          </button>
-        </form>
       {:else if phase === "idle"}
         <p class="text-body-sm">{m.account_2fa_setupEnableHint()}</p>
         {#if needsOtp}
@@ -276,6 +249,20 @@
             };
           }}
         >
+          {#if hasPassword}
+            <label class="flex flex-col gap-1.5">
+              <span class="text-caption uppercase tracking-wide text-muted-foreground">
+                {m.account_2fa_passwordLabel()}
+              </span>
+              <input
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                bind:value={password}
+                class={inputClass}
+              />
+            </label>
+          {/if}
           {#if needsOtp}
             <label class="flex flex-col gap-1.5">
               <span class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -290,11 +277,7 @@
               />
             </label>
           {/if}
-          <button
-            type="submit"
-            class={btnClass}
-            disabled={busy || (needsOtp && enrollOtp.length < 6)}
-          >
+          <button type="submit" class={btnClass} disabled={busy || !enrollReady}>
             {m.account_2fa_enable()}
           </button>
         </form>

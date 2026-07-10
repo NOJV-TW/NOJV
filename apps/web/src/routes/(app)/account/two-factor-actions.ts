@@ -129,25 +129,24 @@ interface StepUpFailure {
 }
 
 /**
- * Authorizes a change to a user's 2FA configuration. A device factor (TOTP code
- * or a fresh passkey assertion) is required whenever one exists; email OTP is a
- * fallback only when the user has no usable device factor. A recent activation
- * grant or (for password users, when allowPassword) a password also authorize.
+ * Authorizes a change to a user's 2FA configuration with a device step-up: a
+ * TOTP/backup code or a fresh passkey assertion is required whenever a device
+ * factor exists; email OTP is a fallback only when none does. Adding a method
+ * (allowChangeGrant) also accepts a recent activation grant. A password is NOT
+ * an accepted step-up here — sensitive 2FA changes require a device factor —
+ * even though better-auth still needs the password to run enable/disable/
+ * regenerate for password accounts (see passwordBodyForBetterAuth).
  */
 async function authorizeTwoFactorChange(
   event: RequestEvent,
   formData: FormData,
-  opts: { allowPassword: boolean },
-): Promise<{ ok: true; password?: string } | StepUpFailure> {
+  opts: { allowChangeGrant: boolean },
+): Promise<{ ok: true } | StepUpFailure> {
   const actor = requireAuth(event);
 
-  if (opts.allowPassword && (await userHasCredentialPassword(actor.userId))) {
-    const password = formString(formData, "password");
-    if (!password) return { ok: false, status: 400, error: "Enter your password to continue." };
-    return { ok: true, password };
+  if (opts.allowChangeGrant && (await hasTwoFactorChangeGrant(actor.userId))) {
+    return { ok: true };
   }
-
-  if (await hasTwoFactorChangeGrant(actor.userId)) return { ok: true };
 
   if (await hasStepUpFactor(event)) {
     const code = formString(formData, "code");
@@ -173,6 +172,29 @@ async function authorizeTwoFactorChange(
     status: result.reason === "invalid" ? 401 : 400,
     error: EMAIL_OTP_FAIL_MESSAGE[result.reason],
   };
+}
+
+/**
+ * better-auth requires the account password to run enable/disable/regenerate for
+ * password accounts even with allowPasswordless. It is plumbing for those calls,
+ * not the authorization for the change (that is authorizeTwoFactorChange).
+ */
+async function passwordBodyForBetterAuth(
+  userId: string,
+  formData: FormData,
+): Promise<{ password?: string }> {
+  if (!(await userHasCredentialPassword(userId))) return {};
+  const password = formString(formData, "password");
+  return password ? { password } : {};
+}
+
+async function withinStepUpAttemptLimit(userId: string): Promise<boolean> {
+  try {
+    await stepUpAttemptRateLimiter.consume(userId);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export const loadTwoFactor = async (event: RequestEvent) => {
@@ -267,8 +289,11 @@ export const twoFactorActions = {
     if (!(await isTwoFactorActivated(actor.userId))) {
       return fail(400, { error: "Two-factor authentication is not on." });
     }
+    if (!(await withinStepUpAttemptLimit(actor.userId))) {
+      return fail(429, { error: "Too many attempts. Please try again later." });
+    }
     const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: false });
+    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
       return fail(
         authz.status,
@@ -298,15 +323,14 @@ export const twoFactorActions = {
       return fail(400, { needsActivation: true });
     }
     const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: true });
+    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: true });
     if (!authz.ok) {
       return fail(
         authz.status,
         authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
       );
     }
-    const body: { password?: string } = {};
-    if (authz.password) body.password = authz.password;
+    const body = await passwordBodyForBetterAuth(actor.userId, formData);
     try {
       const res = await getAuth().api.enableTwoFactor({
         body,
@@ -352,16 +376,18 @@ export const twoFactorActions = {
     if (!event.locals.sessionUser?.twoFactorEnabled) {
       return fail(400, { error: "Two-factor authentication is not enabled." });
     }
+    if (!(await withinStepUpAttemptLimit(actor.userId))) {
+      return fail(429, { error: "Too many attempts. Please try again later." });
+    }
     const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: true });
+    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
       return fail(
         authz.status,
         authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
       );
     }
-    const body: { password?: string } = {};
-    if (authz.password) body.password = authz.password;
+    const body = await passwordBodyForBetterAuth(actor.userId, formData);
     try {
       const { headers } = await getAuth().api.disableTwoFactor({
         body,
@@ -377,20 +403,22 @@ export const twoFactorActions = {
   },
 
   regenerate: async (event) => {
-    requireAuth(event);
+    const actor = requireAuth(event);
     if (!event.locals.sessionUser?.twoFactorEnabled) {
       return fail(400, { error: "Two-factor authentication is not enabled." });
     }
+    if (!(await withinStepUpAttemptLimit(actor.userId))) {
+      return fail(429, { error: "Too many attempts. Please try again later." });
+    }
     const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: true });
+    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
       return fail(
         authz.status,
         authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
       );
     }
-    const body: { password?: string } = {};
-    if (authz.password) body.password = authz.password;
+    const body = await passwordBodyForBetterAuth(actor.userId, formData);
     try {
       const res = await getAuth().api.generateBackupCodes({
         body,
@@ -411,7 +439,10 @@ export const twoFactorActions = {
     if (!id) {
       return fail(400, { error: "Missing passkey id." });
     }
-    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: false });
+    if (!(await withinStepUpAttemptLimit(actor.userId))) {
+      return fail(429, { error: "Too many attempts. Please try again later." });
+    }
+    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
       return fail(
         authz.status,

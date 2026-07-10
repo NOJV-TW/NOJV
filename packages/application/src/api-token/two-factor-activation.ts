@@ -61,6 +61,18 @@ export async function verifyActivationOtp(
   return { ok: false, reason: "invalid" };
 }
 
+export type PasskeyRegistrationDenial = "not_activated" | "needs_step_up" | null;
+
+export function passkeyRegistrationDenialReason(state: {
+  activated: boolean;
+  hasGrant: boolean;
+  hasFresh: boolean;
+}): PasskeyRegistrationDenial {
+  if (!state.activated) return "not_activated";
+  if (!state.hasGrant && !state.hasFresh) return "needs_step_up";
+  return null;
+}
+
 export async function markTwoFactorChangeGrant(userId: string): Promise<void> {
   await getRedis().set(keys.twoFactorChangeGrant(userId), "1", "EX", CHANGE_GRANT_TTL_SECONDS);
 }

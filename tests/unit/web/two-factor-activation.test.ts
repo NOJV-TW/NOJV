@@ -43,6 +43,7 @@ import {
   isSuperAdminSessionExpired,
   isTwoFactorActivated,
   markTwoFactorChangeGrant,
+  passkeyRegistrationDenialReason,
   setTwoFactorActivated,
   storeActivationOtp,
   verifyActivationOtp,
@@ -150,6 +151,33 @@ describe("2FA change grant", () => {
     expect(await hasTwoFactorChangeGrant("usr_1")).toBe(true);
     await clearTwoFactorChangeGrant("usr_1");
     expect(await hasTwoFactorChangeGrant("usr_1")).toBe(false);
+  });
+});
+
+describe("passkey registration gate", () => {
+  it("rejects when the master switch is off", () => {
+    expect(
+      passkeyRegistrationDenialReason({ activated: false, hasGrant: false, hasFresh: false }),
+    ).toBe("not_activated");
+    // even with a fresh step-up, an inactive switch blocks registration
+    expect(
+      passkeyRegistrationDenialReason({ activated: false, hasGrant: true, hasFresh: true }),
+    ).toBe("not_activated");
+  });
+
+  it("requires a step-up (grant or fresh verification) once activated", () => {
+    expect(
+      passkeyRegistrationDenialReason({ activated: true, hasGrant: false, hasFresh: false }),
+    ).toBe("needs_step_up");
+  });
+
+  it("allows registration with an activation grant or a fresh step-up", () => {
+    expect(
+      passkeyRegistrationDenialReason({ activated: true, hasGrant: true, hasFresh: false }),
+    ).toBeNull();
+    expect(
+      passkeyRegistrationDenialReason({ activated: true, hasGrant: false, hasFresh: true }),
+    ).toBeNull();
   });
 });
 

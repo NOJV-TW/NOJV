@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   isTwoFactorActivatedMock,
   hasTokenPageMfaMock,
+  hasFreshStepUpMock,
   markTokenPageMfaMock,
   markStepUpFreshMock,
   verifyStepUpCodeMock,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   isTwoFactorActivatedMock: vi.fn(),
   hasTokenPageMfaMock: vi.fn(),
+  hasFreshStepUpMock: vi.fn(),
   markTokenPageMfaMock: vi.fn(),
   markStepUpFreshMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("$lib/server/step-up", async () => {
     ...actual,
     isTwoFactorActivated: isTwoFactorActivatedMock,
     hasTokenPageMfa: hasTokenPageMfaMock,
+    hasFreshStepUp: hasFreshStepUpMock,
     markTokenPageMfa: markTokenPageMfaMock,
     markStepUpFresh: markStepUpFreshMock,
     verifyStepUpCode: verifyStepUpCodeMock,
@@ -104,6 +107,7 @@ async function caught(
 beforeEach(() => {
   isTwoFactorActivatedMock.mockReset().mockResolvedValue(true);
   hasTokenPageMfaMock.mockReset().mockResolvedValue(true);
+  hasFreshStepUpMock.mockReset().mockResolvedValue(true);
   markTokenPageMfaMock.mockReset().mockResolvedValue(undefined);
   markStepUpFreshMock.mockReset().mockResolvedValue(undefined);
   verifyStepUpCodeMock.mockReset();
@@ -140,9 +144,20 @@ const guardedActions = [
 
 describe("api-tokens action guard", () => {
   it.each(guardedActions)(
-    "%s returns fail(403) when the token-page step-up marker is missing",
+    "%s returns fail(403) when the fresh (10-minute) step-up marker is missing",
     async (_name, getAction, domainMock) => {
-      hasTokenPageMfaMock.mockResolvedValue(false);
+      hasFreshStepUpMock.mockResolvedValue(false);
+      const result = await getAction()(makeEvent());
+      expect(result).toMatchObject({ status: 403 });
+      expect(domainMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(guardedActions)(
+    "%s still requires a fresh step-up even when the 1h page marker is present",
+    async (_name, getAction, domainMock) => {
+      hasTokenPageMfaMock.mockResolvedValue(true);
+      hasFreshStepUpMock.mockResolvedValue(false);
       const result = await getAction()(makeEvent());
       expect(result).toMatchObject({ status: 403 });
       expect(domainMock).not.toHaveBeenCalled();
@@ -159,7 +174,7 @@ describe("api-tokens action guard", () => {
     },
   );
 
-  it("create proceeds to the domain call when activated and the marker is present", async () => {
+  it("create proceeds to the domain call when activated and the step-up is fresh", async () => {
     createApiTokenMock.mockResolvedValue({ token: "tok", item: { id: "t1" } });
     const result = await actions.create(makeEvent());
     expect(createApiTokenMock).toHaveBeenCalledOnce();
