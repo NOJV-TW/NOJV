@@ -1,5 +1,4 @@
-import { notificationDomain, userDomain } from "@nojv/application";
-import { notificationPreferencesSchema } from "@nojv/core";
+import { userDomain } from "@nojv/application";
 import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
@@ -84,9 +83,6 @@ export const load: PageServerLoad = async (event) => {
   const linkedProviderIds = await listProviderIds(event);
   const hasPassword = await userHasCredentialPassword(locals.user.id);
 
-  const prefs = await notificationDomain.getNotificationPreferences(locals.user.id);
-  const notificationForm = await superValidate(prefs, zod4(notificationPreferencesSchema));
-
   return {
     email: locals.user.email,
     hasPassword,
@@ -98,7 +94,6 @@ export const load: PageServerLoad = async (event) => {
     platformRole,
     nameForm,
     usernameForm,
-    notificationForm,
     providers: LINKABLE_PROVIDERS.map((provider) => ({
       provider,
       linked: linkedProviderIds.includes(provider),
@@ -156,16 +151,17 @@ export const actions = {
     });
   }),
 
-  updateNotificationPreferences: withRateLimit(async (event) => {
+  deleteAccount: withRateLimit(async (event) => {
     const actor = requireAuth(event);
-    const form = await superValidate(event, zod4(notificationPreferencesSchema));
-    if (!form.valid) {
-      return fail(400, { form });
+    try {
+      const result = await userDomain.deleteUser(false, actor.userId);
+      if (!result) {
+        return fail(404, { deleteError: "notFound" });
+      }
+    } catch {
+      return fail(403, { deleteError: "forbidden" });
     }
-
-    await notificationDomain.updateNotificationPreferences(actor.userId, form.data);
-
-    return message<FormMessage>(form, { kind: "success", text: "OK" });
+    return { deleted: true };
   }),
 
   link: async (event) => {
