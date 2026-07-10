@@ -23,9 +23,12 @@
 
   let notificationsOpen = $state(false);
 
-  // svelte-ignore state_referenced_locally
-  let profilePublic = $state(data.profilePublic);
+  let profilePublic = $state(false);
   let visibilityForm: HTMLFormElement;
+
+  $effect(() => {
+    profilePublic = data.profilePublic;
+  });
 
   async function submitVisibility() {
     await tick();

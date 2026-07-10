@@ -25,11 +25,13 @@
 ### Task A1: application query `buildCourseGradebook`
 
 **Files:**
+
 - Create: `packages/application/src/course/gradebook.ts`
 - Modify: `packages/application/src/course/index.ts` (add `export * from "./gradebook"`)
 - Test: `tests/unit/domain/course-gradebook.test.ts`
 
 **Step 1: Write failing unit test** following the `vi.hoisted` + `vi.mock("@nojv/db")` template in `tests/unit/domain/exam-submissions-matrix.test.ts`. Cover:
+
 - columns grouped by context in chronological order, per-problem max from `getProblemTotalScores` (fallback to link points)
 - best score per cell from `submissionRepo.groupByUserAndProblem`
 - override replaces best score (`getOverridesForContext` per context, contextType assignment vs exam)
@@ -50,13 +52,22 @@ export type GradebookColumn = {
   maxTotal: number;
 };
 export type GradebookRow = {
-  userId: string; name: string; username: string | null;
+  userId: string;
+  name: string;
+  username: string | null;
   cells: Record<string, number | null>; // key `${contextType}:${contextId}:${problemId}`
   total: number;
 };
-export type CourseGradebook = { columns: GradebookColumn[]; rows: GradebookRow[]; maxTotal: number };
+export type CourseGradebook = {
+  columns: GradebookColumn[];
+  rows: GradebookRow[];
+  maxTotal: number;
+};
 
-export async function buildCourseGradebook(courseId: string, options?: { forUserId?: string }): Promise<CourseGradebook>
+export async function buildCourseGradebook(
+  courseId: string,
+  options?: { forUserId?: string },
+): Promise<CourseGradebook>;
 ```
 
 Data flow: `assessmentRepo.listForCourse(courseId, false)` + `examRepo.listForCourse(courseId, false)` (with problem links) → sort by opensAt/startsAt → active student memberships via `courseMembershipRepo` → per context: `submissionRepo.groupByUserAndProblem({ assessmentId|examId, userId in students, sampleOnly:false })` + `getOverridesForContext({type, id})` → merge. Max scores via `getProblemTotalScores(problemIds)` (see `packages/application/src/problem/total-score.ts`), fallback link `points`. All DB access through repos only.
@@ -66,6 +77,7 @@ Data flow: `assessmentRepo.listForCourse(courseId, false)` + `examRepo.listForCo
 ### Task A2: grades route (server)
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/grades/+page.server.ts`
 
 Follow `analytics/+page.server.ts` template: `handleLoad`, `requireAuth`, `const { course, isManager } = await event.parent()`. Staff → `buildCourseGradebook(courseId)`; student → `buildCourseGradebook(courseId, { forUserId: actor.userId })`. Both roles allowed (members only — layout already forbids non-members). Return `{ gradebook, isManager }`.
@@ -75,6 +87,7 @@ Unit test if a load-test convention fits; otherwise covered by e2e (A5). Commit.
 ### Task A3: grades page UI + tab
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/grades/+page.svelte`
 - Modify: `apps/web/src/lib/components/features/course/CourseTabBar.svelte` (add `grades` to `CourseTabKey` + `tabs`, visible to all members)
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/+layout.svelte` (`deriveActiveTab` switch)
@@ -85,6 +98,7 @@ Table: three header rows (context title with `colspan`, problem ordinal, max sco
 ### Task A4: CSV export (staff only)
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/grades/+page.svelte`
 
 Client-side export copying `exportCsv()`/`csvEscape` from `apps/web/src/lib/components/features/course/submissions/MatrixView.svelte`. CSV mirrors the table: row1 context titles, row2 problem ordinals, row3 max scores, then one row per student (name, username, cells, total). Filename `course-{courseId}-grades.csv`. Extract the escape helper to `$lib/utils/csv.ts` and reuse it in MatrixView only if trivial; otherwise duplicate the 3-line helper (surgical-change rule). Commit.
@@ -92,6 +106,7 @@ Client-side export copying `exportCsv()`/`csvEscape` from `apps/web/src/lib/comp
 ### Task A5: e2e test
 
 **Files:**
+
 - Create: `tests/e2e/course-grades.test.ts`
 
 Using `tests/e2e/_shared.ts` fixtures: teacher sees full table + export button; student sees own row only, no export button. Run locally (`pnpm test:e2e -- course-grades`). Commit.
@@ -101,6 +116,7 @@ Using `tests/e2e/_shared.ts` fixtures: teacher sees full table + export button; 
 ### Task B1: schema + migration
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/auth.prisma` (User: `profilePublic Boolean @default(false)`)
 - Create: `packages/db/prisma/migrations/20260712000000_user_profile_public/migration.sql`:
   `ALTER TABLE "User" ADD COLUMN "profilePublic" BOOLEAN NOT NULL DEFAULT false;`
@@ -110,12 +126,14 @@ Run `pnpm db:push` (dev DB — never `migrate dev`), `pnpm db:generate`. Check m
 ### Task B2: application profile query + visibility
 
 **Files:**
+
 - Create: `packages/application/src/user/profile.ts`
 - Modify: `packages/application/src/user/index.ts`
 - Modify (if needed): `packages/db/src/repositories/submission.ts` — add public-problem-filtered variant of `findDistinctAcByUser` (`problem: { visibility: "public", status: "published" }`)
 - Test: `tests/unit/domain/user-profile.test.ts`
 
 TDD:
+
 - `canViewProfile(viewer: {userId, effectiveRole} | null, target: {id, profilePublic})`: public → true; else self or admin → true; else false.
 - `getPublicProfile(userId)`: user basics (name, username, image, createdAt, profilePublic) + solved public problems (id, title, difficulty, tags) + activity events (`getSubmissionActivity`) + language distribution (`groupByLanguageForUser`) + difficulty distribution derived from the **public-filtered** AC set (no private-problem leakage). Throw `NotFoundError` for missing user.
 
@@ -124,6 +142,7 @@ Commit.
 ### Task B3: public route `/users/[id]`
 
 **Files:**
+
 - Create: `apps/web/src/routes/(public)/users/[id]/+page.server.ts`
 - Create: `apps/web/src/routes/(public)/users/[id]/+page.svelte`
 - Modify: messages en/zh-TW (`userProfile_*` keys)
@@ -133,6 +152,7 @@ Load: viewer = `locals.sessionUser` (nullable in public group); admin check must
 ### Task B4: settings toggle
 
 **Files:**
+
 - Modify: `packages/application/src/user/mutations.ts` (add `updateProfileVisibility(userId, profilePublic)`)
 - Modify: `apps/web/src/routes/(app)/settings/+page.server.ts` (action `?/updateProfileVisibility`, `withRateLimit` + `requireAuth`)
 - Modify: `apps/web/src/routes/(app)/settings/+page.svelte` (new section with `ToggleSwitch`, superForm `dataType:"json"` pattern from `NotificationPreferencesDialog.svelte`; when public, show link to own `/users/[id]`)
@@ -144,6 +164,7 @@ Commit.
 ### Task B5: e2e test
 
 **Files:**
+
 - Create: `tests/e2e/users-profile.test.ts`
 
 Cases: logged-out visit to private profile → 404; owner enables toggle in settings; logged-out visit now renders name + heatmap; other logged-in student on private profile → 404; owner always sees own. Commit.

@@ -64,7 +64,13 @@ describe("getPublicProfile", () => {
       },
       {
         problemId: "p2",
-        problem: { id: "p2", displayId: 2, title: "B", difficulty: "easy", tags: ["dp", "graph"] },
+        problem: {
+          id: "p2",
+          displayId: 2,
+          title: "B",
+          difficulty: "easy",
+          tags: ["dp", "graph"],
+        },
       },
     ]);
     groupByLanguageForUser.mockResolvedValue([

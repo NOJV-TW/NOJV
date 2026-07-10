@@ -75,7 +75,9 @@ export async function buildCourseGradebook(
 
   const allProblemIds = contexts.flatMap((c) => c.problems.map((p) => p.problem.id));
   const maxByProblem =
-    allProblemIds.length > 0 ? await getProblemTotalScores(allProblemIds) : new Map();
+    allProblemIds.length > 0
+      ? await getProblemTotalScores(allProblemIds)
+      : new Map<string, number>();
 
   const columns: GradebookColumn[] = contexts.map((ctx) => {
     const problems = ctx.problems.map((p, index) => ({
@@ -146,7 +148,8 @@ export async function buildCourseGradebook(
         const key = `${student.userId}::${problem.problemId}`;
         const override = overrides.get(key);
         const score = override ?? best.get(key) ?? null;
-        cells[gradebookCellKey(column.contextType, column.contextId, problem.problemId)] = score;
+        cells[gradebookCellKey(column.contextType, column.contextId, problem.problemId)] =
+          score;
         total += score ?? 0;
       }
     }

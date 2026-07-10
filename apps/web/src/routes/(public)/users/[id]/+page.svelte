@@ -84,9 +84,7 @@
     themeColors.chart5,
   ]);
 
-  function pieOption(
-    entries: { name: string; value: number; color: string }[],
-  ): EChartsOption {
+  function pieOption(entries: { name: string; value: number; color: string }[]): EChartsOption {
     return {
       animation: false,
       tooltip: {

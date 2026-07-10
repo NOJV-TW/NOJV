@@ -14,10 +14,7 @@
     return `${contextType}:${contextId}:${problemId}`;
   }
 
-  function cellScore(
-    row: PageData["gradebook"]["rows"][number],
-    key: string,
-  ): number | null {
+  function cellScore(row: PageData["gradebook"]["rows"][number], key: string): number | null {
     return row.cells[key] ?? null;
   }
 
@@ -46,12 +43,11 @@
     for (const row of gradebook.rows) {
       const cells = gradebook.columns.flatMap((column) =>
         column.problems.map(
-          (p) => cellScore(row, cellKey(column.contextType, column.contextId, p.problemId)) ?? "",
+          (p) =>
+            cellScore(row, cellKey(column.contextType, column.contextId, p.problemId)) ?? "",
         ),
       );
-      lines.push(
-        [row.name, row.username ?? "", ...cells, row.total].map(csvEscape).join(","),
-      );
+      lines.push([row.name, row.username ?? "", ...cells, row.total].map(csvEscape).join(","));
     }
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -164,7 +160,8 @@
                       cellKey(column.contextType, column.contextId, problem.problemId),
                     )}
                     <td
-                      class="border-b border-r border-border-subtle px-3 py-3 text-center text-body-sm {score === null
+                      class="border-b border-r border-border-subtle px-3 py-3 text-center text-body-sm {score ===
+                      null
                         ? 'text-muted-foreground'
                         : score >= problem.maxScore
                           ? 'font-semibold text-success'

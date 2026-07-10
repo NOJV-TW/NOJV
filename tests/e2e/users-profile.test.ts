@@ -1,16 +1,29 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import path from "node:path";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 
-async function readOwnUserId(page: import("@playwright/test").Page): Promise<string> {
-  await page.goto("/settings");
-  const response = await page.request.get("/api/auth/get-session");
+async function readOwnUserId(page: Page): Promise<string> {
+  const response = await page.request.get("/api/auth/get-session", { timeout: 30000 });
   const session = (await response.json()) as { user?: { id?: string } };
   const id = session.user?.id;
   if (!id) throw new Error("Could not resolve session user id");
   return id;
+}
+
+async function setProfilePublic(page: Page, value: boolean): Promise<void> {
+  await page.goto("/settings");
+  // wait for SvelteKit hydration so the form onchange handler is attached
+  await page.waitForTimeout(3000);
+  const toggle = page.locator("form[action*='updateProfileVisibility'] input[type='checkbox']");
+  await expect(toggle).toBeAttached();
+  if ((await toggle.isChecked()) === value) return;
+  const posted = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().includes("updateProfileVisibility"),
+  );
+  await toggle.setChecked(value, { force: true });
+  await posted;
 }
 
 test.describe("Public user profile", () => {
@@ -18,14 +31,7 @@ test.describe("Public user profile", () => {
     const studentContext = await browser.newContext({ storageState: studentAuth });
     const studentPage = await studentContext.newPage();
     const studentId = await readOwnUserId(studentPage);
-
-    await studentPage.goto("/settings");
-    const toggle = studentPage
-      .locator("form[action*='updateProfileVisibility'] input[type='checkbox']");
-    if (await toggle.isChecked()) {
-      await toggle.click();
-      await studentPage.waitForLoadState("networkidle");
-    }
+    await setProfilePublic(studentPage, false);
 
     const anonContext = await browser.newContext();
     const anonPage = await anonContext.newPage();
@@ -56,14 +62,7 @@ test.describe("Public user profile", () => {
     const studentContext = await browser.newContext({ storageState: studentAuth });
     const studentPage = await studentContext.newPage();
     const studentId = await readOwnUserId(studentPage);
-
-    await studentPage.goto("/settings");
-    const toggle = studentPage
-      .locator("form[action*='updateProfileVisibility'] input[type='checkbox']");
-    if (!(await toggle.isChecked())) {
-      await toggle.click();
-      await studentPage.waitForLoadState("networkidle");
-    }
+    await setProfilePublic(studentPage, true);
 
     const anonContext = await browser.newContext();
     const anonPage = await anonContext.newPage();
@@ -72,13 +71,7 @@ test.describe("Public user profile", () => {
     await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible();
     await anonContext.close();
 
-    const revert = studentPage
-      .locator("form[action*='updateProfileVisibility'] input[type='checkbox']");
-    await studentPage.goto("/settings");
-    if (await revert.isChecked()) {
-      await revert.click();
-      await studentPage.waitForLoadState("networkidle");
-    }
+    await setProfilePublic(studentPage, false);
     await studentContext.close();
   });
 });

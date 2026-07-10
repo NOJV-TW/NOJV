@@ -132,9 +132,7 @@ describe("buildCourseGradebook", () => {
     );
     findAllOverrides.mockImplementation((contextType: string) =>
       Promise.resolve(
-        contextType === "exam"
-          ? [{ userId: "u2", problemId: "p3", overrideScore: 55 }]
-          : [],
+        contextType === "exam" ? [{ userId: "u2", problemId: "p3", overrideScore: 55 }] : [],
       ),
     );
 
