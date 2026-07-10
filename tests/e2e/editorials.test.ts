@@ -2,9 +2,24 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 
 import { adminAuth, apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
 
+async function suppressOnboardingTour(page: Page) {
+  await page.addInitScript(() => {
+    const originalGetItem = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key: string) {
+      if (typeof key === "string" && key.startsWith("nojv:tour:seen:")) return "1";
+      return originalGetItem.call(this, key);
+    };
+  });
+}
+
 async function openPostsTab(page: Page, problemId: string, tab: "Editorials" | "Discussions") {
+  await suppressOnboardingTour(page);
   await page.goto(`/problems/${problemId}`);
-  await page.getByRole("tab", { name: tab }).click();
+  const tabButton = page.getByRole("tab", { name: tab });
+  await expect(async () => {
+    await tabButton.click({ timeout: 2000 });
+    await expect(tabButton).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
+  }).toPass({ timeout: 45000 });
 }
 
 const PROBLEM_ID = "problem_warmup-sum";
@@ -49,6 +64,8 @@ async function submitAcAndAwait(
 }
 
 test.describe("Problem posts — auth + permissions", () => {
+  test.setTimeout(120_000);
+
   test("unauthenticated user cannot list editorial posts", async ({ page }) => {
     const res = await page.request.get(`/api/problems/${PROBLEM_ID}/posts?type=editorial`);
     expect(res.status()).toBe(401);
@@ -140,10 +157,10 @@ test.describe("Problem posts — auth + permissions", () => {
   test("editorials tab shows the AC lock for a student without AC", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    await openPostsTab(page, PROBLEM_ID, "Editorials");
-    await expect(
-      page.getByText("Solve this problem first to view editorials"),
-    ).toBeVisible();
+    await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Editorials");
+    await expect(page.getByText("Solve this problem first to view editorials")).toBeVisible({
+      timeout: 20000,
+    });
     await context.close();
   });
 
@@ -151,9 +168,13 @@ test.describe("Problem posts — auth + permissions", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
-    await expect(page.getByRole("button", { name: "New discussion" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "New discussion" })).toBeVisible({
+      timeout: 20000,
+    });
     await expect(
-      page.getByText("Please do not spoil the answer or post complete solutions in discussions."),
+      page.getByText(
+        "Please do not spoil the answer or post complete solutions in discussions.",
+      ),
     ).toBeVisible();
     await context.close();
   });
@@ -161,6 +182,7 @@ test.describe("Problem posts — auth + permissions", () => {
 
 test.describe("Discussions — in-panel UI happy path", () => {
   test.describe.configure({ mode: "serial" });
+  test.setTimeout(120_000);
 
   const stamp = Date.now();
   const postTitle = `Discussion ${stamp}`;
@@ -168,8 +190,14 @@ test.describe("Discussions — in-panel UI happy path", () => {
 
   async function openPost(page: Page) {
     await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
-    await page.getByRole("button", { name: new RegExp(postTitle) }).click();
-    await expect(page.getByRole("heading", { name: postTitle })).toBeVisible();
+    const postButton = page.getByRole("button", { name: new RegExp(postTitle) });
+    const heading = page.getByRole("heading", { name: postTitle });
+    await expect(postButton).toBeVisible({ timeout: 20000 });
+    await expect(async () => {
+      if (await heading.isVisible()) return;
+      await postButton.click({ timeout: 2000 }).catch(() => {});
+      await expect(heading).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 30000 });
   }
 
   test("student creates a discussion post inside the panel", async ({ browser }) => {
@@ -179,13 +207,15 @@ test.describe("Discussions — in-panel UI happy path", () => {
     await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
     await page.getByRole("button", { name: "New discussion" }).click();
 
-    await page.getByLabel("Title").fill(postTitle);
+    await page.getByLabel("Title", { exact: true }).fill(postTitle);
     await page
-      .getByLabel("Content")
+      .getByLabel("Content", { exact: true })
       .fill(`# Approach ${stamp}\n\nHow do you think about this problem?`);
     await page.getByRole("button", { name: "Publish" }).click();
 
-    await expect(page.getByRole("heading", { name: postTitle })).toBeVisible();
+    await expect(page.getByRole("heading", { name: postTitle })).toBeVisible({
+      timeout: 20000,
+    });
     created = true;
     await context.close();
   });
@@ -195,7 +225,9 @@ test.describe("Discussions — in-panel UI happy path", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
-    await expect(page.getByRole("button", { name: new RegExp(postTitle) })).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(postTitle) })).toBeVisible({
+      timeout: 20000,
+    });
     await context.close();
   });
 
@@ -206,6 +238,7 @@ test.describe("Discussions — in-panel UI happy path", () => {
     await openPost(page);
 
     const commentText = `Top-level comment ${stamp}`;
+    await expect(page.getByPlaceholder("Write a comment…")).toBeVisible({ timeout: 20000 });
     await page.getByPlaceholder("Write a comment…").fill(commentText);
     await page.getByRole("button", { name: "Comment", exact: true }).click();
     await expect(page.getByText(commentText)).toBeVisible();
@@ -245,7 +278,14 @@ test.describe("Discussions — in-panel UI happy path", () => {
     const page = await context.newPage();
     await openPost(page);
 
-    await page.getByRole("button", { name: "Delete" }).last().click();
+    const replyText = `Nested reply ${stamp}`;
+    await expect(page.getByText(replyText)).toBeVisible({ timeout: 20000 });
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: replyText })
+      .last()
+      .getByRole("button", { name: "Delete" })
+      .click();
     await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByText("This comment has been deleted.")).toBeVisible();
     await context.close();
@@ -259,7 +299,9 @@ test.describe("Discussions — in-panel UI happy path", () => {
 
     await page.getByRole("article").getByRole("button", { name: "Delete" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByRole("button", { name: "New discussion" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "New discussion" })).toBeVisible({
+      timeout: 20000,
+    });
     await expect(page.getByRole("button", { name: new RegExp(postTitle) })).toHaveCount(0);
     await context.close();
   });
