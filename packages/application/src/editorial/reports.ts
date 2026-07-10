@@ -1,5 +1,6 @@
 import { editorialRepo, editorialReportRepo } from "@nojv/db";
 
+import * as notificationDomain from "../notification";
 import type { ActorContext } from "../shared/actor-context";
 import {
   ConflictError,
@@ -74,7 +75,19 @@ export async function resolveEditorialReport(
   }
 
   if (action === "resolve") {
+    const editorial = await editorialRepo.findById(report.editorialId);
     await editorialRepo.softDelete(report.editorialId);
+
+    if (editorial && !editorial.deletedAt) {
+      await notificationDomain
+        .createNotification({
+          userId: editorial.userId,
+          type: "editorial_removed",
+          params: { problemId: editorial.problemId, title: editorial.title },
+          linkUrl: `/problems/${editorial.problemId}`,
+        })
+        .catch(() => undefined);
+    }
   }
 
   return editorialReportRepo.updateStatus(reportId, {

@@ -1,10 +1,16 @@
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { twoFactor, username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
+import {
+  hasFreshStepUp,
+  hasTwoFactorChangeGrant,
+  isTwoFactorActivated,
+  passkeyRegistrationDenialReason,
+} from "@nojv/application";
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 import { getWebEnv } from "$lib/server/env";
@@ -140,6 +146,36 @@ function createAuth() {
       },
     },
     hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        // Adding a passkey is a 2FA configuration change: it requires the master
+        // switch to be on and a valid step-up (a recent activation grant or a
+        // fresh device verification). Without this, a client could add a passkey
+        // straight through the API and bypass the master-switch model.
+        if (
+          ctx.path === "/passkey/generate-register-options" ||
+          ctx.path === "/passkey/verify-registration"
+        ) {
+          const session = await getSessionFromCtx(ctx);
+          const userId = session?.user.id;
+          if (!userId) return;
+          const [activated, hasGrant, hasFresh] = await Promise.all([
+            isTwoFactorActivated(userId),
+            hasTwoFactorChangeGrant(userId),
+            hasFreshStepUp(userId),
+          ]);
+          const denial = passkeyRegistrationDenialReason({ activated, hasGrant, hasFresh });
+          if (denial === "not_activated") {
+            throw new APIError("FORBIDDEN", {
+              message: "Turn on two-factor authentication first.",
+            });
+          }
+          if (denial === "needs_step_up") {
+            throw new APIError("FORBIDDEN", {
+              message: "Verify with your authenticator or passkey first.",
+            });
+          }
+        }
+      }),
       after: createAuthMiddleware(async (ctx) => {
         // A verified passkey assertion counts as a fresh step-up. This fires
         // only after better-auth has verified the assertion (the endpoint
@@ -149,6 +185,7 @@ function createAuth() {
           const userId = newSession?.user.id;
           if (userId) {
             await getRedis().set(keys.apiTokenStepUp(userId), "1", "EX", 600);
+            await getRedis().set(keys.tokenPageMfa(newSession.session.id), "1", "EX", 3600);
             const isSuperAdmin = (newSession.user as { isSuperAdmin?: boolean }).isSuperAdmin;
             if (isSuperAdmin) {
               await getRedis().set(

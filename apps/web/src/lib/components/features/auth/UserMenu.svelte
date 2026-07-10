@@ -5,6 +5,7 @@
   import { authClient } from "$lib/auth.client";
   import { fetchWithCsrf } from "$lib/services/http";
   import UserIcon from "@lucide/svelte/icons/user";
+  import SettingsIcon from "@lucide/svelte/icons/settings";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import ShieldIcon from "@lucide/svelte/icons/shield";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
@@ -115,6 +116,15 @@
           >
             <UserIcon aria-hidden="true" size={16} />
             {m.navigation_account()}
+          </a>
+
+          <a
+            class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
+            href="/settings"
+            onclick={() => (open = false)}
+          >
+            <SettingsIcon aria-hidden="true" size={16} />
+            {m.navigation_settings()}
           </a>
 
           <a

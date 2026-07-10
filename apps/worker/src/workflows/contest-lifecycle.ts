@@ -2,23 +2,21 @@ import { proxyActivities, sleep } from "@temporalio/workflow";
 import type { ContestLifecycleInput } from "@nojv/core";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
+import { computeReminderCheckpoints } from "./reminder-checkpoints";
 
 const contest = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
-
-const START_REMINDER_MINUTES = 15;
 
 export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Promise<void> {
   const contestInfo = await contest.getContestInfo(input.contestId);
   const endsAt = new Date(contestInfo.endsAt).getTime();
 
   const startsAtMs = new Date(contestInfo.startsAt).getTime();
-  const reminderAtMs = startsAtMs - START_REMINDER_MINUTES * 60_000;
-  const msUntilReminder = reminderAtMs - Date.now();
-  if (msUntilReminder > 0) {
-    await sleep(msUntilReminder);
+  for (const cp of computeReminderCheckpoints(startsAtMs, 0, Date.now())) {
+    const ms = cp.atMs - Date.now();
+    if (ms > 0) await sleep(ms);
+    await contest.fanoutContestStartingSoon(input.contestId, cp.leadDays);
   }
-  await contest.fanoutContestStartingSoon(input.contestId);
 
   const msUntilStart = startsAtMs - Date.now();
   if (msUntilStart > 0) {

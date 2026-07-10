@@ -30,7 +30,12 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
-import { hasAdminMode, hasAdminSessionMfa } from "$lib/server/step-up";
+import {
+  hasAdminMode,
+  hasAdminSessionMfa,
+  isSuperAdminSessionExpired,
+  isTwoFactorActivated,
+} from "$lib/server/step-up";
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
@@ -261,6 +266,29 @@ async function resolveAdminMode(event: HandleEvent): Promise<void> {
     user?.platformRole === "admin" && !!sessionId && (await hasAdminMode(sessionId));
 }
 
+async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {
+  const user = event.locals.sessionUser;
+  const session = event.locals.session;
+  if (!user?.isSuperAdmin || !session) {
+    return;
+  }
+  if (getWebEnv().NODE_ENV === "development") {
+    return;
+  }
+  if (!isSuperAdminSessionExpired(new Date(session.createdAt))) {
+    return;
+  }
+  try {
+    await getAuth().api.signOut({ headers: event.request.headers });
+  } catch {
+    // Best effort: the redirect below drops the session regardless.
+  }
+  event.locals.session = null;
+  event.locals.user = null;
+  event.locals.sessionUser = null;
+  redirect(302, "/signin?error=session-expired");
+}
+
 async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Promise<void> {
   const user = event.locals.sessionUser;
   if (!user?.isSuperAdmin || user.mustChangePassword) {
@@ -269,17 +297,31 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
   if (getWebEnv().NODE_ENV === "development") {
     return;
   }
+  const TWO_FACTOR_ACTIONS = [
+    "/sendEmailOtp",
+    "/activate",
+    "/deactivate",
+    "/enable",
+    "/verify",
+    "/disable",
+    "/regenerate",
+    "/deletePasskey",
+  ];
+  const accountTwoFactorRequest =
+    cleanPath === "/account" &&
+    (event.request.method === "GET" ||
+      TWO_FACTOR_ACTIONS.some((action) => event.url.searchParams.has(action)));
   if (
     cleanPath.startsWith("/api/") ||
-    cleanPath.startsWith("/account/two-factor") ||
+    accountTwoFactorRequest ||
     cleanPath.startsWith("/account/api-tokens/verify") ||
     cleanPath.startsWith("/complete-profile") ||
     cleanPath.startsWith("/account/change-password")
   ) {
     return;
   }
-  if (!user.twoFactorEnabled) {
-    redirect(302, "/account/two-factor");
+  if (!(await isTwoFactorActivated(user.id))) {
+    redirect(302, "/account?setup2fa=1");
   }
   const sessionId = event.locals.session?.id;
   if (sessionId && !(await hasAdminSessionMfa(sessionId))) {
@@ -440,6 +482,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   await loadSession(event);
   enforceAccountState(event, cleanPath);
+  await enforceSuperAdminSessionAge(event);
   enforcePasswordChange(event, cleanPath);
   await resolveAdminMode(event);
   await enforceAdminTwoFactor(event, cleanPath);

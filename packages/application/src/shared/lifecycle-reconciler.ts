@@ -33,6 +33,7 @@ export async function reconcileLifecycleTimers(): Promise<LifecycleReconcileResu
   for (const assignment of assignments) {
     await orchestration.dispatchAssignmentDueSoon({
       assignmentId: assignment.id,
+      opensAt: assignment.opensAt.toISOString(),
       closesAt: assignment.closesAt.toISOString(),
     });
   }

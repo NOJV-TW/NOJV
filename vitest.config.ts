@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
@@ -5,14 +6,18 @@ import { defineConfig } from "vitest/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const requireFromMailer = createRequire(path.join(__dirname, "packages/mailer/package.json"));
+
 const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
+  nodemailer: requireFromMailer.resolve("nodemailer"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
   "@nojv/application": path.resolve(__dirname, "packages/application/src/index.ts"),
   "@nojv/redis": path.resolve(__dirname, "packages/redis/src/index.ts"),
   "@nojv/temporal": path.resolve(__dirname, "packages/temporal/src/index.ts"),
   "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
+  "@nojv/mailer": path.resolve(__dirname, "packages/mailer/src/index.ts"),
   "@nojv/sandbox-docker": path.resolve(__dirname, "packages/sandbox-docker/src/index.ts"),
   "$env/dynamic/private": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-private.ts"),
   "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),

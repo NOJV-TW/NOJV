@@ -3,7 +3,12 @@ import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
-import { markAdminSessionMfa, markStepUpFresh, verifyStepUpCode } from "$lib/server/step-up";
+import {
+  markAdminSessionMfa,
+  markStepUpFresh,
+  markTokenPageMfa,
+  verifyStepUpCode,
+} from "$lib/server/step-up";
 import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 
 const DEFAULT_RETURN_TO = "/account/api-tokens";
@@ -20,7 +25,7 @@ export const load = async (event: RequestEvent) => {
   const hasPasskey = passkeys.length > 0;
 
   if (!hasTotp && !hasPasskey) {
-    redirect(302, "/account/two-factor?returnTo=" + encodeURIComponent(DEFAULT_RETURN_TO));
+    redirect(302, "/account?verify=totp&returnTo=" + encodeURIComponent(DEFAULT_RETURN_TO));
   }
 
   return {
@@ -62,8 +67,11 @@ export const actions = {
 
     await markStepUpFresh(actor.userId);
     const sessionId = event.locals.session?.id;
-    if (event.locals.sessionUser?.isSuperAdmin && sessionId) {
-      await markAdminSessionMfa(sessionId);
+    if (sessionId) {
+      await markTokenPageMfa(sessionId);
+      if (event.locals.sessionUser?.isSuperAdmin) {
+        await markAdminSessionMfa(sessionId);
+      }
     }
 
     redirect(303, returnTo);

@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_44 models and 37 enums across 9 schema files._
+_45 models and 37 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -128,6 +128,8 @@ Indexes & constraints: `@@index([userId])`
 | `backupCodes` | `String` | — |
 | `userId` | `String` | — |
 | `verified` | `Boolean` | `@default(true)` |
+| `failedVerificationCount` | `Int` | `@default(0)` |
+| `lockedUntil` | `DateTime?` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@index([secret])`, `@@index([userId])`
@@ -149,6 +151,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `status` | `UserStatus` | `@default(active)` |
 | `mustChangePassword` | `Boolean` | `@default(false)` |
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
+| `twoFactorActivated` | `Boolean` | `@default(false)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `sessions` | `Session[]` | — |
@@ -172,6 +175,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `ipViolationLogs` | `IpViolationLog[]` | — |
 | `activeExamSessions` | `ActiveExamSession[]` | `@relation("ActiveExamSessionUser")` |
 | `notifications` | `Notification[]` | — |
+| `notificationPreference` | `NotificationPreference?` | — |
 | `triggeredRejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 | `asOverrideStudent` | `ScoreOverride[]` | `@relation("ScoreOverrideUser")` |
 | `createdScoreOverrides` | `ScoreOverride[]` | `@relation("ScoreOverrideCreator")` |
@@ -607,7 +611,7 @@ Indexes & constraints: `@@unique([courseId, userId])`, `@@index([courseId, role,
 
 #### `NotificationType`
 
-`assignment_due_soon` · `exam_starting_soon` · `contest_starting_soon` · `course_enrolled` · `announcement_published` · `role_changed` · `clarification_answered`
+`assignment_started` · `assignment_due_soon` · `exam_starting_soon` · `contest_starting_soon` · `course_enrolled` · `announcement_published` · `role_changed` · `clarification_answered` · `editorial_removed`
 
 ### Models
 
@@ -626,6 +630,25 @@ Indexes & constraints: `@@unique([courseId, userId])`, `@@index([courseId, role,
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort: Desc)])`, `@@index([userId, readAt, createdAt(sort: Desc)])`
+
+#### `NotificationPreference`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `userId` | `String` | `@id` |
+| `emailAssignmentStarted` | `Boolean` | `@default(true)` |
+| `emailAssignmentDueSoon` | `Boolean` | `@default(true)` |
+| `assignmentDueSoonLeadDays` | `Int` | `@default(3)` |
+| `emailExamStarting` | `Boolean` | `@default(true)` |
+| `examStartingLeadDays` | `Int` | `@default(1)` |
+| `emailContestStarting` | `Boolean` | `@default(true)` |
+| `contestStartingLeadDays` | `Int` | `@default(1)` |
+| `emailSystemAnnouncement` | `Boolean` | `@default(true)` |
+| `emailCourseAnnouncement` | `Boolean` | `@default(true)` |
+| `emailCourseEnrolled` | `Boolean` | `@default(true)` |
+| `emailRoleChanged` | `Boolean` | `@default(true)` |
+| `emailEditorialRemoved` | `Boolean` | `@default(true)` |
+| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 ## `ops.prisma`
 

@@ -29,6 +29,7 @@ model User {
   status             UserStatus   @default(active)
   mustChangePassword Boolean      @default(false)
   twoFactorEnabled   Boolean      @default(false)
+  twoFactorActivated Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -54,6 +55,7 @@ model User {
   ipViolationLogs                IpViolationLog[]
   activeExamSessions             ActiveExamSession[]          @relation("ActiveExamSessionUser")
   notifications                  Notification[]
+  notificationPreference         NotificationPreference?
   triggeredRejudgeLogs           SubmissionRejudgeLog[]
   asOverrideStudent              ScoreOverride[]              @relation("ScoreOverrideUser")
   createdScoreOverrides          ScoreOverride[]              @relation("ScoreOverrideCreator")
@@ -77,12 +79,14 @@ model User {
 }
 
 model TwoFactor {
-  id          String  @id
-  secret      String
-  backupCodes String
-  userId      String
-  verified    Boolean @default(true)
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([secret])
   @@index([userId])

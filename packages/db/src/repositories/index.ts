@@ -25,6 +25,8 @@ export { examSessionRepo } from "./exam-session";
 export { ipViolationLogRepo } from "./ip-violation";
 export { notificationRepo, NOTIFICATION_RETENTION_PER_USER } from "./notification";
 export type { NotificationCreateInput } from "./notification";
+export { notificationPreferenceRepo } from "./notification-preference";
+export type { NotificationPreferenceValues } from "./notification-preference";
 export {
   plagiarismRepo,
   type PlagiarismReportSummary,

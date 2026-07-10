@@ -3,13 +3,18 @@ import type { RequestEvent } from "@sveltejs/kit";
 import {
   clearAdminMode,
   clearStepUp,
+  clearTokenPageMfa,
   hasAdminMode,
   hasAdminSessionMfa,
   hasFreshStepUp,
+  hasTokenPageMfa,
   isBackupCodeFormat,
+  isSuperAdminSessionExpired,
+  isTwoFactorActivated,
   markAdminMode,
   markAdminSessionMfa,
   markStepUpFresh,
+  markTokenPageMfa,
   markTotpSeen,
   userHasCredentialPassword,
   validateStepUpCode,
@@ -21,13 +26,18 @@ import { getAuth } from "$lib/auth.server";
 export {
   clearAdminMode,
   clearStepUp,
+  clearTokenPageMfa,
   hasAdminMode,
   hasAdminSessionMfa,
   hasFreshStepUp,
+  hasTokenPageMfa,
   isBackupCodeFormat,
+  isSuperAdminSessionExpired,
+  isTwoFactorActivated,
   markAdminMode,
   markAdminSessionMfa,
   markStepUpFresh,
+  markTokenPageMfa,
   markTotpSeen,
   userHasCredentialPassword,
   validateStepUpCode,
@@ -53,11 +63,13 @@ export async function verifyBackupCodeStepUp(code: string, headers: Headers): Pr
 }
 
 /**
- * A user can complete a step-up if they have an enrolled factor — TOTP/2FA or a
- * passkey. Both are provider-independent, so this is the same gate for password
- * and OAuth-only accounts.
+ * A user can complete a device step-up if the master switch is on and they have
+ * an enrolled factor — TOTP/2FA or a passkey. Both are provider-independent, so
+ * this is the same gate for password and OAuth-only accounts.
  */
 export async function hasStepUpFactor(event: RequestEvent): Promise<boolean> {
+  const userId = event.locals.sessionUser?.id;
+  if (!userId || !(await isTwoFactorActivated(userId))) return false;
   if (event.locals.sessionUser?.twoFactorEnabled) return true;
   const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
   return passkeys.length > 0;

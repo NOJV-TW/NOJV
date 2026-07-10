@@ -62,7 +62,7 @@ packages/
   storage/          S3-compatible object storage for images (depends: none)
   sandbox-docker/   Shared hardened docker sandbox args for advanced packages (depends: none)
   temporal/         Temporal client + dispatch API + workflow I/O types + task queue constants (depends: core)
-  application/      Business logic — @nojv/application (depends: core, db, redis, storage, sandbox-docker)
+  application/      Business logic — @nojv/application (depends: core, db, redis, storage, sandbox-docker, mailer)
 
 apps/
   web/              SvelteKit BFF (depends: core, application, temporal, db, redis, storage)
@@ -93,7 +93,7 @@ No cycles. `application` exposes orchestration-shaped functions, but reaches Tem
 | `core`           | (nothing)                                                                       | everything                                                                     |
 | `db`             | `core` ¶                                                                        | application, temporal; redis/storage from `src/`                               |
 | `redis`          | `core`                                                                          | application, db, temporal                                                      |
-| `application`    | `core`, `db`, `redis`, `storage`, `sandbox-docker` \*                           | temporal, `@nojv/temporal/workflows`, web, worker                              |
+| `application`    | `core`, `db`, `redis`, `storage`, `sandbox-docker`, `mailer` \*                 | temporal, `@nojv/temporal/workflows`, web, worker                              |
 | `temporal`       | `core`                                                                          | db, redis, application, web, worker (must stay self-contained to avoid cycles) |
 | `storage`        | (none of `@nojv/*`)                                                             | everything `@nojv/*`                                                           |
 | `sandbox-docker` | (none of `@nojv/*`)                                                             | everything `@nojv/*`                                                           |

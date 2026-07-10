@@ -73,15 +73,20 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Email
 
-Optional to boot, but **required at runtime for any email-sending flow** —
-school-email verification, passwordless/2FA enrollment, and API-token step-up
-OTP all throw if these are unset (`apps/web/src/lib/server/mailer/gmail.ts`).
-Deploy these whenever those features are in use.
+Optional to boot. `@nojv/mailer` stays a **no-op** until both `SMTP_HOST` and
+`SMTP_USER` are set — email-sending flows (school-email verification,
+passwordless/2FA enrollment, API-token step-up OTP, notifications) silently skip
+delivery rather than throwing. Set these whenever those features are in use.
+Consumed by both the web app and the platform worker.
 
-| Variable             | Purpose                                              |
-| -------------------- | ---------------------------------------------------- |
-| `GMAIL_USER`         | Gmail address emails are sent from                   |
-| `GMAIL_APP_PASSWORD` | Google account app password (not the login password) |
+| Variable       | Purpose                                                             |
+| -------------- | ------------------------------------------------------------------- |
+| `SMTP_HOST`    | SMTP host (empty → mailer no-op)                                    |
+| `SMTP_PORT`    | SMTP port; `465` → implicit TLS, otherwise STARTTLS (default `465`) |
+| `SMTP_USER`    | SMTP username (empty → mailer no-op)                                |
+| `SMTP_PASS`    | SMTP password / provider app password (not the login password)      |
+| `SMTP_FROM`    | Sender header; defaults to `NOJV <SMTP_USER>` when empty            |
+| `APP_BASE_URL` | Base URL for email links (default `https://nojv.tw`)                |
 
 ### Temporal
 

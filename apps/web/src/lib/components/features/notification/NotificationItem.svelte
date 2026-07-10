@@ -25,6 +25,8 @@
   function renderText(n: NotificationItem): string {
     const p = (n.params ?? {}) as Record<string, string>;
     switch (n.type) {
+      case "assignment_started":
+        return m.notification_assignment_started({ title: p.title ?? "" });
       case "assignment_due_soon":
         return m.notification_assignment_due_soon({ title: p.title ?? "" });
       case "exam_starting_soon":
@@ -44,6 +46,8 @@
         return m.notification_clarification_answered({
           questionPreview: p.questionPreview ?? "",
         });
+      case "editorial_removed":
+        return m.notification_editorial_removed({ title: p.title ?? "" });
       default:
         return n.type;
     }

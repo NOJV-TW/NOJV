@@ -39,7 +39,7 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
     }
     const studentC = await createTestUser({ platformRole: "student" });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
 
     const rowsA = await notificationRepo.listRecent(studentA.id, 10);
     const rowsB = await notificationRepo.listRecent(studentB.id, 10);
@@ -79,8 +79,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id);
-    await notificationDomain.fanoutExamStartingSoon(exam.id);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(1);
@@ -102,7 +102,7 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       data: { type: "exam", examId: exam.id, userId: student.id, status: "active" },
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -124,7 +124,7 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -143,10 +143,40 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
+  });
+
+  it("targets only participants whose lead-day preference matches the checkpoint", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+    const exam = await createTestExam({
+      courseId: course.id,
+      createdByUserId: teacher.id,
+      status: "published",
+      startsAt: new Date(Date.now() + 3 * 24 * 60 * 60_000),
+      endsAt: new Date(Date.now() + 4 * 24 * 60 * 60_000),
+    });
+
+    const wantsTwo = await createTestUser({ platformRole: "student" });
+    const wantsDefault = await createTestUser({ platformRole: "student" });
+    for (const s of [wantsTwo, wantsDefault]) {
+      await testPrisma.participation.create({
+        data: { type: "exam", examId: exam.id, userId: s.id, status: "registered" },
+      });
+    }
+    await testPrisma.notificationPreference.create({
+      data: { userId: wantsTwo.id, examStartingLeadDays: 2 },
+    });
+
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(0);
+    expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(1);
+
+    await notificationDomain.fanoutExamStartingSoon(exam.id, 2);
+    expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(1);
   });
 });
 
@@ -169,7 +199,7 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
     }
     const userC = await createTestUser();
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id);
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
 
     const rowsA = await notificationRepo.listRecent(userA.id, 10);
     const rowsB = await notificationRepo.listRecent(userB.id, 10);
@@ -203,8 +233,8 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id);
-    await notificationDomain.fanoutContestStartingSoon(contest.id);
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(1);
@@ -221,7 +251,7 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       data: { type: "contest", contestId: contest.id, userId: user.id, status: "active" },
     });
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id);
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(0);
@@ -238,7 +268,7 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id);
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(0);
@@ -252,9 +282,35 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
     });
     const user = await createTestUser();
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id);
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(0);
+  });
+
+  it("targets only participants whose lead-day preference matches the checkpoint", async () => {
+    const contest = await createTestContest({
+      visibility: "published",
+      startsAt: new Date(Date.now() + 3 * 24 * 60 * 60_000),
+      endsAt: new Date(Date.now() + 4 * 24 * 60 * 60_000),
+    });
+
+    const wantsTwo = await createTestUser();
+    const wantsDefault = await createTestUser();
+    for (const u of [wantsTwo, wantsDefault]) {
+      await testPrisma.participation.create({
+        data: { type: "contest", contestId: contest.id, userId: u.id, status: "registered" },
+      });
+    }
+    await testPrisma.notificationPreference.create({
+      data: { userId: wantsTwo.id, contestStartingLeadDays: 2 },
+    });
+
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(0);
+    expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(1);
+
+    await notificationDomain.fanoutContestStartingSoon(contest.id, 2);
+    expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(1);
   });
 });

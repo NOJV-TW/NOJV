@@ -1,4 +1,5 @@
 import { userDomain } from "@nojv/application";
+import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
@@ -12,16 +13,14 @@ import {
   LINKABLE_PROVIDERS,
   wouldOrphanAccount,
 } from "$lib/server/account-connections";
-import { userHasCredentialPassword } from "$lib/server/step-up";
 import { createLogger } from "$lib/server/logger";
-import { getMailer } from "$lib/server/mailer";
-import { renderEmail } from "$lib/server/mailer/template";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { nameSchema, usernameSchema } from "./schemas";
+import { loadTwoFactor, twoFactorActions } from "./two-factor-actions";
 
 const connectionsLogger = createLogger("account-connections");
 
@@ -82,11 +81,10 @@ export const load: PageServerLoad = async (event) => {
   const usernameForm = await superValidate({ username: username ?? "" }, zod4(usernameSchema));
 
   const linkedProviderIds = await listProviderIds(event);
-  const hasPassword = await userHasCredentialPassword(locals.user.id);
+  const twoFactor = await loadTwoFactor(event);
 
   return {
     email: locals.user.email,
-    hasPassword,
     username: username ?? "\u2014",
     isSchoolVerified,
     canEditUsername,
@@ -99,10 +97,13 @@ export const load: PageServerLoad = async (event) => {
       provider,
       linked: linkedProviderIds.includes(provider),
     })),
+    ...twoFactor,
   };
 };
 
 export const actions = {
+  ...twoFactorActions,
+
   sendVerification: handleSendVerificationAction,
 
   updateName: withRateLimit(async (event) => {

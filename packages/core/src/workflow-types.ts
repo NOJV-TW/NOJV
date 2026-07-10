@@ -43,6 +43,7 @@ export interface ExamAutoCloseInput {
 
 export interface AssignmentDueSoonInput {
   assignmentId: string;
+  opensAt: string;
   closesAt: string;
 }
 

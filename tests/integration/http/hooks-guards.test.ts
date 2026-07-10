@@ -11,7 +11,9 @@ vi.mock("$lib/auth.server", () => ({
         if (!userId) return null;
         const { testPrisma } = await import("../../fixtures/factories");
         const user = await testPrisma.user.findUnique({ where: { id: userId } });
-        return user ? { session: { id: "test-session", userId }, user } : null;
+        return user
+          ? { session: { id: "test-session", userId, createdAt: new Date() }, user }
+          : null;
       },
     },
   }),
@@ -27,7 +29,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     expect(res.headers.get("location")).toBe("/account/change-password");
   }, 30_000);
 
-  it("redirects a super admin without 2FA to the two-factor setup on /admin", async () => {
+  it("redirects a super admin without the 2FA master switch on to setup on /admin", async () => {
     const user = await createTestUser({
       username: "admin_user",
       platformRole: "admin",
@@ -35,10 +37,10 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     });
     const res = await callRoute({ path: "/admin", module: NO_RESOLVE, user });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/account/two-factor");
+    expect(res.headers.get("location")).toBe("/account?setup2fa=1");
   }, 30_000);
 
-  it("redirects a super admin with 2FA but an unverified session to step-up verify", async () => {
+  it("redirects a super admin with 2FA on but an unverified session to step-up verify", async () => {
     const { getRedis, keys } = await import("@nojv/redis");
     await getRedis().del(keys.adminSessionMfa("test-session"));
     const user = await createTestUser({
@@ -46,6 +48,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       platformRole: "admin",
       isSuperAdmin: true,
       twoFactorEnabled: true,
+      twoFactorActivated: true,
     });
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
     expect(res.status).toBe(302);
@@ -62,6 +65,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       platformRole: "admin",
       isSuperAdmin: true,
       twoFactorEnabled: true,
+      twoFactorActivated: true,
     });
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
     expect(res.status).not.toBe(302);

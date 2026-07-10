@@ -38,7 +38,12 @@ async function fanoutAnnouncementPublished(
     recipientIds.map((userId) => ({
       userId,
       type: "announcement_published" as const,
-      params: { announcementId, titleEn: title, titleZhTw: title },
+      params: {
+        announcementId,
+        titleEn: title,
+        titleZhTw: title,
+        ...(courseId ? { courseId } : {}),
+      },
       linkUrl: null,
     })),
   );

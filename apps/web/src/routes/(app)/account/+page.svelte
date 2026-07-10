@@ -1,20 +1,21 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
-  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
   import {
     Check,
     ChevronRight,
-    Compass,
+    Fingerprint,
     KeyRound,
     Pencil,
     ShieldCheck,
     X,
   } from "@lucide/svelte";
-  import { replayStudentTour } from "$lib/onboarding/student-tour";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
+  import TwoFactorDialog from "$lib/components/features/account/TwoFactorDialog.svelte";
+  import TwoFactorActivationDialog from "$lib/components/features/account/TwoFactorActivationDialog.svelte";
+  import PasskeyDialog from "$lib/components/features/account/PasskeyDialog.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -28,6 +29,12 @@
 
   let editingName = $state(false);
   let editingUsername = $state(false);
+
+  let totpOpen = $state(untrack(() => data.verifyAutoOpen));
+  let passkeyOpen = $state(false);
+  let activationOpen = $state(untrack(() => data.activateAutoOpen));
+
+  const passkeyEnabled = $derived(data.passkeys.length > 0);
 
   let oauthBusy = $state(false);
   let oauthError = $state("");
@@ -148,6 +155,10 @@
     "group flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 text-body-sm font-medium transition-colors duration-fast ease-out-soft hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
   const securityChevronClass =
     "h-4 w-4 text-muted-foreground transition-transform duration-fast ease-out-soft group-hover:translate-x-0.5";
+  const methodRowClass =
+    "flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 text-body-sm font-medium";
+  const methodBtnClass =
+    "shrink-0 rounded-md border border-border px-3 py-1.5 text-caption font-medium transition-colors duration-fast ease-out-soft hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
 
   const usernameLockReason = $derived(
     data.canEditUsername
@@ -164,8 +175,8 @@
       <h1 class="text-title-lg font-semibold">{m.navigation_account()}</h1>
     {/snippet}
 
-    <div class="flex flex-col gap-6">
-      <Card variant="surface" size="md">
+    <Card variant="surface" size="md">
+      <section class="flex flex-col gap-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_profile()}</h2>
           <p class="text-body-sm text-muted-foreground">
@@ -332,14 +343,16 @@
             </dd>
           </div>
         </dl>
-      </Card>
+      </section>
 
-      <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+      <section class="border-t border-border-subtle pt-4">
+        <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+      </section>
 
-      <Card variant="surface" size="md">
+      <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_securityTitle()}</h2>
-          <p class="text-body-sm text-muted-foreground">{m.account_securityHint()}</p>
+          <p class="text-body-sm text-muted-foreground">{m.account_verification_hint()}</p>
         </div>
         <div class="flex flex-col gap-2">
           {#if data.hasPassword}
@@ -351,40 +364,98 @@
               <ChevronRight aria-hidden="true" class={securityChevronClass} />
             </a>
           {/if}
-          <a href="/account/two-factor" class={securityLinkClass}>
-            <span class="flex items-center gap-2.5">
-              <ShieldCheck aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
-              {m.account_2fa_title()}
-            </span>
-            <ChevronRight aria-hidden="true" class={securityChevronClass} />
-          </a>
-        </div>
-      </Card>
 
-      {#if data.platformRole === "student"}
-        <Card variant="surface" size="md">
-          <div class="flex flex-col gap-1">
-            <h2 class="text-title-sm">{m.account_tourTitle()}</h2>
-            <p class="text-body-sm text-muted-foreground">{m.account_tourHint()}</p>
+          <div class={methodRowClass}>
+            <span class="flex min-w-0 items-center gap-2.5">
+              <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span class="truncate">{m.account_2fa_title()}</span>
+              <Badge variant={data.twoFactorActivated ? "success" : "muted"} size="sm" dot>
+                {data.twoFactorActivated
+                  ? m.account_verification_statusEnabled()
+                  : m.account_verification_statusInactive()}
+              </Badge>
+            </span>
+            <button
+              type="button"
+              class={methodBtnClass}
+              onclick={() => (activationOpen = true)}
+            >
+              {data.twoFactorActivated ? m.account_2fa_turnOff() : m.account_2fa_turnOn()}
+            </button>
           </div>
-          <button
-            type="button"
-            class="{securityLinkClass} w-full text-left"
-            onclick={() => {
-              const sessionUser = page.data.user;
-              if (sessionUser) replayStudentTour(sessionUser.id);
-            }}
-          >
-            <span class="flex items-center gap-2.5">
-              <Compass aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
-              {m.account_tourReplay()}
-            </span>
-            <ChevronRight aria-hidden="true" class={securityChevronClass} />
-          </button>
-        </Card>
-      {/if}
+          <p class="text-caption text-muted-foreground">{m.account_2fa_masterHint()}</p>
 
-      <Card variant="surface" size="md">
+          <div class={methodRowClass} class:opacity-60={!data.twoFactorActivated}>
+            <span class="flex min-w-0 items-center gap-2.5">
+              <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span class="truncate">{m.account_verification_totp()}</span>
+              <Badge variant={data.twoFactorEnabled ? "success" : "muted"} size="sm" dot>
+                {data.twoFactorEnabled
+                  ? m.account_verification_statusEnabled()
+                  : m.account_verification_statusInactive()}
+              </Badge>
+            </span>
+            <button
+              type="button"
+              class={methodBtnClass}
+              disabled={!data.twoFactorActivated && !data.twoFactorEnabled}
+              title={!data.twoFactorActivated && !data.twoFactorEnabled
+                ? m.account_2fa_methodsLockedHint()
+                : undefined}
+              onclick={() => (totpOpen = true)}
+            >
+              {data.twoFactorEnabled
+                ? m.account_verification_manage()
+                : m.account_verification_setup()}
+            </button>
+          </div>
+
+          <div class={methodRowClass} class:opacity-60={!data.twoFactorActivated}>
+            <span class="flex min-w-0 items-center gap-2.5">
+              <Fingerprint aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span class="truncate">Passkey</span>
+              <Badge variant={passkeyEnabled ? "success" : "muted"} size="sm" dot>
+                {passkeyEnabled
+                  ? m.account_verification_statusEnabled()
+                  : m.account_verification_statusInactive()}
+              </Badge>
+            </span>
+            <button
+              type="button"
+              class={methodBtnClass}
+              disabled={!data.twoFactorActivated && !passkeyEnabled}
+              title={!data.twoFactorActivated && !passkeyEnabled
+                ? m.account_2fa_methodsLockedHint()
+                : undefined}
+              onclick={() => (passkeyOpen = true)}
+            >
+              {passkeyEnabled
+                ? m.account_verification_manage()
+                : m.account_verification_setup()}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <TwoFactorActivationDialog
+        bind:open={activationOpen}
+        activated={data.twoFactorActivated}
+        twoFactorEnabled={data.twoFactorEnabled}
+        hasPasskey={passkeyEnabled}
+      />
+      <TwoFactorDialog
+        bind:open={totpOpen}
+        twoFactorEnabled={data.twoFactorEnabled}
+        hasPassword={data.hasPassword}
+        returnTo={data.returnTo}
+      />
+      <PasskeyDialog
+        bind:open={passkeyOpen}
+        activated={data.twoFactorActivated}
+        passkeys={data.passkeys}
+      />
+
+      <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_connections_title()}</h2>
           <p class="text-body-sm text-muted-foreground">
@@ -446,7 +517,7 @@
             </div>
           {/each}
         </div>
-      </Card>
-    </div>
+      </section>
+    </Card>
   </Section>
 </PageContainer>

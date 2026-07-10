@@ -63,14 +63,24 @@ export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;
 export const publishScoreboardUpdate = pubsub.publishScoreboardUpdate;
 
-export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {
-  await notificationDomain.fanoutAssignmentDueSoon(assignmentId);
+export async function fanoutAssignmentStarted(assignmentId: string): Promise<void> {
+  await notificationDomain.fanoutAssignmentStarted(assignmentId);
 }
 
-export async function fanoutExamStartingSoon(examId: string): Promise<void> {
-  await notificationDomain.fanoutExamStartingSoon(examId);
+export async function fanoutAssignmentDueSoon(
+  assignmentId: string,
+  leadDays: number,
+): Promise<void> {
+  await notificationDomain.fanoutAssignmentDueSoon(assignmentId, leadDays);
 }
 
-export async function fanoutContestStartingSoon(contestId: string): Promise<void> {
-  await notificationDomain.fanoutContestStartingSoon(contestId);
+export async function fanoutExamStartingSoon(examId: string, leadDays: number): Promise<void> {
+  await notificationDomain.fanoutExamStartingSoon(examId, leadDays);
+}
+
+export async function fanoutContestStartingSoon(
+  contestId: string,
+  leadDays: number,
+): Promise<void> {
+  await notificationDomain.fanoutContestStartingSoon(contestId, leadDays);
 }

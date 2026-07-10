@@ -15,6 +15,7 @@ export * from "./schemas/required-paths";
 export * from "./schemas/path";
 export * from "./schemas/platform-settings";
 export * from "./validation/required-paths";
+export * from "./notification-preferences";
 export * from "./sse-events";
 export * from "./judge-job";
 export * from "./workflow-types";
