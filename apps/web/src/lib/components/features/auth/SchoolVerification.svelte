@@ -8,7 +8,6 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Input } from "$lib/components/primitives/ui/input";
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
-  import * as Card from "$lib/components/primitives/ui/card";
 
   interface Props {
     isSchoolVerified: boolean;
@@ -57,27 +56,25 @@
   }
 </script>
 
-<Card.Root>
-  <Card.Header>
+<div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-1">
     <div class="flex items-center justify-between gap-3">
-      <Card.Title class="text-title-sm">{m.account_schoolVerification()}</Card.Title>
+      <h2 class="text-title-sm">{m.account_schoolVerification()}</h2>
       {#if isSchoolVerified}
         <Badge variant="success" dot>{m.account_verifiedBadge()}</Badge>
       {/if}
     </div>
     {#if !isSchoolVerified}
-      <Card.Description>
+      <p class="text-body-sm text-muted-foreground">
         {m.account_schoolVerificationDesc()}
-      </Card.Description>
+      </p>
     {/if}
-  </Card.Header>
+  </div>
 
   {#if isSchoolVerified}
-    <Card.Content>
-      <p class="text-body-sm text-muted-foreground">{m.account_schoolVerified()}</p>
-    </Card.Content>
+    <p class="text-body-sm text-muted-foreground">{m.account_schoolVerified()}</p>
   {:else}
-    <Card.Content class="flex flex-col gap-3">
+    <div class="flex flex-col gap-3">
       {#if phase === "idle"}
         <div>
           <Button variant="outline" onclick={() => (phase = "form")}>
@@ -199,6 +196,6 @@
       {#if phase === "verified"}
         <Badge variant="success" dot>{m.account_verified()}</Badge>
       {/if}
-    </Card.Content>
+    </div>
   {/if}
-</Card.Root>
+</div>

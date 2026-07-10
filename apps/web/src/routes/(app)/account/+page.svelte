@@ -154,8 +154,8 @@
       <h1 class="text-title-lg font-semibold">{m.navigation_account()}</h1>
     {/snippet}
 
-    <div class="flex flex-col gap-6">
-      <Card variant="surface" size="md">
+    <Card variant="surface" size="md">
+      <section class="flex flex-col gap-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_profile()}</h2>
           <p class="text-body-sm text-muted-foreground">
@@ -322,11 +322,13 @@
             </dd>
           </div>
         </dl>
-      </Card>
+      </section>
 
-      <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+      <section class="border-t border-border-subtle pt-4">
+        <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+      </section>
 
-      <Card variant="surface" size="md">
+      <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_securityTitle()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_securityHint()}</p>
@@ -349,9 +351,9 @@
             <ChevronRight aria-hidden="true" class={securityChevronClass} />
           </a>
         </div>
-      </Card>
+      </section>
 
-      <Card variant="surface" size="md">
+      <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_connections_title()}</h2>
           <p class="text-body-sm text-muted-foreground">
@@ -413,7 +415,7 @@
             </div>
           {/each}
         </div>
-      </Card>
-    </div>
+      </section>
+    </Card>
   </Section>
 </PageContainer>

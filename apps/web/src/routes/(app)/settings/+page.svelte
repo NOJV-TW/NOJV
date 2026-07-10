@@ -25,8 +25,8 @@
       <h1 class="text-title-lg font-semibold">{m.navigation_settings()}</h1>
     {/snippet}
 
-    <div class="flex flex-col gap-6">
-      <Card variant="surface" size="md">
+    <Card variant="surface" size="md">
+      <section class="flex flex-col gap-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_notifications_title()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_notifications_hint()}</p>
@@ -42,10 +42,10 @@
           </span>
           <ChevronRight aria-hidden="true" class={settingChevronClass} />
         </button>
-      </Card>
+      </section>
 
       {#if data.platformRole === "student"}
-        <Card variant="surface" size="md">
+        <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
           <div class="flex flex-col gap-1">
             <h2 class="text-title-sm">{m.account_tourTitle()}</h2>
             <p class="text-body-sm text-muted-foreground">{m.account_tourHint()}</p>
@@ -64,9 +64,9 @@
             </span>
             <ChevronRight aria-hidden="true" class={settingChevronClass} />
           </button>
-        </Card>
+        </section>
       {/if}
-    </div>
+    </Card>
   </Section>
 </PageContainer>
 
