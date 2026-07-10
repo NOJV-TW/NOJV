@@ -1,59 +1,62 @@
 import { z } from "zod";
 
-import { languageSchema } from "../types";
-
 const TITLE_MIN = 1;
 const TITLE_MAX = 200;
 const CONTENT_MIN = 10;
 const CONTENT_MAX = 50_000;
 const REASON_MIN = 1;
 const REASON_MAX = 1000;
+const COMMENT_MIN = 1;
+const COMMENT_MAX = 5000;
 
-export const editorialSubmitSchema = z.object({
+export const problemPostTypeSchema = z.enum(["editorial", "discussion"]);
+
+export const postSubmitSchema = z.object({
   title: z.string().trim().min(TITLE_MIN).max(TITLE_MAX),
   content: z.string().min(CONTENT_MIN).max(CONTENT_MAX),
-  language: languageSchema,
 });
 
-export const editorialUpdateSchema = z
+export const postUpdateSchema = z
   .object({
     title: z.string().trim().min(TITLE_MIN).max(TITLE_MAX).optional(),
     content: z.string().min(CONTENT_MIN).max(CONTENT_MAX).optional(),
-    language: languageSchema.optional(),
   })
-  .refine(
-    (value) =>
-      value.title !== undefined || value.content !== undefined || value.language !== undefined,
-    {
-      message: "At least one field (title, content, or language) is required.",
-    },
-  );
+  .refine((value) => value.title !== undefined || value.content !== undefined, {
+    message: "At least one field (title or content) is required.",
+  });
 
-export const editorialVoteSchema = z.object({
+export const postVoteSchema = z.object({
   value: z.union([z.literal(1), z.literal(-1), z.literal(0)]),
 });
 
-export const editorialReportSchema = z.object({
+export const contentReportSchema = z.object({
   reason: z.string().min(REASON_MIN).max(REASON_MAX),
 });
 
-export const editorialEntrySchema = z.looseObject({
+export const postCommentSubmitSchema = z.object({
+  content: z.string().trim().min(COMMENT_MIN).max(COMMENT_MAX),
+  parentId: z.string().nullish(),
+});
+
+export const postEntrySchema = z.looseObject({
   id: z.string(),
+  type: z.string(),
   title: z.string(),
   content: z.string(),
-  language: z.string(),
   createdAt: z.string(),
   voteScore: z.number(),
   viewerVote: z.number(),
+  commentCount: z.number(),
   user: z.object({
     username: z.string().nullable(),
     name: z.string(),
   }),
 });
 
-export const editorialListResponseSchema = z.array(editorialEntrySchema);
+export const postListResponseSchema = z.array(postEntrySchema);
 
-export type EditorialSubmitInput = z.infer<typeof editorialSubmitSchema>;
-export type EditorialUpdateInput = z.infer<typeof editorialUpdateSchema>;
-export type EditorialVoteInput = z.infer<typeof editorialVoteSchema>;
-export type EditorialReportInput = z.infer<typeof editorialReportSchema>;
+export type PostSubmitInput = z.infer<typeof postSubmitSchema>;
+export type PostUpdateInput = z.infer<typeof postUpdateSchema>;
+export type PostVoteInput = z.infer<typeof postVoteSchema>;
+export type ContentReportInput = z.infer<typeof contentReportSchema>;
+export type PostCommentSubmitInput = z.infer<typeof postCommentSubmitSchema>;
