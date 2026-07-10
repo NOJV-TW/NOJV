@@ -28,13 +28,17 @@ async function buildActor(overrides: ActorOverrides = {}) {
   };
 }
 
-async function createPostRow(authorId: string, problemId: string) {
+async function createPostRow(
+  authorId: string,
+  problemId: string,
+  type: "editorial" | "discussion" = "discussion",
+) {
   return testPrisma.problemPost.create({
     data: {
-      type: "editorial",
+      type,
       authorId,
       problemId,
-      title: "A test editorial post",
+      title: "A test post",
       content: "A sufficiently long post body for the test.",
     },
   });
@@ -84,6 +88,17 @@ describe("postDomain.reportContent — integration", () => {
     const post = await createPostRow(author.userId, problem.id);
 
     await expect(reportContent(author, { postId: post.id }, "self")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+  });
+
+  it("rejects an editorial report from a reporter who has not solved the problem", async () => {
+    const author = await buildActor();
+    const reporter = await buildActor();
+    const problem = await createTestProblem();
+    const post = await createPostRow(author.userId, problem.id, "editorial");
+
+    await expect(reportContent(reporter, { postId: post.id }, "spam")).rejects.toBeInstanceOf(
       ForbiddenError,
     );
   });

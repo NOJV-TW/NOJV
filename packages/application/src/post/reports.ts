@@ -8,6 +8,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
+import { assertCanInteractWithPosts } from "./mutations";
 
 export type ContentReportStatus = "open" | "resolved" | "dismissed";
 export type ContentReportAction = "resolve" | "dismiss";
@@ -36,6 +37,12 @@ export async function reportContent(
     if (post.authorId === actor.userId) {
       throw new ForbiddenError("You cannot report your own post.");
     }
+    await assertCanInteractWithPosts(
+      actor.userId,
+      post.problemId,
+      post.type,
+      "You cannot report content you cannot view.",
+    );
   } else {
     const comment = await postCommentRepo.findById(target.commentId);
     if (!comment || comment.deletedAt) {
@@ -44,6 +51,16 @@ export async function reportContent(
     if (comment.authorId === actor.userId) {
       throw new ForbiddenError("You cannot report your own comment.");
     }
+    const post = await postRepo.findById(comment.postId);
+    if (!post) {
+      throw new NotFoundError("Post not found.");
+    }
+    await assertCanInteractWithPosts(
+      actor.userId,
+      post.problemId,
+      post.type,
+      "You cannot report content you cannot view.",
+    );
   }
 
   try {

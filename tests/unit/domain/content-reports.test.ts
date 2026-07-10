@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   postFindById,
+  postExistsForUserProblem,
   postSoftDeleteIfActive,
   commentFindById,
   commentSoftDeleteIfActive,
@@ -9,8 +10,13 @@ const {
   reportFindById,
   reportUpdateStatus,
   reportListByStatus,
+  submissionCount,
+  contestFindActive,
+  assessmentFindActive,
+  examFindActive,
 } = vi.hoisted(() => ({
   postFindById: vi.fn(),
+  postExistsForUserProblem: vi.fn(),
   postSoftDeleteIfActive: vi.fn(),
   commentFindById: vi.fn(),
   commentSoftDeleteIfActive: vi.fn(),
@@ -18,11 +24,16 @@ const {
   reportFindById: vi.fn(),
   reportUpdateStatus: vi.fn(),
   reportListByStatus: vi.fn(),
+  submissionCount: vi.fn(),
+  contestFindActive: vi.fn(),
+  assessmentFindActive: vi.fn(),
+  examFindActive: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   postRepo: {
     findById: postFindById,
+    existsForUserProblem: postExistsForUserProblem,
     softDeleteIfActive: postSoftDeleteIfActive,
   },
   postCommentRepo: {
@@ -34,6 +45,18 @@ vi.mock("@nojv/db", () => ({
     findById: reportFindById,
     updateStatus: reportUpdateStatus,
     listByStatus: reportListByStatus,
+  },
+  submissionRepo: {
+    count: submissionCount,
+  },
+  contestProblemRepo: {
+    findActiveContestsForUser: contestFindActive,
+  },
+  assessmentProblemRepo: {
+    findActiveAssessmentsForUser: assessmentFindActive,
+  },
+  examProblemRepo: {
+    findActiveExamsForUser: examFindActive,
   },
 }));
 
@@ -66,6 +89,7 @@ function actor(userId: string, platformRole: FakeActor["platformRole"] = "studen
 function postRow(
   overrides: Partial<{
     id: string;
+    type: "editorial" | "discussion";
     authorId: string;
     problemId: string;
     title: string;
@@ -137,6 +161,11 @@ beforeEach(() => {
   createNotification.mockResolvedValue(undefined);
   postSoftDeleteIfActive.mockResolvedValue(1);
   commentSoftDeleteIfActive.mockResolvedValue(1);
+  postExistsForUserProblem.mockResolvedValue(false);
+  submissionCount.mockResolvedValue(1);
+  contestFindActive.mockResolvedValue([]);
+  assessmentFindActive.mockResolvedValue([]);
+  examFindActive.mockResolvedValue([]);
 });
 
 describe("reportContent — post target", () => {
@@ -207,6 +236,31 @@ describe("reportContent — post target", () => {
       reportContent(actor("usr_reporter"), { postId: "post_1" }, "duplicate"),
     ).rejects.toMatchObject({ name: "ConflictError", status: 409 });
   });
+
+  it("rejects an editorial report from a reporter who has not solved the problem", async () => {
+    postFindById.mockResolvedValue(postRow({ type: "editorial" }));
+    submissionCount.mockResolvedValue(0);
+
+    await expect(
+      reportContent(actor("usr_reporter"), { postId: "post_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+    expect(reportCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows a discussion report from any signed-in reporter without AC", async () => {
+    postFindById.mockResolvedValue(postRow({ type: "discussion" }));
+    submissionCount.mockResolvedValue(0);
+    reportCreate.mockResolvedValue({ id: "rep_1" });
+
+    await expect(
+      reportContent(actor("usr_reporter"), { postId: "post_1" }, "spam"),
+    ).resolves.toEqual({ id: "rep_1" });
+    expect(reportCreate).toHaveBeenCalledWith({
+      postId: "post_1",
+      reportedByUserId: "usr_reporter",
+      reason: "spam",
+    });
+  });
 });
 
 describe("reportContent — comment target", () => {
@@ -236,6 +290,7 @@ describe("reportContent — comment target", () => {
 
   it("creates a comment report on the happy path", async () => {
     commentFindById.mockResolvedValue(commentRow());
+    postFindById.mockResolvedValue(postRow());
     reportCreate.mockResolvedValue({ id: "rep_1" });
 
     await reportContent(actor("usr_reporter"), { commentId: "cmt_1" }, "abuse");
@@ -249,12 +304,24 @@ describe("reportContent — comment target", () => {
 
   it("maps the unique-constraint violation to ConflictError", async () => {
     commentFindById.mockResolvedValue(commentRow());
+    postFindById.mockResolvedValue(postRow());
     const dup = Object.assign(new Error("unique"), { code: "P2002" });
     reportCreate.mockRejectedValue(dup);
 
     await expect(
       reportContent(actor("usr_reporter"), { commentId: "cmt_1" }, "duplicate"),
     ).rejects.toMatchObject({ name: "ConflictError", status: 409 });
+  });
+
+  it("rejects a comment report on an editorial the reporter cannot view", async () => {
+    commentFindById.mockResolvedValue(commentRow());
+    postFindById.mockResolvedValue(postRow({ type: "editorial" }));
+    submissionCount.mockResolvedValue(0);
+
+    await expect(
+      reportContent(actor("usr_reporter"), { commentId: "cmt_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+    expect(reportCreate).not.toHaveBeenCalled();
   });
 });
 
