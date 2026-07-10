@@ -8,7 +8,7 @@ const { findActiveContests, findActiveAssessments, findActiveExams } = vi.hoiste
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: { count: vi.fn() },
-  editorialRepo: { existsForUserProblem: vi.fn() },
+  postRepo: { existsForUserProblem: vi.fn() },
   contestRepo: { findById: vi.fn() },
   assessmentRepo: { findInfoById: vi.fn() },
   examRepo: { findById: vi.fn() },
@@ -17,9 +17,9 @@ vi.mock("@nojv/db", () => ({
   examProblemRepo: { findActiveExamsForUser: findActiveExams },
 }));
 
-import { editorialDomain } from "@nojv/application";
+import { postDomain } from "@nojv/application";
 
-const { resolveActiveContextForUser } = editorialDomain;
+const { resolveActiveContextForUser } = postDomain;
 
 const NOW = new Date("2026-05-28T12:00:00.000Z");
 

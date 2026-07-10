@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   submissionCount,
-  editorialExistsForUserProblem,
+  postExistsForUserProblem,
   contestFindById,
   assessmentFindInfoById,
   examFindById,
 } = vi.hoisted(() => ({
   submissionCount: vi.fn(),
-  editorialExistsForUserProblem: vi.fn(),
+  postExistsForUserProblem: vi.fn(),
   contestFindById: vi.fn(),
   assessmentFindInfoById: vi.fn(),
   examFindById: vi.fn(),
@@ -16,15 +16,15 @@ const {
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: { count: submissionCount },
-  editorialRepo: { existsForUserProblem: editorialExistsForUserProblem },
+  postRepo: { existsForUserProblem: postExistsForUserProblem },
   contestRepo: { findById: contestFindById },
   assessmentRepo: { findInfoById: assessmentFindInfoById },
   examRepo: { findById: examFindById },
 }));
 
-import { editorialDomain } from "@nojv/application";
+import { postDomain } from "@nojv/application";
 
-const { canViewEditorials } = editorialDomain;
+const { canViewPosts } = postDomain;
 
 const NOW = new Date("2026-05-28T12:00:00.000Z");
 const PAST = new Date("2026-05-28T11:00:00.000Z");
@@ -32,31 +32,31 @@ const FUTURE = new Date("2026-05-28T13:00:00.000Z");
 
 beforeEach(() => {
   submissionCount.mockReset();
-  editorialExistsForUserProblem.mockReset();
+  postExistsForUserProblem.mockReset();
   contestFindById.mockReset();
   assessmentFindInfoById.mockReset();
   examFindById.mockReset();
-  editorialExistsForUserProblem.mockResolvedValue(false);
+  postExistsForUserProblem.mockResolvedValue(false);
 });
 
-describe("canViewEditorials — context gate", () => {
+describe("canViewPosts — context gate (editorial)", () => {
   it("allows AC + practice (no context arg → default practice)", async () => {
     submissionCount.mockResolvedValue(1);
-    await expect(canViewEditorials("usr_1", "prob_1")).resolves.toBe(true);
+    await expect(canViewPosts("usr_1", "prob_1", "editorial")).resolves.toBe(true);
   });
 
   it("allows AC + practice (explicit practice context)", async () => {
     submissionCount.mockResolvedValue(1);
-    await expect(canViewEditorials("usr_1", "prob_1", { kind: "practice" })).resolves.toBe(
-      true,
-    );
+    await expect(
+      canViewPosts("usr_1", "prob_1", "editorial", { kind: "practice" }),
+    ).resolves.toBe(true);
   });
 
   it("denies AC + contest still in progress (now < endsAt)", async () => {
     submissionCount.mockResolvedValue(1);
     contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: FUTURE });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "contest",
         contestId: "ctx_1",
         now: NOW,
@@ -68,7 +68,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: PAST });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "contest",
         contestId: "ctx_1",
         now: NOW,
@@ -80,7 +80,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     contestFindById.mockResolvedValue(null);
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "contest",
         contestId: "ctx_missing",
         now: NOW,
@@ -92,7 +92,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     contestFindById.mockRejectedValue(new Error("connection lost"));
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "contest",
         contestId: "ctx_1",
         now: NOW,
@@ -104,7 +104,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     assessmentFindInfoById.mockResolvedValue({ closesAt: FUTURE });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "assignment",
         assignmentId: "asn_1",
         now: NOW,
@@ -116,7 +116,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     assessmentFindInfoById.mockResolvedValue({ closesAt: PAST });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "assignment",
         assignmentId: "asn_1",
         now: NOW,
@@ -128,7 +128,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     assessmentFindInfoById.mockRejectedValue(new Error("not found"));
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "assignment",
         assignmentId: "asn_missing",
         now: NOW,
@@ -140,7 +140,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     examFindById.mockResolvedValue({ id: "exm_1", endsAt: FUTURE });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "exam",
         examId: "exm_1",
         now: NOW,
@@ -152,7 +152,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     examFindById.mockResolvedValue({ id: "exm_1", endsAt: PAST });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "exam",
         examId: "exm_1",
         now: NOW,
@@ -164,7 +164,7 @@ describe("canViewEditorials — context gate", () => {
     submissionCount.mockResolvedValue(1);
     examFindById.mockResolvedValue(null);
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "exam",
         examId: "exm_missing",
         now: NOW,
@@ -174,16 +174,16 @@ describe("canViewEditorials — context gate", () => {
 
   it("denies non-AC user regardless of context (practice)", async () => {
     submissionCount.mockResolvedValue(0);
-    await expect(canViewEditorials("usr_1", "prob_1", { kind: "practice" })).resolves.toBe(
-      false,
-    );
+    await expect(
+      canViewPosts("usr_1", "prob_1", "editorial", { kind: "practice" }),
+    ).resolves.toBe(false);
   });
 
   it("denies non-AC user regardless of context (contest after end)", async () => {
     submissionCount.mockResolvedValue(0);
     contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: PAST });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "contest",
         contestId: "ctx_1",
         now: NOW,
@@ -193,10 +193,10 @@ describe("canViewEditorials — context gate", () => {
 
   it("Phase 5.10: editorial author during active contest is blocked (gate checked first)", async () => {
     submissionCount.mockResolvedValue(0);
-    editorialExistsForUserProblem.mockResolvedValue(true);
+    postExistsForUserProblem.mockResolvedValue(true);
     contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: FUTURE });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "contest",
         contestId: "ctx_1",
         now: NOW,
@@ -206,10 +206,10 @@ describe("canViewEditorials — context gate", () => {
 
   it("Phase 5.10: editorial author during active assignment is blocked (gate checked first)", async () => {
     submissionCount.mockResolvedValue(0);
-    editorialExistsForUserProblem.mockResolvedValue(true);
+    postExistsForUserProblem.mockResolvedValue(true);
     assessmentFindInfoById.mockResolvedValue({ closesAt: FUTURE });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "assignment",
         assignmentId: "asn_1",
         now: NOW,
@@ -219,12 +219,62 @@ describe("canViewEditorials — context gate", () => {
 
   it("Phase 5.10: editorial author can view after contest ends even without AC", async () => {
     submissionCount.mockResolvedValue(0);
-    editorialExistsForUserProblem.mockResolvedValue(true);
+    postExistsForUserProblem.mockResolvedValue(true);
     contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: PAST });
     await expect(
-      canViewEditorials("usr_1", "prob_1", {
+      canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "contest",
         contestId: "ctx_1",
+        now: NOW,
+      }),
+    ).resolves.toBe(true);
+  });
+});
+
+describe("canViewPosts — context gate (discussion)", () => {
+  it("denies a non-AC user during an active contest", async () => {
+    submissionCount.mockResolvedValue(0);
+    contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: FUTURE });
+    await expect(
+      canViewPosts("usr_1", "prob_1", "discussion", {
+        kind: "contest",
+        contestId: "ctx_1",
+        now: NOW,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("denies an AC user during an active exam", async () => {
+    submissionCount.mockResolvedValue(1);
+    examFindById.mockResolvedValue({ id: "exm_1", endsAt: FUTURE });
+    await expect(
+      canViewPosts("usr_1", "prob_1", "discussion", {
+        kind: "exam",
+        examId: "exm_1",
+        now: NOW,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("allows a non-AC user once the contest has ended", async () => {
+    submissionCount.mockResolvedValue(0);
+    contestFindById.mockResolvedValue({ id: "ctx_1", endsAt: PAST });
+    await expect(
+      canViewPosts("usr_1", "prob_1", "discussion", {
+        kind: "contest",
+        contestId: "ctx_1",
+        now: NOW,
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("allows a non-AC user once the assignment has closed", async () => {
+    submissionCount.mockResolvedValue(0);
+    assessmentFindInfoById.mockResolvedValue({ closesAt: PAST });
+    await expect(
+      canViewPosts("usr_1", "prob_1", "discussion", {
+        kind: "assignment",
+        assignmentId: "asn_1",
         now: NOW,
       }),
     ).resolves.toBe(true);

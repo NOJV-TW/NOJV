@@ -55,6 +55,7 @@ export const postEntrySchema = z.looseObject({
 
 export const postListResponseSchema = z.array(postEntrySchema);
 
+export type ProblemPostType = z.infer<typeof problemPostTypeSchema>;
 export type PostSubmitInput = z.infer<typeof postSubmitSchema>;
 export type PostUpdateInput = z.infer<typeof postUpdateSchema>;
 export type PostVoteInput = z.infer<typeof postVoteSchema>;
