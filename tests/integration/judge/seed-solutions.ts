@@ -485,6 +485,151 @@ for r in range(R):
 print(abs(s[0] - g[0]) + abs(s[1] - g[1]))
 `;
 
+const INTERVAL_SCHEDULING_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    intervals = []\n    idx = 1\n    for _ in range(n):\n        s = int(data[idx])\n        e = int(data[idx + 1])\n        idx += 2\n        intervals.append((e, s))\n    intervals.sort()\n    count = 0\n    current_end = -1\n    for e, s in intervals:\n        if s >= current_end:\n            count += 1\n            current_end = e\n    print(count)\n\n\nmain()\n";
+const INTERVAL_SCHEDULING_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    intervals = []\n    idx = 1\n    for _ in range(n):\n        s = int(data[idx])\n        e = int(data[idx + 1])\n        idx += 2\n        intervals.append((s, e))\n    intervals.sort()\n    count = 0\n    current_end = -1\n    for s, e in intervals:\n        if s >= current_end:\n            count += 1\n            current_end = e\n    print(count)\n\n\nmain()\n";
+const MIN_MERGE_COST_CORRECT =
+  "import heapq\nimport sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    piles = [int(x) for x in data[1 : 1 + n]]\n    if n == 1:\n        print(0)\n        return\n    heapq.heapify(piles)\n    total = 0\n    while len(piles) > 1:\n        x = heapq.heappop(piles)\n        y = heapq.heappop(piles)\n        merged = x + y\n        total += merged\n        heapq.heappush(piles, merged)\n    print(total)\n\n\nmain()\n";
+const MIN_MERGE_COST_WRONG =
+  "import heapq\nimport sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    piles = [-int(x) for x in data[1 : 1 + n]]\n    if n == 1:\n        print(0)\n        return\n    heapq.heapify(piles)\n    total = 0\n    while len(piles) > 1:\n        x = heapq.heappop(piles)\n        y = heapq.heappop(piles)\n        merged = x + y\n        total += -merged\n        heapq.heappush(piles, merged)\n    print(total)\n\n\nmain()\n";
+const PAIR_SUM_COUNT_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    t = int(data[1])\n    a = sorted(int(x) for x in data[2 : 2 + n])\n    i, j = 0, n - 1\n    count = 0\n    while i < j:\n        if a[i] + a[j] <= t:\n            count += j - i\n            i += 1\n        else:\n            j -= 1\n    print(count)\n\n\nmain()\n";
+const PAIR_SUM_COUNT_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    t = int(data[1])\n    a = sorted(int(x) for x in data[2 : 2 + n])\n    i, j = 0, n - 1\n    count = 0\n    while i < j:\n        if a[i] + a[j] < t:\n            count += j - i\n            i += 1\n        else:\n            j -= 1\n    print(count)\n\n\nmain()\n";
+const MEETING_ROOMS_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    events = []\n    idx = 1\n    for _ in range(n):\n        s = int(data[idx])\n        e = int(data[idx + 1])\n        idx += 2\n        events.append((s, 1))\n        events.append((e, -1))\n    events.sort()\n    current = 0\n    best = 0\n    for _, delta in events:\n        current += delta\n        if current > best:\n            best = current\n    print(best)\n\n\nmain()\n";
+const MEETING_ROOMS_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    events = []\n    idx = 1\n    for _ in range(n):\n        s = int(data[idx])\n        e = int(data[idx + 1])\n        idx += 2\n        events.append((s, 0, 1))\n        events.append((e, 1, -1))\n    events.sort()\n    current = 0\n    best = 0\n    for _, _, delta in events:\n        current += delta\n        if current > best:\n            best = current\n    print(best)\n\n\nmain()\n";
+const DIJKSTRA_SHORTEST_PATH_CORRECT =
+  'import sys\nimport heapq\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    m = int(data[idx]); idx += 1\n    adj = [[] for _ in range(n + 1)]\n    for _ in range(m):\n        u = int(data[idx]); v = int(data[idx + 1]); w = int(data[idx + 2]); idx += 3\n        adj[u].append((v, w))\n        adj[v].append((u, w))\n    INF = float("inf")\n    dist = [INF] * (n + 1)\n    dist[1] = 0\n    pq = [(0, 1)]\n    while pq:\n        d, u = heapq.heappop(pq)\n        if d > dist[u]:\n            continue\n        if u == n:\n            break\n        for v, w in adj[u]:\n            nd = d + w\n            if nd < dist[v]:\n                dist[v] = nd\n                heapq.heappush(pq, (nd, v))\n    print(dist[n] if dist[n] < INF else -1)\n\n\nmain()\n';
+const DIJKSTRA_SHORTEST_PATH_WRONG =
+  "import sys\nimport heapq\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    m = int(data[idx]); idx += 1\n    adj = [[] for _ in range(n + 1)]\n    for _ in range(m):\n        u = int(data[idx]); v = int(data[idx + 1]); w = int(data[idx + 2]); idx += 3\n        adj[u].append((v, w))\n        adj[v].append((u, w))\n    visited = [False] * (n + 1)\n    visited[1] = True\n    pq = [(0, 1)]\n    while pq:\n        d, u = heapq.heappop(pq)\n        if u == n:\n            print(d)\n            return\n        for v, w in adj[u]:\n            if not visited[v]:\n                visited[v] = True\n                heapq.heappush(pq, (d + w, v))\n    print(-1)\n\n\nmain()\n";
+const UNION_FIND_COMPONENTS_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    q = int(data[idx]); idx += 1\n    parent = list(range(n + 1))\n    size = [1] * (n + 1)\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    out = []\n    for _ in range(q):\n        op = data[idx]; u = int(data[idx + 1]); v = int(data[idx + 2]); idx += 3\n        ru, rv = find(u), find(v)\n        if op == b"C":\n            if ru != rv:\n                if size[ru] < size[rv]:\n                    ru, rv = rv, ru\n                parent[rv] = ru\n                size[ru] += size[rv]\n        else:\n            out.append("YES" if ru == rv else "NO")\n    if out:\n        sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const UNION_FIND_COMPONENTS_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    q = int(data[idx]); idx += 1\n    edges = set()\n    out = []\n    for _ in range(q):\n        op = data[idx]; u = int(data[idx + 1]); v = int(data[idx + 2]); idx += 3\n        key = (min(u, v), max(u, v))\n        if op == "C":\n            edges.add(key)\n        else:\n            out.append("YES" if key in edges else "NO")\n    if out:\n        sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const KRUSKAL_MST_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    m = int(data[idx]); idx += 1\n    edges = []\n    for _ in range(m):\n        u = int(data[idx]); v = int(data[idx + 1]); w = int(data[idx + 2]); idx += 3\n        if u != v:\n            edges.append((w, u, v))\n    edges.sort()\n    parent = list(range(n + 1))\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    total = 0\n    used = 0\n    for w, u, v in edges:\n        ru, rv = find(u), find(v)\n        if ru != rv:\n            parent[rv] = ru\n            total += w\n            used += 1\n    if used == n - 1:\n        print(total)\n    else:\n        print("IMPOSSIBLE")\n\n\nmain()\n';
+const KRUSKAL_MST_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0]); m = int(data[1])\n    ws = []\n    idx = 2\n    for _ in range(m):\n        ws.append(int(data[idx + 2]))\n        idx += 3\n    if m < n - 1:\n        print("IMPOSSIBLE")\n        return\n    ws.sort()\n    print(sum(ws[: n - 1]))\n\n\nmain()\n';
+const BIPARTITE_CHECK_CORRECT =
+  'import sys\nfrom collections import deque\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    m = int(data[idx]); idx += 1\n    adj = [[] for _ in range(n + 1)]\n    for _ in range(m):\n        u = int(data[idx]); v = int(data[idx + 1]); idx += 2\n        adj[u].append(v)\n        adj[v].append(u)\n    color = [-1] * (n + 1)\n    for s in range(1, n + 1):\n        if color[s] != -1:\n            continue\n        color[s] = 0\n        dq = deque([s])\n        while dq:\n            u = dq.popleft()\n            for v in adj[u]:\n                if color[v] == -1:\n                    color[v] = color[u] ^ 1\n                    dq.append(v)\n                elif color[v] == color[u]:\n                    print("NO")\n                    return\n    print("YES")\n\n\nmain()\n';
+const BIPARTITE_CHECK_WRONG =
+  'import sys\nfrom collections import deque\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    m = int(data[idx]); idx += 1\n    adj = [[] for _ in range(n + 1)]\n    for _ in range(m):\n        u = int(data[idx]); v = int(data[idx + 1]); idx += 2\n        adj[u].append(v)\n        adj[v].append(u)\n    color = [-1] * (n + 1)\n    color[1] = 0\n    dq = deque([1])\n    while dq:\n        u = dq.popleft()\n        for v in adj[u]:\n            if color[v] == -1:\n                color[v] = color[u] ^ 1\n                dq.append(v)\n            elif color[v] == color[u]:\n                print("NO")\n                return\n    print("YES")\n\n\nmain()\n';
+const COUNT_ISLANDS_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    r = int(data[0])\n    c = int(data[1])\n    grid = bytearray()\n    for i in range(r):\n        grid += data[2 + i]\n    n = r * c\n    land = 35\n    sea = 46\n    count = 0\n    for s in range(n):\n        if grid[s] == land:\n            count += 1\n            grid[s] = sea\n            stack = [s]\n            push = stack.append\n            pop = stack.pop\n            while stack:\n                p = pop()\n                q = p - c\n                if q >= 0 and grid[q] == land:\n                    grid[q] = sea\n                    push(q)\n                q = p + c\n                if q < n and grid[q] == land:\n                    grid[q] = sea\n                    push(q)\n                y = p % c\n                if y > 0 and grid[p - 1] == land:\n                    grid[p - 1] = sea\n                    push(p - 1)\n                if y + 1 < c and grid[p + 1] == land:\n                    grid[p + 1] = sea\n                    push(p + 1)\n    print(count)\n\n\nmain()\n";
+const COUNT_ISLANDS_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    r = int(data[0])\n    c = int(data[1])\n    grid = [bytearray(data[2 + i]) for i in range(r)]\n    land = 35\n    sea = 46\n    count = 0\n    for si in range(r):\n        for sj in range(c):\n            if grid[si][sj] == land:\n                count += 1\n                grid[si][sj] = sea\n                stack = [(si, sj)]\n                while stack:\n                    x, y = stack.pop()\n                    for dx in (-1, 0, 1):\n                        for dy in (-1, 0, 1):\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < r and 0 <= ny < c and grid[nx][ny] == land:\n                                grid[nx][ny] = sea\n                                stack.append((nx, ny))\n    print(count)\n\n\nmain()\n";
+const TREE_DIAMETER_CORRECT =
+  "import sys\nfrom collections import deque\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    adj = [[] for _ in range(n + 1)]\n    idx = 1\n    for _ in range(n - 1):\n        u = int(data[idx])\n        v = int(data[idx + 1])\n        idx += 2\n        adj[u].append(v)\n        adj[v].append(u)\n\n    def bfs(start):\n        dist = [-1] * (n + 1)\n        dist[start] = 0\n        q = deque([start])\n        far = start\n        while q:\n            u = q.popleft()\n            if dist[u] > dist[far]:\n                far = u\n            for v in adj[u]:\n                if dist[v] < 0:\n                    dist[v] = dist[u] + 1\n                    q.append(v)\n        return far, dist[far]\n\n    a, _ = bfs(1)\n    _, d = bfs(a)\n    print(d)\n\n\nmain()\n";
+const TREE_DIAMETER_WRONG =
+  "import sys\nfrom collections import deque\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    adj = [[] for _ in range(n + 1)]\n    idx = 1\n    for _ in range(n - 1):\n        u = int(data[idx])\n        v = int(data[idx + 1])\n        idx += 2\n        adj[u].append(v)\n        adj[v].append(u)\n    dist = [-1] * (n + 1)\n    dist[1] = 0\n    q = deque([1])\n    while q:\n        u = q.popleft()\n        for v in adj[u]:\n            if dist[v] < 0:\n                dist[v] = dist[u] + 1\n                q.append(v)\n    print(max(dist[1:]))\n\n\nmain()\n";
+const COURSE_ORDER_CORRECT =
+  'import sys\nfrom collections import deque\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    m = int(data[1])\n    adj = [[] for _ in range(n + 1)]\n    indeg = [0] * (n + 1)\n    idx = 2\n    for _ in range(m):\n        a = int(data[idx])\n        b = int(data[idx + 1])\n        idx += 2\n        adj[a].append(b)\n        indeg[b] += 1\n    q = deque(i for i in range(1, n + 1) if indeg[i] == 0)\n    order = []\n    while q:\n        u = q.popleft()\n        order.append(u)\n        for v in adj[u]:\n            indeg[v] -= 1\n            if indeg[v] == 0:\n                q.append(v)\n    if len(order) < n:\n        print(-1)\n    else:\n        sys.stdout.write(" ".join(map(str, order)) + "\\n")\n\n\nmain()\n';
+const COURSE_ORDER_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    print(" ".join(str(i) for i in range(1, n + 1)))\n\n\nmain()\n';
+const SHORTEST_ROUTE_PLAN_CORRECT =
+  'import sys\nfrom collections import deque\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    m = int(data[1])\n    adj = [[] for _ in range(n + 1)]\n    idx = 2\n    for _ in range(m):\n        u = int(data[idx])\n        v = int(data[idx + 1])\n        idx += 2\n        adj[u].append(v)\n        adj[v].append(u)\n    parent = [0] * (n + 1)\n    dist = [-1] * (n + 1)\n    dist[1] = 0\n    q = deque([1])\n    while q:\n        u = q.popleft()\n        if u == n:\n            break\n        for v in adj[u]:\n            if dist[v] < 0:\n                dist[v] = dist[u] + 1\n                parent[v] = u\n                q.append(v)\n    if dist[n] < 0:\n        print(-1)\n        return\n    path = [n]\n    while path[-1] != 1:\n        path.append(parent[path[-1]])\n    path.reverse()\n    print(len(path))\n    print(" ".join(map(str, path)))\n\n\nmain()\n';
+const SHORTEST_ROUTE_PLAN_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    m = int(data[1])\n    adj = [[] for _ in range(n + 1)]\n    idx = 2\n    for _ in range(m):\n        u = int(data[idx])\n        v = int(data[idx + 1])\n        idx += 2\n        adj[u].append(v)\n        adj[v].append(u)\n    if n == 1:\n        print(1)\n        print(1)\n        return\n    visited = [False] * (n + 1)\n    visited[1] = True\n    parent = [0] * (n + 1)\n    stack = [(1, iter(adj[1]))]\n    found = False\n    while stack and not found:\n        u, it = stack[-1]\n        advanced = False\n        for v in it:\n            if not visited[v]:\n                visited[v] = True\n                parent[v] = u\n                if v == n:\n                    found = True\n                else:\n                    stack.append((v, iter(adj[v])))\n                advanced = True\n                break\n        if not advanced:\n            stack.pop()\n    if not found:\n        print(-1)\n        return\n    path = [n]\n    while path[-1] != 1:\n        path.append(parent[path[-1]])\n    path.reverse()\n    print(len(path))\n    print(" ".join(map(str, path)))\n\n\nmain()\n';
+const LONGEST_INCREASING_SUBSEQUENCE_CORRECT =
+  "import sys\nfrom bisect import bisect_left\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    a = [int(x) for x in data[1 : 1 + n]]\n    tails = []\n    for x in a:\n        i = bisect_left(tails, x)\n        if i == len(tails):\n            tails.append(x)\n        else:\n            tails[i] = x\n    print(len(tails))\n\n\nmain()\n";
+const LONGEST_INCREASING_SUBSEQUENCE_WRONG =
+  "import sys\nfrom bisect import bisect_right\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    a = [int(x) for x in data[1 : 1 + n]]\n    tails = []\n    for x in a:\n        i = bisect_right(tails, x)\n        if i == len(tails):\n            tails.append(x)\n        else:\n            tails[i] = x\n    print(len(tails))\n\n\nmain()\n";
+const EDIT_DISTANCE_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    s = data[0]\n    t = data[1]\n    m = len(t)\n    prev = list(range(m + 1))\n    for i, cs in enumerate(s, 1):\n        cur = [0] * (m + 1)\n        cur[0] = i\n        pj1 = prev[0]\n        cj = i\n        for j, ct in enumerate(t, 1):\n            pj = prev[j]\n            v = pj1 if cs == ct else pj1 + 1\n            w = pj + 1\n            if w < v:\n                v = w\n            w = cj + 1\n            if w < v:\n                v = w\n            cur[j] = v\n            cj = v\n            pj1 = pj\n        prev = cur\n    print(prev[m])\n\n\nmain()\n";
+const EDIT_DISTANCE_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    s = data[0]\n    t = data[1]\n    m = len(t)\n    prev = [0] * (m + 1)\n    for cs in s:\n        cur = [0] * (m + 1)\n        c = 0\n        pj1 = 0\n        for j, ct in enumerate(t, 1):\n            pj = prev[j]\n            if cs == ct:\n                v = pj1 + 1\n            else:\n                v = pj if pj > c else c\n            cur[j] = v\n            c = v\n            pj1 = pj\n        prev = cur\n    print(len(s) + len(t) - 2 * prev[m])\n\n\nmain()\n";
+const COIN_CHANGE_MIN_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    a = int(data[1])\n    coins = sorted({int(x) for x in data[2 : 2 + n]})\n    inf = float("inf")\n    dp = [0] + [inf] * a\n    for c in coins:\n        if c > a:\n            break\n        for x in range(c, a + 1):\n            v = dp[x - c] + 1\n            if v < dp[x]:\n                dp[x] = v\n    print(dp[a] if dp[a] != inf else -1)\n\n\nmain()\n';
+const COIN_CHANGE_MIN_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    a = int(data[1])\n    coins = sorted({int(x) for x in data[2 : 2 + n]}, reverse=True)\n    count = 0\n    rem = a\n    for c in coins:\n        if c <= rem:\n            count += rem // c\n            rem %= c\n    print(count if rem == 0 else -1)\n\n\nmain()\n";
+const LONGEST_COMMON_SUBSEQUENCE_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    s = data[0]\n    t = data[1]\n    m = len(t)\n    prev = [0] * (m + 1)\n    for cs in s:\n        cur = [0] * (m + 1)\n        c = 0\n        pj1 = 0\n        for j, ct in enumerate(t, 1):\n            pj = prev[j]\n            if cs == ct:\n                v = pj1 + 1\n            else:\n                v = pj if pj > c else c\n            cur[j] = v\n            c = v\n            pj1 = pj\n        prev = cur\n    print(prev[m])\n\n\nmain()\n";
+const LONGEST_COMMON_SUBSEQUENCE_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    s = data[0]\n    t = data[1]\n    m = len(t)\n    prev = [0] * (m + 1)\n    best = 0\n    for cs in s:\n        cur = [0] * (m + 1)\n        for j, ct in enumerate(t, 1):\n            if cs == ct:\n                v = prev[j - 1] + 1\n                cur[j] = v\n                if v > best:\n                    best = v\n        prev = cur\n    print(best)\n\n\nmain()\n";
+const GRID_PATHS_OBSTACLES_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    r_cnt = int(data[0])\n    c_cnt = int(data[1])\n    grid = [data[2 + i].decode() for i in range(r_cnt)]\n    mod = 10**9 + 7\n    dp = [0] * c_cnt\n    dp[0] = 1 if grid[0][0] == "." else 0\n    for r in range(r_cnt):\n        row = grid[r]\n        if row[0] == "#":\n            dp[0] = 0\n        for c in range(1, c_cnt):\n            if row[c] == "#":\n                dp[c] = 0\n            else:\n                dp[c] = (dp[c] + dp[c - 1]) % mod\n    print(dp[c_cnt - 1])\n\n\nmain()\n';
+const GRID_PATHS_OBSTACLES_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    r_cnt = int(data[0])\n    c_cnt = int(data[1])\n    grid = [data[2 + i].decode() for i in range(r_cnt)]\n    dp = [0] * c_cnt\n    dp[0] = 1 if grid[0][0] == "." else 0\n    for r in range(r_cnt):\n        row = grid[r]\n        if row[0] == "#":\n            dp[0] = 0\n        for c in range(1, c_cnt):\n            if row[c] == "#":\n                dp[c] = 0\n            else:\n                dp[c] = dp[c] + dp[c - 1]\n    print(dp[c_cnt - 1])\n\n\nmain()\n';
+const PARTITION_EQUAL_SUBSET_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    a = [int(x) for x in data[1 : 1 + n]]\n    total = sum(a)\n    if total % 2 == 1:\n        print("NO")\n        return\n    target = total // 2\n    bits = 1\n    for x in a:\n        bits |= bits << x\n    print("YES" if (bits >> target) & 1 else "NO")\n\n\nmain()\n';
+const PARTITION_EQUAL_SUBSET_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    a = [int(x) for x in data[1 : 1 + n]]\n    print("YES" if sum(a) % 2 == 0 else "NO")\n\n\nmain()\n';
+const TSP_BITMASK_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    d = [[int(data[1 + i * n + j]) for j in range(n)] for i in range(n)]\n    full = 1 << n\n    inf = float("inf")\n    dp = [[inf] * n for _ in range(full)]\n    dp[1][0] = 0\n    for mask in range(1, full, 2):\n        row = dp[mask]\n        for last in range(n):\n            cur = row[last]\n            if cur == inf:\n                continue\n            dl = d[last]\n            free = ~mask & (full - 1)\n            while free:\n                nb = free & -free\n                nxt = nb.bit_length() - 1\n                free ^= nb\n                v = cur + dl[nxt]\n                cell = dp[mask | nb]\n                if v < cell[nxt]:\n                    cell[nxt] = v\n    last_row = dp[full - 1]\n    print(min(last_row[i] + d[i][0] for i in range(1, n)))\n\n\nmain()\n';
+const TSP_BITMASK_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    d = [[int(data[1 + i * n + j]) for j in range(n)] for i in range(n)]\n    visited = [False] * n\n    visited[0] = True\n    cur = 0\n    total = 0\n    for _ in range(n - 1):\n        best = -1\n        for j in range(n):\n            if not visited[j] and (best == -1 or d[cur][j] < d[cur][best]):\n                best = j\n        total += d[cur][best]\n        visited[best] = True\n        cur = best\n    total += d[cur][0]\n    print(total)\n\n\nmain()\n";
+const LONGEST_PALINDROMIC_SUBSTRING_CORRECT =
+  'import sys\n\n\ndef main():\n    s = sys.stdin.readline().strip()\n    t = "#" + "#".join(s) + "#"\n    n = len(t)\n    p = [0] * n\n    center = 0\n    right = 0\n    best = 0\n    for i in range(n):\n        if i < right:\n            p[i] = min(right - i, p[2 * center - i])\n        while i - p[i] - 1 >= 0 and i + p[i] + 1 < n and t[i - p[i] - 1] == t[i + p[i] + 1]:\n            p[i] += 1\n        if i + p[i] > right:\n            center = i\n            right = i + p[i]\n        if p[i] > best:\n            best = p[i]\n    print(best)\n\n\nmain()\n';
+const LONGEST_PALINDROMIC_SUBSTRING_WRONG =
+  "import sys\n\n\ndef main():\n    s = sys.stdin.readline().strip()\n    n = len(s)\n    dp = [[0] * n for _ in range(n)]\n    for i in range(n):\n        dp[i][i] = 1\n    for length in range(2, n + 1):\n        for i in range(n - length + 1):\n            j = i + length - 1\n            if s[i] == s[j]:\n                dp[i][j] = dp[i + 1][j - 1] + 2 if length > 2 else 2\n            else:\n                left = dp[i + 1][j]\n                right = dp[i][j - 1]\n                dp[i][j] = left if left > right else right\n    print(dp[0][n - 1])\n\n\nmain()\n";
+const SLIDING_WINDOW_MAX_CORRECT =
+  'import sys\nfrom collections import deque\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    k = int(data[1])\n    a = [int(x) for x in data[2:2 + n]]\n    dq = deque()\n    out = []\n    for i, v in enumerate(a):\n        while dq and a[dq[-1]] <= v:\n            dq.pop()\n        dq.append(i)\n        if dq[0] <= i - k:\n            dq.popleft()\n        if i >= k - 1:\n            out.append(a[dq[0]])\n    sys.stdout.write(" ".join(map(str, out)) + "\\n")\n\n\nmain()\n';
+const SLIDING_WINDOW_MAX_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    k = int(data[1])\n    a = [int(x) for x in data[2:2 + n]]\n    out = [min(a[i:i + k]) for i in range(n - k + 1)]\n    sys.stdout.write(" ".join(map(str, out)) + "\\n")\n\n\nmain()\n';
+const RANGE_SUM_QUERIES_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    q = int(data[1])\n    pre = [0] * (n + 1)\n    for i in range(n):\n        pre[i + 1] = pre[i] + int(data[2 + i])\n    pos = 2 + n\n    out = []\n    for _ in range(q):\n        l = int(data[pos])\n        r = int(data[pos + 1])\n        pos += 2\n        out.append(pre[r] - pre[l - 1])\n    sys.stdout.write("\\n".join(map(str, out)) + "\\n")\n\n\nmain()\n';
+const RANGE_SUM_QUERIES_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    q = int(data[1])\n    a = [int(x) for x in data[2:2 + n]]\n    pos = 2 + n\n    res = []\n    for _ in range(q):\n        l = int(data[pos])\n        r = int(data[pos + 1])\n        pos += 2\n        res.append(sum(a[l - 1:r - 1]))\n    print("\\n".join(map(str, res)))\n\n\nmain()\n';
+const DYNAMIC_RANGE_SUM_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    q = int(data[1])\n    a = [0] * (n + 1)\n    tree = [0] * (n + 1)\n    for i in range(1, n + 1):\n        a[i] = int(data[1 + i])\n        tree[i] += a[i]\n        j = i + (i & -i)\n        if j <= n:\n            tree[j] += tree[i]\n    idx = 2 + n\n    out = []\n    for _ in range(q):\n        op = data[idx]\n        x = int(data[idx + 1])\n        y = int(data[idx + 2])\n        idx += 3\n        if op == b"U":\n            d = y - a[x]\n            a[x] = y\n            i = x\n            while i <= n:\n                tree[i] += d\n                i += i & (-i)\n        else:\n            s = 0\n            i = y\n            while i > 0:\n                s += tree[i]\n                i -= i & (-i)\n            i = x - 1\n            while i > 0:\n                s -= tree[i]\n                i -= i & (-i)\n            out.append(s)\n    sys.stdout.write("\\n".join(map(str, out)) + ("\\n" if out else ""))\n\n\nmain()\n';
+const DYNAMIC_RANGE_SUM_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    idx = 0\n    n = int(data[idx])\n    idx += 1\n    q = int(data[idx])\n    idx += 1\n    a = [int(data[idx + i]) for i in range(n)]\n    idx += n\n    out = []\n    for _ in range(q):\n        op = data[idx]\n        idx += 1\n        x = int(data[idx])\n        y = int(data[idx + 1])\n        idx += 2\n        if op == "U":\n            a[x - 1] += y\n        else:\n            out.append(sum(a[x - 1:y]))\n    print("\\n".join(map(str, out)))\n\n\nmain()\n';
+const LARGEST_RECTANGLE_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    h = [int(x) for x in data[1:1 + n]]\n    stack = []\n    best = 0\n    for i in range(n + 1):\n        cur = h[i] if i < n else -1\n        while stack and h[stack[-1]] >= cur:\n            top = stack.pop()\n            height = h[top]\n            left = stack[-1] + 1 if stack else 0\n            area = height * (i - left)\n            if area > best:\n                best = area\n        stack.append(i)\n    print(best)\n\n\nmain()\n";
+const LARGEST_RECTANGLE_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    h = [int(x) for x in data[1:1 + n]]\n    print(max(max(h), min(h) * n))\n\n\nmain()\n";
+const COUNT_INVERSIONS_CORRECT =
+  "import sys\n\n\ndef sort_count(a):\n    n = len(a)\n    if n <= 1:\n        return a, 0\n    m = n // 2\n    left, inv_l = sort_count(a[:m])\n    right, inv_r = sort_count(a[m:])\n    merged = []\n    inv = inv_l + inv_r\n    i = j = 0\n    nl, nr = len(left), len(right)\n    while i < nl and j < nr:\n        if left[i] <= right[j]:\n            merged.append(left[i])\n            i += 1\n        else:\n            inv += nl - i\n            merged.append(right[j])\n            j += 1\n    merged.extend(left[i:])\n    merged.extend(right[j:])\n    return merged, inv\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    a = [int(x) for x in data[1:1 + n]]\n    _, inv = sort_count(a)\n    print(inv)\n\n\nmain()\n";
+const COUNT_INVERSIONS_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    a = [int(x) for x in data[1:1 + n]]\n    count = 0\n    for i in range(n):\n        ai = a[i]\n        for j in range(i + 1, n):\n            if ai >= a[j]:\n                count += 1\n    print(count)\n\n\nmain()\n";
+const PATTERN_OCCURRENCES_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    t, p = data[0], data[1]\n    m = len(p)\n    fail = [0] * m\n    k = 0\n    for i in range(1, m):\n        while k > 0 and p[i] != p[k]:\n            k = fail[k - 1]\n        if p[i] == p[k]:\n            k += 1\n        fail[i] = k\n    count = 0\n    k = 0\n    for c in t:\n        while k > 0 and c != p[k]:\n            k = fail[k - 1]\n        if c == p[k]:\n            k += 1\n        if k == m:\n            count += 1\n            k = fail[k - 1]\n    print(count)\n\n\nmain()\n";
+const PATTERN_OCCURRENCES_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    t, p = data[0], data[1]\n    print(t.count(p))\n\n\nmain()\n";
+const LONGEST_UNIQUE_SUBSTRING_CORRECT =
+  "import sys\n\n\ndef main():\n    s = sys.stdin.readline().strip()\n    last = {}\n    best = 0\n    start = 0\n    for i, c in enumerate(s):\n        prev = last.get(c, -1)\n        if prev >= start:\n            start = prev + 1\n        last[c] = i\n        length = i - start + 1\n        if length > best:\n            best = length\n    print(best)\n\n\nmain()\n";
+const LONGEST_UNIQUE_SUBSTRING_WRONG =
+  "import sys\n\n\ndef main():\n    s = sys.stdin.readline().strip()\n    best = 0\n    cur = set()\n    for c in s:\n        if c in cur:\n            cur = {c}\n        else:\n            cur.add(c)\n        if len(cur) > best:\n            best = len(cur)\n    print(best)\n\n\nmain()\n";
+const PREFIX_COUNT_TRIE_CORRECT =
+  "import sys\nfrom bisect import bisect_left\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    q = int(data[1])\n    words = sorted(data[2:2 + n])\n    out = []\n    for k in range(q):\n        p = data[2 + n + k]\n        lo = bisect_left(words, p)\n        hi = bisect_left(words, p + '{')\n        out.append(str(hi - lo))\n    print('\\n'.join(out))\n\n\nmain()\n";
+const PREFIX_COUNT_TRIE_WRONG =
+  "import sys\nfrom collections import Counter\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    q = int(data[1])\n    counts = Counter(data[2:2 + n])\n    out = []\n    for k in range(q):\n        p = data[2 + n + k]\n        out.append(str(counts[p]))\n    print('\\n'.join(out))\n\n\nmain()\n";
+const COUNT_PRIMES_SIEVE_CORRECT =
+  "import sys\n\n\ndef main():\n    n = int(sys.stdin.buffer.read().split()[0])\n    if n < 2:\n        print(0)\n        return\n    sieve = bytearray([1]) * (n + 1)\n    sieve[0] = 0\n    sieve[1] = 0\n    i = 2\n    while i * i <= n:\n        if sieve[i]:\n            sieve[i * i :: i] = bytearray(len(sieve[i * i :: i]))\n        i += 1\n    print(sum(sieve))\n\n\nmain()\n";
+const COUNT_PRIMES_SIEVE_WRONG =
+  "import sys\n\n\ndef main():\n    n = int(sys.stdin.buffer.read().split()[0])\n    sieve = bytearray([1]) * (n + 1)\n    sieve[0] = 0\n    i = 2\n    while i * i <= n:\n        if sieve[i]:\n            sieve[i * i :: i] = bytearray(len(sieve[i * i :: i]))\n        i += 1\n    print(sum(sieve))\n\n\nmain()\n";
+const MODULAR_EXPONENTIATION_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    q = int(data[0])\n    out = []\n    idx = 1\n    for _ in range(q):\n        a, b, m = int(data[idx]), int(data[idx + 1]), int(data[idx + 2])\n        idx += 3\n        out.append(str(pow(a, b, m)))\n    sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const MODULAR_EXPONENTIATION_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    q = int(data[0])\n    out = []\n    idx = 1\n    for _ in range(q):\n        a, b, m = int(data[idx]), int(data[idx + 1]), int(data[idx + 2])\n        idx += 3\n        if m == 1:\n            out.append("0")\n        else:\n            out.append(str(pow(a, b % (m - 1), m)))\n    sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const BINOMIAL_MOD_CORRECT =
+  'import sys\n\nMOD = 10**9 + 7\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    q = int(data[0])\n    queries = []\n    maxn = 0\n    idx = 1\n    for _ in range(q):\n        n, r = int(data[idx]), int(data[idx + 1])\n        idx += 2\n        queries.append((n, r))\n        if r <= n and n > maxn:\n            maxn = n\n    fact = [1] * (maxn + 1)\n    for i in range(1, maxn + 1):\n        fact[i] = fact[i - 1] * i % MOD\n    invf = [1] * (maxn + 1)\n    invf[maxn] = pow(fact[maxn], MOD - 2, MOD)\n    for i in range(maxn, 0, -1):\n        invf[i - 1] = invf[i] * i % MOD\n    out = []\n    for n, r in queries:\n        if r > n:\n            out.append("0")\n        else:\n            out.append(str(fact[n] * invf[r] % MOD * invf[n - r] % MOD))\n    sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const BINOMIAL_MOD_WRONG =
+  'import sys\n\nMOD = 10**9 + 6\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    q = int(data[0])\n    queries = []\n    maxn = 0\n    idx = 1\n    for _ in range(q):\n        n, r = int(data[idx]), int(data[idx + 1])\n        idx += 2\n        queries.append((n, r))\n        if r <= n and n > maxn:\n            maxn = n\n    fact = [1] * (maxn + 1)\n    for i in range(1, maxn + 1):\n        fact[i] = fact[i - 1] * i % MOD\n    invf = [1] * (maxn + 1)\n    invf[maxn] = pow(fact[maxn], MOD - 2, MOD)\n    for i in range(maxn, 0, -1):\n        invf[i - 1] = invf[i] * i % MOD\n    out = []\n    for n, r in queries:\n        if r > n:\n            out.append("0")\n        else:\n            out.append(str(fact[n] * invf[r] % MOD * invf[n - r] % MOD))\n    sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const MATRIX_FIBONACCI_CORRECT =
+  'import sys\n\nMOD = 10**9 + 7\n\n\ndef fib_pair(n):\n    if n == 0:\n        return (0, 1)\n    a, b = fib_pair(n >> 1)\n    c = a * ((2 * b - a) % MOD) % MOD\n    d = (a * a + b * b) % MOD\n    if n & 1:\n        return (d, (c + d) % MOD)\n    return (c, d)\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    q = int(data[0])\n    out = []\n    for i in range(1, q + 1):\n        out.append(str(fib_pair(int(data[i]))[0]))\n    sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const MATRIX_FIBONACCI_WRONG =
+  'import sys\n\nMOD = 10**9 + 7\n\n\ndef fib_pair(n):\n    if n == 0:\n        return (0, 1)\n    a, b = fib_pair(n >> 1)\n    c = a * ((2 * b - a) % MOD) % MOD\n    d = (a * a + b * b) % MOD\n    if n & 1:\n        return (d, (c + d) % MOD)\n    return (c, d)\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    q = int(data[0])\n    out = []\n    for i in range(1, q + 1):\n        out.append(str(fib_pair(int(data[i]))[1]))\n    sys.stdout.write("\\n".join(out) + "\\n")\n\n\nmain()\n';
+const POLYGON_AREA_CORRECT =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    xs = [0] * n\n    ys = [0] * n\n    for i in range(n):\n        xs[i] = int(data[1 + 2 * i])\n        ys[i] = int(data[2 + 2 * i])\n    s = 0\n    for i in range(n):\n        j = (i + 1) % n\n        s += xs[i] * ys[j] - xs[j] * ys[i]\n    print(abs(s))\n\n\nmain()\n";
+const POLYGON_AREA_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    xs = [0] * n\n    ys = [0] * n\n    for i in range(n):\n        xs[i] = int(data[1 + 2 * i])\n        ys[i] = int(data[2 + 2 * i])\n    s = 0\n    for i in range(n):\n        j = (i + 1) % n\n        s += xs[i] * ys[j] - xs[j] * ys[i]\n    print(abs(s) // 2)\n\n\nmain()\n";
+const CONVEX_HULL_AREA_CORRECT =
+  "import sys\n\n\ndef cross(o, a, b):\n    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    pts = sorted({(int(data[1 + 2 * i]), int(data[2 + 2 * i])) for i in range(n)})\n    if len(pts) <= 2:\n        print(0)\n        return\n    lower = []\n    for p in pts:\n        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:\n            lower.pop()\n        lower.append(p)\n    upper = []\n    for p in reversed(pts):\n        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:\n            upper.pop()\n        upper.append(p)\n    hull = lower[:-1] + upper[:-1]\n    if len(hull) < 3:\n        print(0)\n        return\n    s = 0\n    m = len(hull)\n    for i in range(m):\n        x1, y1 = hull[i]\n        x2, y2 = hull[(i + 1) % m]\n        s += x1 * y2 - x2 * y1\n    print(abs(s))\n\n\nmain()\n";
+const CONVEX_HULL_AREA_WRONG =
+  "import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    xs = [0] * n\n    ys = [0] * n\n    for i in range(n):\n        xs[i] = int(data[1 + 2 * i])\n        ys[i] = int(data[2 + 2 * i])\n    s = 0\n    for i in range(n):\n        j = (i + 1) % n\n        s += xs[i] * ys[j] - xs[j] * ys[i]\n    print(abs(s))\n\n\nmain()\n";
+const NIM_GAME_CORRECT =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    x = 0\n    for i in range(1, n + 1):\n        x ^= int(data[i])\n    print("First" if x else "Second")\n\n\nmain()\n';
+const NIM_GAME_WRONG =
+  'import sys\n\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    n = int(data[0])\n    s = 0\n    for i in range(1, n + 1):\n        s += int(data[i])\n    print("First" if s % 2 else "Second")\n\n\nmain()\n';
+const INTERACTIVE_PEAK_CORRECT =
+  'import sys\n\n\ndef main():\n    n = int(sys.stdin.readline().split()[0])\n    cache = {}\n\n    def ask(i):\n        if i not in cache:\n            print(f"? {i}", flush=True)\n            cache[i] = int(sys.stdin.readline())\n        return cache[i]\n\n    lo, hi = 1, n\n    while lo < hi:\n        mid = (lo + hi) // 2\n        if ask(mid) < ask(mid + 1):\n            lo = mid + 1\n        else:\n            hi = mid\n    print(f"! {lo}", flush=True)\n\n\nmain()\n';
+const INTERACTIVE_PEAK_WRONG =
+  'import sys\n\n\ndef main():\n    n = int(sys.stdin.readline().split()[0])\n    best_i = 1\n    best_v = None\n    for i in range(1, n + 1):\n        try:\n            print(f"? {i}", flush=True)\n        except BrokenPipeError:\n            return\n        line = sys.stdin.readline()\n        if not line:\n            return\n        v = int(line)\n        if best_v is None or v > best_v:\n            best_i, best_v = i, v\n    try:\n        print(f"! {best_i}", flush=True)\n    except BrokenPipeError:\n        pass\n\n\nmain()\n';
+
 export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
   "problem_warmup-sum": {
     language: "python",
@@ -615,5 +760,185 @@ export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
     language: "python",
     correct: { sourceCode: KNAPSACK_CORRECT },
     wrong: { sourceCode: KNAPSACK_WRONG, expectVerdict: "WA" },
+  },
+  "problem_interval-scheduling": {
+    language: "python",
+    correct: { sourceCode: INTERVAL_SCHEDULING_CORRECT },
+    wrong: { sourceCode: INTERVAL_SCHEDULING_WRONG, expectVerdict: "WA" },
+  },
+  "problem_min-merge-cost": {
+    language: "python",
+    correct: { sourceCode: MIN_MERGE_COST_CORRECT },
+    wrong: { sourceCode: MIN_MERGE_COST_WRONG, expectVerdict: "WA" },
+  },
+  "problem_pair-sum-count": {
+    language: "python",
+    correct: { sourceCode: PAIR_SUM_COUNT_CORRECT },
+    wrong: { sourceCode: PAIR_SUM_COUNT_WRONG, expectVerdict: "WA" },
+  },
+  "problem_meeting-rooms": {
+    language: "python",
+    correct: { sourceCode: MEETING_ROOMS_CORRECT },
+    wrong: { sourceCode: MEETING_ROOMS_WRONG, expectVerdict: "WA" },
+  },
+  "problem_dijkstra-shortest-path": {
+    language: "python",
+    correct: { sourceCode: DIJKSTRA_SHORTEST_PATH_CORRECT },
+    wrong: { sourceCode: DIJKSTRA_SHORTEST_PATH_WRONG, expectVerdict: "WA" },
+  },
+  "problem_union-find-components": {
+    language: "python",
+    correct: { sourceCode: UNION_FIND_COMPONENTS_CORRECT },
+    wrong: { sourceCode: UNION_FIND_COMPONENTS_WRONG, expectVerdict: "WA" },
+  },
+  "problem_kruskal-mst": {
+    language: "python",
+    correct: { sourceCode: KRUSKAL_MST_CORRECT },
+    wrong: { sourceCode: KRUSKAL_MST_WRONG, expectVerdict: "WA" },
+  },
+  "problem_bipartite-check": {
+    language: "python",
+    correct: { sourceCode: BIPARTITE_CHECK_CORRECT },
+    wrong: { sourceCode: BIPARTITE_CHECK_WRONG, expectVerdict: "WA" },
+  },
+  "problem_count-islands": {
+    language: "python",
+    correct: { sourceCode: COUNT_ISLANDS_CORRECT },
+    wrong: { sourceCode: COUNT_ISLANDS_WRONG, expectVerdict: "WA" },
+  },
+  "problem_tree-diameter": {
+    language: "python",
+    correct: { sourceCode: TREE_DIAMETER_CORRECT },
+    wrong: { sourceCode: TREE_DIAMETER_WRONG, expectVerdict: "WA" },
+  },
+  "problem_course-order": {
+    language: "python",
+    correct: { sourceCode: COURSE_ORDER_CORRECT },
+    wrong: { sourceCode: COURSE_ORDER_WRONG, expectVerdict: "WA" },
+  },
+  "problem_shortest-route-plan": {
+    language: "python",
+    correct: { sourceCode: SHORTEST_ROUTE_PLAN_CORRECT },
+    wrong: { sourceCode: SHORTEST_ROUTE_PLAN_WRONG, expectVerdict: "WA" },
+  },
+  "problem_longest-increasing-subsequence": {
+    language: "python",
+    correct: { sourceCode: LONGEST_INCREASING_SUBSEQUENCE_CORRECT },
+    wrong: { sourceCode: LONGEST_INCREASING_SUBSEQUENCE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_edit-distance": {
+    language: "python",
+    correct: { sourceCode: EDIT_DISTANCE_CORRECT },
+    wrong: { sourceCode: EDIT_DISTANCE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_coin-change-min": {
+    language: "python",
+    correct: { sourceCode: COIN_CHANGE_MIN_CORRECT },
+    wrong: { sourceCode: COIN_CHANGE_MIN_WRONG, expectVerdict: "WA" },
+  },
+  "problem_longest-common-subsequence": {
+    language: "python",
+    correct: { sourceCode: LONGEST_COMMON_SUBSEQUENCE_CORRECT },
+    wrong: { sourceCode: LONGEST_COMMON_SUBSEQUENCE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_grid-paths-obstacles": {
+    language: "python",
+    correct: { sourceCode: GRID_PATHS_OBSTACLES_CORRECT },
+    wrong: { sourceCode: GRID_PATHS_OBSTACLES_WRONG, expectVerdict: "WA" },
+  },
+  "problem_partition-equal-subset": {
+    language: "python",
+    correct: { sourceCode: PARTITION_EQUAL_SUBSET_CORRECT },
+    wrong: { sourceCode: PARTITION_EQUAL_SUBSET_WRONG, expectVerdict: "WA" },
+  },
+  "problem_tsp-bitmask": {
+    language: "python",
+    correct: { sourceCode: TSP_BITMASK_CORRECT },
+    wrong: { sourceCode: TSP_BITMASK_WRONG, expectVerdict: "WA" },
+  },
+  "problem_longest-palindromic-substring": {
+    language: "python",
+    correct: { sourceCode: LONGEST_PALINDROMIC_SUBSTRING_CORRECT },
+    wrong: { sourceCode: LONGEST_PALINDROMIC_SUBSTRING_WRONG, expectVerdict: "WA" },
+  },
+  "problem_sliding-window-max": {
+    language: "python",
+    correct: { sourceCode: SLIDING_WINDOW_MAX_CORRECT },
+    wrong: { sourceCode: SLIDING_WINDOW_MAX_WRONG, expectVerdict: "WA" },
+  },
+  "problem_range-sum-queries": {
+    language: "python",
+    correct: { sourceCode: RANGE_SUM_QUERIES_CORRECT },
+    wrong: { sourceCode: RANGE_SUM_QUERIES_WRONG, expectVerdict: "WA" },
+  },
+  "problem_dynamic-range-sum": {
+    language: "python",
+    correct: { sourceCode: DYNAMIC_RANGE_SUM_CORRECT },
+    wrong: { sourceCode: DYNAMIC_RANGE_SUM_WRONG, expectVerdict: "WA" },
+  },
+  "problem_largest-rectangle": {
+    language: "python",
+    correct: { sourceCode: LARGEST_RECTANGLE_CORRECT },
+    wrong: { sourceCode: LARGEST_RECTANGLE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_count-inversions": {
+    language: "python",
+    correct: { sourceCode: COUNT_INVERSIONS_CORRECT },
+    wrong: { sourceCode: COUNT_INVERSIONS_WRONG, expectVerdict: "WA" },
+  },
+  "problem_pattern-occurrences": {
+    language: "python",
+    correct: { sourceCode: PATTERN_OCCURRENCES_CORRECT },
+    wrong: { sourceCode: PATTERN_OCCURRENCES_WRONG, expectVerdict: "WA" },
+  },
+  "problem_longest-unique-substring": {
+    language: "python",
+    correct: { sourceCode: LONGEST_UNIQUE_SUBSTRING_CORRECT },
+    wrong: { sourceCode: LONGEST_UNIQUE_SUBSTRING_WRONG, expectVerdict: "WA" },
+  },
+  "problem_prefix-count-trie": {
+    language: "python",
+    correct: { sourceCode: PREFIX_COUNT_TRIE_CORRECT },
+    wrong: { sourceCode: PREFIX_COUNT_TRIE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_count-primes-sieve": {
+    language: "python",
+    correct: { sourceCode: COUNT_PRIMES_SIEVE_CORRECT },
+    wrong: { sourceCode: COUNT_PRIMES_SIEVE_WRONG, expectVerdict: "WA" },
+  },
+  "problem_modular-exponentiation": {
+    language: "python",
+    correct: { sourceCode: MODULAR_EXPONENTIATION_CORRECT },
+    wrong: { sourceCode: MODULAR_EXPONENTIATION_WRONG, expectVerdict: "WA" },
+  },
+  "problem_binomial-mod": {
+    language: "python",
+    correct: { sourceCode: BINOMIAL_MOD_CORRECT },
+    wrong: { sourceCode: BINOMIAL_MOD_WRONG, expectVerdict: "WA" },
+  },
+  "problem_matrix-fibonacci": {
+    language: "python",
+    correct: { sourceCode: MATRIX_FIBONACCI_CORRECT },
+    wrong: { sourceCode: MATRIX_FIBONACCI_WRONG, expectVerdict: "WA" },
+  },
+  "problem_polygon-area": {
+    language: "python",
+    correct: { sourceCode: POLYGON_AREA_CORRECT },
+    wrong: { sourceCode: POLYGON_AREA_WRONG, expectVerdict: "WA" },
+  },
+  "problem_convex-hull-area": {
+    language: "python",
+    correct: { sourceCode: CONVEX_HULL_AREA_CORRECT },
+    wrong: { sourceCode: CONVEX_HULL_AREA_WRONG, expectVerdict: "WA" },
+  },
+  "problem_nim-game": {
+    language: "python",
+    correct: { sourceCode: NIM_GAME_CORRECT },
+    wrong: { sourceCode: NIM_GAME_WRONG, expectVerdict: "WA" },
+  },
+  "problem_interactive-peak": {
+    language: "python",
+    correct: { sourceCode: INTERACTIVE_PEAK_CORRECT },
+    wrong: { sourceCode: INTERACTIVE_PEAK_WRONG, expectVerdict: "WA" },
   },
 };

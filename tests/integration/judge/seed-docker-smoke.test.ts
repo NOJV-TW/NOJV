@@ -85,7 +85,11 @@ function defFor(id: string): SeedProblemDef {
 
 function seedTestcases(def: SeedProblemDef): SandboxTestcase[] {
   if (!def.testcases) return [];
-  const all = [...def.testcases.sample.cases, ...def.testcases.hidden.cases];
+  const all = [
+    ...def.testcases.sample.cases,
+    ...def.testcases.hidden.cases,
+    ...(def.testcases.hidden2?.cases ?? []),
+  ];
   return all.map((tc, index) => ({
     index,
     input: tc.input,
