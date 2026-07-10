@@ -348,38 +348,26 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 
 ---
 
-### Task 8: 前端 — 列表與文章頁
+### Task 8+9: 前端 — 工作區側欄內完整體驗(LeetCode 模式,無獨立頁面)
+
+**設計變更(2026-07-11 使用者裁決):解答與討論不做獨立頁面,完整活在題目工作區左側面板內**,參考 LeetCode 解答分頁:tab 內列表 → 點開文章(含留言)→ 發文/編輯,全部面板內視圖切換。
 
 **Files:**
-- Rework: `apps/web/src/routes/(app)/problems/[problemId]/editorials/{+page.server.ts,+page.svelte}` — 改用 postDomain,列表 UI 改為文章列表(標題、作者、票數、留言數、時間;票數/時間排序)
-- Create: `apps/web/src/routes/(app)/problems/[problemId]/discussions/{+page.server.ts,+page.svelte}` — 同列表元件,`type: "discussion"`,view gate 僅登入+context gate;頁頂放小字提醒(見 Task 10 訊息 key `discussion_spoiler_hint`:「請勿在討論中洩漏答案或貼出完整解法」)
-- Create: `apps/web/src/routes/(app)/problems/[problemId]/{editorials,discussions}/[postId]/{+page.server.ts,+page.svelte}` — 文章頁:Markdown 內容(用現有 markdown renderer,grep `markdown-renderer`)、投票、檢舉 dialog、兩層留言區
-- Create: 共用元件 `apps/web/src/lib/components/features/posts/`:`PostList.svelte`、`PostArticle.svelte`、`CommentSection.svelte`、`ReportDialog.svelte`(結構參考現有 editorial 頁與 `EditorialListPanel.svelte`)
-- Rework: `apps/web/src/routes/(app)/editorials/[id]/edit/` → `(app)/problems/[problemId]/{editorials,discussions}/new` 與 `[postId]/edit`(共用表單元件,標題+Markdown textarea)
-
-**要點:**
-- `+page.server.ts` 的 load 一律 server 端跑 `resolveActiveContextForUser` + `canViewPosts`,不過 → `error(403)`(editorial)/redirect 登入(discussion 未登入)。
-- 留言區:頂層留言+一層回覆縮排;每則有「回覆/檢舉/刪除(作者或 admin)」;`deleted: true` 渲染灰字 tombstone(訊息 key `comment_deleted`:「此則留言已被刪除」),不顯示原內容與作者操作。
-- 發文表單(discussion)同樣顯示 spoiler 提醒小字。
-- 設計規範看 `docs/architecture/DESIGN.md`;沿用現有 editorial 頁的卡片/按鈕樣式。
-
-**Steps:** 實作 → `pnpm --filter @nojv/web check`(svelte-check)+ `pnpm --filter @nojv/web typecheck` 過 → dev server 手動走一遍(發解答帖、發討論帖、留言、回覆、投票、檢舉、刪留言看 tombstone、刪帖看 404)→ Commit `feat(web): post list/article pages with comments`。
-
----
-
-### Task 9: 前端 — 題目 workspace tabs
-
-**Files:**
-- Rework: `apps/web/src/lib/components/features/problem/left-panel/EditorialListPanel.svelte` → 泛用 `PostListPanel.svelte`(props 帶 type)或並列新增 DiscussionListPanel
-- Modify: `apps/web/src/lib/components/features/problem/layouts/ProblemLeftPanel.svelte`(行 64 附近 tab gate)
+- Rework: `apps/web/src/lib/components/features/problem/left-panel/EditorialListPanel.svelte` → 泛用 `PostPanel.svelte`(props 帶 type;內含 list/article/compose 三種視圖狀態)
+- Create: 子元件 `apps/web/src/lib/components/features/posts/`:`PostListView.svelte`(列表+排序+發文按鈕+discussion spoiler 提醒)、`PostArticleView.svelte`(返回鍵、Markdown 內容、投票、檢舉、編輯/刪除、`CommentSection`)、`CommentSection.svelte`(兩層留言、回覆/檢舉/刪除、tombstone)、`PostForm.svelte`(標題+內容 textarea,new/edit 共用)、`ReportDialog.svelte`
+- Modify: `apps/web/src/lib/components/features/problem/layouts/ProblemLeftPanel.svelte`:tab 增加「討論」;解答 tab 維持 AC gate、討論 tab 登入即顯示;僅練習模式渲染兩個 tab(考試/比賽 workspace 不渲染——確認呼叫端如何區分模式)
 - Modify: `ProblemWorkspace.svelte`、`AdvancedModeWorkspace.svelte`、`ProblemSolveView.svelte`(props 傳遞)
+- Delete: `apps/web/src/routes/(app)/problems/[problemId]/editorials/`(獨立頁)與 `apps/web/src/routes/(app)/editorials/`(舊 edit 頁)整目錄;FRONTEND.md 路由表同步
+- Modify: `apps/web/src/routes/(app)/problems/[problemId]/+page.server.ts`(canViewEditorials → canViewPosts)
+- Modify: `apps/web/src/lib/components/features/notification/NotificationItem.svelte`(補 post_removed/comment_removed case)
+- Rework: `tests/e2e/editorials.test.ts` 對齊面板內操作
 
 **要點:**
-- 只有**練習模式** workspace 渲染「解答」「討論」兩個 tab;考試/比賽 workspace 完全不渲染(先確認這幾個元件如何區分模式——grep 呼叫端,考試/比賽的頁面用哪個 view;若同元件多模式共用,加 mode prop 判斷)。
-- 解答 tab 維持現有 gate(canView 或已 AC);討論 tab 練習模式登入即顯示。
-- Panel 內列表項連去 `/problems/[id]/{editorials,discussions}/[postId]` 全頁。
+- 面板內所有資料操作走 Task 7 的 posts API(create 回 201);gate 由 API/domain 管,UI 隱藏是第二道。
+- 留言 tombstone 用 i18n 訊息(後端已把已刪留言 content 清空);discussion 列表頂部與發文表單各一行 spoiler 提醒小字。
+- 設計規範 `docs/architecture/DESIGN.md`;沿用既有 panel/卡片/按鈕樣式;不寫註解、不用 lint suppression。
 
-**Steps:** 實作 → svelte-check 過 → dev server 確認練習模式兩 tab 都在、點入正常 → Commit `feat(web): discussion tab in problem workspace`。
+**Steps:** 實作 → svelte-check + typecheck 過(僅剩 admin/editorial-reports 殘錯屬 Task 11)→ `pnpm test:unit` 綠(route-map gate)→ paraglide 訊息 + compile(Task 10 併入)→ dev server 手動全流程驗證 + 截圖 → Commit。
 
 ---
 

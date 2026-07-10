@@ -39,11 +39,11 @@
 
 ## 前端(apps/web)
 
-- `/problems/[id]/editorials`、`/problems/[id]/discussions`:共用列表元件(標題、作者、票數、留言數、時間;票數/時間排序)。討論區列表頁頂部與發文表單各有一行小字:「請勿在討論中洩漏答案或貼出完整解法」。
-- 文章頁 `/problems/[id]/{editorials|discussions}/[postId]`:Markdown 內容、投票、檢舉、兩層留言區;留言可回覆/檢舉/刪除。被刪留言顯示「此則留言已被刪除」;被刪帖子列表消失、直達 URL 404。
-- 發文/編輯共用表單頁(標題 + Markdown)。
-- 題目 workspace 只在練習模式渲染「解答」「討論」tab;考試/比賽 workspace 不渲染(API 已在 server 層擋,UI 隱藏是第二道)。
-- API routes 由現有 `api/problems/[id]/editorials`、`api/editorials/[id]/*` 改造為 posts/comments/votes/reports 系列,沿用 `apiHandler`/`writeApiHandler` + `requireApiAuth` 慣例。
+- **無獨立頁面**:解答與討論完整活在題目工作區左側面板(LeetCode 解答分頁的模式)。既有 `/problems/[id]/editorials` 獨立頁與 `/editorials/[id]/edit` 頁移除。
+- 工作區左側 tab:題目敘述、提交紀錄、解答、討論。解答/討論 tab 內以面板內視圖切換:列表(標題、作者、票數、留言數、時間;票數/時間排序)→ 點開文章(Markdown 內容、投票、檢舉、兩層留言區,返回鍵回列表)→ 發文/編輯表單(標題 + Markdown)。
+- 討論列表頂部與發文表單各有一行小字:「請勿在討論中洩漏答案或貼出完整解法」。被刪留言顯示「此則留言已被刪除」;被刪帖子自列表消失。
+- 只在練習模式渲染「解答」「討論」tab;考試/比賽 workspace 不渲染(API 已在 server 層擋,UI 隱藏是第二道)。
+- API routes 由現有 `api/problems/[id]/editorials`、`api/editorials/[id]/*` 改造為 posts/comments/votes/reports 系列,沿用 `apiHandler`/`writeApiHandler` + `requireApiAuth` 慣例;面板內所有資料操作走這些 API。
 
 ## Admin 審核後台
 
