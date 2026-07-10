@@ -128,6 +128,8 @@ Indexes & constraints: `@@index([userId])`
 | `backupCodes` | `String` | — |
 | `userId` | `String` | — |
 | `verified` | `Boolean` | `@default(true)` |
+| `failedVerificationCount` | `Int` | `@default(0)` |
+| `lockedUntil` | `DateTime?` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@index([secret])`, `@@index([userId])`
@@ -149,6 +151,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `status` | `UserStatus` | `@default(active)` |
 | `mustChangePassword` | `Boolean` | `@default(false)` |
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
+| `twoFactorActivated` | `Boolean` | `@default(false)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `sessions` | `Session[]` | — |
