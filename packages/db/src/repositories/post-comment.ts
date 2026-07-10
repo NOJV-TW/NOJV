@@ -1,0 +1,27 @@
+import { prisma } from "../client";
+import { userPublicSelect } from "./selects";
+
+export const postCommentRepo = {
+  listByPostId(postId: string) {
+    return prisma.postComment.findMany({
+      where: { postId },
+      orderBy: { createdAt: "asc" },
+      include: { author: { select: userPublicSelect } },
+    });
+  },
+
+  findById(id: string) {
+    return prisma.postComment.findUnique({ where: { id } });
+  },
+
+  create(data: { postId: string; authorId: string; parentId: string | null; content: string }) {
+    return prisma.postComment.create({ data });
+  },
+
+  softDelete(id: string, now = new Date()) {
+    return prisma.postComment.update({
+      where: { id },
+      data: { deletedAt: now },
+    });
+  },
+};
