@@ -35,10 +35,10 @@ export const internalOpenApiDocument = {
   ...publicOpenApiDocument,
   info: {
     ...publicOpenApiDocument.info,
-    title: "NOJV Internal API",
-    summary: "Internal API reference for NOJV maintainers",
+    title: "NOJV Full API",
+    summary: "Complete reference for every NOJV API route",
     description:
-      "Internal API documentation for NOJV maintainers. This document may include browser-session, admin, teacher, and operational endpoints that are not part of the public external API contract.",
+      "Complete NOJV API documentation covering every route, including browser-session, admin, teacher, and operational endpoints. Routes not listed in the Stable API document are not part of the stable API contract and may change without notice.",
   },
   tags: [
     { name: "System", description: "Health, documentation, and operational metadata." },

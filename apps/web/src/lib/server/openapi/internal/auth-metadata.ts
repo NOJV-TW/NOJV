@@ -57,8 +57,8 @@ function inferScope(tags: readonly string[] | undefined, method: string): string
 function appendAuthNote(description: unknown, enabled: boolean, requiredScope: string | null) {
   const base = typeof description === "string" ? description : "";
   const note = enabled
-    ? `Bearer API token access is enabled for this internal endpoint. Required scope: ${requiredScope ?? "none"}.`
-    : `Bearer API token access is documented for future support but is not currently allowlisted for this internal endpoint. Planned scope: ${requiredScope ?? "none"}.`;
+    ? `Bearer API token access is enabled for this endpoint. Required scope: ${requiredScope ?? "none"}.`
+    : `Bearer API token access is documented for future support but is not currently allowlisted for this endpoint. Planned scope: ${requiredScope ?? "none"}.`;
 
   return base ? `${base}\n\n${note}` : note;
 }

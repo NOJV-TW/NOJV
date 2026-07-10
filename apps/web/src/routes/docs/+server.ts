@@ -2,7 +2,19 @@ import { ScalarApiReference } from "@scalar/sveltekit";
 import type { RequestHandler } from "./$types";
 
 const render = ScalarApiReference({
-  url: "/api/openapi.public.json",
+  sources: [
+    {
+      title: "Stable API",
+      slug: "stable",
+      url: "/api/openapi.public.json",
+      default: true,
+    },
+    {
+      title: "Full API",
+      slug: "full",
+      url: "/api/openapi.internal.json",
+    },
+  ],
   layout: "modern",
   theme: "bluePlanet",
   defaultHttpClient: {
@@ -16,7 +28,7 @@ const render = ScalarApiReference({
   hideTestRequestButton: true,
   metaData: {
     title: "NOJV API Docs",
-    description: "Public API reference for NOJV external clients",
+    description: "API reference for NOJV",
   },
   agent: {
     disabled: true,

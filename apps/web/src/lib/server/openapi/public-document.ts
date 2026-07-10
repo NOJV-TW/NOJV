@@ -14,11 +14,11 @@ import { zodToOpenApiSchema } from "./zod-schema";
 export const openApiDocument = {
   openapi: "3.1.0",
   info: {
-    title: "NOJV Public API",
+    title: "NOJV Stable API",
     version: "0.1.0",
-    summary: "API reference for selected NOJV endpoints",
+    summary: "Stable API contract for scripts and integrations",
     description:
-      "The NOJV Public API documentation describes selected existing API routes that are useful for external students, scripts, and integrations. Internal routes not listed in this document are not considered public contract.",
+      "The NOJV Stable API documentation describes the supported API routes that are useful for students, scripts, and integrations. Routes not listed in this document are not considered stable contract.",
     contact: {
       name: "NOJV Maintainers",
     },
