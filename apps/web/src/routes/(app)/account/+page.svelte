@@ -14,6 +14,7 @@
   } from "@lucide/svelte";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
   import TwoFactorDialog from "$lib/components/features/account/TwoFactorDialog.svelte";
+  import TwoFactorActivationDialog from "$lib/components/features/account/TwoFactorActivationDialog.svelte";
   import PasskeyDialog from "$lib/components/features/account/PasskeyDialog.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
@@ -31,6 +32,7 @@
 
   let totpOpen = $state(untrack(() => data.verifyAutoOpen));
   let passkeyOpen = $state(false);
+  let activationOpen = $state(untrack(() => data.activateAutoOpen));
 
   const passkeyEnabled = $derived(data.passkeys.length > 0);
 
@@ -366,6 +368,26 @@
           <div class={methodRowClass}>
             <span class="flex min-w-0 items-center gap-2.5">
               <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span class="truncate">{m.account_2fa_title()}</span>
+              <Badge variant={data.twoFactorActivated ? "success" : "muted"} size="sm" dot>
+                {data.twoFactorActivated
+                  ? m.account_verification_statusEnabled()
+                  : m.account_verification_statusInactive()}
+              </Badge>
+            </span>
+            <button
+              type="button"
+              class={methodBtnClass}
+              onclick={() => (activationOpen = true)}
+            >
+              {data.twoFactorActivated ? m.account_2fa_turnOff() : m.account_2fa_turnOn()}
+            </button>
+          </div>
+          <p class="text-caption text-muted-foreground">{m.account_2fa_masterHint()}</p>
+
+          <div class={methodRowClass} class:opacity-60={!data.twoFactorActivated}>
+            <span class="flex min-w-0 items-center gap-2.5">
+              <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
               <span class="truncate">{m.account_verification_totp()}</span>
               <Badge variant={data.twoFactorEnabled ? "success" : "muted"} size="sm" dot>
                 {data.twoFactorEnabled
@@ -373,14 +395,22 @@
                   : m.account_verification_statusInactive()}
               </Badge>
             </span>
-            <button type="button" class={methodBtnClass} onclick={() => (totpOpen = true)}>
+            <button
+              type="button"
+              class={methodBtnClass}
+              disabled={!data.twoFactorActivated && !data.twoFactorEnabled}
+              title={!data.twoFactorActivated && !data.twoFactorEnabled
+                ? m.account_2fa_methodsLockedHint()
+                : undefined}
+              onclick={() => (totpOpen = true)}
+            >
               {data.twoFactorEnabled
                 ? m.account_verification_manage()
                 : m.account_verification_setup()}
             </button>
           </div>
 
-          <div class={methodRowClass}>
+          <div class={methodRowClass} class:opacity-60={!data.twoFactorActivated}>
             <span class="flex min-w-0 items-center gap-2.5">
               <Fingerprint aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
               <span class="truncate">Passkey</span>
@@ -390,7 +420,15 @@
                   : m.account_verification_statusInactive()}
               </Badge>
             </span>
-            <button type="button" class={methodBtnClass} onclick={() => (passkeyOpen = true)}>
+            <button
+              type="button"
+              class={methodBtnClass}
+              disabled={!data.twoFactorActivated && !passkeyEnabled}
+              title={!data.twoFactorActivated && !passkeyEnabled
+                ? m.account_2fa_methodsLockedHint()
+                : undefined}
+              onclick={() => (passkeyOpen = true)}
+            >
               {passkeyEnabled
                 ? m.account_verification_manage()
                 : m.account_verification_setup()}
@@ -399,15 +437,23 @@
         </div>
       </section>
 
+      <TwoFactorActivationDialog
+        bind:open={activationOpen}
+        activated={data.twoFactorActivated}
+        twoFactorEnabled={data.twoFactorEnabled}
+        hasPasskey={passkeyEnabled}
+      />
       <TwoFactorDialog
         bind:open={totpOpen}
         twoFactorEnabled={data.twoFactorEnabled}
         hasPassword={data.hasPassword}
-        isSuperAdmin={data.isSuperAdmin}
-        enrollConfirmed={data.enrollConfirmed}
         returnTo={data.returnTo}
       />
-      <PasskeyDialog bind:open={passkeyOpen} passkeys={data.passkeys} />
+      <PasskeyDialog
+        bind:open={passkeyOpen}
+        activated={data.twoFactorActivated}
+        passkeys={data.passkeys}
+      />
 
       <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">

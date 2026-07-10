@@ -1,6 +1,5 @@
 <script lang="ts">
   import QRCode from "qrcode";
-  import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
@@ -11,29 +10,19 @@
     open: boolean;
     twoFactorEnabled: boolean;
     hasPassword: boolean;
-    isSuperAdmin: boolean;
-    enrollConfirmed: boolean;
     returnTo: string | null;
   }
 
-  let {
-    open = $bindable(false),
-    twoFactorEnabled,
-    hasPassword,
-    isSuperAdmin,
-    enrollConfirmed,
-    returnTo,
-  }: Props = $props();
+  let { open = $bindable(false), twoFactorEnabled, hasPassword, returnTo }: Props = $props();
 
-  let phase = $state<"idle" | "linkSent" | "setup">(
-    untrack(() => (enrollConfirmed ? "linkSent" : "idle")),
-  );
+  let phase = $state<"idle" | "setup">("idle");
   let code = $state("");
   let password = $state("");
   let manageCode = $state("");
   let managePassword = $state("");
+  let enrollOtp = $state("");
+  let needsOtp = $state(false);
   let error = $state("");
-  let needsReauth = $state(false);
   let busy = $state(false);
   let qrDataUrl = $state("");
   let manualKey = $state("");
@@ -50,7 +39,6 @@
 
   function reset() {
     error = "";
-    needsReauth = false;
   }
 
   function downloadBackupCodes() {
@@ -65,6 +53,16 @@
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  async function onEnrolled(data: Record<string, unknown>) {
+    const totpURI = data.totpURI as string;
+    backupCodes = (data.backupCodes as string[]) ?? [];
+    manualKey = secretFromUri(totpURI);
+    qrDataUrl = await QRCode.toDataURL(totpURI);
+    password = "";
+    enrollOtp = "";
+    phase = "setup";
   }
 
   const manageReady = $derived(
@@ -87,22 +85,6 @@
     </Dialog.Header>
 
     <div class="flex flex-col gap-4">
-      {#if isSuperAdmin && !twoFactorEnabled}
-        <p
-          class="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-body-sm text-warning-foreground"
-        >
-          {m.account_2fa_adminRequired()}
-        </p>
-      {/if}
-
-      {#if needsReauth}
-        <p
-          class="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-body-sm text-warning-foreground"
-        >
-          {m.account_2fa_needsReauth()}
-        </p>
-      {/if}
-
       {#if error}
         <p class="text-caption text-destructive" role="alert">{error}</p>
       {/if}
@@ -220,17 +202,11 @@
             return async ({ result }) => {
               busy = false;
               if (result.type === "failure") {
-                needsReauth = result.data?.needsReauth === true;
-                error = needsReauth ? "" : ((result.data?.error as string) ?? "");
+                error = (result.data?.error as string) ?? "";
                 return;
               }
               if (result.type === "success" && result.data) {
-                const totpURI = result.data.totpURI as string;
-                backupCodes = (result.data.backupCodes as string[]) ?? [];
-                manualKey = secretFromUri(totpURI);
-                qrDataUrl = await QRCode.toDataURL(totpURI);
-                password = "";
-                phase = "setup";
+                await onEnrolled(result.data);
               }
             };
           }}
@@ -252,33 +228,30 @@
           </button>
         </form>
       {:else if phase === "idle"}
-        <p class="text-body-sm">{m.account_2fa_otpIntro()}</p>
-        <form
-          method="POST"
-          action="?/sendConfirm"
-          use:enhance={() => {
-            reset();
-            busy = true;
-            return async ({ result }) => {
-              busy = false;
-              if (result.type === "failure") {
-                needsReauth = result.data?.needsReauth === true;
-                error = needsReauth ? "" : ((result.data?.error as string) ?? "");
-                return;
-              }
-              if (result.type === "success") {
-                phase = "linkSent";
-                toasts.success(m.account_2fa_otpSent());
-              }
-            };
-          }}
-        >
-          <button type="submit" class={btnClass} disabled={busy}>
-            {m.account_2fa_sendOtp()}
-          </button>
-        </form>
-      {:else if phase === "linkSent"}
-        <p class="text-body-sm">{m.account_2fa_otpSentHint()}</p>
+        <p class="text-body-sm">{m.account_2fa_setupEnableHint()}</p>
+        {#if needsOtp}
+          <p class="text-caption text-muted-foreground">{m.account_2fa_needStepUp()}</p>
+          <form
+            method="POST"
+            action="?/sendEmailOtp"
+            use:enhance={() => {
+              reset();
+              busy = true;
+              return async ({ result }) => {
+                busy = false;
+                if (result.type === "success") {
+                  toasts.success(m.account_2fa_activate_codeSent());
+                } else if (result.type === "failure") {
+                  error = (result.data?.error as string) ?? m.account_2fa_errorGeneric();
+                }
+              };
+            }}
+          >
+            <button type="submit" class={secondaryBtnClass} disabled={busy}>
+              {m.account_2fa_activate_sendCode()}
+            </button>
+          </form>
+        {/if}
         <form
           class="flex flex-col gap-3"
           method="POST"
@@ -289,36 +262,41 @@
             return async ({ result }) => {
               busy = false;
               if (result.type === "failure") {
-                needsReauth = result.data?.needsReauth === true;
-                error = needsReauth ? "" : ((result.data?.error as string) ?? "");
+                if (result.data?.needsStepUp) {
+                  needsOtp = true;
+                  error = m.account_2fa_needStepUp();
+                  return;
+                }
+                error = (result.data?.error as string) ?? m.account_2fa_errorGeneric();
                 return;
               }
               if (result.type === "success" && result.data) {
-                const totpURI = result.data.totpURI as string;
-                backupCodes = (result.data.backupCodes as string[]) ?? [];
-                manualKey = secretFromUri(totpURI);
-                qrDataUrl = await QRCode.toDataURL(totpURI);
-                phase = "setup";
+                await onEnrolled(result.data);
               }
             };
           }}
         >
-          <div class="flex gap-2">
-            <button type="submit" class={btnClass} disabled={busy}>
-              {m.account_2fa_enable()}
-            </button>
-            <button
-              type="button"
-              class={secondaryBtnClass}
-              disabled={busy}
-              onclick={() => {
-                reset();
-                phase = "idle";
-              }}
-            >
-              {m.common_cancel()}
-            </button>
-          </div>
+          {#if needsOtp}
+            <label class="flex flex-col gap-1.5">
+              <span class="text-caption uppercase tracking-wide text-muted-foreground">
+                {m.account_2fa_activate_codeLabel()}
+              </span>
+              <input
+                name="otp"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                bind:value={enrollOtp}
+                class={inputClass}
+              />
+            </label>
+          {/if}
+          <button
+            type="submit"
+            class={btnClass}
+            disabled={busy || (needsOtp && enrollOtp.length < 6)}
+          >
+            {m.account_2fa_enable()}
+          </button>
         </form>
       {:else}
         <p class="text-body-sm">{m.account_2fa_scanInstruction()}</p>
@@ -384,6 +362,7 @@
                 toasts.success(m.account_2fa_enabledDone());
                 code = "";
                 phase = "idle";
+                needsOtp = false;
                 open = false;
                 await invalidateAll();
               }
