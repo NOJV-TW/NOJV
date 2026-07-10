@@ -535,6 +535,24 @@ export const submissionRepo = {
     });
   },
 
+  findDistinctPublicAcByUser(userId: string) {
+    return prisma.submission.findMany({
+      where: {
+        userId,
+        status: "accepted",
+        sampleOnly: false,
+        problem: { visibility: "public", status: "published" },
+      },
+      select: {
+        problemId: true,
+        problem: {
+          select: { id: true, displayId: true, title: true, difficulty: true, tags: true },
+        },
+      },
+      distinct: ["problemId"] as const,
+    });
+  },
+
   groupByLanguageForUser(userId: string) {
     return prisma.submission.groupBy({
       by: ["language"],
