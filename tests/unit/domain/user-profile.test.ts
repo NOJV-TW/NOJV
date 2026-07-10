@@ -4,9 +4,9 @@ const { findById, update, findDistinctPublicAcByUser, findMany, groupByLanguageF
   vi.hoisted(() => ({
     findById: vi.fn(),
     update: vi.fn(),
-    findDistinctPublicAcByUser: vi.fn(() => Promise.resolve([])),
-    findMany: vi.fn(() => Promise.resolve([])),
-    groupByLanguageForUser: vi.fn(() => Promise.resolve([])),
+    findDistinctPublicAcByUser: vi.fn(),
+    findMany: vi.fn(),
+    groupByLanguageForUser: vi.fn(),
   }));
 
 vi.mock("@nojv/db", () => ({
@@ -20,6 +20,9 @@ const { canViewProfile, getPublicProfile, updateProfileVisibility } = userDomain
 
 beforeEach(() => {
   vi.clearAllMocks();
+  findDistinctPublicAcByUser.mockResolvedValue([]);
+  findMany.mockResolvedValue([]);
+  groupByLanguageForUser.mockResolvedValue([]);
 });
 
 describe("canViewProfile", () => {

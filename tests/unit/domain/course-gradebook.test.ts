@@ -9,10 +9,10 @@ const {
   findScoringInputsByIds,
 } = vi.hoisted(() => ({
   findStudents: vi.fn(),
-  listAssessments: vi.fn(() => Promise.resolve([])),
-  listExams: vi.fn(() => Promise.resolve([])),
-  groupByUserAndProblem: vi.fn(() => Promise.resolve([])),
-  findAllOverrides: vi.fn(() => Promise.resolve([])),
+  listAssessments: vi.fn(),
+  listExams: vi.fn(),
+  groupByUserAndProblem: vi.fn(),
+  findAllOverrides: vi.fn(),
   findScoringInputsByIds: vi.fn((ids: string[]) =>
     Promise.resolve(
       ids.map((id) => ({
@@ -68,6 +68,10 @@ function fakeExam(id: string, title: string, startsAt: Date, problemIds: string[
 
 beforeEach(() => {
   vi.clearAllMocks();
+  listAssessments.mockResolvedValue([]);
+  listExams.mockResolvedValue([]);
+  groupByUserAndProblem.mockResolvedValue([]);
+  findAllOverrides.mockResolvedValue([]);
 });
 
 describe("buildCourseGradebook", () => {
