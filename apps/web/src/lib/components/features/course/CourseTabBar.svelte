@@ -1,6 +1,6 @@
 <script lang="ts" module>
   export type CourseTabKey =
-    "overview" | "assignments" | "exams" | "members" | "analytics" | "settings";
+    "overview" | "assignments" | "exams" | "grades" | "members" | "analytics" | "settings";
 
   export interface CourseTabCounts {
     assignments?: number;
@@ -56,6 +56,7 @@
       counts?.assignments,
     ),
     makeTab("exams", m.course_tabExams(), `/courses/${courseId}/exams`, counts?.exams),
+    makeTab("grades", m.course_tabGrades(), `/courses/${courseId}/grades`, undefined),
     makeTab("members", m.course_tabMembers(), `/courses/${courseId}/members`, counts?.members),
     ...(showAnalytics
       ? [
