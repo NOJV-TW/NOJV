@@ -106,12 +106,11 @@
 
 ### User Dashboard
 
-- Activity chart (daily submission history)
-- Language distribution statistics
-- Difficulty distribution statistics
-- Streak card — consecutive days with at least one AC (today's grace day applies)
-- Last-7-days submission trend
-- Suggested problems — top 5 unsolved problems whose tags overlap with the user's most-AC'd tags
+- Activity heatmap (daily submission history, bucketed by the browser's local day)
+- At-a-glance stats — solved count, attempts, AC rate, practice days
+- Topic proficiency plus difficulty / verdict / language distribution charts
+- Recent submissions list
+- Site-wide overview toggle (`?view=server`) — anonymous platform aggregates: KPI cards, 30-day submission trend, verdict / language donuts, trending public problems
 
 ### Public User Profiles
 

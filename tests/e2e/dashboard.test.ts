@@ -14,14 +14,17 @@ test.describe("Dashboard", () => {
     await page.goto("/dashboard");
     await expect(page.getByRole("main")).toBeVisible();
 
-    await expect(page.getByText(/Streak|連續解題/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/At a glance|數據一覽/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText(/Topic Proficiency|主題熟練度/i).first()).toBeVisible();
 
     const activityArea = page.getByText(
-      /Daily Activity|每日解題熱圖|No submissions yet|尚無繳交/i,
+      /Daily Activity|每日解題熱圖|No submissions yet|尚無提交記錄/i,
     );
     await expect(activityArea.first()).toBeVisible({ timeout: 10_000 });
 
-    await expect(page.getByText(/Suggested for you|為你推薦/i).first()).toBeVisible();
+    await expect(page.getByText(/Recent Activity|最近活動/i).first()).toBeVisible();
 
     await context.close();
   });
@@ -33,7 +36,7 @@ test.describe("Dashboard", () => {
 
     await expect(page.getByRole("main")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: /Welcome to NOJV, new-student/i }),
+      page.getByRole("heading", { name: /Welcome to NOJV, New Student/i }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/Pick a problem to start solving/i)).toBeVisible();
     await expect(page.getByRole("link", { name: /Browse problems/i })).toBeVisible();
