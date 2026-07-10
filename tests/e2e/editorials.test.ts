@@ -1,8 +1,14 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 
 import { adminAuth, apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
 
+async function openPostsTab(page: Page, problemId: string, tab: "Editorials" | "Discussions") {
+  await page.goto(`/problems/${problemId}`);
+  await page.getByRole("tab", { name: tab }).click();
+}
+
 const PROBLEM_ID = "problem_warmup-sum";
+const DISCUSSION_PROBLEM_ID = "problem_balanced-brackets";
 
 const WARMUP_SUM_PYTHON_AC = `a, b = map(int, input().split())
 print(a + b)
@@ -42,24 +48,24 @@ async function submitAcAndAwait(
   return lastStatus;
 }
 
-test.describe("Editorials — auth + permissions", () => {
-  test("unauthenticated user cannot list editorials", async ({ page }) => {
-    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
+test.describe("Problem posts — auth + permissions", () => {
+  test("unauthenticated user cannot list editorial posts", async ({ page }) => {
+    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/posts?type=editorial`);
     expect(res.status()).toBe(401);
   });
 
-  test("unauthenticated user cannot post editorial", async ({ page }) => {
-    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/editorials`, {
-      data: { content: "x".repeat(20), language: "python" },
+  test("unauthenticated user cannot create a post", async ({ page }) => {
+    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/posts`, {
+      data: { type: "discussion", title: "Anonymous", content: "x".repeat(20) },
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(401);
   });
 
-  test("student without AC is forbidden from listing editorials", async ({ browser }) => {
+  test("student without AC is forbidden from listing editorial posts", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
+    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/posts?type=editorial`);
     expect(res.status()).toBe(403);
     await expect(res.json()).resolves.toMatchObject({
       message: "Solve this problem first to view editorials.",
@@ -70,10 +76,11 @@ test.describe("Editorials — auth + permissions", () => {
   test("student without AC is forbidden from posting an editorial", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/editorials`, {
+    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/posts`, {
       data: {
+        type: "editorial",
+        title: "Sneaky editorial",
         content: "Detailed editorial body that meets the 10-char minimum.",
-        language: "python",
       },
       headers: apiWriteHeaders,
     });
@@ -84,44 +91,45 @@ test.describe("Editorials — auth + permissions", () => {
     await context.close();
   });
 
-  test("editorial post rejects content shorter than 10 chars", async ({ browser }) => {
+  test("student without AC can list discussion posts", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/editorials`, {
-      data: { content: "short", language: "python" },
-      headers: apiWriteHeaders,
-    });
-    expect([400, 403]).toContain(res.status());
+    const res = await page.request.get(
+      `/api/problems/${DISCUSSION_PROBLEM_ID}/posts?type=discussion`,
+    );
+    expect(res.ok()).toBe(true);
+    const body = (await res.json()) as { items: unknown[] };
+    expect(Array.isArray(body.items)).toBe(true);
     await context.close();
   });
 
-  test("editorial post rejects unknown language", async ({ browser }) => {
+  test("post create rejects content shorter than 10 chars", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/editorials`, {
-      data: { content: "Long enough editorial body for the schema.", language: "cobol" },
+    const res = await page.request.post(`/api/problems/${DISCUSSION_PROBLEM_ID}/posts`, {
+      data: { type: "discussion", title: "Too short", content: "short" },
       headers: apiWriteHeaders,
     });
-    expect([400, 403]).toContain(res.status());
+    expect(res.status()).toBe(400);
     await context.close();
   });
 
-  test("PATCH on nonexistent editorial returns 404 for staff", async ({ browser }) => {
+  test("PATCH on nonexistent post returns 404 for admin", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    const res = await page.request.fetch(`/api/editorials/nonexistent-editorial-xyz`, {
+    const res = await page.request.fetch(`/api/posts/nonexistent-post-xyz`, {
       method: "PATCH",
-      data: { content: "Some replacement editorial body content." },
+      data: { content: "Some replacement post body content." },
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(404);
     await context.close();
   });
 
-  test("DELETE on nonexistent editorial returns 404 for admin", async ({ browser }) => {
+  test("DELETE on nonexistent post returns 404 for admin", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    const res = await page.request.fetch(`/api/editorials/nonexistent-editorial-xyz`, {
+    const res = await page.request.fetch(`/api/posts/nonexistent-post-xyz`, {
       method: "DELETE",
       headers: apiWriteHeaders,
     });
@@ -129,24 +137,135 @@ test.describe("Editorials — auth + permissions", () => {
     await context.close();
   });
 
-  test("/editorials/[id]/edit returns 404 for unknown editorial", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: teacherAuth });
+  test("editorials tab shows the AC lock for a student without AC", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.goto(`/editorials/nonexistent-editorial-xyz/edit`);
-    expect(res?.status()).toBe(404);
+    await openPostsTab(page, PROBLEM_ID, "Editorials");
+    await expect(
+      page.getByText("Solve this problem first to view editorials"),
+    ).toBeVisible();
     await context.close();
   });
 
-  test("editorial list page on a problem requires AC", async ({ browser }) => {
+  test("discussions tab loads for a student without AC", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.goto(`/problems/${PROBLEM_ID}/editorials`);
-    expect(res?.status()).toBe(403);
+    await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
+    await expect(page.getByRole("button", { name: "New discussion" })).toBeVisible();
+    await expect(
+      page.getByText("Please do not spoil the answer or post complete solutions in discussions."),
+    ).toBeVisible();
     await context.close();
   });
 });
 
-test.describe("Editorials — happy path (AC required)", () => {
+test.describe("Discussions — in-panel UI happy path", () => {
+  test.describe.configure({ mode: "serial" });
+
+  const stamp = Date.now();
+  const postTitle = `Discussion ${stamp}`;
+  let created = false;
+
+  async function openPost(page: Page) {
+    await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
+    await page.getByRole("button", { name: new RegExp(postTitle) }).click();
+    await expect(page.getByRole("heading", { name: postTitle })).toBeVisible();
+  }
+
+  test("student creates a discussion post inside the panel", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+
+    await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
+    await page.getByRole("button", { name: "New discussion" }).click();
+
+    await page.getByLabel("Title").fill(postTitle);
+    await page
+      .getByLabel("Content")
+      .fill(`# Approach ${stamp}\n\nHow do you think about this problem?`);
+    await page.getByRole("button", { name: "Publish" }).click();
+
+    await expect(page.getByRole("heading", { name: postTitle })).toBeVisible();
+    created = true;
+    await context.close();
+  });
+
+  test("post appears in the discussion listing", async ({ browser }) => {
+    test.skip(!created, "create step did not produce a post");
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await openPostsTab(page, DISCUSSION_PROBLEM_ID, "Discussions");
+    await expect(page.getByRole("button", { name: new RegExp(postTitle) })).toBeVisible();
+    await context.close();
+  });
+
+  test("student comments and replies on the post", async ({ browser }) => {
+    test.skip(!created, "create step did not produce a post");
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await openPost(page);
+
+    const commentText = `Top-level comment ${stamp}`;
+    await page.getByPlaceholder("Write a comment…").fill(commentText);
+    await page.getByRole("button", { name: "Comment", exact: true }).click();
+    await expect(page.getByText(commentText)).toBeVisible();
+
+    const replyText = `Nested reply ${stamp}`;
+    await page.getByRole("button", { name: "Reply" }).first().click();
+    await page.getByPlaceholder("Write a reply…").fill(replyText);
+    await page.getByRole("button", { name: "Reply", exact: true }).last().click();
+    await expect(page.getByText(replyText)).toBeVisible();
+    await context.close();
+  });
+
+  test("teacher votes on and reports the post through the dialog", async ({ browser }) => {
+    test.skip(!created, "create step did not produce a post");
+    const context = await browser.newContext({ storageState: teacherAuth });
+    const page = await context.newPage();
+    await openPost(page);
+
+    await page.getByRole("button", { name: "Upvote" }).click();
+    await expect(page.getByRole("button", { name: "Upvote" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await page.getByRole("article").getByRole("button", { name: "Report" }).click();
+    await page
+      .getByPlaceholder("Describe what is wrong with this content…")
+      .fill("E2E report exercise");
+    await page.getByRole("button", { name: "Submit report" }).click();
+    await expect(page.getByText("Report submitted. Thank you.")).toBeVisible();
+    await context.close();
+  });
+
+  test("student deletes a comment and sees the tombstone", async ({ browser }) => {
+    test.skip(!created, "create step did not produce a post");
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await openPost(page);
+
+    await page.getByRole("button", { name: "Delete" }).last().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByText("This comment has been deleted.")).toBeVisible();
+    await context.close();
+  });
+
+  test("student deletes the post and lands back on the listing", async ({ browser }) => {
+    test.skip(!created, "create step did not produce a post");
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await openPost(page);
+
+    await page.getByRole("article").getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByRole("button", { name: "New discussion" })).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(postTitle) })).toHaveCount(0);
+    await context.close();
+  });
+});
+
+test.describe("Editorial posts — happy path (AC required)", () => {
   test.skip(
     process.env.NOJV_E2E_RUN_JUDGE !== "1",
     "set NOJV_E2E_RUN_JUDGE=1 to run AC pipeline",
@@ -154,7 +273,7 @@ test.describe("Editorials — happy path (AC required)", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(180_000);
 
-  let editorialId = "";
+  let postId = "";
   let acReached = false;
 
   test("student submits an AC solution to warmup-sum", async ({ browser }) => {
@@ -170,55 +289,55 @@ test.describe("Editorials — happy path (AC required)", () => {
     await context.close();
   });
 
-  test("student with AC can list editorials (200 + array)", async ({ browser }) => {
+  test("student with AC can list editorial posts", async ({ browser }) => {
     test.skip(!acReached, "no AC submission landed in the previous step");
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
+    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/posts?type=editorial`);
     expect(res.ok()).toBe(true);
-    const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
+    const body = (await res.json()) as { items: unknown[] };
+    expect(Array.isArray(body.items)).toBe(true);
     await context.close();
   });
 
-  test("student with AC can create an editorial", async ({ browser }) => {
+  test("student with AC can create an editorial post", async ({ browser }) => {
     test.skip(!acReached, "no AC submission landed");
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const stamp = Date.now();
-    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/editorials`, {
+    const res = await page.request.post(`/api/problems/${PROBLEM_ID}/posts`, {
       data: {
+        type: "editorial",
         title: `Editorial ${stamp}`,
         content: `# Editorial ${stamp}\n\nRead two integers, print their sum. Trivial warmup.`,
-        language: "python",
       },
       headers: apiWriteHeaders,
     });
-    expect(res.ok()).toBe(true);
+    expect(res.status()).toBe(201);
     const body = (await res.json()) as { id: string };
     expect(typeof body.id).toBe("string");
-    editorialId = body.id;
+    postId = body.id;
     await context.close();
   });
 
   test("created editorial appears in the listing", async ({ browser }) => {
-    test.skip(!acReached || !editorialId, "create step did not produce an id");
+    test.skip(!acReached || !postId, "create step did not produce an id");
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
+    const res = await page.request.get(`/api/problems/${PROBLEM_ID}/posts?type=editorial`);
     expect(res.ok()).toBe(true);
-    const list = (await res.json()) as Array<{ id: string }>;
-    expect(list.some((e) => e.id === editorialId)).toBe(true);
+    const body = (await res.json()) as { items: Array<{ id: string }> };
+    expect(body.items.some((e) => e.id === postId)).toBe(true);
     await context.close();
   });
 
-  test("author can update their own editorial via PUT", async ({ browser }) => {
-    test.skip(!acReached || !editorialId, "no editorial id to update");
+  test("author can update their own editorial via PATCH", async ({ browser }) => {
+    test.skip(!acReached || !postId, "no post id to update");
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const updatedContent = `# Updated editorial — revised explanation goes here.`;
-    const res = await page.request.fetch(`/api/editorials/${editorialId}`, {
-      method: "PUT",
+    const res = await page.request.fetch(`/api/posts/${postId}`, {
+      method: "PATCH",
       data: { content: updatedContent },
       headers: apiWriteHeaders,
     });
@@ -228,14 +347,14 @@ test.describe("Editorials — happy path (AC required)", () => {
     await context.close();
   });
 
-  test("a different student is rejected from updating someone else's editorial", async ({
+  test("a different user is rejected from updating someone else's editorial", async ({
     browser,
   }) => {
-    test.skip(!acReached || !editorialId, "no editorial id to challenge");
+    test.skip(!acReached || !postId, "no post id to challenge");
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.fetch(`/api/editorials/${editorialId}`, {
-      method: "PUT",
+    const res = await page.request.fetch(`/api/posts/${postId}`, {
+      method: "PATCH",
       data: { content: "Sneaky overwrite by the wrong user." },
       headers: apiWriteHeaders,
     });
@@ -244,19 +363,19 @@ test.describe("Editorials — happy path (AC required)", () => {
   });
 
   test("author can soft-delete their editorial", async ({ browser }) => {
-    test.skip(!acReached || !editorialId, "no editorial id to delete");
+    test.skip(!acReached || !postId, "no post id to delete");
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.fetch(`/api/editorials/${editorialId}`, {
+    const res = await page.request.fetch(`/api/posts/${postId}`, {
       method: "DELETE",
       headers: apiWriteHeaders,
     });
-    expect(res.ok()).toBe(true);
+    expect(res.status()).toBe(204);
 
-    const listRes = await page.request.get(`/api/problems/${PROBLEM_ID}/editorials`);
+    const listRes = await page.request.get(`/api/problems/${PROBLEM_ID}/posts?type=editorial`);
     expect(listRes.ok()).toBe(true);
-    const list = (await listRes.json()) as Array<{ id: string }>;
-    expect(list.some((e) => e.id === editorialId)).toBe(false);
+    const body = (await listRes.json()) as { items: Array<{ id: string }> };
+    expect(body.items.some((e) => e.id === postId)).toBe(false);
     await context.close();
   });
 });
