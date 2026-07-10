@@ -269,9 +269,21 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
   if (getWebEnv().NODE_ENV === "development") {
     return;
   }
+  const TWO_FACTOR_ACTIONS = [
+    "/sendConfirm",
+    "/enable",
+    "/verify",
+    "/disable",
+    "/regenerate",
+    "/deletePasskey",
+  ];
+  const accountTwoFactorRequest =
+    cleanPath === "/account" &&
+    (event.request.method === "GET" ||
+      TWO_FACTOR_ACTIONS.some((action) => event.url.searchParams.has(action)));
   if (
     cleanPath.startsWith("/api/") ||
-    cleanPath === "/account" ||
+    accountTwoFactorRequest ||
     cleanPath.startsWith("/account/two-factor") ||
     cleanPath.startsWith("/account/api-tokens/verify") ||
     cleanPath.startsWith("/complete-profile") ||
