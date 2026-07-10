@@ -1,21 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
-  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
-  import {
-    Check,
-    ChevronRight,
-    KeyRound,
-    Pencil,
-    ShieldCheck,
-    Trash2,
-    X,
-  } from "@lucide/svelte";
-  import { authClient } from "$lib/auth.client";
+  import { Check, ChevronRight, KeyRound, Pencil, ShieldCheck, X } from "@lucide/svelte";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
-  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -29,9 +18,6 @@
 
   let editingName = $state(false);
   let editingUsername = $state(false);
-  let deleteConfirmOpen = $state(false);
-  let deleteBusy = $state(false);
-  let deleteFormEl = $state<HTMLFormElement | null>(null);
 
   let oauthBusy = $state(false);
   let oauthError = $state("");
@@ -428,55 +414,6 @@
           {/each}
         </div>
       </Card>
-
-      {#if data.platformRole !== "admin"}
-        <Card variant="surface" size="md">
-          <div class="flex flex-col gap-1">
-            <h2 class="text-title-sm text-destructive">{m.account_deleteTitle()}</h2>
-            <p class="text-body-sm text-muted-foreground">{m.account_deleteHint()}</p>
-          </div>
-          <form
-            method="POST"
-            action="?/deleteAccount"
-            bind:this={deleteFormEl}
-            use:enhance={() => {
-              deleteBusy = true;
-              return async ({ result }) => {
-                if (result.type === "success") {
-                  await authClient.signOut().catch(() => undefined);
-                  await goto("/", { invalidateAll: true });
-                  return;
-                }
-                deleteBusy = false;
-                toasts.error(m.account_deleteFailed());
-              };
-            }}
-          >
-            <button
-              type="button"
-              disabled={deleteBusy}
-              onclick={() => (deleteConfirmOpen = true)}
-              class="flex items-center gap-2 rounded-md border border-destructive/40 px-4 py-2 text-body-sm font-medium text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 aria-hidden="true" class="h-4 w-4" />
-              {m.account_deleteAction()}
-            </button>
-          </form>
-        </Card>
-      {/if}
     </div>
   </Section>
 </PageContainer>
-
-<ConfirmDialog
-  bind:open={deleteConfirmOpen}
-  variant="danger"
-  title={m.account_deleteConfirmTitle()}
-  message={m.account_deleteConfirmMessage()}
-  confirmText={m.account_deleteAction()}
-  onconfirm={() => {
-    deleteConfirmOpen = false;
-    deleteFormEl?.requestSubmit();
-  }}
-  oncancel={() => (deleteConfirmOpen = false)}
-/>

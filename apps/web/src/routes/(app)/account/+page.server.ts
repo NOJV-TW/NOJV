@@ -151,19 +151,6 @@ export const actions = {
     });
   }),
 
-  deleteAccount: withRateLimit(async (event) => {
-    const actor = requireAuth(event);
-    try {
-      const result = await userDomain.deleteUser(false, actor.userId);
-      if (!result) {
-        return fail(404, { deleteError: "notFound" });
-      }
-    } catch {
-      return fail(403, { deleteError: "forbidden" });
-    }
-    return { deleted: true };
-  }),
-
   link: async (event) => {
     requireAuth(event);
     const provider = formString(await event.request.formData(), "provider");
