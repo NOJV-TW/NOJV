@@ -68,4 +68,12 @@ export const postRepo = {
       include: { author: { select: userPublicSelect } },
     });
   },
+
+  async softDeleteIfActive(id: string, now = new Date()) {
+    const result = await prisma.problemPost.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: now },
+    });
+    return result.count;
+  },
 };

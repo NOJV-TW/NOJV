@@ -24,4 +24,12 @@ export const postCommentRepo = {
       data: { deletedAt: now },
     });
   },
+
+  async softDeleteIfActive(id: string, now = new Date()) {
+    const result = await prisma.postComment.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: now },
+    });
+    return result.count;
+  },
 };

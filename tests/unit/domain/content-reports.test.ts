@@ -2,18 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   postFindById,
-  postSoftDelete,
+  postSoftDeleteIfActive,
   commentFindById,
-  commentSoftDelete,
+  commentSoftDeleteIfActive,
   reportCreate,
   reportFindById,
   reportUpdateStatus,
   reportListByStatus,
 } = vi.hoisted(() => ({
   postFindById: vi.fn(),
-  postSoftDelete: vi.fn(),
+  postSoftDeleteIfActive: vi.fn(),
   commentFindById: vi.fn(),
-  commentSoftDelete: vi.fn(),
+  commentSoftDeleteIfActive: vi.fn(),
   reportCreate: vi.fn(),
   reportFindById: vi.fn(),
   reportUpdateStatus: vi.fn(),
@@ -23,11 +23,11 @@ const {
 vi.mock("@nojv/db", () => ({
   postRepo: {
     findById: postFindById,
-    softDelete: postSoftDelete,
+    softDeleteIfActive: postSoftDeleteIfActive,
   },
   postCommentRepo: {
     findById: commentFindById,
-    softDelete: commentSoftDelete,
+    softDeleteIfActive: commentSoftDeleteIfActive,
   },
   contentReportRepo: {
     create: reportCreate,
@@ -101,17 +101,26 @@ function commentRow(
   };
 }
 
-function reportOnPost(post: ReturnType<typeof postRow> | null) {
-  return { id: "rep_1", postId: post?.id ?? "post_1", commentId: null, post, comment: null };
+function reportOnPost(post: ReturnType<typeof postRow> | null, status = "open") {
+  return {
+    id: "rep_1",
+    postId: post?.id ?? "post_1",
+    commentId: null,
+    status,
+    post,
+    comment: null,
+  };
 }
 
 function reportOnComment(
   overrides: Partial<{ authorId: string; deletedAt: Date | null }> = {},
+  status = "open",
 ) {
   return {
     id: "rep_1",
     postId: null,
     commentId: "cmt_1",
+    status,
     post: null,
     comment: {
       id: "cmt_1",
@@ -126,6 +135,8 @@ function reportOnComment(
 beforeEach(() => {
   vi.clearAllMocks();
   createNotification.mockResolvedValue(undefined);
+  postSoftDeleteIfActive.mockResolvedValue(1);
+  commentSoftDeleteIfActive.mockResolvedValue(1);
 });
 
 describe("reportContent — post target", () => {
@@ -153,19 +164,19 @@ describe("reportContent — post target", () => {
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
-  it("rejects an empty / whitespace-only reason", async () => {
-    postFindById.mockResolvedValue(postRow());
+  it("rejects an empty / whitespace-only reason before looking up the target", async () => {
     await expect(
       reportContent(actor("usr_reporter"), { postId: "post_1" }, "   "),
     ).rejects.toMatchObject({ name: "ValidationError", status: 400 });
+    expect(postFindById).not.toHaveBeenCalled();
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
-  it("rejects a reason longer than 1000 characters", async () => {
-    postFindById.mockResolvedValue(postRow());
+  it("rejects a reason longer than 1000 characters before looking up the target", async () => {
     await expect(
       reportContent(actor("usr_reporter"), { postId: "post_1" }, "x".repeat(1001)),
     ).rejects.toMatchObject({ name: "ValidationError", status: 400 });
+    expect(postFindById).not.toHaveBeenCalled();
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
@@ -278,13 +289,37 @@ describe("resolveContentReport", () => {
     ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
   });
 
+  it("rejects a report that is no longer open with ConflictError and touches nothing", async () => {
+    reportFindById.mockResolvedValue(reportOnPost(postRow(), "dismissed"));
+
+    await expect(
+      resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve"),
+    ).rejects.toMatchObject({ name: "ConflictError", status: 409 });
+
+    expect(postSoftDeleteIfActive).not.toHaveBeenCalled();
+    expect(commentSoftDeleteIfActive).not.toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
+    expect(reportUpdateStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects re-resolving an already-resolved report with ConflictError", async () => {
+    reportFindById.mockResolvedValue(reportOnComment({}, "resolved"));
+
+    await expect(
+      resolveContentReport(actor("usr_admin", "admin"), "rep_1", "dismiss"),
+    ).rejects.toMatchObject({ name: "ConflictError", status: 409 });
+
+    expect(reportUpdateStatus).not.toHaveBeenCalled();
+  });
+
   it("resolve soft-deletes the post, notifies the author, and marks the report resolved", async () => {
     reportFindById.mockResolvedValue(reportOnPost(postRow()));
+    postSoftDeleteIfActive.mockResolvedValue(1);
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
 
-    expect(postSoftDelete).toHaveBeenCalledWith("post_1");
+    expect(postSoftDeleteIfActive).toHaveBeenCalledWith("post_1");
     expect(createNotification).toHaveBeenCalledWith({
       userId: "usr_author",
       type: "post_removed",
@@ -299,12 +334,13 @@ describe("resolveContentReport", () => {
 
   it("resolve soft-deletes the comment, notifies its author, and marks the report resolved", async () => {
     reportFindById.mockResolvedValue(reportOnComment());
+    commentSoftDeleteIfActive.mockResolvedValue(1);
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
 
-    expect(commentSoftDelete).toHaveBeenCalledWith("cmt_1");
-    expect(postSoftDelete).not.toHaveBeenCalled();
+    expect(commentSoftDeleteIfActive).toHaveBeenCalledWith("cmt_1");
+    expect(postSoftDeleteIfActive).not.toHaveBeenCalled();
     expect(createNotification).toHaveBeenCalledWith({
       userId: "usr_commenter",
       type: "comment_removed",
@@ -317,13 +353,13 @@ describe("resolveContentReport", () => {
     );
   });
 
-  it("resolve on an already-deleted post neither re-deletes nor re-notifies, but still closes", async () => {
+  it("resolve on an already-deleted post does not notify, but still closes", async () => {
     reportFindById.mockResolvedValue(reportOnPost(postRow({ deletedAt: new Date() })));
+    postSoftDeleteIfActive.mockResolvedValue(0);
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
 
-    expect(postSoftDelete).not.toHaveBeenCalled();
     expect(createNotification).not.toHaveBeenCalled();
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",
@@ -331,13 +367,13 @@ describe("resolveContentReport", () => {
     );
   });
 
-  it("resolve on an already-deleted comment neither re-deletes nor re-notifies, but still closes", async () => {
+  it("resolve on an already-deleted comment does not notify, but still closes", async () => {
     reportFindById.mockResolvedValue(reportOnComment({ deletedAt: new Date() }));
+    commentSoftDeleteIfActive.mockResolvedValue(0);
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
 
-    expect(commentSoftDelete).not.toHaveBeenCalled();
     expect(createNotification).not.toHaveBeenCalled();
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",
@@ -347,6 +383,7 @@ describe("resolveContentReport", () => {
 
   it("still closes the report when the notification fails", async () => {
     reportFindById.mockResolvedValue(reportOnPost(postRow()));
+    postSoftDeleteIfActive.mockResolvedValue(1);
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
     createNotification.mockRejectedValue(new Error("smtp down"));
 
@@ -354,7 +391,7 @@ describe("resolveContentReport", () => {
       resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve"),
     ).resolves.toMatchObject({ status: "resolved" });
 
-    expect(postSoftDelete).toHaveBeenCalledWith("post_1");
+    expect(postSoftDeleteIfActive).toHaveBeenCalledWith("post_1");
     expect(reportUpdateStatus).toHaveBeenCalled();
   });
 
@@ -364,8 +401,8 @@ describe("resolveContentReport", () => {
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "dismiss");
 
-    expect(postSoftDelete).not.toHaveBeenCalled();
-    expect(commentSoftDelete).not.toHaveBeenCalled();
+    expect(postSoftDeleteIfActive).not.toHaveBeenCalled();
+    expect(commentSoftDeleteIfActive).not.toHaveBeenCalled();
     expect(createNotification).not.toHaveBeenCalled();
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",

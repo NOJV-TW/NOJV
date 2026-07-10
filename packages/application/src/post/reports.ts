@@ -20,6 +20,14 @@ export async function reportContent(
   target: ContentReportTarget,
   reason: string,
 ) {
+  const trimmed = reason.trim();
+  if (trimmed.length === 0) {
+    throw new ValidationError("A report reason is required.");
+  }
+  if (trimmed.length > REASON_MAX_LENGTH) {
+    throw new ValidationError("Report reason must be at most 1000 characters.");
+  }
+
   if ("postId" in target) {
     const post = await postRepo.findById(target.postId);
     if (!post || post.deletedAt) {
@@ -36,14 +44,6 @@ export async function reportContent(
     if (comment.authorId === actor.userId) {
       throw new ForbiddenError("You cannot report your own comment.");
     }
-  }
-
-  const trimmed = reason.trim();
-  if (trimmed.length === 0) {
-    throw new ValidationError("A report reason is required.");
-  }
-  if (trimmed.length > REASON_MAX_LENGTH) {
-    throw new ValidationError("Report reason must be at most 1000 characters.");
   }
 
   try {
@@ -83,31 +83,38 @@ export async function resolveContentReport(
   if (!report) {
     throw new NotFoundError("Content report not found.");
   }
+  if (report.status !== "open") {
+    throw new ConflictError("This report has already been handled.");
+  }
 
   if (action === "resolve") {
-    if (report.post && !report.post.deletedAt) {
-      await postRepo.softDelete(report.post.id);
-      await notificationDomain
-        .createNotification({
-          userId: report.post.authorId,
-          type: "post_removed",
-          params: { problemId: report.post.problemId, title: report.post.title },
-          linkUrl: `/problems/${report.post.problemId}`,
-        })
-        .catch(() => undefined);
-    } else if (report.comment && !report.comment.deletedAt) {
-      await postCommentRepo.softDelete(report.comment.id);
-      await notificationDomain
-        .createNotification({
-          userId: report.comment.authorId,
-          type: "comment_removed",
-          params: {
-            problemId: report.comment.post.problemId,
-            postTitle: report.comment.post.title,
-          },
-          linkUrl: `/problems/${report.comment.post.problemId}`,
-        })
-        .catch(() => undefined);
+    if (report.post) {
+      const deleted = await postRepo.softDeleteIfActive(report.post.id);
+      if (deleted === 1) {
+        await notificationDomain
+          .createNotification({
+            userId: report.post.authorId,
+            type: "post_removed",
+            params: { problemId: report.post.problemId, title: report.post.title },
+            linkUrl: `/problems/${report.post.problemId}`,
+          })
+          .catch(() => undefined);
+      }
+    } else if (report.comment) {
+      const deleted = await postCommentRepo.softDeleteIfActive(report.comment.id);
+      if (deleted === 1) {
+        await notificationDomain
+          .createNotification({
+            userId: report.comment.authorId,
+            type: "comment_removed",
+            params: {
+              problemId: report.comment.post.problemId,
+              postTitle: report.comment.post.title,
+            },
+            linkUrl: `/problems/${report.comment.post.problemId}`,
+          })
+          .catch(() => undefined);
+      }
     }
   }
 

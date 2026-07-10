@@ -269,6 +269,31 @@ describe("postDomain.resolveContentReport — integration", () => {
     expect(persistedReport!.status).toBe("dismissed");
   });
 
+  it("rejects acting on a report that is no longer open", async () => {
+    const author = await buildActor();
+    const reporter = await buildActor();
+    const admin = await buildActor({ platformRole: "admin" });
+    const problem = await createTestProblem();
+    const post = await createPostRow(author.userId, problem.id);
+    const report = await reportContent(reporter, { postId: post.id }, "dismiss me");
+
+    await resolveContentReport(admin, report.id, "dismiss");
+    await expect(resolveContentReport(admin, report.id, "resolve")).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+
+    const persistedPost = await testPrisma.problemPost.findUnique({ where: { id: post.id } });
+    expect(persistedPost!.deletedAt).toBeNull();
+
+    const persistedReport = await testPrisma.contentReport.findUnique({
+      where: { id: report.id },
+    });
+    expect(persistedReport!.status).toBe("dismissed");
+
+    const notifications = await notificationRepo.listRecent(author.userId, 10);
+    expect(notifications).toHaveLength(0);
+  });
+
   it("throws NotFoundError for a missing report", async () => {
     const admin = await buildActor({ platformRole: "admin" });
     await expect(
