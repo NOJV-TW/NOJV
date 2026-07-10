@@ -210,6 +210,37 @@ timezone. There is no pre-aggregated daily-activity table.
   THEN they see their OWN stats; no admin lens or user picker exists on
   this route.
 
+### Site-wide view toggle
+
+The top-left `TabStrip` switches between the personal overview (default)
+and a site-wide overview (`?view=server`). The site-wide view shows only
+anonymous aggregates — it never names or links any user, so it does not
+conflict with the private-by-default profile model.
+
+- GIVEN any authenticated user loads `/dashboard?view=server`,
+  WHEN the load runs,
+  THEN `platformDomain.getPlatformOverview()` is fetched alongside the
+  personal view data — a Redis read-through cache
+  (`nojv:cache:platform-overview`, 300 s TTL) in front of one 30-day
+  submission window query plus total user / public problem counts.
+- GIVEN the site-wide view renders,
+  WHEN data is present,
+  THEN it shows: four KPI stat cards (users, public problems, 30-day
+  submissions, 30-day AC rate), a 30-day daily trend chart (submission
+  bars, accepted line, distinct-active-users line on a second axis),
+  verdict and language donuts for the same window, and a "trending
+  problems" table listing only `public` + `published` problems (top 8 by
+  30-day submission count, linking to `/problems/{id}`).
+- GIVEN no `view` query param (or any value other than `server`),
+  WHEN the page renders,
+  THEN the personal view shows, unchanged — including `WelcomeGuide` for
+  zero-submission users and the `data-tour` targets used by the student
+  onboarding tour.
+- GIVEN the toggle is clicked,
+  WHEN the view changes,
+  THEN the URL is updated via `goto` with `replaceState` so the choice
+  survives refresh but does not pollute history.
+
 ## Edge Cases & Failure Modes
 
 - **Brand-new user, zero submissions**: all charts render empty states;

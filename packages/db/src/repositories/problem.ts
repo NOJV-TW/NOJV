@@ -123,6 +123,13 @@ export const problemRepo = {
     });
   },
 
+  findPublicMiniByIds(ids: string[]) {
+    return prisma.problem.findMany({
+      where: { id: { in: ids }, visibility: "public", status: "published" },
+      select: problemMiniSelect,
+    });
+  },
+
   findScoringInputsByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },
