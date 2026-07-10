@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_45 models and 37 enums across 9 schema files._
+_46 models and 38 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -170,8 +170,9 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `triggeredExamPlagiarisms` | `Exam[]` | `@relation("ExamPlagiarismTriggerer")` |
 | `triggeredContestPlagiarisms` | `Contest[]` | `@relation("ContestPlagiarismTriggerer")` |
 | `triggeredAssessmentPlagiarisms` | `Assessment[]` | `@relation("AssessmentPlagiarismTriggerer")` |
-| `editorials` | `Editorial[]` | — |
-| `editorialVotes` | `EditorialVote[]` | — |
+| `problemPosts` | `ProblemPost[]` | — |
+| `postVotes` | `PostVote[]` | — |
+| `postComments` | `PostComment[]` | — |
 | `ipViolationLogs` | `IpViolationLog[]` | — |
 | `activeExamSessions` | `ActiveExamSession[]` | `@relation("ActiveExamSessionUser")` |
 | `notifications` | `Notification[]` | — |
@@ -185,8 +186,8 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `plagiarismPairFlags` | `PlagiarismPairFlag[]` | `@relation("PlagiarismPairFlagFlagger")` |
 | `clarificationsAnswered` | `Clarification[]` | `@relation("ClarificationAnswerer")` |
 | `assessmentAuditLogs` | `AssessmentAuditLog[]` | `@relation("AssessmentAuditActor")` |
-| `editorialReportsFiled` | `EditorialReport[]` | `@relation("EditorialReportReporter")` |
-| `editorialReportsResolved` | `EditorialReport[]` | `@relation("EditorialReportResolver")` |
+| `contentReportsFiled` | `ContentReport[]` | `@relation("ContentReportReporter")` |
+| `contentReportsResolved` | `ContentReport[]` | `@relation("ContentReportResolver")` |
 | `submissionFeedbackReceived` | `SubmissionFeedback[]` | `@relation("SubmissionFeedbackStudent")` |
 | `submissionFeedbackAuthored` | `SubmissionFeedback[]` | `@relation("SubmissionFeedbackAuthor")` |
 | `submissionFeedbackAuditChanges` | `SubmissionFeedbackAuditLog[]` | `@relation("SubmissionFeedbackAuditChanger")` |
@@ -611,7 +612,7 @@ Indexes & constraints: `@@unique([courseId, userId])`, `@@index([courseId, role,
 
 #### `NotificationType`
 
-`assignment_started` · `assignment_due_soon` · `exam_starting_soon` · `contest_starting_soon` · `course_enrolled` · `announcement_published` · `role_changed` · `clarification_answered` · `editorial_removed`
+`assignment_started` · `assignment_due_soon` · `exam_starting_soon` · `contest_starting_soon` · `course_enrolled` · `announcement_published` · `role_changed` · `clarification_answered` · `editorial_removed` · `post_removed` · `comment_removed`
 
 ### Models
 
@@ -656,7 +657,7 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 
 #### `AdminAuditAction`
 
-`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `editorial_report_resolve` · `editorial_report_dismiss` · `announcement_create` · `announcement_delete`
+`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `editorial_report_resolve` · `editorial_report_dismiss` · `content_report_resolve` · `content_report_dismiss` · `announcement_create` · `announcement_delete`
 
 #### `AnnouncementAudience`
 
@@ -822,7 +823,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `contestLinks` | `ContestProblem[]` | — |
 | `examLinks` | `ExamProblem[]` | — |
 | `assessmentLinks` | `AssessmentProblem[]` | — |
-| `editorials` | `Editorial[]` | — |
+| `posts` | `ProblemPost[]` | — |
 | `scoreOverrides` | `ScoreOverride[]` | `@relation("ScoreOverrideProblem")` |
 | `clarifications` | `Clarification[]` | `@relation("ProblemClarifications")` |
 | `submissionFeedback` | `SubmissionFeedback[]` | `@relation("SubmissionFeedbackProblem")` |
@@ -911,13 +912,17 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 ### Enums
 
-#### `EditorialReportStatus`
+#### `ContentReportStatus`
 
 `open` · `resolved` · `dismissed`
 
 #### `OverrideContextType`
 
 `assignment` · `exam` · `contest`
+
+#### `ProblemPostType`
+
+`editorial` · `discussion`
 
 #### `ScoreOverrideAction`
 
@@ -937,58 +942,80 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 ### Models
 
-#### `Editorial`
+#### `ContentReport`
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `userId` | `String` | — |
-| `problemId` | `String` | — |
-| `title` | `String` | `@default("")` |
-| `content` | `String` | `@db.Text` |
-| `language` | `SupportedLanguage` | — |
-| `createdAt` | `DateTime` | `@default(now())` |
-| `updatedAt` | `DateTime` | `@updatedAt` |
-| `deletedAt` | `DateTime?` | — |
-| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
-| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
-| `reports` | `EditorialReport[]` | — |
-| `votes` | `EditorialVote[]` | — |
-
-Indexes & constraints: `@@unique([userId, problemId, language])`, `@@index([problemId, createdAt])`
-
-#### `EditorialReport`
-
-| Field | Type | Attributes |
-| ----- | ---- | ---------- |
-| `id` | `String` | `@id @default(cuid())` |
-| `editorialId` | `String` | — |
+| `postId` | `String?` | — |
+| `commentId` | `String?` | — |
 | `reportedByUserId` | `String` | — |
 | `reason` | `String` | `@db.Text` |
-| `status` | `EditorialReportStatus` | `@default(open)` |
+| `status` | `ContentReportStatus` | `@default(open)` |
 | `resolvedByUserId` | `String?` | — |
 | `resolvedAt` | `DateTime?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
-| `editorial` | `Editorial` | `@relation(fields: [editorialId], references: [id], onDelete: Cascade)` |
-| `reportedBy` | `User` | `@relation("EditorialReportReporter", fields: [reportedByUserId], references: [id], onDelete: Cascade)` |
-| `resolvedBy` | `User?` | `@relation("EditorialReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)` |
+| `post` | `ProblemPost?` | `@relation(fields: [postId], references: [id], onDelete: Cascade)` |
+| `comment` | `PostComment?` | `@relation(fields: [commentId], references: [id], onDelete: Cascade)` |
+| `reportedBy` | `User` | `@relation("ContentReportReporter", fields: [reportedByUserId], references: [id], onDelete: Cascade)` |
+| `resolvedBy` | `User?` | `@relation("ContentReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@unique([editorialId, reportedByUserId])`, `@@index([status, createdAt])`
+Indexes & constraints: `@@unique([postId, reportedByUserId])`, `@@unique([commentId, reportedByUserId])`, `@@index([status, createdAt])`
 
-#### `EditorialVote`
+#### `PostComment`
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `editorialId` | `String` | — |
+| `postId` | `String` | — |
+| `authorId` | `String` | — |
+| `parentId` | `String?` | — |
+| `content` | `String` | `@db.Text` |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `deletedAt` | `DateTime?` | — |
+| `post` | `ProblemPost` | `@relation(fields: [postId], references: [id], onDelete: Cascade)` |
+| `author` | `User` | `@relation(fields: [authorId], references: [id], onDelete: Cascade)` |
+| `parent` | `PostComment?` | `@relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)` |
+| `replies` | `PostComment[]` | `@relation("CommentReplies")` |
+| `reports` | `ContentReport[]` | — |
+
+Indexes & constraints: `@@index([postId, createdAt])`
+
+#### `PostVote`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `postId` | `String` | — |
 | `userId` | `String` | — |
 | `value` | `Int` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
-| `editorial` | `Editorial` | `@relation(fields: [editorialId], references: [id], onDelete: Cascade)` |
+| `post` | `ProblemPost` | `@relation(fields: [postId], references: [id], onDelete: Cascade)` |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
-Indexes & constraints: `@@unique([editorialId, userId])`, `@@index([editorialId])`
+Indexes & constraints: `@@unique([postId, userId])`, `@@index([postId])`
+
+#### `ProblemPost`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `type` | `ProblemPostType` | — |
+| `authorId` | `String` | — |
+| `problemId` | `String` | — |
+| `title` | `String` | — |
+| `content` | `String` | `@db.Text` |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `deletedAt` | `DateTime?` | — |
+| `author` | `User` | `@relation(fields: [authorId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `comments` | `PostComment[]` | — |
+| `reports` | `ContentReport[]` | — |
+| `votes` | `PostVote[]` | — |
+
+Indexes & constraints: `@@index([problemId, type, createdAt])`
 
 #### `ScoreOverride`
 
