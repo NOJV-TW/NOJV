@@ -5,6 +5,25 @@ import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
 import { canViewPosts, resolveActiveContextForUser } from "./queries";
 
+export async function assertCanInteractWithPosts(
+  userId: string,
+  problemId: string,
+  type: ProblemPostType,
+  message: string,
+) {
+  const context = await resolveActiveContextForUser(userId, problemId, new Date());
+  const allowed = await canViewPosts(userId, problemId, type, context);
+  if (!allowed) {
+    throw new ForbiddenError(message);
+  }
+}
+
+export function assertAuthorOrAdmin(actor: ActorContext, authorId: string, message: string) {
+  if (actor.userId !== authorId && actor.platformRole !== "admin") {
+    throw new ForbiddenError(message);
+  }
+}
+
 export interface CreatePostInput {
   type: ProblemPostType;
   problemId: string;
@@ -13,15 +32,14 @@ export interface CreatePostInput {
 }
 
 export async function createPost(actor: ActorContext, input: CreatePostInput) {
-  const context = await resolveActiveContextForUser(actor.userId, input.problemId, new Date());
-  const canPost = await canViewPosts(actor.userId, input.problemId, input.type, context);
-  if (!canPost) {
-    throw new ForbiddenError(
-      input.type === "editorial"
-        ? "Solve this problem first to post an editorial."
-        : "You cannot post a discussion for this problem right now.",
-    );
-  }
+  await assertCanInteractWithPosts(
+    actor.userId,
+    input.problemId,
+    input.type,
+    input.type === "editorial"
+      ? "Solve this problem first to post an editorial."
+      : "You cannot post a discussion for this problem right now.",
+  );
 
   return postRepo.create({
     type: input.type,
@@ -43,11 +61,11 @@ export async function updatePost(actor: ActorContext, id: string, input: UpdateP
     throw new NotFoundError("Post not found.");
   }
 
-  const isAuthor = existing.authorId === actor.userId;
-  const isAdmin = actor.platformRole === "admin";
-  if (!isAuthor && !isAdmin) {
-    throw new ForbiddenError("Only the author or an admin may edit this post.");
-  }
+  assertAuthorOrAdmin(
+    actor,
+    existing.authorId,
+    "Only the author or an admin may edit this post.",
+  );
 
   const changed: { title?: string; content?: string } = {};
   if (input.title !== undefined && input.title !== existing.title) {
@@ -69,11 +87,11 @@ export async function softDeletePost(actor: ActorContext, id: string) {
     throw new NotFoundError("Post not found.");
   }
 
-  const isAuthor = existing.authorId === actor.userId;
-  const isAdmin = actor.platformRole === "admin";
-  if (!isAuthor && !isAdmin) {
-    throw new ForbiddenError("Only the author or an admin may delete this post.");
-  }
+  assertAuthorOrAdmin(
+    actor,
+    existing.authorId,
+    "Only the author or an admin may delete this post.",
+  );
 
   return postRepo.softDelete(id);
 }
@@ -97,15 +115,12 @@ export async function castPostVote(
     throw new ForbiddenError("You cannot vote on your own post.");
   }
 
-  const context = await resolveActiveContextForUser(
+  await assertCanInteractWithPosts(
     actor.userId,
     existing.problemId,
-    new Date(),
+    existing.type,
+    "You cannot vote on this post right now.",
   );
-  const canView = await canViewPosts(actor.userId, existing.problemId, existing.type, context);
-  if (!canView) {
-    throw new ForbiddenError("You cannot vote on this post right now.");
-  }
 
   await postVoteRepo.setVote(id, actor.userId, value);
   return postVoteRepo.aggregate(id, actor.userId);

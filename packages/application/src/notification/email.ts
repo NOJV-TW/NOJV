@@ -100,6 +100,20 @@ const EMAIL_SPECS: Partial<Record<NotificationCreateInput["type"], EmailSpec>> =
     intro: (p) =>
       `<p>你的題解〈${esc(p.title)}〉因檢舉經審核後已被移除。</p><p>Your editorial "${esc(p.title)}" has been removed after a report review.</p>`,
   },
+  post_removed: {
+    prefKey: () => "emailEditorialRemoved",
+    subject: (p) => `【NOJV】你的文章〈${str(p.title)}〉已被移除`,
+    heading: () => "文章已被移除 · Post removed",
+    intro: (p) =>
+      `<p>你的文章〈${esc(p.title)}〉因檢舉經審核後已被移除。</p><p>Your post "${esc(p.title)}" has been removed after a report review.</p>`,
+  },
+  comment_removed: {
+    prefKey: () => "emailEditorialRemoved",
+    subject: (p) => `【NOJV】你在〈${str(p.postTitle)}〉下的留言已被移除`,
+    heading: () => "留言已被移除 · Comment removed",
+    intro: (p) =>
+      `<p>你在〈${esc(p.postTitle)}〉下的留言因檢舉經審核後已被移除。</p><p>Your comment on "${esc(p.postTitle)}" has been removed after a report review.</p>`,
+  },
 };
 
 export function hasEmailSpec(type: NotificationCreateInput["type"]): boolean {

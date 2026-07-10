@@ -3,28 +3,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   postFindById,
   postSoftDelete,
-  postExistsForUserProblem,
+  commentFindById,
+  commentSoftDelete,
   reportCreate,
   reportFindById,
   reportUpdateStatus,
   reportListByStatus,
-  submissionCount,
 } = vi.hoisted(() => ({
   postFindById: vi.fn(),
   postSoftDelete: vi.fn(),
-  postExistsForUserProblem: vi.fn(),
+  commentFindById: vi.fn(),
+  commentSoftDelete: vi.fn(),
   reportCreate: vi.fn(),
   reportFindById: vi.fn(),
   reportUpdateStatus: vi.fn(),
   reportListByStatus: vi.fn(),
-  submissionCount: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   postRepo: {
     findById: postFindById,
     softDelete: postSoftDelete,
-    existsForUserProblem: postExistsForUserProblem,
+  },
+  postCommentRepo: {
+    findById: commentFindById,
+    softDelete: commentSoftDelete,
   },
   contentReportRepo: {
     create: reportCreate,
@@ -32,7 +35,6 @@ vi.mock("@nojv/db", () => ({
     updateStatus: reportUpdateStatus,
     listByStatus: reportListByStatus,
   },
-  submissionRepo: { count: submissionCount },
 }));
 
 const { createNotification } = vi.hoisted(() => ({ createNotification: vi.fn() }));
@@ -41,7 +43,7 @@ vi.mock("../../../packages/application/src/notification", () => ({ createNotific
 
 import { postDomain } from "@nojv/application";
 
-const { reportPost, listContentReports, resolveContentReport } = postDomain;
+const { reportContent, listContentReports, resolveContentReport } = postDomain;
 
 interface FakeActor {
   displayName: string;
@@ -66,6 +68,7 @@ function postRow(
     id: string;
     authorId: string;
     problemId: string;
+    title: string;
     deletedAt: Date | null;
   }> = {},
 ) {
@@ -75,61 +78,94 @@ function postRow(
     authorId: "usr_author",
     problemId: "prob_1",
     title: "My editorial",
-    content: "body",
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     deletedAt: null,
     ...overrides,
   };
 }
 
+function commentRow(
+  overrides: Partial<{
+    id: string;
+    postId: string;
+    authorId: string;
+    deletedAt: Date | null;
+  }> = {},
+) {
+  return {
+    id: "cmt_1",
+    postId: "post_1",
+    authorId: "usr_commenter",
+    content: "a comment",
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function reportOnPost(post: ReturnType<typeof postRow> | null) {
+  return { id: "rep_1", postId: post?.id ?? "post_1", commentId: null, post, comment: null };
+}
+
+function reportOnComment(
+  overrides: Partial<{ authorId: string; deletedAt: Date | null }> = {},
+) {
+  return {
+    id: "rep_1",
+    postId: null,
+    commentId: "cmt_1",
+    post: null,
+    comment: {
+      id: "cmt_1",
+      authorId: "usr_commenter",
+      deletedAt: null,
+      post: { id: "post_1", type: "editorial", title: "My editorial", problemId: "prob_1" },
+      ...overrides,
+    },
+  };
+}
+
 beforeEach(() => {
-  postFindById.mockReset();
-  postSoftDelete.mockReset();
-  postExistsForUserProblem.mockReset();
-  reportCreate.mockReset();
-  reportFindById.mockReset();
-  reportUpdateStatus.mockReset();
-  reportListByStatus.mockReset();
-  submissionCount.mockReset();
-  createNotification.mockReset();
+  vi.clearAllMocks();
   createNotification.mockResolvedValue(undefined);
 });
 
-describe("reportPost", () => {
-  it("rejects reporting your own post", async () => {
+describe("reportContent — post target", () => {
+  it("rejects reporting your own post with ForbiddenError", async () => {
     postFindById.mockResolvedValue(postRow({ authorId: "usr_author" }));
-    await expect(reportPost(actor("usr_author"), "post_1", "spam")).rejects.toMatchObject({
-      name: "ValidationError",
-      status: 400,
-    });
+    await expect(
+      reportContent(actor("usr_author"), { postId: "post_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a missing post", async () => {
     postFindById.mockResolvedValue(null);
-    await expect(reportPost(actor("usr_reporter"), "post_1", "spam")).rejects.toMatchObject({
-      name: "NotFoundError",
-      status: 404,
-    });
+    await expect(
+      reportContent(actor("usr_reporter"), { postId: "post_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a soft-deleted post", async () => {
     postFindById.mockResolvedValue(postRow({ deletedAt: new Date() }));
-    await expect(reportPost(actor("usr_reporter"), "post_1", "spam")).rejects.toMatchObject({
-      name: "NotFoundError",
-      status: 404,
-    });
+    await expect(
+      reportContent(actor("usr_reporter"), { postId: "post_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
   it("rejects an empty / whitespace-only reason", async () => {
     postFindById.mockResolvedValue(postRow());
-    await expect(reportPost(actor("usr_reporter"), "post_1", "   ")).rejects.toMatchObject({
-      name: "ValidationError",
-      status: 400,
-    });
+    await expect(
+      reportContent(actor("usr_reporter"), { postId: "post_1" }, "   "),
+    ).rejects.toMatchObject({ name: "ValidationError", status: 400 });
+    expect(reportCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reason longer than 1000 characters", async () => {
+    postFindById.mockResolvedValue(postRow());
+    await expect(
+      reportContent(actor("usr_reporter"), { postId: "post_1" }, "x".repeat(1001)),
+    ).rejects.toMatchObject({ name: "ValidationError", status: 400 });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
@@ -137,7 +173,11 @@ describe("reportPost", () => {
     postFindById.mockResolvedValue(postRow());
     reportCreate.mockResolvedValue({ id: "rep_1" });
 
-    const result = await reportPost(actor("usr_reporter"), "post_1", "  plagiarised  ");
+    const result = await reportContent(
+      actor("usr_reporter"),
+      { postId: "post_1" },
+      "  plagiarised  ",
+    );
 
     expect(reportCreate).toHaveBeenCalledWith({
       postId: "post_1",
@@ -153,7 +193,56 @@ describe("reportPost", () => {
     reportCreate.mockRejectedValue(dup);
 
     await expect(
-      reportPost(actor("usr_reporter"), "post_1", "duplicate"),
+      reportContent(actor("usr_reporter"), { postId: "post_1" }, "duplicate"),
+    ).rejects.toMatchObject({ name: "ConflictError", status: 409 });
+  });
+});
+
+describe("reportContent — comment target", () => {
+  it("rejects a missing comment", async () => {
+    commentFindById.mockResolvedValue(null);
+    await expect(
+      reportContent(actor("usr_reporter"), { commentId: "cmt_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
+    expect(reportCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a soft-deleted comment", async () => {
+    commentFindById.mockResolvedValue(commentRow({ deletedAt: new Date() }));
+    await expect(
+      reportContent(actor("usr_reporter"), { commentId: "cmt_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
+    expect(reportCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects reporting your own comment with ForbiddenError", async () => {
+    commentFindById.mockResolvedValue(commentRow({ authorId: "usr_commenter" }));
+    await expect(
+      reportContent(actor("usr_commenter"), { commentId: "cmt_1" }, "spam"),
+    ).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+    expect(reportCreate).not.toHaveBeenCalled();
+  });
+
+  it("creates a comment report on the happy path", async () => {
+    commentFindById.mockResolvedValue(commentRow());
+    reportCreate.mockResolvedValue({ id: "rep_1" });
+
+    await reportContent(actor("usr_reporter"), { commentId: "cmt_1" }, "abuse");
+
+    expect(reportCreate).toHaveBeenCalledWith({
+      commentId: "cmt_1",
+      reportedByUserId: "usr_reporter",
+      reason: "abuse",
+    });
+  });
+
+  it("maps the unique-constraint violation to ConflictError", async () => {
+    commentFindById.mockResolvedValue(commentRow());
+    const dup = Object.assign(new Error("unique"), { code: "P2002" });
+    reportCreate.mockRejectedValue(dup);
+
+    await expect(
+      reportContent(actor("usr_reporter"), { commentId: "cmt_1" }, "duplicate"),
     ).rejects.toMatchObject({ name: "ConflictError", status: 409 });
   });
 });
@@ -189,63 +278,94 @@ describe("resolveContentReport", () => {
     ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
   });
 
-  it("resolve soft-deletes the post and marks the report resolved", async () => {
-    reportFindById.mockResolvedValue({ id: "rep_1", postId: "post_1" });
-    postFindById.mockResolvedValue(postRow());
+  it("resolve soft-deletes the post, notifies the author, and marks the report resolved", async () => {
+    reportFindById.mockResolvedValue(reportOnPost(postRow()));
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
 
     expect(postSoftDelete).toHaveBeenCalledWith("post_1");
+    expect(createNotification).toHaveBeenCalledWith({
+      userId: "usr_author",
+      type: "post_removed",
+      params: { problemId: "prob_1", title: "My editorial" },
+      linkUrl: "/problems/prob_1",
+    });
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",
       expect.objectContaining({ status: "resolved", resolvedByUserId: "usr_admin" }),
     );
   });
 
-  it("resolve notifies the author that their post was removed", async () => {
-    reportFindById.mockResolvedValue({ id: "rep_1", postId: "post_1" });
-    postFindById.mockResolvedValue(postRow());
+  it("resolve soft-deletes the comment, notifies its author, and marks the report resolved", async () => {
+    reportFindById.mockResolvedValue(reportOnComment());
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
 
+    expect(commentSoftDelete).toHaveBeenCalledWith("cmt_1");
+    expect(postSoftDelete).not.toHaveBeenCalled();
     expect(createNotification).toHaveBeenCalledWith({
-      userId: "usr_author",
-      type: "editorial_removed",
-      params: { problemId: "prob_1", title: "My editorial" },
+      userId: "usr_commenter",
+      type: "comment_removed",
+      params: { problemId: "prob_1", postTitle: "My editorial" },
       linkUrl: "/problems/prob_1",
     });
+    expect(reportUpdateStatus).toHaveBeenCalledWith(
+      "rep_1",
+      expect.objectContaining({ status: "resolved", resolvedByUserId: "usr_admin" }),
+    );
   });
 
-  it("resolve does not notify when the post no longer exists", async () => {
-    reportFindById.mockResolvedValue({ id: "rep_1", postId: "post_1" });
-    postFindById.mockResolvedValue(null);
+  it("resolve on an already-deleted post neither re-deletes nor re-notifies, but still closes", async () => {
+    reportFindById.mockResolvedValue(reportOnPost(postRow({ deletedAt: new Date() })));
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
+
+    expect(postSoftDelete).not.toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
+    expect(reportUpdateStatus).toHaveBeenCalledWith(
+      "rep_1",
+      expect.objectContaining({ status: "resolved", resolvedByUserId: "usr_admin" }),
+    );
+  });
+
+  it("resolve on an already-deleted comment neither re-deletes nor re-notifies, but still closes", async () => {
+    reportFindById.mockResolvedValue(reportOnComment({ deletedAt: new Date() }));
+    reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
+
+    await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
+
+    expect(commentSoftDelete).not.toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
+    expect(reportUpdateStatus).toHaveBeenCalledWith(
+      "rep_1",
+      expect.objectContaining({ status: "resolved" }),
+    );
+  });
+
+  it("still closes the report when the notification fails", async () => {
+    reportFindById.mockResolvedValue(reportOnPost(postRow()));
+    reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
+    createNotification.mockRejectedValue(new Error("smtp down"));
+
+    await expect(
+      resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve"),
+    ).resolves.toMatchObject({ status: "resolved" });
 
     expect(postSoftDelete).toHaveBeenCalledWith("post_1");
-    expect(createNotification).not.toHaveBeenCalled();
+    expect(reportUpdateStatus).toHaveBeenCalled();
   });
 
-  it("resolve does not notify when the post is already removed", async () => {
-    reportFindById.mockResolvedValue({ id: "rep_1", postId: "post_1" });
-    postFindById.mockResolvedValue(postRow({ deletedAt: new Date() }));
-    reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
-
-    await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
-
-    expect(createNotification).not.toHaveBeenCalled();
-  });
-
-  it("dismiss does not soft-delete the post", async () => {
-    reportFindById.mockResolvedValue({ id: "rep_1", postId: "post_1" });
+  it("dismiss only updates the report status", async () => {
+    reportFindById.mockResolvedValue(reportOnPost(postRow()));
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "dismissed" });
 
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "dismiss");
 
     expect(postSoftDelete).not.toHaveBeenCalled();
+    expect(commentSoftDelete).not.toHaveBeenCalled();
     expect(createNotification).not.toHaveBeenCalled();
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",

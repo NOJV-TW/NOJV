@@ -227,6 +227,53 @@ describe("maybeSendEmails", () => {
     expect(arg.html).toContain("二分搜解法");
   });
 
+  it("uses the post title for post_removed and gates on emailEditorialRemoved", async () => {
+    findManyByUserIds.mockResolvedValue([{ userId: "u1", emailEditorialRemoved: true }]);
+    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
+
+    await maybeSendEmails(
+      [
+        {
+          userId: "u1",
+          type: "post_removed",
+          params: { problemId: "p1", title: "貪心解法" },
+          linkUrl: "/problems/p1",
+        },
+      ],
+      NO_SKIP,
+    );
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const arg = sendEmail.mock.calls[0][0] as { subject: string; html: string };
+    expect(arg.subject).toBe("【NOJV】你的文章〈貪心解法〉已被移除");
+    expect(arg.html).toContain("文章已被移除");
+    expect(arg.html).toContain("貪心解法");
+  });
+
+  it("uses the post title for comment_removed and respects a disabled emailEditorialRemoved", async () => {
+    findManyByUserIds.mockResolvedValue([
+      { userId: "u1", emailEditorialRemoved: true },
+      { userId: "u2", emailEditorialRemoved: false },
+    ]);
+    listEmailByIds.mockResolvedValue([verifiedUser("u1"), verifiedUser("u2")]);
+
+    await maybeSendEmails(
+      ["u1", "u2"].map((userId) => ({
+        userId,
+        type: "comment_removed" as const,
+        params: { problemId: "p1", postTitle: "貪心解法" },
+        linkUrl: "/problems/p1",
+      })),
+      NO_SKIP,
+    );
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const arg = sendEmail.mock.calls[0][0] as { to: string; subject: string; html: string };
+    expect(arg.to).toBe("u1@example.com");
+    expect(arg.subject).toBe("【NOJV】你在〈貪心解法〉下的留言已被移除");
+    expect(arg.html).toContain("留言已被移除");
+  });
+
   it("escapes HTML in the body but leaves the subject as plain text", async () => {
     listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
 

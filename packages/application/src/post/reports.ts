@@ -1,4 +1,4 @@
-import { contentReportRepo, postRepo } from "@nojv/db";
+import { contentReportRepo, postCommentRepo, postRepo } from "@nojv/db";
 
 import * as notificationDomain from "../notification";
 import type { ActorContext } from "../shared/actor-context";
@@ -11,17 +11,31 @@ import {
 
 export type ContentReportStatus = "open" | "resolved" | "dismissed";
 export type ContentReportAction = "resolve" | "dismiss";
+export type ContentReportTarget = { postId: string } | { commentId: string };
 
 const REASON_MAX_LENGTH = 1000;
 
-export async function reportPost(actor: ActorContext, postId: string, reason: string) {
-  const post = await postRepo.findById(postId);
-  if (!post || post.deletedAt) {
-    throw new NotFoundError("Post not found.");
-  }
-
-  if (actor.userId === post.authorId) {
-    throw new ValidationError("You cannot report your own post.");
+export async function reportContent(
+  actor: ActorContext,
+  target: ContentReportTarget,
+  reason: string,
+) {
+  if ("postId" in target) {
+    const post = await postRepo.findById(target.postId);
+    if (!post || post.deletedAt) {
+      throw new NotFoundError("Post not found.");
+    }
+    if (post.authorId === actor.userId) {
+      throw new ForbiddenError("You cannot report your own post.");
+    }
+  } else {
+    const comment = await postCommentRepo.findById(target.commentId);
+    if (!comment || comment.deletedAt) {
+      throw new NotFoundError("Comment not found.");
+    }
+    if (comment.authorId === actor.userId) {
+      throw new ForbiddenError("You cannot report your own comment.");
+    }
   }
 
   const trimmed = reason.trim();
@@ -34,13 +48,13 @@ export async function reportPost(actor: ActorContext, postId: string, reason: st
 
   try {
     return await contentReportRepo.create({
-      postId,
+      ...target,
       reportedByUserId: actor.userId,
       reason: trimmed,
     });
   } catch (err) {
     if (err instanceof Error && (err as { code?: string }).code === "P2002") {
-      throw new ConflictError("You have already reported this post.");
+      throw new ConflictError("You have already reported this content.");
     }
     throw err;
   }
@@ -70,17 +84,28 @@ export async function resolveContentReport(
     throw new NotFoundError("Content report not found.");
   }
 
-  if (action === "resolve" && report.postId) {
-    const post = await postRepo.findById(report.postId);
-    await postRepo.softDelete(report.postId);
-
-    if (post && !post.deletedAt) {
+  if (action === "resolve") {
+    if (report.post && !report.post.deletedAt) {
+      await postRepo.softDelete(report.post.id);
       await notificationDomain
         .createNotification({
-          userId: post.authorId,
-          type: "editorial_removed",
-          params: { problemId: post.problemId, title: post.title },
-          linkUrl: `/problems/${post.problemId}`,
+          userId: report.post.authorId,
+          type: "post_removed",
+          params: { problemId: report.post.problemId, title: report.post.title },
+          linkUrl: `/problems/${report.post.problemId}`,
+        })
+        .catch(() => undefined);
+    } else if (report.comment && !report.comment.deletedAt) {
+      await postCommentRepo.softDelete(report.comment.id);
+      await notificationDomain
+        .createNotification({
+          userId: report.comment.authorId,
+          type: "comment_removed",
+          params: {
+            problemId: report.comment.post.problemId,
+            postTitle: report.comment.post.title,
+          },
+          linkUrl: `/problems/${report.comment.post.problemId}`,
         })
         .catch(() => undefined);
     }
