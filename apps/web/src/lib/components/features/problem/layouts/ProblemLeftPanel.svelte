@@ -70,8 +70,8 @@
     { key: "submissions", label: m.problemDetail_submissions() },
     ...(postsEnabled
       ? [
-          { key: "editorials" as LeftTab, label: m.posts_editorialsTitle() },
           { key: "discussions" as LeftTab, label: m.posts_discussionsTitle() },
+          { key: "editorials" as LeftTab, label: m.posts_editorialsTitle() },
         ]
       : []),
   ]);

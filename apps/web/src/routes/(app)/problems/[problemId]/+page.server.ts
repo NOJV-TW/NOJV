@@ -68,7 +68,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     caseCount: set.testcases.length,
   }));
 
-  const editorialAccess = await canViewPosts(userId, problemId, "editorial", editorialContext);
+  const editorialAccess =
+    actorContext.platformRole === "admin" ||
+    (await canViewPosts(userId, problemId, "editorial", editorialContext));
 
   return {
     allowedLanguages: [],
