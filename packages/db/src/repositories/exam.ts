@@ -77,6 +77,25 @@ export const examRepo = {
     });
   },
 
+  listPublishedWithProblemsByCourse(courseId: string) {
+    return prisma.exam.findMany({
+      where: { courseId, status: "published" },
+      orderBy: { startsAt: "asc" },
+      select: {
+        id: true,
+        title: true,
+        startsAt: true,
+        problems: {
+          orderBy: { ordinal: "asc" },
+          select: {
+            points: true,
+            problem: { select: problemMiniSelect },
+          },
+        },
+      },
+    });
+  },
+
   listManagedForUser(userId: string, managedCourseIds: string[]) {
     const orClauses: Prisma.ExamWhereInput[] = [{ createdByUserId: userId }];
     if (managedCourseIds.length > 0) orClauses.push({ courseId: { in: managedCourseIds } });

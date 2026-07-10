@@ -199,6 +199,7 @@ export const assessmentRepo = {
       select: {
         id: true,
         title: true,
+        opensAt: true,
         problems: {
           orderBy: { ordinal: "asc" },
           select: {
