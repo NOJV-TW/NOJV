@@ -72,7 +72,7 @@ test.describe("API token step-up", () => {
     const page = await context.newPage();
 
     await page.goto("/account/api-tokens");
-    await expect(page).toHaveURL(/\/account\/two-factor/);
+    await expect(page).toHaveURL(/\/account\?verify=totp/);
 
     await context.close();
   });
@@ -83,7 +83,7 @@ test.describe("API token step-up", () => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
 
-    await page.goto("/account/two-factor");
+    await page.goto("/account?verify=totp");
     const passwordInput = page.locator('input[name="password"]');
     await passwordInput.waitFor({ state: "visible" });
     await passwordInput.click();

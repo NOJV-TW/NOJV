@@ -20,7 +20,7 @@ export const load = async (event: RequestEvent) => {
   const hasPasskey = passkeys.length > 0;
 
   if (!hasTotp && !hasPasskey) {
-    redirect(302, "/account/two-factor?returnTo=" + encodeURIComponent(DEFAULT_RETURN_TO));
+    redirect(302, "/account?verify=totp&returnTo=" + encodeURIComponent(DEFAULT_RETURN_TO));
   }
 
   return {

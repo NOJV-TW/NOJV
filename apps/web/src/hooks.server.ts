@@ -271,6 +271,7 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
   }
   if (
     cleanPath.startsWith("/api/") ||
+    cleanPath === "/account" ||
     cleanPath.startsWith("/account/two-factor") ||
     cleanPath.startsWith("/account/api-tokens/verify") ||
     cleanPath.startsWith("/complete-profile") ||
@@ -279,7 +280,7 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
     return;
   }
   if (!user.twoFactorEnabled) {
-    redirect(302, "/account/two-factor");
+    redirect(302, "/account?verify=totp");
   }
   const sessionId = event.locals.session?.id;
   if (sessionId && !(await hasAdminSessionMfa(sessionId))) {

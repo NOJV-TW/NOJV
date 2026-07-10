@@ -58,7 +58,7 @@ test("confirm link consumes the token and sets the per-user confirmed flag", asy
   await page.goto(`/account/two-factor/confirm?token=${token}`);
   await expect(page.getByRole("heading", { name: "確認啟用兩步驟驗證" })).toBeVisible();
   await page.getByRole("button", { name: "確認" }).click();
-  await page.waitForURL(/\/account\/two-factor$/);
+  await page.waitForURL(/\/account\?verify=totp/);
 
   // confirming set the flag that enable() gates on, and burned the one-time token
   expect(redis("GET", `nojv:2fa:enroll-confirmed:${userId}`)).toBe("1");

@@ -109,7 +109,7 @@ const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid", string>
   invalid: "Invalid code. Try again.",
 };
 
-export const load = async (event: RequestEvent) => {
+export const loadTwoFactor = async (event: RequestEvent) => {
   const actor = requireAuth(event);
   const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
   return {
@@ -118,6 +118,7 @@ export const load = async (event: RequestEvent) => {
     hasPassword: await userHasCredentialPassword(actor.userId),
     enrollConfirmed: await hasEnrollConfirmed(actor.userId),
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
+    verifyAutoOpen: event.url.searchParams.get("verify") === "totp",
     passkeys: passkeys.map((p) => ({
       id: p.id,
       name: p.name ?? "Passkey",
@@ -126,7 +127,7 @@ export const load = async (event: RequestEvent) => {
   };
 };
 
-export const actions = {
+export const twoFactorActions = {
   sendConfirm: async (event) => {
     const actor = requireAuth(event);
     if (event.locals.sessionUser?.twoFactorEnabled) {

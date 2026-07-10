@@ -121,7 +121,7 @@ describe("api-tokens load gate", () => {
     const thrown = await caught(() => load(makeEvent()));
     expect(thrown.status).toBe(302);
     expect(thrown.location).toBe(
-      "/account/two-factor?returnTo=" + encodeURIComponent("/account/api-tokens"),
+      "/account?verify=totp&returnTo=" + encodeURIComponent("/account/api-tokens"),
     );
   });
 });

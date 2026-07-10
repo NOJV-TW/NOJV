@@ -71,7 +71,10 @@ vi.mock("$lib/server/shared/rate-limiter", () => ({
   otpSendRateLimiter: { consume: otpConsumeMock },
 }));
 
-import { actions, load } from "$lib/../routes/(app)/account/two-factor/+page.server";
+import {
+  twoFactorActions as actions,
+  loadTwoFactor as load,
+} from "$lib/../routes/(app)/account/two-factor-actions";
 
 const FRESH = new Date();
 const STALE = new Date(Date.now() - 10 * 60 * 1000);

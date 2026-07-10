@@ -24,6 +24,6 @@ export const actions = {
       return fail(400, { status: "error" as const });
     }
     await confirmEnroll(token);
-    redirect(303, "/account/two-factor");
+    redirect(303, "/account?verify=totp");
   },
 } satisfies Actions;

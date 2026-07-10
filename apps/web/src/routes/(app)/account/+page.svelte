@@ -3,8 +3,18 @@
   import { enhance } from "$app/forms";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
-  import { Check, ChevronRight, KeyRound, Pencil, ShieldCheck, X } from "@lucide/svelte";
+  import {
+    Check,
+    ChevronRight,
+    Fingerprint,
+    KeyRound,
+    Pencil,
+    ShieldCheck,
+    X,
+  } from "@lucide/svelte";
   import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
+  import TwoFactorDialog from "$lib/components/features/account/TwoFactorDialog.svelte";
+  import PasskeyDialog from "$lib/components/features/account/PasskeyDialog.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -18,6 +28,11 @@
 
   let editingName = $state(false);
   let editingUsername = $state(false);
+
+  let totpOpen = $state(untrack(() => data.verifyAutoOpen));
+  let passkeyOpen = $state(false);
+
+  const passkeyEnabled = $derived(data.passkeys.length > 0);
 
   let oauthBusy = $state(false);
   let oauthError = $state("");
@@ -138,6 +153,10 @@
     "group flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 text-body-sm font-medium transition-colors duration-fast ease-out-soft hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
   const securityChevronClass =
     "h-4 w-4 text-muted-foreground transition-transform duration-fast ease-out-soft group-hover:translate-x-0.5";
+  const methodRowClass =
+    "flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 text-body-sm font-medium";
+  const methodBtnClass =
+    "shrink-0 rounded-md border border-border px-3 py-1.5 text-caption font-medium transition-colors duration-fast ease-out-soft hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
 
   const usernameLockReason = $derived(
     data.canEditUsername
@@ -330,8 +349,8 @@
 
       <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">
-          <h2 class="text-title-sm">{m.account_securityTitle()}</h2>
-          <p class="text-body-sm text-muted-foreground">{m.account_securityHint()}</p>
+          <h2 class="text-title-sm">{m.account_verification_title()}</h2>
+          <p class="text-body-sm text-muted-foreground">{m.account_verification_hint()}</p>
         </div>
         <div class="flex flex-col gap-2">
           {#if data.hasPassword}
@@ -343,15 +362,52 @@
               <ChevronRight aria-hidden="true" class={securityChevronClass} />
             </a>
           {/if}
-          <a href="/account/two-factor" class={securityLinkClass}>
-            <span class="flex items-center gap-2.5">
-              <ShieldCheck aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
-              {m.account_2fa_title()}
+
+          <div class={methodRowClass}>
+            <span class="flex min-w-0 items-center gap-2.5">
+              <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span class="truncate">{m.account_2fa_title()}</span>
+              <Badge variant={data.twoFactorEnabled ? "success" : "muted"} size="sm" dot>
+                {data.twoFactorEnabled
+                  ? m.account_verification_statusEnabled()
+                  : m.account_verification_statusInactive()}
+              </Badge>
             </span>
-            <ChevronRight aria-hidden="true" class={securityChevronClass} />
-          </a>
+            <button type="button" class={methodBtnClass} onclick={() => (totpOpen = true)}>
+              {data.twoFactorEnabled
+                ? m.account_verification_manage()
+                : m.account_verification_setup()}
+            </button>
+          </div>
+
+          <div class={methodRowClass}>
+            <span class="flex min-w-0 items-center gap-2.5">
+              <Fingerprint aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span class="truncate">Passkey</span>
+              <Badge variant={passkeyEnabled ? "success" : "muted"} size="sm" dot>
+                {passkeyEnabled
+                  ? m.account_verification_statusEnabled()
+                  : m.account_verification_statusInactive()}
+              </Badge>
+            </span>
+            <button type="button" class={methodBtnClass} onclick={() => (passkeyOpen = true)}>
+              {passkeyEnabled
+                ? m.account_verification_manage()
+                : m.account_verification_setup()}
+            </button>
+          </div>
         </div>
       </section>
+
+      <TwoFactorDialog
+        bind:open={totpOpen}
+        twoFactorEnabled={data.twoFactorEnabled}
+        hasPassword={data.hasPassword}
+        isSuperAdmin={data.isSuperAdmin}
+        enrollConfirmed={data.enrollConfirmed}
+        returnTo={data.returnTo}
+      />
+      <PasskeyDialog bind:open={passkeyOpen} passkeys={data.passkeys} />
 
       <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">

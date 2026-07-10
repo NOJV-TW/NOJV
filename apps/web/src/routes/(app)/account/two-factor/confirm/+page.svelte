@@ -36,9 +36,7 @@
           {m.account_2fa_confirmInvalidTitle()}
         </h1>
         <p class="text-body-sm text-muted-foreground">{m.account_2fa_confirmInvalidBody()}</p>
-        <Button href="/account/two-factor" variant="outline"
-          >{m.account_2fa_confirmBackButton()}</Button
-        >
+        <Button href="/account" variant="outline">{m.account_2fa_confirmBackButton()}</Button>
       </div>
     {/if}
   </Card>

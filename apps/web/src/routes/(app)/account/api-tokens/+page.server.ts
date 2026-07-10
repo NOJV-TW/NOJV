@@ -42,7 +42,7 @@ export const load = async (event: RequestEvent) => {
   const actor = requireAuth(event);
 
   if (!(await hasStepUpFactor(event))) {
-    redirect(302, "/account/two-factor?returnTo=" + encodeURIComponent("/account/api-tokens"));
+    redirect(302, "/account?verify=totp&returnTo=" + encodeURIComponent("/account/api-tokens"));
   }
   if (!(await hasFreshStepUp(actor.userId))) {
     redirect(302, "/account/api-tokens/verify");
