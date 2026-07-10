@@ -12,8 +12,8 @@ async function readOwnUserId(page: Page): Promise<string> {
   return id;
 }
 
-async function setProfilePublic(page: Page, value: boolean): Promise<void> {
-  await page.goto("/settings");
+async function setProfilePublic(page: Page, userId: string, value: boolean): Promise<void> {
+  await page.goto(`/users/${userId}`);
   // wait for SvelteKit hydration so the form onchange handler is attached
   await page.waitForTimeout(3000);
   const toggle = page.locator("form[action*='updateProfileVisibility'] input[type='checkbox']");
@@ -31,7 +31,7 @@ test.describe("Public user profile", () => {
     const studentContext = await browser.newContext({ storageState: studentAuth });
     const studentPage = await studentContext.newPage();
     const studentId = await readOwnUserId(studentPage);
-    await setProfilePublic(studentPage, false);
+    await setProfilePublic(studentPage, studentId, false);
 
     const anonContext = await browser.newContext();
     const anonPage = await anonContext.newPage();
@@ -62,7 +62,7 @@ test.describe("Public user profile", () => {
     const studentContext = await browser.newContext({ storageState: studentAuth });
     const studentPage = await studentContext.newPage();
     const studentId = await readOwnUserId(studentPage);
-    await setProfilePublic(studentPage, true);
+    await setProfilePublic(studentPage, studentId, true);
 
     const anonContext = await browser.newContext();
     const anonPage = await anonContext.newPage();
@@ -71,7 +71,7 @@ test.describe("Public user profile", () => {
     await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible();
     await anonContext.close();
 
-    await setProfilePublic(studentPage, false);
+    await setProfilePublic(studentPage, studentId, false);
     await studentContext.close();
   });
 });
