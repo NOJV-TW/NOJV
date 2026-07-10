@@ -40,7 +40,7 @@ export const postCommentSubmitSchema = z.object({
 
 export const postEntrySchema = z.looseObject({
   id: z.string(),
-  type: z.string(),
+  type: problemPostTypeSchema,
   title: z.string(),
   content: z.string(),
   createdAt: z.string(),

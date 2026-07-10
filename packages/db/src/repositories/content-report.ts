@@ -1,6 +1,6 @@
 import { prisma } from "../client";
 import type { ContentReportStatus } from "../../generated/prisma/client";
-import { userPublicSelect } from "./selects";
+import { problemMiniSelect, userPublicSelect } from "./selects";
 
 const reportPostSelect = {
   id: true,
@@ -10,6 +10,7 @@ const reportPostSelect = {
   authorId: true,
   deletedAt: true,
   author: { select: userPublicSelect },
+  problem: { select: problemMiniSelect },
 } as const;
 
 const reportCommentSelect = {
@@ -19,7 +20,15 @@ const reportCommentSelect = {
   authorId: true,
   deletedAt: true,
   author: { select: userPublicSelect },
-  post: { select: { id: true, type: true, title: true, problemId: true } },
+  post: {
+    select: {
+      id: true,
+      type: true,
+      title: true,
+      problemId: true,
+      problem: { select: problemMiniSelect },
+    },
+  },
 } as const;
 
 export const contentReportRepo = {
