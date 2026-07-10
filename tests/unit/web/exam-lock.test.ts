@@ -98,7 +98,7 @@ describe("isExamForbiddenApiPath", () => {
     expect(isExamForbiddenApiPath("/api/submissions")).toBe(false);
     expect(isExamForbiddenApiPath("/api/submissions/s1")).toBe(false);
     expect(isExamForbiddenApiPath("/api/problems/p1")).toBe(false);
-    expect(isExamForbiddenApiPath("/api/editorials/e1")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/posts/p1")).toBe(false);
     expect(isExamForbiddenApiPath("/api/events/stream")).toBe(false);
     expect(isExamForbiddenApiPath("/api/clarifications")).toBe(false);
     expect(isExamForbiddenApiPath("/api/exam-sessions/exam-1/release")).toBe(false);

@@ -2,7 +2,7 @@ import { openApiDocument as publicOpenApiDocument } from "./public-document";
 import { accountPaths } from "./internal/paths/account";
 import { clarificationsPaths } from "./internal/paths/clarifications";
 import { contestsPaths } from "./internal/paths/contests";
-import { editorialsPaths } from "./internal/paths/editorials";
+import { postsPaths } from "./internal/paths/posts";
 import { eventsPaths } from "./internal/paths/events";
 import { examsPaths } from "./internal/paths/exams";
 import { gradingPaths } from "./internal/paths/grading";
@@ -20,7 +20,7 @@ const internalPaths = withInternalAuthMetadata({
   ...accountPaths,
   ...notificationsPaths,
   ...clarificationsPaths,
-  ...editorialsPaths,
+  ...postsPaths,
   ...plagiarismPaths,
   ...examsPaths,
   ...gradingPaths,
@@ -62,7 +62,10 @@ export const internalOpenApiDocument = {
       description: "Clarification board APIs for contests, exams, and assignments.",
     },
     { name: "Notifications", description: "Notification center APIs." },
-    { name: "Editorials", description: "Editorial, report, and vote APIs." },
+    {
+      name: "Posts",
+      description: "Editorial/discussion post, comment, report, and vote APIs.",
+    },
     { name: "Plagiarism", description: "Plagiarism report and flag APIs." },
     { name: "Grading", description: "Score override and grading feedback APIs." },
     { name: "Uploads", description: "Shared upload APIs." },

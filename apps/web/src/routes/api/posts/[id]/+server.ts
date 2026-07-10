@@ -1,35 +1,46 @@
 import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { editorialUpdateSchema, type Language } from "@nojv/core";
+import { postUpdateSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import {
+  apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
-import { editorialDomain } from "@nojv/application";
+import { requireViewablePost } from "$lib/server/post-access";
+import { postDomain } from "@nojv/application";
 
-const { updateEditorial, softDeleteEditorial } = editorialDomain;
+const { updatePost, softDeletePost } = postDomain;
 
 function requireId(event: RequestEvent): string {
   const id = event.params.id;
-  if (!id) throw new HttpError("Editorial id is required.", 400);
+  if (!id) throw new HttpError("Post id is required.", 400);
   return id;
 }
+
+export const GET: RequestHandler = apiHandler(async (event) => {
+  const actor = requireApiAuth(event);
+  const id = requireId(event);
+
+  const post = await requireViewablePost(id, actor);
+  return json(post);
+});
 
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const id = requireId(event);
-  const payload = editorialUpdateSchema.parse(await readJsonBody(event));
+  const payload = postUpdateSchema.parse(await readJsonBody(event));
 
-  const input: { content?: string; language?: Language } = {};
+  const input: { title?: string; content?: string } = {};
+  if (payload.title !== undefined) input.title = payload.title;
   if (payload.content !== undefined) input.content = payload.content;
-  if (payload.language !== undefined) input.language = payload.language;
-  const updated = await updateEditorial(actor, id, input);
+
+  const updated = await updatePost(actor, id, input);
   return json(updated);
 });
 
@@ -38,6 +49,6 @@ export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const id = requireId(event);
 
-  await softDeleteEditorial(actor, id);
+  await softDeletePost(actor, id);
   return new Response(null, { status: 204 });
 });

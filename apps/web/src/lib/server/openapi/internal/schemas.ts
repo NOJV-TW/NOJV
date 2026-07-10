@@ -1,10 +1,13 @@
 import {
+  contentReportSchema,
   contestScoringModeSchema,
-  editorialSubmitSchema,
-  editorialUpdateSchema,
-  editorialVoteSchema,
   feedbackUpsertSchema,
   ipViolationTypeSchema,
+  postCommentSubmitSchema,
+  postSubmitSchema,
+  postUpdateSchema,
+  postVoteSchema,
+  problemPostTypeSchema,
   scoreboardModeSchema,
 } from "@nojv/core";
 import { z } from "zod";
@@ -218,41 +221,37 @@ export const internalSchemas = {
     },
     required: ["templateKey"],
   },
-  EditorialItem: {
+  PostItem: {
     type: "object",
     additionalProperties: true,
     description:
-      "Editorial row returned by the domain layer, including voteScore and viewerVote where available.",
+      "Post row returned by the domain layer, including voteScore and viewerVote where available.",
   },
-  EditorialSubmitRequest: {
-    ...zodToOpenApiSchema(editorialSubmitSchema),
-  },
-  EditorialUpdateRequest: {
-    ...zodToOpenApiSchema(editorialUpdateSchema),
-    description:
-      "At least one field is required. The current route validates title, content, and language; content and language are persisted by the current handler.",
-  },
-  EditorialReportRequest: {
+  PostListPageResponse: {
     type: "object",
     properties: {
-      reason: {
-        type: "string",
-        minLength: 1,
-        maxLength: 1000,
+      items: {
+        type: "array",
+        items: { $ref: "#/components/schemas/PostItem" },
       },
+      total: { type: "integer" },
+      page: { type: "integer" },
+      pageSize: { type: "integer" },
     },
-    required: ["reason"],
+    required: ["items", "total", "page", "pageSize"],
   },
-  EditorialReportItem: {
-    type: "object",
-    additionalProperties: true,
-    description: "Editorial report row returned by the domain layer.",
+  PostCreateRequest: {
+    ...zodToOpenApiSchema(postSubmitSchema.extend({ type: problemPostTypeSchema })),
   },
-  EditorialVoteRequest: {
-    ...zodToOpenApiSchema(editorialVoteSchema),
+  PostUpdateRequest: {
+    ...zodToOpenApiSchema(postUpdateSchema),
+    description: "At least one field (title or content) is required.",
+  },
+  PostVoteRequest: {
+    ...zodToOpenApiSchema(postVoteSchema),
     description: "value=1 upvotes, value=-1 downvotes, and value=0 clears the vote.",
   },
-  EditorialVoteResponse: {
+  PostVoteResponse: {
     type: "object",
     properties: {
       score: {
@@ -264,6 +263,24 @@ export const internalSchemas = {
       },
     },
     required: ["score", "viewerVote"],
+  },
+  PostCommentSubmitRequest: {
+    ...zodToOpenApiSchema(postCommentSubmitSchema),
+    description: "parentId targets a top-level comment; replies cannot be nested deeper.",
+  },
+  PostCommentItem: {
+    type: "object",
+    additionalProperties: true,
+    description:
+      "Comment row returned by the domain layer. Deleted comments have deleted=true and empty content.",
+  },
+  ContentReportRequest: {
+    ...zodToOpenApiSchema(contentReportSchema),
+  },
+  ContentReportItem: {
+    type: "object",
+    additionalProperties: true,
+    description: "Content report row returned by the domain layer.",
   },
   PlagiarismReportItem: {
     type: "object",

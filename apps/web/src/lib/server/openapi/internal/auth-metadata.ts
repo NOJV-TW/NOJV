@@ -39,8 +39,8 @@ function inferScope(tags: readonly string[] | undefined, method: string): string
       return isRead ? "clarifications:read" : "clarifications:write";
     case "Notifications":
       return isRead ? "notifications:read" : "notifications:write";
-    case "Editorials":
-      return isRead ? "editorials:read" : "editorials:write";
+    case "Posts":
+      return isRead ? "posts:read" : "posts:write";
     case "Plagiarism":
       return isRead ? "plagiarism:read" : "plagiarism:write";
     case "Grading":
