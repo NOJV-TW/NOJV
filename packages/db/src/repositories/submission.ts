@@ -602,6 +602,19 @@ export const submissionRepo = {
     });
   },
 
+  findForPlatformStats(from: Date) {
+    return prisma.submission.findMany({
+      where: { sampleOnly: false, createdAt: { gte: from } },
+      select: {
+        createdAt: true,
+        status: true,
+        userId: true,
+        language: true,
+        problemId: true,
+      },
+    });
+  },
+
   groupByStatus(from: Date) {
     return prisma.submission.groupBy({
       by: ["status"],

@@ -1,5 +1,7 @@
 export const keys = {
   adminDashboard: () => "nojv:cache:admin-dashboard",
+  platformOverview: () => "nojv:cache:platform-overview",
+  platformOverviewLock: () => "nojv:cache:platform-overview-lock",
 
   scoreboardUpdateThrottle: (contestId: string) => `nojv:sb-throttle:${contestId}`,
   scoreboardCache: (contestId: string, variant: "live" | "public") =>

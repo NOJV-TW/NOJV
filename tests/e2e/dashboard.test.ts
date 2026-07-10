@@ -45,6 +45,49 @@ test.describe("Dashboard", () => {
     await context.close();
   });
 
+  test("view toggle switches to the site-wide overview", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await page.goto("/dashboard");
+
+    const tour = page.locator(".driver-popover");
+    const tourAppeared = await tour.waitFor({ state: "visible", timeout: 10_000 }).then(
+      () => true,
+      () => false,
+    );
+    if (tourAppeared) {
+      await page.locator(".driver-popover-close-btn").click();
+      await tour.waitFor({ state: "hidden" });
+    }
+
+    const serverTab = page.getByRole("button", { name: /Site-wide|全服總覽/i });
+    await expect(serverTab).toBeVisible({ timeout: 10_000 });
+    await serverTab.click();
+
+    await expect(page).toHaveURL(/view=server/);
+    await expect(page.getByText(/Site submission trend|全服提交趨勢/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText(/Trending problems|熱門題目/i).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /My overview|個人總覽/i }).click();
+    await expect(page).not.toHaveURL(/view=server/);
+
+    await context.close();
+  });
+
+  test("direct link to ?view=server renders the site-wide overview", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: newStudentAuth });
+    const page = await context.newPage();
+    await page.goto("/dashboard?view=server");
+
+    await expect(page.getByText(/Site submission trend|全服提交趨勢/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await context.close();
+  });
+
   test("teacher dashboard loads", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();

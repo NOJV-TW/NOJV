@@ -1,15 +1,18 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { invalidateAll } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
+  import { page } from "$app/state";
   import { AlertTriangle, Code2, LineChart, PieChart } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
+  import PlatformOverview from "$lib/components/features/dashboard/PlatformOverview.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
   import { Skeleton } from "$lib/components/primitives/ui/skeleton";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
@@ -23,6 +26,22 @@
   const stats = $derived(data.stats);
   const analytics = $derived(data.analytics);
   const hasActivity = $derived(stats.totalAttempts > 0);
+
+  const viewTabs = $derived([
+    { value: "personal", label: m.dashboard_viewPersonal() },
+    { value: "server", label: m.dashboard_viewServer() },
+  ]);
+
+  function setView(next: string) {
+    const url = new URL(page.url);
+    if (next === "server") url.searchParams.set("view", "server");
+    else url.searchParams.delete("view");
+    void goto(`?${url.searchParams.toString()}`, {
+      keepFocus: true,
+      replaceState: true,
+      noScroll: true,
+    });
+  }
 
   const acRate = $derived(
     stats.totalAttempts > 0
@@ -328,7 +347,13 @@
     description={m.dashboard_subtitle()}
   />
 
-  {#if !hasActivity}
+  <div class="mb-6">
+    <TabStrip tabs={viewTabs} activeTabValue={data.view} onChange={setView} />
+  </div>
+
+  {#if data.view === "server" && data.platform}
+    <PlatformOverview overview={data.platform} {themeColors} />
+  {:else if !hasActivity}
     <WelcomeGuide username={data.displayName} platformRole={data.platformRole} />
   {:else}
     <div class="space-y-6">
