@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { tick } from "svelte";
-  import { enhance } from "$app/forms";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale, locales, setLocale } from "$lib/paraglide/runtime.js";
@@ -13,7 +11,6 @@
     type ThemeMode,
   } from "$lib/stores/theme";
   import NotificationPreferencesDialog from "$lib/components/features/account/NotificationPreferencesDialog.svelte";
-  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -22,18 +19,6 @@
   let { data }: { data: PageData } = $props();
 
   let notificationsOpen = $state(false);
-
-  let profilePublic = $state(false);
-  let visibilityForm: HTMLFormElement;
-
-  $effect(() => {
-    profilePublic = data.profilePublic;
-  });
-
-  async function submitVisibility() {
-    await tick();
-    visibilityForm.requestSubmit();
-  }
 
   const localeLabels: Record<string, string> = { en: "English", "zh-TW": "中文" };
   const currentLocale = getLocale();
@@ -113,33 +98,6 @@
             </div>
           </div>
         </div>
-      </section>
-
-      <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
-        <div class="flex flex-col gap-1">
-          <h2 class="text-title-sm">{m.settings_profileVisibilityTitle()}</h2>
-          <p class="text-body-sm text-muted-foreground">{m.settings_profileVisibilityHint()}</p>
-        </div>
-        <form
-          bind:this={visibilityForm}
-          method="POST"
-          action="?/updateProfileVisibility"
-          use:enhance
-          class="flex items-center justify-between gap-4"
-          onchange={submitVisibility}
-        >
-          <span class="text-body-sm">{m.settings_profilePublicLabel()}</span>
-          <input type="hidden" name="profilePublic" value={String(profilePublic)} />
-          <ToggleSwitch bind:checked={profilePublic} />
-        </form>
-        {#if profilePublic && page.data.user}
-          <a
-            href="/users/{page.data.user.id}"
-            class="text-body-sm font-medium text-primary hover:underline"
-          >
-            {m.settings_viewProfile()}
-          </a>
-        {/if}
       </section>
 
       <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">

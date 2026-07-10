@@ -1,4 +1,4 @@
-import { notificationDomain, userDomain } from "@nojv/application";
+import { notificationDomain } from "@nojv/application";
 import { notificationPreferencesSchema } from "@nojv/core";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
@@ -16,13 +16,10 @@ export const load: PageServerLoad = async ({ locals }) => {
   }
 
   const platformRole = locals.sessionUser?.platformRole ?? "student";
-  const [prefs, user] = await Promise.all([
-    notificationDomain.getNotificationPreferences(locals.user.id),
-    userDomain.getUserById(locals.user.id),
-  ]);
+  const prefs = await notificationDomain.getNotificationPreferences(locals.user.id);
   const notificationForm = await superValidate(prefs, zod4(notificationPreferencesSchema));
 
-  return { platformRole, notificationForm, profilePublic: user?.profilePublic ?? false };
+  return { platformRole, notificationForm };
 };
 
 export const actions = {
@@ -36,15 +33,5 @@ export const actions = {
     await notificationDomain.updateNotificationPreferences(actor.userId, form.data);
 
     return message<FormMessage>(form, { kind: "success", text: "OK" });
-  }),
-
-  updateProfileVisibility: withRateLimit(async (event) => {
-    const actor = requireAuth(event);
-    const formData = await event.request.formData();
-    const profilePublic = formData.get("profilePublic") === "true";
-
-    await userDomain.updateProfileVisibility(actor.userId, profilePublic);
-
-    return { success: true };
   }),
 } satisfies Actions;

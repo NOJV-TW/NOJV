@@ -1,8 +1,12 @@
 <script lang="ts">
-  import { EyeOff, LineChart, PieChart } from "@lucide/svelte";
+  import { onDestroy, tick } from "svelte";
+  import { enhance } from "$app/forms";
+  import { Check, EyeOff, LineChart, PieChart, Share2 } from "@lucide/svelte";
   import type { EChartsOption } from "echarts";
   import { m } from "$lib/paraglide/messages.js";
   import { Card } from "$lib/components/primitives/ui/card";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
@@ -15,6 +19,34 @@
   const profile = $derived(data.profile);
   const user = $derived(data.profile.user);
   const initial = $derived(user.name.trim().charAt(0).toUpperCase() || "?");
+
+  let profilePublic = $state(false);
+  let visibilityForm: HTMLFormElement | undefined = $state();
+
+  $effect(() => {
+    profilePublic = user.profilePublic;
+  });
+
+  async function submitVisibility() {
+    await tick();
+    visibilityForm?.requestSubmit();
+  }
+
+  let linkCopied = $state(false);
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async function shareProfile() {
+    try {
+      await navigator.clipboard.writeText(`${location.origin}/users/${user.id}`);
+    } catch {
+      return;
+    }
+    linkCopied = true;
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => (linkCopied = false), 2000);
+  }
+
+  onDestroy(() => clearTimeout(copyTimer));
 
   const activityModel = $derived(buildActivityModel(profile.activity, new Date(), 365));
   const hasHeatmapData = $derived(activityModel.heatmapDays.some((d) => d.submissionCount > 0));
@@ -148,6 +180,32 @@
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl space-y-6 fade-up">
+  {#if data.isOwner}
+    <div class="flex flex-wrap items-center justify-end gap-x-5 gap-y-3">
+      <form
+        bind:this={visibilityForm}
+        method="POST"
+        action="?/updateProfileVisibility"
+        use:enhance
+        class="flex items-center gap-2.5"
+        onchange={submitVisibility}
+      >
+        <span class="text-body-sm text-muted-foreground">{m.userProfile_publicLabel()}</span>
+        <input type="hidden" name="profilePublic" value={String(profilePublic)} />
+        <ToggleSwitch bind:checked={profilePublic} />
+      </form>
+      <Button variant="outline" size="sm" onclick={shareProfile}>
+        {#if linkCopied}
+          <Check aria-hidden="true" class="text-primary" />
+          {m.userProfile_linkCopied()}
+        {:else}
+          <Share2 aria-hidden="true" />
+          {m.userProfile_share()}
+        {/if}
+      </Button>
+    </div>
+  {/if}
+
   <Card variant="surface" size="lg">
     <div class="flex flex-wrap items-center gap-5">
       <div
