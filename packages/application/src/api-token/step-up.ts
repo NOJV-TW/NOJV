@@ -3,7 +3,9 @@ import { getRedis, keys } from "@nojv/redis";
 
 const STEPUP_TTL_SECONDS = 600;
 const ADMIN_MFA_TTL_SECONDS = 604800;
+const TOKEN_PAGE_MFA_TTL_SECONDS = 3600;
 const OTP_DEDUPE_TTL_SECONDS = 120;
+const SUPER_ADMIN_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const TOTP_CODE_LENGTH = 6;
 
 const STEPUP_CODE_PATTERN = new RegExp(`^\\d{${String(TOTP_CODE_LENGTH)}}$`);
@@ -35,6 +37,22 @@ export async function markAdminSessionMfa(sessionId: string): Promise<void> {
 
 export async function hasAdminSessionMfa(sessionId: string): Promise<boolean> {
   return (await getRedis().get(keys.adminSessionMfa(sessionId))) !== null;
+}
+
+export async function markTokenPageMfa(sessionId: string): Promise<void> {
+  await getRedis().set(keys.tokenPageMfa(sessionId), "1", "EX", TOKEN_PAGE_MFA_TTL_SECONDS);
+}
+
+export async function hasTokenPageMfa(sessionId: string): Promise<boolean> {
+  return (await getRedis().get(keys.tokenPageMfa(sessionId))) !== null;
+}
+
+export async function clearTokenPageMfa(sessionId: string): Promise<void> {
+  await getRedis().del(keys.tokenPageMfa(sessionId));
+}
+
+export function isSuperAdminSessionExpired(createdAt: Date, now: Date = new Date()): boolean {
+  return now.getTime() - createdAt.getTime() > SUPER_ADMIN_SESSION_MAX_AGE_MS;
 }
 
 export async function markAdminMode(sessionId: string): Promise<void> {

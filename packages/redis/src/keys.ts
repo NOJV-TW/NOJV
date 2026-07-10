@@ -18,9 +18,12 @@ export const keys = {
     `nojv:clarification-staff:${contextType}:${contextId}`,
 
   apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
+  tokenPageMfa: (sessionId: string) => `nojv:apitoken:page-mfa:${sessionId}`,
   adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
   adminMode: (sessionId: string) => `nojv:admin:mode:${sessionId}`,
-  twoFactorEnrollConfirm: (tokenHash: string) => `nojv:2fa:enroll-confirm:${tokenHash}`,
-  twoFactorEnrollConfirmed: (userId: string) => `nojv:2fa:enroll-confirmed:${userId}`,
   twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,
+  twoFactorActivationOtp: (userId: string) => `nojv:2fa:activation-otp:${userId}`,
+  twoFactorActivationOtpAttempts: (userId: string) =>
+    `nojv:2fa:activation-otp-attempts:${userId}`,
+  twoFactorChangeGrant: (userId: string) => `nojv:2fa:change-grant:${userId}`,
 } as const;
