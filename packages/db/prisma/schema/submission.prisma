@@ -199,60 +199,86 @@ model SubmissionFeedbackAuditLog {
   @@index([studentUserId, problemId, createdAt(sort: Desc)])
 }
 
-enum EditorialReportStatus {
+enum ContentReportStatus {
   open
   resolved
   dismissed
 }
 
-model Editorial {
-  id        String            @id @default(cuid())
-  userId    String
+enum ProblemPostType {
+  editorial
+  discussion
+}
+
+model ProblemPost {
+  id        String          @id @default(cuid())
+  type      ProblemPostType
+  authorId  String
   problemId String
-  title     String            @default("")
-  content   String            @db.Text
-  language  SupportedLanguage
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  title     String
+  content   String          @db.Text
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
   deletedAt DateTime?
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  reports   EditorialReport[]
-  votes     EditorialVote[]
+  author    User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  problem   Problem         @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  comments  PostComment[]
+  reports   ContentReport[]
+  votes     PostVote[]
 
-  @@unique([userId, problemId, language])
-  @@index([problemId, createdAt])
+  @@index([problemId, type, createdAt])
 }
 
-model EditorialVote {
-  id          String   @id @default(cuid())
-  editorialId String
-  userId      String
-  value       Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model PostVote {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  value     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  editorial Editorial @relation(fields: [editorialId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post ProblemPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([editorialId, userId])
-  @@index([editorialId])
+  @@unique([postId, userId])
+  @@index([postId])
 }
 
-model EditorialReport {
-  id               String                @id @default(cuid())
-  editorialId      String
+model PostComment {
+  id        String    @id @default(cuid())
+  postId    String
+  authorId  String
+  parentId  String?
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  post    ProblemPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author  User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent  PostComment?    @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies PostComment[]   @relation("CommentReplies")
+  reports ContentReport[]
+
+  @@index([postId, createdAt])
+}
+
+model ContentReport {
+  id               String              @id @default(cuid())
+  postId           String?
+  commentId        String?
   reportedByUserId String
-  reason           String                @db.Text
-  status           EditorialReportStatus @default(open)
+  reason           String              @db.Text
+  status           ContentReportStatus @default(open)
   resolvedByUserId String?
   resolvedAt       DateTime?
-  createdAt        DateTime              @default(now())
+  createdAt        DateTime            @default(now())
 
-  editorial  Editorial @relation(fields: [editorialId], references: [id], onDelete: Cascade)
-  reportedBy User      @relation("EditorialReportReporter", fields: [reportedByUserId], references: [id], onDelete: Cascade)
-  resolvedBy User?     @relation("EditorialReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  post       ProblemPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment    PostComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reportedBy User         @relation("ContentReportReporter", fields: [reportedByUserId], references: [id], onDelete: Cascade)
+  resolvedBy User?        @relation("ContentReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
 
-  @@unique([editorialId, reportedByUserId])
+  @@unique([postId, reportedByUserId])
+  @@unique([commentId, reportedByUserId])
   @@index([status, createdAt])
 }

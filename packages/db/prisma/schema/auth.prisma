@@ -50,8 +50,9 @@ model User {
   triggeredExamPlagiarisms       Exam[]                       @relation("ExamPlagiarismTriggerer")
   triggeredContestPlagiarisms    Contest[]                    @relation("ContestPlagiarismTriggerer")
   triggeredAssessmentPlagiarisms Assessment[]                 @relation("AssessmentPlagiarismTriggerer")
-  editorials                     Editorial[]
-  editorialVotes                 EditorialVote[]
+  problemPosts                   ProblemPost[]
+  postVotes                      PostVote[]
+  postComments                   PostComment[]
   ipViolationLogs                IpViolationLog[]
   activeExamSessions             ActiveExamSession[]          @relation("ActiveExamSessionUser")
   notifications                  Notification[]
@@ -65,8 +66,8 @@ model User {
   plagiarismPairFlags            PlagiarismPairFlag[]         @relation("PlagiarismPairFlagFlagger")
   clarificationsAnswered         Clarification[]              @relation("ClarificationAnswerer")
   assessmentAuditLogs            AssessmentAuditLog[]         @relation("AssessmentAuditActor")
-  editorialReportsFiled          EditorialReport[]            @relation("EditorialReportReporter")
-  editorialReportsResolved       EditorialReport[]            @relation("EditorialReportResolver")
+  contentReportsFiled            ContentReport[]              @relation("ContentReportReporter")
+  contentReportsResolved         ContentReport[]              @relation("ContentReportResolver")
   submissionFeedbackReceived     SubmissionFeedback[]         @relation("SubmissionFeedbackStudent")
   submissionFeedbackAuthored     SubmissionFeedback[]         @relation("SubmissionFeedbackAuthor")
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")

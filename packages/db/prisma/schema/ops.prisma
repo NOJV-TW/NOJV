@@ -60,6 +60,8 @@ enum AdminAuditAction {
   user_delete
   editorial_report_resolve
   editorial_report_dismiss
+  content_report_resolve
+  content_report_dismiss
   announcement_create
   announcement_delete
 }
