@@ -66,5 +66,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     content: payload.content,
   });
 
-  return json(post, { status: 200 });
+  return json(post, { status: 201 });
 });

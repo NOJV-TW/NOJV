@@ -95,7 +95,7 @@ export const postsPaths = {
         },
       },
       responses: {
-        "200": {
+        "201": {
           description: "Post created",
           content: {
             "application/json": {
@@ -349,7 +349,7 @@ export const postsPaths = {
         },
       },
       responses: {
-        "200": {
+        "201": {
           description: "Comment created",
           content: {
             "application/json": {
@@ -377,7 +377,8 @@ export const postsPaths = {
       tags: ["Posts"],
       summary: "Report a post",
       operationId: "reportPost",
-      description: "Reports a post. Users cannot report their own posts.",
+      description:
+        "Reports a post. Users cannot report their own posts and must be allowed to view posts of its type.",
       parameters: [
         {
           name: "id",
@@ -407,6 +408,11 @@ export const postsPaths = {
         "400": {
           description: "Missing post id or invalid request body",
           content: validationErrorContent,
+        },
+        "403": {
+          description:
+            "Reporting your own post, or a post the current user cannot view, is not allowed",
+          content: errorContent,
         },
         "404": {
           description: "Post not found",
@@ -458,7 +464,8 @@ export const postsPaths = {
       tags: ["Posts"],
       summary: "Report a comment",
       operationId: "reportComment",
-      description: "Reports a comment. Users cannot report their own comments.",
+      description:
+        "Reports a comment. Users cannot report their own comments and must be allowed to view the post the comment belongs to.",
       parameters: [
         {
           name: "id",
@@ -488,6 +495,11 @@ export const postsPaths = {
         "400": {
           description: "Missing comment id or invalid request body",
           content: validationErrorContent,
+        },
+        "403": {
+          description:
+            "Reporting your own comment, or a comment the current user cannot view, is not allowed",
+          content: errorContent,
         },
         "404": {
           description: "Comment not found",

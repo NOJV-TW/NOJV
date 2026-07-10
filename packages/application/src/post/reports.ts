@@ -29,20 +29,15 @@ export async function reportContent(
     throw new ValidationError("Report reason must be at most 1000 characters.");
   }
 
+  let post;
   if ("postId" in target) {
-    const post = await postRepo.findById(target.postId);
+    post = await postRepo.findById(target.postId);
     if (!post || post.deletedAt) {
       throw new NotFoundError("Post not found.");
     }
     if (post.authorId === actor.userId) {
       throw new ForbiddenError("You cannot report your own post.");
     }
-    await assertCanInteractWithPosts(
-      actor.userId,
-      post.problemId,
-      post.type,
-      "You cannot report content you cannot view.",
-    );
   } else {
     const comment = await postCommentRepo.findById(target.commentId);
     if (!comment || comment.deletedAt) {
@@ -51,17 +46,18 @@ export async function reportContent(
     if (comment.authorId === actor.userId) {
       throw new ForbiddenError("You cannot report your own comment.");
     }
-    const post = await postRepo.findById(comment.postId);
+    post = await postRepo.findById(comment.postId);
     if (!post) {
       throw new NotFoundError("Post not found.");
     }
-    await assertCanInteractWithPosts(
-      actor.userId,
-      post.problemId,
-      post.type,
-      "You cannot report content you cannot view.",
-    );
   }
+
+  await assertCanInteractWithPosts(
+    actor.userId,
+    post.problemId,
+    post.type,
+    "You cannot report content you cannot view.",
+  );
 
   try {
     return await contentReportRepo.create({

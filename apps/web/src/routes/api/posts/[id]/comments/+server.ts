@@ -42,5 +42,5 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     parentId: payload.parentId ?? null,
   });
 
-  return json(comment, { status: 200 });
+  return json(comment, { status: 201 });
 });

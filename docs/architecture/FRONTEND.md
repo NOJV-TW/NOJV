@@ -103,7 +103,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/problems/[id]/interactor`                               | POST               | Upload the interactor script                                                                   |
 | `/api/problems/[id]/workspace/files`                          | POST               | Upload / replace a workspace file                                                              |
 | `/api/problems/[id]/storage-usage`                            | GET                | Per-problem object-storage usage                                                               |
-| `/api/problems/[id]/editorials`                               | GET, POST          | Problem editorials (AC-gated)                                                                  |
+| `/api/problems/[id]/posts`                                    | GET, POST          | Problem posts, `?type=editorial\|discussion` (editorial view AC-gated; blocked during exams)   |
 | `/api/problems/[id]/images`                                   | POST               | Upload problem image (magic-number validated)                                                  |
 | `/api/problems/[id]/advanced-package`                         | POST               | Upload advanced-mode package zip and prebuild judge images                                     |
 | `/api/uploads/image`                                          | POST               | Generic image upload (announcements, editorials)                                               |
@@ -114,9 +114,12 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/clarifications`                                         | GET, POST          | Clarifications list / new                                                                      |
 | `/api/clarifications/[id]`                                    | PATCH              | Answer or dismiss a clarification                                                              |
 | `/api/clarifications/[id]/replies`                            | POST               | Canned-reply / templated answer                                                                |
-| `/api/editorials/[id]`                                        | PATCH, DELETE      | Edit / soft-delete editorial                                                                   |
-| `/api/editorials/[id]/votes`                                  | POST               | Cast / change an up-or-down vote on an editorial                                               |
-| `/api/editorials/[id]/reports`                                | POST               | File a report against an editorial (feeds the admin moderation queue)                          |
+| `/api/posts/[id]`                                             | GET, PATCH, DELETE | Read / edit / soft-delete a post (author or admin for writes)                                  |
+| `/api/posts/[id]/votes`                                       | POST               | Cast / change an up-or-down vote on a post                                                     |
+| `/api/posts/[id]/comments`                                    | GET, POST          | List / add comments on a post (one-level replies)                                              |
+| `/api/posts/[id]/reports`                                     | POST               | File a report against a post (feeds the admin moderation queue)                                |
+| `/api/comments/[id]`                                          | DELETE             | Soft-delete a comment (author or admin)                                                        |
+| `/api/comments/[id]/reports`                                  | POST               | File a report against a comment (feeds the admin moderation queue)                             |
 | `/api/overrides`                                              | GET, POST          | List / create score overrides (writes gated post-close, admin bypass)                          |
 | `/api/overrides/[id]`                                         | PATCH, DELETE      | Update / remove score override (writes gated post-close, admin bypass)                         |
 | `/api/feedback`                                               | GET, PUT           | List / upsert per-cell grading feedback (assignment + exam; writes gated post-close)           |
