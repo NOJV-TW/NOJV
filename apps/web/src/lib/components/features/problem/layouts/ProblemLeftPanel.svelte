@@ -8,28 +8,27 @@
   import { m } from "$lib/paraglide/messages.js";
   import ProblemDescriptionPanel from "../left-panel/ProblemDescriptionPanel.svelte";
   import SubmissionHistoryPanel from "../left-panel/SubmissionHistoryPanel.svelte";
-  import EditorialListPanel from "../left-panel/EditorialListPanel.svelte";
+  import PostPanel from "../left-panel/PostPanel.svelte";
 
   export interface ProblemLeftPanelProps {
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
-    editorialsEnabled?: boolean;
+    postsEnabled?: boolean;
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     submissions?: ProblemSubmissionEntry[];
-    leftTab?: "description" | "editorials" | "submissions";
+    leftTab?: "description" | "editorials" | "discussions" | "submissions";
     viewingId?: string | null;
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
     allowedLanguages?: string[] | undefined;
-    editorialFormIdSuffix?: string;
   }
 
   let {
     backLink,
     canRejudge = false,
     canViewEditorials = false,
-    editorialsEnabled = false,
+    postsEnabled = false,
     dailyAttempts,
     submissions = $bindable([]),
     leftTab: initialLeftTab = "description",
@@ -37,10 +36,9 @@
     problem,
     testcaseSets = [],
     allowedLanguages,
-    editorialFormIdSuffix = "",
   }: ProblemLeftPanelProps = $props();
 
-  let leftTab = $state<"description" | "editorials" | "submissions">(
+  let leftTab = $state<"description" | "editorials" | "discussions" | "submissions">(
     untrack(() => initialLeftTab),
   );
   let viewingId = $state<string | null>(untrack(() => initialViewingId));
@@ -66,12 +64,15 @@
 
   const uid = $props.id();
 
-  type LeftTab = "description" | "editorials" | "submissions";
+  type LeftTab = "description" | "editorials" | "discussions" | "submissions";
   let tabDefs = $derived<{ key: LeftTab; label: string }[]>([
     { key: "description", label: m.problemDetail_description() },
     { key: "submissions", label: m.problemDetail_submissions() },
-    ...(editorialsEnabled
-      ? [{ key: "editorials" as LeftTab, label: m.editorials_title() }]
+    ...(postsEnabled
+      ? [
+          { key: "editorials" as LeftTab, label: m.posts_editorialsTitle() },
+          { key: "discussions" as LeftTab, label: m.posts_discussionsTitle() },
+        ]
       : []),
   ]);
 
@@ -149,12 +150,9 @@
       {canRejudge}
       total={problem.totalScore}
     />
-  {:else if editorialsEnabled && leftTab === "editorials"}
-    <EditorialListPanel
-      problemId={problem.id}
-      {hasAc}
-      active={leftTab === "editorials"}
-      formIdSuffix={editorialFormIdSuffix}
-    />
+  {:else if postsEnabled && leftTab === "editorials"}
+    <PostPanel problemId={problem.id} type="editorial" canView={hasAc} />
+  {:else if postsEnabled && leftTab === "discussions"}
+    <PostPanel problemId={problem.id} type="discussion" canView={true} />
   {/if}
 </div>

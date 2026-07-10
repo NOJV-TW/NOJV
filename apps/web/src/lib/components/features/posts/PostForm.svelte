@@ -1,7 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { ProblemPostType } from "@nojv/core";
-  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
@@ -11,11 +10,14 @@
   interface Props {
     type: ProblemPostType;
     problemId: string;
-    basePath: string;
     post?: { id: string; title: string; content: string } | undefined;
+    onSaved: (id: string) => void;
+    onCancel: () => void;
   }
 
-  let { type, problemId, basePath, post }: Props = $props();
+  let { type, problemId, post, onSaved, onCancel }: Props = $props();
+
+  const uid = $props.id();
 
   let title = $state(untrack(() => post?.title ?? ""));
   let content = $state(untrack(() => post?.content ?? ""));
@@ -44,7 +46,7 @@
       if (res.ok) {
         const body: { id: string } = await res.json();
         toasts.success(post ? m.posts_savedToast() : m.posts_publishedToast());
-        await goto(`${basePath}/${body.id}`);
+        onSaved(body.id);
       } else {
         const body = await res.json().catch(() => null);
         toasts.error(body?.message ?? (post ? m.posts_saveError() : m.posts_submitError()));
@@ -58,15 +60,18 @@
 </script>
 
 <div class="grid gap-4">
+  {#if type === "discussion"}
+    <p class="text-caption text-muted-foreground">{m.posts_spoilerHint()}</p>
+  {/if}
   <div>
     <label
       class="mb-1 block text-caption font-medium text-muted-foreground"
-      for="post-form-title"
+      for="{uid}-post-title"
     >
       {m.posts_titleLabel()}
     </label>
     <input
-      id="post-form-title"
+      id="{uid}-post-title"
       class="w-full rounded-md border border-border bg-background px-3 py-1.5 text-body-sm"
       maxlength="200"
       placeholder={m.posts_titlePlaceholder()}
@@ -76,14 +81,14 @@
   <div>
     <label
       class="mb-1 block text-caption font-medium text-muted-foreground"
-      for="post-form-content"
+      for="{uid}-post-content"
     >
       {m.posts_contentLabel()}
     </label>
     <ImageDropZone
-      id="post-form-content"
+      id="{uid}-post-content"
       class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
-      rows="16"
+      rows="10"
       name="content"
       placeholder={m.posts_contentPlaceholder()}
       bind:value={content}
@@ -100,11 +105,8 @@
         {saving ? m.posts_submitting() : m.posts_submit()}
       {/if}
     </Button>
-    <a
-      href={post ? `${basePath}/${post.id}` : basePath}
-      class="rounded-md border border-border px-4 py-1.5 text-caption font-medium transition-[background-color,border-color] duration-fast ease-out-soft hover:bg-accent"
-    >
+    <Button variant="outline" onclick={onCancel}>
       {m.common_cancel()}
-    </a>
+    </Button>
   </div>
 </div>

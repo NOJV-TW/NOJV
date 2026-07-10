@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import type { ProblemPostType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -13,14 +12,17 @@
   interface Props {
     postId: string;
     type: ProblemPostType;
-    comments: PostCommentEntry[];
     viewerId: string;
     isAdmin: boolean;
   }
 
-  let { postId, type, comments: initialComments, viewerId, isAdmin }: Props = $props();
+  let { postId, type, viewerId, isAdmin }: Props = $props();
 
-  let comments = $state<PostCommentEntry[]>(untrack(() => initialComments));
+  const uid = $props.id();
+
+  let comments = $state<PostCommentEntry[]>([]);
+  let loaded = $state(false);
+  let loadFailed = $state(false);
   let newComment = $state("");
   let replyTo = $state<string | null>(null);
   let replyContent = $state("");
@@ -47,19 +49,32 @@
   }
 
   async function refresh() {
-    const res = await fetch(`/api/posts/${postId}/comments`);
-    if (!res.ok) return;
-    const rows: PostCommentEntry[] = await res.json();
-    comments = rows.map((row) => ({
-      id: row.id,
-      parentId: row.parentId,
-      content: row.content,
-      createdAt: row.createdAt,
-      authorId: row.authorId,
-      author: row.author,
-      deleted: row.deleted,
-    }));
+    try {
+      const res = await fetch(`/api/posts/${postId}/comments`);
+      if (!res.ok) {
+        loadFailed = !loaded;
+        return;
+      }
+      const rows: PostCommentEntry[] = await res.json();
+      comments = rows.map((row) => ({
+        id: row.id,
+        parentId: row.parentId,
+        content: row.content,
+        createdAt: row.createdAt,
+        authorId: row.authorId,
+        author: row.author,
+        deleted: row.deleted,
+      }));
+      loaded = true;
+      loadFailed = false;
+    } catch {
+      loadFailed = !loaded;
+    }
   }
+
+  $effect(() => {
+    void refresh();
+  });
 
   async function submitComment(content: string, parentId: string | null) {
     if (submitting || content.trim().length === 0) return;
@@ -168,10 +183,14 @@
     <p class="mt-1 text-caption text-muted-foreground">{m.posts_spoilerHint()}</p>
   {/if}
 
+  {#if loadFailed}
+    <p class="mt-3 text-body-sm text-muted-foreground">{m.posts_loadError()}</p>
+  {/if}
+
   <div class="mt-3">
-    <label class="sr-only" for="post-comment-input">{m.posts_commentPlaceholder()}</label>
+    <label class="sr-only" for="{uid}-comment-input">{m.posts_commentPlaceholder()}</label>
     <textarea
-      id="post-comment-input"
+      id="{uid}-comment-input"
       class="w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm leading-6"
       rows="3"
       maxlength="5000"
@@ -195,11 +214,11 @@
 
         {#if replyTo === comment.id}
           <div class="mt-3 border-l-2 border-border-subtle pl-4">
-            <label class="sr-only" for="post-reply-input-{comment.id}">
+            <label class="sr-only" for="{uid}-reply-input-{comment.id}">
               {m.posts_replyPlaceholder()}
             </label>
             <textarea
-              id="post-reply-input-{comment.id}"
+              id="{uid}-reply-input-{comment.id}"
               class="w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm leading-6"
               rows="2"
               maxlength="5000"
