@@ -12,6 +12,8 @@
 
   let { open = $bindable(false), endpoint }: Props = $props();
 
+  const uid = $props.id();
+
   let reason = $state("");
   let submitting = $state(false);
   let alreadyReported = $state(false);
@@ -53,7 +55,9 @@
     <Dialog.Header>
       <Dialog.Title>{m.posts_reportTitle()}</Dialog.Title>
     </Dialog.Header>
+    <label class="sr-only" for="{uid}-report-reason">{m.posts_reportReasonPlaceholder()}</label>
     <textarea
+      id="{uid}-report-reason"
       class="w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm leading-6"
       rows="4"
       maxlength="1000"

@@ -4,10 +4,10 @@
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import PostListView from "../../posts/PostListView.svelte";
-  import PostArticleView from "../../posts/PostArticleView.svelte";
-  import PostForm from "../../posts/PostForm.svelte";
-  import type { PostListItem } from "../../posts/types";
+  import PostListView from "$lib/components/features/posts/PostListView.svelte";
+  import PostArticleView from "$lib/components/features/posts/PostArticleView.svelte";
+  import PostForm from "$lib/components/features/posts/PostForm.svelte";
+  import type { PostListItem } from "$lib/components/features/posts/types";
 
   interface Props {
     problemId: string;
@@ -39,16 +39,25 @@
     page.data.user?.platformRole === "admin" && (page.data.actingAsAdmin ?? false),
   );
 
+  let requestSeq = 0;
+
   async function loadList(target: number) {
-    if (loading) return;
+    const seq = ++requestSeq;
     loading = true;
     try {
       const res = await fetch(
         `/api/problems/${problemId}/posts?type=${type}&page=${target}&pageSize=${pageSize}&sort=${sort}`,
       );
+      if (seq !== requestSeq) return;
       if (res.ok) {
         const parsed = postListResponseSchema.safeParse(await res.json());
+        if (seq !== requestSeq) return;
         if (parsed.success) {
+          const lastPage = Math.max(1, Math.ceil(parsed.data.total / pageSize));
+          if (parsed.data.items.length === 0 && parsed.data.page > lastPage) {
+            void loadList(lastPage);
+            return;
+          }
           items = parsed.data.items;
           total = parsed.data.total;
           pageNum = parsed.data.page;
@@ -63,10 +72,13 @@
       }
       loaded = true;
     } catch {
+      if (seq !== requestSeq) return;
       loadFailed = true;
       loaded = true;
     } finally {
-      loading = false;
+      if (seq === requestSeq) {
+        loading = false;
+      }
     }
   }
 
