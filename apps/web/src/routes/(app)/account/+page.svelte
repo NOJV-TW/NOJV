@@ -349,7 +349,7 @@
 
       <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">
-          <h2 class="text-title-sm">{m.account_verification_title()}</h2>
+          <h2 class="text-title-sm">{m.account_securityTitle()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_verification_hint()}</p>
         </div>
         <div class="flex flex-col gap-2">
@@ -366,7 +366,7 @@
           <div class={methodRowClass}>
             <span class="flex min-w-0 items-center gap-2.5">
               <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span class="truncate">{m.account_2fa_title()}</span>
+              <span class="truncate">{m.account_verification_totp()}</span>
               <Badge variant={data.twoFactorEnabled ? "success" : "muted"} size="sm" dot>
                 {data.twoFactorEnabled
                   ? m.account_verification_statusEnabled()
