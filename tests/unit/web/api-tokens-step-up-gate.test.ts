@@ -2,8 +2,9 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  hasFreshStepUpMock,
-  hasStepUpFactorMock,
+  isTwoFactorActivatedMock,
+  hasTokenPageMfaMock,
+  markTokenPageMfaMock,
   markStepUpFreshMock,
   verifyStepUpCodeMock,
   createApiTokenMock,
@@ -11,8 +12,9 @@ const {
   rotateApiTokenMock,
   revokeApiTokenMock,
 } = vi.hoisted(() => ({
-  hasFreshStepUpMock: vi.fn(),
-  hasStepUpFactorMock: vi.fn(),
+  isTwoFactorActivatedMock: vi.fn(),
+  hasTokenPageMfaMock: vi.fn(),
+  markTokenPageMfaMock: vi.fn(),
   markStepUpFreshMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
   createApiTokenMock: vi.fn(),
@@ -26,8 +28,9 @@ vi.mock("$lib/server/step-up", async () => {
     await vi.importActual<typeof import("$lib/server/step-up")>("$lib/server/step-up");
   return {
     ...actual,
-    hasFreshStepUp: hasFreshStepUpMock,
-    hasStepUpFactor: hasStepUpFactorMock,
+    isTwoFactorActivated: isTwoFactorActivatedMock,
+    hasTokenPageMfa: hasTokenPageMfaMock,
+    markTokenPageMfa: markTokenPageMfaMock,
     markStepUpFresh: markStepUpFreshMock,
     verifyStepUpCode: verifyStepUpCodeMock,
   };
@@ -57,6 +60,7 @@ function makeEvent(body?: FormData): RequestEvent {
   return {
     locals: {
       user: { id: "usr_1" },
+      session: { id: "sess_1" },
       sessionUser: {
         id: "usr_1",
         username: "alice",
@@ -98,8 +102,9 @@ async function caught(
 }
 
 beforeEach(() => {
-  hasFreshStepUpMock.mockReset();
-  hasStepUpFactorMock.mockReset().mockResolvedValue(true);
+  isTwoFactorActivatedMock.mockReset().mockResolvedValue(true);
+  hasTokenPageMfaMock.mockReset().mockResolvedValue(true);
+  markTokenPageMfaMock.mockReset().mockResolvedValue(undefined);
   markStepUpFreshMock.mockReset().mockResolvedValue(undefined);
   verifyStepUpCodeMock.mockReset();
   createApiTokenMock.mockReset();
@@ -109,20 +114,20 @@ beforeEach(() => {
 });
 
 describe("api-tokens load gate", () => {
-  it("redirects to /verify when there is no fresh step-up marker", async () => {
-    hasFreshStepUpMock.mockResolvedValue(false);
-    const thrown = await caught(() => load(makeEvent()));
-    expect(thrown.status).toBe(302);
-    expect(thrown.location).toBe("/account/api-tokens/verify");
-  });
-
-  it("redirects to enroll when there is no step-up factor (no 2FA, no passkey)", async () => {
-    hasStepUpFactorMock.mockResolvedValue(false);
+  it("redirects to account setup when the master switch is off", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(false);
     const thrown = await caught(() => load(makeEvent()));
     expect(thrown.status).toBe(302);
     expect(thrown.location).toBe(
-      "/account?verify=totp&returnTo=" + encodeURIComponent("/account/api-tokens"),
+      "/account?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"),
     );
+  });
+
+  it("redirects to /verify when the session has not passed the token-page step-up", async () => {
+    hasTokenPageMfaMock.mockResolvedValue(false);
+    const thrown = await caught(() => load(makeEvent()));
+    expect(thrown.status).toBe(302);
+    expect(thrown.location).toBe("/account/api-tokens/verify");
   });
 });
 
@@ -135,9 +140,9 @@ const guardedActions = [
 
 describe("api-tokens action guard", () => {
   it.each(guardedActions)(
-    "%s returns fail(403) when there is no fresh step-up marker",
+    "%s returns fail(403) when the token-page step-up marker is missing",
     async (_name, getAction, domainMock) => {
-      hasFreshStepUpMock.mockResolvedValue(false);
+      hasTokenPageMfaMock.mockResolvedValue(false);
       const result = await getAction()(makeEvent());
       expect(result).toMatchObject({ status: 403 });
       expect(domainMock).not.toHaveBeenCalled();
@@ -145,18 +150,16 @@ describe("api-tokens action guard", () => {
   );
 
   it.each(guardedActions)(
-    "%s returns fail(403) when the marker is fresh but there is no step-up factor",
+    "%s returns fail(403) when the master switch is off",
     async (_name, getAction, domainMock) => {
-      hasFreshStepUpMock.mockResolvedValue(true);
-      hasStepUpFactorMock.mockResolvedValue(false);
+      isTwoFactorActivatedMock.mockResolvedValue(false);
       const result = await getAction()(makeEvent());
       expect(result).toMatchObject({ status: 403 });
       expect(domainMock).not.toHaveBeenCalled();
     },
   );
 
-  it("create proceeds to the domain call when the marker is fresh", async () => {
-    hasFreshStepUpMock.mockResolvedValue(true);
+  it("create proceeds to the domain call when activated and the marker is present", async () => {
     createApiTokenMock.mockResolvedValue({ token: "tok", item: { id: "t1" } });
     const result = await actions.create(makeEvent());
     expect(createApiTokenMock).toHaveBeenCalledOnce();
@@ -169,14 +172,15 @@ describe("api-tokens verify action", () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "malformed" });
     const result = await verifyActions.default(verifyEvent("12ab"));
     expect(result).toMatchObject({ status: 400 });
-    expect(markStepUpFreshMock).not.toHaveBeenCalled();
+    expect(markTokenPageMfaMock).not.toHaveBeenCalled();
   });
 
-  it("verifies a valid code and marks step-up", async () => {
+  it("verifies a valid code and marks the token-page step-up", async () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     const thrown = await caught(() => verifyActions.default(verifyEvent("123456")));
     expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
     expect(markStepUpFreshMock).toHaveBeenCalledWith("usr_1");
+    expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_1");
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
   });
@@ -185,7 +189,7 @@ describe("api-tokens verify action", () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     const thrown = await caught(() => verifyActions.default(verifyEvent("abc12-XY34z")));
     expect(verifyStepUpCodeMock).toHaveBeenCalledOnce();
-    expect(markStepUpFreshMock).toHaveBeenCalledWith("usr_1");
+    expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_1");
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
   });
@@ -194,13 +198,13 @@ describe("api-tokens verify action", () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "replayed" });
     const result = await verifyActions.default(verifyEvent("123456"));
     expect(result).toMatchObject({ status: 401 });
-    expect(markStepUpFreshMock).not.toHaveBeenCalled();
+    expect(markTokenPageMfaMock).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid code with fail(401)", async () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "invalid" });
     const result = await verifyActions.default(verifyEvent("123456"));
     expect(result).toMatchObject({ status: 401 });
-    expect(markStepUpFreshMock).not.toHaveBeenCalled();
+    expect(markTokenPageMfaMock).not.toHaveBeenCalled();
   });
 });
