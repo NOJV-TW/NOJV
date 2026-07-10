@@ -47,13 +47,18 @@ export const postEntrySchema = z.looseObject({
   voteScore: z.number(),
   viewerVote: z.number(),
   commentCount: z.number(),
-  user: z.object({
+  author: z.object({
     username: z.string().nullable(),
     name: z.string(),
   }),
 });
 
-export const postListResponseSchema = z.array(postEntrySchema);
+export const postListResponseSchema = z.object({
+  items: z.array(postEntrySchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
 
 export type ProblemPostType = z.infer<typeof problemPostTypeSchema>;
 export type PostSubmitInput = z.infer<typeof postSubmitSchema>;

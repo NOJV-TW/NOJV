@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Lock } from "@lucide/svelte";
-  import { editorialListResponseSchema, supportedLanguages, type Language } from "@nojv/core";
+  import { postListResponseSchema } from "@nojv/core";
   import { page } from "$app/state";
   import type { ProblemEditorialEntry } from "$lib/types";
   import { formatDate } from "$lib/utils/datetime";
@@ -27,7 +27,6 @@
   let showEditorialForm = $state(false);
   let editorialTitle = $state("");
   let editorialContent = $state("");
-  let editorialLanguage = $state<Language>("python");
   let editorialSubmitting = $state(false);
 
   let selectedId = $state<string | null>(null);
@@ -61,7 +60,7 @@
     if (reportSubmitting || reportReason.trim().length === 0) return;
     reportSubmitting = true;
     try {
-      const res = await fetchWithCsrf(`/api/editorials/${editorialId}/reports`, {
+      const res = await fetchWithCsrf(`/api/posts/${editorialId}/reports`, {
         method: "POST",
         body: JSON.stringify({ reason: reportReason.trim() }),
       });
@@ -85,7 +84,7 @@
     const value = editorial.viewerVote === direction ? 0 : direction;
     votingId = editorial.id;
     try {
-      const res = await fetchWithCsrf(`/api/editorials/${editorial.id}/votes`, {
+      const res = await fetchWithCsrf(`/api/posts/${editorial.id}/votes`, {
         method: "POST",
         body: JSON.stringify({ value }),
       });
@@ -107,27 +106,20 @@
     }
   }
 
-  const editorialLanguageId = $derived(
-    `editorial-language${formIdSuffix ? `-${formIdSuffix}` : ""}`,
-  );
   const editorialTitleId = $derived(`editorial-title${formIdSuffix ? `-${formIdSuffix}` : ""}`);
 
   async function loadEditorials() {
     if (editorialsLoading) return;
     editorialsLoading = true;
     try {
-      const res = await fetch(`/api/problems/${problemId}/editorials`);
+      const res = await fetch(`/api/problems/${problemId}/posts?type=editorial`);
       if (res.ok) {
-        const parsed = editorialListResponseSchema.safeParse(await res.json());
-        editorials = parsed.success ? (parsed.data as ProblemEditorialEntry[]) : [];
+        const parsed = postListResponseSchema.safeParse(await res.json());
+        editorials = parsed.success ? (parsed.data.items as ProblemEditorialEntry[]) : [];
         editorialsForbidden = false;
       } else {
-        // Server is the source of truth: a stale in-session AC can leave hasAc
-        // optimistic (e.g. the problem got re-locked by an active assessment),
-        // so the gate returns 403. Record it instead of retrying forever.
         editorialsForbidden = res.status === 403;
       }
-      // Mark loaded on any settled response so the $effect stops re-firing.
       editorialsLoaded = true;
     } finally {
       editorialsLoading = false;
@@ -138,12 +130,12 @@
     if (editorialSubmitting) return;
     editorialSubmitting = true;
     try {
-      const res = await fetchWithCsrf(`/api/problems/${problemId}/editorials`, {
+      const res = await fetchWithCsrf(`/api/problems/${problemId}/posts`, {
         method: "POST",
         body: JSON.stringify({
+          type: "editorial",
           title: editorialTitle.trim(),
           content: editorialContent,
-          language: editorialLanguage,
         }),
       });
       if (res.ok) {
@@ -184,7 +176,7 @@
     </div>
   {:else if selectedEditorial}
     {@const editorial = selectedEditorial}
-    {@const isOwn = viewerUsername !== null && editorial.user.username === viewerUsername}
+    {@const isOwn = viewerUsername !== null && editorial.author.username === viewerUsername}
     <button
       class="mb-4 inline-flex items-center gap-1.5 text-caption font-medium text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
       onclick={() => (selectedId = null)}
@@ -227,9 +219,7 @@
       <div class="min-w-0 flex-1">
         <h2 class="text-body font-semibold leading-snug">{displayTitle(editorial)}</h2>
         <div class="mt-1 flex flex-wrap items-center gap-2 text-caption text-muted-foreground">
-          <span>{m.editorials_by()} {editorial.user.name ?? editorial.user.username}</span>
-          <span class="rounded-full bg-muted px-2 py-0.5 font-medium">{editorial.language}</span
-          >
+          <span>{m.editorials_by()} {editorial.author.name}</span>
           <span class="tabular-nums">{formatDate(editorial.createdAt)}</span>
           {#if !isOwn}
             <button
@@ -306,23 +296,6 @@
           />
         </div>
         <div class="mb-3">
-          <label
-            class="mb-1 block text-caption font-medium text-muted-foreground"
-            for={editorialLanguageId}
-          >
-            {m.editorials_language()}
-          </label>
-          <select
-            id={editorialLanguageId}
-            class="w-full rounded-md border border-border bg-background px-3 py-1.5 text-body-sm"
-            bind:value={editorialLanguage}
-          >
-            {#each supportedLanguages as lang (lang)}
-              <option value={lang}>{lang}</option>
-            {/each}
-          </select>
-        </div>
-        <div class="mb-3">
           <ImageDropZone
             class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
             rows="10"
@@ -369,10 +342,7 @@
                 </span>
                 <span class="mt-0.5 flex items-center gap-2 text-caption text-muted-foreground">
                   <span class="truncate">
-                    {editorial.user.name ?? editorial.user.username}
-                  </span>
-                  <span class="rounded-full bg-muted px-1.5 py-0.5 font-medium">
-                    {editorial.language}
+                    {editorial.author.name}
                   </span>
                 </span>
               </span>
