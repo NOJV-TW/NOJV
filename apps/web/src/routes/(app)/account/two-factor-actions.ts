@@ -1,34 +1,32 @@
+import {
+  clearTwoFactorChangeGrant,
+  generateActivationOtp,
+  hasTwoFactorChangeGrant,
+  isTwoFactorActivated,
+  markTwoFactorChangeGrant,
+  setTwoFactorActivated,
+  storeActivationOtp,
+  verifyActivationOtp,
+} from "@nojv/application";
 import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
-import type { Session } from "better-auth";
 
-import { env } from "$env/dynamic/private";
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
+import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
-import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
+import { otpSendRateLimiter, stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   clearStepUp,
+  hasFreshStepUp,
+  hasStepUpFactor,
   markAdminSessionMfa,
   userHasCredentialPassword,
   verifyStepUpCode,
 } from "$lib/server/step-up";
-import {
-  clearEnrollConfirmed,
-  generateEnrollToken,
-  hasEnrollConfirmed,
-  storeEnrollConfirm,
-} from "$lib/server/two-factor-enroll";
 
 const logger = createLogger("two-factor");
-
-const ENROLL_FRESH_WINDOW_MS = 5 * 60 * 1000;
-
-function freshEnough(session: Session | null): boolean {
-  if (!session) return false;
-  return Date.now() - new Date(session.createdAt).getTime() < ENROLL_FRESH_WINDOW_MS;
-}
 
 function sanitizeReturnTo(value: string | null): string | null {
   return typeof value === "string" && value.startsWith("/account/") ? value : null;
@@ -72,24 +70,32 @@ function formString(formData: FormData, name: string): string {
   return (typeof value === "string" ? value : "").trim();
 }
 
-function confirmEmailHtml(url: string): string {
+function otpEmailHtml(code: string): string {
   return renderEmail({
-    heading: "確認啟用兩步驟驗證 · Confirm two-factor setup",
-    intro:
-      "<p>有人正在為你的 NOJV 帳號啟用兩步驟驗證。請點擊下方按鈕前往確認頁面。</p><p>Someone is enabling two-factor authentication on your NOJV account. Click the button below to confirm.</p>",
-    action: { url, label: "確認啟用 · Confirm" },
+    heading: "兩步驟驗證碼 · Two-factor verification code",
+    intro: `<p>請在 NOJV 頁面輸入以下驗證碼以繼續。</p><p>Enter this code on NOJV to continue.</p><p style="font-size:28px;font-weight:700;letter-spacing:6px;margin:20px 0">${code}</p>`,
     outro:
-      "此連結 10 分鐘內有效。若你並未要求啟用，請忽略這封信並儘速確認帳號安全。<br>This link is valid for 10 minutes. If you didn't request this, ignore this email and secure your account.",
+      "此驗證碼 10 分鐘內有效，且僅能使用一次。若你並未要求此驗證碼，請忽略這封信並儘速確認帳號安全。<br>This code is valid for 10 minutes and can be used once. If you didn't request it, ignore this email and secure your account.",
   });
 }
 
-function enabledEmailHtml(): string {
+function activatedEmailHtml(): string {
   return renderEmail({
-    heading: "已啟用兩步驟驗證 · Two-factor enabled",
+    heading: "已開啟兩步驟驗證 · Two-factor turned on",
     intro:
-      "<p>你的 NOJV 帳號已成功啟用兩步驟驗證 (TOTP)。從現在起，管理 API 權杖等敏感操作會要求輸入驗證器產生的驗證碼。</p><p>Two-factor authentication (TOTP) is now enabled on your NOJV account. Sensitive actions such as managing API tokens will now require a code from your authenticator.</p>",
+      "<p>你的 NOJV 帳號已開啟兩步驟驗證。管理 API 權杖等敏感操作將要求第二重驗證(驗證器或 passkey)。</p><p>Two-factor authentication is now on for your NOJV account. Sensitive actions such as managing API tokens will require a second factor (authenticator or passkey).</p>",
     outro:
       "若這不是你本人操作，請立即聯絡管理員。<br>If this wasn't you, contact an administrator immediately.",
+  });
+}
+
+function deactivatedEmailHtml(): string {
+  return renderEmail({
+    heading: "已關閉兩步驟驗證 · Two-factor turned off",
+    intro:
+      "<p>你的 NOJV 帳號已關閉兩步驟驗證。你設定的驗證器與 passkey 仍會保留，重新開啟後即可再次生效。</p><p>Two-factor authentication has been turned off for your NOJV account. Your authenticator and passkeys are kept and will work again once you turn it back on.</p>",
+    outro:
+      "若這不是你本人操作，請立即聯絡管理員並檢查帳號安全。<br>If this wasn't you, contact an administrator and secure your account.",
   });
 }
 
@@ -109,16 +115,77 @@ const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid", string>
   invalid: "Invalid code. Try again.",
 };
 
+const EMAIL_OTP_FAIL_MESSAGE: Record<"expired" | "invalid" | "locked", string> = {
+  expired: "That code has expired. Request a new one.",
+  invalid: "Invalid code. Try again.",
+  locked: "Too many attempts. Request a new code.",
+};
+
+interface StepUpFailure {
+  ok: false;
+  status: 400 | 401 | 403;
+  error?: string;
+  needsStepUp?: boolean;
+}
+
+/**
+ * Authorizes a change to a user's 2FA configuration. A device factor (TOTP code
+ * or a fresh passkey assertion) is required whenever one exists; email OTP is a
+ * fallback only when the user has no usable device factor. A recent activation
+ * grant or (for password users, when allowPassword) a password also authorize.
+ */
+async function authorizeTwoFactorChange(
+  event: RequestEvent,
+  formData: FormData,
+  opts: { allowPassword: boolean },
+): Promise<{ ok: true; password?: string } | StepUpFailure> {
+  const actor = requireAuth(event);
+
+  if (opts.allowPassword && (await userHasCredentialPassword(actor.userId))) {
+    const password = formString(formData, "password");
+    if (!password) return { ok: false, status: 400, error: "Enter your password to continue." };
+    return { ok: true, password };
+  }
+
+  if (await hasTwoFactorChangeGrant(actor.userId)) return { ok: true };
+
+  if (await hasStepUpFactor(event)) {
+    const code = formString(formData, "code");
+    if (code) {
+      const result = await verifyStepUpCode(actor.userId, code, event.request.headers);
+      if (result.ok) return { ok: true };
+      return {
+        ok: false,
+        status: result.reason === "malformed" ? 400 : 401,
+        error: STEP_UP_FAIL_MESSAGE[result.reason],
+      };
+    }
+    if (await hasFreshStepUp(actor.userId)) return { ok: true };
+    return { ok: false, status: 403, needsStepUp: true };
+  }
+
+  const otp = formString(formData, "otp");
+  if (!otp) return { ok: false, status: 403, needsStepUp: true };
+  const result = await verifyActivationOtp(actor.userId, otp);
+  if (result.ok) return { ok: true };
+  return {
+    ok: false,
+    status: result.reason === "invalid" ? 401 : 400,
+    error: EMAIL_OTP_FAIL_MESSAGE[result.reason],
+  };
+}
+
 export const loadTwoFactor = async (event: RequestEvent) => {
   const actor = requireAuth(event);
   const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
   return {
+    twoFactorActivated: await isTwoFactorActivated(actor.userId),
     twoFactorEnabled: event.locals.sessionUser?.twoFactorEnabled ?? false,
     isSuperAdmin: event.locals.sessionUser?.isSuperAdmin ?? false,
     hasPassword: await userHasCredentialPassword(actor.userId),
-    enrollConfirmed: await hasEnrollConfirmed(actor.userId),
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
     verifyAutoOpen: event.url.searchParams.get("verify") === "totp",
+    activateAutoOpen: event.url.searchParams.get("setup2fa") === "1",
     passkeys: passkeys.map((p) => ({
       id: p.id,
       name: p.name ?? "Passkey",
@@ -128,71 +195,133 @@ export const loadTwoFactor = async (event: RequestEvent) => {
 };
 
 export const twoFactorActions = {
-  sendConfirm: async (event) => {
+  sendEmailOtp: async (event) => {
     const actor = requireAuth(event);
-    if (event.locals.sessionUser?.twoFactorEnabled) {
-      return fail(400, { error: "Two-factor authentication is already enabled." });
-    }
-    if (await userHasCredentialPassword(actor.userId)) {
-      return fail(400, { error: "Confirm your password instead of an email link." });
-    }
-    if (!freshEnough(event.locals.session)) {
-      return fail(403, { needsReauth: true });
+    const activated = await isTwoFactorActivated(actor.userId);
+    const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
+    const hasDeviceFactor =
+      (event.locals.sessionUser?.twoFactorEnabled ?? false) || passkeys.length > 0;
+    if (activated && hasDeviceFactor) {
+      return fail(400, { error: "Use your authenticator or passkey to verify." });
     }
     try {
       await otpSendRateLimiter.consume(actor.userId);
     } catch {
       return fail(429, { error: "Too many requests. Please try again later." });
     }
-    const token = generateEnrollToken();
-    await storeEnrollConfirm(actor.userId, token);
-    if (!env.BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL is required");
-    const confirmUrl = `${env.BETTER_AUTH_URL}/account/two-factor/confirm?token=${token}`;
-    await getMailer().sendEmail({
-      to: actor.email,
-      subject: "NOJV 兩步驟驗證 — 確認啟用",
-      html: confirmEmailHtml(confirmUrl),
-    });
+    const otp = generateActivationOtp();
+    await storeActivationOtp(actor.userId, otp);
+    try {
+      await getMailer().sendEmail({
+        to: actor.email,
+        subject: "NOJV 兩步驟驗證碼",
+        html: otpEmailHtml(otp),
+      });
+    } catch (err) {
+      logger.error("2FA email OTP send failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return fail(502, { error: "Could not send the code. Please try again." });
+    }
+    if (getWebEnv().NODE_ENV === "development") {
+      return { sent: true, devOtp: otp };
+    }
     return { sent: true };
+  },
+
+  activate: async (event) => {
+    const actor = requireAuth(event);
+    if (await isTwoFactorActivated(actor.userId)) {
+      return fail(400, { error: "Two-factor authentication is already on." });
+    }
+    try {
+      await stepUpAttemptRateLimiter.consume(actor.userId);
+    } catch {
+      return fail(429, { error: "Too many attempts. Please try again later." });
+    }
+    const otp = formString(await event.request.formData(), "otp");
+    const result = await verifyActivationOtp(actor.userId, otp);
+    if (!result.ok) {
+      return fail(result.reason === "invalid" ? 401 : 400, {
+        error: EMAIL_OTP_FAIL_MESSAGE[result.reason],
+      });
+    }
+    await setTwoFactorActivated(actor.userId, true);
+    await markTwoFactorChangeGrant(actor.userId);
+    try {
+      await getMailer().sendEmail({
+        to: actor.email,
+        subject: "NOJV 已開啟兩步驟驗證",
+        html: activatedEmailHtml(),
+      });
+    } catch (err) {
+      logger.error("2FA activated notification email failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return { activated: true };
+  },
+
+  deactivate: async (event) => {
+    const actor = requireAuth(event);
+    if (!(await isTwoFactorActivated(actor.userId))) {
+      return fail(400, { error: "Two-factor authentication is not on." });
+    }
+    const formData = await event.request.formData();
+    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: false });
+    if (!authz.ok) {
+      return fail(
+        authz.status,
+        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
+      );
+    }
+    await setTwoFactorActivated(actor.userId, false);
+    await clearStepUp(actor.userId);
+    await clearTwoFactorChangeGrant(actor.userId);
+    try {
+      await getMailer().sendEmail({
+        to: actor.email,
+        subject: "NOJV 已關閉兩步驟驗證",
+        html: deactivatedEmailHtml(),
+      });
+    } catch (err) {
+      logger.error("2FA deactivated notification email failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return { deactivated: true };
   },
 
   enable: async (event) => {
     const actor = requireAuth(event);
-    if (!freshEnough(event.locals.session)) {
-      return fail(403, { needsReauth: true });
+    if (!(await isTwoFactorActivated(actor.userId))) {
+      return fail(400, { needsActivation: true });
     }
     const formData = await event.request.formData();
-    const body: { password?: string } = {};
-    const passwordless = !(await userHasCredentialPassword(actor.userId));
-    if (!passwordless) {
-      const password = formString(formData, "password");
-      if (!password) {
-        return fail(400, { error: "Enter your password to continue." });
-      }
-      body.password = password;
-    } else if (!(await hasEnrollConfirmed(actor.userId))) {
-      return fail(400, {
-        error: "Click the confirmation link we emailed you, then try again.",
-      });
+    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: true });
+    if (!authz.ok) {
+      return fail(
+        authz.status,
+        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
+      );
     }
+    const body: { password?: string } = {};
+    if (authz.password) body.password = authz.password;
     try {
       const res = await getAuth().api.enableTwoFactor({
         body,
         headers: event.request.headers,
       });
-      if (passwordless) {
-        await clearEnrollConfirmed(actor.userId);
-      }
       return { totpURI: res.totpURI, backupCodes: res.backupCodes };
     } catch {
       return fail(400, {
-        error: "Could not start enrollment. Check your password and try again.",
+        error: "Could not start enrollment. Check your details and try again.",
       });
     }
   },
 
   verify: async (event) => {
-    const actor = requireAuth(event);
+    requireAuth(event);
     const formData = await event.request.formData();
     const code = formString(formData, "code");
     try {
@@ -203,22 +332,11 @@ export const twoFactorActions = {
       });
       forwardSetCookies(event, headers);
       const sessionId = event.locals.session?.id;
-      if (event.locals.sessionUser?.isSuperAdmin && sessionId) {
+      if (sessionId && event.locals.sessionUser?.isSuperAdmin) {
         await markAdminSessionMfa(sessionId);
       }
     } catch {
       return fail(401, { error: "Invalid code. Try again." });
-    }
-    try {
-      await getMailer().sendEmail({
-        to: actor.email,
-        subject: "NOJV 已啟用兩步驟驗證",
-        html: enabledEmailHtml(),
-      });
-    } catch (err) {
-      logger.error("2FA enabled notification email failed", {
-        err: err instanceof Error ? err.message : String(err),
-      });
     }
     const returnTo = sanitizeReturnTo(
       formString(formData, "returnTo") || event.url.searchParams.get("returnTo"),
@@ -235,25 +353,15 @@ export const twoFactorActions = {
       return fail(400, { error: "Two-factor authentication is not enabled." });
     }
     const formData = await event.request.formData();
-    const body: { password?: string } = {};
-    if (await userHasCredentialPassword(actor.userId)) {
-      const password = formString(formData, "password");
-      if (!password) {
-        return fail(400, { error: "Enter your password to continue." });
-      }
-      body.password = password;
-    } else {
-      const result = await verifyStepUpCode(
-        actor.userId,
-        formString(formData, "code"),
-        event.request.headers,
+    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: true });
+    if (!authz.ok) {
+      return fail(
+        authz.status,
+        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
       );
-      if (!result.ok) {
-        return fail(result.reason === "malformed" ? 400 : 401, {
-          error: STEP_UP_FAIL_MESSAGE[result.reason],
-        });
-      }
     }
+    const body: { password?: string } = {};
+    if (authz.password) body.password = authz.password;
     try {
       const { headers } = await getAuth().api.disableTwoFactor({
         body,
@@ -264,35 +372,25 @@ export const twoFactorActions = {
       await clearStepUp(actor.userId);
       return { disabled: true };
     } catch {
-      return fail(400, { error: "Could not disable. Check your password and try again." });
+      return fail(400, { error: "Could not disable. Check your details and try again." });
     }
   },
 
   regenerate: async (event) => {
-    const actor = requireAuth(event);
+    requireAuth(event);
     if (!event.locals.sessionUser?.twoFactorEnabled) {
       return fail(400, { error: "Two-factor authentication is not enabled." });
     }
     const formData = await event.request.formData();
-    const body: { password?: string } = {};
-    if (await userHasCredentialPassword(actor.userId)) {
-      const password = formString(formData, "password");
-      if (!password) {
-        return fail(400, { error: "Enter your password to continue." });
-      }
-      body.password = password;
-    } else {
-      const result = await verifyStepUpCode(
-        actor.userId,
-        formString(formData, "code"),
-        event.request.headers,
+    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: true });
+    if (!authz.ok) {
+      return fail(
+        authz.status,
+        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
       );
-      if (!result.ok) {
-        return fail(result.reason === "malformed" ? 400 : 401, {
-          error: STEP_UP_FAIL_MESSAGE[result.reason],
-        });
-      }
     }
+    const body: { password?: string } = {};
+    if (authz.password) body.password = authz.password;
     try {
       const res = await getAuth().api.generateBackupCodes({
         body,
@@ -301,16 +399,24 @@ export const twoFactorActions = {
       return { backupCodes: res.backupCodes };
     } catch {
       return fail(400, {
-        error: "Could not regenerate codes. Check your password and try again.",
+        error: "Could not regenerate codes. Check your details and try again.",
       });
     }
   },
 
   deletePasskey: async (event) => {
     const actor = requireAuth(event);
-    const id = formString(await event.request.formData(), "id");
+    const formData = await event.request.formData();
+    const id = formString(formData, "id");
     if (!id) {
       return fail(400, { error: "Missing passkey id." });
+    }
+    const authz = await authorizeTwoFactorChange(event, formData, { allowPassword: false });
+    if (!authz.ok) {
+      return fail(
+        authz.status,
+        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
+      );
     }
     try {
       await getAuth().api.deletePasskey({ body: { id }, headers: event.request.headers });

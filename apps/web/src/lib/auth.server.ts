@@ -149,6 +149,7 @@ function createAuth() {
           const userId = newSession?.user.id;
           if (userId) {
             await getRedis().set(keys.apiTokenStepUp(userId), "1", "EX", 600);
+            await getRedis().set(keys.tokenPageMfa(newSession.session.id), "1", "EX", 3600);
             const isSuperAdmin = (newSession.user as { isSuperAdmin?: boolean }).isSuperAdmin;
             if (isSuperAdmin) {
               await getRedis().set(
