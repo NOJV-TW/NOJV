@@ -22,7 +22,7 @@
   backLink={data.backLink}
   canRejudge={data.canRejudge}
   canViewEditorials={data.canViewEditorials}
-  editorialsEnabled={true}
+  postsEnabled={true}
   contestId={data.contestId}
   problem={data.problem}
   submissions={data.submissions}
