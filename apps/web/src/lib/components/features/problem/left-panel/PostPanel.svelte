@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Lock } from "@lucide/svelte";
-  import { postListResponseSchema, type ProblemPostType } from "@nojv/core";
+  import { postListResponseSchema, type PostListSort, type ProblemPostType } from "@nojv/core";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
@@ -28,21 +28,23 @@
   let items = $state<PostListItem[]>([]);
   let total = $state(0);
   let pageNum = $state(1);
-  let sort = $state<"latest" | "top">("latest");
+  let sort = $state<PostListSort>("new");
   let loading = $state(false);
   let loaded = $state(false);
   let forbidden = $state(false);
   let loadFailed = $state(false);
 
   const viewerId = $derived(page.data.user?.id ?? "");
-  const isAdmin = $derived(page.data.user?.platformRole === "admin");
+  const isAdmin = $derived(
+    page.data.user?.platformRole === "admin" && (page.data.actingAsAdmin ?? false),
+  );
 
   async function loadList(target: number) {
     if (loading) return;
     loading = true;
     try {
       const res = await fetch(
-        `/api/problems/${problemId}/posts?type=${type}&page=${target}&pageSize=${pageSize}`,
+        `/api/problems/${problemId}/posts?type=${type}&page=${target}&pageSize=${pageSize}&sort=${sort}`,
       );
       if (res.ok) {
         const parsed = postListResponseSchema.safeParse(await res.json());
@@ -79,7 +81,7 @@
     void loadList(pageNum);
   }
 
-  function onSortChange(next: "latest" | "top") {
+  function onSortChange(next: PostListSort) {
     if (sort === next) return;
     sort = next;
     void loadList(1);

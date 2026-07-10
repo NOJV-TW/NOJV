@@ -8,7 +8,7 @@ import {
   postRepo,
   submissionRepo,
 } from "@nojv/db";
-import type { ProblemPostType } from "@nojv/core";
+import type { PostListSort, ProblemPostType } from "@nojv/core";
 
 export async function hasUserAcProblem(userId: string, problemId: string): Promise<boolean> {
   const count = await submissionRepo.count({
@@ -119,6 +119,18 @@ export interface ListPostsPageInput {
   viewerId: string;
   page: number;
   pageSize: number;
+  sort?: PostListSort;
+}
+
+type PostListRow = Awaited<ReturnType<typeof postRepo.listByProblemIdPaged>>[number];
+
+function toListItem(row: PostListRow, viewerId: string) {
+  const { votes, _count, ...rest } = row;
+  return {
+    ...rest,
+    ...voteAggregates(votes, viewerId),
+    commentCount: _count.comments,
+  };
 }
 
 export async function listPostsPage({
@@ -127,19 +139,26 @@ export async function listPostsPage({
   viewerId,
   page,
   pageSize,
+  sort = "new",
 }: ListPostsPageInput) {
   const safePage = Math.max(1, Math.floor(page));
   const safeSize = Math.max(1, Math.min(100, Math.floor(pageSize)));
   const skip = (safePage - 1) * safeSize;
+
+  if (sort === "top") {
+    const rows = await postRepo.listAllByProblemId(problemId, type);
+    const items = rows
+      .map((row) => toListItem(row, viewerId))
+      .sort((a, b) => b.voteScore - a.voteScore)
+      .slice(skip, skip + safeSize);
+    return { items, total: rows.length, page: safePage, pageSize: safeSize };
+  }
+
   const [rows, total] = await Promise.all([
     postRepo.listByProblemIdPaged(problemId, type, skip, safeSize),
     postRepo.countByProblemId(problemId, type),
   ]);
-  const items = rows.map(({ votes, _count, ...rest }) => ({
-    ...rest,
-    ...voteAggregates(votes, viewerId),
-    commentCount: _count.comments,
-  }));
+  const items = rows.map((row) => toListItem(row, viewerId));
   return { items, total, page: safePage, pageSize: safeSize };
 }
 

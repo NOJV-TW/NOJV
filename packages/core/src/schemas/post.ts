@@ -11,6 +11,8 @@ const COMMENT_MAX = 5000;
 
 export const problemPostTypeSchema = z.enum(["editorial", "discussion"]);
 
+export const postListSortSchema = z.enum(["new", "top"]);
+
 export const postSubmitSchema = z.object({
   title: z.string().trim().min(TITLE_MIN).max(TITLE_MAX),
   content: z.string().min(CONTENT_MIN).max(CONTENT_MAX),
@@ -61,6 +63,7 @@ export const postListResponseSchema = z.object({
 });
 
 export type ProblemPostType = z.infer<typeof problemPostTypeSchema>;
+export type PostListSort = z.infer<typeof postListSortSchema>;
 export type PostSubmitInput = z.infer<typeof postSubmitSchema>;
 export type PostUpdateInput = z.infer<typeof postUpdateSchema>;
 export type PostVoteInput = z.infer<typeof postVoteSchema>;

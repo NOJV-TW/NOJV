@@ -1,6 +1,6 @@
 <script lang="ts">
   import { BookOpen, ChevronUp, MessageSquare, MessagesSquare } from "@lucide/svelte";
-  import type { ProblemPostType } from "@nojv/core";
+  import type { PostListSort, ProblemPostType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -13,11 +13,11 @@
     total: number;
     page: number;
     pageSize: number;
-    sort: "latest" | "top";
+    sort: PostListSort;
     onOpen: (postId: string) => void;
     onCompose: () => void;
     onPageChange: (page: number) => void;
-    onSortChange: (sort: "latest" | "top") => void;
+    onSortChange: (sort: PostListSort) => void;
   }
 
   let {
@@ -34,14 +34,11 @@
   }: Props = $props();
 
   const totalPages = $derived(Math.max(1, Math.ceil(total / pageSize)));
-  const sorted = $derived(
-    sort === "top" ? [...posts].sort((a, b) => b.voteScore - a.voteScore) : posts,
-  );
 </script>
 
 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
   <div class="flex items-center gap-1" role="group" aria-label={m.posts_sortAriaLabel()}>
-    {#each [{ value: "latest", label: m.posts_sortLatest() }, { value: "top", label: m.posts_sortTop() }] as option (option.value)}
+    {#each [{ value: "new", label: m.posts_sortLatest() }, { value: "top", label: m.posts_sortTop() }] as option (option.value)}
       <button
         type="button"
         aria-pressed={sort === option.value}
@@ -49,7 +46,7 @@
         option.value
           ? 'border-primary/40 bg-primary/10 text-primary'
           : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'}"
-        onclick={() => onSortChange(option.value as "latest" | "top")}
+        onclick={() => onSortChange(option.value as PostListSort)}
       >
         {option.label}
       </button>
@@ -75,7 +72,7 @@
   />
 {:else}
   <ul class="flex flex-col gap-2">
-    {#each sorted as post (post.id)}
+    {#each posts as post (post.id)}
       <li>
         <button
           type="button"

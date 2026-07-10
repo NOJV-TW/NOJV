@@ -1,6 +1,6 @@
 import { json } from "@sveltejs/kit";
 import { z } from "zod";
-import { postSubmitSchema, problemPostTypeSchema } from "@nojv/core";
+import { postListSortSchema, postSubmitSchema, problemPostTypeSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
@@ -21,6 +21,7 @@ const listQuerySchema = z.object({
   type: problemPostTypeSchema,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  sort: postListSortSchema.default("new"),
 });
 
 const postCreateBodySchema = postSubmitSchema.extend({
@@ -42,6 +43,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     viewerId: actor.userId,
     page: query.page,
     pageSize: query.pageSize,
+    sort: query.sort,
   });
 
   return json(page);

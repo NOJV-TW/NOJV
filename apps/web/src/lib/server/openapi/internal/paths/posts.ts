@@ -47,6 +47,13 @@ export const postsPaths = {
           description: "Page size.",
           schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
         },
+        {
+          name: "sort",
+          in: "query",
+          required: false,
+          description: "List ordering: newest first or highest vote score first.",
+          schema: { type: "string", enum: ["new", "top"], default: "new" },
+        },
       ],
       responses: {
         "200": {

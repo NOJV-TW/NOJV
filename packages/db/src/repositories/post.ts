@@ -17,6 +17,18 @@ export const postRepo = {
     });
   },
 
+  listAllByProblemId(problemId: string, type: ProblemPostType) {
+    return prisma.problemPost.findMany({
+      where: { problemId, type, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      include: {
+        author: { select: userPublicSelect },
+        votes: { select: { userId: true, value: true } },
+        _count: { select: { comments: { where: { deletedAt: null } } } },
+      },
+    });
+  },
+
   countByProblemId(problemId: string, type: ProblemPostType) {
     return prisma.problemPost.count({
       where: { problemId, type, deletedAt: null },

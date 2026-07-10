@@ -4,12 +4,14 @@ const {
   submissionCount,
   postExistsForUserProblem,
   postListByProblemIdPaged,
+  postListAllByProblemId,
   postCountByProblemId,
   postFindById,
 } = vi.hoisted(() => ({
   submissionCount: vi.fn(),
   postExistsForUserProblem: vi.fn(),
   postListByProblemIdPaged: vi.fn(),
+  postListAllByProblemId: vi.fn(),
   postCountByProblemId: vi.fn(),
   postFindById: vi.fn(),
 }));
@@ -19,6 +21,7 @@ vi.mock("@nojv/db", () => ({
   postRepo: {
     existsForUserProblem: postExistsForUserProblem,
     listByProblemIdPaged: postListByProblemIdPaged,
+    listAllByProblemId: postListAllByProblemId,
     countByProblemId: postCountByProblemId,
     findById: postFindById,
   },
@@ -32,6 +35,7 @@ beforeEach(() => {
   submissionCount.mockReset();
   postExistsForUserProblem.mockReset();
   postListByProblemIdPaged.mockReset();
+  postListAllByProblemId.mockReset();
   postCountByProblemId.mockReset();
   postFindById.mockReset();
 });
@@ -189,6 +193,58 @@ describe("listPostsPage", () => {
       viewerVote: 0,
       commentCount: 0,
     });
+  });
+
+  function topRows(count: number) {
+    return Array.from({ length: count }, (_, i) =>
+      pagedRow({
+        id: `post_${i + 1}`,
+        votes: Array.from({ length: i }, (_, v) => ({ userId: `usr_v${v}`, value: 1 })),
+      }),
+    );
+  }
+
+  it("sort=top ranks the whole problem's posts and returns the global top on page 1", async () => {
+    postListAllByProblemId.mockResolvedValue(topRows(25));
+
+    const result = await listPostsPage({
+      problemId: "prob_1",
+      type: "discussion",
+      viewerId: "usr_viewer",
+      page: 1,
+      pageSize: 20,
+      sort: "top",
+    });
+
+    expect(postListAllByProblemId).toHaveBeenCalledWith("prob_1", "discussion");
+    expect(postListByProblemIdPaged).not.toHaveBeenCalled();
+    expect(postCountByProblemId).not.toHaveBeenCalled();
+    expect(result.total).toBe(25);
+    expect(result.items.map((item) => item.id)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `post_${25 - i}`),
+    );
+  });
+
+  it("sort=top slices later pages from the same global ordering", async () => {
+    postListAllByProblemId.mockResolvedValue(topRows(25));
+
+    const result = await listPostsPage({
+      problemId: "prob_1",
+      type: "discussion",
+      viewerId: "usr_viewer",
+      page: 2,
+      pageSize: 20,
+      sort: "top",
+    });
+
+    expect(result.total).toBe(25);
+    expect(result.items.map((item) => item.id)).toEqual([
+      "post_5",
+      "post_4",
+      "post_3",
+      "post_2",
+      "post_1",
+    ]);
   });
 });
 
