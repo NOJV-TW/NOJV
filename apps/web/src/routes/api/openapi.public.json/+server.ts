@@ -1,8 +1,8 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-import { openApiDocument } from "$lib/server/openapi/public-document";
+import { tokenOpenApiDocument } from "$lib/server/openapi/token-document";
 
 export const GET: RequestHandler = () => {
-  return json(openApiDocument);
+  return json(tokenOpenApiDocument);
 };

@@ -1,3 +1,5 @@
+import { findApiTokenRouteRule } from "@nojv/application";
+
 const HTTP_METHODS = new Set([
   "delete",
   "get",
@@ -8,8 +10,6 @@ const HTTP_METHODS = new Set([
   "put",
   "trace",
 ]);
-
-const TOKEN_WHITELISTED_OPERATIONS = new Set(["GET /api/admin/healthz"]);
 
 const READ_METHODS = new Set(["get", "head", "options"]);
 
@@ -57,8 +57,8 @@ function inferScope(tags: readonly string[] | undefined, method: string): string
 function appendAuthNote(description: unknown, enabled: boolean, requiredScope: string | null) {
   const base = typeof description === "string" ? description : "";
   const note = enabled
-    ? `Bearer API token access is enabled for this internal endpoint. Required scope: ${requiredScope ?? "none"}.`
-    : `Bearer API token access is documented for future support but is not currently allowlisted for this internal endpoint. Planned scope: ${requiredScope ?? "none"}.`;
+    ? `Bearer API token access is enabled for this endpoint. Required scope: ${requiredScope ?? "none"}.`
+    : `Bearer API token access is documented for future support but is not currently allowlisted for this endpoint. Planned scope: ${requiredScope ?? "none"}.`;
 
   return base ? `${base}\n\n${note}` : note;
 }
@@ -79,11 +79,11 @@ export function withInternalAuthMetadata<TPaths extends PathsObject>(paths: TPat
 
           const operationObject = operation as Record<string, unknown>;
           const methodKey = method.toUpperCase();
-          const enabled = TOKEN_WHITELISTED_OPERATIONS.has(`${methodKey} ${path}`);
-          const requiredScope = inferScope(
-            operationObject.tags as string[] | undefined,
-            method,
-          );
+          const rule = findApiTokenRouteRule(methodKey, path);
+          const enabled = rule !== null;
+          const requiredScope = rule
+            ? rule.requiredScope
+            : inferScope(operationObject.tags as string[] | undefined, method);
 
           return [
             method,

@@ -43,6 +43,42 @@ const TOKEN_ROUTE_RULES: ApiTokenRouteRule[] = [
   },
   {
     method: "GET",
+    path: "/api/submissions",
+    visibility: "public",
+    requiredScope: "submissions:read",
+  },
+  {
+    method: "GET",
+    path: "/api/notifications",
+    visibility: "public",
+    requiredScope: "profile:read",
+  },
+  {
+    method: "GET",
+    path: "/api/notifications/unread-count",
+    visibility: "public",
+    requiredScope: "profile:read",
+  },
+  {
+    method: "GET",
+    path: "/api/problems/advanced-scaffold",
+    visibility: "public",
+    requiredScope: "problems:read",
+  },
+  {
+    method: "GET",
+    path: "/api/contests/{id}/scoreboard",
+    visibility: "public",
+    requiredScope: "contests:read",
+  },
+  {
+    method: "GET",
+    path: "/api/contests/{id}/scoreboard/chart",
+    visibility: "public",
+    requiredScope: "contests:read",
+  },
+  {
+    method: "GET",
     path: "/api/admin/healthz",
     visibility: "internal",
     requiredScope: "admin:read",

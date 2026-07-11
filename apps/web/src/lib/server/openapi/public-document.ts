@@ -14,11 +14,11 @@ import { zodToOpenApiSchema } from "./zod-schema";
 export const openApiDocument = {
   openapi: "3.1.0",
   info: {
-    title: "NOJV Public API",
+    title: "NOJV API",
     version: "0.1.0",
-    summary: "API reference for selected NOJV endpoints",
+    summary: "Hand-written base API reference merged into the Full API document",
     description:
-      "The NOJV Public API documentation describes selected existing API routes that are useful for external students, scripts, and integrations. Internal routes not listed in this document are not considered public contract.",
+      "Base API documentation for system and submission routes. Served to readers through the API Token and Full API documents.",
     contact: {
       name: "NOJV Maintainers",
     },
@@ -83,11 +83,12 @@ export const openApiDocument = {
     "/api/openapi.public.json": {
       get: {
         tags: ["System"],
-        summary: "Get the OpenAPI document",
+        summary: "Get the API Token OpenAPI document",
         operationId: "getOpenApiDocument",
         responses: {
           "200": {
-            description: "OpenAPI document for the documented NOJV API routes",
+            description:
+              "OpenAPI document for the API routes callable with personal API tokens",
             content: {
               "application/json": {
                 schema: {
@@ -100,6 +101,48 @@ export const openApiDocument = {
       },
     },
     "/api/submissions": {
+      get: {
+        tags: ["Submissions"],
+        summary: "List own submissions",
+        operationId: "listSubmissions",
+        description:
+          "Returns a cursor-paginated list of the caller's own submissions, newest first. Supports Bearer API token auth when the token has the submissions:read scope.",
+        security: [{ ApiToken: [] }],
+        parameters: [
+          {
+            name: "cursor",
+            in: "query",
+            required: false,
+            description:
+              "Submission ID to continue from, taken from nextCursor of the previous page.",
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Page of the caller's submissions",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SubmissionListResponse",
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Authentication required",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
       post: {
         tags: ["Submissions"],
         summary: "Create a submission",
@@ -202,7 +245,7 @@ export const openApiDocument = {
         summary: "Get submission status and result",
         operationId: "getSubmission",
         description:
-          "Returns the current status and judge result for a submission. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; admins can access all submissions.",
+          "Returns the current status and judge result for a submission. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; elevated admin sessions can access all submissions, while API tokens always act with the owner's base role.",
         security: [{ ApiToken: [] }],
         parameters: [
           {
@@ -265,7 +308,7 @@ export const openApiDocument = {
         summary: "Get submission source files",
         operationId: "getSubmissionSource",
         description:
-          "Returns submitted source files. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; admins can access all submissions.",
+          "Returns submitted source files. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; elevated admin sessions can access all submissions, while API tokens always act with the owner's base role.",
         security: [{ ApiToken: [] }],
         parameters: [
           {
@@ -393,6 +436,53 @@ export const openApiDocument = {
       },
       SubmissionOperationResponse: {
         ...zodToOpenApiSchema(submissionOperationSchema),
+      },
+      SubmissionListItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          language: { $ref: "#/components/schemas/SupportedLanguage" },
+          problemId: { type: "string" },
+          problemTitle: { type: "string" },
+          runtimeMs: { oneOf: [{ type: "integer" }, { type: "null" }] },
+          memoryKb: { oneOf: [{ type: "integer" }, { type: "null" }] },
+          score: { type: "integer" },
+          totalScore: { type: "integer" },
+          status: { $ref: "#/components/schemas/SubmissionStatus" },
+          context: {
+            type: "string",
+            description: "Submission context kind (e.g. practice, assignment, exam, contest).",
+          },
+        },
+        required: [
+          "id",
+          "createdAt",
+          "language",
+          "problemId",
+          "problemTitle",
+          "runtimeMs",
+          "memoryKb",
+          "score",
+          "totalScore",
+          "status",
+          "context",
+        ],
+      },
+      SubmissionListResponse: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              $ref: "#/components/schemas/SubmissionListItem",
+            },
+          },
+          nextCursor: {
+            oneOf: [{ type: "string" }, { type: "null" }],
+          },
+        },
+        required: ["items", "nextCursor"],
       },
       SubmissionSourceFile: {
         type: "object",

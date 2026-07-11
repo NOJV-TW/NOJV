@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
-import { apiTokenRepo } from "@nojv/db";
+import { apiTokenRepo, examSessionRepo } from "@nojv/db";
 import {
   apiTokenScopes,
   apiTokenScopeSchema,
@@ -252,12 +252,22 @@ export async function verifyApiTokenForRoute(input: {
     scopes,
   });
 
+  const activeExamSession = await examSessionRepo.findActiveForUser(row.user.id);
+  if (activeExamSession) {
+    throw new HttpError("API tokens are disabled while an exam session is active.", 403);
+  }
+
+  const effectivePlatformRole =
+    input.route.requiredRole || row.user.platformRole !== "admin"
+      ? row.user.platformRole
+      : "student";
+
   return {
     actor: {
       displayName: row.user.name,
       email: row.user.email,
       emailVerified: row.user.emailVerified,
-      platformRole: row.user.platformRole,
+      platformRole: effectivePlatformRole,
       userId: row.user.id,
       username: row.user.username,
     },
