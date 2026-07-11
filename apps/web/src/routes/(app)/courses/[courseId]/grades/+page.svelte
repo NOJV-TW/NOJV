@@ -77,7 +77,7 @@
         </p>
       </div>
       {#if isManager && gradebook.rows.length > 0}
-        <Button variant="outline" size="sm" onclick={exportCsv}>
+        <Button variant="outline" size="sm" onclick={exportCsv} data-tour="gradebook-export">
           <Download class="size-4" />
           {m.courseGradebook_exportCsv()}
         </Button>

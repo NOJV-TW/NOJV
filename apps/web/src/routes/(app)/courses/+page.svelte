@@ -73,6 +73,7 @@
           type="button"
           role="tab"
           aria-selected={isActive}
+          data-tour={tab.key === "managing" ? "courses-managing" : undefined}
           onclick={() => setTab(tab.key)}
           class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
             ? 'border-primary text-foreground'
@@ -91,7 +92,7 @@
     </div>
 
     {#if showCreateButton}
-      <Button href="/courses/new">
+      <Button href="/courses/new" data-tour="courses-create">
         <Plus aria-hidden="true" class="h-4 w-4" />
         {m.courses_createNew()}
       </Button>
@@ -110,7 +111,7 @@
         />
       </div>
     {:else if data.canCreate}
-      <div class="animate-in animate-in-2">
+      <div class="animate-in animate-in-2" data-tour="courses-create">
         <EmptyState
           variant="onboarding"
           icon={BookOpen}

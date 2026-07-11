@@ -91,11 +91,13 @@
       title={m.assignmentCreate_problemsTitle()}
       subtitle={m.assignmentCreate_problemsSubtitle()}
     >
-      <ExamProblemPicker
-        candidateProblems={data.candidateProblems ?? []}
-        bind:problemIds={$form.problemIds}
-        error={$errors.problemIds}
-      />
+      <div data-tour="assignment-picker">
+        <ExamProblemPicker
+          candidateProblems={data.candidateProblems ?? []}
+          bind:problemIds={$form.problemIds}
+          error={$errors.problemIds}
+        />
+      </div>
 
       <div
         class="mt-4 flex items-start gap-3.5 rounded-md border border-dashed border-info/30 bg-info/5 px-5 py-4 text-body-sm leading-relaxed text-muted-foreground"
@@ -116,7 +118,7 @@
       subtitle={m.assignmentCreate_scheduleSubtitle()}
       required
     >
-      <div class="grid gap-5 md:grid-cols-3">
+      <div class="grid gap-5 md:grid-cols-3" data-tour="assignment-schedule">
         <div>
           <label class="text-body-sm font-medium" for="opensAt">
             {m.assignmentCreate_opensLabel()}
@@ -288,7 +290,12 @@
       <Button type="submit" variant="outline" formaction="?/saveDraft" disabled={$submitting}>
         {m.assignmentCreate_saveDraft()}
       </Button>
-      <Button type="submit" formaction="?/publish" disabled={$submitting}>
+      <Button
+        type="submit"
+        formaction="?/publish"
+        disabled={$submitting}
+        data-tour="assignment-publish"
+      >
         {m.assignmentCreate_publish()}
       </Button>
     </div>

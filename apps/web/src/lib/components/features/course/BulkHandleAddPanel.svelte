@@ -87,7 +87,7 @@
         </div>
       {/if}
 
-      <div>
+      <div data-tour="members-bulk-add">
         <label class="text-body-sm font-medium" for="bulk-handles">
           {m.members_handlesLabel()}
         </label>
@@ -121,7 +121,7 @@
       </div>
 
       <div class="space-y-4">
-        <fieldset>
+        <fieldset data-tour="members-role">
           <legend class="text-body-sm font-medium">{m.members_roleLabel()}</legend>
           <div class="mt-2 space-y-2">
             <label

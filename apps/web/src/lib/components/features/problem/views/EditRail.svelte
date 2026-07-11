@@ -10,6 +10,7 @@
 </script>
 
 <aside
+  data-tour="edit-rail"
   class="sticky top-[100px] w-52 shrink-0 self-start rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-rest"
 >
   {#if nav}

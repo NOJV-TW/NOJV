@@ -83,6 +83,7 @@
 
 <nav
   data-slot="course-tab-bar"
+  data-tour="course-tabs"
   aria-label={m.course_tabBarLabel()}
   class={cn(
     "sticky top-[76px] z-10 mb-10 border-b border-border-subtle bg-[color:var(--color-background)]/90 backdrop-blur-md",
