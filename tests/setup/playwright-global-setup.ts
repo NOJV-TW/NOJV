@@ -43,6 +43,8 @@ export default async function globalSetup(config: FullConfig) {
       timeout: 15000,
     });
 
+    await page.evaluate(() => localStorage.setItem("nojv:tour:off", "1"));
+
     if (role.name === "admin") {
       await elevateAdminSession(page, baseURL);
     }

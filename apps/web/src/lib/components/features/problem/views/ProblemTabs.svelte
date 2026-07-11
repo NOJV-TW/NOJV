@@ -148,11 +148,12 @@
           : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
         onclick={() => setTab("mine")}
         type="button"
+        data-tour="problems-mine"
       >
         {m.problems_myProblems()}
       </button>
       <div class="relative ml-auto">
-        <div class="flex">
+        <div class="flex" data-tour="problems-create">
           <Button
             disabled={creating}
             loading={creating}

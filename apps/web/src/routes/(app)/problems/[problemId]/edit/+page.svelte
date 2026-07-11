@@ -337,6 +337,7 @@
             loading={isPublishing}
             disabled={!canPublish || isPublishing}
             onclick={handlePublishClick}
+            data-tour="problem-publish"
           >
             {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
           </Button>

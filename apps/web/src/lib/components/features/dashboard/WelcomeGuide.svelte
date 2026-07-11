@@ -54,6 +54,6 @@
   );
 </script>
 
-<Card variant="surface" size="lg">
+<Card variant="surface" size="lg" data-tour="welcome-guide">
   <EmptyState variant="onboarding" icon={Rocket} {title} {description} {actions} />
 </Card>
