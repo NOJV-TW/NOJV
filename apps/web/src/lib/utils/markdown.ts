@@ -18,6 +18,7 @@ for (const ext of katexExtension.extensions ?? []) {
   };
 }
 marked.use(katexExtension);
+marked.use({ breaks: true });
 
 const KATEX_TAGS = [
   "math",
