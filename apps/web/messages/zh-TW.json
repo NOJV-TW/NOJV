@@ -1926,7 +1926,7 @@
   "tour_teacher_welcomeGuideTitle": "從建立課程開始",
   "tour_teacher_welcomeGuideBody": "第一次使用嗎？先建立你的第一門課程，接下來的導覽會沿路帶你完成備課。",
   "tour_teacher_managingTitle": "管理中的課程",
-  "tour_teacher_managingBody": "這個分頁列出你管理的課程。",
+  "tour_teacher_managingBody": "你管理的課程都在這個分頁。點過去就能建立新課程。",
   "tour_teacher_createCourseTitle": "建立課程",
   "tour_teacher_createCourseBody": "點這裡建立新課程，填上名稱與學期就完成了。",
   "tour_teacher_courseTabsTitle": "課程功能區",

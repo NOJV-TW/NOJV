@@ -1941,7 +1941,7 @@
   "tour_teacher_welcomeGuideTitle": "Start with a course",
   "tour_teacher_welcomeGuideBody": "First time here? Create your first course — the tour will guide you through the rest as you go.",
   "tour_teacher_managingTitle": "Courses you manage",
-  "tour_teacher_managingBody": "This tab lists the courses you manage.",
+  "tour_teacher_managingBody": "Courses you manage live in this tab. Switch to it to create a new course.",
   "tour_teacher_createCourseTitle": "Create a course",
   "tour_teacher_createCourseBody": "Click here to create a course — just a title and a semester.",
   "tour_teacher_courseTabsTitle": "Course sections",

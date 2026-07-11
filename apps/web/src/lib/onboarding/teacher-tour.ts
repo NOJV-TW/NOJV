@@ -47,20 +47,21 @@ function welcomeGuideSteps(): DriveStep[] {
 }
 
 function coursesSteps(): DriveStep[] {
-  return [
-    ...step(
-      '[data-tour="courses-managing"]',
-      m.tour_teacher_managingTitle(),
-      m.tour_teacher_managingBody(),
-      "bottom",
-    ),
-    ...step(
-      '[data-tour="courses-create"]',
-      m.tour_teacher_createCourseTitle(),
-      m.tour_teacher_createCourseBody(),
-      "bottom",
-    ),
-  ];
+  return step(
+    '[data-tour="courses-managing"]',
+    m.tour_teacher_managingTitle(),
+    m.tour_teacher_managingBody(),
+    "bottom",
+  );
+}
+
+function courseCreateSteps(): DriveStep[] {
+  return step(
+    '[data-tour="courses-create"]',
+    m.tour_teacher_createCourseTitle(),
+    m.tour_teacher_createCourseBody(),
+    "bottom",
+  );
 }
 
 function membersSteps(): DriveStep[] {
@@ -182,6 +183,12 @@ const INTROS: Intro[] = [
     build: welcomeGuideSteps,
   },
   { key: "teacher-courses", pad: 4, match: (p) => p === "/courses", build: coursesSteps },
+  {
+    key: "teacher-course-create",
+    pad: 4,
+    match: (p) => p === "/courses",
+    build: courseCreateSteps,
+  },
   { key: "teacher-members", pad: 6, match: (p) => MEMBERS.test(p), build: membersSteps },
   { key: "teacher-problems", pad: 4, match: (p) => p === "/problems", build: problemsSteps },
   {
