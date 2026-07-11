@@ -2,7 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { CheckCircle2, FileCode, ListFilter, Search, XCircle } from "@lucide/svelte";
+  import { CheckCircle2, FileCode, ListFilter, Loader2, Search, XCircle } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import * as Card from "$lib/components/primitives/ui/card";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
@@ -26,11 +26,9 @@
 
   let { publicResult, loggedIn, showCreate = false }: Props = $props();
 
+  type ProblemCard = problemDomain.ProblemListResult["problems"][number];
+
   let currentUrl = $derived(page.url);
-  let currentPage = $derived(publicResult.page);
-  let totalPages = $derived(
-    Math.max(1, Math.ceil(publicResult.totalCount / publicResult.pageSize)),
-  );
   let hasActiveFilters = $derived(
     [...currentUrl.searchParams.keys()].some((k) =>
       ["q", "difficulty", "status", "types", "judge", "tags"].includes(k),
@@ -39,13 +37,65 @@
 
   let filtersOpen = $state(false);
 
-  function goToPage(p: number) {
-    const params = new URLSearchParams(currentUrl.searchParams);
-    if (p > 1) params.set("page", String(p));
-    else params.delete("page");
-    const qs = params.toString();
-    void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: false });
+  let extra = $state<ProblemCard[]>([]);
+  let pagesLoaded = $state(0);
+  let loadingMore = $state(false);
+  let exhausted = $state(false);
+  let sentinel = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    void publicResult;
+    extra = [];
+    pagesLoaded = 0;
+    exhausted = false;
+  });
+
+  let allProblems = $derived.by(() => {
+    const seen = new Set<string>();
+    const rows: ProblemCard[] = [];
+    for (const row of [...publicResult.problems, ...extra]) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
+    }
+    return rows;
+  });
+
+  let hasMore = $derived(!exhausted && allProblems.length < publicResult.totalCount);
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    loadingMore = true;
+    try {
+      const params = new URLSearchParams(currentUrl.searchParams);
+      params.set("page", String(publicResult.page + pagesLoaded + 1));
+      const res = await fetch(`/api/problems?${params.toString()}`);
+      if (!res.ok) return;
+      const body = (await res.json()) as { problems: ProblemCard[] };
+      if (body.problems.length === 0) {
+        exhausted = true;
+        return;
+      }
+      extra = [...extra, ...body.problems];
+      pagesLoaded += 1;
+    } finally {
+      loadingMore = false;
+    }
   }
+
+  $effect(() => {
+    const el = sentinel;
+    if (!el) return;
+    void allProblems.length;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) void loadMore();
+      },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  });
 
   function clearFilters() {
     const params = new URLSearchParams(currentUrl.searchParams);
@@ -55,25 +105,6 @@
     const qs = params.toString();
     void goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
   }
-
-  let paginationPages = $derived.by(() => {
-    const pages: number[] = [];
-    const maxVisible = 7;
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      let start = Math.max(2, currentPage - 1);
-      let end = Math.min(totalPages - 1, currentPage + 1);
-      if (currentPage <= 3) end = Math.min(totalPages - 1, 4);
-      if (currentPage >= totalPages - 2) start = Math.max(2, totalPages - 3);
-      if (start > 2) pages.push(-1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (end < totalPages - 1) pages.push(-1);
-      pages.push(totalPages);
-    }
-    return pages;
-  });
 </script>
 
 <div class="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
@@ -110,7 +141,7 @@
             ? [{ href: "?tab=mine", label: m.problems_createFirst() }]
             : [{ href: "/courses", label: m.dashboard_welcomeGuideBrowseCourses() }]}
         />
-      {:else if publicResult.problems.length === 0}
+      {:else if allProblems.length === 0}
         <div class="flex flex-col items-center gap-4 py-16">
           <EmptyState
             icon={Search}
@@ -124,7 +155,7 @@
         </div>
       {/if}
 
-      {#if publicResult.problems.length > 0}
+      {#if allProblems.length > 0}
         <div
           class="hidden border border-transparent px-4 text-caption font-medium uppercase tracking-wide text-muted-foreground sm:col-span-full sm:grid sm:grid-cols-subgrid sm:items-center"
         >
@@ -137,7 +168,7 @@
         </div>
       {/if}
 
-      {#each publicResult.problems as problem, index (problem.id)}
+      {#each allProblems as problem, index (problem.id)}
         <Card.Root
           variant="surface"
           size="lg"
@@ -223,45 +254,12 @@
       {/each}
     </section>
 
-    {#if totalPages > 1}
-      <nav class="flex justify-center gap-2 pt-2" aria-label={m.problems_pagination()}>
-        {#if currentPage > 1}
-          <button
-            class="inline-flex items-center justify-center rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-            onclick={() => goToPage(currentPage - 1)}
-            type="button"
-            aria-label={m.problems_previousPage()}
-          >
-            &larr;
-          </button>
+    {#if hasMore}
+      <div bind:this={sentinel} class="flex justify-center py-4">
+        {#if loadingMore}
+          <Loader2 class="size-5 animate-spin text-muted-foreground" aria-hidden="true" />
         {/if}
-        {#each paginationPages as p, i (p === -1 ? `ellipsis-${String(i)}` : p)}
-          {#if p === -1}
-            <span class="px-2 py-1 text-body-sm text-muted-foreground">&hellip;</span>
-          {:else}
-            <button
-              class="inline-flex items-center justify-center rounded-full border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11 {p ===
-              currentPage
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border hover:bg-[color:var(--color-panel)]'}"
-              onclick={() => goToPage(p)}
-              type="button"
-            >
-              {p}
-            </button>
-          {/if}
-        {/each}
-        {#if currentPage < totalPages}
-          <button
-            class="inline-flex items-center justify-center rounded-full border border-border px-3 py-1 text-body-sm font-medium tabular-nums transition-[background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-            onclick={() => goToPage(currentPage + 1)}
-            type="button"
-            aria-label={m.problems_nextPage()}
-          >
-            &rarr;
-          </button>
-        {/if}
-      </nav>
+      </div>
     {/if}
   </div>
 </div>

@@ -3,14 +3,22 @@ import type { RequestHandler } from "./$types";
 import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
 import {
+  apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { isAdvancedModeSupported } from "$lib/server/execution-backend";
+import { parseProblemListQuery } from "$lib/server/shared/problem-list-query";
 import { problemDomain } from "@nojv/application";
 
-const { createProblemRecord } = problemDomain;
+const { createProblemRecord, listProblemCards } = problemDomain;
+
+export const GET: RequestHandler = apiHandler(async (event) => {
+  const params = parseProblemListQuery(event.url);
+  const result = await listProblemCards({ ...params, userId: event.locals.user?.id ?? null });
+  return json(result);
+});
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
