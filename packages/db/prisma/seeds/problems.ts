@@ -325,7 +325,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
       id: "problem_process-log-parser",
       memoryLimitMb: 256,
       timeLimitMs: 1000,
-      visibility: "private" as const,
+      visibility: "public" as const,
       statement: {
         body: "給定一個整數陣列，找出和最大的「連續非空子陣列」，並輸出該最大和。\n\n這是經典的 Kadane 動態規劃題：以線性時間維護「以當前位置結尾的最大子陣列和」。注意陣列可能全為負數，此時答案是最大的單一元素。",
         inputFormat:
@@ -362,7 +362,7 @@ export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
       id: "problem_fork-bomb-safeguard",
       memoryLimitMb: 512,
       timeLimitMs: 2000,
-      visibility: "private" as const,
+      visibility: "public" as const,
       statement: {
         body: "有 $N$ 件物品與一個容量為 $W$ 的背包。第 $i$ 件物品的重量為 $w_i$、價值為 $v_i$，每件物品至多選一次。在總重量不超過 $W$ 的前提下，求能取得的最大總價值。\n\n這是經典的 0/1 背包動態規劃，以一維 DP 表 $dp[c]$ 由大到小更新容量即可。",
         inputFormat:
@@ -1791,7 +1791,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       id: "problem_min-merge-cost",
       title: "Minimum Merge Cost",
       type: "full_source" as const,
-      tags: ["medium", "Greedy", "Heap (Priority Queue)"],
+      tags: ["medium", "Greedy", "Heap"],
       memoryLimitMb: 256,
       timeLimitMs: 1000,
       visibility: "public" as const,
@@ -1964,7 +1964,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       id: "problem_dijkstra-shortest-path",
       title: "Cheapest Route",
       type: "full_source" as const,
-      tags: ["medium", "Graph", "Heap (Priority Queue)"],
+      tags: ["medium", "Graph", "Heap"],
       memoryLimitMb: 256,
       timeLimitMs: 2000,
       visibility: "public" as const,
@@ -4337,7 +4337,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       id: "problem_mf-running-median",
       title: "Running Median (Multi-File)",
       type: "multi_file" as const,
-      tags: ["medium", "Heap (Priority Queue)", "Design"],
+      tags: ["medium", "Heap", "Design"],
       memoryLimitMb: 256,
       timeLimitMs: 2000,
       visibility: "public" as const,

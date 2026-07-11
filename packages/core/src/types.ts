@@ -53,7 +53,7 @@ export const problemTags = [
   "Bit Manipulation",
   "Stack",
   "Queue",
-  "Heap (Priority Queue)",
+  "Heap",
   "Sliding Window",
   "Backtracking",
   "Linked List",
