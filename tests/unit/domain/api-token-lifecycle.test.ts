@@ -16,15 +16,18 @@ interface MockUser {
 const { state } = vi.hoisted(() => {
   const rows = new Map<string, Record<string, unknown>>();
   const users = new Map<string, MockUser>();
+  const activeExamUsers = new Set<string>();
   let seq = 0;
   return {
     state: {
       rows,
       users,
+      activeExamUsers,
       nextId: () => `tok_${(seq += 1)}`,
       reset() {
         rows.clear();
         users.clear();
+        activeExamUsers.clear();
         seq = 0;
       },
     },
@@ -98,6 +101,13 @@ vi.mock("@nojv/db", () => ({
         row.lastUsedIp = ip;
       }
       return Promise.resolve(row);
+    },
+  },
+  examSessionRepo: {
+    findActiveForUser(userId: string) {
+      return Promise.resolve(
+        state.activeExamUsers.has(userId) ? { examId: "exam_1", id: "sess_1", userId } : null,
+      );
     },
   },
 }));
@@ -262,6 +272,32 @@ describe("API token lifecycle and verification", () => {
     const err = await catchError(verify(created.token, submitRoute));
     expect(err.status).toBe(403);
     expect(err.message).toMatch(/scope/i);
+  });
+
+  it("rejects token auth while the owner has an active exam session", async () => {
+    setUser("usr_1");
+    const created = await create({ scopes: ["submissions:write"] });
+
+    state.activeExamUsers.add("usr_1");
+    const err = await catchError(verify(created.token));
+    expect(err.status).toBe(403);
+    expect(err.message).toMatch(/exam/i);
+
+    state.activeExamUsers.delete("usr_1");
+    const verified = await verify(created.token);
+    expect(verified.actor.userId).toBe("usr_1");
+  });
+
+  it("de-elevates admin-owned tokens to student on routes without a role requirement", async () => {
+    setUser("usr_admin", { platformRole: "admin" });
+    const created = await create({
+      platformRole: "admin",
+      scopes: ["submissions:write"],
+      userId: "usr_admin",
+    });
+
+    const verified = await verify(created.token, submitRoute);
+    expect(verified.actor.platformRole).toBe("student");
   });
 
   it("re-checks the owner's live platform role for role-gated routes", async () => {

@@ -38,7 +38,7 @@ export const internalOpenApiDocument = {
     title: "NOJV Full API",
     summary: "Complete reference for every NOJV API route",
     description:
-      "Complete NOJV API documentation covering every route, including browser-session, admin, teacher, and operational endpoints. Routes not listed in the Stable API document are not part of the stable API contract and may change without notice.",
+      "Complete NOJV API documentation covering every route, including browser-session, admin, teacher, and operational endpoints. Routes not listed in the API Token document are not callable with API tokens and may change without notice.",
   },
   tags: [
     { name: "System", description: "Health, documentation, and operational metadata." },

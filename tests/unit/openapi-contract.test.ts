@@ -4,8 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { listApiTokenRouteRules } from "@nojv/application";
+
 import { internalOpenApiDocument } from "$lib/server/openapi/internal-document";
 import { openApiDocument as publicOpenApiDocument } from "$lib/server/openapi/public-document";
+import { tokenOpenApiDocument } from "$lib/server/openapi/token-document";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(__dirname, "../../apps/web/src/routes/api");
@@ -75,5 +78,22 @@ describe("OpenAPI contract stays in sync with API routes", () => {
   it("sanity: the route scan and the documents both produced operations", () => {
     expect(actual.size).toBeGreaterThan(0);
     expect(documented.size).toBeGreaterThan(0);
+  });
+
+  it("token document covers exactly the public token allowlist", () => {
+    const ruleOps = listApiTokenRouteRules()
+      .filter((rule) => rule.visibility === "public")
+      .map((rule) => `${rule.method} ${rule.path}`);
+    const docOps = documentedOperations(tokenOpenApiDocument);
+    docOps.delete("GET /api/openapi.public.json");
+    expect([...docOps].sort()).toEqual([...ruleOps].sort());
+  });
+
+  it("every token-allowlisted route is documented in the full document", () => {
+    const fullOps = documentedOperations(internalOpenApiDocument);
+    const missing = listApiTokenRouteRules()
+      .map((rule) => `${rule.method} ${rule.path}`)
+      .filter((op) => !fullOps.has(op));
+    expect(missing).toEqual([]);
   });
 });

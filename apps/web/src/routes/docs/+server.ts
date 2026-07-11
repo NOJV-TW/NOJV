@@ -4,8 +4,8 @@ import type { RequestHandler } from "./$types";
 const render = ScalarApiReference({
   sources: [
     {
-      title: "Stable API",
-      slug: "stable",
+      title: "API Token",
+      slug: "token",
       url: "/api/openapi.public.json",
       default: true,
     },
