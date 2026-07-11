@@ -28,6 +28,8 @@
         return "assignments";
       case "exams":
         return "exams";
+      case "grades":
+        return "grades";
       case "members":
         return "members";
       case "analytics":

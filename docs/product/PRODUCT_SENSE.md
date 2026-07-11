@@ -57,6 +57,7 @@
 - Class stats aggregation (submittedUsers / totalStudents / avgScore) and per-student myStatus (solved/total) rendered on list pages
 - Practice-after-close: students retain problem access after assessment/contest/exam ends, submissions no longer attributed to the original context
 - Student progress matrix
+- Course gradebook (`/courses/[courseId]/grades`) — per-problem raw best scores (overrides applied) across all published assignments and exams, chronological columns with per-problem max; staff see every student plus CSV export, students see only their own row; no weighting or normalization by design (teachers compute ratios from the CSV)
 - Course-scoped problem management
 
 ### Grading (post-close)
@@ -106,12 +107,17 @@
 
 ### User Dashboard
 
-- Activity chart (daily submission history)
-- Language distribution statistics
-- Difficulty distribution statistics
-- Streak card — consecutive days with at least one AC (today's grace day applies)
-- Last-7-days submission trend
-- Suggested problems — top 5 unsolved problems whose tags overlap with the user's most-AC'd tags
+- Activity heatmap (daily submission history, bucketed by the browser's local day)
+- At-a-glance stats — solved count, attempts, AC rate, practice days
+- Topic proficiency plus difficulty / verdict / language distribution charts
+- Recent submissions list
+- Site-wide overview toggle (`?view=server`) — anonymous platform aggregates: KPI cards, 30-day submission trend, verdict / language donuts, trending public problems
+
+### Public User Profiles
+
+- Public profile page at `/users/[id]` — avatar, activity heatmap, difficulty/language distributions, solved public-problem list
+- Private by default (`User.profilePublic`); the owner opts in from Settings, after which the page is visible without signing in
+- Private profiles return 404 to everyone except the owner and admins (in admin mode)
 
 ### Authentication
 

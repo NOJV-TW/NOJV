@@ -5,6 +5,7 @@
   import { authClient } from "$lib/auth.client";
   import { fetchWithCsrf } from "$lib/services/http";
   import UserIcon from "@lucide/svelte/icons/user";
+  import SquareArrowOutUpRightIcon from "@lucide/svelte/icons/square-arrow-out-up-right";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import ShieldIcon from "@lucide/svelte/icons/shield";
@@ -101,11 +102,24 @@
         bind:this={dropdownEl}
         class="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
       >
-        <div class="border-b border-border-subtle px-4 py-2.5">
-          <p class="truncate text-body-sm font-medium">{user.name}</p>
-          <p class="truncate text-caption text-muted-foreground">
-            {user.username ? `@${user.username}` : user.email}
-          </p>
+        <div class="flex items-center gap-2 border-b border-border-subtle px-4 py-2.5">
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-body-sm font-medium">{user.name}</p>
+            <p class="truncate text-caption text-muted-foreground">
+              {user.username ? `@${user.username}` : user.email}
+            </p>
+          </div>
+          {#if hasUsername}
+            <a
+              class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
+              href="/users/{user.id}"
+              title={m.userMenu_profile()}
+              aria-label={m.userMenu_profile()}
+              onclick={() => (open = false)}
+            >
+              <SquareArrowOutUpRightIcon aria-hidden="true" size={15} />
+            </a>
+          {/if}
         </div>
 
         {#if hasUsername}

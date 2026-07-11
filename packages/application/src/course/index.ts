@@ -1,6 +1,7 @@
 export * from "./across-courses";
 export * from "./analytics";
 export * from "./assignment-detail";
+export * from "./gradebook";
 export * from "./members";
 export * from "./mutations";
 export * from "./overview";

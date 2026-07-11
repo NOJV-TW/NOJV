@@ -30,6 +30,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/courses/[courseId]/settings`                       | Course settings + Copy course + archive (teacher/admin)                                                                                                                                                                                                                                                     |
 | `/courses/[courseId]/members`                        | Member management (teacher/admin)                                                                                                                                                                                                                                                                           |
 | `/courses/[courseId]/analytics`                      | Class analytics dashboard — completion, hardest problems, at-risk students, verdict distribution (course staff)                                                                                                                                                                                             |
+| `/courses/[courseId]/grades`                         | Course gradebook — per-problem raw best scores across all published assignments and exams; staff see every student + CSV export, students see only their own row                                                                                                                                            |
 | `/courses/[courseId]/assignments`                    | Course-scoped assignment list                                                                                                                                                                                                                                                                               |
 | `/courses/[courseId]/assignments/new`                | Create assignment (teacher/admin)                                                                                                                                                                                                                                                                           |
 | `/courses/[courseId]/exams`                          | Course-scoped exam list                                                                                                                                                                                                                                                                                     |
@@ -58,16 +59,17 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/complete-profile` | Onboarding: username, email verification                                                                         |
 | `/verify-school`    | School-email verification flow (parses the email domain, attaches a school + student-id placeholder if eligible) |
 
-### Public Static Routes
+### Public Routes
 
-| Route                   | Purpose                                                          |
-| ----------------------- | ---------------------------------------------------------------- |
-| `/about`                | Project description, links, contributor names                    |
-| `/legal/privacy`        | Privacy policy                                                   |
-| `/legal/terms`          | Terms of service                                                 |
-| `/docs`                 | Scalar API reference page for the public OpenAPI document        |
-| `/docs/internal`        | Scalar API reference page for the internal (maintainer) document |
-| `/guides/advanced-mode` | Advanced Mode package guide for instructors                      |
+| Route                   | Purpose                                                                                                                                                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/about`                | Project description, links, contributor names                                                                                                                                                                                                                                                                                   |
+| `/users/[id]`           | Public user profile — activity heatmap, difficulty/language distributions, solved public problems. Opt-in via the owner-only visibility toggle on the page itself (`User.profilePublic`, default off), alongside a share (copy link) button; private profiles 404 for everyone except the owner and admins. UserMenu links here |
+| `/legal/privacy`        | Privacy policy                                                                                                                                                                                                                                                                                                                  |
+| `/legal/terms`          | Terms of service                                                                                                                                                                                                                                                                                                                |
+| `/docs`                 | Scalar API reference page for the public OpenAPI document                                                                                                                                                                                                                                                                       |
+| `/docs/internal`        | Scalar API reference page for the internal (maintainer) document                                                                                                                                                                                                                                                                |
+| `/guides/advanced-mode` | Advanced Mode package guide for instructors                                                                                                                                                                                                                                                                                     |
 
 ### API Routes
 

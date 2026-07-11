@@ -152,6 +152,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `mustChangePassword` | `Boolean` | `@default(false)` |
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
 | `twoFactorActivated` | `Boolean` | `@default(false)` |
+| `profilePublic` | `Boolean` | `@default(false)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `sessions` | `Session[]` | — |

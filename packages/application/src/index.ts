@@ -37,6 +37,7 @@ export * as examDomain from "./exam";
 export * as feedbackDomain from "./feedback";
 export * as notificationDomain from "./notification";
 export * as plagiarismDomain from "./plagiarism";
+export * as platformDomain from "./platform";
 export * as postDomain from "./post";
 export * as proctoringDomain from "./proctoring";
 export * as problemDomain from "./problem";
