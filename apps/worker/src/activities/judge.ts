@@ -57,6 +57,13 @@ export function mergeSandboxSources(
     studentSources[0]?.content ??
     "";
 
+  if (judgeContext.problemType === "special_env") {
+    return {
+      sourceCode: "",
+      sourceFiles: studentSources.map((s) => ({ path: s.path, content: s.content })),
+    };
+  }
+
   const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === language);
 
   if (langFiles.length === 0) {
