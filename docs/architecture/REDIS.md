@@ -6,11 +6,12 @@ Redis 8 serves as the real-time data layer. It does not store durable state — 
 
 Both keyed state and pub/sub channels use the prefix `nojv:{domain}:{identifier}` — see `packages/redis/src/keys.ts`. The only unprefixed keys are the `rl:*` rate-limiter keys.
 
-| Pattern                      | Type                  | TTL    | Purpose                                     |
-| ---------------------------- | --------------------- | ------ | ------------------------------------------- |
-| `nojv:cache:admin-dashboard` | String (JSON)         | 300 s  | Admin dashboard read-through cache          |
-| `nojv:sb-throttle:{id}`      | String                | 10 s   | Scoreboard SSE-nudge throttle (per contest) |
-| `rl:*` (no `nojv:` prefix)   | rate-limiter-flexible | varies | API / form / sign-in rate limiting          |
+| Pattern                        | Type                  | TTL    | Purpose                                         |
+| ------------------------------ | --------------------- | ------ | ----------------------------------------------- |
+| `nojv:cache:admin-dashboard`   | String (JSON)         | 300 s  | Admin dashboard read-through cache              |
+| `nojv:cache:platform-overview` | String (JSON)         | 300 s  | Dashboard site-wide overview read-through cache |
+| `nojv:sb-throttle:{id}`        | String                | 10 s   | Scoreboard SSE-nudge throttle (per contest)     |
+| `rl:*` (no `nojv:` prefix)     | rate-limiter-flexible | varies | API / form / sign-in rate limiting              |
 
 ## Pub/Sub
 

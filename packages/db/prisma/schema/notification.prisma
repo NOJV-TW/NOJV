@@ -8,6 +8,8 @@ enum NotificationType {
   role_changed
   clarification_answered
   editorial_removed
+  post_removed
+  comment_removed
 }
 
 model Notification {

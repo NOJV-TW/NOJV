@@ -37,8 +37,14 @@ export async function getActiveExamContext(userId: string): Promise<ActiveExamCo
   return examDomain.session.getActiveSessionContext(userId);
 }
 
+const EXAM_FORBIDDEN_API_PREFIXES = ["/api/contests/", "/api/posts/", "/api/comments/"];
+const EXAM_FORBIDDEN_PROBLEM_POSTS_PATTERN = /^\/api\/problems\/[^/]+\/posts(?:\/|$)/;
+
 export function isExamForbiddenApiPath(cleanPath: string): boolean {
-  return cleanPath.startsWith("/api/contests/");
+  if (EXAM_FORBIDDEN_API_PREFIXES.some((prefix) => cleanPath.startsWith(prefix))) {
+    return true;
+  }
+  return EXAM_FORBIDDEN_PROBLEM_POSTS_PATTERN.test(cleanPath);
 }
 
 export function isAllowedPathForExam(pathname: string, ctx: ActiveExamContext): boolean {

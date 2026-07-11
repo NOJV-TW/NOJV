@@ -26,14 +26,19 @@
   }: Props = $props();
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root
+  bind:open
+  onOpenChange={(next) => {
+    if (!next) oncancel?.();
+  }}
+>
   <Dialog.Content showCloseButton>
     <Dialog.Header>
       <Dialog.Title>{title}</Dialog.Title>
     </Dialog.Header>
     <p class="text-sm text-muted-foreground">{message}</p>
     <Dialog.Footer>
-      <Button variant="outline" onclick={() => oncancel?.()}>
+      <Button variant="outline" onclick={() => (open = false)}>
         {cancelText}
       </Button>
       <Button

@@ -2,7 +2,7 @@
 
 ## Users And Outcomes
 
-- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, view editorials after AC; once their email is verified they may also create and own problems; course enrollment is teacher-driven (no self-serve join token)
+- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, join per-problem discussions and view editorials after AC; once their email is verified they may also create and own problems; course enrollment is teacher-driven (no self-serve join token)
 - **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments and exams (publish / archive / delete-draft lifecycle), duplicate existing courses, monitor student progress matrix, trigger plagiarism detection
 - **Admin**: full platform management, user role assignment (promote/disable), system announcements, all teacher capabilities
 - **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, page lock, submit cooldown
@@ -94,24 +94,24 @@
 - Side-by-side Monaco diff viewer for any flagged pair (assessment context)
 - Staff can mark pairs as false positives (`PlagiarismPairFlag`); flagged pairs hidden from list by default with toggle to reveal
 
-### Editorials
+### Problem Posts (Editorials & Discussions)
 
-- Community-contributed editorials per problem
-- AC-gated: only visible after solving the problem
+- Community-contributed posts per problem, two types on one model (`ProblemPost`): editorials (solution writeups) and discussions (open Q&A)
+- Editorials AC-gated: only visible after solving the problem (author/admin exempt); discussions open to any signed-in user
+- Both types blocked server-side while a live contest / assignment / exam re-uses the problem; only the practice workspace renders the tabs
+- Entire experience lives in the problem workspace left panel (LeetCode-style: list → article → compose); no standalone pages
 - Create / read / edit / soft-delete via API; soft-deleted rows filtered from every read path
-- Dedicated paginated list page (`/(app)/problems/[problemId]/editorials`)
-- Per-editorial edit page; author or admin only
-- Up/down voting per editorial (`EditorialVote`, one vote per user)
-- User-filed reports against editorials (`EditorialReport`) feeding an admin moderation queue at `/admin/content/editorial-reports` (resolve soft-deletes the editorial; dismiss closes the report)
+- Up/down voting per post (`PostVote`, one vote per user) with top-voted sorting
+- Two-level comments (comment + reply) with tombstones for deleted comments
+- User-filed reports against posts and comments (`ContentReport`) feeding a unified admin moderation queue at `/admin/reports` (resolve soft-deletes the target and notifies its author; dismiss closes the report)
 
 ### User Dashboard
 
-- Activity chart (daily submission history)
-- Language distribution statistics
-- Difficulty distribution statistics
-- Streak card — consecutive days with at least one AC (today's grace day applies)
-- Last-7-days submission trend
-- Suggested problems — top 5 unsolved problems whose tags overlap with the user's most-AC'd tags
+- Activity heatmap (daily submission history, bucketed by the browser's local day)
+- At-a-glance stats — solved count, attempts, AC rate, practice days
+- Topic proficiency plus difficulty / verdict / language distribution charts
+- Recent submissions list
+- Site-wide overview toggle (`?view=server`) — anonymous platform aggregates: KPI cards, 30-day submission trend, verdict / language donuts, trending public problems
 
 ### Public User Profiles
 

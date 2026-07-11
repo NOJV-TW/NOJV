@@ -58,7 +58,7 @@ model Problem {
   contestLinks       ContestProblem[]
   examLinks          ExamProblem[]
   assessmentLinks    AssessmentProblem[]
-  editorials         Editorial[]
+  posts              ProblemPost[]
   scoreOverrides     ScoreOverride[]        @relation("ScoreOverrideProblem")
   clarifications     Clarification[]        @relation("ProblemClarifications")
   submissionFeedback SubmissionFeedback[]   @relation("SubmissionFeedbackProblem")

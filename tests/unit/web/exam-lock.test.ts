@@ -94,19 +94,42 @@ describe("isExamForbiddenApiPath", () => {
     expect(isExamForbiddenApiPath("/api/contests/c1")).toBe(true);
   });
 
+  it("blocks post APIs (covert channel during exams)", () => {
+    expect(isExamForbiddenApiPath("/api/posts/p1")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/posts/p1/comments")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/posts/p1/votes")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/posts/p1/reports")).toBe(true);
+  });
+
+  it("blocks comment APIs (covert channel during exams)", () => {
+    expect(isExamForbiddenApiPath("/api/comments/c1")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/comments/c1/reports")).toBe(true);
+  });
+
+  it("blocks the per-problem posts API without touching other problems APIs", () => {
+    expect(isExamForbiddenApiPath("/api/problems/prob-1/posts")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/problems/prob-1/posts/extra")).toBe(true);
+    expect(isExamForbiddenApiPath("/api/problems/prob-1")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/problems/prob-1/bundle")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/problems/prob-1/workspace/files")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/problems/prob-1/posts-lookalike")).toBe(false);
+    expect(isExamForbiddenApiPath("/api/problems/advanced-scaffold")).toBe(false);
+  });
+
   it("allows the /api endpoints the exam UI legitimately uses", () => {
     expect(isExamForbiddenApiPath("/api/submissions")).toBe(false);
     expect(isExamForbiddenApiPath("/api/submissions/s1")).toBe(false);
     expect(isExamForbiddenApiPath("/api/problems/p1")).toBe(false);
-    expect(isExamForbiddenApiPath("/api/editorials/e1")).toBe(false);
     expect(isExamForbiddenApiPath("/api/events/stream")).toBe(false);
     expect(isExamForbiddenApiPath("/api/clarifications")).toBe(false);
     expect(isExamForbiddenApiPath("/api/exam-sessions/exam-1/release")).toBe(false);
     expect(isExamForbiddenApiPath("/api/notifications")).toBe(false);
   });
 
-  it("does not match non-/api paths that merely contain 'contests'", () => {
+  it("does not match non-/api paths that merely contain 'contests' or 'posts'", () => {
     expect(isExamForbiddenApiPath("/contests/c1/scoreboard")).toBe(false);
+    expect(isExamForbiddenApiPath("/problems/p1/posts")).toBe(false);
+    expect(isExamForbiddenApiPath("/posts/p1")).toBe(false);
   });
 });
 
