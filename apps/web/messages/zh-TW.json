@@ -143,7 +143,7 @@
   "account_nameUpdated": "已更新姓名",
   "account_profile": "個人資料",
   "account_profileDescription": "管理您在 NOJV 上顯示的資訊，並維持學校驗證狀態。",
-  "account_profileHint": "以下為來自登入提供者的唯讀帳號資訊。",
+  "account_profileHint": "編輯顯示在個人頁面上的頭像、姓名與帳號。",
   "account_resend": "重新發送",
   "account_resendCooldown": "{seconds} 秒後可重新發送",
   "account_role": "角色",

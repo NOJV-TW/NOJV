@@ -125,8 +125,8 @@ function isPlaceholderEmail(email: string): boolean {
 }
 
 function preferenceOutro(base: string): string {
-  const link = `${base}/account`;
-  return `不想收到這類信件嗎？請至<a href="${link}">帳號設定</a>調整通知偏好。<br>Manage your notification preferences in <a href="${link}">account settings</a>.`;
+  const link = `${base}/settings`;
+  return `不想收到這類信件嗎？請至<a href="${link}">設定頁面</a>調整通知偏好。<br>Manage your notification preferences in <a href="${link}">settings</a>.`;
 }
 
 export async function maybeSendEmails(

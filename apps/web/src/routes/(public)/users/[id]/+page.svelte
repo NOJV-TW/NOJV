@@ -10,6 +10,7 @@
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
+  import ProfileEditCard from "$lib/components/features/account/ProfileEditCard.svelte";
   import { buildActivityModel } from "$lib/utils/activity";
   import { difficultyClass } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
@@ -249,6 +250,15 @@
       </p>
     {/if}
   </Card>
+
+  {#if data.owner}
+    <ProfileEditCard
+      owner={data.owner}
+      name={user.name}
+      username={user.username}
+      image={user.image}
+    />
+  {/if}
 
   <Card variant="surface" size="lg">
     {#if hasHeatmapData}
