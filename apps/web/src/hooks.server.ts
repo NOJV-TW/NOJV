@@ -308,7 +308,7 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
     "/deletePasskey",
   ];
   const accountTwoFactorRequest =
-    cleanPath === "/account" &&
+    cleanPath === "/settings" &&
     (event.request.method === "GET" ||
       TWO_FACTOR_ACTIONS.some((action) => event.url.searchParams.has(action)));
   if (
@@ -321,7 +321,7 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
     return;
   }
   if (!(await isTwoFactorActivated(user.id))) {
-    redirect(302, "/account?setup2fa=1");
+    redirect(302, "/settings?setup2fa=1");
   }
   const sessionId = event.locals.session?.id;
   if (sessionId && !(await hasAdminSessionMfa(sessionId))) {

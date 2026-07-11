@@ -83,7 +83,7 @@ test.describe("API token step-up", () => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
 
-    await page.goto("/account?verify=totp");
+    await page.goto("/settings?verify=totp");
     const passwordInput = page.locator('input[name="password"]');
     await passwordInput.waitFor({ state: "visible" });
     await passwordInput.click();

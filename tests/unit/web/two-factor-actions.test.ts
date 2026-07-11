@@ -103,7 +103,7 @@ vi.mock("$lib/server/shared/rate-limiter", () => ({
 import {
   twoFactorActions as actions,
   loadTwoFactor as load,
-} from "$lib/../routes/(app)/account/two-factor-actions";
+} from "$lib/../routes/(app)/settings/two-factor-actions";
 
 function makeEvent(opts?: {
   twoFactorEnabled?: boolean;
@@ -111,7 +111,7 @@ function makeEvent(opts?: {
   body?: FormData;
   returnTo?: string;
 }): RequestEvent {
-  const url = new URL("http://localhost/account");
+  const url = new URL("http://localhost/settings");
   if (opts?.returnTo) url.searchParams.set("returnTo", opts.returnTo);
   return {
     locals: {
@@ -131,7 +131,7 @@ function makeEvent(opts?: {
       },
       apiTokenActor: null,
     },
-    request: new Request("http://localhost/account", {
+    request: new Request("http://localhost/settings", {
       method: "POST",
       body: opts?.body ?? new FormData(),
     }),
@@ -503,7 +503,7 @@ describe("deletePasskey", () => {
     expect(deletePasskeyMock).not.toHaveBeenCalled();
   });
 
-  it("deletes with a fresh passkey step-up marker and emails a notice", async () => {
+  it("deletes with a fresh passkey step-up marker", async () => {
     hasStepUpFactorMock.mockResolvedValue(true);
     hasFreshStepUpMock.mockResolvedValue(true);
     const result = await actions.deletePasskey(makeEvent({ body: form({ id: "pk_1" }) }));
@@ -511,7 +511,7 @@ describe("deletePasskey", () => {
       body: { id: "pk_1" },
       headers: expect.any(Headers),
     });
-    expect(sendEmailMock).toHaveBeenCalledOnce();
+    expect(sendEmailMock).not.toHaveBeenCalled();
     expect(result).toEqual({ deletedPasskey: true });
   });
 });

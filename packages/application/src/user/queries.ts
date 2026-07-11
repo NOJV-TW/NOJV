@@ -107,7 +107,7 @@ export async function updateUserRole(
       userId,
       type: "role_changed",
       params: { oldRole: existing.platformRole, newRole: role },
-      linkUrl: "/account",
+      linkUrl: `/users/${userId}`,
     });
   }
 

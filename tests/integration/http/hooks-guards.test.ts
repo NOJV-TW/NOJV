@@ -37,7 +37,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     });
     const res = await callRoute({ path: "/admin", module: NO_RESOLVE, user });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/account?setup2fa=1");
+    expect(res.headers.get("location")).toBe("/settings?setup2fa=1");
   }, 30_000);
 
   it("redirects a super admin with 2FA on but an unverified session to step-up verify", async () => {
@@ -50,10 +50,10 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
-    const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
+    const res = await callRoute({ path: "/admin", module: NO_RESOLVE, user });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(
-      `/account/api-tokens/verify?returnTo=${encodeURIComponent("/settings")}`,
+      `/account/api-tokens/verify?returnTo=${encodeURIComponent("/admin")}`,
     );
   }, 30_000);
 

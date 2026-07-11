@@ -15,7 +15,7 @@ describe("updateUserRole notifications", () => {
     expect(rows).toHaveLength(1);
     const row = rows[0]!;
     expect(row.type).toBe("role_changed");
-    expect(row.linkUrl).toBe("/account");
+    expect(row.linkUrl).toBe(`/users/${target.id}`);
     const params = row.params as { oldRole: string; newRole: string };
     expect(params.oldRole).toBe("student");
     expect(params.newRole).toBe("teacher");

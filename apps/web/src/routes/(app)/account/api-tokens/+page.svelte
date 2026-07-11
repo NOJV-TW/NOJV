@@ -130,8 +130,8 @@
   <Section>
     {#snippet header()}
       <div class="flex flex-col gap-2">
-        <a href="/account" class="text-body-sm text-muted-foreground hover:text-foreground">
-          {m.navigation_account()}
+        <a href="/settings" class="text-body-sm text-muted-foreground hover:text-foreground">
+          {m.navigation_settings()}
         </a>
         <h1 class="text-title-lg">{m.apiTokens_title()}</h1>
         <p>{m.apiTokens_subtitle()}</p>
