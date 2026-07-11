@@ -630,6 +630,27 @@ const INTERACTIVE_PEAK_CORRECT =
 const INTERACTIVE_PEAK_WRONG =
   'import sys\n\n\ndef main():\n    n = int(sys.stdin.readline().split()[0])\n    best_i = 1\n    best_v = None\n    for i in range(1, n + 1):\n        try:\n            print(f"? {i}", flush=True)\n        except BrokenPipeError:\n            return\n        line = sys.stdin.readline()\n        if not line:\n            return\n        v = int(line)\n        if best_v is None or v > best_v:\n            best_i, best_v = i, v\n    try:\n        print(f"! {best_i}", flush=True)\n    except BrokenPipeError:\n        pass\n\n\nmain()\n';
 
+const MF_LRU_CACHE_CORRECT =
+  'from collections import OrderedDict\n\nfrom iolib import read_ops\n\nclass LRUCache:\n    """Fixed-capacity cache. get(key) returns the stored value, or -1 on a miss.\n    put(key, value) inserts or updates a key. A get hit and a put (including an\n    update of an existing key) both mark the key as most recently used; when a\n    put makes the cache exceed its capacity, evict the least recently used key."""\n\n    def __init__(self, capacity: int) -> None:\n        self.capacity = capacity\n        self.data: OrderedDict[int, int] = OrderedDict()\n\n    def get(self, key: int) -> int:\n        if key not in self.data:\n            return -1\n        self.data.move_to_end(key)\n        return self.data[key]\n\n    def put(self, key: int, value: int) -> None:\n        if key in self.data:\n            self.data.move_to_end(key)\n        self.data[key] = value\n        if len(self.data) > self.capacity:\n            self.data.popitem(last=False)\n\ndef main() -> None:\n    capacity, ops = read_ops()\n    cache = LRUCache(capacity)\n    out = []\n    for kind, key, value in ops:\n        if kind == "P":\n            cache.put(key, value)\n        else:\n            out.append(str(cache.get(key)))\n    print("\\n".join(out))\n\nif __name__ == "__main__":\n    main()\n';
+const MF_LRU_CACHE_WRONG =
+  'from iolib import read_ops\n\nclass LRUCache:\n    """Fixed-capacity cache. get(key) returns the stored value, or -1 on a miss.\n    put(key, value) inserts or updates a key. A get hit and a put (including an\n    update of an existing key) both mark the key as most recently used; when a\n    put makes the cache exceed its capacity, evict the least recently used key."""\n\n    def __init__(self, capacity: int) -> None:\n        self.capacity = capacity\n        self.data = {}\n        self.queue = []\n\n    def get(self, key: int) -> int:\n        if key in self.data:\n            return self.data[key]\n        return -1\n\n    def put(self, key: int, value: int) -> None:\n        if key in self.data:\n            self.data[key] = value\n            return\n        self.data[key] = value\n        self.queue.append(key)\n        if len(self.data) > self.capacity:\n            evicted = self.queue.pop(0)\n            del self.data[evicted]\n\ndef main() -> None:\n    capacity, ops = read_ops()\n    cache = LRUCache(capacity)\n    out = []\n    for kind, key, value in ops:\n        if kind == "P":\n            cache.put(key, value)\n        else:\n            out.append(str(cache.get(key)))\n    print("\\n".join(out))\n\nif __name__ == "__main__":\n    main()\n';
+const MF_RUNNING_MEDIAN_CORRECT =
+  'import heapq\n\nfrom iolib import read_numbers\n\nclass MedianStream:\n    """Maintain a growing multiset of integers. add(x) inserts x; median()\n    returns the lower median: with k numbers added so far, the ceil(k/2)-th\n    smallest (duplicates counted separately)."""\n\n    def __init__(self) -> None:\n        self.lo = []\n        self.hi = []\n\n    def add(self, x: int) -> None:\n        if not self.lo or x <= -self.lo[0]:\n            heapq.heappush(self.lo, -x)\n        else:\n            heapq.heappush(self.hi, x)\n        if len(self.lo) > len(self.hi) + 1:\n            heapq.heappush(self.hi, -heapq.heappop(self.lo))\n        elif len(self.hi) > len(self.lo):\n            heapq.heappush(self.lo, -heapq.heappop(self.hi))\n\n    def median(self) -> int:\n        return -self.lo[0]\n\ndef main() -> None:\n    stream = MedianStream()\n    out = []\n    for x in read_numbers():\n        stream.add(x)\n        out.append(str(stream.median()))\n    print("\\n".join(out))\n\nif __name__ == "__main__":\n    main()\n';
+const MF_RUNNING_MEDIAN_WRONG =
+  'from iolib import read_numbers\n\nclass MedianStream:\n    """Maintain a growing multiset of integers. add(x) inserts x; median()\n    returns the lower median: with k numbers added so far, the ceil(k/2)-th\n    smallest (duplicates counted separately)."""\n\n    def __init__(self) -> None:\n        self.values = []\n\n    def add(self, x: int) -> None:\n        self.values.append(x)\n\n    def median(self) -> int:\n        ordered = sorted(self.values)\n        return ordered[len(ordered) // 2]\n\ndef main() -> None:\n    stream = MedianStream()\n    out = []\n    for x in read_numbers():\n        stream.add(x)\n        out.append(str(stream.median()))\n    print("\\n".join(out))\n\nif __name__ == "__main__":\n    main()\n';
+const MF_ANY_PEAK_CORRECT =
+  'from typing import List\n\nfrom iolib import read_array\n\ndef find_peak(arr: List[int]) -> int:\n    """Return any 1-based index i whose value is strictly greater than both of\n    its existing neighbours (positions outside the array count as minus\n    infinity). Adjacent elements are guaranteed distinct, so a peak exists."""\n    n = len(arr)\n    for i in range(n):\n        left_ok = i == 0 or arr[i] > arr[i - 1]\n        right_ok = i == n - 1 or arr[i] > arr[i + 1]\n        if left_ok and right_ok:\n            return i + 1\n    return 1\n\ndef main() -> None:\n    arr = read_array()\n    print(find_peak(arr))\n\nif __name__ == "__main__":\n    main()\n';
+const MF_ANY_PEAK_WRONG =
+  'from typing import List\n\nfrom iolib import read_array\n\ndef find_peak(arr: List[int]) -> int:\n    """Return any 1-based index i whose value is strictly greater than both of\n    its existing neighbours (positions outside the array count as minus\n    infinity). Adjacent elements are guaranteed distinct, so a peak exists."""\n    return 1\n\ndef main() -> None:\n    arr = read_array()\n    print(find_peak(arr))\n\nif __name__ == "__main__":\n    main()\n';
+const MF_TOP_K_WORDS_CORRECT =
+  'from collections import Counter\nfrom typing import List, Tuple\n\nfrom iolib import read_input\n\ndef top_k(words: List[str], k: int) -> List[Tuple[str, int]]:\n    """Return the k most frequent words as (word, count) pairs, ordered by\n    count descending; ties are broken by the lexicographically smaller word\n    first. k never exceeds the number of distinct words."""\n    counts = Counter(words)\n    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))\n    return ranked[:k]\n\ndef main() -> None:\n    words, k = read_input()\n    for word, count in top_k(words, k):\n        print(word, count)\n\nif __name__ == "__main__":\n    main()\n';
+const MF_TOP_K_WORDS_WRONG =
+  'from collections import Counter\nfrom typing import List, Tuple\n\nfrom iolib import read_input\n\ndef top_k(words: List[str], k: int) -> List[Tuple[str, int]]:\n    """Return the k most frequent words as (word, count) pairs, ordered by\n    count descending; ties are broken by the lexicographically smaller word\n    first. k never exceeds the number of distinct words."""\n    counts = Counter(words)\n    ranked = sorted(counts.items(), key=lambda item: item[0], reverse=True)\n    ranked.sort(key=lambda item: -item[1])\n    return ranked[:k]\n\ndef main() -> None:\n    words, k = read_input()\n    for word, count in top_k(words, k):\n        print(word, count)\n\nif __name__ == "__main__":\n    main()\n';
+const MF_JOSEPHUS_CORRECT =
+  'import sys\n\nfrom iolib import read_queries\n\n\ndef survivor(n: int, k: int) -> int:\n    """Return the 1-indexed position of the last survivor among n people counting k."""\n    if k == 1:\n        return n\n    sys.setrecursionlimit(5000)\n\n    def j(m: int) -> int:\n        if m == 1:\n            return 0\n        if k > m:\n            return (j(m - 1) + k) % m\n        res = j(m - m // k) - m % k\n        if res < 0:\n            res += m\n        else:\n            res += res // (k - 1)\n        return res\n\n    return j(n) + 1\n\n\ndef main() -> None:\n    for n, k in read_queries():\n        print(survivor(n, k))\n\n\nif __name__ == "__main__":\n    main()\n';
+const MF_JOSEPHUS_WRONG =
+  'import sys\n\nfrom iolib import read_queries\n\n\ndef survivor(n: int, k: int) -> int:\n    """Return the 1-indexed position of the last survivor among n people counting k."""\n    if k == 1:\n        return n\n    sys.setrecursionlimit(5000)\n\n    def j(m: int) -> int:\n        if m == 1:\n            return 0\n        if k > m:\n            return (j(m - 1) + k) % m\n        res = j(m - m // k) - m % k\n        if res < 0:\n            res += m\n        else:\n            res += res // (k - 1)\n        return res\n\n    return j(n)\n\n\ndef main() -> None:\n    for n, k in read_queries():\n        print(survivor(n, k))\n\n\nif __name__ == "__main__":\n    main()\n';
+
 export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
   "problem_warmup-sum": {
     language: "python",
@@ -940,5 +961,45 @@ export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
     language: "python",
     correct: { sourceCode: INTERACTIVE_PEAK_CORRECT },
     wrong: { sourceCode: INTERACTIVE_PEAK_WRONG, expectVerdict: "WA" },
+  },
+  "problem_mf-lru-cache": {
+    language: "python",
+    correct: { sourceFiles: [{ path: "main.py", content: MF_LRU_CACHE_CORRECT }] },
+    wrong: {
+      sourceFiles: [{ path: "main.py", content: MF_LRU_CACHE_WRONG }],
+      expectVerdict: "WA",
+    },
+  },
+  "problem_mf-running-median": {
+    language: "python",
+    correct: { sourceFiles: [{ path: "main.py", content: MF_RUNNING_MEDIAN_CORRECT }] },
+    wrong: {
+      sourceFiles: [{ path: "main.py", content: MF_RUNNING_MEDIAN_WRONG }],
+      expectVerdict: "WA",
+    },
+  },
+  "problem_mf-any-peak": {
+    language: "python",
+    correct: { sourceFiles: [{ path: "main.py", content: MF_ANY_PEAK_CORRECT }] },
+    wrong: {
+      sourceFiles: [{ path: "main.py", content: MF_ANY_PEAK_WRONG }],
+      expectVerdict: "WA",
+    },
+  },
+  "problem_mf-top-k-words": {
+    language: "python",
+    correct: { sourceFiles: [{ path: "main.py", content: MF_TOP_K_WORDS_CORRECT }] },
+    wrong: {
+      sourceFiles: [{ path: "main.py", content: MF_TOP_K_WORDS_WRONG }],
+      expectVerdict: "WA",
+    },
+  },
+  "problem_mf-josephus": {
+    language: "python",
+    correct: { sourceFiles: [{ path: "main.py", content: MF_JOSEPHUS_CORRECT }] },
+    wrong: {
+      sourceFiles: [{ path: "main.py", content: MF_JOSEPHUS_WRONG }],
+      expectVerdict: "WA",
+    },
   },
 };

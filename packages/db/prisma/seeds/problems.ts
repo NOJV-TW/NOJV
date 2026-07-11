@@ -4218,6 +4218,458 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         },
       },
     },
+    {
+      authorId: teacherId,
+      id: "problem_mf-lru-cache",
+      title: "LRU Cache (Multi-File)",
+      type: "multi_file" as const,
+      tags: ["medium", "Hash Table", "Design"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      statement: {
+        body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀入快取容量 $C$ 與 $Q$ 筆操作並依序執行——`P k v` 呼叫你實作的 `put(k, v)`，`G k` 呼叫 `get(k)` 並印出結果。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_ops()` 解析 stdin）；`main()` 已經寫好，你只需在 `main.py` 裡實作 `LRUCache` 這個 class。\n\n`LRUCache(capacity)` 是一個固定容量的快取：`get(key)` 回傳該鍵目前的值，鍵不存在時回傳 $-1$；`put(key, value)` 寫入或更新鍵值。`get` 命中與 `put`（包含更新既有的鍵）都會把該鍵刷新為「最近使用」；當 `put` 使快取內的鍵數超過容量時，淘汰**最久未使用**的鍵。本題規模刻意訂小，任何正確的實作都能在時限內通過，重點是淘汰語意的正確性。",
+        inputFormat:
+          "第一行兩個整數 $C$ 與 $Q$（$1 \\le C \\le 100$，$1 \\le Q \\le 5000$）。\n\n接下來 $Q$ 行，每行是 `P k v`（執行 `put(k, v)`）或 `G k`（執行 `get(k)` 並印出結果），其中 $0 \\le k, v \\le 10^9$。",
+        outputFormat: "對每筆 `G` 操作輸出一行：該鍵目前的值；鍵不在快取中時輸出 `-1`。",
+      },
+      samples: [
+        {
+          input: "2 8\nP 1 10\nP 2 20\nG 1\nP 3 30\nG 2\nG 1\nG 3\nG 5\n",
+          output: "10\n-1\n10\n30\n-1\n",
+        },
+        { input: "1 5\nP 7 1\nG 7\nP 8 2\nG 7\nG 8\n", output: "1\n-1\n2\n" },
+      ],
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content:
+            'from iolib import read_ops\n\nclass LRUCache:\n    """Fixed-capacity cache. get(key) returns the stored value, or -1 on a miss.\n    put(key, value) inserts or updates a key. A get hit and a put (including an\n    update of an existing key) both mark the key as most recently used; when a\n    put makes the cache exceed its capacity, evict the least recently used key."""\n\n    def __init__(self, capacity: int) -> None:\n        # implement the data structure here\n        pass\n\n    def get(self, key: int) -> int:\n        # implement get here\n        return -1\n\n    def put(self, key: int, value: int) -> None:\n        # implement put here\n        pass\n\ndef main() -> None:\n    capacity, ops = read_ops()\n    cache = LRUCache(capacity)\n    out = []\n    for kind, key, value in ops:\n        if kind == "P":\n            cache.put(key, value)\n        else:\n            out.append(str(cache.get(key)))\n    print("\\n".join(out))\n\nif __name__ == "__main__":\n    main()\n',
+          visibility: "editable",
+          description:
+            "The runnable entry. main() reads the operations via iolib.read_ops and prints each get result. Implement the LRUCache class here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "iolib.py",
+          content:
+            '"""Read-only I/O helper for the LRU cache problem.\n\nDo NOT modify. main.py imports read_ops to turn the stdin stream into\nthe cache capacity and the list of operations to execute.\n"""\n\nimport sys\nfrom typing import List, Tuple\n\n\ndef read_ops() -> Tuple[int, List[Tuple[str, int, int]]]:\n    """Return (capacity, ops); each op is ("P", key, value) or ("G", key, 0)."""\n    data = sys.stdin.read().split()\n    if len(data) < 2:\n        return 0, []\n    capacity = int(data[0])\n    q = int(data[1])\n    ops: List[Tuple[str, int, int]] = []\n    idx = 2\n    for _ in range(q):\n        kind = data[idx]\n        if kind == "P":\n            ops.append(("P", int(data[idx + 1]), int(data[idx + 2])))\n            idx += 3\n        else:\n            ops.append(("G", int(data[idx + 1]), 0))\n            idx += 2\n    return capacity, ops\n',
+          visibility: "readonly",
+          description:
+            "Read-only stdin helper. Provides read_ops(), which main.py imports to get the capacity and operation list. You don't need to touch this file.",
+          orderIndex: 1,
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Get refreshes freshness and changes the eviction victim; capacity 1.",
+          cases: [
+            {
+              input: "2 8\nP 1 10\nP 2 20\nG 1\nP 3 30\nG 2\nG 1\nG 3\nG 5\n",
+              output: "10\n-1\n10\n30\n-1\n",
+            },
+            { input: "1 5\nP 7 1\nG 7\nP 8 2\nG 7\nG 8\n", output: "1\n-1\n2\n" },
+          ],
+        },
+        hidden: {
+          description:
+            "Update refresh, pure misses, refresh chains, no-eviction capacity, and 1e9 keys/values.",
+          weight: 40,
+          cases: [
+            {
+              input: "2 9\nP 1 100\nP 2 200\nP 1 111\nP 3 300\nG 1\nG 2\nG 3\nP 2 222\nG 2\n",
+              output: "111\n-1\n300\n222\n",
+            },
+            { input: "3 4\nG 5\nP 5 50\nG 5\nG 6\n", output: "-1\n50\n-1\n" },
+            {
+              input:
+                "3 12\nP 1 1\nP 2 2\nP 3 3\nG 1\nG 2\nP 4 4\nG 3\nG 1\nG 2\nG 4\nP 5 5\nG 3\n",
+              output: "1\n2\n-1\n1\n2\n4\n-1\n",
+            },
+            {
+              input: "100 6\nP 10 1\nP 20 2\nP 10 3\nG 10\nG 20\nG 30\n",
+              output: "3\n2\n-1\n",
+            },
+            {
+              input:
+                "2 5\nP 1000000000 999999999\nP 0 0\nG 1000000000\nP 999999999 123456789\nG 0\n",
+              output: "999999999\n-1\n",
+            },
+          ],
+        },
+        hidden2: {
+          description: "Long random interleaved operation sequences with heavy key reuse.",
+          weight: 60,
+          cases: [
+            {
+              input:
+                "4 250\nG 9\nG 8\nP 7 515\nG 3\nP 4 801\nP 3 448\nP 1 164\nP 1 550\nP 5 805\nP 5 810\nP 6 64\nP 6 216\nG 1\nG 9\nG 10\nP 4 388\nP 3 414\nG 11\nG 0\nP 3 353\nP 12 721\nP 5 577\nG 2\nP 6 67\nP 12 701\nG 11\nG 10\nP 2 896\nP 8 890\nG 2\nG 10\nP 1 589\nP 5 718\nG 7\nG 1\nG 9\nP 12 652\nG 2\nP 12 955\nP 8 910\nP 2 153\nP 4 69\nP 0 705\nP 5 197\nG 4\nP 5 959\nP 2 209\nP 6 819\nP 5 287\nG 10\nP 2 648\nG 6\nG 7\nG 0\nG 3\nG 7\nG 8\nP 5 959\nP 2 695\nG 5\nG 6\nP 11 67\nP 3 123\nP 2 378\nP 0 681\nG 3\nG 10\nG 8\nP 8 469\nG 8\nG 4\nP 11 903\nP 6 997\nG 4\nP 3 350\nG 11\nG 7\nG 4\nG 3\nG 12\nG 9\nP 0 949\nG 7\nG 12\nP 2 824\nP 10 708\nG 4\nG 1\nG 9\nP 5 74\nP 2 998\nP 6 6\nP 3 659\nP 12 237\nP 11 161\nG 2\nG 9\nG 11\nP 7 193\nG 8\nG 12\nG 8\nG 1\nP 0 953\nG 8\nG 9\nP 2 41\nG 7\nG 11\nG 9\nP 4 137\nP 11 295\nP 10 98\nP 4 169\nG 11\nG 10\nG 2\nG 11\nP 10 33\nP 3 919\nP 3 205\nP 6 168\nP 7 947\nG 3\nP 12 929\nP 3 39\nP 3 270\nG 0\nP 6 606\nG 10\nG 10\nG 12\nG 7\nG 4\nP 0 309\nP 1 21\nP 5 993\nG 0\nP 6 58\nP 3 128\nG 7\nG 1\nP 2 676\nG 12\nP 7 994\nP 11 610\nG 4\nG 2\nG 8\nG 4\nG 6\nP 8 543\nG 1\nG 0\nP 7 640\nG 5\nP 2 491\nG 3\nP 12 65\nP 6 779\nP 7 554\nG 0\nP 7 354\nP 6 78\nG 8\nG 12\nP 11 784\nG 6\nP 12 711\nP 0 854\nP 9 174\nG 4\nP 2 575\nP 11 580\nG 9\nG 3\nG 11\nP 3 572\nG 3\nG 1\nP 7 312\nP 2 162\nP 7 811\nP 0 825\nG 1\nG 2\nG 0\nP 0 235\nP 10 737\nP 6 883\nP 3 791\nP 9 962\nP 11 231\nP 9 980\nP 4 432\nP 12 938\nG 2\nP 0 540\nG 6\nG 12\nP 4 505\nP 9 107\nP 1 697\nG 12\nP 12 179\nP 9 610\nP 11 944\nG 11\nP 9 181\nG 3\nG 8\nG 4\nG 2\nP 6 734\nP 8 889\nG 10\nP 11 716\nP 2 371\nP 2 476\nG 12\nP 10 900\nP 7 430\nP 10 718\nG 0\nP 5 820\nP 1 585\nG 5\nP 0 837\nP 7 228\nG 4\nG 2\nG 3\nP 2 292\nG 4\nP 9 727\nP 2 631\nG 0\nP 9 320\nP 9 582\nG 5\nG 6\nG 8\nP 3 62\nP 0 845\nP 3 338\nP 12 997\nG 10\nP 1 279\nP 2 750\nP 3 34\n",
+              output:
+                "-1\n-1\n-1\n550\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n896\n-1\n-1\n589\n-1\n896\n69\n-1\n819\n-1\n-1\n-1\n-1\n-1\n959\n819\n123\n-1\n-1\n469\n-1\n-1\n903\n-1\n-1\n350\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n161\n-1\n237\n-1\n-1\n-1\n-1\n193\n-1\n-1\n295\n98\n-1\n295\n205\n-1\n-1\n-1\n929\n947\n-1\n309\n-1\n-1\n-1\n-1\n676\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n65\n78\n-1\n174\n-1\n580\n572\n-1\n-1\n162\n825\n-1\n-1\n938\n938\n944\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n820\n-1\n-1\n-1\n-1\n837\n-1\n-1\n-1\n-1\n",
+            },
+            {
+              input:
+                "8 250\nP 24 480\nG 13\nG 6\nP 1 871\nP 14 540\nP 10 506\nG 20\nG 27\nG 6\nP 10 435\nG 14\nG 26\nP 1 770\nP 8 894\nP 27 991\nG 1\nG 5\nP 24 389\nP 8 218\nP 29 366\nG 4\nG 22\nP 6 243\nG 9\nP 11 299\nG 10\nP 24 357\nP 24 199\nP 25 533\nG 24\nP 11 246\nG 17\nP 28 996\nG 6\nP 0 681\nP 16 326\nP 3 755\nP 5 608\nP 21 728\nG 9\nG 20\nG 4\nG 21\nP 4 898\nP 0 743\nP 20 765\nP 19 511\nP 3 824\nG 5\nP 28 667\nG 27\nP 15 375\nP 6 691\nP 25 422\nG 14\nP 29 774\nP 13 804\nP 20 682\nP 30 618\nP 5 464\nG 15\nP 7 212\nP 0 989\nP 30 320\nG 16\nG 22\nP 20 894\nG 12\nG 15\nP 9 195\nG 3\nG 17\nP 17 393\nG 17\nG 8\nG 7\nG 9\nG 17\nG 30\nP 28 225\nG 11\nP 19 53\nG 30\nP 17 484\nP 10 243\nG 23\nP 6 956\nG 11\nG 20\nP 26 200\nG 5\nP 14 46\nP 22 905\nP 9 142\nG 30\nG 23\nP 12 39\nG 9\nP 22 142\nP 18 50\nG 21\nG 11\nP 28 290\nG 8\nP 10 192\nG 8\nG 21\nG 13\nP 27 942\nG 20\nP 9 22\nP 20 461\nP 22 211\nP 17 344\nP 23 65\nG 16\nG 28\nP 10 374\nP 19 813\nG 14\nP 24 443\nG 26\nP 18 547\nP 6 89\nP 11 819\nG 30\nP 27 950\nG 27\nG 5\nP 23 598\nP 8 4\nG 29\nG 2\nP 2 818\nG 1\nP 22 351\nP 16 917\nG 8\nP 23 923\nG 22\nP 1 558\nG 13\nP 6 857\nP 4 655\nG 28\nP 0 14\nP 3 879\nG 7\nP 26 618\nP 19 374\nG 9\nP 8 339\nP 30 979\nP 18 500\nP 26 62\nP 30 604\nP 29 488\nP 15 245\nG 28\nG 12\nP 4 844\nG 24\nG 11\nG 1\nP 8 66\nG 30\nP 5 533\nG 23\nG 2\nG 11\nG 0\nP 2 663\nG 12\nG 9\nP 16 603\nP 2 663\nP 9 571\nG 25\nP 7 83\nG 24\nP 0 419\nP 25 337\nG 12\nG 20\nG 29\nP 9 746\nP 0 265\nP 17 593\nG 11\nG 22\nG 29\nP 6 698\nG 4\nP 29 869\nP 17 877\nP 1 964\nG 9\nG 24\nG 11\nP 0 837\nG 12\nP 9 317\nP 19 631\nP 17 480\nP 1 933\nG 4\nP 8 393\nP 14 596\nP 30 866\nG 5\nG 23\nG 27\nP 29 713\nP 20 736\nP 18 581\nP 25 604\nP 15 60\nG 24\nG 24\nP 6 412\nG 18\nG 24\nP 3 578\nP 9 943\nP 19 629\nP 18 889\nP 4 498\nP 12 761\nP 25 822\nG 15\nG 15\nG 16\nP 12 306\nG 2\nG 12\nP 22 96\nG 19\nG 20\nG 13\nP 5 765\nG 16\nG 14\nG 14\nG 3\nG 3\nP 26 982\nG 7\nG 9\nG 10\nP 22 617\n",
+              output:
+                "-1\n-1\n-1\n-1\n-1\n540\n-1\n770\n-1\n-1\n-1\n-1\n-1\n199\n-1\n243\n-1\n-1\n-1\n728\n608\n-1\n-1\n375\n-1\n-1\n-1\n375\n-1\n-1\n393\n-1\n212\n195\n393\n320\n-1\n320\n-1\n-1\n-1\n-1\n320\n-1\n142\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n290\n-1\n-1\n-1\n950\n-1\n-1\n-1\n-1\n4\n351\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n604\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n746\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n581\n-1\n-1\n-1\n-1\n-1\n306\n629\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n",
+            },
+            {
+              input:
+                "3 600\nP 1 758\nP 6 579\nG 8\nP 12 484\nP 2 556\nG 1\nG 3\nP 4 946\nG 0\nP 13 961\nP 1 345\nP 4 603\nG 9\nG 7\nP 8 255\nG 0\nG 8\nG 4\nP 11 999\nP 15 999\nG 4\nP 5 187\nP 12 969\nG 7\nG 2\nP 0 138\nP 5 668\nG 0\nP 0 731\nP 0 259\nP 6 874\nG 5\nP 1 512\nG 4\nP 2 420\nP 4 461\nP 11 890\nP 10 932\nP 14 541\nG 9\nP 13 468\nG 5\nP 15 87\nG 8\nP 4 941\nG 10\nG 10\nG 7\nG 14\nP 8 832\nP 8 686\nP 9 564\nP 10 545\nP 0 664\nG 2\nG 8\nP 13 996\nG 6\nP 1 167\nG 8\nP 5 125\nG 5\nG 15\nP 8 371\nG 5\nG 13\nP 10 797\nP 13 48\nP 7 802\nG 10\nP 7 838\nP 2 783\nP 9 767\nP 14 904\nG 4\nG 4\nP 7 979\nP 3 116\nP 3 582\nP 13 960\nP 2 468\nP 4 777\nG 12\nP 10 682\nP 8 641\nP 15 75\nP 0 835\nP 3 116\nG 4\nP 6 81\nP 8 639\nG 9\nG 13\nP 5 364\nP 15 919\nP 4 372\nP 11 331\nP 9 160\nG 6\nG 11\nG 12\nG 1\nG 8\nG 12\nP 13 902\nG 4\nP 6 490\nG 3\nP 13 317\nG 2\nG 5\nP 1 359\nG 6\nP 12 620\nP 15 76\nG 9\nG 5\nG 14\nP 6 323\nP 12 661\nP 8 153\nP 8 51\nG 0\nG 13\nP 10 18\nG 0\nP 3 682\nP 15 81\nP 2 440\nG 14\nP 5 575\nP 6 343\nG 6\nP 13 688\nG 7\nG 11\nG 0\nG 15\nP 1 384\nP 8 819\nP 0 7\nG 2\nG 2\nG 4\nP 8 697\nP 15 519\nG 9\nP 15 361\nG 11\nG 5\nG 2\nG 10\nG 1\nP 8 275\nG 3\nG 14\nG 2\nP 7 153\nG 0\nP 2 989\nG 9\nG 4\nP 9 747\nP 12 465\nG 3\nP 9 175\nP 3 744\nP 3 949\nP 6 61\nP 0 520\nP 10 311\nG 11\nP 4 84\nG 9\nG 3\nP 2 244\nG 8\nG 4\nP 11 856\nG 2\nP 5 717\nP 5 551\nG 11\nG 6\nG 1\nP 11 744\nG 8\nP 13 493\nG 7\nP 0 697\nG 8\nP 4 386\nP 11 576\nG 5\nG 7\nP 6 159\nP 7 530\nG 15\nG 5\nP 10 119\nG 6\nG 5\nP 15 590\nP 14 982\nP 4 830\nP 5 433\nP 15 226\nG 5\nG 0\nG 6\nG 10\nP 6 588\nG 4\nP 15 837\nG 14\nP 11 672\nG 0\nP 8 76\nP 12 620\nP 9 886\nG 5\nP 14 870\nP 8 239\nG 11\nG 9\nP 2 132\nG 1\nP 7 174\nP 12 258\nG 7\nG 0\nP 5 799\nP 6 715\nG 13\nP 6 224\nP 12 100\nP 10 623\nP 11 349\nG 8\nG 5\nP 13 965\nP 1 24\nP 4 843\nP 1 172\nG 10\nG 5\nG 8\nP 10 406\nG 2\nG 8\nG 13\nG 15\nG 15\nG 11\nP 13 743\nP 5 607\nP 10 624\nG 12\nG 6\nG 7\nG 0\nP 2 783\nP 8 43\nP 12 998\nG 0\nG 6\nP 10 989\nP 6 650\nP 13 76\nP 7 448\nG 12\nP 9 56\nP 15 365\nP 8 713\nG 3\nP 5 244\nG 12\nG 1\nG 6\nG 6\nG 11\nP 10 91\nP 10 713\nP 1 177\nG 5\nP 14 811\nP 7 532\nP 4 130\nP 6 151\nP 1 883\nG 13\nP 7 304\nP 2 355\nP 12 569\nP 4 361\nG 1\nG 6\nP 8 904\nP 9 104\nG 11\nG 0\nP 3 901\nG 8\nP 13 431\nP 14 437\nP 4 293\nP 10 805\nG 8\nP 1 232\nP 8 918\nP 7 45\nG 6\nP 8 92\nP 13 132\nP 4 270\nG 8\nP 13 685\nG 0\nG 13\nP 15 43\nG 6\nP 12 671\nG 3\nG 2\nG 10\nP 12 716\nG 11\nP 15 384\nP 14 635\nP 11 294\nP 6 821\nP 11 818\nG 2\nP 5 22\nP 13 392\nG 3\nP 5 90\nG 1\nG 14\nG 14\nP 12 600\nG 7\nP 11 999\nP 2 99\nP 3 512\nG 7\nP 15 273\nG 9\nP 4 776\nG 14\nP 4 493\nG 5\nP 10 913\nG 8\nP 1 955\nG 5\nG 15\nP 8 643\nP 2 360\nG 10\nP 15 893\nP 1 884\nP 12 676\nG 1\nG 1\nP 3 294\nP 9 67\nP 5 273\nP 0 841\nP 12 185\nG 1\nG 8\nP 3 560\nG 14\nP 10 951\nP 13 985\nG 8\nP 7 965\nG 14\nP 11 394\nG 0\nP 7 331\nG 1\nP 7 337\nP 6 911\nP 10 599\nG 7\nP 7 993\nP 13 744\nP 1 399\nG 7\nP 11 288\nG 5\nP 10 750\nP 15 997\nG 5\nP 11 264\nG 4\nP 8 47\nG 2\nG 8\nP 13 435\nP 4 689\nP 0 156\nG 0\nG 15\nG 11\nP 9 281\nP 4 105\nP 2 72\nP 1 358\nP 0 163\nG 7\nP 14 42\nG 5\nP 3 181\nG 4\nG 5\nP 9 397\nG 7\nP 8 137\nG 2\nP 12 638\nP 0 118\nG 15\nP 1 935\nP 1 52\nP 5 545\nP 14 740\nP 14 832\nP 14 141\nP 14 933\nG 7\nP 6 348\nP 4 350\nP 11 211\nG 4\nG 6\nG 5\nP 15 447\nP 1 658\nP 15 62\nP 15 34\nG 12\nG 8\nP 13 527\nP 14 497\nP 0 627\nP 7 756\nG 9\nG 12\nG 13\nG 0\nP 8 132\nG 10\nP 6 194\nG 9\nP 15 101\nP 12 47\nP 12 922\nP 3 650\nP 7 672\nP 7 55\nG 14\nP 2 621\nG 12\nP 1 434\nG 5\nP 11 484\nP 9 602\nG 11\nP 11 480\nP 4 850\nG 5\nP 6 761\nG 15\nP 7 779\nG 2\nG 0\nP 2 385\nP 12 634\nP 2 809\nG 3\nG 4\nP 3 677\nG 7\nP 7 928\nG 0\nP 1 30\nP 11 531\nP 7 509\nP 10 134\nP 2 160\nP 6 917\nG 3\nP 13 192\nP 5 841\nG 4\nP 13 394\nP 1 844\nG 13\nP 12 527\nP 6 302\nG 6\nP 1 485\nP 15 67\nG 15\nG 8\nG 6\nP 9 951\nG 3\nP 1 821\nP 3 128\nG 5\nG 0\nG 1\nP 11 955\nG 5\nP 3 193\nG 8\nG 5\nG 7\nG 3\nP 14 758\nG 2\nG 6\nP 13 572\nP 13 485\nP 3 5\nG 12\nG 1\nG 3\nP 0 986\nP 11 282\nP 9 27\nP 14 436\nG 7\nP 4 279\nP 11 584\nP 3 988\nG 4\nG 7\nP 4 920\nG 10\nP 11 486\nP 9 430\nP 5 461\nP 14 163\nP 10 641\nP 15 338\nP 13 901\nP 12 334\nG 11\nP 2 953\nP 14 635\nP 7 776\nG 9\nP 1 430\nP 13 454\nP 6 353\nG 1\nP 11 2\nP 4 684\nP 6 714\nG 2\nP 10 922\nP 13 29\nG 6\nP 6 228\nP 0 26\nG 7\nG 11\nP 9 497\nG 15\nP 10 813\nP 3 569\nP 0 579\nP 12 964\nP 8 436\nP 11 634\nG 4\nG 8\nP 6 45\nG 2\nP 15 555\nP 9 344\nG 14\nG 15\nG 15\nG 8\nG 5\nP 6 879\nG 10\nG 2\nP 15 713\nG 15\nG 7\nG 5\nP 0 865\nP 8 485\n",
+              output:
+                "-1\n-1\n-1\n-1\n-1\n-1\n-1\n255\n603\n603\n-1\n-1\n138\n668\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n125\n-1\n125\n-1\n797\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n331\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n490\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n343\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n84\n244\n856\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n159\n-1\n433\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n886\n-1\n174\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n244\n-1\n-1\n-1\n-1\n-1\n904\n-1\n-1\n92\n-1\n685\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n884\n884\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n337\n993\n-1\n-1\n-1\n-1\n47\n156\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n350\n348\n-1\n-1\n-1\n-1\n-1\n-1\n627\n-1\n-1\n-1\n-1\n-1\n484\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n-1\n394\n302\n67\n-1\n302\n-1\n-1\n-1\n821\n-1\n-1\n-1\n-1\n193\n-1\n-1\n-1\n-1\n5\n-1\n279\n-1\n-1\n-1\n-1\n430\n-1\n714\n-1\n-1\n-1\n-1\n436\n-1\n-1\n555\n555\n-1\n-1\n-1\n-1\n713\n-1\n-1\n",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_mf-running-median",
+      title: "Running Median (Multi-File)",
+      type: "multi_file" as const,
+      tags: ["medium", "Heap", "Data Structures"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      statement: {
+        body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀入 $N$ 個整數，依序對每個數呼叫你實作的 `MedianStream.add(x)`，接著呼叫 `median()` 並印出目前的中位數。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_numbers()` 解析 stdin）；`main()` 已經寫好，你只需在 `main.py` 裡實作 `MedianStream` 這個 class。\n\n`median()` 回傳**下中位數**：已加入 $k$ 個數時，即由小到大第 $\\lceil k/2 \\rceil$ 個（重複的數分開計）。例如目前的數是 `1 2 8 9` 時回傳 $2$。經典解法是同時維護一個 max-heap 與一個 min-heap，但本題規模刻意訂小，任何正確的做法（例如每步重新排序）都能在時限內通過。",
+        inputFormat:
+          "第一行一個整數 $N$（$1 \\le N \\le 5000$）。\n\n第二行 $N$ 個整數 $x_1, \\dots, x_N$（$-10^9 \\le x_i \\le 10^9$，可能重複）。",
+        outputFormat: "輸出 $N$ 行：第 $i$ 行是加入 $x_1, \\dots, x_i$ 之後的下中位數。",
+      },
+      samples: [{ input: "5\n1 9 2 8 3\n", output: "1\n1\n2\n2\n3\n" }],
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content:
+            'from iolib import read_numbers\n\nclass MedianStream:\n    """Maintain a growing multiset of integers. add(x) inserts x; median()\n    returns the lower median: with k numbers added so far, the ceil(k/2)-th\n    smallest (duplicates counted separately)."""\n\n    def __init__(self) -> None:\n        # implement the data structure here\n        pass\n\n    def add(self, x: int) -> None:\n        # implement add here\n        pass\n\n    def median(self) -> int:\n        # implement median here\n        return 0\n\ndef main() -> None:\n    stream = MedianStream()\n    out = []\n    for x in read_numbers():\n        stream.add(x)\n        out.append(str(stream.median()))\n    print("\\n".join(out))\n\nif __name__ == "__main__":\n    main()\n',
+          visibility: "editable",
+          description:
+            "The runnable entry. main() feeds each number via MedianStream.add and prints median() after every insertion. Implement the MedianStream class here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "iolib.py",
+          content:
+            '"""Read-only I/O helper for the running median problem.\n\nDo NOT modify. main.py imports read_numbers to turn the stdin stream\ninto the list of N integers that arrive in order.\n"""\n\nimport sys\nfrom typing import List\n\n\ndef read_numbers() -> List[int]:\n    """Return the N stream integers from stdin (empty list on bad count)."""\n    data = sys.stdin.read().split()\n    if not data:\n        return []\n    n = int(data[0])\n    return [int(tok) for tok in data[1 : 1 + n]]\n',
+          visibility: "readonly",
+          description:
+            "Read-only stdin helper. Provides read_numbers(), which main.py imports to get the stream values. You don't need to touch this file.",
+          orderIndex: 1,
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Mixed insertions where the median moves, and a single-element stream.",
+          cases: [
+            { input: "5\n1 9 2 8 3\n", output: "1\n1\n2\n2\n3\n" },
+            { input: "1\n-5\n", output: "-5\n" },
+          ],
+        },
+        hidden: {
+          description:
+            "All-equal values, strictly decreasing input, duplicate-heavy even steps, and 1e9 extremes.",
+          weight: 40,
+          cases: [
+            { input: "6\n4 4 4 4 4 4\n", output: "4\n4\n4\n4\n4\n4\n" },
+            { input: "7\n10 8 6 4 2 0 -2\n", output: "10\n8\n8\n6\n6\n4\n4\n" },
+            { input: "8\n5 5 1 1 9 9 5 1\n", output: "5\n5\n5\n1\n5\n5\n5\n5\n" },
+            {
+              input: "4\n1000000000 -1000000000 -1000000000 1000000000\n",
+              output: "1000000000\n-1000000000\n-1000000000\n-1000000000\n",
+            },
+          ],
+        },
+        hidden2: {
+          description: "Random streams of 250-500 values with many duplicates.",
+          weight: 60,
+          cases: [
+            {
+              input:
+                "250\n4824 8343 5259 4806 6641 9248 -3777 -3949 6775 5590 -3899 -6915 4634 -58 -5353 -7028 7652 -8627 9512 2982 4844 -4839 -9508 7314 -7930 -8048 -8831 -3767 -2072 9649 -9014 5203 692 4436 9365 -3599 7011 -2343 -361 6377 -9849 -7215 4986 -885 3330 8064 -7273 -1677 332 -2474 6807 -528 -9025 -7698 8454 -6463 3121 -6467 -467 2666 -7810 -9446 -9982 -3003 -3127 -8285 5401 2304 3023 3756 -7606 8555 -3495 -1159 1040 -7144 198 899 -9503 3437 -6133 -5589 -1926 -6688 -9641 -8037 5236 5953 -4177 8327 -3826 4662 6675 -3751 -5708 3738 2575 -6182 2939 3788 -3024 -9984 -1159 9423 -33 -9356 -3095 -3862 2920 9727 8906 -6712 -8620 -5204 -3012 4469 -1536 -9686 780 -290 2655 -7594 -7565 -7047 -3160 9096 -2036 -9491 9703 2081 2180 4851 -5831 9244 5851 8828 -5552 2652 -4009 -4949 185 -2516 -1824 -3780 -4807 8152 -3558 2721 5812 9777 -7427 3811 -8446 -6597 -6426 -8731 6789 -1638 -2187 2833 -1579 3790 9546 6090 -384 7042 -4251 -7746 -5858 -2515 5706 8330 -7570 -817 -3040 -3316 -9456 -7733 -1179 3482 4605 -1838 -8018 -8473 -4224 -760 2085 7400 8749 -5688 -6979 1867 -5464 4757 846 7103 9151 -5401 9330 -8850 -9413 5559 1714 218 -8900 -9303 9608 -7547 5802 -7795 193 450 -5523 -7626 -7533 4847 7895 2052 -8542 -5755 1195 1529 -7217 5509 -7454 3670 -9008 6382 8770 -9523 2529 2425 9094 -9592 9952 -7632 -7371 -7029 -6212 -1571 3640 819 2729 9037 5000 4436 5160 7736 -7254 6997\n",
+              output:
+                "4824\n4824\n5259\n4824\n5259\n5259\n5259\n4824\n5259\n5259\n5259\n4824\n4824\n4806\n4806\n4634\n4806\n4634\n4806\n4634\n4806\n4634\n4634\n4634\n4634\n2982\n2982\n-58\n-58\n-58\n-58\n-58\n692\n692\n2982\n692\n2982\n692\n692\n692\n692\n-58\n692\n-58\n692\n692\n692\n-58\n332\n-58\n332\n-58\n-58\n-361\n-58\n-361\n-58\n-361\n-361\n-361\n-361\n-467\n-467\n-528\n-528\n-885\n-528\n-528\n-467\n-467\n-467\n-467\n-467\n-528\n-467\n-528\n-467\n-467\n-467\n-467\n-467\n-528\n-528\n-885\n-885\n-1159\n-885\n-885\n-885\n-885\n-885\n-885\n-528\n-885\n-885\n-885\n-528\n-885\n-528\n-528\n-528\n-885\n-885\n-885\n-528\n-885\n-885\n-1159\n-885\n-885\n-528\n-885\n-885\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-885\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1536\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-885\n-885\n-885\n-885\n-885\n-1159\n-885\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1536\n-1159\n-1536\n-1536\n-1536\n-1536\n-1536\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1536\n-1159\n-1159\n-1159\n-1159\n-1159\n-1536\n-1536\n-1579\n-1536\n-1536\n-1179\n-1536\n-1536\n-1579\n-1579\n-1579\n-1536\n-1536\n-1179\n-1536\n-1536\n-1536\n-1536\n-1536\n-1179\n-1179\n-1159\n-1179\n-1159\n-1179\n-1179\n-1179\n-1159\n-1159\n-1159\n-1179\n-1159\n-1179\n-1159\n-1179\n-1159\n-1159\n-1159\n-1179\n-1179\n-1179\n-1159\n-1159\n-1159\n-1179\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-1159\n-885\n-1159\n-885\n-1159\n-1159\n-1159\n-1159\n-1179\n-1159\n-1159\n-1159\n-1159\n-885\n-885\n-817\n-817\n-817\n-817\n",
+            },
+            {
+              input:
+                "300\n-5400 -2049 -9226 4652 -3962 -6048 1327 -7389 -2406 -1176 -8372 468 9699 -4130 8088 4091 -8412 8912 -9301 9319 -1350 181 3813 -3769 -4084 -6344 9098 7395 8557 -7995 697 972 -1532 -3955 2884 240 6886 -5339 -840 -1132 -3936 4153 -8390 1221 7427 -8942 3743 -1756 6590 -684 6952 3417 3018 -3942 70 8458 2248 3016 9091 -9174 -257 8860 9518 8393 7797 7274 4205 7310 4004 -7112 -7032 4541 1656 -6770 4148 3200 -8097 -3546 6778 -2176 3129 -9778 -6835 5040 -3661 -4383 -9011 7912 2330 1441 -4139 758 1705 -3732 4536 -8788 -7941 7546 -5589 -3397 -6690 -8293 -3608 3460 -6002 -5164 9238 5093 -8583 -6065 6336 7169 -5557 9155 -687 5501 5604 -7841 1593 -6370 9937 -1517 -6084 -9403 -3877 6385 1477 -7901 1160 -6813 -4384 9559 4235 -1185 -4189 -8628 -7495 -3755 1544 -6130 -2910 7512 -1645 5947 -7770 -4080 -9235 -944 -6809 9036 5400 -3193 3198 1277 -6148 7196 -4088 -8745 -2211 2379 -8919 -3276 -3341 6057 2532 -8389 3743 5220 -1681 -1840 -2439 -6311 -1274 -7863 8550 -4829 -4156 448 -8139 -9017 6344 -4810 9781 -824 -8615 5950 -9022 -920 -9866 -2943 4843 -2354 4518 7517 4084 -5417 1639 1217 -1512 -9701 2448 9935 -6486 -4249 8069 1865 -862 6805 -1378 -3828 -1504 -898 7217 -4785 1401 6708 6246 6380 -5550 7661 -3757 6356 3295 1249 -7457 2673 7249 -3610 -4699 -7192 -8341 2443 1085 -2268 -8220 6964 7185 -4990 -3549 8275 1863 9609 -9979 7276 520 -9284 -6283 6605 -8314 -7865 -6769 8694 -7817 -4155 -1556 6541 -66 244 3500 8842 7223 7991 892 559 -8287 -2321 6776 530 -779 -9888 -2185 -2054 -8120 -6136 310 -223 -9217 358 -6305 -6619 4587 887 -4249 -4763 5623 -677 3594 2914 1602 -5419 3224 53 -2306 7736 -2549 2280 -8673 5214 -826 6848\n",
+              output:
+                "-5400\n-5400\n-5400\n-5400\n-3962\n-5400\n-3962\n-5400\n-3962\n-3962\n-3962\n-3962\n-2406\n-3962\n-2406\n-2406\n-2406\n-2406\n-2406\n-2406\n-2049\n-2049\n-1350\n-2049\n-2049\n-2406\n-2049\n-2049\n-1350\n-2049\n-1350\n-1350\n-1350\n-1532\n-1350\n-1350\n-1176\n-1350\n-1176\n-1176\n-1176\n-1176\n-1176\n-1176\n-1132\n-1176\n-1132\n-1176\n-1132\n-1132\n-840\n-840\n-684\n-840\n-684\n-684\n70\n70\n181\n70\n70\n70\n181\n181\n240\n240\n468\n468\n697\n468\n468\n468\n697\n468\n697\n697\n697\n468\n697\n468\n697\n468\n468\n468\n468\n240\n240\n240\n468\n468\n468\n468\n697\n468\n697\n468\n468\n468\n468\n240\n240\n181\n181\n181\n181\n70\n181\n181\n181\n70\n181\n181\n181\n181\n181\n181\n240\n181\n240\n181\n240\n181\n181\n70\n70\n70\n181\n70\n181\n70\n70\n70\n181\n70\n70\n-257\n-257\n-684\n-257\n-684\n-684\n-684\n-684\n-684\n-684\n-687\n-687\n-840\n-840\n-840\n-687\n-840\n-687\n-687\n-687\n-687\n-687\n-840\n-840\n-840\n-840\n-944\n-944\n-944\n-840\n-944\n-840\n-840\n-840\n-944\n-944\n-1132\n-1132\n-1176\n-1132\n-1176\n-1176\n-1176\n-1176\n-1185\n-1176\n-1185\n-1176\n-1176\n-1176\n-1176\n-1176\n-1176\n-1176\n-1185\n-1176\n-1185\n-1176\n-1176\n-1132\n-1176\n-1132\n-1132\n-1132\n-1176\n-1132\n-1132\n-1132\n-1176\n-1132\n-1132\n-944\n-944\n-944\n-1132\n-1132\n-1132\n-944\n-1132\n-944\n-944\n-920\n-920\n-920\n-920\n-920\n-920\n-898\n-898\n-898\n-898\n-862\n-898\n-898\n-920\n-920\n-920\n-898\n-920\n-920\n-920\n-898\n-920\n-920\n-920\n-898\n-898\n-898\n-898\n-862\n-898\n-898\n-898\n-898\n-920\n-920\n-920\n-920\n-944\n-944\n-944\n-920\n-920\n-898\n-898\n-862\n-862\n-840\n-840\n-840\n-862\n-840\n-840\n-824\n-840\n-840\n-862\n-862\n-898\n-862\n-862\n-862\n-862\n-862\n-898\n-862\n-862\n-862\n-898\n-862\n-862\n-840\n-840\n-824\n-840\n-824\n-824\n-824\n-824\n-824\n-824\n-824\n-824\n-824\n-824\n",
+            },
+            {
+              input:
+                "500\n169 -657 295 -522 674 722 -432 -19 336 803 825 91 862 81 -618 335 854 264 933 31 -342 979 408 82 -14 -88 -422 933 379 302 -855 -382 -152 -366 62 17 841 -892 522 245 761 508 387 -127 670 734 -425 901 -345 138 567 396 -496 -759 771 -885 -346 818 -417 -563 837 -864 536 -250 -747 339 -341 577 -502 51 -441 -344 -986 -275 75 349 -376 137 -192 -203 -620 408 -774 801 -932 -253 788 285 531 399 147 746 -746 -870 -694 -808 -754 656 -351 -993 -882 -160 -435 -286 -584 776 -605 387 339 -204 -62 225 -30 618 -266 208 104 -69 609 764 -369 -4 -856 -980 -14 -222 -223 553 599 -259 -772 368 788 -500 -969 919 111 300 -91 481 -354 788 821 728 438 768 -665 864 14 494 254 -10 -931 415 -820 814 233 906 495 -423 -52 -427 -135 940 39 -167 -466 -32 796 275 970 552 -13 -205 -957 555 -186 -349 645 960 -334 -656 -783 963 -620 874 458 -345 274 951 -413 859 278 -646 558 484 979 -275 703 -123 -111 907 658 -314 896 324 780 -245 537 765 202 346 48 -928 742 530 281 836 478 -973 -533 -15 -811 633 -446 737 195 -839 174 -759 -593 766 -613 -592 946 248 -853 -867 898 393 582 -977 175 -109 82 393 -239 -986 759 924 -681 -153 -952 878 -817 667 751 -717 -64 -918 599 -957 205 599 -570 621 140 -533 385 -769 -314 -249 -818 638 829 518 23 776 -366 983 -936 546 376 712 837 -966 650 -986 20 767 -405 268 -326 -330 75 -737 473 -319 -799 -305 -207 16 540 -78 -444 -585 777 -831 82 -584 717 -737 -470 -794 -644 -151 85 -733 -718 639 -14 116 -50 -57 -336 310 512 -518 -985 -952 -951 -838 -694 -309 -618 -260 508 -482 -513 -372 259 708 671 -982 16 -80 228 -215 173 -422 961 485 -448 -540 562 -913 -414 -673 -193 -944 -291 -830 -760 682 989 -615 321 941 959 -214 -321 -507 659 -221 -915 746 -513 378 628 -735 57 -671 617 876 -209 263 795 540 -841 732 277 20 -613 597 -591 789 809 677 -119 757 665 451 -418 -422 496 -212 859 -362 284 -109 -519 204 369 448 948 -224 641 -70 -90 308 -181 976 -798 -244 574 -97 -675 -426 -552 690 -932 -787 -664 -617 -214 -325 -23 867 -641 709 -130 -730 553 -515 -801 633 -722 939 70 -151 852 -699 880 877 166 26 -812 628 790 -184 -807 842 158 88 -94 -216 -992 203 -802 619 980 -95 11 -567 38 746 -363 -631 107 114 -113 -420 222 -61 884 875 388 -516 -151 -480 -971 -376 -653 759 -9 -378 983 694 -970 903\n",
+              output:
+                "169\n-657\n169\n-522\n169\n169\n169\n-19\n169\n169\n295\n169\n295\n169\n169\n169\n295\n264\n295\n264\n264\n264\n295\n264\n264\n169\n169\n169\n264\n264\n264\n169\n169\n91\n91\n82\n91\n82\n91\n91\n169\n169\n245\n169\n245\n245\n245\n245\n245\n169\n245\n245\n245\n169\n245\n169\n169\n169\n169\n138\n169\n138\n169\n138\n138\n138\n138\n138\n138\n91\n91\n82\n82\n81\n81\n81\n81\n81\n81\n75\n75\n75\n75\n75\n75\n62\n75\n75\n81\n81\n82\n82\n82\n81\n81\n75\n75\n75\n75\n62\n62\n51\n51\n31\n31\n31\n31\n31\n51\n31\n31\n31\n31\n31\n31\n31\n51\n31\n51\n51\n51\n31\n31\n17\n17\n-4\n-4\n-4\n17\n-4\n-4\n-4\n17\n-4\n-4\n-4\n17\n17\n17\n17\n17\n17\n31\n31\n51\n51\n51\n51\n51\n51\n62\n51\n51\n51\n51\n51\n62\n62\n75\n62\n62\n51\n51\n51\n51\n39\n39\n31\n39\n39\n51\n51\n51\n39\n39\n39\n39\n31\n39\n39\n39\n31\n31\n31\n31\n31\n39\n31\n39\n39\n39\n39\n51\n39\n51\n51\n62\n51\n62\n51\n51\n51\n62\n51\n62\n62\n75\n62\n75\n75\n81\n81\n81\n75\n81\n81\n82\n82\n91\n82\n82\n81\n81\n81\n81\n81\n82\n81\n82\n81\n81\n81\n81\n75\n81\n81\n81\n75\n81\n81\n82\n81\n82\n81\n82\n82\n82\n81\n82\n82\n82\n81\n81\n81\n81\n81\n82\n81\n81\n75\n81\n75\n81\n81\n81\n81\n82\n81\n82\n81\n81\n75\n75\n75\n81\n81\n81\n81\n81\n81\n81\n81\n82\n82\n82\n82\n82\n82\n82\n82\n82\n82\n82\n81\n81\n75\n81\n75\n75\n75\n75\n62\n75\n62\n62\n51\n62\n51\n62\n51\n62\n51\n51\n48\n48\n39\n48\n39\n39\n39\n39\n39\n39\n31\n31\n31\n39\n31\n31\n23\n23\n20\n20\n17\n17\n16\n17\n16\n16\n14\n16\n16\n17\n16\n16\n16\n16\n16\n16\n16\n16\n16\n16\n16\n16\n16\n16\n14\n14\n-4\n-4\n-10\n-10\n-10\n-4\n-10\n-4\n-4\n14\n-4\n-4\n-10\n-4\n-10\n-10\n-10\n-10\n-10\n-4\n-10\n-4\n-10\n-4\n-4\n-4\n-4\n14\n14\n14\n14\n16\n16\n16\n16\n16\n16\n16\n16\n16\n16\n17\n17\n17\n16\n17\n16\n17\n16\n17\n16\n16\n16\n17\n17\n20\n17\n20\n17\n17\n17\n17\n17\n17\n16\n17\n16\n16\n16\n16\n16\n16\n14\n14\n-4\n-4\n-10\n-10\n-10\n-10\n-10\n-10\n-13\n-10\n-13\n-13\n-13\n-13\n-13\n-10\n-13\n-10\n-13\n-10\n-10\n-4\n-4\n-4\n-4\n14\n-4\n-4\n-4\n14\n14\n14\n-4\n-4\n-4\n-4\n-4\n14\n-4\n11\n-4\n11\n11\n11\n-4\n11\n11\n11\n-4\n11\n-4\n11\n11\n14\n11\n11\n-4\n-4\n-10\n-10\n-10\n-9\n-10\n-9\n-9\n-9\n-9\n",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_mf-any-peak",
+      title: "Any Peak Index (Multi-File Checker)",
+      type: "multi_file" as const,
+      tags: ["medium", "Array", "Design"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      judgeConfig: {
+        type: "checker",
+        checkerLanguage: "python",
+        checkerScript:
+          'data = judge_input.split()\nn = int(data[0])\narr = [int(t) for t in data[1 : 1 + n]]\ntokens = team_output.split()\nif not tokens:\n    wrong("empty output")\ntry:\n    i = int(tokens[0])\nexcept ValueError:\n    wrong("first token is not an integer")\nif i < 1 or i > n:\n    wrong(f"index {i} is out of range 1..{n}")\nif i > 1 and arr[i - 1] <= arr[i - 2]:\n    wrong(f"a[{i}] is not strictly greater than its left neighbour")\nif i < n and arr[i - 1] <= arr[i]:\n    wrong(f"a[{i}] is not strictly greater than its right neighbour")\naccept()\n',
+      },
+      statement: {
+        body: "這是一題多檔實作題，也是互動題「Peak Hunt」的離線版。可執行的進入點是 `main.py`：它從標準輸入讀入一個陣列，呼叫你實作的 `find_peak(arr)` 並印出回傳值。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_array()` 解析 stdin）；`main()` 已經寫好，你只需在 `main.py` 裡實作 `find_peak`。\n\n`find_peak(arr)` 要回傳任意一個 **peak** 的 1-based 索引 $i$：$a_i$ 嚴格大於它實際存在的鄰居（$a_0$ 與 $a_{N+1}$ 視為負無窮大）。保證相鄰元素兩兩不相等，因此 peak 必定存在。答案可能不唯一，由 special judge 驗證，輸出任何一個合法的 peak 都算對。線性掃描即可在時限內通過；沿斜率二分是進階的提示，不是必要條件。",
+        inputFormat:
+          "第一行一個整數 $N$（$1 \\le N \\le 5000$）。\n\n第二行 $N$ 個整數 $a_1, \\dots, a_N$（$-10^9 \\le a_i \\le 10^9$），保證 $a_i \\ne a_{i+1}$。",
+        outputFormat:
+          "輸出一行一個整數：任意一個 peak 的 1-based 索引。答案不唯一時輸出任何一個皆可。",
+      },
+      samples: [{ input: "5\n1 3 2 5 4\n", output: "2\n" }],
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content:
+            'from typing import List\n\nfrom iolib import read_array\n\ndef find_peak(arr: List[int]) -> int:\n    """Return any 1-based index i whose value is strictly greater than both of\n    its existing neighbours (positions outside the array count as minus\n    infinity). Adjacent elements are guaranteed distinct, so a peak exists."""\n    # implement find_peak here\n    return 1\n\ndef main() -> None:\n    arr = read_array()\n    print(find_peak(arr))\n\nif __name__ == "__main__":\n    main()\n',
+          visibility: "editable",
+          description:
+            "The runnable entry. main() reads the array via iolib.read_array and prints the find_peak result. Implement find_peak here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "iolib.py",
+          content:
+            '"""Read-only I/O helper for the peak finding problem.\n\nDo NOT modify. main.py imports read_array to turn the stdin stream\ninto the list of N integers.\n"""\n\nimport sys\nfrom typing import List\n\n\ndef read_array() -> List[int]:\n    """Return the N array values from stdin (empty list on bad count)."""\n    data = sys.stdin.read().split()\n    if not data:\n        return []\n    n = int(data[0])\n    return [int(tok) for tok in data[1 : 1 + n]]\n',
+          visibility: "readonly",
+          description:
+            "Read-only stdin helper. Provides read_array(), which main.py imports to get the array. You don't need to touch this file.",
+          orderIndex: 1,
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Two interior peaks to choose from, and a single-element array.",
+          cases: [
+            { input: "5\n1 3 2 5 4\n", output: "PEAK" },
+            { input: "1\n7\n", output: "PEAK" },
+          ],
+        },
+        hidden: {
+          description:
+            "Strictly increasing, strictly decreasing, zigzag, mountain, and 1e9 extremes.",
+          weight: 40,
+          cases: [
+            { input: "6\n1 2 3 4 5 6\n", output: "PEAK" },
+            { input: "6\n9 7 5 3 1 -1\n", output: "PEAK" },
+            { input: "9\n1 5 2 6 3 7 4 8 0\n", output: "PEAK" },
+            { input: "7\n1 4 6 9 5 3 2\n", output: "PEAK" },
+            { input: "2\n-1000000000 1000000000\n", output: "PEAK" },
+          ],
+        },
+        hidden2: {
+          description:
+            "Long random adjacent-distinct arrays with many valid peaks; neither endpoint is a peak.",
+          weight: 60,
+          cases: [
+            {
+              input:
+                "600\n-3 -1 0 2 -1 3 5 0 -5 1 4 1 4 3 5 -4 0 3 2 -2 -4 -5 -1 -3 -2 -4 1 3 -1 -5 1 -1 -2 0 -3 3 -4 1 4 1 0 -1 -5 -3 4 5 0 1 5 -5 3 4 0 4 -1 5 -4 0 1 3 4 -4 3 2 -4 5 1 0 -1 2 -2 3 -3 5 2 3 5 -4 -1 3 1 -5 -3 0 -1 -5 -1 -4 2 -4 2 -2 -4 3 1 -3 -4 -5 5 3 -1 -5 2 0 -5 2 3 -3 -4 2 -5 2 3 -2 5 3 1 -4 3 2 -2 -4 5 -3 5 1 3 0 -3 4 -2 5 -5 -3 3 1 2 -3 -5 2 -5 -3 3 1 -1 0 1 3 -4 -3 0 -2 2 0 -3 -1 1 -4 -1 1 -5 5 -3 -5 5 -2 -4 3 -2 5 -2 2 -2 0 3 -1 -4 4 -4 0 3 -1 4 -4 -5 -3 1 3 1 2 -3 3 4 0 5 -1 0 5 -4 -5 2 -1 -2 0 -1 -4 -2 2 1 -2 -1 0 -1 -4 5 -4 0 -2 -4 4 2 4 -3 4 3 -3 5 -1 5 0 -2 -5 2 -2 5 2 4 0 -2 0 1 4 1 -4 4 -4 -1 2 3 4 2 3 -3 -2 0 5 1 -4 -1 1 2 -1 3 -4 -5 -4 2 -3 0 5 -1 5 -2 -4 -1 0 -4 -5 -1 2 -2 -1 4 5 -3 3 5 0 -4 -1 2 0 2 3 5 -3 -2 -4 3 2 1 4 2 3 -4 1 5 -1 0 4 1 3 4 2 5 0 -2 0 -5 3 -2 5 2 4 0 -5 3 4 0 2 4 -3 -4 3 -1 3 -1 4 -5 -3 5 2 -2 -3 5 4 5 -3 5 4 -1 -2 4 -1 -5 0 2 3 0 -5 -4 2 -1 3 -2 1 3 4 -3 2 0 3 -5 5 -4 -2 3 -3 5 -1 -2 0 2 3 -2 2 0 1 -1 -4 4 2 -4 4 -5 -3 3 -4 -2 -3 -5 2 0 3 4 -1 -3 4 2 0 -5 -1 -3 -4 -3 -4 2 5 0 -2 2 4 5 -2 3 -5 1 -1 4 -5 1 -4 -3 4 5 -3 3 -2 -4 -5 0 -1 2 -5 1 5 -5 -2 -5 -2 1 5 -5 1 4 -2 -5 1 3 -1 0 -2 -1 -4 5 2 4 -1 -5 2 3 -2 -4 2 -2 -3 -4 5 -5 3 -2 5 -1 5 2 4 1 -3 2 -4 -5 -4 3 -2 3 -4 -1 0 4 -5 2 -3 -4 1 0 2 5 -5 -2 2 1 -5 -3 -5 3 5 4 -3 -4 2 1 -1 -2 0 3 -3 5 -5 1 -2 4 -1 1 -2 5 -5 -4 -2 -5 -2 3 5 -2 2 3 -5 2 -3 -1 -5 0 2 3 1 -2 4 -1 0 -5 -2 -4 -3 4 5 -5 2 0 -3 -5 -1 4 2 -2 2 -4 -1 -3 5 -3 5 -5 2 0 -3 5 -2 2 -2 3 0 -5 -4 0 4 1 -3 0 -3 5 3\n",
+              output: "PEAK",
+            },
+            {
+              input:
+                "800\n-56832 -28202 -25914 -65010 -75063 -97304 21857 -28061 31871 -93654 -88064 -56131 21465 -38006 5323 -13220 24008 53131 77802 -81681 66595 22779 -90954 9446 9349 -39739 -62264 -44731 30939 75828 67664 -59699 -27517 -4158 -6414 67511 -73966 -73134 42474 -37148 -96822 -66266 -96900 84558 -52591 60717 -69820 79729 -92270 11536 15133 -6966 87287 -58161 90960 48613 -74646 94212 -15110 -43229 88533 -67583 -3020 -5882 51624 -82677 18879 93891 7993 58905 43724 14729 95290 94889 -41487 -45718 -95525 -49713 -40794 86017 -34223 17516 -62003 35513 73439 78171 49157 -39037 -56529 84921 91078 29654 60500 69436 -33583 29802 -70106 -27691 75913 -73844 91892 27221 -94700 -8923 -61456 -92104 85726 -98629 54840 -5940 91655 -94140 -77865 -86638 28192 -66176 28644 -6128 48765 42398 5420 90483 1526 -65799 -379 -5806 -69971 -71142 -18589 -36991 40825 5867 -31076 -1200 -97397 -80013 -86477 -48968 70384 67593 -6073 5529 64566 72987 -70665 2141 88226 -36748 -87105 -49415 -77489 -94792 45157 49863 -18336 79259 6472 -54617 58504 73330 28475 -95002 -78806 55830 -82291 58288 -60801 -99648 -37726 -87124 -3037 75419 86044 41985 -8521 -66336 70100 12906 -55991 66133 -98743 32740 94427 -85410 78838 62961 -69267 75872 65811 -6414 -46782 -66132 62181 15414 74619 -49185 87023 -38124 81360 96559 77908 -97323 -95848 -3975 -89181 -19543 28738 -89545 54039 73565 51323 -12788 61537 -70472 -52039 65191 99742 99414 -31300 -81042 68573 -24246 54649 -27307 -59115 91099 -30342 -63653 -23363 34071 -97183 -1917 84570 71167 26686 -53530 73255 86470 20895 -15815 -32120 47867 -64902 -34285 62533 -54369 58453 -8367 46298 87857 -71634 -58651 32705 -46775 -59779 -85 15656 -86006 -23390 -32191 75957 35302 -33550 45966 -52923 39834 91194 65786 -13087 3277 -19664 90335 12326 -70727 37841 -98813 -98663 36232 28495 22977 -86372 62714 -73109 14696 -84809 -2029 1470 93047 -31854 -80610 -18586 12573 -92465 -79073 23854 -79283 34581 -48294 -20679 -65980 36881 -20626 -54029 -94421 79467 40973 18335 64082 47136 -33067 -86018 -55403 18703 55408 -74389 88055 27034 -92911 59081 4921 92088 47099 15247 62075 84470 72088 85844 -75352 33968 -47242 -76256 -61678 30601 -81504 -27391 -25435 39583 38181 -12212 73184 47766 42416 -40654 1356 817 70350 52406 -5475 -11243 -65425 27979 -90511 84083 51963 20059 -70094 39000 -62701 -81764 73662 -21022 20579 90443 30219 -2821 -97789 46483 -63207 -3134 -56890 43152 -42551 -91996 -79754 20313 -4704 74039 -97691 74244 75515 91175 -42888 57831 82203 98011 65143 -7417 92971 -54169 -14936 -92024 -14009 68060 46827 -8978 -7561 -76174 -68993 33525 -59859 85035 -40374 -97243 9416 -5412 -25503 83445 -65866 8183 31748 -15634 16058 -83328 54401 -9196 -14784 -40495 24543 81029 -74801 1885 -6822 -58637 -38711 -79891 -31698 -98281 33564 -72764 -63494 -11168 62105 -90435 14626 -38149 -70292 -53612 -9577 96597 -95980 19196 95093 -80640 40319 -36519 -26532 -58428 35641 61598 -8232 -60534 7647 57297 46752 73708 -4862 -65775 41359 93374 -4716 97831 25112 72311 -8243 19101 87412 32407 -3216 32183 77086 87715 135 67272 -57387 -20335 4625 97598 90147 -46645 -82322 89174 -24147 31609 -41634 1301 38097 51561 4846 77777 -43412 14864 12204 97840 99911 -93829 -92915 1522 -5201 41764 20667 70933 -24683 30504 824 92798 10860 48284 -37940 85317 60900 74783 69764 -81417 -26115 -84093 62567 69085 81197 97687 39510 26335 79968 -98123 1126 42974 4698 -2784 30936 4149 -51807 -14654 -74998 -71839 3106 96684 -99558 -26528 71458 -95228 -5116 -92174 -12431 91038 63905 55268 20981 -44651 -17242 82184 74171 -27702 -71562 -50152 20530 34862 -24268 15974 64750 90441 -60427 83551 -78396 -16605 -69835 -14842 -33961 56782 -65699 -2057 33650 42264 -90263 -37173 -58267 57564 68003 12343 5261 75038 63904 20662 -65307 -87033 -98130 -76644 42369 64468 10859 -59170 -91310 743 -66427 -66110 35777 -742 74999 -16829 68890 -22247 36875 -79752 5377 24079 -58912 85435 76794 65481 32986 77142 -22758 -52834 -84341 25917 -97479 50089 -79404 -92152 -59425 -56911 27214 40404 19942 -18714 -41033 63851 -16933 -81890 -96902 -4703 4076 91409 44816 -93902 80675 84128 -63654 -40716 34415 -15697 -30428 -57570 83683 -65446 54177 12309 -93715 -7095 63461 -9854 -60818 -71414 -22553 5265 18175 -67811 -81807 -89779 -79179 -73638 -82148 5438 -90176 97110 52743 -85468 -23263 41395 -2731 13647 -11706 25774 -27592 85722 -77233 -83769 -44436 -69699 9521 58793 -84566 -73908 5485 -21929 -80606 -58170 48882 22089 76395 -22234 73430 -68273 26561 16342 40523 -92451 31947 12253 15393 -71642 -14433 11466 -59477 -85683 -6387 44313 -74368 -56337 82331 60540 -41018 30409 9642 65525 58081 -7817 3036 -47633 -7082 11353 -32161 23411 -37280 91526 -33897 46715 43727 75186 -52366 22137 -20005 75675 -19096 26921 -41836 -45271 94285 26601 -67666 37761 -22121 -40671 -13818 76674 44545 -68520 90741 -69367 -21020 91734 91974 98235 71891 75621 -43031 94550 80418 -53982 -63859 56751 -65022 -45101 -4900 -34688 28151 49033 -42430 94641 67527 -72401 -47909 18598 39737 24340 60237 -70854 21907 29617 -60623 83081 -38776 28362 -85162 -75668 -56169 78224 5060 30906 17703 36514 -72875 -14030 -19408 81325 -18941 -10218 -70252 56093 -54844 80815 -75385\n",
+              output: "PEAK",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_mf-top-k-words",
+      title: "Top-K Frequent Words (Multi-File)",
+      type: "multi_file" as const,
+      tags: ["medium", "Hash Table", "Sorting", "String"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      statement: {
+        body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀入 $N$ 個單字與整數 $K$，呼叫你實作的 `top_k(words, k)`，並把回傳的每個 `(單字, 次數)` 逐行印出。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_input()` 解析 stdin）；`main()` 已經寫好，你只需在 `main.py` 裡實作 `top_k`。\n\n`top_k(words, k)` 要回傳出現次數前 $K$ 名的單字及其出現次數，依出現次數由大到小排列；次數相同時，字典序較小的單字排前面。保證 $K$ 不超過相異單字數，因此回傳的 list 恰有 $K$ 個元素。本題規模刻意訂小，重點是計數與 tie-break 規則的正確性。",
+        inputFormat:
+          "第一行兩個整數 $N$ 與 $K$（$1 \\le N \\le 5000$，$1 \\le K \\le$ 相異單字數）。\n\n接下來 $N$ 行，每行一個單字 $w_i$（$1 \\le |w_i| \\le 20$，僅含小寫英文字母）。",
+        outputFormat: "輸出 $K$ 行：第 $i$ 行是排名第 $i$ 的單字與其出現次數，以一個空白分隔。",
+      },
+      samples: [
+        {
+          input: "7 2\napple\nbanana\napple\ncherry\nbanana\napple\ncherry\n",
+          output: "apple 3\nbanana 2\n",
+        },
+      ],
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content:
+            'from typing import List, Tuple\n\nfrom iolib import read_input\n\ndef top_k(words: List[str], k: int) -> List[Tuple[str, int]]:\n    """Return the k most frequent words as (word, count) pairs, ordered by\n    count descending; ties are broken by the lexicographically smaller word\n    first. k never exceeds the number of distinct words."""\n    # implement top_k here\n    return []\n\ndef main() -> None:\n    words, k = read_input()\n    for word, count in top_k(words, k):\n        print(word, count)\n\nif __name__ == "__main__":\n    main()\n',
+          visibility: "editable",
+          description:
+            "The runnable entry. main() reads the words via iolib.read_input and prints each (word, count) pair returned by top_k. Implement top_k here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "iolib.py",
+          content:
+            '"""Read-only I/O helper for the top-k frequent words problem.\n\nDo NOT modify. main.py imports read_input to turn the stdin stream\ninto the word list and K.\n"""\n\nimport sys\nfrom typing import List, Tuple\n\n\ndef read_input() -> Tuple[List[str], int]:\n    """Return (words, k) parsed from stdin (empty list and 0 on bad count)."""\n    data = sys.stdin.read().split()\n    if len(data) < 2:\n        return [], 0\n    n = int(data[0])\n    k = int(data[1])\n    return data[2 : 2 + n], k\n',
+          visibility: "readonly",
+          description:
+            "Read-only stdin helper. Provides read_input(), which main.py imports to get the word list and K. You don't need to touch this file.",
+          orderIndex: 1,
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "A tie broken by lexicographic order, and K=1 with a two-way tie.",
+          cases: [
+            {
+              input: "7 2\napple\nbanana\napple\ncherry\nbanana\napple\ncherry\n",
+              output: "apple 3\nbanana 2\n",
+            },
+            { input: "4 1\nbb\naa\nbb\naa\n", output: "aa 2\n" },
+          ],
+        },
+        hidden: {
+          description:
+            "Single repeated word, K equal to the distinct count, all-tied frequencies, N=1, and 20-char near-identical words.",
+          weight: 40,
+          cases: [
+            { input: "5 1\nzz\nzz\nzz\nzz\nzz\n", output: "zz 5\n" },
+            { input: "6 3\nc\nb\na\nb\nc\nc\n", output: "c 3\nb 2\na 1\n" },
+            {
+              input: "8 4\ndog\ncat\nant\nbee\nfox\nelk\nowl\nbat\n",
+              output: "ant 1\nbat 1\nbee 1\ncat 1\n",
+            },
+            { input: "1 1\nhello\n", output: "hello 1\n" },
+            {
+              input:
+                "5 2\naaaaaaaaaaaaaaaaaaab\naaaaaaaaaaaaaaaaaaaa\naaaaaaaaaaaaaaaaaaab\naaaaaaaaaaaaaaaaaaaa\naaaaaaaaaaaaaaaaaaaz\n",
+              output: "aaaaaaaaaaaaaaaaaaaa 2\naaaaaaaaaaaaaaaaaaab 2\n",
+            },
+          ],
+        },
+        hidden2: {
+          description: "Random word streams from small pools with many frequency ties.",
+          weight: 60,
+          cases: [
+            {
+              input:
+                "300 9\naffbdf\nfcecd\neabfad\nddbaab\nfcecd\nb\nbf\nbf\nddbaab\nd\nddefce\nddbaab\nddefce\naffbdf\ncbbd\neeaaea\nbdacd\nbf\ncbbd\ndcbbaf\ncfdbef\nfcecd\ndcbbaf\ncfba\nddefce\naffbdf\nbdacd\neeaaea\nbcf\nbdacd\na\nbf\nbcf\ne\nbf\naffbdf\nbf\neeaaea\nf\nfcecd\nbaccbe\ne\ncfdbef\nb\nbf\ndcbbaf\nb\nddefce\nfcecd\nbdacd\neeaaea\ne\ndcbbaf\nd\ncbbd\nd\na\nbcf\nf\nbaccbe\nbaccbe\neabfad\neabfad\nbcf\nddbaab\naffbdf\naf\neabfad\nfcecd\nd\nbdacd\ndcbbaf\ncfba\ncfba\nbaccbe\ncbbd\ndcbbaf\nfcecd\nbf\nb\ncbbd\nfcecd\nf\nddbaab\ncfba\ndcbbaf\ne\nbf\nb\neabfad\ne\nfcecd\nddefce\nbf\ne\nbcf\ne\ncfba\naffbdf\nbf\ne\ne\nf\ndcbbaf\naf\nfcecd\neeaaea\na\nbdacd\nddbaab\ne\ncfdbef\nd\nf\nbcf\nddbaab\na\nbf\nbcf\nfcecd\neabfad\ndcbbaf\nbaccbe\na\nf\neabfad\ndcbbaf\na\nbf\ncbbd\nfcecd\na\neeaaea\neabfad\nbf\ndcbbaf\nbcf\naf\neabfad\ncfdbef\nf\neabfad\nbcf\ne\naffbdf\nf\neeaaea\naf\nbdacd\nd\nbcf\ncbbd\ne\naffbdf\nddefce\na\ncfba\nb\ncfba\ndcbbaf\naffbdf\neeaaea\ncfdbef\nddefce\nd\neabfad\nbcf\naffbdf\naffbdf\nd\ndcbbaf\nd\nbcf\nddefce\nbcf\ncbbd\nbcf\naffbdf\naffbdf\na\ncfdbef\ncfba\ncfdbef\ncfdbef\na\nbdacd\naf\nddbaab\nb\na\nbaccbe\ncbbd\neabfad\ncbbd\nd\nbcf\ne\neabfad\ndcbbaf\ne\ncbbd\nfcecd\neeaaea\ncbbd\nf\nbcf\nbf\na\ncbbd\neabfad\naf\nbdacd\ncfdbef\ncfba\ncfba\ncbbd\ncfba\ncbbd\ncfba\naffbdf\naffbdf\ncbbd\nf\ncfba\nbaccbe\ndcbbaf\neeaaea\neeaaea\na\nd\nbf\nd\nddbaab\nfcecd\nddefce\nddbaab\nbf\naf\nbdacd\naf\ncfba\nfcecd\nd\na\nbcf\ne\nddbaab\naffbdf\neabfad\nf\neeaaea\ne\nfcecd\naf\nb\ndcbbaf\nddefce\naffbdf\neeaaea\naffbdf\na\naffbdf\nf\ncbbd\nddefce\nddbaab\ndcbbaf\ncbbd\naf\nbaccbe\nfcecd\nfcecd\naffbdf\neeaaea\ndcbbaf\ndcbbaf\nd\ne\nbdacd\nd\nf\naffbdf\neabfad\neabfad\nbcf\ncfba\nbdacd\nbcf\ncbbd\ncbbd\ne\ne\naffbdf\nbf\neabfad\nbf\nbcf\na\naffbdf\naffbdf\n",
+              output:
+                "affbdf 24\nbcf 20\ncbbd 20\nbf 19\ndcbbaf 19\ne 19\neabfad 18\nfcecd 18\na 16\n",
+            },
+            {
+              input:
+                "600 16\nc\ndfc\ncabe\ncc\nb\ndcbbe\nfeaeda\na\nedbdec\nf\nacce\nedbdec\nffaefb\ndcbbe\nfa\nb\nfa\necebfa\nbe\nacce\nbcbb\nca\nadaec\ncabe\na\nf\nffaefb\nf\nb\ncc\nfa\nadaec\ncc\nffe\nacce\nfeaeda\necebfa\nbcbb\nfc\necebfa\ncc\ndfc\naebff\nad\nbfdead\nfa\nadaec\ndcbbe\nfa\nffe\ncc\nffe\na\ndfc\nbe\ncbfddf\na\nacce\nffe\nbfdead\nffaefb\nfc\nfbbdd\nbcbb\nafd\naaab\nafd\nffaefb\ndccbbc\naafcbb\naafcbb\nf\ncbfddf\nfc\naafcbb\nfa\ndcbbe\nfa\nad\nad\nedbdec\ncbfddf\ndcbbe\nadaec\nb\ncc\nfeaeda\ndfc\nca\naebff\nffe\ndcbbe\nfa\nf\neecfed\naebff\neecfed\nbcbb\nc\nedbdec\necebfa\nbfdead\ncabe\nffaefb\ncc\ncabe\nacce\nafd\nafd\naafcbb\nbe\na\ndccbbc\ndcbbe\nafd\ndccbbc\nafd\na\naafcbb\neecfed\necebfa\naaab\nafd\naafcbb\nffaefb\naaab\nfeaeda\nbe\naafcbb\ncc\nafd\nb\nedbdec\ncbfddf\naebff\ndcbbe\nad\nf\nffe\nffaefb\ndccbbc\ndccbbc\ncbfddf\nafd\nfbbdd\ncbfddf\nfbbdd\nca\naebff\nacce\nacce\nedbdec\nca\nbfdead\nca\nca\ncabe\nfeaeda\nf\naaab\nedbdec\necebfa\necebfa\nacce\naaab\nc\nf\nbe\nfbbdd\nfeaeda\nacce\nafd\naebff\naebff\ndcbbe\ncabe\nad\nca\nadaec\nb\ncabe\nafd\nfeaeda\nffe\naafcbb\ncabe\nfbbdd\nfeaeda\nfeaeda\ndcbbe\nacce\naaab\necebfa\ndcbbe\nfc\na\naafcbb\nffe\nfa\nfeaeda\nafd\nadaec\nca\ncbfddf\ncbfddf\naebff\nfeaeda\nc\nffaefb\naaab\nadaec\nc\na\nc\nb\nffe\nfbbdd\nfbbdd\ncabe\nbcbb\nca\neecfed\nf\nfbbdd\ndcbbe\nedbdec\neecfed\ncbfddf\nad\naebff\nbcbb\naebff\naaab\ndccbbc\nf\ndcbbe\naaab\nf\nbe\naaab\naaab\ndccbbc\ncbfddf\ncc\nffe\nfeaeda\ncc\nadaec\naaab\ncc\naafcbb\nfeaeda\nadaec\naafcbb\ndfc\naafcbb\nedbdec\nfeaeda\nafd\nc\nacce\nffaefb\ndccbbc\nafd\ndccbbc\ndfc\naaab\ndfc\naafcbb\nca\nedbdec\ndccbbc\ndccbbc\ncc\nbe\nffe\nb\naebff\nedbdec\neecfed\nbe\nafd\nb\nc\nad\nedbdec\necebfa\nbcbb\ncabe\nbe\nffe\nfa\nffe\naafcbb\na\ncabe\ndfc\ndccbbc\nacce\naafcbb\ndcbbe\naebff\ncc\nb\nad\nffe\nbfdead\nffaefb\naafcbb\nffaefb\nafd\nbfdead\nbcbb\nadaec\ncabe\nfc\ndcbbe\neecfed\nbcbb\ndfc\nfbbdd\necebfa\ncc\na\nedbdec\nfc\ndcbbe\nbcbb\nffe\nedbdec\nacce\nffaefb\nad\nb\nacce\nffaefb\nacce\nf\ndcbbe\nad\nb\nbcbb\ndfc\naebff\neecfed\nbe\naebff\nedbdec\necebfa\nfeaeda\nb\ncc\ncbfddf\nb\nffaefb\nffe\nfeaeda\naaab\naafcbb\necebfa\nca\nfc\nb\naaab\na\nbe\nfa\nad\necebfa\nb\nadaec\nf\ncabe\ndcbbe\neecfed\nca\ndcbbe\na\nacce\naafcbb\nffaefb\neecfed\nffaefb\nad\ndcbbe\naaab\nfc\nbfdead\ndccbbc\ndcbbe\nad\nca\nad\naaab\nbcbb\nbfdead\nffaefb\nffe\nfbbdd\nfeaeda\naaab\nffaefb\nbfdead\naebff\nedbdec\nafd\nedbdec\nacce\nbfdead\nfa\ndcbbe\nffaefb\nfeaeda\nca\ndfc\nf\nad\nffe\nffe\nafd\nfeaeda\nadaec\nfbbdd\nfbbdd\nadaec\nffaefb\nca\na\nadaec\nf\nffe\nbe\nfbbdd\nffe\nca\nfbbdd\nedbdec\nfeaeda\nf\nfbbdd\nafd\nb\nadaec\nfbbdd\neecfed\nacce\nc\nfeaeda\naaab\nfeaeda\ncbfddf\nafd\naebff\nfc\nffe\ncabe\nbfdead\nbcbb\nfc\nfbbdd\nfeaeda\nafd\nafd\na\nedbdec\naebff\nc\nbe\nb\nfeaeda\naafcbb\nfa\nb\nbfdead\necebfa\ncc\nc\nedbdec\nfc\ndcbbe\nbe\na\nacce\nffaefb\nb\nadaec\ndccbbc\nb\naaab\nacce\ndfc\nca\nbfdead\nf\nfbbdd\nbe\nca\ndfc\ncc\nacce\nc\nffaefb\ndccbbc\naebff\nb\naaab\neecfed\nca\na\ncc\nffe\nfbbdd\ndcbbe\nedbdec\nf\nf\nf\nedbdec\naebff\nbfdead\nca\naafcbb\nedbdec\nffe\nbe\ndfc\nbe\nedbdec\nfeaeda\nacce\nf\nffaefb\nbcbb\ncc\nbcbb\nedbdec\nca\nbe\nc\neecfed\nbcbb\ndcbbe\nad\naebff\nca\nedbdec\nc\nedbdec\nf\nffaefb\nadaec\ndfc\ndccbbc\nbcbb\nc\ndcbbe\nfc\na\nbcbb\nbcbb\naebff\nca\nfbbdd\ndccbbc\ndfc\necebfa\nbe\ncabe\ncabe\ncabe\nedbdec\naebff\ncc\ncbfddf\nfbbdd\nffaefb\nfbbdd\nf\nadaec\nedbdec\naafcbb\nbcbb\ncc\nedbdec\necebfa\ndfc\nbe\naafcbb\nfc\nfa\nafd\nedbdec\nbcbb\nafd\nfbbdd\naebff\nad\na\naaab\nafd\n",
+              output:
+                "edbdec 31\ndcbbe 26\nafd 25\nfeaeda 25\nffaefb 25\nffe 24\naebff 23\nca 23\nf 23\nfbbdd 23\naaab 22\naafcbb 22\nacce 22\nb 22\nbcbb 21\ncc 21\n",
+            },
+          ],
+        },
+      },
+    },
+    {
+      authorId: teacherId,
+      id: "problem_mf-josephus",
+      title: "Josephus Survivor (Multi-File)",
+      type: "multi_file" as const,
+      tags: ["hard", "Math", "Recursion"],
+      memoryLimitMb: 256,
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      statement: {
+        body: "這是一題多檔實作題，也是經典的約瑟夫問題（Josephus problem）。$n$ 個人編號 $1$ 到 $n$ 圍成一圈，從 $1$ 號開始數，每次數到第 $k$ 個人就把他淘汰出圈，下一輪從被淘汰者的下一位重新從 $1$ 開始數，直到只剩一人。請求出最後倖存者的編號。\n\n可執行的進入點是 `main.py`：`main()` 已經寫好，會透過唯讀的 `iolib.py` 讀入所有詢問，對每筆呼叫你實作的 `survivor(n, k)` 並印出結果。你只需要實作 `survivor`。\n\n注意 $n$ 最大可達 $10^{12}$：逐一模擬淘汰過程（無論用陣列還是鏈結串列）都無法在時限內完成。$k$ 很小，想想如何一次跳過一整輪的淘汰，讓每層遞迴把問題規模縮小為約 $(1 - 1/k)$ 倍。\n\n例如 $n = 5$、$k = 2$ 時，淘汰順序是 $2, 4, 1, 5$，倖存者是 $3$。",
+        inputFormat:
+          "第一行包含一個整數 $Q$（$1 \\le Q \\le 100$），代表詢問數。\n\n接下來 $Q$ 行，每行包含兩個整數 $n$ 與 $k$（$1 \\le n \\le 10^{12}$，$1 \\le k \\le 10$）。",
+        outputFormat: "輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的倖存者編號。",
+      },
+      samples: [
+        { input: "3\n5 2\n1 5\n7 3\n", output: "3\n1\n4\n" },
+        { input: "2\n6 1\n2 2\n", output: "6\n1\n" },
+      ],
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content:
+            'import sys\n\nfrom iolib import read_queries\n\n\ndef survivor(n: int, k: int) -> int:\n    """Return the 1-indexed position of the last survivor among n people counting k."""\n    # implement survivor here; note n can be as large as 10**12\n    return 1\n\n\ndef main() -> None:\n    for n, k in read_queries():\n        print(survivor(n, k))\n\n\nif __name__ == "__main__":\n    main()\n',
+          visibility: "editable",
+          description:
+            "The runnable entry. main() reads queries via iolib.read_queries and prints one survivor per query. Implement survivor(n, k) here.",
+          orderIndex: 0,
+        },
+        {
+          language: "python",
+          path: "iolib.py",
+          content:
+            '"""Read-only stdin helper for the Josephus survivor problem.\n\nDo NOT modify. main.py imports read_queries to get the (n, k) query list.\n"""\n\nimport sys\nfrom typing import List, Tuple\n\n\ndef read_queries() -> List[Tuple[int, int]]:\n    """Return the Q (n, k) query pairs from stdin."""\n    data = sys.stdin.read().split()\n    if not data:\n        return []\n    q = int(data[0])\n    out = []\n    for i in range(q):\n        out.append((int(data[1 + 2 * i]), int(data[2 + 2 * i])))\n    return out\n',
+          visibility: "readonly",
+          description:
+            "Read-only stdin helper providing read_queries(). You don't need to touch this file.",
+          orderIndex: 1,
+        },
+      ],
+      testcases: {
+        sample: {
+          description: "Classic small circles including k=1 and the n=5,k=2 example.",
+          cases: [
+            { input: "3\n5 2\n1 5\n7 3\n", output: "3\n1\n4\n" },
+            { input: "2\n6 1\n2 2\n", output: "6\n1\n" },
+          ],
+        },
+        hidden: {
+          description:
+            "Subtask 1: behavioural edges — n=1, n=2, k=1, and small-to-medium circles a simulation can still solve.",
+          weight: 40,
+          cases: [
+            { input: "5\n1 1\n1 10\n2 2\n2 3\n3 1\n", output: "1\n1\n1\n2\n3\n" },
+            { input: "4\n10 2\n10 3\n41 3\n100 7\n", output: "5\n4\n31\n50\n" },
+            { input: "3\n13 4\n17 5\n1000 10\n", output: "5\n11\n63\n" },
+            { input: "1\n2000 9\n", output: "418\n" },
+          ],
+        },
+        hidden2: {
+          description:
+            "Subtask 2: n up to 10^12 — forces the O(k log n) block-skipping recurrence; naive simulation cannot finish.",
+          weight: 60,
+          cases: [
+            {
+              input: "3\n1000000000000 2\n999999999999 10\n100000000000 7\n",
+              output: "900488372225\n754164869066\n88799638190\n",
+            },
+            {
+              input:
+                "5\n123456789012 3\n987654321098 9\n1000000000000 10\n55555555555 5\n1 2\n",
+              output: "68400330719\n157648450116\n754164869076\n37819131411\n1\n",
+            },
+            {
+              input: "2\n1000000000000 1\n999999999937 2\n",
+              output: "1000000000000\n900488372099\n",
+            },
+          ],
+        },
+      },
+    },
   ];
 }
 
