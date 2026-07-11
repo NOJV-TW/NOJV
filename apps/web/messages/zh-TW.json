@@ -143,6 +143,7 @@
   "account_resend": "重新發送",
   "account_resendCooldown": "{seconds} 秒後可重新發送",
   "account_save": "儲存",
+  "account_schoolEmailAliasHint": "這看起來是別名（個人化）信箱，無法對應學號。請改用學號形式的地址，例如 {example}；即使設定了別名，寄到學號地址的信仍會進到同一個信箱。",
   "account_schoolEmailLabel": "學校信箱",
   "account_schoolEmailPlaceholder": "例如 441047000S@gapps.ntnu.edu.tw",
   "account_schoolVerification": "三校聯盟驗證",

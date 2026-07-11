@@ -39,6 +39,21 @@ export function parseSchoolEmail(email: string): SchoolEmailResult | null {
   return { school, studentId: localPart };
 }
 
+export function schoolAliasExample(email: string): string | null {
+  const atIndex = email.indexOf("@");
+  if (atIndex < 0) return null;
+
+  const localPart = email.slice(0, atIndex).toLowerCase();
+  const domain = email.slice(atIndex + 1).toLowerCase();
+
+  const school = SCHOOL_DOMAINS[domain];
+  if (!school) return null;
+  if (isValidStudentIdForSchool(localPart, school)) return null;
+
+  const exampleId = school === "ntnu" ? "41047000s" : "b10902000";
+  return `${exampleId}@${domain}`;
+}
+
 export function extractStudentId(school: School, studentId: string): string {
   if (school === "ntnu") return studentId;
   return `${school}_${studentId}`;

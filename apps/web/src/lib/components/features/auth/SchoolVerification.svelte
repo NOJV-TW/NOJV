@@ -3,7 +3,7 @@
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
-  import { parseSchoolEmail } from "$lib/utils/school";
+  import { parseSchoolEmail, schoolAliasExample } from "$lib/utils/school";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Input } from "$lib/components/primitives/ui/input";
@@ -49,7 +49,10 @@
     error = "";
     const trimmed = schoolEmail.trim();
     if (!parseSchoolEmail(trimmed)) {
-      error = m.account_invalidSchoolEmail();
+      const example = schoolAliasExample(trimmed);
+      error = example
+        ? m.account_schoolEmailAliasHint({ example })
+        : m.account_invalidSchoolEmail();
       return false;
     }
     return true;
