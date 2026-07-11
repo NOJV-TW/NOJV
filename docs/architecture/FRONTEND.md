@@ -104,7 +104,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/problems/[id]/posts`                                    | GET, POST          | Problem posts, `?type=editorial\|discussion` (editorial view AC-gated; blocked during exams)   |
 | `/api/problems/[id]/images`                                   | POST               | Upload problem image (magic-number validated)                                                  |
 | `/api/problems/[id]/advanced-package`                         | POST               | Upload advanced-mode package zip and prebuild judge images                                     |
-| `/api/uploads/image`                                          | POST               | Generic image upload (announcements, editorials)                                               |
+| `/api/uploads/image`                                          | POST               | Generic image upload (announcements, problem posts)                                            |
 | `/api/account/avatar`                                         | PUT, DELETE        | Replace / remove account avatar                                                                |
 | `/api/notifications`                                          | GET, PATCH, DELETE | List + bulk mark-read (`{action:"markAllRead"}`) + bulk clear-read (`?status=read`)            |
 | `/api/notifications/[id]`                                     | PATCH, DELETE      | Mark one notification read (body: `{read:true}`) / drop one                                    |
@@ -150,7 +150,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 ## Shared UI Contracts
 
 - `ProblemWorkspace.svelte` owns the problem-solving surface: split-pane layout with problem statement (left) and Monaco code editor (right), resizable divider, submission panel, and testcase results.
-- `MarkdownRenderer` renders problem statements, editorials, and input/output format descriptions using `marked` + KaTeX + DOMPurify.
+- `MarkdownRenderer` renders problem statements, problem posts, and input/output format descriptions using `marked` + KaTeX + DOMPurify.
 - `ImageDropZone` wraps textareas with drag-and-drop and paste image upload support. Used in problem editor for statement, inputFormat, and outputFormat fields.
 - `TagInput` provides tag management with add/remove for problem categorization.
 - `Editor.svelte` / `MonacoScriptEditor.svelte` wrap the Monaco editor instance with language selection, theme support, and template loading.

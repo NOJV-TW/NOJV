@@ -72,35 +72,43 @@ Defence-in-depth is therefore layered on the cheap-but-strong primitives instead
 
 If a future audit identifies a specific syscall that materially expands the attack surface, the right move is to extend the Docker default profile incrementally — not to invent a from-scratch allowlist.
 
-## Editorial Visibility Gate
+## Problem Post Visibility Gate
 
-Editorials must not be readable inside an event that re-uses the
-problem, even when the viewer earned AC in past practice. The gate is
-enforced by `canViewEditorials(userId, problemId, context)` in
-`packages/application/src/editorial/queries.ts`:
+Problem posts (editorials and discussions) must not be readable or
+writable inside an event that re-uses the problem, even when the
+viewer earned AC in past practice. The gate is enforced by
+`canViewPosts(userId, problemId, type, context)` in
+`packages/application/src/post/queries.ts`:
 
-- `EditorialViewContext` is one of `{ kind: "practice" }`,
+- `PostViewContext` is one of `{ kind: "practice" }`,
   `{ kind: "contest", contestId, now }`,
   `{ kind: "assignment", assignmentId, now }`, or
   `{ kind: "exam", examId, now }`.
 - For non-practice contexts the gate only opens once the event has
   passed its deadline (`contest.endsAt`, `assessment.closesAt`,
-  `exam.endsAt`).
-- Authors of any editorial for the problem keep access regardless of
-  context (the "rejudge grandfather" rule — see the editorials spec).
+  `exam.endsAt`). The context gate applies to **both** post types and
+  is checked before any exception — discussions can leak answers just
+  as easily as editorials, and authorship does not open a live event.
+- With the context gate open, `discussion` requires only a signed-in
+  user; `editorial` additionally requires an accepted submission OR an
+  authored editorial on the problem (the "rejudge grandfather" rule —
+  see the posts spec). Admins bypass the view gate for moderation
+  (`requireProblemPostAccess` in
+  `apps/web/src/lib/server/post-access.ts`).
 
-**The client cannot supply or override the context.** The API route
-resolves it server-side via
+**The client cannot supply or override the context.** Every post /
+comment / vote / report endpoint resolves it server-side via
 `resolveActiveContextForUser(userId, problemId, now)`, which scans
 every currently-running contest / assignment / exam that contains the
 problem and that the user is enrolled in, then picks the latest-ending
 one (the strictest gate). Only falls back to `practice` when no live
 event matches. This closes the bypass where a student who AC'd a
-problem in past practice could read the editorial via
-`GET /api/problems/<id>/editorials` while a live contest re-using the
-same problem was still running. Both GET and POST endpoints in
-`apps/web/src/routes/api/problems/[id]/editorials/+server.ts` go
-through the same resolver.
+problem in past practice could read posts via
+`GET /api/problems/<id>/posts` while a live contest re-using the
+same problem was still running. As defense in depth, the exam
+confinement hook (`apps/web/src/lib/server/exam-lock.ts`) rejects
+`/api/posts/*`, `/api/comments/*`, and `/api/problems/[id]/posts`
+outright while the actor holds an active exam session.
 
 ## Plagiarism Tokenization (Multi-file)
 
@@ -117,14 +125,16 @@ tokenization fidelity because every Dolos-supported language treats
 
 ## Input Validation
 
-| Input             | Schema             | Limits                                            |
-| ----------------- | ------------------ | ------------------------------------------------- |
-| Source code       | `sourceCodeSchema` | 1–50,000 chars, trimmed                           |
-| Slug              | `slugSchema`       | 3+ chars, `[a-z0-9-]+`                            |
-| Problem statement | Markdown text      | Per-field limits (statement 12k, input/output 4k) |
-| Problem images    | File upload        | png/jpeg/gif/webp, 5MB max                        |
-| Testcase input    | Text               | Stored as `@db.Text`                              |
-| Editorial         | `content` field    | 10–50,000 chars                                   |
+| Input             | Schema                    | Limits                                            |
+| ----------------- | ------------------------- | ------------------------------------------------- |
+| Source code       | `sourceCodeSchema`        | 1–50,000 chars, trimmed                           |
+| Slug              | `slugSchema`              | 3+ chars, `[a-z0-9-]+`                            |
+| Problem statement | Markdown text             | Per-field limits (statement 12k, input/output 4k) |
+| Problem images    | File upload               | png/jpeg/gif/webp, 5MB max                        |
+| Testcase input    | Text                      | Stored as `@db.Text`                              |
+| Problem post      | `postSubmitSchema`        | title 1–200 chars, content 10–50,000 chars        |
+| Post comment      | `postCommentSubmitSchema` | 1–5,000 chars, trimmed                            |
+| Content report    | `contentReportSchema`     | reason 1–1,000 chars                              |
 
 ## Dependency Advisory Posture
 

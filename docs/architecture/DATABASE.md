@@ -16,7 +16,7 @@ User ──┬── Session
        ├── Submission ──→ Problem
        ├── Participation ──→ Contest | Exam (type = contest | exam | virtual)
        ├── CourseMembership ──→ Course
-       ├── Editorial
+       ├── ProblemPost ──→ PostComment / PostVote / ContentReport
        └── IpViolationLog
 
 Problem ──┬── ProblemStatement (single statement per problem)
@@ -25,7 +25,7 @@ Problem ──┬── ProblemStatement (single statement per problem)
           ├── ContestProblem ──→ Contest
           ├── ExamProblem ──→ Exam
           ├── AssessmentProblem ──→ Assessment
-          └── Editorial
+          └── ProblemPost (editorial | discussion)
 
 Contest ──┬── ContestProblem
           ├── Participation (type = contest, or virtual for replays)
@@ -55,7 +55,7 @@ erDiagram
     User ||--o{ Submission : submits
     User ||--o{ CourseMembership : joins
     User ||--o{ Participation : enters
-    User ||--o{ Editorial : writes
+    User ||--o{ ProblemPost : writes
     User ||--o{ ScoreOverride : grades
 
     Course ||--o{ CourseMembership : has
@@ -69,9 +69,14 @@ erDiagram
     Problem ||--o{ AssessmentProblem : "attached to"
     Problem ||--o{ ContestProblem : "attached to"
     Problem ||--o{ ExamProblem : "attached to"
-    Problem ||--o{ Editorial : explains
+    Problem ||--o{ ProblemPost : "discussed in"
     Problem ||--o{ TestcaseSet : groups
     TestcaseSet ||--o{ Testcase : contains
+
+    ProblemPost ||--o{ PostComment : threads
+    ProblemPost ||--o{ PostVote : rated
+    ProblemPost ||--o{ ContentReport : reported
+    PostComment ||--o{ ContentReport : reported
 
     Submission ||--o{ SubmissionRejudgeLog : "re-judged by"
     Submission ||--o{ ScoreOverride : "overridden by"
@@ -92,42 +97,43 @@ erDiagram
 
 > These rows are curated by hand. Update them alongside any enum change in `packages/db/prisma/schema/` — the CI drift gate only diffs the generated `DATABASE.generated.md`, not this file.
 
-| Enum                       | Values                                                                                                                                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SupportedLanguage`        | c, cpp, go, java, javascript, python, rust, typescript                                                                                                     |
-| `SubmissionStatus`         | pending_upload, queued, compiling, running, accepted, wrong_answer, time_limit_exceeded, memory_limit_exceeded, runtime_error, compile_error, system_error |
-| `ProblemType`              | full_source, multi_file, special_env                                                                                                                       |
-| `ProblemDifficulty`        | easy, medium, hard                                                                                                                                         |
-| `ProblemVisibility`        | public, private                                                                                                                                            |
-| `ProblemStatus`            | draft, published                                                                                                                                           |
-| `WorkspaceFileVisibility`  | editable, readonly, hidden                                                                                                                                 |
-| `PlatformRole`             | admin, teacher, student                                                                                                                                    |
-| `UserStatus`               | active, disabled, pending_first_login                                                                                                                      |
-| `CourseRole`               | teacher, ta, student                                                                                                                                       |
-| `CourseMembershipStatus`   | active, removed                                                                                                                                            |
-| `AssessmentStatus`         | draft, published                                                                                                                                           |
-| `AssessmentAuditAction`    | publish, revert_to_draft, delete_draft                                                                                                                     |
-| `ContestVisibility`        | draft, published                                                                                                                                           |
-| `ContestScoringMode`       | problem_count, weighted_count, point_sum                                                                                                                   |
-| `ParticipationType`        | contest, exam, virtual (discriminator on the unified `Participation` model; `status` is a `String`, not a Prisma enum)                                     |
-| `ExamStatus`               | draft, published                                                                                                                                           |
-| `ExamScoringMode`          | problem_count, point_sum                                                                                                                                   |
-| `ExamSessionReleaseReason` | submitted, time_up, released_by_instructor                                                                                                                 |
-| `ExamSessionEventType`     | enter, leave, visibility_lost, release, auto_close, heartbeat                                                                                              |
-| `IpViolationMode`          | block, notify                                                                                                                                              |
-| `IpViolationType`          | whitelist, binding                                                                                                                                         |
-| `ScoreboardMode`           | hidden, live, frozen                                                                                                                                       |
-| `AnnouncementStatus`       | draft, published, archived                                                                                                                                 |
-| `AnnouncementAudience`     | all, students, teachers                                                                                                                                    |
-| `PlagiarismReportStatus`   | pending, running, completed, failed                                                                                                                        |
-| `PlagiarismContext`        | assessment, exam, contest                                                                                                                                  |
-| `OverrideContextType`      | assignment, exam, contest                                                                                                                                  |
-| `ScoreOverrideAction`      | create, update, delete                                                                                                                                     |
-| `SubmissionFeedbackAction` | create, update, delete                                                                                                                                     |
-| `EditorialReportStatus`    | open, resolved, dismissed                                                                                                                                  |
-| `ClarificationContextType` | contest, exam, assignment                                                                                                                                  |
-| `ClarificationState`       | pending, answered, dismissed                                                                                                                               |
-| `NotificationType`         | assignment_due_soon, exam_starting_soon, contest_starting_soon, course_enrolled, announcement_published, role_changed, clarification_answered              |
+| Enum                       | Values                                                                                                                                                                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SupportedLanguage`        | c, cpp, go, java, javascript, python, rust, typescript                                                                                                                                                                            |
+| `SubmissionStatus`         | pending_upload, queued, compiling, running, accepted, wrong_answer, time_limit_exceeded, memory_limit_exceeded, runtime_error, compile_error, system_error                                                                        |
+| `ProblemType`              | full_source, multi_file, special_env                                                                                                                                                                                              |
+| `ProblemDifficulty`        | easy, medium, hard                                                                                                                                                                                                                |
+| `ProblemVisibility`        | public, private                                                                                                                                                                                                                   |
+| `ProblemStatus`            | draft, published                                                                                                                                                                                                                  |
+| `WorkspaceFileVisibility`  | editable, readonly, hidden                                                                                                                                                                                                        |
+| `PlatformRole`             | admin, teacher, student                                                                                                                                                                                                           |
+| `UserStatus`               | active, disabled, pending_first_login                                                                                                                                                                                             |
+| `CourseRole`               | teacher, ta, student                                                                                                                                                                                                              |
+| `CourseMembershipStatus`   | active, removed                                                                                                                                                                                                                   |
+| `AssessmentStatus`         | draft, published                                                                                                                                                                                                                  |
+| `AssessmentAuditAction`    | publish, revert_to_draft, delete_draft                                                                                                                                                                                            |
+| `ContestVisibility`        | draft, published                                                                                                                                                                                                                  |
+| `ContestScoringMode`       | problem_count, weighted_count, point_sum                                                                                                                                                                                          |
+| `ParticipationType`        | contest, exam, virtual (discriminator on the unified `Participation` model; `status` is a `String`, not a Prisma enum)                                                                                                            |
+| `ExamStatus`               | draft, published                                                                                                                                                                                                                  |
+| `ExamScoringMode`          | problem_count, point_sum                                                                                                                                                                                                          |
+| `ExamSessionReleaseReason` | submitted, time_up, released_by_instructor                                                                                                                                                                                        |
+| `ExamSessionEventType`     | enter, leave, visibility_lost, release, auto_close, heartbeat                                                                                                                                                                     |
+| `IpViolationMode`          | block, notify                                                                                                                                                                                                                     |
+| `IpViolationType`          | whitelist, binding                                                                                                                                                                                                                |
+| `ScoreboardMode`           | hidden, live, frozen                                                                                                                                                                                                              |
+| `AnnouncementStatus`       | draft, published, archived                                                                                                                                                                                                        |
+| `AnnouncementAudience`     | all, students, teachers                                                                                                                                                                                                           |
+| `PlagiarismReportStatus`   | pending, running, completed, failed                                                                                                                                                                                               |
+| `PlagiarismContext`        | assessment, exam, contest                                                                                                                                                                                                         |
+| `OverrideContextType`      | assignment, exam, contest                                                                                                                                                                                                         |
+| `ScoreOverrideAction`      | create, update, delete                                                                                                                                                                                                            |
+| `SubmissionFeedbackAction` | create, update, delete                                                                                                                                                                                                            |
+| `ProblemPostType`          | editorial, discussion                                                                                                                                                                                                             |
+| `ContentReportStatus`      | open, resolved, dismissed                                                                                                                                                                                                         |
+| `ClarificationContextType` | contest, exam, assignment                                                                                                                                                                                                         |
+| `ClarificationState`       | pending, answered, dismissed                                                                                                                                                                                                      |
+| `NotificationType`         | assignment_started, assignment_due_soon, exam_starting_soon, contest_starting_soon, course_enrolled, announcement_published, role_changed, clarification_answered, editorial_removed (legacy rows), post_removed, comment_removed |
 
 `JudgeType` (`standard` / `checker` / `interactive`) is NOT a Prisma enum — it's a Zod discriminator on the `judgeConfig` JSON column. See `packages/core/src/schemas/judge-config.ts`.
 
@@ -246,7 +252,7 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 
 ## Complete Model Index
 
-43 models in total. The sections above detail the high-traffic / core models; everything else lives here for navigation. For exact column definitions, open the schema file — this table is deliberately one-line-per-model so it stays easy to keep in sync.
+46 models in total. The sections above detail the high-traffic / core models; everything else lives here for navigation. For exact column definitions, open the schema file — this table is deliberately one-line-per-model so it stays easy to keep in sync.
 
 | Model                        | Purpose                                                                                                                                                                                                                        | Schema file                   |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
@@ -283,13 +289,18 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `SubmissionRejudgeLog`       | Two-pass audit log for rejudge runs (snapshot of old / new verdict + score)                                                                                                                                                    | `schema/submission.prisma`    |
 | `ScoreOverride`              | Staff-only manual score override per `(user, problem, context)`                                                                                                                                                                | `schema/submission.prisma`    |
 | `ScoreOverrideAuditLog`      | Append-only create / update / delete trail for `ScoreOverride`                                                                                                                                                                 | `schema/submission.prisma`    |
-| `Editorial`                  | Per-`(user, problem, language)` editorial / writeup                                                                                                                                                                            | `schema/submission.prisma`    |
-| `EditorialReport`            | User-filed report against an editorial (reason, open / resolved / dismissed)                                                                                                                                                   | `schema/submission.prisma`    |
+| `ProblemPost`                | Per-problem community article; `type` = `editorial` (AC-gated) or `discussion` (any signed-in user); title + markdown content, soft-deleted via `deletedAt`                                                                    | `schema/submission.prisma`    |
+| `PostVote`                   | Per-`(post, user)` up/down vote (`value`)                                                                                                                                                                                      | `schema/submission.prisma`    |
+| `PostComment`                | Two-level comment thread on a post (`parentId` self-relation, max one reply level); soft-delete renders a tombstone                                                                                                            | `schema/submission.prisma`    |
+| `ContentReport`              | User-filed report against a post or comment (exactly one target via DB CHECK; open / resolved / dismissed; resolve soft-deletes the target)                                                                                    | `schema/submission.prisma`    |
 | `SubmissionFeedback`         | Per-`(context, problem, student)` grader comment on a submission                                                                                                                                                               | `schema/submission.prisma`    |
 | `SubmissionFeedbackAuditLog` | Append-only create / update / delete trail for `SubmissionFeedback`                                                                                                                                                            | `schema/submission.prisma`    |
-| `EditorialVote`              | Per-`(editorial, user)` up/down vote (`value`)                                                                                                                                                                                 | `schema/submission.prisma`    |
 | `ProblemBookmark`            | Per-`(user, problem)` bookmark on the practice problem list                                                                                                                                                                    | `schema/problem.prisma`       |
 | `TwoFactor`                  | better-auth TOTP secret + backup codes per user                                                                                                                                                                                | `schema/auth.prisma`          |
+| `Passkey`                    | better-auth WebAuthn credential (step-up auth)                                                                                                                                                                                 | `schema/auth.prisma`          |
+| `ApiToken`                   | Personal API token (hashed secret, expiry; creation requires 2FA step-up)                                                                                                                                                      | `schema/auth.prisma`          |
+| `NotificationPreference`     | Per-user email notification channel opt-ins + lead-day settings                                                                                                                                                                | `schema/notification.prisma`  |
+| `AdminAuditLog`              | Append-only trail of admin actions (actor, action, target, summary)                                                                                                                                                            | `schema/ops.prisma`           |
 | `PlatformSetting`            | Key/value platform settings store (e.g. stale-submission pending timeout)                                                                                                                                                      | `schema/ops.prisma`           |
 
 Deep field-level detail intentionally stays in the Prisma schema files themselves — treat the `.prisma` file as the source of truth for column types, defaults, indexes, and FK cascade rules.

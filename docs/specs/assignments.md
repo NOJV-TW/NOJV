@@ -79,7 +79,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - Session gate / heartbeat — assignments have no "start" ceremony.
 - Scoreboard — assignments don't publish a leaderboard; teachers see the
   class-stats aggregate and the submission matrix instead.
-- Plagiarism (Dolos) and editorials are covered by their own surfaces, not
+- Plagiarism (Dolos) and problem posts are covered by their own surfaces, not
   this spec.
 - Late-submission flag in submission matrix — explicitly deferred per the
   practice-after-close design doc.
