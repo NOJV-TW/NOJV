@@ -11,6 +11,7 @@
 **Worktree:** `.worktrees/problem-posts-discussions`(branch `feat/problem-posts-discussions`)。
 
 **重要環境注意(來自專案記憶):**
+
 - dev DB 用 `pnpm db:push`,**絕不跑 `prisma migrate dev`**(會提示 reset)。migration SQL 手寫。
 - 改 `apps/web/messages/*.json` 後必跑 `pnpm --filter @nojv/web paraglide:compile`。
 - 改 schema 後必跑 `pnpm db:generate`。
@@ -22,6 +23,7 @@
 ### Task 1: Prisma schema 改造
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/submission.prisma`(行 202-258 的 Editorial 三個 model)
 - Modify: `packages/db/prisma/schema/auth.prisma`(User 關聯,行 53-54、68-69 附近)
 - Modify: `packages/db/prisma/schema/problem.prisma`(Problem 關聯,行 61 附近)
@@ -131,6 +133,7 @@ model ContentReport {
 ### Task 2: Migration SQL(資料保留式)
 
 **Files:**
+
 - Create: `packages/db/prisma/migrations/20260712000000_problem_posts/migration.sql`
 
 **Step 1:** 先用 Prisma 產出「乾淨版」SQL 拿到正確的 constraint/index 命名:
@@ -200,6 +203,7 @@ Expected: exit 0(無 drift)。注意 CHECK 約束若造成 diff 噪音,比照既
 ### Task 3: DB repositories
 
 **Files:**
+
 - Rename+rework: `packages/db/src/repositories/editorial.ts` → `post.ts`(`postRepo`)
 - Rename+rework: `packages/db/src/repositories/editorial-vote.ts` → `post-vote.ts`(`postVoteRepo`)
 - Rename+rework: `packages/db/src/repositories/editorial-report.ts` → `content-report.ts`(`contentReportRepo`)
@@ -207,6 +211,7 @@ Expected: exit 0(無 drift)。注意 CHECK 約束若造成 diff 噪音,比照既
 - Modify: `packages/db/src/repositories/index.ts`(exports)
 
 **Step 1:** `postRepo` 以現有 editorialRepo 為底改造:
+
 - `listByProblemIdPaged(problemId, type, skip, take)` / `countByProblemId(problemId, type)`:where 加 `type`,include author(`userPublicSelect`)、`votes: { select: { userId, value } }`、`_count: { select: { comments: { where: { deletedAt: null } } } }`。
 - `existsForUserProblem(userId, problemId)`:僅查 `type: "editorial"`(供「作者可看解答」判定)。
 - `findById(id)`:include author。
@@ -216,6 +221,7 @@ Expected: exit 0(無 drift)。注意 CHECK 約束若造成 diff 噪音,比照既
 **Step 2:** `postVoteRepo`:欄位改名(`editorialId`→`postId`),`setVote`/`aggregate` 邏輯照舊。
 
 **Step 3:** `postCommentRepo`(新):
+
 - `listByPostId(postId)`:全部留言含已刪(tombstone 需要),orderBy createdAt asc,include author。
 - `findById(id)`。
 - `create({ postId, authorId, parentId, content })`。
@@ -231,6 +237,7 @@ Expected: exit 0(無 drift)。注意 CHECK 約束若造成 diff 噪音,比照既
 ### Task 4: core Zod schemas
 
 **Files:**
+
 - Rename+rework: `packages/core/src/schemas/editorial.ts` → `post.ts`
 - Modify: `packages/core/src/schemas/index.ts`(或對應 re-export 處,grep `editorialSubmitSchema` 修正)
 
@@ -250,7 +257,9 @@ export const postUpdateSchema = z
   .refine((v) => v.title !== undefined || v.content !== undefined, {
     message: "At least one field (title or content) is required.",
   });
-export const postVoteSchema = z.object({ value: z.union([z.literal(1), z.literal(-1), z.literal(0)]) });
+export const postVoteSchema = z.object({
+  value: z.union([z.literal(1), z.literal(-1), z.literal(0)]),
+});
 export const contentReportSchema = z.object({ reason: z.string().min(1).max(1000) });
 export const postCommentSubmitSchema = z.object({
   content: z.string().trim().min(1).max(5000),
@@ -267,11 +276,13 @@ export const postCommentSubmitSchema = z.object({
 ### Task 5: application domain — queries + mutations(TDD)
 
 **Files:**
+
 - Rename dir: `packages/application/src/editorial/` → `post/`(queries.ts、mutations.ts、reports.ts→下一 task、index.ts)
 - Modify: `packages/application/src/index.ts`(`editorialDomain`→`postDomain`,grep 全 repo `editorialDomain`)
 - Test(rework): `tests/unit/domain/editorial-queries.test.ts` → `post-queries.test.ts`,`editorial-mutations.test.ts` → `post-mutations.test.ts`,`editorial-votes.test.ts` → `post-votes.test.ts`;`editorial-context-gate.test.ts`、`editorial-resolve-context.test.ts` 改名為 `post-*` 並修 import(gate 邏輯不變)
 
 **Step 1(先寫測試):** 依現有測試的 mock 風格(先讀原檔),改寫並新增案例:
+
 - `canViewPosts(userId, problemId, "editorial", context)`:同現有 canViewEditorials(gate 開 + 作者或 AC)。
 - `canViewPosts(userId, problemId, "discussion", context)`:gate 開即 true(登入由 API 層保證),**不需 AC**;gate 關(考試/比賽進行中)→ false。
 - `createPost`:editorial type 需 canViewPosts 通過;discussion type 登入即可(但 gate 關 → Forbidden)。
@@ -309,12 +320,14 @@ export async function canViewPosts(
 ### Task 6: application domain — comments + reports(TDD)
 
 **Files:**
+
 - Create: `packages/application/src/post/comments.ts`
 - Rework: `packages/application/src/post/reports.ts`
 - Modify: `packages/application/src/notification/email.ts`(email specs)
 - Test: rework `tests/unit/domain/editorial-reports.test.ts` → `content-reports.test.ts`;Create `tests/unit/domain/post-comments.test.ts`
 
 **Step 1(先寫測試):**
+
 - comments:`addComment` 需能看該帖(依 post.type 走 canViewPosts);reply 的 parentId 必須是同帖頂層留言(parent 有 parentId → ValidationError;parent 不同 post → ValidationError);對已刪帖留言 → NotFound。`softDeleteComment`:作者或 admin;已刪 → NotFound。`listComments`:回傳含已刪留言,已刪者 content 置空、標記 `deleted: true`(tombstone 由前端渲染),作者資訊已刪者不外洩內容。
 - reports:`reportContent(actor, { postId | commentId }, reason)`:不能檢舉自己的內容;重複檢舉 → Conflict(P2002);對已刪目標 → NotFound。`resolveContentReport(actor, reportId, "resolve")`:目標是帖 → softDeletePost + `post_removed` 通知作者;目標是留言 → softDeleteComment + `comment_removed` 通知;`"dismiss"` 僅改狀態。非 admin → Forbidden。目標已被先前 report 刪除 → 仍可結案、不重複通知。
 
@@ -331,6 +344,7 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 ### Task 7: API routes
 
 **Files:**
+
 - Rework: `apps/web/src/routes/api/problems/[id]/editorials/+server.ts` → `api/problems/[id]/posts/+server.ts`(GET 列表 `?type=`、POST 發文)
 - Rework: `apps/web/src/routes/api/editorials/[id]/` → `api/posts/[id]/`(`+server.ts` GET/PATCH/DELETE、`votes/+server.ts`、`reports/+server.ts`)
 - Create: `apps/web/src/routes/api/posts/[id]/comments/+server.ts`(GET/POST)
@@ -353,6 +367,7 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 **設計變更(2026-07-11 使用者裁決):解答與討論不做獨立頁面,完整活在題目工作區左側面板內**,參考 LeetCode 解答分頁:tab 內列表 → 點開文章(含留言)→ 發文/編輯,全部面板內視圖切換。
 
 **Files:**
+
 - Rework: `apps/web/src/lib/components/features/problem/left-panel/EditorialListPanel.svelte` → 泛用 `PostPanel.svelte`(props 帶 type;內含 list/article/compose 三種視圖狀態)
 - Create: 子元件 `apps/web/src/lib/components/features/posts/`:`PostListView.svelte`(列表+排序+發文按鈕+discussion spoiler 提醒)、`PostArticleView.svelte`(返回鍵、Markdown 內容、投票、檢舉、編輯/刪除、`CommentSection`)、`CommentSection.svelte`(兩層留言、回覆/檢舉/刪除、tombstone)、`PostForm.svelte`(標題+內容 textarea,new/edit 共用)、`ReportDialog.svelte`
 - Modify: `apps/web/src/lib/components/features/problem/layouts/ProblemLeftPanel.svelte`:tab 增加「討論」;解答 tab 維持 AC gate、討論 tab 登入即顯示;僅練習模式渲染兩個 tab(考試/比賽 workspace 不渲染——確認呼叫端如何區分模式)
@@ -363,6 +378,7 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 - Rework: `tests/e2e/editorials.test.ts` 對齊面板內操作
 
 **要點:**
+
 - 面板內所有資料操作走 Task 7 的 posts API(create 回 201);gate 由 API/domain 管,UI 隱藏是第二道。
 - 留言 tombstone 用 i18n 訊息(後端已把已刪留言 content 清空);discussion 列表頂部與發文表單各一行 spoiler 提醒小字。
 - 設計規範 `docs/architecture/DESIGN.md`;沿用既有 panel/卡片/按鈕樣式;不寫註解、不用 lint suppression。
@@ -374,6 +390,7 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 ### Task 10: paraglide 訊息
 
 **Files:**
+
 - Modify: `apps/web/messages/zh-tw.json`(或現有語系檔,ls `apps/web/messages/`)與 `en.json`
 
 **Steps:** 收集 Task 8/9/11 全部新 UI 字串(tab 名「討論」、spoiler 提醒、tombstone、檢舉 dialog、admin 佇列欄位等),加進訊息檔 → `pnpm --filter @nojv/web paraglide:compile` → svelte-check 過 → 併入相鄰 task 的 commit 或單獨 commit `feat(web): post/discussion i18n messages`。
@@ -383,10 +400,12 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 ### Task 11: Admin 審核後台
 
 **Files:**
+
 - Rework: `apps/web/src/routes/(app)/admin/editorial-reports/` → `admin/reports/`(`+page.server.ts` + `+page.svelte`)
 - Modify: `apps/web/src/routes/(app)/admin/+layout.svelte`(行 8-15 tabs、行 17-26 tabLabel)
 
 **要點:**
+
 - load:`listContentReports(actor, "open")`;每列顯示目標類型(解答帖/討論帖/留言)、內容預覽(留言含所屬帖標題)、所屬題目連結、檢舉理由、檢舉人。
 - actions:`resolve`/`dismiss` 呼叫 `resolveContentReport`,audit action 用新 enum `content_report_resolve`/`content_report_dismiss`(寫法照抄原 editorial-reports 行 37-70)。
 - Resolve 按鈕 destructive + confirm(照原樣)。
@@ -400,6 +419,7 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 **Step 1:** 全 repo grep 殘留:`grep -rn "editorial" --include="*.ts" --include="*.svelte" apps packages tests | grep -iv "content_report\|post_removed"` — 逐一確認殘留者是刻意保留(`editorial_removed` 歷史通知、migration SQL、`docs/`)。
 
 **Step 2:** 文件同步(lint:doc-drift gate 會抓斷連結):
+
 - `docs/architecture/FRONTEND.md`:routes 異動。
 - `docs/architecture/DATABASE.md`:若有手寫 Editorial 段落 → 改 ProblemPost。
 - `docs/specs/`:grep editorial,若有 spec 檔,更新 Given/When/Then(加討論區與檢舉)。
@@ -408,6 +428,7 @@ Run: `pnpm test:unit -- tests/unit/domain/post-comments tests/unit/domain/conten
 **Step 3:** `pnpm ci:verify` 全綠;另跑 `pnpm test:integration`(schema 大改,unit 不夠——專案記憶的教訓)。
 
 **Step 4:** 手動完整走一遍驗收(對照設計文件的四個目標),特別驗:
+
 - 未 AC 帳號:討論區可看可發,解答區 403(UI 與直接 curl API 各驗一次)。
 - 考試進行中的參加者:直接 curl `api/problems/[examProblemId]/posts?type=discussion` → 403。
 

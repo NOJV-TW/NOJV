@@ -27,11 +27,11 @@
 
 兩種 type 共用同一套 domain/API,差別只在 view gate:
 
-| 動作 | editorial | discussion |
-| --- | --- | --- |
-| 看列表/單篇 | 已 AC 該題(作者、admin 例外) | 登入 |
-| 發文/編輯自己的帖 | 已 AC 該題 | 登入 |
-| 留言/投票/檢舉 | 已 AC 該題 | 登入 |
+| 動作              | editorial                    | discussion |
+| ----------------- | ---------------------------- | ---------- |
+| 看列表/單篇       | 已 AC 該題(作者、admin 例外) | 登入       |
+| 發文/編輯自己的帖 | 已 AC 該題                   | 登入       |
+| 留言/投票/檢舉    | 已 AC 該題                   | 登入       |
 
 - **情境 gate 共用且置前**:所有 post/comment/vote/report endpoint 進入時先跑 server 端 `resolveActiveContextForUser(userId, problemId, now)`(現有邏輯,查使用者當下參加中且包含該題的比賽/作業/考試,取最嚴格 deadline)——gate 未開一律 403。不信任前端 context、不看入口 URL,考試中無法經由 practice 路徑繞過。活動結束後自動開放。
 - 不能檢舉自己的內容;reason 1–1000 字。
