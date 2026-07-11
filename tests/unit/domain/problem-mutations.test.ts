@@ -10,6 +10,8 @@ const {
   problemUpdateAdvancedRequiredPaths,
   problemDelete,
   problemHasContextLinks,
+  submissionFindMany,
+  userFindById,
   PRISMA_JSON_NULL,
 } = vi.hoisted(() => ({
   problemCreate: vi.fn(),
@@ -21,6 +23,8 @@ const {
   problemUpdateAdvancedRequiredPaths: vi.fn(),
   problemDelete: vi.fn(),
   problemHasContextLinks: vi.fn(),
+  submissionFindMany: vi.fn(),
+  userFindById: vi.fn(),
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
 
@@ -78,6 +82,8 @@ vi.mock("@nojv/db", () => {
     },
     testcaseSetRepo: { withTx: () => ({}) },
     testcaseRepo: { withTx: () => ({}) },
+    submissionRepo: { findMany: submissionFindMany },
+    userRepo: { findById: userFindById },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
 });
@@ -89,6 +95,7 @@ const {
   updateProblemWorkspace,
   updateAdvancedRequiredPaths,
   deleteProblemRecord,
+  hasVerifiedAdvancedJudgeRun,
 } = problemDomain;
 
 const fakeTx = {} as never;
@@ -381,5 +388,67 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
 
     await expect(deleteProblemRecord(actor, "prob_1")).rejects.toBeInstanceOf(ConflictError);
     expect(problemDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe("hasVerifiedAdvancedJudgeRun — publish gate signal", () => {
+  const digest = `sha256:${"a".repeat(64)}`;
+  const config = {
+    run: { imageRef: `ghcr.io/nojv-tw/run@${digest}`, imageSource: "registry" },
+    grade: { imageRef: `ghcr.io/nojv-tw/grade@${digest}`, imageSource: "registry" },
+    network: { mode: "none" },
+    maxScore: 100,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns false when the stored config does not parse", async () => {
+    await expect(hasVerifiedAdvancedJudgeRun("prob_1", null)).resolves.toBe(false);
+    expect(submissionFindMany).not.toHaveBeenCalled();
+  });
+
+  it("returns false when no accepted submission snapshot matches", async () => {
+    submissionFindMany.mockResolvedValue([
+      {
+        advancedConfigSnapshot: {
+          ...config,
+          run: { ...config.run, imageRef: "ghcr.io/x/old@" + digest },
+        },
+      },
+      { advancedConfigSnapshot: null },
+    ]);
+    await expect(hasVerifiedAdvancedJudgeRun("prob_1", config)).resolves.toBe(false);
+  });
+
+  it("returns true when an accepted snapshot matches the current run and grade refs", async () => {
+    submissionFindMany.mockResolvedValue([{ advancedConfigSnapshot: config }]);
+    await expect(hasVerifiedAdvancedJudgeRun("prob_1", config)).resolves.toBe(true);
+    expect(submissionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { problemId: "prob_1", status: "accepted" } }),
+    );
+  });
+
+  it("requires the service image to match in service mode", async () => {
+    const serviceConfig = {
+      ...config,
+      network: {
+        mode: "service",
+        service: { imageRef: `ghcr.io/nojv-tw/svc@${digest}`, imageSource: "registry" },
+      },
+    };
+    submissionFindMany.mockResolvedValue([
+      {
+        advancedConfigSnapshot: {
+          ...serviceConfig,
+          network: {
+            mode: "service",
+            service: { imageRef: `ghcr.io/nojv-tw/other@${digest}`, imageSource: "registry" },
+          },
+        },
+      },
+    ]);
+    await expect(hasVerifiedAdvancedJudgeRun("prob_1", serviceConfig)).resolves.toBe(false);
   });
 });

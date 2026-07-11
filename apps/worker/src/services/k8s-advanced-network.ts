@@ -221,7 +221,7 @@ export function buildGradeEgressPolicy(params: {
       },
       policyTypes: ["Ingress", "Egress"],
       ingress: [],
-      egress: [{}],
+      egress: [],
     },
   };
 }

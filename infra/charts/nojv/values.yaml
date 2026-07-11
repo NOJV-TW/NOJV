@@ -181,7 +181,7 @@ web:
   containerPort: 3000
   nodeEnv: production
   executionBackend: kubernetes
-  advancedImageRegistry: ""
+  advancedImageAllowedRegistries: ""
   dbPoolMax: "10"
   nodeSelector: {}
   resources:

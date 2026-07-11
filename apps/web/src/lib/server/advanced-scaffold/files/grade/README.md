@@ -66,5 +66,6 @@ A missing / malformed `result.json` is treated as a System Error, so always let
 
 ## Network
 
-The grade container has **full network** (trusted TA, no student code), so you
-may install or call heavier comparison tooling. Answers never leave this image.
+The grade container has **no network egress** in any mode — grading must be
+self-contained. Bake every tool and dataset you need into the image at build
+time; anything interactive belongs in the `service` container instead.

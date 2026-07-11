@@ -153,6 +153,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
 | `twoFactorActivated` | `Boolean` | `@default(false)` |
 | `profilePublic` | `Boolean` | `@default(false)` |
+| `canCreateAdvancedProblems` | `Boolean` | `@default(false)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `sessions` | `Session[]` | — |
@@ -658,7 +659,7 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 
 #### `AdminAuditAction`
 
-`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `editorial_report_resolve` · `editorial_report_dismiss` · `content_report_resolve` · `content_report_dismiss` · `announcement_create` · `announcement_delete`
+`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `user_advanced_toggle` · `editorial_report_resolve` · `editorial_report_dismiss` · `content_report_resolve` · `content_report_dismiss` · `announcement_create` · `announcement_delete`
 
 #### `AnnouncementAudience`
 

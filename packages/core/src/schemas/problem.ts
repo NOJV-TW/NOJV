@@ -141,14 +141,24 @@ function refineAdvancedConfig(
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine(refineAdvancedConfig);
 
-const problemDraftObjectSchema = problemCreateObjectSchema.omit({ status: true }).extend({
-  title: z.string().trim().max(120, "validation_tooLong"),
-  statement: z.string().trim().max(12_000, "validation_tooLong"),
-  inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
-  outputFormat: z.string().trim().max(4_000, "validation_tooLong"),
-});
+const problemDraftObjectSchema = problemCreateObjectSchema
+  .omit({ status: true, advancedConfig: true })
+  .extend({
+    title: z.string().trim().max(120, "validation_tooLong"),
+    statement: z.string().trim().max(12_000, "validation_tooLong"),
+    inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+    outputFormat: z.string().trim().max(4_000, "validation_tooLong"),
+  });
 
-export const problemDraftSchema = problemDraftObjectSchema.superRefine(refineAdvancedConfig);
+export const problemDraftSchema = problemDraftObjectSchema.superRefine((data, ctx) => {
+  if (data.type !== "special_env" && (data.advancedRequiredPaths ?? []).length > 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["advancedRequiredPaths"],
+      message: "validation_onlyAllowedForSpecialEnv",
+    });
+  }
+});
 
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 

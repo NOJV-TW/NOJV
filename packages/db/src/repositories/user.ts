@@ -73,6 +73,7 @@ export const userRepo = {
         name: true,
         platformRole: true,
         disabled: true,
+        canCreateAdvancedProblems: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },

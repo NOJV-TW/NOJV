@@ -20,7 +20,12 @@ import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
-import { isAdvancedModeSupported } from "$lib/server/execution-backend";
+import { isAdvancedZipUploadEnabled } from "$lib/server/execution-backend";
+import {
+  advancedImageConfigInputSchema,
+  allowedImageRegistries,
+  buildAdvancedConfigFromInput,
+} from "$lib/server/advanced-image-config";
 import { problemDomain } from "@nojv/application";
 
 const {
@@ -88,12 +93,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       title: problem.title,
       type: problem.type satisfies ProblemType,
       visibility: problem.visibility,
-      ...(isAdvanced && problem.advancedConfig
-        ? { advancedConfig: problem.advancedConfig }
-        : {}),
     },
     zod4(problemDraftSchema),
   );
+
+  const advancedJudgeVerified = isAdvanced
+    ? await problemDomain.hasVerifiedAdvancedJudgeRun(params.problemId, problem.advancedConfig)
+    : false;
 
   return {
     problem,
@@ -106,7 +112,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
           config: problem.advancedConfig,
         }
       : null,
-    advancedModeSupported: isAdvancedModeSupported(),
+    advancedJudgeVerified,
+    advancedCreationAllowed: await problemDomain.canCreateAdvancedProblems(actor),
+    advancedZipUploadEnabled: isAdvancedZipUploadEnabled(),
+    advancedAllowedRegistries: allowedImageRegistries(),
   };
 });
 
@@ -221,16 +230,35 @@ export const actions: Actions = {
   }),
 
   convertToAdvanced: problemEditAction(async ({ actor, problemId, event }) => {
-    if (!isAdvancedModeSupported()) {
-      return fail(400, {
-        message: "Advanced-mode problems require the Docker execution backend.",
-      });
-    }
     const formData = await event.request.formData();
     if (formData.get("confirm") !== "yes") {
       return fail(400, { message: "Conversion not confirmed" });
     }
     await convertProblemToAdvancedMode(actor, problemId);
     redirect(303, `/problems/${problemId}/edit`);
+  }),
+
+  updateAdvancedConfig: problemEditAction(async ({ actor, problemId, event }) => {
+    await problemDomain.assertCanCreateAdvancedProblems(actor);
+    const formData = await event.request.formData();
+    const raw = formData.get("data");
+    if (typeof raw !== "string") return fail(400, { error: "Missing data field" });
+
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return fail(400, { error: "Invalid data: not valid JSON" });
+    }
+
+    const parsed = advancedImageConfigInputSchema.safeParse(json);
+    if (!parsed.success) {
+      return fail(400, { error: parsed.error.issues.map((issue) => issue.message).join(" ") });
+    }
+
+    await updateProblemRecord(actor, problemId, {
+      advancedConfig: buildAdvancedConfigFromInput(parsed.data),
+    });
+    return { success: true };
   }),
 };

@@ -58,9 +58,10 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Web
 
-| Variable          | Default    | Purpose                                                                                                                                                                                                                                                              |
-| ----------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BODY_SIZE_LIMIT` | `67108864` | SvelteKit adapter-node POST body cap, in bytes. Baked into `web.Dockerfile` at 64 MiB so the 60 MB cap on bundle/workspace/checker/interactor upload routes is the effective ceiling. The adapter's built-in default is 512 KiB and would reject every asset upload. |
+| Variable                            | Default             | Purpose                                                                                                                                                                                                                                                              |
+| ----------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BODY_SIZE_LIMIT`                   | `67108864`          | SvelteKit adapter-node POST body cap, in bytes. Baked into `web.Dockerfile` at 64 MiB so the 60 MB cap on bundle/workspace/checker/interactor upload routes is the effective ceiling. The adapter's built-in default is 512 KiB and would reject every asset upload. |
+| `ADVANCED_IMAGE_ALLOWED_REGISTRIES` | `ghcr.io,docker.io` | Comma-separated registry hosts accepted for teacher-supplied special_env image refs. Refs must be digest-pinned; validated at the input layer only (chart value `web.advancedImageAllowedRegistries`).                                                               |
 
 ### OAuth (Optional)
 
@@ -130,11 +131,10 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 > and `tests/integration/k8s/judge-k8s.test.ts`). Only **tarball-source**
 > advanced requires the Docker backend, because the cluster cannot `docker load`
 > a TA-supplied tarball (`K8sExecutor.executeAdvanced` returns a System Error for
-> tarball-source run/grade — push the image to a registry the cluster can pull
-> instead). When `EXECUTION_BACKEND=kubernetes`, also set the same value on the
-> **web** service (`EXECUTION_BACKEND` is part of the web env schema, default
-> `docker`) so it hides tarball-source advanced-problem creation/conversion. The
-> chart sets it to `kubernetes` on both web and the workers (`web.executionBackend`).
+> tarball-source run/grade). In production, teachers supply digest-pinned
+> registry refs through the problem editor (gated per-user by
+> `User.canCreateAdvancedProblems`); the ZIP-upload/build path
+> (`/api/problems/[id]/advanced-package`) is dev-only (`NODE_ENV=development`).
 
 ### Object Storage (S3-Compatible)
 

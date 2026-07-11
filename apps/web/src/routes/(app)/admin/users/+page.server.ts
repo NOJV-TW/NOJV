@@ -6,8 +6,14 @@ import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
 import { auditDomain, userDomain, ForbiddenError } from "@nojv/application";
 
-const { listUsersPaginated, updateUserRole, toggleUserDisabled, setUserDisabled, deleteUser } =
-  userDomain;
+const {
+  listUsersPaginated,
+  updateUserRole,
+  toggleUserDisabled,
+  toggleUserAdvancedCreation,
+  setUserDisabled,
+  deleteUser,
+} = userDomain;
 
 const userIdsSchema = z.array(z.string().min(1)).min(1).max(500);
 
@@ -125,6 +131,31 @@ export const actions = {
       }
       throw err;
     }
+
+    return { success: true };
+  }),
+
+  toggleAdvancedCreation: withAction(async (event) => {
+    const actor = requireAuth(event);
+    if (actor.platformRole !== "admin") {
+      return fail(403, { error: "Admin access required." });
+    }
+    const userId = readString(await event.request.formData(), "userId");
+
+    if (!userId) {
+      return fail(400, { error: "Invalid input." });
+    }
+
+    const result = await toggleUserAdvancedCreation(userId);
+    if (!result) return fail(404, { error: "User not found." });
+    await auditDomain.recordAdminAudit({
+      actorId: actor.userId,
+      actorName: actor.displayName,
+      action: "user_advanced_toggle",
+      targetType: "user",
+      targetId: userId,
+      summary: `${result.username ?? result.name} → ${result.canCreateAdvancedProblems ? "granted" : "revoked"}`,
+    });
 
     return { success: true };
   }),

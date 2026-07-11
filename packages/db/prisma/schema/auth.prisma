@@ -23,14 +23,15 @@ model User {
   emailVerified   Boolean @default(false)
   image           String?
 
-  platformRole       PlatformRole @default(student)
-  isSuperAdmin       Boolean      @default(false)
-  disabled           Boolean      @default(false)
-  status             UserStatus   @default(active)
-  mustChangePassword Boolean      @default(false)
-  twoFactorEnabled   Boolean      @default(false)
-  twoFactorActivated Boolean      @default(false)
-  profilePublic      Boolean      @default(false)
+  platformRole              PlatformRole @default(student)
+  isSuperAdmin              Boolean      @default(false)
+  disabled                  Boolean      @default(false)
+  status                    UserStatus   @default(active)
+  mustChangePassword        Boolean      @default(false)
+  twoFactorEnabled          Boolean      @default(false)
+  twoFactorActivated        Boolean      @default(false)
+  profilePublic             Boolean      @default(false)
+  canCreateAdvancedProblems Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

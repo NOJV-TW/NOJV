@@ -48,7 +48,11 @@ import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { storage } from "../shared/storage-singleton";
 
-import { assertProblemEditAccess, type ProblemActorContext } from "./permissions";
+import {
+  assertCanCreateAdvancedProblems,
+  assertProblemEditAccess,
+  type ProblemActorContext,
+} from "./permissions";
 import { readZipEntryBounded } from "./zip-utils";
 
 const MAX_ADVANCED_PACKAGE_ENTRIES = 1_000;
@@ -1144,6 +1148,7 @@ export async function importAdvancedPackage(
   zipBuffer: Buffer,
   options: AdvancedPackageImportOptions = {},
 ): Promise<AdvancedPackageImportResult> {
+  await assertCanCreateAdvancedProblems(actor);
   await assertProblemEditAccess(actor, problemId);
 
   const root = await mkdtemp(join(tmpdir(), "nojv-advanced-package-"));

@@ -300,6 +300,21 @@ export async function prepareRunWorkspace(
 
 export const ADVANCED_OUTPUT_MAX_FILES = 100_000;
 
+async function chmodTreeReadable(dir: string): Promise<void> {
+  const info = await stat(dir);
+  await chmod(dir, info.mode | 0o555);
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await chmodTreeReadable(full);
+    } else if (entry.isFile()) {
+      const fileInfo = await stat(full);
+      await chmod(full, fileInfo.mode | 0o444);
+    }
+  }
+}
+
 export async function prepareGradeWorkspace(
   gradeDir: string,
   runOutputDir: string,
@@ -317,6 +332,7 @@ export async function prepareGradeWorkspace(
     maxFiles: ADVANCED_OUTPUT_MAX_FILES,
     maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
   });
+  await chmodTreeReadable(gradeRunOutputDir);
 
   const meta = {
     submissionId: input.submissionId,
@@ -646,7 +662,7 @@ export class AdvancedModeExecutor {
     const containerName = `nojv-advanced-grade-${sanitizeId(request.submissionId).slice(0, 34)}`;
     const args = buildAdvancedDockerArgs({
       containerName,
-      networkArgs: [],
+      networkArgs: ["--network", "none"],
       workspaceDir: gradeDir,
       cpuLimit: config.cpuLimit,
       memoryMb: advanced.memoryMb,
@@ -654,7 +670,7 @@ export class AdvancedModeExecutor {
       imageRef,
       submissionId: request.submissionId,
       language: request.language,
-      user: null,
+      user: RUN_USER,
       readOnlyMounts: [
         { hostPath: join(gradeDir, "run-output"), containerPath: "/workspace/run-output" },
       ],

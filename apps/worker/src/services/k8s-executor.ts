@@ -140,6 +140,13 @@ export class SandboxBackpressureError extends Error {
   }
 }
 
+export class SandboxImagePullError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxImagePullError";
+  }
+}
+
 export interface K8sClientHandles {
   coreApi: k8s.CoreV1Api;
   batchApi: k8s.BatchV1Api;
@@ -216,19 +223,26 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   async execute(request: SandboxRequest): Promise<SandboxResult> {
-    if (request.advanced) {
-      return this.executeAdvanced(request);
-    }
+    try {
+      if (request.advanced) {
+        return await this.executeAdvanced(request);
+      }
 
-    if (request.judgeType === "interactive") {
-      return this.executeInteractive(request);
-    }
+      if (request.judgeType === "interactive") {
+        return await this.executeInteractive(request);
+      }
 
-    if (request.judgeType === "checker") {
-      return this.executeChecker(request);
-    }
+      if (request.judgeType === "checker") {
+        return await this.executeChecker(request);
+      }
 
-    return this.executeRunOnly(request);
+      return await this.executeRunOnly(request);
+    } catch (err) {
+      if (err instanceof SandboxImagePullError) {
+        return { ...sandboxSystemError(err.message), scoringFeedback: err.message };
+      }
+      throw err;
+    }
   }
 
   private async executeAdvanced(request: SandboxRequest): Promise<SandboxResult> {
@@ -627,7 +641,9 @@ export class K8sExecutor implements SandboxExecutor {
       };
       return mergeInteractiveCase(testcase, sol, int);
     } catch (err) {
-      if (err instanceof SandboxBackpressureError) throw err;
+      if (err instanceof SandboxBackpressureError || err instanceof SandboxImagePullError) {
+        throw err;
+      }
       logger.error("K8s interactive case failed", {
         submissionId: request.submissionId,
         jobName,
@@ -818,7 +834,9 @@ export class K8sExecutor implements SandboxExecutor {
         parseValidatorOutcomesFromLogs(logs, rawRuns) ?? validatorOutcomesSeForAll(rawRuns)
       );
     } catch (err) {
-      if (err instanceof SandboxBackpressureError) throw err;
+      if (err instanceof SandboxBackpressureError || err instanceof SandboxImagePullError) {
+        throw err;
+      }
       logger.error("K8s validate Job failed", {
         submissionId: request.submissionId,
         jobName,
@@ -924,7 +942,7 @@ export class K8sExecutor implements SandboxExecutor {
     everStarted: boolean;
     unschedulableReason: string | null;
     containerRunning: boolean;
-    imagePullBackOff: string | null;
+    imagePull: { reason: string; message: string } | null;
   }> {
     try {
       const pods = await this.coreApi.listNamespacedPod({
@@ -934,7 +952,7 @@ export class K8sExecutor implements SandboxExecutor {
       let everStarted = false;
       let unschedulableReason: string | null = null;
       let containerRunning = false;
-      let imagePullBackOff: string | null = null;
+      let imagePull: { reason: string; message: string } | null = null;
       for (const pod of pods.items) {
         const status = pod.status;
         const phase = status?.phase;
@@ -953,7 +971,10 @@ export class K8sExecutor implements SandboxExecutor {
           }
           const waitingReason = cs.state?.waiting?.reason;
           if (waitingReason === "ImagePullBackOff" || waitingReason === "ErrImagePull") {
-            imagePullBackOff = cs.state?.waiting?.message ?? waitingReason;
+            imagePull = {
+              reason: waitingReason,
+              message: cs.state?.waiting?.message ?? waitingReason,
+            };
           }
         }
         const scheduled = (status?.conditions ?? []).find((c) => c.type === "PodScheduled");
@@ -961,13 +982,13 @@ export class K8sExecutor implements SandboxExecutor {
           unschedulableReason = scheduled.message ?? scheduled.reason;
         }
       }
-      return { everStarted, unschedulableReason, containerRunning, imagePullBackOff };
+      return { everStarted, unschedulableReason, containerRunning, imagePull };
     } catch {
       return {
         everStarted: false,
         unschedulableReason: null,
         containerRunning: false,
-        imagePullBackOff: null,
+        imagePull: null,
       };
     }
   }
@@ -1005,9 +1026,9 @@ export class K8sExecutor implements SandboxExecutor {
       if (!containerRunning) {
         const pods = await this.inspectJobPods(jobName, namespace);
 
-        if (pods.imagePullBackOff) {
-          throw new SandboxBackpressureError(
-            `Sandbox Job ${jobName} pod cannot pull its image (${pods.imagePullBackOff}); retrying with backoff.`,
+        if (pods.imagePull?.reason === "ImagePullBackOff") {
+          throw new SandboxImagePullError(
+            `Cannot pull image for Job ${jobName}: ${pods.imagePull.message}`,
           );
         }
 

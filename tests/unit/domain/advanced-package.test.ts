@@ -53,7 +53,9 @@ vi.mock("@nojv/db", () => {
     contestProblemRepo: {},
     examProblemRepo: {},
     problemWorkspaceFileRepo: {},
-    userRepo: {},
+    userRepo: {
+      findById: vi.fn(async () => ({ canCreateAdvancedProblems: true })),
+    },
     assessmentRepo: {},
     contestRepo: {},
     courseRepo: {},

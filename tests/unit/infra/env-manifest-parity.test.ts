@@ -145,9 +145,9 @@ describeHelm("env schema ↔ chart deployment parity", () => {
     expect(containerEnvNames(web).has("EXECUTION_BACKEND")).toBe(true);
   });
 
-  it("web Deployment sets ADVANCED_IMAGE_REGISTRY so Kubernetes Advanced packages are enabled by default", () => {
+  it("web Deployment no longer ships ADVANCED_IMAGE_REGISTRY (ZIP prebuild is dev-only)", () => {
     const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
-    expect(containerEnvNames(web).has("ADVANCED_IMAGE_REGISTRY")).toBe(true);
+    expect(containerEnvNames(web).has("ADVANCED_IMAGE_REGISTRY")).toBe(false);
   });
 });
 

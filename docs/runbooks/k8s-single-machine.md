@@ -157,6 +157,26 @@ carry the matching toleration (`k8s-advanced.ts` `SANDBOX_TOLERATIONS`), so they
 schedule fine whether or not the taint exists. Re-introduce the taint only once
 you join a dedicated sandbox node ([§9](#9-scaling-from-one-node-to-many)).
 
+### Kubelet image GC
+
+Teacher-provided special_env images accumulate on the node and the kubelet
+defaults (GC only above 85% disk) never fire on a box that runs well below
+that. Install the drop-in from `infra/k3s/kubelet.conf.d/90-image-gc.conf`
+(k3s ≥ v1.29 merges `/var/lib/rancher/k3s/agent/etc/kubelet.conf.d/*.conf`
+over its generated defaults):
+
+```bash
+sudo cp infra/k3s/kubelet.conf.d/90-image-gc.conf \
+  /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/90-image-gc.conf
+sudo systemctl restart k3s
+```
+
+This sets `imageGCHighThresholdPercent: 75` / `imageGCLowThresholdPercent: 65`
+and `imageMaximumGCAge: 168h`, so images unused for a week are pruned even
+without disk pressure. Restarting k3s bounces the control plane briefly;
+running Pods keep running. Verify with
+`sudo k3s kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" | jq .kubeletconfig.imageMaximumGCAge`.
+
 ## 3. Sandbox namespace + guardrails
 
 You do **not** apply these by hand — the chart renders them. The

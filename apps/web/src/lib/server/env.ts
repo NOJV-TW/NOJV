@@ -14,6 +14,11 @@ const webEnvSchema = z
 
     EXECUTION_BACKEND: z.enum(["docker", "kubernetes"]).default("docker"),
     ADVANCED_IMAGE_REGISTRY: z.string().trim().min(1).optional(),
+    ADVANCED_IMAGE_ALLOWED_REGISTRIES: z
+      .string()
+      .trim()
+      .transform((val) => (val === "" ? "ghcr.io,docker.io" : val))
+      .default("ghcr.io,docker.io"),
 
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),

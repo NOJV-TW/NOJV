@@ -51,7 +51,7 @@ const gradeArgs = (
 ): string[] =>
   buildAdvancedDockerArgs({
     containerName: "nojv-advanced-grade-abc",
-    networkArgs: [],
+    networkArgs: ["--network", "none"],
     workspaceDir: "/tmp/job/grade",
     cpuLimit: "1.0",
     memoryMb: 512,
@@ -59,7 +59,7 @@ const gradeArgs = (
     imageRef: "grade-image:latest",
     submissionId: "sub-123",
     language: "python",
-    user: null,
+    user: "10001:10001",
     ...overrides,
   });
 
@@ -127,20 +127,22 @@ describe("buildAdvancedDockerArgs", () => {
     });
   });
 
-  describe("grade role (trusted TA code)", () => {
-    it("does NOT pass --user so the grade image manages its own user", () => {
+  describe("grade role (trusted TA code, non-root, no egress)", () => {
+    it("passes --user 10001:10001 so the grade image runs non-root", () => {
       const args = gradeArgs();
-      expect(args).not.toContain("--user");
-      expect(args).not.toContain("10001:10001");
+      const userIdx = args.indexOf("--user");
+      expect(userIdx).toBeGreaterThan(0);
+      expect(args[userIdx + 1]).toBe("10001:10001");
     });
 
-    it("does NOT isolate the network so the grade image has full network", () => {
+    it("isolates the network with --network none so the grade image has no egress", () => {
       const args = gradeArgs();
-      expect(args).not.toContain("--network");
-      expect(args).not.toContain("none");
+      const netIdx = args.indexOf("--network");
+      expect(netIdx).toBeGreaterThan(0);
+      expect(args[netIdx + 1]).toBe("none");
     });
 
-    it("keeps the shared hardening flags despite running as root", () => {
+    it("keeps the shared hardening flags", () => {
       const args = gradeArgs();
       expect(args).toContain("--cap-drop");
       expect(args).toContain("ALL");

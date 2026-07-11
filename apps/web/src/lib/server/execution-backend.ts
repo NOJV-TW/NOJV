@@ -1,6 +1,5 @@
 import { getWebEnv } from "./env";
 
-export function isAdvancedModeSupported(): boolean {
-  const env = getWebEnv();
-  return env.EXECUTION_BACKEND === "docker" || env.ADVANCED_IMAGE_REGISTRY !== undefined;
+export function isAdvancedZipUploadEnabled(): boolean {
+  return getWebEnv().NODE_ENV === "development";
 }

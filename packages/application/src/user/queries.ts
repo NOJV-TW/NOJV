@@ -139,6 +139,14 @@ export async function setUserDisabled(
   return userRepo.update(userId, { disabled });
 }
 
+export async function toggleUserAdvancedCreation(userId: string) {
+  const user = await userRepo.findById(userId);
+  if (!user) return null;
+  return userRepo.update(userId, {
+    canCreateAdvancedProblems: !user.canCreateAdvancedProblems,
+  });
+}
+
 export interface DashboardStats {
   totalAc: number;
   totalAttempts: number;

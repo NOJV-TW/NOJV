@@ -1,7 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { problemDomain } from "@nojv/application";
 import { getActorContext } from "$lib/server/auth";
-import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 import { parseProblemListQuery } from "$lib/server/shared/problem-list-query";
 
 const { listEditableProblems, listProblemCards } = problemDomain;
@@ -23,6 +22,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     publicResult,
     canCreate,
     loggedIn: userId !== null,
-    advancedModeSupported: isAdvancedModeSupported(),
+    advancedCreationAllowed: !!actor && (await problemDomain.canCreateAdvancedProblems(actor)),
   };
 };

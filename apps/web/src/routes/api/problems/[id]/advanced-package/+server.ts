@@ -4,10 +4,14 @@ import { problemDomain } from "@nojv/application";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { getWebEnv } from "$lib/server/env";
+import { isAdvancedZipUploadEnabled } from "$lib/server/execution-backend";
 
 const ADVANCED_PACKAGE_MAX_BYTES = 128 * 1024 * 1024;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
+  if (!isAdvancedZipUploadEnabled()) {
+    error(403, "Advanced package ZIP upload is only available in local development.");
+  }
   const actor = requireApiAuth(event);
   if (!(await problemDomain.canAuthorProblems(actor))) {
     error(403, "Not authorized to edit problems");

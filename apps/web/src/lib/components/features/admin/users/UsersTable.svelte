@@ -8,6 +8,7 @@
     name: string;
     platformRole: PlatformRole;
     disabled: boolean;
+    canCreateAdvancedProblems: boolean;
     createdAt: Date | string;
   }
 </script>
@@ -492,6 +493,9 @@
             <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
               {roleLabel(user.platformRole)}
             </Badge>
+            {#if user.canCreateAdvancedProblems}
+              <Badge variant="outline" size="xs">{m.admin_usersAdvancedBadge()}</Badge>
+            {/if}
           </td>
           <td class="px-5 py-3">
             {#if user.disabled}
@@ -611,6 +615,44 @@
                         onclick={(e) => maybeConfirmDisable(e, user)}
                       >
                         {user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
+                      </button>
+                    </form>
+
+                    <form
+                      method="POST"
+                      action="?/toggleAdvancedCreation"
+                      use:enhance={() => {
+                        const name = displayName(user);
+                        const willGrant = !user.canCreateAdvancedProblems;
+                        closeMenu();
+                        return async ({ result, update }) => {
+                          if (result.type === "success") {
+                            toasts.success(
+                              willGrant
+                                ? m.admin_usersAdvancedGrantSuccess({ username: name })
+                                : m.admin_usersAdvancedRevokeSuccess({ username: name }),
+                            );
+                            await update();
+                          } else if (result.type === "failure") {
+                            const err =
+                              (result.data as { error?: string } | undefined)?.error ??
+                              m.admin_usersAdvancedUpdateFailed();
+                            toasts.error(err);
+                          } else {
+                            await update();
+                          }
+                        };
+                      }}
+                    >
+                      <input type="hidden" name="userId" value={user.id} />
+                      <button
+                        type="submit"
+                        class="flex w-full items-center px-3 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
+                        role="menuitem"
+                      >
+                        {user.canCreateAdvancedProblems
+                          ? m.admin_usersAdvancedRevoke()
+                          : m.admin_usersAdvancedGrant()}
                       </button>
                     </form>
 
