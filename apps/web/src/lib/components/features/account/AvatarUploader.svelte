@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
   import { toasts } from "$lib/stores/toast";
   import { fetchWithCsrf } from "$lib/services/http";
   import AvatarCropperDialog from "./AvatarCropperDialog.svelte";
@@ -33,11 +32,7 @@
   let img: HTMLImageElement | null = $state(null);
 
   function initials(displayName: string): string {
-    const trimmed = displayName.trim();
-    if (!trimmed) return "?";
-    const parts = trimmed.split(/\s+/).slice(0, 2);
-    const joined = parts.map((p) => p[0]?.toUpperCase() ?? "").join("");
-    return joined || trimmed.charAt(0).toUpperCase() || "?";
+    return displayName.trim().charAt(0).toUpperCase() || "?";
   }
 
   function pickFile() {
@@ -131,12 +126,12 @@
   }
 </script>
 
-<div class="flex items-center gap-4">
+<div class="flex shrink-0 flex-col items-center gap-1">
   <button
     type="button"
     onclick={pickFile}
     aria-label={m.account_avatar_change()}
-    class="group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-title-sm font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+    class="group relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-title font-semibold text-primary-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
   >
     {#if image && !imageBroken}
       <img
@@ -156,19 +151,16 @@
     </span>
   </button>
 
-  <div class="flex flex-col gap-1.5">
-    <span class="text-body-sm font-medium">{m.account_avatar_label()}</span>
-    <div class="flex flex-wrap gap-2">
-      <Button type="button" size="sm" variant="outline" onclick={pickFile} disabled={busy}>
-        {m.account_avatar_change()}
-      </Button>
-      {#if image}
-        <Button type="button" size="sm" variant="ghost" onclick={removeAvatar} disabled={busy}>
-          {m.account_avatar_remove()}
-        </Button>
-      {/if}
-    </div>
-  </div>
+  {#if image}
+    <button
+      type="button"
+      class="text-caption text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground disabled:opacity-50"
+      onclick={removeAvatar}
+      disabled={busy}
+    >
+      {m.account_avatar_remove()}
+    </button>
+  {/if}
 </div>
 
 <input
