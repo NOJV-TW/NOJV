@@ -5,7 +5,7 @@
   import { authClient } from "$lib/auth.client";
   import { fetchWithCsrf } from "$lib/services/http";
   import UserIcon from "@lucide/svelte/icons/user";
-  import SquareArrowOutUpRightIcon from "@lucide/svelte/icons/square-arrow-out-up-right";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import ShieldIcon from "@lucide/svelte/icons/shield";
@@ -102,25 +102,39 @@
         bind:this={dropdownEl}
         class="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
       >
-        <div class="flex items-center gap-2 border-b border-border-subtle px-4 py-2.5">
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-body-sm font-medium">{user.name}</p>
-            <p class="truncate text-caption text-muted-foreground">
-              {user.username ? `@${user.username}` : user.email}
-            </p>
-          </div>
-          {#if hasUsername}
-            <a
-              class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
-              href="/users/{user.id}"
-              title={m.userMenu_profile()}
-              aria-label={m.userMenu_profile()}
-              onclick={() => (open = false)}
+        {#if hasUsername}
+          <a
+            class="flex items-center gap-3 border-b border-border-subtle px-4 py-3 transition-colors duration-fast ease-out-soft hover:bg-accent"
+            href="/users/{user.id}"
+            aria-label={m.userMenu_profile()}
+            onclick={() => (open = false)}
+          >
+            <span
+              class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border border-border-subtle bg-primary text-body-sm font-semibold text-primary-foreground"
             >
-              <SquareArrowOutUpRightIcon aria-hidden="true" size={15} />
-            </a>
-          {/if}
-        </div>
+              {#if user.image}
+                <img src={user.image} alt={user.name} class="size-full object-cover" />
+              {:else}
+                {initial}
+              {/if}
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-body-sm font-semibold">{user.name}</span>
+              <span class="block truncate text-caption text-muted-foreground"
+                >@{user.username}</span
+              >
+            </span>
+            <ChevronRightIcon
+              aria-hidden="true"
+              class="size-4 shrink-0 text-muted-foreground"
+            />
+          </a>
+        {:else}
+          <div class="border-b border-border-subtle px-4 py-2.5">
+            <p class="truncate text-body-sm font-medium">{user.name}</p>
+            <p class="truncate text-caption text-muted-foreground">{user.email}</p>
+          </div>
+        {/if}
 
         {#if hasUsername}
           <a
