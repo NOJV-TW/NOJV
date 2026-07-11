@@ -144,9 +144,11 @@ async function assertCourseSubmissionAllowed(
 
 function assertLanguageAllowed(
   payload: SubmissionDraft,
+  problem: SubmissionProblem,
   contestResult: ContestSubmissionResult | null,
   courseContext: SubmissionCourseContext | null,
 ): void {
+  if (problem.type === "special_env") return;
   if (
     contestResult &&
     contestResult.contest.allowedLanguages.length > 0 &&
@@ -283,7 +285,7 @@ export async function createQueuedSubmissionRecord(
     const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
     await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
-    assertLanguageAllowed(payload, contestResult, courseContext);
+    assertLanguageAllowed(payload, problem, contestResult, courseContext);
 
     await assertSubmissionFilesValid(payload, problem);
 
