@@ -30,6 +30,7 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]": "exam-safe",
   "/api/posts/[id]": "exam-confined",
   "/api/posts/[id]/comments": "exam-confined",
+  "/api/problems": "exam-safe",
   "/api/problems/[id]/bundle": "exam-safe",
   "/api/problems/[id]/posts": "exam-confined",
   "/api/problems/[id]/storage-usage": "exam-safe",
