@@ -53,13 +53,12 @@ test.describe("Dashboard", () => {
     const page = await context.newPage();
     await page.goto("/dashboard");
 
-    await page.waitForTimeout(3000);
-
     const serverTab = page.getByRole("button", { name: /Site-wide|全服總覽/i });
     await expect(serverTab).toBeVisible({ timeout: 10_000 });
-    await serverTab.click();
-
-    await expect(page).toHaveURL(/view=server/);
+    await expect(async () => {
+      await serverTab.click();
+      await expect(page).toHaveURL(/view=server/, { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
     await expect(page.getByText(/Site submission trend|全服提交趨勢/i).first()).toBeVisible({
       timeout: 10_000,
     });
