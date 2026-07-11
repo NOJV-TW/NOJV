@@ -87,7 +87,8 @@ export const openApiDocument = {
         operationId: "getOpenApiDocument",
         responses: {
           "200": {
-            description: "OpenAPI document for the API routes callable with personal API tokens",
+            description:
+              "OpenAPI document for the API routes callable with personal API tokens",
             content: {
               "application/json": {
                 schema: {
