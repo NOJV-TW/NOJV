@@ -8,11 +8,15 @@ trusted half of the run/grade split: no student code runs here, so the baked
 `runStatus`, and writes `/workspace/output/result.json` in the
 `advancedResultSchema` shape.
 
-Built and tagged `nojv-demo-advanced-grade:local` by:
+Built and tagged `nojv-demo-advanced-grade:local` +
+`ghcr.io/nojv-tw/nojv-demo-advanced-grade:main` by:
 
 ```sh
 pnpm demo-advanced:build
 ```
+
+CI (`build-images.yml`) pushes the `ghcr.io` ref on every main push; the seeded
+problem's `advancedConfig` points at it so Kubernetes deployments can pull it.
 
 The demo problem's `advancedConfig.grade` in
 `packages/db/prisma/seeds/problems.ts` points at this tag.
