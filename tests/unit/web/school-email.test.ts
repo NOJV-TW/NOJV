@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  parseSchoolEmail,
-  schoolAliasExample,
-} from "../../../apps/web/src/lib/utils/school";
+import { parseSchoolEmail, schoolAliasExample } from "../../../apps/web/src/lib/utils/school";
 
 describe("parseSchoolEmail", () => {
   it("accepts student-ID addresses on known school domains", () => {
