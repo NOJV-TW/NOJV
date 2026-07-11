@@ -53,15 +53,7 @@ test.describe("Dashboard", () => {
     const page = await context.newPage();
     await page.goto("/dashboard");
 
-    const tour = page.locator(".driver-popover");
-    const tourAppeared = await tour.waitFor({ state: "visible", timeout: 10_000 }).then(
-      () => true,
-      () => false,
-    );
-    if (tourAppeared) {
-      await page.locator(".driver-popover-close-btn").click();
-      await tour.waitFor({ state: "hidden" });
-    }
+    await page.waitForTimeout(3000);
 
     const serverTab = page.getByRole("button", { name: /Site-wide|全服總覽/i });
     await expect(serverTab).toBeVisible({ timeout: 10_000 });
