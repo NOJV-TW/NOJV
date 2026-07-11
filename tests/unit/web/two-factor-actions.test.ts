@@ -503,7 +503,7 @@ describe("deletePasskey", () => {
     expect(deletePasskeyMock).not.toHaveBeenCalled();
   });
 
-  it("deletes with a fresh passkey step-up marker and emails a notice", async () => {
+  it("deletes with a fresh passkey step-up marker", async () => {
     hasStepUpFactorMock.mockResolvedValue(true);
     hasFreshStepUpMock.mockResolvedValue(true);
     const result = await actions.deletePasskey(makeEvent({ body: form({ id: "pk_1" }) }));
@@ -511,7 +511,7 @@ describe("deletePasskey", () => {
       body: { id: "pk_1" },
       headers: expect.any(Headers),
     });
-    expect(sendEmailMock).toHaveBeenCalledOnce();
+    expect(sendEmailMock).not.toHaveBeenCalled();
     expect(result).toEqual({ deletedPasskey: true });
   });
 });
