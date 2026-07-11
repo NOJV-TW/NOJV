@@ -4,6 +4,7 @@
   import { getLocale, locales, setLocale } from "$lib/paraglide/runtime.js";
   import { Bell, ChevronRight, Compass, Monitor, Moon, Sun } from "@lucide/svelte";
   import { replayStudentTour } from "$lib/onboarding/student-tour";
+  import { replayTeacherTour } from "$lib/onboarding/teacher-tour";
   import {
     persistThemeMode,
     readThemeMode,
@@ -118,7 +119,7 @@
         </button>
       </section>
 
-      {#if data.platformRole === "student"}
+      {#if data.platformRole === "student" || data.platformRole === "teacher"}
         <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
           <div class="flex flex-col gap-1">
             <h2 class="text-title-sm">{m.account_tourTitle()}</h2>
@@ -129,7 +130,9 @@
             class="{settingLinkClass} w-full text-left"
             onclick={() => {
               const sessionUser = page.data.user;
-              if (sessionUser) replayStudentTour(sessionUser.id);
+              if (!sessionUser) return;
+              if (data.platformRole === "teacher") replayTeacherTour(sessionUser.id);
+              else replayStudentTour(sessionUser.id);
             }}
           >
             <span class="flex items-center gap-2.5">

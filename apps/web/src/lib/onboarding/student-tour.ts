@@ -1,6 +1,6 @@
 import type { DriveStep } from "driver.js";
 import { m } from "$lib/paraglide/messages.js";
-import { onTourNavigate, replayTour, step, type Intro } from "./engine";
+import { replayTour, step, type Intro } from "./engine";
 
 const PROBLEM_DETAIL = /^\/problems\/[^/]+$/;
 
@@ -130,10 +130,6 @@ export const studentIntros: Intro[] = [
   { key: "problems", pad: 6, match: (p) => p === "/problems", build: problemsSteps },
   { key: "problem", pad: 4, match: (p) => PROBLEM_DETAIL.test(p), build: problemSteps },
 ];
-
-export function onStudentNavigate(pathname: string, userId: string): void {
-  onTourNavigate(pathname, userId, studentIntros);
-}
 
 export function replayStudentTour(userId: string): void {
   replayTour(userId, studentIntros);

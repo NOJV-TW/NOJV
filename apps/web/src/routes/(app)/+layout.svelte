@@ -7,12 +7,17 @@
   import { m } from "$lib/paraglide/messages.js";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { connectSSE, disconnectSSE } from "$lib/stores/sse";
-  import { onStudentNavigate } from "$lib/onboarding/student-tour";
+  import { onTourNavigate } from "$lib/onboarding/engine";
+  import { studentIntros } from "$lib/onboarding/student-tour";
+  import { taIntros, teacherIntros } from "$lib/onboarding/teacher-tour";
 
   afterNavigate(() => {
     const sessionUser = page.data.user;
-    if (sessionUser?.platformRole === "student") {
-      onStudentNavigate(page.url.pathname, sessionUser.id);
+    if (!sessionUser) return;
+    if (sessionUser.platformRole === "teacher") {
+      onTourNavigate(page.url.pathname, sessionUser.id, teacherIntros);
+    } else if (sessionUser.platformRole === "student") {
+      onTourNavigate(page.url.pathname, sessionUser.id, [...studentIntros, ...taIntros]);
     }
   });
 
