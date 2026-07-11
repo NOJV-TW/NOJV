@@ -22,16 +22,7 @@ export const openApiDocument = {
     contact: {
       name: "NOJV Maintainers",
     },
-    license: {
-      name: "Private",
-    },
   },
-  servers: [
-    {
-      url: "http://localhost:5173",
-      description: "Local development",
-    },
-  ],
   tags: [
     {
       name: "System",

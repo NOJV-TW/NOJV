@@ -109,7 +109,7 @@
 
 <div class="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
   <aside class="hidden lg:block">
-    <div class="sticky top-6">
+    <div class="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
       <ProblemFilterSidebar {publicResult} {loggedIn} />
     </div>
   </aside>

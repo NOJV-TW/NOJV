@@ -42,6 +42,8 @@
  */
 
 :root {
+  color-scheme: light;
+
   /* === Typography families === */
   --font-sans: "Manrope", "Noto Sans TC", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -198,6 +200,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   --background: #141a21;
   --foreground: #e6ebf2;
   /* Brighter card bg so panels visibly separate from the dark body. */
@@ -537,7 +541,7 @@
     overscroll-behavior: contain;
   }
 
-  /* Respect reduced motion */
+  /* Respect reduced motion, but keep loading spinners moving (essential status cue) */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -546,6 +550,11 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+    }
+
+    .animate-spin {
+      animation-duration: 1.5s !important;
+      animation-iteration-count: infinite !important;
     }
   }
 }

@@ -69,7 +69,6 @@ export const tokenOpenApiDocument = {
     description:
       "Describes the API routes callable with a personal API token (Authorization: Bearer). Tokens are created at /account/api-tokens and each route requires the listed scope. Routes not in this document are session-only and not part of the token contract. Token auth is rejected while the token owner has an active exam session, and tokens never carry admin elevation. Admin-scoped token routes are documented in the Full API document.",
   },
-  servers: internalOpenApiDocument.servers,
   tags: internalOpenApiDocument.tags.filter((tag) => usedTags.has(tag.name)),
   paths: tokenPaths,
   components: {
