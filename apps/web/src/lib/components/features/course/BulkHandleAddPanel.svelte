@@ -5,6 +5,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import type { SuperValidated } from "sveltekit-superforms";
 
@@ -90,6 +91,7 @@
       <div data-tour="members-bulk-add">
         <label class="text-body-sm font-medium" for="bulk-handles">
           {m.members_handlesLabel()}
+          <HelpTooltip text={m.members_handlesHelp()} />
         </label>
         <textarea
           id="bulk-handles"
