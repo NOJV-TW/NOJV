@@ -10,7 +10,7 @@
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
-  import ProfileEditCard from "$lib/components/features/account/ProfileEditCard.svelte";
+  import ProfileHeaderCard from "$lib/components/features/account/ProfileHeaderCard.svelte";
   import { buildActivityModel } from "$lib/utils/activity";
   import { difficultyClass } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
@@ -207,57 +207,57 @@
     </div>
   {/if}
 
-  <Card variant="surface" size="lg">
-    <div class="flex flex-wrap items-center gap-5">
-      <div
-        class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-title font-semibold text-primary-foreground"
-      >
-        {#if user.image}
-          <img src={user.image} alt={user.name} class="size-full object-cover" />
-        {:else}
-          {initial}
-        {/if}
-      </div>
-      <div class="min-w-0 flex-1">
-        <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-headline font-semibold leading-tight">{user.name}</h1>
-          {#if !user.profilePublic}
-            <span
-              class="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-caption font-medium text-muted-foreground"
-            >
-              <EyeOff class="size-3.5" />
-              {m.userProfile_privateBadge()}
-            </span>
-          {/if}
-        </div>
-        {#if user.username}
-          <p class="mt-0.5 font-mono text-body-sm text-muted-foreground">@{user.username}</p>
-        {/if}
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.userProfile_joined({ date: joinedDate })}
-        </p>
-      </div>
-      <div class="flex flex-col items-end gap-0.5">
-        <span class="text-headline font-semibold tabular-nums">
-          {profile.solvedProblems.length}
-        </span>
-        <span class="text-caption text-muted-foreground">{m.userProfile_solvedCount()}</span>
-      </div>
-    </div>
-    {#if !user.profilePublic && data.isOwner}
-      <p class="mt-4 border-t border-border-subtle pt-4 text-caption text-muted-foreground">
-        {m.userProfile_privateHint()}
-      </p>
-    {/if}
-  </Card>
-
   {#if data.owner}
-    <ProfileEditCard
+    <ProfileHeaderCard
       owner={data.owner}
       name={user.name}
       username={user.username}
       image={user.image}
+      profilePublic={user.profilePublic}
+      {joinedDate}
+      solvedCount={profile.solvedProblems.length}
     />
+  {:else}
+    <Card variant="surface" size="lg">
+      <div class="flex flex-wrap items-center gap-5">
+        <div
+          class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-title font-semibold text-primary-foreground"
+        >
+          {#if user.image}
+            <img src={user.image} alt={user.name} class="size-full object-cover" />
+          {:else}
+            {initial}
+          {/if}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-3">
+            <h1 class="text-headline font-semibold leading-tight">{user.name}</h1>
+            {#if !user.profilePublic}
+              <span
+                class="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-caption font-medium text-muted-foreground"
+              >
+                <EyeOff class="size-3.5" />
+                {m.userProfile_privateBadge()}
+              </span>
+            {/if}
+          </div>
+          {#if user.username}
+            <p class="mt-0.5 font-mono text-body-sm text-muted-foreground">
+              @{user.username}
+            </p>
+          {/if}
+          <p class="mt-1 text-caption text-muted-foreground">
+            {m.userProfile_joined({ date: joinedDate })}
+          </p>
+        </div>
+        <div class="flex flex-col items-end gap-0.5">
+          <span class="text-headline font-semibold tabular-nums">
+            {profile.solvedProblems.length}
+          </span>
+          <span class="text-caption text-muted-foreground">{m.userProfile_solvedCount()}</span>
+        </div>
+      </div>
+    </Card>
   {/if}
 
   <Card variant="surface" size="lg">
