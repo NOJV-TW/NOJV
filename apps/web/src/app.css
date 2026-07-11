@@ -541,6 +541,13 @@
     overscroll-behavior: contain;
   }
 
+  /* Native select popups: some Chromium variants (Brave) ignore color-scheme there,
+     leaving theme text on a white popup — paint options with theme tokens directly. */
+  select option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+
   /* Respect reduced motion, but keep loading spinners moving (essential status cue) */
   @media (prefers-reduced-motion: reduce) {
     *,
