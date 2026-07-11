@@ -108,6 +108,62 @@ a = [int(x) for x in data[1 : 1 + n]]
 print(sum(a))
 `;
 
+const CIRC_KADANE_CORRECT = `import sys
+data = sys.stdin.read().split()
+n = int(data[0])
+a = [int(x) for x in data[1 : 1 + n]]
+best = cur = a[0]
+for x in a[1:]:
+    cur = max(x, cur + x)
+    best = max(best, cur)
+worst = curmin = a[0]
+for x in a[1:]:
+    curmin = min(x, curmin + x)
+    worst = min(worst, curmin)
+print(best if best < 0 else max(best, sum(a) - worst))
+`;
+
+const CIRC_KADANE_WRONG = `import sys
+data = sys.stdin.read().split()
+n = int(data[0])
+a = [int(x) for x in data[1 : 1 + n]]
+best = cur = a[0]
+for x in a[1:]:
+    cur = max(x, cur + x)
+    best = max(best, cur)
+print(best)
+`;
+
+const KNAPSACK2_CORRECT = `import sys
+data = sys.stdin.read().split()
+n = int(data[0]); W = int(data[1]); V = int(data[2])
+i = 3
+dp = [[0] * (V + 1) for _ in range(W + 1)]
+for _ in range(n):
+    w = int(data[i]); c = int(data[i + 1]); p = int(data[i + 2]); i += 3
+    for j in range(W, w - 1, -1):
+        row = dp[j]
+        prev = dp[j - w]
+        for k in range(V, c - 1, -1):
+            cand = prev[k - c] + p
+            if cand > row[k]:
+                row[k] = cand
+print(dp[W][V])
+`;
+
+const KNAPSACK2_WRONG = `import sys
+data = sys.stdin.read().split()
+n = int(data[0]); W = int(data[1]); V = int(data[2])
+i = 3
+dp = [0] * (W + 1)
+for _ in range(n):
+    w = int(data[i]); p = int(data[i + 2]); i += 3
+    for j in range(W, w - 1, -1):
+        if dp[j - w] + p > dp[j]:
+            dp[j] = dp[j - w] + p
+print(dp[W])
+`;
+
 const KNAPSACK_CORRECT = `import sys
 data = sys.stdin.read().split()
 n = int(data[0]); W = int(data[1])
@@ -754,8 +810,8 @@ export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
   },
   "problem_max-subarray-kadane": {
     language: "python",
-    correct: { sourceCode: KADANE_CORRECT },
-    wrong: { sourceCode: KADANE_WRONG, expectVerdict: "WA" },
+    correct: { sourceCode: CIRC_KADANE_CORRECT },
+    wrong: { sourceCode: CIRC_KADANE_WRONG, expectVerdict: "WA" },
   },
   "problem_grid-bfs-steps": {
     language: "python",
@@ -779,8 +835,8 @@ export const SEED_SOLUTIONS: Record<string, SeedSolution> = {
   },
   "problem_knapsack-01": {
     language: "python",
-    correct: { sourceCode: KNAPSACK_CORRECT },
-    wrong: { sourceCode: KNAPSACK_WRONG, expectVerdict: "WA" },
+    correct: { sourceCode: KNAPSACK2_CORRECT },
+    wrong: { sourceCode: KNAPSACK2_WRONG, expectVerdict: "WA" },
   },
   "problem_interval-scheduling": {
     language: "python",
