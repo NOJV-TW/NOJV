@@ -72,7 +72,11 @@
     {/snippet}
 
     <Card variant="surface" size="md">
-      <section class="flex flex-col gap-4">
+      <section>
+        <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+      </section>
+
+      <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
         <div class="flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_securityTitle()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_verification_hint()}</p>
@@ -164,10 +168,6 @@
             </button>
           </div>
         </div>
-      </section>
-
-      <section class="border-t border-border-subtle pt-4">
-        <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
       </section>
 
       <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
