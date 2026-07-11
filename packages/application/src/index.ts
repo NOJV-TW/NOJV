@@ -28,7 +28,6 @@ export * as auditDomain from "./audit";
 export * as clarificationDomain from "./clarification";
 export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
-export * as editorialDomain from "./editorial";
 export {
   listUpcomingAssessments,
   type UpcomingAssessment,
@@ -39,6 +38,7 @@ export * as feedbackDomain from "./feedback";
 export * as notificationDomain from "./notification";
 export * as plagiarismDomain from "./plagiarism";
 export * as platformDomain from "./platform";
+export * as postDomain from "./post";
 export * as proctoringDomain from "./proctoring";
 export * as problemDomain from "./problem";
 export * as scoreOverrideDomain from "./score-override";

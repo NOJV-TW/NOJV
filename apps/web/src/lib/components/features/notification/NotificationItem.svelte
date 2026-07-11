@@ -48,6 +48,10 @@
         });
       case "editorial_removed":
         return m.notification_editorial_removed({ title: p.title ?? "" });
+      case "post_removed":
+        return m.notification_post_removed({ title: p.title ?? "" });
+      case "comment_removed":
+        return m.notification_comment_removed({ postTitle: p.postTitle ?? "" });
       default:
         return n.type;
     }

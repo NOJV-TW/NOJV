@@ -17,8 +17,8 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │                                                                     │
 │  Service           @nojv/application                                     │
 │                    admin/ announcement/ assignment/ audit/          │
-│                    clarification/ contest/ course/ editorial/        │
-│                    exam/ feedback/ notification/ plagiarism/         │
+│                    clarification/ contest/ course/ exam/             │
+│                    feedback/ notification/ plagiarism/ post/         │
 │                    problem/ proctoring/ score-override/ scoring/     │
 │                    shared/ submission/ user/ virtual-contest/        │
 ├─────────────────────────────────────────────────────────────────────┤

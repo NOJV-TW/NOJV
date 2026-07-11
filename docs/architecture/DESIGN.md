@@ -117,7 +117,7 @@ Charts read the live token values at runtime via `getComputedStyle` (with teal h
 
 ### Markdown Rendering
 
-`MarkdownRenderer.svelte` renders problem statements, editorials, and rich text using:
+`MarkdownRenderer.svelte` renders problem statements, problem posts, and rich text using:
 
 - `marked` for Markdown-to-HTML conversion
 - `marked-katex-extension` for LaTeX math (both inline `$...$` and display `$$...$$`)
@@ -134,12 +134,12 @@ Paraglide JS (`@inlang/paraglide-js`) with locale-aware routing. Shipped locales
 
 The primary problem-solving surface is a resizable split-pane layout (`ProblemWorkspace.svelte`):
 
-- **Left panel**: Three tabs -- Description, Submissions, Editorials. Default width 42%, draggable resize handle (20%-80% range), keyboard-accessible (`ArrowLeft`/`ArrowRight`).
+- **Left panel**: Tabs -- Description, Submissions, and (practice workspace only) Discussions and Editorials. Default width 42%, draggable resize handle (20%-80% range), keyboard-accessible (`ArrowLeft`/`ArrowRight`).
 - **Right panel**: Monaco code editor with language selector, action bar (Run / Submit), and a bottom panel for testcase editing and result viewing.
 - Run button: bordered outline style. Submit button: `bg-emerald-600` solid green.
 - The bottom panel has its own tab bar for switching between custom testcase input and execution results.
 - Submissions tab shows a clickable list; selecting one shows verdict, score, runtime, subtask/case breakdown, and lazy-loaded source code.
-- Editorials tab is gated behind having an accepted submission (`hasAc`).
+- Editorials tab is gated behind having an accepted submission (`hasAc`); the Discussions tab is open to any signed-in user. Both host the full post experience in-panel (list, article with votes/comments, compose).
 
 ### Problem Editor (Admin/Teacher)
 

@@ -32,7 +32,7 @@
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
-    editorialsEnabled?: boolean;
+    postsEnabled?: boolean;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
@@ -47,7 +47,7 @@
     backLink,
     canRejudge = false,
     canViewEditorials = false,
-    editorialsEnabled = false,
+    postsEnabled = false,
     contestId,
     virtualContestId,
     dailyAttempts,
@@ -210,12 +210,11 @@
     {backLink}
     {canRejudge}
     {canViewEditorials}
-    {editorialsEnabled}
+    {postsEnabled}
     {dailyAttempts}
     bind:submissions
     {problem}
     {testcaseSets}
-    editorialFormIdSuffix="adv"
   />
 </div>
 

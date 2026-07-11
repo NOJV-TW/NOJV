@@ -70,23 +70,25 @@ Student Code ------|---> Sandbox Container     Redis
 
 **Authenticated API routes:**
 
-| Route                                 | Methods   | Auth                                                                                     |
-| ------------------------------------- | --------- | ---------------------------------------------------------------------------------------- |
-| `/api/submissions`                    | POST      | `requireApiAuth` + rate limiter                                                          |
-| `/api/submissions/[id]`               | GET       | `requireApiAuth` + ownership check                                                       |
-| `/api/submissions/[id]/source`        | GET       | `requireApiAuth` + ownership or admin                                                    |
-| `/api/submissions/[id]/stream`        | GET       | `getActorContext` + ownership or admin                                                   |
-| `/api/events/stream`                  | GET       | `getActorContext` + `hasActorUsername`                                                   |
-| `/api/contests/[slug]/scoreboard`     | GET       | Optional auth (privileged view for admin/teacher)                                        |
-| `/contests/[id]/scoreboard?/unfreeze` | POST      | Form action: `requireAuth` + contest organizer or admin (`canViewLiveContestScoreboard`) |
-| `/api/plagiarism/[assignmentId]`      | GET, POST | `requireApiAuth` + `canManageCourse(role)`                                               |
-| `/api/plagiarism-flags`               | POST      | `requireApiAuth` + `canManageCourse(role)`                                               |
-| `/api/plagiarism-flags/[id]`          | DELETE    | `requireApiAuth` + `canManageCourse(role)`                                               |
-| `/api/problems/[id]/editorials`       | GET, POST | `requireApiAuth` + AC-gated for students                                                 |
-| `/api/problems/[id]/images`           | POST      | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
-| `/api/problems`                       | POST      | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
-| `/api/exams/[examId]/ip-violations`   | GET       | `requireApiAuth` + exam course staff or admin (`listExamIpViolationsForActor`)           |
-| `/api/healthz`                        | GET       | Public, no auth                                                                          |
+| Route                                        | Methods                  | Auth                                                                                     |
+| -------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------- |
+| `/api/submissions`                           | POST                     | `requireApiAuth` + rate limiter                                                          |
+| `/api/submissions/[id]`                      | GET                      | `requireApiAuth` + ownership check                                                       |
+| `/api/submissions/[id]/source`               | GET                      | `requireApiAuth` + ownership or admin                                                    |
+| `/api/submissions/[id]/stream`               | GET                      | `getActorContext` + ownership or admin                                                   |
+| `/api/events/stream`                         | GET                      | `getActorContext` + `hasActorUsername`                                                   |
+| `/api/contests/[slug]/scoreboard`            | GET                      | Optional auth (privileged view for admin/teacher)                                        |
+| `/contests/[id]/scoreboard?/unfreeze`        | POST                     | Form action: `requireAuth` + contest organizer or admin (`canViewLiveContestScoreboard`) |
+| `/api/plagiarism/[assignmentId]`             | GET, POST                | `requireApiAuth` + `canManageCourse(role)`                                               |
+| `/api/plagiarism-flags`                      | POST                     | `requireApiAuth` + `canManageCourse(role)`                                               |
+| `/api/plagiarism-flags/[id]`                 | DELETE                   | `requireApiAuth` + `canManageCourse(role)`                                               |
+| `/api/problems/[id]/posts`                   | GET, POST                | `requireApiAuth` + per-type view gate (editorial AC-gated) + live-event context gate     |
+| `/api/posts/[id]` (+ votes/comments/reports) | GET, POST, PATCH, DELETE | `requireApiAuth` + same gates; author-or-admin for edit/delete                           |
+| `/api/comments/[id]` (+ reports)             | POST, DELETE             | `requireApiAuth` + same gates; author-or-admin for delete                                |
+| `/api/problems/[id]/images`                  | POST                     | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
+| `/api/problems`                              | POST                     | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
+| `/api/exams/[examId]/ip-violations`          | GET                      | `requireApiAuth` + exam course staff or admin (`listExamIpViolationsForActor`)           |
+| `/api/healthz`                               | GET                      | Public, no auth                                                                          |
 
 **Authenticated page routes (layout-gated):**
 
@@ -94,19 +96,20 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### Attacker-Controlled Inputs
 
-| Input                 | Entry Point                               | Validation                                      |
-| --------------------- | ----------------------------------------- | ----------------------------------------------- |
-| Source code           | `POST /api/submissions` body              | `submissionDraftSchema` (Zod), 1-50,000 chars   |
-| Problem statements    | Form actions on problem create/edit       | Zod per-field limits, markdown text             |
-| Testcase input/output | Form actions on problem edit              | Zod, stored as `@db.Text`                       |
-| Image file upload     | `POST /api/problems/[id]/images` formData | Type whitelist, 5 MB limit                      |
-| URL slugs             | Route params (`[slug]`, `[id]`)           | `slugSchema` (3+ chars, `[a-z0-9-]+`)           |
-| OAuth callback params | `/api/auth/[...path]`                     | better-auth validates state/code                |
-| Contest invite codes  | Form action on contest join               | Zod validation                                  |
-| Editorial content     | `POST /api/problems/[id]/editorials`      | Zod, 10-50,000 chars                            |
-| IP addresses          | `getClientIp(event)` (`CF-Connecting-IP`) | Production trusts only CF header; missing = 403 |
-| User-Agent / headers  | HTTP headers                              | Logged per session, not validated               |
-| Query parameters      | Various GET endpoints                     | Parsed per-route                                |
+| Input                 | Entry Point                                    | Validation                                      |
+| --------------------- | ---------------------------------------------- | ----------------------------------------------- |
+| Source code           | `POST /api/submissions` body                   | `submissionDraftSchema` (Zod), 1-50,000 chars   |
+| Problem statements    | Form actions on problem create/edit            | Zod per-field limits, markdown text             |
+| Testcase input/output | Form actions on problem edit                   | Zod, stored as `@db.Text`                       |
+| Image file upload     | `POST /api/problems/[id]/images` formData      | Type whitelist, 5 MB limit                      |
+| URL slugs             | Route params (`[slug]`, `[id]`)                | `slugSchema` (3+ chars, `[a-z0-9-]+`)           |
+| OAuth callback params | `/api/auth/[...path]`                          | better-auth validates state/code                |
+| Contest invite codes  | Form action on contest join                    | Zod validation                                  |
+| Post content          | `POST /api/problems/[id]/posts`                | Zod, title 1-200 chars, content 10-50,000 chars |
+| Comment / report text | `POST /api/posts/[id]/comments`, `.../reports` | Zod, 1-5,000 / 1-1,000 chars                    |
+| IP addresses          | `getClientIp(event)` (`CF-Connecting-IP`)      | Production trusts only CF header; missing = 403 |
+| User-Agent / headers  | HTTP headers                                   | Logged per session, not validated               |
+| Query parameters      | Various GET endpoints                          | Parsed per-route                                |
 
 ### Assumptions
 

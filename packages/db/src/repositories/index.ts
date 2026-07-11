@@ -17,9 +17,7 @@ export { contestRepo, contestProblemRepo } from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
 export { participationRepo, UnifiedParticipationVersionConflict } from "./participation";
 export { courseMembershipAdminRepo } from "./course-membership";
-export { editorialRepo } from "./editorial";
-export { editorialReportRepo } from "./editorial-report";
-export { editorialVoteRepo } from "./editorial-vote";
+export { contentReportRepo } from "./content-report";
 export { examRepo, examProblemRepo } from "./exam";
 export { examSessionRepo } from "./exam-session";
 export { ipViolationLogRepo } from "./ip-violation";
@@ -49,6 +47,9 @@ export {
   testcaseRepo,
 } from "./problem";
 export { platformSettingRepo } from "./platform-setting";
+export { postRepo } from "./post";
+export { postCommentRepo } from "./post-comment";
+export { postVoteRepo } from "./post-vote";
 export { problemBookmarkRepo } from "./problem-bookmark";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export {

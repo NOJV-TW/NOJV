@@ -19,17 +19,6 @@ export interface ProblemSubmissionEntry {
   context?: "practice" | "assignment" | "contest" | "exam";
 }
 
-export interface ProblemEditorialEntry {
-  id: string;
-  title: string;
-  content: string;
-  language: string;
-  createdAt: string;
-  voteScore: number;
-  viewerVote: number;
-  user: { username: string | null; name: string };
-}
-
 export interface ProblemTestcaseSetSummary {
   id: string;
   name: string;

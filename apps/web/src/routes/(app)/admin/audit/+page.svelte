@@ -20,8 +20,10 @@
       case "user_delete":
         return m.admin_audit_actionUserDelete();
       case "editorial_report_resolve":
+      case "content_report_resolve":
         return m.admin_audit_actionEditorialReportResolve();
       case "editorial_report_dismiss":
+      case "content_report_dismiss":
         return m.admin_audit_actionEditorialReportDismiss();
       case "announcement_create":
         return m.admin_audit_actionAnnouncementCreate();

@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { isExamForbiddenApiPath } from "$lib/server/exam-lock";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(__dirname, "../../../apps/web/src/routes/api");
 
@@ -26,8 +28,10 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/overrides": "exam-safe",
   "/api/plagiarism/[assignmentId]/reports": "exam-safe",
   "/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]": "exam-safe",
+  "/api/posts/[id]": "exam-confined",
+  "/api/posts/[id]/comments": "exam-confined",
   "/api/problems/[id]/bundle": "exam-safe",
-  "/api/problems/[id]/editorials": "exam-safe",
+  "/api/problems/[id]/posts": "exam-confined",
   "/api/problems/[id]/storage-usage": "exam-safe",
   "/api/problems/advanced-scaffold": "exam-safe",
   "/api/rejudges/[workflowId]": "exam-safe",
@@ -82,6 +86,19 @@ describe("every data-returning GET API route is a reviewed exam-confinement deci
     expect(
       stale,
       `Remove deleted routes from REVIEWED_GET_ROUTES: ${stale.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("every exam-confined route is actually blocked by isExamForbiddenApiPath", () => {
+    const confined = Object.entries(REVIEWED_GET_ROUTES)
+      .filter(([, classification]) => classification === "exam-confined")
+      .map(([route]) => route.replace(/\[[^\]]+\]/g, "x1"));
+    expect(confined.length).toBeGreaterThan(0);
+    const unblocked = confined.filter((route) => !isExamForbiddenApiPath(route));
+    expect(
+      unblocked,
+      `Route(s) classified "exam-confined" but not blocked by isExamForbiddenApiPath — ` +
+        `extend the gate in apps/web/src/lib/server/exam-lock.ts: ${unblocked.join(", ")}`,
     ).toEqual([]);
   });
 });

@@ -79,8 +79,8 @@ export async function seedEngagement(
   const rng = new SeededRng(0x5eed_9000);
   const storage = createStorageClient();
 
-  await prisma.editorialReport.deleteMany({});
-  await prisma.editorial.deleteMany({});
+  await prisma.contentReport.deleteMany({});
+  await prisma.problemPost.deleteMany({});
   await prisma.clarification.deleteMany({});
   await prisma.problemBookmark.deleteMany({});
   await prisma.notification.deleteMany({});
@@ -119,42 +119,45 @@ export async function seedEngagement(
     new Date(now - 15 * DAY),
   );
 
-  const ed1 = await prisma.editorial.create({
+  const ed1 = await prisma.problemPost.create({
     data: {
-      userId: student.id,
+      type: "editorial",
+      authorId: student.id,
       problemId: "problem_warmup-sum",
-      language: "cpp",
+      title: "Warmup Sum 解題思路 (C++)",
       content:
         '## Warmup Sum 解題思路\n\n直接讀入兩個整數相加即可。注意用 `long long` 避免 32-bit 溢位：\n\n```cpp\n#include <iostream>\nint main(){ long long a,b; std::cin>>a>>b; std::cout<<a+b<<"\\n"; }\n```',
       createdAt: new Date(now - 17 * DAY),
     },
   });
 
-  await prisma.editorial.create({
+  await prisma.problemPost.create({
     data: {
-      userId: s1.id,
+      type: "editorial",
+      authorId: s1.id,
       problemId: "problem_warmup-sum",
-      language: "python",
+      title: "Warmup Sum Python 版本",
       content:
         "## Python 版本\n\n用 `map(int, input().split())` 一行讀入即可，Python 整數沒有溢位問題：\n\n```python\na, b = map(int, input().split())\nprint(a + b)\n```",
       createdAt: new Date(now - 16 * DAY),
     },
   });
 
-  await prisma.editorial.create({
+  await prisma.problemPost.create({
     data: {
-      userId: s2.id,
+      type: "editorial",
+      authorId: s2.id,
       problemId: "problem_add-two-numbers",
-      language: "c",
+      title: "兩數相加（C）",
       content:
         '## 兩數相加（C）\n\n用 `scanf` 讀入、`%lld` 印出總和，注意輸出後換行：\n\n```c\n#include <stdio.h>\nint main(){ long long a,b; scanf("%lld %lld",&a,&b); printf("%lld\\n",a+b); }\n```',
       createdAt: new Date(now - 14 * DAY),
     },
   });
 
-  await prisma.editorialReport.create({
+  await prisma.contentReport.create({
     data: {
-      editorialId: ed1.id,
+      postId: ed1.id,
       reportedByUserId: (demoStudents[2] ?? student).id,
       reason: "這篇題解直接貼出完整 AC 程式碼，疑似違反課程的學術誠信規範。",
       status: "open",
@@ -370,6 +373,6 @@ export async function seedEngagement(
   });
 
   console.log(
-    "  Engagement: 3 editorials (+1 report), 5 clarifications, 4 bookmarks, 5 notifications, plagiarism flag+log, 2 feedback, 1 score override",
+    "  Engagement: 3 editorial posts (+1 report), 5 clarifications, 4 bookmarks, 5 notifications, plagiarism flag+log, 2 feedback, 1 score override",
   );
 }
