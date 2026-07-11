@@ -143,6 +143,7 @@
   "account_resend": "Resend",
   "account_resendCooldown": "Resend in {seconds}s",
   "account_save": "Save",
+  "account_schoolEmailAliasHint": "This looks like a personalized alias address, which cannot be matched to a student ID. Please use your student-ID address instead, e.g. {example} — it delivers to the same mailbox even if you have set an alias.",
   "account_schoolEmailLabel": "School email",
   "account_schoolEmailPlaceholder": "e.g. 41047000S@gapps.ntnu.edu.tw",
   "account_schoolVerification": "School Alliance Verification",

@@ -5,7 +5,7 @@
   import { authClient } from "$lib/auth.client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
   import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
-  import { isReservedUsername, parseSchoolEmail } from "$lib/utils/school";
+  import { isReservedUsername, parseSchoolEmail, schoolAliasExample } from "$lib/utils/school";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
@@ -66,7 +66,10 @@
     error = "";
     const trimmed = schoolEmail.trim();
     if (!parseSchoolEmail(trimmed)) {
-      error = m.auth_invalidSchoolEmail();
+      const example = schoolAliasExample(trimmed);
+      error = example
+        ? m.account_schoolEmailAliasHint({ example })
+        : m.auth_invalidSchoolEmail();
       return false;
     }
     return true;
