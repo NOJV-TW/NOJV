@@ -1267,26 +1267,26 @@ wrong(f"failed to find {secret} in {max_turns} turns")
     {
       authorId: teacherId,
       id: "problem_max-subarray-kadane",
-      title: "Maximum Subarray Sum",
+      title: "Maximum Circular Subarray Sum",
       type: "full_source",
-      tags: ["medium", "Dynamic Programming"],
+      tags: ["medium", "Dynamic Programming", "Array"],
       memoryLimitMb: 256,
       timeLimitMs: 2000,
       visibility: "public",
       statement: {
-        body: "給定一個長度為 $N$ 的整數陣列，找出「連續且非空」的子陣列中，元素總和最大的那一個，並輸出其總和。\n\n這是經典的 Kadane 演算法題：以線性時間維護「以目前位置結尾的最大子陣列和」。注意陣列可能全為負數，此時答案為最大的單一元素。",
+        body: "給定一個長度為 $N$ 的「環狀」整數陣列（$a_N$ 的下一個元素是 $a_1$），找出總和最大的「連續且非空」子陣列，並輸出其總和。子陣列可以跨越尾端接回開頭，但每個元素最多只能取一次（子陣列長度至多為 $N$）。\n\n提示：答案要嘛是一般（不跨界）的最大子陣列和，要嘛是「總和減去最小子陣列和」（跨界情形）。注意陣列可能全為負數，此時答案為最大的單一元素。",
         inputFormat:
           "第一行一個整數 $N$（$1 \\le N \\le 10^5$）。\\n\\n第二行 $N$ 個以空白分隔的整數 $a_i$（$-10^4 \\le a_i \\le 10^4$）。",
-        outputFormat: "一行，輸出最大連續子陣列和。",
+        outputFormat: "一行，輸出環狀陣列的最大連續子陣列和。",
       },
       samples: [
         {
-          input: "9\n-2 1 -3 4 -1 2 1 -5 4",
-          output: "6",
+          input: "4\n1 -2 3 -2",
+          output: "3",
         },
         {
-          input: "5\n1 2 3 4 5",
-          output: "15",
+          input: "3\n5 -3 5",
+          output: "10",
         },
       ],
       testcases: {
@@ -1294,22 +1294,22 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           description: "Public sample cases shown on the problem page.",
           cases: [
             {
-              input: "9\n-2 1 -3 4 -1 2 1 -5 4",
-              output: "6",
+              input: "4\n1 -2 3 -2",
+              output: "3",
             },
             {
-              input: "5\n1 2 3 4 5",
-              output: "15",
+              input: "3\n5 -3 5",
+              output: "10",
             },
             {
-              input: "3\n-5 -2 -9",
+              input: "3\n-3 -2 -3",
               output: "-2",
             },
           ],
         },
         hidden: {
           description:
-            "Hidden cases: single element, all-negative arrays, mixed signs, all zeros, and extreme values.",
+            "Hidden cases: single element, all-negative arrays, wrap-around optima, all zeros, and extreme values.",
           cases: [
             {
               input: "1\n7",
@@ -1320,23 +1320,27 @@ wrong(f"failed to find {secret} in {max_turns} turns")
               output: "-7",
             },
             {
+              input: "5\n3 -2 2 -3 3",
+              output: "6",
+            },
+            {
               input: "4\n-1 -2 -3 -4",
               output: "-1",
             },
             {
-              input: "8\n-2 -3 4 -1 -2 1 5 -3",
-              output: "7",
+              input: "8\n8 -1 3 4 -2 -5 6 2",
+              output: "22",
             },
             {
-              input: "6\n5 -9 6 -2 3 1",
-              output: "8",
-            },
-            {
-              input: "5\n0 0 0 0 0",
+              input: "6\n0 0 0 0 0 0",
               output: "0",
             },
             {
-              input: "10\n10000 -10000 10000 -10000 10000 -10000 10000 -10000 10000 -10000",
+              input: "10\n10000 10000 10000 10000 10000 10000 10000 10000 10000 10000",
+              output: "100000",
+            },
+            {
+              input: "4\n-10000 10000 -10000 10000",
               output: "10000",
             },
           ],
@@ -1650,26 +1654,26 @@ wrong(f"failed to find {secret} in {max_turns} turns")
     {
       authorId: teacherId,
       id: "problem_knapsack-01",
-      title: "0/1 Knapsack",
+      title: "Two-Constraint Knapsack",
       type: "full_source",
-      tags: ["medium", "Dynamic Programming"],
+      tags: ["hard", "Dynamic Programming"],
       memoryLimitMb: 256,
       timeLimitMs: 2000,
       visibility: "public",
       statement: {
-        body: "你有一個容量為 $W$ 的背包，以及 $N$ 件物品。第 $i$ 件物品的重量為 $w_i$、價值為 $v_i$，每件物品最多只能拿一次。\n\n請選出總重量不超過 $W$ 的物品組合，使得總價值最大，並輸出這個最大總價值。\n\n這是經典的 0/1 背包動態規劃題，狀態為 $dp[c] =$「容量為 $c$ 時的最大價值」。",
+        body: "你有一個背包，同時受到「重量上限 $W$」與「體積上限 $V$」兩個限制，以及 $N$ 件物品。第 $i$ 件物品的重量為 $w_i$、體積為 $c_i$、價值為 $p_i$，每件物品最多只能拿一次。\n\n請選出總重量不超過 $W$ 且總體積不超過 $V$ 的物品組合，使得總價值最大，並輸出這個最大總價值。\n\n這是 0/1 背包的二維限制版本，狀態為 $dp[j][k] =$「重量上限 $j$、體積上限 $k$ 時的最大價值」，兩個維度都要由大到小更新。注意答案可能超過 32 位元整數範圍。",
         inputFormat:
-          "第一行兩個整數 $N$ 和 $W$（$1 \\le N \\le 100$，$0 \\le W \\le 10^4$）。\\n\\n接下來 $N$ 行，每行兩個整數 $w_i$ 和 $v_i$（$1 \\le w_i \\le 10^4$，$1 \\le v_i \\le 10^9$），表示第 $i$ 件物品的重量與價值。",
+          "第一行三個整數 $N$、$W$ 和 $V$（$1 \\le N \\le 100$，$1 \\le W, V \\le 100$）。\\n\\n接下來 $N$ 行，每行三個整數 $w_i$、$c_i$ 和 $p_i$（$1 \\le w_i, c_i \\le 100$，$1 \\le p_i \\le 10^9$），表示第 $i$ 件物品的重量、體積與價值。",
         outputFormat: "一行，輸出可獲得的最大總價值。",
       },
       samples: [
         {
-          input: "3 5\n2 3\n3 4\n4 5",
-          output: "7",
+          input: "3 5 5\n2 3 4\n3 2 5\n4 4 9",
+          output: "9",
         },
         {
-          input: "4 10\n5 10\n4 40\n6 30\n3 50",
-          output: "90",
+          input: "1 1 1\n2 2 10",
+          output: "0",
         },
       ],
       testcases: {
@@ -1677,46 +1681,38 @@ wrong(f"failed to find {secret} in {max_turns} turns")
           description: "Public sample cases shown on the problem page.",
           cases: [
             {
-              input: "3 5\n2 3\n3 4\n4 5",
-              output: "7",
+              input: "3 5 5\n2 3 4\n3 2 5\n4 4 9",
+              output: "9",
             },
             {
-              input: "4 10\n5 10\n4 40\n6 30\n3 50",
-              output: "90",
-            },
-            {
-              input: "2 0\n1 5\n2 7",
+              input: "1 1 1\n2 2 10",
               output: "0",
+            },
+            {
+              input: "3 5 5\n5 1 10\n1 5 10\n3 3 12",
+              output: "12",
             },
           ],
         },
         hidden: {
           description:
-            "Hidden cases: item too heavy, exact fit, zero capacity, and large values near 10^9.",
+            "Hidden cases: volume-bound, weight-bound, exact fits, 64-bit totals, and single items.",
           cases: [
             {
-              input: "1 5\n6 100",
+              input: "3 3 3\n1 1 1000000000\n1 1 1000000000\n1 1 1000000000",
+              output: "3000000000",
+            },
+            {
+              input: "4 4 4\n2 1 3\n1 2 3\n3 3 7\n2 2 4",
+              output: "7",
+            },
+            {
+              input: "1 100 100\n1 1 5",
+              output: "5",
+            },
+            {
+              input: "2 100 5\n10 10 100\n10 10 100",
               output: "0",
-            },
-            {
-              input: "1 5\n5 100",
-              output: "100",
-            },
-            {
-              input: "3 6\n1 1\n2 6\n5 18",
-              output: "19",
-            },
-            {
-              input: "5 10\n2 3\n2 3\n6 5\n5 6\n4 4",
-              output: "12",
-            },
-            {
-              input: "4 7\n1 1\n3 4\n4 5\n5 7",
-              output: "9",
-            },
-            {
-              input: "3 10000\n5000 1000000000\n5000 1000000000\n5000 1000000000",
-              output: "2000000000",
             },
           ],
         },
