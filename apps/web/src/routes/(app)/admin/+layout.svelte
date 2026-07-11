@@ -10,17 +10,17 @@
     { href: "/admin/users", key: "users" as const },
     { href: "/admin/submissions", key: "submissions" as const },
     { href: "/admin/announcements", key: "announcements" as const },
-    { href: "/admin/editorial-reports", key: "editorialReports" as const },
+    { href: "/admin/reports", key: "reports" as const },
     { href: "/admin/audit", key: "audit" as const },
   ];
 
   function tabLabel(
-    key: "overview" | "users" | "submissions" | "announcements" | "editorialReports" | "audit",
+    key: "overview" | "users" | "submissions" | "announcements" | "reports" | "audit",
   ): string {
     if (key === "overview") return m.admin_tabOverview();
     if (key === "users") return m.admin_tabUsers();
     if (key === "submissions") return m.admin_tabSubmissions();
-    if (key === "editorialReports") return m.admin_tabEditorialReports();
+    if (key === "reports") return m.admin_tabReports();
     if (key === "audit") return m.admin_tabAudit();
     return m.admin_tabAnnouncements();
   }
