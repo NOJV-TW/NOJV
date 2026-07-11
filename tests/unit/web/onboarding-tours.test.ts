@@ -13,7 +13,7 @@ describe("tour registries", () => {
 
   it("routes teacher pages to the right intro", () => {
     const at = (p: string) => teacherIntros.filter((i) => i.match(p)).map((i) => i.key);
-    expect(at("/dashboard")).toEqual(["teacher-nav"]);
+    expect(at("/dashboard")).toEqual(["teacher-nav", "teacher-welcome-guide"]);
     expect(at("/courses")).toEqual(["teacher-courses"]);
     expect(at("/courses/abc123/members")).toEqual(["teacher-members"]);
     expect(at("/problems")).toEqual(["teacher-problems"]);

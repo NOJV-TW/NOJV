@@ -127,18 +127,18 @@ function teardownForNav() {
 
 export function onTourNavigate(pathname: string, userId: string, intros: Intro[]): void {
   if (typeof window === "undefined") return;
+  teardownForNav();
   uid = userId;
   registry = intros;
-  teardownForNav();
   scheduleIntro(pathname, 350);
 }
 
 export function replayTour(userId: string, intros: Intro[]): void {
   if (typeof window === "undefined") return;
+  teardownForNav();
   uid = userId;
   registry = intros;
   clearSeen(intros);
-  teardownForNav();
   for (const intro of intros) {
     const steps = intro.build();
     if (steps.length > 0) {

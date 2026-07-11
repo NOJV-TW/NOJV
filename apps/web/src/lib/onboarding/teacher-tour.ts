@@ -34,13 +34,16 @@ function navSteps(): DriveStep[] {
       m.tour_teacher_submissionsNavBody(),
       "bottom",
     ),
-    ...step(
-      '[data-tour="welcome-guide"]',
-      m.tour_teacher_welcomeGuideTitle(),
-      m.tour_teacher_welcomeGuideBody(),
-      "bottom",
-    ),
   ];
+}
+
+function welcomeGuideSteps(): DriveStep[] {
+  return step(
+    '[data-tour="welcome-guide"]',
+    m.tour_teacher_welcomeGuideTitle(),
+    m.tour_teacher_welcomeGuideBody(),
+    "bottom",
+  );
 }
 
 function coursesSteps(): DriveStep[] {
@@ -172,6 +175,12 @@ function gradebookSteps(): DriveStep[] {
 
 const INTROS: Intro[] = [
   { key: "teacher-nav", pad: 2, match: (p) => p === "/dashboard", build: navSteps },
+  {
+    key: "teacher-welcome-guide",
+    pad: 6,
+    match: (p) => p === "/dashboard",
+    build: welcomeGuideSteps,
+  },
   { key: "teacher-courses", pad: 4, match: (p) => p === "/courses", build: coursesSteps },
   { key: "teacher-members", pad: 6, match: (p) => MEMBERS.test(p), build: membersSteps },
   { key: "teacher-problems", pad: 4, match: (p) => p === "/problems", build: problemsSteps },
