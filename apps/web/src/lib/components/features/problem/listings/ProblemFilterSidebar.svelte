@@ -149,6 +149,32 @@
     />
   </div>
 
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      onclick={reset}
+      disabled={!hasActiveFilters}
+      class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-body-sm font-medium text-foreground transition-[color,background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] disabled:opacity-40"
+    >
+      <RotateCcw class="size-3.5" aria-hidden="true" />
+      {m.problems_filterReset()}
+    </button>
+    <button
+      type="button"
+      onclick={() => updateUrl({ sort: sortDirection === "asc" ? "desc" : undefined })}
+      aria-label={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+      title={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+      class="inline-flex items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-body-sm font-medium text-muted-foreground transition-[color,background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] hover:text-foreground"
+    >
+      {#if sortDirection === "asc"}
+        <ArrowUpNarrowWide class="size-4" aria-hidden="true" />
+      {:else}
+        <ArrowDownNarrowWide class="size-4" aria-hidden="true" />
+      {/if}
+      ID
+    </button>
+  </div>
+
   {#if loggedIn}
     <div>
       {@render heading(m.problems_filterStatus())}
@@ -215,30 +241,4 @@
       </div>
     </div>
   {/if}
-
-  <div class="flex items-center gap-2 border-t border-border-subtle pt-4">
-    <button
-      type="button"
-      onclick={reset}
-      disabled={!hasActiveFilters}
-      class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-body-sm font-medium text-foreground transition-[color,background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] disabled:opacity-40"
-    >
-      <RotateCcw class="size-3.5" aria-hidden="true" />
-      {m.problems_filterReset()}
-    </button>
-    <button
-      type="button"
-      onclick={() => updateUrl({ sort: sortDirection === "asc" ? "desc" : undefined })}
-      aria-label={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
-      title={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
-      class="inline-flex items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-body-sm font-medium text-muted-foreground transition-[color,background-color] duration-fast ease-out-soft hover:bg-[color:var(--color-panel)] hover:text-foreground"
-    >
-      {#if sortDirection === "asc"}
-        <ArrowUpNarrowWide class="size-4" aria-hidden="true" />
-      {:else}
-        <ArrowDownNarrowWide class="size-4" aria-hidden="true" />
-      {/if}
-      ID
-    </button>
-  </div>
 </div>

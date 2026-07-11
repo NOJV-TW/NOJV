@@ -21,6 +21,7 @@ const config = {
           "blob:",
           "https://github.com",
           "https://avatars.githubusercontent.com",
+          "https://*.googleusercontent.com",
         ],
         "font-src": ["self", "data:"],
         "connect-src": ["self"],
