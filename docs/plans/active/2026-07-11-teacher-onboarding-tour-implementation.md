@@ -21,6 +21,7 @@
 ## Task 1: 抽出 tour 引擎 `engine.ts`
 
 **Files:**
+
 - Create: `apps/web/src/lib/onboarding/engine.ts`
 - Modify: `apps/web/src/lib/onboarding/student-tour.ts`（重寫為註冊表）
 
@@ -226,19 +227,24 @@ git commit -m "refactor(web): extract role-agnostic tour engine from student tou
 ## Task 2: i18n 文案（en + zh-TW）
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`
 - Modify: `apps/web/messages/zh-TW.json`
 
 **Step 1: 修錯誤文案 `tour_student_coursesBody`**
 
 en.json line 1903：
+
 ```json
 "tour_student_coursesBody": "Once your teacher adds you to a course, its assignments and exams show up here.",
 ```
+
 zh-TW.json line 1888：
+
 ```json
 "tour_student_coursesBody": "老師把你加入課程後，課程的作業與考試都會出現在這裡。",
 ```
+
 （原文說「邀請碼加入課程」——平台沒有課程邀請碼，老師手動加人。）
 
 **Step 2: 新增 `members_handlesHelp`（HelpTooltip 用）**
@@ -246,10 +252,13 @@ zh-TW.json line 1888：
 插在 `members_handlesLabel` 相鄰處（兩檔同位置）：
 
 en.json：
+
 ```json
 "members_handlesHelp": "One student ID per line, or comma-separated.\nStudents who haven't registered yet get a placeholder account.\nAsk students to sign up with their school email and verify it — their accounts link to the course automatically.",
 ```
+
 zh-TW.json：
+
 ```json
 "members_handlesHelp": "一行一個學號，或用逗號分隔。\n還沒註冊的學生會先建立佔位帳號。\n請學生用學校信箱登入註冊並完成驗證，帳號會自動連結到課程。",
 ```
@@ -259,6 +268,7 @@ zh-TW.json：
 插在 `tour_student_dashRecentBody` 之後、`upload_acceptedFileTypes` 之前（en.json 1931/1932 之間；zh-TW.json 1916/1917 之間）。
 
 en.json：
+
 ```json
 "tour_teacher_welcomeTitle": "Welcome to NOJV",
 "tour_teacher_welcomeBody": "This is your teaching workspace. Take a minute to see the full flow — create a course, add students, author problems, assign work, and track grades. Replay anytime from Settings.",
@@ -303,6 +313,7 @@ en.json：
 ```
 
 zh-TW.json：
+
 ```json
 "tour_teacher_welcomeTitle": "歡迎來到 NOJV",
 "tour_teacher_welcomeBody": "這裡是你的教學工作台。花一分鐘認識備課的完整路徑——建課、加學生、出題、指派作業、看成績。之後隨時能在設定頁重看。",
@@ -363,6 +374,7 @@ git commit -m "feat(web): teacher tour copy, bulk-add help text, fix stale invit
 ## Task 3: 單元測試（先寫、先紅）+ `teacher-tour.ts`
 
 **Files:**
+
 - Create: `tests/unit/web/onboarding-tours.test.ts`
 - Create: `apps/web/src/lib/onboarding/teacher-tour.ts`
 
@@ -429,62 +441,162 @@ const GRADES = /^\/courses\/[^/]+\/grades$/;
 
 function navSteps(): DriveStep[] {
   return [
-    ...step('[data-tour="nav-primary"]', m.tour_teacher_welcomeTitle(), m.tour_teacher_welcomeBody(), "bottom"),
-    ...step('[data-tour="nav-courses"]', m.tour_teacher_coursesNavTitle(), m.tour_teacher_coursesNavBody(), "bottom"),
-    ...step('[data-tour="nav-problems"]', m.tour_teacher_problemsNavTitle(), m.tour_teacher_problemsNavBody(), "bottom"),
-    ...step('[data-tour="nav-submissions"]', m.tour_teacher_submissionsNavTitle(), m.tour_teacher_submissionsNavBody(), "bottom"),
-    ...step('[data-tour="welcome-guide"]', m.tour_teacher_welcomeGuideTitle(), m.tour_teacher_welcomeGuideBody(), "bottom"),
+    ...step(
+      '[data-tour="nav-primary"]',
+      m.tour_teacher_welcomeTitle(),
+      m.tour_teacher_welcomeBody(),
+      "bottom",
+    ),
+    ...step(
+      '[data-tour="nav-courses"]',
+      m.tour_teacher_coursesNavTitle(),
+      m.tour_teacher_coursesNavBody(),
+      "bottom",
+    ),
+    ...step(
+      '[data-tour="nav-problems"]',
+      m.tour_teacher_problemsNavTitle(),
+      m.tour_teacher_problemsNavBody(),
+      "bottom",
+    ),
+    ...step(
+      '[data-tour="nav-submissions"]',
+      m.tour_teacher_submissionsNavTitle(),
+      m.tour_teacher_submissionsNavBody(),
+      "bottom",
+    ),
+    ...step(
+      '[data-tour="welcome-guide"]',
+      m.tour_teacher_welcomeGuideTitle(),
+      m.tour_teacher_welcomeGuideBody(),
+      "bottom",
+    ),
   ];
 }
 
 function coursesSteps(): DriveStep[] {
   return [
-    ...step('[data-tour="courses-managing"]', m.tour_teacher_managingTitle(), m.tour_teacher_managingBody(), "bottom"),
-    ...step('[data-tour="courses-create"]', m.tour_teacher_createCourseTitle(), m.tour_teacher_createCourseBody(), "bottom"),
+    ...step(
+      '[data-tour="courses-managing"]',
+      m.tour_teacher_managingTitle(),
+      m.tour_teacher_managingBody(),
+      "bottom",
+    ),
+    ...step(
+      '[data-tour="courses-create"]',
+      m.tour_teacher_createCourseTitle(),
+      m.tour_teacher_createCourseBody(),
+      "bottom",
+    ),
   ];
 }
 
 function membersSteps(): DriveStep[] {
-  const bulkAdd = step('[data-tour="members-bulk-add"]', m.tour_teacher_bulkAddTitle(), m.tour_teacher_bulkAddBody(), "right");
+  const bulkAdd = step(
+    '[data-tour="members-bulk-add"]',
+    m.tour_teacher_bulkAddTitle(),
+    m.tour_teacher_bulkAddBody(),
+    "right",
+  );
   if (bulkAdd.length === 0) return [];
   return [
-    ...step('[data-tour="course-tabs"]', m.tour_teacher_courseTabsTitle(), m.tour_teacher_courseTabsBody(), "bottom"),
+    ...step(
+      '[data-tour="course-tabs"]',
+      m.tour_teacher_courseTabsTitle(),
+      m.tour_teacher_courseTabsBody(),
+      "bottom",
+    ),
     ...bulkAdd,
-    ...step('[data-tour="members-role"]', m.tour_teacher_memberRoleTitle(), m.tour_teacher_memberRoleBody(), "left"),
+    ...step(
+      '[data-tour="members-role"]',
+      m.tour_teacher_memberRoleTitle(),
+      m.tour_teacher_memberRoleBody(),
+      "left",
+    ),
   ];
 }
 
 function problemsSteps(): DriveStep[] {
   return [
-    ...step('[data-tour="problems-mine"]', m.tour_teacher_myProblemsTitle(), m.tour_teacher_myProblemsBody(), "bottom"),
-    ...step('[data-tour="problems-create"]', m.tour_teacher_createProblemTitle(), m.tour_teacher_createProblemBody(), "bottom"),
+    ...step(
+      '[data-tour="problems-mine"]',
+      m.tour_teacher_myProblemsTitle(),
+      m.tour_teacher_myProblemsBody(),
+      "bottom",
+    ),
+    ...step(
+      '[data-tour="problems-create"]',
+      m.tour_teacher_createProblemTitle(),
+      m.tour_teacher_createProblemBody(),
+      "bottom",
+    ),
   ];
 }
 
 function problemEditSteps(): DriveStep[] {
   return [
-    ...step('[data-tour="edit-rail"]', m.tour_teacher_editRailTitle(), m.tour_teacher_editRailBody(), "right"),
-    ...step('[data-tour="problem-publish"]', m.tour_teacher_publishTitle(), m.tour_teacher_publishBody(), "right"),
+    ...step(
+      '[data-tour="edit-rail"]',
+      m.tour_teacher_editRailTitle(),
+      m.tour_teacher_editRailBody(),
+      "right",
+    ),
+    ...step(
+      '[data-tour="problem-publish"]',
+      m.tour_teacher_publishTitle(),
+      m.tour_teacher_publishBody(),
+      "right",
+    ),
   ];
 }
 
 function assignmentNewSteps(): DriveStep[] {
   return [
-    ...step('[data-tour="assignment-picker"]', m.tour_teacher_pickProblemsTitle(), m.tour_teacher_pickProblemsBody(), "right"),
-    ...step('[data-tour="assignment-schedule"]', m.tour_teacher_scheduleTitle(), m.tour_teacher_scheduleBody(), "top"),
-    ...step('[data-tour="assignment-publish"]', m.tour_teacher_assignPublishTitle(), m.tour_teacher_assignPublishBody(), "top"),
+    ...step(
+      '[data-tour="assignment-picker"]',
+      m.tour_teacher_pickProblemsTitle(),
+      m.tour_teacher_pickProblemsBody(),
+      "right",
+    ),
+    ...step(
+      '[data-tour="assignment-schedule"]',
+      m.tour_teacher_scheduleTitle(),
+      m.tour_teacher_scheduleBody(),
+      "top",
+    ),
+    ...step(
+      '[data-tour="assignment-publish"]',
+      m.tour_teacher_assignPublishTitle(),
+      m.tour_teacher_assignPublishBody(),
+      "top",
+    ),
   ];
 }
 
 function monitorSteps(): DriveStep[] {
-  return step("#assignment-manage-tab-problems", m.tour_teacher_manageTabsTitle(), m.tour_teacher_manageTabsBody(), "bottom");
+  return step(
+    "#assignment-manage-tab-problems",
+    m.tour_teacher_manageTabsTitle(),
+    m.tour_teacher_manageTabsBody(),
+    "bottom",
+  );
 }
 
 function gradebookSteps(): DriveStep[] {
-  const exportBtn = step('[data-tour="gradebook-export"]', m.tour_teacher_gradebookExportTitle(), m.tour_teacher_gradebookExportBody(), "left");
+  const exportBtn = step(
+    '[data-tour="gradebook-export"]',
+    m.tour_teacher_gradebookExportTitle(),
+    m.tour_teacher_gradebookExportBody(),
+    "left",
+  );
   if (exportBtn.length === 0) return [];
   return [
-    ...step('[data-slot="course-gradebook"]', m.tour_teacher_gradebookTitle(), m.tour_teacher_gradebookBody(), "top"),
+    ...step(
+      '[data-slot="course-gradebook"]',
+      m.tour_teacher_gradebookTitle(),
+      m.tour_teacher_gradebookBody(),
+      "top",
+    ),
     ...exportBtn,
   ];
 }
@@ -494,9 +606,24 @@ const INTROS: Intro[] = [
   { key: "teacher-courses", pad: 4, match: (p) => p === "/courses", build: coursesSteps },
   { key: "teacher-members", pad: 6, match: (p) => MEMBERS.test(p), build: membersSteps },
   { key: "teacher-problems", pad: 4, match: (p) => p === "/problems", build: problemsSteps },
-  { key: "teacher-problem-edit", pad: 4, match: (p) => PROBLEM_EDIT.test(p), build: problemEditSteps },
-  { key: "teacher-assignment-new", pad: 6, match: (p) => ASSIGNMENT_NEW.test(p), build: assignmentNewSteps },
-  { key: "teacher-monitor", pad: 6, match: (p) => ASSIGNMENT_DETAIL.test(p), build: monitorSteps },
+  {
+    key: "teacher-problem-edit",
+    pad: 4,
+    match: (p) => PROBLEM_EDIT.test(p),
+    build: problemEditSteps,
+  },
+  {
+    key: "teacher-assignment-new",
+    pad: 6,
+    match: (p) => ASSIGNMENT_NEW.test(p),
+    build: assignmentNewSteps,
+  },
+  {
+    key: "teacher-monitor",
+    pad: 6,
+    match: (p) => ASSIGNMENT_DETAIL.test(p),
+    build: monitorSteps,
+  },
   { key: "teacher-gradebook", pad: 6, match: (p) => GRADES.test(p), build: gradebookSteps },
 ];
 
@@ -517,6 +644,7 @@ export function replayTeacherTour(userId: string): void {
 ```
 
 閘門說明（重要，防一般學生看到管理 intro）：
+
 - `teacher-members` / `teacher-gradebook` 的 build 以 manager-only 錨（`members-bulk-add` / `gradebook-export`）為前置條件，缺了整個 intro 回空。
 - `teacher-assignment-new`（非管理者 302）、`teacher-monitor`（`#assignment-manage-*` 只在 teacher mode 渲染）、`teacher-problem-edit`（只有作者能開）靠頁面可達性天然閘門。
 
@@ -539,9 +667,11 @@ git commit -m "feat(web): teacher/TA tour intro registry with management-page ga
 **Files（全部只加屬性或小包裝，不動邏輯）:**
 
 1. `apps/web/src/lib/components/features/dashboard/WelcomeGuide.svelte:57`
+
    ```svelte
    <Card variant="surface" size="lg" data-tour="welcome-guide">
    ```
+
    （Card root 轉發 `restProps`，`card.svelte:59`。）
 
 2. `apps/web/src/routes/(app)/courses/+page.svelte`
@@ -598,6 +728,7 @@ git commit -m "feat(web): data-tour anchors for teacher onboarding tour"
 ## Task 5: BulkHandleAddPanel 常駐 HelpTooltip
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/features/course/BulkHandleAddPanel.svelte`
 
 **Step 1:** import 加 `import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";`，label（line 91–93）改：
@@ -625,6 +756,7 @@ git commit -m "feat(web): persistent help tooltip on bulk student add panel"
 ## Task 6: layout 觸發 + settings 重播
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/+layout.svelte:10-17`
 - Modify: `apps/web/src/routes/(app)/settings/+page.svelte`
 - Modify: `apps/web/src/lib/onboarding/student-tour.ts`（刪暫時的 `onStudentNavigate`）
@@ -652,7 +784,9 @@ afterNavigate(() => {
 ```svelte
 {#if data.platformRole === "student" || data.platformRole === "teacher"}
 ```
+
 onclick 改：
+
 ```svelte
 onclick={() => {
   const sessionUser = page.data.user;
@@ -661,6 +795,7 @@ onclick={() => {
   else replayStudentTour(sessionUser.id);
 }}
 ```
+
 import 補 `replayTeacherTour`。
 
 **Step 3: 刪 `onStudentNavigate` 暫時包裝**，確認全 repo 無殘留引用：
@@ -680,6 +815,7 @@ git commit -m "feat(web): wire teacher and TA tours into layout and settings rep
 ## Task 7: e2e 總開關
 
 **Files:**
+
 - Modify: `tests/setup/playwright-global-setup.ts`
 - Modify: `tests/e2e/dashboard.test.ts:53-61`
 
