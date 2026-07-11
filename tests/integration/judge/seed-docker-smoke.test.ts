@@ -19,8 +19,8 @@ import { DockerExecutor } from "../../../apps/worker/src/services/docker-executo
 import { SEED_SOLUTIONS } from "./seed-solutions.js";
 
 const SANDBOX_IMAGE = "nojv-sandbox:local";
-const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
-const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
+const DEMO_RUN_IMAGE = "ghcr.io/nojv-tw/nojv-demo-advanced-run:main";
+const DEMO_GRADE_IMAGE = "ghcr.io/nojv-tw/nojv-demo-advanced-grade:main";
 
 const EXECUTOR = new DockerExecutor({
   cpuLimit: "2.0",

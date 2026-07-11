@@ -1095,14 +1095,20 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       timeLimitMs: 30_000,
       visibility: "public" as const,
       advancedConfig: {
-        run: { imageRef: "nojv-demo-advanced-run:local", imageSource: "registry" },
-        grade: { imageRef: "nojv-demo-advanced-grade:local", imageSource: "registry" },
+        run: {
+          imageRef: "ghcr.io/nojv-tw/nojv-demo-advanced-run:main",
+          imageSource: "registry",
+        },
+        grade: {
+          imageRef: "ghcr.io/nojv-tw/nojv-demo-advanced-grade:main",
+          imageSource: "registry",
+        },
         network: { mode: "none" },
         maxScore: 100,
       },
       advancedRequiredPaths: ["main.py"],
       statement: {
-        body: "這是一道 Advanced Mode（run/grade 拆分）示範題目。請上傳一個名為 `main.py` 的 Python 程式，系統會把檔案放到 `/workspace/submission/`。\n\nrun 映像檔（`nojv-demo-advanced-run:local`，請先 `pnpm demo-advanced:build` 建好）會用每筆內建測資的 stdin 執行你的 `main.py`，並把輸出交給 grade 映像檔（`nojv-demo-advanced-grade:local`，內含標準答案）比對。每行輸入是兩個以空白分隔的整數，請輸出它們的和。全部測資通過即 AC。\n\n範例 `main.py`：\n\n```python\na, b = map(int, input().split())\nprint(a + b)\n```",
+        body: "這是一道自訂評測環境（Advanced Mode，run/grade 拆分）示範題目。請上傳一個名為 `main.py` 的 Python 程式，系統會把檔案放到 `/workspace/submission/`。\n\n評測環境會用每筆內建測資的 stdin 執行你的 `main.py`，並把輸出交給評分程式（內含標準答案）比對。每行輸入是兩個以空白分隔的整數，請輸出它們的和。全部測資通過即 AC。\n\n範例 `main.py`：\n\n```python\na, b = map(int, input().split())\nprint(a + b)\n```",
         inputFormat: "一行兩個以空白分隔的整數 `a b`。",
         outputFormat: "一個整數：`a + b`。",
       },
