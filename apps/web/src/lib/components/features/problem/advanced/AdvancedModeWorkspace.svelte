@@ -5,6 +5,7 @@
   import { inferDraftContext } from "$lib/stores/code-draft";
   import {
     apiErrorSchema,
+    sourceExtensions,
     submissionDispatchResponseSchema,
     submissionOperationSchema,
     submissionResultSchema,
@@ -125,6 +126,15 @@
     submitError = null;
   }
 
+  function inferUploadLanguage(paths: string[]): Language {
+    for (const path of paths) {
+      const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+      const match = Object.entries(sourceExtensions).find(([, e]) => e === ext);
+      if (match) return match[0] as Language;
+    }
+    return "cpp";
+  }
+
   async function handleSubmit() {
     if (!staged || isSubmitting) return;
     isSubmitting = true;
@@ -133,14 +143,17 @@
     pollAbortController = new AbortController();
     const { signal } = pollAbortController;
 
-    const placeholderLanguage: Language = "cpp";
+    const uploadLanguage = inferUploadLanguage([
+      ...requiredPaths,
+      ...staged.sourceFiles.map((f) => f.path),
+    ]);
     const placeholderSource = "// advanced-mode upload";
 
     const body = buildSubmissionBody({
       assessment,
       contestId,
       ...(virtualContestId ? { participationId: virtualContestId } : {}),
-      language: placeholderLanguage,
+      language: uploadLanguage,
       problemId: problem.id,
       sampleOnly: false,
       sourceCode: placeholderSource,
@@ -181,7 +194,7 @@
           const previewSource = staged.sourceFiles
             .map((f) => `// --- ${f.path} ---\n${f.content}`)
             .join("\n\n");
-          handleSubmissionComplete(result, placeholderLanguage, previewSource);
+          handleSubmissionComplete(result, uploadLanguage, previewSource);
           staged = null;
           return;
         }

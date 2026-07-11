@@ -161,6 +161,16 @@ describe("mergeSandboxSources", () => {
     ).toEqual(["hidden.py", "lib.py", "main.py", "readme.py"]);
   });
 
+  it("preserves uploaded file paths for special_env problems despite the placeholder language", () => {
+    const studentSources: SubmissionSource[] = [{ path: "main.py", content: "print('hi')" }];
+    const ctx = { ...makeJudgeContext([]), problemType: "special_env" as const };
+
+    const result = mergeSandboxSources(studentSources, "cpp" satisfies Language, ctx);
+
+    expect(result.sourceCode).toBe("");
+    expect(result.sourceFiles).toEqual([{ path: "main.py", content: "print('hi')" }]);
+  });
+
   it("ignores workspace files for a different language", () => {
     const workspaceFiles: WorkspaceFile[] = [
       {
