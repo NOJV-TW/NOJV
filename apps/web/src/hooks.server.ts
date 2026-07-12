@@ -42,7 +42,7 @@ import { getClientIp } from "$lib/server/shared/client-ip";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   deriveRequestId,
-  enforceApiCsrf,
+  enforceCsrf,
   setSecurityHeaders,
 } from "$lib/server/hooks/request-security";
 import {
@@ -470,7 +470,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     return apiTokenAuthResponse;
   }
 
-  const csrfResponse = enforceApiCsrf(event, cleanPath);
+  const csrfResponse = enforceCsrf(event, cleanPath);
   if (csrfResponse) {
     return csrfResponse;
   }

@@ -9,6 +9,13 @@ const config = {
     alias: {
       $lib: "src/lib",
     },
+    csrf: {
+      // Disables the framework origin check ("*" is the supported off switch).
+      // Origin CSRF is enforced in hooks (enforceCsrf) instead, so the
+      // credential-authenticated /api/registry/token endpoint can accept the
+      // docker registry client's cross-origin OAuth2 form POST.
+      trustedOrigins: ["*"],
+    },
     csp: {
       mode: "auto",
       directives: {

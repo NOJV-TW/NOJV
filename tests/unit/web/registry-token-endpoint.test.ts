@@ -29,7 +29,7 @@ vi.mock("@nojv/application", async (importOriginal) => {
 
 const { signRegistryToken, isRegistryTokenConfigured } =
   await import("$lib/server/registry-token");
-const { GET } = await import("../../../apps/web/src/routes/api/registry/token/+server");
+const { GET, POST } = await import("../../../apps/web/src/routes/api/registry/token/+server");
 const { decodeProtectedHeader, jwtVerify } = await import("jose");
 
 function makeEvent(query: string, authorization?: string) {
@@ -46,6 +46,20 @@ function makeEvent(query: string, authorization?: string) {
 
 function basic(user: string, pass: string): string {
   return `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}`;
+}
+
+function makePostEvent(fields: Record<string, string>, authorization?: string) {
+  const url = new URL("https://nojv.tw/api/registry/token");
+  return {
+    url,
+    request: new Request(url, {
+      method: "POST",
+      body: new URLSearchParams(fields),
+      headers: authorization ? { authorization } : {},
+    }),
+    locals: { requestId: "req-test" },
+    getClientAddress: () => "127.0.0.1",
+  } as unknown as Parameters<typeof POST>[0];
 }
 
 describe("signRegistryToken", () => {
@@ -127,5 +141,84 @@ describe("GET /api/registry/token", () => {
     await expect(
       GET(makeEvent("?service=registry.test.local", basic("judge-pull", "whatever"))),
     ).rejects.toMatchObject({ status: 401 });
+  });
+});
+
+describe("POST /api/registry/token (OAuth2 password grant, containerd/docker login flow)", () => {
+  it("rejects an unknown service", async () => {
+    await expect(
+      POST(makePostEvent({ grant_type: "password", service: "evil.example.com" })),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("issues a namespace-scoped token from body credentials with space-joined scopes", async () => {
+    verifyRegistryLogin.mockResolvedValue({ kind: "teacher", namespace: "alice" });
+    const res = await POST(
+      makePostEvent({
+        grant_type: "password",
+        service: "registry.test.local",
+        client_id: "containerd-client",
+        scope: "repository:t/alice/run:pull,push repository:t/bob/run:pull",
+        username: "alice",
+        password: "correct",
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string; access_token: string };
+    expect(body.access_token).toBe(body.token);
+    const verified = await jwtVerify(body.token, publicKey, {
+      audience: "registry.test.local",
+    });
+    expect(verified.payload.sub).toBe("alice");
+    expect(verified.payload.access).toEqual([
+      { type: "repository", name: "t/alice/run", actions: ["pull", "push"] },
+    ]);
+  });
+
+  it("rejects bad body credentials with 401", async () => {
+    verifyRegistryLogin.mockResolvedValue(null);
+    await expect(
+      POST(
+        makePostEvent({
+          grant_type: "password",
+          service: "registry.test.local",
+          username: "alice",
+          password: "wrong",
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("falls back to Basic auth when the body has no credentials", async () => {
+    verifyRegistryLogin.mockResolvedValue({ kind: "teacher", namespace: "alice" });
+    const res = await POST(
+      makePostEvent(
+        {
+          grant_type: "password",
+          service: "registry.test.local",
+          scope: "repository:t/alice/run:pull",
+        },
+        basic("alice", "correct"),
+      ),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("issues an anonymous demo-pull token without credentials", async () => {
+    const res = await POST(
+      makePostEvent({
+        grant_type: "password",
+        service: "registry.test.local",
+        scope: "repository:demo/x:pull repository:t/a/b:pull,push",
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+    const verified = await jwtVerify(body.token, publicKey, {
+      audience: "registry.test.local",
+    });
+    expect(verified.payload.access).toEqual([
+      { type: "repository", name: "demo/x", actions: ["pull"] },
+    ]);
   });
 });

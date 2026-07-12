@@ -24,11 +24,42 @@ export function deriveRequestId(headers: Headers): string {
   return crypto.randomUUID();
 }
 
-export function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response | null {
-  if (
-    !cleanPath.startsWith("/api/") ||
-    ["GET", "HEAD", "OPTIONS"].includes(event.request.method)
-  ) {
+const FORM_CONTENT_TYPES = new Set([
+  "application/x-www-form-urlencoded",
+  "multipart/form-data",
+  "text/plain",
+  "application/x-sveltekit-formdata",
+]);
+
+function isFormContentType(request: Request): boolean {
+  const type = request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  return FORM_CONTENT_TYPES.has(type);
+}
+
+function csrfForbidden(requestId: string): Response {
+  return new Response("CSRF validation failed", {
+    status: 403,
+    headers: { "x-request-id": requestId },
+  });
+}
+
+// SvelteKit's built-in origin CSRF (csrf.checkOrigin) is disabled globally so
+// the credential-authenticated /api/registry/token endpoint can accept the
+// docker registry client's cross-origin OAuth2 form POST. Re-implement the
+// equivalent protection here for everything else.
+export function enforceCsrf(event: HandleEvent, cleanPath: string): Response | null {
+  if (["GET", "HEAD", "OPTIONS"].includes(event.request.method)) {
+    return null;
+  }
+
+  const origin = event.request.headers.get("origin");
+
+  if (!cleanPath.startsWith("/api/")) {
+    // Page-route form actions: mirror SvelteKit's framework check exactly —
+    // block cross-origin submissions with a form content type.
+    if (isFormContentType(event.request) && origin !== event.url.origin) {
+      return csrfForbidden(event.locals.requestId);
+    }
     return null;
   }
 
@@ -39,12 +70,14 @@ export function enforceApiCsrf(event: HandleEvent, cleanPath: string): Response 
     return null;
   }
 
-  const origin = event.request.headers.get("origin");
+  // Authenticated via HTTP Basic / body credentials, never cookies, so CSRF
+  // does not apply; the docker registry client posts cross-origin.
+  if (cleanPath === "/api/registry/token") {
+    return null;
+  }
+
   if (origin && origin !== event.url.origin) {
-    return new Response("CSRF validation failed", {
-      status: 403,
-      headers: { "x-request-id": event.locals.requestId },
-    });
+    return csrfForbidden(event.locals.requestId);
   }
 
   if (!cleanPath.startsWith("/api/auth")) {
