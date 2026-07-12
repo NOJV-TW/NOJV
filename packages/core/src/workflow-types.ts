@@ -53,4 +53,8 @@ export interface PlagiarismCheckInput {
   triggeredById: string;
 }
 
+export interface RegistryGarbageCollectInput {
+  triggeredByUserId: string;
+}
+
 export type PlagiarismCheckStatus = "pending" | "running" | "completed" | "failed";

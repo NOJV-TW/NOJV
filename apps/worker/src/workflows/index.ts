@@ -6,3 +6,4 @@ export { assignmentDueSoonWorkflow } from "./assignment-due-soon";
 export { submissionSweeperWorkflow } from "./submission-sweeper";
 export { lifecycleReconcilerWorkflow } from "./lifecycle-reconciler";
 export { plagiarismCheckWorkflow } from "./plagiarism-check";
+export { registryGarbageCollectWorkflow } from "./registry-gc";

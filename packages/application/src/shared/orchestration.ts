@@ -3,6 +3,7 @@ import type {
   ContestLifecycleInput,
   ExamAutoCloseInput,
   PlagiarismCheckInput,
+  RegistryGarbageCollectInput,
   RejudgeInput,
   RejudgeProgress,
   SubmissionJudgeJob,
@@ -22,6 +23,9 @@ export interface DomainOrchestrationAdapter {
   dispatchContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   dispatchPlagiarismCheck(input: PlagiarismCheckInput): Promise<void>;
+  dispatchRegistryGarbageCollect(
+    input: RegistryGarbageCollectInput,
+  ): Promise<{ workflowId: string; alreadyRunning: boolean }>;
   dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }>;
   dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void>;
   getRejudgeTriggeredBy(workflowId: string): Promise<string | null>;

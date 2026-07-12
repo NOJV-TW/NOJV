@@ -73,6 +73,16 @@ spec:
               value: {{ .Values.worker.sandbox.memoryRequest | quote }}
             - name: K8S_MEMORY_LIMIT
               value: {{ .Values.worker.sandbox.memoryLimit | quote }}
+            {{- if .Values.registry.enabled }}
+            - name: REGISTRY_GC_IMAGE
+              value: {{ .Values.registry.image | quote }}
+            - name: REGISTRY_GC_NAMESPACE
+              value: {{ include "nojv.namespace" . | quote }}
+            - name: REGISTRY_GC_CONFIG_CONFIGMAP
+              value: {{ printf "%s-registry-config" (include "nojv.fullname" .) | quote }}
+            - name: REGISTRY_GC_S3_SECRET
+              value: {{ include "nojv.runtimeSecretName" . | quote }}
+            {{- end }}
             {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
             - name: REDIS_URL
               valueFrom:

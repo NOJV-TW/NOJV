@@ -10,6 +10,7 @@ import type {
   ContestLifecycleInput,
   ExamAutoCloseInput,
   PlagiarismCheckInput,
+  RegistryGarbageCollectInput,
   RejudgeInput,
   RejudgeProgress,
   SubmissionJudgeInput,
@@ -100,6 +101,28 @@ export async function ensureLifecycleReconciler(): Promise<void> {
     });
   } catch (err) {
     if (err instanceof WorkflowExecutionAlreadyStartedError) return;
+    throw err;
+  }
+}
+
+export const REGISTRY_GC_WORKFLOW_ID = "registry-gc";
+
+export async function dispatchRegistryGarbageCollect(
+  input: RegistryGarbageCollectInput,
+): Promise<{ workflowId: string; alreadyRunning: boolean }> {
+  const client = await getTemporalClient();
+  try {
+    await client.workflow.start("registryGarbageCollectWorkflow", {
+      taskQueue: PLATFORM_TASK_QUEUE,
+      workflowId: REGISTRY_GC_WORKFLOW_ID,
+      memo: { triggeredByUserId: input.triggeredByUserId },
+      args: [input],
+    });
+    return { workflowId: REGISTRY_GC_WORKFLOW_ID, alreadyRunning: false };
+  } catch (err) {
+    if (err instanceof WorkflowExecutionAlreadyStartedError) {
+      return { workflowId: REGISTRY_GC_WORKFLOW_ID, alreadyRunning: true };
+    }
     throw err;
   }
 }
