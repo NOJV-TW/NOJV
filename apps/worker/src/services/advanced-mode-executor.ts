@@ -315,7 +315,7 @@ async function chmodTreeReadable(dir: string): Promise<void> {
 export async function prepareGradeWorkspace(
   gradeDir: string,
   runOutputDir: string,
-  input: { submissionId: string; language: string; runStatus: RunStatus },
+  input: { submissionId: string; language: string; runStatus: RunStatus; maxScore: number },
 ): Promise<void> {
   const gradeRunOutputDir = join(gradeDir, "run-output");
   const outputDir = join(gradeDir, "output");
@@ -335,6 +335,7 @@ export async function prepareGradeWorkspace(
     submissionId: input.submissionId,
     language: input.language,
     runStatus: input.runStatus,
+    maxScore: input.maxScore,
   };
   await writeFile(join(gradeDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8");
   await chmod(gradeDir, 0o777);
@@ -421,6 +422,7 @@ export class AdvancedModeExecutor {
         submissionId: request.submissionId,
         language: request.language,
         runStatus,
+        maxScore: advanced.maxScore,
       });
     } catch (err) {
       if (err instanceof SafeCopyLimitError) {

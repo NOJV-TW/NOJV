@@ -22,10 +22,13 @@ Build this image yourself and push it to a registry NOJV can pull, then paste
 the **digest-pinned** reference into the problem editor's **Grade image** field:
 
 ```sh
-docker build -t ghcr.io/YOUR-ORG/PROBLEM-grade:v1 ./grade
-docker push ghcr.io/YOUR-ORG/PROBLEM-grade:v1
-docker buildx imagetools inspect ghcr.io/YOUR-ORG/PROBLEM-grade:v1   # copy the sha256 digest
-# paste ghcr.io/YOUR-ORG/PROBLEM-grade@sha256:<digest> into the editor
+# The grade image holds your answers — it MUST be private. Tag it for the
+# platform registry using REG from the editor's "Registry push account" card:
+REG=<registry-host>/t/<your-username>
+docker build -t "$REG/PROBLEM-grade:v1" ./grade
+docker push "$REG/PROBLEM-grade:v1"
+docker buildx imagetools inspect "$REG/PROBLEM-grade:v1"   # copy the sha256 digest
+# paste $REG/PROBLEM-grade@sha256:<digest> into the editor's Grade image field
 ```
 
 Because this image holds the answers, **keep it private** and make sure NOJV is
@@ -37,7 +40,7 @@ The platform mounts `/workspace` and runs your image after the run phase exits:
 
 ```
 /workspace/run-output/        the run phase's /output, READ-ONLY (binary OK)
-/workspace/meta.json          { submissionId, language, runStatus }
+/workspace/meta.json          { submissionId, language, runStatus, maxScore }
 /workspace/output/result.json you write the verdict here
 /answers/                     your baked-in answers (case-*.out)
 ```
@@ -59,7 +62,7 @@ outcome (the program printed nothing → render WA/RE), not an error.
 
 ```jsonc
 {
-  "score": 85, // 0..100
+  "score": 85, // 0..maxScore — accepted must equal maxScore; use nojv.max_score()
   "verdict": "wrong_answer", // accepted | wrong_answer | time_limit_exceeded
   //          | memory_limit_exceeded | runtime_error | compile_error
   "feedback": "5/6 passed", // optional

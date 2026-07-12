@@ -3,10 +3,12 @@ import { requiredPathsSchema, type AdvancedConfig } from "@nojv/core";
 import { getWebEnv } from "./env";
 
 export function allowedImageRegistries(): string[] {
-  return getWebEnv()
-    .ADVANCED_IMAGE_ALLOWED_REGISTRIES.split(",")
+  const webEnv = getWebEnv();
+  const configured = webEnv.ADVANCED_IMAGE_ALLOWED_REGISTRIES.split(",")
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+  const host = webEnv.REGISTRY_PUBLIC_HOST.trim();
+  return host && !configured.includes(host) ? [host, ...configured] : configured;
 }
 
 const pinnedImageRefSchema = z
@@ -35,7 +37,20 @@ export const advancedImageConfigInputSchema = z
     runImageRef: pinnedImageRefSchema,
     gradeImageRef: pinnedImageRefSchema,
     networkMode: z.enum(["none", "allowlist", "service"]).default("none"),
-    networkAllowlist: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
+    networkAllowlist: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .regex(
+            /^[^\s/*]+$/,
+            "Allowlist entries must be a bare host or host:port — no wildcards, scheme, or paths.",
+          ),
+      )
+      .max(20)
+      .default([]),
     serviceImageRef: pinnedImageRefSchema.optional(),
     maxScore: z.coerce.number().int().min(1).max(100_000).default(100),
     requiredPaths: requiredPathsSchema,

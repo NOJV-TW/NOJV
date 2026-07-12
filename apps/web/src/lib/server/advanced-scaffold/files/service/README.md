@@ -66,10 +66,13 @@ the run/grade images, then set the problem's **network mode** to `service` and
 paste the **digest-pinned** reference into the editor's **Service image** field:
 
 ```sh
-docker build -t ghcr.io/YOUR-ORG/PROBLEM-service:v1 ./service
-docker push ghcr.io/YOUR-ORG/PROBLEM-service:v1
-docker buildx imagetools inspect ghcr.io/YOUR-ORG/PROBLEM-service:v1   # copy the sha256 digest
-# paste ghcr.io/YOUR-ORG/PROBLEM-service@sha256:<digest> into the editor
+# The service holds no answers, so a public registry (ghcr.io, …) is fine — or use
+# the platform registry with REG from the editor's "Registry push account" card:
+REG=<registry-host>/t/<your-username>
+docker build -t "$REG/PROBLEM-service:v1" ./service
+docker push "$REG/PROBLEM-service:v1"
+docker buildx imagetools inspect "$REG/PROBLEM-service:v1"   # copy the sha256 digest
+# paste $REG/PROBLEM-service@sha256:<digest> into the editor's Service image field
 ```
 
 See the top-level `README.md` for the full workflow.

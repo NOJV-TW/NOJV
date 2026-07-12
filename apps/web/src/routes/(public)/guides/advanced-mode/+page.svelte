@@ -26,12 +26,15 @@
       <li>{m.guideAdvanced_workflowStep5()}</li>
     </ol>
     <pre
-      class="overflow-auto rounded bg-black/85 p-4 text-caption text-white">{`docker build -t ghcr.io/your-org/my-problem-run:v1 ./run
-docker push ghcr.io/your-org/my-problem-run:v1
+      class="overflow-auto rounded bg-black/85 p-4 text-caption text-white">{`# private images (grade always; run if inputs are secret) go to the platform registry.
+# REG = host + your namespace, from the editor's "Registry push account" card:
+REG=<registry-host>/t/<your-username>
+docker build -t "$REG/my-problem-run:v1" ./run
+docker push "$REG/my-problem-run:v1"
 # the push prints the digest; or resolve it explicitly:
-docker buildx imagetools inspect ghcr.io/your-org/my-problem-run:v1
+docker buildx imagetools inspect "$REG/my-problem-run:v1"
 # paste the pinned form into the problem editor:
-# ghcr.io/your-org/my-problem-run@sha256:<64 hex chars>`}</pre>
+# <registry-host>/t/<your-username>/my-problem-run@sha256:<64 hex chars>`}</pre>
     <p class="text-body-sm text-muted-foreground">{m.guideAdvanced_digestNote()}</p>
   </Card>
 
@@ -45,7 +48,7 @@ docker buildx imagetools inspect ghcr.io/your-org/my-problem-run:v1
 
 grade container (trusted — answers live here, no student code)
   /workspace/run-output/   the run phase's output, mounted READ-ONLY
-  /workspace/meta.json     { submissionId, language, runStatus }
+  /workspace/meta.json     { submissionId, language, runStatus, maxScore }
   /workspace/output/result.json   write the final verdict here
   /answers/                your baked-in answers`}</pre>
     <ul class="list-disc space-y-2 pl-5 text-body-sm text-muted-foreground">
@@ -72,7 +75,7 @@ grade container (trusted — answers live here, no student code)
     <h2 class="text-title-md font-semibold">result.json</h2>
     <pre class="overflow-auto rounded bg-black/85 p-4 text-caption text-white">{`{
   "verdict": "wrong_answer",
-  "score": 120,
+  "score": 60,
   "feedback": "Passed 6 of 10 rubric checks"
 }`}</pre>
     <p class="text-body-sm text-muted-foreground">

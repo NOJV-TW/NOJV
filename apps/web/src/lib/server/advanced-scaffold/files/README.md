@@ -31,10 +31,15 @@ Each directory's `README.md` documents its exact platform contract (mount paths,
 ### 2. Build each image
 
 ```sh
-docker build -t ghcr.io/YOUR-ORG/PROBLEM-run:v1   ./run
-docker build -t ghcr.io/YOUR-ORG/PROBLEM-grade:v1 ./grade
+# grade always holds answers, and run usually holds hidden inputs — those must be
+# PRIVATE. Get REG (registry host + your namespace) from the editor's "Registry
+# push account" card and tag with it. Public registries (ghcr.io, docker.io, …)
+# are fine only for non-secret demo images.
+REG=<registry-host>/t/<your-username>
+docker build -t "$REG/PROBLEM-run:v1"   ./run
+docker build -t "$REG/PROBLEM-grade:v1" ./grade
 # optional:
-docker build -t ghcr.io/YOUR-ORG/PROBLEM-service:v1 ./service
+docker build -t "$REG/PROBLEM-service:v1" ./service
 ```
 
 Test locally before pushing — run each image against a sample submission to
@@ -43,8 +48,9 @@ confirm it produces a `result.json` you expect.
 ### 3. Push and read the digest
 
 ```sh
-docker push ghcr.io/YOUR-ORG/PROBLEM-run:v1
-docker buildx imagetools inspect ghcr.io/YOUR-ORG/PROBLEM-run:v1   # prints sha256:<digest>
+docker login <registry-host>   # credentials from the editor's "Registry push account" card
+docker push "$REG/PROBLEM-run:v1"
+docker buildx imagetools inspect "$REG/PROBLEM-run:v1"   # prints sha256:<digest>
 ```
 
 ### 4. Reference by digest in the editor
@@ -53,7 +59,7 @@ Paste the **digest-pinned** form (not a mutable `:tag`) into the matching field
 of the problem's **Judge environment images** section:
 
 ```
-ghcr.io/YOUR-ORG/PROBLEM-run@sha256:<64 hex chars>
+<registry-host>/t/<your-username>/PROBLEM-run@sha256:<64 hex chars>
 ```
 
 Digest pinning guarantees the judged environment can never change behind a

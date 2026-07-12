@@ -49,7 +49,8 @@ def main():
         testcases.append({"index": i, "verdict": verdict})
 
     total = len(cases)
-    score = round(passed / total * 100) if total else 0
+    full = nojv.max_score()
+    score = round(passed / total * full) if total else 0
     verdict = "accepted" if total and passed == total else "wrong_answer"
 
     nojv.write_result(

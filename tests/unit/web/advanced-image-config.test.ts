@@ -57,6 +57,17 @@ describe("advancedImageConfigInputSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
+  it("rejects allowlist entries with wildcards, scheme, or paths", () => {
+    for (const bad of ["*.example.com", "https://api.example.com", "api.example.com/v1"]) {
+      const parsed = advancedImageConfigInputSchema.safeParse({
+        ...baseInput,
+        networkMode: "allowlist",
+        networkAllowlist: [bad],
+      });
+      expect(parsed.success).toBe(false);
+    }
+  });
+
   it("requires a service image in service mode", () => {
     const parsed = advancedImageConfigInputSchema.safeParse({
       ...baseInput,

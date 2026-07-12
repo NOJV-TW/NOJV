@@ -293,6 +293,7 @@ describe("prepareRunWorkspace / prepareGradeWorkspace", () => {
       submissionId: "sub-xyz",
       language: "python",
       runStatus: { state: "exited", exitCode: 0 },
+      maxScore: 100,
     });
 
     const meta = JSON.parse(await readFile(join(gradeDir, "meta.json"), "utf8")) as Record<
@@ -302,6 +303,7 @@ describe("prepareRunWorkspace / prepareGradeWorkspace", () => {
     expect(meta.submissionId).toBe("sub-xyz");
     expect(meta.language).toBe("python");
     expect(meta.runStatus).toEqual({ state: "exited", exitCode: 0 });
+    expect(meta.maxScore).toBe(100);
     expect(meta).not.toHaveProperty("submissionFiles");
 
     const copied = await readFile(join(gradeDir, "run-output", "case-0.bin"), "utf8");
@@ -335,6 +337,7 @@ describe("prepareRunWorkspace / prepareGradeWorkspace", () => {
         submissionId: "sub-xyz",
         language: "python",
         runStatus: { state: "exited", exitCode: 0 },
+        maxScore: 100,
       });
       const mode = (await stat(join(gradeDir, "output"))).mode & 0o777;
       expect(mode).toBe(0o777);

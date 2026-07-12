@@ -320,7 +320,12 @@ export class K8sExecutor implements SandboxExecutor {
       await this.createConfigMap(
         gradeConfigMapName,
         ns,
-        buildAdvancedGradeConfigMapData(request.submissionId, request.language, runStatus),
+        buildAdvancedGradeConfigMapData(
+          request.submissionId,
+          request.language,
+          runStatus,
+          advanced.maxScore,
+        ),
       );
       await this.batchApi.createNamespacedJob({
         namespace: ns,

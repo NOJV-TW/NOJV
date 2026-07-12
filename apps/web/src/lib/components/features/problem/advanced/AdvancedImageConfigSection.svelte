@@ -11,10 +11,24 @@
   interface Props {
     config: AdvancedConfig | null;
     allowedRegistries: string[];
+    registryHost?: string;
+    registryNamespace?: string;
     requiredPaths: string[];
   }
 
-  let { config, allowedRegistries, requiredPaths }: Props = $props();
+  let {
+    config,
+    allowedRegistries,
+    registryHost = "",
+    registryNamespace = "",
+    requiredPaths,
+  }: Props = $props();
+
+  let placeholderPrefix = $derived(
+    registryHost.trim()
+      ? `${registryHost.trim()}/t/${registryNamespace.trim() || "<your-username>"}`
+      : `${allowedRegistries[0] ?? "registry.example.com"}/your-org`,
+  );
 
   const textareaClassName = `${inputClassName} min-h-20 resize-y font-mono`;
   const refInputClassName = `${inputClassName} font-mono`;
@@ -111,7 +125,7 @@
     <span>{m.advancedImages_runLabel()}</span>
     <input
       class={refInputClassName}
-      placeholder="ghcr.io/your-org/your-run-image@sha256:…"
+      placeholder={`${placeholderPrefix}/your-run-image@sha256:…`}
       bind:value={runImageRef}
     />
     {#if runIssue}<span class="text-caption text-destructive">{runIssue}</span>{/if}
@@ -121,7 +135,7 @@
     <span>{m.advancedImages_gradeLabel()}</span>
     <input
       class={refInputClassName}
-      placeholder="ghcr.io/your-org/your-grade-image@sha256:…"
+      placeholder={`${placeholderPrefix}/your-grade-image@sha256:…`}
       bind:value={gradeImageRef}
     />
     {#if gradeIssue}<span class="text-caption text-destructive">{gradeIssue}</span>{/if}
@@ -162,7 +176,7 @@
       <span>{m.advancedImages_serviceLabel()}</span>
       <input
         class={refInputClassName}
-        placeholder="ghcr.io/your-org/your-service-image@sha256:…"
+        placeholder={`${placeholderPrefix}/your-service-image@sha256:…`}
         bind:value={serviceImageRef}
       />
       {#if serviceIssue}<span class="text-caption text-destructive">{serviceIssue}</span>{/if}

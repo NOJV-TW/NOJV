@@ -66,7 +66,8 @@
   let canPublish = $derived(
     data.problem.status === "draft" &&
       (isAdvanced
-        ? (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
+        ? isBasicInfoComplete &&
+          (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
           (data.advancedConfig?.config?.grade.imageRef ?? "") !== "" &&
           data.advancedJudgeVerified
         : data.testcaseSets.length > 0),
@@ -275,6 +276,12 @@
           </ol>
           <div class="mt-3 flex flex-col gap-1 border-t border-border-subtle pt-3">
             <a
+              class="rounded-md px-3 py-1.5 text-caption font-medium text-primary transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent"
+              href="/problems/{data.problem.id}"
+            >
+              {m.advancedImages_openWorkspace()}
+            </a>
+            <a
               class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
               href="/api/problems/advanced-scaffold"
             >
@@ -320,6 +327,8 @@
           <AdvancedImageConfigSection
             config={data.advancedConfig?.config ?? null}
             allowedRegistries={data.advancedAllowedRegistries}
+            registryHost={data.registryHost}
+            registryNamespace={data.registryCredential?.username ?? ""}
             requiredPaths={data.problem.advancedRequiredPaths ?? []}
           />
         </section>
