@@ -12,8 +12,17 @@ const baseInput = {
 };
 
 describe("advancedImageConfigInputSchema", () => {
-  it("defaults the allowlist to ghcr.io and docker.io", () => {
-    expect(allowedImageRegistries()).toEqual(["ghcr.io", "docker.io"]);
+  it("defaults the allowlist to the major public registries", () => {
+    expect(allowedImageRegistries()).toEqual([
+      "ghcr.io",
+      "docker.io",
+      "quay.io",
+      "registry.gitlab.com",
+      "gcr.io",
+      "public.ecr.aws",
+      "mcr.microsoft.com",
+      "registry.k8s.io",
+    ]);
   });
 
   it("accepts digest-pinned refs from allowed registries", () => {

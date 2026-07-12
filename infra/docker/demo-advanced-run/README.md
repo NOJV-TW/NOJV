@@ -23,6 +23,7 @@ single-image `nojv-demo-judge-shell:local` shim) so the seeded problem judges
 correctly under the real run/grade executor.
 
 `nojv_runner.py` is the contract helper (don't edit); `runner.py` is the
-per-problem run logic. See the in-app scaffold README
-(`apps/web/src/lib/server/advanced-scaffold/files/run/README.md`) for the full
-contract.
+per-problem run logic. See the container contract in
+[JUDGE_PIPELINE.md](../../../docs/architecture/JUDGE_PIPELINE.md#container-contract),
+or download the full run/grade/service starter templates from the problem
+editor. This directory is a worked example of the same run contract.

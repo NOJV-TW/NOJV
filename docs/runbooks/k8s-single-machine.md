@@ -242,11 +242,8 @@ not-in-a-registry tags.
 > tag images `localhost:5000/nojv-*`, `docker push`, and reference them by that
 > ref (add `localhost:5000` to k3s's `/etc/rancher/k3s/registries.yaml`
 > `mirrors` so it pulls insecurely). This also matters for **advanced
-> (`special_env`) problems**: only **registry-source** advanced run/grade images
-> run on the K8s backend — point them at a registry the cluster can pull (a
-> local one is fine). **Tarball-source advanced is Docker-backend-only** and
-> will return a System Error here (`K8sExecutor.executeAdvanced`), because the
-> cluster cannot `docker load` a TA tarball.
+> (`special_env`) problems**: advanced run/grade images are registry-only —
+> point them at a registry the cluster can pull (a local one is fine).
 
 ## 5. Prerequisites the chart does not install
 
@@ -522,7 +519,7 @@ elasticity.
 - [Deployment Guide](../operations/DEPLOYMENT.md) — GKE path, env-var reference,
   Cloudflare/Cloud Armor trust model
 - [Judge Pipeline](../architecture/JUDGE_PIPELINE.md) — sandbox backends,
-  registry- vs tarball-source advanced
+  advanced-mode image refs
 - [Security Requirements](../operations/SECURITY.md) — sandbox isolation guarantees
 - [Backup & Restore](backup-restore.md) — restore drills for the self-hosted deps
 - [Getting Started](getting-started.md) — local (Docker-backend) dev stack

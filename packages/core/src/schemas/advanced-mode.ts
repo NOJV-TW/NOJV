@@ -58,7 +58,7 @@ export function validateAdvancedResultForMaxScore(
   return issues;
 }
 
-export const imageSourceSchema = z.enum(["registry", "tarball"]);
+export const imageSourceSchema = z.literal("registry");
 
 export const imageRefSchema = z.object({
   imageRef: z.string().min(1).max(500),

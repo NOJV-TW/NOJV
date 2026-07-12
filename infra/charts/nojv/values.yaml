@@ -180,7 +180,6 @@ web:
   replicas: 1
   containerPort: 3000
   nodeEnv: production
-  executionBackend: kubernetes
   advancedImageAllowedRegistries: ""
   dbPoolMax: "10"
   nodeSelector: {}

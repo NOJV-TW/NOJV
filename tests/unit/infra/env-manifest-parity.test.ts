@@ -140,14 +140,11 @@ describeHelm("env schema ↔ chart deployment parity", () => {
     ).toEqual([]);
   });
 
-  it("web Deployment sets EXECUTION_BACKEND so advanced-mode gating matches the worker", () => {
+  it("web Deployment does not ship advanced-mode build env (registry image-ref path needs none)", () => {
     const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
-    expect(containerEnvNames(web).has("EXECUTION_BACKEND")).toBe(true);
-  });
-
-  it("web Deployment no longer ships ADVANCED_IMAGE_REGISTRY (ZIP prebuild is dev-only)", () => {
-    const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
-    expect(containerEnvNames(web).has("ADVANCED_IMAGE_REGISTRY")).toBe(false);
+    const names = containerEnvNames(web);
+    expect(names.has("EXECUTION_BACKEND")).toBe(false);
+    expect(names.has("ADVANCED_IMAGE_REGISTRY")).toBe(false);
   });
 });
 

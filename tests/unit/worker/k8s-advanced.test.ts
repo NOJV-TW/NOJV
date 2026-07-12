@@ -43,7 +43,6 @@ import {
 import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
 
 function makeAdvancedRequest(overrides?: {
-  imageSource?: "registry" | "tarball";
   imageRef?: string;
   memoryMb?: number;
   totalTimeMs?: number;
@@ -65,11 +64,11 @@ function makeAdvancedRequest(overrides?: {
     advanced: {
       run: {
         imageRef: overrides?.imageRef ?? "registry.example.com/ta/run:1.0",
-        imageSource: overrides?.imageSource ?? "registry",
+        imageSource: "registry",
       },
       grade: {
         imageRef: overrides?.imageRef ?? "registry.example.com/ta/grade:1.0",
-        imageSource: overrides?.imageSource ?? "registry",
+        imageSource: "registry",
       },
       network: overrides?.network ?? { mode: "none" },
       totalTimeMs: overrides?.totalTimeMs ?? 60_000,
@@ -747,23 +746,6 @@ describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code",
   });
 });
 
-describe("K8sExecutor.execute(advanced) — tarball source fail-fast", () => {
-  it("tarball-source on K8s returns SE; creates no PVC / Job / ConfigMap", async () => {
-    const record = emptyRecord();
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record));
-    const result = await executor.execute(makeAdvancedRequest({ imageSource: "tarball" }));
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
-    expect(message).toMatch(/registry/i);
-    expect(message).toMatch(/tarball/i);
-
-    expect(record.jobsCreated).toHaveLength(0);
-    expect(record.configMapsCreated).toHaveLength(0);
-    expect(record.pvcsCreated).toHaveLength(0);
-  });
-});
-
 function buildSidecarLog(payload: Record<string, unknown>): string {
   return [
     "prep ok",
@@ -1123,23 +1105,6 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
 
     expect(result.testcaseResults[0]!.verdict).toBe("AC");
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-run");
-  });
-
-  it("mode=service: tarball service image is refused on K8s (SE, no sidecar Pod)", async () => {
-    const record = emptyRecord();
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record));
-    const result = await executor.execute(
-      makeAdvancedRequest({
-        network: {
-          mode: "service",
-          service: { imageRef: "ta/svc:1.0", imageSource: "tarball" },
-        },
-      }),
-    );
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    expect(record.podsCreated).toHaveLength(0);
-    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
   });
 
   it("allowlist teardown deletes the sidecar Pod, Service, and all 3 per-submission policies", async () => {

@@ -208,65 +208,14 @@ export const problemsPaths = {
       },
     },
   },
-  "/api/problems/{id}/advanced-package": {
-    post: {
-      tags: ["Problems Management"],
-      summary: "Upload one canonical Advanced package ZIP",
-      operationId: "uploadAdvancedProblemPackage",
-      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: {
-        required: true,
-        content: {
-          "multipart/form-data": {
-            schema: {
-              type: "object",
-              properties: {
-                package: {
-                  type: "string",
-                  format: "binary",
-                },
-              },
-              required: ["package"],
-            },
-          },
-        },
-      },
-      responses: {
-        "200": {
-          description: "Advanced package built and attached to the problem",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/AdvancedPackageUploadResponse" },
-            },
-          },
-        },
-        "400": {
-          description: "Missing, invalid, or unbuildable package",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/ErrorResponse" },
-            },
-          },
-        },
-        "403": {
-          description: "Access denied",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/ErrorResponse" },
-            },
-          },
-        },
-      },
-    },
-  },
   "/api/problems/advanced-scaffold": {
     get: {
       tags: ["Problems Management"],
-      summary: "Download a canonical Advanced package scaffold",
+      summary: "Download the special_env image templates (run/grade/service + README)",
       operationId: "downloadAdvancedProblemScaffold",
       responses: {
         "200": {
-          description: "Advanced package scaffold zip file",
+          description: "Advanced-mode image templates zip file",
           content: {
             "application/zip": {
               schema: {

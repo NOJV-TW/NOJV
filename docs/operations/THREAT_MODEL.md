@@ -17,22 +17,21 @@ NOJV is an Online Judge platform supporting competitive programming contests (IC
 
 ### Sensitive Assets
 
-| Asset                   | Location                                                        | Sensitivity                                                   |
-| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
-| Session tokens          | PostgreSQL `Session` table, httpOnly cookies                    | Critical — session hijack grants full account access          |
-| OAuth credentials       | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                           |
-| User passwords          | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                                   |
-| Student source code     | S3 bucket `submissions/{submissionId}/sources/{path}`           | High — per-user access control, intellectual property         |
-| Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                        |
-| Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)       | High — test harness and library code kept out of student view |
-| Advanced judge tarballs | S3 bucket `problems/{problemId}/advanced-images/{uuid}.tar`     | Medium — teacher-only write, worker-only read at judge time   |
-| Problem images          | S3 bucket `problems/{problemId}/images/{uuid}.{ext}`            | Medium — public read, teacher-only write                      |
-| Contest configuration   | PostgreSQL `Contest` (freeze time, scoring weights, IP binding) | High — manipulation breaks contest integrity                  |
-| Database credentials    | `DATABASE_URL` env var                                          | Critical — full data access                                   |
-| S3 credentials          | `S3_ACCESS_KEY`, `S3_SECRET_KEY` env vars                       | High — storage read/write                                     |
-| `BETTER_AUTH_SECRET`    | Environment variable                                            | Critical — session forgery if leaked                          |
-| OAuth client secrets    | `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` env vars         | High — OAuth impersonation                                    |
-| Plagiarism reports      | PostgreSQL inline `plagiarism*` columns + `PlagiarismPairFlag`  | Medium — academic integrity data                              |
+| Asset                  | Location                                                        | Sensitivity                                                   |
+| ---------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
+| Session tokens         | PostgreSQL `Session` table, httpOnly cookies                    | Critical — session hijack grants full account access          |
+| OAuth credentials      | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                           |
+| User passwords         | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                                   |
+| Student source code    | S3 bucket `submissions/{submissionId}/sources/{path}`           | High — per-user access control, intellectual property         |
+| Graded testcases       | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                        |
+| Hidden workspace files | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)       | High — test harness and library code kept out of student view |
+| Problem images         | S3 bucket `problems/{problemId}/images/{uuid}.{ext}`            | Medium — public read, teacher-only write                      |
+| Contest configuration  | PostgreSQL `Contest` (freeze time, scoring weights, IP binding) | High — manipulation breaks contest integrity                  |
+| Database credentials   | `DATABASE_URL` env var                                          | Critical — full data access                                   |
+| S3 credentials         | `S3_ACCESS_KEY`, `S3_SECRET_KEY` env vars                       | High — storage read/write                                     |
+| `BETTER_AUTH_SECRET`   | Environment variable                                            | Critical — session forgery if leaked                          |
+| OAuth client secrets   | `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` env vars         | High — OAuth impersonation                                    |
+| Plagiarism reports     | PostgreSQL inline `plagiarism*` columns + `PlagiarismPairFlag`  | Medium — academic integrity data                              |
 
 ### Primary Trust Boundaries
 
@@ -180,7 +179,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Resource limits: CPU (default 1 core), memory (default 256 MB, max 1024 MB), PID limit (default 64)
 - Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/services/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires
 - seccomp: Docker default profile only — explicitly NOT a custom allowlist. Rationale: the default already blocks ~44 high-risk syscalls (`kexec_load`, `bpf`, `userfaultfd`, ...) and the marginal gain from a custom profile is dwarfed by the false-negative cost across language runtimes. See [SECURITY.md — Sandbox Hardening](SECURITY.md#sandbox-hardening-seccomp-posture).
-- K8s executor refuses **tarball-source** Advanced Mode images with a System Error verdict — that path can't `docker load` a tarball; registry-source advanced runs as hardened Jobs. A pod stuck in `ImagePullBackOff` resolves to an immediate `system_error` (terminal, no retry loop)
+- Advanced Mode images are registry-only (digest-pinned) and run as hardened Jobs. A pod stuck in `ImagePullBackOff` resolves to an immediate `system_error` (terminal, no retry loop)
 - Sandbox-runner depends only on `@nojv/core` — minimal attack surface
 - Source code validated by `submissionDraftSchema` (1-50,000 chars)
 - Temporal workflow ID is deterministic (`judge-{submissionId}`) — duplicate dispatches are idempotent

@@ -1,6 +1,5 @@
 import {
   advancedConfigSchema,
-  advancedPackageManifestSchema,
   advancedResultSchema,
   validateAdvancedResultForMaxScore,
 } from "@nojv/core";
@@ -95,78 +94,17 @@ describe("advancedResultSchema", () => {
   });
 });
 
-describe("advancedPackageManifestSchema", () => {
-  const base = {
-    version: 1,
-    problem: {
-      title: "Advanced Sum",
-      difficulty: "medium",
-      visibility: "private",
-      statement: "Read two integers and output their sum.",
-      inputFormat: "One line with two integers.",
-      outputFormat: "One integer.",
-      examples: [{ input: "1 2\n", output: "3\n" }],
-      tags: ["advanced"],
-    },
-    scoring: { maxScore: 250 },
-    resources: { timeLimitMs: 30_000, memoryLimitMb: 1_024 },
-    student: { requiredPaths: ["main.py"] },
-    network: { mode: "none", allowlist: [] },
-    samples: [
-      {
-        name: "full",
-        submission: "samples/full.zip",
-        expect: { verdict: "accepted", score: 250 },
-      },
-      {
-        name: "partial",
-        submission: "samples/partial.zip",
-        expect: { verdict: "wrong_answer", score: 120 },
-      },
-    ],
-  };
-
-  it("accepts the canonical package manifest", () => {
-    expect(advancedPackageManifestSchema.safeParse(base).success).toBe(true);
-  });
-
-  it("requires at least one executable sample", () => {
-    const parsed = advancedPackageManifestSchema.safeParse({ ...base, samples: [] });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("rejects accepted partial-score samples", () => {
-    const parsed = advancedPackageManifestSchema.safeParse({
-      ...base,
-      samples: [
-        {
-          name: "partial",
-          submission: "samples/partial.zip",
-          expect: { verdict: "accepted", score: 120 },
-        },
-      ],
-    });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("rejects samples above maxScore", () => {
-    const parsed = advancedPackageManifestSchema.safeParse({
-      ...base,
-      samples: [
-        {
-          name: "too-high",
-          submission: "samples/high.zip",
-          expect: { verdict: "wrong_answer", score: 251 },
-        },
-      ],
-    });
-    expect(parsed.success).toBe(false);
-  });
-});
-
 describe("advancedConfigSchema", () => {
   const run = { imageRef: "run:latest", imageSource: "registry" as const };
-  const grade = { imageRef: "grade:latest", imageSource: "tarball" as const };
+  const grade = { imageRef: "grade:latest", imageSource: "registry" as const };
+
+  it("rejects a non-registry imageSource", () => {
+    const parsed = advancedConfigSchema.safeParse({
+      run,
+      grade: { imageRef: "grade:latest", imageSource: "tarball" },
+    });
+    expect(parsed.success).toBe(false);
+  });
 
   it("accepts a config with network.mode none (default applied)", () => {
     const parsed = advancedConfigSchema.safeParse({ run, grade });

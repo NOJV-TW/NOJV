@@ -22,6 +22,7 @@ The demo problem's `advancedConfig.grade` in
 `packages/db/prisma/seeds/problems.ts` points at this tag.
 
 `nojv_grader.py` is the contract helper (don't edit); `grader.py` is the
-per-problem grading logic. See the in-app scaffold README
-(`apps/web/src/lib/server/advanced-scaffold/files/grade/README.md`) for the full
-contract.
+per-problem grading logic. See the container contract in
+[JUDGE_PIPELINE.md](../../../docs/architecture/JUDGE_PIPELINE.md#container-contract),
+or download the full run/grade/service starter templates from the problem
+editor. This directory is a worked example of the same grade contract.

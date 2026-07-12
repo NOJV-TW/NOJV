@@ -53,8 +53,6 @@ spec:
               value: {{ .Values.web.nodeEnv | quote }}
             - name: PORT
               value: {{ .Values.web.containerPort | quote }}
-            - name: EXECUTION_BACKEND
-              value: {{ .Values.web.executionBackend | quote }}
             {{- if .Values.web.advancedImageAllowedRegistries }}
             - name: ADVANCED_IMAGE_ALLOWED_REGISTRIES
               value: {{ .Values.web.advancedImageAllowedRegistries | quote }}

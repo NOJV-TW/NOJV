@@ -5,6 +5,17 @@ import { z } from "zod";
 
 const devAuthSecret = (): string => randomBytes(32).toString("base64");
 
+const DEFAULT_ADVANCED_IMAGE_REGISTRIES = [
+  "ghcr.io",
+  "docker.io",
+  "quay.io",
+  "registry.gitlab.com",
+  "gcr.io",
+  "public.ecr.aws",
+  "mcr.microsoft.com",
+  "registry.k8s.io",
+].join(",");
+
 const webEnvSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -12,13 +23,11 @@ const webEnvSchema = z
     DATABASE_URL: z.url().default("postgresql://postgres:postgres@localhost:5432/nojv"),
     REDIS_URL: z.url().default("redis://localhost:6379"),
 
-    EXECUTION_BACKEND: z.enum(["docker", "kubernetes"]).default("docker"),
-    ADVANCED_IMAGE_REGISTRY: z.string().trim().min(1).optional(),
     ADVANCED_IMAGE_ALLOWED_REGISTRIES: z
       .string()
       .trim()
-      .transform((val) => (val === "" ? "ghcr.io,docker.io" : val))
-      .default("ghcr.io,docker.io"),
+      .transform((val) => (val === "" ? DEFAULT_ADVANCED_IMAGE_REGISTRIES : val))
+      .default(DEFAULT_ADVANCED_IMAGE_REGISTRIES),
 
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),

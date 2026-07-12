@@ -5,14 +5,13 @@
 ## 職責
 
 - 封裝 `@aws-sdk/client-s3`，提供有意義的高階 API（upload/download/delete）
-- 集中管理 storage key naming（testcase、workspace file、problem image、avatar、advanced image tarball）
-- 處理大檔 streaming（advanced image tarball）
+- 集中管理 storage key naming（testcase、workspace file、problem image、avatar）
 - **不負責**：DB 中的 metadata（在 `@nojv/db` repository）、權限（在 `@nojv/application`）
 
 ## 主要 API
 
 - `src/client.ts` — `createStorageClient()`
-- `src/images.ts` — `uploadProblemImage` / `uploadUserContentImage` / `deleteProblemImage` / advanced image tarball helpers
+- `src/images.ts` — `uploadProblemImage` / `uploadUserContentImage` / `deleteProblemImage`
 - `src/avatar.ts` — `uploadUserAvatar` / `deleteUserAvatar`
 - `src/keys.ts` — `testcaseInputKey` / `testcaseOutputKey` / `workspaceFileKey` / `problemPrefix`
 - `src/blobs.ts` — `putText` / `getText` / `deleteBlob` / `deleteBlobsByPrefix`

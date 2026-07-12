@@ -67,7 +67,7 @@ holds no student code) makes the AC/WA decision.
 - **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`) that renders an **AC/WA verdict only** (no partial scoring). The run container produces `rawRuns` (no answer present); the worker then launches a **second isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) per clean case. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Feedback travels through files in `feedback_dir`: `teammessage.txt` (shown to the student) and an optional `judgemessage.txt` (operator-only). Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface.
 - **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`apps/sandbox-runner/assets/wrappers/python-interactor-domjudge.py`).
 
-On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` **also runs on K8s** (`K8sExecutor.executeInteractive` → `runInteractiveCase`): one Job per testcase with two containers (solution + interactor) wired over a `socat` TCP bridge on port 7777, the secret input/answer mounted only into the interactor side. Only **tarball-source `advanced`** stays Docker-backend-only (the cluster cannot `docker load` a TA-supplied tarball); **registry-source `advanced`** runs as a K8s Job. See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
+On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` **also runs on K8s** (`K8sExecutor.executeInteractive` → `runInteractiveCase`): one Job per testcase with two containers (solution + interactor) wired over a `socat` TCP bridge on port 7777, the secret input/answer mounted only into the interactor side. `advanced` **also runs on K8s** (`K8sExecutor.executeAdvanced` → two Jobs + PVC). See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
 
 ### score
 
@@ -149,8 +149,8 @@ The TA configures the problem via the `Problem.advancedConfig` JSON column (`adv
 
 ```jsonc
 advancedConfig: {
-  run:   { imageRef, imageSource: "registry" | "tarball" },
-  grade: { imageRef, imageSource: "registry" | "tarball" },
+  run:   { imageRef, imageSource: "registry" },
+  grade: { imageRef, imageSource: "registry" },
   network: {
     mode: "none" | "allowlist" | "service",   // default "none"
     allowlist?: string[],                       // mode = "allowlist", e.g. ["api.example.com:443"]
@@ -159,7 +159,7 @@ advancedConfig: {
 }
 ```
 
-`imageRef` is either a registry reference (`ghcr.io/org/judge:tag`) or a storage key pointing at a tarball. `special_env` validation (`packages/core/src/schemas/problem.ts`) requires both `run` and `grade`, a non-empty `allowlist` iff `mode = "allowlist"`, and a `service` image iff `mode = "service"`. For `tarball` sources the worker streams the tarball out of object storage and `docker load`s it on first use, caching the loaded ref per storage key for the worker's lifetime; **tarball is Docker-only** (see backends). `advancedRequiredPaths` (a separate optional `Problem` column) still governs the student **upload** shape — the set of relative paths a submission ZIP must contain — and is unrelated to `advancedConfig`.
+`imageRef` is a **digest-pinned** registry reference (`ghcr.io/org/judge@sha256:...`), restricted to `ADVANCED_IMAGE_ALLOWED_REGISTRIES` at the input layer. `special_env` validation (`packages/core/src/schemas/problem.ts`) requires both `run` and `grade`, a non-empty `allowlist` iff `mode = "allowlist"`, and a `service` image iff `mode = "service"`. `advancedRequiredPaths` (a separate optional `Problem` column) still governs the student **upload** shape — the set of relative paths a submission ZIP must contain — and is unrelated to `advancedConfig`.
 
 ### Network modes
 
@@ -184,8 +184,6 @@ Both the Docker backend (local/dev) and the Kubernetes backend (GKE prod) are su
 
 - The blanket deny-all (chart template `infra/charts/nojv/templates/sandbox-policy.yaml`) selects on `nojv.egress` **`DoesNotExist`**, so standard/checker/interactive Pods and `mode=none` advanced run Pods (none carry the label) stay denied. The run Pod (allowlist/service) is relabeled `nojv.egress=<id>` and gets `buildRunEgressPolicy` allowing egress **only** to the sidecar Pod (no `0.0.0.0/0`, no `ipBlock`, no kube-dns) with `ingress: []` (the untrusted run Pod is never a server). The grade Pod is labeled `nojv.egress=<id>-grade` and gets an explicit per-submission **deny-all egress** policy (`buildGradeEgressPolicy`, `egress: []`) in **every** mode — the label lifts it out of the blanket deny-all only so its own policy can re-deny egress as defense in depth (the grade Pod holds the answers and never needs the network). The sidecar Pod gets full egress + ingress only from the run Pod (`buildSidecarEgressPolicy`), is fronted by a per-submission ClusterIP Service, and the run Pod's `HTTP_PROXY` / `NOJV_SERVICE_HOST` is injected by that **ClusterIP literal** (never a DNS name, preserving the no-DNS-in-the-run-Pod invariant). The worker is granted `pods`/`services`/`networkpolicies`/`persistentvolumeclaims` in the chart's `infra/charts/nojv/templates/worker-rbac.yaml`.
 - **CNI enforcement is a hard dependency.** Every NetworkPolicy above is a **no-op** unless the cluster's CNI actually enforces NetworkPolicy (GKE Dataplane V2 / Cilium / Calico). A non-enforcing CNI (kindnet/flannel, some managed defaults) installs the API objects but lets the run Pod reach the whole internet while every policy "exists" — and the happy-path AC test still passes. This is why the [Phase 8 smoke runbook](../plans/completed/2026-06-14-advanced-judge-run-grade-split-design.md#phase-8-smoke-verification-runbook) must affirmatively assert egress is **blocked**, not merely that an allowlisted call succeeds.
-
-**Tarball-source advanced images require the Docker executor.** `K8sExecutor.executeAdvanced` short-circuits a tarball-source run **or** grade with an `SE` (the learner sees a neutral message; the operator reason is logged at `error`) because the cluster cannot `docker load` a TA tarball — push to a registry the cluster can pull instead. The same applies to a tarball `service` image.
 
 ### Hardening posture
 
@@ -212,13 +210,13 @@ It is host-side rather than an in-container `tar --dereference` because the run 
 
 ### Authoring run/grade judge images
 
-TAs don't hand-write the boilerplate. The problem edit page (Advanced settings → Container contract) has **Download starter project** buttons that stream per-role self-contained zips via `GET /api/problems/advanced-scaffold?role=run|grade|service` (auth-gated, zipped from `apps/web/src/lib/server/advanced-scaffold/files/{run,grade,service}/` on the fly with JSZip):
+TAs don't hand-write the boilerplate. The problem edit page (Advanced settings → Container contract) has a **Download starter templates** button (`GET /api/problems/advanced-scaffold`) that streams a package of per-role image templates — `run`, `grade`, and `service`, each a `Dockerfile` + contract helper + README — plus a top-level README covering how to build each image, push it to a registry, and paste the digest ref back into the editor (the in-app Advanced Mode guide at `/guides/advanced-mode` walks through the same). Each role:
 
 - **run** — `runner.py` (load `meta.json`, compile/run the student per case, write `/output`) + a `Dockerfile` baking testcase **inputs**.
 - **grade** — `grader.py` (read `/run-output` + the baked-in `/answers`, decide verdicts, write `result.json`) + a shared stdlib-only `nojv_grader.py` helper (validate/normalize verdicts, `write_result`) the TA does **not** edit + a `Dockerfile` baking the **answers**.
 - **service** — a minimal HTTP service example listening on `PORT` (8888).
 
-Workflow: **download the scaffolds → edit `runner.py` / `grader.py` (+ testcases/answers) → `docker build` each → upload** (per-role, either a `docker save | gzip` tarball or a registry reference). The canonical `result.json` verdicts are the long forms at the top level and the short codes (`AC`/`WA`/`TLE`/`MLE`/`RE`/`SE`) per testcase — `write_result` accepts either and normalizes.
+Workflow: **download the templates → edit `runner.py` / `grader.py` (+ testcases/answers) → `docker build` each → push to an allowlisted registry → paste the digest-pinned refs into the problem editor**. `infra/docker/demo-advanced-{run,grade}` are worked examples of the same contract. The canonical `result.json` verdicts are the long forms at the top level and the short codes (`AC`/`WA`/`TLE`/`MLE`/`RE`/`SE`) per testcase — `write_result` accepts either and normalizes.
 
 Because answers live **only** in the grade image and student code **only** in the run container, answer protection is now a **platform guarantee** rather than TA discipline: a malicious submission cannot read the answers (they are in a different, time-separated container), reach the grade container, or leak an answer through a `/output` symlink. SNI / domain-fronting protection in `allowlist` mode is a documented **future hardening** (not implemented) — it is not load-bearing because the run container holds no secrets, so a domain-fronting student has nothing to exfiltrate (see the design doc's egress-proxy section).
 
@@ -358,7 +356,7 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - Advanced Mode K8s manifests (two Jobs + PVC + transfer gate) — `apps/worker/src/services/k8s-advanced.ts`
 - Advanced Mode K8s networking (per-submission NetworkPolicies + sidecar Pod/Service) — `apps/worker/src/services/k8s-advanced-network.ts`
 - Egress-proxy image (allowlist enforcer) — `infra/docker/egress-proxy/proxy.mjs`
-- Kubernetes executor (Standard + checker via two-Job pipeline, interactive via per-case two-container Job, registry-source advanced via two Jobs + PVC; rejects only tarball-source advanced) — `apps/worker/src/services/k8s-executor.ts`
+- Kubernetes executor (Standard + checker via two-Job pipeline, interactive via per-case two-container Job, advanced via two Jobs + PVC) — `apps/worker/src/services/k8s-executor.ts`
 - Sandbox plan / config builder — `apps/worker/src/services/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/services/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`

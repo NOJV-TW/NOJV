@@ -6,6 +6,5 @@ export * from "./testcase";
 export * from "./permissions";
 export * from "./storage-budget";
 export * from "./bundle";
-export * from "./advanced-package";
 export * from "./total-score";
 export { hydrateTestcaseSets, hydrateWorkspaceFiles, hydrateValidatorScripts } from "./blobs";

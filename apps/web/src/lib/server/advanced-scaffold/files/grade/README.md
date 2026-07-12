@@ -16,11 +16,20 @@ leak — that is the whole point of the run/grade split.
 | `nojv_grader.py` | Helper — reads the contract, writes a valid `result.json`. Don't edit.           |
 | `answers/`       | Baked-in **answers** (`case-*.out`). Live ONLY here — never exposed to students. |
 
-## Package upload
+## Build & push
 
-Do not upload this directory by itself. Keep it under `grade/` inside the NOJV
-Advanced package ZIP, alongside `metadata.yaml` and `run/`. NOJV builds the
-grade image when staff upload the package.
+Build this image yourself and push it to a registry NOJV can pull, then paste
+the **digest-pinned** reference into the problem editor's **Grade image** field:
+
+```sh
+docker build -t ghcr.io/YOUR-ORG/PROBLEM-grade:v1 ./grade
+docker push ghcr.io/YOUR-ORG/PROBLEM-grade:v1
+docker buildx imagetools inspect ghcr.io/YOUR-ORG/PROBLEM-grade:v1   # copy the sha256 digest
+# paste ghcr.io/YOUR-ORG/PROBLEM-grade@sha256:<digest> into the editor
+```
+
+Because this image holds the answers, **keep it private** and make sure NOJV is
+configured to pull from your registry. See the top-level `README.md`.
 
 ## The contract
 

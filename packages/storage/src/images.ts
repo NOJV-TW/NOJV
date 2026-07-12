@@ -1,8 +1,7 @@
-import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { parseRelativePath } from "@nojv/core";
 import { randomUUID } from "node:crypto";
-import type { Readable } from "node:stream";
 
 import { getStorageEnv } from "./env";
 
@@ -101,56 +100,4 @@ export async function downloadUserContentImage(
   filename: string,
 ): Promise<StoredImage> {
   return readObject(client, `users/${userId}/images/${imageFilename(filename)}`);
-}
-
-export type AdvancedImageRole = "run" | "grade" | "service";
-
-export async function uploadAdvancedImageTarball(
-  client: S3Client,
-  problemId: string,
-  role: AdvancedImageRole,
-  file: Buffer | Readable,
-): Promise<string> {
-  const key = `problems/${problemId}/advanced-images/${role}/${randomUUID()}.tar`;
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET(),
-      Key: key,
-      Body: file,
-      ContentType: "application/x-tar",
-    }),
-  );
-
-  return key;
-}
-
-export async function deleteAdvancedImageTarball(client: S3Client, key: string): Promise<void> {
-  await client.send(
-    new DeleteObjectCommand({
-      Bucket: BUCKET(),
-      Key: key,
-    }),
-  );
-}
-
-export async function downloadAdvancedImageTarball(
-  client: S3Client,
-  key: string,
-): Promise<Buffer> {
-  const response = await client.send(
-    new GetObjectCommand({
-      Bucket: BUCKET(),
-      Key: key,
-    }),
-  );
-  const body = response.Body;
-  if (!body) {
-    throw new Error(`No body returned for advanced image tarball ${key}`);
-  }
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of body as AsyncIterable<Uint8Array>) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
 }

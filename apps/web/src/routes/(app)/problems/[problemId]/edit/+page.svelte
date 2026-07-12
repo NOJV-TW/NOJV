@@ -11,7 +11,6 @@
   import TestcaseTab from "$lib/components/features/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/features/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
-  import AdvancedPackageSection from "$lib/components/features/problem/advanced/AdvancedPackageSection.svelte";
   import AdvancedImageConfigSection from "$lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
@@ -28,8 +27,6 @@
   let basicTab = $state<BasicInfoTab | null>(null);
   let workspaceTab = $state<WorkspaceSection | null>(null);
   let judgeTab = $state<JudgeTab | null>(null);
-  let advancedSection = $state<AdvancedPackageSection | null>(null);
-  let advancedUploadReady = $state(false);
 
   let activeSectionSavable = $derived(
     activeSection === "basic" || activeSection === "workspace" || activeSection === "judge",
@@ -179,11 +176,6 @@
       });
   }
 
-  async function handleAdvancedPackageUploaded() {
-    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
-    await invalidateAll();
-  }
-
   let advancedConfigured = $derived(
     (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
       (data.advancedConfig?.config?.grade.imageRef ?? "") !== "",
@@ -233,17 +225,6 @@
       >
         {m.common_saveDraft()}
       </Button>
-      {#if data.advancedZipUploadEnabled}
-        <Button
-          variant="outline"
-          size="sm"
-          class="w-full"
-          disabled={!advancedUploadReady}
-          onclick={() => advancedSection?.save()}
-        >
-          {m.advancedPackage_uploadPackage()}
-        </Button>
-      {/if}
       {#if data.problem.status === "draft"}
         <Button
           size="sm"
@@ -292,14 +273,12 @@
             {/each}
           </ol>
           <div class="mt-3 flex flex-col gap-1 border-t border-border-subtle pt-3">
-            {#if data.advancedZipUploadEnabled}
-              <a
-                class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
-                href="/api/problems/advanced-scaffold"
-              >
-                {m.advancedPackage_stepTemplateTitle()}
-              </a>
-            {/if}
+            <a
+              class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+              href="/api/problems/advanced-scaffold"
+            >
+              {m.advancedImages_downloadTemplates()}
+            </a>
             <a
               class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
               href="/guides/advanced-mode"
@@ -331,20 +310,6 @@
             allowedRegistries={data.advancedAllowedRegistries}
           />
         </section>
-
-        {#if data.advancedZipUploadEnabled && data.advancedConfig}
-          <section
-            class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-          >
-            <AdvancedPackageSection
-              bind:this={advancedSection}
-              bind:uploadReady={advancedUploadReady}
-              problemId={data.problem.id}
-              config={data.advancedConfig.config}
-              onuploaded={handleAdvancedPackageUploaded}
-            />
-          </section>
-        {/if}
       </div>
     </div>
   {:else}

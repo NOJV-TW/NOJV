@@ -138,8 +138,8 @@ describe("createProblemDefinition", () => {
 
   it("preserves caller-supplied advancedConfig when provided", async () => {
     const config = {
-      run: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
-      grade: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "tarball" as const },
+      run: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "registry" as const },
+      grade: { imageRef: "ghcr.io/acme/ta:1.2.3", imageSource: "registry" as const },
       network: { mode: "none" as const },
       maxScore: 100,
     };

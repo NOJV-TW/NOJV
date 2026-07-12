@@ -20,7 +20,6 @@ import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
-import { isAdvancedZipUploadEnabled } from "$lib/server/execution-backend";
 import {
   advancedImageConfigInputSchema,
   allowedImageRegistries,
@@ -64,7 +63,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   await problemDomain.assertProblemEditAccess(actor, params.problemId);
 
   const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
-    getProblemPageData(params.problemId),
+    getProblemPageData(params.problemId, { includeAdvancedConfig: true }),
     getProblemTestcaseSets(params.problemId),
     listProblemWorkspaceFiles(params.problemId),
   ]);
@@ -114,7 +113,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       : null,
     advancedJudgeVerified,
     advancedCreationAllowed: await problemDomain.canCreateAdvancedProblems(actor),
-    advancedZipUploadEnabled: isAdvancedZipUploadEnabled(),
     advancedAllowedRegistries: allowedImageRegistries(),
   };
 });

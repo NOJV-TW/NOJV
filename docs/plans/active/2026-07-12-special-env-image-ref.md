@@ -32,8 +32,9 @@ creation is gated behind an admin-granted per-user permission.
   server-side enforcement wherever `problem.type` can be set/changed to `special_env` +
   admin toggle UI + contact-admin hint on the creation/edit toggle.
 - **B5** Image-ref config form (run image, grade image, network mode) on the problem
-  edit page. ZIP-upload/docker-build section demoted to dev-only (docker backend only),
-  not deleted.
+  edit page. ZIP-upload/docker-build path deleted entirely (upload route, tarball
+  storage, docker-build-in-web). Download starter templates retained and improved into
+  build-your-own-image templates (run/grade/service + build/push guide).
 - **B6** Digest pinning (`@sha256:...` required) + registry allowlist, enforced at the
   INPUT layer only (`problemCreateSchema`/draft refinement + import route), never in the
   base `advancedConfigSchema` — stored legacy configs (`:main` tag on #15) must keep
@@ -45,7 +46,7 @@ creation is gated behind an admin-granted per-user permission.
 
 ## Non-goals
 
-- No image build service on our infra (ZIP build stays dev-only).
+- No image build service on our infra (ZIP build path removed entirely).
 - No human review queue (test-judge gate instead).
 - No cosign/signature verification, no Kyverno (over-engineering for trusted authors).
 
@@ -59,4 +60,10 @@ creation is gated behind an admin-granted per-user permission.
 ## Cleanup
 
 - Remove stale debug screenshots at repo root.
+- Delete the ZIP-upload/docker-build path: the `advanced-package` upload route +
+  `importAdvancedPackage`, the tarball storage helpers, `AdvancedPackageSection.svelte`,
+  the `ADVANCED_IMAGE_REGISTRY` env, and their tests. Keep and improve the
+  `advanced-scaffold` download templates (run/grade/service Dockerfile + helper + README +
+  top-level build/push guide); `infra/docker/demo-advanced-{run,grade}` stay as worked
+  examples.
 - Sync living docs (JUDGE_PIPELINE, SECURITY, DATABASE generated docs).

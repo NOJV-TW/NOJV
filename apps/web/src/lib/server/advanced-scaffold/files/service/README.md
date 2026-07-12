@@ -58,11 +58,21 @@ is listening. The platform polls for that marker before it starts the run
 container, so the student program never races a not-yet-ready service. Print it
 only **after** the socket is bound and listening (the scaffold does this).
 
-## Package upload
+## Build & push
 
-Keep this directory under `service/` inside the NOJV Advanced package ZIP and
-set `network.mode: service` in `metadata.yaml`. NOJV builds the service
-image when staff upload the package.
+The service is **optional** — you only need it when the run container must talk
+to a companion (mock API, DB, simulator). If you use it, build and push it like
+the run/grade images, then set the problem's **network mode** to `service` and
+paste the **digest-pinned** reference into the editor's **Service image** field:
+
+```sh
+docker build -t ghcr.io/YOUR-ORG/PROBLEM-service:v1 ./service
+docker push ghcr.io/YOUR-ORG/PROBLEM-service:v1
+docker buildx imagetools inspect ghcr.io/YOUR-ORG/PROBLEM-service:v1   # copy the sha256 digest
+# paste ghcr.io/YOUR-ORG/PROBLEM-service@sha256:<digest> into the editor
+```
+
+See the top-level `README.md` for the full workflow.
 
 ## How the run container reaches it
 
