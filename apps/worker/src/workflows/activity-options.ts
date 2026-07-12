@@ -16,3 +16,9 @@ export const PLAGIARISM_ACTIVITY: ActivityOptions = {
   startToCloseTimeout: "10m",
   retry: { maximumAttempts: 3 },
 };
+
+export const REGISTRY_GC_ACTIVITY: ActivityOptions = {
+  startToCloseTimeout: "30m",
+  heartbeatTimeout: "2m",
+  retry: { maximumAttempts: 2 },
+};

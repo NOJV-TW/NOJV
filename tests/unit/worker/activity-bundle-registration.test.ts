@@ -21,6 +21,7 @@ const QUEUE_BUNDLES = [
       "workflows/plagiarism-check.ts",
       "workflows/submission-sweeper.ts",
       "workflows/lifecycle-reconciler.ts",
+      "workflows/registry-gc.ts",
     ],
   },
 ];

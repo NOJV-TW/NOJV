@@ -32,6 +32,10 @@ beforeEach(() => {
     dispatchContestLifecycle: vi.fn(async () => {}),
     dispatchExamAutoClose: vi.fn(async () => {}),
     dispatchPlagiarismCheck: vi.fn(async () => {}),
+    dispatchRegistryGarbageCollect: vi.fn(async () => ({
+      workflowId: "registry-gc",
+      alreadyRunning: false,
+    })),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(async () => {}),
     getRejudgeTriggeredBy: vi.fn(async () => null),

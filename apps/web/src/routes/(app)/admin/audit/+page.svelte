@@ -31,6 +31,10 @@
         return m.admin_audit_actionAnnouncementCreate();
       case "announcement_delete":
         return m.admin_audit_actionAnnouncementDelete();
+      case "registry_tag_delete":
+        return m.admin_audit_actionRegistryTagDelete();
+      case "registry_gc":
+        return m.admin_audit_actionRegistryGc();
     }
   }
 

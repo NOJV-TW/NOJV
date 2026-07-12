@@ -65,6 +65,8 @@ enum AdminAuditAction {
   content_report_dismiss
   announcement_create
   announcement_delete
+  registry_tag_delete
+  registry_gc
 }
 
 model AdminAuditLog {

@@ -673,7 +673,7 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 
 #### `AdminAuditAction`
 
-`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `user_advanced_toggle` · `editorial_report_resolve` · `editorial_report_dismiss` · `content_report_resolve` · `content_report_dismiss` · `announcement_create` · `announcement_delete`
+`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `user_advanced_toggle` · `editorial_report_resolve` · `editorial_report_dismiss` · `content_report_resolve` · `content_report_dismiss` · `announcement_create` · `announcement_delete` · `registry_tag_delete` · `registry_gc`
 
 #### `AnnouncementAudience`
 

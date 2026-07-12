@@ -8,11 +8,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const requireFromMailer = createRequire(path.join(__dirname, "packages/mailer/package.json"));
 const requireFromWeb = createRequire(path.join(__dirname, "apps/web/package.json"));
+const requireFromTemporal = createRequire(
+  path.join(__dirname, "packages/temporal/package.json"),
+);
 
 const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
   nodemailer: requireFromMailer.resolve("nodemailer"),
   jose: requireFromWeb.resolve("jose"),
+  "@temporalio/client": requireFromTemporal.resolve("@temporalio/client"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
   "@nojv/application": path.resolve(__dirname, "packages/application/src/index.ts"),

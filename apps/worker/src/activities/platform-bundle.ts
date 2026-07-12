@@ -18,4 +18,6 @@ export {
 
 export { runPlagiarismCheck } from "./plagiarism";
 
+export { runRegistryGarbageCollect } from "./registry";
+
 export { getRedis } from "./utils";
