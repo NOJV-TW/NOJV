@@ -72,9 +72,7 @@ describe("generateRegistryCredential", () => {
     const [userId, username, storedHash] = credUpsert.mock.calls[0]!;
     expect(userId).toBe("usr_t");
     expect(username).toBe("teacher");
-    await expect(
-      verifyServiceAccountSecret(issued.password, storedHash as string),
-    ).resolves.toBe(true);
+    expect(verifyServiceAccountSecret(issued.password, storedHash as string)).toBe(true);
   });
 
   it("keeps the stored username on rotation", async () => {
@@ -116,10 +114,10 @@ describe("verifyRegistryLogin", () => {
     };
   }
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     credMarkUsed.mockResolvedValue({});
-    passwordHash = await hashRegistrySecret(password);
+    passwordHash = hashRegistrySecret(password);
   });
 
   it("accepts a valid login and marks it used", async () => {
@@ -158,10 +156,10 @@ describe("verifyRegistryLogin", () => {
 });
 
 describe("verifyServiceAccountSecret", () => {
-  it("matches only the exact secret and rejects empty hashes", async () => {
-    const hash = await hashRegistrySecret("svc-secret");
-    await expect(verifyServiceAccountSecret("svc-secret", hash)).resolves.toBe(true);
-    await expect(verifyServiceAccountSecret("other", hash)).resolves.toBe(false);
-    await expect(verifyServiceAccountSecret("svc-secret", "")).resolves.toBe(false);
+  it("matches only the exact secret and rejects empty hashes", () => {
+    const hash = hashRegistrySecret("svc-secret");
+    expect(verifyServiceAccountSecret("svc-secret", hash)).toBe(true);
+    expect(verifyServiceAccountSecret("other", hash)).toBe(false);
+    expect(verifyServiceAccountSecret("svc-secret", "")).toBe(false);
   });
 });

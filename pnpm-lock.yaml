@@ -456,9 +456,6 @@ importers:
       archiver:
         specifier: ^7.0.1
         version: 7.0.1
-      bcryptjs:
-        specifier: 'catalog:'
-        version: 3.0.3
       unzipper:
         specifier: ^0.12.5
         version: 0.12.5

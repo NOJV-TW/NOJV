@@ -24,7 +24,6 @@
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "archiver": "^7.0.1",
-    "bcryptjs": "catalog:",
     "unzipper": "^0.12.5",
     "zod": "catalog:"
   },
