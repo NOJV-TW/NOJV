@@ -27,7 +27,7 @@ COPY packages/storage/package.json packages/storage/
 COPY packages/mailer/package.json packages/mailer/
 COPY packages/sandbox-docker/package.json packages/sandbox-docker/
 
-RUN pnpm install --frozen-lockfile --filter @nojv/worker...
+RUN pnpm install --frozen-lockfile --filter @nojv/worker... --filter @nojv/sandbox-docker
 
 # 2. Copy source and build in dependency order
 COPY packages/core/ packages/core/
