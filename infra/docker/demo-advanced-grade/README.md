@@ -9,13 +9,13 @@ trusted half of the run/grade split: no student code runs here, so the baked
 `advancedResultSchema` shape.
 
 Built and tagged `nojv-demo-advanced-grade:local` +
-`ghcr.io/nojv-tw/nojv-demo-advanced-grade:main` by:
+`registry.nojv.tw/demo/nojv-demo-advanced-grade:main` by:
 
 ```sh
 pnpm demo-advanced:build
 ```
 
-CI (`build-images.yml`) pushes the `ghcr.io` ref on every main push; the seeded
+CI (`build-images.yml`) pushes the platform-registry ref on every main push (the `demo/` namespace is anonymous-pull); the seeded
 problem's `advancedConfig` points at it so Kubernetes deployments can pull it.
 
 The demo problem's `advancedConfig.grade` in
