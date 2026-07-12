@@ -32,7 +32,8 @@ const FORM_CONTENT_TYPES = new Set([
 ]);
 
 function isFormContentType(request: Request): boolean {
-  const type = request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  const type =
+    request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
   return FORM_CONTENT_TYPES.has(type);
 }
 
