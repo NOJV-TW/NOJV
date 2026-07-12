@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { credFindByUserId, credFindByUsername, credUpsert, credMarkUsed, userFindById } =
@@ -69,11 +70,10 @@ describe("generateRegistryCredential", () => {
 
     expect(issued.username).toBe("teacher");
     expect(issued.password.length).toBeGreaterThanOrEqual(24);
-    expect(credUpsert).toHaveBeenCalledWith(
-      "usr_t",
-      "teacher",
-      hashRegistrySecret(issued.password),
-    );
+    const [userId, username, storedHash] = credUpsert.mock.calls[0]!;
+    expect(userId).toBe("usr_t");
+    expect(username).toBe("teacher");
+    await expect(bcrypt.compare(issued.password, storedHash as string)).resolves.toBe(true);
   });
 
   it("keeps the stored username on rotation", async () => {
@@ -97,13 +97,14 @@ describe("generateRegistryCredential", () => {
 
 describe("verifyRegistryLogin", () => {
   const password = "s3cret-password-value";
+  let passwordHash: string;
 
   function credRow(user: Record<string, unknown>) {
     return {
       id: "cred_1",
       userId: "usr_t",
       username: "teacher",
-      passwordHash: hashRegistrySecret(password),
+      passwordHash,
       user: {
         id: "usr_t",
         disabled: false,
@@ -114,9 +115,10 @@ describe("verifyRegistryLogin", () => {
     };
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     credMarkUsed.mockResolvedValue({});
+    passwordHash = await hashRegistrySecret(password);
   });
 
   it("accepts a valid login and marks it used", async () => {
@@ -155,10 +157,10 @@ describe("verifyRegistryLogin", () => {
 });
 
 describe("verifyServiceAccountSecret", () => {
-  it("matches only the exact secret and rejects empty hashes", () => {
-    const hash = hashRegistrySecret("svc-secret");
-    expect(verifyServiceAccountSecret("svc-secret", hash)).toBe(true);
-    expect(verifyServiceAccountSecret("other", hash)).toBe(false);
-    expect(verifyServiceAccountSecret("svc-secret", "")).toBe(false);
+  it("matches only the exact secret and rejects empty hashes", async () => {
+    const hash = await hashRegistrySecret("svc-secret");
+    await expect(verifyServiceAccountSecret("svc-secret", hash)).resolves.toBe(true);
+    await expect(verifyServiceAccountSecret("other", hash)).resolves.toBe(false);
+    await expect(verifyServiceAccountSecret("svc-secret", "")).resolves.toBe(false);
   });
 });

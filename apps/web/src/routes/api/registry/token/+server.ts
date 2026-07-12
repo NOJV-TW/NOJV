@@ -44,10 +44,10 @@ async function resolvePrincipal(
 
   if (credentials.username === JUDGE_PULL_USER) {
     if (
-      !registryDomain.verifyServiceAccountSecret(
+      !(await registryDomain.verifyServiceAccountSecret(
         credentials.password,
         env.REGISTRY_PULL_PASSWORD_HASH,
-      )
+      ))
     ) {
       return failClosed();
     }
@@ -56,10 +56,10 @@ async function resolvePrincipal(
 
   if (credentials.username === CI_PUSH_USER) {
     if (
-      !registryDomain.verifyServiceAccountSecret(
+      !(await registryDomain.verifyServiceAccountSecret(
         credentials.password,
         env.REGISTRY_CI_PASSWORD_HASH,
-      )
+      ))
     ) {
       return failClosed();
     }
