@@ -94,8 +94,8 @@ pnpm db:seed
 
 Seed creates:
 
-- 5 users — 4 with password `password123` (admin, teacher, ta-student, student); the 5th (`b11902999`) is an OAuth-placeholder with no password
-- 15 problems with testcases (see `packages/db/prisma/seeds/problems.ts` for the authoritative set)
+- 5 users — the admin's username/email/password come from `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` in `.env` (defaults in `.env.example`: `admin`/`password123`); teacher, ta-student, and student use password `password123`; the 5th (`b11902999`) is an OAuth-placeholder with no password
+- Problems with testcases (see `packages/db/prisma/seeds/problems.ts` for the authoritative set). The `special_env` demo problem references `registry.nojv.tw/demo/*` judge images — these are optional seed content, published manually with `pnpm demo-advanced:push` (needs a `docker login registry.nojv.tw` with a push-scoped account), not by CI
 - 3 contests
 - 1 course ("Operating Systems Lab") with memberships and assessments (students are added directly by the teacher — the join-token flow was removed)
 
@@ -122,7 +122,7 @@ This starts:
 
 1. Open http://localhost:5173 — should see the landing page
 2. Open http://localhost:8080 — Temporal UI should show the `default` namespace
-3. Sign in with a seeded account — the `/signin` OAuth buttons (GitHub / Google) need the optional OAuth credentials, so for local dev use password sign-in at `/admin-signin` (linked as "Admin login" from `/signin`) with a seeded account such as the seeded admin (check seed data for credentials)
+3. Sign in with a seeded account — the `/signin` OAuth buttons (GitHub / Google) need the optional OAuth credentials, so for local dev use password sign-in at `/admin-signin` (linked as "Admin login" from `/signin`) with the seeded admin (credentials come from the `SEED_ADMIN_*` variables in `.env`)
 4. Navigate to a problem, write code, and submit — should see the judge process in Temporal UI
 
 ## Common Tasks

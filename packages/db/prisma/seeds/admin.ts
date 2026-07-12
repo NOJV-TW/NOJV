@@ -21,17 +21,16 @@ const adminEnvSchema = z.object({
     ),
 });
 
-function withDevFallback(value: string | undefined, fallback: string): string {
-  if (value && value.length > 0) return value;
-  return isProd ? "" : fallback;
+export function readSeedAdminEnv(): { username: string; email: string; password: string } {
+  return adminEnvSchema.parse({
+    username: process.env.SEED_ADMIN_USERNAME ?? "",
+    email: process.env.SEED_ADMIN_EMAIL ?? "",
+    password: process.env.SEED_ADMIN_PASSWORD ?? "",
+  });
 }
 
 export async function seedAdmin(prisma: PrismaClient): Promise<string> {
-  const { username, email, password } = adminEnvSchema.parse({
-    username: withDevFallback(process.env.SEED_ADMIN_USERNAME, "admin"),
-    email: withDevFallback(process.env.SEED_ADMIN_EMAIL, "nojv.tw@gmail.com"),
-    password: withDevFallback(process.env.SEED_ADMIN_PASSWORD, "password123"),
-  });
+  const { username, email, password } = readSeedAdminEnv();
 
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
