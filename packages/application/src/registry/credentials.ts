@@ -1,21 +1,18 @@
-import { randomBytes } from "node:crypto";
-
-import bcrypt from "bcryptjs";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { registryCredentialRepo } from "@nojv/db";
 
 import { assertCanCreateAdvancedProblems } from "../problem/permissions";
 import type { RegistryPrincipal } from "./scopes";
 
-const BCRYPT_ROUNDS = 12;
-
-export function hashRegistrySecret(secret: string): Promise<string> {
-  return bcrypt.hash(secret, BCRYPT_ROUNDS);
+export function hashRegistrySecret(secret: string): string {
+  return createHash("sha256").update(secret).digest("base64url");
 }
 
-function registrySecretsMatch(secret: string, storedHash: string): Promise<boolean> {
-  if (!storedHash) return Promise.resolve(false);
-  return bcrypt.compare(secret, storedHash);
+function registrySecretsMatch(secret: string, storedHash: string): boolean {
+  const candidate = Buffer.from(hashRegistrySecret(secret));
+  const stored = Buffer.from(storedHash);
+  return candidate.length === stored.length && timingSafeEqual(candidate, stored);
 }
 
 const NAMESPACE_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
@@ -71,7 +68,7 @@ export async function generateRegistryCredential(actor: {
   await registryCredentialRepo.upsertForUser(
     actor.userId,
     username,
-    await hashRegistrySecret(password),
+    hashRegistrySecret(password),
   );
 
   return { username, password };
@@ -83,7 +80,7 @@ export async function verifyRegistryLogin(
 ): Promise<Extract<RegistryPrincipal, { kind: "teacher" }> | null> {
   const row = await registryCredentialRepo.findByUsername(username);
   if (!row) return null;
-  if (!(await registrySecretsMatch(password, row.passwordHash))) return null;
+  if (!registrySecretsMatch(password, row.passwordHash)) return null;
 
   const user = row.user;
   if (user.disabled) return null;
@@ -93,9 +90,6 @@ export async function verifyRegistryLogin(
   return { kind: "teacher", namespace: row.username };
 }
 
-export function verifyServiceAccountSecret(
-  secret: string,
-  storedHash: string,
-): Promise<boolean> {
+export function verifyServiceAccountSecret(secret: string, storedHash: string): boolean {
   return registrySecretsMatch(secret, storedHash);
 }

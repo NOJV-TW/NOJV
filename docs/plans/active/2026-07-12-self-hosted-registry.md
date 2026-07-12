@@ -47,7 +47,7 @@ Token scopes (issued by the token endpoint):
   (dockerconfigjson) in the sandbox namespace; values for single-machine + GKE.
 - Web: `/api/registry/token` endpoint (Docker registry token spec, Basic auth
   against DB credentials, JWT via jose with x5c); `RegistryCredential` DB model
-  (userId, bcrypt hash, rotatedAt) + migration.
+  (userId, sha256 hash of the platform-issued random password, rotatedAt) + migration.
 - Advanced edit page: "Registry account" card (visible only with
   `canCreateAdvancedProblems`; generate/rotate, plaintext shown once);
   requiredPaths editor (lost its only UI when the ZIP manifest died);

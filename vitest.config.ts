@@ -13,7 +13,6 @@ const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
   nodemailer: requireFromMailer.resolve("nodemailer"),
   jose: requireFromWeb.resolve("jose"),
-  bcryptjs: requireFromWeb.resolve("bcryptjs"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
   "@nojv/application": path.resolve(__dirname, "packages/application/src/index.ts"),
