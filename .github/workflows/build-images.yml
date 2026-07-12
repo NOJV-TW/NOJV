@@ -44,6 +44,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to the platform registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.nojv.tw
+          username: ${{ secrets.REGISTRY_PUSH_USER }}
+          password: ${{ secrets.REGISTRY_PUSH_PASSWORD }}
+
       - name: Build & push runtime images
         shell: bash
         env:
@@ -67,8 +74,19 @@ jobs:
           build nojv-migrator     infra/docker/migrator.Dockerfile       .
           build nojv-sandbox      infra/docker/sandbox-runner.Dockerfile .
           build nojv-egress-proxy infra/docker/egress-proxy/Dockerfile   infra/docker/egress-proxy
-          build nojv-demo-advanced-run   infra/docker/demo-advanced-run/Dockerfile   infra/docker/demo-advanced-run
-          build nojv-demo-advanced-grade infra/docker/demo-advanced-grade/Dockerfile infra/docker/demo-advanced-grade
+          build_demo() {
+            local name="$1" dockerfile="$2" ctx="$3"
+            local ref="registry.nojv.tw/demo/${name}"
+            docker buildx build \
+              -f "$dockerfile" \
+              -t "${ref}:${TAG}" -t "${ref}:main" \
+              --cache-from "type=registry,ref=${ref}:buildcache" \
+              --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
+              --push \
+              "$ctx"
+          }
+          build_demo nojv-demo-advanced-run   infra/docker/demo-advanced-run/Dockerfile   infra/docker/demo-advanced-run
+          build_demo nojv-demo-advanced-grade infra/docker/demo-advanced-grade/Dockerfile infra/docker/demo-advanced-grade
 
       - name: Publish tag to the deploy branch (Flux tracks it → auto-pull)
         shell: bash

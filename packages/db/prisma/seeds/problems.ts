@@ -1096,11 +1096,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public" as const,
       advancedConfig: {
         run: {
-          imageRef: "ghcr.io/nojv-tw/nojv-demo-advanced-run:main",
+          imageRef: "registry.nojv.tw/demo/nojv-demo-advanced-run:main",
           imageSource: "registry",
         },
         grade: {
-          imageRef: "ghcr.io/nojv-tw/nojv-demo-advanced-grade:main",
+          imageRef: "registry.nojv.tw/demo/nojv-demo-advanced-grade:main",
           imageSource: "registry",
         },
         network: { mode: "none" },
