@@ -29,8 +29,6 @@ data:
         enabled: true
       redirect:
         disable: true
-      cache:
-        blobdescriptor: inmemory
     http:
       addr: :5000
     auth:

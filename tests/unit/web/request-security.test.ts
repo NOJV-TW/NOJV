@@ -11,12 +11,21 @@ function makeEvent(options: {
   apiToken?: unknown;
 }) {
   const url = new URL(`${ORIGIN}${options.path ?? "/"}`);
+  const method = options.method ?? "POST";
+  const isBodyless = ["GET", "HEAD"].includes(method);
+  // A string body would auto-set content-type: text/plain (a form content type);
+  // default to a JSON body so an unspecified content-type models a normal API
+  // fetch, and tests that exercise form submissions set the header explicitly.
+  const headers = new Headers(options.headers ?? {});
+  if (!isBodyless && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
   return {
     url,
     request: new Request(url, {
-      method: options.method ?? "POST",
-      headers: options.headers ?? {},
-      ...(["GET", "HEAD"].includes(options.method ?? "POST") ? {} : { body: "x" }),
+      method,
+      headers,
+      ...(isBodyless ? {} : { body: "{}" }),
     }),
     locals: { requestId: "req-test", apiToken: options.apiToken ?? null },
   } as unknown as Parameters<typeof enforceCsrf>[0];
@@ -114,6 +123,22 @@ describe("enforceCsrf — /api routes", () => {
       headers: { origin: "https://evil.example.com" },
     });
     expect(crossOrigin?.status).toBe(403);
+  });
+
+  it("blocks a no-Origin form POST to /api/auth (framework-parity, not exempted)", () => {
+    const res = run({
+      path: "/api/auth/sign-in",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+    });
+    expect(res?.status).toBe(403);
+  });
+
+  it("allows a same-origin form POST to /api/auth", () => {
+    const res = run({
+      path: "/api/auth/sign-in",
+      headers: { "content-type": "application/x-www-form-urlencoded", origin: ORIGIN },
+    });
+    expect(res).toBeNull();
   });
 });
 

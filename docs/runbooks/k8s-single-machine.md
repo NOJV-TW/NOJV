@@ -331,6 +331,13 @@ problem editor; judge pods pull via the `nojv-registry-pull` secret. Note the
 Cloudflare free tier caps a single request body at 100 MB — image layers larger
 than that fail to push (split layers).
 
+**Garbage collection** is triggered manually from `/admin/registry` (never
+automatic). distribution's mark-and-sweep is not concurrency-safe with pushes:
+a blob uploaded but not yet referenced by a manifest can be swept. Run GC during
+a quiet window (no teacher actively pushing). `--delete-untagged=false` bounds
+the blast radius, and interrupting a GC is safe; a mis-timed run at worst
+requires the affected image to be re-pushed.
+
 ## 6. Install the chart
 
 Create the runtime secret, then install the chart with the single-machine
