@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -52,7 +52,7 @@ RUN pnpm --filter @nojv/application build
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter @nojv/web build
 
 # 3. Production image
-FROM node:24-alpine
+FROM node:26-alpine
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 --ingroup nodejs appuser
