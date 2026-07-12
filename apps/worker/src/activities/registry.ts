@@ -69,7 +69,7 @@ export function buildRegistryGcJobManifest(
               name: GC_CONTAINER_NAME,
               image: config.image,
               imagePullPolicy: "IfNotPresent",
-              command: ["garbage-collect", "--delete-untagged=false", GC_CONFIG_PATH],
+              args: ["garbage-collect", "--delete-untagged=false", GC_CONFIG_PATH],
               securityContext: {
                 allowPrivilegeEscalation: false,
                 readOnlyRootFilesystem: true,

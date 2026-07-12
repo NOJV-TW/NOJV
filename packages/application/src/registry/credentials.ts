@@ -77,7 +77,7 @@ export async function generateRegistryCredential(actor: {
 export async function verifyRegistryLogin(
   username: string,
   password: string,
-): Promise<Extract<RegistryPrincipal, { kind: "teacher" }> | null> {
+): Promise<Extract<RegistryPrincipal, { kind: "teacher" } | { kind: "admin" }> | null> {
   const row = await registryCredentialRepo.findByUsername(username);
   if (!row) return null;
   if (!registrySecretsMatch(password, row.passwordHash)) return null;
@@ -87,6 +87,7 @@ export async function verifyRegistryLogin(
   if (user.platformRole !== "admin" && !user.canCreateAdvancedProblems) return null;
 
   await registryCredentialRepo.markUsed(row.id);
+  if (user.platformRole === "admin") return { kind: "admin" };
   return { kind: "teacher", namespace: row.username };
 }
 

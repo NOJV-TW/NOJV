@@ -82,12 +82,6 @@ spec:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: REGISTRY_PULL_PASSWORD_HASH
                   optional: true
-            - name: REGISTRY_CI_PASSWORD_HASH
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: REGISTRY_CI_PASSWORD_HASH
-                  optional: true
             {{- end }}
             - name: DB_POOL_MAX
               value: {{ .Values.web.dbPoolMax | quote }}

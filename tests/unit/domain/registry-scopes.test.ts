@@ -52,10 +52,9 @@ describe("authorizeRegistryAccess", () => {
     expect(granted).toEqual([repo("t/alice/run", "pull"), repo("demo/x", "pull")]);
   });
 
-  it("ci is confined to demo namespace", () => {
-    const granted = authorizeRegistryAccess({ kind: "ci" }, [
+  it("admin pushes to the demo namespace (no separate push service account)", () => {
+    const granted = authorizeRegistryAccess({ kind: "admin" }, [
       repo("demo/nojv-demo-advanced-run", "pull", "push"),
-      repo("t/alice/run", "push"),
     ]);
     expect(granted).toEqual([repo("demo/nojv-demo-advanced-run", "pull", "push")]);
   });

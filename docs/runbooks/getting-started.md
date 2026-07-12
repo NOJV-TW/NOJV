@@ -95,7 +95,7 @@ pnpm db:seed
 Seed creates:
 
 - 5 users — the admin's username/email/password come from `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` in `.env` (defaults in `.env.example`: `admin`/`password123`); teacher, ta-student, and student use password `password123`; the 5th (`b11902999`) is an OAuth-placeholder with no password
-- Problems with testcases (see `packages/db/prisma/seeds/problems.ts` for the authoritative set). The `special_env` demo problem references `registry.nojv.tw/demo/*` judge images — these are optional seed content, published manually with `pnpm demo-advanced:push` (needs a `docker login registry.nojv.tw` with a push-scoped account), not by CI
+- Problems with testcases (see `packages/db/prisma/seeds/problems.ts` for the authoritative set). The `special_env` demo problem references `registry.nojv.tw/demo/*` judge images — these are optional seed content, published manually with `pnpm demo-advanced:push` (needs a `docker login registry.nojv.tw` with a platform admin's registry credential), not by CI
 - 3 contests
 - 1 course ("Operating Systems Lab") with memberships and assessments (students are added directly by the teacher — the join-token flow was removed)
 
