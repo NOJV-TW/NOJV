@@ -21,10 +21,14 @@ Build this image yourself and push it to a registry NOJV can pull, then paste
 the **digest-pinned** reference into the problem editor's **Run image** field:
 
 ```sh
-docker build -t ghcr.io/YOUR-ORG/PROBLEM-run:v1 ./run
-docker push ghcr.io/YOUR-ORG/PROBLEM-run:v1
-docker buildx imagetools inspect ghcr.io/YOUR-ORG/PROBLEM-run:v1   # copy the sha256 digest
-# paste ghcr.io/YOUR-ORG/PROBLEM-run@sha256:<digest> into the editor
+# If your testcases are secret, push to the private platform registry: get REG
+# (host + your namespace) from the editor's "Registry push account" card. A
+# public registry is fine only if the inputs aren't secret.
+REG=<registry-host>/t/<your-username>
+docker build -t "$REG/PROBLEM-run:v1" ./run
+docker push "$REG/PROBLEM-run:v1"
+docker buildx imagetools inspect "$REG/PROBLEM-run:v1"   # copy the sha256 digest
+# paste $REG/PROBLEM-run@sha256:<digest> into the editor
 ```
 
 See the top-level `README.md` for the full build → push → reference workflow.

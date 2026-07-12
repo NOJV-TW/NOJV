@@ -60,9 +60,10 @@ export function buildAdvancedGradeConfigMapData(
   submissionId: string,
   language: string,
   runStatus: RunStatus,
+  maxScore: number,
 ): Record<string, string> {
   return {
-    "meta.json": JSON.stringify({ submissionId, language, runStatus }, null, 2),
+    "meta.json": JSON.stringify({ submissionId, language, runStatus, maxScore }, null, 2),
   };
 }
 

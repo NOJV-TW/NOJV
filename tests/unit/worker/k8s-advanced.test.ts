@@ -313,17 +313,23 @@ describe("buildAdvancedConfigMapData", () => {
 });
 
 describe("buildAdvancedGradeConfigMapData", () => {
-  it("writes a grade meta.json carrying only submissionId, language, runStatus (no answers)", () => {
-    const data = buildAdvancedGradeConfigMapData("sub-adv-1", "python", {
-      state: "exited",
-      exitCode: 0,
-    });
+  it("writes a grade meta.json carrying submissionId, language, runStatus, maxScore (no answers)", () => {
+    const data = buildAdvancedGradeConfigMapData(
+      "sub-adv-1",
+      "python",
+      {
+        state: "exited",
+        exitCode: 0,
+      },
+      100,
+    );
     expect(Object.keys(data)).toEqual(["meta.json"]);
     const meta = JSON.parse(data["meta.json"]!);
     expect(meta).toEqual({
       submissionId: "sub-adv-1",
       language: "python",
       runStatus: { state: "exited", exitCode: 0 },
+      maxScore: 100,
     });
   });
 });

@@ -205,9 +205,12 @@ export async function hasVerifiedAdvancedJudgeRun(
 
 async function assertProblemPublishable(
   tx: TransactionClient,
-  problem: { id: string; type: ProblemType; advancedConfig: unknown },
+  problem: { id: string; type: ProblemType; title: string; advancedConfig: unknown },
 ): Promise<void> {
   if (problem.type === "special_env") {
+    if (problem.title.trim() === "" || problem.title === "Untitled Problem") {
+      throw new ConflictError("Advanced-mode problems require a title before publishing.");
+    }
     if (!advancedConfigSchema.safeParse(problem.advancedConfig).success) {
       throw new ConflictError(
         "Advanced-mode problems require run and grade images before publishing.",

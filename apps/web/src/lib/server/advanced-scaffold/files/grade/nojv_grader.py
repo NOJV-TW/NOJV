@@ -42,7 +42,7 @@ _TOP_ALIASES = {
 
 
 def load_meta():
-    """Return grade meta.json: {submissionId, language, runStatus}.
+    """Return grade meta.json: {submissionId, language, runStatus, maxScore}.
 
     runStatus = the worker-observed run-container outcome:
       { "state": "exited" | "timed_out" | "oom_killed", "exitCode": int|null }
@@ -60,6 +60,11 @@ def language():
 def run_status():
     """The run-container outcome dict (see load_meta)."""
     return load_meta().get("runStatus", {}) or {}
+
+
+def max_score():
+    """The problem's max score. An 'accepted' verdict must return exactly this."""
+    return int(load_meta().get("maxScore", 100))
 
 
 def run_output(name):
@@ -122,14 +127,14 @@ def _normalize_case(verdict):
 def write_result(score, verdict, feedback="", testcases=None):
     """Write /workspace/output/result.json in the platform's canonical shape.
 
-    score: clamped to 0..100.
+    score: clamped to 0..max_score() (an 'accepted' verdict must equal max_score()).
     verdict: canonical long form (accepted, wrong_answer, ...); short codes
              (AC, WA, ...) and 'ce' are accepted and normalized.
     testcases: optional list of {index, verdict, runtimeMs?, feedback?} where
                verdict is a short code (AC/WA/TLE/MLE/RE/SE).
     """
     result = {
-        "score": max(0, min(100, round(score))),
+        "score": max(0, min(max_score(), round(score))),
         "verdict": _normalize_top(verdict),
     }
     if feedback:
