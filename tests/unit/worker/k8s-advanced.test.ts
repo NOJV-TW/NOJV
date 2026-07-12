@@ -43,7 +43,6 @@ import {
 import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
 
 function makeAdvancedRequest(overrides?: {
-  imageSource?: "registry" | "tarball";
   imageRef?: string;
   memoryMb?: number;
   totalTimeMs?: number;
@@ -65,11 +64,11 @@ function makeAdvancedRequest(overrides?: {
     advanced: {
       run: {
         imageRef: overrides?.imageRef ?? "registry.example.com/ta/run:1.0",
-        imageSource: overrides?.imageSource ?? "registry",
+        imageSource: "registry",
       },
       grade: {
         imageRef: overrides?.imageRef ?? "registry.example.com/ta/grade:1.0",
-        imageSource: overrides?.imageSource ?? "registry",
+        imageSource: "registry",
       },
       network: overrides?.network ?? { mode: "none" },
       totalTimeMs: overrides?.totalTimeMs ?? 60_000,
@@ -117,9 +116,12 @@ interface FakeOpts {
   transferExitCode?: number | null;
   sidecarReadyMarker?: string | null;
   serviceClusterIp?: string | null;
+  podWaiting?: { reason: string; message?: string };
+  jobPendingPolls?: number;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
+  let jobReadCount = 0;
   const coreApi = {
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
       record.configMapsCreated.push({ name: body.metadata.name, namespace, data: body.data });
@@ -159,12 +161,25 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
           : isRunPod
             ? [{ name: "transfer", state: { running: {} } }]
             : undefined;
+      const containerStatuses = opts.podWaiting
+        ? [
+            {
+              name: "run",
+              state: {
+                waiting: {
+                  reason: opts.podWaiting.reason,
+                  message: opts.podWaiting.message,
+                },
+              },
+            },
+          ]
+        : undefined;
       return {
         items: [
           {
             metadata: { name: `${jobName}-pod` },
             spec: { nodeName },
-            status: { initContainerStatuses },
+            status: { initContainerStatuses, containerStatuses },
           },
         ],
       };
@@ -189,6 +204,10 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       record.jobsDeleted.push({ name, namespace });
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
+      jobReadCount += 1;
+      if (opts.jobPendingPolls && jobReadCount <= opts.jobPendingPolls) {
+        return { status: {} };
+      }
       const failed =
         (opts.failJob && name === opts.failJob) ||
         (opts.deadlineExceededJob && name === opts.deadlineExceededJob);
@@ -258,6 +277,7 @@ const GRADE_PARAMS = {
   submissionId: "sub-adv-1",
   language: "python",
   nodeName: "node-a",
+  egressLabel: "sub-adv-1-grade",
 };
 
 describe("buildAdvancedConfigMapData", () => {
@@ -706,22 +726,23 @@ describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code",
     const vol = m.spec!.template.spec!.volumes!.find((v) => v.name === "grade-meta");
     expect(vol!.configMap!.name).toBe("judge-sub-adv-1-grade-input");
   });
-});
 
-describe("K8sExecutor.execute(advanced) — tarball source fail-fast", () => {
-  it("tarball-source on K8s returns SE; creates no PVC / Job / ConfigMap", async () => {
-    const record = emptyRecord();
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record));
-    const result = await executor.execute(makeAdvancedRequest({ imageSource: "tarball" }));
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
-    expect(message).toMatch(/registry/i);
-    expect(message).toMatch(/tarball/i);
-
-    expect(record.jobsCreated).toHaveLength(0);
-    expect(record.configMapsCreated).toHaveLength(0);
-    expect(record.pvcsCreated).toHaveLength(0);
+  it("pins the grader non-root (runAsUser 10001, cap-drop ALL) and carries the grade egress label", () => {
+    const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
+    const podSpec = m.spec!.template.spec!;
+    expect(podSpec.securityContext).toMatchObject({
+      runAsUser: 10001,
+      runAsNonRoot: true,
+      seccompProfile: { type: "RuntimeDefault" },
+    });
+    const grader = podSpec.containers[0]!;
+    expect(grader.securityContext).toMatchObject({
+      allowPrivilegeEscalation: false,
+      capabilities: { drop: ["ALL"] },
+      readOnlyRootFilesystem: true,
+      runAsUser: 10001,
+    });
+    expect(m.spec!.template.metadata!.labels!["nojv.egress"]).toBe("sub-adv-1-grade");
   });
 });
 
@@ -911,7 +932,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.servicesCreated).toHaveLength(0);
   });
 
-  it("mode=none: grade Pod STILL escapes deny-all and gets a grade-egress policy (full network)", async () => {
+  it("mode=none: grade Pod STILL escapes deny-all and gets its own grade-egress policy", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
@@ -1086,23 +1107,6 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-run");
   });
 
-  it("mode=service: tarball service image is refused on K8s (SE, no sidecar Pod)", async () => {
-    const record = emptyRecord();
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record));
-    const result = await executor.execute(
-      makeAdvancedRequest({
-        network: {
-          mode: "service",
-          service: { imageRef: "ta/svc:1.0", imageSource: "tarball" },
-        },
-      }),
-    );
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    expect(record.podsCreated).toHaveLength(0);
-    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
-  });
-
   it("allowlist teardown deletes the sidecar Pod, Service, and all 3 per-submission policies", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
@@ -1135,6 +1139,53 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.configMapsDeleted.some((c) => c.name === "judge-sub-adv-1-run-input")).toBe(
       true,
     );
+  });
+});
+
+describe("K8sExecutor.execute(advanced) — image pull failures", () => {
+  it("ImagePullBackOff is terminal: resolves to SE carrying the pull message, no grade Job, no retry", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, {
+        jobPendingPolls: 5,
+        podWaiting: {
+          reason: "ImagePullBackOff",
+          message: "Back-off pulling image ghcr.io/x/y@sha256:deadbeef",
+        },
+      }),
+    );
+
+    const result = await executor.execute(makeAdvancedRequest());
+
+    expect(result.testcaseResults.every((t) => t.verdict === "SE")).toBe(true);
+    expect(result.scoringFeedback).toContain(
+      "Back-off pulling image ghcr.io/x/y@sha256:deadbeef",
+    );
+    expect(record.jobsCreated.map((j) => j.name)).toEqual(["judge-sub-adv-1-run"]);
+    expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
+  });
+
+  it("ErrImagePull alone is transient: does NOT terminate, keeps polling until the Job resolves", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, {
+        sidecarLog,
+        jobPendingPolls: 1,
+        podWaiting: {
+          reason: "ErrImagePull",
+          message: "pull access denied (transient registry blip)",
+        },
+      }),
+    );
+
+    const result = await executor.execute(makeAdvancedRequest());
+
+    expect(result.testcaseResults[0]!.verdict).toBe("AC");
+    expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-run");
+    expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-grade");
   });
 });
 

@@ -15,11 +15,19 @@ that is the separate `grade` image's job. Never bake answers here.
 | `nojv_runner.py` | Helper — reads the contract, runs the student (binary-safe). Don't edit.       |
 | `testcases/`     | Baked-in **inputs** (`case-*.in`). Not secret — the student may see them.      |
 
-## Package upload
+## Build & push
 
-Do not upload this directory by itself. Keep it under `run/` inside the NOJV
-Advanced package ZIP, alongside `metadata.yaml` and `grade/`. NOJV builds
-the run image when staff upload the package.
+Build this image yourself and push it to a registry NOJV can pull, then paste
+the **digest-pinned** reference into the problem editor's **Run image** field:
+
+```sh
+docker build -t ghcr.io/YOUR-ORG/PROBLEM-run:v1 ./run
+docker push ghcr.io/YOUR-ORG/PROBLEM-run:v1
+docker buildx imagetools inspect ghcr.io/YOUR-ORG/PROBLEM-run:v1   # copy the sha256 digest
+# paste ghcr.io/YOUR-ORG/PROBLEM-run@sha256:<digest> into the editor
+```
+
+See the top-level `README.md` for the full build → push → reference workflow.
 
 ## The contract
 

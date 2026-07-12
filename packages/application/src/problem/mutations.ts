@@ -4,6 +4,7 @@ import {
   problemStatementRepo,
   problemWorkspaceFileRepo,
   runTransaction,
+  submissionRepo,
   testcaseSetRepo,
   type TransactionClient,
 } from "@nojv/db";
@@ -33,6 +34,7 @@ import {
   writeInteractorScriptBlob,
 } from "./blobs";
 import {
+  assertCanCreateAdvancedProblems,
   assertProblemEditAccess,
   assertProblemOwnership,
   type ProblemActorContext,
@@ -114,6 +116,9 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
 }
 
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {
+  if (payload.type === "special_env") {
+    await assertCanCreateAdvancedProblems(actor);
+  }
   return runTransaction(async (tx) => {
     const author = await ensureUser(tx, actor.userId, actor);
 
@@ -172,6 +177,32 @@ function assertSpecialEnvImageConsistency(
   }
 }
 
+export async function hasVerifiedAdvancedJudgeRun(
+  problemId: string,
+  advancedConfig: unknown,
+): Promise<boolean> {
+  const current = advancedConfigSchema.safeParse(advancedConfig);
+  if (!current.success) return false;
+
+  const rows = await submissionRepo.findMany({
+    where: { problemId, status: "accepted" },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    select: { advancedConfigSnapshot: true },
+  });
+
+  return rows.some((row) => {
+    const snapshot = advancedConfigSchema.safeParse(row.advancedConfigSnapshot);
+    if (!snapshot.success) return false;
+    if (snapshot.data.run.imageRef !== current.data.run.imageRef) return false;
+    if (snapshot.data.grade.imageRef !== current.data.grade.imageRef) return false;
+    if (current.data.network.mode === "service") {
+      return snapshot.data.network.service?.imageRef === current.data.network.service?.imageRef;
+    }
+    return true;
+  });
+}
+
 async function assertProblemPublishable(
   tx: TransactionClient,
   problem: { id: string; type: ProblemType; advancedConfig: unknown },
@@ -180,6 +211,11 @@ async function assertProblemPublishable(
     if (!advancedConfigSchema.safeParse(problem.advancedConfig).success) {
       throw new ConflictError(
         "Advanced-mode problems require run and grade images before publishing.",
+      );
+    }
+    if (!(await hasVerifiedAdvancedJudgeRun(problem.id, problem.advancedConfig))) {
+      throw new ConflictError(
+        "Advanced-mode problems require an accepted test run with the current images before publishing.",
       );
     }
     return;
@@ -200,6 +236,12 @@ export async function updateProblemRecord(
     const problem = await requireProblem(tx, problemId);
 
     assertProblemOwnership(problem, actor);
+
+    const becomesSpecialEnv =
+      (payload.type ?? problem.type) === "special_env" && problem.type !== "special_env";
+    if (becomesSpecialEnv || payload.advancedConfig !== undefined) {
+      await assertCanCreateAdvancedProblems(actor);
+    }
 
     if (payload.status === "draft" && problem.status === "published") {
       throw new ConflictError("Published problems cannot be reverted to draft.");
@@ -320,6 +362,7 @@ export async function convertProblemToAdvancedMode(
   actor: ProblemActorContext,
   problemId: string,
 ): Promise<void> {
+  await assertCanCreateAdvancedProblems(actor);
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);

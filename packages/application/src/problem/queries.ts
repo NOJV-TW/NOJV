@@ -411,7 +411,10 @@ export async function listEditableProblems(userId: string, sort: "asc" | "desc" 
   });
 }
 
-export async function getProblemPageData(id: string) {
+export async function getProblemPageData(
+  id: string,
+  opts?: { includeAdvancedConfig?: boolean },
+) {
   const persistedProblem = await problemRepo.findDetailById(id);
 
   if (!persistedProblem) {
@@ -420,11 +423,17 @@ export async function getProblemPageData(id: string) {
 
   const [stats] = await submissionRepo.countUserStatsByProblem([persistedProblem.id]);
 
-  return await mapPersistedProblemDetail(
+  const detail = await mapPersistedProblemDetail(
     persistedProblem,
     stats?.attempters ?? 0,
     stats?.solvers ?? 0,
   );
+
+  if (!opts?.includeAdvancedConfig) {
+    return { ...detail, advancedConfig: null };
+  }
+
+  return detail;
 }
 
 export async function getProblemTestcaseSets(problemId: string) {

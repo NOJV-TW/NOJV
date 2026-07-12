@@ -13,82 +13,17 @@ const SCAFFOLD_FILES: Record<string, string> = Object.fromEntries(
   ]),
 );
 
-const MANIFEST = `version: 1
-
-problem:
-  title: Advanced Sum
-  difficulty: medium
-  visibility: private
-  statement: |
-    Read two integers and output their sum.
-  inputFormat: |
-    One line with two integers a and b.
-  outputFormat: |
-    One integer: a + b.
-  examples:
-    - input: |
-        1 2
-      output: |
-        3
-  tags:
-    - advanced
-
-scoring:
-  maxScore: 100
-
-resources:
-  timeLimitMs: 30000
-  memoryLimitMb: 512
-
-student:
-  requiredPaths:
-    - main.py
-
-network:
-  mode: none
-  allowlist: []
-
-samples:
-  - name: full-credit
-    submission: samples/full-credit.zip
-    expect:
-      verdict: accepted
-      score: 100
-`;
-
-function packageEntries(): [string, string][] {
-  return Object.entries(SCAFFOLD_FILES).filter(([path]) => !path.startsWith("service/"));
-}
-
 export function scaffoldEntryNames(): string[] {
-  return [
-    "metadata.yaml",
-    "samples/full-credit.zip",
-    ...packageEntries().map(([path]) => path),
-  ].sort((a, b) => a.localeCompare(b));
+  return Object.keys(SCAFFOLD_FILES).sort((a, b) => a.localeCompare(b));
 }
 
 export function scaffoldZipFilename(): string {
-  return "nojv-advanced-package-starter.zip";
+  return "nojv-advanced-image-templates.zip";
 }
 
 export async function buildScaffoldZip(): Promise<Blob> {
   const zip = new JSZip();
-  zip.file("metadata.yaml", MANIFEST);
-  const sample = new JSZip();
-  sample.file(
-    "main.py",
-    `import sys
-
-for line in sys.stdin:
-    print(sum(map(int, line.split())))
-`,
-  );
-  zip.file(
-    "samples/full-credit.zip",
-    await sample.generateAsync({ type: "uint8array", compression: "DEFLATE" }),
-  );
-  for (const [path, content] of packageEntries()) {
+  for (const [path, content] of Object.entries(SCAFFOLD_FILES)) {
     zip.file(path, content);
   }
   return zip.generateAsync({ type: "blob", compression: "DEFLATE" });

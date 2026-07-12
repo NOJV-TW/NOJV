@@ -58,6 +58,7 @@ enum AdminAuditAction {
   user_disable
   user_enable
   user_delete
+  user_advanced_toggle
   editorial_report_resolve
   editorial_report_dismiss
   content_report_resolve

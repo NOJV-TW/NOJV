@@ -18,7 +18,7 @@
     publicResult: ProblemListResult;
     showCreate?: boolean;
     loggedIn?: boolean;
-    advancedModeSupported?: boolean;
+    advancedCreationAllowed?: boolean;
   }
 
   let {
@@ -26,7 +26,7 @@
     publicResult,
     showCreate,
     loggedIn = false,
-    advancedModeSupported = true,
+    advancedCreationAllowed = false,
   }: Props = $props();
 
   let creating = $state(false);
@@ -183,7 +183,7 @@
             class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-hover"
             role="menu"
           >
-            {#if advancedModeSupported}
+            {#if advancedCreationAllowed}
               <button
                 class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
                 onclick={() => void handleCreate("advanced")}
@@ -195,6 +195,15 @@
                   {m.problems_createAdvancedDescription()}
                 </span>
               </button>
+            {:else}
+              <div
+                class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm opacity-60"
+              >
+                <span class="font-semibold">{m.problems_createAdvancedTitle()}</span>
+                <span class="text-caption text-muted-foreground">
+                  {m.problems_createAdvancedNoPermission()}
+                </span>
+              </div>
             {/if}
             <button
               class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"

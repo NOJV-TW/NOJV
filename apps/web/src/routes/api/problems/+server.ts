@@ -8,7 +8,6 @@ import {
   assertJsonBodyWithinLimit,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
-import { isAdvancedModeSupported } from "$lib/server/execution-backend";
 import { parseProblemListQuery } from "$lib/server/shared/problem-list-query";
 import { problemDomain } from "@nojv/application";
 
@@ -35,8 +34,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   let type: ProblemType = "full_source";
   if (mode === "advanced") {
-    if (!isAdvancedModeSupported()) {
-      error(400, "Advanced-mode problems require the Docker execution backend.");
+    if (!(await problemDomain.canCreateAdvancedProblems(actor))) {
+      error(403, "Advanced-mode problem authoring requires permission from an administrator.");
     }
     type = "special_env";
   }

@@ -16,6 +16,7 @@
     isDirty?: boolean;
     testcaseCount?: number;
     showConvertToAdvanced?: boolean;
+    convertToAdvancedAllowed?: boolean;
     railActions?: Snippet;
     dangerActions?: Snippet;
     basic?: Snippet;
@@ -32,6 +33,7 @@
     isDirty = $bindable(false),
     testcaseCount = 0,
     showConvertToAdvanced = false,
+    convertToAdvancedAllowed = false,
     railActions,
     dangerActions,
     basic,
@@ -169,17 +171,23 @@
         {@render railActions()}
       {/if}
       {#if showConvertToAdvanced}
-        <p class="px-1 text-micro leading-relaxed text-muted-foreground">
-          {m.admin_convertToAdvancedHint()}
-        </p>
-        <button
-          class="w-full rounded-full border border-border px-4 py-2 text-caption font-medium text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:border-warning hover:text-warning disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={converting}
-          type="button"
-          onclick={openConvertModal}
-        >
-          {converting ? m.admin_convertToAdvancedConverting() : m.admin_convertToAdvanced()}
-        </button>
+        {#if convertToAdvancedAllowed}
+          <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+            {m.admin_convertToAdvancedHint()}
+          </p>
+          <button
+            class="w-full rounded-full border border-border px-4 py-2 text-caption font-medium text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:border-warning hover:text-warning disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={converting}
+            type="button"
+            onclick={openConvertModal}
+          >
+            {converting ? m.admin_convertToAdvancedConverting() : m.admin_convertToAdvanced()}
+          </button>
+        {:else}
+          <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+            {m.admin_convertToAdvancedNoPermission()}
+          </p>
+        {/if}
       {/if}
       {#if dangerActions}
         {@render dangerActions()}

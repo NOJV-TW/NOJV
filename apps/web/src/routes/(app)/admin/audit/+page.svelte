@@ -19,6 +19,8 @@
         return m.admin_audit_actionUserEnable();
       case "user_delete":
         return m.admin_audit_actionUserDelete();
+      case "user_advanced_toggle":
+        return m.admin_audit_actionUserAdvancedToggle();
       case "editorial_report_resolve":
       case "content_report_resolve":
         return m.admin_audit_actionEditorialReportResolve();

@@ -24,6 +24,6 @@
     publicResult={data.publicResult}
     showCreate={data.canCreate}
     loggedIn={data.loggedIn}
-    advancedModeSupported={data.advancedModeSupported}
+    advancedCreationAllowed={data.advancedCreationAllowed}
   />
 </PageContainer>

@@ -17,22 +17,21 @@ NOJV is an Online Judge platform supporting competitive programming contests (IC
 
 ### Sensitive Assets
 
-| Asset                   | Location                                                        | Sensitivity                                                   |
-| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
-| Session tokens          | PostgreSQL `Session` table, httpOnly cookies                    | Critical — session hijack grants full account access          |
-| OAuth credentials       | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                           |
-| User passwords          | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                                   |
-| Student source code     | S3 bucket `submissions/{submissionId}/sources/{path}`           | High — per-user access control, intellectual property         |
-| Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                        |
-| Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)       | High — test harness and library code kept out of student view |
-| Advanced judge tarballs | S3 bucket `problems/{problemId}/advanced-images/{uuid}.tar`     | Medium — teacher-only write, worker-only read at judge time   |
-| Problem images          | S3 bucket `problems/{problemId}/images/{uuid}.{ext}`            | Medium — public read, teacher-only write                      |
-| Contest configuration   | PostgreSQL `Contest` (freeze time, scoring weights, IP binding) | High — manipulation breaks contest integrity                  |
-| Database credentials    | `DATABASE_URL` env var                                          | Critical — full data access                                   |
-| S3 credentials          | `S3_ACCESS_KEY`, `S3_SECRET_KEY` env vars                       | High — storage read/write                                     |
-| `BETTER_AUTH_SECRET`    | Environment variable                                            | Critical — session forgery if leaked                          |
-| OAuth client secrets    | `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` env vars         | High — OAuth impersonation                                    |
-| Plagiarism reports      | PostgreSQL inline `plagiarism*` columns + `PlagiarismPairFlag`  | Medium — academic integrity data                              |
+| Asset                  | Location                                                        | Sensitivity                                                   |
+| ---------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
+| Session tokens         | PostgreSQL `Session` table, httpOnly cookies                    | Critical — session hijack grants full account access          |
+| OAuth credentials      | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                           |
+| User passwords         | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                                   |
+| Student source code    | S3 bucket `submissions/{submissionId}/sources/{path}`           | High — per-user access control, intellectual property         |
+| Graded testcases       | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                        |
+| Hidden workspace files | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)       | High — test harness and library code kept out of student view |
+| Problem images         | S3 bucket `problems/{problemId}/images/{uuid}.{ext}`            | Medium — public read, teacher-only write                      |
+| Contest configuration  | PostgreSQL `Contest` (freeze time, scoring weights, IP binding) | High — manipulation breaks contest integrity                  |
+| Database credentials   | `DATABASE_URL` env var                                          | Critical — full data access                                   |
+| S3 credentials         | `S3_ACCESS_KEY`, `S3_SECRET_KEY` env vars                       | High — storage read/write                                     |
+| `BETTER_AUTH_SECRET`   | Environment variable                                            | Critical — session forgery if leaked                          |
+| OAuth client secrets   | `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` env vars         | High — OAuth impersonation                                    |
+| Plagiarism reports     | PostgreSQL inline `plagiarism*` columns + `PlagiarismPairFlag`  | Medium — academic integrity data                              |
 
 ### Primary Trust Boundaries
 
@@ -180,7 +179,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Resource limits: CPU (default 1 core), memory (default 256 MB, max 1024 MB), PID limit (default 64)
 - Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/services/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires
 - seccomp: Docker default profile only — explicitly NOT a custom allowlist. Rationale: the default already blocks ~44 high-risk syscalls (`kexec_load`, `bpf`, `userfaultfd`, ...) and the marginal gain from a custom profile is dwarfed by the false-negative cost across language runtimes. See [SECURITY.md — Sandbox Hardening](SECURITY.md#sandbox-hardening-seccomp-posture).
-- K8s executor refuses Advanced Mode (`request.advanced`) with a System Error verdict — that path can't `docker load` a tarball
+- Advanced Mode images are registry-only (digest-pinned) and run as hardened Jobs. A pod stuck in `ImagePullBackOff` resolves to an immediate `system_error` (terminal, no retry loop)
 - Sandbox-runner depends only on `@nojv/core` — minimal attack surface
 - Source code validated by `submissionDraftSchema` (1-50,000 chars)
 - Temporal workflow ID is deterministic (`judge-{submissionId}`) — duplicate dispatches are idempotent
@@ -193,7 +192,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Container escape**: Malicious code exploits kernel vulnerability to escape sandbox. _Mitigation_: `cap-drop ALL` removes all Linux capabilities. `no-new-privileges` prevents escalation. seccomp restricts syscalls. Read-only rootfs limits persistence. In production, Kubernetes Jobs run in a dedicated namespace with NetworkPolicy and ResourceQuota.
 - **Fork bomb / resource exhaustion**: Code spawns processes to consume host resources. _Mitigation_: PID limit (64) caps process count. Memory limit (256 MB default) caps RAM. CPU limit caps compute. Container killed on limit breach.
 - **Network exfiltration**: Code sends hidden testcase data to external server. _Mitigation_: `--network none` blocks all network access by default. When network is enabled per-problem, firewall rules whitelist specific hosts/ports only. Traffic is logged.
-- **Advanced grade-phase egress (accepted risk)**: In Advanced Mode the answer-bearing grade container runs a TA-supplied grader image with unrestricted network egress (Docker grade also runs as root). A hostile or compromised TA grader image could exfiltrate hidden testcases/answers over the network. _Accepted because_: TA grader images are inside the trust boundary (TAs are trusted, same as authoring hidden testcases), the answer-bearing grade container is isolated from the student's run container (which holds no answers), and host escape is still blocked by the same cap-drop/seccomp/read-only-rootfs posture. Not currently network-confined; revisit if untrusted graders are ever allowed.
+- **Advanced grade-phase egress (closed)**: The answer-bearing grade container now has **no network egress** on either backend (`buildGradeEgressPolicy` `egress: []` on K8s; `--network none` on Docker) and runs non-root (uid 10001) on both. A hostile or compromised TA grader image can no longer exfiltrate answers over the network; grading must be self-contained (interactive needs use the `service` container, which never holds answers). Teacher-supplied images are further constrained at input: digest-pinned refs from an allowlisted registry, per-user `canCreateAdvancedProblems` grant, and a publish gate requiring an accepted test run with the exact configured images.
 - **Filesystem escape**: Code reads sensitive files on host filesystem. _Mitigation_: Read-only rootfs. Only the bounded `tmpfs` mounts (`/tmp`, `/workspace`) are writable — no host volume mounts, so a runaway write can't fill host disk. Container runs as non-root.
 - **Compiler/runtime exploit**: Malicious source exploits compiler or runtime vulnerability. _Mitigation_: Compilation runs inside the same sandboxed container. seccomp profile limits available syscalls.
 - **Submission flooding**: Attacker submits thousands of requests to overwhelm sandbox workers. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest submit cooldown (PostgreSQL, advisory-locked). Temporal task queue provides natural backpressure. Worker capacity model lives in [RELIABILITY.md → Worker Unavailable](RELIABILITY.md#worker-unavailable).

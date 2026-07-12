@@ -90,7 +90,7 @@ describe("buildRunEgressPolicy — run Pod egress restricted to the sidecar ONLY
   });
 });
 
-describe("buildGradeEgressPolicy — grade Pod escapes deny-all with FULL egress", () => {
+describe("buildGradeEgressPolicy — grade Pod escapes deny-all but is denied ALL egress", () => {
   it("selects the grade Pod by nojv.egress=<submissionId>-grade (distinct from run)", () => {
     const policy = buildGradeEgressPolicy({ submissionId: SUB, namespace: NS });
     expect(policy.spec!.podSelector!.matchLabels).toEqual({
@@ -100,10 +100,10 @@ describe("buildGradeEgressPolicy — grade Pod escapes deny-all with FULL egress
     expect(gradeEgressLabel(SUB)).not.toBe(runEgressLabel(SUB));
   });
 
-  it("grants full egress (a single open egress rule) while denying all ingress", () => {
+  it("SECURITY: denies ALL egress (empty egress list) and all ingress", () => {
     const policy = buildGradeEgressPolicy({ submissionId: SUB, namespace: NS });
     expect(policy.spec!.policyTypes).toEqual(["Ingress", "Egress"]);
-    expect(policy.spec!.egress).toEqual([{}]);
+    expect(policy.spec!.egress).toEqual([]);
     expect(policy.spec!.ingress).toEqual([]);
   });
 });

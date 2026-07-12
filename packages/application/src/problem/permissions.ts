@@ -5,6 +5,7 @@ import {
   examProblemRepo,
   problemRepo,
   problemWorkspaceFileRepo,
+  userRepo,
   type TransactionClient,
 } from "@nojv/db";
 import type { Language, PlatformRole } from "@nojv/core";
@@ -24,6 +25,26 @@ export async function canAuthorProblems(actor: {
 }): Promise<boolean> {
   if (canCreateProblem(actor.platformRole, actor.emailVerified)) return true;
   return courseMembershipRepo.hasActiveStaffMembership(actor.userId);
+}
+
+export async function canCreateAdvancedProblems(actor: {
+  userId: string;
+  platformRole: PlatformRole;
+}): Promise<boolean> {
+  if (actor.platformRole === "admin") return true;
+  const user = await userRepo.findById(actor.userId);
+  return user?.canCreateAdvancedProblems === true;
+}
+
+export async function assertCanCreateAdvancedProblems(actor: {
+  userId: string;
+  platformRole: PlatformRole;
+}): Promise<void> {
+  if (!(await canCreateAdvancedProblems(actor))) {
+    throw new ForbiddenError(
+      "Advanced-mode problem authoring requires permission granted by an administrator.",
+    );
+  }
 }
 
 export interface ProblemActorContext {

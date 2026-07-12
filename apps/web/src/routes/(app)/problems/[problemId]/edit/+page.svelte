@@ -11,7 +11,7 @@
   import TestcaseTab from "$lib/components/features/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/features/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
-  import AdvancedPackageSection from "$lib/components/features/problem/advanced/AdvancedPackageSection.svelte";
+  import AdvancedImageConfigSection from "$lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -27,8 +27,6 @@
   let basicTab = $state<BasicInfoTab | null>(null);
   let workspaceTab = $state<WorkspaceSection | null>(null);
   let judgeTab = $state<JudgeTab | null>(null);
-  let advancedSection = $state<AdvancedPackageSection | null>(null);
-  let advancedUploadReady = $state(false);
 
   let activeSectionSavable = $derived(
     activeSection === "basic" || activeSection === "workspace" || activeSection === "judge",
@@ -68,7 +66,8 @@
     data.problem.status === "draft" &&
       (isAdvanced
         ? (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
-          (data.advancedConfig?.config?.grade.imageRef ?? "") !== ""
+          (data.advancedConfig?.config?.grade.imageRef ?? "") !== "" &&
+          data.advancedJudgeVerified
         : data.testcaseSets.length > 0),
   );
 
@@ -177,19 +176,15 @@
       });
   }
 
-  async function handleAdvancedPackageUploaded() {
-    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
-    await invalidateAll();
-  }
-
-  let advancedUploaded = $derived(
+  let advancedConfigured = $derived(
     (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
       (data.advancedConfig?.config?.grade.imageRef ?? "") !== "",
   );
 
   let advancedSteps = $derived([
-    { label: m.advancedPackage_stepEditTitle(), done: advancedUploaded },
-    { label: m.advancedPackage_stepUploadTitle(), done: advancedUploaded },
+    { label: m.advancedImages_stepBasic(), done: isBasicInfoComplete },
+    { label: m.advancedImages_stepImages(), done: advancedConfigured },
+    { label: m.advancedImages_stepTest(), done: data.advancedJudgeVerified },
     { label: m.admin_publishProblem(), done: data.problem.status !== "draft" },
   ]);
 </script>
@@ -225,10 +220,10 @@
         variant="outline"
         size="sm"
         class="w-full"
-        disabled={!advancedUploadReady}
-        onclick={() => advancedSection?.save()}
+        disabled={!isDirty}
+        onclick={() => basicTab?.save()}
       >
-        {m.advancedPackage_uploadPackage()}
+        {m.common_saveDraft()}
       </Button>
       {#if data.problem.status === "draft"}
         <Button
@@ -282,7 +277,7 @@
               class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
               href="/api/problems/advanced-scaffold"
             >
-              {m.advancedPackage_stepTemplateTitle()}
+              {m.advancedImages_downloadTemplates()}
             </a>
             <a
               class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
@@ -294,27 +289,35 @@
         {/snippet}
       </EditRail>
 
-      <div class="min-w-0 flex-1">
-        {#if data.advancedConfig}
-          <section
-            class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-          >
-            <AdvancedPackageSection
-              bind:this={advancedSection}
-              bind:uploadReady={advancedUploadReady}
-              problemId={data.problem.id}
-              config={data.advancedConfig.config}
-              onuploaded={handleAdvancedPackageUploaded}
-            />
-          </section>
-        {/if}
+      <div class="min-w-0 flex-1 space-y-6">
+        <section
+          class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+        >
+          <BasicInfoTab
+            bind:this={basicTab}
+            formData={data.form}
+            problemId={data.problem.id}
+            showRuntimeLimits={true}
+            ondirtychange={(d) => (isDirty = d)}
+          />
+        </section>
+
+        <section
+          class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+        >
+          <AdvancedImageConfigSection
+            config={data.advancedConfig?.config ?? null}
+            allowedRegistries={data.advancedAllowedRegistries}
+          />
+        </section>
       </div>
     </div>
   {:else}
     <ProblemSections
       bind:activeSection
       problemType={data.problem.type}
-      showConvertToAdvanced={data.advancedModeSupported}
+      showConvertToAdvanced={true}
+      convertToAdvancedAllowed={data.advancedCreationAllowed}
       {isBasicInfoComplete}
       {missingBasicFields}
       testcaseCount={data.testcaseSets.length}

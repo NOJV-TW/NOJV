@@ -36,7 +36,6 @@ temporal:
 web:
   replicas: 2
   nodeEnv: production
-  executionBackend: kubernetes
   hpa:
     enabled: true
     min: 2

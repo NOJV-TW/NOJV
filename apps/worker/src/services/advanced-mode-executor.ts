@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import {
   chmod,
   copyFile,
@@ -18,10 +17,8 @@ import {
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
-import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage";
 
 import { createLogger } from "../logger.js";
-import { createBoundedStringBuffer } from "./bounded-buffer";
 import { createSubmissionNetworks, removeSubmissionNetworks } from "./docker-network";
 import { sanitizeId, spawnDockerContainer } from "./docker-process";
 import {
@@ -300,6 +297,21 @@ export async function prepareRunWorkspace(
 
 export const ADVANCED_OUTPUT_MAX_FILES = 100_000;
 
+async function chmodTreeReadable(dir: string): Promise<void> {
+  const info = await stat(dir);
+  await chmod(dir, info.mode | 0o555);
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await chmodTreeReadable(full);
+    } else if (entry.isFile()) {
+      const fileInfo = await stat(full);
+      await chmod(full, fileInfo.mode | 0o444);
+    }
+  }
+}
+
 export async function prepareGradeWorkspace(
   gradeDir: string,
   runOutputDir: string,
@@ -317,6 +329,7 @@ export async function prepareGradeWorkspace(
     maxFiles: ADVANCED_OUTPUT_MAX_FILES,
     maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
   });
+  await chmodTreeReadable(gradeRunOutputDir);
 
   const meta = {
     submissionId: input.submissionId,
@@ -362,8 +375,6 @@ function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome>
 }
 
 export class AdvancedModeExecutor {
-  private readonly loadedTarballs = new Map<string, string>();
-
   async run(
     tempDir: string,
     request: SandboxRequest,
@@ -374,17 +385,8 @@ export class AdvancedModeExecutor {
       return sandboxSystemError("advanced-mode dispatch called without payload");
     }
 
-    let runImageRef: string;
-    let gradeImageRef: string;
-    try {
-      runImageRef = await this.resolveImageRef(advanced.run);
-      gradeImageRef = await this.resolveImageRef(advanced.grade);
-    } catch (err) {
-      return advancedFallbackResult(
-        request,
-        `Failed to load advanced image tarball: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    const runImageRef = advanced.run.imageRef;
+    const gradeImageRef = advanced.grade.imageRef;
 
     const runDir = join(tempDir, "run");
     const gradeDir = join(tempDir, "grade");
@@ -595,7 +597,7 @@ export class AdvancedModeExecutor {
     let networks: Awaited<ReturnType<typeof createSubmissionNetworks>> | undefined;
     let serviceContainerName: string | undefined;
     try {
-      const serviceImageRef = await this.resolveImageRef(service);
+      const serviceImageRef = service.imageRef;
       networks = await createSubmissionNetworks(request.submissionId);
       const handle = await startServiceContainer({
         submissionId: request.submissionId,
@@ -646,7 +648,7 @@ export class AdvancedModeExecutor {
     const containerName = `nojv-advanced-grade-${sanitizeId(request.submissionId).slice(0, 34)}`;
     const args = buildAdvancedDockerArgs({
       containerName,
-      networkArgs: [],
+      networkArgs: ["--network", "none"],
       workspaceDir: gradeDir,
       cpuLimit: config.cpuLimit,
       memoryMb: advanced.memoryMb,
@@ -654,7 +656,7 @@ export class AdvancedModeExecutor {
       imageRef,
       submissionId: request.submissionId,
       language: request.language,
-      user: null,
+      user: RUN_USER,
       readOnlyMounts: [
         { hostPath: join(gradeDir, "run-output"), containerPath: "/workspace/run-output" },
       ],
@@ -664,58 +666,5 @@ export class AdvancedModeExecutor {
       containerName,
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
     });
-  }
-
-  private async resolveImageRef(image: SandboxAdvancedRequest["run"]): Promise<string> {
-    if (image.imageSource === "tarball") {
-      return this.ensureTarballLoaded(image.imageRef);
-    }
-    return image.imageRef;
-  }
-
-  private async ensureTarballLoaded(storageKey: string): Promise<string> {
-    const cached = this.loadedTarballs.get(storageKey);
-    if (cached) return cached;
-
-    const storage = createStorageClient();
-    const buffer = await downloadAdvancedImageTarball(storage, storageKey);
-
-    const ref = await new Promise<string>((resolve, reject) => {
-      const child = spawn("docker", ["load", "-q"], {
-        env: process.env,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      const stdoutBuf = createBoundedStringBuffer();
-      const stderrBuf = createBoundedStringBuffer();
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
-      child.stdout.on("data", (c: string) => {
-        stdoutBuf.push(c);
-      });
-      child.stderr.on("data", (c: string) => {
-        stderrBuf.push(c);
-      });
-      child.on("error", (err: Error) => reject(err));
-      child.on("close", (code: number | null) => {
-        const stdout = stdoutBuf.toString();
-        const stderr = stderrBuf.toString();
-        if (code !== 0) {
-          reject(new Error(`docker load returned ${String(code)}: ${stderr.trim()}`));
-          return;
-        }
-        const match = /(?:Loaded image:\s*|^)(\S+)\s*$/m.exec(stdout.trim());
-        const ref = match?.[1];
-        if (!ref) {
-          reject(new Error(`Could not parse docker load output: ${stdout}`));
-          return;
-        }
-        resolve(ref);
-      });
-      child.stdin.write(buffer);
-      child.stdin.end();
-    });
-
-    this.loadedTarballs.set(storageKey, ref);
-    return ref;
   }
 }

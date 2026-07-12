@@ -23,8 +23,9 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "teacher@nojv.local",
       username: "teacher",
       platformRole: "teacher",
+      canCreateAdvancedProblems: true,
     },
-    update: {},
+    update: { canCreateAdvancedProblems: true },
     where: { username: "teacher" },
   });
 

@@ -444,18 +444,12 @@ importers:
       '@nojv/redis':
         specifier: workspace:*
         version: link:../redis
-      '@nojv/sandbox-docker':
-        specifier: workspace:*
-        version: link:../sandbox-docker
       '@nojv/storage':
         specifier: workspace:*
         version: link:../storage
       archiver:
         specifier: ^7.0.1
         version: 7.0.1
-      js-yaml:
-        specifier: ^4.2.0
-        version: 4.3.0
       unzipper:
         specifier: ^0.12.5
         version: 0.12.5
@@ -466,9 +460,6 @@ importers:
       '@types/archiver':
         specifier: ^7.0.0
         version: 7.0.0
-      '@types/js-yaml':
-        specifier: ^4.0.9
-        version: 4.0.9
       '@types/unzipper':
         specifier: ^0.10.11
         version: 0.10.11
@@ -4323,10 +4314,6 @@ packages:
 
   js-yaml@4.2.0:
     resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
-    hasBin: true
-
-  js-yaml@4.3.0:
-    resolution: {integrity: sha512-1td788aAnnZ5qs7V2QIRl1owjtYpbKt749Y3xauqQgwIIGF/xXWz1wMTEBx5O3LK3lXLVuqXPdPxj2BoFHaW9Q==}
     hasBin: true
 
   jsdom@29.1.1:
@@ -10102,10 +10089,6 @@ snapshots:
   js-tokens@10.0.0: {}
 
   js-yaml@4.2.0:
-    dependencies:
-      argparse: 2.0.1
-
-  js-yaml@4.3.0:
     dependencies:
       argparse: 2.0.1
 

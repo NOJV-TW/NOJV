@@ -582,19 +582,6 @@ export const internalSchemas = {
     required: ["url"],
   },
 
-  AdvancedPackageUploadResponse: {
-    type: "object",
-    properties: {
-      success: { type: "boolean" },
-      builtImages: {
-        type: "array",
-        items: { type: "string", enum: ["run", "grade", "service"] },
-      },
-      maxScore: { type: "number" },
-      requiredPaths: { type: "array", items: { type: "string" } },
-    },
-    required: ["success", "builtImages", "maxScore", "requiredPaths"],
-  },
   ProblemScore: {
     type: "object",
     properties: {

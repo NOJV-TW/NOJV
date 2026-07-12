@@ -157,6 +157,26 @@ carry the matching toleration (`k8s-advanced.ts` `SANDBOX_TOLERATIONS`), so they
 schedule fine whether or not the taint exists. Re-introduce the taint only once
 you join a dedicated sandbox node ([§9](#9-scaling-from-one-node-to-many)).
 
+### Kubelet image GC
+
+Teacher-provided special_env images accumulate on the node and the kubelet
+defaults (GC only above 85% disk) never fire on a box that runs well below
+that. Install the drop-in from `infra/k3s/kubelet.conf.d/90-image-gc.conf`
+(k3s ≥ v1.29 merges `/var/lib/rancher/k3s/agent/etc/kubelet.conf.d/*.conf`
+over its generated defaults):
+
+```bash
+sudo cp infra/k3s/kubelet.conf.d/90-image-gc.conf \
+  /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/90-image-gc.conf
+sudo systemctl restart k3s
+```
+
+This sets `imageGCHighThresholdPercent: 75` / `imageGCLowThresholdPercent: 65`
+and `imageMaximumGCAge: 168h`, so images unused for a week are pruned even
+without disk pressure. Restarting k3s bounces the control plane briefly;
+running Pods keep running. Verify with
+`sudo k3s kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" | jq .kubeletconfig.imageMaximumGCAge`.
+
 ## 3. Sandbox namespace + guardrails
 
 You do **not** apply these by hand — the chart renders them. The
@@ -222,11 +242,8 @@ not-in-a-registry tags.
 > tag images `localhost:5000/nojv-*`, `docker push`, and reference them by that
 > ref (add `localhost:5000` to k3s's `/etc/rancher/k3s/registries.yaml`
 > `mirrors` so it pulls insecurely). This also matters for **advanced
-> (`special_env`) problems**: only **registry-source** advanced run/grade images
-> run on the K8s backend — point them at a registry the cluster can pull (a
-> local one is fine). **Tarball-source advanced is Docker-backend-only** and
-> will return a System Error here (`K8sExecutor.executeAdvanced`), because the
-> cluster cannot `docker load` a TA tarball.
+> (`special_env`) problems**: advanced run/grade images are registry-only —
+> point them at a registry the cluster can pull (a local one is fine).
 
 ## 5. Prerequisites the chart does not install
 
@@ -502,7 +519,7 @@ elasticity.
 - [Deployment Guide](../operations/DEPLOYMENT.md) — GKE path, env-var reference,
   Cloudflare/Cloud Armor trust model
 - [Judge Pipeline](../architecture/JUDGE_PIPELINE.md) — sandbox backends,
-  registry- vs tarball-source advanced
+  advanced-mode image refs
 - [Security Requirements](../operations/SECURITY.md) — sandbox isolation guarantees
 - [Backup & Restore](backup-restore.md) — restore drills for the self-hosted deps
 - [Getting Started](getting-started.md) — local (Docker-backend) dev stack

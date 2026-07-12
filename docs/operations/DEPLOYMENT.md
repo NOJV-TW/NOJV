@@ -58,9 +58,10 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Web
 
-| Variable          | Default    | Purpose                                                                                                                                                                                                                                                              |
-| ----------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BODY_SIZE_LIMIT` | `67108864` | SvelteKit adapter-node POST body cap, in bytes. Baked into `web.Dockerfile` at 64 MiB so the 60 MB cap on bundle/workspace/checker/interactor upload routes is the effective ceiling. The adapter's built-in default is 512 KiB and would reject every asset upload. |
+| Variable                            | Default                                                                                                 | Purpose                                                                                                                                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BODY_SIZE_LIMIT`                   | `67108864`                                                                                              | SvelteKit adapter-node POST body cap, in bytes. Baked into `web.Dockerfile` at 64 MiB so the 60 MB cap on bundle/workspace/checker/interactor upload routes is the effective ceiling. The adapter's built-in default is 512 KiB and would reject every asset upload. |
+| `ADVANCED_IMAGE_ALLOWED_REGISTRIES` | `ghcr.io,docker.io,quay.io,registry.gitlab.com,gcr.io,public.ecr.aws,mcr.microsoft.com,registry.k8s.io` | Comma-separated registry hosts accepted for teacher-supplied special_env image refs (default trusts the major public registries). Refs must be digest-pinned; validated at the input layer only (chart value `web.advancedImageAllowedRegistries`).                  |
 
 ### OAuth (Optional)
 
@@ -124,17 +125,14 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 > `K8S_*` limits only by the Kubernetes backend. The schema enforces this split,
 > so each backend requires exactly the keys it actually uses.
 
-> Advanced-mode (`special_env`) judging runs on **both** backends:
-> **registry-source** run/grade images execute as K8s Jobs (incl. the `none` /
-> `allowlist` / `service` network modes — see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#advanced-mode-pipeline)
-> and `tests/integration/k8s/judge-k8s.test.ts`). Only **tarball-source**
-> advanced requires the Docker backend, because the cluster cannot `docker load`
-> a TA-supplied tarball (`K8sExecutor.executeAdvanced` returns a System Error for
-> tarball-source run/grade — push the image to a registry the cluster can pull
-> instead). When `EXECUTION_BACKEND=kubernetes`, also set the same value on the
-> **web** service (`EXECUTION_BACKEND` is part of the web env schema, default
-> `docker`) so it hides tarball-source advanced-problem creation/conversion. The
-> chart sets it to `kubernetes` on both web and the workers (`web.executionBackend`).
+> Advanced-mode (`special_env`) judging runs on **both** backends: run/grade
+> images execute as K8s Jobs (incl. the `none` / `allowlist` / `service` network
+> modes — see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#advanced-mode-pipeline)
+> and `tests/integration/k8s/judge-k8s.test.ts`). Registry image refs are the
+> only advanced authoring path: teachers download the starter templates from the
+> problem editor, build the run/grade/service images themselves, push to an
+> allowlisted registry, and paste digest-pinned refs back into the editor (gated
+> per-user by `User.canCreateAdvancedProblems`).
 
 ### Object Storage (S3-Compatible)
 
