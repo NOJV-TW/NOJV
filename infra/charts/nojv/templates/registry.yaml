@@ -27,6 +27,8 @@ data:
         secure: {{ ternary "false" "true" .Values.storage.inCluster }}
       delete:
         enabled: true
+      redirect:
+        disable: true
       cache:
         blobdescriptor: inmemory
     http:
