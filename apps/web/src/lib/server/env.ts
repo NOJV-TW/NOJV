@@ -29,6 +29,14 @@ const webEnvSchema = z
       .transform((val) => (val === "" ? DEFAULT_ADVANCED_IMAGE_REGISTRIES : val))
       .default(DEFAULT_ADVANCED_IMAGE_REGISTRIES),
 
+    REGISTRY_PUBLIC_HOST: z.string().trim().default(""),
+    REGISTRY_INTERNAL_URL: z.string().trim().default(""),
+    REGISTRY_TOKEN_ISSUER: z.string().trim().default("nojv"),
+    REGISTRY_TOKEN_PRIVATE_KEY: z.string().trim().default(""),
+    REGISTRY_TOKEN_CERT: z.string().trim().default(""),
+    REGISTRY_PULL_PASSWORD_HASH: z.string().trim().default(""),
+    REGISTRY_CI_PASSWORD_HASH: z.string().trim().default(""),
+
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),
 

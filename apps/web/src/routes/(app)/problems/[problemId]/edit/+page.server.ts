@@ -25,7 +25,8 @@ import {
   allowedImageRegistries,
   buildAdvancedConfigFromInput,
 } from "$lib/server/advanced-image-config";
-import { problemDomain } from "@nojv/application";
+import { getWebEnv } from "$lib/server/env";
+import { problemDomain, registryDomain } from "@nojv/application";
 
 const {
   getProblemPageData,
@@ -100,6 +101,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     ? await problemDomain.hasVerifiedAdvancedJudgeRun(params.problemId, problem.advancedConfig)
     : false;
 
+  const registryEnv = getWebEnv();
+  const registryCredential = isAdvanced
+    ? await registryDomain.getRegistryCredentialStatus(actor.userId)
+    : null;
+
   return {
     problem,
     form,
@@ -114,6 +120,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     advancedJudgeVerified,
     advancedCreationAllowed: await problemDomain.canCreateAdvancedProblems(actor),
     advancedAllowedRegistries: allowedImageRegistries(),
+    registryHost: registryEnv.REGISTRY_PUBLIC_HOST,
+    registryCredential: registryCredential
+      ? {
+          username: registryCredential.username,
+          updatedAt: registryCredential.updatedAt,
+          lastUsedAt: registryCredential.lastUsedAt,
+        }
+      : null,
   };
 });
 
@@ -257,6 +271,20 @@ export const actions: Actions = {
     await updateProblemRecord(actor, problemId, {
       advancedConfig: buildAdvancedConfigFromInput(parsed.data),
     });
+    await problemDomain.updateAdvancedRequiredPaths(
+      actor,
+      problemId,
+      parsed.data.requiredPaths,
+    );
     return { success: true };
+  }),
+
+  generateRegistryCredential: problemEditAction(async ({ actor }) => {
+    const credential = await registryDomain.generateRegistryCredential(actor);
+    return {
+      success: true,
+      username: credential.username,
+      password: credential.password,
+    };
   }),
 };

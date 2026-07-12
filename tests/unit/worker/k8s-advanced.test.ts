@@ -675,6 +675,19 @@ describe("buildAdvancedRunJobManifest — untrusted run Pod", () => {
     expect(m.spec!.backoffLimit).toBe(0);
     expect(m.spec!.activeDeadlineSeconds).toBe(90);
   });
+
+  it("carries imagePullSecrets when an imagePullSecretName is supplied", () => {
+    const m = buildAdvancedRunJobManifest({
+      ...RUN_PARAMS,
+      imagePullSecretName: "nojv-registry-pull",
+    });
+    expect(m.spec!.template.spec!.imagePullSecrets).toEqual([{ name: "nojv-registry-pull" }]);
+  });
+
+  it("omits imagePullSecrets when no imagePullSecretName is supplied", () => {
+    const m = buildAdvancedRunJobManifest(RUN_PARAMS);
+    expect(m.spec!.template.spec!.imagePullSecrets).toBeUndefined();
+  });
 });
 
 describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code", () => {
@@ -743,6 +756,19 @@ describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code",
       runAsUser: 10001,
     });
     expect(m.spec!.template.metadata!.labels!["nojv.egress"]).toBe("sub-adv-1-grade");
+  });
+
+  it("carries imagePullSecrets when an imagePullSecretName is supplied", () => {
+    const m = buildAdvancedGradeJobManifest({
+      ...GRADE_PARAMS,
+      imagePullSecretName: "nojv-registry-pull",
+    });
+    expect(m.spec!.template.spec!.imagePullSecrets).toEqual([{ name: "nojv-registry-pull" }]);
+  });
+
+  it("omits imagePullSecrets when no imagePullSecretName is supplied", () => {
+    const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
+    expect(m.spec!.template.spec!.imagePullSecrets).toBeUndefined();
   });
 });
 
@@ -1139,6 +1165,46 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.configMapsDeleted.some((c) => c.name === "judge-sub-adv-1-run-input")).toBe(
       true,
     );
+  });
+
+  it("imagePullSecretName in config threads onto both Jobs and the service-mode sidecar Pod", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(
+      { ...EXEC_CONFIG, imagePullSecretName: "nojv-registry-pull" },
+      buildFakeClients(record, { sidecarLog }),
+    );
+    await executor.execute(
+      makeAdvancedRequest({
+        network: {
+          mode: "service",
+          service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+        },
+      }),
+    );
+
+    const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
+    expect(runJob.body.spec.template.spec.imagePullSecrets).toEqual([
+      { name: "nojv-registry-pull" },
+    ]);
+    const gradeJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-grade")!;
+    expect(gradeJob.body.spec.template.spec.imagePullSecrets).toEqual([
+      { name: "nojv-registry-pull" },
+    ]);
+
+    const svcPod = record.podsCreated.find((p) => p.name === "judge-sub-adv-1-sidecar")!;
+    expect(svcPod.body.spec.imagePullSecrets).toEqual([{ name: "nojv-registry-pull" }]);
+  });
+
+  it("without imagePullSecretName the created Jobs carry no imagePullSecrets", async () => {
+    const record = emptyRecord();
+    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
+    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    await executor.execute(makeAdvancedRequest());
+
+    for (const job of record.jobsCreated) {
+      expect(job.body.spec.template.spec.imagePullSecrets).toBeUndefined();
+    }
   });
 });
 

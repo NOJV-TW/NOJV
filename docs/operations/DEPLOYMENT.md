@@ -134,6 +134,18 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 > allowlisted registry, and paste digest-pinned refs back into the editor (gated
 > per-user by `User.canCreateAdvancedProblems`).
 
+> **Self-hosted registry** (`registry.enabled`, on by default in the
+> single-machine overlay): a CNCF distribution `registry:2` Deployment stores
+> blobs in the in-cluster MinIO (bucket `nojv-registry`, auto-created by a Helm
+> hook) or any S3 endpoint (`registry.s3.regionendpoint` — GKE points it at
+> GCS). Auth is Docker token auth: the web app's `/api/registry/token` endpoint
+> validates platform-issued credentials (generated per-teacher from the problem
+> editor) and signs scoped JWTs — teachers push only to `t/<username>/…`, judge
+> pods pull everything via the `worker.sandbox.imagePullSecret` dockerconfigjson
+> Secret in the sandbox namespace, `demo/…` is anonymous-pull. Setup steps
+> (signing pair, service accounts, tunnel hostname) are in the
+> [single-machine runbook](../runbooks/k8s-single-machine.md#5-prerequisites-the-chart-does-not-install).
+
 ### Object Storage (S3-Compatible)
 
 | Variable        | Default                 | Purpose                                                               |

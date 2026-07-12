@@ -12,6 +12,7 @@
   import JudgeTab from "$lib/components/features/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
   import AdvancedImageConfigSection from "$lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
+  import RegistryCredentialCard from "$lib/components/features/problem/advanced/RegistryCredentialCard.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -302,12 +303,24 @@
           />
         </section>
 
+        {#if data.registryHost}
+          <section
+            class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+          >
+            <RegistryCredentialCard
+              registryHost={data.registryHost}
+              credential={data.registryCredential}
+            />
+          </section>
+        {/if}
+
         <section
           class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
         >
           <AdvancedImageConfigSection
             config={data.advancedConfig?.config ?? null}
             allowedRegistries={data.advancedAllowedRegistries}
+            requiredPaths={data.problem.advancedRequiredPaths ?? []}
           />
         </section>
       </div>

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AdvancedConfig } from "@nojv/core";
+import { requiredPathsSchema, type AdvancedConfig } from "@nojv/core";
 import { getWebEnv } from "./env";
 
 export function allowedImageRegistries(): string[] {
@@ -38,6 +38,7 @@ export const advancedImageConfigInputSchema = z
     networkAllowlist: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
     serviceImageRef: pinnedImageRefSchema.optional(),
     maxScore: z.coerce.number().int().min(1).max(100_000).default(100),
+    requiredPaths: requiredPathsSchema,
   })
   .superRefine((value, ctx) => {
     if (value.networkMode === "allowlist" && value.networkAllowlist.length === 0) {

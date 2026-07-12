@@ -68,6 +68,7 @@ catalog:
   bcryptjs: ^3.0.3
   esbuild: ^0.28.1
   ioredis: ^5.11.1
+  jose: ^6.2.3
   jszip: ^3.10.1
   pino: ^10.3.1
   prisma: ^7.8.0

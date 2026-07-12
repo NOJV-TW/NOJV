@@ -76,6 +76,7 @@ model User {
   triggeredPlagiarismLogs        PlagiarismTriggerLog[]       @relation("PlagiarismTriggerLogTriggerer")
   problemBookmarks               ProblemBookmark[]
   apiTokens                      ApiToken[]
+  registryCredential             RegistryCredential?
   revokedApiTokens               ApiToken[]                   @relation("ApiTokenRevoker")
   twoFactors                     TwoFactor[]
   passkeys                       Passkey[]
@@ -195,3 +196,17 @@ model ApiToken {
   @@index([status])
   @@index([expiresAt])
 }
+
+model RegistryCredential {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  username     String @unique
+  passwordHash String
+
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+

@@ -30,6 +30,9 @@ catalogs:
     ioredis:
       specifier: ^5.11.1
       version: 5.11.1
+    jose:
+      specifier: ^6.2.3
+      version: 6.2.3
     jszip:
       specifier: ^3.10.1
       version: 3.10.1
@@ -274,6 +277,9 @@ importers:
       isomorphic-dompurify:
         specifier: ^3.18.0
         version: 3.18.0(@noble/hashes@2.2.0)
+      jose:
+        specifier: 'catalog:'
+        version: 6.2.3
       jszip:
         specifier: 'catalog:'
         version: 3.10.1
@@ -450,6 +456,9 @@ importers:
       archiver:
         specifier: ^7.0.1
         version: 7.0.1
+      bcryptjs:
+        specifier: 'catalog:'
+        version: 3.0.3
       unzipper:
         specifier: ^0.12.5
         version: 0.12.5

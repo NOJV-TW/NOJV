@@ -110,6 +110,7 @@ export interface ServiceSidecarParams {
   memoryMb: number;
   cpuLimit: string;
   port: number;
+  imagePullSecretName?: string;
 }
 
 export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8s.V1Pod {
@@ -124,6 +125,9 @@ export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8
     spec: {
       restartPolicy: "Never",
       automountServiceAccountToken: false,
+      ...(params.imagePullSecretName
+        ? { imagePullSecrets: [{ name: params.imagePullSecretName }] }
+        : {}),
       nodeSelector: SANDBOX_NODE_SELECTOR,
       tolerations: SANDBOX_TOLERATIONS,
       securityContext: SERVICE_POD_SECURITY_CONTEXT,

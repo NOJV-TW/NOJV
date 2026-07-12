@@ -86,6 +86,7 @@ export interface K8sExecutorConfig {
   headroomMb?: number;
   maxMemoryMb?: number;
   egressProxyImage?: string;
+  imagePullSecretName?: string;
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
   maxParallelCases?: number;
@@ -296,6 +297,9 @@ export class K8sExecutor implements SandboxExecutor {
           language: request.language,
           ...(hasSidecar ? { egressLabel: runEgressLabel(submissionId) } : {}),
           ...(runExtraEnv ? { extraEnv: runExtraEnv } : {}),
+          ...(this.config.imagePullSecretName
+            ? { imagePullSecretName: this.config.imagePullSecretName }
+            : {}),
         }),
       });
 
@@ -334,6 +338,9 @@ export class K8sExecutor implements SandboxExecutor {
           language: request.language,
           nodeName,
           egressLabel: gradeEgressLabel(submissionId),
+          ...(this.config.imagePullSecretName
+            ? { imagePullSecretName: this.config.imagePullSecretName }
+            : {}),
         }),
       });
 
@@ -446,6 +453,9 @@ export class K8sExecutor implements SandboxExecutor {
         memoryMb: advanced.memoryMb,
         cpuLimit: this.config.cpuLimit,
         port: SIDECAR_PORT,
+        ...(this.config.imagePullSecretName
+          ? { imagePullSecretName: this.config.imagePullSecretName }
+          : {}),
       }),
     });
     const clusterIp = await this.createSidecarServiceAndPolicies(submissionId, ns);

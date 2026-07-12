@@ -61,12 +61,19 @@ seed:
 
 web:
   replicas: 1
+  advancedImageAllowedRegistries: "registry.nojv.tw,ghcr.io,docker.io,quay.io,registry.gitlab.com,gcr.io,public.ecr.aws,mcr.microsoft.com,registry.k8s.io"
   hpa:
     enabled: false
   ingress:
     enabled: false
   service:
     type: ClusterIP
+
+registry:
+  enabled: true
+  host: registry.nojv.tw
+  token:
+    realm: https://nojv.tw/api/registry/token
 
 edge:
   cloudflared:
@@ -89,6 +96,8 @@ worker:
   platform:
     replicas: 1
     submissionPendingTimeoutMinutes: 10
+  sandbox:
+    imagePullSecret: nojv-registry-pull
 
 pdb:
   enabled: false

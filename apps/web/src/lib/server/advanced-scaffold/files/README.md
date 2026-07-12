@@ -68,7 +68,9 @@ are trusted by default). Ask an administrator if you need another host added.
 ## Privacy — images with answers or hidden tests must be private
 
 The `grade` image holds your answers and the `run` image holds your hidden test
-inputs. If those are secret, **push them as private packages** so students can't
-pull them. Public images are fine only when the environment isn't secret (e.g. a
-demo). Private images require NOJV to be configured with pull access to your
-registry — ask an administrator to set that up.
+inputs. If those are secret, push them to the **platform registry**: generate
+your personal push credentials from the problem editor's "Registry push
+account" card, `docker login` with them, and push to your private namespace
+(`<registry-host>/t/<your-username>/…`). Only you and the judge can pull those
+repositories. Public images on external registries are fine only when the
+environment isn't secret (e.g. a demo).

@@ -41,6 +41,7 @@ export * as platformDomain from "./platform";
 export * as postDomain from "./post";
 export * as proctoringDomain from "./proctoring";
 export * as problemDomain from "./problem";
+export * as registryDomain from "./registry";
 export * as scoreOverrideDomain from "./score-override";
 export * as scoring from "./scoring";
 export * as submissionDomain from "./submission";

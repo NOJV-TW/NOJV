@@ -16,6 +16,7 @@ export function createExecutor(env: WorkerEnv): SandboxExecutor {
       headroomMb: env.SANDBOX_MEMORY_HEADROOM_MB,
       maxMemoryMb: env.SANDBOX_MAX_MEMORY_MB,
       egressProxyImage: env.EGRESS_PROXY_IMAGE,
+      ...(env.K8S_IMAGE_PULL_SECRET ? { imagePullSecretName: env.K8S_IMAGE_PULL_SECRET } : {}),
     });
   }
   return new DockerExecutor({
