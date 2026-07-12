@@ -51,6 +51,7 @@ export { postRepo } from "./post";
 export { postCommentRepo } from "./post-comment";
 export { postVoteRepo } from "./post-vote";
 export { problemBookmarkRepo } from "./problem-bookmark";
+export { registryCredentialRepo } from "./registry-credential";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export {
   scoreOverrideRepo,

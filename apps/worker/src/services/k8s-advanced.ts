@@ -217,6 +217,7 @@ export interface AdvancedRunJobManifestParams {
   language: string;
   egressLabel?: string;
   extraEnv?: Record<string, string>;
+  imagePullSecretName?: string;
 }
 
 export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams): k8s.V1Job {
@@ -252,6 +253,9 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          ...(params.imagePullSecretName
+            ? { imagePullSecrets: [{ name: params.imagePullSecretName }] }
+            : {}),
           terminationGracePeriodSeconds: RUN_POD_TERMINATION_GRACE_SECONDS,
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
@@ -320,6 +324,7 @@ export interface AdvancedGradeJobManifestParams {
   language: string;
   nodeName: string;
   egressLabel: string;
+  imagePullSecretName?: string;
 }
 
 export function buildAdvancedGradeJobManifest(
@@ -352,6 +357,9 @@ export function buildAdvancedGradeJobManifest(
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          ...(params.imagePullSecretName
+            ? { imagePullSecrets: [{ name: params.imagePullSecretName }] }
+            : {}),
           nodeName: params.nodeName,
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,

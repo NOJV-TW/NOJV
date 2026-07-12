@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_46 models and 38 enums across 9 schema files._
+_47 models and 38 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -89,6 +89,19 @@ Indexes & constraints: `@@index([userId])`, `@@index([status])`, `@@index([expir
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@index([userId])`, `@@index([credentialID])`
+
+#### `RegistryCredential`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `userId` | `String` | `@unique` |
+| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `username` | `String` | `@unique` |
+| `passwordHash` | `String` | — |
+| `lastUsedAt` | `DateTime?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
 
 #### `SchoolVerificationToken`
 
@@ -196,6 +209,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `triggeredPlagiarismLogs` | `PlagiarismTriggerLog[]` | `@relation("PlagiarismTriggerLogTriggerer")` |
 | `problemBookmarks` | `ProblemBookmark[]` | — |
 | `apiTokens` | `ApiToken[]` | — |
+| `registryCredential` | `RegistryCredential?` | — |
 | `revokedApiTokens` | `ApiToken[]` | `@relation("ApiTokenRevoker")` |
 | `twoFactors` | `TwoFactor[]` | — |
 | `passkeys` | `Passkey[]` | — |

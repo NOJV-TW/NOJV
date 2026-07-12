@@ -101,6 +101,37 @@ storage:
           cpu: 250m
           memory: 256Mi
 
+registry:
+  # Self-hosted OCI registry (CNCF distribution) for teacher-built special_env
+  # judge images. DEFAULT OFF: enabling it requires the REGISTRY_* runtime-secret
+  # keys (see secret.example.yaml) and, for judge pulls, the dockerconfigjson
+  # Secret named in worker.sandbox.imagePullSecret. Blobs live in the in-cluster
+  # MinIO bucket below when storage.inCluster; otherwise set s3.regionendpoint.
+  enabled: false
+  image: registry:2.8.3
+  # Public hostname teachers docker-push to (behind the edge tunnel).
+  host: ""
+  bucket: nojv-registry
+  # In-cluster Service URL the web token endpoint / admin catalog calls. Empty =
+  # http://<release>-registry.<ns>.svc.cluster.local:5000 (templated default).
+  internalUrl: ""
+  token:
+    # Full public URL of the token endpoint the registry redirects clients to
+    # (e.g. https://nojv.tw/api/registry/token).
+    realm: ""
+    issuer: nojv
+  # S3 endpoint for the blob backend when storage.inCluster=false (the in-cluster
+  # MinIO Service is used automatically otherwise).
+  s3:
+    regionendpoint: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
 temporal:
   address: temporal-frontend.nojv-temporal.svc.cluster.local:7233
   namespace: default
@@ -251,6 +282,10 @@ worker:
     cpuLimit: "1"
     memoryRequest: "256Mi"
     memoryLimit: "512Mi"
+    # dockerconfigjson Secret (in the sandbox namespace, created out-of-band) added
+    # to judge run/grade/service pods' imagePullSecrets so they can pull private
+    # special_env images. Empty = no pull secret (K8S_IMAGE_PULL_SECRET unset).
+    imagePullSecret: ""
 
 pdb:
   enabled: false

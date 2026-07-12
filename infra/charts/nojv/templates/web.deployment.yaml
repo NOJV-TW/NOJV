@@ -57,6 +57,38 @@ spec:
             - name: ADVANCED_IMAGE_ALLOWED_REGISTRIES
               value: {{ .Values.web.advancedImageAllowedRegistries | quote }}
             {{- end }}
+            {{- if .Values.registry.enabled }}
+            - name: REGISTRY_PUBLIC_HOST
+              value: {{ .Values.registry.host | quote }}
+            - name: REGISTRY_INTERNAL_URL
+              value: {{ .Values.registry.internalUrl | default (printf "http://%s-registry.%s.svc.cluster.local:5000" (include "nojv.fullname" .) (include "nojv.namespace" .)) | quote }}
+            - name: REGISTRY_TOKEN_ISSUER
+              value: {{ .Values.registry.token.issuer | quote }}
+            - name: REGISTRY_TOKEN_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REGISTRY_TOKEN_PRIVATE_KEY
+                  optional: true
+            - name: REGISTRY_TOKEN_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REGISTRY_TOKEN_CERT
+                  optional: true
+            - name: REGISTRY_PULL_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REGISTRY_PULL_PASSWORD_HASH
+                  optional: true
+            - name: REGISTRY_CI_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REGISTRY_CI_PASSWORD_HASH
+                  optional: true
+            {{- end }}
             - name: DB_POOL_MAX
               value: {{ .Values.web.dbPoolMax | quote }}
             - name: S3_BUCKET

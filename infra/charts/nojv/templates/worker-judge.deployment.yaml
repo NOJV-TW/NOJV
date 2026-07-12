@@ -59,6 +59,10 @@ spec:
               value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
             - name: EGRESS_PROXY_IMAGE
               value: {{ include "nojv.image" (dict "root" . "component" "egressProxy") }}
+            {{- with .Values.worker.sandbox.imagePullSecret }}
+            - name: K8S_IMAGE_PULL_SECRET
+              value: {{ . | quote }}
+            {{- end }}
             - name: WORKER_CONCURRENCY
               value: {{ .Values.worker.judge.concurrency | quote }}
             - name: K8S_CPU_REQUEST

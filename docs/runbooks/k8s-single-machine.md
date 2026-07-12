@@ -294,6 +294,36 @@ The **migrator** runs automatically as a pre-install/pre-upgrade Helm hook
 (`infra/charts/nojv/templates/migrator.job.yaml`), so there is no manual
 migration step — the schema is current before web/workers roll.
 
+**c. Registry secrets + pull secret** (only when `registry.enabled`, the
+single-machine default). The self-hosted registry (special_env judge images)
+needs three keys in the runtime secret and one dockerconfigjson Secret in the
+sandbox namespace:
+
+```bash
+# Token-auth signing pair (web signs, registry verifies):
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -days 3650 -keyout token.key -out token.crt -subj "/CN=nojv-registry-token"
+# → runtime secret keys REGISTRY_TOKEN_PRIVATE_KEY (token.key),
+#   REGISTRY_TOKEN_CERT (token.crt), plus a random REGISTRY_HTTP_SECRET.
+
+# Judge pull account (password → hash in runtime secret, plaintext → pull secret):
+node -e 'const c=require("crypto");const s=c.randomBytes(24).toString("base64url");console.log("password:",s,"\nhash:",c.createHash("sha256").update(s).digest("base64url"))'
+# → runtime secret key REGISTRY_PULL_PASSWORD_HASH (the hash), and:
+kubectl -n nojv-sandbox create secret docker-registry nojv-registry-pull \
+  --docker-server=registry.nojv.tw --docker-username=judge-pull \
+  --docker-password=<the password>
+# CI push account: same recipe → REGISTRY_CI_PASSWORD_HASH + GitHub Actions
+# secrets REGISTRY_PUSH_USER=ci-push / REGISTRY_PUSH_PASSWORD=<password>.
+```
+
+Expose the registry publicly by adding a `registry.nojv.tw` hostname to the
+Cloudflare tunnel (Zero Trust dashboard → the existing tunnel → Public
+Hostnames → service `http://nojv-registry.nojv.svc.cluster.local:5000`).
+Teachers `docker login registry.nojv.tw` with credentials issued from the
+problem editor; judge pods pull via the `nojv-registry-pull` secret. Note the
+Cloudflare free tier caps a single request body at 100 MB — image layers larger
+than that fail to push (split layers).
+
 ## 6. Install the chart
 
 Create the runtime secret, then install the chart with the single-machine

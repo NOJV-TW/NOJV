@@ -10,6 +10,7 @@ Components:
   postgres   : mode={{ .Values.postgres.mode }}{{ if eq .Values.postgres.mode "cnpg" }} (CNPG Cluster {{ include "nojv.cnpgClusterName" . }}, instances {{ .Values.postgres.cnpg.instances }}){{ end }}
   redis      : {{ if .Values.redis.inCluster }}in-cluster ({{ include "nojv.fullname" . }}-redis){{ else }}external (REDIS_URL from secret){{ end }}
   storage    : {{ if .Values.storage.inCluster }}in-cluster MinIO ({{ include "nojv.fullname" . }}-minio){{ else }}external S3 (S3_* from secret){{ end }}
+  registry   : {{ if .Values.registry.enabled }}in-cluster distribution ({{ include "nojv.fullname" . }}-registry, push host {{ .Values.registry.host }}){{ else }}disabled{{ end }}
   temporal   : {{ .Values.temporal.address }} (ns {{ .Values.temporal.namespace }})
 
 PREREQUISITES (NOT installed by this chart):
@@ -20,6 +21,17 @@ PREREQUISITES (NOT installed by this chart):
      (this chart only renders the Cluster CR).
 {{- end }}
   3. A Temporal Server must be reachable at {{ .Values.temporal.address }}.
+{{- if .Values.registry.enabled }}
+  4. The self-hosted registry (registry.enabled) needs, out-of-band:
+     - runtime-secret keys REGISTRY_HTTP_SECRET, REGISTRY_TOKEN_CERT,
+       REGISTRY_TOKEN_PRIVATE_KEY (see secret.example.yaml).
+     - a dockerconfigjson pull Secret "{{ .Values.worker.sandbox.imagePullSecret }}"
+       in namespace {{ include "nojv.sandboxNamespace" . }} so judge pods can pull:
+         kubectl -n {{ include "nojv.sandboxNamespace" . }} create secret docker-registry {{ .Values.worker.sandbox.imagePullSecret }} \
+           --docker-server={{ .Values.registry.host }} --docker-username=<pull-user> --docker-password=<pull-token>
+     - a public hostname / tunnel route for {{ .Values.registry.host }} pointing at
+       the {{ include "nojv.fullname" . }}-registry Service on port 5000.
+{{- end }}
 
 DATABASE_URL is read from the runtime secret in every postgres.mode:
 {{- if eq .Values.postgres.mode "cnpg" }}

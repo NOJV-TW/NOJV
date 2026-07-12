@@ -26,6 +26,14 @@ storage:
   inCluster: false
   region: auto
 
+registry:
+  enabled: true
+  host: registry.example.com # replace with your registry hostname
+  token:
+    realm: https://nojv.example.com/api/registry/token
+  s3:
+    regionendpoint: https://storage.googleapis.com # blob backend (storage.inCluster=false)
+
 seed:
   enabled: true
 
@@ -36,6 +44,7 @@ temporal:
 web:
   replicas: 2
   nodeEnv: production
+  advancedImageAllowedRegistries: "registry.example.com,ghcr.io,docker.io,quay.io,registry.gitlab.com,gcr.io,public.ecr.aws,mcr.microsoft.com,registry.k8s.io"
   hpa:
     enabled: true
     min: 2
@@ -56,6 +65,8 @@ worker:
     replicas: 1
     nodeSelector:
       nojv-role: worker
+  sandbox:
+    imagePullSecret: nojv-registry-pull
 
 pdb:
   enabled: true

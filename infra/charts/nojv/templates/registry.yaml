@@ -1,0 +1,227 @@
+{{- if .Values.registry.enabled }}
+{{/*
+In-cluster OCI registry (CNCF distribution / registry:2) for teacher-built
+special_env judge images. Stateless — blobs live in the in-cluster MinIO bucket
+(registry.bucket) when storage.inCluster, otherwise in registry.s3.regionendpoint.
+Token auth: the web /api/registry/token endpoint signs scoped JWTs the registry
+verifies against REGISTRY_TOKEN_CERT (mounted as rootcertbundle). REGISTRY_HTTP_SECRET
+and the S3 creds come from the runtime secret — never templated here.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-registry-config
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: registry
+data:
+  config.yml: |
+    version: 0.1
+    storage:
+      s3:
+        region: us-east-1
+        regionendpoint: {{ if .Values.storage.inCluster }}{{ printf "http://%s-minio.%s.svc.cluster.local:9000" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}{{ else }}{{ .Values.registry.s3.regionendpoint | quote }}{{ end }}
+        bucket: {{ .Values.registry.bucket | quote }}
+        forcepathstyle: true
+        secure: {{ ternary "false" "true" .Values.storage.inCluster }}
+      delete:
+        enabled: true
+      cache:
+        blobdescriptor: inmemory
+    http:
+      addr: :5000
+    auth:
+      token:
+        realm: {{ .Values.registry.token.realm | quote }}
+        service: {{ .Values.registry.host | quote }}
+        issuer: {{ .Values.registry.token.issuer | quote }}
+        rootcertbundle: /etc/registry-certs/token.crt
+    health:
+      storagedriver:
+        enabled: true
+        interval: 10s
+        threshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-registry
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: registry
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-registry
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-registry
+      annotations:
+        checksum/config: {{ printf "%v-%s-%s-%s-%s-%s" .Values.storage.inCluster .Values.registry.s3.regionendpoint .Values.registry.bucket .Values.registry.token.realm .Values.registry.host .Values.registry.token.issuer | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: registry
+          image: {{ .Values.registry.image }}
+          imagePullPolicy: IfNotPresent
+          args: ["serve", "/etc/distribution/config.yml"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: REGISTRY_HTTP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: REGISTRY_HTTP_SECRET
+            - name: REGISTRY_STORAGE_S3_ACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: REGISTRY_STORAGE_S3_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+          ports:
+            - containerPort: 5000
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/distribution/config.yml
+              subPath: config.yml
+              readOnly: true
+            - name: token-cert
+              mountPath: /etc/registry-certs
+              readOnly: true
+            - name: var-lib
+              mountPath: /var/lib/registry
+          livenessProbe:
+            tcpSocket:
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.registry.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "nojv.fullname" . }}-registry-config
+        - name: token-cert
+          secret:
+            secretName: {{ include "nojv.runtimeSecretName" . }}
+            items:
+              - key: REGISTRY_TOKEN_CERT
+                path: token.crt
+        - name: var-lib
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nojv.fullname" . }}-registry
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: registry
+spec:
+  selector:
+    app.kubernetes.io/name: nojv-registry
+  ports:
+    - name: http
+      port: 5000
+      targetPort: http
+{{- if .Values.storage.inCluster }}
+---
+{{/*
+Creates the registry's MinIO bucket. Only when storage.inCluster (external S3
+backends are provisioned out-of-band). Runs as a post-install/post-upgrade hook
+so the bucket exists before the first push. Mirrors the mc container shape in
+minio-backup.cronjob.yaml.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nojv.fullname" . }}-registry-bucket-init
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: registry-bucket-init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-registry-bucket-init
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: mc-home
+          emptyDir: {}
+      containers:
+        - name: mc
+          image: {{ .Values.storage.minio.backup.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              mc alias set local "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+              mc mb --ignore-existing "local/$REGISTRY_BUCKET"
+          volumeMounts:
+            - name: mc-home
+              mountPath: /tmp
+          env:
+            - name: HOME
+              value: /tmp
+            - name: MC_CONFIG_DIR
+              value: /tmp/.mc
+            - name: S3_ENDPOINT
+              value: {{ printf "http://%s-minio.%s.svc:9000" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+            - name: REGISTRY_BUCKET
+              value: {{ .Values.registry.bucket | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+{{- end }}
+{{- end }}

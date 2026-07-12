@@ -47,6 +47,7 @@
     "echarts": "^6.1.0",
     "ioredis": "catalog:",
     "isomorphic-dompurify": "^3.18.0",
+    "jose": "catalog:",
     "jszip": "catalog:",
     "katex": "^0.17.0",
     "marked": "^18.0.5",

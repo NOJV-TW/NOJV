@@ -180,6 +180,17 @@ describe("buildProxySidecarPodManifest — reuses the egress-proxy image, harden
     });
     expect(pod.metadata!.labels![EGRESS_LABEL_KEY]).toBeUndefined();
   });
+
+  it("never carries imagePullSecrets (platform egress-proxy image, not a teacher image)", () => {
+    const pod = buildProxySidecarPodManifest({
+      submissionId: SUB,
+      namespace: NS,
+      image: "proxy:1",
+      allowlist: ["x.example.com"],
+      port: SIDECAR_PORT,
+    });
+    expect(pod.spec!.imagePullSecrets).toBeUndefined();
+  });
 });
 
 describe("buildServiceSidecarPodManifest — TA service image (registry only), full-net peer", () => {
@@ -225,6 +236,31 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), f
     expect(podCtx.runAsGroup).toBeUndefined();
     expect(containerCtx.runAsUser).toBeUndefined();
     expect(containerCtx.runAsGroup).toBeUndefined();
+  });
+
+  it("carries imagePullSecrets when an imagePullSecretName is supplied", () => {
+    const pod = buildServiceSidecarPodManifest({
+      submissionId: SUB,
+      namespace: NS,
+      image: "registry/ta/service:1.0",
+      memoryMb: 512,
+      cpuLimit: "1",
+      port: SIDECAR_PORT,
+      imagePullSecretName: "nojv-registry-pull",
+    });
+    expect(pod.spec!.imagePullSecrets).toEqual([{ name: "nojv-registry-pull" }]);
+  });
+
+  it("omits imagePullSecrets when no imagePullSecretName is supplied", () => {
+    const pod = buildServiceSidecarPodManifest({
+      submissionId: SUB,
+      namespace: NS,
+      image: "registry/ta/service:1.0",
+      memoryMb: 512,
+      cpuLimit: "1",
+      port: SIDECAR_PORT,
+    });
+    expect(pod.spec!.imagePullSecrets).toBeUndefined();
   });
 });
 

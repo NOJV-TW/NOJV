@@ -79,6 +79,7 @@ infra/charts/nojv/
     ├── postgres-cnpg.yaml           # CNPG Cluster + ScheduledBackup (mode==cnpg)
     ├── redis.yaml                   # in-cluster Redis (redis.inCluster)
     ├── minio.yaml                   # in-cluster MinIO (storage.inCluster)
+    ├── registry.yaml                # in-cluster distribution registry + bucket-init (registry.enabled)
     ├── otel-collector.yaml          # OTLP collector (observability.collector.enabled)
     ├── prometheus.yaml              # in-cluster Prometheus (observability.prometheus.enabled)
     ├── grafana.yaml                 # in-cluster Grafana + dashboards (observability.grafana.enabled)
@@ -99,6 +100,11 @@ infra/charts/nojv/
 | `redis.inCluster`                                                               | `true`                                                             | deploy in-cluster Redis, else `REDIS_URL` from secret                                                               |
 | `storage.inCluster`                                                             | `true`                                                             | deploy in-cluster MinIO, else `S3_*` from secret                                                                    |
 | `storage.bucket` / `storage.region`                                             | `nojv` / `auto`                                                    | S3 bucket/region                                                                                                    |
+| `registry.enabled`                                                              | `false`                                                            | deploy the in-cluster distribution registry for special_env images                                                  |
+| `registry.{image,host,bucket,internalUrl,resources}`                            | `registry:2.8.3` / `""` / `nojv-registry` / `""`                   | registry image, public push host, MinIO blob bucket, in-cluster URL (empty = Service DNS), sizing                   |
+| `registry.token.{realm,issuer}`                                                 | `""` / `nojv`                                                      | token-auth realm (public URL of the web token endpoint) + JWT issuer                                                |
+| `registry.s3.regionendpoint`                                                    | `""`                                                               | blob S3 endpoint when `storage.inCluster=false` (in-cluster MinIO used otherwise)                                   |
+| `worker.sandbox.imagePullSecret`                                                | `""`                                                               | dockerconfigjson Secret (sandbox ns) added to judge pods' `imagePullSecrets` (`K8S_IMAGE_PULL_SECRET`)              |
 | `temporal.address` / `temporal.namespace`                                       | in-cluster Temporal frontend / `default`                           | Temporal client target                                                                                              |
 | `secrets.runtimeSecretName`                                                     | `nojv-runtime-secrets`                                             | existing secret to reference                                                                                        |
 | `web.replicas` / `web.resources` / `web.nodeSelector`                           | `1` / 256Mi-512Mi                                                  | web sizing                                                                                                          |

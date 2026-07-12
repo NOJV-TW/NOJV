@@ -11,9 +11,10 @@
   interface Props {
     config: AdvancedConfig | null;
     allowedRegistries: string[];
+    requiredPaths: string[];
   }
 
-  let { config, allowedRegistries }: Props = $props();
+  let { config, allowedRegistries, requiredPaths }: Props = $props();
 
   const textareaClassName = `${inputClassName} min-h-20 resize-y font-mono`;
   const refInputClassName = `${inputClassName} font-mono`;
@@ -25,6 +26,7 @@
   let allowlistText = $state((initial?.network.allowlist ?? []).join("\n"));
   let serviceImageRef = $state(initial?.network.service?.imageRef ?? "");
   let maxScore = $state(initial?.maxScore ?? 100);
+  let requiredPathsText = $state(untrack(() => requiredPaths).join("\n"));
   let saving = $state(false);
 
   const DIGEST_PATTERN = /^\S+@sha256:[0-9a-f]{64}$/;
@@ -68,6 +70,10 @@
           : [],
       ...(networkMode === "service" ? { serviceImageRef: serviceImageRef.trim() } : {}),
       maxScore,
+      requiredPaths: requiredPathsText
+        .split("\n")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0),
     };
     const fd = new FormData();
     fd.set("data", JSON.stringify(payload));
@@ -162,6 +168,15 @@
       {#if serviceIssue}<span class="text-caption text-destructive">{serviceIssue}</span>{/if}
     </label>
   {/if}
+
+  <label class="block text-body-sm text-muted-foreground">
+    <span>{m.advancedImages_requiredPathsLabel()}</span>
+    <textarea
+      class={textareaClassName}
+      placeholder={"main.py\nsolver/model.py"}
+      bind:value={requiredPathsText}></textarea>
+    <span class="text-caption">{m.advancedImages_requiredPathsHint()}</span>
+  </label>
 
   <div class="flex items-center gap-3">
     <Button size="sm" loading={saving} disabled={!canSave || saving} onclick={save}>

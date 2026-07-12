@@ -45,6 +45,7 @@ export const TABLES = [
   "Passkey",
   "Session",
   "ApiToken",
+  "RegistryCredential",
   "Account",
   "User",
 ] as const;
