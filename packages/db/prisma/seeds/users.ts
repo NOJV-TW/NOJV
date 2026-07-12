@@ -1,20 +1,22 @@
 import bcrypt from "bcryptjs";
 
 import type { PrismaClient } from "../../generated/prisma/client";
+import { readSeedAdminEnv } from "./admin";
 
 export async function seedUsers(prisma: PrismaClient) {
   const passwordHash = bcrypt.hashSync("password123", 10);
+  const adminEnv = readSeedAdminEnv();
 
   const admin = await prisma.user.upsert({
     create: {
       name: "Admin",
-      email: "admin@nojv.local",
-      username: "admin",
+      email: adminEnv.email,
+      username: adminEnv.username,
       platformRole: "admin",
       isSuperAdmin: true,
     },
     update: { isSuperAdmin: true },
-    where: { username: "admin" },
+    where: { username: adminEnv.username },
   });
 
   const teacher = await prisma.user.upsert({
@@ -77,16 +79,23 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { username: placeholderUsername },
   });
 
-  const credentialedUsers = [admin, teacher, taStudent, student, newStudent];
+  const adminPasswordHash = bcrypt.hashSync(adminEnv.password, 10);
+  const credentialedUsers = [
+    { user: admin, hash: adminPasswordHash },
+    { user: teacher, hash: passwordHash },
+    { user: taStudent, hash: passwordHash },
+    { user: student, hash: passwordHash },
+    { user: newStudent, hash: passwordHash },
+  ];
 
-  for (const u of credentialedUsers) {
+  for (const { user: u, hash } of credentialedUsers) {
     await prisma.account.upsert({
       create: {
         id: `acct_${u.username}`,
         accountId: u.id,
         providerId: "credential",
         userId: u.id,
-        password: passwordHash,
+        password: hash,
       },
       update: {},
       where: { id: `acct_${u.username}` },

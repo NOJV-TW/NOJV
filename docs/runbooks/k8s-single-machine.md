@@ -312,8 +312,12 @@ node -e 'const c=require("crypto");const s=c.randomBytes(24).toString("base64url
 kubectl -n nojv-sandbox create secret docker-registry nojv-registry-pull \
   --docker-server=registry.nojv.tw --docker-username=judge-pull \
   --docker-password=<the password>
-# CI push account: same recipe → REGISTRY_CI_PASSWORD_HASH + GitHub Actions
-# secrets REGISTRY_PUSH_USER=ci-push / REGISTRY_PUSH_PASSWORD=<password>.
+# Demo push account (`ci-push`, scoped to demo/**): same recipe →
+# REGISTRY_CI_PASSWORD_HASH. Used by an operator running `pnpm demo-advanced:push`
+# after `docker login registry.nojv.tw -u ci-push` — the seed's special_env demo
+# problem references these images, so publish them before (re)running a seed
+# that includes it. Not wired into CI: demo problems are optional seed content,
+# and Cloudflare's bot protection blocks GitHub-hosted runners anyway.
 ```
 
 Expose the registry publicly by adding a `registry.nojv.tw` hostname to the
