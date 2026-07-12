@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { credFindByUserId, credFindByUsername, credUpsert, credMarkUsed, userFindById } =
@@ -73,7 +72,9 @@ describe("generateRegistryCredential", () => {
     const [userId, username, storedHash] = credUpsert.mock.calls[0]!;
     expect(userId).toBe("usr_t");
     expect(username).toBe("teacher");
-    await expect(bcrypt.compare(issued.password, storedHash as string)).resolves.toBe(true);
+    await expect(
+      verifyServiceAccountSecret(issued.password, storedHash as string),
+    ).resolves.toBe(true);
   });
 
   it("keeps the stored username on rotation", async () => {
