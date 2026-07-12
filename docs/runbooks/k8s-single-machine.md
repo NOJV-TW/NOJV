@@ -206,17 +206,15 @@ Build, then import via `k3s ctr images import` from a `docker save` tarball.
 
 **Tag to match the chart's composed image ref.** The single-machine overlay sets
 `image.registry: ""`, `image.repositoryPrefix: nojv`, `image.tag: latest` with
-per-component repos `web` / `worker` / `sandbox` / `egress-proxy` / `migrator`
+per-component repos `web` / `worker` / `sandbox` / `migrator`
 (`image.repositories.*`), so the chart references the bare names
-`nojv/web:latest`, `nojv/worker:latest`, `nojv/sandbox:latest`,
-`nojv/egress-proxy:latest`, and `nojv/migrator:latest`. Build with exactly those
+`nojv/web:latest`, `nojv/worker:latest`, `nojv/sandbox:latest`, and
+`nojv/migrator:latest`. Build with exactly those
 tags:
 
 ```bash
 # Sandbox runtime (SANDBOX_IMAGE)
 docker build -t nojv/sandbox:latest -f infra/docker/sandbox-runner.Dockerfile .
-# Egress proxy (EGRESS_PROXY_IMAGE — used by advanced allowlist/service modes)
-docker build -t nojv/egress-proxy:latest -f infra/docker/egress-proxy/Dockerfile infra/docker/egress-proxy
 # Worker, web, and migrator app images
 docker build -t nojv/worker:latest   -f infra/docker/worker.Dockerfile .
 docker build -t nojv/web:latest      -f infra/docker/web.Dockerfile .
@@ -226,10 +224,10 @@ docker build -t nojv/migrator:latest -f infra/docker/migrator.Dockerfile .
 Import each into k3s's containerd:
 
 ```bash
-for img in nojv/sandbox:latest nojv/egress-proxy:latest nojv/worker:latest nojv/web:latest nojv/migrator:latest; do
+for img in nojv/sandbox:latest nojv/worker:latest nojv/web:latest nojv/migrator:latest; do
   docker save "$img" | sudo k3s ctr images import -
 done
-sudo k3s ctr images ls | grep nojv   # confirm all five are present
+sudo k3s ctr images ls | grep nojv   # confirm all four are present
 ```
 
 On **kind**, load the same tags with `kind load docker-image nojv/web:latest …`
@@ -379,9 +377,9 @@ runs first.
 
 The chart sets **all** required worker env: the Kubernetes variant of
 `parseWorkerEnv` (`apps/worker/src/env.ts`) mandates `K8S_NAMESPACE`, the four
-`K8S_*` sandbox-Pod limits, and `EGRESS_PROXY_IMAGE`, all wired from
-`worker.sandbox.{cpuRequest,cpuLimit,memoryRequest,memoryLimit}` and the image
-values. You don't hand-set any of it.
+`K8S_*` sandbox-Pod limits, all wired from
+`worker.sandbox.{cpuRequest,cpuLimit,memoryRequest,memoryLimit}`. You don't
+hand-set any of it.
 
 > **Do NOT set `NOJV_ALLOW_UNENFORCED_NETWORK_POLICY`.** It is the dev-only
 > opt-out for the startup CNI self-check. On this deployment Calico enforces

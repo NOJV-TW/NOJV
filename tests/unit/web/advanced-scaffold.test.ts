@@ -76,6 +76,7 @@ describe("advanced-scaffold", () => {
   it("includes an optional service template", async () => {
     const files = await unzip();
     expect(files["service/Dockerfile"]).toContain("FROM python:3.12-slim");
+    expect(files["service/Dockerfile"]).toContain("USER 10001:10001");
     expect(files["service/service.py"]).toBeDefined();
   });
 

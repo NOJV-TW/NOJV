@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { requiredPathsSchema } from "./required-paths";
+
 export const advancedTestcaseResultSchema = z.object({
   index: z.number().int().nonnegative(),
   verdict: z.enum(["AC", "WA", "TLE", "MLE", "RE", "SE"]),
@@ -69,27 +71,11 @@ export type ImageRef = z.infer<typeof imageRefSchema>;
 
 const networkSchema = z
   .object({
-    mode: z.enum(["none", "allowlist", "service"]).default("none"),
-    allowlist: z.array(z.string().min(1)).optional(),
+    mode: z.enum(["none", "service"]).default("none"),
     service: imageRefSchema.optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.mode === "allowlist") {
-      if (!value.allowlist || value.allowlist.length === 0) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["allowlist"],
-          message: "allowlist must be a non-empty array when mode is 'allowlist'",
-        });
-      }
-      if (value.service) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["service"],
-          message: "service must be absent when mode is 'allowlist'",
-        });
-      }
-    } else if (value.mode === "service") {
+    if (value.mode === "service") {
       if (!value.service) {
         ctx.addIssue({
           code: "custom",
@@ -97,21 +83,7 @@ const networkSchema = z
           message: "service must be present when mode is 'service'",
         });
       }
-      if (value.allowlist) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["allowlist"],
-          message: "allowlist must be absent when mode is 'service'",
-        });
-      }
     } else {
-      if (value.allowlist) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["allowlist"],
-          message: "allowlist must be absent when mode is 'none'",
-        });
-      }
       if (value.service) {
         ctx.addIssue({
           code: "custom",
@@ -130,3 +102,21 @@ export const advancedConfigSchema = z.object({
 });
 
 export type AdvancedConfig = z.infer<typeof advancedConfigSchema>;
+
+export const advancedJudgeConfigurationSchema = z.object({
+  config: advancedConfigSchema,
+  requiredPaths: requiredPathsSchema,
+});
+
+export type AdvancedJudgeConfiguration = z.infer<typeof advancedJudgeConfigurationSchema>;
+
+export const advancedJudgeVerificationSnapshotSchema = advancedJudgeConfigurationSchema.extend({
+  resourceLimits: z.object({
+    totalTimeMs: z.number().int().min(100).max(30_000),
+    memoryMb: z.number().int().min(16).max(1024),
+  }),
+});
+
+export type AdvancedJudgeVerificationSnapshot = z.infer<
+  typeof advancedJudgeVerificationSnapshotSchema
+>;

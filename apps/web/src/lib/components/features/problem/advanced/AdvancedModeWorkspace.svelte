@@ -5,6 +5,7 @@
   import { inferDraftContext } from "$lib/stores/code-draft";
   import {
     apiErrorSchema,
+    MAX_SUBMISSION_BODY_BYTES,
     sourceExtensions,
     submissionDispatchResponseSchema,
     submissionOperationSchema,
@@ -140,9 +141,6 @@
     isSubmitting = true;
     submitError = null;
 
-    pollAbortController = new AbortController();
-    const { signal } = pollAbortController;
-
     const uploadLanguage = inferUploadLanguage([
       ...requiredPaths,
       ...staged.sourceFiles.map((f) => f.path),
@@ -159,10 +157,22 @@
       sourceCode: placeholderSource,
       sourceFiles: staged.sourceFiles,
     });
+    const serializedBody = JSON.stringify(body);
+    if (new TextEncoder().encode(serializedBody).byteLength > MAX_SUBMISSION_BODY_BYTES) {
+      submitError =
+        staged.kind === "zip"
+          ? m.advancedMode_zipTooLarge({ max: MAX_SUBMISSION_BODY_BYTES / (1024 * 1024) })
+          : m.advancedMode_fileTooLarge({ max: MAX_SUBMISSION_BODY_BYTES / (1024 * 1024) });
+      isSubmitting = false;
+      return;
+    }
+
+    pollAbortController = new AbortController();
+    const { signal } = pollAbortController;
 
     try {
       const response = await fetch("/api/submissions", {
-        body: JSON.stringify(body),
+        body: serializedBody,
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         method: "POST",
         signal,

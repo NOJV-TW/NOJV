@@ -6,7 +6,6 @@ image:
     web: nojv-web
     worker: nojv-worker
     sandbox: nojv-sandbox
-    egressProxy: nojv-egress-proxy
     migrator: nojv-migrator
 
 postgres:

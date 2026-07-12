@@ -2,16 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildGradeEgressPolicy,
-  buildProxyRunEnv,
-  buildProxySidecarPodManifest,
   buildRunEgressPolicy,
   buildServiceRunEnv,
   buildServiceSidecarPodManifest,
-  buildSidecarEgressPolicy,
+  buildSidecarNetworkPolicy,
   buildSidecarServiceManifest,
   EGRESS_LABEL_KEY,
   gradeEgressLabel,
-  PROXY_READY_MARKER,
   runEgressLabel,
   SERVICE_READY_MARKER,
   SIDECAR_PORT,
@@ -108,18 +105,24 @@ describe("buildGradeEgressPolicy — grade Pod escapes deny-all but is denied AL
   });
 });
 
-describe("buildSidecarEgressPolicy — sidecar full egress, ingress ONLY from the run Pod", () => {
-  it("selects the sidecar Pod and grants full egress", () => {
-    const policy = buildSidecarEgressPolicy({ submissionId: SUB, namespace: NS });
+describe("buildSidecarNetworkPolicy — ingress only from the matching run Pod", () => {
+  it("denies all egress for a TA service sidecar", () => {
+    const policy = buildSidecarNetworkPolicy({
+      submissionId: SUB,
+      namespace: NS,
+    });
     expect(policy.spec!.podSelector!.matchLabels).toEqual({
       [SIDECAR_ROLE_LABEL_KEY]: SUB,
     });
     expect(policy.spec!.policyTypes).toEqual(["Ingress", "Egress"]);
-    expect(policy.spec!.egress).toEqual([{}]);
+    expect(policy.spec!.egress).toEqual([]);
   });
 
   it("SECURITY: allows ingress ONLY from the run Pod (nojv.egress=<id>), nothing else", () => {
-    const policy = buildSidecarEgressPolicy({ submissionId: SUB, namespace: NS });
+    const policy = buildSidecarNetworkPolicy({
+      submissionId: SUB,
+      namespace: NS,
+    });
     // The client serializes the `_from` field to wire `from` (attributeTypeMap baseName).
     expect(policy.spec!.ingress).toEqual([
       {
@@ -133,67 +136,7 @@ describe("buildSidecarEgressPolicy — sidecar full egress, ingress ONLY from th
   });
 });
 
-describe("buildProxySidecarPodManifest — reuses the egress-proxy image, hardened", () => {
-  it("uses the configured proxy image and renders NOJV_ALLOWLIST from the allowlist", () => {
-    const pod = buildProxySidecarPodManifest({
-      submissionId: SUB,
-      namespace: NS,
-      image: "registry/nojv/egress-proxy:latest",
-      allowlist: ["api.example.com:443", "data.example.org"],
-      port: SIDECAR_PORT,
-    });
-    const container = pod.spec!.containers[0]!;
-    expect(container.image).toBe("registry/nojv/egress-proxy:latest");
-    const env = Object.fromEntries((container.env ?? []).map((e) => [e.name, e.value]));
-    expect(env.NOJV_ALLOWLIST).toBe("api.example.com:443,data.example.org");
-    expect(env.NOJV_PROXY_PORT).toBe(String(SIDECAR_PORT));
-  });
-
-  it("carries the sidecar role label and is hardened (non-root, cap-drop, read-only rootfs)", () => {
-    const pod = buildProxySidecarPodManifest({
-      submissionId: SUB,
-      namespace: NS,
-      image: "proxy:1",
-      allowlist: ["x.example.com"],
-      port: SIDECAR_PORT,
-    });
-    expect(pod.metadata!.labels![SIDECAR_ROLE_LABEL_KEY]).toBe(SUB);
-    expect(pod.spec!.automountServiceAccountToken).toBe(false);
-    expect(pod.spec!.securityContext).toMatchObject({
-      runAsNonRoot: true,
-      seccompProfile: { type: "RuntimeDefault" },
-    });
-    expect(pod.spec!.containers[0]!.securityContext).toMatchObject({
-      allowPrivilegeEscalation: false,
-      capabilities: { drop: ["ALL"] },
-      readOnlyRootFilesystem: true,
-    });
-  });
-
-  it("does NOT carry the nojv.egress escape label (its access is via its own sidecar policy)", () => {
-    const pod = buildProxySidecarPodManifest({
-      submissionId: SUB,
-      namespace: NS,
-      image: "proxy:1",
-      allowlist: ["x.example.com"],
-      port: SIDECAR_PORT,
-    });
-    expect(pod.metadata!.labels![EGRESS_LABEL_KEY]).toBeUndefined();
-  });
-
-  it("never carries imagePullSecrets (platform egress-proxy image, not a teacher image)", () => {
-    const pod = buildProxySidecarPodManifest({
-      submissionId: SUB,
-      namespace: NS,
-      image: "proxy:1",
-      allowlist: ["x.example.com"],
-      port: SIDECAR_PORT,
-    });
-    expect(pod.spec!.imagePullSecrets).toBeUndefined();
-  });
-});
-
-describe("buildServiceSidecarPodManifest — TA service image (registry only), full-net peer", () => {
+describe("buildServiceSidecarPodManifest — TA service image (registry only), isolated peer", () => {
   it("uses the TA service image and the sidecar role label", () => {
     const pod = buildServiceSidecarPodManifest({
       submissionId: SUB,
@@ -211,17 +154,24 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), f
     expect(container.env).toContainEqual({ name: "PORT", value: "8888" });
     expect(container.resources!.limits!.memory).toBe("512Mi");
     expect(pod.spec!.automountServiceAccountToken).toBe(false);
-    expect(pod.spec!.securityContext).toMatchObject({ runAsNonRoot: true });
+    expect(pod.spec!.securityContext).toMatchObject({
+      runAsNonRoot: true,
+      runAsUser: 10001,
+      runAsGroup: 10001,
+      fsGroup: 10001,
+    });
     expect(container.securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       capabilities: { drop: ["ALL"] },
       readOnlyRootFilesystem: true,
       runAsNonRoot: true,
+      runAsUser: 10001,
+      runAsGroup: 10001,
     });
     expect(pod.spec!.volumes!.some((v) => v.name === "tmp" && v.emptyDir)).toBe(true);
   });
 
-  it("does NOT pin runAsUser/runAsGroup (trusted TA service keeps its image uid)", () => {
+  it("pins the service to the same non-root uid on every executor backend", () => {
     const pod = buildServiceSidecarPodManifest({
       submissionId: SUB,
       namespace: NS,
@@ -232,10 +182,10 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), f
     });
     const podCtx = pod.spec!.securityContext as Record<string, unknown>;
     const containerCtx = pod.spec!.containers[0]!.securityContext as Record<string, unknown>;
-    expect(podCtx.runAsUser).toBeUndefined();
-    expect(podCtx.runAsGroup).toBeUndefined();
-    expect(containerCtx.runAsUser).toBeUndefined();
-    expect(containerCtx.runAsGroup).toBeUndefined();
+    expect(podCtx.runAsUser).toBe(10001);
+    expect(podCtx.runAsGroup).toBe(10001);
+    expect(containerCtx.runAsUser).toBe(10001);
+    expect(containerCtx.runAsGroup).toBe(10001);
   });
 
   it("carries imagePullSecrets when an imagePullSecretName is supplied", () => {
@@ -278,15 +228,6 @@ describe("buildSidecarServiceManifest — ClusterIP Service pointing at the side
 });
 
 describe("run env injection helpers — inject the sidecar ClusterIP, never a DNS name", () => {
-  it("buildProxyRunEnv points HTTP(S)_PROXY at the sidecar ClusterIP:port (no DNS in run Pod)", () => {
-    const env = buildProxyRunEnv("10.96.0.42", SIDECAR_PORT);
-    expect(env.HTTP_PROXY).toBe("http://10.96.0.42:8888");
-    expect(env.HTTPS_PROXY).toBe("http://10.96.0.42:8888");
-    expect(env.http_proxy).toBe("http://10.96.0.42:8888");
-    expect(env.NO_PROXY).toBe("");
-    expect(env.HTTP_PROXY).not.toContain("sidecar");
-  });
-
   it("buildServiceRunEnv injects NOJV_SERVICE_HOST as the sidecar ClusterIP:8888 (host:port)", () => {
     const env = buildServiceRunEnv("10.96.0.42");
     expect(env.NOJV_SERVICE_HOST).toBe("10.96.0.42:8888");
@@ -295,8 +236,7 @@ describe("run env injection helpers — inject the sidecar ClusterIP, never a DN
 });
 
 describe("readiness markers", () => {
-  it("re-exports the proxy and service ready markers from the docker analogues", () => {
-    expect(PROXY_READY_MARKER).toBe("NOJV_PROXY_READY");
+  it("re-exports the service ready marker from the docker analogue", () => {
     expect(SERVICE_READY_MARKER).toBe("NOJV_SERVICE_READY");
   });
 });

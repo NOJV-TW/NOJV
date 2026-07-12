@@ -19,7 +19,8 @@ export const keys = {
   clarificationStaffChannel: (contextType: string, contextId: string) =>
     `nojv:clarification-staff:${contextType}:${contextId}`,
 
-  apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
+  apiTokenStepUp: (sessionId: string) => `nojv:apitoken:stepup:${sessionId}`,
+  stepUpHandoffTicket: (ticket: string) => `nojv:stepup:handoff:${ticket}`,
   tokenPageMfa: (sessionId: string) => `nojv:apitoken:page-mfa:${sessionId}`,
   adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
   adminMode: (sessionId: string) => `nojv:admin:mode:${sessionId}`,
@@ -27,5 +28,5 @@ export const keys = {
   twoFactorActivationOtp: (userId: string) => `nojv:2fa:activation-otp:${userId}`,
   twoFactorActivationOtpAttempts: (userId: string) =>
     `nojv:2fa:activation-otp-attempts:${userId}`,
-  twoFactorChangeGrant: (userId: string) => `nojv:2fa:change-grant:${userId}`,
+  twoFactorChangeGrant: (sessionId: string) => `nojv:2fa:change-grant:${sessionId}`,
 } as const;

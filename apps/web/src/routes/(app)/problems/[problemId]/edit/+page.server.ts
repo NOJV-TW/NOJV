@@ -21,9 +21,9 @@ import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import {
-  advancedImageConfigInputSchema,
   allowedImageRegistries,
   buildAdvancedConfigFromInput,
+  createAdvancedImageConfigInputSchema,
 } from "$lib/server/advanced-image-config";
 import { getWebEnv } from "$lib/server/env";
 import { problemDomain, registryDomain } from "@nojv/application";
@@ -98,7 +98,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   );
 
   const advancedJudgeVerified = isAdvanced
-    ? await problemDomain.hasVerifiedAdvancedJudgeRun(params.problemId, problem.advancedConfig)
+    ? await problemDomain.hasVerifiedAdvancedJudgeRun(
+        params.problemId,
+        problem.advancedConfig,
+        problem.advancedRequiredPaths,
+        { totalTimeMs: problem.timeLimitMs, memoryMb: problem.memoryLimitMb },
+      )
     : false;
 
   const registryEnv = getWebEnv();
@@ -263,19 +268,20 @@ export const actions: Actions = {
       return fail(400, { error: "Invalid data: not valid JSON" });
     }
 
-    const parsed = advancedImageConfigInputSchema.safeParse(json);
+    const registryCredential = await registryDomain.getRegistryCredentialStatus(actor.userId);
+    const parsed = createAdvancedImageConfigInputSchema({
+      allowAnyPlatformRegistryNamespace: actor.platformRole === "admin",
+      platformRegistryHost: getWebEnv().REGISTRY_PUBLIC_HOST,
+      platformRegistryNamespace: registryCredential?.username ?? null,
+    }).safeParse(json);
     if (!parsed.success) {
       return fail(400, { error: parsed.error.issues.map((issue) => issue.message).join(" ") });
     }
 
-    await updateProblemRecord(actor, problemId, {
-      advancedConfig: buildAdvancedConfigFromInput(parsed.data),
+    await problemDomain.updateAdvancedJudgeConfiguration(actor, problemId, {
+      config: buildAdvancedConfigFromInput(parsed.data),
+      requiredPaths: parsed.data.requiredPaths,
     });
-    await problemDomain.updateAdvancedRequiredPaths(
-      actor,
-      problemId,
-      parsed.data.requiredPaths,
-    );
     return { success: true };
   }),
 

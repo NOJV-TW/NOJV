@@ -29,7 +29,10 @@ function buildActivities(overrides: Partial<Activities> = {}): Activities {
       oldStatus: "accepted",
     })),
     fetchJudgeContext: vi.fn(async () => ({ problemType: "full_source", advanced: null })),
-    executeSandbox: vi.fn(async () => ({ testcaseResults: [] })),
+    executeSandbox: vi.fn(async () => ({
+      result: { testcaseResults: [] },
+      advancedJudgeVerificationSnapshot: null,
+    })),
     completeSubmission: vi.fn(async () => ({
       id: "sub_1",
       contestId: null,
@@ -82,6 +85,12 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
     expect(activities.fetchJudgeContext).toHaveBeenCalledTimes(1);
     expect(activities.executeSandbox).toHaveBeenCalledTimes(1);
     expect(activities.completeSubmission).toHaveBeenCalledTimes(1);
+    expect(activities.completeSubmission).toHaveBeenCalledWith(
+      "sub_1",
+      { testcaseResults: [] },
+      "standard",
+      null,
+    );
     expect(activities.publishVerdict).toHaveBeenCalledTimes(1);
     expect(activities.snapshotSubmissionForRejudge).not.toHaveBeenCalled();
   });

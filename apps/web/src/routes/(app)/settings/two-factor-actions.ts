@@ -1,5 +1,6 @@
 import {
   clearTwoFactorChangeGrant,
+  createStepUpHandoffTicket,
   generateActivationOtp,
   hasTwoFactorChangeGrant,
   isTwoFactorActivated,
@@ -16,12 +17,12 @@ import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
+import { STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
 import { otpSendRateLimiter, stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   clearStepUp,
   hasFreshStepUp,
   hasStepUpFactor,
-  markAdminSessionMfa,
   userHasCredentialPassword,
   verifyStepUpCode,
 } from "$lib/server/step-up";
@@ -133,8 +134,10 @@ async function authorizeTwoFactorChange(
   opts: { allowChangeGrant: boolean },
 ): Promise<{ ok: true } | StepUpFailure> {
   const actor = requireAuth(event);
+  const sessionId = event.locals.session?.id;
+  if (!sessionId) return { ok: false, status: 403, needsStepUp: true };
 
-  if (opts.allowChangeGrant && (await hasTwoFactorChangeGrant(actor.userId))) {
+  if (opts.allowChangeGrant && (await hasTwoFactorChangeGrant(sessionId))) {
     return { ok: true };
   }
 
@@ -149,7 +152,7 @@ async function authorizeTwoFactorChange(
         error: STEP_UP_FAIL_MESSAGE[result.reason],
       };
     }
-    if (await hasFreshStepUp(actor.userId)) return { ok: true };
+    if (await hasFreshStepUp(sessionId)) return { ok: true };
     return { ok: false, status: 403, needsStepUp: true };
   }
 
@@ -243,6 +246,8 @@ export const twoFactorActions = {
 
   activate: async (event) => {
     const actor = requireAuth(event);
+    const sessionId = event.locals.session?.id;
+    if (!sessionId) return fail(403, { error: "Session authentication is required." });
     if (await isTwoFactorActivated(actor.userId)) {
       return fail(400, { error: "Two-factor authentication is already on." });
     }
@@ -259,7 +264,7 @@ export const twoFactorActions = {
       });
     }
     await setTwoFactorActivated(actor.userId, true);
-    await markTwoFactorChangeGrant(actor.userId);
+    await markTwoFactorChangeGrant(sessionId);
     try {
       await getMailer().sendEmail({
         to: actor.email,
@@ -291,8 +296,11 @@ export const twoFactorActions = {
       );
     }
     await setTwoFactorActivated(actor.userId, false);
-    await clearStepUp(actor.userId);
-    await clearTwoFactorChangeGrant(actor.userId);
+    const sessionId = event.locals.session?.id;
+    if (sessionId) {
+      await clearStepUp(sessionId);
+      await clearTwoFactorChangeGrant(sessionId);
+    }
     try {
       await getMailer().sendEmail({
         to: actor.email,
@@ -335,7 +343,7 @@ export const twoFactorActions = {
   },
 
   verify: async (event) => {
-    requireAuth(event);
+    const actor = requireAuth(event);
     const formData = await event.request.formData();
     const code = formString(formData, "code");
     try {
@@ -345,10 +353,14 @@ export const twoFactorActions = {
         returnHeaders: true,
       });
       forwardSetCookies(event, headers);
-      const sessionId = event.locals.session?.id;
-      if (sessionId && event.locals.sessionUser?.isSuperAdmin) {
-        await markAdminSessionMfa(sessionId);
-      }
+      const ticket = await createStepUpHandoffTicket(actor.userId);
+      event.cookies.set(STEP_UP_HANDOFF_COOKIE, ticket, {
+        httpOnly: true,
+        maxAge: 60,
+        path: "/",
+        sameSite: "lax",
+        secure: getWebEnv().NODE_ENV === "production",
+      });
     } catch {
       return fail(401, { error: "Invalid code. Try again." });
     }
@@ -385,7 +397,8 @@ export const twoFactorActions = {
         returnHeaders: true,
       });
       forwardSetCookies(event, headers);
-      await clearStepUp(actor.userId);
+      const sessionId = event.locals.session?.id;
+      if (sessionId) await clearStepUp(sessionId);
       return { disabled: true };
     } catch {
       return fail(400, { error: "Could not disable. Check your details and try again." });

@@ -475,6 +475,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     problemType === "special_env" && advancedConfig !== null
       ? {
           config: advancedConfig,
+          requiredPaths: problem.advancedRequiredPaths,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
             memoryMb: problem.memoryLimitMb,
@@ -518,6 +519,7 @@ export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeD
     problem.type === "special_env" && advancedConfig !== null
       ? {
           config: advancedConfig,
+          requiredPaths: problem.advancedRequiredPaths,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
             memoryMb: problem.memoryLimitMb,

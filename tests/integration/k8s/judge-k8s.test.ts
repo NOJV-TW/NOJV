@@ -16,7 +16,6 @@ const NAMESPACE = "nojv-sandbox";
 const SANDBOX_IMAGE = "nojv-sandbox:local";
 const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
 const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
-const EGRESS_PROXY_IMAGE = "nojv-egress-proxy:local";
 
 const SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a + b)\n";
 const WRONG_SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a - b)\n";
@@ -28,7 +27,6 @@ const EXECUTOR_CONFIG: K8sExecutorConfig = {
   cpuLimit: "500m",
   memoryRequest: "128Mi",
   memoryLimit: "256Mi",
-  egressProxyImage: EGRESS_PROXY_IMAGE,
 };
 
 const STANDARD_TIMEOUT_MS = 180_000;
@@ -712,43 +710,6 @@ describe("K8s judge — advanced mode", () => {
         expect(tc.verdict).toBe("WA");
       }
       expect(result.customScore).toBe(0);
-    },
-  );
-
-  it(
-    "AC: allowlist network mode wires egress proxy sidecar + still judges",
-    { timeout: ADVANCED_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-      if (!clients) return;
-
-      const submissionId = `k8s-adv-allowlist-${Date.now()}`;
-      const base = `judge-${submissionId}`;
-      trackSubmission(submissionId, { advanced: true });
-
-      const result = await makeExecutor().execute(
-        advancedRequest(submissionId, SUM_SOLUTION, {
-          mode: "allowlist",
-          allowlist: ["example.com:443"],
-        }),
-      );
-
-      expect(result.compilationError).toBeUndefined();
-      expect(result.pipelineError).toBeUndefined();
-      expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
-      expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
-      expect(result.customScore).toBe(100);
-
-      const npAfter = await clients.networkingApi
-        .listNamespacedNetworkPolicy({ namespace: NAMESPACE })
-        .catch(() => ({ items: [] }));
-      const npNames = new Set((npAfter.items ?? []).map((p) => p.metadata?.name));
-      expect(npNames.has(`${base}-run-egress`)).toBe(false);
-      expect(npNames.has(`${base}-sidecar-egress`)).toBe(false);
-      const podsAfter = await clients.coreApi
-        .listNamespacedPod({ namespace: NAMESPACE })
-        .catch(() => ({ items: [] }));
-      expect(sidecarLeaked(podsAfter.items ?? [], `${base}-sidecar`)).toBe(false);
     },
   );
 

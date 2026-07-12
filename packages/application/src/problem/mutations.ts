@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import {
   Prisma,
   problemRepo,
@@ -10,6 +12,8 @@ import {
 } from "@nojv/db";
 import type {
   AdvancedConfig,
+  AdvancedJudgeConfiguration,
+  AdvancedJudgeVerificationSnapshot,
   JudgeConfig,
   JudgeScriptLanguage,
   ProblemCreate,
@@ -19,7 +23,12 @@ import type {
   ProblemUpdate,
   ProblemVisibility,
 } from "@nojv/core";
-import { advancedConfigSchema, judgeConfigSchema } from "@nojv/core";
+import {
+  advancedConfigSchema,
+  advancedJudgeVerificationSnapshotSchema,
+  judgeConfigSchema,
+  requiredPathsSchema,
+} from "@nojv/core";
 
 import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -180,9 +189,17 @@ function assertSpecialEnvImageConsistency(
 export async function hasVerifiedAdvancedJudgeRun(
   problemId: string,
   advancedConfig: unknown,
+  requiredPaths: unknown,
+  resourceLimits: { totalTimeMs: number; memoryMb: number },
 ): Promise<boolean> {
   const current = advancedConfigSchema.safeParse(advancedConfig);
-  if (!current.success) return false;
+  const currentRequiredPaths = requiredPathsSchema.safeParse(requiredPaths);
+  if (!current.success || !currentRequiredPaths.success) return false;
+  const currentSnapshot: AdvancedJudgeVerificationSnapshot = {
+    config: current.data,
+    requiredPaths: currentRequiredPaths.data,
+    resourceLimits,
+  };
 
   const rows = await submissionRepo.findMany({
     where: { problemId, status: "accepted" },
@@ -192,20 +209,25 @@ export async function hasVerifiedAdvancedJudgeRun(
   });
 
   return rows.some((row) => {
-    const snapshot = advancedConfigSchema.safeParse(row.advancedConfigSnapshot);
+    const snapshot = advancedJudgeVerificationSnapshotSchema.safeParse(
+      row.advancedConfigSnapshot,
+    );
     if (!snapshot.success) return false;
-    if (snapshot.data.run.imageRef !== current.data.run.imageRef) return false;
-    if (snapshot.data.grade.imageRef !== current.data.grade.imageRef) return false;
-    if (current.data.network.mode === "service") {
-      return snapshot.data.network.service?.imageRef === current.data.network.service?.imageRef;
-    }
-    return true;
+    return isDeepStrictEqual(snapshot.data, currentSnapshot);
   });
 }
 
 async function assertProblemPublishable(
   tx: TransactionClient,
-  problem: { id: string; type: ProblemType; title: string; advancedConfig: unknown },
+  problem: {
+    id: string;
+    type: ProblemType;
+    title: string;
+    advancedConfig: unknown;
+    advancedRequiredPaths: unknown;
+    timeLimitMs: number;
+    memoryLimitMb: number;
+  },
 ): Promise<void> {
   if (problem.type === "special_env") {
     if (problem.title.trim() === "" || problem.title === "Untitled Problem") {
@@ -216,7 +238,14 @@ async function assertProblemPublishable(
         "Advanced-mode problems require run and grade images before publishing.",
       );
     }
-    if (!(await hasVerifiedAdvancedJudgeRun(problem.id, problem.advancedConfig))) {
+    if (
+      !(await hasVerifiedAdvancedJudgeRun(
+        problem.id,
+        problem.advancedConfig,
+        problem.advancedRequiredPaths,
+        { totalTimeMs: problem.timeLimitMs, memoryMb: problem.memoryLimitMb },
+      ))
+    ) {
       throw new ConflictError(
         "Advanced-mode problems require an accepted test run with the current images before publishing.",
       );
@@ -236,9 +265,30 @@ export async function updateProblemRecord(
   payload: ProblemUpdate,
 ) {
   return runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
 
     assertProblemOwnership(problem, actor);
+
+    if (
+      problem.status === "published" &&
+      problem.type === "special_env" &&
+      (payload.advancedConfig !== undefined ||
+        payload.timeLimitMs !== undefined ||
+        payload.memoryLimitMb !== undefined)
+    ) {
+      throw new ConflictError(
+        "Published Advanced-mode judge configuration and resource limits cannot be changed.",
+      );
+    }
+
+    if (
+      problem.status === "published" &&
+      payload.type !== undefined &&
+      payload.type !== problem.type
+    ) {
+      throw new ConflictError("Published problems cannot change type.");
+    }
 
     const becomesSpecialEnv =
       (payload.type ?? problem.type) === "special_env" && problem.type !== "special_env";
@@ -251,7 +301,14 @@ export async function updateProblemRecord(
     }
 
     if (payload.status === "published" && problem.status !== "published") {
-      await assertProblemPublishable(tx, problem);
+      await assertProblemPublishable(tx, {
+        ...problem,
+        type: payload.type ?? problem.type,
+        title: payload.title ?? problem.title,
+        advancedConfig: payload.advancedConfig ?? problem.advancedConfig,
+        timeLimitMs: payload.timeLimitMs ?? problem.timeLimitMs,
+        memoryLimitMb: payload.memoryLimitMb ?? problem.memoryLimitMb,
+      });
     }
 
     const updateData = buildProblemUpdateData(payload);
@@ -345,20 +402,31 @@ export async function saveProblemJudgeConfig(
   return result;
 }
 
-export async function updateAdvancedRequiredPaths(
+export async function updateAdvancedJudgeConfiguration(
   actor: ProblemActorContext,
   problemId: string,
-  paths: string[],
+  input: AdvancedJudgeConfiguration,
 ): Promise<void> {
-  const problem = await problemRepo.findById(problemId);
-  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
-  assertProblemOwnership(problem, actor);
+  await assertCanCreateAdvancedProblems(actor);
+  await runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
 
-  if (problem.type !== "special_env" && paths.length > 0) {
-    throw new ConflictError("Required paths can only be set on special_env problems.");
-  }
+    if (problem.status === "published") {
+      throw new ConflictError("Published Advanced-mode judge configuration cannot be changed.");
+    }
+    if (problem.type !== "special_env") {
+      throw new ConflictError(
+        "Advanced judge configuration requires an Advanced-mode problem.",
+      );
+    }
 
-  await problemRepo.updateAdvancedRequiredPaths(problemId, paths);
+    await problemRepo.withTx(tx).update(problem.id, {
+      advancedConfig: input.config,
+      advancedRequiredPaths: input.requiredPaths,
+    });
+  });
 }
 
 export async function convertProblemToAdvancedMode(
@@ -367,8 +435,13 @@ export async function convertProblemToAdvancedMode(
 ): Promise<void> {
   await assertCanCreateAdvancedProblems(actor);
   await runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
+
+    if (problem.status !== "draft") {
+      throw new ConflictError("Only draft problems can be converted to Advanced Mode.");
+    }
 
     if (problem.type === "special_env") {
       throw new ConflictError("Problem is already a special_env problem.");

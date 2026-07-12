@@ -66,7 +66,6 @@ jobs:
           build nojv-worker       infra/docker/worker.Dockerfile         .
           build nojv-migrator     infra/docker/migrator.Dockerfile       .
           build nojv-sandbox      infra/docker/sandbox-runner.Dockerfile .
-          build nojv-egress-proxy infra/docker/egress-proxy/Dockerfile   infra/docker/egress-proxy
 
       - name: Publish tag to the deploy branch (Flux tracks it → auto-pull)
         shell: bash

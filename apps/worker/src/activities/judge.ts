@@ -2,7 +2,8 @@ import {
   effectiveTimeLimitMs,
   entryFileNameFor,
   submissionResultSchema,
-  type AdvancedConfig,
+  validateRequiredPaths,
+  type AdvancedJudgeVerificationSnapshot,
   type Language,
   type RejudgeInput,
   type SandboxExecutor,
@@ -167,7 +168,10 @@ function buildAdvancedPayload(
 export async function executeSandbox(
   submissionId: string,
   draft: SubmissionDraft,
-): Promise<SubmissionResult> {
+): Promise<{
+  result: SubmissionResult;
+  advancedJudgeVerificationSnapshot: AdvancedJudgeVerificationSnapshot | null;
+}> {
   const executor = getExecutor();
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
@@ -176,16 +180,48 @@ export async function executeSandbox(
 
   if (studentSources.length === 0) {
     return {
-      accepted: false,
-      verdict: "system_error",
-      score: 0,
-      runtimeMs: 0,
-      caseResults: [],
-      feedback: "Submission sources missing from storage; marked as system_error.",
+      result: {
+        accepted: false,
+        verdict: "system_error",
+        score: 0,
+        runtimeMs: 0,
+        caseResults: [],
+        feedback: "Submission sources missing from storage; marked as system_error.",
+      },
+      advancedJudgeVerificationSnapshot: null,
     };
   }
 
   const judgeContext = await submissionDomain.getJudgeContext(submissionId);
+  const advancedJudgeVerificationSnapshot = judgeContext.advanced
+    ? {
+        config: judgeContext.advanced.config,
+        requiredPaths: judgeContext.advanced.requiredPaths,
+        resourceLimits: judgeContext.advanced.resourceLimits,
+      }
+    : null;
+
+  if (judgeContext.advanced && judgeContext.advanced.requiredPaths.length > 0) {
+    const requiredPaths = validateRequiredPaths(
+      studentSources.map((source) => source.path),
+      judgeContext.advanced.requiredPaths,
+    );
+    if (!requiredPaths.ok) {
+      return {
+        result: {
+          accepted: false,
+          verdict: "system_error",
+          score: 0,
+          runtimeMs: 0,
+          caseResults: [],
+          feedback: `Submission no longer satisfies the Advanced required paths: ${requiredPaths.errors
+            .map((issue) => issue.path)
+            .join(", ")}`,
+        },
+        advancedJudgeVerificationSnapshot,
+      };
+    }
+  }
 
   const useSamples = draft.sampleOnly === true;
   const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";
@@ -204,7 +240,6 @@ export async function executeSandbox(
   const sources = mergeSandboxSources(studentSources, draft.language, judgeContext);
 
   const advancedPayload = buildAdvancedPayload(judgeContext);
-
   const request: SandboxRequest = {
     submissionId,
     sourceCode: sources.sourceCode,
@@ -258,19 +293,25 @@ export async function executeSandbox(
   if (useSamples) {
     const mapped = submissionDomain.mapResult(result, [], judgeContext);
     mapped.score = 0;
-    return submissionResultSchema.parse(mapped);
+    return {
+      result: submissionResultSchema.parse(mapped),
+      advancedJudgeVerificationSnapshot,
+    };
   }
 
-  return submissionResultSchema.parse(
-    submissionDomain.mapResult(result, activeSets, judgeContext),
-  );
+  return {
+    result: submissionResultSchema.parse(
+      submissionDomain.mapResult(result, activeSets, judgeContext),
+    ),
+    advancedJudgeVerificationSnapshot,
+  };
 }
 
 export async function completeSubmission(
   submissionId: string,
   result: SubmissionResult,
   mode: "standard" | "advanced",
-  advancedConfig: AdvancedConfig | null = null,
+  advancedConfig: AdvancedJudgeVerificationSnapshot | null = null,
 ): Promise<submissionDomain.CompletedSubmission | null> {
   const completed = await submissionDomain.completeJudge(submissionId, result, advancedConfig);
   if (!completed) return null;

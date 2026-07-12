@@ -1,13 +1,10 @@
 import type * as k8s from "@kubernetes/client-node";
 
-import { PROXY_READY_MARKER, renderAllowlistEnv } from "./egress-proxy";
 import {
-  HARDENED_CONTAINER_SECURITY_CONTEXT,
   HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
   SANDBOX_NODE_SELECTOR,
   SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
   SANDBOX_TOLERATIONS,
-  UNPINNED_POD_SECURITY_CONTEXT,
 } from "./k8s-pod-spec";
 import {
   ADVANCED_SERVICE_PORT,
@@ -20,11 +17,8 @@ export const EGRESS_LABEL_KEY = "nojv.egress";
 export const SIDECAR_ROLE_LABEL_KEY = "nojv.sidecar";
 export const SIDECAR_PORT = ADVANCED_SERVICE_PORT;
 
-const PROXY_POD_SECURITY_CONTEXT = SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP;
-const SERVICE_POD_SECURITY_CONTEXT = UNPINNED_POD_SECURITY_CONTEXT;
-const PROXY_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED;
-const SERVICE_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT;
-const SIDECAR_TMP_SIZE_LIMIT = "64Mi";
+const SERVICE_POD_SECURITY_CONTEXT = SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP;
+const SERVICE_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED;
 
 export function runEgressLabel(submissionId: string): string {
   return submissionId;
@@ -56,51 +50,6 @@ export function sidecarPolicyName(submissionId: string): string {
 
 function sidecarPodLabels(submissionId: string): Record<string, string> {
   return { app: "nojv-sandbox", [SIDECAR_ROLE_LABEL_KEY]: submissionId };
-}
-
-export interface ProxySidecarParams {
-  submissionId: string;
-  namespace: string;
-  image: string;
-  allowlist: string[];
-  port: number;
-}
-
-export function buildProxySidecarPodManifest(params: ProxySidecarParams): k8s.V1Pod {
-  return {
-    apiVersion: "v1",
-    kind: "Pod",
-    metadata: {
-      name: sidecarPodName(params.submissionId),
-      namespace: params.namespace,
-      labels: sidecarPodLabels(params.submissionId),
-    },
-    spec: {
-      restartPolicy: "Never",
-      automountServiceAccountToken: false,
-      nodeSelector: SANDBOX_NODE_SELECTOR,
-      tolerations: SANDBOX_TOLERATIONS,
-      securityContext: PROXY_POD_SECURITY_CONTEXT,
-      containers: [
-        {
-          name: "egress-proxy",
-          image: params.image,
-          env: [
-            { name: "NOJV_ALLOWLIST", value: renderAllowlistEnv(params.allowlist) },
-            { name: "NOJV_PROXY_PORT", value: String(params.port) },
-          ],
-          ports: [{ containerPort: params.port }],
-          resources: {
-            requests: { cpu: "100m", memory: "64Mi" },
-            limits: { cpu: "250m", memory: "128Mi", "ephemeral-storage": "64Mi" },
-          },
-          securityContext: PROXY_CONTAINER_SECURITY_CONTEXT,
-          volumeMounts: [{ name: "tmp", mountPath: "/tmp" }],
-        },
-      ],
-      volumes: [{ name: "tmp", emptyDir: { sizeLimit: SIDECAR_TMP_SIZE_LIMIT } }],
-    },
-  };
 }
 
 export interface ServiceSidecarParams {
@@ -230,7 +179,7 @@ export function buildGradeEgressPolicy(params: {
   };
 }
 
-export function buildSidecarEgressPolicy(params: {
+export function buildSidecarNetworkPolicy(params: {
   submissionId: string;
   namespace: string;
 }): k8s.V1NetworkPolicy {
@@ -258,20 +207,8 @@ export function buildSidecarEgressPolicy(params: {
           ],
         },
       ],
-      egress: [{}],
+      egress: [],
     },
-  };
-}
-
-export function buildProxyRunEnv(proxyHost: string, port: number): Record<string, string> {
-  const url = `http://${proxyHost}:${String(port)}`;
-  return {
-    HTTP_PROXY: url,
-    HTTPS_PROXY: url,
-    http_proxy: url,
-    https_proxy: url,
-    NO_PROXY: "",
-    no_proxy: "",
   };
 }
 
@@ -279,4 +216,4 @@ export function buildServiceRunEnv(serviceHost: string): Record<string, string> 
   return { [SERVICE_HOST_ENV]: `${serviceHost}:${String(ADVANCED_SERVICE_PORT)}` };
 }
 
-export { PROXY_READY_MARKER, SERVICE_READY_MARKER };
+export { SERVICE_READY_MARKER };

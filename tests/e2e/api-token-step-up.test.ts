@@ -3,10 +3,38 @@ import { execFileSync } from "node:child_process";
 import { createHmac } from "node:crypto";
 import path from "node:path";
 
+import { signInWithPassword } from "./_disposable-user";
+import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
+
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
-const adminAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/admin.json");
 
 const SEED_PASSWORD = "password123";
+const REDIS = "nojv-redis-1";
+const TEMP_USER_ID = `api-token-stepup-${Date.now()}`;
+const TEMP_ACCOUNT_ID = `${TEMP_USER_ID}-account`;
+const TEMP_EMAIL = `${TEMP_USER_ID}@nojv.local`;
+const TEMP_USERNAME = `api-token-${Date.now()}`;
+const steppedUpSessionIds = new Set<string>();
+
+function pg(sql: string): string {
+  return execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      "nojv-postgres-1",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "postgres",
+      "-d",
+      "nojv",
+      "-tA",
+    ],
+    { input: sql, encoding: "utf8" },
+  ).trim();
+}
 
 function base32Decode(input: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -39,28 +67,31 @@ function totp(secretBase32: string): string {
 }
 
 test.describe("API token step-up", () => {
-  // The enroll test turns on 2FA for admin and marks a fresh step-up. Undo both
-  // on the shared dev DB/Redis so the next run starts clean: leftover 2FA hangs
-  // the plain-password global setup, and a leftover step-up marker skips the
-  // /verify redirect this test asserts.
+  test.describe.configure({ retries: 0 });
+
+  test.beforeAll(() => {
+    // Use a disposable credential account. Enabling TOTP correctly rotates the
+    // account's sessions, so a shared fixture would invalidate later tests.
+    pg(`
+      INSERT INTO "User" (id, email, username, name, "emailVerified", "createdAt", "updatedAt")
+      VALUES ('${TEMP_USER_ID}', '${TEMP_EMAIL}', '${TEMP_USERNAME}', 'API token E2E', true, NOW(), NOW());
+      INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
+      SELECT '${TEMP_ACCOUNT_ID}', '${TEMP_USER_ID}', 'credential', '${TEMP_USER_ID}', password, NOW(), NOW()
+      FROM "Account"
+      WHERE "userId" = (SELECT id FROM "User" WHERE email = 'student@nojv.local')
+        AND "providerId" = 'credential';
+    `);
+  });
+
   test.afterAll(() => {
-    const pg = (sql: string): string =>
-      execFileSync(
-        "docker",
-        ["exec", "-i", "nojv-postgres-1", "psql", "-U", "postgres", "-d", "nojv", "-tA"],
-        { input: sql, encoding: "utf8" },
-      ).trim();
-    const adminId = pg(`SELECT id FROM "User" WHERE email = 'admin@nojv.local';`);
-    pg(
-      `DELETE FROM "TwoFactor" WHERE "userId" = '${adminId}'; UPDATE "User" SET "twoFactorEnabled" = false WHERE id = '${adminId}';`,
-    );
-    if (adminId) {
+    pg(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
+    if (steppedUpSessionIds.size > 0) {
       execFileSync("docker", [
         "exec",
-        "passwordless-stepup-2fa-redis-1",
+        REDIS,
         "redis-cli",
         "DEL",
-        `nojv:apitoken:stepup:${adminId}`,
+        ...[...steppedUpSessionIds].map((id) => `nojv:apitoken:stepup:${id}`),
       ]);
     }
   });
@@ -72,7 +103,7 @@ test.describe("API token step-up", () => {
     const page = await context.newPage();
 
     await page.goto("/account/api-tokens");
-    await expect(page).toHaveURL(/\/account\?verify=totp/);
+    await expect(page).toHaveURL(/\/settings\?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens/);
 
     await context.close();
   });
@@ -80,46 +111,69 @@ test.describe("API token step-up", () => {
   test("password user: enroll TOTP, then step-up unlocks token management", async ({
     browser,
   }) => {
-    const context = await browser.newContext({ storageState: adminAuth });
+    const context = await browser.newContext();
     const page = await context.newPage();
+    const otherContext = await browser.newContext();
+    const otherPage = await otherContext.newPage();
 
-    await page.goto("/settings?verify=totp");
-    const passwordInput = page.locator('input[name="password"]');
-    await passwordInput.waitFor({ state: "visible" });
-    await passwordInput.click();
-    await passwordInput.pressSequentially(SEED_PASSWORD);
-    const enableButton = page.getByRole("button", { name: "Enable 2FA" });
+    await signInWithPassword(page, TEMP_EMAIL);
+    await signInWithPassword(otherPage, TEMP_EMAIL);
+
+    await activateTwoFactor(page);
+
+    await settingsMethodRow(page, "Authenticator app (TOTP)")
+      .getByRole("button", { name: "Set up", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Authenticator app (TOTP)" });
+    const passwordInput = dialog.locator('input[name="password"]');
+    await passwordInput.fill(SEED_PASSWORD);
+    const enableButton = dialog.getByRole("button", { name: "Enable 2FA" });
     await expect(enableButton).toBeEnabled();
     await enableButton.click();
 
-    const manualKey = page.locator("code").first();
+    const manualKey = dialog.locator("code").first();
     await expect(manualKey).toBeVisible({ timeout: 10000 });
     const secret = ((await manualKey.textContent()) ?? "").trim();
     expect(secret.length).toBeGreaterThan(0);
 
-    await page.locator('input[type="checkbox"]').check();
+    await dialog.locator('input[type="checkbox"]').check();
 
-    const enrollCode = page.locator('form[action="?/verify"] input[name="code"]');
-    await enrollCode.click();
-    await enrollCode.pressSequentially(totp(secret));
-    await page.getByRole("button", { name: "Verify & activate" }).click();
+    const enrollCode = dialog.locator('form[action="?/verify"] input[name="code"]');
+    await enrollCode.fill(totp(secret));
+    await dialog.getByRole("button", { name: "Verify & activate" }).click();
 
-    await expect(page.getByRole("status").filter({ hasText: /active|啟用/i })).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(dialog).toBeHidden({ timeout: 10_000 });
 
+    // The TOTP assertion that finalized enrollment is handed to this rotated session.
     await page.goto("/account/api-tokens");
-    await expect(page).toHaveURL(/\/account\/api-tokens\/verify/);
+    await expect(page).toHaveURL(/\/account\/api-tokens$/);
+    await expect(page.getByRole("button", { name: /Create token/i })).toBeVisible();
+    const enrolledSession = (await (
+      await page.request.get("/api/auth/get-session")
+    ).json()) as {
+      session?: { id?: string };
+    };
+    if (enrolledSession.session?.id) steppedUpSessionIds.add(enrolledSession.session.id);
 
-    const stepUpCode = page.locator('input[name="code"]');
+    // A different session for the same account receives no grant and must verify itself.
+    await otherContext.clearCookies({ name: "better-auth.session_data" });
+    await otherPage.goto("/account/api-tokens");
+    await expect(otherPage).toHaveURL(/\/account\/api-tokens\/verify/);
+
+    const stepUpCode = otherPage.locator('input[name="code"]');
     await stepUpCode.waitFor({ state: "visible" });
     await stepUpCode.click();
     await stepUpCode.pressSequentially(totp(secret));
-    await page.locator('button[type="submit"]').click();
+    await otherPage.locator('button[type="submit"]').click();
 
-    await expect(page).toHaveURL(/\/account\/api-tokens$/, { timeout: 10000 });
-    await expect(page.getByRole("button", { name: /Create token/i })).toBeVisible();
+    await expect(otherPage).toHaveURL(/\/account\/api-tokens$/, { timeout: 10000 });
+    await expect(otherPage.getByRole("button", { name: /Create token/i })).toBeVisible();
+    const session = (await (await otherPage.request.get("/api/auth/get-session")).json()) as {
+      session?: { id?: string };
+    };
+    if (session.session?.id) steppedUpSessionIds.add(session.session.id);
 
     await context.close();
+    await otherContext.close();
   });
 });

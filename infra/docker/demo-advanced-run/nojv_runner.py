@@ -16,8 +16,6 @@ The platform mounts /workspace and runs this image with:
   - a read-only root filesystem (you may only write to /workspace and /tmp)
   - at most ONE network peer, selected per-problem (see README):
       none      -> no network at all
-      allowlist -> HTTP_PROXY / HTTPS_PROXY point at the platform egress proxy;
-                   the student program reaches allowlisted public hosts through it
       service   -> a TA service container is reachable at $NOJV_SERVICE_HOST
 """
 

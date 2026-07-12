@@ -72,6 +72,37 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     await getRedis().del(keys.adminSessionMfa("test-session"));
   }, 30_000);
 
+  it("binds a verified-factor handoff to the new superadmin session before the gate", async () => {
+    const { createStepUpHandoffTicket, hasAdminSessionMfa, hasFreshStepUp, clearStepUp } =
+      await import("@nojv/application");
+    const { getRedis, keys } = await import("@nojv/redis");
+    const { STEP_UP_HANDOFF_COOKIE } = await import("$lib/server/step-up-handoff");
+    const user = await createTestUser({
+      username: "admin_handoff",
+      platformRole: "admin",
+      isSuperAdmin: true,
+      twoFactorEnabled: true,
+      twoFactorActivated: true,
+    });
+    const ticket = await createStepUpHandoffTicket(user.id);
+
+    const res = await callRoute({
+      path: "/admin",
+      module: NO_RESOLVE,
+      user,
+      cookies: { [STEP_UP_HANDOFF_COOKIE]: ticket },
+    });
+
+    expect(res.status).not.toBe(302);
+    await expect(hasAdminSessionMfa("test-session")).resolves.toBe(true);
+    await expect(hasFreshStepUp("test-session")).resolves.toBe(true);
+    await getRedis().del(
+      keys.adminSessionMfa("test-session"),
+      keys.tokenPageMfa("test-session"),
+    );
+    await clearStepUp("test-session");
+  }, 30_000);
+
   it("clears the session and redirects a disabled account to sign-in", async () => {
     const user = await createTestUser({ username: "disabled_user", disabled: true });
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });

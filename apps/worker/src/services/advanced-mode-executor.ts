@@ -19,14 +19,8 @@ import {
 } from "@nojv/core";
 
 import { createLogger } from "../logger.js";
-import { createSubmissionNetworks, removeSubmissionNetworks } from "./docker-network";
+import { createSubmissionNetwork, removeSubmissionNetwork } from "./docker-network";
 import { sanitizeId, spawnDockerContainer } from "./docker-process";
-import {
-  collectEgressProxyLogs,
-  EGRESS_PROXY_PORT,
-  startEgressProxy,
-  stopEgressProxy,
-} from "./egress-proxy";
 import {
   ADVANCED_SERVICE_PORT,
   collectServiceLogs,
@@ -228,17 +222,6 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
     "/workspace",
     params.imageRef,
   ];
-}
-
-export function buildProxyEnv(proxyUrl: string): Record<string, string> {
-  return {
-    HTTP_PROXY: proxyUrl,
-    HTTPS_PROXY: proxyUrl,
-    http_proxy: proxyUrl,
-    https_proxy: proxyUrl,
-    NO_PROXY: "",
-    no_proxy: "",
-  };
 }
 
 export function buildServiceEnv(): Record<string, string> {
@@ -488,9 +471,6 @@ export class AdvancedModeExecutor {
     imageRef: string,
     runDir: string,
   ): Promise<ContainerOutcome> {
-    if (advanced.network.mode === "allowlist") {
-      return this.runPhaseAllowlist(request, advanced, config, imageRef, runDir);
-    }
     if (advanced.network.mode === "service") {
       return this.runPhaseService(request, advanced, config, imageRef, runDir);
     }
@@ -529,55 +509,6 @@ export class AdvancedModeExecutor {
     });
   }
 
-  private async runPhaseAllowlist(
-    request: SandboxRequest,
-    advanced: SandboxAdvancedRequest,
-    config: AdvancedModeConfig,
-    imageRef: string,
-    runDir: string,
-  ): Promise<ContainerOutcome> {
-    const allowlist = advanced.network.allowlist ?? [];
-    let networks: Awaited<ReturnType<typeof createSubmissionNetworks>> | undefined;
-    let proxyContainerName: string | undefined;
-    try {
-      networks = await createSubmissionNetworks(request.submissionId);
-      const proxy = await startEgressProxy({
-        submissionId: request.submissionId,
-        internalName: networks.internalName,
-        egressName: networks.egressName,
-        allowlist,
-        port: EGRESS_PROXY_PORT,
-      });
-      proxyContainerName = proxy.containerName;
-      return await this.runContainer(request, advanced, config, imageRef, runDir, {
-        networkArgs: ["--network", networks.internalName],
-        extraEnv: buildProxyEnv(proxy.proxyUrl),
-      });
-    } catch (err) {
-      return {
-        exitCode: null,
-        stderr: `egress setup failed: ${err instanceof Error ? err.message : String(err)}`,
-        timedOut: false,
-        sizeExceeded: false,
-        spawnError: true,
-      };
-    } finally {
-      if (proxyContainerName) {
-        const audit = await collectEgressProxyLogs(proxyContainerName);
-        if (audit) {
-          logger.info("advanced egress-proxy audit log", {
-            submissionId: request.submissionId,
-            audit,
-          });
-        }
-        stopEgressProxy(proxyContainerName);
-      }
-      if (networks) {
-        removeSubmissionNetworks(networks);
-      }
-    }
-  }
-
   private async runPhaseService(
     request: SandboxRequest,
     advanced: SandboxAdvancedRequest,
@@ -596,15 +527,14 @@ export class AdvancedModeExecutor {
       };
     }
 
-    let networks: Awaited<ReturnType<typeof createSubmissionNetworks>> | undefined;
+    let network: Awaited<ReturnType<typeof createSubmissionNetwork>> | undefined;
     let serviceContainerName: string | undefined;
     try {
       const serviceImageRef = service.imageRef;
-      networks = await createSubmissionNetworks(request.submissionId);
+      network = await createSubmissionNetwork(request.submissionId);
       const handle = await startServiceContainer({
         submissionId: request.submissionId,
-        internalName: networks.internalName,
-        egressName: networks.egressName,
+        internalName: network.internalName,
         imageRef: serviceImageRef,
         memoryMb: advanced.memoryMb,
         cpuLimit: config.cpuLimit,
@@ -612,7 +542,7 @@ export class AdvancedModeExecutor {
       });
       serviceContainerName = handle.containerName;
       return await this.runContainer(request, advanced, config, imageRef, runDir, {
-        networkArgs: ["--network", networks.internalName],
+        networkArgs: ["--network", network.internalName],
         extraEnv: buildServiceEnv(),
       });
     } catch (err) {
@@ -634,8 +564,8 @@ export class AdvancedModeExecutor {
         }
         stopServiceContainer(serviceContainerName);
       }
-      if (networks) {
-        removeSubmissionNetworks(networks);
+      if (network) {
+        removeSubmissionNetwork(network);
       }
     }
   }

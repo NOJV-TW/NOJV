@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, verifyTotpMock, verifyBackupCodeMock } = vi.hoisted(() => {
+const { store, setMock, verifyTotpMock, verifyBackupCodeMock } = vi.hoisted(() => {
   const map = new Map<string, string>();
   return {
     store: {
@@ -9,6 +9,7 @@ const { store, verifyTotpMock, verifyBackupCodeMock } = vi.hoisted(() => {
         map.clear();
       },
     },
+    setMock: vi.fn(),
     verifyTotpMock: vi.fn(),
     verifyBackupCodeMock: vi.fn(),
   };
@@ -17,6 +18,7 @@ const { store, verifyTotpMock, verifyBackupCodeMock } = vi.hoisted(() => {
 vi.mock("@nojv/redis", () => ({
   getRedis: () => ({
     set(key: string, value: string, _mode?: string, _ttl?: number) {
+      setMock(key, value, _mode, _ttl);
       store.map.set(key, value);
       return Promise.resolve("OK");
     },
@@ -30,9 +32,15 @@ vi.mock("@nojv/redis", () => ({
       }
       return Promise.resolve(count);
     },
+    getdel(key: string) {
+      const value = store.map.get(key) ?? null;
+      store.map.delete(key);
+      return Promise.resolve(value);
+    },
   }),
   keys: {
-    apiTokenStepUp: (userId: string) => `nojv:apitoken:stepup:${userId}`,
+    apiTokenStepUp: (sessionId: string) => `nojv:apitoken:stepup:${sessionId}`,
+    stepUpHandoffTicket: (ticket: string) => `nojv:stepup:handoff:${ticket}`,
     twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,
   },
 }));
@@ -57,9 +65,11 @@ import {
   verifyTotpStepUp,
   wasTotpSeen,
 } from "$lib/server/step-up";
+import { consumeStepUpHandoffTicket, createStepUpHandoffTicket } from "@nojv/application";
 
 beforeEach(() => {
   store.reset();
+  setMock.mockReset();
   verifyTotpMock.mockReset();
   verifyBackupCodeMock.mockReset();
 });
@@ -101,14 +111,26 @@ describe("step-up — backup code format", () => {
 });
 
 describe("step-up — sudo marker", () => {
-  it("sets, observes, and clears the fresh marker", async () => {
-    expect(await hasFreshStepUp("usr_1")).toBe(false);
+  it("binds a fresh marker to exactly one session", async () => {
+    expect(await hasFreshStepUp("sess_1")).toBe(false);
 
-    await markStepUpFresh("usr_1");
-    expect(await hasFreshStepUp("usr_1")).toBe(true);
+    await markStepUpFresh("sess_1");
+    expect(await hasFreshStepUp("sess_1")).toBe(true);
+    expect(await hasFreshStepUp("sess_2")).toBe(false);
 
-    await clearStepUp("usr_1");
-    expect(await hasFreshStepUp("usr_1")).toBe(false);
+    await clearStepUp("sess_1");
+    expect(await hasFreshStepUp("sess_1")).toBe(false);
+  });
+});
+
+describe("step-up — session-rotation handoff ticket", () => {
+  it("is random, short-lived, and consumable exactly once", async () => {
+    const ticket = await createStepUpHandoffTicket("usr_1");
+
+    expect(ticket).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(setMock).toHaveBeenCalledWith(`nojv:stepup:handoff:${ticket}`, "usr_1", "EX", 60);
+    await expect(consumeStepUpHandoffTicket(ticket)).resolves.toBe("usr_1");
+    await expect(consumeStepUpHandoffTicket(ticket)).resolves.toBeNull();
   });
 });
 

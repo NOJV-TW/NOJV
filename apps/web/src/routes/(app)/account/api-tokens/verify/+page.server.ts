@@ -65,9 +65,9 @@ export const actions = {
       return fail(401, { error: "Invalid code. Try again." });
     }
 
-    await markStepUpFresh(actor.userId);
     const sessionId = event.locals.session?.id;
     if (sessionId) {
+      await markStepUpFresh(sessionId);
       await markTokenPageMfa(sessionId);
       if (event.locals.sessionUser?.isSuperAdmin) {
         await markAdminSessionMfa(sessionId);

@@ -67,7 +67,6 @@ grade container (trusted — answers live here, no student code)
       <li>{m.guideAdvanced_networkItem1()}</li>
       <li>{m.guideAdvanced_networkItem2()}</li>
       <li>{m.guideAdvanced_networkItem3()}</li>
-      <li>{m.guideAdvanced_networkItem4()}</li>
     </ul>
   </Card>
 

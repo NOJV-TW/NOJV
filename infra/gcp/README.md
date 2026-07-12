@@ -17,13 +17,12 @@
 
 ## Images
 
-`infra/gcp/cloud-build/cloudbuild.yaml` builds and pushes five images:
+`infra/gcp/cloud-build/cloudbuild.yaml` builds and pushes four images:
 
 - `web`
 - `worker`
 - `sandbox` from `infra/docker/sandbox-runner.Dockerfile`
 - `migrator`
-- `egress-proxy` from `infra/docker/egress-proxy/Dockerfile`
 
 The `sandbox` image is not a long-running service. It is the image the Kubernetes worker launches for each isolated judge job.
 

@@ -1,4 +1,5 @@
 import { chromium, type FullConfig, type Page } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const AUTH_DIR = path.resolve(import.meta.dirname, "../fixtures/auth-states");
@@ -49,7 +50,14 @@ export default async function globalSetup(config: FullConfig) {
       await elevateAdminSession(page, baseURL);
     }
 
-    await context.storageState({ path: path.join(AUTH_DIR, `${role.name}.json`) });
+    const state = await context.storageState();
+    // better-auth.session_data is a short-lived client cache. Keeping it makes
+    // long E2E runs appear signed out as soon as that cache expires, despite a
+    // still-valid session token. Let the server rebuild it from the token.
+    state.cookies = state.cookies.filter(
+      (cookie) => cookie.name !== "better-auth.session_data",
+    );
+    await writeFile(path.join(AUTH_DIR, `${role.name}.json`), JSON.stringify(state));
     await context.close();
   }
 

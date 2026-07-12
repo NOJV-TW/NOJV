@@ -8,19 +8,21 @@ test.describe("profile edit", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
 
-    await page.goto("/dashboard");
-    await page.waitForTimeout(3000);
-    await page.locator('header button[title="student"]').click();
-    await page.getByRole("link", { name: /My profile|個人頁面/ }).click();
-    await page.waitForURL(/\/users\//);
-    await page.waitForTimeout(1000);
+    const session = (await (await page.request.get("/api/auth/get-session")).json()) as {
+      user?: { id?: string };
+    };
+    const userId = session.user?.id;
+    if (!userId) throw new Error("Could not resolve the signed-in user.");
 
-    await page.getByRole("button", { name: "Edit" }).first().click();
-    await expect(page.locator("#edit-name")).toBeVisible();
+    await page.goto(`/users/${userId}`);
 
-    await page.waitForTimeout(1000);
+    const editName = page.locator("#edit-name");
+    await expect(async () => {
+      await page.getByRole("button", { name: "Edit" }).first().click();
+      await expect(editName).toBeVisible({ timeout: 1_500 });
+    }).toPass({ timeout: 15_000 });
 
-    await page.locator("#edit-name").fill(`E2E ${Date.now()}`);
+    await editName.fill(`E2E ${Date.now()}`);
     await page.getByRole("button", { name: "Save" }).first().click();
 
     await expect(

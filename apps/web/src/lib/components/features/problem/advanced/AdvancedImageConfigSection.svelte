@@ -14,6 +14,7 @@
     registryHost?: string;
     registryNamespace?: string;
     requiredPaths: string[];
+    editable?: boolean;
   }
 
   let {
@@ -22,6 +23,7 @@
     registryHost = "",
     registryNamespace = "",
     requiredPaths,
+    editable = true,
   }: Props = $props();
 
   let placeholderPrefix = $derived(
@@ -36,8 +38,7 @@
   const initial = untrack(() => config);
   let runImageRef = $state(initial?.run.imageRef ?? "");
   let gradeImageRef = $state(initial?.grade.imageRef ?? "");
-  let networkMode = $state<"none" | "allowlist" | "service">(initial?.network.mode ?? "none");
-  let allowlistText = $state((initial?.network.allowlist ?? []).join("\n"));
+  let networkMode = $state<"none" | "service">(initial?.network.mode ?? "none");
   let serviceImageRef = $state(initial?.network.service?.imageRef ?? "");
   let maxScore = $state(initial?.maxScore ?? 100);
   let requiredPathsText = $state(untrack(() => requiredPaths).join("\n"));
@@ -65,8 +66,7 @@
       gradeImageRef.trim() !== "" &&
       runIssue === null &&
       gradeIssue === null &&
-      (networkMode !== "service" || (serviceImageRef.trim() !== "" && serviceIssue === null)) &&
-      (networkMode !== "allowlist" || allowlistText.trim() !== ""),
+      (networkMode !== "service" || (serviceImageRef.trim() !== "" && serviceIssue === null)),
   );
 
   async function save() {
@@ -75,13 +75,6 @@
       runImageRef: runImageRef.trim(),
       gradeImageRef: gradeImageRef.trim(),
       networkMode,
-      networkAllowlist:
-        networkMode === "allowlist"
-          ? allowlistText
-              .split("\n")
-              .map((entry) => entry.trim())
-              .filter((entry) => entry.length > 0)
-          : [],
       ...(networkMode === "service" ? { serviceImageRef: serviceImageRef.trim() } : {}),
       maxScore,
       requiredPaths: requiredPathsText
@@ -127,6 +120,7 @@
       class={refInputClassName}
       placeholder={`${placeholderPrefix}/your-run-image@sha256:…`}
       bind:value={runImageRef}
+      disabled={!editable}
     />
     {#if runIssue}<span class="text-caption text-destructive">{runIssue}</span>{/if}
   </label>
@@ -137,6 +131,7 @@
       class={refInputClassName}
       placeholder={`${placeholderPrefix}/your-grade-image@sha256:…`}
       bind:value={gradeImageRef}
+      disabled={!editable}
     />
     {#if gradeIssue}<span class="text-caption text-destructive">{gradeIssue}</span>{/if}
   </label>
@@ -147,29 +142,25 @@
       <select
         class="mt-1 h-9 w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 text-body-sm text-foreground"
         bind:value={networkMode}
+        disabled={!editable}
       >
         <option value="none">{m.advancedImages_networkNone()}</option>
-        <option value="allowlist">{m.advancedImages_networkAllowlist()}</option>
         <option value="service">{m.advancedImages_networkService()}</option>
       </select>
     </label>
 
     <label class="block text-body-sm text-muted-foreground">
       <span>{m.advancedImages_maxScoreLabel()}</span>
-      <input class={inputClassName} type="number" min="1" max="100000" bind:value={maxScore} />
+      <input
+        class={inputClassName}
+        type="number"
+        min="1"
+        max="100000"
+        bind:value={maxScore}
+        disabled={!editable}
+      />
     </label>
   </div>
-
-  {#if networkMode === "allowlist"}
-    <label class="block text-body-sm text-muted-foreground">
-      <span>{m.advancedImages_allowlistLabel()}</span>
-      <textarea
-        class={textareaClassName}
-        placeholder={"api.example.com\ncdn.example.com"}
-        bind:value={allowlistText}></textarea>
-      <span class="text-caption">{m.advancedImages_allowlistHint()}</span>
-    </label>
-  {/if}
 
   {#if networkMode === "service"}
     <label class="block text-body-sm text-muted-foreground">
@@ -178,6 +169,7 @@
         class={refInputClassName}
         placeholder={`${placeholderPrefix}/your-service-image@sha256:…`}
         bind:value={serviceImageRef}
+        disabled={!editable}
       />
       {#if serviceIssue}<span class="text-caption text-destructive">{serviceIssue}</span>{/if}
     </label>
@@ -188,14 +180,17 @@
     <textarea
       class={textareaClassName}
       placeholder={"main.py\nsolver/model.py"}
-      bind:value={requiredPathsText}></textarea>
+      bind:value={requiredPathsText}
+      disabled={!editable}></textarea>
     <span class="text-caption">{m.advancedImages_requiredPathsHint()}</span>
   </label>
 
-  <div class="flex items-center gap-3">
-    <Button size="sm" loading={saving} disabled={!canSave || saving} onclick={save}>
-      {saving ? m.common_saving() : m.advancedImages_save()}
-    </Button>
-    <p class="text-caption text-muted-foreground">{m.advancedImages_testReminder()}</p>
-  </div>
+  {#if editable}
+    <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <Button size="sm" loading={saving} disabled={!canSave || saving} onclick={save}>
+        {saving ? m.common_saving() : m.advancedImages_save()}
+      </Button>
+      <p class="text-caption text-muted-foreground">{m.advancedImages_testReminder()}</p>
+    </div>
+  {/if}
 </div>

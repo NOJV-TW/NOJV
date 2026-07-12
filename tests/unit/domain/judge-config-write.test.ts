@@ -25,6 +25,7 @@ vi.mock("@nojv/storage", () => ({
 vi.mock("@nojv/db", () => {
   const withTx = () => ({
     findById: problemFindById,
+    lockForUpdate: vi.fn(),
     update: problemUpdate,
   });
   return {

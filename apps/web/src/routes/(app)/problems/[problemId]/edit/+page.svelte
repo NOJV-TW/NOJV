@@ -254,8 +254,8 @@
         </Button>
       {/if}
     {/snippet}
-    <div class="flex gap-6">
-      <EditRail actions={advancedActions}>
+    <div class="flex flex-col gap-6 lg:flex-row" data-testid="advanced-edit-layout">
+      <EditRail actions={advancedActions} tourTarget={false} mobileFullWidth={true}>
         {#snippet nav()}
           <ol class="space-y-1">
             {#each advancedSteps as step, i (step.label)}
@@ -330,6 +330,7 @@
             registryHost={data.registryHost}
             registryNamespace={data.registryCredential?.username ?? ""}
             requiredPaths={data.problem.advancedRequiredPaths ?? []}
+            editable={data.problem.status === "draft"}
           />
         </section>
       </div>
@@ -338,7 +339,7 @@
     <ProblemSections
       bind:activeSection
       problemType={data.problem.type}
-      showConvertToAdvanced={true}
+      showConvertToAdvanced={data.problem.status === "draft"}
       convertToAdvancedAllowed={data.advancedCreationAllowed}
       {isBasicInfoComplete}
       {missingBasicFields}

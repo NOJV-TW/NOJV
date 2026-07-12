@@ -28,7 +28,7 @@ vi.mock("@nojv/redis", () => ({
   keys: {
     twoFactorActivationOtp: (u: string) => `nojv:2fa:activation-otp:${u}`,
     twoFactorActivationOtpAttempts: (u: string) => `nojv:2fa:activation-otp-attempts:${u}`,
-    twoFactorChangeGrant: (u: string) => `nojv:2fa:change-grant:${u}`,
+    twoFactorChangeGrant: (sessionId: string) => `nojv:2fa:change-grant:${sessionId}`,
   },
 }));
 
@@ -145,12 +145,13 @@ describe("activation flag", () => {
 });
 
 describe("2FA change grant", () => {
-  it("marks, observes, and clears the grant", async () => {
-    expect(await hasTwoFactorChangeGrant("usr_1")).toBe(false);
-    await markTwoFactorChangeGrant("usr_1");
-    expect(await hasTwoFactorChangeGrant("usr_1")).toBe(true);
-    await clearTwoFactorChangeGrant("usr_1");
-    expect(await hasTwoFactorChangeGrant("usr_1")).toBe(false);
+  it("binds the grant to only the activating session", async () => {
+    expect(await hasTwoFactorChangeGrant("sess_1")).toBe(false);
+    await markTwoFactorChangeGrant("sess_1");
+    expect(await hasTwoFactorChangeGrant("sess_1")).toBe(true);
+    expect(await hasTwoFactorChangeGrant("sess_2")).toBe(false);
+    await clearTwoFactorChangeGrant("sess_1");
+    expect(await hasTwoFactorChangeGrant("sess_1")).toBe(false);
   });
 });
 
