@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 import type { Page } from "@playwright/test";
 
@@ -31,7 +32,7 @@ export class DisposableCredentialUser {
   readonly username: string;
 
   constructor(label: string) {
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
     this.id = `e2e-${label}-${suffix}`;
     this.email = `${this.id}@nojv.local`;
     this.accountId = `${this.id}-account`;
