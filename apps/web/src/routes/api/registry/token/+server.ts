@@ -11,7 +11,12 @@ import { isRegistryTokenConfigured, signRegistryToken } from "$lib/server/regist
 const JUDGE_PULL_USER = "judge-pull";
 const CI_PUSH_USER = "ci-push";
 
-function parseBasicAuth(header: string | null): { username: string; password: string } | null {
+interface Credentials {
+  username: string;
+  password: string;
+}
+
+function parseBasicAuth(header: string | null): Credentials | null {
   if (!header?.startsWith("Basic ")) return null;
   let decoded: string;
   try {
@@ -30,10 +35,10 @@ function unauthorized(): never {
 
 async function resolvePrincipal(
   event: RequestEvent,
+  credentials: Credentials | null,
 ): Promise<registryDomain.RegistryPrincipal> {
   const env = getWebEnv();
-  const credentials = parseBasicAuth(event.request.headers.get("authorization"));
-  if (!credentials) return { kind: "anonymous" };
+  if (!credentials || credentials.username === "") return { kind: "anonymous" };
 
   const failClosed = async () => {
     await signInRateLimiter.consume(`registry:${getClientIp(event)}`).catch(() => {
@@ -74,19 +79,23 @@ async function resolvePrincipal(
   return teacher;
 }
 
-export const GET: RequestHandler = apiHandler(async (event) => {
+async function issueToken(
+  event: RequestEvent,
+  credentials: Credentials | null,
+  service: string | null,
+  scopeStrings: string[],
+): Promise<Response> {
   if (!isRegistryTokenConfigured()) {
     error(404, "Not found");
   }
 
   const env = getWebEnv();
-  const service = event.url.searchParams.get("service");
   if (service !== env.REGISTRY_PUBLIC_HOST) {
     error(400, "Unknown registry service");
   }
 
-  const principal = await resolvePrincipal(event);
-  const requested = registryDomain.parseRegistryScopes(event.url.searchParams.getAll("scope"));
+  const principal = await resolvePrincipal(event, credentials);
+  const requested = registryDomain.parseRegistryScopes(scopeStrings);
   const access = registryDomain.authorizeRegistryAccess(principal, requested);
 
   const subject =
@@ -100,4 +109,38 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   return json(response, {
     headers: { "cache-control": "no-store" },
   });
+}
+
+export const GET: RequestHandler = apiHandler(async (event) => {
+  const credentials = parseBasicAuth(event.request.headers.get("authorization"));
+  return issueToken(
+    event,
+    credentials,
+    event.url.searchParams.get("service"),
+    event.url.searchParams.getAll("scope"),
+  );
+});
+
+export const POST: RequestHandler = apiHandler(async (event) => {
+  const form = await event.request.formData().catch(() => {
+    error(400, "Invalid request body");
+  });
+  const bodyUsername = form.get("username");
+  const bodyPassword = form.get("password");
+  const credentials: Credentials | null =
+    typeof bodyUsername === "string" && typeof bodyPassword === "string"
+      ? { username: bodyUsername, password: bodyPassword }
+      : parseBasicAuth(event.request.headers.get("authorization"));
+
+  const service = form.get("service");
+  const scopeField = form.get("scope");
+  const scopeStrings =
+    typeof scopeField === "string" ? scopeField.split(" ").filter((s) => s.length > 0) : [];
+
+  return issueToken(
+    event,
+    credentials,
+    typeof service === "string" ? service : null,
+    scopeStrings,
+  );
 });
