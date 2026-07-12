@@ -3,8 +3,16 @@ import type { registryDomain } from "@nojv/application";
 import { getWebEnv } from "./env";
 import { isRegistryTokenConfigured, signRegistryToken } from "./registry-token";
 
-const MANIFEST_ACCEPT =
-  "application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json";
+// Index/manifest-list types must come first so a multi-arch tag resolves to the
+// index digest (the tag's real target). Without them the registry's legacy
+// fallback returns a platform child manifest, and deleting that child digest
+// leaves the tag pointing at a now-broken index.
+const MANIFEST_ACCEPT = [
+  "application/vnd.oci.image.index.v1+json",
+  "application/vnd.docker.distribution.manifest.list.v2+json",
+  "application/vnd.oci.image.manifest.v1+json",
+  "application/vnd.docker.distribution.manifest.v2+json",
+].join(", ");
 
 const CATALOG_ACCESS: registryDomain.RegistryAccessEntry[] = [
   { type: "registry", name: "catalog", actions: ["*"] },

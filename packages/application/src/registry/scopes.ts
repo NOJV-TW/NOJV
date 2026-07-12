@@ -8,7 +8,6 @@ export type RegistryPrincipal =
   | { kind: "anonymous" }
   | { kind: "teacher"; namespace: string }
   | { kind: "judge" }
-  | { kind: "ci" }
   | { kind: "admin" };
 
 export const REGISTRY_DEMO_PREFIX = "demo/";
@@ -39,8 +38,6 @@ function allowedRepositoryActions(principal: RegistryPrincipal, name: string): s
       return ["pull", "push", "delete"];
     case "judge":
       return ["pull"];
-    case "ci":
-      return name.startsWith(REGISTRY_DEMO_PREFIX) ? ["pull", "push"] : [];
     case "teacher": {
       const own = `${REGISTRY_TEACHER_PREFIX}${principal.namespace}`;
       if (name === own || name.startsWith(`${own}/`)) return ["pull", "push"];

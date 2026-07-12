@@ -53,14 +53,23 @@ export function enforceCsrf(event: HandleEvent, cleanPath: string): Response | n
     return null;
   }
 
+  // Authenticated via HTTP Basic / body credentials, never cookies, so CSRF
+  // does not apply; the docker registry client posts cross-origin.
+  if (cleanPath === "/api/registry/token") {
+    return null;
+  }
+
   const origin = event.request.headers.get("origin");
 
+  // Framework-parity origin CSRF for every other route: block any cross-origin
+  // form-content-type submission, including one with no Origin header (which the
+  // framework's checkOrigin treated as a mismatch). This is the whole guard for
+  // page-route form actions and a defense-in-depth layer under the /api gate.
+  if (isFormContentType(event.request) && origin !== event.url.origin) {
+    return csrfForbidden(event.locals.requestId);
+  }
+
   if (!cleanPath.startsWith("/api/")) {
-    // Page-route form actions: mirror SvelteKit's framework check exactly —
-    // block cross-origin submissions with a form content type.
-    if (isFormContentType(event.request) && origin !== event.url.origin) {
-      return csrfForbidden(event.locals.requestId);
-    }
     return null;
   }
 
@@ -68,12 +77,6 @@ export function enforceCsrf(event: HandleEvent, cleanPath: string): Response | n
     event.locals.apiToken &&
     apiTokenDomain.findApiTokenRouteRule(event.request.method, cleanPath)
   ) {
-    return null;
-  }
-
-  // Authenticated via HTTP Basic / body credentials, never cookies, so CSRF
-  // does not apply; the docker registry client posts cross-origin.
-  if (cleanPath === "/api/registry/token") {
     return null;
   }
 

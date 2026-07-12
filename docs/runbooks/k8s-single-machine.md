@@ -312,13 +312,16 @@ node -e 'const c=require("crypto");const s=c.randomBytes(24).toString("base64url
 kubectl -n nojv-sandbox create secret docker-registry nojv-registry-pull \
   --docker-server=registry.nojv.tw --docker-username=judge-pull \
   --docker-password=<the password>
-# Demo push account (`ci-push`, scoped to demo/**): same recipe →
-# REGISTRY_CI_PASSWORD_HASH. Used by an operator running `pnpm demo-advanced:push`
-# after `docker login registry.nojv.tw -u ci-push` — the seed's special_env demo
-# problem references these images, so publish them before (re)running a seed
-# that includes it. Not wired into CI: demo problems are optional seed content,
-# and Cloudflare's bot protection blocks GitHub-hosted runners anyway.
 ```
+
+There is no separate push service account: a platform admin's registry
+credential (generated from the advanced problem editor) authorizes every
+repository, including `demo/**`. To publish the seed's demo judge images,
+`docker login registry.nojv.tw` with an admin credential and run
+`pnpm demo-advanced:push` — the seed's special_env demo problem references
+these images, so publish them before (re)running a seed that includes it.
+This is deliberately manual, not CI: demo problems are optional seed content,
+and Cloudflare's bot protection blocks GitHub-hosted runners anyway.
 
 Expose the registry publicly by adding a `registry.nojv.tw` hostname to the
 Cloudflare tunnel (Zero Trust dashboard → the existing tunnel → Public
@@ -327,6 +330,13 @@ Teachers `docker login registry.nojv.tw` with credentials issued from the
 problem editor; judge pods pull via the `nojv-registry-pull` secret. Note the
 Cloudflare free tier caps a single request body at 100 MB — image layers larger
 than that fail to push (split layers).
+
+**Garbage collection** is triggered manually from `/admin/registry` (never
+automatic). distribution's mark-and-sweep is not concurrency-safe with pushes:
+a blob uploaded but not yet referenced by a manifest can be swept. Run GC during
+a quiet window (no teacher actively pushing). `--delete-untagged=false` bounds
+the blast radius, and interrupting a GC is safe; a mis-timed run at worst
+requires the affected image to be re-pushed.
 
 ## 6. Install the chart
 

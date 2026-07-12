@@ -69,7 +69,7 @@ export function buildRegistryGcJobManifest(
               name: GC_CONTAINER_NAME,
               image: config.image,
               imagePullPolicy: "IfNotPresent",
-              command: ["garbage-collect", "--delete-untagged=false", GC_CONFIG_PATH],
+              args: ["garbage-collect", "--delete-untagged=false", GC_CONFIG_PATH],
               securityContext: {
                 allowPrivilegeEscalation: false,
                 readOnlyRootFilesystem: true,
@@ -127,9 +127,13 @@ async function waitForJob(
 ): Promise<"succeeded" | "failed"> {
   const deadline = Date.now() + (GC_JOB_DEADLINE_SECONDS + GC_JOB_WATCH_BUFFER_SECONDS) * 1_000;
   while (Date.now() < deadline) {
-    const job = await clients.batchApi.readNamespacedJob({ name: jobName, namespace });
-    if (job.status?.succeeded) return "succeeded";
-    if (job.status?.failed) return "failed";
+    // Tolerate a transient API-server blip: a null read just polls again rather
+    // than throwing out of the activity (which would delete the healthy Job).
+    const job = await clients.batchApi
+      .readNamespacedJob({ name: jobName, namespace })
+      .catch(() => null);
+    if (job?.status?.succeeded) return "succeeded";
+    if (job?.status?.failed) return "failed";
     heartbeat();
     await new Promise((resolve) => setTimeout(resolve, GC_JOB_POLL_INTERVAL_MS));
   }

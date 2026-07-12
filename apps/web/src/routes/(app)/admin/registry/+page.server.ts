@@ -1,4 +1,4 @@
-import { fail } from "@sveltejs/kit";
+import { error, fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
@@ -12,7 +12,16 @@ import {
 } from "$lib/server/registry";
 import { auditDomain, registryDomain } from "@nojv/application";
 
-export const load: PageServerLoad = async () => {
+// distribution repository-name grammar and a sha256 manifest digest.
+const REPO_NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/;
+const MANIFEST_DIGEST = /^sha256:[a-f0-9]{64}$/;
+
+export const load: PageServerLoad = async (event) => {
+  const actor = requireAuth(event);
+  if (actor.platformRole !== "admin") {
+    error(403, "Admin access required.");
+  }
+
   if (!isRegistryConfigured()) {
     return { configured: false as const };
   }
@@ -59,7 +68,7 @@ export const actions = {
     const digest = readString(formData, "digest");
     const tag = readString(formData, "tag");
 
-    if (!repo || !digest) {
+    if (!REPO_NAME.test(repo) || !MANIFEST_DIGEST.test(digest)) {
       return fail(400, { error: "Invalid input." });
     }
 

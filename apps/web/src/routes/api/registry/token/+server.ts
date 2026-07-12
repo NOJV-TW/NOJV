@@ -9,7 +9,6 @@ import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 import { isRegistryTokenConfigured, signRegistryToken } from "$lib/server/registry-token";
 
 const JUDGE_PULL_USER = "judge-pull";
-const CI_PUSH_USER = "ci-push";
 
 interface Credentials {
   username: string;
@@ -57,18 +56,6 @@ async function resolvePrincipal(
       return failClosed();
     }
     return { kind: "judge" };
-  }
-
-  if (credentials.username === CI_PUSH_USER) {
-    if (
-      !registryDomain.verifyServiceAccountSecret(
-        credentials.password,
-        env.REGISTRY_CI_PASSWORD_HASH,
-      )
-    ) {
-      return failClosed();
-    }
-    return { kind: "ci" };
   }
 
   const teacher = await registryDomain.verifyRegistryLogin(

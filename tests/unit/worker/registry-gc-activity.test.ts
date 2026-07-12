@@ -30,7 +30,8 @@ describe("buildRegistryGcJobManifest", () => {
   });
 
   it("runs the non-destructive garbage-collect command against the mounted config", () => {
-    expect(container?.command).toEqual([
+    expect(container?.command).toBeUndefined();
+    expect(container?.args).toEqual([
       "garbage-collect",
       "--delete-untagged=false",
       "/etc/distribution/config.yml",

@@ -12,7 +12,6 @@ process.env.REGISTRY_TOKEN_ISSUER = "nojv-test";
 process.env.REGISTRY_TOKEN_PRIVATE_KEY = Buffer.from(PRIVATE_PEM).toString("base64");
 process.env.REGISTRY_TOKEN_CERT = Buffer.from(CERT_PEM).toString("base64");
 process.env.REGISTRY_PULL_PASSWORD_HASH = "";
-process.env.REGISTRY_CI_PASSWORD_HASH = "";
 
 const { verifyRegistryLogin } = vi.hoisted(() => ({ verifyRegistryLogin: vi.fn() }));
 
@@ -141,6 +140,25 @@ describe("GET /api/registry/token", () => {
     await expect(
       GET(makeEvent("?service=registry.test.local", basic("judge-pull", "whatever"))),
     ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("grants a platform admin's credential push access to the demo namespace", async () => {
+    verifyRegistryLogin.mockResolvedValue({ kind: "admin" });
+    const res = await GET(
+      makeEvent(
+        "?service=registry.test.local&scope=repository:demo/nojv-demo-advanced-run:pull,push",
+        basic("takala", "correct"),
+      ),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+    const verified = await jwtVerify(body.token, publicKey, {
+      audience: "registry.test.local",
+    });
+    expect(verified.payload.sub).toBe("admin");
+    expect(verified.payload.access).toEqual([
+      { type: "repository", name: "demo/nojv-demo-advanced-run", actions: ["pull", "push"] },
+    ]);
   });
 });
 
