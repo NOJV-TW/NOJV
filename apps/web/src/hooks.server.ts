@@ -32,10 +32,11 @@ import {
 import { getWebEnv } from "$lib/server/env";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
-  hasAdminMode,
   hasAdminSessionMfa,
   isSuperAdminSessionExpired,
   isTwoFactorActivated,
+  resolveAdminElevation,
+  revokeAdminElevation,
 } from "$lib/server/step-up";
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
@@ -229,8 +230,12 @@ async function loadSession(event: HandleEvent): Promise<void> {
   event.locals.sessionUser = (session?.user ?? null) as SessionUser | null;
 }
 
-function enforceAccountState(event: HandleEvent, cleanPath: string): void {
+async function enforceAccountState(event: HandleEvent, cleanPath: string): Promise<void> {
   if (event.locals.sessionUser?.disabled) {
+    const sessionId = event.locals.session?.id;
+    if (sessionId) {
+      await revokeAdminElevation(sessionId);
+    }
     event.locals.session = null;
     event.locals.user = null;
     event.locals.sessionUser = null;
@@ -264,7 +269,7 @@ async function resolveAdminMode(event: HandleEvent): Promise<void> {
   const user = event.locals.sessionUser;
   const sessionId = event.locals.session?.id;
   event.locals.adminModeActive =
-    user?.platformRole === "admin" && !!sessionId && (await hasAdminMode(sessionId));
+    !!user && !!sessionId && (await resolveAdminElevation(sessionId, user.id));
 }
 
 async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {
@@ -325,8 +330,8 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
     redirect(302, "/settings?setup2fa=1");
   }
   const sessionId = event.locals.session?.id;
-  if (sessionId && !(await hasAdminSessionMfa(sessionId))) {
-    redirect(302, "/account/api-tokens/verify?returnTo=" + encodeURIComponent(cleanPath));
+  if (sessionId && !(await hasAdminSessionMfa(sessionId, user.id))) {
+    redirect(302, "/account/api-tokens/verify?purpose=admin-mode");
   }
 }
 
@@ -483,7 +488,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   await loadSession(event);
   await consumeStepUpHandoff(event);
-  enforceAccountState(event, cleanPath);
+  await enforceAccountState(event, cleanPath);
   await enforceSuperAdminSessionAge(event);
   enforcePasswordChange(event, cleanPath);
   await resolveAdminMode(event);

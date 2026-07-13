@@ -29,6 +29,7 @@ function event(input?: {
   sessionId?: string;
   userId?: string;
   isSuperAdmin?: boolean;
+  platformRole?: "admin" | "student";
 }): RequestEvent {
   return {
     cookies: {
@@ -38,7 +39,12 @@ function event(input?: {
     locals: {
       session: input?.sessionId ? { id: input.sessionId } : null,
       sessionUser: input?.userId
-        ? { id: input.userId, isSuperAdmin: input.isSuperAdmin ?? false }
+        ? {
+            id: input.userId,
+            isSuperAdmin: input.isSuperAdmin ?? false,
+            platformRole:
+              input.platformRole ?? (input.isSuperAdmin === true ? "admin" : "student"),
+          }
         : null,
     },
   } as unknown as RequestEvent;
@@ -87,6 +93,23 @@ describe("step-up handoff", () => {
 
     expect(markStepUpFreshMock).toHaveBeenCalledWith("sess_new");
     expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_new");
-    expect(markAdminSessionMfaMock).toHaveBeenCalledWith("sess_new");
+    expect(markAdminSessionMfaMock).toHaveBeenCalledWith("sess_new", "usr_1");
+  });
+
+  it("grants the same session-bound MFA marker to a regular platform admin", async () => {
+    consumeTicketMock.mockResolvedValue("usr_1");
+
+    await expect(
+      consumeStepUpHandoff(
+        event({
+          cookie: "ticket",
+          sessionId: "sess_new",
+          userId: "usr_1",
+          platformRole: "admin",
+        }),
+      ),
+    ).resolves.toBe(true);
+
+    expect(markAdminSessionMfaMock).toHaveBeenCalledWith("sess_new", "usr_1");
   });
 });

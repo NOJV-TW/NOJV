@@ -1,16 +1,36 @@
 import { chromium, type FullConfig, type Page } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+import { prismaAdapterClient } from "@nojv/db";
+import { getRedis, keys } from "@nojv/redis";
 
 const AUTH_DIR = path.resolve(import.meta.dirname, "../fixtures/auth-states");
 
 /**
- * Admin accounts default to their de-elevated identity, so pre-elevate the
- * shared admin session into admin mode via the real toggle; the admin-panel
- * e2e specs assume the backend is reachable. The de-elevated default and the
- * toggle round-trip are covered by a dedicated spec.
+ * Admin accounts default to their de-elevated identity. The shared E2E state
+ * explicitly provisions the same prerequisites a verified factor creates,
+ * then exercises the real elevation endpoint.
  */
-async function elevateAdminSession(page: Page, baseURL: string): Promise<void> {
+async function elevateAdminSession(page: Page, baseURL: string, email: string): Promise<void> {
+  const user = await prismaAdapterClient.user.update({
+    where: { email },
+    data: { twoFactorActivated: true },
+  });
+  const session = await prismaAdapterClient.session.findFirst({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (!session) {
+    throw new Error("Admin sign-in did not create a session.");
+  }
+  await getRedis()
+    .multi()
+    .set(keys.apiTokenStepUp(session.id), "1", "EX", 600)
+    .set(keys.adminSessionMfa(session.id), user.id, "EX", 600)
+    .exec();
+
   const res = await page.request.post(`${baseURL}/api/admin-mode`, {
     headers: { "x-requested-with": "fetch" },
     data: { active: true },
@@ -29,6 +49,7 @@ const roles = [
 
 export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0]?.use?.baseURL ?? "http://localhost:5173";
+  await mkdir(AUTH_DIR, { recursive: true });
   const browser = await chromium.launch();
 
   for (const role of roles) {
@@ -47,7 +68,7 @@ export default async function globalSetup(config: FullConfig) {
     await page.evaluate(() => localStorage.setItem("nojv:tour:off", "1"));
 
     if (role.name === "admin") {
-      await elevateAdminSession(page, baseURL);
+      await elevateAdminSession(page, baseURL, role.email);
     }
 
     const state = await context.storageState();

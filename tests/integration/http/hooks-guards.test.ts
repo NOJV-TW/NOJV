@@ -52,9 +52,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     });
     const res = await callRoute({ path: "/admin", module: NO_RESOLVE, user });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe(
-      `/account/api-tokens/verify?returnTo=${encodeURIComponent("/admin")}`,
-    );
+    expect(res.headers.get("location")).toBe("/account/api-tokens/verify?purpose=admin-mode");
   }, 30_000);
 
   it("allows a super admin whose session already passed 2FA", async () => {
@@ -94,7 +92,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     });
 
     expect(res.status).not.toBe(302);
-    await expect(hasAdminSessionMfa("test-session")).resolves.toBe(true);
+    await expect(hasAdminSessionMfa("test-session", user.id)).resolves.toBe(true);
     await expect(hasFreshStepUp("test-session")).resolves.toBe(true);
     await getRedis().del(
       keys.adminSessionMfa("test-session"),

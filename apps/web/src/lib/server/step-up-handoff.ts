@@ -22,7 +22,9 @@ export async function consumeStepUpHandoff(event: RequestEvent): Promise<boolean
   await Promise.all([
     markStepUpFresh(sessionId),
     markTokenPageMfa(sessionId),
-    ...(sessionUser.isSuperAdmin ? [markAdminSessionMfa(sessionId)] : []),
+    ...(sessionUser.platformRole === "admin"
+      ? [markAdminSessionMfa(sessionId, sessionUser.id)]
+      : []),
   ]);
   return true;
 }

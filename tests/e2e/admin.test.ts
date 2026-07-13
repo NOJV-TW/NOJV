@@ -81,7 +81,7 @@ test.describe("Admin panel — gating + pages", () => {
     await context.close();
   });
 
-  test("admin panel is gated behind the admin-mode toggle", async ({ browser }) => {
+  test("admin-mode activation requires a verified step-up", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -96,11 +96,18 @@ test.describe("Admin panel — gating + pages", () => {
     const blocked = await page.goto("/admin");
     expect(blocked?.status() ?? 0).toBeGreaterThanOrEqual(400);
 
-    // Toggle into admin mode from the profile dropdown.
+    // Entering admin mode starts the fixed verification flow; it never elevates
+    // from the menu click itself.
     await page.locator('button[title="Admin"]').click();
     await page.getByRole("button", { name: /admin mode|管理模式/i }).click();
-    await page.waitForURL(/\/admin(\/|$)/, { timeout: 15000 });
-    await expect(page.getByRole("main")).toBeVisible();
+    await page.waitForURL(
+      (url) =>
+        url.pathname === "/settings" &&
+        url.searchParams.get("verify") === "totp" &&
+        url.searchParams.get("returnTo") === "/account/api-tokens/verify?purpose=admin-mode",
+      { timeout: 15000 },
+    );
+    expect(page.url()).not.toMatch(/\/admin(?:\/|$)/);
 
     await context.close();
   });

@@ -18,19 +18,21 @@
 
   async function toggleAdminMode() {
     if (adminBusy) return;
+    if (!actingAsAdmin) {
+      open = false;
+      await goto("/account/api-tokens/verify?purpose=admin-mode");
+      return;
+    }
     adminBusy = true;
-    const next = !actingAsAdmin;
     try {
       const r = await fetchWithCsrf("/api/admin-mode", {
         method: "POST",
-        body: JSON.stringify({ active: next }),
+        body: JSON.stringify({ active: false }),
       });
       if (!r.ok) return;
       open = false;
       await invalidateAll();
-      if (next) {
-        await goto("/admin");
-      } else if (page.url.pathname.startsWith("/admin")) {
+      if (page.url.pathname.startsWith("/admin")) {
         await goto("/dashboard");
       }
     } finally {

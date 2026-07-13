@@ -7,6 +7,8 @@ const {
   hasFreshStepUpMock,
   markTokenPageMfaMock,
   markStepUpFreshMock,
+  markAdminSessionMfaMock,
+  grantAdminElevationMock,
   verifyStepUpCodeMock,
   createApiTokenMock,
   updateApiTokenMock,
@@ -18,6 +20,8 @@ const {
   hasFreshStepUpMock: vi.fn(),
   markTokenPageMfaMock: vi.fn(),
   markStepUpFreshMock: vi.fn(),
+  markAdminSessionMfaMock: vi.fn(),
+  grantAdminElevationMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
   createApiTokenMock: vi.fn(),
   updateApiTokenMock: vi.fn(),
@@ -35,6 +39,8 @@ vi.mock("$lib/server/step-up", async () => {
     hasFreshStepUp: hasFreshStepUpMock,
     markTokenPageMfa: markTokenPageMfaMock,
     markStepUpFresh: markStepUpFreshMock,
+    markAdminSessionMfa: markAdminSessionMfaMock,
+    grantAdminElevation: grantAdminElevationMock,
     verifyStepUpCode: verifyStepUpCodeMock,
   };
 });
@@ -86,11 +92,16 @@ function makeEvent(body?: FormData): RequestEvent {
   } as unknown as RequestEvent;
 }
 
-function verifyEvent(code: string, returnTo = "/account/api-tokens"): RequestEvent {
+function verifyEvent(code: string, purpose = "api-tokens", returnTo?: string): RequestEvent {
   const body = new FormData();
   body.set("code", code);
-  body.set("returnTo", returnTo);
-  return makeEvent(body);
+  body.set("purpose", purpose);
+  if (returnTo) body.set("returnTo", returnTo);
+  const event = makeEvent(body);
+  if (purpose === "admin-mode") {
+    event.locals.sessionUser!.platformRole = "admin";
+  }
+  return event;
 }
 
 async function caught(
@@ -110,6 +121,8 @@ beforeEach(() => {
   hasFreshStepUpMock.mockReset().mockResolvedValue(true);
   markTokenPageMfaMock.mockReset().mockResolvedValue(undefined);
   markStepUpFreshMock.mockReset().mockResolvedValue(undefined);
+  markAdminSessionMfaMock.mockReset().mockResolvedValue(undefined);
+  grantAdminElevationMock.mockReset().mockResolvedValue(true);
   verifyStepUpCodeMock.mockReset();
   createApiTokenMock.mockReset();
   updateApiTokenMock.mockReset();
@@ -208,6 +221,31 @@ describe("api-tokens verify action", () => {
     expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_1");
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
+  });
+
+  it("grants admin mode only after a verified code for the fixed admin-mode purpose", async () => {
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
+
+    const thrown = await caught(() =>
+      verifyActions.default(verifyEvent("123456", "admin-mode")),
+    );
+
+    expect(markAdminSessionMfaMock).toHaveBeenCalledWith("sess_1", "usr_1");
+    expect(grantAdminElevationMock).toHaveBeenCalledWith("sess_1", "usr_1");
+    expect(thrown).toEqual({ status: 303, location: "/admin" });
+  });
+
+  it("ignores arbitrary returnTo values and uses the purpose's fixed destination", async () => {
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
+
+    const thrown = await caught(() =>
+      verifyActions.default(
+        verifyEvent("123456", "https://evil.test", "//evil.test/steal-session"),
+      ),
+    );
+
+    expect(grantAdminElevationMock).not.toHaveBeenCalled();
+    expect(thrown).toEqual({ status: 303, location: "/account/api-tokens" });
   });
 
   it("rejects a replayed TOTP code with fail(401)", async () => {
