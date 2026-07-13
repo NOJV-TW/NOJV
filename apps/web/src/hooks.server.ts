@@ -269,7 +269,9 @@ async function resolveAdminMode(event: HandleEvent): Promise<void> {
   const user = event.locals.sessionUser;
   const sessionId = event.locals.session?.id;
   event.locals.adminModeActive =
-    !!user && !!sessionId && (await resolveAdminElevation(sessionId, user.id));
+    user?.platformRole === "admin" &&
+    !!sessionId &&
+    (await resolveAdminElevation(sessionId, user.id));
 }
 
 async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {

@@ -166,7 +166,7 @@ describe("admin mode MFA invariant", () => {
     expect([mfa, mode]).toEqual([null, null]);
   });
 
-  it("clears elevation when the account has been demoted", async () => {
+  it("fails closed when a non-admin account has stale elevation keys", async () => {
     const user = await createTestUser({ platformRole: "teacher", twoFactorActivated: true });
     await getRedis().set(keys.adminSessionMfa(sessionId), user.id, "EX", 600);
     await getRedis().set(keys.adminMode(sessionId), user.id, "EX", 600);
@@ -180,11 +180,6 @@ describe("admin mode MFA invariant", () => {
     });
 
     await expect(response.json()).resolves.toEqual({ active: false });
-    const [mfa, mode] = await getRedis().mget(
-      keys.adminSessionMfa(sessionId),
-      keys.adminMode(sessionId),
-    );
-    expect([mfa, mode]).toEqual([null, null]);
   });
 
   it("clears elevation before redirecting a disabled admin", async () => {

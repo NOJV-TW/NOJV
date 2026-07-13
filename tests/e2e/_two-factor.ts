@@ -1,4 +1,36 @@
+import { createHmac } from "node:crypto";
+
 import { expect, type Page } from "@playwright/test";
+
+import { TEST_PASSWORD } from "./_disposable-user";
+
+function base32Decode(input: string): Buffer {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const character of input.replace(/=+$/, "").toUpperCase()) {
+    const index = alphabet.indexOf(character);
+    if (index >= 0) bits += index.toString(2).padStart(5, "0");
+  }
+  const bytes: number[] = [];
+  for (let index = 0; index + 8 <= bits.length; index += 8) {
+    bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
+export function currentTotp(secretBase32: string): string {
+  const counter = Math.floor(Date.now() / 1000 / 30);
+  const counterBytes = Buffer.alloc(8);
+  counterBytes.writeBigUInt64BE(BigInt(counter));
+  const hmac = createHmac("sha1", base32Decode(secretBase32)).update(counterBytes).digest();
+  const offset = hmac[hmac.length - 1]! & 0x0f;
+  const code =
+    ((hmac[offset]! & 0x7f) << 24) |
+    ((hmac[offset + 1]! & 0xff) << 16) |
+    ((hmac[offset + 2]! & 0xff) << 8) |
+    (hmac[offset + 3]! & 0xff);
+  return (code % 1_000_000).toString().padStart(6, "0");
+}
 
 export async function activateTwoFactor(page: Page): Promise<void> {
   await page.goto("/settings?setup2fa=1");
@@ -22,4 +54,29 @@ export async function activateTwoFactor(page: Page): Promise<void> {
 
 export function settingsMethodRow(page: Page, method: string) {
   return page.getByText(method, { exact: true }).locator("xpath=../..");
+}
+
+export async function enrollTotp(
+  page: Page,
+  password: string = TEST_PASSWORD,
+): Promise<string> {
+  await settingsMethodRow(page, "Authenticator app (TOTP)")
+    .getByRole("button", { name: "Set up", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Authenticator app (TOTP)" });
+  await dialog.locator('input[name="password"]').fill(password);
+  const enableButton = dialog.getByRole("button", { name: "Enable 2FA" });
+  await expect(enableButton).toBeEnabled();
+  await enableButton.click();
+
+  const manualKey = dialog.locator("code").first();
+  await expect(manualKey).toBeVisible({ timeout: 10_000 });
+  const secret = ((await manualKey.textContent()) ?? "").trim();
+  if (!secret) throw new Error("TOTP enrollment did not expose a manual key.");
+
+  await dialog.locator('input[type="checkbox"]').check();
+  await dialog.locator('form[action="?/verify"] input[name="code"]').fill(currentTotp(secret));
+  await dialog.getByRole("button", { name: "Verify & activate" }).click();
+  await expect(dialog).toBeHidden({ timeout: 10_000 });
+  return secret;
 }

@@ -30,6 +30,7 @@ export class DisposableCredentialUser {
   readonly email: string;
   readonly accountId: string;
   readonly username: string;
+  readonly name: string;
 
   constructor(label: string) {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
@@ -37,12 +38,14 @@ export class DisposableCredentialUser {
     this.email = `${this.id}@nojv.local`;
     this.accountId = `${this.id}-account`;
     this.username = `e2e-${label}-${suffix}`;
+    this.name = `E2E ${this.username}`;
   }
 
-  create(): void {
+  create(input: { platformRole?: "admin" | "student" | "teacher" } = {}): void {
+    const platformRole = input.platformRole ?? "student";
     psql(`
-      INSERT INTO "User" (id, email, username, name, "emailVerified", "createdAt", "updatedAt")
-      VALUES ('${this.id}', '${this.email}', '${this.username}', 'E2E ${this.username}', true, NOW(), NOW());
+      INSERT INTO "User" (id, email, username, name, "emailVerified", "platformRole", "createdAt", "updatedAt")
+      VALUES ('${this.id}', '${this.email}', '${this.username}', '${this.name}', true, '${platformRole}', NOW(), NOW());
       INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
       SELECT '${this.accountId}', '${this.id}', 'credential', '${this.id}', password, NOW(), NOW()
       FROM "Account"
@@ -51,7 +54,20 @@ export class DisposableCredentialUser {
   }
 
   cleanup(): void {
+    const sessionIds = psql(`SELECT id FROM "Session" WHERE "userId" = '${this.id}';`)
+      .split("\n")
+      .filter(Boolean);
     psql(`DELETE FROM "User" WHERE id = '${this.id}';`);
+    const redisKeys = sessionIds.flatMap((sessionId) => [
+      `nojv:apitoken:stepup:${sessionId}`,
+      `nojv:apitoken:page-mfa:${sessionId}`,
+      `nojv:admin:mfa:${sessionId}`,
+      `nojv:admin:mode:${sessionId}`,
+      `nojv:2fa:change-grant:${sessionId}`,
+    ]);
+    if (redisKeys.length > 0) {
+      execFileSync("docker", ["exec", "nojv-redis-1", "redis-cli", "DEL", ...redisKeys]);
+    }
   }
 }
 

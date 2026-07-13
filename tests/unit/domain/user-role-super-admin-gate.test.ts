@@ -1,32 +1,45 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findById, update, findDisabledStatus, createAndCap, publishNotification } = vi.hoisted(
-  () => ({
-    findById: vi.fn(),
-    update: vi.fn((id: string, data: object) => Promise.resolve({ id, ...data })),
-    findDisabledStatus: vi.fn(),
-    createAndCap: vi.fn(() =>
-      Promise.resolve({
-        id: "ntf_1",
-        userId: "u1",
-        type: "role_changed",
-        params: {},
-        linkUrl: "/account",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        read: false,
-      }),
-    ),
-    publishNotification: vi.fn(() => Promise.resolve()),
-  }),
-);
+const {
+  findById,
+  update,
+  findDisabledStatus,
+  listSessionIds,
+  deleteRedisKeys,
+  createAndCap,
+  publishNotification,
+} = vi.hoisted(() => ({
+  findById: vi.fn(),
+  update: vi.fn((id: string, data: object) => Promise.resolve({ id, ...data })),
+  findDisabledStatus: vi.fn(),
+  listSessionIds: vi.fn(),
+  deleteRedisKeys: vi.fn(),
+  createAndCap: vi.fn(() =>
+    Promise.resolve({
+      id: "ntf_1",
+      userId: "u1",
+      type: "role_changed",
+      params: {},
+      linkUrl: "/account",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      read: false,
+    }),
+  ),
+  publishNotification: vi.fn(() => Promise.resolve()),
+}));
 
 vi.mock("@nojv/db", () => ({
-  userRepo: { findById, update, findDisabledStatus },
+  userRepo: { findById, update, findDisabledStatus, listSessionIds },
   submissionRepo: {},
   notificationRepo: { createAndCap },
 }));
 
 vi.mock("@nojv/redis", () => ({
+  getRedis: () => ({ del: deleteRedisKeys }),
+  keys: {
+    adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
+    adminMode: (sessionId: string) => `nojv:admin:mode:${sessionId}`,
+  },
   pubsub: { publishNotification },
 }));
 
@@ -36,6 +49,8 @@ const { updateUserRole, toggleUserDisabled } = userDomain;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  listSessionIds.mockResolvedValue([]);
+  deleteRedisKeys.mockResolvedValue(0);
 });
 
 describe("updateUserRole — super-admin gate", () => {
@@ -63,7 +78,14 @@ describe("updateUserRole — super-admin gate", () => {
 
   it("demoting an admin clears isSuperAdmin", async () => {
     findById.mockResolvedValue({ id: "u1", platformRole: "admin" });
+    listSessionIds.mockResolvedValue(["sess_1", "sess_2"]);
     await updateUserRole(true, "u1", "teacher");
+    expect(deleteRedisKeys).toHaveBeenCalledWith(
+      "nojv:admin:mfa:sess_1",
+      "nojv:admin:mode:sess_1",
+      "nojv:admin:mfa:sess_2",
+      "nojv:admin:mode:sess_2",
+    );
     expect(update).toHaveBeenCalledWith("u1", { platformRole: "teacher", isSuperAdmin: false });
   });
 

@@ -1,10 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { createHmac } from "node:crypto";
 import path from "node:path";
 
 import { signInWithPassword } from "./_disposable-user";
-import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
+import { activateTwoFactor, currentTotp, enrollTotp } from "./_two-factor";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
@@ -34,36 +33,6 @@ function pg(sql: string): string {
     ],
     { input: sql, encoding: "utf8" },
   ).trim();
-}
-
-function base32Decode(input: string): Buffer {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = "";
-  for (const ch of input.replace(/=+$/, "").toUpperCase()) {
-    const idx = alphabet.indexOf(ch);
-    if (idx === -1) continue;
-    bits += idx.toString(2).padStart(5, "0");
-  }
-  const bytes: number[] = [];
-  for (let i = 0; i + 8 <= bits.length; i += 8) {
-    bytes.push(Number.parseInt(bits.slice(i, i + 8), 2));
-  }
-  return Buffer.from(bytes);
-}
-
-function totp(secretBase32: string): string {
-  const key = base32Decode(secretBase32);
-  const counter = Math.floor(Date.now() / 1000 / 30);
-  const buf = Buffer.alloc(8);
-  buf.writeBigUInt64BE(BigInt(counter));
-  const hmac = createHmac("sha1", key).update(buf).digest();
-  const offset = hmac[hmac.length - 1] & 0x0f;
-  const code =
-    ((hmac[offset] & 0x7f) << 24) |
-    ((hmac[offset + 1] & 0xff) << 16) |
-    ((hmac[offset + 2] & 0xff) << 8) |
-    (hmac[offset + 3] & 0xff);
-  return (code % 1_000_000).toString().padStart(6, "0");
 }
 
 test.describe("API token step-up", () => {
@@ -121,28 +90,7 @@ test.describe("API token step-up", () => {
 
     await activateTwoFactor(page);
 
-    await settingsMethodRow(page, "Authenticator app (TOTP)")
-      .getByRole("button", { name: "Set up", exact: true })
-      .click();
-    const dialog = page.getByRole("dialog", { name: "Authenticator app (TOTP)" });
-    const passwordInput = dialog.locator('input[name="password"]');
-    await passwordInput.fill(SEED_PASSWORD);
-    const enableButton = dialog.getByRole("button", { name: "Enable 2FA" });
-    await expect(enableButton).toBeEnabled();
-    await enableButton.click();
-
-    const manualKey = dialog.locator("code").first();
-    await expect(manualKey).toBeVisible({ timeout: 10000 });
-    const secret = ((await manualKey.textContent()) ?? "").trim();
-    expect(secret.length).toBeGreaterThan(0);
-
-    await dialog.locator('input[type="checkbox"]').check();
-
-    const enrollCode = dialog.locator('form[action="?/verify"] input[name="code"]');
-    await enrollCode.fill(totp(secret));
-    await dialog.getByRole("button", { name: "Verify & activate" }).click();
-
-    await expect(dialog).toBeHidden({ timeout: 10_000 });
+    const secret = await enrollTotp(page, SEED_PASSWORD);
 
     // The TOTP assertion that finalized enrollment is handed to this rotated session.
     await page.goto("/account/api-tokens");
@@ -163,7 +111,7 @@ test.describe("API token step-up", () => {
     const stepUpCode = otherPage.locator('input[name="code"]');
     await stepUpCode.waitFor({ state: "visible" });
     await stepUpCode.click();
-    await stepUpCode.pressSequentially(totp(secret));
+    await stepUpCode.pressSequentially(currentTotp(secret));
     await otherPage.locator('button[type="submit"]').click();
 
     await expect(otherPage).toHaveURL(/\/account\/api-tokens$/, { timeout: 10000 });

@@ -37,10 +37,6 @@ redis.call("DEL", KEYS[1], KEYS[2])
 return 0
 `;
 
-const REVOKE_ADMIN_ELEVATION = `
-return redis.call("DEL", KEYS[1], KEYS[2])
-`;
-
 export function validateStepUpCode(code: string): boolean {
   return STEPUP_CODE_PATTERN.test(code);
 }
@@ -141,12 +137,17 @@ export async function resolveAdminElevation(
 }
 
 export async function revokeAdminElevation(sessionId: string): Promise<void> {
-  await getRedis().eval(
-    REVOKE_ADMIN_ELEVATION,
-    2,
+  await revokeAdminElevations([sessionId]);
+}
+
+export async function revokeAdminElevations(sessionIds: readonly string[]): Promise<void> {
+  const elevationKeys = sessionIds.flatMap((sessionId) => [
     keys.adminSessionMfa(sessionId),
     keys.adminMode(sessionId),
-  );
+  ]);
+  if (elevationKeys.length > 0) {
+    await getRedis().del(...elevationKeys);
+  }
 }
 
 export async function markTotpSeen(userId: string, code: string): Promise<void> {

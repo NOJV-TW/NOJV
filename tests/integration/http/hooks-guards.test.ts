@@ -1,7 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestUser } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
+
+const { resolveAdminElevationSpy } = vi.hoisted(() => ({
+  resolveAdminElevationSpy: vi.fn(),
+}));
+
+vi.mock("$lib/server/step-up", async () => {
+  const actual =
+    await vi.importActual<typeof import("$lib/server/step-up")>("$lib/server/step-up");
+  resolveAdminElevationSpy.mockImplementation(actual.resolveAdminElevation);
+  return { ...actual, resolveAdminElevation: resolveAdminElevationSpy };
+});
 
 vi.mock("$lib/auth.server", () => ({
   getAuth: () => ({
@@ -33,7 +44,23 @@ vi.mock("$lib/server/env", () => ({
 
 const NO_RESOLVE = {};
 
+beforeEach(() => {
+  resolveAdminElevationSpy.mockClear();
+});
+
 describe("hooks.server guard chain (request-layer redirects)", () => {
+  it("does not resolve admin elevation for a non-admin account", async () => {
+    const user = await createTestUser({
+      username: "teacher_fast_path",
+      platformRole: "teacher",
+    });
+
+    const res = await callRoute({ path: "/dashboard", module: NO_RESOLVE, user });
+
+    expect(res.status).toBe(405);
+    expect(resolveAdminElevationSpy).not.toHaveBeenCalled();
+  }, 30_000);
+
   it("redirects a must-change-password user to the change-password page", async () => {
     const user = await createTestUser({ username: "pw_user", mustChangePassword: true });
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });

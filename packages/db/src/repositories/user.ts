@@ -56,6 +56,14 @@ export const userRepo = {
     });
   },
 
+  async listSessionIds(userId: string) {
+    const sessions = await prisma.session.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    return sessions.map(({ id }) => id);
+  },
+
   listEmailByIds(ids: readonly string[]) {
     return prisma.user.findMany({
       where: { id: { in: [...ids] } },
