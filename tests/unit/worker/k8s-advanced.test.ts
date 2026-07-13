@@ -90,6 +90,7 @@ const EXEC_CONFIG = {
 };
 
 interface CallRecord {
+  cleanupEvents: string[];
   configMapsCreated: { name: string; namespace: string; data: Record<string, string> }[];
   configMapsDeleted: { name: string; namespace: string }[];
   pvcsCreated: { name: string; namespace: string; body: unknown }[];
@@ -121,6 +122,8 @@ interface FakeOpts {
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
   let jobReadCount = 0;
+  const deletedJobs = new Set<string>();
+  const deletedPods = new Set<string>();
   const coreApi = {
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
       record.configMapsCreated.push({ name: body.metadata.name, namespace, data: body.data });
@@ -137,8 +140,10 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     createNamespacedPod: vi.fn(async ({ namespace, body }: any) => {
       record.podsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedPod: vi.fn(async ({ name, namespace }: any) => {
+    deleteNamespacedPod: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
       record.podsDeleted.push({ name, namespace });
+      record.cleanupEvents.push(`delete-pod:${name}:${String(propagationPolicy)}`);
+      deletedPods.add(name);
     }),
     createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
       record.servicesCreated.push({ name: body.metadata.name, namespace, body });
@@ -149,8 +154,20 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     deleteNamespacedService: vi.fn(async ({ name, namespace }: any) => {
       record.servicesDeleted.push({ name, namespace });
     }),
-    listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
+    listNamespacedPod: vi.fn(async ({ labelSelector, fieldSelector }: any) => {
+      if (fieldSelector) {
+        const podName = String(fieldSelector).split("=")[1];
+        if (deletedPods.has(podName)) {
+          record.cleanupEvents.push(`confirm-pod-gone:${podName}`);
+          return { items: [] };
+        }
+        return { items: [{ metadata: { name: podName } }] };
+      }
       const jobName = String(labelSelector).split("=")[1];
+      if (deletedJobs.has(jobName)) {
+        record.cleanupEvents.push(`confirm-job-pods-gone:${jobName}`);
+        return { items: [] };
+      }
       const nodeName = opts.runNodeName === undefined ? "node-a" : opts.runNodeName;
       const transferExitCode = opts.transferExitCode === undefined ? 0 : opts.transferExitCode;
       const isRunPod = String(jobName).endsWith("-run");
@@ -199,8 +216,10 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       if (opts.throwOnJobCreate) throw new Error("simulated job create failure");
       record.jobsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedJob: vi.fn(async ({ name, namespace }: any) => {
+    deleteNamespacedJob: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
       record.jobsDeleted.push({ name, namespace });
+      record.cleanupEvents.push(`delete-job:${name}:${String(propagationPolicy)}`);
+      deletedJobs.add(name);
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
       jobReadCount += 1;
@@ -225,6 +244,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     }),
     deleteNamespacedNetworkPolicy: vi.fn(async ({ name, namespace }: any) => {
       record.networkPoliciesDeleted.push({ name, namespace });
+      record.cleanupEvents.push(`delete-policy:${name}`);
     }),
   } as any;
 
@@ -233,6 +253,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
 
 function emptyRecord(): CallRecord {
   return {
+    cleanupEvents: [],
     configMapsCreated: [],
     configMapsDeleted: [],
     pvcsCreated: [],
@@ -1014,6 +1035,56 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       "judge-sub-adv-1-run-egress",
       "judge-sub-adv-1-sidecar-egress",
     ]);
+  });
+
+  it("SECURITY: keeps advanced policies until their selected Pods are confirmed gone", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, {
+        sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+      }),
+    );
+    await executor.execute(
+      makeAdvancedRequest({
+        network: {
+          mode: "service",
+          service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+        },
+      }),
+    );
+
+    const before = (earlier: string, later: string) => {
+      expect(record.cleanupEvents.indexOf(earlier), earlier).toBeGreaterThanOrEqual(0);
+      expect(record.cleanupEvents.indexOf(later), later).toBeGreaterThan(
+        record.cleanupEvents.indexOf(earlier),
+      );
+    };
+
+    before(
+      "delete-job:judge-sub-adv-1-run:Foreground",
+      "confirm-job-pods-gone:judge-sub-adv-1-run",
+    );
+    before(
+      "confirm-job-pods-gone:judge-sub-adv-1-run",
+      "delete-policy:judge-sub-adv-1-run-egress",
+    );
+    before(
+      "delete-job:judge-sub-adv-1-grade:Foreground",
+      "confirm-job-pods-gone:judge-sub-adv-1-grade",
+    );
+    before(
+      "confirm-job-pods-gone:judge-sub-adv-1-grade",
+      "delete-policy:judge-sub-adv-1-grade-egress",
+    );
+    before(
+      "delete-pod:judge-sub-adv-1-sidecar:Foreground",
+      "confirm-pod-gone:judge-sub-adv-1-sidecar",
+    );
+    before(
+      "confirm-pod-gone:judge-sub-adv-1-sidecar",
+      "delete-policy:judge-sub-adv-1-sidecar-egress",
+    );
   });
 
   it("mode=service: missing service marker fails closed before the run starts", async () => {

@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 
 import type * as k8s from "@kubernetes/client-node";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
@@ -9,6 +9,10 @@ import {
   K8sExecutor,
   type K8sExecutorConfig,
 } from "../../../apps/worker/src/services/k8s-executor.js";
+import {
+  assertSafeK8sIntegrationContext,
+  isK8sIntegrationEnabled,
+} from "../../setup/k8s-integration-target.js";
 
 const require = createRequire(import.meta.url);
 
@@ -174,80 +178,27 @@ async function deleteNetworkPolicy(name: string): Promise<void> {
   } catch {}
 }
 
-async function sweepNamespace(): Promise<void> {
-  if (!clients) return;
-  const [jobs, cms, pvcs, pods, svcs, nps] = await Promise.all([
-    clients.batchApi.listNamespacedJob({ namespace: NAMESPACE }).catch(() => ({ items: [] })),
-    clients.coreApi
-      .listNamespacedConfigMap({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-    clients.coreApi
-      .listNamespacedPersistentVolumeClaim({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-    clients.coreApi.listNamespacedPod({ namespace: NAMESPACE }).catch(() => ({ items: [] })),
-    clients.coreApi
-      .listNamespacedService({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-    clients.networkingApi
-      .listNamespacedNetworkPolicy({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-  ]);
-  const jobNames = (jobs.items ?? [])
-    .map((j: k8s.V1Job) => j.metadata?.name)
-    .filter((n): n is string => !!n && (n.startsWith("judge-") || n.startsWith("nojv-")));
-  const cmNames = (cms.items ?? [])
-    .map((c: k8s.V1ConfigMap) => c.metadata?.name)
-    .filter((n): n is string => !!n && (n.startsWith("judge-") || n.startsWith("nojv-")));
-  const pvcNames = (pvcs.items ?? [])
-    .map((p: k8s.V1PersistentVolumeClaim) => p.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-"));
-  const podNames = (pods.items ?? [])
-    .map((p: k8s.V1Pod) => p.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-sidecar"));
-  const svcNames = (svcs.items ?? [])
-    .map((s: k8s.V1Service) => s.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-sidecar"));
-  const npNames = (nps.items ?? [])
-    .map((p: k8s.V1NetworkPolicy) => p.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-egress"));
-  await Promise.all([
-    ...jobNames.map((n) => deleteJob(n)),
-    ...cmNames.map((n) => deleteConfigMap(n)),
-    ...pvcNames.map((n) => deletePvc(n)),
-    ...podNames.map((n) => deletePod(n)),
-    ...svcNames.map((n) => deleteService(n)),
-    ...npNames.map((n) => deleteNetworkPolicy(n)),
-  ]);
-}
-
 beforeAll(async () => {
+  if (!isK8sIntegrationEnabled(process.env)) {
+    clusterUnreachableReason = "REQUIRE_K8S=1 is not set";
+    return;
+  }
+
   try {
     const k8sLib = require("@kubernetes/client-node") as typeof k8s;
     const kc = new k8sLib.KubeConfig();
     kc.loadFromDefault();
     const ctx = kc.getCurrentContext();
-    if (ctx !== "orbstack" && ctx !== "k3d-nojv-judge") {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[k8s-judge-integration] current context is "${ctx}", expected "orbstack" or "k3d-nojv-judge"`,
-      );
-    }
+    assertSafeK8sIntegrationContext(ctx);
     const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
     const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
     const networkingApi = kc.makeApiClient(k8sLib.NetworkingV1Api);
     await coreApi.listNamespacedPod({ namespace: NAMESPACE });
     clients = { coreApi, batchApi, networkingApi };
-    await sweepNamespace();
   } catch (err) {
     clusterUnreachableReason = err instanceof Error ? err.message : String(err);
-    if (process.env.REQUIRE_K8S === "1") {
-      throw new Error(
-        `REQUIRE_K8S=1 but the cluster is unreachable: ${clusterUnreachableReason}`,
-      );
-    }
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[k8s-judge-integration] cluster unreachable, skipping suite: ${clusterUnreachableReason}`,
+    throw new Error(
+      `REQUIRE_K8S=1 but the configured test cluster is unsafe or unreachable: ${clusterUnreachableReason}`,
     );
   }
 }, 30_000);
@@ -274,10 +225,6 @@ afterEach(async () => {
     ...services.map(deleteService),
     ...networkPolicies.map(deleteNetworkPolicy),
   ]);
-}, 60_000);
-
-afterAll(async () => {
-  await sweepNamespace();
 }, 60_000);
 
 function skipIfUnreachable(ctx: { skip: () => void }): boolean {

@@ -8,8 +8,6 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
 
-const EGRESS_KEY = "nojv.egress";
-
 function helmAvailable(): boolean {
   try {
     execSync("helm version", { cwd: repoRoot, stdio: "pipe" });
@@ -42,33 +40,6 @@ function isolateDoc(render: string, kind: string, name: string): string {
   return doc;
 }
 
-function denyAllSelectorExpressions(yaml: string): { key: string; operator: string }[] {
-  const lines = yaml.split("\n");
-  const expressions: { key: string; operator: string }[] = [];
-  let inMatch = false;
-  let matchIndent = -1;
-  let pendingKey: string | null = null;
-  for (const line of lines) {
-    const m = /^(\s*)matchExpressions:\s*$/.exec(line);
-    if (m) {
-      inMatch = true;
-      matchIndent = m[1].length;
-      continue;
-    }
-    if (!inMatch) continue;
-    const indent = line.length - line.trimStart().length;
-    if (line.trim() !== "" && indent <= matchIndent) break;
-    const keyMatch = /^\s*-?\s*key:\s*([\w.\-/]+)\s*$/.exec(line);
-    if (keyMatch) pendingKey = keyMatch[1];
-    const opMatch = /^\s*operator:\s*(\S+)\s*$/.exec(line);
-    if (opMatch && pendingKey) {
-      expressions.push({ key: pendingKey, operator: opMatch[1] });
-      pendingKey = null;
-    }
-  }
-  return expressions;
-}
-
 function executorLabelSets(): Record<string, string>[] {
   const src = [
     "apps/worker/src/services/k8s-executor.ts",
@@ -96,15 +67,13 @@ if (!helm) {
 }
 
 describeHelm(
-  "NetworkPolicy deny-all relabel ↔ executor labels (sandbox isolation drift gate)",
+  "NetworkPolicy global deny-all ↔ executor labels (sandbox isolation drift gate)",
   () => {
-    it("sandbox deny-all selects pods WITHOUT nojv.egress (DoesNotExist), so labeled pods escape it", () => {
+    it("SECURITY: sandbox deny-all selects every pod, including advanced pods", () => {
       const denyAll = isolateDoc(renderChart(), "NetworkPolicy", "deny-all-sandbox");
-      const expressions = denyAllSelectorExpressions(denyAll);
-      expect(
-        expressions,
-        "deny-all-sandbox must select on 'nojv.egress DoesNotExist' so per-submission policies can widen labeled pods",
-      ).toContainEqual({ key: EGRESS_KEY, operator: "DoesNotExist" });
+      expect(denyAll).toMatch(/podSelector:\s*\{\}/);
+      expect(denyAll).not.toContain("matchExpressions:");
+      expect(denyAll).not.toContain("nojv.egress");
     });
 
     it("SECURITY: every plain sandbox pod the executor labels stays under deny-all (no nojv.egress)", () => {
@@ -112,14 +81,14 @@ describeHelm(
       expect(labelSets.length).toBeGreaterThan(0);
       for (const set of labelSets) {
         expect(
-          set[EGRESS_KEY],
-          `executor labels ${JSON.stringify(set)} carry ${EGRESS_KEY} → would ESCAPE deny-all without a per-submission policy (standard/checker/interactive/none must stay denied)`,
+          set["nojv.egress"],
+          `plain executor labels ${JSON.stringify(set)} unexpectedly carry nojv.egress`,
         ).toBeUndefined();
         expect(set.app).toBe("nojv-sandbox");
       }
     });
 
-    it("advanced run/grade builders emit the nojv.egress escape label so per-submission policies apply", () => {
+    it("advanced run/grade builders emit the nojv.egress label so per-submission policies apply", () => {
       const src = readFileSync(
         join(repoRoot, "apps/worker/src/services/k8s-advanced.ts"),
         "utf8",

@@ -110,6 +110,8 @@ const SIDECAR_READINESS_INTERVAL_MS = 500;
 const JOB_DEADLINE_BUFFER_SECONDS = 60;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const POD_SCHEDULE_GRACE_MS = 30_000;
+const POD_CLEANUP_TIMEOUT_MS = 30_000;
+const POD_CLEANUP_POLL_INTERVAL_MS = 250;
 
 const DEFAULT_MAX_PARALLEL_CASES = 4;
 
@@ -398,12 +400,15 @@ export class K8sExecutor implements SandboxExecutor {
       });
       throw err;
     } finally {
-      await this.cleanupJob(runJobName, ns);
-      await this.cleanupJob(gradeJobName, ns);
+      const runPodsGone = await this.cleanupAdvancedJob(runJobName, ns);
+      const gradePodsGone = await this.cleanupAdvancedJob(gradeJobName, ns);
       await this.cleanupConfigMap(runConfigMapName, ns);
       await this.cleanupConfigMap(gradeConfigMapName, ns);
       await this.cleanupPvc(pvcName, ns);
-      await this.teardownAdvancedNetwork(submissionId, ns, hasSidecar);
+      await this.teardownAdvancedNetwork(submissionId, ns, hasSidecar, {
+        runPodsGone,
+        gradePodsGone,
+      });
     }
   }
 
@@ -497,6 +502,7 @@ export class K8sExecutor implements SandboxExecutor {
     submissionId: string,
     ns: string,
     hasSidecar: boolean,
+    podsGone: { runPodsGone: boolean; gradePodsGone: boolean },
   ): Promise<void> {
     const networkingApi = this.networkingApi();
     const deletePolicy = (name: string) =>
@@ -504,20 +510,20 @@ export class K8sExecutor implements SandboxExecutor {
         .deleteNamespacedNetworkPolicy({ name, namespace: ns })
         .catch(() => undefined);
 
-    await deletePolicy(gradePolicyName(submissionId));
+    if (podsGone.gradePodsGone) {
+      await deletePolicy(gradePolicyName(submissionId));
+    }
     if (hasSidecar) {
-      await deletePolicy(runPolicyName(submissionId));
-      await deletePolicy(sidecarPolicyName(submissionId));
       await this.coreApi
         .deleteNamespacedService({ name: sidecarServiceName(submissionId), namespace: ns })
         .catch(() => undefined);
-      await this.coreApi
-        .deleteNamespacedPod({
-          name: sidecarPodName(submissionId),
-          namespace: ns,
-          propagationPolicy: "Background",
-        })
-        .catch(() => undefined);
+      const sidecarGone = await this.cleanupAdvancedPod(sidecarPodName(submissionId), ns);
+      if (podsGone.runPodsGone) {
+        await deletePolicy(runPolicyName(submissionId));
+      }
+      if (sidecarGone) {
+        await deletePolicy(sidecarPolicyName(submissionId));
+      }
     }
   }
 
@@ -644,6 +650,47 @@ export class K8sExecutor implements SandboxExecutor {
         propagationPolicy: "Background",
       })
       .catch(() => undefined);
+  }
+
+  private async cleanupAdvancedJob(name: string, namespace: string): Promise<boolean> {
+    try {
+      await this.batchApi.deleteNamespacedJob({
+        name,
+        namespace,
+        propagationPolicy: "Foreground",
+      });
+    } catch {
+      return false;
+    }
+    return this.waitForPodsGone(namespace, { labelSelector: `job-name=${name}` });
+  }
+
+  private async cleanupAdvancedPod(name: string, namespace: string): Promise<boolean> {
+    try {
+      await this.coreApi.deleteNamespacedPod({
+        name,
+        namespace,
+        propagationPolicy: "Foreground",
+      });
+    } catch {
+      return false;
+    }
+    return this.waitForPodsGone(namespace, { fieldSelector: `metadata.name=${name}` });
+  }
+
+  private async waitForPodsGone(
+    namespace: string,
+    selector: { labelSelector?: string; fieldSelector?: string },
+  ): Promise<boolean> {
+    const deadline = Date.now() + POD_CLEANUP_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const pods = await this.coreApi
+        .listNamespacedPod({ namespace, ...selector })
+        .catch(() => null);
+      if (pods?.items.length === 0) return true;
+      await new Promise((resolve) => setTimeout(resolve, POD_CLEANUP_POLL_INTERVAL_MS));
+    }
+    return false;
   }
 
   private async findPodName(jobName: string, namespace: string): Promise<string | null> {

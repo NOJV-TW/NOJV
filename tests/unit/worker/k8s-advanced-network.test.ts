@@ -26,26 +26,6 @@ function policyJson(policy: unknown): string {
   return JSON.stringify(policy);
 }
 
-describe("deny-all relabel — manifest YAML excludes nojv.egress-labeled pods", () => {
-  it("the sandbox deny-all NetworkPolicy uses DoesNotExist on nojv.egress", () => {
-    // Mirrors the deny-all-sandbox NetworkPolicy in infra/charts/nojv/templates/sandbox-policy.yaml.
-    // A pod WITH nojv.egress is NOT selected by deny-all (escapes it); one WITHOUT IS.
-    const denyAllSelector = {
-      matchExpressions: [{ key: EGRESS_LABEL_KEY, operator: "DoesNotExist" }],
-    };
-    const podWithEgressLabel = { [EGRESS_LABEL_KEY]: SUB };
-    const podWithoutEgressLabel: Record<string, string> = { app: "nojv-sandbox" };
-
-    const selects = (labels: Record<string, string>): boolean =>
-      denyAllSelector.matchExpressions.every((e) =>
-        e.operator === "DoesNotExist" ? !(e.key in labels) : true,
-      );
-
-    expect(selects(podWithEgressLabel)).toBe(false);
-    expect(selects(podWithoutEgressLabel)).toBe(true);
-  });
-});
-
 describe("buildRunEgressPolicy — run Pod egress restricted to the sidecar ONLY", () => {
   it("selects the run Pod by nojv.egress=<submissionId>", () => {
     const policy = buildRunEgressPolicy({ submissionId: SUB, namespace: NS });
@@ -87,7 +67,7 @@ describe("buildRunEgressPolicy — run Pod egress restricted to the sidecar ONLY
   });
 });
 
-describe("buildGradeEgressPolicy — grade Pod escapes deny-all but is denied ALL egress", () => {
+describe("buildGradeEgressPolicy — grade Pod remains denied ALL egress", () => {
   it("selects the grade Pod by nojv.egress=<submissionId>-grade (distinct from run)", () => {
     const policy = buildGradeEgressPolicy({ submissionId: SUB, namespace: NS });
     expect(policy.spec!.podSelector!.matchLabels).toEqual({
