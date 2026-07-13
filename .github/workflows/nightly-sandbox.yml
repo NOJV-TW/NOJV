@@ -99,6 +99,8 @@ jobs:
     timeout-minutes: 35
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+      K8S_TEST_RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
+      K8S_TEST_NAMESPACE: nojv-sandbox-test-gh-${{ github.run_id }}-${{ github.run_attempt }}
     services:
       postgres:
         image: postgres:18
@@ -153,6 +155,7 @@ jobs:
       - name: Apply sandbox namespace, network policy, quota and label node
         run: |
           helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml \
+            --set-string sandboxNamespace="$K8S_TEST_NAMESPACE" \
             --show-only templates/namespaces.yaml \
             --show-only templates/sandbox-policy.yaml \
             | kubectl apply -f -
@@ -162,3 +165,11 @@ jobs:
         env:
           REQUIRE_K8S: "1"
         run: pnpm vitest run tests/integration/k8s
+
+      - name: Delete isolated K8s test namespace
+        if: always()
+        run: kubectl --context k3d-nojv-judge delete namespace "$K8S_TEST_NAMESPACE" --ignore-not-found --wait=true --timeout=120s
+
+      - name: Delete k3d cluster
+        if: always()
+        run: k3d cluster delete nojv-judge

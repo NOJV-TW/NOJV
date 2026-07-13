@@ -10,13 +10,12 @@ import {
   type K8sExecutorConfig,
 } from "../../../apps/worker/src/services/k8s-executor.js";
 import {
-  assertSafeK8sIntegrationContext,
-  isK8sIntegrationEnabled,
+  assertK8sIntegrationOptIn,
+  assertSafeK8sIntegrationTarget,
 } from "../../setup/k8s-integration-target.js";
 
 const require = createRequire(import.meta.url);
 
-const NAMESPACE = "nojv-sandbox";
 const SANDBOX_IMAGE = "nojv-sandbox:local";
 const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
 const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
@@ -24,8 +23,7 @@ const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
 const SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a + b)\n";
 const WRONG_SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a - b)\n";
 
-const EXECUTOR_CONFIG: K8sExecutorConfig = {
-  namespace: NAMESPACE,
+const EXECUTOR_CONFIG: Omit<K8sExecutorConfig, "namespace"> = {
   image: SANDBOX_IMAGE,
   cpuRequest: "100m",
   cpuLimit: "500m",
@@ -42,7 +40,7 @@ let clients: {
   batchApi: k8s.BatchV1Api;
   networkingApi: k8s.NetworkingV1Api;
 } | null = null;
-let clusterUnreachableReason: string | null = null;
+let namespace = "";
 
 const VALIDATOR_SCRIPT = `team = team_output.split()
 ans = judge_answer.split()
@@ -133,7 +131,7 @@ async function deleteJob(name: string): Promise<void> {
   try {
     await clients.batchApi.deleteNamespacedJob({
       name,
-      namespace: NAMESPACE,
+      namespace,
       propagationPolicy: "Background",
     });
   } catch {}
@@ -142,14 +140,14 @@ async function deleteJob(name: string): Promise<void> {
 async function deleteConfigMap(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.coreApi.deleteNamespacedConfigMap({ name, namespace: NAMESPACE });
+    await clients.coreApi.deleteNamespacedConfigMap({ name, namespace });
   } catch {}
 }
 
 async function deletePvc(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace: NAMESPACE });
+    await clients.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace });
   } catch {}
 }
 
@@ -158,7 +156,7 @@ async function deletePod(name: string): Promise<void> {
   try {
     await clients.coreApi.deleteNamespacedPod({
       name,
-      namespace: NAMESPACE,
+      namespace,
       propagationPolicy: "Background",
     });
   } catch {}
@@ -167,40 +165,34 @@ async function deletePod(name: string): Promise<void> {
 async function deleteService(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.coreApi.deleteNamespacedService({ name, namespace: NAMESPACE });
+    await clients.coreApi.deleteNamespacedService({ name, namespace });
   } catch {}
 }
 
 async function deleteNetworkPolicy(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.networkingApi.deleteNamespacedNetworkPolicy({ name, namespace: NAMESPACE });
+    await clients.networkingApi.deleteNamespacedNetworkPolicy({ name, namespace });
   } catch {}
 }
 
 beforeAll(async () => {
-  if (!isK8sIntegrationEnabled(process.env)) {
-    clusterUnreachableReason = "REQUIRE_K8S=1 is not set";
-    return;
-  }
+  assertK8sIntegrationOptIn(process.env);
+  const k8sLib = require("@kubernetes/client-node") as typeof k8s;
+  const kc = new k8sLib.KubeConfig();
+  kc.loadFromDefault();
+  const target = assertSafeK8sIntegrationTarget({
+    env: process.env,
+    context: kc.getCurrentContext(),
+    server: kc.getCurrentCluster()?.server ?? "",
+  });
+  namespace = target.namespace;
 
-  try {
-    const k8sLib = require("@kubernetes/client-node") as typeof k8s;
-    const kc = new k8sLib.KubeConfig();
-    kc.loadFromDefault();
-    const ctx = kc.getCurrentContext();
-    assertSafeK8sIntegrationContext(ctx);
-    const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
-    const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
-    const networkingApi = kc.makeApiClient(k8sLib.NetworkingV1Api);
-    await coreApi.listNamespacedPod({ namespace: NAMESPACE });
-    clients = { coreApi, batchApi, networkingApi };
-  } catch (err) {
-    clusterUnreachableReason = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `REQUIRE_K8S=1 but the configured test cluster is unsafe or unreachable: ${clusterUnreachableReason}`,
-    );
-  }
+  const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
+  const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
+  const networkingApi = kc.makeApiClient(k8sLib.NetworkingV1Api);
+  await coreApi.listNamespacedPod({ namespace });
+  clients = { coreApi, batchApi, networkingApi };
 }, 30_000);
 
 afterEach(async () => {
@@ -227,19 +219,9 @@ afterEach(async () => {
   ]);
 }, 60_000);
 
-function skipIfUnreachable(ctx: { skip: () => void }): boolean {
-  if (clusterUnreachableReason !== null) {
-    // eslint-disable-next-line no-console
-    console.warn(`[skip] cluster unreachable: ${clusterUnreachableReason}`);
-    ctx.skip();
-    return true;
-  }
-  return false;
-}
-
 function makeExecutor(): K8sExecutor {
-  if (!clients) throw new Error("clients not initialised — beforeAll must have skipped");
-  return new K8sExecutor(EXECUTOR_CONFIG, clients);
+  if (!clients) throw new Error("clients not initialised");
+  return new K8sExecutor({ ...EXECUTOR_CONFIG, namespace }, clients);
 }
 
 function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
@@ -249,9 +231,7 @@ function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
 }
 
 describe("K8s judge — standard mode", () => {
-  it("AC: correct python solution", { timeout: STANDARD_TIMEOUT_MS }, async (ctx) => {
-    if (skipIfUnreachable(ctx)) return;
-
+  it("AC: correct python solution", { timeout: STANDARD_TIMEOUT_MS }, async () => {
     const submissionId = `k8s-std-correct-${Date.now()}`;
     trackSubmission(submissionId);
 
@@ -281,9 +261,7 @@ describe("K8s judge — standard mode", () => {
   it(
     "ISOLATION: exploit reading expected files cannot get AC",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-std-exploit-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -325,9 +303,7 @@ print("".join(chunks))
   it(
     "AC: multi_file solution (main.py imports lib.py)",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-std-multifile-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -386,9 +362,7 @@ describe("K8s judge — checker mode", () => {
   it(
     "AC: correct solution graded by isolated validator",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-correct-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -410,9 +384,7 @@ describe("K8s judge — checker mode", () => {
   it(
     "WA: wrong solution graded by isolated validator",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-wrong-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -430,9 +402,7 @@ describe("K8s judge — checker mode", () => {
   it(
     "WA: prefix-only solution graded by isolated validator (checker is AC/WA only)",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-partial-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -453,9 +423,7 @@ describe("K8s judge — checker mode", () => {
   it(
     "ISOLATION: exploit reading validator.* or answer files cannot get AC",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-exploit-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -507,9 +475,7 @@ describe("K8s judge — interactive mode", () => {
   it(
     "AC: binary search solution with partial score from interactor",
     { timeout: INTERACTIVE_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-int-correct-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
@@ -528,9 +494,7 @@ describe("K8s judge — interactive mode", () => {
   it(
     "stubborn always-zero solution does NOT get AC (budget exhausted)",
     { timeout: INTERACTIVE_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-int-stubborn-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
@@ -549,9 +513,7 @@ describe("K8s judge — interactive mode", () => {
   it(
     "ISOLATION: solution container cannot read the secret input",
     { timeout: INTERACTIVE_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-int-exploit-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
@@ -622,9 +584,7 @@ describe("K8s judge — advanced mode", () => {
   it(
     "AC: correct sum solution through run+grade split (network none)",
     { timeout: ADVANCED_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-adv-correct-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
@@ -642,9 +602,7 @@ describe("K8s judge — advanced mode", () => {
   it(
     "WA: wrong sum solution through run+grade split (network none)",
     { timeout: ADVANCED_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-adv-wrong-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
@@ -663,9 +621,9 @@ describe("K8s judge — advanced mode", () => {
   it(
     "AC: service network mode wires service sidecar Pod/Service + still judges",
     { timeout: ADVANCED_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-      if (!clients) return;
+    async () => {
+      const activeClients = clients;
+      if (!activeClients) throw new Error("clients not initialised");
 
       const submissionId = `k8s-adv-service-${Date.now()}`;
       const base = `judge-${submissionId}`;
@@ -684,14 +642,14 @@ describe("K8s judge — advanced mode", () => {
       expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
       expect(result.customScore).toBe(100);
 
-      const svcAfter = await clients.coreApi
-        .listNamespacedService({ namespace: NAMESPACE })
+      const svcAfter = await activeClients.coreApi
+        .listNamespacedService({ namespace })
         .catch(() => ({ items: [] }));
       expect((svcAfter.items ?? []).some((s) => s.metadata?.name === `${base}-sidecar`)).toBe(
         false,
       );
-      const podsAfter = await clients.coreApi
-        .listNamespacedPod({ namespace: NAMESPACE })
+      const podsAfter = await activeClients.coreApi
+        .listNamespacedPod({ namespace })
         .catch(() => ({ items: [] }));
       expect(sidecarLeaked(podsAfter.items ?? [], `${base}-sidecar`)).toBe(false);
     },
