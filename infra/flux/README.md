@@ -17,17 +17,22 @@ change to main's protection:
 ```
 push to main
   → build-images.yml (GitHub-hosted): build + push images to GHCR,
-    then `git checkout -B deploy`, write the new main-<run_number> tag into
-    infra/flux/helmrelease.yaml, and force-push the deploy branch (GITHUB_TOKEN,
-    contents: write — allowed on the unprotected deploy branch)
+    then `git checkout -B deploy`, write the commit tag into
+    infra/charts/nojv/values-single-machine.yaml, and force-push the deploy
+    branch (GITHUB_TOKEN, contents: write — allowed on the unprotected branch)
   → GitRepository/nojv tracks `deploy`
-  → Kustomization/nojv applies helmrelease.yaml → HelmRelease upgrades to the
-    new tag → pods roll. Hands-off.
+  → source-controller packages the chart templates + production values from
+    that one revision → HelmRelease performs one upgrade → pods roll. Hands-off.
 ```
 
-`deploy` is always `main` + the built tag (force-reset each build), so chart /
-config changes and image changes both flow through automatically. Pushing to
-`deploy` does not re-trigger CI (build-images and ci only trigger on main).
+`deploy` is always `main` + the built tag in the packaged chart values
+(force-reset each build), so chart/config and image changes cannot reconcile as
+separate Helm upgrades. The HelmRelease itself has no inline image override.
+Each successful publish also retains the exact deploy commit as
+`nojv-deploy-<image-tag>` so a known release remains recoverable after the
+branch moves.
+Pushing to `deploy` does not re-trigger CI (build-images and ci only trigger on
+main).
 
 ## Live state (2026-07-08)
 
@@ -36,16 +41,24 @@ config changes and image changes both flow through automatically. Pushing to
 - ✅ Image build is GitHub-hosted (`build-images.yml`); self-hosted `deploy.yml`
   deleted; runner deregistered. CI holds **no cluster credentials**.
 
-Manual deploy override (e.g. a rollback):
-`kubectl -n nojv patch helmrelease nojv --type merge -p '{"spec":{"values":{"image":{"tag":"main-<N>"}}}}'`
+For an emergency rollback, move `deploy` to a retained release tag so the chart
+and its image tag roll back together; do not patch inline HelmRelease values:
+
+```bash
+git fetch origin 'refs/tags/nojv-deploy-*:refs/tags/nojv-deploy-*'
+git show nojv-deploy-<image-tag>:infra/charts/nojv/values-single-machine.yaml | head
+git push --force origin refs/tags/nojv-deploy-<image-tag>:refs/heads/deploy
+```
+
+Verify the selected tag contains the intended image tag before pushing. A later
+main build intentionally advances `deploy` again.
 
 ## Files
 
-| File                    | Purpose                                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `git-repository.yaml`   | `GitRepository` (this repo, `main`) + root `Kustomization` that applies this directory                               |
-| `helmrelease.yaml`      | `HelmRelease` wrapping `infra/charts/nojv` with `values-single-machine.yaml`; image tag is automation-managed        |
-| `image-automation.yaml` | `ImageRepository` (scans GHCR) + `ImagePolicy` (newest build) + `ImageUpdateAutomation` (writes the tag back to git) |
+| File                  | Purpose                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `git-repository.yaml` | `GitRepository` tracking `deploy` + root `Kustomization` that applies this directory                   |
+| `helmrelease.yaml`    | Stable `HelmRelease` wrapping `infra/charts/nojv`; chart values carry the automation-managed image tag |
 
 ## One-time cutover (run from the prod box, in a maintenance window)
 
@@ -57,16 +70,10 @@ The box already holds cluster-admin locally, so bootstrap is a local action —
 flux check --pre
 flux install
 
-# 2. Create the git write credential for image automation (deploy key with write)
-#    and, if GHCR rate limits bite, a read token for image scanning.
-flux create secret git nojv-git \
-  --url=ssh://git@github.com/NOJV-TW/NOJV.git \
-  --private-key-file=<path-to-deploy-key>
-
-# 3. Apply the source; Flux then reconciles the rest of this directory.
+# 2. Apply the source; Flux then reconciles the rest of this directory.
 kubectl apply -f infra/flux/git-repository.yaml
 
-# 4. Verify before handing the release over.
+# 3. Verify before handing the release over.
 flux get sources git
 flux get helmreleases -A
 flux diff kustomization nojv --path infra/flux    # dry-run, no drift expected
@@ -74,10 +81,10 @@ flux diff kustomization nojv --path infra/flux    # dry-run, no drift expected
 
 **Release ownership handoff:** the live release is named `nojv`. `helmrelease.yaml`
 uses the same `releaseName: nojv` so Flux's helm-controller adopts it. Pin
-`image.tag` in `helmrelease.yaml` to the **currently deployed** sha before the
-first reconcile so nothing rolls unexpectedly. **Preserve all PVCs — the CNPG
-Postgres data and MinIO buckets live on them.** If a clean reinstall is ever
-needed, `helm uninstall` must keep PVCs.
+`image.tag` in `values-single-machine.yaml` to the **currently deployed** sha
+before the first reconcile so nothing rolls unexpectedly. **Preserve all PVCs
+— the CNPG Postgres data and MinIO buckets live on them.** If a clean reinstall
+is ever needed, `helm uninstall` must keep PVCs.
 
 ## Decommission (closes the P0)
 

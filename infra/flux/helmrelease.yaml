@@ -26,7 +26,3 @@ spec:
     remediation:
       retries: 3
       remediateLastFailure: true
-  values:
-    image:
-      # tag is rewritten by build-images.yml on the deploy branch each build
-      tag: main-722

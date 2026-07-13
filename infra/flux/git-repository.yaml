@@ -6,10 +6,10 @@ metadata:
 spec:
   interval: 1m
   ref:
-    # Flux tracks the CI-written `deploy` branch (= main + the built image tag),
-    # not main. build-images.yml force-updates it on every push to main. This
-    # closes auto-pull without git-write from the cluster (org deploy keys are
-    # disabled) and without weakening main's branch protection.
+    # Flux tracks the CI-written `deploy` branch, not main. build-images.yml
+    # pins the built tag in the chart's production values before force-updating
+    # this branch, so source-controller packages code, chart and image tag as
+    # one artifact without cluster git-write or weaker main protection.
     branch: deploy
   url: https://github.com/NOJV-TW/NOJV.git
 ---
