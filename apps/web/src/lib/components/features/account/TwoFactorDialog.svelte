@@ -346,8 +346,8 @@
                 code = "";
                 phase = "idle";
                 needsOtp = false;
-                open = false;
                 await invalidateAll();
+                open = false;
               }
             };
           }}

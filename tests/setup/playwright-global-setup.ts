@@ -25,10 +25,11 @@ async function elevateAdminSession(page: Page, baseURL: string, email: string): 
   if (!session) {
     throw new Error("Admin sign-in did not create a session.");
   }
+  const epoch = (await getRedis().get(keys.adminElevationEpoch(user.id))) ?? "0";
   await getRedis()
     .multi()
     .set(keys.apiTokenStepUp(session.id), "1", "EX", 600)
-    .set(keys.adminSessionMfa(session.id), user.id, "EX", 600)
+    .set(keys.adminSessionMfa(session.id), `${user.id}:${epoch}`, "EX", 600)
     .exec();
 
   const res = await page.request.post(`${baseURL}/api/admin-mode`, {

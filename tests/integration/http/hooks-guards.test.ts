@@ -95,6 +95,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
   }, 30_000);
 
   it("allows a super admin whose session already passed 2FA", async () => {
+    const { markAdminSessionMfa } = await import("@nojv/application");
     const { getRedis, keys } = await import("@nojv/redis");
     const user = await createTestUser({
       username: "admin_2fa_verified",
@@ -103,7 +104,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
-    await getRedis().set(keys.adminSessionMfa("test-session"), user.id, "EX", 600);
+    await markAdminSessionMfa("test-session", user.id);
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
     expect(res.status).not.toBe(302);
     await getRedis().del(keys.adminSessionMfa("test-session"));

@@ -1,6 +1,7 @@
 import type { RequestHandler } from "@sveltejs/kit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { markAdminSessionMfa } from "@nojv/application";
 import { getRedis, keys } from "@nojv/redis";
 
 import { createTestUser } from "../../fixtures/factories";
@@ -55,7 +56,12 @@ async function deactivate(user: { id: string }): Promise<Response> {
 
 async function markVerifiedSession(userId: string): Promise<void> {
   await getRedis().set(keys.apiTokenStepUp(sessionId), "1", "EX", 600);
-  await getRedis().set(keys.adminSessionMfa(sessionId), userId, "EX", 600);
+  await markAdminSessionMfa(sessionId, userId);
+}
+
+async function currentElevationMarker(userId: string): Promise<string> {
+  const epoch = (await getRedis().get(keys.adminElevationEpoch(userId))) ?? "0";
+  return `${userId}:${epoch}`;
 }
 
 afterEach(clearElevation);
@@ -67,7 +73,7 @@ describe("admin mode MFA invariant", () => {
       twoFactorActivated: false,
     });
     await getRedis().set(keys.apiTokenStepUp(sessionId), "1", "EX", 600);
-    await getRedis().set(keys.adminSessionMfa(sessionId), user.id, "EX", 600);
+    await markAdminSessionMfa(sessionId, user.id);
 
     const response = await activate(user);
 
@@ -80,7 +86,7 @@ describe("admin mode MFA invariant", () => {
       platformRole: "admin",
       twoFactorActivated: true,
     });
-    await getRedis().set(keys.adminSessionMfa(sessionId), user.id, "EX", 600);
+    await markAdminSessionMfa(sessionId, user.id);
 
     const response = await activate(user);
 
@@ -94,7 +100,7 @@ describe("admin mode MFA invariant", () => {
       twoFactorActivated: true,
     });
     await getRedis().set(keys.apiTokenStepUp(sessionId), "1", "EX", 600);
-    await getRedis().set(keys.adminSessionMfa(sessionId), "another-user", "EX", 600);
+    await getRedis().set(keys.adminSessionMfa(sessionId), "another-user:0", "EX", 600);
 
     const response = await activate(user);
 
@@ -107,7 +113,12 @@ describe("admin mode MFA invariant", () => {
       platformRole: "admin",
       twoFactorActivated: true,
     });
-    await getRedis().set(keys.adminMode(sessionId), user.id, "EX", 600);
+    await getRedis().set(
+      keys.adminMode(sessionId),
+      await currentElevationMarker(user.id),
+      "EX",
+      600,
+    );
     const inspectLocals: RequestHandler = (event) =>
       new Response(JSON.stringify({ active: event.locals.adminModeActive }));
 
@@ -132,7 +143,9 @@ describe("admin mode MFA invariant", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ active: true });
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(user.id);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
+      await currentElevationMarker(user.id),
+    );
   });
 
   it("applies the same elevation invariant to super admins", async () => {
@@ -147,13 +160,16 @@ describe("admin mode MFA invariant", () => {
     const response = await activate(user);
 
     expect(response.status).toBe(200);
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(user.id);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
+      await currentElevationMarker(user.id),
+    );
   });
 
   it("always permits de-elevation and atomically removes both elevation keys", async () => {
     const user = await createTestUser({ platformRole: "teacher" });
-    await getRedis().set(keys.adminSessionMfa(sessionId), user.id, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), user.id, "EX", 600);
+    const marker = await currentElevationMarker(user.id);
+    await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
+    await getRedis().set(keys.adminMode(sessionId), marker, "EX", 600);
 
     const response = await deactivate(user);
 
@@ -168,8 +184,9 @@ describe("admin mode MFA invariant", () => {
 
   it("fails closed when a non-admin account has stale elevation keys", async () => {
     const user = await createTestUser({ platformRole: "teacher", twoFactorActivated: true });
-    await getRedis().set(keys.adminSessionMfa(sessionId), user.id, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), user.id, "EX", 600);
+    const marker = await currentElevationMarker(user.id);
+    await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
+    await getRedis().set(keys.adminMode(sessionId), marker, "EX", 600);
     const inspectLocals: RequestHandler = (event) =>
       new Response(JSON.stringify({ active: event.locals.adminModeActive }));
 
@@ -188,12 +205,46 @@ describe("admin mode MFA invariant", () => {
       disabled: true,
       twoFactorActivated: true,
     });
-    await getRedis().set(keys.adminSessionMfa(sessionId), user.id, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), user.id, "EX", 600);
+    const marker = await currentElevationMarker(user.id);
+    await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
+    await getRedis().set(keys.adminMode(sessionId), marker, "EX", 600);
 
     const response = await callRoute({ path: "/dashboard", module: {}, user });
 
     expect(response.status).toBe(302);
+    const [mfa, mode] = await getRedis().mget(
+      keys.adminSessionMfa(sessionId),
+      keys.adminMode(sessionId),
+    );
+    expect([mfa, mode]).toEqual([null, null]);
+  });
+
+  it("does not revive elevation recreated during demotion after re-promotion", async () => {
+    const { userDomain } = await import("@nojv/application");
+    const user = await createTestUser({
+      platformRole: "admin",
+      twoFactorActivated: true,
+    });
+    const staleMarker = await currentElevationMarker(user.id);
+    await getRedis().set(keys.adminSessionMfa(sessionId), staleMarker, "EX", 600);
+    await getRedis().set(keys.adminMode(sessionId), staleMarker, "EX", 600);
+
+    await userDomain.updateUserRole(true, user.id, "teacher");
+    // Models a grant that passed its role check before demotion and wrote after
+    // the demotion's session snapshot had already been cleaned.
+    await getRedis().set(keys.adminSessionMfa(sessionId), staleMarker, "EX", 600);
+    await getRedis().set(keys.adminMode(sessionId), staleMarker, "EX", 600);
+    await userDomain.updateUserRole(true, user.id, "admin");
+
+    const inspectLocals: RequestHandler = (event) =>
+      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
+    const response = await callRoute({
+      path: "/dashboard",
+      module: { GET: inspectLocals },
+      user,
+    });
+
+    await expect(response.json()).resolves.toEqual({ active: false });
     const [mfa, mode] = await getRedis().mget(
       keys.adminSessionMfa(sessionId),
       keys.adminMode(sessionId),

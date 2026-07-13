@@ -23,14 +23,32 @@ test.afterAll(() => {
   user.cleanup();
 });
 
-test("a real TOTP factor grants admin mode to its verified session", async ({ page }) => {
+async function currentSessionId(page: import("@playwright/test").Page): Promise<string> {
+  const session = (await (await page.request.get("/api/auth/get-session")).json()) as {
+    session?: { id?: string };
+  };
+  const sessionId = session.session?.id;
+  if (!sessionId) throw new Error("Could not resolve the current admin session.");
+  return sessionId;
+}
+
+test("enrollment handoff and a real TOTP establish distinct admin states", async ({ page }) => {
   await signInWithPassword(page, user.email);
   await activateTwoFactor(page);
   const secret = await enrollTotp(page);
 
-  await page.goto("/dashboard");
-  await page.locator(`button[title="${user.name}"]`).click();
-  await page.getByRole("button", { name: /admin mode|管理模式/i }).click();
+  const sessionId = await currentSessionId(page);
+  const epoch = redis("GET", `nojv:admin:epoch:${user.id}`) || "0";
+  const marker = `${user.id}:${epoch}`;
+
+  // Enrollment verification rotates the session, then the one-shot handoff
+  // must bind that verified factor to the replacement session without granting
+  // admin mode on its own.
+  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe(marker);
+  expect(redis("GET", `nojv:apitoken:stepup:${sessionId}`)).toBe("1");
+  expect(redis("GET", `nojv:admin:mode:${sessionId}`)).toBe("");
+
+  await page.goto("/account/api-tokens/verify?purpose=admin-mode");
   await expect(page).toHaveURL(/\/account\/api-tokens\/verify\?purpose=admin-mode$/);
 
   await page.locator('input[name="code"]').fill(currentTotp(secret));
@@ -39,18 +57,7 @@ test("a real TOTP factor grants admin mode to its verified session", async ({ pa
   await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
   await expect(page.getByRole("main")).toBeVisible();
 
-  const session = (await (await page.request.get("/api/auth/get-session")).json()) as {
-    session?: { id?: string };
-  };
-  const sessionId = session.session?.id;
-  if (!sessionId) throw new Error("Could not resolve the elevated admin session.");
-  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe(user.id);
-  expect(redis("GET", `nojv:admin:mode:${sessionId}`)).toBe(user.id);
-
-  const endpoint = await page.request.post("/api/admin-mode", {
-    headers: { "x-requested-with": "fetch" },
-    data: { active: true },
-  });
-  expect(endpoint.status()).toBe(200);
-  await expect(endpoint.json()).resolves.toEqual({ active: true });
+  expect(await currentSessionId(page)).toBe(sessionId);
+  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe(marker);
+  expect(redis("GET", `nojv:admin:mode:${sessionId}`)).toBe(marker);
 });

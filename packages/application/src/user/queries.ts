@@ -2,7 +2,7 @@ import { submissionRepo, userRepo, type Prisma } from "@nojv/db";
 
 import * as notificationDomain from "../notification";
 import { ForbiddenError } from "../shared/errors";
-import { revokeAdminElevations } from "../api-token/step-up";
+import { bumpAdminElevationEpoch, revokeAdminElevations } from "../api-token/step-up";
 
 export interface TagAcCount {
   tag: string;
@@ -98,13 +98,19 @@ export async function updateUserRole(
   if (involvesAdmin && !actorIsSuperAdmin) {
     throw new ForbiddenError("Only a super admin can grant or remove the admin role.");
   }
-  if (existing?.platformRole === "admin" && role !== "admin") {
-    await revokeAdminElevations(await userRepo.listSessionIds(userId));
+  const promotingToAdmin = existing?.platformRole !== "admin" && role === "admin";
+  const demotingFromAdmin = existing?.platformRole === "admin" && role !== "admin";
+  if (promotingToAdmin) {
+    await bumpAdminElevationEpoch(userId);
   }
   const updated = await userRepo.update(userId, {
     platformRole: role,
     ...(role === "admin" ? {} : { isSuperAdmin: false }),
   });
+  if (demotingFromAdmin) {
+    await bumpAdminElevationEpoch(userId);
+    await revokeAdminElevations(await userRepo.listSessionIds(userId));
+  }
 
   if (existing && existing.platformRole !== role) {
     await notificationDomain.createNotification({

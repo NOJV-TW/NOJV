@@ -14,14 +14,30 @@ const TOTP_CODE_LENGTH = 6;
 const STEPUP_CODE_PATTERN = new RegExp(`^\\d{${String(TOTP_CODE_LENGTH)}}$`);
 const BACKUP_CODE_PATTERN = /^[A-Za-z0-9]{5}-[A-Za-z0-9]{5}$/;
 
+const MARK_ADMIN_SESSION_MFA = `
+local epoch = redis.call("GET", KEYS[2]) or "0"
+redis.call("SET", KEYS[1], ARGV[1] .. ":" .. epoch, "EX", ARGV[2])
+return 1
+`;
+
+const HAS_ADMIN_SESSION_MFA = `
+local epoch = redis.call("GET", KEYS[2]) or "0"
+if redis.call("GET", KEYS[1]) == ARGV[1] .. ":" .. epoch then
+  return 1
+end
+return 0
+`;
+
 const GRANT_ADMIN_ELEVATION = `
-if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+local epoch = redis.call("GET", KEYS[4]) or "0"
+local marker = ARGV[1] .. ":" .. epoch
+if redis.call("GET", KEYS[1]) ~= marker then
   return 0
 end
 if redis.call("EXISTS", KEYS[2]) == 0 then
   return 0
 end
-redis.call("SET", KEYS[3], ARGV[1], "EX", ARGV[2])
+redis.call("SET", KEYS[3], marker, "EX", ARGV[2])
 return 1
 `;
 
@@ -30,7 +46,9 @@ local mode = redis.call("GET", KEYS[2])
 if not mode then
   return 0
 end
-if redis.call("GET", KEYS[1]) == ARGV[1] and mode == ARGV[1] then
+local epoch = redis.call("GET", KEYS[3]) or "0"
+local marker = ARGV[1] .. ":" .. epoch
+if redis.call("GET", KEYS[1]) == marker and mode == marker then
   return 1
 end
 redis.call("DEL", KEYS[1], KEYS[2])
@@ -73,11 +91,29 @@ export function consumeStepUpHandoffTicket(ticket: string): Promise<string | nul
 }
 
 export async function markAdminSessionMfa(sessionId: string, userId: string): Promise<void> {
-  await getRedis().set(keys.adminSessionMfa(sessionId), userId, "EX", ADMIN_MFA_TTL_SECONDS);
+  await getRedis().eval(
+    MARK_ADMIN_SESSION_MFA,
+    2,
+    keys.adminSessionMfa(sessionId),
+    keys.adminElevationEpoch(userId),
+    userId,
+    ADMIN_MFA_TTL_SECONDS,
+  );
 }
 
 export async function hasAdminSessionMfa(sessionId: string, userId: string): Promise<boolean> {
-  return (await getRedis().get(keys.adminSessionMfa(sessionId))) === userId;
+  const result = await getRedis().eval(
+    HAS_ADMIN_SESSION_MFA,
+    2,
+    keys.adminSessionMfa(sessionId),
+    keys.adminElevationEpoch(userId),
+    userId,
+  );
+  return result === 1;
+}
+
+export async function bumpAdminElevationEpoch(userId: string): Promise<void> {
+  await getRedis().incr(keys.adminElevationEpoch(userId));
 }
 
 export async function markTokenPageMfa(sessionId: string): Promise<void> {
@@ -108,10 +144,11 @@ export async function grantAdminElevation(sessionId: string, userId: string): Pr
   }
   const result = await getRedis().eval(
     GRANT_ADMIN_ELEVATION,
-    3,
+    4,
     keys.adminSessionMfa(sessionId),
     keys.apiTokenStepUp(sessionId),
     keys.adminMode(sessionId),
+    keys.adminElevationEpoch(userId),
     userId,
     ADMIN_MFA_TTL_SECONDS,
   );
@@ -128,9 +165,10 @@ export async function resolveAdminElevation(
   }
   const result = await getRedis().eval(
     RESOLVE_ADMIN_ELEVATION,
-    2,
+    3,
     keys.adminSessionMfa(sessionId),
     keys.adminMode(sessionId),
+    keys.adminElevationEpoch(userId),
     userId,
   );
   return result === 1;

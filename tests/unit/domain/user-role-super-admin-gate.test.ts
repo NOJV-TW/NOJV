@@ -6,6 +6,7 @@ const {
   findDisabledStatus,
   listSessionIds,
   deleteRedisKeys,
+  incrementEpoch,
   createAndCap,
   publishNotification,
 } = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const {
   findDisabledStatus: vi.fn(),
   listSessionIds: vi.fn(),
   deleteRedisKeys: vi.fn(),
+  incrementEpoch: vi.fn(),
   createAndCap: vi.fn(() =>
     Promise.resolve({
       id: "ntf_1",
@@ -35,8 +37,9 @@ vi.mock("@nojv/db", () => ({
 }));
 
 vi.mock("@nojv/redis", () => ({
-  getRedis: () => ({ del: deleteRedisKeys }),
+  getRedis: () => ({ del: deleteRedisKeys, incr: incrementEpoch }),
   keys: {
+    adminElevationEpoch: (userId: string) => `nojv:admin:epoch:${userId}`,
     adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
     adminMode: (sessionId: string) => `nojv:admin:mode:${sessionId}`,
   },
@@ -51,6 +54,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   listSessionIds.mockResolvedValue([]);
   deleteRedisKeys.mockResolvedValue(0);
+  incrementEpoch.mockResolvedValue(1);
 });
 
 describe("updateUserRole — super-admin gate", () => {
@@ -73,13 +77,18 @@ describe("updateUserRole — super-admin gate", () => {
   it("a super admin can grant admin", async () => {
     findById.mockResolvedValue({ id: "u1", platformRole: "student" });
     await updateUserRole(true, "u1", "admin");
+    expect(incrementEpoch).toHaveBeenCalledWith("nojv:admin:epoch:u1");
     expect(update).toHaveBeenCalledWith("u1", { platformRole: "admin" });
+    expect(incrementEpoch.mock.invocationCallOrder[0]!).toBeLessThan(
+      update.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("demoting an admin clears isSuperAdmin", async () => {
     findById.mockResolvedValue({ id: "u1", platformRole: "admin" });
     listSessionIds.mockResolvedValue(["sess_1", "sess_2"]);
     await updateUserRole(true, "u1", "teacher");
+    expect(incrementEpoch).toHaveBeenCalledWith("nojv:admin:epoch:u1");
     expect(deleteRedisKeys).toHaveBeenCalledWith(
       "nojv:admin:mfa:sess_1",
       "nojv:admin:mode:sess_1",
@@ -87,6 +96,12 @@ describe("updateUserRole — super-admin gate", () => {
       "nojv:admin:mode:sess_2",
     );
     expect(update).toHaveBeenCalledWith("u1", { platformRole: "teacher", isSuperAdmin: false });
+    expect(update.mock.invocationCallOrder[0]!).toBeLessThan(
+      incrementEpoch.mock.invocationCallOrder[0]!,
+    );
+    expect(incrementEpoch.mock.invocationCallOrder[0]!).toBeLessThan(
+      listSessionIds.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("a regular admin may still move a non-admin between teacher and student", async () => {
