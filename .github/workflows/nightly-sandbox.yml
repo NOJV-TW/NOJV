@@ -46,7 +46,7 @@ jobs:
       - name: Build sandbox image
         run: pnpm sandbox:build
 
-      - name: Build advanced run/grade demo images
+      - name: Build advanced run/grade/service demo images
         run: pnpm demo-advanced:build
 
       - name: Sandbox executor + isolation unit tests
@@ -148,7 +148,8 @@ jobs:
         run: |
           k3d image import -c nojv-judge \
             nojv-sandbox:local \
-            nojv-demo-advanced-run:local nojv-demo-advanced-grade:local
+            nojv-demo-advanced-run:local nojv-demo-advanced-grade:local \
+            nojv-demo-advanced-service:local
 
       - name: Apply sandbox namespace, network policy, quota and label node
         run: |

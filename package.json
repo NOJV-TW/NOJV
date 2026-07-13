@@ -26,7 +26,7 @@
     "typecheck:tests": "tsc -p tests/tsconfig.json --noEmit",
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
     "demo-judge:build": "docker build -t nojv-demo-judge-shell:local infra/docker/demo-judge-shell",
-    "demo-advanced:build": "docker build -t nojv-demo-advanced-run:local -t registry.nojv.tw/demo/nojv-demo-advanced-run:main infra/docker/demo-advanced-run && docker build -t nojv-demo-advanced-grade:local -t registry.nojv.tw/demo/nojv-demo-advanced-grade:main infra/docker/demo-advanced-grade",
+    "demo-advanced:build": "docker build -t nojv-demo-advanced-run:local -t registry.nojv.tw/demo/nojv-demo-advanced-run:main infra/docker/demo-advanced-run && docker build -t nojv-demo-advanced-grade:local -t registry.nojv.tw/demo/nojv-demo-advanced-grade:main infra/docker/demo-advanced-grade && docker build -t nojv-demo-advanced-service:local apps/web/src/lib/server/advanced-scaffold/files/service",
     "demo-advanced:push": "docker buildx build --platform linux/amd64 --push -t registry.nojv.tw/demo/nojv-demo-advanced-run:main infra/docker/demo-advanced-run && docker buildx build --platform linux/amd64 --push -t registry.nojv.tw/demo/nojv-demo-advanced-grade:main infra/docker/demo-advanced-grade",
     "grafana:provision": "node --env-file=.env --import tsx infra/grafana/provision.ts",
     "format": "prettier --check .",
