@@ -239,12 +239,15 @@ export async function revokeAdminElevation(sessionId: string): Promise<void> {
   await getRedis().del(keys.adminSessionMfa(sessionId), keys.adminMode(sessionId));
 }
 
-export async function markTotpSeen(userId: string, code: string): Promise<void> {
-  await getRedis().set(keys.twoFactorTotpSeen(userId, code), "1", "EX", OTP_DEDUPE_TTL_SECONDS);
-}
-
-export async function wasTotpSeen(userId: string, code: string): Promise<boolean> {
-  return (await getRedis().get(keys.twoFactorTotpSeen(userId, code))) !== null;
+export async function consumeTotpCode(userId: string, code: string): Promise<boolean> {
+  const result = await getRedis().set(
+    keys.twoFactorTotpSeen(userId, code),
+    "1",
+    "EX",
+    OTP_DEDUPE_TTL_SECONDS,
+    "NX",
+  );
+  return result === "OK";
 }
 
 export function userHasCredentialPassword(userId: string): Promise<boolean> {

@@ -11,16 +11,18 @@ import {
   hasTwoFactorChangeGrant,
   passkeyRegistrationDenialReason,
   securityGenerationProof,
-  type SecurityGenerationProof,
 } from "@nojv/application";
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
 import { getWebEnv } from "$lib/server/env";
+import {
+  getPasskeyAuthenticationProof,
+  setPasskeyAuthenticationProof,
+} from "$lib/server/passkey-request-proof";
 import { STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 import { createLogger } from "$lib/server/logger";
 
 const authLogger = createLogger("auth-hooks");
-const passkeyAuthenticationProofs = new WeakMap<object, SecurityGenerationProof>();
 
 function credentialIdFromPasskeyVerification(body: unknown): string | null {
   if (!body || typeof body !== "object" || !("response" in body)) return null;
@@ -163,10 +165,10 @@ function createAuth() {
             },
           });
           if (passkeyRecord) {
-            passkeyAuthenticationProofs.set(
-              ctx.context,
-              securityGenerationProof(passkeyRecord.user),
-            );
+            await setPasskeyAuthenticationProof({
+              credentialID,
+              ...securityGenerationProof(passkeyRecord.user),
+            });
           }
           return;
         }
@@ -232,14 +234,13 @@ function createAuth() {
           // verified credential—not client identity or a not-yet-created
           // session—to mark the short-lived step-up grant.
           afterVerification: async ({ clientData, ctx }) => {
-            const proof = passkeyAuthenticationProofs.get(ctx.context);
-            passkeyAuthenticationProofs.delete(ctx.context);
-            if (!proof) return;
+            const proof = await getPasskeyAuthenticationProof();
+            if (proof?.credentialID !== clientData.id) return;
             const passkeyRecord = await prisma.passkey.findFirst({
               where: { credentialID: clientData.id },
               select: { userId: true },
             });
-            if (!passkeyRecord || passkeyRecord.userId !== proof.userId) return;
+            if (passkeyRecord?.userId !== proof.userId) return;
             const ticket = await createStepUpHandoffTicket(proof);
             ctx.setCookie(STEP_UP_HANDOFF_COOKIE, ticket, {
               httpOnly: true,

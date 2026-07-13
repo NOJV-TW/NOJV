@@ -18,6 +18,7 @@
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@better-auth/core": "1.6.23",
     "@better-auth/passkey": "1.6.23",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/manrope": "^5.2.8",

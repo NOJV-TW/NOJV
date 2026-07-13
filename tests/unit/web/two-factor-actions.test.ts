@@ -15,7 +15,7 @@ const {
   clearStepUpMock,
   hasStepUpFactorMock,
   hasFreshStepUpMock,
-  markTotpSeenMock,
+  consumeTotpCodeMock,
   sendEmailMock,
   enableTwoFactorMock,
   verifyTotpMock,
@@ -40,7 +40,7 @@ const {
   clearStepUpMock: vi.fn(),
   hasStepUpFactorMock: vi.fn(),
   hasFreshStepUpMock: vi.fn(),
-  markTotpSeenMock: vi.fn(),
+  consumeTotpCodeMock: vi.fn(),
   sendEmailMock: vi.fn(),
   enableTwoFactorMock: vi.fn(),
   verifyTotpMock: vi.fn(),
@@ -66,7 +66,7 @@ vi.mock("@nojv/application", () => ({
   markTwoFactorChangeGrant: markChangeGrantMock,
   hasTwoFactorChangeGrant: hasChangeGrantMock,
   clearTwoFactorChangeGrant: clearChangeGrantMock,
-  markTotpSeen: markTotpSeenMock,
+  consumeTotpCode: consumeTotpCodeMock,
   securityGenerationProof: (user: { id: string; securityGeneration: number }) => ({
     userId: user.id,
     securityGeneration: user.securityGeneration,
@@ -180,7 +180,7 @@ beforeEach(() => {
   clearStepUpMock.mockReset().mockResolvedValue(undefined);
   hasStepUpFactorMock.mockReset().mockResolvedValue(false);
   hasFreshStepUpMock.mockReset().mockResolvedValue(false);
-  markTotpSeenMock.mockReset().mockResolvedValue(undefined);
+  consumeTotpCodeMock.mockReset().mockResolvedValue(true);
   sendEmailMock.mockReset().mockResolvedValue(undefined);
   enableTwoFactorMock.mockReset();
   verifyTotpMock.mockReset();
@@ -412,9 +412,22 @@ describe("verify", () => {
     const result = await actions.verify(
       makeEvent({ isSuperAdmin: true, body: form({ code: "123456" }) }),
     );
-    expect(markTotpSeenMock).toHaveBeenCalledWith("usr_1", "123456");
+    expect(consumeTotpCodeMock).toHaveBeenCalledWith("usr_1", "123456");
     expect(cookiesSetMock).not.toHaveBeenCalled();
     expect(result).toEqual({ enabled: true });
+  });
+
+  it("rejects an enrollment code already consumed by a concurrent request", async () => {
+    verifyTotpMock.mockResolvedValue({ headers: new Headers() });
+    consumeTotpCodeMock.mockResolvedValue(false);
+
+    const result = await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
+
+    expect(result).toMatchObject({
+      status: 401,
+      data: { error: expect.stringMatching(/used/) },
+    });
+    expect(cookiesSetMock).not.toHaveBeenCalled();
   });
 
   it("redirects to a sanitized returnTo after success", async () => {

@@ -3,6 +3,7 @@ import type { RequestEvent } from "@sveltejs/kit";
 import {
   adminElevationPrincipal,
   clearStepUp,
+  consumeTotpCode,
   grantAdminElevation,
   hasAdminSessionMfa,
   hasFreshStepUp,
@@ -11,14 +12,12 @@ import {
   isSuperAdminSessionExpired,
   isTwoFactorActivated,
   markVerifiedSession,
-  markTotpSeen,
   resolveAdminElevation,
   revokeAdminElevation,
   securityGenerationMarker,
   securityGenerationProof,
   userHasCredentialPassword,
   validateStepUpCode,
-  wasTotpSeen,
   type SecurityGenerationProof,
 } from "@nojv/application";
 
@@ -27,6 +26,7 @@ import { getAuth } from "$lib/auth.server";
 export {
   adminElevationPrincipal,
   clearStepUp,
+  consumeTotpCode,
   grantAdminElevation,
   hasAdminSessionMfa,
   hasFreshStepUp,
@@ -35,14 +35,12 @@ export {
   isSuperAdminSessionExpired,
   isTwoFactorActivated,
   markVerifiedSession,
-  markTotpSeen,
   resolveAdminElevation,
   revokeAdminElevation,
   securityGenerationMarker,
   securityGenerationProof,
   userHasCredentialPassword,
   validateStepUpCode,
-  wasTotpSeen,
 };
 
 export async function verifyTotpStepUp(code: string, headers: Headers): Promise<boolean> {
@@ -76,9 +74,10 @@ export async function verifyStepUpCode(
   headers: Headers,
 ): Promise<StepUpVerifyResult> {
   if (validateStepUpCode(code)) {
-    if (await wasTotpSeen(proof.userId, code)) return { ok: false, reason: "replayed" };
     if (!(await verifyTotpStepUp(code, headers))) return { ok: false, reason: "invalid" };
-    await markTotpSeen(proof.userId, code);
+    if (!(await consumeTotpCode(proof.userId, code))) {
+      return { ok: false, reason: "replayed" };
+    }
     if (!(await isSecurityGenerationCurrent(proof))) return { ok: false, reason: "stale" };
     return { ok: true };
   }

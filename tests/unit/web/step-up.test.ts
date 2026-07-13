@@ -8,7 +8,8 @@ const { generationMatchesMock, store, verifyTotpMock } = vi.hoisted(() => ({
 
 vi.mock("@nojv/redis", () => ({
   getRedis: () => ({
-    set(key: string, value: string) {
+    set(key: string, value: string, ...options: Array<string | number>) {
+      if (options.includes("NX") && store.has(key)) return Promise.resolve(null);
       store.set(key, value);
       return Promise.resolve("OK");
     },
@@ -60,16 +61,15 @@ vi.mock("$lib/auth.server", () => ({
 
 import {
   clearStepUp,
+  consumeTotpCode,
   hasAdminSessionMfa,
   hasFreshStepUp,
   hasTokenPageMfa,
-  markTotpSeen,
   markVerifiedSession,
   securityGenerationMarker,
   validateStepUpCode,
   verifyStepUpCode,
   verifyTotpStepUp,
-  wasTotpSeen,
 } from "$lib/server/step-up";
 import { consumeStepUpHandoffTicket, createStepUpHandoffTicket } from "@nojv/application";
 
@@ -155,14 +155,15 @@ describe("TOTP verification", () => {
     expect(verifyTotpMock).toHaveBeenCalledWith({ body: { code: "123456" }, headers });
   });
 
-  it("rejects a replay without re-verifying", async () => {
-    await markTotpSeen(proof.userId, "123456");
+  it("rejects a replay after cryptographic verification", async () => {
+    store.set("nojv:2fa:totp-seen:usr_1:123456", "1");
+    verifyTotpMock.mockResolvedValue({ status: true });
 
     await expect(verifyStepUpCode(proof, "123456", new Headers())).resolves.toEqual({
       ok: false,
       reason: "replayed",
     });
-    expect(verifyTotpMock).not.toHaveBeenCalled();
+    expect(verifyTotpMock).toHaveBeenCalledOnce();
   });
 
   it("accepts a fresh current proof and records the TOTP as seen", async () => {
@@ -171,7 +172,20 @@ describe("TOTP verification", () => {
     await expect(verifyStepUpCode(proof, "123456", new Headers())).resolves.toEqual({
       ok: true,
     });
-    await expect(wasTotpSeen(proof.userId, "123456")).resolves.toBe(true);
+    expect(store.get("nojv:2fa:totp-seen:usr_1:123456")).toBe("1");
+  });
+
+  it("allows exactly one of two concurrent requests to consume the same valid TOTP", async () => {
+    verifyTotpMock.mockResolvedValue({ status: true });
+
+    const results = await Promise.all([
+      verifyStepUpCode(proof, "123456", new Headers()),
+      verifyStepUpCode(proof, "123456", new Headers()),
+    ]);
+
+    expect(results).toEqual(
+      expect.arrayContaining([{ ok: true }, { ok: false, reason: "replayed" }]),
+    );
   });
 
   it("consumes the TOTP but rejects a proof invalidated during verification", async () => {
@@ -182,7 +196,7 @@ describe("TOTP verification", () => {
       ok: false,
       reason: "stale",
     });
-    await expect(wasTotpSeen(proof.userId, "123456")).resolves.toBe(true);
+    expect(store.get("nojv:2fa:totp-seen:usr_1:123456")).toBe("1");
   });
 
   it("rejects an invalid TOTP", async () => {
@@ -192,5 +206,10 @@ describe("TOTP verification", () => {
       ok: false,
       reason: "invalid",
     });
+  });
+
+  it("atomically consumes a code only once", async () => {
+    await expect(consumeTotpCode(proof.userId, "654321")).resolves.toBe(true);
+    await expect(consumeTotpCode(proof.userId, "654321")).resolves.toBe(false);
   });
 });

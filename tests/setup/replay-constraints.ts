@@ -16,7 +16,7 @@ interface Ddl {
   create: string;
 }
 
-function splitStatements(sql: string): string[] {
+export function splitStatements(sql: string): string[] {
   const source = sql.replace(/^\s*--.*$/gm, "");
   const statements: string[] = [];
   let start = 0;

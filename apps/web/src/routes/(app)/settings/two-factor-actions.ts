@@ -3,7 +3,7 @@ import {
   generateActivationOtp,
   hasTwoFactorChangeGrant,
   isTwoFactorActivated,
-  markTotpSeen,
+  consumeTotpCode,
   markTwoFactorChangeGrant,
   securityGenerationProof,
   setTwoFactorActivated,
@@ -363,11 +363,13 @@ export const twoFactorActions = {
     } catch {
       return fail(401, { error: "Invalid code. Try again." });
     }
-    forwardSetCookies(event, headers);
     // Enrollment mutates the factor set and therefore invalidates all prior
     // security proofs. The enrollment code is also consumed here so it cannot
     // be reused as a post-enrollment step-up in the same TOTP time window.
-    await markTotpSeen(actor.userId, code);
+    if (!(await consumeTotpCode(actor.userId, code))) {
+      return fail(401, { error: "That code was already used. Wait for a new code." });
+    }
+    forwardSetCookies(event, headers);
     const returnTo = sanitizeReturnTo(
       formString(formData, "returnTo") || event.url.searchParams.get("returnTo"),
     );

@@ -43,6 +43,7 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "devDependencies": {
+    "@better-auth/core": "1.6.23",
     "@eslint/js": "^10.0.1",
     "@nojv/eslint-config": "workspace:*",
     "@temporalio/activity": "catalog:",

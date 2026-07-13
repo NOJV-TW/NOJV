@@ -33,7 +33,9 @@ async function currentSessionId(page: import("@playwright/test").Page): Promise<
   return sessionId;
 }
 
-test("enrollment requires a fresh TOTP window before admin elevation", async ({ page }) => {
+test("enrollment and concurrent admin elevation consume each TOTP exactly once", async ({
+  page,
+}) => {
   await signInWithPassword(page, user.email);
   await activateTwoFactor(page);
   const { secret, verificationCode } = await enrollTotp(page);
@@ -59,9 +61,42 @@ test("enrollment requires a fresh TOTP window before admin elevation", async ({ 
   await expect(page).toHaveURL(/\/account\/api-tokens\/verify\?purpose=admin-mode$/);
 
   const freshCode = await nextTotp(secret, verificationCode);
-  await page.locator('input[name="code"]').fill(freshCode);
-  await page.locator('button[type="submit"]').click();
+  const verificationPath = "/account/api-tokens/verify?purpose=admin-mode";
+  const submissions = await Promise.all([
+    page.request.post(verificationPath, {
+      form: { code: freshCode, purpose: "admin-mode" },
+      headers: {
+        accept: "application/json",
+        origin: "http://localhost:5173",
+        "x-sveltekit-action": "true",
+      },
+      maxRedirects: 0,
+    }),
+    page.request.post(verificationPath, {
+      form: { code: freshCode, purpose: "admin-mode" },
+      headers: {
+        accept: "application/json",
+        origin: "http://localhost:5173",
+        "x-sveltekit-action": "true",
+      },
+      maxRedirects: 0,
+    }),
+  ]);
+  const results = (await Promise.all(submissions.map((response) => response.json()))) as Array<{
+    type: string;
+    status: number;
+    location?: string;
+  }>;
 
+  expect(results.map(({ type, status }) => ({ type, status }))).toEqual(
+    expect.arrayContaining([
+      { type: "redirect", status: 303 },
+      { type: "failure", status: 401 },
+    ]),
+  );
+  expect(results.find((result) => result.type === "redirect")?.location).toBe("/admin");
+
+  await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
   await expect(page.getByRole("main")).toBeVisible();
 
