@@ -76,7 +76,26 @@ jobs:
           git config user.name "nojv-deploy-bot"
           git config user.email "nojv-deploy-bot@users.noreply.github.com"
           git checkout -B deploy
-          sed -i -E "s|^( +tag: ).*|\1${IMAGE_TAG}|" infra/flux/helmrelease.yaml
-          git add infra/flux/helmrelease.yaml
+          VALUES_FILE=infra/charts/nojv/values-single-machine.yaml
+          TAG_LINES="$(awk '
+            /^image:$/ { in_image = 1; next }
+            in_image && /^[^[:space:]]/ { in_image = 0 }
+            in_image && /^  tag: / { print NR }
+          ' "$VALUES_FILE")"
+          TAG_COUNT="$(printf '%s\n' "$TAG_LINES" | awk 'NF { count++ } END { print count + 0 }')"
+          if [ "$TAG_COUNT" -ne 1 ]; then
+            echo "Expected exactly one image.tag in $VALUES_FILE, found $TAG_COUNT" >&2
+            exit 1
+          fi
+          awk -v target="$TAG_LINES" -v tag="$IMAGE_TAG" '
+            NR == target { print "  tag: " tag; next }
+            { print }
+          ' "$VALUES_FILE" >"${VALUES_FILE}.tmp"
+          mv "${VALUES_FILE}.tmp" "$VALUES_FILE"
+          git add "$VALUES_FILE"
           git commit -m "deploy: ${IMAGE_TAG}"
-          git push --force origin deploy
+          DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"
+          git tag --force "$DEPLOY_TAG"
+          git push --atomic --force origin \
+            refs/heads/deploy:refs/heads/deploy \
+            "refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"

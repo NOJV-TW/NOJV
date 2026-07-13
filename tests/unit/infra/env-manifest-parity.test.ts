@@ -192,3 +192,27 @@ describeHelm("storage env schema ↔ chart deployment parity", () => {
     },
   );
 });
+
+describe("Flux release artifact atomicity", () => {
+  it("packages the production image tag with the chart instead of HelmRelease inline values", () => {
+    const helmRelease = readFileSync(join(repoRoot, "infra/flux/helmrelease.yaml"), "utf8");
+    const gitRepository = readFileSync(
+      join(repoRoot, "infra/flux/git-repository.yaml"),
+      "utf8",
+    );
+    const workflow = readFileSync(join(repoRoot, ".github/workflows/build-images.yml"), "utf8");
+
+    expect(helmRelease).toContain(
+      "valuesFiles:\n        - infra/charts/nojv/values.yaml\n        - infra/charts/nojv/values-single-machine.yaml",
+    );
+    expect(helmRelease).toContain("reconcileStrategy: Revision");
+    expect(helmRelease).not.toContain("\n  values:\n    image:\n");
+    expect(gitRepository).toContain("branch: deploy");
+    expect(workflow).toContain("Expected exactly one image.tag");
+    expect(workflow).toContain("in_image && /^  tag: / { print NR }");
+    expect(workflow).toContain('git add "$VALUES_FILE"');
+    expect(workflow).toContain('DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"');
+    expect(workflow).toContain("git push --atomic --force origin");
+    expect(workflow).not.toContain("infra/flux/helmrelease.yaml");
+  });
+});
