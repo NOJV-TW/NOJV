@@ -58,8 +58,6 @@ spec:
               value: {{ include "nojv.sandboxNamespace" . }}
             - name: SANDBOX_IMAGE
               value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
-            - name: EGRESS_PROXY_IMAGE
-              value: {{ include "nojv.image" (dict "root" . "component" "egressProxy") }}
             {{- with .Values.worker.sandbox.imagePullSecret }}
             - name: K8S_IMAGE_PULL_SECRET
               value: {{ . | quote }}

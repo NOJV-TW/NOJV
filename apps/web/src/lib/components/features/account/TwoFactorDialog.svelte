@@ -84,7 +84,7 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content showCloseButton class="max-w-lg">
+  <Dialog.Content showCloseButton class="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
     <Dialog.Header>
       <Dialog.Title>{m.account_verification_totp()}</Dialog.Title>
       <Dialog.Description>{m.account_2fa_description()}</Dialog.Description>

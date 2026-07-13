@@ -120,6 +120,7 @@ export const submissionRepo = {
           select: {
             type: true,
             advancedConfig: true,
+            advancedRequiredPaths: true,
             timeLimitMs: true,
             memoryLimitMb: true,
           },

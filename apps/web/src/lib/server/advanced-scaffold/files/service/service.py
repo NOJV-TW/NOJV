@@ -5,9 +5,9 @@ container and injects its address into the run container as $NOJV_SERVICE_HOST.
 The run (student) container reaches it over an internal-only network; it has no
 direct internet route, so this service is the only peer it can call.
 
-The service is TRUSTED (you authored it) and has FULL network — you may proxy to
-a real upstream if you need to. It runs ONLY during the run phase and never sees
-the answers.
+The service is TRUSTED (you authored it) but network-isolated. Bake every
+dependency into the image at build time. It runs ONLY during the run phase and
+never sees the answers.
 
 CONTRACT: print the exact marker `NOJV_SERVICE_READY` to stdout once you are
 listening. The platform polls for that line before it starts the run container,

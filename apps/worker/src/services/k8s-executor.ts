@@ -55,16 +55,13 @@ import {
 } from "./k8s-advanced";
 import {
   buildGradeEgressPolicy,
-  buildProxyRunEnv,
-  buildProxySidecarPodManifest,
   buildRunEgressPolicy,
   buildServiceRunEnv,
   buildServiceSidecarPodManifest,
-  buildSidecarEgressPolicy,
+  buildSidecarNetworkPolicy,
   buildSidecarServiceManifest,
   gradeEgressLabel,
   gradePolicyName,
-  PROXY_READY_MARKER,
   runEgressLabel,
   runPolicyName,
   SERVICE_READY_MARKER,
@@ -85,7 +82,6 @@ export interface K8sExecutorConfig {
   memoryLimit: string;
   headroomMb?: number;
   maxMemoryMb?: number;
-  egressProxyImage?: string;
   imagePullSecretName?: string;
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
@@ -260,7 +256,7 @@ export class K8sExecutor implements SandboxExecutor {
     const pvcName = advancedPvcName(submissionId);
     const deadlineSeconds = Math.ceil(advanced.totalTimeMs / 1000) + 30;
     const mode = advanced.network.mode;
-    const hasSidecar = mode === "allowlist" || mode === "service";
+    const hasSidecar = mode === "service";
 
     try {
       await this.createPvc(pvcName, ns);
@@ -414,36 +410,12 @@ export class K8sExecutor implements SandboxExecutor {
   private async prepareAdvancedNetwork(
     request: SandboxRequest,
     advanced: NonNullable<SandboxRequest["advanced"]>,
-    mode: "none" | "allowlist" | "service",
+    mode: "none" | "service",
     ns: string,
   ): Promise<Record<string, string> | undefined> {
     if (mode === "none") return undefined;
 
     const submissionId = request.submissionId;
-
-    if (mode === "allowlist") {
-      const proxyImage = this.config.egressProxyImage;
-      if (!proxyImage) {
-        throw new Error("EGRESS_PROXY_IMAGE is not configured for allowlist mode");
-      }
-      await this.coreApi.createNamespacedPod({
-        namespace: ns,
-        body: buildProxySidecarPodManifest({
-          submissionId,
-          namespace: ns,
-          image: proxyImage,
-          allowlist: advanced.network.allowlist ?? [],
-          port: SIDECAR_PORT,
-        }),
-      });
-      const clusterIp = await this.createSidecarServiceAndPolicies(submissionId, ns);
-
-      const ready = await this.waitForSidecarMarker(submissionId, ns, PROXY_READY_MARKER);
-      if (!ready) {
-        throw new Error("egress proxy sidecar did not become ready within timeout");
-      }
-      return buildProxyRunEnv(clusterIp, SIDECAR_PORT);
-    }
 
     const service = advanced.network.service;
     if (!service) {
@@ -465,7 +437,10 @@ export class K8sExecutor implements SandboxExecutor {
     });
     const clusterIp = await this.createSidecarServiceAndPolicies(submissionId, ns);
 
-    await this.waitForSidecarMarker(submissionId, ns, SERVICE_READY_MARKER);
+    const ready = await this.waitForSidecarMarker(submissionId, ns, SERVICE_READY_MARKER);
+    if (!ready) {
+      throw new Error("service sidecar did not become ready within timeout");
+    }
     return buildServiceRunEnv(clusterIp);
   }
 
@@ -483,7 +458,7 @@ export class K8sExecutor implements SandboxExecutor {
     }
     await this.createNamespacedNetworkPolicy(
       ns,
-      buildSidecarEgressPolicy({ submissionId, namespace: ns }),
+      buildSidecarNetworkPolicy({ submissionId, namespace: ns }),
     );
     await this.createNamespacedNetworkPolicy(
       ns,

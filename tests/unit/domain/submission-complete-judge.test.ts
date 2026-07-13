@@ -228,12 +228,17 @@ describe("completeJudge — storage + DB write", () => {
       maxScore: 100,
     };
 
-    await completeJudge("sub_adv", makeResult({ verdict: "accepted", score: 100 }), config);
+    const snapshot = {
+      config,
+      requiredPaths: ["main.py"],
+      resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+    };
+    await completeJudge("sub_adv", makeResult({ verdict: "accepted", score: 100 }), snapshot);
 
     const updateArg = submissionComplete.mock.calls[0]![1] as {
       advancedConfigSnapshot: unknown;
     };
-    expect(updateArg.advancedConfigSnapshot).toEqual(config);
+    expect(updateArg.advancedConfigSnapshot).toEqual(snapshot);
   });
 
   it("writes a null advancedConfig snapshot for non-advanced submissions", async () => {

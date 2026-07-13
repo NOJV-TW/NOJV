@@ -19,14 +19,16 @@ export interface CallRouteOptions {
   ip?: string;
   body?: unknown;
   headers?: Record<string, string>;
+  cookies?: Record<string, string>;
 }
 
-function cookieShim(): RequestEvent["cookies"] {
+function cookieShim(initial: Record<string, string> = {}): RequestEvent["cookies"] {
+  const values = new Map(Object.entries(initial));
   return {
-    get: () => undefined,
-    getAll: () => [],
-    set: () => undefined,
-    delete: () => undefined,
+    get: (name: string) => values.get(name),
+    getAll: () => [...values].map(([name, value]) => ({ name, value })),
+    set: (name: string, value: string) => values.set(name, value),
+    delete: (name: string) => values.delete(name),
     serialize: () => "",
   } as unknown as RequestEvent["cookies"];
 }
@@ -63,7 +65,7 @@ export async function callRoute(opts: CallRouteOptions): Promise<Response> {
     params: opts.params ?? {},
     locals: {},
     route: { id: url.pathname },
-    cookies: cookieShim(),
+    cookies: cookieShim(opts.cookies),
     fetch,
     getClientAddress: () => opts.ip ?? "127.0.0.1",
     setHeaders: () => undefined,

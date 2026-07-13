@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { advancedConfigSchema } from "@nojv/core";
 
-const { advancedImageConfigInputSchema, buildAdvancedConfigFromInput, allowedImageRegistries } =
-  await import("$lib/server/advanced-image-config");
+const {
+  buildAdvancedConfigFromInput,
+  createAdvancedImageConfigInputSchema,
+  allowedImageRegistries,
+} = await import("$lib/server/advanced-image-config");
+
+const advancedImageConfigInputSchema = createAdvancedImageConfigInputSchema({
+  allowAnyPlatformRegistryNamespace: false,
+  platformRegistryHost: "",
+  platformRegistryNamespace: null,
+});
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
@@ -48,24 +57,11 @@ describe("advancedImageConfigInputSchema", () => {
     expect(parsed.error?.issues[0]?.message).toContain("not allowed");
   });
 
-  it("requires at least one host in allowlist mode", () => {
-    const parsed = advancedImageConfigInputSchema.safeParse({
-      ...baseInput,
-      networkMode: "allowlist",
-      networkAllowlist: [],
-    });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("rejects allowlist entries with wildcards, scheme, or paths", () => {
-    for (const bad of ["*.example.com", "https://api.example.com", "api.example.com/v1"]) {
-      const parsed = advancedImageConfigInputSchema.safeParse({
-        ...baseInput,
-        networkMode: "allowlist",
-        networkAllowlist: [bad],
-      });
-      expect(parsed.success).toBe(false);
-    }
+  it("rejects the removed allowlist network mode", () => {
+    expect(
+      advancedImageConfigInputSchema.safeParse({ ...baseInput, networkMode: "allowlist" })
+        .success,
+    ).toBe(false);
   });
 
   it("requires a service image in service mode", () => {
@@ -74,6 +70,36 @@ describe("advancedImageConfigInputSchema", () => {
       networkMode: "service",
     });
     expect(parsed.success).toBe(false);
+  });
+
+  it("rejects another teacher's platform-registry namespace", () => {
+    const schema = createAdvancedImageConfigInputSchema({
+      allowAnyPlatformRegistryNamespace: false,
+      platformRegistryHost: "docker.io",
+      platformRegistryNamespace: "alice",
+    });
+    const parsed = schema.safeParse({
+      runImageRef: `docker.io/t/alice/run@${DIGEST}`,
+      gradeImageRef: `docker.io/t/bob/grade@${DIGEST}`,
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toContain("t/alice");
+  });
+
+  it("allows an admin to reference any platform-registry namespace", () => {
+    const schema = createAdvancedImageConfigInputSchema({
+      allowAnyPlatformRegistryNamespace: true,
+      platformRegistryHost: "docker.io",
+      platformRegistryNamespace: null,
+    });
+
+    expect(
+      schema.safeParse({
+        runImageRef: `docker.io/t/alice/run@${DIGEST}`,
+        gradeImageRef: `docker.io/t/bob/grade@${DIGEST}`,
+      }).success,
+    ).toBe(true);
   });
 });
 
@@ -101,16 +127,5 @@ describe("buildAdvancedConfigFromInput", () => {
       service: { imageRef: `ghcr.io/nojv-tw/svc@${DIGEST}`, imageSource: "registry" },
     });
     expect(config.maxScore).toBe(200);
-  });
-
-  it("maps allowlist mode with the given hosts", () => {
-    const input = advancedImageConfigInputSchema.parse({
-      ...baseInput,
-      networkMode: "allowlist",
-      networkAllowlist: ["api.example.com"],
-    });
-    const config = buildAdvancedConfigFromInput(input);
-    expect(advancedConfigSchema.safeParse(config).success).toBe(true);
-    expect(config.network).toEqual({ mode: "allowlist", allowlist: ["api.example.com"] });
   });
 });

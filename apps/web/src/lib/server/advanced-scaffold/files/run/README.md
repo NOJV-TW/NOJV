@@ -54,15 +54,11 @@ image/audio data round-trips losslessly.
 The run container reaches **at most one** peer, chosen per-problem:
 
 - **`none`** (default) — no network at all. Offline judging.
-- **`allowlist`** — the platform injects `HTTP_PROXY` / `HTTPS_PROXY` pointing at
-  its egress proxy. The student program reaches the problem's allowlisted public
-  hosts **through the proxy**; everything else is refused (a proxy denial surfaces
-  to the student as an ordinary connection error). The run container has no direct
-  internet route, so unsetting the proxy env vars leads nowhere.
 - **`service`** — a TA-provided service container is reachable at
   `$NOJV_SERVICE_HOST`, a `host:port` value (no scheme), e.g. `service:8888`
   (Docker) or `10.96.0.42:8888` (K8s). Build a URL from it:
   `requests.get(f"http://{nojv.service_host()}/health")`.
+  The service is isolated from the internet and cluster services.
 
 ## Runtime constraints
 

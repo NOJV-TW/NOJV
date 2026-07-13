@@ -129,7 +129,7 @@
 </script>
 
 <div class="flex flex-col gap-6">
-  <div class="flex items-center gap-2">
+  <div class="flex flex-wrap items-center gap-2">
     <button
       class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab ===
       'public'
@@ -152,8 +152,8 @@
       >
         {m.problems_myProblems()}
       </button>
-      <div class="relative ml-auto">
-        <div class="flex" data-tour="problems-create">
+      <div class="relative ml-auto basis-full sm:basis-auto">
+        <div class="flex justify-end" data-tour="problems-create">
           <Button
             disabled={creating}
             loading={creating}

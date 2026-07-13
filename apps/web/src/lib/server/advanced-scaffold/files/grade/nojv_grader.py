@@ -8,7 +8,8 @@ THE GRADE CONTAINER IS TRUSTED AND RUNS NO STUDENT CODE. It is the only place
 the answers live (baked into the image at /answers). It reads the run phase's
 sanitized outputs (mounted read-only at /workspace/run-output) and the answers,
 compares them, and writes the final verdict. Because no student code runs here,
-the answers can never leak. The grade container has FULL network (trusted TA).
+the answers can never leak. The grade container has no network; bake every
+dependency into the image at build time.
 """
 
 import json

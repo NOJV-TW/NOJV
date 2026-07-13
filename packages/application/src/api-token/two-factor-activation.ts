@@ -73,14 +73,19 @@ export function passkeyRegistrationDenialReason(state: {
   return null;
 }
 
-export async function markTwoFactorChangeGrant(userId: string): Promise<void> {
-  await getRedis().set(keys.twoFactorChangeGrant(userId), "1", "EX", CHANGE_GRANT_TTL_SECONDS);
+export async function markTwoFactorChangeGrant(sessionId: string): Promise<void> {
+  await getRedis().set(
+    keys.twoFactorChangeGrant(sessionId),
+    "1",
+    "EX",
+    CHANGE_GRANT_TTL_SECONDS,
+  );
 }
 
-export async function hasTwoFactorChangeGrant(userId: string): Promise<boolean> {
-  return (await getRedis().get(keys.twoFactorChangeGrant(userId))) !== null;
+export async function hasTwoFactorChangeGrant(sessionId: string): Promise<boolean> {
+  return (await getRedis().get(keys.twoFactorChangeGrant(sessionId))) !== null;
 }
 
-export async function clearTwoFactorChangeGrant(userId: string): Promise<void> {
-  await getRedis().del(keys.twoFactorChangeGrant(userId));
+export async function clearTwoFactorChangeGrant(sessionId: string): Promise<void> {
+  await getRedis().del(keys.twoFactorChangeGrant(sessionId));
 }

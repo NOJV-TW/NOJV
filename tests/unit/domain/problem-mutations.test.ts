@@ -6,8 +6,8 @@ const {
   workspaceDeleteByProblemId,
   workspaceCreateMany,
   problemFindById,
+  problemLockForUpdate,
   problemUpdate,
-  problemUpdateAdvancedRequiredPaths,
   problemDelete,
   problemHasContextLinks,
   submissionFindMany,
@@ -19,8 +19,8 @@ const {
   workspaceDeleteByProblemId: vi.fn(),
   workspaceCreateMany: vi.fn(),
   problemFindById: vi.fn(),
+  problemLockForUpdate: vi.fn(),
   problemUpdate: vi.fn(),
-  problemUpdateAdvancedRequiredPaths: vi.fn(),
   problemDelete: vi.fn(),
   problemHasContextLinks: vi.fn(),
   submissionFindMany: vi.fn(),
@@ -51,6 +51,7 @@ vi.mock("@nojv/db", () => {
   const withTx = {
     create: problemCreate,
     findById: problemFindById,
+    lockForUpdate: problemLockForUpdate,
     update: problemUpdate,
     delete: vi.fn(),
   };
@@ -71,7 +72,6 @@ vi.mock("@nojv/db", () => {
       findById: problemFindById,
       delete: problemDelete,
       hasContextLinks: problemHasContextLinks,
-      updateAdvancedRequiredPaths: problemUpdateAdvancedRequiredPaths,
     },
     problemStatementRepo: {
       withTx: () => statementWithTx,
@@ -93,7 +93,8 @@ import { ConflictError, problemDomain } from "@nojv/application";
 const {
   createProblemDefinition,
   updateProblemWorkspace,
-  updateAdvancedRequiredPaths,
+  updateProblemRecord,
+  updateAdvancedJudgeConfiguration,
   deleteProblemRecord,
   hasVerifiedAdvancedJudgeRun,
 } = problemDomain;
@@ -293,58 +294,124 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
   });
 });
 
-describe("updateAdvancedRequiredPaths — special_env type guard", () => {
-  const actor = {
-    userId: "usr_author",
-    username: "author",
-    platformRole: "teacher" as const,
+describe("updateAdvancedJudgeConfiguration", () => {
+  const actor = { userId: "usr_admin", username: "admin", platformRole: "admin" as const };
+  const digest = `sha256:${"a".repeat(64)}`;
+  const config = {
+    run: { imageRef: `ghcr.io/nojv-tw/run@${digest}`, imageSource: "registry" as const },
+    grade: { imageRef: `ghcr.io/nojv-tw/grade@${digest}`, imageSource: "registry" as const },
+    network: { mode: "none" as const },
+    maxScore: 100,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    problemUpdateAdvancedRequiredPaths.mockResolvedValue(undefined);
+    problemLockForUpdate.mockResolvedValue(undefined);
+    problemUpdate.mockResolvedValue(undefined);
   });
 
-  it("rejects non-empty paths on a non-special_env problem with ConflictError", async () => {
+  it("rejects a non-Advanced problem", async () => {
     problemFindById.mockResolvedValue({
       id: "prob_full",
       authorId: "usr_author",
       type: "full_source",
+      status: "draft",
     });
 
     await expect(
-      updateAdvancedRequiredPaths(actor, "prob_full", ["src/main.c"]),
+      updateAdvancedJudgeConfiguration(actor, "prob_full", {
+        config,
+        requiredPaths: ["src/main.c"],
+      }),
     ).rejects.toBeInstanceOf(ConflictError);
-    expect(problemUpdateAdvancedRequiredPaths).not.toHaveBeenCalled();
+    expect(problemUpdate).not.toHaveBeenCalled();
   });
 
-  it("persists non-empty paths on a special_env problem", async () => {
+  it("atomically persists config and required paths after locking the problem", async () => {
     problemFindById.mockResolvedValue({
       id: "prob_se",
       authorId: "usr_author",
       type: "special_env",
+      status: "draft",
     });
 
     await expect(
-      updateAdvancedRequiredPaths(actor, "prob_se", ["src/main.c", "src/"]),
+      updateAdvancedJudgeConfiguration(actor, "prob_se", {
+        config,
+        requiredPaths: ["src/main.c", "src/"],
+      }),
     ).resolves.toBeUndefined();
-    expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledTimes(1);
-    expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledWith("prob_se", [
-      "src/main.c",
-      "src/",
-    ]);
+    expect(problemLockForUpdate).toHaveBeenCalledWith("prob_se");
+    expect(problemUpdate).toHaveBeenCalledWith("prob_se", {
+      advancedConfig: config,
+      advancedRequiredPaths: ["src/main.c", "src/"],
+    });
   });
 
-  it("allows clearing (empty array) on a non-special_env problem — idempotent", async () => {
+  it("rejects changes to a published Advanced problem", async () => {
     problemFindById.mockResolvedValue({
-      id: "prob_full",
+      id: "prob_se",
       authorId: "usr_author",
-      type: "full_source",
+      type: "special_env",
+      status: "published",
     });
 
-    await expect(updateAdvancedRequiredPaths(actor, "prob_full", [])).resolves.toBeUndefined();
-    expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledWith("prob_full", []);
+    await expect(
+      updateAdvancedJudgeConfiguration(actor, "prob_se", {
+        config,
+        requiredPaths: ["src/main.c"],
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(problemUpdate).not.toHaveBeenCalled();
   });
+});
+
+describe("updateProblemRecord — published Advanced configuration immutability", () => {
+  const digest = `sha256:${"a".repeat(64)}`;
+  const config = {
+    run: { imageRef: `ghcr.io/nojv-tw/run@${digest}`, imageSource: "registry" as const },
+    grade: { imageRef: `ghcr.io/nojv-tw/grade@${digest}`, imageSource: "registry" as const },
+    network: { mode: "none" as const },
+    maxScore: 100,
+  };
+  const admin = {
+    userId: "usr_admin",
+    username: "admin",
+    platformRole: "admin" as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemFindById.mockResolvedValue({
+      id: "prob_se",
+      authorId: "usr_author",
+      type: "special_env",
+      status: "published",
+      title: "Published Advanced",
+      displayId: 1,
+      advancedConfig: config,
+    });
+  });
+
+  it("rejects image/config changes before writing", async () => {
+    await expect(
+      updateProblemRecord(admin, "prob_se", {
+        advancedConfig: { ...config, maxScore: 200 },
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([{ timeLimitMs: 2_000 }, { memoryLimitMb: 512 }])(
+    "rejects resource-limit changes before writing: %o",
+    async (payload) => {
+      await expect(updateProblemRecord(admin, "prob_se", payload)).rejects.toBeInstanceOf(
+        ConflictError,
+      );
+      expect(problemUpdate).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("deleteProblemRecord — context-link guard (P1)", () => {
@@ -399,13 +466,17 @@ describe("hasVerifiedAdvancedJudgeRun — publish gate signal", () => {
     network: { mode: "none" },
     maxScore: 100,
   };
+  const resourceLimits = { totalTimeMs: 1_000, memoryMb: 256 };
+  const snapshot = { config, requiredPaths: ["main.py"], resourceLimits };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("returns false when the stored config does not parse", async () => {
-    await expect(hasVerifiedAdvancedJudgeRun("prob_1", null)).resolves.toBe(false);
+    await expect(hasVerifiedAdvancedJudgeRun("prob_1", null, [], resourceLimits)).resolves.toBe(
+      false,
+    );
     expect(submissionFindMany).not.toHaveBeenCalled();
   });
 
@@ -413,21 +484,78 @@ describe("hasVerifiedAdvancedJudgeRun — publish gate signal", () => {
     submissionFindMany.mockResolvedValue([
       {
         advancedConfigSnapshot: {
-          ...config,
-          run: { ...config.run, imageRef: "ghcr.io/x/old@" + digest },
+          ...snapshot,
+          config: {
+            ...config,
+            run: { ...config.run, imageRef: "ghcr.io/x/old@" + digest },
+          },
         },
       },
       { advancedConfigSnapshot: null },
     ]);
-    await expect(hasVerifiedAdvancedJudgeRun("prob_1", config)).resolves.toBe(false);
+    await expect(
+      hasVerifiedAdvancedJudgeRun("prob_1", config, ["main.py"], resourceLimits),
+    ).resolves.toBe(false);
   });
 
-  it("returns true when an accepted snapshot matches the current run and grade refs", async () => {
-    submissionFindMany.mockResolvedValue([{ advancedConfigSnapshot: config }]);
-    await expect(hasVerifiedAdvancedJudgeRun("prob_1", config)).resolves.toBe(true);
+  it("returns true when an accepted snapshot matches the current config and paths", async () => {
+    submissionFindMany.mockResolvedValue([{ advancedConfigSnapshot: snapshot }]);
+    await expect(
+      hasVerifiedAdvancedJudgeRun("prob_1", config, ["main.py"], resourceLimits),
+    ).resolves.toBe(true);
     expect(submissionFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { problemId: "prob_1", status: "accepted" } }),
     );
+  });
+
+  it("returns false when maxScore changed after the accepted run", async () => {
+    submissionFindMany.mockResolvedValue([
+      { advancedConfigSnapshot: { ...snapshot, config: { ...config, maxScore: 50 } } },
+    ]);
+
+    await expect(
+      hasVerifiedAdvancedJudgeRun("prob_1", config, ["main.py"], resourceLimits),
+    ).resolves.toBe(false);
+  });
+
+  it("returns false when required paths changed after the accepted run", async () => {
+    submissionFindMany.mockResolvedValue([{ advancedConfigSnapshot: snapshot }]);
+
+    await expect(
+      hasVerifiedAdvancedJudgeRun("prob_1", config, ["solver.py"], resourceLimits),
+    ).resolves.toBe(false);
+  });
+
+  it("returns false when resource limits changed after the accepted run", async () => {
+    submissionFindMany.mockResolvedValue([{ advancedConfigSnapshot: snapshot }]);
+
+    await expect(
+      hasVerifiedAdvancedJudgeRun("prob_1", config, ["main.py"], {
+        totalTimeMs: 2_000,
+        memoryMb: 256,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("returns false when network mode changed after the accepted run", async () => {
+    submissionFindMany.mockResolvedValue([
+      {
+        advancedConfigSnapshot: {
+          ...snapshot,
+          config: {
+            ...config,
+            network: {
+              mode: "service",
+              service: { imageRef: `ghcr.io/nojv-tw/svc@${digest}`, imageSource: "registry" },
+            },
+          },
+        },
+      },
+    ]);
+
+    await expect(
+      hasVerifiedAdvancedJudgeRun("prob_1", config, ["main.py"], resourceLimits),
+    ).resolves.toBe(false);
   });
 
   it("requires the service image to match in service mode", async () => {
@@ -441,14 +569,20 @@ describe("hasVerifiedAdvancedJudgeRun — publish gate signal", () => {
     submissionFindMany.mockResolvedValue([
       {
         advancedConfigSnapshot: {
-          ...serviceConfig,
-          network: {
-            mode: "service",
-            service: { imageRef: `ghcr.io/nojv-tw/other@${digest}`, imageSource: "registry" },
+          config: {
+            ...serviceConfig,
+            network: {
+              mode: "service",
+              service: { imageRef: `ghcr.io/nojv-tw/other@${digest}`, imageSource: "registry" },
+            },
           },
+          requiredPaths: ["main.py"],
+          resourceLimits,
         },
       },
     ]);
-    await expect(hasVerifiedAdvancedJudgeRun("prob_1", serviceConfig)).resolves.toBe(false);
+    await expect(
+      hasVerifiedAdvancedJudgeRun("prob_1", serviceConfig, ["main.py"], resourceLimits),
+    ).resolves.toBe(false);
   });
 });

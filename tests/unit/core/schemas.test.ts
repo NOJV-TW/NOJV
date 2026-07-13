@@ -5,6 +5,8 @@ import {
   parseIpWhitelistText,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
+  MAX_SUBMISSION_SOURCE_FILE_CHARS,
+  MAX_SUBMISSION_SOURCE_FILES,
   safeRelativePath,
   submissionDraftSchema,
   submissionResultSchema,
@@ -42,6 +44,45 @@ describe("submissionDraftSchema", () => {
 
     expect(result.sourceFiles).toHaveLength(2);
     expect(result.sourceFiles?.[0]?.path).toBe("src/main.ts");
+  });
+
+  it("enforces the shared source-file size boundary", () => {
+    const draft = {
+      language: "typescript",
+      problemId: "multi-file-ts",
+      sourceFiles: [{ path: "main.ts", content: "x".repeat(MAX_SUBMISSION_SOURCE_FILE_CHARS) }],
+    };
+
+    expect(submissionDraftSchema.safeParse(draft).success).toBe(true);
+    expect(
+      submissionDraftSchema.safeParse({
+        ...draft,
+        sourceFiles: [
+          { path: "main.ts", content: "x".repeat(MAX_SUBMISSION_SOURCE_FILE_CHARS + 1) },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("enforces the shared source-file count boundary", () => {
+    const file = (_: unknown, index: number) => ({
+      path: `src/${String(index)}.ts`,
+      content: "x",
+    });
+    const draft = { language: "typescript", problemId: "multi-file-ts" };
+
+    expect(
+      submissionDraftSchema.safeParse({
+        ...draft,
+        sourceFiles: Array.from({ length: MAX_SUBMISSION_SOURCE_FILES }, file),
+      }).success,
+    ).toBe(true);
+    expect(
+      submissionDraftSchema.safeParse({
+        ...draft,
+        sourceFiles: Array.from({ length: MAX_SUBMISSION_SOURCE_FILES + 1 }, file),
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts runCases on sample-only runs", () => {

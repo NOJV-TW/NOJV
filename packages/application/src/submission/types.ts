@@ -33,6 +33,7 @@ export interface AdjustmentContext {
 
 export interface AdvancedModeContext {
   config: AdvancedConfig;
+  requiredPaths: string[];
   resourceLimits: {
     totalTimeMs: number;
     memoryMb: number;

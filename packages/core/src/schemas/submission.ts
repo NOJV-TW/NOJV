@@ -11,9 +11,13 @@ import {
 import { assessmentContextSchema } from "./course";
 import { safeRelativePath } from "./path";
 
+export const MAX_SUBMISSION_BODY_BYTES = 2 * 1024 * 1024;
+export const MAX_SUBMISSION_SOURCE_FILES = 200;
+export const MAX_SUBMISSION_SOURCE_FILE_CHARS = 500_000;
+
 const sourceFileSchema = z.object({
   path: safeRelativePath,
-  content: z.string().max(500_000),
+  content: z.string().max(MAX_SUBMISSION_SOURCE_FILE_CHARS),
 });
 
 const problemIdentifierSchema = z
@@ -51,7 +55,7 @@ export const submissionDraftSchema = z
     runCases: z.array(runCaseSchema).max(MAX_RUN_CASES).optional(),
     sampleOnly: z.boolean().optional(),
     sourceCode: sourceCodeSchema.optional(),
-    sourceFiles: z.array(sourceFileSchema).max(200).optional(),
+    sourceFiles: z.array(sourceFileSchema).max(MAX_SUBMISSION_SOURCE_FILES).optional(),
   })
   .refine(
     (draft) =>

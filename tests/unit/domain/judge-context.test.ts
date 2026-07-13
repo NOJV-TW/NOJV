@@ -407,6 +407,7 @@ describe("getJudgeContext", () => {
               network: { mode: "none" },
               maxScore: 100,
             },
+            requiredPaths: [],
             resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
           },
         }),

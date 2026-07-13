@@ -43,7 +43,10 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   try {
     const meta = await judge.fetchJudgeContext(input.submissionId);
 
-    const result = await judgeSandbox.executeSandbox(input.submissionId, input.draft);
+    const { result, advancedJudgeVerificationSnapshot } = await judgeSandbox.executeSandbox(
+      input.submissionId,
+      input.draft,
+    );
 
     const mode: "standard" | "advanced" =
       meta.problemType === "special_env" && meta.advanced !== null ? "advanced" : "standard";
@@ -51,7 +54,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       input.submissionId,
       result,
       mode,
-      meta.advanced?.config ?? null,
+      advancedJudgeVerificationSnapshot,
     );
 
     if (submission === null) {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type { AdvancedConfig } from "@nojv/core";
 import { problemTags } from "@nojv/core";
@@ -179,13 +179,19 @@ async function persistJudgeConfig(
   const client = storage as ReturnType<typeof createStorageClient>;
   const { checkerScript, interactorScript, ...rest } = judgeConfig;
 
+  const versionedKey = (base: string, content: string): string =>
+    `${base}/${createHash("sha256").update(content).digest("hex")}`;
+
   if (rest.type === "checker" && typeof checkerScript === "string") {
-    const key = checkerKey(problemId);
+    // Content-addressed keys make storage writes safe before the database
+    // transaction commits: a failed seed can leave an orphan, but can never
+    // overwrite the validator referenced by the live row.
+    const key = versionedKey(checkerKey(problemId), checkerScript);
     await putText(client, key, checkerScript);
     return { ...rest, checkerKey: key };
   }
   if (rest.type === "interactive" && typeof interactorScript === "string") {
-    const key = interactorKey(problemId);
+    const key = versionedKey(interactorKey(problemId), interactorScript);
     await putText(client, key, interactorScript);
     return { ...rest, interactorKey: key };
   }
@@ -4695,151 +4701,173 @@ export async function seedProblems(
 
   validateProblemDefinitions(problemDefs);
 
-  for (const [problemIndex, def] of problemDefs.entries()) {
-    const judgeConfig = await persistJudgeConfig(
-      storage as unknown as SeedStorageClient,
-      def.id,
-      def.judgeConfig,
-    );
+  await prisma.$transaction(
+    async (tx) => {
+      // Use the same transaction-scoped lock as normal publishing. Without it,
+      // a publish racing this seed can reserve the same max(displayId)+1.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(4711)`;
+      let nextDisplayId =
+        ((await tx.problem.aggregate({ _max: { displayId: true } }))._max.displayId ?? 0) + 1;
 
-    const samples = toSamplesJson(def.samples);
-    const sharedFields = {
-      title: def.title,
-      difficulty: pickSeedDifficulty(def.tags),
-      tags: stripDifficultyTags(def.tags),
-      type: def.type,
-      status: def.status ?? "published",
-      ...(judgeConfig !== undefined
-        ? { judgeConfig: judgeConfig as unknown as Prisma.InputJsonValue }
-        : {}),
-      ...(samples !== undefined ? { samples } : {}),
-      ...(def.advancedConfig
-        ? { advancedConfig: def.advancedConfig as unknown as Prisma.InputJsonValue }
-        : {}),
-      ...(def.advancedRequiredPaths
-        ? { advancedRequiredPaths: def.advancedRequiredPaths }
-        : {}),
-    };
+      for (const def of problemDefs) {
+        const judgeConfig = await persistJudgeConfig(
+          storage as unknown as SeedStorageClient,
+          def.id,
+          def.judgeConfig,
+        );
 
-    const problem = await prisma.problem.upsert({
-      create: {
-        authorId: def.authorId,
-        id: def.id,
-        memoryLimitMb: def.memoryLimitMb,
-        timeLimitMs: def.timeLimitMs,
-        visibility: def.visibility,
-        displayId: (def.status ?? "published") === "published" ? problemIndex + 1 : null,
-        ...sharedFields,
-      },
-      update: sharedFields,
-      where: { id: def.id },
-    });
+        const samples = toSamplesJson(def.samples);
+        const sharedFields = {
+          title: def.title,
+          difficulty: pickSeedDifficulty(def.tags),
+          tags: stripDifficultyTags(def.tags),
+          type: def.type,
+          status: def.status ?? "published",
+          ...(judgeConfig !== undefined
+            ? { judgeConfig: judgeConfig as unknown as Prisma.InputJsonValue }
+            : {}),
+          ...(samples !== undefined ? { samples } : {}),
+          ...(def.advancedConfig
+            ? { advancedConfig: def.advancedConfig as unknown as Prisma.InputJsonValue }
+            : {}),
+          ...(def.advancedRequiredPaths
+            ? { advancedRequiredPaths: def.advancedRequiredPaths }
+            : {}),
+        };
 
-    const stmt = def.statement;
-    await prisma.problemStatement.upsert({
-      create: {
-        bodyMarkdown: stmt.body,
-        inputFormat: stmt.inputFormat ?? "",
-        outputFormat: stmt.outputFormat ?? "",
-        problemId: problem.id,
-      },
-      update: {
-        bodyMarkdown: stmt.body,
-        inputFormat: stmt.inputFormat ?? "",
-        outputFormat: stmt.outputFormat ?? "",
-      },
-      where: { problemId: problem.id },
-    });
+        const existing = await tx.problem.findUnique({
+          where: { id: def.id },
+          select: { displayId: true },
+        });
+        const isPublished = (def.status ?? "published") === "published";
+        const displayId = isPublished ? (existing?.displayId ?? nextDisplayId++) : null;
 
-    if (def.testcases) {
-      const setEntries = Object.entries(def.testcases);
-      for (const [index, [setName, setDef]] of setEntries.entries()) {
-        // Subtask weight must be >= 1 (subtaskResultItemSchema rejects 0), so the
-        // judge's executeSandbox result validates. Samples carry a minimal weight
-        // of 1 (vs the scored set's 100) — a correct solution still earns full
-        // marks, and a samples-only pass earns only the 1-point floor.
-        const weight = setDef.weight ?? (setName === "sample" ? 1 : 100);
-        const testcaseSet = await prisma.testcaseSet.upsert({
+        const problem = await tx.problem.upsert({
           create: {
-            name: setName,
-            description: setDef.description ?? "",
-            ordinal: index,
-            problemId: problem.id,
-            weight,
+            authorId: def.authorId,
+            id: def.id,
+            memoryLimitMb: def.memoryLimitMb,
+            timeLimitMs: def.timeLimitMs,
+            visibility: def.visibility,
+            displayId,
+            ...sharedFields,
           },
           update: {
-            description: setDef.description ?? "",
-            ordinal: index,
-            weight,
+            ...sharedFields,
+            ...(isPublished && existing?.displayId == null ? { displayId } : {}),
           },
-          where: {
-            problemId_name: {
-              name: setName,
+          where: { id: def.id },
+        });
+
+        const stmt = def.statement;
+        await tx.problemStatement.upsert({
+          create: {
+            bodyMarkdown: stmt.body,
+            inputFormat: stmt.inputFormat ?? "",
+            outputFormat: stmt.outputFormat ?? "",
+            problemId: problem.id,
+          },
+          update: {
+            bodyMarkdown: stmt.body,
+            inputFormat: stmt.inputFormat ?? "",
+            outputFormat: stmt.outputFormat ?? "",
+          },
+          where: { problemId: problem.id },
+        });
+
+        if (def.testcases) {
+          const setEntries = Object.entries(def.testcases);
+          for (const [index, [setName, setDef]] of setEntries.entries()) {
+            // Subtask weight must be >= 1 (subtaskResultItemSchema rejects 0), so the
+            // judge's executeSandbox result validates. Samples carry a minimal weight
+            // of 1 (vs the scored set's 100) — a correct solution still earns full
+            // marks, and a samples-only pass earns only the 1-point floor.
+            const weight = setDef.weight ?? (setName === "sample" ? 1 : 100);
+            const testcaseSet = await tx.testcaseSet.upsert({
+              create: {
+                name: setName,
+                description: setDef.description ?? "",
+                ordinal: index,
+                problemId: problem.id,
+                weight,
+              },
+              update: {
+                description: setDef.description ?? "",
+                ordinal: index,
+                weight,
+              },
+              where: {
+                problemId_name: {
+                  name: setName,
+                  problemId: problem.id,
+                },
+              },
+            });
+
+            await tx.testcase.deleteMany({
+              where: { testcaseSetId: testcaseSet.id },
+            });
+
+            const testcaseIds = setDef.cases.map(() => randomUUID());
+            await Promise.all(
+              setDef.cases.flatMap((tc, caseIndex) => {
+                const id = testcaseIds[caseIndex]!;
+                return [
+                  putText(storage, testcaseInputKey(problem.id, id), tc.input),
+                  putText(storage, testcaseOutputKey(problem.id, id), tc.output),
+                ];
+              }),
+            );
+            await tx.testcase.createMany({
+              data: setDef.cases.map((_tc, caseIndex) => {
+                const id = testcaseIds[caseIndex]!;
+                return {
+                  id,
+                  ordinal: caseIndex + 1,
+                  testcaseSetId: testcaseSet.id,
+                  inputKey: testcaseInputKey(problem.id, id),
+                  outputKey: testcaseOutputKey(problem.id, id),
+                };
+              }),
+            });
+          }
+        }
+
+        if (def.workspaceFiles && def.workspaceFiles.length > 0) {
+          await tx.problemWorkspaceFile.deleteMany({
+            where: { problemId: problem.id },
+          });
+          const fileIds = def.workspaceFiles.map(() => randomUUID());
+          await Promise.all(
+            def.workspaceFiles.map((wf, i) =>
+              putText(storage, workspaceFileKey(problem.id, fileIds[i]!), wf.content),
+            ),
+          );
+          await tx.problemWorkspaceFile.createMany({
+            data: def.workspaceFiles.map((wf, i) => ({
+              id: fileIds[i]!,
               problemId: problem.id,
-            },
-          },
-        });
+              language: wf.language,
+              path: wf.path,
+              contentKey: workspaceFileKey(problem.id, fileIds[i]!),
+              visibility: wf.visibility,
+              description: wf.description ?? "",
+              orderIndex: wf.orderIndex ?? 0,
+            })),
+          });
+        }
 
-        await prisma.testcase.deleteMany({
-          where: { testcaseSetId: testcaseSet.id },
-        });
-
-        const testcaseIds = setDef.cases.map(() => randomUUID());
-        await Promise.all(
-          setDef.cases.flatMap((tc, caseIndex) => {
-            const id = testcaseIds[caseIndex]!;
-            return [
-              putText(storage, testcaseInputKey(problem.id, id), tc.input),
-              putText(storage, testcaseOutputKey(problem.id, id), tc.output),
-            ];
-          }),
+        const testcaseSetCount = def.testcases ? Object.keys(def.testcases).length : 0;
+        const extras: string[] = [];
+        if (def.samples?.length) extras.push(`${def.samples.length} samples`);
+        if (def.workspaceFiles?.length)
+          extras.push(`${def.workspaceFiles.length} workspace files`);
+        const extrasLabel = extras.length ? `, ${extras.join(", ")}` : "";
+        console.log(
+          `  Problem: ${def.id} [${def.type}] (${testcaseSetCount} testcase sets${extrasLabel})`,
         );
-        await prisma.testcase.createMany({
-          data: setDef.cases.map((_tc, caseIndex) => {
-            const id = testcaseIds[caseIndex]!;
-            return {
-              id,
-              ordinal: caseIndex + 1,
-              testcaseSetId: testcaseSet.id,
-              inputKey: testcaseInputKey(problem.id, id),
-              outputKey: testcaseOutputKey(problem.id, id),
-            };
-          }),
-        });
       }
-    }
-
-    if (def.workspaceFiles && def.workspaceFiles.length > 0) {
-      await prisma.problemWorkspaceFile.deleteMany({
-        where: { problemId: problem.id },
-      });
-      const fileIds = def.workspaceFiles.map(() => randomUUID());
-      await Promise.all(
-        def.workspaceFiles.map((wf, i) =>
-          putText(storage, workspaceFileKey(problem.id, fileIds[i]!), wf.content),
-        ),
-      );
-      await prisma.problemWorkspaceFile.createMany({
-        data: def.workspaceFiles.map((wf, i) => ({
-          id: fileIds[i]!,
-          problemId: problem.id,
-          language: wf.language,
-          path: wf.path,
-          contentKey: workspaceFileKey(problem.id, fileIds[i]!),
-          visibility: wf.visibility,
-          description: wf.description ?? "",
-          orderIndex: wf.orderIndex ?? 0,
-        })),
-      });
-    }
-
-    const testcaseSetCount = def.testcases ? Object.keys(def.testcases).length : 0;
-    const extras: string[] = [];
-    if (def.samples?.length) extras.push(`${def.samples.length} samples`);
-    if (def.workspaceFiles?.length) extras.push(`${def.workspaceFiles.length} workspace files`);
-    const extrasLabel = extras.length ? `, ${extras.join(", ")}` : "";
-    console.log(
-      `  Problem: ${def.id} [${def.type}] (${testcaseSetCount} testcase sets${extrasLabel})`,
-    );
-  }
+    },
+    { maxWait: 10_000, timeout: 30 * 60 * 1000 },
+  );
 }

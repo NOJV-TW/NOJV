@@ -84,8 +84,8 @@ export default defineConfig({
           // in parallel races on `truncateAllTables` (deadlock detected) and
           // creates FK violations when one file's truncate cascades through
           // another file's freshly inserted rows. Force serial execution to
-          // keep the suite deterministic. Per-worker schemas would let us
-          // parallelise, but the gain is small for a 6-file suite.
+          // keep the suite deterministic. Per-worker schemas would be required
+          // before this suite can safely run files in parallel.
           fileParallelism: false,
           globalSetup: ["tests/setup/global-setup.ts"],
           setupFiles: ["tests/setup/integration-setup.ts"],

@@ -30,7 +30,6 @@ const dockerEnvSchema = baseEnvSchema.extend({
   K8S_CPU_LIMIT: z.string().trim().optional(),
   K8S_MEMORY_REQUEST: z.string().trim().optional(),
   K8S_MEMORY_LIMIT: z.string().trim().optional(),
-  EGRESS_PROXY_IMAGE: z.string().trim().optional(),
   K8S_IMAGE_PULL_SECRET: z.string().trim().min(1).optional(),
 });
 
@@ -41,7 +40,6 @@ const kubernetesEnvSchema = baseEnvSchema.extend({
   K8S_CPU_LIMIT: z.string().trim().min(1),
   K8S_MEMORY_REQUEST: z.string().trim().min(1),
   K8S_MEMORY_LIMIT: z.string().trim().min(1),
-  EGRESS_PROXY_IMAGE: z.string().trim().min(1),
   K8S_IMAGE_PULL_SECRET: z.string().trim().min(1).optional(),
   NOJV_ALLOW_UNENFORCED_NETWORK_POLICY: z.stringbool().optional().default(false),
 });

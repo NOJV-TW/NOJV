@@ -43,7 +43,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForServiceReady(containerName: string): Promise<void> {
+export async function waitForServiceReady(containerName: string): Promise<void> {
   const deadline = Date.now() + READINESS_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if ((await collectServiceLogs(containerName)).includes(SERVICE_READY_MARKER)) {
@@ -51,12 +51,12 @@ async function waitForServiceReady(containerName: string): Promise<void> {
     }
     await sleep(READINESS_INTERVAL_MS);
   }
+  throw new Error(`service ${containerName} did not become ready within timeout`);
 }
 
 export async function startServiceContainer(params: {
   submissionId: string;
   internalName: string;
-  egressName: string;
   imageRef: string;
   memoryMb: number;
   cpuLimit: string;
@@ -76,7 +76,6 @@ export async function startServiceContainer(params: {
   );
 
   try {
-    await runDocker(["network", "connect", params.egressName, containerName]);
     await waitForServiceReady(containerName);
     return { containerName };
   } catch (err) {

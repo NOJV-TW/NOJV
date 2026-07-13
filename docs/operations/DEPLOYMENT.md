@@ -126,7 +126,7 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 > so each backend requires exactly the keys it actually uses.
 
 > Advanced-mode (`special_env`) judging runs on **both** backends: run/grade
-> images execute as K8s Jobs (incl. the `none` / `allowlist` / `service` network
+> images execute as K8s Jobs (including the `none` / `service` network
 > modes — see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#advanced-mode-pipeline)
 > and `tests/integration/k8s/judge-k8s.test.ts`). Registry image refs are the
 > only advanced authoring path: teachers download the starter templates from the
@@ -166,14 +166,13 @@ Local dev uses MinIO. Production can use GCS (S3-compatible mode), Cloudflare R2
 
 ### Kubernetes (Production Only)
 
-| Variable             | Purpose                                                                                                                                                                                                                    |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `K8S_NAMESPACE`      | Kubernetes namespace for sandbox jobs                                                                                                                                                                                      |
-| `K8S_CPU_REQUEST`    | CPU request per sandbox pod                                                                                                                                                                                                |
-| `K8S_CPU_LIMIT`      | CPU limit per sandbox pod                                                                                                                                                                                                  |
-| `K8S_MEMORY_REQUEST` | Memory request per sandbox pod                                                                                                                                                                                             |
-| `K8S_MEMORY_LIMIT`   | Memory limit per sandbox pod                                                                                                                                                                                               |
-| `EGRESS_PROXY_IMAGE` | Egress-proxy image for advanced-mode `allowlist`/`service` network modes. Built by `cloudbuild.yaml` as `<repo>/egress-proxy:<tag>`. **Required for the Kubernetes backend** (worker throws in allowlist mode without it). |
+| Variable             | Purpose                               |
+| -------------------- | ------------------------------------- |
+| `K8S_NAMESPACE`      | Kubernetes namespace for sandbox jobs |
+| `K8S_CPU_REQUEST`    | CPU request per sandbox pod           |
+| `K8S_CPU_LIMIT`      | CPU limit per sandbox pod             |
+| `K8S_MEMORY_REQUEST` | Memory request per sandbox pod        |
+| `K8S_MEMORY_LIMIT`   | Memory limit per sandbox pod          |
 
 ## Observability
 
@@ -231,7 +230,7 @@ on the spectrum **single-node k3s → multi-node k3s → GKE** ([GKE Rollout](#g
 
 **CD pipeline (`.github/workflows/deploy.yml`).** On merge to `main`, after CI
 passes, a GitHub-hosted job builds and pushes the runtime images to GHCR
-(`ghcr.io/nojv-tw/nojv-{web,worker,sandbox,egress-proxy,migrator}:<sha>`), then
+(`ghcr.io/nojv-tw/nojv-{web,worker,sandbox,migrator}:<sha>`), then
 the self-hosted runner on the k3s box runs `helm upgrade` — k3s pulls the images
 from GHCR (no local `docker build`/`ctr import`). One-time: set those five GHCR
 packages to **Public** so k3s can pull without an imagePullSecret.
@@ -377,7 +376,7 @@ helm upgrade --install nojv infra/charts/nojv \
 ### Building images (Cloud Build)
 
 `infra/gcp/cloud-build/deploy.sh` builds and pushes the container images
-(`web`, `worker`, `sandbox`, `migrator`, `egress-proxy`) to Artifact Registry
+(`web`, `worker`, `sandbox`, `migrator`) to Artifact Registry
 and prints the canonical image refs. It no longer deploys anything — the chart
 does that.
 

@@ -128,10 +128,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
-      - name: Build sandbox, egress-proxy and advanced demo images
+      - name: Build sandbox and advanced demo images
         run: |
           pnpm sandbox:build
-          pnpm egress-proxy:build
           pnpm demo-advanced:build
 
       - name: Create k3d cluster with NetworkPolicy enforcement (Calico)
@@ -148,7 +147,7 @@ jobs:
       - name: Load images into the cluster
         run: |
           k3d image import -c nojv-judge \
-            nojv-sandbox:local nojv-egress-proxy:local \
+            nojv-sandbox:local \
             nojv-demo-advanced-run:local nojv-demo-advanced-grade:local
 
       - name: Apply sandbox namespace, network policy, quota and label node

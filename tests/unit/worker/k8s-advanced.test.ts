@@ -85,7 +85,6 @@ const EXEC_CONFIG = {
   cpuLimit: "1",
   memoryRequest: "128Mi",
   memoryLimit: "256Mi",
-  egressProxyImage: "registry.example.com/nojv/egress-proxy:latest",
   sidecarReadinessTimeoutMs: 50,
   sidecarReadinessIntervalMs: 5,
 };
@@ -188,7 +187,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       record.podLogsRead.push({ name, namespace, container });
       if (String(name).endsWith("-sidecar")) {
         return opts.sidecarReadyMarker === undefined
-          ? "NOJV_PROXY_READY 8888\nNOJV_SERVICE_READY"
+          ? "NOJV_SERVICE_READY"
           : (opts.sidecarReadyMarker ?? "");
       }
       return opts.sidecarLog ?? "";
@@ -981,108 +980,6 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     ]);
   });
 
-  it("mode=allowlist: starts a proxy Pod+Service, injects HTTP_PROXY + nojv.egress label, all 3 policies", async () => {
-    const record = emptyRecord();
-    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(
-      makeAdvancedRequest({
-        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
-      }),
-    );
-
-    const proxyPod = record.podsCreated.find((p) => p.name === "judge-sub-adv-1-sidecar")!;
-    expect(proxyPod.body.spec.containers[0].image).toBe(
-      "registry.example.com/nojv/egress-proxy:latest",
-    );
-    const proxyEnv = Object.fromEntries(
-      proxyPod.body.spec.containers[0].env.map((e: any) => [e.name, e.value]),
-    );
-    expect(proxyEnv.NOJV_ALLOWLIST).toBe("api.example.com:443");
-
-    expect(record.servicesCreated.map((s) => s.name)).toEqual(["judge-sub-adv-1-sidecar"]);
-
-    const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
-    expect(runJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1");
-    const runEnv = Object.fromEntries(
-      runJob.body.spec.template.spec.containers[0].env.map((e: any) => [e.name, e.value]),
-    );
-    expect(runEnv.HTTP_PROXY).toBe("http://10.96.0.42:8888");
-    expect(runEnv.HTTPS_PROXY).toBe("http://10.96.0.42:8888");
-    expect(runEnv.HTTP_PROXY).not.toContain("sidecar");
-    expect(runEnv.NOJV_SERVICE_HOST).toBeUndefined();
-
-    expect(record.networkPoliciesCreated.map((p) => p.name).sort()).toEqual([
-      "judge-sub-adv-1-grade-egress",
-      "judge-sub-adv-1-run-egress",
-      "judge-sub-adv-1-sidecar-egress",
-    ]);
-  });
-
-  it("mode=allowlist: proxy never signals ready → SE + full teardown (no run/grade Job)", async () => {
-    const record = emptyRecord();
-    const executor = new K8sExecutor(
-      EXEC_CONFIG,
-      buildFakeClients(record, { sidecarReadyMarker: "" }),
-    );
-    const result = await executor.execute(
-      makeAdvancedRequest({
-        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
-      }),
-    );
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
-    expect(record.podsDeleted.map((p) => p.name)).toContain("judge-sub-adv-1-sidecar");
-    expect(record.servicesDeleted.map((s) => s.name)).toContain("judge-sub-adv-1-sidecar");
-    expect(record.networkPoliciesDeleted.map((p) => p.name).sort()).toEqual([
-      "judge-sub-adv-1-grade-egress",
-      "judge-sub-adv-1-run-egress",
-      "judge-sub-adv-1-sidecar-egress",
-    ]);
-  });
-
-  it("mode=allowlist: sidecar Service assigned no ClusterIP → SE + full teardown", async () => {
-    const record = emptyRecord();
-    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
-    const executor = new K8sExecutor(
-      EXEC_CONFIG,
-      buildFakeClients(record, { sidecarLog, serviceClusterIp: null }),
-    );
-    const result = await executor.execute(
-      makeAdvancedRequest({
-        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
-      }),
-    );
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
-    expect(record.podsDeleted.map((p) => p.name)).toContain("judge-sub-adv-1-sidecar");
-    expect(record.servicesDeleted.map((s) => s.name)).toContain("judge-sub-adv-1-sidecar");
-  });
-
-  it("mode=allowlist: no proxy image configured → SE before any sidecar Pod is created", async () => {
-    const record = emptyRecord();
-    const configNoProxy = {
-      namespace: EXEC_CONFIG.namespace,
-      image: EXEC_CONFIG.image,
-      cpuRequest: EXEC_CONFIG.cpuRequest,
-      cpuLimit: EXEC_CONFIG.cpuLimit,
-      memoryRequest: EXEC_CONFIG.memoryRequest,
-      memoryLimit: EXEC_CONFIG.memoryLimit,
-    };
-    const executor = new K8sExecutor(configNoProxy, buildFakeClients(record));
-    const result = await executor.execute(
-      makeAdvancedRequest({
-        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
-      }),
-    );
-
-    expect(result.testcaseResults[0]!.verdict).toBe("SE");
-    expect(record.podsCreated).toHaveLength(0);
-    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
-  });
-
   it("mode=service: starts the TA service Pod+Service, injects NOJV_SERVICE_HOST (no HTTP_PROXY)", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
@@ -1119,7 +1016,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     ]);
   });
 
-  it("mode=service: missing service marker does NOT SE — run proceeds (best-effort readiness)", async () => {
+  it("mode=service: missing service marker fails closed before the run starts", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(
@@ -1135,27 +1032,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       }),
     );
 
-    expect(result.testcaseResults[0]!.verdict).toBe("AC");
-    expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-run");
-  });
-
-  it("allowlist teardown deletes the sidecar Pod, Service, and all 3 per-submission policies", async () => {
-    const record = emptyRecord();
-    const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(
-      makeAdvancedRequest({
-        network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
-      }),
-    );
-
-    expect(record.podsDeleted.map((p) => p.name)).toEqual(["judge-sub-adv-1-sidecar"]);
-    expect(record.servicesDeleted.map((s) => s.name)).toEqual(["judge-sub-adv-1-sidecar"]);
-    expect(record.networkPoliciesDeleted.map((p) => p.name).sort()).toEqual([
-      "judge-sub-adv-1-grade-egress",
-      "judge-sub-adv-1-run-egress",
-      "judge-sub-adv-1-sidecar-egress",
-    ]);
+    expect(result.testcaseResults[0]!.verdict).toBe("SE");
+    expect(record.jobsCreated.map((j) => j.name)).not.toContain("judge-sub-adv-1-run");
   });
 
   it("Job creation failure → rethrows for Temporal retry, cleanup (incl. PVC) still runs in finally", async () => {

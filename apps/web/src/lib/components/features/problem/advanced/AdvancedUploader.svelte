@@ -1,9 +1,14 @@
 <script lang="ts" module>
-  import { validateRequiredPaths } from "@nojv/core";
+  import {
+    MAX_SUBMISSION_BODY_BYTES,
+    MAX_SUBMISSION_SOURCE_FILE_CHARS,
+    MAX_SUBMISSION_SOURCE_FILES,
+    validateRequiredPaths,
+  } from "@nojv/core";
   import { m as messages } from "$lib/paraglide/messages.js";
 
-  const MAX_FILES = 200;
-  const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
+  const MAX_FILE_MB = MAX_SUBMISSION_SOURCE_FILE_CHARS / 1_000_000;
+  const MAX_BODY_MB = MAX_SUBMISSION_BODY_BYTES / (1024 * 1024);
   const PLAIN_EXTENSIONS = [
     ".c",
     ".cpp",
@@ -39,6 +44,10 @@
     return name.toLowerCase().endsWith(".zip");
   }
 
+  function encodedSourceFilesBytes(entries: { path: string; content: string }[]): number {
+    return new TextEncoder().encode(JSON.stringify(entries)).byteLength;
+  }
+
   export async function stageUploadedFile(
     file: File,
     requiredPaths: string[],
@@ -66,20 +75,25 @@
         if (entries.length === 0) {
           return { ok: false, error: messages.advancedMode_zipNoFiles() };
         }
-        if (entries.length > MAX_FILES) {
+        if (entries.length > MAX_SUBMISSION_SOURCE_FILES) {
           return {
             ok: false,
             error: messages.advancedMode_zipTooManyFiles({
               count: entries.length,
-              max: MAX_FILES,
+              max: MAX_SUBMISSION_SOURCE_FILES,
             }),
           };
         }
-        const totalBytes = entries.reduce((sum, e) => sum + e.content.length, 0);
-        if (totalBytes > MAX_TOTAL_BYTES) {
+        if (entries.some((entry) => entry.content.length > MAX_SUBMISSION_SOURCE_FILE_CHARS)) {
           return {
             ok: false,
-            error: messages.advancedMode_zipTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) }),
+            error: messages.advancedMode_fileTooLarge({ max: MAX_FILE_MB }),
+          };
+        }
+        if (encodedSourceFilesBytes(entries) > MAX_SUBMISSION_BODY_BYTES) {
+          return {
+            ok: false,
+            error: messages.advancedMode_zipTooLarge({ max: MAX_BODY_MB }),
           };
         }
         if (entries.every((e) => e.content.trim().length === 0)) {
@@ -102,10 +116,13 @@
 
       if (isPlainSourceFile(file.name)) {
         const content = await file.text();
-        if (content.length > MAX_TOTAL_BYTES) {
+        if (
+          content.length > MAX_SUBMISSION_SOURCE_FILE_CHARS ||
+          encodedSourceFilesBytes([{ path: file.name, content }]) > MAX_SUBMISSION_BODY_BYTES
+        ) {
           return {
             ok: false,
-            error: messages.advancedMode_fileTooLarge({ max: MAX_TOTAL_BYTES / (1024 * 1024) }),
+            error: messages.advancedMode_fileTooLarge({ max: MAX_FILE_MB }),
           };
         }
         if (content.trim().length === 0) {

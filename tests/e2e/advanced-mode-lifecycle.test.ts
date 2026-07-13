@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type FileChooser } from "@playwright/test";
 import JSZip from "jszip";
 import path from "node:path";
 
@@ -42,6 +42,23 @@ let advancedProblemId = "";
 test.describe("Advanced Mode Lifecycle", () => {
   test.describe.configure({ mode: "serial" });
 
+  test("Advanced Mode create menu stays inside a mobile viewport", async ({ browser }) => {
+    const context = await browser.newContext({
+      storageState: teacherAuth,
+      viewport: { width: 390, height: 844 },
+    });
+    const page = await context.newPage();
+
+    await page.goto("/problems?tab=mine");
+    await page.getByRole("button", { name: /create options/i }).click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(390);
+
+    await context.close();
+  });
+
   test("teacher creates an Advanced Mode problem via API", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
@@ -59,7 +76,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     await context.close();
   });
 
-  test("edit page renders the advanced package uploader for special_env problems", async ({
+  test("edit page renders the image-based authoring flow for special_env problems", async ({
     browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
@@ -67,8 +84,20 @@ test.describe("Advanced Mode Lifecycle", () => {
 
     await page.goto(`/problems/${advancedProblemId}/edit`);
     await expect(page.getByRole("heading", { name: /advanced mode/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /advanced package/i })).toBeVisible();
-    await expect(page.getByText(/choose advanced.zip/i)).toBeVisible();
+    await expect(page.locator('[data-tour="edit-rail"]')).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: /judge environment images/i }),
+    ).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /run image/i })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /grade image/i })).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const layout = page.getByTestId("advanced-edit-layout");
+    await expect(layout).toHaveCSS("flex-direction", "column");
+    await expect(layout.locator("aside")).toHaveCSS("position", "static");
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(390);
 
     await context.close();
   });
@@ -116,15 +145,23 @@ test.describe("Advanced Mode Lifecycle", () => {
       await expect(submitBtn).toBeDisabled();
 
       const zip = await buildSubmissionZip();
-      const fileInput = page.locator(`#advanced-upload-${SEEDED_ADVANCED_PROBLEM_ID}`);
+      const uploader = page.getByRole("button", {
+        name: /drop a \.zip archive or a single source file/i,
+      });
+      let fileChooser: FileChooser | undefined;
       await expect(async () => {
-        await fileInput.setInputFiles({
-          name: "exam-advanced.zip",
-          mimeType: "application/zip",
-          buffer: zip,
-        });
-        await expect(submitBtn).toBeEnabled({ timeout: 1_500 });
-      }).toPass({ intervals: [250, 500, 1000, 2000], timeout: 20_000 });
+        const fileChooserPromise = page.waitForEvent("filechooser", { timeout: 1_500 });
+        await uploader.click();
+        fileChooser = await fileChooserPromise;
+      }).toPass({ timeout: 20_000 });
+      if (!fileChooser) throw new Error("Advanced uploader did not open a file chooser.");
+
+      await fileChooser.setFiles({
+        name: "exam-advanced.zip",
+        mimeType: "application/zip",
+        buffer: zip,
+      });
+      await expect(submitBtn).toBeEnabled({ timeout: 20_000 });
 
       await expect(page.getByText(/extracted 2 files|已解壓 2 個檔案/i)).toBeVisible();
 

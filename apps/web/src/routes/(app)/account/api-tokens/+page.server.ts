@@ -11,7 +11,8 @@ async function requireTokenMutationStepUp(event: RequestEvent): Promise<void> {
   if (!(await isTwoFactorActivated(actor.userId))) {
     throw new ForbiddenError("Two-factor authentication is required.");
   }
-  if (!(await hasFreshStepUp(actor.userId))) {
+  const sessionId = event.locals.session?.id;
+  if (!sessionId || !(await hasFreshStepUp(sessionId))) {
     throw new ForbiddenError("Step-up verification required.");
   }
 }
@@ -52,10 +53,13 @@ export const load = async (event: RequestEvent) => {
   const actor = requireAuth(event);
 
   if (!(await isTwoFactorActivated(actor.userId))) {
-    redirect(302, "/account?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"));
+    redirect(302, "/settings?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"));
   }
   const sessionId = event.locals.session?.id;
-  if (!sessionId || !(await hasTokenPageMfa(sessionId))) {
+  if (!sessionId) {
+    redirect(302, "/account/api-tokens/verify");
+  }
+  if (!(await hasTokenPageMfa(sessionId))) {
     redirect(302, "/account/api-tokens/verify");
   }
 

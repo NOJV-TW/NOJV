@@ -1,12 +1,14 @@
 import { seedProblems, type SeedStorageClient } from "./problems";
 
 function createMockPrisma() {
-  const problemById = new Map<string, { id: string }>();
+  const problemById = new Map<string, { id: string; displayId: number | null }>();
 
-  return {
+  const tx = {
+    $executeRaw: async () => 1,
     problem: {
-      upsert: async (args: { create: { id: string } }) => {
-        const record = { id: String(args.create.id) };
+      aggregate: async () => ({ _max: { displayId: null } }),
+      upsert: async (args: { create: { id: string; displayId: number | null } }) => {
+        const record = { id: String(args.create.id), displayId: args.create.displayId };
         problemById.set(record.id, record);
         return record;
       },
@@ -32,6 +34,10 @@ function createMockPrisma() {
       deleteMany: async () => ({ count: 0 }),
       createMany: async () => ({ count: 0 }),
     },
+  };
+  return {
+    ...tx,
+    $transaction: async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
   };
 }
 

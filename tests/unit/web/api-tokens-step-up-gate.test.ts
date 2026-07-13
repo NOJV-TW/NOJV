@@ -123,7 +123,7 @@ describe("api-tokens load gate", () => {
     const thrown = await caught(() => load(makeEvent()));
     expect(thrown.status).toBe(302);
     expect(thrown.location).toBe(
-      "/account?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"),
+      "/settings?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"),
     );
   });
 
@@ -149,6 +149,7 @@ describe("api-tokens action guard", () => {
       hasFreshStepUpMock.mockResolvedValue(false);
       const result = await getAction()(makeEvent());
       expect(result).toMatchObject({ status: 403 });
+      expect(hasFreshStepUpMock).toHaveBeenCalledWith("sess_1");
       expect(domainMock).not.toHaveBeenCalled();
     },
   );
@@ -194,7 +195,7 @@ describe("api-tokens verify action", () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     const thrown = await caught(() => verifyActions.default(verifyEvent("123456")));
     expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
-    expect(markStepUpFreshMock).toHaveBeenCalledWith("usr_1");
+    expect(markStepUpFreshMock).toHaveBeenCalledWith("sess_1");
     expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_1");
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");

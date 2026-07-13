@@ -17,7 +17,7 @@ import {
 import {
   entryFileNameFor,
   validateRequiredPaths,
-  type AdvancedConfig,
+  type AdvancedJudgeVerificationSnapshot,
   type SubmissionDraft,
   type SubmissionOperationStatus,
   type SubmissionResult,
@@ -412,7 +412,7 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
 export async function completeJudge(
   submissionId: string,
   result: SubmissionResult,
-  advancedConfigSnapshot: AdvancedConfig | null = null,
+  advancedConfigSnapshot: AdvancedJudgeVerificationSnapshot | null = null,
 ): Promise<CompletedSubmission | null> {
   await putVerdictDetail(storage(), submissionId, result);
 

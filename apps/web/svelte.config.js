@@ -20,7 +20,7 @@ const config = {
       mode: "auto",
       directives: {
         "default-src": ["self"],
-        "script-src": ["self", "unsafe-eval"],
+        "script-src": ["self"],
         "style-src": ["self", "unsafe-inline"],
         "img-src": [
           "self",

@@ -1,4 +1,4 @@
-import { submissionDraftSchema } from "@nojv/core";
+import { MAX_SUBMISSION_BODY_BYTES, submissionDraftSchema } from "@nojv/core";
 import { submissionDomain, HttpError } from "@nojv/application";
 import { error, json } from "@sveltejs/kit";
 
@@ -8,7 +8,6 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler, writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
 import { getClientIp } from "$lib/server/shared/client-ip";
 
-const SUBMISSION_BODY_LIMIT = 2 * 1024 * 1024;
 const SUBMISSIONS_PAGE_SIZE = 50;
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -43,11 +42,13 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const declared = Number(event.request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > SUBMISSION_BODY_LIMIT) {
+  if (Number.isFinite(declared) && declared > MAX_SUBMISSION_BODY_BYTES) {
     error(413, "Request body too large");
   }
 
-  const payload = submissionDraftSchema.parse(await readJsonBody(event, SUBMISSION_BODY_LIMIT));
+  const payload = submissionDraftSchema.parse(
+    await readJsonBody(event, MAX_SUBMISSION_BODY_BYTES),
+  );
 
   try {
     const submission = await submissionDomain.submitAndDispatch(

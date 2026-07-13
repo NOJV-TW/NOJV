@@ -36,4 +36,3 @@ jobs:
           docker build -f infra/docker/worker.Dockerfile -t nojv-worker .
           docker build -f infra/docker/migrator.Dockerfile -t nojv-migrator .
           docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox .
-          docker build -t nojv-egress-proxy infra/docker/egress-proxy

@@ -30,6 +30,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
+import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
   hasAdminMode,
   hasAdminSessionMfa,
@@ -481,6 +482,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   }
 
   await loadSession(event);
+  await consumeStepUpHandoff(event);
   enforceAccountState(event, cleanPath);
   await enforceSuperAdminSessionAge(event);
   enforcePasswordChange(event, cleanPath);

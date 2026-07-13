@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { AdvancedConfig, ProblemCreate } from "@nojv/core";
 import { ConflictError, ForbiddenError, problemDomain } from "@nojv/application";
 
-import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
+import {
+  createTestProblem,
+  createTestProblemWorkspaceFile,
+  createTestUser,
+  testPrisma,
+} from "../../fixtures/factories";
 
 import type { ProblemActorContext } from "../../../packages/application/src/problem/permissions";
 
@@ -98,6 +103,69 @@ describe("canCreateAdvancedProblems gate", () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
+
+  it("rejects converting a published problem before deleting its judge data", async () => {
+    const teacher = await createTestUser({
+      platformRole: "teacher",
+      canCreateAdvancedProblems: true,
+    });
+    const problem = await createTestProblem({
+      authorId: teacher.id,
+      status: "published",
+      type: "multi_file",
+    });
+    await createTestProblemWorkspaceFile({ problemId: problem.id });
+
+    await expect(
+      problemDomain.convertProblemToAdvancedMode(actorOf(teacher), problem.id),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const [stored, testcaseSetCount, workspaceFileCount] = await Promise.all([
+      testPrisma.problem.findUnique({ where: { id: problem.id } }),
+      testPrisma.testcaseSet.count({ where: { problemId: problem.id } }),
+      testPrisma.problemWorkspaceFile.count({ where: { problemId: problem.id } }),
+    ]);
+    expect(stored).toMatchObject({ status: "published", type: "multi_file" });
+    expect(testcaseSetCount).toBe(1);
+    expect(workspaceFileCount).toBe(1);
+  });
+
+  it("rejects converting and publishing a standard draft in one generic mutation", async () => {
+    const teacher = await createTestUser({
+      platformRole: "teacher",
+      canCreateAdvancedProblems: true,
+    });
+    const problem = await createTestProblem({ authorId: teacher.id, status: "draft" });
+
+    await expect(
+      problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
+        status: "published",
+        type: "special_env",
+        advancedConfig: advancedConfig(),
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const stored = await testPrisma.problem.findUnique({ where: { id: problem.id } });
+    expect(stored).toMatchObject({ status: "draft", type: "full_source" });
+  });
+
+  it("rejects changing the type of an already-published standard problem", async () => {
+    const teacher = await createTestUser({
+      platformRole: "teacher",
+      canCreateAdvancedProblems: true,
+    });
+    const problem = await createTestProblem({ authorId: teacher.id, status: "published" });
+
+    await expect(
+      problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
+        type: "special_env",
+        advancedConfig: advancedConfig(),
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const stored = await testPrisma.problem.findUnique({ where: { id: problem.id } });
+    expect(stored).toMatchObject({ status: "published", type: "full_source" });
+  });
 });
 
 describe("special_env publish gate — accepted test run required", () => {
@@ -139,8 +207,12 @@ describe("special_env publish gate — accepted test run required", () => {
         sourceStoragePrefix: "test/none",
         status: "accepted",
         advancedConfigSnapshot: {
-          ...advancedConfig(),
-          run: { imageRef: `ghcr.io/nojv-tw/old@${DIGEST}`, imageSource: "registry" },
+          config: {
+            ...advancedConfig(),
+            run: { imageRef: `ghcr.io/nojv-tw/old@${DIGEST}`, imageSource: "registry" },
+          },
+          requiredPaths: [],
+          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
         },
       },
     });
@@ -167,7 +239,11 @@ describe("special_env publish gate — accepted test run required", () => {
         sourceStoragePrefix: "test/none",
         status: "accepted",
         sampleOnly: true,
-        advancedConfigSnapshot: advancedConfig(),
+        advancedConfigSnapshot: {
+          config: advancedConfig(),
+          requiredPaths: [],
+          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+        },
       },
     });
 
@@ -176,5 +252,148 @@ describe("special_env publish gate — accepted test run required", () => {
     });
     const row = await testPrisma.problem.findUnique({ where: { id: problem.id } });
     expect(row?.status).toBe("published");
+  });
+
+  it("validates the post-update title when title and publish are submitted together", async () => {
+    const teacher = await createTestUser({
+      platformRole: "teacher",
+      canCreateAdvancedProblems: true,
+    });
+    const problem = await createDraftAdvancedProblem(teacher.id);
+    await testPrisma.submission.create({
+      data: {
+        problemId: problem.id,
+        userId: teacher.id,
+        language: "python",
+        sourceStoragePrefix: "test/none",
+        status: "accepted",
+        sampleOnly: true,
+        advancedConfigSnapshot: {
+          config: advancedConfig(),
+          requiredPaths: [],
+          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+        },
+      },
+    });
+
+    await expect(
+      problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
+        title: "",
+        status: "published",
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("blocks publishing when resource limits changed after the accepted run", async () => {
+    const teacher = await createTestUser({
+      platformRole: "teacher",
+      canCreateAdvancedProblems: true,
+    });
+    const problem = await createDraftAdvancedProblem(teacher.id);
+
+    await testPrisma.submission.create({
+      data: {
+        problemId: problem.id,
+        userId: teacher.id,
+        language: "python",
+        sourceStoragePrefix: "test/none",
+        status: "accepted",
+        sampleOnly: true,
+        advancedConfigSnapshot: {
+          config: advancedConfig(),
+          requiredPaths: [],
+          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+        },
+      },
+    });
+
+    await problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
+      timeLimitMs: 2_000,
+    });
+    await expect(
+      problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
+        status: "published",
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("blocks publishing when required paths changed after the accepted run", async () => {
+    const teacher = await createTestUser({
+      platformRole: "teacher",
+      canCreateAdvancedProblems: true,
+    });
+    const problem = await createDraftAdvancedProblem(teacher.id);
+    await testPrisma.submission.create({
+      data: {
+        problemId: problem.id,
+        userId: teacher.id,
+        language: "python",
+        sourceStoragePrefix: "test/none",
+        status: "accepted",
+        advancedConfigSnapshot: {
+          config: advancedConfig(),
+          requiredPaths: [],
+          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+        },
+      },
+    });
+    await problemDomain.updateAdvancedJudgeConfiguration(actorOf(teacher), problem.id, {
+      config: advancedConfig(),
+      requiredPaths: ["main.py"],
+    });
+
+    await expect(
+      problemDomain.updateProblemRecord(actorOf(teacher), problem.id, { status: "published" }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("re-reads the locked row before publishing after a concurrent config update", async () => {
+    const teacher = await createTestUser({
+      platformRole: "teacher",
+      canCreateAdvancedProblems: true,
+    });
+    const problem = await createDraftAdvancedProblem(teacher.id);
+    await testPrisma.submission.create({
+      data: {
+        problemId: problem.id,
+        userId: teacher.id,
+        language: "python",
+        sourceStoragePrefix: "test/none",
+        status: "accepted",
+        advancedConfigSnapshot: {
+          config: advancedConfig(),
+          requiredPaths: [],
+          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+        },
+      },
+    });
+
+    let releaseLock!: () => void;
+    const lockHeld = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    let rowLocked!: () => void;
+    const rowIsLocked = new Promise<void>((resolve) => {
+      rowLocked = resolve;
+    });
+    const concurrentUpdate = testPrisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${problem.id} FOR UPDATE`;
+      rowLocked();
+      await lockHeld;
+      await tx.problem.update({
+        where: { id: problem.id },
+        data: { advancedConfig: { ...advancedConfig(), maxScore: 200 } },
+      });
+    });
+    await rowIsLocked;
+    const publish = problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
+      status: "published",
+    });
+    releaseLock();
+    await concurrentUpdate;
+
+    await expect(publish).rejects.toBeInstanceOf(ConflictError);
+    const row = await testPrisma.problem.findUnique({ where: { id: problem.id } });
+    expect(row).toMatchObject({ status: "draft" });
   });
 });

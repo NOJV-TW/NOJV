@@ -6,14 +6,15 @@ import { twoFactor, username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
 import {
+  createStepUpHandoffTicket,
   hasFreshStepUp,
   hasTwoFactorChangeGrant,
   isTwoFactorActivated,
   passkeyRegistrationDenialReason,
 } from "@nojv/application";
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
-import { getRedis, keys } from "@nojv/redis";
 import { getWebEnv } from "$lib/server/env";
+import { STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 import { createLogger } from "$lib/server/logger";
 
@@ -157,11 +158,12 @@ function createAuth() {
         ) {
           const session = await getSessionFromCtx(ctx);
           const userId = session?.user.id;
-          if (!userId) return;
+          const sessionId = session?.session.id;
+          if (!userId || !sessionId) return;
           const [activated, hasGrant, hasFresh] = await Promise.all([
             isTwoFactorActivated(userId),
-            hasTwoFactorChangeGrant(userId),
-            hasFreshStepUp(userId),
+            hasTwoFactorChangeGrant(sessionId),
+            hasFreshStepUp(sessionId),
           ]);
           const denial = passkeyRegistrationDenialReason({ activated, hasGrant, hasFresh });
           if (denial === "not_activated") {
@@ -173,28 +175,6 @@ function createAuth() {
             throw new APIError("FORBIDDEN", {
               message: "Verify with your authenticator or passkey first.",
             });
-          }
-        }
-      }),
-      after: createAuthMiddleware(async (ctx) => {
-        // A verified passkey assertion counts as a fresh step-up. This fires
-        // only after better-auth has verified the assertion (the endpoint
-        // throws otherwise), so it cannot be forged by a client.
-        if (ctx.path === "/passkey/verify-authentication") {
-          const newSession = ctx.context.newSession;
-          const userId = newSession?.user.id;
-          if (userId) {
-            await getRedis().set(keys.apiTokenStepUp(userId), "1", "EX", 600);
-            await getRedis().set(keys.tokenPageMfa(newSession.session.id), "1", "EX", 3600);
-            const isSuperAdmin = (newSession.user as { isSuperAdmin?: boolean }).isSuperAdmin;
-            if (isSuperAdmin) {
-              await getRedis().set(
-                keys.adminSessionMfa(newSession.session.id),
-                "1",
-                "EX",
-                604800,
-              );
-            }
           }
         }
       }),
@@ -211,6 +191,27 @@ function createAuth() {
         rpID: new URL(env.BETTER_AUTH_URL).hostname,
         rpName: "NOJV",
         origin: env.BETTER_AUTH_URL,
+        authentication: {
+          // This callback only runs after the assertion has been verified. It
+          // runs before better-auth creates the new session, so use the
+          // verified credential—not client identity or a not-yet-created
+          // session—to mark the short-lived step-up grant.
+          afterVerification: async ({ clientData, ctx }) => {
+            const passkeyRecord = await prisma.passkey.findFirst({
+              where: { credentialID: clientData.id },
+              select: { userId: true },
+            });
+            if (!passkeyRecord) return;
+            const ticket = await createStepUpHandoffTicket(passkeyRecord.userId);
+            ctx.setCookie(STEP_UP_HANDOFF_COOKIE, ticket, {
+              httpOnly: true,
+              maxAge: 60,
+              path: "/",
+              sameSite: "lax",
+              secure: isProduction,
+            });
+          },
+        },
       }),
     ],
   });

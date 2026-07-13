@@ -1,7 +1,10 @@
+import { randomBytes } from "node:crypto";
+
 import { accountRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 
 const STEPUP_TTL_SECONDS = 600;
+const STEPUP_HANDOFF_TICKET_TTL_SECONDS = 60;
 const ADMIN_MFA_TTL_SECONDS = 604800;
 const TOKEN_PAGE_MFA_TTL_SECONDS = 3600;
 const OTP_DEDUPE_TTL_SECONDS = 120;
@@ -19,16 +22,31 @@ export function isBackupCodeFormat(code: string): boolean {
   return BACKUP_CODE_PATTERN.test(code);
 }
 
-export async function markStepUpFresh(userId: string): Promise<void> {
-  await getRedis().set(keys.apiTokenStepUp(userId), "1", "EX", STEPUP_TTL_SECONDS);
+export async function markStepUpFresh(sessionId: string): Promise<void> {
+  await getRedis().set(keys.apiTokenStepUp(sessionId), "1", "EX", STEPUP_TTL_SECONDS);
 }
 
-export async function hasFreshStepUp(userId: string): Promise<boolean> {
-  return (await getRedis().get(keys.apiTokenStepUp(userId))) !== null;
+export async function hasFreshStepUp(sessionId: string): Promise<boolean> {
+  return (await getRedis().get(keys.apiTokenStepUp(sessionId))) !== null;
 }
 
-export async function clearStepUp(userId: string): Promise<void> {
-  await getRedis().del(keys.apiTokenStepUp(userId));
+export async function clearStepUp(sessionId: string): Promise<void> {
+  await getRedis().del(keys.apiTokenStepUp(sessionId));
+}
+
+export async function createStepUpHandoffTicket(userId: string): Promise<string> {
+  const ticket = randomBytes(32).toString("base64url");
+  await getRedis().set(
+    keys.stepUpHandoffTicket(ticket),
+    userId,
+    "EX",
+    STEPUP_HANDOFF_TICKET_TTL_SECONDS,
+  );
+  return ticket;
+}
+
+export function consumeStepUpHandoffTicket(ticket: string): Promise<string | null> {
+  return getRedis().getdel(keys.stepUpHandoffTicket(ticket));
 }
 
 export async function markAdminSessionMfa(sessionId: string): Promise<void> {

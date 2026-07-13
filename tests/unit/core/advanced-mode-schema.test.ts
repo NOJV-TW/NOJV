@@ -131,13 +131,13 @@ describe("advancedConfigSchema", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("accepts a config with network.mode allowlist and a non-empty allowlist", () => {
+  it("rejects the removed allowlist network mode", () => {
     const parsed = advancedConfigSchema.safeParse({
       run,
       grade,
       network: { mode: "allowlist", allowlist: ["api.example.com:443"] },
     });
-    expect(parsed.success).toBe(true);
+    expect(parsed.success).toBe(false);
   });
 
   it("accepts a config with network.mode service and a service image", () => {
@@ -183,64 +183,11 @@ describe("advancedConfigSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects allowlist mode with an absent allowlist", () => {
-    const parsed = advancedConfigSchema.safeParse({
-      run,
-      grade,
-      network: { mode: "allowlist" },
-    });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("rejects allowlist mode with an empty allowlist", () => {
-    const parsed = advancedConfigSchema.safeParse({
-      run,
-      grade,
-      network: { mode: "allowlist", allowlist: [] },
-    });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("rejects allowlist mode that also carries a service", () => {
-    const parsed = advancedConfigSchema.safeParse({
-      run,
-      grade,
-      network: {
-        mode: "allowlist",
-        allowlist: ["api.example.com:443"],
-        service: { imageRef: "svc:1", imageSource: "registry" },
-      },
-    });
-    expect(parsed.success).toBe(false);
-  });
-
   it("rejects service mode without a service", () => {
     const parsed = advancedConfigSchema.safeParse({
       run,
       grade,
       network: { mode: "service" },
-    });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("rejects service mode that also carries an allowlist", () => {
-    const parsed = advancedConfigSchema.safeParse({
-      run,
-      grade,
-      network: {
-        mode: "service",
-        service: { imageRef: "svc:1", imageSource: "registry" },
-        allowlist: ["api.example.com:443"],
-      },
-    });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("rejects none mode that carries an allowlist", () => {
-    const parsed = advancedConfigSchema.safeParse({
-      run,
-      grade,
-      network: { mode: "none", allowlist: ["api.example.com:443"] },
     });
     expect(parsed.success).toBe(false);
   });
