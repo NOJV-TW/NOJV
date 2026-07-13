@@ -15,7 +15,7 @@ const {
   clearStepUpMock,
   hasStepUpFactorMock,
   hasFreshStepUpMock,
-  createHandoffTicketMock,
+  markTotpSeenMock,
   sendEmailMock,
   enableTwoFactorMock,
   verifyTotpMock,
@@ -40,7 +40,7 @@ const {
   clearStepUpMock: vi.fn(),
   hasStepUpFactorMock: vi.fn(),
   hasFreshStepUpMock: vi.fn(),
-  createHandoffTicketMock: vi.fn(),
+  markTotpSeenMock: vi.fn(),
   sendEmailMock: vi.fn(),
   enableTwoFactorMock: vi.fn(),
   verifyTotpMock: vi.fn(),
@@ -66,7 +66,11 @@ vi.mock("@nojv/application", () => ({
   markTwoFactorChangeGrant: markChangeGrantMock,
   hasTwoFactorChangeGrant: hasChangeGrantMock,
   clearTwoFactorChangeGrant: clearChangeGrantMock,
-  createStepUpHandoffTicket: createHandoffTicketMock,
+  markTotpSeen: markTotpSeenMock,
+  securityGenerationProof: (user: { id: string; securityGeneration: number }) => ({
+    userId: user.id,
+    securityGeneration: user.securityGeneration,
+  }),
 }));
 
 vi.mock("$lib/server/step-up", () => ({
@@ -126,8 +130,10 @@ function makeEvent(opts?: {
         platformRole: opts?.isSuperAdmin ? "admin" : "student",
         isSuperAdmin: opts?.isSuperAdmin ?? false,
         twoFactorEnabled: opts?.twoFactorEnabled ?? false,
+        twoFactorActivated: true,
         disabled: false,
         mustChangePassword: false,
+        securityGeneration: 7,
       },
       apiTokenActor: null,
     },
@@ -159,11 +165,14 @@ async function caught(
 
 beforeEach(() => {
   isTwoFactorActivatedMock.mockReset().mockResolvedValue(false);
-  setTwoFactorActivatedMock.mockReset().mockResolvedValue(undefined);
+  setTwoFactorActivatedMock.mockReset().mockResolvedValue({
+    userId: "usr_1",
+    securityGeneration: 8,
+  });
   generateActivationOtpMock.mockReset().mockReturnValue("123456");
   storeActivationOtpMock.mockReset().mockResolvedValue(undefined);
   verifyActivationOtpMock.mockReset();
-  markChangeGrantMock.mockReset().mockResolvedValue(undefined);
+  markChangeGrantMock.mockReset().mockResolvedValue(true);
   hasChangeGrantMock.mockReset().mockResolvedValue(false);
   clearChangeGrantMock.mockReset().mockResolvedValue(undefined);
   userHasCredentialPasswordMock.mockReset().mockResolvedValue(false);
@@ -171,7 +180,7 @@ beforeEach(() => {
   clearStepUpMock.mockReset().mockResolvedValue(undefined);
   hasStepUpFactorMock.mockReset().mockResolvedValue(false);
   hasFreshStepUpMock.mockReset().mockResolvedValue(false);
-  createHandoffTicketMock.mockReset().mockResolvedValue("handoff-ticket");
+  markTotpSeenMock.mockReset().mockResolvedValue(undefined);
   sendEmailMock.mockReset().mockResolvedValue(undefined);
   enableTwoFactorMock.mockReset();
   verifyTotpMock.mockReset();
@@ -254,7 +263,10 @@ describe("activate", () => {
     verifyActivationOtpMock.mockResolvedValue({ ok: true });
     const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
     expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", true);
-    expect(markChangeGrantMock).toHaveBeenCalledWith("sess_1");
+    expect(markChangeGrantMock).toHaveBeenCalledWith("sess_1", {
+      userId: "usr_1",
+      securityGeneration: 8,
+    });
     expect(sendEmailMock).toHaveBeenCalledOnce();
     expect(result).toEqual({ activated: true });
   });
@@ -274,7 +286,11 @@ describe("deactivate", () => {
     const result = await actions.deactivate(
       makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
     );
-    expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith(
+      { userId: "usr_1", securityGeneration: 7 },
+      "123456",
+      expect.any(Headers),
+    );
     expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", false);
     expect(clearStepUpMock).toHaveBeenCalledWith("sess_1");
     expect(clearChangeGrantMock).toHaveBeenCalledWith("sess_1");
@@ -391,17 +407,13 @@ describe("verify", () => {
     expect(result).toMatchObject({ status: 401 });
   });
 
-  it("returns enabled on success and hands the verified factor to the rotated session", async () => {
+  it("returns enabled without converting enrollment into a privileged handoff", async () => {
     verifyTotpMock.mockResolvedValue({ headers: new Headers() });
     const result = await actions.verify(
       makeEvent({ isSuperAdmin: true, body: form({ code: "123456" }) }),
     );
-    expect(createHandoffTicketMock).toHaveBeenCalledWith("usr_1");
-    expect(cookiesSetMock).toHaveBeenCalledWith(
-      "nojv.step_up_handoff",
-      "handoff-ticket",
-      expect.objectContaining({ httpOnly: true, maxAge: 60, path: "/", sameSite: "lax" }),
-    );
+    expect(markTotpSeenMock).toHaveBeenCalledWith("usr_1", "123456");
+    expect(cookiesSetMock).not.toHaveBeenCalled();
     expect(result).toEqual({ enabled: true });
   });
 
@@ -432,7 +444,11 @@ describe("disable (remove TOTP)", () => {
         body: form({ password: "hunter2", code: "123456" }),
       }),
     );
-    expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith(
+      { userId: "usr_1", securityGeneration: 7 },
+      "123456",
+      expect.any(Headers),
+    );
     expect(disableTwoFactorMock).toHaveBeenCalledWith({
       body: { password: "hunter2" },
       headers: expect.any(Headers),

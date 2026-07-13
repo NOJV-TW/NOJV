@@ -65,7 +65,7 @@
     phase = "setup";
   }
 
-  // Managing (disable / regenerate) requires a device step-up (TOTP or backup
+  // Managing (disable / regenerate) requires a device step-up (TOTP
   // code) for everyone; password accounts additionally need their password
   // because better-auth requires it for these operations.
   const manageReady = $derived(

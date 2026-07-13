@@ -9,8 +9,9 @@ import {
   createStepUpHandoffTicket,
   hasFreshStepUp,
   hasTwoFactorChangeGrant,
-  isTwoFactorActivated,
   passkeyRegistrationDenialReason,
+  securityGenerationProof,
+  type SecurityGenerationProof,
 } from "@nojv/application";
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
 import { getWebEnv } from "$lib/server/env";
@@ -19,6 +20,14 @@ import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 import { createLogger } from "$lib/server/logger";
 
 const authLogger = createLogger("auth-hooks");
+const passkeyAuthenticationProofs = new WeakMap<object, SecurityGenerationProof>();
+
+function credentialIdFromPasskeyVerification(body: unknown): string | null {
+  if (!body || typeof body !== "object" || !("response" in body)) return null;
+  const response = body.response;
+  if (!response || typeof response !== "object" || !("id" in response)) return null;
+  return typeof response.id === "string" ? response.id : null;
+}
 
 async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Promise<void> {
   const parsed = parseSchoolEmail(newUser.email);
@@ -104,12 +113,6 @@ function createAuth() {
         sameSite: "lax",
       },
     },
-    session: {
-      cookieCache: {
-        enabled: true,
-        maxAge: 30,
-      },
-    },
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
@@ -126,6 +129,8 @@ function createAuth() {
         isSuperAdmin: { type: "boolean", defaultValue: false, input: false },
         status: { type: "string", defaultValue: "active", input: false },
         mustChangePassword: { type: "boolean", defaultValue: false, input: false },
+        twoFactorActivated: { type: "boolean", defaultValue: false, input: false },
+        securityGeneration: { type: "number", defaultValue: 0, input: false },
       },
     },
     account: {
@@ -148,6 +153,23 @@ function createAuth() {
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/passkey/verify-authentication") {
+          const credentialID = credentialIdFromPasskeyVerification(ctx.body);
+          if (!credentialID) return;
+          const passkeyRecord = await prisma.passkey.findFirst({
+            where: { credentialID },
+            select: {
+              user: { select: { id: true, securityGeneration: true } },
+            },
+          });
+          if (passkeyRecord) {
+            passkeyAuthenticationProofs.set(
+              ctx.context,
+              securityGenerationProof(passkeyRecord.user),
+            );
+          }
+          return;
+        }
         // Adding a passkey is a 2FA configuration change: it requires the master
         // switch to be on and a valid step-up (a recent activation grant or a
         // fresh device verification). Without this, a client could add a passkey
@@ -160,12 +182,25 @@ function createAuth() {
           const userId = session?.user.id;
           const sessionId = session?.session.id;
           if (!userId || !sessionId) return;
-          const [activated, hasGrant, hasFresh] = await Promise.all([
-            isTwoFactorActivated(userId),
-            hasTwoFactorChangeGrant(sessionId),
-            hasFreshStepUp(sessionId),
+          const securityState = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, securityGeneration: true, twoFactorActivated: true },
+          });
+          if (!securityState) {
+            throw new APIError("UNAUTHORIZED", {
+              message: "The authenticated user no longer exists.",
+            });
+          }
+          const proof = securityGenerationProof(securityState);
+          const [hasGrant, hasFresh] = await Promise.all([
+            hasTwoFactorChangeGrant(sessionId, proof),
+            hasFreshStepUp(sessionId, proof),
           ]);
-          const denial = passkeyRegistrationDenialReason({ activated, hasGrant, hasFresh });
+          const denial = passkeyRegistrationDenialReason({
+            activated: securityState.twoFactorActivated,
+            hasGrant,
+            hasFresh,
+          });
           if (denial === "not_activated") {
             throw new APIError("FORBIDDEN", {
               message: "Turn on two-factor authentication first.",
@@ -197,12 +232,15 @@ function createAuth() {
           // verified credential—not client identity or a not-yet-created
           // session—to mark the short-lived step-up grant.
           afterVerification: async ({ clientData, ctx }) => {
+            const proof = passkeyAuthenticationProofs.get(ctx.context);
+            passkeyAuthenticationProofs.delete(ctx.context);
+            if (!proof) return;
             const passkeyRecord = await prisma.passkey.findFirst({
               where: { credentialID: clientData.id },
               select: { userId: true },
             });
-            if (!passkeyRecord) return;
-            const ticket = await createStepUpHandoffTicket(passkeyRecord.userId);
+            if (!passkeyRecord || passkeyRecord.userId !== proof.userId) return;
+            const ticket = await createStepUpHandoffTicket(proof);
             ctx.setCookie(STEP_UP_HANDOFF_COOKIE, ticket, {
               httpOnly: true,
               maxAge: 60,

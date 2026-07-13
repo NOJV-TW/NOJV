@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, updateMock, findByIdMock } = vi.hoisted(() => ({
+const { store, updateMock, findByIdMock, generationMatchesMock } = vi.hoisted(() => ({
   store: new Map<string, string>(),
   updateMock: vi.fn(),
   findByIdMock: vi.fn(),
+  generationMatchesMock: vi.fn(),
 }));
 
 vi.mock("@nojv/redis", () => ({
@@ -33,7 +34,11 @@ vi.mock("@nojv/redis", () => ({
 }));
 
 vi.mock("@nojv/db", () => ({
-  userRepo: { update: updateMock, findById: findByIdMock },
+  userRepo: {
+    update: updateMock,
+    findById: findByIdMock,
+    securityGenerationMatches: generationMatchesMock,
+  },
 }));
 
 import {
@@ -51,8 +56,9 @@ import {
 
 beforeEach(() => {
   store.clear();
-  updateMock.mockReset().mockResolvedValue(undefined);
+  updateMock.mockReset().mockResolvedValue({ id: "usr_1", securityGeneration: 7 });
   findByIdMock.mockReset();
+  generationMatchesMock.mockReset().mockResolvedValue(true);
 });
 
 describe("activation OTP — generation", () => {
@@ -139,19 +145,31 @@ describe("activation flag", () => {
   });
 
   it("writes the flag through userRepo.update", async () => {
-    await setTwoFactorActivated("usr_1", true);
+    await expect(setTwoFactorActivated("usr_1", true)).resolves.toEqual({
+      userId: "usr_1",
+      securityGeneration: 7,
+    });
     expect(updateMock).toHaveBeenCalledWith("usr_1", { twoFactorActivated: true });
   });
 });
 
 describe("2FA change grant", () => {
   it("binds the grant to only the activating session", async () => {
-    expect(await hasTwoFactorChangeGrant("sess_1")).toBe(false);
-    await markTwoFactorChangeGrant("sess_1");
-    expect(await hasTwoFactorChangeGrant("sess_1")).toBe(true);
-    expect(await hasTwoFactorChangeGrant("sess_2")).toBe(false);
+    const proof = { userId: "usr_1", securityGeneration: 7 };
+    expect(await hasTwoFactorChangeGrant("sess_1", proof)).toBe(false);
+    await expect(markTwoFactorChangeGrant("sess_1", proof)).resolves.toBe(true);
+    expect(await hasTwoFactorChangeGrant("sess_1", proof)).toBe(true);
+    expect(await hasTwoFactorChangeGrant("sess_2", proof)).toBe(false);
     await clearTwoFactorChangeGrant("sess_1");
-    expect(await hasTwoFactorChangeGrant("sess_1")).toBe(false);
+    expect(await hasTwoFactorChangeGrant("sess_1", proof)).toBe(false);
+  });
+
+  it("does not issue a grant after the captured generation becomes stale", async () => {
+    const proof = { userId: "usr_1", securityGeneration: 7 };
+    generationMatchesMock.mockResolvedValue(false);
+
+    await expect(markTwoFactorChangeGrant("sess_1", proof)).resolves.toBe(false);
+    expect(store.has("nojv:2fa:change-grant:sess_1")).toBe(false);
   });
 });
 

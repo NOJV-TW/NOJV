@@ -1,25 +1,15 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  consumeTicketMock,
-  markAdminSessionMfaMock,
-  markStepUpFreshMock,
-  markTokenPageMfaMock,
-  cookieDeleteMock,
-} = vi.hoisted(() => ({
+const { consumeTicketMock, markVerifiedSessionMock, cookieDeleteMock } = vi.hoisted(() => ({
   consumeTicketMock: vi.fn(),
-  markAdminSessionMfaMock: vi.fn(),
-  markStepUpFreshMock: vi.fn(),
-  markTokenPageMfaMock: vi.fn(),
+  markVerifiedSessionMock: vi.fn(),
   cookieDeleteMock: vi.fn(),
 }));
 
 vi.mock("@nojv/application", () => ({
   consumeStepUpHandoffTicket: consumeTicketMock,
-  markAdminSessionMfa: markAdminSessionMfaMock,
-  markStepUpFresh: markStepUpFreshMock,
-  markTokenPageMfa: markTokenPageMfaMock,
+  markVerifiedSession: markVerifiedSessionMock,
 }));
 
 import { consumeStepUpHandoff, STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
@@ -30,6 +20,7 @@ function event(input?: {
   userId?: string;
   isSuperAdmin?: boolean;
   platformRole?: "admin" | "student";
+  securityGeneration?: number;
 }): RequestEvent {
   return {
     cookies: {
@@ -44,6 +35,7 @@ function event(input?: {
             isSuperAdmin: input.isSuperAdmin ?? false,
             platformRole:
               input.platformRole ?? (input.isSuperAdmin === true ? "admin" : "student"),
+            securityGeneration: input.securityGeneration ?? 7,
           }
         : null,
     },
@@ -52,9 +44,7 @@ function event(input?: {
 
 beforeEach(() => {
   consumeTicketMock.mockReset();
-  markAdminSessionMfaMock.mockReset().mockResolvedValue(undefined);
-  markStepUpFreshMock.mockReset().mockResolvedValue(undefined);
-  markTokenPageMfaMock.mockReset().mockResolvedValue(undefined);
+  markVerifiedSessionMock.mockReset().mockResolvedValue(true);
   cookieDeleteMock.mockReset();
 });
 
@@ -67,18 +57,18 @@ describe("step-up handoff", () => {
   });
 
   it("consumes but rejects a ticket issued for another user", async () => {
-    consumeTicketMock.mockResolvedValue("usr_2");
+    consumeTicketMock.mockResolvedValue({ userId: "usr_2", securityGeneration: 7 });
 
     await expect(
       consumeStepUpHandoff(event({ cookie: "ticket", sessionId: "sess_1", userId: "usr_1" })),
     ).resolves.toBe(false);
 
     expect(cookieDeleteMock).toHaveBeenCalledWith(STEP_UP_HANDOFF_COOKIE, { path: "/" });
-    expect(markStepUpFreshMock).not.toHaveBeenCalled();
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 
   it("binds a valid ticket to the new session and grants superadmin MFA", async () => {
-    consumeTicketMock.mockResolvedValue("usr_1");
+    consumeTicketMock.mockResolvedValue({ userId: "usr_1", securityGeneration: 7 });
 
     await expect(
       consumeStepUpHandoff(
@@ -91,13 +81,15 @@ describe("step-up handoff", () => {
       ),
     ).resolves.toBe(true);
 
-    expect(markStepUpFreshMock).toHaveBeenCalledWith("sess_new");
-    expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_new");
-    expect(markAdminSessionMfaMock).toHaveBeenCalledWith("sess_new", "usr_1");
+    expect(markVerifiedSessionMock).toHaveBeenCalledWith(
+      "sess_new",
+      { userId: "usr_1", securityGeneration: 7 },
+      true,
+    );
   });
 
   it("grants the same session-bound MFA marker to a regular platform admin", async () => {
-    consumeTicketMock.mockResolvedValue("usr_1");
+    consumeTicketMock.mockResolvedValue({ userId: "usr_1", securityGeneration: 7 });
 
     await expect(
       consumeStepUpHandoff(
@@ -110,6 +102,20 @@ describe("step-up handoff", () => {
       ),
     ).resolves.toBe(true);
 
-    expect(markAdminSessionMfaMock).toHaveBeenCalledWith("sess_new", "usr_1");
+    expect(markVerifiedSessionMock).toHaveBeenCalledWith(
+      "sess_new",
+      { userId: "usr_1", securityGeneration: 7 },
+      true,
+    );
+  });
+
+  it("rejects a ticket from an older security generation", async () => {
+    consumeTicketMock.mockResolvedValue({ userId: "usr_1", securityGeneration: 6 });
+
+    await expect(
+      consumeStepUpHandoff(event({ cookie: "ticket", sessionId: "sess_new", userId: "usr_1" })),
+    ).resolves.toBe(false);
+
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 });

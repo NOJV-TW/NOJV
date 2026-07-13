@@ -11,6 +11,7 @@ function fakeUser(overrides: Record<string, unknown> = {}) {
     name: "Test",
     username: null,
     platformRole: "student",
+    securityGeneration: 0,
     ...overrides,
   };
 }

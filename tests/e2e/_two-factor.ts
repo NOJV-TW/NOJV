@@ -32,6 +32,16 @@ export function currentTotp(secretBase32: string): string {
   return (code % 1_000_000).toString().padStart(6, "0");
 }
 
+export async function nextTotp(secretBase32: string, previousCode: string): Promise<string> {
+  const waitUntilNextWindowMs = 30_000 - (Date.now() % 30_000) + 250;
+  await new Promise((resolve) => setTimeout(resolve, waitUntilNextWindowMs));
+  const code = currentTotp(secretBase32);
+  if (code === previousCode) {
+    throw new Error("TOTP code did not advance at the next 30-second boundary.");
+  }
+  return code;
+}
+
 export async function activateTwoFactor(page: Page): Promise<void> {
   await page.goto("/settings?setup2fa=1");
 
@@ -59,7 +69,7 @@ export function settingsMethodRow(page: Page, method: string) {
 export async function enrollTotp(
   page: Page,
   password: string = TEST_PASSWORD,
-): Promise<string> {
+): Promise<{ secret: string; verificationCode: string }> {
   await settingsMethodRow(page, "Authenticator app (TOTP)")
     .getByRole("button", { name: "Set up", exact: true })
     .click();
@@ -75,8 +85,9 @@ export async function enrollTotp(
   if (!secret) throw new Error("TOTP enrollment did not expose a manual key.");
 
   await dialog.locator('input[type="checkbox"]').check();
-  await dialog.locator('form[action="?/verify"] input[name="code"]').fill(currentTotp(secret));
+  const verificationCode = currentTotp(secret);
+  await dialog.locator('form[action="?/verify"] input[name="code"]').fill(verificationCode);
   await dialog.getByRole("button", { name: "Verify & activate" }).click();
   await expect(dialog).toBeHidden({ timeout: 10_000 });
-  return secret;
+  return { secret, verificationCode };
 }

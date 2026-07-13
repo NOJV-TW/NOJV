@@ -58,16 +58,13 @@ export class DisposableCredentialUser {
       .split("\n")
       .filter(Boolean);
     psql(`DELETE FROM "User" WHERE id = '${this.id}';`);
-    const redisKeys = [
-      `nojv:admin:epoch:${this.id}`,
-      ...sessionIds.flatMap((sessionId) => [
-        `nojv:apitoken:stepup:${sessionId}`,
-        `nojv:apitoken:page-mfa:${sessionId}`,
-        `nojv:admin:mfa:${sessionId}`,
-        `nojv:admin:mode:${sessionId}`,
-        `nojv:2fa:change-grant:${sessionId}`,
-      ]),
-    ];
+    const redisKeys = sessionIds.flatMap((sessionId) => [
+      `nojv:apitoken:stepup:${sessionId}`,
+      `nojv:apitoken:page-mfa:${sessionId}`,
+      `nojv:admin:mfa:${sessionId}`,
+      `nojv:admin:mode:${sessionId}`,
+      `nojv:2fa:change-grant:${sessionId}`,
+    ]);
     execFileSync("docker", ["exec", "nojv-redis-1", "redis-cli", "DEL", ...redisKeys]);
   }
 }

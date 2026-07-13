@@ -202,6 +202,8 @@ export const sessionUserSchema = z.object({
   status: userStatusSchema.default("active"),
   mustChangePassword: z.boolean().default(false),
   twoFactorEnabled: z.boolean().default(false),
+  twoFactorActivated: z.boolean().default(false),
+  securityGeneration: z.number().int().nonnegative(),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;

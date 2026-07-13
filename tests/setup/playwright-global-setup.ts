@@ -2,8 +2,8 @@ import { chromium, type FullConfig, type Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { markVerifiedSession, securityGenerationProof } from "@nojv/application";
 import { prismaAdapterClient } from "@nojv/db";
-import { getRedis, keys } from "@nojv/redis";
 
 const AUTH_DIR = path.resolve(import.meta.dirname, "../fixtures/auth-states");
 
@@ -25,12 +25,9 @@ async function elevateAdminSession(page: Page, baseURL: string, email: string): 
   if (!session) {
     throw new Error("Admin sign-in did not create a session.");
   }
-  const epoch = (await getRedis().get(keys.adminElevationEpoch(user.id))) ?? "0";
-  await getRedis()
-    .multi()
-    .set(keys.apiTokenStepUp(session.id), "1", "EX", 600)
-    .set(keys.adminSessionMfa(session.id), `${user.id}:${epoch}`, "EX", 600)
-    .exec();
+  if (!(await markVerifiedSession(session.id, securityGenerationProof(user), true))) {
+    throw new Error("Admin security state changed while provisioning the E2E session.");
+  }
 
   const res = await page.request.post(`${baseURL}/api/admin-mode`, {
     headers: { "x-requested-with": "fetch" },
@@ -74,12 +71,6 @@ export default async function globalSetup(config: FullConfig) {
     await page.evaluate(() => localStorage.setItem("nojv:tour:off", "1"));
 
     const state = await context.storageState();
-    // better-auth.session_data is a short-lived client cache. Keeping it makes
-    // long E2E runs appear signed out as soon as that cache expires, despite a
-    // still-valid session token. Let the server rebuild it from the token.
-    state.cookies = state.cookies.filter(
-      (cookie) => cookie.name !== "better-auth.session_data",
-    );
     await writeFile(path.join(AUTH_DIR, `${role.name}.json`), JSON.stringify(state));
     await context.close();
   }

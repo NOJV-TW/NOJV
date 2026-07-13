@@ -5,9 +5,7 @@ const {
   isTwoFactorActivatedMock,
   hasTokenPageMfaMock,
   hasFreshStepUpMock,
-  markTokenPageMfaMock,
-  markStepUpFreshMock,
-  markAdminSessionMfaMock,
+  markVerifiedSessionMock,
   grantAdminElevationMock,
   verifyStepUpCodeMock,
   createApiTokenMock,
@@ -18,9 +16,7 @@ const {
   isTwoFactorActivatedMock: vi.fn(),
   hasTokenPageMfaMock: vi.fn(),
   hasFreshStepUpMock: vi.fn(),
-  markTokenPageMfaMock: vi.fn(),
-  markStepUpFreshMock: vi.fn(),
-  markAdminSessionMfaMock: vi.fn(),
+  markVerifiedSessionMock: vi.fn(),
   grantAdminElevationMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
   createApiTokenMock: vi.fn(),
@@ -37,9 +33,7 @@ vi.mock("$lib/server/step-up", async () => {
     isTwoFactorActivated: isTwoFactorActivatedMock,
     hasTokenPageMfa: hasTokenPageMfaMock,
     hasFreshStepUp: hasFreshStepUpMock,
-    markTokenPageMfa: markTokenPageMfaMock,
-    markStepUpFresh: markStepUpFreshMock,
-    markAdminSessionMfa: markAdminSessionMfaMock,
+    markVerifiedSession: markVerifiedSessionMock,
     grantAdminElevation: grantAdminElevationMock,
     verifyStepUpCode: verifyStepUpCodeMock,
   };
@@ -78,8 +72,11 @@ function makeEvent(body?: FormData): RequestEvent {
         emailVerified: true,
         platformRole: "student",
         twoFactorEnabled: true,
+        twoFactorActivated: true,
         disabled: false,
+        isSuperAdmin: false,
         mustChangePassword: false,
+        securityGeneration: 7,
       },
       apiTokenActor: null,
     },
@@ -119,9 +116,7 @@ beforeEach(() => {
   isTwoFactorActivatedMock.mockReset().mockResolvedValue(true);
   hasTokenPageMfaMock.mockReset().mockResolvedValue(true);
   hasFreshStepUpMock.mockReset().mockResolvedValue(true);
-  markTokenPageMfaMock.mockReset().mockResolvedValue(undefined);
-  markStepUpFreshMock.mockReset().mockResolvedValue(undefined);
-  markAdminSessionMfaMock.mockReset().mockResolvedValue(undefined);
+  markVerifiedSessionMock.mockReset().mockResolvedValue(true);
   grantAdminElevationMock.mockReset().mockResolvedValue(true);
   verifyStepUpCodeMock.mockReset();
   createApiTokenMock.mockReset();
@@ -162,7 +157,10 @@ describe("api-tokens action guard", () => {
       hasFreshStepUpMock.mockResolvedValue(false);
       const result = await getAction()(makeEvent());
       expect(result).toMatchObject({ status: 403 });
-      expect(hasFreshStepUpMock).toHaveBeenCalledWith("sess_1");
+      expect(hasFreshStepUpMock).toHaveBeenCalledWith("sess_1", {
+        userId: "usr_1",
+        securityGeneration: 7,
+      });
       expect(domainMock).not.toHaveBeenCalled();
     },
   );
@@ -201,26 +199,32 @@ describe("api-tokens verify action", () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "malformed" });
     const result = await verifyActions.default(verifyEvent("12ab"));
     expect(result).toMatchObject({ status: 400 });
-    expect(markTokenPageMfaMock).not.toHaveBeenCalled();
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 
   it("verifies a valid code and marks the token-page step-up", async () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: true });
     const thrown = await caught(() => verifyActions.default(verifyEvent("123456")));
-    expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
-    expect(markStepUpFreshMock).toHaveBeenCalledWith("sess_1");
-    expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_1");
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith(
+      { userId: "usr_1", securityGeneration: 7 },
+      "123456",
+      expect.any(Headers),
+    );
+    expect(markVerifiedSessionMock).toHaveBeenCalledWith(
+      "sess_1",
+      { userId: "usr_1", securityGeneration: 7 },
+      false,
+    );
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
   });
 
-  it("verifies a backup code, marks step-up, and redirects", async () => {
-    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
-    const thrown = await caught(() => verifyActions.default(verifyEvent("abc12-XY34z")));
+  it("rejects a recovery code for privileged step-up", async () => {
+    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "malformed" });
+    const result = await verifyActions.default(verifyEvent("abc12-XY34z"));
     expect(verifyStepUpCodeMock).toHaveBeenCalledOnce();
-    expect(markTokenPageMfaMock).toHaveBeenCalledWith("sess_1");
-    expect(thrown.status).toBe(303);
-    expect(thrown.location).toBe("/account/api-tokens");
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: 400 });
   });
 
   it("grants admin mode only after a verified code for the fixed admin-mode purpose", async () => {
@@ -230,8 +234,14 @@ describe("api-tokens verify action", () => {
       verifyActions.default(verifyEvent("123456", "admin-mode")),
     );
 
-    expect(markAdminSessionMfaMock).toHaveBeenCalledWith("sess_1", "usr_1");
-    expect(grantAdminElevationMock).toHaveBeenCalledWith("sess_1", "usr_1");
+    const proof = { userId: "usr_1", securityGeneration: 7 };
+    expect(markVerifiedSessionMock).toHaveBeenCalledWith("sess_1", proof, true);
+    expect(grantAdminElevationMock).toHaveBeenCalledWith("sess_1", {
+      ...proof,
+      disabled: false,
+      platformRole: "admin",
+      twoFactorActivated: true,
+    });
     expect(thrown).toEqual({ status: 303, location: "/admin" });
   });
 
@@ -252,13 +262,13 @@ describe("api-tokens verify action", () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "replayed" });
     const result = await verifyActions.default(verifyEvent("123456"));
     expect(result).toMatchObject({ status: 401 });
-    expect(markTokenPageMfaMock).not.toHaveBeenCalled();
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid code with fail(401)", async () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "invalid" });
     const result = await verifyActions.default(verifyEvent("123456"));
     expect(result).toMatchObject({ status: 401 });
-    expect(markTokenPageMfaMock).not.toHaveBeenCalled();
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 });

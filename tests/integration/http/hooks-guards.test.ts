@@ -95,7 +95,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
   }, 30_000);
 
   it("allows a super admin whose session already passed 2FA", async () => {
-    const { markAdminSessionMfa } = await import("@nojv/application");
+    const { markVerifiedSession, securityGenerationProof } = await import("@nojv/application");
     const { getRedis, keys } = await import("@nojv/redis");
     const user = await createTestUser({
       username: "admin_2fa_verified",
@@ -104,7 +104,9 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
-    await markAdminSessionMfa("test-session", user.id);
+    await expect(
+      markVerifiedSession("test-session", securityGenerationProof(user), true),
+    ).resolves.toBe(true);
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
     expect(res.status).not.toBe(302);
     await getRedis().del(keys.adminSessionMfa("test-session"));
@@ -131,8 +133,13 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
   }, 30_000);
 
   it("binds a verified-factor handoff to the new superadmin session before the gate", async () => {
-    const { createStepUpHandoffTicket, hasAdminSessionMfa, hasFreshStepUp, clearStepUp } =
-      await import("@nojv/application");
+    const {
+      createStepUpHandoffTicket,
+      hasAdminSessionMfa,
+      hasFreshStepUp,
+      clearStepUp,
+      securityGenerationProof,
+    } = await import("@nojv/application");
     const { getRedis, keys } = await import("@nojv/redis");
     const { STEP_UP_HANDOFF_COOKIE } = await import("$lib/server/step-up-handoff");
     const user = await createTestUser({
@@ -142,7 +149,8 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
-    const ticket = await createStepUpHandoffTicket(user.id);
+    const proof = securityGenerationProof(user);
+    const ticket = await createStepUpHandoffTicket(proof);
 
     const res = await callRoute({
       path: "/admin",
@@ -152,8 +160,8 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     });
 
     expect(res.status).not.toBe(302);
-    await expect(hasAdminSessionMfa("test-session", user.id)).resolves.toBe(true);
-    await expect(hasFreshStepUp("test-session")).resolves.toBe(true);
+    await expect(hasAdminSessionMfa("test-session", proof)).resolves.toBe(true);
+    await expect(hasFreshStepUp("test-session", proof)).resolves.toBe(true);
     await getRedis().del(
       keys.adminSessionMfa("test-session"),
       keys.tokenPageMfa("test-session"),

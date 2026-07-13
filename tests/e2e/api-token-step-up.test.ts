@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 import { signInWithPassword } from "./_disposable-user";
-import { activateTwoFactor, currentTotp, enrollTotp } from "./_two-factor";
+import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
@@ -37,6 +37,7 @@ function pg(sql: string): string {
 
 test.describe("API token step-up", () => {
   test.describe.configure({ retries: 0 });
+  test.setTimeout(150_000);
 
   test.beforeAll(() => {
     // Use a disposable credential account. Enabling TOTP correctly rotates the
@@ -90,10 +91,20 @@ test.describe("API token step-up", () => {
 
     await activateTwoFactor(page);
 
-    const secret = await enrollTotp(page, SEED_PASSWORD);
+    const { secret, verificationCode } = await enrollTotp(page, SEED_PASSWORD);
 
-    // The TOTP assertion that finalized enrollment is handed to this rotated session.
+    // Enrollment changes the factor set, so its assertion cannot authorize the
+    // post-enrollment security generation. The same TOTP is explicitly replay-blocked.
     await page.goto("/account/api-tokens");
+    await expect(page).toHaveURL(/\/account\/api-tokens\/verify$/);
+    const enrollingStepUpCode = page.locator('input[name="code"]');
+    await enrollingStepUpCode.fill(verificationCode);
+    await page.locator('button[type="submit"]').click();
+    await expect(page.getByRole("alert")).toContainText("already used");
+
+    const firstFreshCode = await nextTotp(secret, verificationCode);
+    await enrollingStepUpCode.fill(firstFreshCode);
+    await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/account\/api-tokens$/);
     await expect(page.getByRole("button", { name: /Create token/i })).toBeVisible();
     const enrolledSession = (await (
@@ -103,15 +114,19 @@ test.describe("API token step-up", () => {
     };
     if (enrolledSession.session?.id) steppedUpSessionIds.add(enrolledSession.session.id);
 
-    // A different session for the same account receives no grant and must verify itself.
-    await otherContext.clearCookies({ name: "better-auth.session_data" });
+    // A different session receives no grant. TOTP replay prevention is
+    // account-wide, so it must wait for one more authenticator window.
     await otherPage.goto("/account/api-tokens");
     await expect(otherPage).toHaveURL(/\/account\/api-tokens\/verify/);
 
     const stepUpCode = otherPage.locator('input[name="code"]');
     await stepUpCode.waitFor({ state: "visible" });
-    await stepUpCode.click();
-    await stepUpCode.pressSequentially(currentTotp(secret));
+    await stepUpCode.fill(firstFreshCode);
+    await otherPage.locator('button[type="submit"]').click();
+    await expect(otherPage.getByRole("alert")).toContainText("already used");
+
+    const secondFreshCode = await nextTotp(secret, firstFreshCode);
+    await stepUpCode.fill(secondFreshCode);
     await otherPage.locator('button[type="submit"]').click();
 
     await expect(otherPage).toHaveURL(/\/account\/api-tokens$/, { timeout: 10000 });

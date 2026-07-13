@@ -17,6 +17,7 @@ describe("collectReplayStatements", () => {
         "Participation_single_context_chk",
         "Participation_virtual_window_chk",
         "Participation_ip_exam_only_chk",
+        "User_security_generation_nonnegative_chk",
       ]),
     );
   });
@@ -30,9 +31,30 @@ describe("collectReplayStatements", () => {
   it("emits an idempotent DROP IF EXISTS before each CREATE", () => {
     expect(drops.length).toBe(creates.length);
     expect(drops.every((s) => /IF EXISTS/i.test(s))).toBe(true);
-    for (let i = 0; i < stmts.length; i += 2) {
-      expect(stmts[i]).toMatch(/DROP (CONSTRAINT|INDEX) IF EXISTS/i);
-      expect(stmts[i + 1]).toMatch(/ADD CONSTRAINT|CREATE INDEX/i);
+    const constraintAndIndexStatements = stmts.filter((statement) =>
+      /(?:DROP CONSTRAINT|DROP INDEX|ADD CONSTRAINT|CREATE INDEX)/i.test(statement),
+    );
+    for (let i = 0; i < constraintAndIndexStatements.length; i += 2) {
+      expect(constraintAndIndexStatements[i]).toMatch(/DROP (CONSTRAINT|INDEX) IF EXISTS/i);
+      expect(constraintAndIndexStatements[i + 1]).toMatch(/ADD CONSTRAINT|CREATE INDEX/i);
     }
+  });
+
+  it("replays security-generation functions and idempotent triggers", () => {
+    const joined = stmts.join("\n");
+    expect(joined).toContain("CREATE OR REPLACE FUNCTION bump_user_security_generation");
+    expect(joined).toContain("CREATE OR REPLACE FUNCTION bump_security_generation");
+    expect(joined).toContain(
+      "CREATE OR REPLACE FUNCTION enforce_user_security_generation_monotonic",
+    );
+    expect(joined).toContain("CREATE TRIGGER user_security_generation_monotonic");
+    expect(joined).toContain("CREATE TRIGGER user_security_generation_state_change");
+    expect(joined).toContain("CREATE TRIGGER passkey_security_generation_credential_change");
+    expect(joined).toContain(
+      "CREATE TRIGGER registry_credential_security_generation_credential_change",
+    );
+    expect(joined).toContain(
+      'DROP TRIGGER IF EXISTS passkey_security_generation_credential_change ON "Passkey"',
+    );
   });
 });

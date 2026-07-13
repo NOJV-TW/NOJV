@@ -49,19 +49,19 @@ export const userRepo = {
     return prisma.user.findUnique({ where: { username } });
   },
 
+  async securityGenerationMatches(userId: string, securityGeneration: number) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { securityGeneration: true },
+    });
+    return user?.securityGeneration === securityGeneration;
+  },
+
   findManyByIds(ids: readonly string[]) {
     return prisma.user.findMany({
       where: { id: { in: [...ids] } },
       select: { id: true, name: true },
     });
-  },
-
-  async listSessionIds(userId: string) {
-    const sessions = await prisma.session.findMany({
-      where: { userId },
-      select: { id: true },
-    });
-    return sessions.map(({ id }) => id);
   },
 
   listEmailByIds(ids: readonly string[]) {

@@ -5,14 +5,19 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
-import { grantAdminElevation, revokeAdminElevation } from "$lib/server/step-up";
+import {
+  adminElevationPrincipal,
+  grantAdminElevation,
+  revokeAdminElevation,
+} from "$lib/server/step-up";
 
 const bodySchema = z.object({ active: z.boolean() });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
-  const actor = requireApiAuth(event);
+  requireApiAuth(event);
   const sessionId = event.locals.session?.id;
-  if (!sessionId) {
+  const sessionUser = event.locals.sessionUser;
+  if (!sessionId || !sessionUser) {
     throw new HttpError("No active session.", 401);
   }
 
@@ -21,7 +26,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     await revokeAdminElevation(sessionId);
     return json({ active: false });
   }
-  if (!(await grantAdminElevation(sessionId, actor.userId))) {
+  if (!(await grantAdminElevation(sessionId, adminElevationPrincipal(sessionUser)))) {
     throw new HttpError("Fresh two-factor verification is required.", 403);
   }
   return json({ active: true });

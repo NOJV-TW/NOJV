@@ -165,6 +165,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `mustChangePassword` | `Boolean` | `@default(false)` |
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
 | `twoFactorActivated` | `Boolean` | `@default(false)` |
+| `securityGeneration` | `Int` | `@default(0)` |
 | `profilePublic` | `Boolean` | `@default(false)` |
 | `canCreateAdvancedProblems` | `Boolean` | `@default(false)` |
 | `createdAt` | `DateTime` | `@default(now())` |

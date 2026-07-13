@@ -32,11 +32,13 @@ import {
 import { getWebEnv } from "$lib/server/env";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
+  adminElevationPrincipal,
   hasAdminSessionMfa,
   isSuperAdminSessionExpired,
   isTwoFactorActivated,
   resolveAdminElevation,
   revokeAdminElevation,
+  securityGenerationProof,
 } from "$lib/server/step-up";
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
@@ -271,7 +273,7 @@ async function resolveAdminMode(event: HandleEvent): Promise<void> {
   event.locals.adminModeActive =
     user?.platformRole === "admin" &&
     !!sessionId &&
-    (await resolveAdminElevation(sessionId, user.id));
+    (await resolveAdminElevation(sessionId, adminElevationPrincipal(user)));
 }
 
 async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {
@@ -326,7 +328,7 @@ async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Pro
     redirect(302, "/settings?setup2fa=1");
   }
   const sessionId = event.locals.session?.id;
-  if (sessionId && !(await hasAdminSessionMfa(sessionId, user.id))) {
+  if (sessionId && !(await hasAdminSessionMfa(sessionId, securityGenerationProof(user)))) {
     redirect(302, "/account/api-tokens/verify?purpose=admin-mode");
   }
 }

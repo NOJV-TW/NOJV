@@ -17,16 +17,71 @@ interface Ddl {
 }
 
 function splitStatements(sql: string): string[] {
-  return sql
-    .replace(/^\s*--.*$/gm, "")
-    .split(/;\s*$/m)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const source = sql.replace(/^\s*--.*$/gm, "");
+  const statements: string[] = [];
+  let start = 0;
+  let dollarTag: string | null = null;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    if (dollarTag) {
+      if (source.startsWith(dollarTag, index)) {
+        index += dollarTag.length - 1;
+        dollarTag = null;
+      }
+      continue;
+    }
+
+    const character = source[index];
+    if (inSingleQuote) {
+      if (character === "'" && source[index + 1] === "'") {
+        index += 1;
+      } else if (character === "'") {
+        inSingleQuote = false;
+      }
+      continue;
+    }
+    if (inDoubleQuote) {
+      if (character === '"' && source[index + 1] === '"') {
+        index += 1;
+      } else if (character === '"') {
+        inDoubleQuote = false;
+      }
+      continue;
+    }
+    if (character === "'") {
+      inSingleQuote = true;
+      continue;
+    }
+    if (character === '"') {
+      inDoubleQuote = true;
+      continue;
+    }
+    if (character === "$") {
+      const tag = /^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/.exec(source.slice(index))?.[0];
+      if (tag) {
+        dollarTag = tag;
+        index += tag.length - 1;
+        continue;
+      }
+    }
+    if (character === ";") {
+      const statement = source.slice(start, index).trim();
+      if (statement) statements.push(statement);
+      start = index + 1;
+    }
+  }
+
+  const tail = source.slice(start).trim();
+  if (tail) statements.push(tail);
+  return statements;
 }
 
 export function collectReplayStatements(): string[] {
   const checks = new Map<string, Ddl>();
   const indexes = new Map<string, Ddl>();
+  const databaseObjects: string[] = [];
 
   const dirs = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -36,6 +91,13 @@ export function collectReplayStatements(): string[] {
   for (const dir of dirs) {
     const sql = readFileSync(join(MIGRATIONS_DIR, dir, "migration.sql"), "utf8");
     for (const stmt of splitStatements(sql)) {
+      if (
+        /^(?:CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+FUNCTION\b/is.test(stmt) ||
+        /^(?:CREATE|DROP)\s+TRIGGER\b/is.test(stmt)
+      ) {
+        databaseObjects.push(stmt);
+        continue;
+      }
       const rename = RENAME_COL_RE.exec(stmt);
       if (rename) {
         const [, table, oldCol, newCol] = rename;
@@ -74,8 +136,8 @@ export function collectReplayStatements(): string[] {
     }
   }
 
-  return [...checks.values(), ...indexes.values()].flatMap(({ drop, create }) => [
-    drop,
-    create,
-  ]);
+  return [
+    ...[...checks.values(), ...indexes.values()].flatMap(({ drop, create }) => [drop, create]),
+    ...databaseObjects,
+  ];
 }

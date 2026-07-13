@@ -1,10 +1,11 @@
 import {
   clearTwoFactorChangeGrant,
-  createStepUpHandoffTicket,
   generateActivationOtp,
   hasTwoFactorChangeGrant,
   isTwoFactorActivated,
+  markTotpSeen,
   markTwoFactorChangeGrant,
+  securityGenerationProof,
   setTwoFactorActivated,
   storeActivationOtp,
   verifyActivationOtp,
@@ -17,7 +18,6 @@ import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
-import { STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
 import { otpSendRateLimiter, stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   clearStepUp,
@@ -100,10 +100,11 @@ function deactivatedEmailHtml(): string {
   });
 }
 
-const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid", string> = {
-  malformed: "Enter a 6-digit code or a backup code.",
+const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid" | "stale", string> = {
+  malformed: "Enter the 6-digit code from your authenticator.",
   replayed: "That code was already used. Wait for a new code.",
   invalid: "Invalid code. Try again.",
+  stale: "Your security settings changed. Reload and verify again.",
 };
 
 const EMAIL_OTP_FAIL_MESSAGE: Record<"expired" | "invalid" | "locked", string> = {
@@ -121,7 +122,7 @@ interface StepUpFailure {
 
 /**
  * Authorizes a change to a user's 2FA configuration with a device step-up: a
- * TOTP/backup code or a fresh passkey assertion is required whenever a device
+ * TOTP or a fresh passkey assertion is required whenever a device
  * factor exists; email OTP is a fallback only when none does. Adding a method
  * (allowChangeGrant) also accepts a recent activation grant. A password is NOT
  * an accepted step-up here — sensitive 2FA changes require a device factor —
@@ -135,24 +136,26 @@ async function authorizeTwoFactorChange(
 ): Promise<{ ok: true } | StepUpFailure> {
   const actor = requireAuth(event);
   const sessionId = event.locals.session?.id;
-  if (!sessionId) return { ok: false, status: 403, needsStepUp: true };
+  const sessionUser = event.locals.sessionUser;
+  if (!sessionId || !sessionUser) return { ok: false, status: 403, needsStepUp: true };
+  const proof = securityGenerationProof(sessionUser);
 
-  if (opts.allowChangeGrant && (await hasTwoFactorChangeGrant(sessionId))) {
+  if (opts.allowChangeGrant && (await hasTwoFactorChangeGrant(sessionId, proof))) {
     return { ok: true };
   }
 
   if (await hasStepUpFactor(event)) {
     const code = formString(formData, "code");
     if (code) {
-      const result = await verifyStepUpCode(actor.userId, code, event.request.headers);
+      const result = await verifyStepUpCode(proof, code, event.request.headers);
       if (result.ok) return { ok: true };
       return {
         ok: false,
-        status: result.reason === "malformed" ? 400 : 401,
+        status: result.reason === "malformed" ? 400 : result.reason === "stale" ? 403 : 401,
         error: STEP_UP_FAIL_MESSAGE[result.reason],
       };
     }
-    if (await hasFreshStepUp(sessionId)) return { ok: true };
+    if (await hasFreshStepUp(sessionId, proof)) return { ok: true };
     return { ok: false, status: 403, needsStepUp: true };
   }
 
@@ -263,8 +266,12 @@ export const twoFactorActions = {
         error: EMAIL_OTP_FAIL_MESSAGE[result.reason],
       });
     }
-    await setTwoFactorActivated(actor.userId, true);
-    await markTwoFactorChangeGrant(sessionId);
+    const proof = await setTwoFactorActivated(actor.userId, true);
+    if (!(await markTwoFactorChangeGrant(sessionId, proof))) {
+      return fail(409, {
+        error: "Your security settings changed. Reload before configuring a factor.",
+      });
+    }
     try {
       await getMailer().sendEmail({
         to: actor.email,
@@ -346,24 +353,21 @@ export const twoFactorActions = {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
     const code = formString(formData, "code");
+    let headers: Headers;
     try {
-      const { headers } = await getAuth().api.verifyTOTP({
+      ({ headers } = await getAuth().api.verifyTOTP({
         body: { code },
         headers: event.request.headers,
         returnHeaders: true,
-      });
-      forwardSetCookies(event, headers);
-      const ticket = await createStepUpHandoffTicket(actor.userId);
-      event.cookies.set(STEP_UP_HANDOFF_COOKIE, ticket, {
-        httpOnly: true,
-        maxAge: 60,
-        path: "/",
-        sameSite: "lax",
-        secure: getWebEnv().NODE_ENV === "production",
-      });
+      }));
     } catch {
       return fail(401, { error: "Invalid code. Try again." });
     }
+    forwardSetCookies(event, headers);
+    // Enrollment mutates the factor set and therefore invalidates all prior
+    // security proofs. The enrollment code is also consumed here so it cannot
+    // be reused as a post-enrollment step-up in the same TOTP time window.
+    await markTotpSeen(actor.userId, code);
     const returnTo = sanitizeReturnTo(
       formString(formData, "returnTo") || event.url.searchParams.get("returnTo"),
     );

@@ -4,11 +4,11 @@ import type { Actions, RequestEvent } from "@sveltejs/kit";
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import {
+  adminElevationPrincipal,
   grantAdminElevation,
   isTwoFactorActivated,
-  markAdminSessionMfa,
-  markStepUpFresh,
-  markTokenPageMfa,
+  markVerifiedSession,
+  securityGenerationProof,
   verifyStepUpCode,
 } from "$lib/server/step-up";
 import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
@@ -62,10 +62,15 @@ export const actions = {
     const code = (typeof rawCode === "string" ? rawCode : "").trim();
     const adminModePurpose = isAdminModePurpose(formData.get("purpose"));
 
-    const result = await verifyStepUpCode(actor.userId, code, event.request.headers);
+    const sessionUser = event.locals.sessionUser;
+    if (!sessionUser) {
+      return fail(403, { error: "Session authentication is required." });
+    }
+    const proof = securityGenerationProof(sessionUser);
+    const result = await verifyStepUpCode(proof, code, event.request.headers);
     if (!result.ok) {
       if (result.reason === "malformed") {
-        return fail(400, { error: "Enter a 6-digit code or a backup code." });
+        return fail(400, { error: "Enter the 6-digit code from your authenticator." });
       }
       if (result.reason === "replayed") {
         return fail(401, { error: "That code was already used. Wait for a new code." });
@@ -74,18 +79,15 @@ export const actions = {
     }
 
     const sessionId = event.locals.session?.id;
-    if (sessionId) {
-      await Promise.all([
-        markStepUpFresh(sessionId),
-        markTokenPageMfa(sessionId),
-        ...(event.locals.sessionUser?.platformRole === "admin"
-          ? [markAdminSessionMfa(sessionId, actor.userId)]
-          : []),
-      ]);
+    if (
+      !sessionId ||
+      !(await markVerifiedSession(sessionId, proof, sessionUser.platformRole === "admin"))
+    ) {
+      return fail(403, { error: "The account security state changed. Verify again." });
     }
 
     if (adminModePurpose) {
-      if (!sessionId || !(await grantAdminElevation(sessionId, actor.userId))) {
+      if (!(await grantAdminElevation(sessionId, adminElevationPrincipal(sessionUser)))) {
         return fail(403, { error: "Admin mode is not available for this account." });
       }
       redirect(303, "/admin");

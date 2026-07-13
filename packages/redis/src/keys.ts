@@ -22,7 +22,6 @@ export const keys = {
   apiTokenStepUp: (sessionId: string) => `nojv:apitoken:stepup:${sessionId}`,
   stepUpHandoffTicket: (ticket: string) => `nojv:stepup:handoff:${ticket}`,
   tokenPageMfa: (sessionId: string) => `nojv:apitoken:page-mfa:${sessionId}`,
-  adminElevationEpoch: (userId: string) => `nojv:admin:epoch:${userId}`,
   adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
   adminMode: (sessionId: string) => `nojv:admin:mode:${sessionId}`,
   twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,

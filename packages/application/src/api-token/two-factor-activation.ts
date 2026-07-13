@@ -3,6 +3,12 @@ import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { userRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 
+import {
+  isSecurityGenerationCurrent,
+  securityGenerationMarker,
+  type SecurityGenerationProof,
+} from "./step-up";
+
 const OTP_TTL_SECONDS = 600;
 const OTP_MAX_ATTEMPTS = 5;
 const CHANGE_GRANT_TTL_SECONDS = 600;
@@ -20,8 +26,12 @@ export async function isTwoFactorActivated(userId: string): Promise<boolean> {
   return user?.twoFactorActivated ?? false;
 }
 
-export async function setTwoFactorActivated(userId: string, activated: boolean): Promise<void> {
-  await userRepo.update(userId, { twoFactorActivated: activated });
+export async function setTwoFactorActivated(
+  userId: string,
+  activated: boolean,
+): Promise<SecurityGenerationProof> {
+  const user = await userRepo.update(userId, { twoFactorActivated: activated });
+  return { userId: user.id, securityGeneration: user.securityGeneration };
 }
 
 export async function storeActivationOtp(userId: string, otp: string): Promise<void> {
@@ -73,17 +83,28 @@ export function passkeyRegistrationDenialReason(state: {
   return null;
 }
 
-export async function markTwoFactorChangeGrant(sessionId: string): Promise<void> {
+export async function markTwoFactorChangeGrant(
+  sessionId: string,
+  proof: SecurityGenerationProof,
+): Promise<boolean> {
+  if (!(await isSecurityGenerationCurrent(proof))) return false;
   await getRedis().set(
     keys.twoFactorChangeGrant(sessionId),
-    "1",
+    securityGenerationMarker(proof),
     "EX",
     CHANGE_GRANT_TTL_SECONDS,
   );
+  return true;
 }
 
-export async function hasTwoFactorChangeGrant(sessionId: string): Promise<boolean> {
-  return (await getRedis().get(keys.twoFactorChangeGrant(sessionId))) !== null;
+export async function hasTwoFactorChangeGrant(
+  sessionId: string,
+  proof: SecurityGenerationProof,
+): Promise<boolean> {
+  return (
+    (await getRedis().get(keys.twoFactorChangeGrant(sessionId))) ===
+    securityGenerationMarker(proof)
+  );
 }
 
 export async function clearTwoFactorChangeGrant(sessionId: string): Promise<void> {

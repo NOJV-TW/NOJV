@@ -2,10 +2,11 @@ import { execFileSync } from "node:child_process";
 
 import { expect, test } from "@playwright/test";
 
-import { DisposableCredentialUser, signInWithPassword } from "./_disposable-user";
-import { activateTwoFactor, currentTotp, enrollTotp } from "./_two-factor";
+import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
+import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
 
 test.describe.configure({ retries: 0 });
+test.setTimeout(120_000);
 
 const user = new DisposableCredentialUser("admin-mfa");
 
@@ -32,26 +33,33 @@ async function currentSessionId(page: import("@playwright/test").Page): Promise<
   return sessionId;
 }
 
-test("enrollment handoff and a real TOTP establish distinct admin states", async ({ page }) => {
+test("enrollment requires a fresh TOTP window before admin elevation", async ({ page }) => {
   await signInWithPassword(page, user.email);
   await activateTwoFactor(page);
-  const secret = await enrollTotp(page);
+  const { secret, verificationCode } = await enrollTotp(page);
 
   const sessionId = await currentSessionId(page);
-  const epoch = redis("GET", `nojv:admin:epoch:${user.id}`) || "0";
-  const marker = `${user.id}:${epoch}`;
+  const securityGeneration = psql(
+    `SELECT "securityGeneration" FROM "User" WHERE id = '${user.id}';`,
+  );
+  const marker = `sg1:${user.id}:${securityGeneration}`;
 
-  // Enrollment verification rotates the session, then the one-shot handoff
-  // must bind that verified factor to the replacement session without granting
-  // admin mode on its own.
-  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe(marker);
-  expect(redis("GET", `nojv:apitoken:stepup:${sessionId}`)).toBe("1");
+  // Enrollment mutates the factor set. It must not turn the enrollment proof
+  // into a post-mutation elevation grant.
+  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe("");
+  expect(redis("GET", `nojv:apitoken:stepup:${sessionId}`)).toBe("");
   expect(redis("GET", `nojv:admin:mode:${sessionId}`)).toBe("");
 
   await page.goto("/account/api-tokens/verify?purpose=admin-mode");
   await expect(page).toHaveURL(/\/account\/api-tokens\/verify\?purpose=admin-mode$/);
 
-  await page.locator('input[name="code"]').fill(currentTotp(secret));
+  await page.locator('input[name="code"]').fill(verificationCode);
+  await page.locator('button[type="submit"]').click();
+  await expect(page.getByRole("alert")).toContainText("already used");
+  await expect(page).toHaveURL(/\/account\/api-tokens\/verify\?purpose=admin-mode$/);
+
+  const freshCode = await nextTotp(secret, verificationCode);
+  await page.locator('input[name="code"]').fill(freshCode);
   await page.locator('button[type="submit"]').click();
 
   await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
