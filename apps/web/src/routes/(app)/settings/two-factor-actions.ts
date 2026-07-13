@@ -24,6 +24,7 @@ import {
   hasFreshStepUp,
   hasStepUpFactor,
   userHasCredentialPassword,
+  validateStepUpCode,
   verifyStepUpCode,
 } from "$lib/server/step-up";
 
@@ -100,7 +101,11 @@ function deactivatedEmailHtml(): string {
   });
 }
 
-const STEP_UP_FAIL_MESSAGE: Record<"malformed" | "replayed" | "invalid" | "stale", string> = {
+const STEP_UP_FAIL_MESSAGE: Record<
+  "factor_unavailable" | "malformed" | "replayed" | "invalid" | "stale",
+  string
+> = {
+  factor_unavailable: "Set up and verify an authenticator before using its code.",
   malformed: "Enter the 6-digit code from your authenticator.",
   replayed: "That code was already used. Wait for a new code.",
   invalid: "Invalid code. Try again.",
@@ -147,11 +152,21 @@ async function authorizeTwoFactorChange(
   if (await hasStepUpFactor(event)) {
     const code = formString(formData, "code");
     if (code) {
-      const result = await verifyStepUpCode(proof, code, event.request.headers);
+      const result = await verifyStepUpCode(
+        proof,
+        code,
+        event.request.headers,
+        sessionUser.twoFactorEnabled,
+      );
       if (result.ok) return { ok: true };
       return {
         ok: false,
-        status: result.reason === "malformed" ? 400 : result.reason === "stale" ? 403 : 401,
+        status:
+          result.reason === "malformed"
+            ? 400
+            : result.reason === "stale" || result.reason === "factor_unavailable"
+              ? 403
+              : 401,
         error: STEP_UP_FAIL_MESSAGE[result.reason],
       };
     }
@@ -353,6 +368,20 @@ export const twoFactorActions = {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
     const code = formString(formData, "code");
+    if (!validateStepUpCode(code)) {
+      return fail(400, { error: "Enter the 6-digit code from your authenticator." });
+    }
+    try {
+      if (!(await consumeTotpCode(actor.userId, code))) {
+        return fail(401, { error: "That code was already used. Wait for a new code." });
+      }
+    } catch (error) {
+      logger.error("Could not reserve TOTP enrollment code", {
+        userId: actor.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return fail(503, { error: "Could not verify the code safely. Wait for a new code." });
+    }
     let headers: Headers;
     try {
       ({ headers } = await getAuth().api.verifyTOTP({
@@ -361,13 +390,10 @@ export const twoFactorActions = {
         returnHeaders: true,
       }));
     } catch {
-      return fail(401, { error: "Invalid code. Try again." });
-    }
-    // Enrollment mutates the factor set and therefore invalidates all prior
-    // security proofs. The enrollment code is also consumed here so it cannot
-    // be reused as a post-enrollment step-up in the same TOTP time window.
-    if (!(await consumeTotpCode(actor.userId, code))) {
-      return fail(401, { error: "That code was already used. Wait for a new code." });
+      // The reservation intentionally remains consumed on invalid codes and
+      // transient provider failures. Releasing it would reopen the race with a
+      // concurrent privileged verifier using the same time-window code.
+      return fail(401, { error: "Invalid code. Wait for a new code before retrying." });
     }
     forwardSetCookies(event, headers);
     const returnTo = sanitizeReturnTo(

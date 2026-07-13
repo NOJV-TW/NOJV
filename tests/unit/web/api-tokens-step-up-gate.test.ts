@@ -209,6 +209,7 @@ describe("api-tokens verify action", () => {
       { userId: "usr_1", securityGeneration: 7 },
       "123456",
       expect.any(Headers),
+      true,
     );
     expect(markVerifiedSessionMock).toHaveBeenCalledWith(
       "sess_1",

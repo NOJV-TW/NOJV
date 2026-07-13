@@ -92,7 +92,7 @@ describe("step-up code validation", () => {
   });
 
   it("does not accept recovery codes for privileged step-up", async () => {
-    await expect(verifyStepUpCode(proof, "abc12-XY34z", new Headers())).resolves.toEqual({
+    await expect(verifyStepUpCode(proof, "abc12-XY34z", new Headers(), true)).resolves.toEqual({
       ok: false,
       reason: "malformed",
     });
@@ -147,6 +147,16 @@ describe("session-rotation handoff ticket", () => {
 });
 
 describe("TOTP verification", () => {
+  it("does not invoke Better Auth when the current session has no verified TOTP factor", async () => {
+    verifyTotpMock.mockResolvedValue({ status: true });
+
+    await expect(verifyStepUpCode(proof, "123456", new Headers(), false)).resolves.toEqual({
+      ok: false,
+      reason: "factor_unavailable",
+    });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+  });
+
   it("delegates a valid TOTP assertion to Better Auth", async () => {
     verifyTotpMock.mockResolvedValue({ status: true });
     const headers = new Headers();
@@ -159,7 +169,7 @@ describe("TOTP verification", () => {
     store.set("nojv:2fa:totp-seen:usr_1:123456", "1");
     verifyTotpMock.mockResolvedValue({ status: true });
 
-    await expect(verifyStepUpCode(proof, "123456", new Headers())).resolves.toEqual({
+    await expect(verifyStepUpCode(proof, "123456", new Headers(), true)).resolves.toEqual({
       ok: false,
       reason: "replayed",
     });
@@ -169,7 +179,7 @@ describe("TOTP verification", () => {
   it("accepts a fresh current proof and records the TOTP as seen", async () => {
     verifyTotpMock.mockResolvedValue({ status: true });
 
-    await expect(verifyStepUpCode(proof, "123456", new Headers())).resolves.toEqual({
+    await expect(verifyStepUpCode(proof, "123456", new Headers(), true)).resolves.toEqual({
       ok: true,
     });
     expect(store.get("nojv:2fa:totp-seen:usr_1:123456")).toBe("1");
@@ -179,8 +189,8 @@ describe("TOTP verification", () => {
     verifyTotpMock.mockResolvedValue({ status: true });
 
     const results = await Promise.all([
-      verifyStepUpCode(proof, "123456", new Headers()),
-      verifyStepUpCode(proof, "123456", new Headers()),
+      verifyStepUpCode(proof, "123456", new Headers(), true),
+      verifyStepUpCode(proof, "123456", new Headers(), true),
     ]);
 
     expect(results).toEqual(
@@ -192,7 +202,7 @@ describe("TOTP verification", () => {
     verifyTotpMock.mockResolvedValue({ status: true });
     generationMatchesMock.mockResolvedValue(false);
 
-    await expect(verifyStepUpCode(proof, "123456", new Headers())).resolves.toEqual({
+    await expect(verifyStepUpCode(proof, "123456", new Headers(), true)).resolves.toEqual({
       ok: false,
       reason: "stale",
     });
@@ -202,7 +212,7 @@ describe("TOTP verification", () => {
   it("rejects an invalid TOTP", async () => {
     verifyTotpMock.mockRejectedValue(new Error("invalid"));
 
-    await expect(verifyStepUpCode(proof, "000000", new Headers())).resolves.toEqual({
+    await expect(verifyStepUpCode(proof, "000000", new Headers(), true)).resolves.toEqual({
       ok: false,
       reason: "invalid",
     });

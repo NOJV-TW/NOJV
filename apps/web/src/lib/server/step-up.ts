@@ -66,14 +66,20 @@ export async function hasStepUpFactor(event: RequestEvent): Promise<boolean> {
 }
 
 export type StepUpVerifyResult =
-  { ok: true } | { ok: false; reason: "malformed" | "replayed" | "invalid" | "stale" };
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "factor_unavailable" | "malformed" | "replayed" | "invalid" | "stale";
+    };
 
 export async function verifyStepUpCode(
   proof: SecurityGenerationProof,
   code: string,
   headers: Headers,
+  twoFactorEnabled: boolean,
 ): Promise<StepUpVerifyResult> {
   if (validateStepUpCode(code)) {
+    if (!twoFactorEnabled) return { ok: false, reason: "factor_unavailable" };
     if (!(await verifyTotpStepUp(code, headers))) return { ok: false, reason: "invalid" };
     if (!(await consumeTotpCode(proof.userId, code))) {
       return { ok: false, reason: "replayed" };

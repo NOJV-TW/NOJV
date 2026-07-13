@@ -67,13 +67,23 @@ export const actions = {
       return fail(403, { error: "Session authentication is required." });
     }
     const proof = securityGenerationProof(sessionUser);
-    const result = await verifyStepUpCode(proof, code, event.request.headers);
+    const result = await verifyStepUpCode(
+      proof,
+      code,
+      event.request.headers,
+      sessionUser.twoFactorEnabled,
+    );
     if (!result.ok) {
       if (result.reason === "malformed") {
         return fail(400, { error: "Enter the 6-digit code from your authenticator." });
       }
       if (result.reason === "replayed") {
         return fail(401, { error: "That code was already used. Wait for a new code." });
+      }
+      if (result.reason === "factor_unavailable") {
+        return fail(403, {
+          error: "Set up and verify an authenticator before using its code.",
+        });
       }
       return fail(401, { error: "Invalid code. Try again." });
     }

@@ -15,6 +15,8 @@ const {
   clearStepUpMock,
   hasStepUpFactorMock,
   hasFreshStepUpMock,
+  markVerifiedSessionMock,
+  grantAdminElevationMock,
   consumeTotpCodeMock,
   sendEmailMock,
   enableTwoFactorMock,
@@ -40,6 +42,8 @@ const {
   clearStepUpMock: vi.fn(),
   hasStepUpFactorMock: vi.fn(),
   hasFreshStepUpMock: vi.fn(),
+  markVerifiedSessionMock: vi.fn(),
+  grantAdminElevationMock: vi.fn(),
   consumeTotpCodeMock: vi.fn(),
   sendEmailMock: vi.fn(),
   enableTwoFactorMock: vi.fn(),
@@ -74,6 +78,18 @@ vi.mock("@nojv/application", () => ({
 }));
 
 vi.mock("$lib/server/step-up", () => ({
+  adminElevationPrincipal: (user: { id: string; securityGeneration: number }) => ({
+    userId: user.id,
+    securityGeneration: user.securityGeneration,
+  }),
+  grantAdminElevation: grantAdminElevationMock,
+  isTwoFactorActivated: isTwoFactorActivatedMock,
+  markVerifiedSession: markVerifiedSessionMock,
+  securityGenerationProof: (user: { id: string; securityGeneration: number }) => ({
+    userId: user.id,
+    securityGeneration: user.securityGeneration,
+  }),
+  validateStepUpCode: (code: string) => /^\d{6}$/.test(code),
   userHasCredentialPassword: userHasCredentialPasswordMock,
   verifyStepUpCode: verifyStepUpCodeMock,
   clearStepUp: clearStepUpMock,
@@ -108,6 +124,7 @@ import {
   twoFactorActions as actions,
   loadTwoFactor as load,
 } from "$lib/../routes/(app)/settings/two-factor-actions";
+import { actions as verifyActions } from "$lib/../routes/(app)/account/api-tokens/verify/+page.server";
 
 function makeEvent(opts?: {
   twoFactorEnabled?: boolean;
@@ -180,6 +197,8 @@ beforeEach(() => {
   clearStepUpMock.mockReset().mockResolvedValue(undefined);
   hasStepUpFactorMock.mockReset().mockResolvedValue(false);
   hasFreshStepUpMock.mockReset().mockResolvedValue(false);
+  markVerifiedSessionMock.mockReset().mockResolvedValue(true);
+  grantAdminElevationMock.mockReset().mockResolvedValue(true);
   consumeTotpCodeMock.mockReset().mockResolvedValue(true);
   sendEmailMock.mockReset().mockResolvedValue(undefined);
   enableTwoFactorMock.mockReset();
@@ -290,6 +309,7 @@ describe("deactivate", () => {
       { userId: "usr_1", securityGeneration: 7 },
       "123456",
       expect.any(Headers),
+      true,
     );
     expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", false);
     expect(clearStepUpMock).toHaveBeenCalledWith("sess_1");
@@ -401,10 +421,76 @@ describe("enable (add TOTP)", () => {
 });
 
 describe("verify", () => {
+  it("rejects malformed enrollment codes without creating a reservation", async () => {
+    const result = await actions.verify(makeEvent({ body: form({ code: "not-a-code" }) }));
+
+    expect(result).toMatchObject({ status: 400 });
+    expect(consumeTotpCodeMock).not.toHaveBeenCalled();
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+  });
+
   it("fails 401 when verifyTOTP throws", async () => {
+    let reservedBeforeVerification = false;
+    consumeTotpCodeMock.mockImplementation(async () => {
+      reservedBeforeVerification = true;
+      return true;
+    });
     verifyTotpMock.mockRejectedValue(new Error("invalid"));
     const result = await actions.verify(makeEvent({ body: form({ code: "000000" }) }));
     expect(result).toMatchObject({ status: 401 });
+    expect(reservedBeforeVerification).toBe(true);
+    expect(consumeTotpCodeMock).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed without mutation when the reservation store is unavailable", async () => {
+    consumeTotpCodeMock.mockRejectedValue(new Error("redis unavailable"));
+
+    const result = await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
+
+    expect(result).toMatchObject({ status: 503 });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+    expect(cookiesSetMock).not.toHaveBeenCalled();
+  });
+
+  it("reserves enrollment before mutation and blocks an interleaved privileged action", async () => {
+    let enterVerification!: () => void;
+    let releaseVerification!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enterVerification = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseVerification = resolve;
+    });
+    verifyTotpMock.mockImplementation(async () => {
+      enterVerification();
+      await release;
+      return { headers: new Headers({ "set-cookie": "session=rotated; Path=/; HttpOnly" }) };
+    });
+    verifyStepUpCodeMock.mockImplementation(
+      async (_proof, _code, _headers, twoFactorEnabled: boolean) =>
+        twoFactorEnabled ? { ok: true } : { ok: false, reason: "factor_unavailable" as const },
+    );
+
+    const enrollmentEvent = makeEvent({ body: form({ code: "123456" }) });
+    const enrollment = actions.verify(enrollmentEvent);
+    await entered;
+    const reservedBeforeMutation = consumeTotpCodeMock.mock.calls.length === 1;
+
+    const privilegedEvent = makeEvent({ body: form({ code: "123456" }) });
+    const privileged = await verifyActions.default(privilegedEvent);
+
+    releaseVerification();
+    await expect(enrollment).resolves.toEqual({ enabled: true });
+    expect(reservedBeforeMutation).toBe(true);
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith(
+      { userId: "usr_1", securityGeneration: 7 },
+      "123456",
+      expect.any(Headers),
+      false,
+    );
+    expect(privileged).toMatchObject({ status: 403 });
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
+    expect(privilegedEvent.locals.session?.id).toBe("sess_1");
   });
 
   it("returns enabled without converting enrollment into a privileged handoff", async () => {
@@ -427,6 +513,7 @@ describe("verify", () => {
       status: 401,
       data: { error: expect.stringMatching(/used/) },
     });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
     expect(cookiesSetMock).not.toHaveBeenCalled();
   });
 
@@ -461,6 +548,7 @@ describe("disable (remove TOTP)", () => {
       { userId: "usr_1", securityGeneration: 7 },
       "123456",
       expect.any(Headers),
+      true,
     );
     expect(disableTwoFactorMock).toHaveBeenCalledWith({
       body: { password: "hunter2" },
