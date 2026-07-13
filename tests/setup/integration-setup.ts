@@ -46,7 +46,7 @@ vi.mock("@nojv/storage", async (importOriginal) => {
         testBlobs.set(`submissions/${submissionId}/sources/${s.path}`, s.content);
       }
     },
-    getSubmissionSources: async (_client: unknown, submissionId: string) => {
+    getSubmissionSources: vi.fn(async (_client: unknown, submissionId: string) => {
       const prefix = `submissions/${submissionId}/sources/`;
       const keys = Array.from(testBlobs.keys())
         .filter((k) => k.startsWith(prefix))
@@ -55,7 +55,7 @@ vi.mock("@nojv/storage", async (importOriginal) => {
         path: key.slice(prefix.length),
         content: testBlobs.get(key)!,
       }));
-    },
+    }),
     putVerdictDetail: async (_client: unknown, submissionId: string, detail: unknown) => {
       testBlobs.set(`submissions/${submissionId}/verdict-detail.json`, JSON.stringify(detail));
     },

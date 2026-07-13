@@ -1113,7 +1113,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: Restrict)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([userId, examId, sampleOnly, createdAt(sort: Desc), id(sort: Desc)])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
 
 #### `SubmissionFeedback`
 

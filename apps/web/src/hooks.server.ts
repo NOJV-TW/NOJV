@@ -25,7 +25,7 @@ import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import {
   getActiveExamContext,
   isAllowedPathForExam,
-  isExamForbiddenApiPath,
+  isExamForbiddenApiRequest,
   resolveExamGateDenial,
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
@@ -442,7 +442,7 @@ async function enforceExamGate(
     });
   }
 
-  if (isExamForbiddenApiPath(cleanPath)) {
+  if (isExamForbiddenApiRequest(cleanPath, event.request.method)) {
     return denyExamGate({
       cleanPath,
       requestId: event.locals.requestId,

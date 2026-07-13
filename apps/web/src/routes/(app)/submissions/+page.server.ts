@@ -10,7 +10,7 @@ const PAGE_SIZE = 50;
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
   const { items, nextCursor } = await listUserSubmissions({
-    userId: actor.userId,
+    actor,
     limit: PAGE_SIZE,
   });
   return { submissions: items, nextCursor };

@@ -7,7 +7,7 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/application";
 import { submissionResultSchema } from "@nojv/core";
 
-const { getSubmissionForUser, getVerdictDetail, sanitizeStudentResult } = submissionDomain;
+const { getSubmissionForActor, getVerdictDetail, sanitizeStudentResult } = submissionDomain;
 
 function sanitizeVerdictDetail(raw: unknown, sampleOnly: boolean): unknown {
   if (raw === null || raw === undefined) return raw;
@@ -21,11 +21,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing submission id." }, { status: 400 });
 
-  const submission = await getSubmissionForUser(
-    id,
-    actor.userId,
-    actor.platformRole === "admin",
-  );
+  const submission = await getSubmissionForActor(actor, id);
 
   const detail = submission.verdictDetailStorageKey ? await getVerdictDetail(id) : null;
 

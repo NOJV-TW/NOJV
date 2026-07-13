@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findById } = vi.hoisted(() => ({
-  findById: vi.fn(),
+const { findByIdForUserRead } = vi.hoisted(() => ({
+  findByIdForUserRead: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: {
-    findById,
+    findByIdForUserRead,
   },
   assessmentRepo: {
     findByCourseAndId: vi.fn(),
@@ -18,46 +18,58 @@ vi.mock("@nojv/db", () => ({
 
 import { NotFoundError, submissionDomain } from "@nojv/application";
 
-const { getSubmissionForUser } = submissionDomain;
+const { getSubmissionForActor } = submissionDomain;
 
-describe("getSubmissionForUser", () => {
+const actor = {
+  userId: "user_alice",
+  username: "alice",
+  email: "alice@example.test",
+  displayName: "Alice",
+  platformRole: "student" as const,
+};
+
+describe("getSubmissionForActor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("returns submission when user owns it", async () => {
     const submission = { id: "sub_1", userId: "user_alice", verdict: "accepted" };
-    findById.mockResolvedValue(submission);
+    findByIdForUserRead.mockResolvedValue(submission);
 
-    const result = await getSubmissionForUser("sub_1", "user_alice", false);
+    const result = await getSubmissionForActor(actor, "sub_1");
 
     expect(result).toEqual(submission);
-    expect(findById).toHaveBeenCalledWith("sub_1");
+    expect(findByIdForUserRead).toHaveBeenCalledWith({
+      id: "sub_1",
+      userId: "user_alice",
+      adminRecovery: false,
+    });
   });
 
   it("returns submission when user is admin even if not owner", async () => {
     const submission = { id: "sub_1", userId: "user_bob", verdict: "accepted" };
-    findById.mockResolvedValue(submission);
+    findByIdForUserRead.mockResolvedValue(submission);
 
-    const result = await getSubmissionForUser("sub_1", "user_alice", true);
+    const result = await getSubmissionForActor({ ...actor, platformRole: "admin" }, "sub_1");
 
     expect(result).toEqual(submission);
+    expect(findByIdForUserRead).toHaveBeenCalledWith({
+      id: "sub_1",
+      userId: "user_alice",
+      adminRecovery: true,
+    });
   });
 
   it("throws NotFoundError when submission doesn't exist", async () => {
-    findById.mockResolvedValue(null);
+    findByIdForUserRead.mockResolvedValue(null);
 
-    await expect(getSubmissionForUser("sub_missing", "user_alice", false)).rejects.toThrow(
-      NotFoundError,
-    );
+    await expect(getSubmissionForActor(actor, "sub_missing")).rejects.toThrow(NotFoundError);
   });
 
   it("throws NotFoundError when user doesn't own it and is not admin", async () => {
-    const submission = { id: "sub_1", userId: "user_bob", verdict: "accepted" };
-    findById.mockResolvedValue(submission);
+    findByIdForUserRead.mockResolvedValue(null);
 
-    await expect(getSubmissionForUser("sub_1", "user_alice", false)).rejects.toThrow(
-      NotFoundError,
-    );
+    await expect(getSubmissionForActor(actor, "sub_1")).rejects.toThrow(NotFoundError);
   });
 });

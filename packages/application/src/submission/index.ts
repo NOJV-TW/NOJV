@@ -9,7 +9,7 @@ export {
   type JudgeDispatchMeta,
   getSubmissionById,
   getSubmissionDetail,
-  getSubmissionForUser,
+  getSubmissionForActor,
   getSubmissionSources,
   getVerdictDetail,
   listForRejudge,

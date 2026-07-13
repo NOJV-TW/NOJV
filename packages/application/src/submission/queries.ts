@@ -39,7 +39,7 @@ import {
 import { computeProblemTotalScore } from "../problem/total-score";
 import { buildProblemSamples } from "../problem/queries";
 import type { ActorContext } from "../shared/actor-context";
-import { IntegrityError, NotFoundError } from "../shared/errors";
+import { IntegrityError, NotFoundError, ValidationError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
 import { sanitizeStudentResult } from "./scoring";
@@ -51,18 +51,14 @@ import type {
   WorkspaceFileEntry,
 } from "./types";
 
-export async function getSubmissionForUser(
-  submissionId: string,
-  userId: string,
-  isAdmin: boolean,
-) {
-  const submission = await submissionRepo.findById(submissionId);
+export async function getSubmissionForActor(actor: ActorContext, submissionId: string) {
+  const submission = await submissionRepo.findByIdForUserRead({
+    id: submissionId,
+    userId: actor.userId,
+    adminRecovery: actor.platformRole === "admin",
+  });
 
   if (!submission) {
-    throw new NotFoundError("Submission not found.");
-  }
-
-  if (submission.userId !== userId && !isAdmin) {
     throw new NotFoundError("Submission not found.");
   }
 
@@ -86,7 +82,11 @@ export async function getVerdictDetail(submissionId: string): Promise<Submission
 }
 
 export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
-  const submission = await submissionRepo.findByIdForDetail(submissionId);
+  const submission = await submissionRepo.findByIdForDetail({
+    id: submissionId,
+    userId: actor.userId,
+    adminRecovery: actor.platformRole === "admin",
+  });
   if (!submission) throw new NotFoundError("Submission not found.");
 
   const isOwner = submission.userId === actor.userId;
@@ -196,11 +196,17 @@ function buildSubmissionContext(submission: {
 }
 
 export async function listUserSubmissions(opts: {
-  userId: string;
+  actor: ActorContext;
   limit: number;
   cursor?: string;
 }) {
-  const rows = await submissionRepo.listByUser(opts);
+  const rows = await submissionRepo.listByUser({
+    userId: opts.actor.userId,
+    enforceExamConfinement: opts.actor.platformRole !== "admin",
+    limit: opts.limit,
+    ...(opts.cursor ? { cursor: opts.cursor } : {}),
+  });
+  if (rows === null) throw new ValidationError("Invalid submission cursor.");
   const hasMore = rows.length > opts.limit;
   const items = hasMore ? rows.slice(0, opts.limit) : rows;
   const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
