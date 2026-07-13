@@ -61,15 +61,16 @@ export default async function globalSetup(config: FullConfig) {
     await page.getByLabel(/password/i).fill(role.password);
     await page.getByRole("button", { name: /sign in|登入/i }).click();
 
+    if (role.name === "admin") {
+      await elevateAdminSession(page, baseURL, role.email);
+      await page.goto(`${baseURL}/dashboard`);
+    }
+
     await page.waitForURL((url) => !url.pathname.includes("signin"), {
       timeout: 15000,
     });
 
     await page.evaluate(() => localStorage.setItem("nojv:tour:off", "1"));
-
-    if (role.name === "admin") {
-      await elevateAdminSession(page, baseURL, role.email);
-    }
 
     const state = await context.storageState();
     // better-auth.session_data is a short-lived client cache. Keeping it makes

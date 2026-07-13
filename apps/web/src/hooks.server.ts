@@ -278,9 +278,6 @@ async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {
   if (!user?.isSuperAdmin || !session) {
     return;
   }
-  if (getWebEnv().NODE_ENV === "development") {
-    return;
-  }
   if (!isSuperAdminSessionExpired(new Date(session.createdAt))) {
     return;
   }
@@ -298,9 +295,6 @@ async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {
 async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Promise<void> {
   const user = event.locals.sessionUser;
   if (!user?.isSuperAdmin || user.mustChangePassword) {
-    return;
-  }
-  if (getWebEnv().NODE_ENV === "development") {
     return;
   }
   const TWO_FACTOR_ACTIONS = [

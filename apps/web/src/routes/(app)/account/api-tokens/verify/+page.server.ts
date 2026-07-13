@@ -36,7 +36,7 @@ export const load = async (event: RequestEvent) => {
   const hasPasskey = passkeys.length > 0;
 
   if (!hasTotp && !hasPasskey) {
-    redirect(302, "/account?verify=totp&returnTo=" + encodeURIComponent(verifyPath));
+    redirect(302, "/settings?verify=totp&returnTo=" + encodeURIComponent(verifyPath));
   }
 
   return {

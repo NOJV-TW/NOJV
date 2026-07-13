@@ -90,16 +90,6 @@ test.describe("Admin panel — gating + pages", () => {
     await page.getByLabel(/username or email/i).fill("admin@nojv.local");
     await page.getByLabel(/password/i).fill("password123");
     await page.getByRole("button", { name: /sign in|登入/i }).click();
-    await page.waitForURL((url) => !url.pathname.includes("signin"), { timeout: 15000 });
-
-    // De-elevated: the backend is not reachable.
-    const blocked = await page.goto("/admin");
-    expect(blocked?.status() ?? 0).toBeGreaterThanOrEqual(400);
-
-    // Entering admin mode starts the fixed verification flow; it never elevates
-    // from the menu click itself.
-    await page.locator('button[title="Admin"]').click();
-    await page.getByRole("button", { name: /admin mode|管理模式/i }).click();
     await page.waitForURL(
       (url) =>
         url.pathname === "/settings" &&
@@ -107,7 +97,12 @@ test.describe("Admin panel — gating + pages", () => {
         url.searchParams.get("returnTo") === "/account/api-tokens/verify?purpose=admin-mode",
       { timeout: 15000 },
     );
-    expect(page.url()).not.toMatch(/\/admin(?:\/|$)/);
+
+    const denied = await page.request.post("/api/admin-mode", {
+      headers: { "x-requested-with": "fetch" },
+      data: { active: true },
+    });
+    expect(denied.status()).toBe(403);
 
     await context.close();
   });

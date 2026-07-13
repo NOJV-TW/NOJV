@@ -11,12 +11,24 @@ vi.mock("$lib/auth.server", () => ({
         if (!userId) return null;
         const { testPrisma } = await import("../../fixtures/factories");
         const user = await testPrisma.user.findUnique({ where: { id: userId } });
+        const createdAt = headers.get("x-test-session-created-at");
         return user
-          ? { session: { id: "test-session", userId, createdAt: new Date() }, user }
+          ? {
+              session: {
+                id: "test-session",
+                userId,
+                createdAt: createdAt ? new Date(createdAt) : new Date(),
+              },
+              user,
+            }
           : null;
       },
     },
   }),
+}));
+
+vi.mock("$lib/server/env", () => ({
+  getWebEnv: () => ({ NODE_ENV: "development" }),
 }));
 
 const NO_RESOLVE = {};
@@ -57,7 +69,6 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
 
   it("allows a super admin whose session already passed 2FA", async () => {
     const { getRedis, keys } = await import("@nojv/redis");
-    await getRedis().set(keys.adminSessionMfa("test-session"), "1", "EX", 600);
     const user = await createTestUser({
       username: "admin_2fa_verified",
       platformRole: "admin",
@@ -65,9 +76,30 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
+    await getRedis().set(keys.adminSessionMfa("test-session"), user.id, "EX", 600);
     const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
     expect(res.status).not.toBe(302);
     await getRedis().del(keys.adminSessionMfa("test-session"));
+  }, 30_000);
+
+  it("expires a stale super admin session in development", async () => {
+    const user = await createTestUser({
+      username: "admin_expired_session",
+      platformRole: "admin",
+      isSuperAdmin: true,
+      twoFactorEnabled: true,
+      twoFactorActivated: true,
+    });
+
+    const res = await callRoute({
+      path: "/admin",
+      module: NO_RESOLVE,
+      user,
+      headers: { "x-test-session-created-at": "2020-01-01T00:00:00.000Z" },
+    });
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/signin?error=session-expired");
   }, 30_000);
 
   it("binds a verified-factor handoff to the new superadmin session before the gate", async () => {
