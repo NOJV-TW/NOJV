@@ -653,28 +653,24 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async cleanupAdvancedJob(name: string, namespace: string): Promise<boolean> {
-    try {
-      await this.batchApi.deleteNamespacedJob({
+    await this.batchApi
+      .deleteNamespacedJob({
         name,
         namespace,
         propagationPolicy: "Foreground",
-      });
-    } catch {
-      return false;
-    }
+      })
+      .catch(() => undefined);
     return this.waitForPodsGone(namespace, { labelSelector: `job-name=${name}` });
   }
 
   private async cleanupAdvancedPod(name: string, namespace: string): Promise<boolean> {
-    try {
-      await this.coreApi.deleteNamespacedPod({
+    await this.coreApi
+      .deleteNamespacedPod({
         name,
         namespace,
         propagationPolicy: "Foreground",
-      });
-    } catch {
-      return false;
-    }
+      })
+      .catch(() => undefined);
     return this.waitForPodsGone(namespace, { fieldSelector: `metadata.name=${name}` });
   }
 

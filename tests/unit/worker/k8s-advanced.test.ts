@@ -118,12 +118,19 @@ interface FakeOpts {
   serviceClusterIp?: string | null;
   podWaiting?: { reason: string; message?: string };
   jobPendingPolls?: number;
+  jobDeleteError?: Error;
+  podDeleteError?: Error;
+  residualJobPods?: string[];
+  residualPods?: string[];
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
   let jobReadCount = 0;
+  const jobDeleteAttempts = new Set<string>();
+  const podDeleteAttempts = new Set<string>();
   const deletedJobs = new Set<string>();
   const deletedPods = new Set<string>();
+  const activeNetworkPolicies = new Set<string>();
   const coreApi = {
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
       record.configMapsCreated.push({ name: body.metadata.name, namespace, data: body.data });
@@ -143,6 +150,8 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     deleteNamespacedPod: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
       record.podsDeleted.push({ name, namespace });
       record.cleanupEvents.push(`delete-pod:${name}:${String(propagationPolicy)}`);
+      podDeleteAttempts.add(name);
+      if (opts.podDeleteError) throw opts.podDeleteError;
       deletedPods.add(name);
     }),
     createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
@@ -157,14 +166,22 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     listNamespacedPod: vi.fn(async ({ labelSelector, fieldSelector }: any) => {
       if (fieldSelector) {
         const podName = String(fieldSelector).split("=")[1];
-        if (deletedPods.has(podName)) {
+        if (deletedPods.has(podName) || podDeleteAttempts.has(podName)) {
+          if (opts.residualPods?.includes(podName)) {
+            record.cleanupEvents.push(`observe-pod-present:${podName}`);
+            return { items: [{ metadata: { name: podName } }] };
+          }
           record.cleanupEvents.push(`confirm-pod-gone:${podName}`);
           return { items: [] };
         }
         return { items: [{ metadata: { name: podName } }] };
       }
       const jobName = String(labelSelector).split("=")[1];
-      if (deletedJobs.has(jobName)) {
+      if (deletedJobs.has(jobName) || jobDeleteAttempts.has(jobName)) {
+        if (opts.residualJobPods?.includes(jobName)) {
+          record.cleanupEvents.push(`observe-job-pods-present:${jobName}`);
+          return { items: [{ metadata: { name: `${jobName}-pod` } }] };
+        }
         record.cleanupEvents.push(`confirm-job-pods-gone:${jobName}`);
         return { items: [] };
       }
@@ -219,6 +236,8 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     deleteNamespacedJob: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
       record.jobsDeleted.push({ name, namespace });
       record.cleanupEvents.push(`delete-job:${name}:${String(propagationPolicy)}`);
+      jobDeleteAttempts.add(name);
+      if (opts.jobDeleteError) throw opts.jobDeleteError;
       deletedJobs.add(name);
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
@@ -240,9 +259,14 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
 
   const networkingApi = {
     createNamespacedNetworkPolicy: vi.fn(async ({ namespace, body }: any) => {
+      if (activeNetworkPolicies.has(body.metadata.name)) {
+        throw new Error(`409 NetworkPolicy ${body.metadata.name} already exists`);
+      }
+      activeNetworkPolicies.add(body.metadata.name);
       record.networkPoliciesCreated.push({ name: body.metadata.name, namespace, body });
     }),
     deleteNamespacedNetworkPolicy: vi.fn(async ({ name, namespace }: any) => {
+      activeNetworkPolicies.delete(name);
       record.networkPoliciesDeleted.push({ name, namespace });
       record.cleanupEvents.push(`delete-policy:${name}`);
     }),
@@ -1085,6 +1109,69 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       "confirm-pod-gone:judge-sub-adv-1-sidecar",
       "delete-policy:judge-sub-adv-1-sidecar-egress",
     );
+  });
+
+  it("404 deleting Jobs that were never created still confirms no Pods, removes policy, and permits retry", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, {
+        throwOnJobCreate: true,
+        jobDeleteError: new Error("404 Job not found"),
+      }),
+    );
+
+    await expect(executor.execute(makeAdvancedRequest())).rejects.toThrow(
+      "simulated job create failure",
+    );
+    await expect(executor.execute(makeAdvancedRequest())).rejects.toThrow(
+      "simulated job create failure",
+    );
+
+    expect(record.cleanupEvents).toContain("confirm-job-pods-gone:judge-sub-adv-1-grade");
+    expect(record.networkPoliciesDeleted.map((policy) => policy.name)).toEqual([
+      "judge-sub-adv-1-grade-egress",
+      "judge-sub-adv-1-grade-egress",
+    ]);
+  });
+
+  it("DELETE errors still poll selectors and retain policies while Job or sidecar Pods remain", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const executor = new K8sExecutor(
+        EXEC_CONFIG,
+        buildFakeClients(record, {
+          sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+          jobDeleteError: new Error("job delete transport failure"),
+          podDeleteError: new Error("pod delete transport failure"),
+          residualJobPods: ["judge-sub-adv-1-grade"],
+          residualPods: ["judge-sub-adv-1-sidecar"],
+        }),
+      );
+
+      const execution = executor.execute(
+        makeAdvancedRequest({
+          network: {
+            mode: "service",
+            service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+          },
+        }),
+      );
+      await vi.runAllTimersAsync();
+      await execution;
+
+      expect(record.cleanupEvents).toContain("observe-job-pods-present:judge-sub-adv-1-grade");
+      expect(record.cleanupEvents).toContain("observe-pod-present:judge-sub-adv-1-sidecar");
+      expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
+        "judge-sub-adv-1-grade-egress",
+      );
+      expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
+        "judge-sub-adv-1-sidecar-egress",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("mode=service: missing service marker fails closed before the run starts", async () => {
