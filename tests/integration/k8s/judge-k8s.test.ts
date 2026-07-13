@@ -19,9 +19,22 @@ const require = createRequire(import.meta.url);
 const SANDBOX_IMAGE = "nojv-sandbox:local";
 const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
 const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
+const DEMO_SERVICE_IMAGE = "nojv-demo-advanced-service:local";
 
 const SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a + b)\n";
 const WRONG_SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a - b)\n";
+const SERVICE_HEALTH_SUM_SOLUTION = `import json
+import os
+import urllib.request
+
+service_host = os.environ["NOJV_SERVICE_HOST"]
+with urllib.request.urlopen(f"http://{service_host}/health", timeout=5) as response:
+    if response.status != 200 or json.load(response) != {"status": "ok"}:
+        raise RuntimeError("service health check failed")
+
+a, b = map(int, input().split())
+print(a + b)
+`;
 
 const EXECUTOR_CONFIG: Omit<K8sExecutorConfig, "namespace"> = {
   image: SANDBOX_IMAGE,
@@ -619,7 +632,7 @@ describe("K8s judge — advanced mode", () => {
   );
 
   it(
-    "AC: service network mode wires service sidecar Pod/Service + still judges",
+    "AC: service network mode submission reaches the dedicated service /health endpoint",
     { timeout: ADVANCED_TIMEOUT_MS },
     async () => {
       const activeClients = clients;
@@ -630,9 +643,9 @@ describe("K8s judge — advanced mode", () => {
       trackSubmission(submissionId, { advanced: true });
 
       const result = await makeExecutor().execute(
-        advancedRequest(submissionId, SUM_SOLUTION, {
+        advancedRequest(submissionId, SERVICE_HEALTH_SUM_SOLUTION, {
           mode: "service",
-          service: { imageRef: DEMO_RUN_IMAGE, imageSource: "registry" },
+          service: { imageRef: DEMO_SERVICE_IMAGE, imageSource: "registry" },
         }),
       );
 

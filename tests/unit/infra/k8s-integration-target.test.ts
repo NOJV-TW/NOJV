@@ -111,4 +111,53 @@ describe("K8s integration wiring", () => {
     expect(workflow).toContain("k3d cluster delete nojv-judge");
     expect(workflow.match(/if: always\(\)/g)).toHaveLength(2);
   });
+
+  it("builds and pushes the canonical scaffold as a dedicated service image", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    const build = packageJson.scripts["demo-advanced:build"] ?? "";
+    const push = packageJson.scripts["demo-advanced:push"] ?? "";
+    const canonicalService = "apps/web/src/lib/server/advanced-scaffold/files/service";
+
+    expect(build).toContain("nojv-demo-advanced-service:local");
+    expect(build).toContain("registry.nojv.tw/demo/nojv-demo-advanced-service:main");
+    expect(build).toContain(canonicalService);
+    expect(push).toContain("registry.nojv.tw/demo/nojv-demo-advanced-service:main");
+    expect(push).toContain(canonicalService);
+  });
+
+  it("imports the dedicated service image into the nightly k3d cluster", () => {
+    const workflow = readFileSync(
+      join(repoRoot, ".github/workflows/nightly-sandbox.yml"),
+      "utf8",
+    );
+    expect(workflow).toContain("nojv-demo-advanced-service:local");
+  });
+
+  it("uses the dedicated service image instead of the ordinary run image", () => {
+    const integration = readFileSync(
+      join(repoRoot, "tests/integration/k8s/judge-k8s.test.ts"),
+      "utf8",
+    );
+    const serviceCase = integration.slice(integration.indexOf("AC: service network mode"));
+    expect(integration).toContain(
+      'const DEMO_SERVICE_IMAGE = "nojv-demo-advanced-service:local"',
+    );
+    expect(serviceCase).toContain("service: { imageRef: DEMO_SERVICE_IMAGE");
+    expect(serviceCase).not.toContain("service: { imageRef: DEMO_RUN_IMAGE");
+  });
+
+  it("makes the service-mode submission call the injected /health endpoint", () => {
+    const integration = readFileSync(
+      join(repoRoot, "tests/integration/k8s/judge-k8s.test.ts"),
+      "utf8",
+    );
+    const serviceCase = integration.slice(integration.indexOf("AC: service network mode"));
+
+    expect(serviceCase).toContain("SERVICE_HEALTH_SUM_SOLUTION");
+    expect(integration).toContain('os.environ["NOJV_SERVICE_HOST"]');
+    expect(integration).toContain('/health", timeout=5');
+    expect(integration).toContain('raise RuntimeError("service health check failed")');
+  });
 });
