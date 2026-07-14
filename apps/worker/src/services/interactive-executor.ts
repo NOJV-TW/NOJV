@@ -16,6 +16,7 @@ import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { buildSandboxDockerArgs } from "./docker-args";
 import { forceRemoveContainer, sanitizeId } from "./docker-process";
+import { buildDockerResourceLabels } from "./docker-resource";
 import { executionAbortReason } from "./execution-abort";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { resolveSourceFiles } from "./source-files.js";
@@ -123,7 +124,6 @@ async function runCase(
       writeInteractorFiles(intDir, request, testcase, interactorScript, interactorLanguage),
     ]);
 
-    await Promise.all([forceRemoveContainer(solName), forceRemoveContainer(intName)]);
     execution.signal.throwIfAborted();
 
     const outerTimeoutMs = Math.min(
@@ -146,6 +146,7 @@ async function runCase(
           pidsLimit: config.pidsLimit,
           image: config.image,
           interactive: true,
+          labels: buildDockerResourceLabels(execution.runId),
         }),
         { env: process.env, stdio: ["pipe", "pipe", "pipe"] },
       ) as PipedChild;
@@ -161,6 +162,7 @@ async function runCase(
           pidsLimit: config.pidsLimit,
           image: config.image,
           interactive: true,
+          labels: buildDockerResourceLabels(execution.runId),
         }),
         { env: process.env, stdio: ["pipe", "pipe", "pipe"] },
       ) as PipedChild;

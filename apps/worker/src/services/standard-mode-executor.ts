@@ -14,6 +14,7 @@ import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { resolveSourceFiles } from "./source-files.js";
 import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
+import { buildDockerResourceLabels } from "./docker-resource";
 import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
 import { parseCompileOutput, parseSandboxResult } from "./sandbox-schema";
@@ -213,6 +214,7 @@ async function runContainer(
       memoryMb: config.memoryMb,
       pidsLimit: config.pidsLimit,
       image: config.image,
+      labels: buildDockerResourceLabels(execution.runId),
       artifactMount: { hostDir: artifactDir, readOnly: false },
     });
     const compile = await spawnDockerContainer({
@@ -266,6 +268,7 @@ async function runContainer(
         memoryMb: config.memoryMb,
         pidsLimit: config.pidsLimit,
         image: config.image,
+        labels: buildDockerResourceLabels(execution.runId),
         artifactMount: { hostDir: artifactDir, readOnly: true },
         extraEnv: ["PYTHONDONTWRITEBYTECODE=1"],
       });

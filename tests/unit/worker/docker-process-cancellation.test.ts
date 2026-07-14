@@ -5,15 +5,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   spawn: vi.fn(),
-  spawnSync: vi.fn(),
 }));
 
 vi.mock("node:child_process", () => ({
   spawn: mocks.spawn,
-  spawnSync: mocks.spawnSync,
 }));
 
-import { spawnDockerContainer } from "../../../apps/worker/src/services/docker-process";
+import {
+  DockerCommandError,
+  collectContainerLogs,
+  forceRemoveContainer,
+  spawnDockerContainer,
+} from "../../../apps/worker/src/services/docker-process";
 
 function child(autoClose: boolean) {
   const process = Object.assign(new EventEmitter(), {
@@ -43,7 +46,12 @@ describe("spawnDockerContainer cancellation", () => {
       outerTimeoutMs: 60_000,
       signal: controller.signal,
     });
-    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    expect(mocks.spawn).toHaveBeenLastCalledWith(
+      "docker",
+      ["run", "--name", "judge-run"],
+      expect.any(Object),
+    );
 
     const reason = new DOMException("cancelled", "AbortError");
     controller.abort(reason);
@@ -72,6 +80,30 @@ describe("spawnDockerContainer cancellation", () => {
 
     expect(result).toMatchObject({ exitCode: null, timedOut: true });
     expect(runChild.kill).toHaveBeenCalledWith("SIGKILL");
-    expect(mocks.spawn).toHaveBeenCalledTimes(3);
+    expect(mocks.spawn).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats only Docker's exact missing-container result as idempotent cleanup", async () => {
+    const missing = child(false);
+    mocks.spawn.mockReturnValueOnce(missing);
+    const cleanup = forceRemoveContainer("already-gone");
+    missing.stderr.write("Error response from daemon: No such container: already-gone");
+    missing.emit("close", 1);
+    await expect(cleanup).resolves.toBeUndefined();
+
+    const denied = child(false);
+    mocks.spawn.mockReturnValueOnce(denied);
+    const rejected = forceRemoveContainer("owned-but-busy");
+    denied.stderr.write("permission denied");
+    denied.emit("close", 1);
+    await expect(rejected).rejects.toBeInstanceOf(DockerCommandError);
+  });
+
+  it("surfaces Docker log spawn failures instead of returning empty logs", async () => {
+    const failed = child(false);
+    mocks.spawn.mockReturnValueOnce(failed);
+    const logs = collectContainerLogs("service-a", new AbortController().signal);
+    failed.emit("error", new Error("docker executable missing"));
+    await expect(logs).rejects.toMatchObject({ failure: "spawn" });
   });
 });

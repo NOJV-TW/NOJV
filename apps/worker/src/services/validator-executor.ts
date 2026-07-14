@@ -5,6 +5,7 @@ import type { ValidatorOutcome } from "@nojv/core";
 
 import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer } from "./docker-process";
+import { buildDockerResourceLabels } from "./docker-resource";
 import { sourceExtension } from "./sandbox-plan";
 import { parseValidateOutput } from "./sandbox-schema";
 
@@ -93,6 +94,7 @@ export async function runValidator(
     memoryMb: config.memoryMb,
     pidsLimit: config.pidsLimit,
     image: config.image,
+    labels: buildDockerResourceLabels(params.runId),
   });
 
   const outerTimeoutMs = Math.min(

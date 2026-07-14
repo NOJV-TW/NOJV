@@ -20,12 +20,14 @@ describe("buildStartServiceArgs", () => {
     memoryMb: 1024,
     cpuLimit: "1.0",
     pidsLimit: 128,
+    labels: { "io.nojv.sandbox.managed": "true" },
   });
 
   it("runs the service detached on the internal network with the stable alias", () => {
     expect(args[0]).toBe("run");
     expect(args).toContain("-d");
     expect(args).toContain("--rm");
+    expect(args).toContain("io.nojv.sandbox.managed=true");
 
     const netIdx = args.indexOf("--network");
     expect(netIdx).toBeGreaterThan(0);

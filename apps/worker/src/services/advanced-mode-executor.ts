@@ -22,6 +22,7 @@ import {
 import { createLogger } from "../logger.js";
 import { createSubmissionNetwork, removeSubmissionNetwork } from "./docker-network";
 import { sanitizeId, spawnDockerContainer } from "./docker-process";
+import { buildDockerResourceLabels, dockerLabelArgs } from "./docker-resource";
 import {
   ADVANCED_SERVICE_PORT,
   collectServiceLogs,
@@ -178,6 +179,7 @@ export interface AdvancedDockerArgsParams {
   user?: string | null;
   readOnlyMounts?: { hostPath: string; containerPath: string }[];
   extraEnv?: Record<string, string>;
+  labels?: Readonly<Record<string, string>>;
 }
 
 export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): string[] {
@@ -194,6 +196,7 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
     "--rm",
     "--name",
     params.containerName,
+    ...dockerLabelArgs(params.labels ?? {}),
     ...params.networkArgs,
     "--cap-drop",
     "ALL",
@@ -517,6 +520,7 @@ export class AdvancedModeExecutor {
       submissionId: request.submissionId,
       language: request.language,
       user: RUN_USER,
+      labels: buildDockerResourceLabels(execution.runId),
       ...(net.extraEnv ? { extraEnv: net.extraEnv } : {}),
     });
     return spawnContainer({
@@ -560,6 +564,7 @@ export class AdvancedModeExecutor {
         cpuLimit: config.cpuLimit,
         pidsLimit: config.pidsLimit,
         signal: execution.signal,
+        labels: buildDockerResourceLabels(execution.runId),
       });
       serviceContainerName = handle.containerName;
       return await this.runContainer(request, execution, advanced, config, imageRef, runDir, {
@@ -577,10 +582,17 @@ export class AdvancedModeExecutor {
       };
     } finally {
       if (serviceContainerName) {
-        const serviceLogs = await collectServiceLogs(
-          serviceContainerName,
-          execution.signal,
-        ).catch(() => "");
+        let serviceLogs = "";
+        if (!execution.signal.aborted) {
+          try {
+            serviceLogs = await collectServiceLogs(serviceContainerName, execution.signal);
+          } catch (error) {
+            logger.warn("advanced service container log collection failed", {
+              submissionId: request.submissionId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
         if (serviceLogs) {
           logger.info("advanced service container log", {
             submissionId: request.submissionId,
@@ -590,7 +602,7 @@ export class AdvancedModeExecutor {
         await stopServiceContainer(serviceContainerName);
       }
       if (network) {
-        removeSubmissionNetwork(network);
+        await removeSubmissionNetwork(network);
       }
     }
   }
@@ -615,6 +627,7 @@ export class AdvancedModeExecutor {
       submissionId: request.submissionId,
       language: request.language,
       user: RUN_USER,
+      labels: buildDockerResourceLabels(execution.runId),
       readOnlyMounts: [
         { hostPath: join(gradeDir, "run-output"), containerPath: "/workspace/run-output" },
       ],

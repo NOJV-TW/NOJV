@@ -1,3 +1,5 @@
+import { dockerLabelArgs } from "./docker-resource";
+
 export interface SandboxDockerArgsParams {
   containerName: string;
   networkArgs: string[];
@@ -9,6 +11,7 @@ export interface SandboxDockerArgsParams {
   interactive?: boolean;
   artifactMount?: { hostDir: string; readOnly: boolean };
   extraEnv?: string[];
+  labels?: Readonly<Record<string, string>>;
 }
 
 export function buildSandboxDockerArgs(params: SandboxDockerArgsParams): string[] {
@@ -27,6 +30,7 @@ export function buildSandboxDockerArgs(params: SandboxDockerArgsParams): string[
     "--rm",
     "--name",
     params.containerName,
+    ...dockerLabelArgs(params.labels ?? {}),
     ...params.networkArgs,
     "--user",
     "10001:10001",

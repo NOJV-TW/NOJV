@@ -1,97 +1,136 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { executionAbortReason } from "./execution-abort";
 
 const DOCKER_CLEANUP_TIMEOUT_MS = 5_000;
+const DOCKER_INSPECT_TIMEOUT_MS = 5_000;
+const DOCKER_LOG_TIMEOUT_MS = 10_000;
+const DOCKER_COMMAND_OUTPUT_BYTES = 64 * 1024;
+
+export type DockerCommandFailure = "spawn" | "timeout" | "exit";
+
+export class DockerCommandError extends Error {
+  constructor(
+    readonly failure: DockerCommandFailure,
+    readonly args: readonly string[],
+    readonly stderr: string,
+    readonly exitCode: number | null,
+  ) {
+    super(
+      failure === "timeout"
+        ? `Docker command timed out: docker ${args.join(" ")}`
+        : failure === "spawn"
+          ? `Docker command could not start: ${stderr}`
+          : `Docker command failed (${String(exitCode)}): ${stderr || "no diagnostic output"}`,
+    );
+    this.name = "DockerCommandError";
+  }
+}
+
+export interface DockerCommandOptions {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  ignoreMissingResource?: boolean;
+}
+
+export interface DockerCommandResult {
+  stdout: string;
+  stderr: string;
+}
+
+function isMissingResourceDiagnostic(stderr: string): boolean {
+  return /(?:no such (?:container|network)|(?:container|network) .+ not found)/i.test(stderr);
+}
+
+export function runDockerCommand(
+  args: string[],
+  options: DockerCommandOptions = {},
+): Promise<DockerCommandResult> {
+  options.signal?.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
+    const stdout = createBoundedStringBuffer(DOCKER_COMMAND_OUTPUT_BYTES);
+    const stderr = createBoundedStringBuffer(DOCKER_COMMAND_OUTPUT_BYTES);
+    let settled = false;
+    let terminalError: unknown;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const settle = (error?: unknown) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (killTimer) clearTimeout(killTimer);
+      options.signal?.removeEventListener("abort", abort);
+      if (error !== undefined) {
+        reject(error instanceof Error ? error : new Error("Docker command failed."));
+      } else resolve({ stdout: stdout.toString().trim(), stderr: stderr.toString().trim() });
+    };
+    const terminate = (error: unknown) => {
+      if (terminalError !== undefined) return;
+      terminalError = error;
+      child.kill("SIGKILL");
+      killTimer = setTimeout(() => settle(error), 1_000);
+    };
+    const abort = () => {
+      if (options.signal) terminate(executionAbortReason(options.signal));
+    };
+    options.signal?.addEventListener("abort", abort, { once: true });
+    const timeout = setTimeout(
+      () => terminate(new DockerCommandError("timeout", args, stderr.toString(), null)),
+      options.timeoutMs ?? DOCKER_INSPECT_TIMEOUT_MS,
+    );
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: string) => stderr.push(chunk));
+    child.on("error", (error: Error) => {
+      settle(terminalError ?? new DockerCommandError("spawn", args, error.message, null));
+    });
+    child.on("close", (code: number | null) => {
+      if (terminalError !== undefined) {
+        settle(terminalError);
+        return;
+      }
+      const diagnostic = stderr.toString().trim();
+      if (
+        code === 0 ||
+        (options.ignoreMissingResource && isMissingResourceDiagnostic(diagnostic))
+      ) {
+        settle();
+        return;
+      }
+      settle(new DockerCommandError("exit", args, diagnostic, code));
+    });
+    child.stdin.end();
+  });
+}
 
 export function collectContainerLogs(
   containerName: string,
   signal: AbortSignal,
 ): Promise<string> {
-  signal.throwIfAborted();
-  return new Promise<string>((resolve, reject) => {
-    const buffer = createBoundedStringBuffer();
-    let settled = false;
-    const settle = (error?: unknown) => {
-      if (settled) return;
-      settled = true;
-      signal.removeEventListener("abort", abort);
-      if (error !== undefined) {
-        reject(error instanceof Error ? error : new Error("Docker log collection failed."));
-        return;
-      }
-      resolve(buffer.toString().trim());
-    };
-
-    const child = spawn("docker", ["logs", containerName], { env: process.env, stdio: "pipe" });
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      buffer.push(chunk);
-    });
-    child.stderr.on("data", (chunk: string) => {
-      buffer.push(chunk);
-    });
-    const abort = () => {
-      child.kill("SIGKILL");
-      settle(executionAbortReason(signal));
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    child.on("error", () => settle());
-    child.on("close", () => settle());
-    child.stdin.end();
-  });
+  return runDockerCommand(["logs", containerName], {
+    signal,
+    timeoutMs: DOCKER_LOG_TIMEOUT_MS,
+  }).then(({ stdout, stderr }) => [stdout, stderr].filter(Boolean).join("\n"));
 }
 
 export function sanitizeId(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
-export function runDocker(args: string[], signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted();
-  return new Promise((resolve, reject) => {
-    const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-    let stderr = "";
-    let settled = false;
-    let abortTimer: ReturnType<typeof setTimeout> | undefined;
-    const settle = (error?: unknown) => {
-      if (settled) return;
-      settled = true;
-      if (abortTimer) clearTimeout(abortTimer);
-      signal.removeEventListener("abort", abort);
-      if (error !== undefined)
-        reject(error instanceof Error ? error : new Error("Docker command failed."));
-      else resolve();
-    };
-    const abort = () => {
-      child.kill("SIGKILL");
-      abortTimer = setTimeout(
-        () => settle(executionAbortReason(signal)),
-        DOCKER_CLEANUP_TIMEOUT_MS,
-      );
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.on("error", (err: Error) => {
-      settle(signal.aborted ? executionAbortReason(signal) : err);
-    });
-    child.on("close", (code: number | null) => {
-      if (signal.aborted) {
-        settle(executionAbortReason(signal));
-        return;
-      }
-      if (code === 0) {
-        settle();
-        return;
-      }
-      settle(new Error(`docker ${args.join(" ")} failed (${String(code)}): ${stderr.trim()}`));
-    });
-    child.stdin.end();
-  });
+export function runDocker(
+  args: string[],
+  signal: AbortSignal,
+  options: { timeoutMs?: number; ignoreMissingResource?: boolean } = {},
+): Promise<void> {
+  return runDockerCommand(args, {
+    signal,
+    timeoutMs: options.timeoutMs ?? DOCKER_INSPECT_TIMEOUT_MS,
+    ...(options.ignoreMissingResource ? { ignoreMissingResource: true } : {}),
+  }).then(() => undefined);
 }
 
 export interface DockerRunResult {
@@ -113,8 +152,6 @@ export interface DockerRunOptions {
 
 export async function spawnDockerContainer(opts: DockerRunOptions): Promise<DockerRunResult> {
   opts.signal.throwIfAborted();
-  await forceRemoveContainer(opts.containerName);
-  opts.signal.throwIfAborted();
 
   return new Promise<DockerRunResult>((resolve, reject) => {
     const child = spawn("docker", opts.args, { env: process.env, stdio: "pipe" });
@@ -135,6 +172,15 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
       resolve(result);
     };
 
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (poll) clearInterval(poll);
+      opts.signal.removeEventListener("abort", abort);
+      reject(error instanceof Error ? error : new Error("Docker container execution failed."));
+    };
+
     const currentResult = (exitCode: number | null): DockerRunResult => ({
       exitCode,
       stdout: stdoutBuf.toString(),
@@ -152,20 +198,21 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
     };
 
     const abort = () => {
-      void terminate().then(() => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (poll) clearInterval(poll);
-        opts.signal.removeEventListener("abort", abort);
-        reject(executionAbortReason(opts.signal));
-      });
+      void terminate()
+        .then(() => {
+          fail(executionAbortReason(opts.signal));
+        })
+        .catch((cleanupError: unknown) =>
+          fail(new AggregateError([executionAbortReason(opts.signal), cleanupError])),
+        );
     };
     opts.signal.addEventListener("abort", abort, { once: true });
 
     const timer = setTimeout(() => {
       timedOut = true;
-      void terminate().then(() => settle(currentResult(null)));
+      void terminate()
+        .then(() => settle(currentResult(null)))
+        .catch(fail);
     }, opts.outerTimeoutMs);
 
     const watch = opts.watch;
@@ -178,7 +225,9 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
             .then((over) => {
               if (over) {
                 sizeExceeded = true;
-                void terminate().then(() => settle(currentResult(null)));
+                void terminate()
+                  .then(() => settle(currentResult(null)))
+                  .catch(fail);
               }
             })
             .finally(() => {
@@ -208,64 +257,24 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
     });
 
     child.on("close", (code: number | null) => {
-      void (termination ?? Promise.resolve()).then(() => {
-        if (opts.signal.aborted) {
-          abort();
-          return;
-        }
-        settle(currentResult(code));
-      });
+      void (termination ?? Promise.resolve())
+        .then(() => {
+          if (opts.signal.aborted) {
+            abort();
+            return;
+          }
+          settle(currentResult(code));
+        })
+        .catch(fail);
     });
 
     child.stdin.end();
   });
-}
-
-export function buildInspectNetworkIpArgs(
-  containerName: string,
-  networkName: string,
-): string[] {
-  return [
-    "inspect",
-    "-f",
-    `{{(index .NetworkSettings.Networks ${JSON.stringify(networkName)}).IPAddress}}`,
-    containerName,
-  ];
-}
-
-export function inspectContainerNetworkIp(
-  containerName: string,
-  networkName: string,
-): string | null {
-  const result = spawnSync("docker", buildInspectNetworkIpArgs(containerName, networkName), {
-    env: process.env,
-    encoding: "utf8",
-  });
-  if (result.status !== 0) return null;
-  const ip = result.stdout.trim();
-  return ip.length > 0 ? ip : null;
 }
 
 export function forceRemoveContainer(containerName: string): Promise<void> {
-  return new Promise((resolve) => {
-    const child = spawn("docker", ["rm", "-f", containerName], {
-      env: process.env,
-      stdio: "pipe",
-    });
-    let settled = false;
-    const settle = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve();
-    };
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      settle();
-    }, DOCKER_CLEANUP_TIMEOUT_MS);
-
-    child.stdin.end();
-    child.on("error", settle);
-    child.on("close", settle);
-  });
+  return runDockerCommand(["rm", "-f", containerName], {
+    timeoutMs: DOCKER_CLEANUP_TIMEOUT_MS,
+    ignoreMissingResource: true,
+  }).then(() => undefined);
 }

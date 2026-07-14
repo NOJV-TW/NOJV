@@ -31,6 +31,7 @@ export function buildStartServiceArgs(params: {
   memoryMb: number;
   cpuLimit: string;
   pidsLimit: number;
+  labels?: Readonly<Record<string, string>>;
 }): string[] {
   return buildAdvancedServiceArgs(params);
 }
@@ -76,10 +77,11 @@ export async function startServiceContainer(params: {
   cpuLimit: string;
   pidsLimit: number;
   signal: AbortSignal;
+  labels: Readonly<Record<string, string>>;
 }): Promise<ServiceContainerHandle> {
   const containerName = serviceContainerName(params.runId);
-  await forceRemoveContainer(containerName);
   params.signal.throwIfAborted();
+  let started = false;
   try {
     await runDocker(
       buildStartServiceArgs({
@@ -89,13 +91,15 @@ export async function startServiceContainer(params: {
         memoryMb: params.memoryMb,
         cpuLimit: params.cpuLimit,
         pidsLimit: params.pidsLimit,
+        labels: params.labels,
       }),
       params.signal,
     );
+    started = true;
     await waitForServiceReady(containerName, params.signal);
     return { containerName };
   } catch (err) {
-    await forceRemoveContainer(containerName);
+    if (started) await forceRemoveContainer(containerName);
     throw err;
   }
 }
