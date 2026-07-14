@@ -424,6 +424,7 @@ export async function createQueuedSubmissionRecord(
       throw new AggregateError(
         [uploadError, statusError],
         `Submission ${submissionId} upload failed and its intention could not be marked failed.`,
+        { cause: statusError },
       );
     }
     throw uploadError;

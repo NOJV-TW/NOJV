@@ -45,11 +45,12 @@ function boundedPage<T extends { id: string }>(
   next: LifecycleKindCursor | null;
 } {
   const selected = rows.slice(0, LIFECYCLE_RECONCILE_BATCH_SIZE);
+  const lastSelected = selected.at(-1);
   return {
     rows: selected,
     next:
-      rows.length > LIFECYCLE_RECONCILE_BATCH_SIZE
-        ? { afterId: selected[selected.length - 1]!.id }
+      rows.length > LIFECYCLE_RECONCILE_BATCH_SIZE && lastSelected
+        ? { afterId: lastSelected.id }
         : null,
   };
 }
