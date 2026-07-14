@@ -12,6 +12,8 @@ const {
   updateApiTokenMock,
   rotateApiTokenMock,
   revokeApiTokenMock,
+  stepUpConsumeMock,
+  formLimitMock,
 } = vi.hoisted(() => ({
   isTwoFactorActivatedMock: vi.fn(),
   hasTokenPageMfaMock: vi.fn(),
@@ -23,6 +25,13 @@ const {
   updateApiTokenMock: vi.fn(),
   rotateApiTokenMock: vi.fn(),
   revokeApiTokenMock: vi.fn(),
+  stepUpConsumeMock: vi.fn(),
+  formLimitMock: vi.fn(),
+}));
+
+vi.mock("$lib/server/shared/rate-limiter", () => ({
+  consumeFormRateLimitInternal: formLimitMock,
+  stepUpAttemptRateLimiter: { consume: stepUpConsumeMock },
 }));
 
 vi.mock("$lib/server/step-up", async () => {
@@ -123,6 +132,8 @@ beforeEach(() => {
   updateApiTokenMock.mockReset();
   rotateApiTokenMock.mockReset();
   revokeApiTokenMock.mockReset();
+  stepUpConsumeMock.mockReset().mockResolvedValue("allowed");
+  formLimitMock.mockReset().mockResolvedValue(null);
 });
 
 describe("api-tokens load gate", () => {
@@ -195,6 +206,38 @@ describe("api-tokens action guard", () => {
 });
 
 describe("api-tokens verify action", () => {
+  it("returns the form limiter failure before consuming step-up quota", async () => {
+    formLimitMock.mockResolvedValue({ status: 503, data: { error: "unavailable" } });
+    const result = await verifyActions.default(verifyEvent("123456"));
+    expect(result).toMatchObject({ status: 503 });
+    expect(stepUpConsumeMock).not.toHaveBeenCalled();
+    expect(verifyStepUpCodeMock).not.toHaveBeenCalled();
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 when the verification quota is exhausted", async () => {
+    stepUpConsumeMock.mockResolvedValue("limited");
+    const result = await verifyActions.default(verifyEvent("123456"));
+    expect(result).toMatchObject({ status: 429 });
+    expect(verifyStepUpCodeMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when verification limiting is unavailable", async () => {
+    stepUpConsumeMock.mockResolvedValue("unavailable");
+    const result = await verifyActions.default(verifyEvent("123456"));
+    expect(result).toMatchObject({ status: 503 });
+    expect(verifyStepUpCodeMock).not.toHaveBeenCalled();
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not disguise an unknown verification-limiter error", async () => {
+    const limiterError = new Error("limiter bug");
+    stepUpConsumeMock.mockRejectedValue(limiterError);
+    await expect(verifyActions.default(verifyEvent("123456"))).rejects.toBe(limiterError);
+    expect(verifyStepUpCodeMock).not.toHaveBeenCalled();
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
+  });
+
   it("rejects a malformed code with fail(400)", async () => {
     verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "malformed" });
     const result = await verifyActions.default(verifyEvent("12ab"));

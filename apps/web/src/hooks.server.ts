@@ -1,13 +1,7 @@
 import "$lib/server/otel"; // Must stay first for auto-instrumentation.
 import "$lib/server/domain-orchestration";
 
-import {
-  error,
-  isHttpError,
-  redirect,
-  type Handle,
-  type HandleServerError,
-} from "@sveltejs/kit";
+import { error, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
 import {
   apiTokenDomain,
@@ -43,7 +37,11 @@ import {
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
-import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
+import {
+  authRateLimiter,
+  signInRateLimiter,
+  type RateLimitResult,
+} from "$lib/server/shared/rate-limiter";
 import {
   deriveRequestId,
   enforceCsrf,
@@ -192,34 +190,54 @@ async function handleApiAuthRoute(
   cleanPath: string,
   resolve: HandleResolve,
 ): Promise<Response | null> {
-  if (!cleanPath.startsWith("/api/auth")) {
+  if (cleanPath !== "/api/auth" && !cleanPath.startsWith("/api/auth/")) {
     return null;
   }
+
+  const ip = getClientIp(event);
+  const authRateLimit = await authRateLimiter.consume(ip);
+  const authRateLimitResponse = blockedAuthRateLimitResponse(
+    authRateLimit,
+    event.locals.requestId,
+  );
+  if (authRateLimitResponse) return authRateLimitResponse;
 
   const isPasswordSignIn =
     event.request.method === "POST" &&
     (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
   if (isPasswordSignIn) {
-    const ip = getClientIp(event);
-    try {
-      await signInRateLimiter.consume(ip);
-    } catch (err) {
-      if (isHttpError(err)) throw err;
-      return new Response(
-        JSON.stringify({ message: "Too many sign-in attempts. Try again later." }),
-        {
-          status: 429,
-          headers: {
-            "content-type": "application/json",
-            "x-request-id": event.locals.requestId,
-          },
-        },
-      );
-    }
+    const rateLimit = await signInRateLimiter.consume(ip);
+    const signInRateLimitResponse = blockedAuthRateLimitResponse(
+      rateLimit,
+      event.locals.requestId,
+      "Too many sign-in attempts. Try again later.",
+    );
+    if (signInRateLimitResponse) return signInRateLimitResponse;
   }
   const response = await resolve(event);
   response.headers.set("x-request-id", event.locals.requestId);
   return response;
+}
+
+function blockedAuthRateLimitResponse(
+  result: RateLimitResult,
+  requestId: string,
+  limitedMessage = "Too many authentication requests. Try again later.",
+): Response | null {
+  if (result === "allowed") return null;
+  const unavailable = result === "unavailable";
+  return new Response(
+    JSON.stringify({
+      message: unavailable ? "Authentication rate limiter unavailable." : limitedMessage,
+    }),
+    {
+      status: unavailable ? 503 : 429,
+      headers: {
+        "content-type": "application/json",
+        "x-request-id": requestId,
+      },
+    },
+  );
 }
 
 async function loadSession(event: HandleEvent): Promise<void> {

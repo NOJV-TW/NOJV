@@ -116,6 +116,7 @@ vi.mock("$lib/auth.server", () => ({
 }));
 
 vi.mock("$lib/server/shared/rate-limiter", () => ({
+  consumeFormRateLimitInternal: vi.fn().mockResolvedValue(null),
   otpSendRateLimiter: { consume: otpConsumeMock },
   stepUpAttemptRateLimiter: { consume: stepUpConsumeMock },
 }));
@@ -207,8 +208,8 @@ beforeEach(() => {
   generateBackupCodesMock.mockReset();
   listPasskeysMock.mockReset().mockResolvedValue([]);
   deletePasskeyMock.mockReset().mockResolvedValue(undefined);
-  otpConsumeMock.mockReset().mockResolvedValue(undefined);
-  stepUpConsumeMock.mockReset().mockResolvedValue(undefined);
+  otpConsumeMock.mockReset().mockResolvedValue("allowed");
+  stepUpConsumeMock.mockReset().mockResolvedValue("allowed");
   cookiesSetMock.mockReset();
 });
 
@@ -233,9 +234,23 @@ describe("sendEmailOtp", () => {
   });
 
   it("fails 429 when the send rate limit is exceeded", async () => {
-    otpConsumeMock.mockRejectedValue(new Error("rate limited"));
+    otpConsumeMock.mockResolvedValue("limited");
     const result = await actions.sendEmailOtp(makeEvent());
     expect(result).toMatchObject({ status: 429 });
+    expect(storeActivationOtpMock).not.toHaveBeenCalled();
+  });
+
+  it("fails 503 when send limiting is unavailable", async () => {
+    otpConsumeMock.mockResolvedValue("unavailable");
+    const result = await actions.sendEmailOtp(makeEvent());
+    expect(result).toMatchObject({ status: 503 });
+    expect(storeActivationOtpMock).not.toHaveBeenCalled();
+  });
+
+  it("does not disguise an unknown send-limiter error", async () => {
+    const limiterError = new Error("limiter bug");
+    otpConsumeMock.mockRejectedValue(limiterError);
+    await expect(actions.sendEmailOtp(makeEvent())).rejects.toBe(limiterError);
     expect(storeActivationOtpMock).not.toHaveBeenCalled();
   });
 
@@ -269,6 +284,32 @@ describe("activate", () => {
     verifyActivationOtpMock.mockResolvedValue({ ok: false, reason: "invalid" });
     const result = await actions.activate(makeEvent({ body: form({ otp: "000000" }) }));
     expect(result).toMatchObject({ status: 401 });
+    expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
+  it("fails 429 before verifying the OTP when step-up quota is exhausted", async () => {
+    stepUpConsumeMock.mockResolvedValue("limited");
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(result).toMatchObject({ status: 429 });
+    expect(verifyActivationOtpMock).not.toHaveBeenCalled();
+    expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
+  it("fails 503 before verifying the OTP when step-up limiting is unavailable", async () => {
+    stepUpConsumeMock.mockResolvedValue("unavailable");
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(result).toMatchObject({ status: 503 });
+    expect(verifyActivationOtpMock).not.toHaveBeenCalled();
+    expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
+  it("does not disguise an unknown step-up limiter error", async () => {
+    const limiterError = new Error("limiter bug");
+    stepUpConsumeMock.mockRejectedValue(limiterError);
+    await expect(actions.activate(makeEvent({ body: form({ otp: "123456" }) }))).rejects.toBe(
+      limiterError,
+    );
+    expect(verifyActivationOtpMock).not.toHaveBeenCalled();
     expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
   });
 
@@ -357,11 +398,20 @@ describe("deactivate", () => {
 
   it("fails 429 when the step-up attempt rate limit is exceeded", async () => {
     isTwoFactorActivatedMock.mockResolvedValue(true);
-    stepUpConsumeMock.mockRejectedValue(new Error("rate limited"));
+    stepUpConsumeMock.mockResolvedValue("limited");
     const result = await actions.deactivate(
       makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
     );
     expect(result).toMatchObject({ status: 429 });
+  });
+
+  it("fails 503 when step-up limiting is unavailable", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    stepUpConsumeMock.mockResolvedValue("unavailable");
+    const result = await actions.deactivate(
+      makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
+    );
+    expect(result).toMatchObject({ status: 503 });
   });
 });
 

@@ -11,6 +11,7 @@ import {
   securityGenerationProof,
   verifyStepUpCode,
 } from "$lib/server/step-up";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 
 const ADMIN_MODE_PURPOSE = "admin-mode";
@@ -48,13 +49,15 @@ export const load = async (event: RequestEvent) => {
 };
 
 export const actions = {
-  default: async (event) => {
+  default: withRateLimit(async (event) => {
     const actor = requireAuth(event);
 
-    try {
-      await stepUpAttemptRateLimiter.consume(actor.userId);
-    } catch {
+    const rateLimit = await stepUpAttemptRateLimiter.consume(actor.userId);
+    if (rateLimit === "limited") {
       return fail(429, { error: "Too many attempts. Please try again later." });
+    }
+    if (rateLimit === "unavailable") {
+      return fail(503, { error: "Rate limiter unavailable. Please try again later." });
     }
 
     const formData = await event.request.formData();
@@ -104,5 +107,5 @@ export const actions = {
     }
 
     redirect(303, DEFAULT_DESTINATION);
-  },
+  }),
 } satisfies Actions;

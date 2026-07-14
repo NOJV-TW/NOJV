@@ -22,7 +22,11 @@ import {
 } from "$lib/server/auth-factor-mutation";
 import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
-import { otpSendRateLimiter, stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
+import {
+  otpSendRateLimiter,
+  stepUpAttemptRateLimiter,
+  type RateLimitResult,
+} from "$lib/server/shared/rate-limiter";
 import {
   clearStepUp,
   hasFreshStepUp,
@@ -203,13 +207,18 @@ async function passwordBodyForBetterAuth(
   return password ? { password } : {};
 }
 
-async function withinStepUpAttemptLimit(userId: string): Promise<boolean> {
-  try {
-    await stepUpAttemptRateLimiter.consume(userId);
-    return true;
-  } catch {
-    return false;
-  }
+function rateLimitFailure(result: RateLimitResult, limitedMessage: string) {
+  if (result === "allowed") return null;
+  return result === "limited"
+    ? fail(429, { error: limitedMessage })
+    : fail(503, { error: "Rate limiter unavailable. Please try again later." });
+}
+
+async function consumeStepUpAttemptLimit(userId: string) {
+  return rateLimitFailure(
+    await stepUpAttemptRateLimiter.consume(userId),
+    "Too many attempts. Please try again later.",
+  );
 }
 
 export const loadTwoFactor = async (event: RequestEvent) => {
@@ -241,11 +250,11 @@ export const twoFactorActions = {
     if (activated && hasDeviceFactor) {
       return fail(400, { error: "Use your authenticator or passkey to verify." });
     }
-    try {
-      await otpSendRateLimiter.consume(actor.userId);
-    } catch {
-      return fail(429, { error: "Too many requests. Please try again later." });
-    }
+    const rateLimit = rateLimitFailure(
+      await otpSendRateLimiter.consume(actor.userId),
+      "Too many requests. Please try again later.",
+    );
+    if (rateLimit) return rateLimit;
     const otp = generateActivationOtp();
     await storeActivationOtp(actor.userId, otp);
     try {
@@ -273,11 +282,8 @@ export const twoFactorActions = {
     if (await isTwoFactorActivated(actor.userId)) {
       return fail(400, { error: "Two-factor authentication is already on." });
     }
-    try {
-      await stepUpAttemptRateLimiter.consume(actor.userId);
-    } catch {
-      return fail(429, { error: "Too many attempts. Please try again later." });
-    }
+    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
+    if (rateLimit) return rateLimit;
     const otp = formString(await event.request.formData(), "otp");
     const result = await verifyActivationOtp(actor.userId, otp);
     if (!result.ok) {
@@ -310,9 +316,8 @@ export const twoFactorActions = {
     if (!(await isTwoFactorActivated(actor.userId))) {
       return fail(400, { error: "Two-factor authentication is not on." });
     }
-    if (!(await withinStepUpAttemptLimit(actor.userId))) {
-      return fail(429, { error: "Too many attempts. Please try again later." });
-    }
+    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
+    if (rateLimit) return rateLimit;
     const formData = await event.request.formData();
     const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
@@ -418,9 +423,8 @@ export const twoFactorActions = {
     if (!event.locals.sessionUser?.twoFactorEnabled) {
       return fail(400, { error: "Two-factor authentication is not enabled." });
     }
-    if (!(await withinStepUpAttemptLimit(actor.userId))) {
-      return fail(429, { error: "Too many attempts. Please try again later." });
-    }
+    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
+    if (rateLimit) return rateLimit;
     const formData = await event.request.formData();
     const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
@@ -452,9 +456,8 @@ export const twoFactorActions = {
     if (!event.locals.sessionUser?.twoFactorEnabled) {
       return fail(400, { error: "Two-factor authentication is not enabled." });
     }
-    if (!(await withinStepUpAttemptLimit(actor.userId))) {
-      return fail(429, { error: "Too many attempts. Please try again later." });
-    }
+    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
+    if (rateLimit) return rateLimit;
     const formData = await event.request.formData();
     const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
@@ -488,9 +491,8 @@ export const twoFactorActions = {
     if (!id) {
       return fail(400, { error: "Missing passkey id." });
     }
-    if (!(await withinStepUpAttemptLimit(actor.userId))) {
-      return fail(429, { error: "Too many attempts. Please try again later." });
-    }
+    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
+    if (rateLimit) return rateLimit;
     const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
     if (!authz.ok) {
       return fail(

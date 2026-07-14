@@ -3,8 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestUser } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
-const { resolveAdminElevationSpy } = vi.hoisted(() => ({
+const { resolveAdminElevationSpy, authConsumeSpy, signInConsumeSpy } = vi.hoisted(() => ({
   resolveAdminElevationSpy: vi.fn(),
+  authConsumeSpy: vi.fn(),
+  signInConsumeSpy: vi.fn(),
+}));
+
+vi.mock("$lib/server/shared/rate-limiter", () => ({
+  authRateLimiter: { consume: authConsumeSpy },
+  signInRateLimiter: { consume: signInConsumeSpy },
 }));
 
 vi.mock("$lib/server/step-up", async () => {
@@ -46,9 +53,106 @@ const NO_RESOLVE = {};
 
 beforeEach(() => {
   resolveAdminElevationSpy.mockClear();
+  authConsumeSpy.mockReset().mockResolvedValue("allowed");
+  signInConsumeSpy.mockReset().mockResolvedValue("allowed");
 });
 
 describe("hooks.server guard chain (request-layer redirects)", () => {
+  it("returns 429 when the general authentication quota is exhausted", async () => {
+    authConsumeSpy.mockResolvedValue("limited");
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 302 }));
+    const res = await callRoute({
+      path: "/api/auth/callback/github",
+      module: { GET: handler },
+    });
+    expect(res.status).toBe(429);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("strictly limits mutating Better Auth GET routes", async () => {
+    authConsumeSpy.mockResolvedValue("unavailable");
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 302 }));
+    const res = await callRoute({
+      path: "/api/auth/callback/github",
+      module: { GET: handler },
+    });
+    expect(res.status).toBe(503);
+    expect(authConsumeSpy).toHaveBeenCalledOnce();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("strictly fails get-session closed when authentication limiting is unavailable", async () => {
+    authConsumeSpy.mockResolvedValue("unavailable");
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const res = await callRoute({
+      path: "/api/auth/get-session",
+      module: { GET: handler },
+    });
+    expect(res.status).toBe(503);
+    expect(authConsumeSpy).toHaveBeenCalledOnce();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 for exhausted password sign-in quota", async () => {
+    signInConsumeSpy.mockResolvedValue("limited");
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const res = await callRoute({
+      path: "/api/auth/sign-in/email",
+      method: "POST",
+      module: { POST: handler },
+    });
+    expect(res.status).toBe(429);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("applies the password sign-in quota to the username route", async () => {
+    signInConsumeSpy.mockResolvedValue("limited");
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const res = await callRoute({
+      path: "/api/auth/sign-in/username",
+      method: "POST",
+      module: { POST: handler },
+    });
+    expect(res.status).toBe(429);
+    expect(signInConsumeSpy).toHaveBeenCalledOnce();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when password sign-in limiting is unavailable", async () => {
+    signInConsumeSpy.mockResolvedValue("unavailable");
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const res = await callRoute({
+      path: "/api/auth/sign-in/email",
+      method: "POST",
+      module: { POST: handler },
+    });
+    expect(res.status).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does not disguise an unknown password sign-in limiter error", async () => {
+    const limiterError = new Error("limiter bug");
+    signInConsumeSpy.mockRejectedValue(limiterError);
+    await expect(
+      callRoute({
+        path: "/api/auth/sign-in/email",
+        method: "POST",
+        module: { POST: vi.fn() },
+      }),
+    ).rejects.toBe(limiterError);
+  });
+
+  it("does not disguise an unknown auth-limiter error", async () => {
+    const limiterError = new Error("limiter bug");
+    authConsumeSpy.mockRejectedValue(limiterError);
+    await expect(
+      callRoute({
+        path: "/api/auth/callback/github",
+        module: { GET: vi.fn() },
+      }),
+    ).rejects.toBe(limiterError);
+  });
+
   it("does not resolve admin elevation for a non-admin account", async () => {
     const user = await createTestUser({
       username: "teacher_fast_path",

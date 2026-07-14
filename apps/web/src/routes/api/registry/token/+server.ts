@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 
 import { registryDomain } from "@nojv/application";
 import { getWebEnv } from "$lib/server/env";
-import { apiHandler } from "$lib/server/shared/api-handler";
+import { registryTokenApiHandler } from "$lib/server/shared/api-handler";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 import { isRegistryTokenConfigured, signRegistryToken } from "$lib/server/registry-token";
@@ -40,9 +40,13 @@ async function resolvePrincipal(
   if (!credentials || credentials.username === "") return { kind: "anonymous" };
 
   const failClosed = async () => {
-    await signInRateLimiter.consume(`registry:${getClientIp(event)}`).catch(() => {
+    const rateLimit = await signInRateLimiter.consume(`registry:${getClientIp(event)}`);
+    if (rateLimit === "limited") {
       error(429, "Too many attempts");
-    });
+    }
+    if (rateLimit === "unavailable") {
+      error(503, "Rate limiter unavailable");
+    }
     unauthorized();
   };
 
@@ -98,7 +102,7 @@ async function issueToken(
   });
 }
 
-export const GET: RequestHandler = apiHandler(async (event) => {
+export const GET: RequestHandler = registryTokenApiHandler(async (event) => {
   const credentials = parseBasicAuth(event.request.headers.get("authorization"));
   return issueToken(
     event,
@@ -108,7 +112,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   );
 });
 
-export const POST: RequestHandler = apiHandler(async (event) => {
+export const POST: RequestHandler = registryTokenApiHandler(async (event) => {
   const form = await event.request.formData().catch(() => {
     error(400, "Invalid request body");
   });
