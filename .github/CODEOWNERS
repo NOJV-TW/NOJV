@@ -1,0 +1,8 @@
+* @TakalaWang @su-nz @RokuSennyou
+
+/.github/ @TakalaWang @su-nz @RokuSennyou
+/infra/ @TakalaWang @su-nz @RokuSennyou
+/packages/db/prisma/migrations/ @TakalaWang @su-nz @RokuSennyou
+/apps/web/src/hooks.server.ts @TakalaWang @su-nz @RokuSennyou
+/apps/web/src/routes/api/admin-mode/ @TakalaWang @su-nz @RokuSennyou
+/apps/worker/src/services/ @TakalaWang @su-nz @RokuSennyou
