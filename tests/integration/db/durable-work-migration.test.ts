@@ -90,6 +90,18 @@ describe("durable work migration", () => {
           "('bad-leased', 'kind', 'key-3', '{}', 'leased', NOW(), 1, 3, NOW(), NOW())",
         ),
       ).rejects.toThrow();
+      await expect(
+        invalidInsert(
+          "('bad-cancelled', 'kind', 'key-4', '{}', 'cancelled', NOW(), 0, 3, NOW(), NOW())",
+        ),
+      ).rejects.toThrow();
+      await expect(
+        testPrisma.$executeRawUnsafe(`
+          INSERT INTO "${schema}"."DurableWork"
+            ("id", "kind", "dedupeKey", "payload", "status", "availableAt", "attempt", "maxAttempts", "completedAt", "createdAt", "updatedAt")
+          VALUES ('valid-cancelled', 'kind', 'key-5', '{}', 'cancelled', NOW(), 0, 3, NOW(), NOW(), NOW())
+        `),
+      ).resolves.toBe(1);
     } finally {
       await testPrisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     }

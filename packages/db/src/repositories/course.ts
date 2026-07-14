@@ -89,6 +89,10 @@ export const courseRepo = {
 
   withTx(tx: TxClient) {
     return {
+      lockForUpdate(courseId: string) {
+        return tx.$queryRaw`SELECT id FROM "Course" WHERE id = ${courseId} FOR UPDATE`;
+      },
+
       findById(id: string) {
         return tx.course.findUnique({ where: { id } });
       },
@@ -208,6 +212,14 @@ export const courseMembershipRepo = {
         return tx.courseMembership.findUnique({
           where: { courseId_userId: { courseId, userId } },
         });
+      },
+
+      async listActiveMemberUserIds(courseId: string) {
+        const rows = await tx.courseMembership.findMany({
+          where: { courseId, status: "active" },
+          select: { userId: true },
+        });
+        return rows.map((row) => row.userId);
       },
 
       create(data: Prisma.CourseMembershipUncheckedCreateInput) {

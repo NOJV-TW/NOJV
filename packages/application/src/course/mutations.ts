@@ -33,6 +33,8 @@ import {
   assertProblemHasWorkspaceForLanguages,
 } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
+import { assignmentDueSoonInput } from "../shared/lifecycle-input";
+import { getDomainOrchestration } from "../shared/orchestration";
 
 async function assertCourseManager(
   tx: TransactionClient,
@@ -81,7 +83,7 @@ export async function manuallyEnrollCourseMember(
   actor: ActorContext,
   payload: ManualCourseEnrollment,
 ) {
-  const { course, membership } = await runTransaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const course = await requireCourse(tx, payload.courseId);
     const manager = await ensureUser(tx, actor.userId, actor);
     const user = await ensureUser(tx, `usr_${payload.username}`, {
@@ -110,19 +112,18 @@ export async function manuallyEnrollCourseMember(
       },
     );
 
-    return { course, membership };
+    if (payload.role === "student") {
+      await notificationDomain.createNotificationInTransaction(tx, {
+        userId: membership.userId,
+        type: "course_enrolled",
+        params: { courseId: course.id, courseName: course.title },
+        linkUrl: `/courses/${course.id}`,
+        dedupeKey: `course_enrolled:${membership.id}:${membership.joinedAt.toISOString()}`,
+      });
+    }
+
+    return membership;
   });
-
-  if (payload.role === "student") {
-    await notificationDomain.createNotification({
-      userId: membership.userId,
-      type: "course_enrolled",
-      params: { courseId: course.id, courseName: course.title },
-      linkUrl: `/courses/${course.id}`,
-    });
-  }
-
-  return membership;
 }
 
 function generateAssignmentId(title: string): string {
@@ -142,7 +143,8 @@ export async function createCourseAssignmentRecord(
   courseId: string,
   payload: CourseAssignmentFormData,
 ) {
-  return runTransaction(async (tx) => {
+  const assignment = await runTransaction(async (tx) => {
+    await courseRepo.withTx(tx).lockForUpdate(courseId);
     const course = await requireCourse(tx, courseId);
     await assertCourseManager(tx, actor, course.id);
     const creator = await ensureUser(tx, actor.userId, actor);
@@ -210,6 +212,12 @@ export async function createCourseAssignmentRecord(
 
     return assignment;
   });
+
+  if (assignment.status === "published") {
+    await getDomainOrchestration().ensureAssignmentDueSoon(assignmentDueSoonInput(assignment));
+  }
+
+  return assignment;
 }
 
 export async function updateCourse(
@@ -218,6 +226,7 @@ export async function updateCourse(
   payload: CourseUpdate,
 ) {
   return runTransaction(async (tx) => {
+    await courseRepo.withTx(tx).lockForUpdate(courseId);
     await requireCourse(tx, courseId);
     await assertCourseManager(tx, actor, courseId);
 
@@ -232,6 +241,7 @@ export async function updateCourse(
 
 export async function deleteCourse(actor: ActorContext, courseId: string) {
   return runTransaction(async (tx) => {
+    await courseRepo.withTx(tx).lockForUpdate(courseId);
     await requireCourse(tx, courseId);
     await assertCourseManager(tx, actor, courseId);
 
@@ -254,6 +264,7 @@ export async function setCourseArchived(
   archived: boolean,
 ) {
   return runTransaction(async (tx) => {
+    await courseRepo.withTx(tx).lockForUpdate(courseId);
     await requireCourse(tx, courseId);
     await assertCourseManager(tx, actor, courseId);
 
@@ -275,6 +286,7 @@ export async function copyCourse(
   }
 
   return runTransaction(async (tx) => {
+    await courseRepo.withTx(tx).lockForUpdate(sourceCourseId);
     const source = await requireCourse(tx, sourceCourseId);
     await assertCourseManager(tx, actor, source.id);
 

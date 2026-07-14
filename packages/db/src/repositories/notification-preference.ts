@@ -1,5 +1,6 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
+import type { TransactionClient } from "../transaction";
 
 export type NotificationPreferenceValues = Omit<
   Prisma.NotificationPreferenceUncheckedCreateInput,
@@ -24,5 +25,16 @@ export const notificationPreferenceRepo = {
     return prisma.notificationPreference.findMany({
       where: { userId: { in: userIds } },
     });
+  },
+
+  withTx(tx: TransactionClient) {
+    return {
+      findManyByUserIds(userIds: readonly string[]) {
+        if (userIds.length === 0) return Promise.resolve([]);
+        return tx.notificationPreference.findMany({
+          where: { userId: { in: [...userIds] } },
+        });
+      },
+    };
   },
 };

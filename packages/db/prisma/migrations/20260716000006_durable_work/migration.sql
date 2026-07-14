@@ -1,4 +1,4 @@
-CREATE TYPE "DurableWorkStatus" AS ENUM ('pending', 'leased', 'succeeded', 'dead');
+CREATE TYPE "DurableWorkStatus" AS ENUM ('pending', 'leased', 'succeeded', 'dead', 'cancelled');
 
 CREATE TABLE "DurableWork" (
   "id" TEXT NOT NULL,
@@ -12,6 +12,7 @@ CREATE TABLE "DurableWork" (
   "attempt" INTEGER NOT NULL DEFAULT 0,
   "maxAttempts" INTEGER NOT NULL DEFAULT 8,
   "lastError" TEXT,
+  "result" JSONB,
   "completedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -61,6 +62,13 @@ CHECK (
   OR (
     "status" IN ('succeeded', 'dead')
     AND "attempt" BETWEEN 1 AND "maxAttempts"
+    AND "leaseOwner" IS NULL
+    AND "leaseExpiresAt" IS NULL
+    AND "completedAt" IS NOT NULL
+  )
+  OR (
+    "status" = 'cancelled'
+    AND "attempt" BETWEEN 0 AND "maxAttempts"
     AND "leaseOwner" IS NULL
     AND "leaseExpiresAt" IS NULL
     AND "completedAt" IS NOT NULL

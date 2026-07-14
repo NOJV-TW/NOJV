@@ -1,5 +1,8 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { prisma } from "../client";
 import { Prisma, type NotificationType } from "../../generated/prisma/client";
+import type { TransactionClient } from "../transaction";
 
 export const NOTIFICATION_RETENTION_PER_USER = 50;
 
@@ -9,6 +12,13 @@ export interface NotificationCreateInput {
   params: Prisma.InputJsonValue;
   linkUrl?: string | null;
   dedupeKey?: string | null;
+}
+
+export class NotificationDedupeConflictError extends Error {
+  constructor(dedupeKey: string) {
+    super(`Notification dedupe key was reused with different content: ${dedupeKey}`);
+    this.name = "NotificationDedupeConflictError";
+  }
 }
 
 export const notificationRepo = {
@@ -24,81 +34,6 @@ export const notificationRepo = {
     return prisma.notification.count({ where: { userId, readAt: null } });
   },
 
-  async createAndCap(input: NotificationCreateInput) {
-    if (input.dedupeKey != null) {
-      const existing = await prisma.notification.findUnique({
-        where: { dedupeKey: input.dedupeKey },
-      });
-      if (existing) return existing;
-    }
-
-    try {
-      return await prisma.$transaction(async (tx) => {
-        const row = await tx.notification.create({
-          data: {
-            userId: input.userId,
-            type: input.type,
-            params: input.params,
-            linkUrl: input.linkUrl ?? null,
-            dedupeKey: input.dedupeKey ?? null,
-          },
-        });
-
-        await tx.$executeRaw`
-          DELETE FROM "Notification"
-          WHERE "id" IN (
-            SELECT "id" FROM "Notification"
-            WHERE "userId" = ${input.userId}
-            ORDER BY "createdAt" DESC
-            OFFSET ${NOTIFICATION_RETENTION_PER_USER}
-          )
-        `;
-
-        return row;
-      });
-    } catch (err) {
-      if (
-        input.dedupeKey != null &&
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === "P2002"
-      ) {
-        const existing = await prisma.notification.findUnique({
-          where: { dedupeKey: input.dedupeKey },
-        });
-        if (existing) return existing;
-      }
-      throw err;
-    }
-  },
-
-  async createManyAndCap(inputs: NotificationCreateInput[]) {
-    if (inputs.length === 0) return 0;
-    const result = await prisma.notification.createMany({
-      data: inputs.map((i) => ({
-        userId: i.userId,
-        type: i.type,
-        params: i.params,
-        linkUrl: i.linkUrl ?? null,
-        dedupeKey: i.dedupeKey ?? null,
-      })),
-      skipDuplicates: true,
-    });
-
-    const userIds = Array.from(new Set(inputs.map((i) => i.userId)));
-    await capRetentionForUsers(userIds);
-
-    return result.count;
-  },
-
-  async listExistingDedupeKeys(keys: string[]): Promise<string[]> {
-    if (keys.length === 0) return [];
-    const rows = await prisma.notification.findMany({
-      where: { dedupeKey: { in: keys } },
-      select: { dedupeKey: true },
-    });
-    return rows.map((r) => r.dedupeKey).filter((k): k is string => k != null);
-  },
-
   async markRead(userId: string, notificationId: string) {
     const row = await prisma.notification.updateMany({
       where: { id: notificationId, userId, readAt: null },
@@ -112,7 +47,7 @@ export const notificationRepo = {
       where: { userId, readAt: null },
       data: { readAt: new Date() },
     });
-    await capRetentionForUsers([userId]);
+    await capRetentionForUsers(prisma, [userId]);
     return row.count;
   },
 
@@ -132,11 +67,99 @@ export const notificationRepo = {
     });
     return result.count;
   },
+
+  withTx(tx: TransactionClient) {
+    return {
+      async createAndCap(input: NotificationCreateInput) {
+        const created = await tx.notification.createManyAndReturn({
+          data: [notificationData(input)],
+          skipDuplicates: true,
+        });
+        const row =
+          created[0] ??
+          (input.dedupeKey
+            ? await tx.notification.findUniqueOrThrow({
+                where: { dedupeKey: input.dedupeKey },
+              })
+            : null);
+        if (!row) {
+          throw new Error("Notification insert returned no row without a dedupe key.");
+        }
+        if (!created[0]) assertCanonicalNotification(row, input);
+        await capRetentionForUsers(tx, [input.userId]);
+        return { row, created: created.length === 1 };
+      },
+
+      async createManyAndCap(inputs: readonly NotificationCreateInput[]) {
+        if (inputs.length === 0) return [];
+        const keyedInputs = inputs.filter(
+          (input): input is NotificationCreateInput & { dedupeKey: string } =>
+            input.dedupeKey != null,
+        );
+        if (new Set(keyedInputs.map((input) => input.dedupeKey)).size !== keyedInputs.length) {
+          throw new RangeError("Notification batch dedupe keys must be unique.");
+        }
+        const rows = await tx.notification.createManyAndReturn({
+          data: inputs.map(notificationData),
+          skipDuplicates: true,
+        });
+        if (keyedInputs.length > 0) {
+          const stored = await tx.notification.findMany({
+            where: { dedupeKey: { in: keyedInputs.map((input) => input.dedupeKey) } },
+          });
+          const byKey = new Map(stored.map((row) => [row.dedupeKey, row]));
+          for (const input of keyedInputs) {
+            const row = byKey.get(input.dedupeKey);
+            if (!row)
+              throw new Error(`Notification disappeared after insert: ${input.dedupeKey}`);
+            assertCanonicalNotification(row, input);
+          }
+        }
+        await capRetentionForUsers(tx, [...new Set(inputs.map((input) => input.userId))]);
+        return rows;
+      },
+    };
+  },
 };
 
-async function capRetentionForUsers(userIds: string[]): Promise<void> {
+function notificationData(input: NotificationCreateInput) {
+  return {
+    userId: input.userId,
+    type: input.type,
+    params: input.params,
+    linkUrl: input.linkUrl ?? null,
+    dedupeKey: input.dedupeKey ?? null,
+  } satisfies Prisma.NotificationCreateManyInput;
+}
+
+function assertCanonicalNotification(
+  row: {
+    userId: string;
+    type: NotificationType;
+    params: Prisma.JsonValue;
+    linkUrl: string | null;
+    dedupeKey: string | null;
+  },
+  input: NotificationCreateInput,
+): void {
+  if (
+    row.userId !== input.userId ||
+    row.type !== input.type ||
+    row.linkUrl !== (input.linkUrl ?? null) ||
+    !isDeepStrictEqual(row.params, input.params)
+  ) {
+    throw new NotificationDedupeConflictError(input.dedupeKey ?? "<none>");
+  }
+}
+
+type NotificationRetentionClient = Pick<TransactionClient, "$executeRaw">;
+
+async function capRetentionForUsers(
+  client: NotificationRetentionClient,
+  userIds: string[],
+): Promise<void> {
   if (userIds.length === 0) return;
-  await prisma.$executeRaw`
+  await client.$executeRaw`
     DELETE FROM "Notification"
     WHERE "id" IN (
       SELECT "id" FROM (

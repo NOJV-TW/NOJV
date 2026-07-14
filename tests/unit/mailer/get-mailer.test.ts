@@ -132,6 +132,7 @@ describe("getMailer", () => {
         to: "secret-recipient@example.com",
         subject: "secret subject",
         html: "<p>OTP 123456</p>",
+        messageId: "<secret@nojv.local>",
       }),
     ).resolves.toBe("suppressed");
 
@@ -153,7 +154,12 @@ describe("getMailer", () => {
     const { getMailer } = await importMailer();
 
     await expect(
-      getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" }),
+      getMailer().sendEmail({
+        to: "a@b.c",
+        subject: "hi",
+        html: "<p>h</p>",
+        messageId: "<test@nojv.local>",
+      }),
     ).resolves.toBe("accepted");
 
     expect(createTransport).toHaveBeenCalledWith({
@@ -170,13 +176,19 @@ describe("getMailer", () => {
       to: "a@b.c",
       subject: "hi",
       html: "<p>h</p>",
+      messageId: "<test@nojv.local>",
     });
   });
 
   it("uses STARTTLS for port 587", async () => {
     useSmtpEnv("587");
     const { getMailer } = await importMailer();
-    await getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" });
+    await getMailer().sendEmail({
+      to: "a@b.c",
+      subject: "hi",
+      html: "<p>h</p>",
+      messageId: "<test@nojv.local>",
+    });
     expect(createTransport).toHaveBeenCalledWith(
       expect.objectContaining({ port: 587, secure: false, requireTLS: true }),
     );
@@ -187,7 +199,12 @@ describe("getMailer", () => {
     sendMail.mockResolvedValueOnce({ accepted: [], rejected: ["a@b.c"] });
     const { getMailer } = await importMailer();
     await expect(
-      getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" }),
+      getMailer().sendEmail({
+        to: "a@b.c",
+        subject: "hi",
+        html: "<p>h</p>",
+        messageId: "<test@nojv.local>",
+      }),
     ).rejects.toThrow(/accepted no recipients/i);
   });
 
@@ -198,7 +215,12 @@ describe("getMailer", () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const { getMailer } = await importMailer();
     await expect(
-      getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" }),
+      getMailer().sendEmail({
+        to: "a@b.c",
+        subject: "hi",
+        html: "<p>h</p>",
+        messageId: "<test@nojv.local>",
+      }),
     ).rejects.toBe(smtpError);
     expect(info).not.toHaveBeenCalled();
   });

@@ -98,8 +98,14 @@ function createMailer(): Mailer {
   });
 
   return {
-    async sendEmail({ to, subject, html }) {
-      const result = await transporter.sendMail({ from: env.SMTP_FROM, to, subject, html });
+    async sendEmail({ to, subject, html, messageId }) {
+      const result = await transporter.sendMail({
+        from: env.SMTP_FROM,
+        to,
+        subject,
+        html,
+        ...(messageId ? { messageId } : {}),
+      });
       if (!Array.isArray(result.accepted) || result.accepted.length === 0) {
         throw new Error("SMTP accepted no recipients");
       }

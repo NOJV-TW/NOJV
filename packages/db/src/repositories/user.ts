@@ -195,6 +195,20 @@ export const userRepo = {
         return tx.user.findUnique({ where: { username } });
       },
 
+      listActiveIds() {
+        return tx.user.findMany({
+          where: { status: "active" },
+          select: { id: true },
+        });
+      },
+
+      listEmailByIds(ids: readonly string[]) {
+        return tx.user.findMany({
+          where: { id: { in: [...ids] } },
+          select: { id: true, email: true, emailVerified: true },
+        });
+      },
+
       create(data: Prisma.UserCreateInput) {
         return tx.user.create({ data });
       },

@@ -1,5 +1,8 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { prisma } from "../client";
 import { Prisma, type DurableWorkStatus } from "../../generated/prisma/client";
+import type { TransactionClient } from "../transaction";
 
 const MAX_KIND_LENGTH = 64;
 const MAX_DEDUPE_KEY_LENGTH = 256;
@@ -7,6 +10,7 @@ const MAX_OWNER_LENGTH = 128;
 const MAX_BATCH_SIZE = 100;
 const MAX_LEASE_DURATION_MS = 60 * 60 * 1_000;
 const MAX_ATTEMPTS = 100;
+const IMMEDIATELY_AVAILABLE_AT = new Date(0);
 
 export interface DurableWorkRow {
   id: string;
@@ -20,6 +24,7 @@ export interface DurableWorkRow {
   attempt: number;
   maxAttempts: number;
   lastError: string | null;
+  result: Prisma.JsonValue | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -53,6 +58,24 @@ export interface DurableWorkRetryInput extends DurableWorkFence {
   error: string;
 }
 
+export interface DurableWorkCompleteInput extends DurableWorkFence {
+  result?: Prisma.InputJsonValue;
+}
+
+export interface DurableWorkKey {
+  kind: string;
+  dedupeKey: string;
+}
+
+export interface DurableWorkCancelInput extends DurableWorkKey {
+  now: Date;
+}
+
+export interface DurableWorkRescheduleInput extends DurableWorkKey {
+  availableAt: Date;
+  now: Date;
+}
+
 export type DurableWorkRetryDisposition = "retry" | "dead";
 
 export class DurableWorkLeaseLostError extends Error {
@@ -61,6 +84,15 @@ export class DurableWorkLeaseLostError extends Error {
     this.name = "DurableWorkLeaseLostError";
   }
 }
+
+export class DurableWorkInvariantError extends Error {
+  constructor(kind: string, dedupeKey: string, detail: string) {
+    super(`Durable work invariant conflict: kind=${kind}, dedupeKey=${dedupeKey}, ${detail}`);
+    this.name = "DurableWorkInvariantError";
+  }
+}
+
+type DurableWorkClient = Pick<TransactionClient, "durableWork" | "$queryRaw">;
 
 function assertIdentifier(name: string, value: string, maxLength: number): void {
   if (value.length === 0 || value !== value.trim() || value.length > maxLength) {
@@ -96,54 +128,209 @@ function assertFence(input: DurableWorkFence): void {
   assertValidDate("now", input.now);
 }
 
-export const durableWorkRepo = {
-  async enqueue(input: DurableWorkEnqueueInput): Promise<DurableWorkRow> {
-    assertIdentifier("kind", input.kind, MAX_KIND_LENGTH);
-    assertIdentifier("dedupeKey", input.dedupeKey, MAX_DEDUPE_KEY_LENGTH);
-    if (input.availableAt) assertValidDate("availableAt", input.availableAt);
-    const maxAttempts = input.maxAttempts ?? 8;
-    assertIntegerInRange("maxAttempts", maxAttempts, 1, MAX_ATTEMPTS);
+function assertKey(input: DurableWorkKey): void {
+  assertIdentifier("kind", input.kind, MAX_KIND_LENGTH);
+  assertIdentifier("dedupeKey", input.dedupeKey, MAX_DEDUPE_KEY_LENGTH);
+}
 
-    try {
-      return await prisma.durableWork.create({
-        data: {
+function validatedEnqueueInput(input: DurableWorkEnqueueInput): {
+  availableAt: Date;
+  maxAttempts: number;
+} {
+  assertKey(input);
+  if (input.availableAt) assertValidDate("availableAt", input.availableAt);
+  const maxAttempts = input.maxAttempts ?? 8;
+  assertIntegerInRange("maxAttempts", maxAttempts, 1, MAX_ATTEMPTS);
+  return {
+    maxAttempts,
+    availableAt: input.availableAt ?? IMMEDIATELY_AVAILABLE_AT,
+  };
+}
+
+function assertCanonicalEnqueue(
+  existing: DurableWorkRow,
+  input: DurableWorkEnqueueInput,
+  maxAttempts: number,
+): void {
+  if (!isDeepStrictEqual(existing.payload, input.payload)) {
+    throw new DurableWorkInvariantError(input.kind, input.dedupeKey, "payload differs");
+  }
+  if (existing.maxAttempts !== maxAttempts) {
+    throw new DurableWorkInvariantError(input.kind, input.dedupeKey, "maxAttempts differs");
+  }
+  if (
+    existing.availableAt.getTime() !== (input.availableAt ?? IMMEDIATELY_AVAILABLE_AT).getTime()
+  ) {
+    throw new DurableWorkInvariantError(input.kind, input.dedupeKey, "availableAt differs");
+  }
+}
+
+function assertCanonicalIdentity(
+  existing: DurableWorkRow,
+  input: DurableWorkEnqueueInput,
+  maxAttempts: number,
+): void {
+  if (!isDeepStrictEqual(existing.payload, input.payload)) {
+    throw new DurableWorkInvariantError(input.kind, input.dedupeKey, "payload differs");
+  }
+  if (existing.maxAttempts !== maxAttempts) {
+    throw new DurableWorkInvariantError(input.kind, input.dedupeKey, "maxAttempts differs");
+  }
+  if (input.availableAt && existing.availableAt.getTime() !== input.availableAt.getTime()) {
+    throw new DurableWorkInvariantError(
+      input.kind,
+      input.dedupeKey,
+      "availableAt must be changed with reschedule",
+    );
+  }
+}
+
+function createDurableWorkRepository(client: DurableWorkClient) {
+  return {
+    async enqueue(input: DurableWorkEnqueueInput): Promise<DurableWorkRow> {
+      const { maxAttempts, availableAt } = validatedEnqueueInput(input);
+      await client.durableWork.createMany({
+        data: [
+          {
+            kind: input.kind,
+            dedupeKey: input.dedupeKey,
+            payload: input.payload,
+            maxAttempts,
+            availableAt,
+          },
+        ],
+        skipDuplicates: true,
+      });
+      const existing = await client.durableWork.findUniqueOrThrow({
+        where: { kind_dedupeKey: { kind: input.kind, dedupeKey: input.dedupeKey } },
+      });
+      assertCanonicalEnqueue(existing, input, maxAttempts);
+      return existing;
+    },
+
+    async enqueueMany(inputs: readonly DurableWorkEnqueueInput[]): Promise<DurableWorkRow[]> {
+      if (inputs.length === 0) return [];
+      const validated = inputs.map((input) => ({ input, ...validatedEnqueueInput(input) }));
+      const uniqueKeys = new Set(inputs.map((input) => `${input.kind}\0${input.dedupeKey}`));
+      if (uniqueKeys.size !== inputs.length) {
+        throw new RangeError("enqueueMany inputs must have unique kind and dedupeKey pairs.");
+      }
+      await client.durableWork.createMany({
+        data: validated.map(({ input, maxAttempts, availableAt }) => ({
           kind: input.kind,
           dedupeKey: input.dedupeKey,
           payload: input.payload,
           maxAttempts,
-          ...(input.availableAt ? { availableAt: input.availableAt } : {}),
-        },
+          availableAt,
+        })),
+        skipDuplicates: true,
       });
-    } catch (reason) {
-      if (
-        !(reason instanceof Prisma.PrismaClientKnownRequestError) ||
-        reason.code !== "P2002"
-      ) {
-        throw reason;
-      }
-      const existing = await prisma.durableWork.findUnique({
+      const rows = await client.durableWork.findMany({
         where: {
-          kind_dedupeKey: { kind: input.kind, dedupeKey: input.dedupeKey },
+          OR: inputs.map(({ kind, dedupeKey }) => ({ kind, dedupeKey })),
         },
       });
-      if (!existing) throw reason;
-      return existing;
-    }
-  },
+      const byKey = new Map(rows.map((row) => [`${row.kind}\0${row.dedupeKey}`, row]));
+      return validated.map(({ input, maxAttempts }) => {
+        const row = byKey.get(`${input.kind}\0${input.dedupeKey}`);
+        if (!row) {
+          throw new Error(
+            `Durable work disappeared after enqueue: kind=${input.kind}, dedupeKey=${input.dedupeKey}`,
+          );
+        }
+        assertCanonicalEnqueue(row, input, maxAttempts);
+        return row;
+      });
+    },
 
-  async claimBatch(input: DurableWorkClaimInput): Promise<DurableWorkRow[]> {
-    if (input.kinds.length === 0) {
-      throw new RangeError("kinds must contain at least one registered durable work kind.");
-    }
-    const kinds = [...new Set(input.kinds)];
-    for (const kind of kinds) assertIdentifier("kind", kind, MAX_KIND_LENGTH);
-    assertIdentifier("owner", input.owner, MAX_OWNER_LENGTH);
-    assertIntegerInRange("limit", input.limit, 1, MAX_BATCH_SIZE);
-    assertIntegerInRange("leaseDurationMs", input.leaseDurationMs, 1, MAX_LEASE_DURATION_MS);
-    assertValidDate("now", input.now);
-    const leaseExpiresAt = new Date(input.now.getTime() + input.leaseDurationMs);
+    async cancel(input: DurableWorkCancelInput): Promise<boolean> {
+      assertKey(input);
+      assertValidDate("now", input.now);
+      const result = await client.durableWork.updateMany({
+        where: {
+          kind: input.kind,
+          dedupeKey: input.dedupeKey,
+          status: { in: ["pending", "leased"] },
+        },
+        data: {
+          status: "cancelled",
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          completedAt: input.now,
+          updatedAt: input.now,
+        },
+      });
+      return result.count === 1;
+    },
 
-    return prisma.$queryRaw<DurableWorkRow[]>(Prisma.sql`
+    async reactivate(input: DurableWorkEnqueueInput): Promise<DurableWorkRow> {
+      const { maxAttempts } = validatedEnqueueInput(input);
+      const existing = await client.durableWork.findUnique({
+        where: { kind_dedupeKey: { kind: input.kind, dedupeKey: input.dedupeKey } },
+      });
+      if (!existing || !["succeeded", "dead", "cancelled"].includes(existing.status)) {
+        throw new DurableWorkInvariantError(
+          input.kind,
+          input.dedupeKey,
+          "only terminal work can be reactivated",
+        );
+      }
+      assertCanonicalIdentity(existing, input, maxAttempts);
+      try {
+        return await client.durableWork.update({
+          where: {
+            kind_dedupeKey: { kind: input.kind, dedupeKey: input.dedupeKey },
+            status: { in: ["succeeded", "dead", "cancelled"] },
+          },
+          data: {
+            status: "pending",
+            attempt: 0,
+            lastError: null,
+            result: Prisma.DbNull,
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            completedAt: null,
+          },
+        });
+      } catch (reason) {
+        if (
+          !(reason instanceof Prisma.PrismaClientKnownRequestError) ||
+          reason.code !== "P2025"
+        ) {
+          throw reason;
+        }
+        throw new DurableWorkInvariantError(
+          input.kind,
+          input.dedupeKey,
+          "only terminal work can be reactivated",
+        );
+      }
+    },
+
+    async reschedule(input: DurableWorkRescheduleInput): Promise<boolean> {
+      assertKey(input);
+      assertValidDate("availableAt", input.availableAt);
+      assertValidDate("now", input.now);
+      const result = await client.durableWork.updateMany({
+        where: { kind: input.kind, dedupeKey: input.dedupeKey, status: "pending" },
+        data: { availableAt: input.availableAt, updatedAt: input.now },
+      });
+      return result.count === 1;
+    },
+
+    async claimBatch(input: DurableWorkClaimInput): Promise<DurableWorkRow[]> {
+      if (input.kinds.length === 0) {
+        throw new RangeError("kinds must contain at least one registered durable work kind.");
+      }
+      const kinds = [...new Set(input.kinds)];
+      for (const kind of kinds) assertIdentifier("kind", kind, MAX_KIND_LENGTH);
+      assertIdentifier("owner", input.owner, MAX_OWNER_LENGTH);
+      assertIntegerInRange("limit", input.limit, 1, MAX_BATCH_SIZE);
+      assertIntegerInRange("leaseDurationMs", input.leaseDurationMs, 1, MAX_LEASE_DURATION_MS);
+      assertValidDate("now", input.now);
+      const leaseExpiresAt = new Date(input.now.getTime() + input.leaseDurationMs);
+
+      return client.$queryRaw<DurableWorkRow[]>(Prisma.sql`
       WITH exhausted AS (
         UPDATE "DurableWork"
         SET
@@ -183,40 +370,41 @@ export const durableWorkRepo = {
       WHERE work."id" = candidates."id"
       RETURNING work.*
     `);
-  },
+    },
 
-  async complete(input: DurableWorkFence): Promise<void> {
-    assertFence(input);
-    const result = await prisma.durableWork.updateMany({
-      where: {
-        id: input.id,
-        status: "leased",
-        leaseOwner: input.owner,
-        attempt: input.attempt,
-        leaseExpiresAt: { gt: input.now },
-      },
-      data: {
-        status: "succeeded",
-        leaseOwner: null,
-        leaseExpiresAt: null,
-        completedAt: input.now,
-        updatedAt: input.now,
-      },
-    });
-    if (result.count !== 1) {
-      throw new DurableWorkLeaseLostError(input.id, input.owner, input.attempt);
-    }
-  },
+    async complete(input: DurableWorkCompleteInput): Promise<void> {
+      assertFence(input);
+      const result = await client.durableWork.updateMany({
+        where: {
+          id: input.id,
+          status: "leased",
+          leaseOwner: input.owner,
+          attempt: input.attempt,
+          leaseExpiresAt: { gt: input.now },
+        },
+        data: {
+          status: "succeeded",
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          result: input.result ?? Prisma.DbNull,
+          completedAt: input.now,
+          updatedAt: input.now,
+        },
+      });
+      if (result.count !== 1) {
+        throw new DurableWorkLeaseLostError(input.id, input.owner, input.attempt);
+      }
+    },
 
-  async retryOrDead(input: DurableWorkRetryInput): Promise<DurableWorkRetryDisposition> {
-    assertFence(input);
-    assertValidDate("retryAt", input.retryAt);
-    if (input.retryAt < input.now) {
-      throw new RangeError("retryAt must not be earlier than now.");
-    }
-    if (input.error.length === 0) throw new RangeError("error must not be empty.");
+    async retryOrDead(input: DurableWorkRetryInput): Promise<DurableWorkRetryDisposition> {
+      assertFence(input);
+      assertValidDate("retryAt", input.retryAt);
+      if (input.retryAt < input.now) {
+        throw new RangeError("retryAt must not be earlier than now.");
+      }
+      if (input.error.length === 0) throw new RangeError("error must not be empty.");
 
-    const rows = await prisma.$queryRaw<{ status: DurableWorkStatus }[]>(Prisma.sql`
+      const rows = await client.$queryRaw<{ status: DurableWorkStatus }[]>(Prisma.sql`
       UPDATE "DurableWork"
       SET
         "status" = CASE
@@ -243,8 +431,16 @@ export const durableWorkRepo = {
         AND "leaseExpiresAt" > ${input.now}
       RETURNING "status"
     `);
-    const row = rows[0];
-    if (!row) throw new DurableWorkLeaseLostError(input.id, input.owner, input.attempt);
-    return row.status === "dead" ? "dead" : "retry";
+      const row = rows[0];
+      if (!row) throw new DurableWorkLeaseLostError(input.id, input.owner, input.attempt);
+      return row.status === "dead" ? "dead" : "retry";
+    },
+  };
+}
+
+export const durableWorkRepo = {
+  ...createDurableWorkRepository(prisma),
+  withTx(tx: TransactionClient) {
+    return createDurableWorkRepository(tx);
   },
 };

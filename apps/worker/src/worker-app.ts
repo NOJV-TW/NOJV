@@ -5,6 +5,7 @@ import "./domain-orchestration";
 
 import {
   closeTemporalClient,
+  ensureDurableWorkProcessor,
   ensureLifecycleReconciler,
   ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE,
@@ -120,7 +121,7 @@ export class WorkerApp {
 
       if (this.env.EXECUTION_BACKEND === "docker") {
         const { sweepOrphanNetworks } = await import("./services/docker-network.js");
-        sweepOrphanNetworks();
+        await sweepOrphanNetworks();
       }
 
       if (this.env.EXECUTION_BACKEND === "kubernetes") {
@@ -168,6 +169,8 @@ export class WorkerApp {
       await ensureSubmissionSweeper();
       this.assertStarting();
       await ensureLifecycleReconciler();
+      this.assertStarting();
+      await ensureDurableWorkProcessor();
       this.assertStarting();
     }
 

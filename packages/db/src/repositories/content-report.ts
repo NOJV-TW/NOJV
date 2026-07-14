@@ -1,5 +1,6 @@
 import { prisma } from "../client";
 import type { ContentReportStatus } from "../../generated/prisma/client";
+import type { TransactionClient } from "../transaction";
 import { problemMiniSelect, userPublicSelect } from "./selects";
 
 const reportPostSelect = {
@@ -69,5 +70,16 @@ export const contentReportRepo = {
     data: { status: ContentReportStatus; resolvedByUserId: string; resolvedAt: Date },
   ) {
     return prisma.contentReport.update({ where: { id }, data });
+  },
+
+  withTx(tx: TransactionClient) {
+    return {
+      updateStatusIfOpen(
+        id: string,
+        data: { status: ContentReportStatus; resolvedByUserId: string; resolvedAt: Date },
+      ) {
+        return tx.contentReport.update({ where: { id, status: "open" }, data });
+      },
+    };
   },
 };

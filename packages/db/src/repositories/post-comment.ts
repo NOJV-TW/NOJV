@@ -1,4 +1,5 @@
 import { prisma } from "../client";
+import type { TransactionClient } from "../transaction";
 import { userPublicSelect } from "./selects";
 
 export const postCommentRepo = {
@@ -31,5 +32,17 @@ export const postCommentRepo = {
       data: { deletedAt: now },
     });
     return result.count;
+  },
+
+  withTx(tx: TransactionClient) {
+    return {
+      async softDeleteIfActive(id: string, now = new Date()) {
+        const result = await tx.postComment.updateMany({
+          where: { id, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        return result.count;
+      },
+    };
   },
 };

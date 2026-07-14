@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   closeTemporalClient: vi.fn(),
   connectionClose: vi.fn(),
   connectionEnsureConnected: vi.fn(),
+  ensureDurableWorkProcessor: vi.fn(),
   ensureLifecycleReconciler: vi.fn(),
   ensureSubmissionSweeper: vi.fn(),
   executorAbortActive: vi.fn(),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@nojv/temporal", () => ({
   buildDomainOrchestrationAdapter: () => ({}),
   closeTemporalClient: mocks.closeTemporalClient,
+  ensureDurableWorkProcessor: mocks.ensureDurableWorkProcessor,
   ensureLifecycleReconciler: mocks.ensureLifecycleReconciler,
   ensureSubmissionSweeper: mocks.ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE: "judge",
@@ -112,6 +114,7 @@ beforeEach(() => {
   mocks.connectionEnsureConnected.mockResolvedValue(undefined);
   mocks.connectionClose.mockResolvedValue(undefined);
   mocks.closeTemporalClient.mockResolvedValue(undefined);
+  mocks.ensureDurableWorkProcessor.mockResolvedValue(undefined);
   mocks.ensureSubmissionSweeper.mockResolvedValue(undefined);
   mocks.ensureLifecycleReconciler.mockResolvedValue(undefined);
   mocks.executorShutdown.mockResolvedValue(undefined);
@@ -125,11 +128,13 @@ describe("WorkerApp lifecycle", () => {
     const worker = makeWorker(events);
     mocks.workerCreate.mockResolvedValue(worker);
     mocks.ensureSubmissionSweeper.mockRejectedValue(new Error("schedule unavailable"));
-    mocks.closeTemporalClient.mockImplementation(async () => {
+    mocks.closeTemporalClient.mockImplementation(() => {
       events.push("temporal client");
+      return Promise.resolve();
     });
-    mocks.connectionClose.mockImplementation(async () => {
+    mocks.connectionClose.mockImplementation(() => {
       events.push("native connection");
+      return Promise.resolve();
     });
 
     const app = new WorkerApp(env, { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" });

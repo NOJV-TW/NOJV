@@ -35,16 +35,19 @@ vi.mock("@nojv/db", () => ({
     findById: postFindById,
     existsForUserProblem: postExistsForUserProblem,
     softDeleteIfActive: postSoftDeleteIfActive,
+    withTx: () => ({ softDeleteIfActive: postSoftDeleteIfActive }),
   },
   postCommentRepo: {
     findById: commentFindById,
     softDeleteIfActive: commentSoftDeleteIfActive,
+    withTx: () => ({ softDeleteIfActive: commentSoftDeleteIfActive }),
   },
   contentReportRepo: {
     create: reportCreate,
     findById: reportFindById,
     updateStatus: reportUpdateStatus,
     listByStatus: reportListByStatus,
+    withTx: () => ({ updateStatusIfOpen: reportUpdateStatus }),
   },
   submissionRepo: {
     count: submissionCount,
@@ -58,11 +61,14 @@ vi.mock("@nojv/db", () => ({
   examProblemRepo: {
     findActiveExamsForUser: examFindActive,
   },
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
 const { createNotification } = vi.hoisted(() => ({ createNotification: vi.fn() }));
 
-vi.mock("../../../packages/application/src/notification", () => ({ createNotification }));
+vi.mock("../../../packages/application/src/notification", () => ({
+  createNotificationInTransaction: createNotification,
+}));
 
 import { postDomain } from "@nojv/application";
 
@@ -387,11 +393,12 @@ describe("resolveContentReport", () => {
     await resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve");
 
     expect(postSoftDeleteIfActive).toHaveBeenCalledWith("post_1");
-    expect(createNotification).toHaveBeenCalledWith({
+    expect(createNotification).toHaveBeenCalledWith(expect.anything(), {
       userId: "usr_author",
       type: "post_removed",
       params: { problemId: "prob_1", title: "My editorial" },
       linkUrl: "/problems/prob_1",
+      dedupeKey: "post_removed:post_1",
     });
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",
@@ -408,11 +415,12 @@ describe("resolveContentReport", () => {
 
     expect(commentSoftDeleteIfActive).toHaveBeenCalledWith("cmt_1");
     expect(postSoftDeleteIfActive).not.toHaveBeenCalled();
-    expect(createNotification).toHaveBeenCalledWith({
+    expect(createNotification).toHaveBeenCalledWith(expect.anything(), {
       userId: "usr_commenter",
       type: "comment_removed",
       params: { problemId: "prob_1", postTitle: "My editorial" },
       linkUrl: "/problems/prob_1",
+      dedupeKey: "comment_removed:cmt_1",
     });
     expect(reportUpdateStatus).toHaveBeenCalledWith(
       "rep_1",
@@ -448,18 +456,18 @@ describe("resolveContentReport", () => {
     );
   });
 
-  it("still closes the report when the notification fails", async () => {
+  it("does not close the report when notification enqueue fails", async () => {
     reportFindById.mockResolvedValue(reportOnPost(postRow()));
     postSoftDeleteIfActive.mockResolvedValue(1);
     reportUpdateStatus.mockResolvedValue({ id: "rep_1", status: "resolved" });
-    createNotification.mockRejectedValue(new Error("smtp down"));
+    createNotification.mockRejectedValue(new Error("outbox unavailable"));
 
     await expect(
       resolveContentReport(actor("usr_admin", "admin"), "rep_1", "resolve"),
-    ).resolves.toMatchObject({ status: "resolved" });
+    ).rejects.toThrow("outbox unavailable");
 
     expect(postSoftDeleteIfActive).toHaveBeenCalledWith("post_1");
-    expect(reportUpdateStatus).toHaveBeenCalled();
+    expect(reportUpdateStatus).not.toHaveBeenCalled();
   });
 
   it("dismiss only updates the report status", async () => {

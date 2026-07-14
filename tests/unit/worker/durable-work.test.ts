@@ -3,16 +3,22 @@ import { describe, expect, it, vi } from "vitest";
 import {
   processDurableWorkBatch,
   type DurableWorkBatchRepository,
+  type DurableWorkClaimOptions,
   type DurableWorkHandlerRegistry,
 } from "../../../apps/worker/src/activities/durable-work-runner";
+import {
+  DURABLE_WORK_ACTIVITY_MAX_ATTEMPTS,
+  DURABLE_WORK_ACTIVITY_TIMEOUT_MS,
+  DURABLE_WORK_LEASE_DURATION_MS,
+} from "../../../apps/worker/src/durable-work-config";
 
 function repository(
   overrides: Partial<DurableWorkBatchRepository> = {},
 ): DurableWorkBatchRepository {
   return {
-    claimBatch: vi.fn(async () => []),
-    complete: vi.fn(async () => undefined),
-    retryOrDead: vi.fn(async () => "retry" as const),
+    claimBatch: vi.fn().mockResolvedValue([]),
+    complete: vi.fn().mockResolvedValue(undefined),
+    retryOrDead: vi.fn().mockResolvedValue("retry" as const),
     ...overrides,
   };
 }
@@ -20,6 +26,11 @@ function repository(
 const NOW = new Date("2030-01-01T00:00:00.000Z");
 
 describe("durable work batch processor", () => {
+  it("keeps database retry as the only retry owner and the lease beyond activity timeout", () => {
+    expect(DURABLE_WORK_ACTIVITY_MAX_ATTEMPTS).toBe(1);
+    expect(DURABLE_WORK_LEASE_DURATION_MS).toBeGreaterThan(DURABLE_WORK_ACTIVITY_TIMEOUT_MS);
+  });
+
   it("is a strict no-op when no handlers are registered", async () => {
     const repo = repository();
     const ownerFactory = vi.fn(() => "owner-1");
@@ -42,12 +53,14 @@ describe("durable work batch processor", () => {
   });
 
   it("completes successful work with the owner and attempt fence", async () => {
-    const handler = vi.fn(async () => undefined);
+    const handler = vi.fn().mockResolvedValue({ outcome: "delivered" });
     const handlers: DurableWorkHandlerRegistry = { notify: handler };
     const repo = repository({
-      claimBatch: vi.fn(async () => [
-        { id: "work-1", kind: "notify", payload: { userId: "u1" }, attempt: 3 },
-      ]),
+      claimBatch: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "work-1", kind: "notify", payload: { userId: "u1" }, attempt: 3 },
+        ]),
     });
     const recordOutcome = vi.fn();
 
@@ -57,14 +70,13 @@ describe("durable work batch processor", () => {
       ownerFactory: () => "owner-1",
       recordOutcome,
       clock: () => NOW,
-      limit: 4,
       leaseDurationMs: 20_000,
     });
 
     expect(repo.claimBatch).toHaveBeenCalledWith({
       kinds: ["notify"],
       owner: "owner-1",
-      limit: 4,
+      limit: 1,
       now: NOW,
       leaseDurationMs: 20_000,
     });
@@ -77,20 +89,48 @@ describe("durable work batch processor", () => {
       owner: "owner-1",
       attempt: 3,
       now: NOW,
+      result: { outcome: "delivered" },
     });
     expect(recordOutcome).toHaveBeenCalledWith("notify", "succeeded", new Set(["notify"]));
     expect(result).toEqual({ claimed: 1, succeeded: 1, retried: 0, dead: 0 });
   });
 
-  it("uses bounded exponential backoff and records terminal work", async () => {
-    const handler = vi.fn(async () => {
-      throw new Error("delivery failed");
-    });
+  it("claims only one item so a slow handler cannot expire later unstarted leases", async () => {
+    let now = NOW;
+    const pending = [
+      { id: "work-1", kind: "notify", payload: {}, attempt: 1 },
+      { id: "work-2", kind: "notify", payload: {}, attempt: 1 },
+    ];
     const repo = repository({
-      claimBatch: vi.fn(async () => [
-        { id: "work-1", kind: "notify", payload: {}, attempt: 4 },
-      ]),
-      retryOrDead: vi.fn(async () => "dead" as const),
+      claimBatch: vi.fn(({ limit }: DurableWorkClaimOptions) =>
+        Promise.resolve(pending.slice(0, limit)),
+      ),
+    });
+    const handler = vi.fn(() => {
+      now = new Date(NOW.getTime() + DURABLE_WORK_LEASE_DURATION_MS - 1);
+      return Promise.resolve();
+    });
+
+    const result = await processDurableWorkBatch({
+      repository: repo,
+      handlers: { notify: handler },
+      ownerFactory: () => "owner-1",
+      recordOutcome: vi.fn(),
+      clock: () => now,
+    });
+
+    expect(repo.claimBatch).toHaveBeenCalledWith(expect.objectContaining({ limit: 1 }));
+    expect(handler).toHaveBeenCalledOnce();
+    expect(result.claimed).toBe(1);
+  });
+
+  it("uses bounded exponential backoff and records terminal work", async () => {
+    const handler = vi.fn().mockRejectedValue(new Error("delivery failed"));
+    const repo = repository({
+      claimBatch: vi
+        .fn()
+        .mockResolvedValue([{ id: "work-1", kind: "notify", payload: {}, attempt: 4 }]),
+      retryOrDead: vi.fn().mockResolvedValue("dead" as const),
     });
     const recordOutcome = vi.fn();
 

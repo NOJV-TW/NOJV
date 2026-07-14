@@ -2,6 +2,7 @@ export interface SendEmailInput {
   to: string;
   subject: string;
   html: string;
+  messageId?: string;
 }
 
 export type SendEmailResult = "accepted" | "suppressed";

@@ -1,3 +1,7 @@
+import type { Prisma } from "@nojv/db";
+
+import { DURABLE_WORK_LEASE_DURATION_MS } from "../durable-work-config";
+
 export interface ClaimedDurableWork {
   id: string;
   kind: string;
@@ -18,6 +22,7 @@ export interface DurableWorkFenceOptions {
   owner: string;
   attempt: number;
   now: Date;
+  result?: Prisma.InputJsonValue;
 }
 
 export interface DurableWorkRetryOptions extends DurableWorkFenceOptions {
@@ -26,9 +31,9 @@ export interface DurableWorkRetryOptions extends DurableWorkFenceOptions {
 }
 
 export interface DurableWorkBatchRepository {
-  claimBatch(options: DurableWorkClaimOptions): Promise<readonly ClaimedDurableWork[]>;
-  complete(options: DurableWorkFenceOptions): Promise<void>;
-  retryOrDead(options: DurableWorkRetryOptions): Promise<"retry" | "dead">;
+  claimBatch: (options: DurableWorkClaimOptions) => Promise<readonly ClaimedDurableWork[]>;
+  complete: (options: DurableWorkFenceOptions) => Promise<void>;
+  retryOrDead: (options: DurableWorkRetryOptions) => Promise<"retry" | "dead">;
 }
 
 export interface DurableWorkHandlerContext {
@@ -40,7 +45,7 @@ export interface DurableWorkHandlerContext {
 export type DurableWorkHandler = (
   payload: unknown,
   context: DurableWorkHandlerContext,
-) => Promise<void>;
+) => Promise<Prisma.InputJsonValue | undefined>;
 
 export type DurableWorkHandlerRegistry = Readonly<Record<string, DurableWorkHandler>>;
 
@@ -63,14 +68,12 @@ export interface DurableWorkBatchDependencies {
     registeredKinds: ReadonlySet<string>,
   ) => void;
   clock?: () => Date;
-  limit?: number;
   leaseDurationMs?: number;
   baseRetryDelayMs?: number;
   maxRetryDelayMs?: number;
 }
 
-const DEFAULT_BATCH_SIZE = 25;
-const DEFAULT_LEASE_DURATION_MS = 60_000;
+const CLAIM_LIMIT = 1;
 const DEFAULT_BASE_RETRY_DELAY_MS = 5_000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 15 * 60_000;
 const MAX_ERROR_LENGTH = 4_096;
@@ -100,9 +103,9 @@ export async function processDurableWorkBatch(
   const claimed = await dependencies.repository.claimBatch({
     kinds,
     owner,
-    limit: dependencies.limit ?? DEFAULT_BATCH_SIZE,
+    limit: CLAIM_LIMIT,
     now: claimNow,
-    leaseDurationMs: dependencies.leaseDurationMs ?? DEFAULT_LEASE_DURATION_MS,
+    leaseDurationMs: dependencies.leaseDurationMs ?? DURABLE_WORK_LEASE_DURATION_MS,
   });
   const result: DurableWorkBatchResult = {
     claimed: claimed.length,
@@ -116,8 +119,9 @@ export async function processDurableWorkBatch(
     if (!handler) {
       throw new Error(`Repository returned unregistered durable work kind: ${work.kind}`);
     }
+    let handlerResult: Prisma.InputJsonValue | undefined;
     try {
-      await handler(work.payload, {
+      handlerResult = await handler(work.payload, {
         id: work.id,
         kind: work.kind,
         attempt: work.attempt,
@@ -148,6 +152,7 @@ export async function processDurableWorkBatch(
       owner,
       attempt: work.attempt,
       now: clock(),
+      ...(handlerResult === undefined ? {} : { result: handlerResult }),
     });
     result.succeeded += 1;
     dependencies.recordOutcome(work.kind, "succeeded", registeredKinds);

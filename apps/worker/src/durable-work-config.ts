@@ -1,0 +1,11 @@
+function seconds(value: number): number {
+  return value * 1_000;
+}
+
+export const DURABLE_WORK_ACTIVITY_TIMEOUT_MS = seconds(120);
+export const DURABLE_WORK_LEASE_DURATION_MS = seconds(180);
+export const DURABLE_WORK_ACTIVITY_MAX_ATTEMPTS = 1;
+
+if (DURABLE_WORK_LEASE_DURATION_MS <= DURABLE_WORK_ACTIVITY_TIMEOUT_MS) {
+  throw new Error("Durable work lease must outlive its non-retrying Temporal activity.");
+}

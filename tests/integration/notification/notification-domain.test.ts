@@ -1,6 +1,6 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import { notificationRepo } from "@nojv/db";
+import { NotificationDedupeConflictError, notificationRepo } from "@nojv/db";
 import { notificationDomain } from "@nojv/application";
 import { createSubscriber, keys } from "@nojv/redis";
 
@@ -9,13 +9,13 @@ import { truncateTestTables } from "../../fixtures/seed-test-db";
 
 describe("notificationDomain (real DB + Redis)", () => {
   beforeEach(async () => {
-    await truncateTestTables(["Notification"]);
+    await truncateTestTables(["DurableWork", "Notification"]);
   });
 
   it("writes a notification row", async () => {
     const user = await createTestUser();
 
-    await notificationDomain.createNotification({
+    const notification = await notificationDomain.createNotification({
       userId: user.id,
       type: "course_enrolled",
       params: { courseSlug: "x", courseName: "X" },
@@ -24,12 +24,55 @@ describe("notificationDomain (real DB + Redis)", () => {
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(1);
-    const row = rows[0]!;
+    const row = rows[0];
     expect(row.userId).toBe(user.id);
     expect(row.type).toBe("course_enrolled");
     expect(row.params).toEqual({ courseSlug: "x", courseName: "X" });
     expect(row.linkUrl).toBe("/courses/x");
     expect(row.readAt).toBeNull();
+    const transportWork = await testPrisma.durableWork.findMany({
+      where: { dedupeKey: notification.id },
+      orderBy: { kind: "asc" },
+    });
+    expect(transportWork).toHaveLength(2);
+    expect(transportWork.map(({ kind, status }) => ({ kind, status }))).toEqual([
+      {
+        kind: notificationDomain.NOTIFICATION_EMAIL_WORK_KIND,
+        status: "pending",
+      },
+      {
+        kind: notificationDomain.NOTIFICATION_SSE_WORK_KIND,
+        status: "pending",
+      },
+    ]);
+    expect(
+      transportWork.every(({ payload }) => JSON.stringify(payload).includes(notification.id)),
+    ).toBe(true);
+    expect(JSON.stringify(transportWork[1].payload)).toContain(user.id);
+  });
+
+  it("accepts only canonical reuse of a notification dedupe key", async () => {
+    const user = await createTestUser();
+    const input = {
+      userId: user.id,
+      type: "course_enrolled" as const,
+      params: { courseId: "course-1", courseName: "Algorithms" },
+      linkUrl: "/courses/course-1",
+      dedupeKey: `course-enrolled:${user.id}`,
+    };
+
+    const first = await notificationDomain.createNotification(input);
+    const duplicate = await notificationDomain.createNotification(input);
+
+    expect(duplicate.id).toBe(first.id);
+    await expect(
+      notificationDomain.createNotification({
+        ...input,
+        params: { courseId: "course-1", courseName: "Different" },
+      }),
+    ).rejects.toBeInstanceOf(NotificationDedupeConflictError);
+    expect(await testPrisma.notification.count()).toBe(1);
+    expect(await testPrisma.durableWork.count()).toBe(2);
   });
 
   it("caps retention at 50 per user", async () => {
@@ -40,19 +83,19 @@ describe("notificationDomain (real DB + Redis)", () => {
         userId: user.id,
         type: "announcement_published",
         params: { ordinal: i },
-        linkUrl: `/n/${i}`,
+        linkUrl: `/n/${String(i)}`,
       });
     }
 
     const rows = await notificationRepo.listRecent(user.id, 100);
     expect(rows).toHaveLength(50);
 
-    const earliestParams = rows[rows.length - 1]!.params as { ordinal: number };
+    const earliestParams = rows[rows.length - 1].params as { ordinal: number };
     expect(earliestParams.ordinal).toBeGreaterThanOrEqual(5);
   });
 
   it("publishes to the redis notification channel", async () => {
-    const user = await createTestUser();
+    const user = await createTestUser({ emailVerified: true });
 
     const sub = createSubscriber(process.env.REDIS_URL ?? "redis://localhost:6379");
     const received: string[] = [];
@@ -62,11 +105,40 @@ describe("notificationDomain (real DB + Redis)", () => {
     await sub.subscribe(keys.notificationChannel(user.id));
 
     try {
-      await notificationDomain.createNotification({
+      const notification = await notificationDomain.createNotification({
         userId: user.id,
         type: "course_enrolled",
         params: { courseSlug: "algos", courseName: "Algorithms" },
         linkUrl: "/courses/algos",
+      });
+      const sseWork = await testPrisma.durableWork.findUniqueOrThrow({
+        where: {
+          kind_dedupeKey: {
+            kind: notificationDomain.NOTIFICATION_SSE_WORK_KIND,
+            dedupeKey: notification.id,
+          },
+        },
+      });
+      const emailWork = await testPrisma.durableWork.findUniqueOrThrow({
+        where: {
+          kind_dedupeKey: {
+            kind: notificationDomain.NOTIFICATION_EMAIL_WORK_KIND,
+            dedupeKey: notification.id,
+          },
+        },
+      });
+      await notificationDomain.deleteOne(user.id, notification.id);
+      await notificationDomain.publishNotificationSse(
+        sseWork.payload as unknown as notificationDomain.NotificationSseWorkPayload,
+      );
+      await expect(
+        notificationDomain.deliverNotificationEmail(
+          emailWork.payload as unknown as notificationDomain.NotificationEmailWorkPayload,
+        ),
+      ).resolves.toMatchObject({
+        transport: "email",
+        outcome: "suppressed",
+        reason: "mailer_suppressed",
       });
 
       const deadline = Date.now() + 1000;
@@ -75,7 +147,7 @@ describe("notificationDomain (real DB + Redis)", () => {
       }
 
       expect(received).toHaveLength(1);
-      const event = JSON.parse(received[0]!) as {
+      const event = JSON.parse(received[0]) as {
         type: string;
         notificationType: string;
         params: Record<string, unknown>;
@@ -105,14 +177,14 @@ describe("notificationDomain (real DB + Redis)", () => {
     });
     const [created] = await notificationRepo.listRecent(user.id, 1);
     expect(created).toBeDefined();
-    const notificationId = created!.id;
+    const notificationId = created.id;
 
     const firstCount = await notificationDomain.markAsRead(user.id, notificationId);
     expect(firstCount).toBe(1);
 
     const [afterFirst] = await notificationRepo.listRecent(user.id, 1);
-    expect(afterFirst!.readAt).toBeInstanceOf(Date);
-    expect(afterFirst!.readAt).not.toBeNull();
+    expect(afterFirst.readAt).toBeInstanceOf(Date);
+    expect(afterFirst.readAt).not.toBeNull();
 
     const secondCount = await notificationDomain.markAsRead(user.id, notificationId);
     expect(secondCount).toBe(0);
@@ -127,13 +199,13 @@ describe("notificationDomain (real DB + Redis)", () => {
         userId: userA.id,
         type: "announcement_published",
         params: { ordinal: i },
-        linkUrl: `/a/${i}`,
+        linkUrl: `/a/${String(i)}`,
       });
     }
 
     const rowsA = await notificationRepo.listRecent(userA.id, 10);
     expect(rowsA).toHaveLength(3);
-    await notificationDomain.markAsRead(userA.id, rowsA[0]!.id);
+    await notificationDomain.markAsRead(userA.id, rowsA[0].id);
 
     await notificationDomain.createNotification({
       userId: userB.id,
@@ -147,8 +219,6 @@ describe("notificationDomain (real DB + Redis)", () => {
 
     const rowsB = await notificationRepo.listRecent(userB.id, 10);
     expect(rowsB).toHaveLength(1);
-    expect(rowsB[0]!.readAt).toBeNull();
+    expect(rowsB[0].readAt).toBeNull();
   });
-
-  afterAll(async () => {});
 });

@@ -4,30 +4,35 @@ import {
   contestProblemRepo,
   contestRepo,
   courseMembershipRepo,
+  durableWorkRepo,
   examProblemRepo,
   examRepo,
   participationRepo,
   runTransaction,
   scoreOverrideAuditLogRepo,
   scoreOverrideRepo,
+  type TransactionClient,
 } from "@nojv/db";
 
-import { updateContestScores } from "../contest/scoring";
-import { updateExamScores } from "../exam/scoring";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError, ValidationError } from "../shared/errors";
 import { assertCanSetScoreOverride } from "./permissions";
 import { fromContextDbFields, toContextDbFields, type ScoreOverrideContext } from "./types";
 
-async function invalidateScoreboardForOverride(
+export const SCORE_CONVERGENCE_WORK_KIND = "score.converge";
+
+async function enqueueScoreConvergence(
+  tx: TransactionClient,
   context: ScoreOverrideContext,
   userId: string,
+  eventId: string,
 ): Promise<void> {
-  if (context.type === "contest") {
-    await updateContestScores(context.contestId, userId).catch(() => undefined);
-  } else if (context.type === "exam") {
-    await updateExamScores(context.examId, userId).catch(() => undefined);
-  }
+  if (context.type === "assignment") return;
+  await durableWorkRepo.withTx(tx).enqueue({
+    kind: SCORE_CONVERGENCE_WORK_KIND,
+    dedupeKey: eventId,
+    payload: { context, userId },
+  });
 }
 
 async function assertScoringModeSupportsOverride(context: ScoreOverrideContext): Promise<void> {
@@ -144,7 +149,7 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
       updatedByUserId: actor.userId,
     });
 
-    await scoreOverrideAuditLogRepo.create(tx, {
+    const audit = await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: created.id,
       userId: input.userId,
       problemId: input.problemId,
@@ -157,11 +162,10 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
       newReason: input.reason,
       changedByUserId: actor.userId,
     });
+    await enqueueScoreConvergence(tx, input.context, input.userId, audit.id);
 
     return created;
   });
-
-  await invalidateScoreboardForOverride(input.context, input.userId);
   return row;
 }
 
@@ -183,7 +187,7 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
       updatedByUserId: actor.userId,
     });
 
-    await scoreOverrideAuditLogRepo.create(tx, {
+    const audit = await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: id,
       userId: existing.userId,
       problemId: existing.problemId,
@@ -196,11 +200,10 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
       newReason: row.reason,
       changedByUserId: actor.userId,
     });
+    await enqueueScoreConvergence(tx, existingContext, existing.userId, audit.id);
 
     return row;
   });
-
-  await invalidateScoreboardForOverride(existingContext, existing.userId);
   return updated;
 }
 
@@ -213,7 +216,7 @@ export async function deleteOverride(actor: ActorContext, id: string) {
   await assertCanSetScoreOverride(actor, existingContext);
 
   await runTransaction(async (tx) => {
-    await scoreOverrideAuditLogRepo.create(tx, {
+    const audit = await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: null,
       userId: existing.userId,
       problemId: existing.problemId,
@@ -228,7 +231,6 @@ export async function deleteOverride(actor: ActorContext, id: string) {
     });
 
     await scoreOverrideRepo.delete(tx, id);
+    await enqueueScoreConvergence(tx, existingContext, existing.userId, audit.id);
   });
-
-  await invalidateScoreboardForOverride(existingContext, existing.userId);
 }
