@@ -5,7 +5,7 @@ import { WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
 const { start } = vi.hoisted(() => ({ start: vi.fn() }));
 
 vi.mock("../../../packages/temporal/src/client", () => ({
-  getTemporalClient: vi.fn(async () => ({ workflow: { start } })),
+  getTemporalClient: vi.fn(() => Promise.resolve({ workflow: { start } })),
 }));
 
 import {
@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 
 describe("durable submission dispatch handlers", () => {
-  it("uses the deterministic submission workflow id and accepts duplicate delivery", async () => {
+  it("uses a deterministic submission workflow id and rejects closed-run reuse", async () => {
     start.mockRejectedValueOnce(
       new WorkflowExecutionAlreadyStartedError(
         "already started",
@@ -35,11 +35,14 @@ describe("durable submission dispatch handlers", () => {
     ).resolves.toBeUndefined();
     expect(start).toHaveBeenCalledWith(
       "submissionJudgeWorkflow",
-      expect.objectContaining({ workflowId: "judge-sub_1" }),
+      expect.objectContaining({
+        workflowId: "judge-sub_1",
+        workflowIdReusePolicy: "REJECT_DUPLICATE",
+      }),
     );
   });
 
-  it("uses the persisted rejudge workflow id and accepts duplicate delivery", async () => {
+  it("uses the persisted rejudge workflow id and rejects closed-run reuse", async () => {
     start.mockRejectedValueOnce(
       new WorkflowExecutionAlreadyStartedError(
         "already started",
@@ -54,5 +57,12 @@ describe("durable submission dispatch handlers", () => {
         "rejudge-fixed",
       ),
     ).resolves.toEqual({ workflowId: "rejudge-fixed" });
+    expect(start).toHaveBeenCalledWith(
+      "rejudgeWorkflow",
+      expect.objectContaining({
+        workflowId: "rejudge-fixed",
+        workflowIdReusePolicy: "REJECT_DUPLICATE",
+      }),
+    );
   });
 });

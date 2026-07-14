@@ -43,6 +43,7 @@
     "unit/temporal/durable-work-dispatch.test.ts",
     "unit/temporal/lifecycle-dispatch.test.ts",
     "unit/temporal/lifecycle-reconciliation.test.ts",
+    "unit/temporal/submission-dispatch.test.ts",
     "unit/worker/durable-work-metrics.test.ts",
     "unit/worker/durable-work-registry.test.ts",
     "unit/worker/durable-work-workflow.test.ts",

@@ -38,6 +38,7 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
     await client.workflow.start("submissionJudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
       workflowId: `judge-${validated.submissionId}`,
+      workflowIdReusePolicy: "REJECT_DUPLICATE",
       args: [input],
     });
   } catch (reason) {
@@ -162,6 +163,7 @@ export async function dispatchRejudge(
     await client.workflow.start("rejudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
       workflowId,
+      workflowIdReusePolicy: "REJECT_DUPLICATE",
       memo: { triggeredByUserId: input.triggeredByUserId },
       args: [input],
     });
