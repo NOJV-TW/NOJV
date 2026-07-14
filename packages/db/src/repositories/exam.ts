@@ -247,6 +247,10 @@ export const examRepo = {
         return tx.exam.findUnique({ where: { id } });
       },
 
+      lockForUpdate(examId: string) {
+        return tx.$queryRaw`SELECT id FROM "Exam" WHERE id = ${examId} FOR UPDATE`;
+      },
+
       listByCourseIdAllWithProblems(courseId: string) {
         return tx.exam.findMany({
           where: { courseId },

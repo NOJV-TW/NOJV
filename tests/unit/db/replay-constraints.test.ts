@@ -18,8 +18,30 @@ describe("collectReplayStatements", () => {
         "Participation_virtual_window_chk",
         "Participation_ip_exam_only_chk",
         "User_security_generation_nonnegative_chk",
+        "Exam_effective_time_window_chk",
+        "Contest_effective_time_window_chk",
+        "Assessment_effective_time_window_chk",
       ]),
     );
+  });
+
+  it("replays validation after adding NOT VALID effective-window constraints", () => {
+    const names = [
+      "Exam_effective_time_window_chk",
+      "Contest_effective_time_window_chk",
+      "Assessment_effective_time_window_chk",
+    ];
+
+    for (const name of names) {
+      const createIndex = stmts.findIndex((statement) =>
+        new RegExp(`ADD CONSTRAINT "${name}"`, "i").test(statement),
+      );
+      const validateIndex = stmts.findIndex((statement) =>
+        new RegExp(`VALIDATE CONSTRAINT "${name}"`, "i").test(statement),
+      );
+      expect(createIndex).toBeGreaterThanOrEqual(0);
+      expect(validateIndex).toBeGreaterThan(createIndex);
+    }
   });
 
   it("replays the FTS expression GIN but skips the schema-expressible array GIN", () => {

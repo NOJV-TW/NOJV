@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   assessmentFindById,
+  assessmentLockForUpdate,
   assessmentUpdate,
   assessmentDelete,
   assessmentProblemFindByAssessmentId,
@@ -14,6 +15,7 @@ const {
   assessmentAuditCreate,
 } = vi.hoisted(() => ({
   assessmentFindById: vi.fn(),
+  assessmentLockForUpdate: vi.fn(),
   assessmentUpdate: vi.fn(),
   assessmentDelete: vi.fn(),
   assessmentProblemFindByAssessmentId: vi.fn(),
@@ -29,6 +31,7 @@ const {
 vi.mock("@nojv/db", () => {
   const assessmentWithTx = {
     findById: assessmentFindById,
+    lockForUpdate: assessmentLockForUpdate,
     update: assessmentUpdate,
     delete: assessmentDelete,
   };
@@ -137,6 +140,7 @@ describe("updateAssignmentRecord", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentLockForUpdate.mockResolvedValue([]);
     assessmentProblemDeleteByAssessmentId.mockResolvedValue({ count: 0 });
     assessmentProblemCreate.mockResolvedValue({});
     problemFindMany.mockResolvedValue([]);
@@ -296,6 +300,22 @@ describe("updateAssignmentRecord", () => {
       updateAssignmentRecord(teacherActor, "asg_1", { title: "nope" }),
     ).rejects.toThrow(/closed/i);
   });
+
+  it("locks, re-reads, and rejects a close that conflicts with the persisted due date", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment());
+
+    await expect(
+      updateAssignmentRecord(teacherActor, "asg_1", {
+        closesAt: "2030-01-05T00:00:00.000Z",
+      }),
+    ).rejects.toThrow(/closesAt/);
+
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(assessmentLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      assessmentFindById.mock.invocationCallOrder[0],
+    );
+    expect(assessmentUpdate).not.toHaveBeenCalled();
+  });
 });
 
 describe("publishAssignment", () => {
@@ -309,6 +329,7 @@ describe("publishAssignment", () => {
       role: "teacher",
       status: "active",
     });
+    assessmentLockForUpdate.mockResolvedValue([]);
   });
 
   it("promotes a valid draft to published and writes an audit row", async () => {
@@ -316,6 +337,10 @@ describe("publishAssignment", () => {
 
     await publishAssignment(teacherActor, "asg_1");
 
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(assessmentLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      assessmentFindById.mock.invocationCallOrder[0],
+    );
     expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "published" });
     expect(assessmentAuditCreate).toHaveBeenCalledWith({
       assessmentId: "asg_1",
@@ -428,6 +453,7 @@ describe("revertAssignmentToDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentLockForUpdate.mockResolvedValue([]);
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
       status: "active",
@@ -439,6 +465,10 @@ describe("revertAssignmentToDraft", () => {
 
     await revertAssignmentToDraft(teacherActor, "asg_1");
 
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(assessmentLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      assessmentFindById.mock.invocationCallOrder[0],
+    );
     expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "draft" });
     expect(assessmentAuditCreate).toHaveBeenCalledWith({
       assessmentId: "asg_1",

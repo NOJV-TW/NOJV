@@ -17,6 +17,7 @@ import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
+import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 
 export type { ActorContext };
 
@@ -135,6 +136,7 @@ export async function updateExamRecord(
   payload: ExamUpdate,
 ) {
   const result = await runTransaction(async (tx) => {
+    await examRepo.withTx(tx).lockForUpdate(examId);
     const exam = await requireExam(tx, examId);
 
     if (exam.createdByUserId !== actor.userId) {
@@ -161,6 +163,16 @@ export async function updateExamRecord(
     if (payload.startsAt !== undefined) updateData.startsAt = new Date(payload.startsAt);
     if (payload.endsAt !== undefined) updateData.endsAt = new Date(payload.endsAt);
 
+    const effectiveStartsAt =
+      payload.startsAt === undefined ? exam.startsAt : new Date(payload.startsAt);
+    const effectiveEndsAt =
+      payload.endsAt === undefined ? exam.endsAt : new Date(payload.endsAt);
+    assertEffectiveTimeWindow({
+      start: effectiveStartsAt,
+      end: effectiveEndsAt,
+      fields: { start: "startsAt", end: "endsAt" },
+    });
+
     if (Object.keys(updateData).length > 0) {
       await examRepo.withTx(tx).update(exam.id, updateData);
     }
@@ -175,8 +187,8 @@ export async function updateExamRecord(
       id: exam.id,
       status: exam.status,
       windowChanged: payload.startsAt !== undefined || payload.endsAt !== undefined,
-      startsAt: payload.startsAt === undefined ? exam.startsAt : new Date(payload.startsAt),
-      endsAt: payload.endsAt === undefined ? exam.endsAt : new Date(payload.endsAt),
+      startsAt: effectiveStartsAt,
+      endsAt: effectiveEndsAt,
     };
   });
 
@@ -209,6 +221,7 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
     startsAt,
     endsAt,
   } = await runTransaction(async (tx) => {
+    await examRepo.withTx(tx).lockForUpdate(examId);
     const exam = await requireExam(tx, examId);
     await assertExamManagePermission(tx, actor, exam);
 
@@ -224,9 +237,11 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
     if (exam.allowedLanguages.length === 0) {
       throw new ValidationError("Select at least one allowed language before publishing.");
     }
-    if (exam.startsAt >= exam.endsAt) {
-      throw new ValidationError("Start time must be before end time.");
-    }
+    assertEffectiveTimeWindow({
+      start: exam.startsAt,
+      end: exam.endsAt,
+      fields: { start: "startsAt", end: "endsAt" },
+    });
     if (exam.endsAt <= new Date()) {
       throw new ValidationError("End time must be in the future.");
     }

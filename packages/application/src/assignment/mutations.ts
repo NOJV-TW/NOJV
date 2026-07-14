@@ -17,6 +17,7 @@ import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissio
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
+import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 
 async function requireAssignment(tx: TransactionClient, assignmentId: string) {
   const assignment = await assessmentRepo.withTx(tx).findById(assignmentId);
@@ -135,6 +136,7 @@ export async function updateAssignmentRecord(
   payload: AssessmentUpdate,
 ): Promise<{ id: string }> {
   const result = await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -159,6 +161,19 @@ export async function updateAssignmentRecord(
       payload.closesAt !== undefined ? new Date(payload.closesAt) : assignment.closesAt;
     const effectiveOpensAt =
       payload.opensAt !== undefined ? new Date(payload.opensAt) : assignment.opensAt;
+    const effectiveDueAt =
+      payload.dueAt === undefined
+        ? assignment.dueAt
+        : payload.dueAt
+          ? new Date(payload.dueAt)
+          : null;
+
+    assertEffectiveTimeWindow({
+      start: effectiveOpensAt,
+      due: effectiveDueAt,
+      end: effectiveClosesAt,
+      fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
+    });
 
     const updateData: Prisma.AssessmentUncheckedUpdateInput = stripUndefined({
       title: payload.title,
@@ -212,6 +227,7 @@ export async function publishAssignment(
   assignmentId: string,
 ): Promise<void> {
   const published = await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -232,17 +248,12 @@ export async function publishAssignment(
     if (assignment.closesAt <= now) {
       throw new ValidationError("closesAt must be in the future.");
     }
-    if (assignment.opensAt >= assignment.closesAt) {
-      throw new ValidationError("closesAt must be later than opensAt.");
-    }
-    if (assignment.dueAt) {
-      if (assignment.opensAt >= assignment.dueAt) {
-        throw new ValidationError("dueAt must be later than opensAt.");
-      }
-      if (assignment.dueAt > assignment.closesAt) {
-        throw new ValidationError("closesAt must be later than or equal to dueAt.");
-      }
-    }
+    assertEffectiveTimeWindow({
+      start: assignment.opensAt,
+      due: assignment.dueAt,
+      end: assignment.closesAt,
+      fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
+    });
 
     await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
     await assessmentAuditLogRepo.withTx(tx).create({
@@ -289,6 +300,7 @@ export async function revertAssignmentToDraft(
   assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 

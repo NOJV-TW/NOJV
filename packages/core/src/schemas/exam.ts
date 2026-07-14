@@ -37,7 +37,18 @@ export const examCreateSchema = examCreateBaseSchema.refine(
   },
 );
 
-export const examUpdateSchema = examCreateBaseSchema.partial();
+export const examUpdateSchema = examCreateBaseSchema
+  .partial()
+  .refine(
+    (value) =>
+      value.startsAt === undefined ||
+      value.endsAt === undefined ||
+      new Date(value.endsAt) > new Date(value.startsAt),
+    {
+      message: "endsAt must be later than startsAt",
+      path: ["endsAt"],
+    },
+  );
 
 export type ExamCreate = z.infer<typeof examCreateSchema>;
 export type ExamUpdate = z.infer<typeof examUpdateSchema>;

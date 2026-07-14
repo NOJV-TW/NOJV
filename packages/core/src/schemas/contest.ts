@@ -51,7 +51,20 @@ export const contestCreateSchema = contestCreateBaseSchema.refine(
   },
 );
 
-export const contestUpdateSchema = contestCreateBaseSchema.omit({ id: true }).partial();
+export const contestUpdateSchema = contestCreateBaseSchema
+  .omit({ id: true, frozenAt: true })
+  .partial()
+  .extend({ frozenAt: isoDateTimeSchema.nullish() })
+  .refine(
+    (value) =>
+      value.startsAt === undefined ||
+      value.endsAt === undefined ||
+      new Date(value.endsAt) > new Date(value.startsAt),
+    {
+      message: "endsAt must be later than startsAt",
+      path: ["endsAt"],
+    },
+  );
 
 export type ContestCreate = z.infer<typeof contestCreateSchema>;
 export type ContestUpdate = z.infer<typeof contestUpdateSchema>;

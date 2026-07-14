@@ -274,6 +274,10 @@ export const assessmentRepo = {
         return tx.assessment.findUnique({ where: { id } });
       },
 
+      lockForUpdate(assessmentId: string) {
+        return tx.$queryRaw`SELECT id FROM "Assessment" WHERE id = ${assessmentId} FOR UPDATE`;
+      },
+
       findByCompositeId(courseId: string, assessmentId: string) {
         return tx.assessment.findFirst({
           where: { id: assessmentId, courseId },

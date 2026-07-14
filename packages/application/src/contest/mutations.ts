@@ -79,6 +79,7 @@ import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
+import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 
 export type { ActorContext };
 
@@ -270,6 +271,7 @@ export async function updateContestRecord(
   payload: ContestUpdate,
 ) {
   return runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(contestId);
     const contest = await requireContest(tx, contestId);
 
     if (contest.createdByUserId !== actor.userId && actor.platformRole !== "admin") {
@@ -291,6 +293,12 @@ export async function updateContestRecord(
     if (payload.frozenAt !== undefined) {
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
     }
+
+    assertEffectiveTimeWindow({
+      start: payload.startsAt === undefined ? contest.startsAt : new Date(payload.startsAt),
+      end: payload.endsAt === undefined ? contest.endsAt : new Date(payload.endsAt),
+      fields: { start: "startsAt", end: "endsAt" },
+    });
 
     if (Object.keys(updateData).length > 0) {
       await contestRepo.withTx(tx).update(contest.id, updateData);
@@ -351,6 +359,7 @@ async function assertContestManageable(
 
 export async function publishContest(actor: ActorContext, contestId: string): Promise<void> {
   await runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(contestId);
     const contest = await assertContestManageable(tx, actor, contestId);
 
     if (contest.visibility !== "draft") {
@@ -364,9 +373,11 @@ export async function publishContest(actor: ActorContext, contestId: string): Pr
     if (contest.allowedLanguages.length === 0) {
       throw new ValidationError("Select at least one allowed language before publishing.");
     }
-    if (contest.startsAt >= contest.endsAt) {
-      throw new ValidationError("Start time must be before end time.");
-    }
+    assertEffectiveTimeWindow({
+      start: contest.startsAt,
+      end: contest.endsAt,
+      fields: { start: "startsAt", end: "endsAt" },
+    });
     if (contest.endsAt <= new Date()) {
       throw new ValidationError("End time must be in the future.");
     }

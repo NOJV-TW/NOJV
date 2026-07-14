@@ -9,11 +9,13 @@ const GIN_EXPR_RE =
 const DROP_CONSTRAINT_RE = /DROP CONSTRAINT(?:\s+IF EXISTS)?\s+("?\w+"?)/is;
 const DROP_INDEX_RE = /DROP INDEX(?:\s+IF EXISTS)?\s+("?\w+"?)/is;
 const RENAME_COL_RE = /ALTER TABLE\s+("?\w+"?)\s+RENAME COLUMN\s+("?\w+"?)\s+TO\s+("?\w+"?)/is;
+const VALIDATE_CONSTRAINT_RE = /ALTER TABLE\s+("?\w+"?)\s+VALIDATE CONSTRAINT\s+("?\w+"?)/is;
 
 interface Ddl {
   table: string;
   drop: string;
   create: string;
+  validate?: string;
 }
 
 export function splitStatements(sql: string): string[] {
@@ -118,6 +120,14 @@ export function collectReplayStatements(): string[] {
         continue;
       }
 
+      const validate = VALIDATE_CONSTRAINT_RE.exec(stmt);
+      if (validate) {
+        const [, table, name] = validate;
+        const ddl = checks.get(name);
+        if (ddl?.table === table) ddl.validate = stmt;
+        continue;
+      }
+
       const gin = GIN_EXPR_RE.exec(stmt);
       if (gin) {
         const [, name, table] = gin;
@@ -137,7 +147,11 @@ export function collectReplayStatements(): string[] {
   }
 
   return [
-    ...[...checks.values(), ...indexes.values()].flatMap(({ drop, create }) => [drop, create]),
+    ...[...checks.values(), ...indexes.values()].flatMap(({ drop, create, validate }) => [
+      drop,
+      create,
+      ...(validate ? [validate] : []),
+    ]),
     ...databaseObjects,
   ];
 }

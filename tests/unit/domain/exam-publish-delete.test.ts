@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   examFindById,
+  examLockForUpdate,
   examUpdate,
   examDelete,
   examProblemCount,
@@ -9,6 +10,7 @@ const {
   dispatchExamAutoClose,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
+  examLockForUpdate: vi.fn(),
   examUpdate: vi.fn(),
   examDelete: vi.fn(),
   examProblemCount: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock("@nojv/db", () => {
     examRepo: {
       withTx: () => ({
         findById: examFindById,
+        lockForUpdate: examLockForUpdate,
         update: examUpdate,
         delete: examDelete,
       }),
@@ -110,6 +113,7 @@ beforeEach(() => {
 describe("publishExam", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    examLockForUpdate.mockResolvedValue([]);
   });
 
   it("publishes a valid draft, updates status, and schedules auto-close", async () => {
@@ -118,6 +122,10 @@ describe("publishExam", () => {
 
     await publishExam(fakeActor, "exam_1");
 
+    expect(examLockForUpdate).toHaveBeenCalledWith("exam_1");
+    expect(examLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      examFindById.mock.invocationCallOrder[0],
+    );
     expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "published" });
     expect(dispatchExamAutoClose).toHaveBeenCalledTimes(1);
     const [payload] = dispatchExamAutoClose.mock.calls[0] as [
@@ -232,6 +240,7 @@ describe("deleteExamDraft", () => {
 describe("updateExamRecord — auto-close re-arming", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    examLockForUpdate.mockResolvedValue([]);
     examUpdate.mockResolvedValue({});
   });
 
@@ -265,5 +274,22 @@ describe("updateExamRecord — auto-close re-arming", () => {
     await updateExamRecord(fakeActor, "exam_1", { title: "Renamed" });
 
     expect(dispatchExamAutoClose).not.toHaveBeenCalled();
+  });
+
+  it("locks, re-reads, and rejects an end that conflicts with the persisted start", async () => {
+    const exam = publishableExam();
+    examFindById.mockResolvedValue(exam);
+
+    await expect(
+      updateExamRecord(fakeActor, "exam_1", {
+        endsAt: new Date(exam.startsAt.getTime() - 1).toISOString(),
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    expect(examLockForUpdate).toHaveBeenCalledWith("exam_1");
+    expect(examLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      examFindById.mock.invocationCallOrder[0],
+    );
+    expect(examUpdate).not.toHaveBeenCalled();
   });
 });

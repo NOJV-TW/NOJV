@@ -139,6 +139,10 @@ export const contestRepo = {
         return tx.contest.findUnique({ where: { id } });
       },
 
+      lockForUpdate(contestId: string) {
+        return tx.$queryRaw`SELECT id FROM "Contest" WHERE id = ${contestId} FOR UPDATE`;
+      },
+
       create(data: Prisma.ContestUncheckedCreateInput) {
         return tx.contest.create({ data });
       },
