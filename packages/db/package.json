@@ -32,7 +32,6 @@
   },
   "dependencies": {
     "@nojv/core": "workspace:*",
-    "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",

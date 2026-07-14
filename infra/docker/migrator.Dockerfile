@@ -14,7 +14,6 @@ COPY tooling/typescript/base.json tooling/typescript/
 COPY packages/db/package.json packages/db/
 COPY packages/db/prisma.config.ts packages/db/
 COPY packages/core/package.json packages/core/
-COPY packages/redis/package.json packages/redis/
 COPY packages/storage/package.json packages/storage/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/db...
