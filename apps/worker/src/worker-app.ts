@@ -37,6 +37,7 @@ interface ManagedWorker {
 
 export class WorkerApp {
   private readonly workers: ManagedWorker[] = [];
+  private readonly backgroundTasks: Promise<void>[] = [];
   private readonly cleanupSteps: CleanupStep[] = [];
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
@@ -87,7 +88,7 @@ export class WorkerApp {
       managed.runPromise = runPromise;
       return runPromise;
     });
-    this.runPromise = Promise.all(runPromises);
+    this.runPromise = Promise.all([...runPromises, ...this.backgroundTasks]);
     await this.runPromise;
   }
 
@@ -120,10 +121,15 @@ export class WorkerApp {
       });
 
       if (this.env.EXECUTION_BACKEND === "docker") {
-        const { sweepOrphanContainers } = await import("./services/docker-container.js");
-        const { sweepOrphanNetworks } = await import("./services/docker-network.js");
-        await sweepOrphanContainers();
-        await sweepOrphanNetworks();
+        const { createDockerResourceSweeper } =
+          await import("./services/docker-resource-sweeper.js");
+        const resourceSweeper = createDockerResourceSweeper();
+        this.cleanupSteps.push({
+          resource: "Docker resource sweeper",
+          run: () => resourceSweeper.shutdown(),
+        });
+        await resourceSweeper.start();
+        this.backgroundTasks.push(resourceSweeper.done);
       }
 
       if (this.env.EXECUTION_BACKEND === "kubernetes") {
