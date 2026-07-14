@@ -41,6 +41,8 @@ test.describe("Problems", () => {
 
     await page.keyboard.press("Tab");
     await expect(close).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(close).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();

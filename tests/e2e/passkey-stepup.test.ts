@@ -25,8 +25,7 @@ const user = new DisposableCredentialUser("passkey-stepup");
 const sessionIds = new Set<string>();
 
 async function sessionId(page: import("@playwright/test").Page): Promise<string> {
-  const id = (await readLiveSession(page)).session?.id;
-  if (!id) throw new Error("Could not resolve the active session.");
+  const id = (await readLiveSession(page)).session.id;
   sessionIds.add(id);
   return id;
 }

@@ -88,6 +88,13 @@ test.describe("Advanced Mode Lifecycle", () => {
       page.getByRole("button", { name: /create new problem|create options/i }),
     ).toHaveCount(0);
 
+    await page.getByRole("link", { name: "Public Library" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/problems$/);
+    await page.getByRole("link", { name: "My Problems" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/problems\?tab=mine$/);
+
     await context.close();
   });
 

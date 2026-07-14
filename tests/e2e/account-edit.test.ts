@@ -9,9 +9,7 @@ test.describe("profile edit", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
 
-    const session = await readLiveSession(page);
-    const userId = session.user?.id;
-    if (!userId) throw new Error("Could not resolve the signed-in user.");
+    const userId = (await readLiveSession(page)).user.id;
 
     await page.goto(`/users/${userId}`);
 

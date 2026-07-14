@@ -26,9 +26,7 @@ test.afterAll(() => {
 });
 
 async function currentSessionId(page: import("@playwright/test").Page): Promise<string> {
-  const sessionId = (await readLiveSession(page)).session?.id;
-  if (!sessionId) throw new Error("Could not resolve the current admin session.");
-  return sessionId;
+  return (await readLiveSession(page)).session.id;
 }
 
 test("enrollment and concurrent admin elevation consume each TOTP exactly once", async ({

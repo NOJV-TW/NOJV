@@ -6,9 +6,7 @@ const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/s
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 
 async function readOwnUserId(page: Page): Promise<string> {
-  const id = (await readLiveSession(page)).user?.id;
-  if (!id) throw new Error("Could not resolve session user id");
-  return id;
+  return (await readLiveSession(page)).user.id;
 }
 
 async function setProfilePublic(page: Page, userId: string, value: boolean): Promise<void> {

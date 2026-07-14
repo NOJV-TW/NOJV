@@ -89,7 +89,7 @@ test.describe("API token step-up", () => {
     await expect(page).toHaveURL(/\/account\/api-tokens$/);
     await expect(page.getByRole("button", { name: /Create token/i })).toBeVisible();
     const enrolledSession = await readLiveSession(page);
-    if (enrolledSession.session?.id) steppedUpSessionIds.add(enrolledSession.session.id);
+    steppedUpSessionIds.add(enrolledSession.session.id);
 
     // A different session receives no grant. TOTP replay prevention is
     // account-wide, so it must wait for one more authenticator window.
@@ -109,7 +109,7 @@ test.describe("API token step-up", () => {
     await expect(otherPage).toHaveURL(/\/account\/api-tokens$/, { timeout: 10000 });
     await expect(otherPage.getByRole("button", { name: /Create token/i })).toBeVisible();
     const session = await readLiveSession(otherPage);
-    if (session.session?.id) steppedUpSessionIds.add(session.session.id);
+    steppedUpSessionIds.add(session.session.id);
 
     await context.close();
     await otherContext.close();

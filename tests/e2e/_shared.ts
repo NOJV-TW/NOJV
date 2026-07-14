@@ -34,8 +34,14 @@ export const formActionHeaders = {
 } as const;
 
 export interface LiveSession {
-  session?: { id?: string };
-  user?: { id?: string };
+  session: { id: string };
+  user: { id: string };
+}
+
+function isLiveSession(value: unknown): value is LiveSession {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<LiveSession>;
+  return typeof candidate.session?.id === "string" && typeof candidate.user?.id === "string";
 }
 
 export async function newLiveApiContext(page: Page): Promise<APIRequestContext> {
@@ -52,7 +58,11 @@ export async function readLiveSession(page: Page): Promise<LiveSession> {
     if (!response.ok()) {
       throw new Error(`Session lookup failed with HTTP ${String(response.status())}.`);
     }
-    return (await response.json()) as LiveSession;
+    const session: unknown = await response.json();
+    if (!isLiveSession(session)) {
+      throw new Error("Session lookup returned no active session.");
+    }
+    return session;
   } finally {
     await api.dispose();
   }
