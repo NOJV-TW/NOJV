@@ -11,6 +11,33 @@ const workerId = randomUUID();
 
 export type DockerResourceLabels = Record<string, string>;
 
+function parseNonNegativeInteger(value: unknown): number | null {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+export function hasExpiredDockerResourceLabels(labels: unknown, nowMs: number): boolean {
+  if (!labels || typeof labels !== "object" || Array.isArray(labels)) return false;
+  if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+    throw new RangeError("Docker resource sweep time must be a non-negative safe integer.");
+  }
+  const values = labels as Record<string, unknown>;
+  const createdAt = parseNonNegativeInteger(values[DOCKER_CREATED_AT_LABEL]);
+  const expiresAt = parseNonNegativeInteger(values[DOCKER_EXPIRES_AT_LABEL]);
+  return (
+    values[DOCKER_MANAGED_LABEL] === "true" &&
+    typeof values[DOCKER_WORKER_LABEL] === "string" &&
+    values[DOCKER_WORKER_LABEL].length > 0 &&
+    typeof values[DOCKER_RUN_LABEL] === "string" &&
+    values[DOCKER_RUN_LABEL].length > 0 &&
+    createdAt !== null &&
+    expiresAt !== null &&
+    expiresAt > createdAt &&
+    expiresAt <= nowMs
+  );
+}
+
 export function buildDockerResourceLabels(
   runId: string,
   options: { workerId?: string; nowMs?: number; ttlMs?: number } = {},

@@ -1,12 +1,9 @@
 import { DockerCommandError, runDocker, runDockerCommand, sanitizeId } from "./docker-process";
 import {
-  DOCKER_CREATED_AT_LABEL,
-  DOCKER_EXPIRES_AT_LABEL,
   DOCKER_MANAGED_LABEL,
-  DOCKER_RUN_LABEL,
-  DOCKER_WORKER_LABEL,
   buildDockerResourceLabels,
   dockerLabelArgs,
+  hasExpiredDockerResourceLabels,
 } from "./docker-resource";
 
 const INTERNAL_NETWORK_PREFIX = "nojv-net-internal-";
@@ -53,12 +50,6 @@ export async function removeSubmissionNetwork(network: SubmissionNetwork): Promi
   });
 }
 
-function parseNonNegativeInteger(value: unknown): number | null {
-  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) ? parsed : null;
-}
-
 export function shouldSweepNetworkInspection(
   inspection: DockerNetworkInspection,
   nowMs: number,
@@ -78,20 +69,7 @@ export function shouldSweepNetworkInspection(
     return false;
   }
   if (Object.keys(inspection.Containers).length !== 0) return false;
-  const labels = inspection.Labels as Record<string, unknown>;
-  const createdAt = parseNonNegativeInteger(labels[DOCKER_CREATED_AT_LABEL]);
-  const expiresAt = parseNonNegativeInteger(labels[DOCKER_EXPIRES_AT_LABEL]);
-  return (
-    labels[DOCKER_MANAGED_LABEL] === "true" &&
-    typeof labels[DOCKER_WORKER_LABEL] === "string" &&
-    labels[DOCKER_WORKER_LABEL].length > 0 &&
-    typeof labels[DOCKER_RUN_LABEL] === "string" &&
-    labels[DOCKER_RUN_LABEL].length > 0 &&
-    createdAt !== null &&
-    expiresAt !== null &&
-    expiresAt > createdAt &&
-    expiresAt <= nowMs
-  );
+  return hasExpiredDockerResourceLabels(inspection.Labels, nowMs);
 }
 
 function parseNetworkInspection(stdout: string): DockerNetworkInspection | null {

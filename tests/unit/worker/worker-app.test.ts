@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   healthListen: vi.fn(),
   workerCreate: vi.fn(),
   setExecutorOwner: vi.fn(),
+  sweepOrphanContainers: vi.fn(),
   sweepOrphanNetworks: vi.fn(),
 }));
 
@@ -75,6 +76,10 @@ vi.mock("../../../apps/worker/src/services/docker-network.js", () => ({
   sweepOrphanNetworks: mocks.sweepOrphanNetworks,
 }));
 
+vi.mock("../../../apps/worker/src/services/docker-container.js", () => ({
+  sweepOrphanContainers: mocks.sweepOrphanContainers,
+}));
+
 import { WorkerApp } from "../../../apps/worker/src/worker-app";
 
 const env: WorkerEnv = {
@@ -123,6 +128,7 @@ beforeEach(() => {
   mocks.ensureSubmissionSweeper.mockResolvedValue(undefined);
   mocks.ensureLifecycleReconciler.mockResolvedValue(undefined);
   mocks.executorShutdown.mockResolvedValue(undefined);
+  mocks.sweepOrphanContainers.mockResolvedValue(undefined);
   mocks.sweepOrphanNetworks.mockResolvedValue(undefined);
   mocks.healthListen.mockImplementation((_port: number, callback: () => void) => callback());
   mocks.healthClose.mockImplementation((callback: (error?: Error) => void) => callback());
@@ -137,7 +143,11 @@ describe("WorkerApp lifecycle", () => {
     );
 
     await expect(app.start()).rejects.toThrow("Docker network recovery failed");
+    expect(mocks.sweepOrphanContainers).toHaveBeenCalledOnce();
     expect(mocks.sweepOrphanNetworks).toHaveBeenCalledOnce();
+    expect(mocks.sweepOrphanContainers.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.sweepOrphanNetworks.mock.invocationCallOrder[0],
+    );
     expect(mocks.workerCreate).not.toHaveBeenCalled();
 
     await expect(app.shutdown("startup failure")).resolves.toMatchObject({ complete: true });

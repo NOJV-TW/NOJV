@@ -43,6 +43,7 @@
     "unit/worker/durable-work-metrics.test.ts",
     "unit/worker/durable-work-registry.test.ts",
     "unit/worker/durable-work.test.ts",
+    "unit/worker/docker-container-sweep.test.ts",
     "unit/worker/worker-app.test.ts",
     "setup/k8s-global-setup.ts",
     "setup/k8s-integration-target.ts"

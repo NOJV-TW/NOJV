@@ -120,7 +120,9 @@ export class WorkerApp {
       });
 
       if (this.env.EXECUTION_BACKEND === "docker") {
+        const { sweepOrphanContainers } = await import("./services/docker-container.js");
         const { sweepOrphanNetworks } = await import("./services/docker-network.js");
+        await sweepOrphanContainers();
         await sweepOrphanNetworks();
       }
 
