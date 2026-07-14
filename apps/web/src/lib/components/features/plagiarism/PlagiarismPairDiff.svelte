@@ -1,17 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type * as Monaco from "monaco-editor";
 
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
-  import {
-    defineNojvThemes,
-    getNojvThemeName,
-    watchThemeChanges,
-  } from "$lib/utils/monaco-themes";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
+  import { createPlagiarismDiffLifecycle } from "./plagiarism-diff-lifecycle";
 
   interface Props {
     data: PlagiarismPairDiffData;
@@ -19,9 +14,15 @@
 
   let { data }: Props = $props();
 
+  function getInitialPairKey(): string {
+    return data.pairKey;
+  }
+
   let diffContainer: HTMLDivElement = $state(null!);
-  let diffEditor: Monaco.editor.IStandaloneDiffEditor | undefined;
-  let monacoModule: typeof Monaco | undefined;
+  let diffLifecycle = $state<ReturnType<typeof createPlagiarismDiffLifecycle>>();
+  let componentMounted = false;
+  let activePairKey = $state(getInitialPairKey());
+  let pairGeneration = 0;
 
   type FlagShape = PlagiarismPairDiffData["flag"];
   let localFlag = $state<{ value: FlagShape } | null>(null);
@@ -29,54 +30,61 @@
 
   let isLoading = $state(false);
   let actionError = $state<string | null>(null);
+  let editorError = $state<string | null>(null);
 
   function flattenFiles(files: { path: string; content: string }[] | null): string {
     return flattenSourcesForDisplay(files ?? []);
   }
 
+  function currentSources() {
+    return {
+      original: flattenFiles(data.left.files),
+      modified: flattenFiles(data.right.files),
+    };
+  }
+
+  function isCurrentPair(generation: number, pairKey: string): boolean {
+    return componentMounted && generation === pairGeneration && pairKey === data.pairKey;
+  }
+
+  $effect(() => {
+    diffLifecycle?.update(currentSources());
+  });
+
+  $effect(() => {
+    const nextPairKey = data.pairKey;
+    if (nextPairKey === activePairKey) return;
+    activePairKey = nextPairKey;
+    pairGeneration++;
+    localFlag = null;
+    actionError = null;
+    isLoading = false;
+  });
+
   onMount(() => {
-    let disposeTheme: (() => void) | undefined;
-
-    void (async () => {
-      const { loadMonaco } = await import("$lib/utils/monaco-loader");
-      monacoModule = loadMonaco();
-      defineNojvThemes(monacoModule);
-      const isDark = document.documentElement.classList.contains("dark");
-
-      diffEditor = monacoModule.editor.createDiffEditor(diffContainer, {
-        automaticLayout: true,
-        readOnly: true,
-        renderSideBySide: true,
-        theme: getNojvThemeName(isDark),
-        fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-        fontSize: 13,
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-      });
-
-      const original = monacoModule.editor.createModel(
-        flattenFiles(data.left.files),
-        "plaintext",
-      );
-      const modified = monacoModule.editor.createModel(
-        flattenFiles(data.right.files),
-        "plaintext",
-      );
-      diffEditor.setModel({ original, modified });
-
-      disposeTheme = watchThemeChanges(monacoModule);
-    })();
+    componentMounted = true;
+    diffLifecycle = createPlagiarismDiffLifecycle({
+      container: diffContainer,
+      initialSources: currentSources(),
+      loadMonaco: async () => {
+        const { loadMonaco } = await import("$lib/utils/monaco-loader");
+        return loadMonaco();
+      },
+      onLoadError: () => {
+        if (componentMounted) editorError = m.editor_loadFailed();
+      },
+    });
 
     return () => {
-      disposeTheme?.();
-      const m = diffEditor?.getModel();
-      m?.original.dispose();
-      m?.modified.dispose();
-      diffEditor?.dispose();
+      componentMounted = false;
+      pairGeneration++;
+      diffLifecycle?.dispose();
     };
   });
 
   async function handleMark() {
+    const generation = pairGeneration;
+    const pairKey = data.pairKey;
     isLoading = true;
     actionError = null;
     try {
@@ -101,20 +109,25 @@
       const body = (await res.json()) as {
         flag: { id: string; flaggedBy: string; flaggedAt: string; note: string | null };
       };
+      if (!isCurrentPair(generation, pairKey)) return;
       localFlag = { value: body.flag };
     } catch (err) {
+      if (!isCurrentPair(generation, pairKey)) return;
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
-      isLoading = false;
+      if (isCurrentPair(generation, pairKey)) isLoading = false;
     }
   }
 
   async function handleUnmark() {
     if (!currentFlag) return;
+    const generation = pairGeneration;
+    const pairKey = data.pairKey;
+    const flagId = currentFlag.id;
     isLoading = true;
     actionError = null;
     try {
-      const res = await fetch(`/api/plagiarism-flags/${encodeURIComponent(currentFlag.id)}`, {
+      const res = await fetch(`/api/plagiarism-flags/${encodeURIComponent(flagId)}`, {
         method: "DELETE",
         headers: { "X-Requested-With": "fetch" },
       });
@@ -122,11 +135,13 @@
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
         throw new Error(body?.message ?? `HTTP ${res.status}`);
       }
+      if (!isCurrentPair(generation, pairKey)) return;
       localFlag = { value: null };
     } catch (err) {
+      if (!isCurrentPair(generation, pairKey)) return;
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
-      isLoading = false;
+      if (isCurrentPair(generation, pairKey)) isLoading = false;
     }
   }
 
@@ -180,6 +195,15 @@
       class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-body-sm text-destructive"
     >
       {actionError}
+    </div>
+  {/if}
+
+  {#if editorError}
+    <div
+      role="alert"
+      class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-body-sm text-destructive"
+    >
+      {editorError}
     </div>
   {/if}
 

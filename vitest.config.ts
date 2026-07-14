@@ -30,6 +30,17 @@ const sharedAliases = {
   "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
 };
 
+const componentAliases = [
+  {
+    find: /^svelte$/,
+    replacement: path.resolve(
+      path.dirname(requireFromWeb.resolve("svelte/package.json")),
+      "src/index-client.js",
+    ),
+  },
+  ...Object.entries(sharedAliases).map(([find, replacement]) => ({ find, replacement })),
+];
+
 function svelteTestPlugin() {
   return svelte({ configFile: path.resolve(__dirname, "apps/web/svelte.config.js") });
 }
@@ -70,7 +81,27 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["tests/unit/**/*.test.ts"],
+          exclude: [
+            "tests/unit/web/echart-lifecycle.test.ts",
+            "tests/unit/web/plagiarism-pair-diff.test.ts",
+            "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
+            "tests/unit/web/toggle-switch.test.ts",
+          ],
           environment: "node",
+        },
+      },
+      {
+        plugins: [svelteTestPlugin()],
+        resolve: { alias: componentAliases, conditions: ["browser"] },
+        test: {
+          name: "component",
+          include: [
+            "tests/unit/web/echart-lifecycle.test.ts",
+            "tests/unit/web/plagiarism-pair-diff.test.ts",
+            "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
+            "tests/unit/web/toggle-switch.test.ts",
+          ],
+          environment: "jsdom",
         },
       },
       {
