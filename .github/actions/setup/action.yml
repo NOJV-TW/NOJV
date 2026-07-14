@@ -20,3 +20,7 @@ runs:
     - name: Create .env from example
       shell: bash
       run: cp .env.example .env
+
+    - name: Generate Prisma client
+      shell: bash
+      run: pnpm db:generate
