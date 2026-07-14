@@ -22,12 +22,10 @@ function helmAvailable(): boolean {
 
 let renderedChart: string | undefined;
 function renderChart(): string {
-  if (renderedChart === undefined) {
-    renderedChart = execSync(
-      "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml",
-      { cwd: repoRoot, encoding: "utf8" },
-    );
-  }
+  renderedChart ??= execSync(
+    "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml",
+    { cwd: repoRoot, encoding: "utf8" },
+  );
   return renderedChart;
 }
 
@@ -63,8 +61,9 @@ const validK8sEnv: Record<string, string> = {
 function requiredKubernetesEnvKeys(): string[] {
   const required: string[] = [];
   for (const key of Object.keys(validK8sEnv)) {
-    const withoutKey = { ...validK8sEnv };
-    delete withoutKey[key];
+    const withoutKey = Object.fromEntries(
+      Object.entries(validK8sEnv).filter(([candidate]) => candidate !== key),
+    );
     if (!workerEnvSchema.safeParse(withoutKey).success) required.push(key);
   }
   return required;
@@ -81,8 +80,9 @@ function requiredProductionStorageKeys(): string[] {
   const required: string[] = [];
   for (const key of Object.keys(validStorageEnv)) {
     if (key === "NODE_ENV") continue;
-    const without = { ...validStorageEnv };
-    delete without[key];
+    const without = Object.fromEntries(
+      Object.entries(validStorageEnv).filter(([candidate]) => candidate !== key),
+    );
     if (!storageEnvSchema.safeParse(without).success) required.push(key);
   }
   return required;
@@ -114,7 +114,7 @@ const helm = helmAvailable();
 const describeHelm = helm ? describe : describe.skip;
 if (!helm) {
   describe.skip("env ↔ chart parity (skipped: helm not installed)", () => {
-    it.skip("requires helm to render infra/charts/nojv", () => {});
+    it.skip("requires helm to render infra/charts/nojv", () => undefined);
   });
 }
 
@@ -149,8 +149,8 @@ describeHelm("env schema ↔ chart deployment parity", () => {
 
 describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {
   const workspaceManifest = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
-  const patchBlock = /^patchedDependencies:\n((?:  .+\n)+)/m.exec(workspaceManifest);
-  const hasPatches = patchBlock !== null && patchBlock[1]!.trim().length > 0;
+  const patchBlock = /^patchedDependencies:\n((?: {2}.+\n)+)/m.exec(workspaceManifest);
+  const hasPatches = Boolean(patchBlock?.[1]?.trim());
 
   const dockerDir = join(repoRoot, "infra/docker");
   const frozenInstallDockerfiles = readdirSync(dockerDir)
@@ -212,7 +212,9 @@ describe("Flux release artifact atomicity", () => {
     expect(workflow).toContain("in_image && /^  tag: / { print NR }");
     expect(workflow).toContain('git add "$VALUES_FILE"');
     expect(workflow).toContain('DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"');
-    expect(workflow).toContain("git push --atomic --force origin");
+    expect(workflow).toContain(
+      'git push --atomic "--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}" origin',
+    );
     expect(workflow).not.toContain("infra/flux/helmrelease.yaml");
   });
 });

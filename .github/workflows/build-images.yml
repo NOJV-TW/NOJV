@@ -1,38 +1,53 @@
 name: Build & Push Images
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "infra/flux/**"
-      - "docs/**"
-      - "**/*.md"
-  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 concurrency:
-  group: build-images-${{ github.ref }}
-  cancel-in-progress: true
+  group: build-images-main
+  cancel-in-progress: false
 
-permissions:
-  contents: write
-  packages: write
+permissions: {}
 
 jobs:
-  build-push:
+  build-publish:
     name: Build & push images to GHCR
+    if: >-
+      github.event.workflow_run.name == 'CI' &&
+      github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      image_tag: ${{ steps.release.outputs.image_tag }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
-      - name: Resolve image tag
-        id: tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "image_tag=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Validate trusted release run and exact checkout
+        id: release
+        env:
+          RELEASE_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RELEASE_WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          RELEASE_EVENT: ${{ github.event.workflow_run.event }}
+          RELEASE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/validate-release-run.mjs
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -47,7 +62,7 @@ jobs:
       - name: Build & push runtime images
         shell: bash
         env:
-          TAG: ${{ steps.tag.outputs.image_tag }}
+          TAG: ${{ steps.release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
         run: |
           set -euo pipefail
@@ -56,7 +71,7 @@ jobs:
             local ref="${PREFIX}/${name}"
             docker buildx build \
               -f "$dockerfile" \
-              -t "${ref}:${TAG}" -t "${ref}:main" \
+              -t "${ref}:${TAG}" \
               --cache-from "type=registry,ref=${ref}:buildcache" \
               --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
               --push \
@@ -67,10 +82,39 @@ jobs:
           build nojv-migrator     infra/docker/migrator.Dockerfile       .
           build nojv-sandbox      infra/docker/sandbox-runner.Dockerfile .
 
+  deploy-ref:
+    name: Publish verified image tag to deploy branch
+    needs: build-publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the verified release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build-publish.outputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Verify deploy checkout
+        env:
+          RELEASE_SHA: ${{ needs.build-publish.outputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Fetch current deploy ref
+        run: git fetch --no-tags origin +refs/heads/deploy:refs/remotes/origin/deploy
+
+      - name: Reject stale deploy candidate
+        id: advance
+        env:
+          RELEASE_SHA: ${{ needs.build-publish.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs deploy-advance
+
       - name: Publish tag to the deploy branch (Flux tracks it → auto-pull)
         shell: bash
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.build-publish.outputs.image_tag }}
+          DEPLOY_TIP: ${{ steps.advance.outputs.deploy_tip }}
         run: |
           set -euo pipefail
           git config user.name "nojv-deploy-bot"
@@ -96,6 +140,6 @@ jobs:
           git commit -m "deploy: ${IMAGE_TAG}"
           DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"
           git tag --force "$DEPLOY_TAG"
-          git push --atomic --force origin \
+          git push --atomic "--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}" origin \
             refs/heads/deploy:refs/heads/deploy \
-            "refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"
+            "+refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"
