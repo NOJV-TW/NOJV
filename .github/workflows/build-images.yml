@@ -144,7 +144,11 @@ jobs:
           git add "$VALUES_FILE"
           git commit -m "deploy: ${IMAGE_TAG}"
           DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"
-          git tag --force "$DEPLOY_TAG"
+          if git ls-remote --exit-code --tags origin "refs/tags/${DEPLOY_TAG}" >/dev/null 2>&1; then
+            echo "Immutable deploy tag already exists: ${DEPLOY_TAG}" >&2
+            exit 1
+          fi
+          git tag "$DEPLOY_TAG"
           git push --atomic "--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}" origin \
             refs/heads/deploy:refs/heads/deploy \
-            "+refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"
+            "refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"

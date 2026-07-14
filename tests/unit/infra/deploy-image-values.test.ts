@@ -63,4 +63,21 @@ other: true
       }),
     ).toThrow(/exactly one image\.digests\.sandbox/u);
   });
+
+  it.each(["latest", "main", "master", "local"])(
+    "rejects the mutable deployment tag %s",
+    (tag) => {
+      expect(() =>
+        updateDeployImageValues(input, {
+          tag,
+          digests: {
+            web: digest("1"),
+            worker: digest("2"),
+            sandbox: digest("3"),
+            migrator: digest("4"),
+          },
+        }),
+      ).toThrow(/immutable release tag/u);
+    },
+  );
 });

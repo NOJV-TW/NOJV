@@ -3,10 +3,13 @@ import { pathToFileURL } from "node:url";
 
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const TAG = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/u;
+const MUTABLE_TAGS = new Set(["latest", "main", "master", "local"]);
 const COMPONENTS = ["web", "worker", "sandbox", "migrator"];
 
 export function updateDeployImageValues(content, { tag, digests }) {
-  if (!TAG.test(tag)) throw new Error("IMAGE_TAG must be a valid literal OCI tag");
+  if (!TAG.test(tag) || MUTABLE_TAGS.has(tag)) {
+    throw new Error("IMAGE_TAG must be an explicit immutable release tag");
+  }
   for (const component of COMPONENTS) {
     if (!DIGEST.test(digests[component] ?? "")) {
       throw new Error(`${component} digest must be sha256:<64 lowercase hex characters>`);
