@@ -42,6 +42,13 @@ import {
 } from "../../../apps/worker/src/services/k8s-advanced";
 import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
 
+function execute(executor: K8sExecutor, request: SandboxRequest) {
+  return executor.execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 function makeAdvancedRequest(overrides?: {
   imageRef?: string;
   memoryMb?: number;
@@ -841,7 +848,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       feedback: "all good",
     });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(record.pvcsCreated).toHaveLength(1);
     expect(record.pvcsCreated[0]!.name).toBe("judge-sub-adv-1-runout");
@@ -875,7 +882,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, failJob: "judge-sub-adv-1-run" }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-grade");
     const gradeCm = record.configMapsCreated.find(
@@ -894,7 +901,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { runNodeName: null }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     expect(record.jobsCreated.map((j) => j.name)).toEqual(["judge-sub-adv-1-run"]);
@@ -908,7 +915,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, transferExitCode: 1 }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
@@ -925,7 +932,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, transferExitCode: null }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
@@ -943,7 +950,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
         transferExitCode: null,
       }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-grade");
     const gradeCm = record.configMapsCreated.find(
@@ -960,7 +967,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ missing: true });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
     expect(message).toMatch(/result\.json/i);
@@ -970,7 +977,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: "nope", verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
   });
 
@@ -978,7 +985,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     expect(record.jobsDeleted.map((j) => j.name).sort()).toEqual([
       "judge-sub-adv-1-grade",
@@ -995,7 +1002,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
     const runLabels = runJob.body.spec.template.metadata.labels;
@@ -1012,7 +1019,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     const gradeJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-grade")!;
     expect(gradeJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1-grade");
@@ -1029,7 +1036,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(
+    await execute(
+      executor,
       makeAdvancedRequest({
         network: {
           mode: "service",
@@ -1069,7 +1077,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
         sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
       }),
     );
-    await executor.execute(
+    await execute(
+      executor,
       makeAdvancedRequest({
         network: {
           mode: "service",
@@ -1121,10 +1130,10 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       }),
     );
 
-    await expect(executor.execute(makeAdvancedRequest())).rejects.toThrow(
+    await expect(execute(executor, makeAdvancedRequest())).rejects.toThrow(
       "simulated job create failure",
     );
-    await expect(executor.execute(makeAdvancedRequest())).rejects.toThrow(
+    await expect(execute(executor, makeAdvancedRequest())).rejects.toThrow(
       "simulated job create failure",
     );
 
@@ -1150,7 +1159,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
         }),
       );
 
-      const execution = executor.execute(
+      const execution = execute(
+        executor,
         makeAdvancedRequest({
           network: {
             mode: "service",
@@ -1181,7 +1191,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, sidecarReadyMarker: "" }),
     );
-    const result = await executor.execute(
+    const result = await execute(
+      executor,
       makeAdvancedRequest({
         network: {
           mode: "service",
@@ -1200,7 +1211,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { throwOnJobCreate: true }),
     );
-    await expect(executor.execute(makeAdvancedRequest())).rejects.toThrow(
+    await expect(execute(executor, makeAdvancedRequest())).rejects.toThrow(
       "simulated job create failure",
     );
     expect(record.pvcsDeleted).toHaveLength(1);
@@ -1216,7 +1227,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       { ...EXEC_CONFIG, imagePullSecretName: "nojv-registry-pull" },
       buildFakeClients(record, { sidecarLog }),
     );
-    await executor.execute(
+    await execute(
+      executor,
       makeAdvancedRequest({
         network: {
           mode: "service",
@@ -1242,7 +1254,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     for (const job of record.jobsCreated) {
       expect(job.body.spec.template.spec.imagePullSecrets).toBeUndefined();
@@ -1264,7 +1276,7 @@ describe("K8sExecutor.execute(advanced) — image pull failures", () => {
       }),
     );
 
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults.every((t) => t.verdict === "SE")).toBe(true);
     expect(result.scoringFeedback).toContain(
@@ -1289,7 +1301,7 @@ describe("K8sExecutor.execute(advanced) — image pull failures", () => {
       }),
     );
 
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("AC");
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-run");

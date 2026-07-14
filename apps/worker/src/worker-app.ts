@@ -23,7 +23,8 @@ import {
   type CleanupReport,
   type CleanupStep,
 } from "./server-lifecycle";
-import { createExecutor } from "./services/executor-factory";
+import { createExecutorOwner } from "./services/executor-factory";
+import type { ExecutorOwner } from "./services/executor-owner";
 
 const logger = createLogger("worker");
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 35_000;
@@ -44,6 +45,7 @@ export class WorkerApp {
   private initializationPromise: Promise<void> | null = null;
   private runPromise: Promise<unknown> | null = null;
   private connection: NativeConnection | null = null;
+  private executorOwner: ExecutorOwner | null = null;
   private stopping = false;
 
   constructor(
@@ -106,9 +108,15 @@ export class WorkerApp {
     this.assertStarting();
 
     if (mode === "all" || mode === "judge") {
-      const { setExecutor } = await import("./activities/judge.js");
-      const executor = createExecutor(this.env);
-      setExecutor(executor);
+      const { setExecutorOwner } = await import("./activities/judge.js");
+      const executorOwner = createExecutorOwner(this.env);
+      this.executorOwner = executorOwner;
+      setExecutorOwner(executorOwner);
+      this.cleanupSteps.push({
+        resource: "sandbox executions",
+        run: () =>
+          executorOwner.shutdown(new DOMException("Worker is shutting down.", "AbortError")),
+      });
 
       if (this.env.EXECUTION_BACKEND === "docker") {
         const { sweepOrphanNetworks } = await import("./services/docker-network.js");
@@ -191,6 +199,9 @@ export class WorkerApp {
     if (this.shutdownPromise) return this.shutdownPromise;
 
     this.stopping = true;
+    this.executorOwner?.abortActive(
+      new DOMException(`Worker received ${signal}.`, "AbortError"),
+    );
 
     logger.info("shutting down", { signal });
 
@@ -218,7 +229,7 @@ export class WorkerApp {
     const issues = [...startupReport.issues, ...cleanupReport.issues];
     const report = { complete: issues.length === 0, issues };
     if (!report.complete) {
-      logger.error("cleanup incomplete; executor cancellation is outside WorkerApp shutdown", {
+      logger.error("cleanup incomplete", {
         issues,
       });
     }

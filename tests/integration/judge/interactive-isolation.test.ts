@@ -72,6 +72,13 @@ function makeExecutor(): DockerExecutor {
   });
 }
 
+function execute(request: SandboxRequest) {
+  return makeExecutor().execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
   return {
     submissionId: "interactive-iso",
@@ -96,7 +103,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({
           submissionId: "interactive-correct",
           sourceCode: BINARY_SEARCH_SOLUTION,
@@ -117,7 +124,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({
           submissionId: "interactive-stubborn",
           sourceCode: STUBBORN_SOLUTION,
@@ -138,7 +145,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({
           submissionId: "interactive-channels",
           sourceCode: BINARY_SEARCH_SOLUTION,
@@ -163,7 +170,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({
           submissionId: "interactive-exploit",
           sourceCode: EXPLOIT_SOLUTION,

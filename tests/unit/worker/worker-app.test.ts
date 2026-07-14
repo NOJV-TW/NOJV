@@ -8,10 +8,13 @@ const mocks = vi.hoisted(() => ({
   connectionEnsureConnected: vi.fn(),
   ensureLifecycleReconciler: vi.fn(),
   ensureSubmissionSweeper: vi.fn(),
+  executorAbortActive: vi.fn(),
+  executorShutdown: vi.fn(),
   healthCheckTemporal: null as null | (() => Promise<boolean>),
   healthClose: vi.fn(),
   healthListen: vi.fn(),
   workerCreate: vi.fn(),
+  setExecutorOwner: vi.fn(),
 }));
 
 vi.mock("@nojv/temporal", () => ({
@@ -52,6 +55,17 @@ vi.mock("../../../apps/worker/src/logger.js", () => ({
     warn: vi.fn(),
     error: vi.fn(),
   }),
+}));
+
+vi.mock("../../../apps/worker/src/services/executor-factory", () => ({
+  createExecutorOwner: () => ({
+    abortActive: mocks.executorAbortActive,
+    shutdown: mocks.executorShutdown,
+  }),
+}));
+
+vi.mock("../../../apps/worker/src/activities/judge.js", () => ({
+  setExecutorOwner: mocks.setExecutorOwner,
 }));
 
 import { WorkerApp } from "../../../apps/worker/src/worker-app";
@@ -100,6 +114,7 @@ beforeEach(() => {
   mocks.closeTemporalClient.mockResolvedValue(undefined);
   mocks.ensureSubmissionSweeper.mockResolvedValue(undefined);
   mocks.ensureLifecycleReconciler.mockResolvedValue(undefined);
+  mocks.executorShutdown.mockResolvedValue(undefined);
   mocks.healthListen.mockImplementation((_port: number, callback: () => void) => callback());
   mocks.healthClose.mockImplementation((callback: (error?: Error) => void) => callback());
 });
@@ -165,5 +180,36 @@ describe("WorkerApp lifecycle", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("aborts active sandbox executions synchronously and awaits their cleanup", async () => {
+    let finishExecutionCleanup!: () => void;
+    mocks.executorShutdown.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishExecutionCleanup = resolve;
+        }),
+    );
+    const worker = makeWorker();
+    mocks.workerCreate.mockResolvedValue(worker);
+    const app = new WorkerApp(
+      { ...env, WORKER_MODE: "judge" },
+      { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
+    );
+    const started = app.start();
+    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
+
+    let finished = false;
+    const stopping = app.shutdown("SIGTERM").then(() => {
+      finished = true;
+    });
+    expect(mocks.executorAbortActive).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(mocks.executorShutdown).toHaveBeenCalledOnce());
+    expect(finished).toBe(false);
+
+    finishExecutionCleanup();
+    await stopping;
+    await started;
+    expect(finished).toBe(true);
   });
 });

@@ -14,6 +14,7 @@ import {
   advancedResultSchema,
   validateAdvancedResultForMaxScore,
   type SandboxAdvancedRequest,
+  type SandboxExecutionContext,
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
@@ -328,6 +329,7 @@ interface SpawnContainerParams {
   args: string[];
   containerName: string;
   outerTimeoutMs: number;
+  signal: AbortSignal;
   watchDir?: string;
 }
 
@@ -336,6 +338,7 @@ function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome>
     args: params.args,
     containerName: params.containerName,
     outerTimeoutMs: params.outerTimeoutMs,
+    signal: params.signal,
     ...(params.watchDir
       ? {
           watch: {
@@ -362,8 +365,10 @@ export class AdvancedModeExecutor {
   async run(
     tempDir: string,
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     config: AdvancedModeConfig,
   ): Promise<SandboxResult> {
+    execution.signal.throwIfAborted();
     const advanced = request.advanced;
     if (!advanced) {
       return sandboxSystemError("advanced-mode dispatch called without payload");
@@ -383,7 +388,14 @@ export class AdvancedModeExecutor {
       memoryMb: advanced.memoryMb,
     });
 
-    const runOutcome = await this.runPhase(request, advanced, config, runImageRef, runDir);
+    const runOutcome = await this.runPhase(
+      request,
+      execution,
+      advanced,
+      config,
+      runImageRef,
+      runDir,
+    );
 
     if (runOutcome.spawnError) {
       return advancedFallbackResult(
@@ -408,6 +420,7 @@ export class AdvancedModeExecutor {
         maxScore: advanced.maxScore,
       });
     } catch (err) {
+      execution.signal.throwIfAborted();
       if (err instanceof SafeCopyLimitError) {
         return advancedFallbackResult(
           request,
@@ -422,6 +435,7 @@ export class AdvancedModeExecutor {
 
     const gradeOutcome = await this.gradePhase(
       request,
+      execution,
       advanced,
       config,
       gradeImageRef,
@@ -441,8 +455,10 @@ export class AdvancedModeExecutor {
     let resultJson: unknown;
     try {
       const raw = await readFile(join(gradeDir, "output", "result.json"), "utf8");
+      execution.signal.throwIfAborted();
       resultJson = JSON.parse(raw);
     } catch {
+      execution.signal.throwIfAborted();
       return advancedFallbackResult(
         request,
         `Advanced grade image did not write result.json. exit=${String(gradeOutcome.exitCode)}\n${gradeOutcome.stderr}`.trim(),
@@ -466,28 +482,30 @@ export class AdvancedModeExecutor {
 
   private async runPhase(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
     runDir: string,
   ): Promise<ContainerOutcome> {
     if (advanced.network.mode === "service") {
-      return this.runPhaseService(request, advanced, config, imageRef, runDir);
+      return this.runPhaseService(request, execution, advanced, config, imageRef, runDir);
     }
-    return this.runContainer(request, advanced, config, imageRef, runDir, {
+    return this.runContainer(request, execution, advanced, config, imageRef, runDir, {
       networkArgs: ["--network", "none"],
     });
   }
 
   private runContainer(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
     runDir: string,
     net: { networkArgs: string[]; extraEnv?: Record<string, string> },
   ): Promise<ContainerOutcome> {
-    const containerName = `nojv-advanced-run-${sanitizeId(request.submissionId).slice(0, 36)}`;
+    const containerName = `nojv-advanced-run-${sanitizeId(execution.runId).slice(0, 36)}`;
     const args = buildAdvancedDockerArgs({
       containerName,
       networkArgs: net.networkArgs,
@@ -505,12 +523,14 @@ export class AdvancedModeExecutor {
       args,
       containerName,
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
+      signal: execution.signal,
       watchDir: runDir,
     });
   }
 
   private async runPhaseService(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
@@ -531,21 +551,23 @@ export class AdvancedModeExecutor {
     let serviceContainerName: string | undefined;
     try {
       const serviceImageRef = service.imageRef;
-      network = await createSubmissionNetwork(request.submissionId);
+      network = await createSubmissionNetwork(execution.runId, execution.signal);
       const handle = await startServiceContainer({
-        submissionId: request.submissionId,
+        runId: execution.runId,
         internalName: network.internalName,
         imageRef: serviceImageRef,
         memoryMb: advanced.memoryMb,
         cpuLimit: config.cpuLimit,
         pidsLimit: config.pidsLimit,
+        signal: execution.signal,
       });
       serviceContainerName = handle.containerName;
-      return await this.runContainer(request, advanced, config, imageRef, runDir, {
+      return await this.runContainer(request, execution, advanced, config, imageRef, runDir, {
         networkArgs: ["--network", network.internalName],
         extraEnv: buildServiceEnv(),
       });
     } catch (err) {
+      execution.signal.throwIfAborted();
       return {
         exitCode: null,
         stderr: `service setup failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -555,14 +577,17 @@ export class AdvancedModeExecutor {
       };
     } finally {
       if (serviceContainerName) {
-        const serviceLogs = await collectServiceLogs(serviceContainerName);
+        const serviceLogs = await collectServiceLogs(
+          serviceContainerName,
+          execution.signal,
+        ).catch(() => "");
         if (serviceLogs) {
           logger.info("advanced service container log", {
             submissionId: request.submissionId,
             serviceLogs,
           });
         }
-        stopServiceContainer(serviceContainerName);
+        await stopServiceContainer(serviceContainerName);
       }
       if (network) {
         removeSubmissionNetwork(network);
@@ -572,12 +597,13 @@ export class AdvancedModeExecutor {
 
   private gradePhase(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
     gradeDir: string,
   ): Promise<ContainerOutcome> {
-    const containerName = `nojv-advanced-grade-${sanitizeId(request.submissionId).slice(0, 34)}`;
+    const containerName = `nojv-advanced-grade-${sanitizeId(execution.runId).slice(0, 34)}`;
     const args = buildAdvancedDockerArgs({
       containerName,
       networkArgs: ["--network", "none"],
@@ -597,6 +623,7 @@ export class AdvancedModeExecutor {
       args,
       containerName,
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
+      signal: execution.signal,
     });
   }
 }

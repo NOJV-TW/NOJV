@@ -84,8 +84,13 @@ export interface SandboxResult {
   overallVerdict?: SandboxVerdict;
 }
 
+export interface SandboxExecutionContext {
+  runId: string;
+  signal: AbortSignal;
+}
+
 export interface SandboxExecutor {
-  execute(request: SandboxRequest): Promise<SandboxResult>;
+  execute(request: SandboxRequest, execution: SandboxExecutionContext): Promise<SandboxResult>;
 }
 
 export interface ContainerMemoryOptions {

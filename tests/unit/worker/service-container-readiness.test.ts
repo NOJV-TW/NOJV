@@ -7,7 +7,6 @@ const { collectContainerLogsMock } = vi.hoisted(() => ({
 vi.mock("../../../apps/worker/src/services/docker-process", () => ({
   collectContainerLogs: collectContainerLogsMock,
   forceRemoveContainer: vi.fn(),
-  forceRemoveContainerSync: vi.fn(),
   runDocker: vi.fn(),
   sanitizeId: (value: string) => value,
 }));
@@ -26,7 +25,7 @@ describe("waitForServiceReady", () => {
       .mockResolvedValueOnce("NOJV_SERVICE_READY\n");
     vi.useFakeTimers();
 
-    const ready = waitForServiceReady("service-1");
+    const ready = waitForServiceReady("service-1", new AbortController().signal);
     await vi.advanceTimersByTimeAsync(100);
 
     await expect(ready).resolves.toBeUndefined();
@@ -36,7 +35,7 @@ describe("waitForServiceReady", () => {
     collectContainerLogsMock.mockResolvedValue("");
     vi.useFakeTimers();
 
-    const ready = waitForServiceReady("service-1");
+    const ready = waitForServiceReady("service-1", new AbortController().signal);
     const assertion = expect(ready).rejects.toThrow(
       "service service-1 did not become ready within timeout",
     );

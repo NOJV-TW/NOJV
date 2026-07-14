@@ -29,6 +29,13 @@ const EXECUTOR = new DockerExecutor({
   pidsLimit: 128,
 });
 
+function execute(request: SandboxRequest) {
+  return EXECUTOR.execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 const SEED_DEFS = buildSeedProblemDefs("seed_smoke_teacher");
 
 const PER_PROBLEM_TIMEOUT_MS = 300_000;
@@ -216,7 +223,7 @@ function applyMemoryEnforcement(def: SeedProblemDef, result: SandboxResult): San
 }
 
 async function judge(def: SeedProblemDef, variant: Variant): Promise<SandboxResult> {
-  const raw = await EXECUTOR.execute(buildRequest(def, variant));
+  const raw = await execute(buildRequest(def, variant));
   return applyMemoryEnforcement(def, raw);
 }
 
@@ -292,7 +299,7 @@ async function probe(
   source: { language: Language; sourceCode: string },
   memoryMb?: number,
 ): Promise<SandboxResult> {
-  const raw = await EXECUTOR.execute(probeRequest(id, source, memoryMb));
+  const raw = await execute(probeRequest(id, source, memoryMb));
   const def = defFor(PROBE_PROBLEM_ID);
   return {
     ...raw,

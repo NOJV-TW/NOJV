@@ -237,6 +237,13 @@ function makeExecutor(): K8sExecutor {
   return new K8sExecutor({ ...EXECUTOR_CONFIG, namespace }, clients);
 }
 
+function execute(request: SandboxRequest) {
+  return makeExecutor().execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
   const pod = pods.find((p) => p.metadata?.name === name);
   if (!pod) return false;
@@ -262,7 +269,7 @@ describe("K8s judge — standard mode", () => {
       limits: { timeoutMs: 5_000, memoryMb: 128 },
     };
 
-    const result = await makeExecutor().execute(request);
+    const result = await execute(request);
     expect(result.compilationError).toBeUndefined();
     expect(result.pipelineError).toBeUndefined();
     expect(result.testcaseResults.length).toBe(2);
@@ -304,7 +311,7 @@ print("".join(chunks))
         limits: { timeoutMs: 5_000, memoryMb: 128 },
       };
 
-      const result = await makeExecutor().execute(request);
+      const result = await execute(request);
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
@@ -343,7 +350,7 @@ print("".join(chunks))
         limits: { timeoutMs: 5_000, memoryMb: 128 },
       };
 
-      const result = await makeExecutor().execute(request);
+      const result = await execute(request);
       expect(result.compilationError).toBeUndefined();
       expect(result.pipelineError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
@@ -379,7 +386,7 @@ describe("K8s judge — checker mode", () => {
       const submissionId = `k8s-chk-correct-${Date.now()}`;
       trackSubmission(submissionId);
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId,
           sourceCode: "a, b = map(int, input().split())\nprint(a, b, a + b)\n",
@@ -401,7 +408,7 @@ describe("K8s judge — checker mode", () => {
       const submissionId = `k8s-chk-wrong-${Date.now()}`;
       trackSubmission(submissionId);
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({ submissionId, sourceCode: "print('totally wrong')\n" }),
       );
 
@@ -419,7 +426,7 @@ describe("K8s judge — checker mode", () => {
       const submissionId = `k8s-chk-partial-${Date.now()}`;
       trackSubmission(submissionId);
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId,
           sourceCode: "a, b = map(int, input().split())\nprint(a, b)\n",
@@ -454,9 +461,7 @@ for p in (
 print("".join(chunks))
 `;
 
-      const result = await makeExecutor().execute(
-        checkerRequest({ submissionId, sourceCode: exploit }),
-      );
+      const result = await execute(checkerRequest({ submissionId, sourceCode: exploit }));
 
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
@@ -492,7 +497,7 @@ describe("K8s judge — interactive mode", () => {
       const submissionId = `k8s-int-correct-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({ submissionId, sourceCode: BINARY_SEARCH_SOLUTION }),
       );
 
@@ -511,7 +516,7 @@ describe("K8s judge — interactive mode", () => {
       const submissionId = `k8s-int-stubborn-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({ submissionId, sourceCode: STUBBORN_SOLUTION }),
       );
 
@@ -552,9 +557,7 @@ for _ in range(20):
         break
 `;
 
-      const result = await makeExecutor().execute(
-        interactiveRequest({ submissionId, sourceCode: exploit }),
-      );
+      const result = await execute(interactiveRequest({ submissionId, sourceCode: exploit }));
 
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
@@ -601,7 +604,7 @@ describe("K8s judge — advanced mode", () => {
       const submissionId = `k8s-adv-correct-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         advancedRequest(submissionId, SUM_SOLUTION, { mode: "none" }),
       );
       expect(result.compilationError).toBeUndefined();
@@ -619,7 +622,7 @@ describe("K8s judge — advanced mode", () => {
       const submissionId = `k8s-adv-wrong-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         advancedRequest(submissionId, WRONG_SUM_SOLUTION, { mode: "none" }),
       );
       expect(result.compilationError).toBeUndefined();
@@ -642,7 +645,7 @@ describe("K8s judge — advanced mode", () => {
       const base = `judge-${submissionId}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         advancedRequest(submissionId, SERVICE_HEALTH_SUM_SOLUTION, {
           mode: "service",
           service: { imageRef: DEMO_SERVICE_IMAGE, imageSource: "registry" },

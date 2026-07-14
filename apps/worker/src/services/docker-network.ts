@@ -21,11 +21,18 @@ export function buildCreateInternalNetworkArgs(name: string): string[] {
 
 export async function createSubmissionNetwork(
   submissionId: string,
+  signal: AbortSignal,
 ): Promise<SubmissionNetwork> {
   const plan = planSubmissionNetwork(submissionId);
   removeSubmissionNetwork(plan);
-  await runDocker(buildCreateInternalNetworkArgs(plan.internalName));
-  return plan;
+  signal.throwIfAborted();
+  try {
+    await runDocker(buildCreateInternalNetworkArgs(plan.internalName), signal);
+    return plan;
+  } catch (error) {
+    removeSubmissionNetwork(plan);
+    throw error;
+  }
 }
 
 export function removeSubmissionNetwork(network: SubmissionNetwork): void {

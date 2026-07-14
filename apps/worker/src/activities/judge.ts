@@ -6,31 +6,31 @@ import {
   type AdvancedJudgeVerificationSnapshot,
   type Language,
   type RejudgeInput,
-  type SandboxExecutor,
   type SandboxRequest,
   type SubmissionDraft,
   type SubmissionResult,
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
-import { heartbeat } from "@temporalio/activity";
+import { cancellationSignal, heartbeat } from "@temporalio/activity";
 
 import { enforceMemoryLimit } from "../services/check-standard";
+import type { ExecutorOwner } from "../services/executor-owner";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 const JUDGE_HEARTBEAT_INTERVAL_MS = 15_000;
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
 
-let _executor: SandboxExecutor | undefined;
+let _executorOwner: ExecutorOwner | undefined;
 
-export function setExecutor(executor: SandboxExecutor): void {
-  _executor = executor;
+export function setExecutorOwner(executorOwner: ExecutorOwner): void {
+  _executorOwner = executorOwner;
 }
 
-function getExecutor(): SandboxExecutor {
-  if (!_executor) throw new Error("Executor not initialized");
-  return _executor;
+function getExecutorOwner(): ExecutorOwner {
+  if (!_executorOwner) throw new Error("Executor owner not initialized");
+  return _executorOwner;
 }
 
 export type CompletedSubmission = submissionDomain.CompletedSubmission;
@@ -172,7 +172,7 @@ export async function executeSandbox(
   result: SubmissionResult;
   advancedJudgeVerificationSnapshot: AdvancedJudgeVerificationSnapshot | null;
 }> {
-  const executor = getExecutor();
+  const executorOwner = getExecutorOwner();
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
@@ -273,9 +273,9 @@ export async function executeSandbox(
     heartbeat("sandbox-running");
   }, JUDGE_HEARTBEAT_INTERVAL_MS);
 
-  let result: Awaited<ReturnType<SandboxExecutor["execute"]>>;
+  let result: Awaited<ReturnType<ExecutorOwner["execute"]>>;
   try {
-    result = await executor.execute(request);
+    result = await executorOwner.execute(request, cancellationSignal());
   } finally {
     clearInterval(heartbeatTimer);
   }
