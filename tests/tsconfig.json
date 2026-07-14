@@ -23,6 +23,7 @@
     "integration/db/effective-time-window-races.test.ts",
     "integration/db/lifecycle-schedule-identity-migration.test.ts",
     "integration/db/lifecycle-recovery.test.ts",
+    "integration/db/lifecycle-cancellation-outbox.test.ts",
     "integration/db/durable-work-migration.test.ts",
     "integration/db/durable-work.test.ts",
     "integration/domain/announcement-publish-notification.test.ts",

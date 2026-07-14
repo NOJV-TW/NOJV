@@ -82,6 +82,7 @@ import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { contestLifecycleInput } from "../shared/lifecycle-input";
+import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
 
 export type { ActorContext };
 
@@ -417,7 +418,7 @@ export async function deleteContestDraft(
   actor: ActorContext,
   contestId: string,
 ): Promise<void> {
-  const deleted = await runTransaction(async (tx) => {
+  await runTransaction(async (tx) => {
     await contestRepo.withTx(tx).lockForUpdate(contestId);
     const contest = await assertContestManageable(tx, actor, contestId);
 
@@ -425,11 +426,12 @@ export async function deleteContestDraft(
       throw new ValidationError("Only draft contests can be deleted.");
     }
 
+    await enqueueLifecycleCancellation(tx, {
+      type: "contest",
+      input: contestLifecycleInput(contest),
+    });
     await contestRepo.withTx(tx).delete(contest.id);
-    return contest;
   });
-
-  await getDomainOrchestration().cancelContestLifecycle(contestLifecycleInput(deleted));
 }
 
 export async function freezeContestBoard(

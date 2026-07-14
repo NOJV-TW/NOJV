@@ -19,6 +19,7 @@ import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
+import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
 
 async function requireAssignment(tx: TransactionClient, assignmentId: string) {
   const assignment = await assessmentRepo.withTx(tx).findById(assignmentId);
@@ -271,7 +272,7 @@ export async function deleteAssignmentDraft(
   actor: ActorContext,
   assignmentId: string,
 ): Promise<void> {
-  const deleted = await runTransaction(async (tx) => {
+  await runTransaction(async (tx) => {
     await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
@@ -286,18 +287,19 @@ export async function deleteAssignmentDraft(
       actorUserId: actor.userId,
       action: "delete_draft",
     });
+    await enqueueLifecycleCancellation(tx, {
+      type: "assignment",
+      input: assignmentDueSoonInput(assignment),
+    });
     await assessmentRepo.withTx(tx).delete(assignment.id);
-    return assignment;
   });
-
-  await getDomainOrchestration().cancelAssignmentDueSoon(assignmentDueSoonInput(deleted));
 }
 
 export async function revertAssignmentToDraft(
   actor: ActorContext,
   assignmentId: string,
 ): Promise<void> {
-  const reverted = await runTransaction(async (tx) => {
+  await runTransaction(async (tx) => {
     await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
@@ -309,7 +311,11 @@ export async function revertAssignmentToDraft(
       throw new ValidationError("Cannot revert an assignment that has already opened.");
     }
 
-    const persisted = await assessmentRepo.withTx(tx).update(assignment.id, {
+    await enqueueLifecycleCancellation(tx, {
+      type: "assignment",
+      input: assignmentDueSoonInput(assignment),
+    });
+    await assessmentRepo.withTx(tx).update(assignment.id, {
       status: "draft",
     });
     await assessmentAuditLogRepo.withTx(tx).create({
@@ -318,8 +324,5 @@ export async function revertAssignmentToDraft(
       actorUserId: actor.userId,
       action: "revert_to_draft",
     });
-    return persisted;
   });
-
-  await getDomainOrchestration().cancelAssignmentDueSoon(assignmentDueSoonInput(reverted));
 }

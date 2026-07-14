@@ -4,6 +4,7 @@ export * from "./shared/errors";
 export * from "./shared/ip";
 export * from "./shared/lifecycle-reconciler";
 export * from "./shared/lifecycle-conditions";
+export * from "./shared/lifecycle-cancellation";
 export * from "./shared/list-aggregations";
 export * from "./shared/orchestration";
 export * from "./shared/page-lock";

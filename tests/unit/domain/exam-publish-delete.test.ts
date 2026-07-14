@@ -10,6 +10,7 @@ const {
   ensureExamAutoClose,
   replaceExamAutoClose,
   cancelExamAutoClose,
+  durableWorkEnqueue,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examLockForUpdate: vi.fn(),
@@ -20,6 +21,7 @@ const {
   ensureExamAutoClose: vi.fn(),
   replaceExamAutoClose: vi.fn(),
   cancelExamAutoClose: vi.fn(),
+  durableWorkEnqueue: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -50,6 +52,9 @@ vi.mock("@nojv/db", () => {
     },
     courseMembershipRepo: {
       withTx: () => ({ findByComposite: membershipFindByComposite }),
+    },
+    durableWorkRepo: {
+      withTx: () => ({ enqueue: durableWorkEnqueue }),
     },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
@@ -228,20 +233,31 @@ describe("deleteExamDraft", () => {
     vi.clearAllMocks();
   });
 
-  it("deletes a draft exam", async () => {
+  it("atomically enqueues cancellation when deleting a draft during a Temporal outage", async () => {
     examFindById.mockResolvedValue(publishableExam());
+    cancelExamAutoClose.mockRejectedValue(new Error("Temporal unavailable"));
 
     await deleteExamDraft(fakeActor, "exam_1");
 
     expect(examDelete).toHaveBeenCalledWith("exam_1");
     expect(examLockForUpdate).toHaveBeenCalledWith("exam_1");
-    expect(cancelExamAutoClose).toHaveBeenCalledWith(
-      expect.objectContaining({
-        examId: "exam_1",
-        scheduleRevision: 1,
-        timerFingerprint: "exam:v1:exam_1:window_a",
-      }),
+    expect(durableWorkEnqueue).toHaveBeenCalledWith({
+      kind: "lifecycle.cancel",
+      dedupeKey: expect.any(String),
+      payload: {
+        type: "exam",
+        input: expect.objectContaining({
+          examId: "exam_1",
+          scheduleRevision: 1,
+          timerFingerprint: "exam:v1:exam_1:window_a",
+        }),
+      },
+      maxAttempts: 20,
+    });
+    expect(durableWorkEnqueue.mock.invocationCallOrder[0]).toBeLessThan(
+      examDelete.mock.invocationCallOrder[0],
     );
+    expect(cancelExamAutoClose).not.toHaveBeenCalled();
   });
 
   it("rejects deleting a non-draft exam", async () => {

@@ -9,6 +9,7 @@ const {
   ensureContestLifecycle,
   replaceContestLifecycle,
   cancelContestLifecycle,
+  durableWorkEnqueue,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   contestLockForUpdate: vi.fn(),
@@ -18,6 +19,7 @@ const {
   ensureContestLifecycle: vi.fn(),
   replaceContestLifecycle: vi.fn(),
   cancelContestLifecycle: vi.fn(),
+  durableWorkEnqueue: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -38,6 +40,7 @@ vi.mock("@nojv/db", () => ({
   },
   participationRepo: { withTx: () => ({}) },
   problemRepo: { withTx: () => ({ findMany: vi.fn() }) },
+  durableWorkRepo: { withTx: () => ({ enqueue: durableWorkEnqueue }) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
@@ -172,19 +175,30 @@ describe("contest effective time window", () => {
     );
   });
 
-  it("locks and cancels a deleted draft", async () => {
+  it("atomically enqueues cancellation for a deleted draft during a Temporal outage", async () => {
     const persisted = contest();
     contestFindById.mockResolvedValue(persisted);
+    cancelContestLifecycle.mockRejectedValue(new Error("Temporal unavailable"));
 
     await contestDomain.deleteContestDraft(actor, persisted.id);
 
     expect(contestLockForUpdate).toHaveBeenCalledWith(persisted.id);
-    expect(cancelContestLifecycle).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contestId: persisted.id,
-        scheduleRevision: 1,
-        timerFingerprint: "contest:v1:contest_1:window_a",
-      }),
+    expect(durableWorkEnqueue).toHaveBeenCalledWith({
+      kind: "lifecycle.cancel",
+      dedupeKey: expect.any(String),
+      payload: {
+        type: "contest",
+        input: expect.objectContaining({
+          contestId: persisted.id,
+          scheduleRevision: 1,
+          timerFingerprint: "contest:v1:contest_1:window_a",
+        }),
+      },
+      maxAttempts: 20,
+    });
+    expect(durableWorkEnqueue.mock.invocationCallOrder[0]).toBeLessThan(
+      contestDelete.mock.invocationCallOrder[0],
     );
+    expect(cancelContestLifecycle).not.toHaveBeenCalled();
   });
 });

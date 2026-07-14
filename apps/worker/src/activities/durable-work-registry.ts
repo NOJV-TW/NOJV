@@ -1,7 +1,10 @@
 import {
   cleanupUnreferencedStorageObject,
   contestDomain,
+  executeLifecycleCancellation,
   examDomain,
+  LIFECYCLE_CANCELLATION_WORK_KIND,
+  lifecycleCancellationPayloadSchema,
   notificationDomain,
   scoreOverrideDomain,
   STORAGE_OBJECT_CLEANUP_KIND,
@@ -84,6 +87,10 @@ export const durableWorkHandlers = Object.freeze({
     }
     await examDomain.updateExamScores(parsed.context.examId, parsed.userId);
     return { outcome: "converged", contextType: "exam" };
+  },
+  [LIFECYCLE_CANCELLATION_WORK_KIND]: async (payload: unknown) => {
+    await executeLifecycleCancellation(lifecycleCancellationPayloadSchema.parse(payload));
+    return { outcome: "cancelled_or_obsolete" };
   },
   [STORAGE_OBJECT_CLEANUP_KIND]: async (payload: unknown) => {
     await cleanupUnreferencedStorageObject(payload);

@@ -1,35 +1,42 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as Application from "@nojv/application";
 
 const mocks = vi.hoisted(() => ({
   cleanupUnreferencedStorageObject: vi.fn(),
   deliverNotificationEmail: vi.fn(),
   executeRejudgeDispatch: vi.fn(),
   executeSubmissionJudgeDispatch: vi.fn(),
+  executeLifecycleCancellation: vi.fn(),
   publishNotificationSse: vi.fn(),
   publishScoreboardUpdate: vi.fn(),
   updateContestScores: vi.fn(),
   updateExamScores: vi.fn(),
 }));
 
-vi.mock("@nojv/application", () => ({
-  cleanupUnreferencedStorageObject: mocks.cleanupUnreferencedStorageObject,
-  contestDomain: { updateContestScores: mocks.updateContestScores },
-  examDomain: { updateExamScores: mocks.updateExamScores },
-  notificationDomain: {
-    NOTIFICATION_EMAIL_WORK_KIND: "notification.email",
-    NOTIFICATION_SSE_WORK_KIND: "notification.sse",
-    deliverNotificationEmail: mocks.deliverNotificationEmail,
-    publishNotificationSse: mocks.publishNotificationSse,
-  },
-  scoreOverrideDomain: { SCORE_CONVERGENCE_WORK_KIND: "score.converge" },
-  STORAGE_OBJECT_CLEANUP_KIND: "storage.object.cleanup",
-  submissionDomain: {
-    REJUDGE_DISPATCH_WORK_KIND: "submission.rejudge.dispatch",
-    SUBMISSION_JUDGE_DISPATCH_WORK_KIND: "submission.judge.dispatch",
-    executeRejudgeDispatch: mocks.executeRejudgeDispatch,
-    executeSubmissionJudgeDispatch: mocks.executeSubmissionJudgeDispatch,
-  },
-}));
+vi.mock("@nojv/application", async (importOriginal) => {
+  const original = await importOriginal<typeof Application>();
+  return {
+    ...original,
+    cleanupUnreferencedStorageObject: mocks.cleanupUnreferencedStorageObject,
+    executeLifecycleCancellation: mocks.executeLifecycleCancellation,
+    contestDomain: { updateContestScores: mocks.updateContestScores },
+    examDomain: { updateExamScores: mocks.updateExamScores },
+    notificationDomain: {
+      NOTIFICATION_EMAIL_WORK_KIND: "notification.email",
+      NOTIFICATION_SSE_WORK_KIND: "notification.sse",
+      deliverNotificationEmail: mocks.deliverNotificationEmail,
+      publishNotificationSse: mocks.publishNotificationSse,
+    },
+    scoreOverrideDomain: { SCORE_CONVERGENCE_WORK_KIND: "score.converge" },
+    STORAGE_OBJECT_CLEANUP_KIND: "storage.object.cleanup",
+    submissionDomain: {
+      REJUDGE_DISPATCH_WORK_KIND: "submission.rejudge.dispatch",
+      SUBMISSION_JUDGE_DISPATCH_WORK_KIND: "submission.judge.dispatch",
+      executeRejudgeDispatch: mocks.executeRejudgeDispatch,
+      executeSubmissionJudgeDispatch: mocks.executeSubmissionJudgeDispatch,
+    },
+  };
+});
 
 vi.mock("@nojv/redis", () => ({
   pubsub: { publishScoreboardUpdate: mocks.publishScoreboardUpdate },
@@ -105,5 +112,33 @@ describe("durable work handlers", () => {
     ).rejects.toThrow();
     expect(mocks.updateContestScores).not.toHaveBeenCalled();
     expect(mocks.updateExamScores).not.toHaveBeenCalled();
+  });
+
+  it("validates and dispatches lifecycle cancellation", async () => {
+    const payload = {
+      type: "exam",
+      input: {
+        examId: "exam-1",
+        startsAt: "2030-01-01T09:00:00.000Z",
+        endsAt: "2030-01-01T10:00:00.000Z",
+        scheduleRevision: 3,
+        timerFingerprint: "exam:v1:exam-1:1000:window-a",
+      },
+    };
+
+    await durableWorkHandlers["lifecycle.cancel"](payload);
+
+    expect(mocks.executeLifecycleCancellation).toHaveBeenCalledWith(payload);
+  });
+
+  it("rejects malformed lifecycle cancellation before Temporal is called", async () => {
+    await expect(
+      durableWorkHandlers["lifecycle.cancel"]({
+        type: "exam",
+        input: { examId: "exam-1", scheduleRevision: -1 },
+      }),
+    ).rejects.toThrow();
+
+    expect(mocks.executeLifecycleCancellation).not.toHaveBeenCalled();
   });
 });

@@ -20,6 +20,7 @@ import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { examAutoCloseInput } from "../shared/lifecycle-input";
+import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
 
 export type { ActorContext };
 
@@ -248,7 +249,7 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
 }
 
 export async function deleteExamDraft(actor: ActorContext, examId: string): Promise<void> {
-  const deleted = await runTransaction(async (tx) => {
+  await runTransaction(async (tx) => {
     await examRepo.withTx(tx).lockForUpdate(examId);
     const exam = await requireExam(tx, examId);
     await assertExamManagePermission(tx, actor, exam);
@@ -257,9 +258,10 @@ export async function deleteExamDraft(actor: ActorContext, examId: string): Prom
       throw new ValidationError("Only draft exams can be deleted.");
     }
 
+    await enqueueLifecycleCancellation(tx, {
+      type: "exam",
+      input: examAutoCloseInput(exam),
+    });
     await examRepo.withTx(tx).delete(exam.id);
-    return exam;
   });
-
-  await getDomainOrchestration().cancelExamAutoClose(examAutoCloseInput(deleted));
 }
