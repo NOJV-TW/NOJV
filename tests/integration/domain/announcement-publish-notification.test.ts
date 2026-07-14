@@ -32,7 +32,7 @@ describe("announcement publish fan-out", () => {
     for (const user of users) {
       const rows = await notificationRepo.listRecent(user.id, 10);
       expect(rows).toHaveLength(1);
-      const row = rows[0]!;
+      const row = rows[0];
       expect(row.type).toBe("announcement_published");
       expect(row.linkUrl).toBeNull();
       const params = row.params as {
@@ -106,6 +106,30 @@ describe("announcement publish fan-out", () => {
       pinned: false,
       published: true,
     });
+
+    for (const user of users) {
+      expect(await countNotificationsByType(user.id, "announcement_published")).toBe(1);
+    }
+  });
+
+  it("serializes concurrent draft publications so only one request owns fan-out", async () => {
+    const users = await createActiveUsers(3);
+    const draft = await announcementDomain.createAnnouncement({
+      title: "Publish once",
+      content: "Concurrent publication",
+      pinned: false,
+      published: false,
+    });
+    const update = {
+      title: "Publish once",
+      content: "Concurrent publication",
+      pinned: false,
+      published: true,
+    } as const;
+
+    await Promise.all(
+      Array.from({ length: 8 }, () => announcementDomain.updateAnnouncement(draft.id, update)),
+    );
 
     for (const user of users) {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(1);

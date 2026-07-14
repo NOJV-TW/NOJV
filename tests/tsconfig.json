@@ -13,6 +13,7 @@
       "@nojv/application": ["../packages/application/src/index.ts"],
       "@nojv/redis": ["../packages/redis/src/index.ts"],
       "@nojv/storage": ["../packages/storage/src/index.ts"],
+      "@nojv/mailer": ["../packages/mailer/src/index.ts"],
       "@nojv/temporal": ["../packages/temporal/src/index.ts"]
     }
   },
@@ -24,6 +25,7 @@
     "integration/db/lifecycle-recovery.test.ts",
     "integration/db/durable-work-migration.test.ts",
     "integration/db/durable-work.test.ts",
+    "integration/domain/announcement-publish-notification.test.ts",
     "integration/notification/notification-domain.test.ts",
     "integration/temporal/lifecycle-workflows.test.ts",
     "unit/domain/**/*.ts",
@@ -42,6 +44,7 @@
     "unit/temporal/lifecycle-reconciliation.test.ts",
     "unit/worker/durable-work-metrics.test.ts",
     "unit/worker/durable-work-registry.test.ts",
+    "unit/worker/durable-work-workflow.test.ts",
     "unit/worker/durable-work.test.ts",
     "unit/worker/docker-container-sweep.test.ts",
     "unit/worker/worker-app.test.ts",

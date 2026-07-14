@@ -90,7 +90,7 @@ export async function createAnnouncement(data: AnnouncementCreateInput) {
 export async function updateAnnouncement(id: string, data: AnnouncementUpdateInput) {
   const parsed = announcementUpdateSchema.parse(data);
   return runTransaction(async (tx) => {
-    const prior = await announcementRepo.withTx(tx).findById(id);
+    const prior = await announcementRepo.withTx(tx).findByIdForUpdate(id);
     const publishedAt = parsed.published ? (prior?.publishedAt ?? new Date()) : null;
     const updated = await announcementRepo.withTx(tx).update(id, {
       pinned: parsed.pinned,
@@ -121,14 +121,16 @@ export async function deleteAnnouncement(id: string) {
 }
 
 export async function toggleAnnouncementPin(id: string) {
-  const announcement = await announcementRepo.findPinnedStatus(id);
-  if (!announcement) return null;
-  return announcementRepo.update(id, { pinned: !announcement.pinned });
+  return runTransaction(async (tx) => {
+    const announcement = await announcementRepo.withTx(tx).findByIdForUpdate(id);
+    if (!announcement) return null;
+    return announcementRepo.withTx(tx).update(id, { pinned: !announcement.pinned });
+  });
 }
 
 export async function toggleAnnouncementPublish(id: string) {
   return runTransaction(async (tx) => {
-    const announcement = await announcementRepo.withTx(tx).findById(id);
+    const announcement = await announcementRepo.withTx(tx).findByIdForUpdate(id);
     if (!announcement) return null;
     const next = announcement.status === "published" ? "draft" : "published";
     const publishedAt = next === "published" ? new Date() : null;

@@ -87,6 +87,19 @@ export const announcementRepo = {
 
   withTx(tx: TransactionClient) {
     return {
+      async findByIdForUpdate(id: string) {
+        const rows = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id
+          FROM "Announcement"
+          WHERE id = ${id}
+          FOR UPDATE
+        `;
+        if (rows.length === 0) return null;
+        return tx.announcement.findUnique({
+          where: { id },
+          include: { translations: true },
+        });
+      },
       findById(id: string) {
         return tx.announcement.findUnique({
           where: { id },
