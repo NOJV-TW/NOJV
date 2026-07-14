@@ -1,15 +1,10 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
   import { SSE_CLARIFICATION, type SSEEvent } from "@nojv/core";
   import {
     createClarificationsStore,
     type ClarificationsStore,
   } from "$lib/stores/clarifications.svelte";
-  import {
-    onSSEEvent,
-    subscribeClarificationChannel,
-    unsubscribeClarificationChannel,
-  } from "$lib/stores/sse";
+  import { onSSEEvent, subscribeClarificationChannel } from "$lib/stores/sse";
   import ClarificationAskForm from "./ClarificationAskForm.svelte";
   import ClarificationList from "./ClarificationList.svelte";
 
@@ -24,25 +19,33 @@
   let { contextType, contextId, canAsk, canAnswer, problems }: Props = $props();
 
   let store: ClarificationsStore | null = $state(null);
-  let sseUnsubscribe: (() => void) | null = null;
 
-  onMount(() => {
-    const s = createClarificationsStore(contextType, contextId);
+  $effect(() => {
+    const capturedType = contextType;
+    const capturedId = contextId;
+    const controller = new AbortController();
+    let active = true;
+    const s = createClarificationsStore(capturedType, capturedId);
     store = s;
-    void s.init();
-    subscribeClarificationChannel(contextType, contextId);
+    const releaseChannel = subscribeClarificationChannel(capturedType, capturedId);
 
-    sseUnsubscribe = onSSEEvent(SSE_CLARIFICATION, (event: SSEEvent) => {
-      if (event.type !== SSE_CLARIFICATION) return;
+    const releaseListener = onSSEEvent(SSE_CLARIFICATION, (event: SSEEvent) => {
+      if (!active || event.type !== SSE_CLARIFICATION) return;
       s.handleSse(event);
     });
 
     s.markTabVisited();
-  });
+    void s.init(controller.signal).catch((error: unknown) => {
+      if (!controller.signal.aborted) throw error;
+    });
 
-  onDestroy(() => {
-    sseUnsubscribe?.();
-    unsubscribeClarificationChannel(contextType, contextId);
+    return () => {
+      active = false;
+      controller.abort();
+      releaseListener();
+      releaseChannel();
+      if (store === s) store = null;
+    };
   });
 </script>
 

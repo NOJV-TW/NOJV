@@ -17,7 +17,7 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 let recoveryListenersRegistered = false;
 
-const clarificationSubs = new Set<string>();
+const clarificationSubs = new Map<string, number>();
 
 function registerRecoveryListeners(): void {
   if (!browser || recoveryListenersRegistered) return;
@@ -40,7 +40,7 @@ function registerRecoveryListeners(): void {
 function buildStreamUrl(): string {
   if (clarificationSubs.size === 0) return "/api/events/stream";
   const params = new URLSearchParams();
-  for (const sub of clarificationSubs) {
+  for (const sub of clarificationSubs.keys()) {
     params.append("clarificationSub", sub);
   }
   return `/api/events/stream?${params.toString()}`;
@@ -118,7 +118,12 @@ export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): ()
   listeners.get(type)?.add(callback);
 
   return () => {
-    listeners.get(type)?.delete(callback);
+    const current = listeners.get(type);
+    if (!current) return;
+    current.delete(callback);
+    if (current.size === 0) {
+      listeners.delete(type);
+    }
   };
 }
 
@@ -154,23 +159,26 @@ function reconnectIfConnected(): void {
 export function subscribeClarificationChannel(
   contextType: "contest" | "exam" | "assignment",
   contextId: string,
-): void {
-  if (!browser) return;
+): () => void {
+  if (!browser) return () => {};
   const key = `${contextType}:${contextId}`;
-  if (clarificationSubs.has(key)) return;
-  clarificationSubs.add(key);
-  reconnectIfConnected();
-}
+  const previousCount = clarificationSubs.get(key) ?? 0;
+  clarificationSubs.set(key, previousCount + 1);
+  if (previousCount === 0) reconnectIfConnected();
 
-export function unsubscribeClarificationChannel(
-  contextType: "contest" | "exam" | "assignment",
-  contextId: string,
-): void {
-  if (!browser) return;
-  const key = `${contextType}:${contextId}`;
-  if (!clarificationSubs.has(key)) return;
-  clarificationSubs.delete(key);
-  reconnectIfConnected();
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const currentCount = clarificationSubs.get(key);
+    if (currentCount === undefined) return;
+    if (currentCount > 1) {
+      clarificationSubs.set(key, currentCount - 1);
+      return;
+    }
+    clarificationSubs.delete(key);
+    reconnectIfConnected();
+  };
 }
 
 function handleDefaultEvent(data: SSEEvent) {
