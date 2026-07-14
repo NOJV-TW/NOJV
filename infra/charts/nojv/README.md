@@ -225,3 +225,6 @@ Prometheus / Cloud Monitoring), so the GKE overlay leaves all three off. See
   pointers. Upgrade manifests keep all three Deployments and autoscalers in
   maintenance through Helm apply/wait; the `post-upgrade` hook explicitly starts
   the new revision and enables autoscaling only after every workload is healthy.
+- Kubernetes 1.30+ is required. A persistent native admission fence blocks
+  rollback or force-recreation of the three app Deployments with manifests that
+  predate the `versioned-storage-v1` schema contract; recovery is forward-only.

@@ -4,7 +4,7 @@ set -eu
 : "${DATABASE_URL:?DATABASE_URL is required}"
 : "${RELEASE_OPERATION:?RELEASE_OPERATION is required}"
 
-package_root="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+package_root="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 cd "$package_root"
 
 if [ "$RELEASE_OPERATION" = install ]; then
@@ -192,10 +192,13 @@ if [ "$WEB_HPA_ENABLED" = true ]; then
   : "${WEB_HPA:?WEB_HPA is required when WEB_HPA_ENABLED=true}"
   hpa_target="$(kubectl_ns get horizontalpodautoscaler "$WEB_HPA" \
     -o 'jsonpath={.spec.scaleTargetRef.name}')"
-  [ "$hpa_target" = "$WEB_DEPLOYMENT" ] || {
-    echo "HPA $WEB_HPA targets $hpa_target, expected $WEB_DEPLOYMENT" >&2
-    exit 1
-  }
+  case "$hpa_target" in
+    "$WEB_DEPLOYMENT"|"$WEB_DEPLOYMENT-maintenance") ;;
+    *)
+      echo "HPA $WEB_HPA targets unexpected deployment $hpa_target" >&2
+      exit 1
+      ;;
+  esac
   printf '%s' "$hpa_target" > "$state_dir/web-hpa-target"
 fi
 

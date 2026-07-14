@@ -25,6 +25,7 @@ spec:
         app.kubernetes.io/name: nojv-worker-platform
         nojv-role: worker
         nojv-mailer: enabled
+        nojv.tw/schema-contract: versioned-storage-v1
     spec:
       serviceAccountName: {{ include "nojv.fullname" . }}-worker
       terminationGracePeriodSeconds: 120

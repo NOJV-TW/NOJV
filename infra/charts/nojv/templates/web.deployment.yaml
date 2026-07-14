@@ -26,6 +26,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: nojv-web
+        nojv.tw/schema-contract: versioned-storage-v1
     spec:
       terminationGracePeriodSeconds: 60
       {{- with .Values.web.nodeSelector }}

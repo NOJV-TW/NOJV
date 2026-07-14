@@ -23,6 +23,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-worker
         nojv-role: worker
+        nojv.tw/schema-contract: versioned-storage-v1
     spec:
       serviceAccountName: {{ include "nojv.fullname" . }}-worker
       terminationGracePeriodSeconds: 120

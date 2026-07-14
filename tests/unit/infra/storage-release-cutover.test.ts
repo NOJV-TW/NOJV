@@ -227,6 +227,12 @@ describe("storage release cutover", () => {
         (document) =>
           /kind:\s*Role/.test(document) && /name:\s*nojv-web-maintenance/.test(document),
       );
+    const schemaFence = render
+      .split(/^---$/m)
+      .find((document) => /kind:\s*ValidatingAdmissionPolicy/.test(document));
+    const schemaFenceBinding = render
+      .split(/^---$/m)
+      .find((document) => /kind:\s*ValidatingAdmissionPolicyBinding/.test(document));
     const resource = (kind: string, name: string) =>
       render
         .split(/^---$/m)
@@ -256,8 +262,15 @@ describe("storage release cutover", () => {
     expect(role).toContain('resources: ["deployments/scale"]');
     expect(role).toContain('resources: ["horizontalpodautoscalers"]');
     expect(role).toContain('resources: ["scaledobjects"]');
+    expect(schemaFence).toContain('resources: ["deployments"]');
+    expect(schemaFence).not.toContain("deployments/scale");
+    expect(schemaFence).toContain('"nojv.tw/schema-contract" in');
+    expect(schemaFence).toContain("failurePolicy: Fail");
+    expect(schemaFenceBinding).toContain("validationActions: [Deny]");
     for (const name of ["nojv-web", "nojv-worker", "nojv-worker-platform"]) {
-      expect(resource("Deployment", name)).toMatch(/spec:\n\s+replicas: 0/);
+      const deployment = resource("Deployment", name);
+      expect(deployment).toMatch(/spec:\n\s+replicas: 0/);
+      expect(deployment).toContain("nojv.tw/schema-contract: versioned-storage-v1");
     }
     expect(resource("HorizontalPodAutoscaler", "nojv-web")).toContain(
       "name: nojv-web-maintenance",
@@ -265,6 +278,24 @@ describe("storage release cutover", () => {
     expect(resource("ScaledObject", "nojv-worker")).toContain(
       'autoscaling.keda.sh/paused-replicas: "0"',
     );
+  });
+
+  it("rejects Kubernetes versions without the GA admission fence API", () => {
+    const result = spawnSync(
+      "helm",
+      [
+        "template",
+        "nojv",
+        "infra/charts/nojv",
+        "--kube-version",
+        "1.29.0",
+        "-f",
+        "infra/charts/nojv/values-single-machine.yaml",
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("requires kubeVersion: >=1.30.0-0");
   });
 
   it("stages expand before draining and exposes contract only after every verification", () => {
@@ -450,6 +481,22 @@ describe("storage release cutover", () => {
     );
     expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
     expect(result.stderr).toContain("keeping workloads in maintenance");
+  });
+
+  it("retries a post-contract release that is already in maintenance", () => {
+    const harness = makeHarness();
+    writeFileSync(harness.status, "applied");
+    writeFileSync(join(harness.directory, "hpa-target"), "nojv-web-maintenance");
+    writeFileSync(join(harness.directory, "keda-paused"), "0");
+    writeFileSync(join(harness.directory, "nojv-web.replicas"), "0");
+    writeFileSync(join(harness.directory, "nojv-worker.replicas"), "0");
+    writeFileSync(join(harness.directory, "nojv-worker-platform.replicas"), "0");
+
+    const result = runCutover(harness);
+    expect(result.status, result.stderr).toBe(0);
+    expect(events(harness)).toContainEqual(
+      expect.stringContaining("prisma migrate deploy stage=full"),
+    );
   });
 
   it("repairs a rolled-back contract record before staging migrations", () => {

@@ -696,32 +696,30 @@ out-of-band and restart the affected Deployment to pick them up.
 
 ## Rollback Procedure (Helm)
 
-Rollback is release-based. Helm tracks every applied revision:
+Database migrations are forward-only. The chart installs a persistent admission
+fence before migration; it rejects any web or worker Deployment whose pod
+template does not declare the current `versioned-storage-v1` schema contract.
+This intentionally blocks rollback to a pre-contract image even though Helm
+still lists that revision. The migrator does not run during `helm rollback`.
 
-1. `helm history nojv -n nojv` — find the last known-good revision.
-2. `helm rollback nojv <revision> -n nojv` — re-applies that revision's
-   manifests + image tag. (The migrator hook re-runs; Prisma migrations are
-   forward-only, so a rollback to a schema-incompatible image needs the
-   Database Rollback steps below first.)
-3. Confirm `kubectl get pods -n nojv` shows healthy `nojv-web` /
-   `nojv-worker` / `nojv-worker-platform`.
-4. Validate key flows and monitor logs for at least 15 minutes.
+1. Inspect the target revision's rendered web and worker pod-template labels.
+2. If it lacks `nojv.tw/schema-contract: versioned-storage-v1`, do not delete or
+   bypass the fence. Build and deploy a forward fix from a compatible revision.
+3. For a revision carrying the same contract, run
+   `helm rollback nojv <revision> -n nojv --wait --timeout 125m`.
+4. Confirm all three app Deployments are healthy, validate key flows, and monitor
+   logs for at least 15 minutes.
 
-### Database Rollback
-
-Prisma does not auto-generate down migrations. If a migration causes issues:
-
-1. Identify the breaking migration in `packages/db/prisma/migrations/`
-2. Write manual rollback SQL and apply it on the production database
-3. Mark migration state correctly in `_prisma_migrations` when needed
-4. Deploy the previous application commit compatible with the restored schema
+If database recovery is required, restore a verified backup into an isolated
+environment, validate a compatible forward release there, and promote that
+release. Do not apply ad-hoc down migrations to production.
 
 ### Pre-Rollback Checklist
 
 1. Confirm issue is deployment-related, not upstream infrastructure instability
 2. Check web and worker health endpoints
 3. Check Temporal workflows for stuck executions
-4. Verify web and worker versions are schema-compatible before rollback
+4. Verify the target web and worker manifests carry the active schema contract
 5. After rollback, monitor logs, queue drain behavior, and health checks
 
 ## Related Docs
