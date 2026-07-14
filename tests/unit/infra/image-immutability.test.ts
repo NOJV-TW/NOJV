@@ -32,9 +32,7 @@ describe("immutable runtime images", () => {
         "--set-string",
         `image.tag=${releaseSha}`,
       ]),
-    ).toThrow(
-      /image\.digests\.[a-z]+ is required/u,
-    );
+    ).toThrow(/image\.digests\.[a-z]+ is required/u);
   });
 
   it("renders every production image as a readable tag plus digest", () => {

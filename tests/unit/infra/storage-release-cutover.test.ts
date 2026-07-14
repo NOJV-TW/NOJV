@@ -380,9 +380,7 @@ describe("storage release cutover", () => {
     expect(log).not.toContainEqual(
       expect.stringContaining("storage-pointer-cutover.ts backfill"),
     );
-    expect(log).not.toContainEqual(
-      expect.stringContaining("prisma migrate deploy stage=full"),
-    );
+    expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy stage=full"));
     expect(log).not.toContainEqual(
       expect.stringContaining("scale deployment nojv-web --replicas=2"),
     );
