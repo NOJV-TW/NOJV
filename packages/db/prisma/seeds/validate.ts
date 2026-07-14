@@ -1,20 +1,55 @@
 import { seedProblems, type SeedStorageClient } from "./problems";
 
 function createMockPrisma() {
-  const problemById = new Map<string, { id: string; displayId: number | null }>();
+  interface MockProblem {
+    id: string;
+    displayId: number | null;
+    activeStorageBytes: number;
+    storageGeneration: number;
+  }
+
+  const problemById = new Map<string, MockProblem>();
 
   const tx = {
     $executeRaw: async () => 1,
     problem: {
       aggregate: async () => ({ _max: { displayId: null } }),
       upsert: async (args: { create: { id: string; displayId: number | null } }) => {
-        const record = { id: String(args.create.id), displayId: args.create.displayId };
+        const record = {
+          id: String(args.create.id),
+          displayId: args.create.displayId,
+          activeStorageBytes: 0,
+          storageGeneration: 0,
+        };
         problemById.set(record.id, record);
         return record;
       },
       findUnique: async (args: { where: { id: string } }) => {
         const id = String(args.where.id);
         return problemById.get(id) ?? null;
+      },
+      update: async (args: {
+        where: { id: string };
+        data: { activeStorageBytes: number; storageGeneration: { increment: number } };
+      }) => {
+        const current = problemById.get(args.where.id);
+        if (!current) throw new Error(`Mock problem not found: ${args.where.id}`);
+        if (
+          !Number.isSafeInteger(args.data.activeStorageBytes) ||
+          args.data.activeStorageBytes < 0
+        ) {
+          throw new RangeError("activeStorageBytes must be a non-negative safe integer");
+        }
+        if (args.data.storageGeneration.increment !== 1) {
+          throw new RangeError("storageGeneration must increment by exactly one");
+        }
+        const updated = {
+          ...current,
+          activeStorageBytes: args.data.activeStorageBytes,
+          storageGeneration: current.storageGeneration + 1,
+        };
+        problemById.set(updated.id, updated);
+        return updated;
       },
     },
     problemStatement: {

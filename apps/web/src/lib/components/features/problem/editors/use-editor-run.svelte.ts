@@ -167,13 +167,11 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       ) {
         cooldownUntil = Date.now() + err.retryAfterSec * 1000;
       } else {
-        toasts.add({
-          type: "error",
-          message:
-            err instanceof SubmissionRequestError
-              ? messageForSubmitError(err.code)
-              : m.editor_submitFailed(),
-        });
+        toasts.error(
+          err instanceof SubmissionRequestError
+            ? messageForSubmitError(err.code)
+            : m.editor_submitFailed(),
+        );
       }
     } finally {
       isSubmitting = false;
