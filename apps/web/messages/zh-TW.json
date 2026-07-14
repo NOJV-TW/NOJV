@@ -1490,6 +1490,7 @@
   "imageUpload_button": "上傳圖片",
   "imageUpload_preview": "預覽",
   "imageUpload_write": "編輯",
+  "imageUpload_failed": "無法上傳圖片，請再試一次。",
   "latePenalty_dailyDesc": "線性遞減：拖一天扣 N%，拖兩天扣 2N%，以此類推。扣到 0 為止。",
   "latePenalty_dailyPerDayLabel": "每天扣",
   "latePenalty_dailyTitle": "每日扣百分比",

@@ -1490,6 +1490,7 @@
   "imageUpload_button": "Upload image",
   "imageUpload_preview": "Preview",
   "imageUpload_write": "Edit",
+  "imageUpload_failed": "The image could not be uploaded. Try again.",
   "latePenalty_dailyDesc": "Linear decay: lose N% per day. One day late = N%, two days late = 2N%, floored at zero.",
   "latePenalty_dailyPerDayLabel": "Per day",
   "latePenalty_dailyTitle": "Daily late penalty",

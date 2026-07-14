@@ -21,4 +21,15 @@ describe("renderMarkdown", () => {
     expect(html).toMatch(/<span[^>]*style="[^"]*height:[^"]*"/);
     expect(html).not.toContain("position:fixed");
   });
+
+  it("does not expose its internal trust marker or reuse trust between renders", () => {
+    const math = renderMarkdown("$x^2$");
+    const attacker = renderMarkdown(
+      '<span data-katex-nonce="guessed"><span style="position:fixed">x</span></span>',
+    );
+
+    expect(math).not.toContain("data-katex-nonce");
+    expect(attacker).not.toContain("position:fixed");
+    expect(attacker).not.toMatch(/<span[^>]*style=/);
+  });
 });
