@@ -21,6 +21,7 @@
     "unit/core/**/*.ts",
     "unit/infra/env-manifest-parity.test.ts",
     "unit/infra/k8s-integration-target.test.ts",
+    "unit/infra/migration-index-safety.test.ts",
     "unit/infra/release-gate.test.ts",
     "unit/infra/vitest-project-routing.test.ts",
     "setup/k8s-global-setup.ts",

@@ -41,7 +41,6 @@ const EXAM_FORBIDDEN_API_PREFIXES = ["/api/contests/", "/api/posts/", "/api/comm
 const EXAM_FORBIDDEN_PROBLEM_POSTS_PATTERN = /^\/api\/problems\/[^/]+\/posts(?:\/|$)/;
 const SUBMISSION_POINT_PATTERN = /^\/api\/submissions\/[^/]+$/;
 const SUBMISSION_SOURCE_PATTERN = /^\/api\/submissions\/[^/]+\/source$/;
-const SUBMISSION_REJUDGE_PATTERN = /^\/api\/submissions\/[^/]+\/rejudge$/;
 
 export function isExamForbiddenApiRequest(cleanPath: string, method: string): boolean {
   if (EXAM_FORBIDDEN_API_PREFIXES.some((prefix) => cleanPath.startsWith(prefix))) {
@@ -53,7 +52,6 @@ export function isExamForbiddenApiRequest(cleanPath: string, method: string): bo
   if (cleanPath === "/api/submissions") return method !== "GET" && method !== "POST";
   if (SUBMISSION_POINT_PATTERN.test(cleanPath)) return method !== "GET";
   if (SUBMISSION_SOURCE_PATTERN.test(cleanPath)) return method !== "GET";
-  if (SUBMISSION_REJUDGE_PATTERN.test(cleanPath)) return method !== "POST";
   return true;
 }
 

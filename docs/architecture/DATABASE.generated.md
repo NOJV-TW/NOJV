@@ -333,7 +333,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `exam` | `Exam` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 | `events` | `ExamSessionEvent[]` | — |
 
-Indexes & constraints: `@@unique([userId, examId])`, `@@index([examId, endedAt])`, `@@index([userId, endedAt])`
+Indexes & constraints: `@@unique([userId, examId])`, `@@unique([userId], map: "ActiveExamSession_one_active_per_user_key", where: { endedAt: null })`, `@@index([examId, endedAt])`, `@@index([userId, endedAt])`
 
 #### `Contest`
 

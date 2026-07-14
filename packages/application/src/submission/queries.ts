@@ -82,15 +82,30 @@ export async function getVerdictDetail(submissionId: string): Promise<Submission
 }
 
 export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
-  const submission = await submissionRepo.findByIdForDetail({
+  let submission = await submissionRepo.findByIdForDetail({
     id: submissionId,
     userId: actor.userId,
     adminRecovery: actor.platformRole === "admin",
   });
+
+  let viewerIsStaff = false;
+  if (!submission && actor.platformRole !== "admin") {
+    const candidate = await submissionRepo.findByIdForStaffDetailCandidate(submissionId);
+    if (
+      candidate &&
+      candidate.userId !== actor.userId &&
+      (await canOperateOnSubmission(actor, candidate))
+    ) {
+      submission = candidate;
+      viewerIsStaff = true;
+    }
+  }
   if (!submission) throw new NotFoundError("Submission not found.");
 
   const isOwner = submission.userId === actor.userId;
-  const viewerIsStaff = !isOwner && (await canOperateOnSubmission(actor, submission));
+  if (!isOwner && !viewerIsStaff) {
+    viewerIsStaff = await canOperateOnSubmission(actor, submission);
+  }
 
   if (!isOwner && !viewerIsStaff) {
     throw new NotFoundError("Submission not found.");
@@ -133,6 +148,7 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
       ? { name: submission.user.name, username: submission.user.username }
       : null,
     viewerIsStaff,
+    feedbackStudentUserId: submission.userId,
   };
 }
 

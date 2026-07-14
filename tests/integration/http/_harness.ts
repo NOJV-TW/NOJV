@@ -1,4 +1,4 @@
-import type { RequestEvent, RequestHandler } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 
 const ORIGIN = "http://localhost:5173";
 
@@ -13,7 +13,7 @@ function isHttpErrorThrow(e: unknown): e is { status: number; body: { message: s
 export interface CallRouteOptions {
   path: string;
   method?: string;
-  module: Partial<Record<string, RequestHandler>>;
+  module: Record<string, unknown>;
   params?: Record<string, string>;
   user?: { id: string } | null;
   ip?: string;
@@ -76,7 +76,9 @@ export async function callRoute(opts: CallRouteOptions): Promise<Response> {
 
   const resolve = async (ev: RequestEvent): Promise<Response> => {
     const handler = opts.module[ev.request.method];
-    if (!handler) return new Response("Method Not Allowed", { status: 405 });
+    if (typeof handler !== "function") {
+      return new Response("Method Not Allowed", { status: 405 });
+    }
     return (await handler(ev)) as Response;
   };
 

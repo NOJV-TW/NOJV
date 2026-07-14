@@ -109,8 +109,14 @@ describe("every data-returning GET API route is a reviewed exam-confinement deci
     expect(isExamForbiddenApiRequest("/api/submissions/sub_1", "GET")).toBe(false);
     expect(isExamForbiddenApiRequest("/api/submissions/sub_1/source", "GET")).toBe(false);
     expect(isExamForbiddenApiRequest("/api/submissions", "POST")).toBe(false);
-    expect(isExamForbiddenApiRequest("/api/submissions/sub_1/rejudge", "POST")).toBe(false);
-    expect(isExamForbiddenApiRequest("/api/submissions", "DELETE")).toBe(true);
-    expect(isExamForbiddenApiRequest("/api/submissions/sub_1/source", "POST")).toBe(true);
+    for (const method of ["HEAD", "OPTIONS", "PUT", "PATCH", "DELETE"]) {
+      expect(isExamForbiddenApiRequest("/api/submissions", method)).toBe(true);
+    }
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      expect(isExamForbiddenApiRequest("/api/submissions/sub_1", method)).toBe(true);
+      expect(isExamForbiddenApiRequest("/api/submissions/sub_1/source", method)).toBe(true);
+    }
+    expect(isExamForbiddenApiRequest("/api/submissions/sub_1/rejudge", "POST")).toBe(true);
+    expect(isExamForbiddenApiRequest("/api/submissions/sub_1/unreviewed", "GET")).toBe(true);
   });
 });

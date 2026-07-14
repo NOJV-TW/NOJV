@@ -13,7 +13,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { submissionId } = event.params;
   if (!submissionId) error(400, "Missing submissionId.");
 
-  const submission = await getSubmissionDetail(actor, submissionId);
+  const { feedbackStudentUserId, ...submission } = await getSubmissionDetail(
+    actor,
+    submissionId,
+  );
 
   const ctx = submission.context;
   let feedbackContext: feedbackDomain.FeedbackContext | null = null;
@@ -24,7 +27,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   }
   let feedback: string | null = null;
   if (feedbackContext) {
-    const rows = await feedbackDomain.getFeedbackForStudent(actor.userId, feedbackContext);
+    const rows = await feedbackDomain.getFeedbackForStudent(
+      feedbackStudentUserId,
+      feedbackContext,
+    );
     feedback = rows.find((r) => r.problemId === submission.problem.id)?.comment ?? null;
   }
 

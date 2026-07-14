@@ -81,14 +81,12 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     defaultTitle: _defaultTitle,
     title: _title,
     tags: _tags,
-    slug: _slug,
     samples: _samples,
     ...rest
   } = overrides;
   void _defaultTitle;
   void _title;
   void _tags;
-  void _slug;
 
   const status = overrides.status ?? "published";
   // Mirror production: a displayId ("#N") is assigned only when published.

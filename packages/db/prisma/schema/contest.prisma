@@ -191,6 +191,7 @@ model ActiveExamSession {
   events ExamSessionEvent[]
 
   @@unique([userId, examId])
+  @@unique([userId], map: "ActiveExamSession_one_active_per_user_key", where: { endedAt: null })
   @@index([examId, endedAt])
   @@index([userId, endedAt])
 }

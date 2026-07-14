@@ -58,6 +58,52 @@ const scoringBaseSelect = {
   status: true,
 } satisfies Prisma.SubmissionSelect;
 
+const submissionDetailSelect = {
+  id: true,
+  userId: true,
+  problemId: true,
+  contestId: true,
+  courseId: true,
+  assessmentId: true,
+  examId: true,
+  sampleOnly: true,
+  language: true,
+  sourceStoragePrefix: true,
+  status: true,
+  score: true,
+  runtimeMs: true,
+  memoryKb: true,
+  verdictSummary: true,
+  verdictDetailStorageKey: true,
+  createdAt: true,
+  user: { select: userMiniSelect },
+  problem: {
+    select: {
+      ...problemMiniSelect,
+      type: true,
+      advancedConfig: true,
+      testcaseSets: { select: { weight: true } },
+    },
+  },
+  contest: { select: { id: true, title: true } },
+  assessment: {
+    select: {
+      id: true,
+      title: true,
+      courseId: true,
+      course: { select: { id: true, title: true } },
+    },
+  },
+  exam: {
+    select: {
+      id: true,
+      title: true,
+      courseId: true,
+      course: { select: { id: true, title: true } },
+    },
+  },
+} satisfies Prisma.SubmissionSelect;
+
 export const submissionRepo = {
   findById(id: string) {
     return prisma.submission.findUnique({ where: { id } });
@@ -103,51 +149,14 @@ export const submissionRepo = {
             id: input.id,
             ...userFacingSubmissionWhere(input.userId, true),
           },
-      select: {
-        id: true,
-        userId: true,
-        problemId: true,
-        contestId: true,
-        courseId: true,
-        assessmentId: true,
-        examId: true,
-        sampleOnly: true,
-        language: true,
-        sourceStoragePrefix: true,
-        status: true,
-        score: true,
-        runtimeMs: true,
-        memoryKb: true,
-        verdictSummary: true,
-        verdictDetailStorageKey: true,
-        createdAt: true,
-        user: { select: userMiniSelect },
-        problem: {
-          select: {
-            ...problemMiniSelect,
-            type: true,
-            advancedConfig: true,
-            testcaseSets: { select: { weight: true } },
-          },
-        },
-        contest: { select: { id: true, title: true } },
-        assessment: {
-          select: {
-            id: true,
-            title: true,
-            courseId: true,
-            course: { select: { id: true, title: true } },
-          },
-        },
-        exam: {
-          select: {
-            id: true,
-            title: true,
-            courseId: true,
-            course: { select: { id: true, title: true } },
-          },
-        },
-      },
+      select: submissionDetailSelect,
+    });
+  },
+
+  findByIdForStaffDetailCandidate(id: string) {
+    return prisma.submission.findUnique({
+      where: { id },
+      select: submissionDetailSelect,
     });
   },
 
