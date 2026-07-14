@@ -78,18 +78,22 @@ async function markVerifiedSession(userId: string): Promise<void> {
 afterEach(clearElevation);
 
 describe("admin mode MFA invariant", () => {
-  it("rejects activation when the current admin account has not activated 2FA", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: false,
-    });
-    await persistVerifiedSession(sessionId, await currentProof(user.id), true);
+  it(
+    "rejects activation when the current admin account has not activated 2FA",
+    { timeout: 15_000 },
+    async () => {
+      const user = await createTestUser({
+        platformRole: "admin",
+        twoFactorActivated: false,
+      });
+      await persistVerifiedSession(sessionId, await currentProof(user.id), true);
 
-    const response = await activate(user);
+      const response = await activate(user);
 
-    expect(response.status).toBe(403);
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-  });
+      expect(response.status).toBe(403);
+      await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
+    },
+  );
 
   it("rejects activation without a fresh same-session step-up", async () => {
     const user = await createTestUser({

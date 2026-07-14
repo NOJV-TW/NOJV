@@ -24,6 +24,8 @@ type Activities = Record<string, (...args: unknown[]) => Promise<unknown>>;
 
 function buildActivities(overrides: Partial<Activities> = {}): Activities {
   return {
+    startSubmissionJudgeRun: vi.fn(async () => undefined),
+    failSubmissionJudgeRun: vi.fn(async () => true),
     snapshotSubmissionForRejudge: vi.fn(async () => ({
       logId: "log_1",
       oldStatus: "accepted",
@@ -75,18 +77,21 @@ async function runWorker(activities: Activities, body: () => Promise<void>): Pro
 describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
   it("runs the happy path: executes, completes, publishes the verdict", async () => {
     const activities = buildActivities();
+    const workflowId = `wf-happy-${String(Date.now())}`;
     await runWorker(activities, async () => {
       await env.client.workflow.execute(submissionJudgeWorkflow, {
         args: [baseInput],
         taskQueue: "judge-test",
-        workflowId: `wf-happy-${String(Date.now())}`,
+        workflowId,
       });
     });
+    expect(activities.startSubmissionJudgeRun).toHaveBeenCalledWith("sub_1", workflowId);
     expect(activities.fetchJudgeContext).toHaveBeenCalledTimes(1);
     expect(activities.executeSandbox).toHaveBeenCalledTimes(1);
     expect(activities.completeSubmission).toHaveBeenCalledTimes(1);
     expect(activities.completeSubmission).toHaveBeenCalledWith(
       "sub_1",
+      workflowId,
       { testcaseResults: [] },
       "standard",
       null,
@@ -122,11 +127,12 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
         return { testcaseResults: [] };
       }),
     });
+    const workflowId = `wf-cancel-${String(Date.now())}`;
     await runWorker(activities, async () => {
       const handle = await env.client.workflow.start(submissionJudgeWorkflow, {
         args: [{ ...baseInput, forRejudge: { triggeredByUserId: "usr_admin" } }],
         taskQueue: "judge-test",
-        workflowId: `wf-cancel-${String(Date.now())}`,
+        workflowId,
       });
       await started;
       await handle.cancel();
@@ -134,6 +140,7 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
     });
     expect(activities.restoreSubmissionForCancelledRejudge).toHaveBeenCalledWith(
       "sub_1",
+      workflowId,
       "accepted",
     );
     expect(activities.finalizeRejudgeLog).not.toHaveBeenCalled();
@@ -145,16 +152,18 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
         throw new Error("sandbox infra failure");
       }),
     });
+    const workflowId = `wf-fail-${String(Date.now())}`;
     await runWorker(activities, async () => {
       const handle = await env.client.workflow.start(submissionJudgeWorkflow, {
         args: [{ ...baseInput, forRejudge: { triggeredByUserId: "usr_admin" } }],
         taskQueue: "judge-test",
-        workflowId: `wf-fail-${String(Date.now())}`,
+        workflowId,
       });
       await expect(handle.result()).rejects.toThrow();
     });
     expect(activities.restoreSubmissionForCancelledRejudge).toHaveBeenCalledWith(
       "sub_1",
+      workflowId,
       "accepted",
     );
     expect(activities.finalizeRejudgeLog).not.toHaveBeenCalled();

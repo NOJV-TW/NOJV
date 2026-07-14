@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -6,7 +8,11 @@ vi.mock("@temporalio/activity", () => ({
   log: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
-import { putSubmissionSources } from "@nojv/storage";
+import {
+  createStorageClient,
+  planSubmissionSources,
+  putSubmissionSourcePlan,
+} from "@nojv/storage";
 import { plagiarismDomain } from "@nojv/application";
 
 import { runPlagiarismCheck } from "../../../apps/worker/src/activities/plagiarism";
@@ -32,6 +38,20 @@ async function makeAssignment(courseId: string, createdByUserId: string) {
   });
 }
 
+async function replaceSubmissionSources(
+  submissionId: string,
+  sources: { path: string; content: string }[],
+) {
+  const sourceStorage = await putSubmissionSourcePlan(
+    createStorageClient(),
+    planSubmissionSources(submissionId, randomUUID(), sources),
+  );
+  await testPrisma.submission.update({
+    where: { id: submissionId },
+    data: { sourceStorage },
+  });
+}
+
 describe("plagiarism — multi-file detection (real DB + Dolos)", () => {
   it("detects similarity between semantically equivalent multi-file C++ submissions", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
@@ -46,6 +66,7 @@ describe("plagiarism — multi-file detection (real DB + Dolos)", () => {
       userId: userA.id,
       problemId: problem.id,
       assessmentId: assignment.id,
+      courseId: course.id,
       language: "cpp",
       status: "accepted",
       score: 100,
@@ -73,7 +94,7 @@ int main() {
 }
 `;
 
-    await putSubmissionSources({} as never, subA.id, [
+    await replaceSubmissionSources(subA.id, [
       { path: "main.cpp", content: A_MAIN },
       { path: "util.cpp", content: A_UTIL },
     ]);
@@ -82,6 +103,7 @@ int main() {
       userId: userB.id,
       problemId: problem.id,
       assessmentId: assignment.id,
+      courseId: course.id,
       language: "cpp",
       status: "accepted",
       score: 100,
@@ -109,7 +131,7 @@ int main() {
 }
 `;
 
-    await putSubmissionSources({} as never, subB.id, [
+    await replaceSubmissionSources(subB.id, [
       { path: "util.cpp", content: B_UTIL },
       { path: "main.cpp", content: B_MAIN },
     ]);

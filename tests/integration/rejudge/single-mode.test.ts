@@ -23,19 +23,29 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
       score: 30,
     });
 
+    const judgeRunId = `run-${submission.id}`;
     const snap = await submissionDomain.snapshotForRejudge(
       submission.id,
       teacher.id,
-      `run-${submission.id}`,
+      judgeRunId,
     );
     expect(snap).not.toBeNull();
 
-    await submissionRepo.complete(submission.id, {
-      status: "accepted",
+    await submissionDomain.completeJudge(submission.id, judgeRunId, {
+      accepted: true,
+      caseResults: [],
+      feedback: "accepted",
+      runtimeMs: 1,
       score: 100,
+      verdict: "accepted",
     });
 
-    await submissionDomain.finalizeRejudgeLog(submission.id, teacher.id, snap!.logId);
+    await submissionDomain.finalizeRejudgeLog(
+      submission.id,
+      teacher.id,
+      snap!.logId,
+      judgeRunId,
+    );
 
     const logs = await submissionRejudgeLogRepo.listBySubmission(submission.id);
     expect(logs).toHaveLength(1);

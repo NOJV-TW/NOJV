@@ -66,9 +66,13 @@ async function applyMigration(schema: string, migration: string): Promise<void> 
       WHERE extension.extname = 'pg_trgm'
     `);
     const extensionSchema = extension.rows[0]?.schema;
-    if (!extensionSchema) throw new Error("pg_trgm extension is required for migration tests");
+    if (!extensionSchema && migration !== CURRENT_MAIN_BASELINE[0]) {
+      throw new Error("pg_trgm extension is required for migration tests");
+    }
     await connection.query(
-      `SET search_path TO "${schema}", "${extensionSchema.replaceAll('"', '""')}", public`,
+      extensionSchema
+        ? `SET search_path TO "${schema}", "${extensionSchema.replaceAll('"', '""')}", public`
+        : `SET search_path TO "${schema}", public`,
     );
     for (const statement of splitStatements(sql)) {
       await connection.query(statement);

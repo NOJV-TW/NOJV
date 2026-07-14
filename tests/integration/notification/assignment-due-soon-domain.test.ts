@@ -94,7 +94,11 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       score: 5,
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
+    await notificationDomain.fanoutAssignmentDueSoon(
+      assessment.id,
+      assessment.closesAt.toISOString(),
+      3,
+    );
 
     const rowsA = await notificationRepo.listRecent(studentA.id, 10);
     const rowsB = await notificationRepo.listRecent(studentB.id, 10);
@@ -139,8 +143,16 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       },
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
+    await notificationDomain.fanoutAssignmentDueSoon(
+      assessment.id,
+      assessment.closesAt.toISOString(),
+      3,
+    );
+    await notificationDomain.fanoutAssignmentDueSoon(
+      assessment.id,
+      assessment.closesAt.toISOString(),
+      3,
+    );
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(1);
@@ -166,7 +178,11 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       },
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
+    await notificationDomain.fanoutAssignmentDueSoon(
+      assessment.id,
+      assessment.closesAt.toISOString(),
+      3,
+    );
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -192,7 +208,11 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       },
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
+    await notificationDomain.fanoutAssignmentDueSoon(
+      assessment.id,
+      assessment.closesAt.toISOString(),
+      3,
+    );
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -229,14 +249,22 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       data: { userId: wantsOne.id, assignmentDueSoonLeadDays: 1 },
     });
 
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 3);
+    await notificationDomain.fanoutAssignmentDueSoon(
+      assessment.id,
+      assessment.closesAt.toISOString(),
+      3,
+    );
 
     expect(await notificationRepo.listRecent(wantsThree.id, 10)).toHaveLength(1);
     expect(await notificationRepo.listRecent(wantsOne.id, 10)).toHaveLength(0);
     expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(1);
 
     await truncateTestTables(["Notification"]);
-    await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 1);
+    await notificationDomain.fanoutAssignmentDueSoon(
+      assessment.id,
+      assessment.closesAt.toISOString(),
+      1,
+    );
 
     expect(await notificationRepo.listRecent(wantsThree.id, 10)).toHaveLength(0);
     expect(await notificationRepo.listRecent(wantsOne.id, 10)).toHaveLength(1);
@@ -290,8 +318,14 @@ describe("notificationDomain.fanoutAssignmentStarted", () => {
       score: 10,
     });
 
-    await notificationDomain.fanoutAssignmentStarted(assessment.id);
-    await notificationDomain.fanoutAssignmentStarted(assessment.id);
+    await notificationDomain.fanoutAssignmentStarted(
+      assessment.id,
+      assessment.opensAt.toISOString(),
+    );
+    await notificationDomain.fanoutAssignmentStarted(
+      assessment.id,
+      assessment.opensAt.toISOString(),
+    );
 
     const rowsMaxed = await notificationRepo.listRecent(maxed.id, 10);
     const rowsFresh = await notificationRepo.listRecent(fresh.id, 10);
