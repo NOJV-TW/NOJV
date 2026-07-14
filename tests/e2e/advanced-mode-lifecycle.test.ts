@@ -41,7 +41,7 @@ let advancedProblemId = "";
 test.describe("Advanced Mode Lifecycle", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("Advanced Mode create menu stays inside a mobile viewport", async ({ browser }) => {
+  test("problem creation is an ordinary keyboard disclosure", async ({ browser }) => {
     const context = await browser.newContext({
       storageState: teacherAuth,
       viewport: { width: 390, height: 844 },
@@ -49,11 +49,44 @@ test.describe("Advanced Mode Lifecycle", () => {
     const page = await context.newPage();
 
     await page.goto("/problems?tab=mine");
-    await page.getByRole("button", { name: /create options/i }).click();
-    await expect(page.getByRole("menu")).toBeVisible();
+    const trigger = page.getByRole("button", { name: /create options/i });
+    await expect(trigger).toHaveAttribute("aria-controls", "problem-create-options");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const disclosure = page.locator("#problem-create-options");
+    await expect(disclosure).toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Advanced Mode" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(disclosure).toBeHidden();
+    await expect(trigger).toBeFocused();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(390);
+
+    await context.close();
+  });
+
+  test("server rendering exposes only controls that work without hydration", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      storageState: teacherAuth,
+    });
+    const page = await context.newPage();
+
+    await page.goto("/problems?tab=mine");
+    await expect(page.getByRole("link", { name: "Public Library" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "My Problems" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /create new problem|create options/i }),
+    ).toHaveCount(0);
 
     await context.close();
   });
