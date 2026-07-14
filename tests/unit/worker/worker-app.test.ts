@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   healthListen: vi.fn(),
   workerCreate: vi.fn(),
   setExecutorOwner: vi.fn(),
+  sweepOrphanNetworks: vi.fn(),
 }));
 
 vi.mock("@nojv/temporal", () => ({
@@ -70,6 +71,10 @@ vi.mock("../../../apps/worker/src/activities/judge.js", () => ({
   setExecutorOwner: mocks.setExecutorOwner,
 }));
 
+vi.mock("../../../apps/worker/src/services/docker-network.js", () => ({
+  sweepOrphanNetworks: mocks.sweepOrphanNetworks,
+}));
+
 import { WorkerApp } from "../../../apps/worker/src/worker-app";
 
 const env: WorkerEnv = {
@@ -118,11 +123,26 @@ beforeEach(() => {
   mocks.ensureSubmissionSweeper.mockResolvedValue(undefined);
   mocks.ensureLifecycleReconciler.mockResolvedValue(undefined);
   mocks.executorShutdown.mockResolvedValue(undefined);
+  mocks.sweepOrphanNetworks.mockResolvedValue(undefined);
   mocks.healthListen.mockImplementation((_port: number, callback: () => void) => callback());
   mocks.healthClose.mockImplementation((callback: (error?: Error) => void) => callback());
 });
 
 describe("WorkerApp lifecycle", () => {
+  it("fails closed before creating a judge worker when Docker network recovery fails", async () => {
+    mocks.sweepOrphanNetworks.mockRejectedValue(new Error("Docker network recovery failed"));
+    const app = new WorkerApp(
+      { ...env, WORKER_MODE: "judge" },
+      { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
+    );
+
+    await expect(app.start()).rejects.toThrow("Docker network recovery failed");
+    expect(mocks.sweepOrphanNetworks).toHaveBeenCalledOnce();
+    expect(mocks.workerCreate).not.toHaveBeenCalled();
+
+    await expect(app.shutdown("startup failure")).resolves.toMatchObject({ complete: true });
+  });
+
   it("cleans partially acquired startup resources in reverse order", async () => {
     const events: string[] = [];
     const worker = makeWorker(events);
