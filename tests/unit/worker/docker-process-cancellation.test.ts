@@ -65,6 +65,33 @@ describe("spawnDockerContainer cancellation", () => {
     );
   });
 
+  it("preserves cancellation identity and serializes a simultaneous cleanup failure", async () => {
+    const runChild = child(false);
+    const cleanupChild = child(false);
+    mocks.spawn.mockImplementation((_command: string, args: string[]) =>
+      args[0] === "rm" ? cleanupChild : runChild,
+    );
+    const controller = new AbortController();
+    const operation = spawnDockerContainer({
+      args: ["run", "--name", "judge-cancel-cleanup"],
+      containerName: "judge-cancel-cleanup",
+      outerTimeoutMs: 60_000,
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+
+    const reason = new DOMException("cancelled by Temporal", "AbortError");
+    controller.abort(reason);
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(2));
+    cleanupChild.stderr.write("permission denied while removing container");
+    cleanupChild.emit("close", 1);
+
+    await expect(operation).rejects.toBe(reason);
+    expect(reason.message).toContain("cancelled by Temporal");
+    expect(reason.message).toContain("Docker container cleanup failed");
+    expect(reason.message).toContain("permission denied while removing container");
+  });
+
   it("settles a timeout after cleanup even when the Docker CLI never closes", async () => {
     const runChild = child(false);
     mocks.spawn.mockImplementation((_command: string, args: string[]) =>

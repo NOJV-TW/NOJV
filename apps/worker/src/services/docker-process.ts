@@ -39,6 +39,50 @@ export interface DockerCommandResult {
   stderr: string;
 }
 
+function failureMessage(reason: unknown): string {
+  if (reason instanceof Error) {
+    return reason.cause === undefined
+      ? reason.message
+      : `${reason.message} Caused by: ${failureMessage(reason.cause)}`;
+  }
+  if (typeof reason === "string") return reason;
+  try {
+    const serialized: unknown = JSON.stringify(reason);
+    return typeof serialized === "string" ? serialized : String(reason);
+  } catch {
+    return String(reason);
+  }
+}
+
+export function attachDockerCleanupFailure(
+  primaryFailure: Error,
+  label: string,
+  cleanupFailure: unknown,
+): Error {
+  Object.defineProperty(primaryFailure, "message", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: `${primaryFailure.message} ${label} cleanup failed: ${failureMessage(cleanupFailure)}`,
+  });
+  return primaryFailure;
+}
+
+export async function cleanupDockerResources(
+  label: string,
+  resources: { name: string; remove: () => Promise<void> }[],
+): Promise<void> {
+  const failures: string[] = [];
+  for (const resource of resources) {
+    try {
+      await resource.remove();
+    } catch (error) {
+      failures.push(`${resource.name}: ${failureMessage(error)}`);
+    }
+  }
+  if (failures.length > 0) throw new Error(`${label} cleanup failed: ${failures.join(" | ")}`);
+}
+
 function isMissingResourceDiagnostic(stderr: string): boolean {
   return /(?:no such (?:container|network)|(?:container|network) .+ not found)/i.test(stderr);
 }
@@ -198,12 +242,13 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
     };
 
     const abort = () => {
+      const abortReason = executionAbortReason(opts.signal);
       void terminate()
         .then(() => {
-          fail(executionAbortReason(opts.signal));
+          fail(abortReason);
         })
         .catch((cleanupError: unknown) =>
-          fail(new AggregateError([executionAbortReason(opts.signal), cleanupError])),
+          fail(attachDockerCleanupFailure(abortReason, "Docker container", cleanupError)),
         );
     };
     opts.signal.addEventListener("abort", abort, { once: true });

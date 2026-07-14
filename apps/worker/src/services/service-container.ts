@@ -1,6 +1,7 @@
 import { SERVICE_READY_MARKER, buildAdvancedServiceArgs } from "@nojv/sandbox-docker";
 
 import {
+  attachDockerCleanupFailure,
   collectContainerLogs,
   forceRemoveContainer,
   runDocker,
@@ -99,7 +100,16 @@ export async function startServiceContainer(params: {
     await waitForServiceReady(containerName, params.signal);
     return { containerName };
   } catch (err) {
-    if (started) await forceRemoveContainer(containerName);
+    if (started) {
+      try {
+        await forceRemoveContainer(containerName);
+      } catch (cleanupFailure) {
+        if (err instanceof Error) {
+          throw attachDockerCleanupFailure(err, "Docker service container", cleanupFailure);
+        }
+        throw cleanupFailure;
+      }
+    }
     throw err;
   }
 }

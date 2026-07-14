@@ -21,8 +21,14 @@ import {
 
 import { createLogger } from "../logger.js";
 import { createSubmissionNetwork, removeSubmissionNetwork } from "./docker-network";
-import { sanitizeId, spawnDockerContainer } from "./docker-process";
+import {
+  attachDockerCleanupFailure,
+  cleanupDockerResources,
+  sanitizeId,
+  spawnDockerContainer,
+} from "./docker-process";
 import { buildDockerResourceLabels, dockerLabelArgs } from "./docker-resource";
+import { executionAbortReason } from "./execution-abort";
 import {
   ADVANCED_SERVICE_PORT,
   collectServiceLogs,
@@ -553,6 +559,7 @@ export class AdvancedModeExecutor {
 
     let network: Awaited<ReturnType<typeof createSubmissionNetwork>> | undefined;
     let serviceContainerName: string | undefined;
+    let outcome: ContainerOutcome | Error;
     try {
       const serviceImageRef = service.imageRef;
       network = await createSubmissionNetwork(execution.runId, execution.signal);
@@ -567,44 +574,79 @@ export class AdvancedModeExecutor {
         labels: buildDockerResourceLabels(execution.runId),
       });
       serviceContainerName = handle.containerName;
-      return await this.runContainer(request, execution, advanced, config, imageRef, runDir, {
-        networkArgs: ["--network", network.internalName],
-        extraEnv: buildServiceEnv(),
-      });
+      outcome = await this.runContainer(
+        request,
+        execution,
+        advanced,
+        config,
+        imageRef,
+        runDir,
+        {
+          networkArgs: ["--network", network.internalName],
+          extraEnv: buildServiceEnv(),
+        },
+      );
     } catch (err) {
-      execution.signal.throwIfAborted();
-      return {
-        exitCode: null,
-        stderr: `service setup failed: ${err instanceof Error ? err.message : String(err)}`,
-        timedOut: false,
-        sizeExceeded: false,
-        spawnError: true,
-      };
-    } finally {
-      if (serviceContainerName) {
-        let serviceLogs = "";
-        if (!execution.signal.aborted) {
-          try {
-            serviceLogs = await collectServiceLogs(serviceContainerName, execution.signal);
-          } catch (error) {
-            logger.warn("advanced service container log collection failed", {
-              submissionId: request.submissionId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
+      if (execution.signal.aborted) {
+        outcome = executionAbortReason(execution.signal);
+      } else {
+        outcome = {
+          exitCode: null,
+          stderr: `service setup failed: ${err instanceof Error ? err.message : String(err)}`,
+          timedOut: false,
+          sizeExceeded: false,
+          spawnError: true,
+        };
+      }
+    }
+
+    if (serviceContainerName && !execution.signal.aborted) {
+      try {
+        const serviceLogs = await collectServiceLogs(serviceContainerName, execution.signal);
         if (serviceLogs) {
           logger.info("advanced service container log", {
             submissionId: request.submissionId,
             serviceLogs,
           });
         }
-        await stopServiceContainer(serviceContainerName);
-      }
-      if (network) {
-        await removeSubmissionNetwork(network);
+      } catch (error) {
+        logger.warn("advanced service container log collection failed", {
+          submissionId: request.submissionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
+
+    try {
+      const containerName = serviceContainerName;
+      const submissionNetwork = network;
+      await cleanupDockerResources("Docker advanced service", [
+        ...(containerName
+          ? [
+              {
+                name: `container ${containerName}`,
+                remove: () => stopServiceContainer(containerName),
+              },
+            ]
+          : []),
+        ...(submissionNetwork
+          ? [
+              {
+                name: `network ${submissionNetwork.internalName}`,
+                remove: () => removeSubmissionNetwork(submissionNetwork),
+              },
+            ]
+          : []),
+      ]);
+    } catch (cleanupFailure) {
+      if (outcome instanceof Error) {
+        throw attachDockerCleanupFailure(outcome, "Docker advanced service", cleanupFailure);
+      }
+      throw cleanupFailure;
+    }
+
+    if (outcome instanceof Error) throw outcome;
+    return outcome;
   }
 
   private gradePhase(

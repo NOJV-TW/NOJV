@@ -53,7 +53,10 @@
     "unit/worker/durable-work-workflow.test.ts",
     "unit/worker/durable-work.test.ts",
     "unit/worker/docker-container-sweep.test.ts",
+    "unit/worker/advanced-mode-cleanup.test.ts",
+    "unit/worker/docker-process-cancellation.test.ts",
     "unit/worker/docker-resource-sweeper.test.ts",
+    "unit/worker/service-container-readiness.test.ts",
     "unit/worker/worker-app.test.ts",
     "setup/k8s-global-setup.ts",
     "setup/k8s-integration-target.ts"
