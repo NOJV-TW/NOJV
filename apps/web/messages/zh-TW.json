@@ -2050,6 +2050,7 @@
   "contestScoreboard_unfreezeError": "無法解封計分榜，請稍後再試。",
   "userMenu_apiTokens": "API 權杖",
   "userMenu_profile": "個人頁面",
+  "userMenu_openAccountMenu": "開啟 {name} 的帳號選單",
   "userProfile_activity": "提交活動",
   "userProfile_difficultyDist": "解題難度分布",
   "userProfile_joined": "加入於 {date}",

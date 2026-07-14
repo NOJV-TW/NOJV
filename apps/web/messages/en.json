@@ -1547,6 +1547,7 @@
   "userMenu_exitAdminMode": "Exit admin mode",
   "userMenu_apiTokens": "API tokens",
   "userMenu_profile": "My profile",
+  "userMenu_openAccountMenu": "Open account menu for {name}",
   "userProfile_activity": "Submission activity",
   "userProfile_difficultyDist": "Solved by difficulty",
   "userProfile_joined": "Joined {date}",

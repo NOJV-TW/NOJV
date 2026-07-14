@@ -9,6 +9,7 @@
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import ShieldIcon from "@lucide/svelte/icons/shield";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
+  import { nextMenuItemIndex, type MenuNavigationKey } from "$lib/utils/menu-focus";
 
   let user = $derived(page.data.user);
   let session = $derived(page.data.session);
@@ -41,6 +42,9 @@
   }
 
   let open = $state(false);
+  const menuId = $props.id();
+  const menuTriggerId = `${menuId}-trigger`;
+  const menuContentId = `${menuId}-content`;
   let btnEl: HTMLButtonElement | undefined = $state();
   let dropdownEl: HTMLDivElement | undefined = $state();
 
@@ -55,7 +59,30 @@
     if (e.key === "Escape") {
       open = false;
       btnEl?.focus();
+      return;
     }
+    if (
+      !(["ArrowDown", "ArrowUp", "Home", "End"] as const).includes(e.key as MenuNavigationKey)
+    ) {
+      return;
+    }
+    const items = [...(dropdownEl?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const currentIndex = items.findIndex((item) => item === document.activeElement);
+    const nextIndex = nextMenuItemIndex(e.key as MenuNavigationKey, currentIndex, items.length);
+    if (nextIndex === null) return;
+    e.preventDefault();
+    items[nextIndex]?.focus();
+  }
+
+  function handleTriggerKeydown(e: KeyboardEvent) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    open = true;
+    queueMicrotask(() => {
+      const items = [...(dropdownEl?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+      const index = e.key === "ArrowUp" ? items.length - 1 : 0;
+      items[index]?.focus();
+    });
   }
 
   $effect(() => {
@@ -85,10 +112,15 @@
   <div class="relative">
     <button
       bind:this={btnEl}
+      id={menuTriggerId}
       class="flex size-9 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-body-sm font-semibold text-primary-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover hover:opacity-90"
       onclick={() => (open = !open)}
+      onkeydown={handleTriggerKeydown}
       title={user.name}
       type="button"
+      aria-label={m.userMenu_openAccountMenu({ name: user.name })}
+      aria-haspopup="menu"
+      aria-controls={menuContentId}
       aria-expanded={open}
     >
       {#if user.image}
@@ -101,12 +133,16 @@
     {#if open}
       <div
         bind:this={dropdownEl}
+        id={menuContentId}
+        role="menu"
+        aria-labelledby={menuTriggerId}
         class="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
       >
         {#if hasUsername}
           <a
             class="flex items-center gap-3 border-b border-border-subtle px-4 py-3 transition-colors duration-fast ease-out-soft hover:bg-accent"
             href="/users/{user.id}"
+            role="menuitem"
             aria-label={m.userMenu_profile()}
             onclick={() => (open = false)}
           >
@@ -141,6 +177,7 @@
           <a
             class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
             href="/settings"
+            role="menuitem"
             onclick={() => (open = false)}
           >
             <SettingsIcon aria-hidden="true" size={16} />
@@ -150,6 +187,7 @@
           <a
             class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
             href="/account/api-tokens"
+            role="menuitem"
             onclick={() => (open = false)}
           >
             <KeyRoundIcon aria-hidden="true" size={16} />
@@ -164,6 +202,7 @@
             onclick={toggleAdminMode}
             disabled={adminBusy}
             type="button"
+            role="menuitem"
           >
             <ShieldIcon aria-hidden="true" size={16} />
             {actingAsAdmin ? m.userMenu_exitAdminMode() : m.userMenu_enterAdminMode()}
@@ -174,6 +213,7 @@
           class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10"
           onclick={handleSignOut}
           type="button"
+          role="menuitem"
         >
           <LogOutIcon aria-hidden="true" size={16} />
           {m.auth_signOut()}
