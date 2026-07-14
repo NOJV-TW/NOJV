@@ -35,6 +35,8 @@ printf 'git %s\\n' "$*" >> "$COMMAND_LOG"
 case "$1 $2" in
   "check-ref-format refs/heads/main") : ;;
   "rev-parse --show-toplevel") printf '%s\\n' "$FAKE_REPO_ROOT" ;;
+  "remote get-url") printf '%s\\n' "$FAKE_REMOTE_URL" ;;
+  "for-each-ref --format=%(refname)") printf '%s' "$FAKE_REPLACE_REFS" ;;
   "rev-parse --verify") printf '%s\\n' "$FAKE_HEAD_SHA" ;;
   "status --porcelain=v1") printf '%s' "$FAKE_GIT_STATUS" ;;
   "ls-remote --exit-code") printf '%s\\t%s\\n' "$FAKE_REMOTE_SHA" "$RELEASE_REF" ;;
@@ -126,6 +128,8 @@ function runDeploy(overrides: Record<string, string> = {}) {
     FAKE_HEAD_SHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     FAKE_GIT_STATUS: "",
     FAKE_REMOTE_SHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    FAKE_REMOTE_URL: "https://github.com/NOJV-TW/NOJV.git",
+    FAKE_REPLACE_REFS: "",
     ...overrides,
   };
   const result = spawnSync("bash", [deployScript], {
@@ -171,6 +175,7 @@ describe("GCP deploy identity preflight", () => {
     const deploy = readFileSync(deployScript, "utf8");
     expect(deploy).toContain("--immutable-tags");
     expect(deploy).toContain("value(format,dockerConfig.immutableTags)");
+    expect(deploy).toContain("export GIT_NO_REPLACE_OBJECTS=1");
   });
 
   it.each([
@@ -182,6 +187,13 @@ describe("GCP deploy identity preflight", () => {
       /working tree must be clean/u,
     ],
     ["different remote ref", { FAKE_REMOTE_SHA: "b".repeat(40) }, /Remote ref/u],
+    ["non-canonical remote name", { RELEASE_REMOTE: "build" }, /canonical origin/u],
+    [
+      "non-canonical origin URL",
+      { FAKE_REMOTE_URL: "https://evil.example/NOJV.git" },
+      /canonical NOJV-TW\/NOJV/u,
+    ],
+    ["replacement object", { FAKE_REPLACE_REFS: "refs/replace/abc\n" }, /replacement refs/u],
     ["unsupported tag ref", { RELEASE_REF: "refs/tags/v1.0.0" }, /branch ref/u],
   ])("rejects %s before any cloud command", (_name, overrides, message) => {
     const { result, commands } = runDeploy(overrides as Record<string, string>);
@@ -272,6 +284,7 @@ describe("GCP deploy identity preflight", () => {
     expect(commands).toMatch(/helm upgrade --install nojv .*\/source\/infra\/charts\/nojv/u);
     expect(commands).toContain("--kube-context gke-nojv-prod-asia-east1-nojv-prod");
     expect(commands).toContain("--namespace nojv");
+    expect(commands).toContain("--wait --timeout 125m");
     expect(commands).toContain(
       "--set-string release.sourceSha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
@@ -332,7 +345,7 @@ describe("GCP deploy identity preflight", () => {
         "-f",
         "tests/fixtures/helm/immutable-image-digests.yaml",
         "--set-string",
-        `release.sourceSha=${sourceSha}`,
+        `release.sourceSha=${"b".repeat(40)}`,
       ],
       { cwd: repoRoot, encoding: "utf8" },
     );

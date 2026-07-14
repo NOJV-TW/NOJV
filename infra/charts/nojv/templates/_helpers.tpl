@@ -35,16 +35,19 @@ Common labels.
 {{- define "nojv.labels" -}}
 helm.sh/chart: {{ include "nojv.chart" . }}
 {{ include "nojv.selectorLabels" . }}
-{{- if .Values.release.sourceSha }}
-{{- if not (regexMatch "^[a-f0-9]{40}$" .Values.release.sourceSha) }}
+{{- if .Values.image.allowUnpinnedLocalBuilds }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+{{- else }}
+{{- $sourceSha := required "release.sourceSha is required for non-local releases" .Values.release.sourceSha }}
+{{- if not (regexMatch "^[a-f0-9]{40}$" $sourceSha) }}
 {{- fail "release.sourceSha must be a lowercase 40-character commit SHA" }}
 {{- end }}
-{{- if ne .Values.release.sourceSha (default .Chart.AppVersion .Values.image.tag) }}
+{{- if ne $sourceSha (default .Chart.AppVersion .Values.image.tag) }}
 {{- fail "release.sourceSha must equal image.tag" }}
 {{- end }}
-app.kubernetes.io/version: {{ .Values.release.sourceSha | quote }}
-{{- else if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/version: {{ $sourceSha | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: nojv

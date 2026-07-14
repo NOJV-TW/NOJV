@@ -5,7 +5,7 @@ metadata:
   namespace: nojv
 spec:
   interval: 5m
-  timeout: 10m
+  timeout: 125m
   releaseName: nojv
   targetNamespace: nojv
   chart:

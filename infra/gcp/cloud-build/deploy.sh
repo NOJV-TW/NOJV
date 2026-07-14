@@ -24,6 +24,10 @@ require_command git
 require_command kubectl
 require_command tar
 
+# A Git replacement object can make a trusted commit ID archive an unrelated
+# tree. Disable replacement objects for every provenance check and export.
+export GIT_NO_REPLACE_OBJECTS=1
+
 PROJECT_ID="${PROJECT_ID:-}"
 REGION="${REGION:-}"
 REPOSITORY="${REPOSITORY:-}"
@@ -58,8 +62,8 @@ if [[ ! "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]; then
   echo "RELEASE_SHA must be a lowercase 40-character commit SHA." >&2
   exit 1
 fi
-if [[ ! "$RELEASE_REMOTE" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-  echo "RELEASE_REMOTE must be an explicit Git remote name." >&2
+if [[ "$RELEASE_REMOTE" != "origin" ]]; then
+  echo "RELEASE_REMOTE must be the canonical origin remote." >&2
   exit 1
 fi
 if [[ "$RELEASE_REF" != refs/heads/* ]] || ! git check-ref-format "$RELEASE_REF"; then
@@ -73,6 +77,19 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
+REMOTE_URL="$(git remote get-url "$RELEASE_REMOTE")"
+case "$REMOTE_URL" in
+  https://github.com/NOJV-TW/NOJV | https://github.com/NOJV-TW/NOJV.git | \
+    git@github.com:NOJV-TW/NOJV.git | ssh://git@github.com/NOJV-TW/NOJV.git) ;;
+  *)
+    echo "origin must point to the canonical NOJV-TW/NOJV repository; received ${REMOTE_URL:-none}." >&2
+    exit 1
+    ;;
+esac
+if [[ -n "$(git for-each-ref --format='%(refname)' refs/replace)" ]]; then
+  echo "Git replacement refs are forbidden for release builds." >&2
+  exit 1
+fi
 HEAD_SHA="$(git rev-parse --verify 'HEAD^{commit}')"
 if [[ "$HEAD_SHA" != "$RELEASE_SHA" ]]; then
   echo "RELEASE_SHA ${RELEASE_SHA} does not match HEAD ${HEAD_SHA:-none}." >&2
@@ -82,7 +99,7 @@ if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
   echo "The working tree must be clean, including untracked files, before deployment." >&2
   exit 1
 fi
-REMOTE_RELEASE="$(git ls-remote --exit-code "$RELEASE_REMOTE" "$RELEASE_REF")"
+REMOTE_RELEASE="$(git ls-remote --exit-code "$REMOTE_URL" "$RELEASE_REF")"
 IFS=$'\t' read -r REMOTE_SHA REMOTE_REF EXTRA <<< "$REMOTE_RELEASE"
 if [[ "$REMOTE_RELEASE" == *$'\n'* ]] ||
   [[ "$REMOTE_REF" != "$RELEASE_REF" ]] ||
@@ -267,7 +284,7 @@ helm upgrade --install "$RELEASE_NAME" "$SOURCE_DIR/infra/charts/nojv" \
   --set-string image.digests.worker="${WORKER_DIGEST}" \
   --set-string image.digests.sandbox="${SANDBOX_DIGEST}" \
   --set-string image.digests.migrator="${MIGRATOR_DIGEST}" \
-  --wait --timeout 10m
+  --wait --timeout 125m
 
 echo "Deployment completed:"
 echo "  release: ${RELEASE_NAME}"

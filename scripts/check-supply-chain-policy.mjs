@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url";
 
 const ACTION_SHA = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*@[a-f0-9]{40}$/u;
 const VERSIONED_URL = /(?:^|[/_.@-])v?\d+\.\d+\.\d+(?:[/_.-]|$)|[0-9a-f]{40}/u;
+const PINNED_JSDELIVR_NPM_MODULE =
+  /^\/npm\/(?:@[a-z0-9_.-]+\/)?[a-z0-9_.-]+@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\/.+\.js$/u;
 const SHA256 = /[a-f0-9]{64}/u;
 const IMMUTABLE_IMAGE =
   /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
@@ -26,9 +28,14 @@ function isImmutableRemoteModule(module) {
     const url = new URL(module);
     return (
       url.protocol === "https:" &&
+      url.hostname === "cdn.jsdelivr.net" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === "" &&
+      url.search === "" &&
+      url.hash === "" &&
       !module.includes("$") &&
-      !/(?:@|\/)(?:main|master|latest)(?:\/|$)/iu.test(url.pathname) &&
-      VERSIONED_URL.test(url.pathname)
+      PINNED_JSDELIVR_NPM_MODULE.test(url.pathname)
     );
   } catch {
     return false;
@@ -107,14 +114,16 @@ export function checkSupplyChainFile(file, content) {
     }
     if (Array.isArray(document?.modules)) {
       for (const module of document.modules) {
-        if (typeof module !== "string" || !/^https?:\/\//u.test(module)) continue;
-        const line = lines.findIndex((candidate) => candidate.includes(module)) + 1;
+        if (typeof module !== "string") continue;
+        if (!URL.canParse(module)) continue;
+        const matchingLine = lines.findIndex((candidate) => candidate.includes(module));
+        const line = matchingLine >= 0 ? matchingLine + 1 : 1;
         if (!isImmutableRemoteModule(module)) {
           violations.push(
             violation(
               file,
               line,
-              "remote executable modules must use HTTPS and an immutable version or commit",
+              "remote executable modules must use trusted jsDelivr npm URLs with an exact version",
             ),
           );
         }

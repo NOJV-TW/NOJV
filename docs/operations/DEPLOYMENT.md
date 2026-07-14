@@ -405,6 +405,8 @@ then uploads a fresh archive of that commit, not the working directory. The
 commit SHA is both the readable image tag and OCI/Helm provenance metadata; the
 registry digest makes the deployed image immutable. Direct manual Cloud Build
 submission is intentionally unsupported because it bypasses these source checks.
+`RELEASE_REMOTE` must be the configured `origin` for the canonical
+`NOJV-TW/NOJV` repository, and Git replacement objects are rejected.
 
 ### GKE Rollout
 

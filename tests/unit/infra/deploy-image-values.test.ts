@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { updateDeployImageValues } from "../../../scripts/update-deploy-image-values.mjs";
 
 const digest = (digit: string) => `sha256:${digit.repeat(64)}`;
-const input = `image:
+const releaseSha = "a".repeat(40);
+const input = `release:
+  sourceSha: ""
+image:
   registry: ghcr.io
   tag: latest
   digests:
@@ -18,7 +21,7 @@ describe("deploy image value publication", () => {
   it("atomically records one release tag and every verified component digest", () => {
     expect(
       updateDeployImageValues(input, {
-        tag: "abc123",
+        tag: releaseSha,
         digests: {
           web: digest("1"),
           worker: digest("2"),
@@ -26,9 +29,11 @@ describe("deploy image value publication", () => {
           migrator: digest("4"),
         },
       }),
-    ).toBe(`image:
+    ).toBe(`release:
+  sourceSha: ${releaseSha}
+image:
   registry: ghcr.io
-  tag: abc123
+  tag: ${releaseSha}
   digests:
     web: ${digest("1")}
     worker: ${digest("2")}
@@ -41,7 +46,7 @@ other: true
   it("rejects malformed digests and incomplete values layouts", () => {
     expect(() =>
       updateDeployImageValues(input, {
-        tag: "abc123",
+        tag: releaseSha,
         digests: {
           web: "sha256:unverified",
           worker: digest("2"),
@@ -53,7 +58,7 @@ other: true
 
     expect(() =>
       updateDeployImageValues(input.replace('    sandbox: ""\n', ""), {
-        tag: "abc123",
+        tag: releaseSha,
         digests: {
           web: digest("1"),
           worker: digest("2"),
@@ -64,8 +69,8 @@ other: true
     ).toThrow(/exactly one image\.digests\.sandbox/u);
   });
 
-  it.each(["latest", "main", "master", "local"])(
-    "rejects the mutable deployment tag %s",
+  it.each(["latest", "main", "master", "local", "abc123", "A".repeat(40)])(
+    "rejects the non-SHA deployment tag %s",
     (tag) => {
       expect(() =>
         updateDeployImageValues(input, {
@@ -77,7 +82,21 @@ other: true
             migrator: digest("4"),
           },
         }),
-      ).toThrow(/immutable release tag/u);
+      ).toThrow(/40-character release commit SHA/u);
     },
   );
+
+  it("rejects a values layout without exactly one release source identity", () => {
+    expect(() =>
+      updateDeployImageValues(input.replace('  sourceSha: ""\n', ""), {
+        tag: releaseSha,
+        digests: {
+          web: digest("1"),
+          worker: digest("2"),
+          sandbox: digest("3"),
+          migrator: digest("4"),
+        },
+      }),
+    ).toThrow(/exactly one release\.sourceSha/u);
+  });
 });

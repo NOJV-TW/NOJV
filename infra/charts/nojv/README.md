@@ -36,7 +36,8 @@ kubectl -n nojv apply -f secret.local.yaml
 # 2a. Single-machine:
 helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-single-machine.yaml \
-  --set image.tag=<release-tag> \
+  --set image.tag=<40-character-source-sha> \
+  --set-string release.sourceSha=<40-character-source-sha> \
   --set-string image.digests.web=<sha256:registry-verified-digest> \
   --set-string image.digests.worker=<sha256:registry-verified-digest> \
   --set-string image.digests.sandbox=<sha256:registry-verified-digest> \
@@ -45,15 +46,17 @@ helm upgrade --install nojv infra/charts/nojv \
 # 2b. GKE:
 helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-gke.yaml \
-  --set image.tag=<release-tag> \
+  --set image.tag=<40-character-source-sha> \
+  --set-string release.sourceSha=<40-character-source-sha> \
   --set-string image.digests.web=<sha256:registry-verified-digest> \
   --set-string image.digests.worker=<sha256:registry-verified-digest> \
   --set-string image.digests.sandbox=<sha256:registry-verified-digest> \
   --set-string image.digests.migrator=<sha256:registry-verified-digest>
 ```
 
-The chart intentionally refuses to render application workloads until all four
-digests are present. `build-images.yml` obtains them from Buildx metadata for
+The chart intentionally refuses to render non-local application workloads until
+the source SHA matches the image tag and all four digests are present.
+`build-images.yml` obtains the digests from Buildx metadata for
 the Flux deploy branch; `infra/gcp/cloud-build/deploy.sh` reads them back from
 Artifact Registry. Never copy a digest from another tag or architecture.
 

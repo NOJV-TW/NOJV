@@ -19,8 +19,20 @@ function helmTemplate(args: string[]): string {
 }
 
 describe("immutable runtime images", () => {
-  it("refuses to render deployed application images without verified digests", () => {
-    expect(() => helmTemplate(["-f", gkeValues])).toThrow(
+  const releaseSha = "a".repeat(40);
+
+  it("refuses to render deployed application images without source identity or verified digests", () => {
+    expect(() => helmTemplate(["-f", gkeValues])).toThrow(/release\.sourceSha is required/u);
+    expect(() =>
+      helmTemplate([
+        "-f",
+        gkeValues,
+        "--set-string",
+        `release.sourceSha=${releaseSha}`,
+        "--set-string",
+        `image.tag=${releaseSha}`,
+      ]),
+    ).toThrow(
       /image\.digests\.[a-z]+ is required/u,
     );
   });
@@ -35,10 +47,10 @@ describe("immutable runtime images", () => {
     expect(images.length).toBeGreaterThan(10);
     expect(images).toEqual(
       expect.arrayContaining([
-        "asia-east1-docker.pkg.dev/PROJECT_ID/nojv/web:latest@sha256:1111111111111111111111111111111111111111111111111111111111111111",
-        "asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:latest@sha256:2222222222222222222222222222222222222222222222222222222222222222",
-        "asia-east1-docker.pkg.dev/PROJECT_ID/nojv/sandbox:latest@sha256:3333333333333333333333333333333333333333333333333333333333333333",
-        "asia-east1-docker.pkg.dev/PROJECT_ID/nojv/migrator:latest@sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/web:${releaseSha}@sha256:1111111111111111111111111111111111111111111111111111111111111111`,
+        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:${releaseSha}@sha256:2222222222222222222222222222222222222222222222222222222222222222`,
+        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/sandbox:${releaseSha}@sha256:3333333333333333333333333333333333333333333333333333333333333333`,
+        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/migrator:${releaseSha}@sha256:4444444444444444444444444444444444444444444444444444444444444444`,
       ]),
     );
     expect(images.every((image) => /:\S+@sha256:[a-f0-9]{64}$/u.test(image))).toBe(true);

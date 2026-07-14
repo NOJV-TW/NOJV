@@ -1,6 +1,9 @@
 # Synthetic digests for offline Helm rendering tests only. Production deploys
 # receive registry-verified digests from the image publication workflow.
+release:
+  sourceSha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 image:
+  tag: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   digests:
     web: sha256:1111111111111111111111111111111111111111111111111111111111111111
     worker: sha256:2222222222222222222222222222222222222222222222222222222222222222

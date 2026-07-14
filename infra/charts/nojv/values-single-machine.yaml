@@ -1,3 +1,7 @@
+release:
+  # build-images.yml replaces this with the exact main commit deployed by Flux.
+  sourceSha: ""
+
 image:
   registry: ghcr.io
   repositoryPrefix: nojv-tw

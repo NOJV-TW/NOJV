@@ -2,13 +2,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
-const TAG = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/u;
-const MUTABLE_TAGS = new Set(["latest", "main", "master", "local"]);
+const SOURCE_SHA = /^[a-f0-9]{40}$/u;
 const COMPONENTS = ["web", "worker", "sandbox", "migrator"];
 
 export function updateDeployImageValues(content, { tag, digests }) {
-  if (!TAG.test(tag) || MUTABLE_TAGS.has(tag)) {
-    throw new Error("IMAGE_TAG must be an explicit immutable release tag");
+  if (!SOURCE_SHA.test(tag)) {
+    throw new Error("IMAGE_TAG must be the lowercase 40-character release commit SHA");
   }
   for (const component of COMPONENTS) {
     if (!DIGEST.test(digests[component] ?? "")) {
@@ -18,6 +17,8 @@ export function updateDeployImageValues(content, { tag, digests }) {
 
   let inImage = false;
   let inDigests = false;
+  let inRelease = false;
+  let sourceShaCount = 0;
   let tagCount = 0;
   const digestCounts = Object.fromEntries(COMPONENTS.map((component) => [component, 0]));
 
@@ -27,7 +28,19 @@ export function updateDeployImageValues(content, { tag, digests }) {
       if (line === "image:") {
         inImage = true;
         inDigests = false;
+        inRelease = false;
         return line;
+      }
+      if (line === "release:") {
+        inImage = false;
+        inDigests = false;
+        inRelease = true;
+        return line;
+      }
+      if (inRelease && /^\S/u.test(line)) inRelease = false;
+      if (inRelease && /^  sourceSha:/u.test(line)) {
+        sourceShaCount += 1;
+        return `  sourceSha: ${tag}`;
       }
       if (inImage && /^\S/u.test(line)) {
         inImage = false;
@@ -55,6 +68,9 @@ export function updateDeployImageValues(content, { tag, digests }) {
 
   if (tagCount !== 1) {
     throw new Error(`Expected exactly one image.tag, found ${tagCount}`);
+  }
+  if (sourceShaCount !== 1) {
+    throw new Error(`Expected exactly one release.sourceSha, found ${sourceShaCount}`);
   }
   for (const component of COMPONENTS) {
     if (digestCounts[component] !== 1) {

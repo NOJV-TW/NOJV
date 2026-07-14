@@ -17,7 +17,7 @@ change to main's protection:
 ```
 push to main
   → build-images.yml (GitHub-hosted): build + push images to GHCR,
-    then `git checkout -B deploy`, write the commit tag and all four Buildx
+    then `git checkout -B deploy`, write the source commit, matching image tag, and all four Buildx
     manifest digests into
     infra/charts/nojv/values-single-machine.yaml, and force-push the deploy
     branch (GITHUB_TOKEN, contents: write — allowed on the unprotected branch)
@@ -26,7 +26,7 @@ push to main
     that one revision → HelmRelease performs one upgrade → pods roll. Hands-off.
 ```
 
-`deploy` is always `main` + the built tag and registry-verified digests in the packaged chart values
+`deploy` is always `main` + the source SHA, matching built tag, and registry-verified digests in the packaged chart values
 (force-reset each build), so chart/config and image changes cannot reconcile as
 separate Helm upgrades. The HelmRelease itself has no inline image override.
 Each successful publish also retains the exact deploy commit as
@@ -82,7 +82,7 @@ flux diff kustomization nojv --path infra/flux    # dry-run, no drift expected
 
 **Release ownership handoff:** the live release is named `nojv`. `helmrelease.yaml`
 uses the same `releaseName: nojv` so Flux's helm-controller adopts it. Pin
-`image.tag` and every `image.digests.*` value in `values-single-machine.yaml` to
+`release.sourceSha`, the identical `image.tag`, and every `image.digests.*` value in `values-single-machine.yaml` to
 the **currently deployed** immutable references
 before the first reconcile so nothing rolls unexpectedly. **Preserve all PVCs
 — the CNPG Postgres data and MinIO buckets live on them.** If a clean reinstall

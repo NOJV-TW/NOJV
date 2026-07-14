@@ -320,7 +320,7 @@ describeHelm("mailer env schema ↔ chart deployment parity", () => {
 });
 
 describe("Flux release artifact atomicity", () => {
-  it("packages the production image tag with the chart instead of HelmRelease inline values", () => {
+  it("packages one source identity and its images with the chart instead of HelmRelease inline values", () => {
     const helmRelease = readFileSync(join(repoRoot, "infra/flux/helmrelease.yaml"), "utf8");
     const gitRepository = readFileSync(
       join(repoRoot, "infra/flux/git-repository.yaml"),
@@ -332,6 +332,7 @@ describe("Flux release artifact atomicity", () => {
       "valuesFiles:\n        - infra/charts/nojv/values.yaml\n        - infra/charts/nojv/values-single-machine.yaml",
     );
     expect(helmRelease).toContain("reconcileStrategy: Revision");
+    expect(helmRelease).toContain("timeout: 125m");
     expect(helmRelease).not.toContain("\n  values:\n    image:\n");
     expect(gitRepository).toContain("branch: deploy");
     expect(workflow).toContain(
