@@ -179,7 +179,7 @@ jobs:
       - name: K8s judge integration suite (must not skip)
         env:
           REQUIRE_K8S: "1"
-        run: pnpm vitest run tests/integration/k8s
+        run: pnpm test:integration:k8s
 
       - name: Delete isolated K8s test namespace
         if: always()

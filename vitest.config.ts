@@ -79,6 +79,7 @@ export default defineConfig({
         test: {
           name: "integration",
           include: ["tests/integration/**/*.test.ts"],
+          exclude: ["tests/integration/k8s/**/*.test.ts"],
           environment: "node",
           // Integration tests share a single Postgres + Redis. Running files
           // in parallel races on `truncateAllTables` (deadlock detected) and
@@ -89,6 +90,17 @@ export default defineConfig({
           fileParallelism: false,
           globalSetup: ["tests/setup/global-setup.ts"],
           setupFiles: ["tests/setup/integration-setup.ts"],
+        },
+      },
+      {
+        plugins: [svelteTestPlugin()],
+        resolve: { alias: sharedAliases },
+        test: {
+          name: "k8s-integration",
+          include: ["tests/integration/k8s/**/*.test.ts"],
+          environment: "node",
+          fileParallelism: false,
+          globalSetup: ["tests/setup/k8s-global-setup.ts"],
         },
       },
     ],

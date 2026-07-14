@@ -16,5 +16,12 @@
       "@nojv/temporal": ["../packages/temporal/src/index.ts"]
     }
   },
-  "include": ["unit/domain/**/*.ts", "unit/core/**/*.ts"]
+  "include": [
+    "unit/domain/**/*.ts",
+    "unit/core/**/*.ts",
+    "unit/infra/k8s-integration-target.test.ts",
+    "unit/infra/vitest-project-routing.test.ts",
+    "setup/k8s-global-setup.ts",
+    "setup/k8s-integration-target.ts"
+  ]
 }
