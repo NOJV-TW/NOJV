@@ -9,13 +9,16 @@ const {
   userUpdate,
   workspaceFindByProblemId,
   submissionCreate,
+  submissionPublishPendingUpload,
   submissionUpdateStatus,
+  submissionUpdateStatusIfIn,
   examSessionFindActiveForUser,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
   storageRef,
   durableWorkEnqueue,
   durableWorkEnqueueMany,
+  durableWorkCancel,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -23,20 +26,23 @@ const {
   userUpdate: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
+  submissionUpdateStatusIfIn: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
   durableWorkEnqueue: vi.fn(),
   durableWorkEnqueueMany: vi.fn(),
+  durableWorkCancel: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   return {
     durableWorkRepo: {
       enqueueMany: durableWorkEnqueueMany,
-      withTx: () => ({ enqueue: durableWorkEnqueue, cancel: vi.fn(async () => true) }),
+      withTx: () => ({ enqueue: durableWorkEnqueue, cancel: durableWorkCancel }),
     },
     problemRepo: {
       withTx: () => ({ findById: problemFindById }),
@@ -70,8 +76,10 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({
         countForUserAssessmentProblemSince: vi.fn(),
         create: submissionCreate,
+        publishPendingUpload: submissionPublishPendingUpload,
       }),
       updateStatus: submissionUpdateStatus,
+      updateStatusIfIn: submissionUpdateStatusIfIn,
     },
     runTransaction: async <T>(
       fn: (tx: {
@@ -83,6 +91,7 @@ vi.mock("@nojv/db", () => {
         assessmentProblem: { findFirst: txAssessmentProblemFindFirst },
         contestProblem: { findFirst: txContestProblemFindFirst },
       }),
+    Prisma: { DbNull: null },
   };
 });
 
@@ -123,6 +132,7 @@ function setupPracticeDefaults() {
   workspaceFindByProblemId.mockResolvedValue([]);
   durableWorkEnqueue.mockResolvedValue({});
   durableWorkEnqueueMany.mockResolvedValue([]);
+  durableWorkCancel.mockResolvedValue(true);
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
@@ -131,6 +141,10 @@ function setupPracticeDefaults() {
     id,
     status,
   }));
+  submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+  submissionPublishPendingUpload.mockImplementation(
+    async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
+  );
 }
 
 const baseDraft = {

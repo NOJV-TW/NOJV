@@ -38,7 +38,12 @@ import {
 import { computeProblemTotalScore } from "../problem/total-score";
 import { buildProblemSamples } from "../problem/queries";
 import type { ActorContext } from "../shared/actor-context";
-import { IntegrityError, NotFoundError, ValidationError } from "../shared/errors";
+import {
+  ConflictError,
+  IntegrityError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
 import { sanitizeStudentResult } from "./scoring";
@@ -84,6 +89,9 @@ export async function getVerdictDetail(submissionId: string): Promise<Submission
 }
 
 async function readSubmissionSources(pointer: unknown): Promise<SubmissionSource[]> {
+  if (pointer === null) {
+    throw new ConflictError("Submission source is not available.");
+  }
   return storageGetSubmissionSources(storage(), assertStorageObjectPointer(pointer));
 }
 

@@ -66,11 +66,11 @@ model Assessment {
   summary  String           @db.Text
   status   AssessmentStatus @default(draft)
 
-  opensAt  DateTime
-  dueAt    DateTime?
-  closesAt DateTime
-  scheduleRevision Int    @default(0)
-  timerFingerprint String @default(dbgenerated())
+  opensAt          DateTime
+  dueAt            DateTime?
+  closesAt         DateTime
+  scheduleRevision Int       @default(0)
+  timerFingerprint String    @default(dbgenerated())
 
   maxAttemptsPerDay       Int?
   attemptResetMinuteOfDay Int?

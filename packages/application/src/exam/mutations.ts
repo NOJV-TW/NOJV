@@ -75,8 +75,9 @@ export async function checkExamSubmitCooldown(
   userId: string,
   problemId: string,
   cooldownSec: number,
+  now: Date = new Date(),
 ) {
-  await enforceSubmitCooldown(tx, { examId }, userId, problemId, cooldownSec);
+  await enforceSubmitCooldown(tx, { examId }, userId, problemId, cooldownSec, now);
 }
 
 export async function createExamRecord(actor: ActorContext, payload: ExamCreate) {

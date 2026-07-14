@@ -134,6 +134,7 @@ export async function ensureContestParticipation(
   userId: string,
   contestId: string,
   platformRole?: PlatformRole | null,
+  now: Date = new Date(),
 ) {
   const contest = await requireContest(tx, contestId);
 
@@ -141,7 +142,6 @@ export async function ensureContestParticipation(
     throw new NotFoundError(`Contest not found: ${contestId}`);
   }
 
-  const now = new Date();
   if (now < contest.startsAt) {
     throw new ForbiddenError("Contest has not started yet.");
   }
@@ -162,7 +162,7 @@ export async function ensureContestParticipation(
 
   const participation = await participationRepo
     .withTx(tx)
-    .upsertContestActive(contest.id, userId, new Date());
+    .upsertContestActive(contest.id, userId, now);
 
   return { contest, participation };
 }
@@ -173,8 +173,9 @@ export async function checkSubmitCooldown(
   userId: string,
   problemId: string,
   cooldownSec: number,
+  now: Date = new Date(),
 ) {
-  await enforceSubmitCooldown(tx, { contestId }, userId, problemId, cooldownSec);
+  await enforceSubmitCooldown(tx, { contestId }, userId, problemId, cooldownSec, now);
 }
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {

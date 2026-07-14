@@ -74,16 +74,17 @@ async function assertActiveExamSubmissionAllowed(
     clientIp: string;
     payload: SubmissionDraft;
     problem: SubmissionProblem;
+    receivedAt: Date;
     user: SubmissionUser;
   },
 ): Promise<SubmissionExam> {
-  const { activeExamSession, clientIp, payload, problem, user } = ctx;
+  const { activeExamSession, clientIp, payload, problem, receivedAt, user } = ctx;
 
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
   if (exam?.status !== "published") {
     throw new NotFoundError("Exam not found.");
   }
-  if (new Date() >= exam.endsAt) {
+  if (receivedAt >= exam.endsAt) {
     throw new ForbiddenError("Exam has ended.");
   }
 
@@ -105,7 +106,14 @@ async function assertActiveExamSubmissionAllowed(
   }
 
   if (!payload.sampleOnly && exam.submitCooldownSec > 0) {
-    await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
+    await checkExamSubmitCooldown(
+      tx,
+      exam.id,
+      user.id,
+      problem.id,
+      exam.submitCooldownSec,
+      receivedAt,
+    );
   }
 
   return exam;
@@ -117,9 +125,10 @@ async function assertCourseSubmissionAllowed(
     actor: ActorContext;
     courseContext: SubmissionCourseContext;
     problem: SubmissionProblem;
+    receivedAt: Date;
   },
 ): Promise<void> {
-  const { actor, courseContext, problem } = ctx;
+  const { actor, courseContext, problem, receivedAt } = ctx;
   const membership = await courseMembershipRepo
     .withTx(tx)
     .findByComposite(courseContext.course.id, actor.userId);
@@ -133,11 +142,10 @@ async function assertCourseSubmissionAllowed(
     throw new NotFoundError("Assignment not found.");
   }
   if (actor.platformRole !== "admin" && membership.role === "student") {
-    const now = new Date();
-    if (now < assignment.opensAt) {
+    if (receivedAt < assignment.opensAt) {
       throw new ForbiddenError("Assignment has not opened yet.");
     }
-    if (now > assignment.closesAt) {
+    if (receivedAt > assignment.closesAt) {
       throw new ForbiddenError("Assignment has ended.");
     }
   }
@@ -212,13 +220,14 @@ async function assertDailyAttemptLimit(
   courseContext: SubmissionCourseContext,
   user: SubmissionUser,
   problemId: string,
+  receivedAt: Date,
 ): Promise<void> {
   const { maxAttemptsPerDay, attemptResetMinuteOfDay } = courseContext.assignment;
 
   if (maxAttemptsPerDay != null) {
     const windowStart = attemptWindowStart(
       attemptResetMinuteOfDay ?? DEFAULT_ATTEMPT_RESET_MINUTE,
-      new Date(),
+      receivedAt,
     );
 
     const lockKey = `daily-attempt:${user.id}:${courseContext.assignment.id}:${problemId}:${windowStart.toISOString()}`;
@@ -244,10 +253,19 @@ export async function createQueuedSubmissionRecord(
   actor: ActorContext,
   clientIp: string,
 ) {
+  const receivedAt = new Date();
   const submissionId = randomUUID();
   const sourceGeneration = randomUUID();
+  const sources = normalizeSubmissionSources(payload);
+  const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
+  const judgeDraft: SubmissionJudgeDraft = {
+    language: payload.language,
+    problemId: payload.problemId,
+    ...(payload.runCases ? { runCases: payload.runCases } : {}),
+    ...(payload.sampleOnly !== undefined ? { sampleOnly: payload.sampleOnly } : {}),
+  };
 
-  return runTransaction(async (tx) => {
+  await runTransaction(async (tx) => {
     const assignmentContext = payload.context.type === "assignment" ? payload.context : null;
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
@@ -282,6 +300,7 @@ export async function createQueuedSubmissionRecord(
         clientIp,
         payload,
         problem,
+        receivedAt,
         user,
       });
     }
@@ -291,11 +310,12 @@ export async function createQueuedSubmissionRecord(
         payload.context.participationId,
         actor.userId,
         problem.id,
+        receivedAt,
       );
     }
 
     if (courseContext) {
-      await assertCourseSubmissionAllowed(tx, { actor, courseContext, problem });
+      await assertCourseSubmissionAllowed(tx, { actor, courseContext, problem, receivedAt });
     }
 
     const contestResult =
@@ -305,6 +325,7 @@ export async function createQueuedSubmissionRecord(
             user.id,
             payload.context.contestId,
             actor.platformRole,
+            receivedAt,
           )
         : null;
 
@@ -331,14 +352,13 @@ export async function createQueuedSubmissionRecord(
         user.id,
         problem.id,
         contestResult.contest.submitCooldownSec,
+        receivedAt,
       );
     }
 
     if (courseContext?.assignment && !payload.sampleOnly) {
-      await assertDailyAttemptLimit(tx, courseContext, user, problem.id);
+      await assertDailyAttemptLimit(tx, courseContext, user, problem.id, receivedAt);
     }
-
-    const sources = normalizeSubmissionSources(payload);
 
     let submissionContext: SubmissionCreateContext;
     switch (payload.context.type) {
@@ -368,33 +388,46 @@ export async function createQueuedSubmissionRecord(
         submissionContext = { type: "practice" };
     }
 
-    const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
-    await guardStorageObjectWrites(sourcePlan.pointers);
-    await putSubmissionSourcePlan(storage(), sourcePlan);
-    const submission = await submissionRepo.withTx(tx).create({
+    await submissionRepo.withTx(tx).create({
       id: submissionId,
       context: submissionContext,
+      createdAt: receivedAt,
       ipAddress: clientIp,
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
-      sourceStorage: sourcePlan.manifest,
-      status: "queued",
+      sourceStorage: Prisma.DbNull,
+      status: "pending_upload",
       userId: user.id,
     });
-    const judgeDraft: SubmissionJudgeDraft = {
-      language: payload.language,
-      problemId: payload.problemId,
-      ...(payload.runCases ? { runCases: payload.runCases } : {}),
-      ...(payload.sampleOnly !== undefined ? { sampleOnly: payload.sampleOnly } : {}),
-    };
-    await enqueueSubmissionJudgeDispatch(tx, {
-      draft: judgeDraft,
-      submissionId: submission.id,
-    });
-    await commitStoragePointerSwap(tx, { added: sourcePlan.pointers });
-    return submission;
   });
+
+  try {
+    await guardStorageObjectWrites(sourcePlan.pointers);
+    await putSubmissionSourcePlan(storage(), sourcePlan);
+
+    return await runTransaction(async (tx) => {
+      await commitStoragePointerSwap(tx, { added: sourcePlan.pointers });
+      const submission = await submissionRepo
+        .withTx(tx)
+        .publishPendingUpload(submissionId, sourcePlan.manifest);
+      await enqueueSubmissionJudgeDispatch(tx, {
+        draft: judgeDraft,
+        submissionId: submission.id,
+      });
+      return submission;
+    });
+  } catch (uploadError) {
+    try {
+      await submissionRepo.updateStatusIfIn(submissionId, ["pending_upload"], "system_error");
+    } catch (statusError) {
+      throw new AggregateError(
+        [uploadError, statusError],
+        `Submission ${submissionId} upload failed and its intention could not be marked failed.`,
+      );
+    }
+    throw uploadError;
+  }
 }
 
 export async function submitAndDispatch(

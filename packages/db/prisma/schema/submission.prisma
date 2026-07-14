@@ -24,27 +24,27 @@ enum SubmissionStatus {
 }
 
 model Submission {
-  id                      String            @id @default(cuid())
-  userId                  String
-  problemId               String
-  examId                  String?
-  contestId               String?
-  participationId         String?
-  courseId                String?
-  assessmentId            String?
-  sampleOnly              Boolean           @default(false)
-  language                SupportedLanguage
-  sourceStorage           Json
-  status                  SubmissionStatus  @default(queued)
-  score                   Int               @default(0)
-  runtimeMs               Int?
-  memoryKb                Int?
-  verdictSummary          Json?
-  verdictDetailStorage    Json?
-  judgeGeneration         Int               @default(0)
-  activeJudgeRunId        String?
-  advancedConfigSnapshot  Json?
-  ipAddress               String?
+  id                     String            @id @default(cuid())
+  userId                 String
+  problemId              String
+  examId                 String?
+  contestId              String?
+  participationId        String?
+  courseId               String?
+  assessmentId           String?
+  sampleOnly             Boolean           @default(false)
+  language               SupportedLanguage
+  sourceStorage          Json?
+  status                 SubmissionStatus  @default(queued)
+  score                  Int               @default(0)
+  runtimeMs              Int?
+  memoryKb               Int?
+  verdictSummary         Json?
+  verdictDetailStorage   Json?
+  judgeGeneration        Int               @default(0)
+  activeJudgeRunId       String?
+  advancedConfigSnapshot Json?
+  ipAddress              String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -53,9 +53,9 @@ model Submission {
   problem       Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
   exam          Exam?          @relation(fields: [examId], references: [id], onDelete: Restrict)
   contest       Contest?       @relation(fields: [contestId], references: [id], onDelete: Restrict)
-  participation Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  participation Participation? @relation(fields: [participationId, userId], references: [id, userId], onDelete: Cascade)
   course        Course?        @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  assessment    Assessment?    @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  assessment    Assessment?    @relation(fields: [assessmentId, courseId], references: [id, courseId], onDelete: Restrict)
 
   rejudgeLogs SubmissionRejudgeLog[]
 

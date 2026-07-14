@@ -8,6 +8,7 @@ export async function enforceSubmitCooldown(
   userId: string,
   problemId: string,
   cooldownSec: number,
+  now: Date = new Date(),
 ) {
   if (cooldownSec <= 0) return;
 
@@ -15,7 +16,7 @@ export async function enforceSubmitCooldown(
   const lockKey = `${contextId}:${userId}:${problemId}`;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 
-  const cutoff = new Date(Date.now() - cooldownSec * 1000);
+  const cutoff = new Date(now.getTime() - cooldownSec * 1000);
 
   const recentSubmission = await submissionRepo.withTx(tx).findMostRecent({
     ...context,
@@ -27,7 +28,7 @@ export async function enforceSubmitCooldown(
 
   if (recentSubmission) {
     const waitUntil = new Date(recentSubmission.createdAt.getTime() + cooldownSec * 1000);
-    const remainingSec = Math.ceil((waitUntil.getTime() - Date.now()) / 1000);
+    const remainingSec = Math.ceil((waitUntil.getTime() - now.getTime()) / 1000);
     throw new ForbiddenError(
       `Submit cooldown active. Please wait ${String(remainingSec)} seconds.`,
     );

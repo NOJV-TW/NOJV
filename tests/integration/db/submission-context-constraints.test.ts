@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
+import { Prisma } from "@nojv/db";
+
 import {
   createTestContest,
   createTestCourse,
@@ -146,7 +148,7 @@ describe("Submission canonical context constraints", () => {
           data: { id: randomUUID(), ...common, ...context },
         }),
       ).rejects.toThrow(
-        /Submission_canonical_context_chk|Submission_assessment_course_fkey|Submission_participation_owner_fkey|Submission_virtual_participation_chk|requires a virtual participation|constraint/i,
+        /Submission_canonical_context_chk|Submission_assessmentId_courseId_fkey|Submission_participationId_userId_fkey|Submission_virtual_participation_chk|requires a virtual participation|constraint/i,
       );
     }
   });
@@ -192,16 +194,54 @@ describe("Submission canonical context constraints", () => {
       FROM pg_constraint
       WHERE conname IN (
         'Submission_canonical_context_chk',
-        'Submission_assessment_course_fkey',
-        'Submission_participation_owner_fkey'
+        'Submission_assessmentId_courseId_fkey',
+        'Submission_participationId_userId_fkey'
       )
       ORDER BY conname
     `);
 
     expect(rows).toEqual([
-      { conname: "Submission_assessment_course_fkey", convalidated: true },
+      { conname: "Submission_assessmentId_courseId_fkey", convalidated: true },
       { conname: "Submission_canonical_context_chk", convalidated: true },
-      { conname: "Submission_participation_owner_fkey", convalidated: true },
+      { conname: "Submission_participationId_userId_fkey", convalidated: true },
     ]);
+  });
+
+  it("allows a null source only while an upload intention is unpublished or failed", async () => {
+    const user = await createTestUser();
+    const problem = await createTestProblem();
+    const pendingId = randomUUID();
+
+    const pending = await testPrisma.submission.create({
+      data: {
+        id: pendingId,
+        userId: user.id,
+        problemId: problem.id,
+        language: "cpp",
+        sourceStorage: Prisma.DbNull,
+        status: "pending_upload",
+      },
+    });
+
+    expect(pending.sourceStorage).toBeNull();
+    await expect(
+      testPrisma.submission.update({
+        where: { id: pendingId },
+        data: { status: "system_error" },
+      }),
+    ).resolves.toMatchObject({ sourceStorage: null, status: "system_error" });
+
+    await expect(
+      testPrisma.submission.create({
+        data: {
+          id: randomUUID(),
+          userId: user.id,
+          problemId: problem.id,
+          language: "cpp",
+          sourceStorage: Prisma.DbNull,
+          status: "queued",
+        },
+      }),
+    ).rejects.toThrow(/Submission_source_storage_pointer_chk|constraint/i);
   });
 });

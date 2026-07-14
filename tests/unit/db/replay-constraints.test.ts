@@ -44,14 +44,18 @@ describe("collectReplayStatements", () => {
     }
   });
 
-  it("replays the DB-only Submission composite foreign keys", () => {
+  it("replays the canonical Submission composite foreign keys under their final names", () => {
     const joined = stmts.join("\n");
-    expect(joined).toContain('ADD CONSTRAINT "Submission_assessment_course_fkey"');
-    expect(joined).toContain('ADD CONSTRAINT "Submission_participation_owner_fkey"');
-    expect(joined).toContain('DROP CONSTRAINT IF EXISTS "Submission_assessment_course_fkey"');
-    expect(joined).toContain('DROP CONSTRAINT IF EXISTS "Submission_participation_owner_fkey"');
-    expect(joined).toContain('VALIDATE CONSTRAINT "Submission_assessment_course_fkey"');
-    expect(joined).toContain('VALIDATE CONSTRAINT "Submission_participation_owner_fkey"');
+    expect(joined).toContain('ADD CONSTRAINT "Submission_assessmentId_courseId_fkey"');
+    expect(joined).toContain('ADD CONSTRAINT "Submission_participationId_userId_fkey"');
+    expect(joined).toContain(
+      'DROP CONSTRAINT IF EXISTS "Submission_assessmentId_courseId_fkey"',
+    );
+    expect(joined).toContain(
+      'DROP CONSTRAINT IF EXISTS "Submission_participationId_userId_fkey"',
+    );
+    expect(joined).toContain('VALIDATE CONSTRAINT "Submission_assessmentId_courseId_fkey"');
+    expect(joined).toContain('VALIDATE CONSTRAINT "Submission_participationId_userId_fkey"');
   });
 
   it("replays the FTS expression GIN but skips the schema-expressible array GIN", () => {

@@ -13,7 +13,9 @@ const {
   workspaceFindByProblemId,
   submissionFindMostRecent,
   submissionCreate,
+  submissionPublishPendingUpload,
   submissionUpdateStatus,
+  submissionUpdateStatusIfIn,
   examSessionFindActiveForUser,
   examFindById,
   examProblemExists,
@@ -21,6 +23,7 @@ const {
   proctoringGateInTx,
   durableWorkEnqueue,
   durableWorkEnqueueMany,
+  durableWorkCancel,
   storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
@@ -33,7 +36,9 @@ const {
   workspaceFindByProblemId: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
+  submissionUpdateStatusIfIn: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
   examProblemExists: vi.fn(),
@@ -41,13 +46,14 @@ const {
   proctoringGateInTx: vi.fn(),
   durableWorkEnqueue: vi.fn(),
   durableWorkEnqueueMany: vi.fn(),
+  durableWorkCancel: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => ({
   durableWorkRepo: {
     enqueueMany: durableWorkEnqueueMany,
-    withTx: () => ({ enqueue: durableWorkEnqueue, cancel: vi.fn(async () => true) }),
+    withTx: () => ({ enqueue: durableWorkEnqueue, cancel: durableWorkCancel }),
   },
   problemRepo: {
     withTx: () => ({ findById: problemFindById }),
@@ -95,13 +101,16 @@ vi.mock("@nojv/db", () => ({
     withTx: () => ({
       findMostRecent: submissionFindMostRecent,
       create: submissionCreate,
+      publishPendingUpload: submissionPublishPendingUpload,
       countForUserAssessmentProblemSince: vi.fn(),
     }),
     updateStatus: submissionUpdateStatus,
+    updateStatusIfIn: submissionUpdateStatusIfIn,
   },
   runTransaction: async <T>(
     fn: (tx: { $executeRaw: typeof vi.fn }) => Promise<T>,
   ): Promise<T> => fn({ $executeRaw: vi.fn().mockResolvedValue(0) }),
+  Prisma: { DbNull: null },
 }));
 
 vi.mock("../../../packages/application/src/proctoring/gate", () => ({
@@ -152,6 +161,7 @@ function setupCommonProblemDefaults() {
   workspaceFindByProblemId.mockResolvedValue([]);
   durableWorkEnqueue.mockResolvedValue({});
   durableWorkEnqueueMany.mockResolvedValue([]);
+  durableWorkCancel.mockResolvedValue(true);
   examFindById.mockImplementation(async (id: string) => ({
     id,
     status: "published",
@@ -167,6 +177,10 @@ function setupCommonProblemDefaults() {
     id,
     status,
   }));
+  submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+  submissionPublishPendingUpload.mockImplementation(
+    async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
+  );
   // Default: the submitter has joined the contest (join gating covered elsewhere).
   participationFindContest.mockResolvedValue({ id: "part_1", status: "active" });
 }

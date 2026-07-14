@@ -11,6 +11,8 @@ const RAW_FOREIGN_KEY_RE =
 const DROP_CONSTRAINT_RE = /DROP CONSTRAINT(?:\s+IF EXISTS)?\s+("?\w+"?)/is;
 const DROP_INDEX_RE = /DROP INDEX(?:\s+IF EXISTS)?\s+("?\w+"?)/is;
 const RENAME_COL_RE = /ALTER TABLE\s+("?\w+"?)\s+RENAME COLUMN\s+("?\w+"?)\s+TO\s+("?\w+"?)/is;
+const RENAME_CONSTRAINT_RE =
+  /ALTER TABLE\s+("?\w+"?)\s+RENAME CONSTRAINT\s+("?\w+"?)\s+TO\s+("?\w+"?)/is;
 const VALIDATE_CONSTRAINT_RE = /ALTER TABLE\s+("?\w+"?)\s+VALIDATE CONSTRAINT\s+("?\w+"?)/is;
 
 interface Ddl {
@@ -110,6 +112,29 @@ export function collectReplayStatements(): string[] {
         const [, table, oldCol, newCol] = rename;
         for (const ddl of [...checks.values(), ...indexes.values()]) {
           if (ddl.table === table) ddl.create = ddl.create.split(oldCol).join(newCol);
+        }
+        continue;
+      }
+
+      const constraintRename = RENAME_CONSTRAINT_RE.exec(stmt);
+      if (constraintRename) {
+        const [, table, oldName, newName] = constraintRename;
+        const collection = checks.has(oldName)
+          ? checks
+          : foreignKeys.has(oldName)
+            ? foreignKeys
+            : null;
+        const ddl = collection?.get(oldName);
+        if (ddl?.table === table && collection) {
+          collection.delete(oldName);
+          collection.set(newName, {
+            table,
+            drop: `ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${newName}`,
+            create: ddl.create.replace(oldName, newName),
+            ...(ddl.validate
+              ? { validate: ddl.validate.replace(oldName, newName) }
+              : {}),
+          });
         }
         continue;
       }

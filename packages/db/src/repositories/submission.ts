@@ -919,6 +919,13 @@ export const submissionRepo = {
           data: { ...submission, ...submissionContextColumns(context) },
         });
       },
+
+      publishPendingUpload(id: string, sourceStorage: Prisma.InputJsonValue) {
+        return tx.submission.update({
+          where: { id, status: "pending_upload" },
+          data: { sourceStorage, status: "queued" },
+        });
+      },
     };
   },
 };

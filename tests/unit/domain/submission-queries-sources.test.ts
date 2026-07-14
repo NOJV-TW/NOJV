@@ -23,6 +23,7 @@ vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
 }));
 
 import { getSubmissionSources } from "../../../packages/application/src/submission/queries";
+import { ConflictError } from "../../../packages/application/src/shared/errors";
 
 describe("getSubmissionSources — domain wrapper", () => {
   beforeEach(() => {
@@ -39,6 +40,14 @@ describe("getSubmissionSources — domain wrapper", () => {
     findById.mockResolvedValue({ sourceStorage: pointer });
     const result = await getSubmissionSources("sub_empty");
     expect(result).toEqual([]);
+  });
+
+  it("reports an upload intention without published source as unavailable", async () => {
+    findById.mockResolvedValue({ sourceStorage: null, status: "pending_upload" });
+
+    await expect(getSubmissionSources("sub_pending")).rejects.toEqual(
+      new ConflictError("Submission source is not available."),
+    );
   });
 
   it("round-trips a single-file submission as [{ path, content }]", async () => {
