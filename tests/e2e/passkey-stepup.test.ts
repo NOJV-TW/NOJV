@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
+import { readLiveSession } from "./_shared";
 import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
 
 // Exercises Phase 5 passkey step-up. A verified passkey assertion must count as
@@ -24,10 +25,7 @@ const user = new DisposableCredentialUser("passkey-stepup");
 const sessionIds = new Set<string>();
 
 async function sessionId(page: import("@playwright/test").Page): Promise<string> {
-  const response = (await (await page.request.get("/api/auth/get-session")).json()) as {
-    session?: { id?: string };
-  };
-  const id = response.session?.id;
+  const id = (await readLiveSession(page)).session?.id;
   if (!id) throw new Error("Could not resolve the active session.");
   sessionIds.add(id);
   return id;

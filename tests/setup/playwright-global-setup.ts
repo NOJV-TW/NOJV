@@ -99,7 +99,10 @@ export default async function globalSetup(config: FullConfig) {
     stdio: "inherit",
   });
 
-  const baseURL = config.projects[0]?.use?.baseURL ?? "http://127.0.0.1:5174";
+  const baseURL = config.projects[0]?.use?.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for E2E setup.");
+  }
   await mkdir(AUTH_DIR, { recursive: true });
   const browser = await chromium.launch();
   try {

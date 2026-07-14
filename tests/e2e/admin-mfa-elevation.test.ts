@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
+import { formActionHeaders, newLiveApiContext, readLiveSession } from "./_shared";
 import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
 
 test.describe.configure({ retries: 0 });
@@ -25,10 +26,7 @@ test.afterAll(() => {
 });
 
 async function currentSessionId(page: import("@playwright/test").Page): Promise<string> {
-  const session = (await (await page.request.get("/api/auth/get-session")).json()) as {
-    session?: { id?: string };
-  };
-  const sessionId = session.session?.id;
+  const sessionId = (await readLiveSession(page)).session?.id;
   if (!sessionId) throw new Error("Could not resolve the current admin session.");
   return sessionId;
 }
@@ -62,31 +60,37 @@ test("enrollment and concurrent admin elevation consume each TOTP exactly once",
 
   const freshCode = await nextTotp(secret, verificationCode);
   const verificationPath = "/account/api-tokens/verify?purpose=admin-mode";
-  const submissions = await Promise.all([
-    page.request.post(verificationPath, {
-      form: { code: freshCode, purpose: "admin-mode" },
-      headers: {
-        accept: "application/json",
-        origin: "http://127.0.0.1:5174",
-        "x-sveltekit-action": "true",
-      },
-      maxRedirects: 0,
-    }),
-    page.request.post(verificationPath, {
-      form: { code: freshCode, purpose: "admin-mode" },
-      headers: {
-        accept: "application/json",
-        origin: "http://127.0.0.1:5174",
-        "x-sveltekit-action": "true",
-      },
-      maxRedirects: 0,
-    }),
-  ]);
-  const results = (await Promise.all(submissions.map((response) => response.json()))) as Array<{
-    type: string;
-    status: number;
-    location?: string;
-  }>;
+  const api = await newLiveApiContext(page);
+  let results: Array<{ type: string; status: number; location?: string }>;
+  try {
+    const submissions = await Promise.all([
+      api.post(verificationPath, {
+        form: { code: freshCode, purpose: "admin-mode" },
+        headers: {
+          ...formActionHeaders,
+          accept: "application/json",
+          "x-sveltekit-action": "true",
+        },
+        maxRedirects: 0,
+      }),
+      api.post(verificationPath, {
+        form: { code: freshCode, purpose: "admin-mode" },
+        headers: {
+          ...formActionHeaders,
+          accept: "application/json",
+          "x-sveltekit-action": "true",
+        },
+        maxRedirects: 0,
+      }),
+    ]);
+    results = (await Promise.all(submissions.map((response) => response.json()))) as Array<{
+      type: string;
+      status: number;
+      location?: string;
+    }>;
+  } finally {
+    await api.dispose();
+  }
 
   expect(results.map(({ type, status }) => ({ type, status }))).toEqual(
     expect.arrayContaining([

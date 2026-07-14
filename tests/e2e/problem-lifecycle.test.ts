@@ -120,7 +120,7 @@ test.describe("Problem Lifecycle", () => {
 
     const deleteRes = await page.request.post(`/problems/${deleteId}/edit?/deleteProblem`, {
       form: {},
-      headers: { origin: "http://127.0.0.1:5174" },
+      headers: formActionHeaders,
     });
     const body = await deleteRes.json();
     expect(body.type).toBe("redirect");

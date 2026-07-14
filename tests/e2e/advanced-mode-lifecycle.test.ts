@@ -2,12 +2,11 @@ import { test, expect, type FileChooser } from "@playwright/test";
 import JSZip from "jszip";
 import path from "node:path";
 
-import { apiWriteHeaders } from "./_shared";
+import { apiWriteHeaders, formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
-const ORIGIN = "http://127.0.0.1:5174";
 const ADVANCED_EXAM_ID = "exam_demo_advanced_active";
 const SEEDED_ADVANCED_PROBLEM_ID = "problem_shell-scripting-lab";
 
@@ -25,7 +24,7 @@ async function postFormAction(
 ): Promise<FormActionResult> {
   const res = await page.request.post(urlPath, {
     form,
-    headers: { origin: ORIGIN },
+    headers: formActionHeaders,
   });
   return res.json() as Promise<FormActionResult>;
 }

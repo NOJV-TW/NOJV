@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
@@ -44,11 +44,11 @@ describe("Playwright destructive database isolation", () => {
 
     const config = (await import("../../e2e/playwright.config.ts")).default;
 
-    expect(config.use?.baseURL).toBe("http://127.0.0.1:5174");
+    expect(config.use?.baseURL).toBe("http://localhost:5174");
     expect(existsSync(join(repoRoot, "apps/web/static/favicon.svg"))).toBe(true);
     expect(config.webServer).toMatchObject({
       reuseExistingServer: false,
-      url: "http://127.0.0.1:5174/favicon.svg",
+      url: "http://localhost:5174/favicon.svg",
     });
     const server = config.webServer as { command: string; env: Record<string, string> };
     expect(server.command).toContain("--port 5174");
@@ -61,6 +61,34 @@ describe("Playwright destructive database isolation", () => {
       S3_REGION: "us-east-1",
       S3_SECRET_KEY: "minioadmin",
     });
+  });
+
+  it("keeps one localhost browser origin and centralizes live session reads", () => {
+    const e2eDir = join(repoRoot, "tests/e2e");
+    const sources = [
+      ...readdirSync(e2eDir)
+        .filter((file) => file.endsWith(".ts"))
+        .map((file) => [file, readFileSync(join(e2eDir, file), "utf8")] as const),
+      [
+        "../setup/playwright-global-setup.ts",
+        readFileSync(join(repoRoot, "tests/setup/playwright-global-setup.ts"), "utf8"),
+      ] as const,
+    ];
+
+    const loopbackOrigins = sources.flatMap(([file, source]) =>
+      [...source.matchAll(/http:\/\/(?:127\.0\.0\.1|localhost):5174/g)].map((match) => ({
+        file,
+        value: match[0],
+      })),
+    );
+    expect(loopbackOrigins).toEqual([{ file: "_shared.ts", value: "http://localhost:5174" }]);
+
+    const directSessionReads = sources
+      .filter(
+        ([file, source]) => file !== "_shared.ts" && source.includes("/api/auth/get-session"),
+      )
+      .map(([file]) => file);
+    expect(directSessionReads).toEqual([]);
   });
 
   it("does not create the general @nojv/db singleton at Playwright setup module evaluation", () => {

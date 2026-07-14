@@ -1,6 +1,11 @@
 import path from "node:path";
+import {
+  request as playwrightRequest,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 
-export const ORIGIN = "http://127.0.0.1:5174";
+export const ORIGIN = "http://localhost:5174";
 
 export const adminAuth = path.resolve(
   import.meta.dirname,
@@ -27,3 +32,28 @@ export const apiWriteHeaders = {
 export const formActionHeaders = {
   origin: ORIGIN,
 } as const;
+
+export interface LiveSession {
+  session?: { id?: string };
+  user?: { id?: string };
+}
+
+export async function newLiveApiContext(page: Page): Promise<APIRequestContext> {
+  return playwrightRequest.newContext({
+    baseURL: ORIGIN,
+    storageState: await page.context().storageState(),
+  });
+}
+
+export async function readLiveSession(page: Page): Promise<LiveSession> {
+  const api = await newLiveApiContext(page);
+  try {
+    const response = await api.get("/api/auth/get-session");
+    if (!response.ok()) {
+      throw new Error(`Session lookup failed with HTTP ${String(response.status())}.`);
+    }
+    return (await response.json()) as LiveSession;
+  } finally {
+    await api.dispose();
+  }
+}
