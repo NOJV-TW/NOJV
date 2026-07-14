@@ -13,6 +13,7 @@ import {
   resolveDestructiveTestDatabase,
 } from "./destructive-test-database";
 import { PLAYWRIGHT_STORAGE_ENVIRONMENT } from "./playwright-environment";
+import { collectReplayStatements } from "./replay-constraints";
 
 const AUTH_DIR = path.resolve(import.meta.dirname, "../fixtures/auth-states");
 
@@ -83,16 +84,26 @@ export default async function globalSetup(config: FullConfig) {
   };
   execFileSync(
     "pnpm",
-    ["--filter", "@nojv/db", "exec", "prisma", "db", "push", "--accept-data-loss"],
+    ["--filter", "@nojv/db", "exec", "prisma", "db", "push", "--force-reset"],
     { env: childEnvironment, stdio: "inherit" },
   );
 
-  const { disconnectTestDb, truncateAllTables } = await import("../fixtures/seed-test-db");
+  const statements = collectReplayStatements();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: databaseUrl }),
+  });
   try {
-    await truncateAllTables();
+    await prisma.$transaction(async (tx) => {
+      const proof = await assertLiveTestDatabase(tx, "nojv_e2e_test");
+      console.info(`Playwright invariant replay: ${formatTestDatabaseProof(proof)}`);
+      for (const statement of statements) {
+        await tx.$executeRawUnsafe(statement);
+      }
+    });
   } finally {
-    await disconnectTestDb();
+    await prisma.$disconnect();
   }
+
   execFileSync(process.execPath, ["--import", "tsx", "packages/db/prisma/seed.ts"], {
     cwd: process.cwd(),
     env: childEnvironment,

@@ -137,8 +137,10 @@ describe("Playwright destructive database isolation", () => {
     expect(setup).not.toMatch(/^import .* from "@nojv\/db";/m);
     expect(setup).not.toMatch(/^import .* from "@nojv\/application";/m);
     expect(setup).toContain('resolveDestructiveTestDatabase("nojv_e2e_test")');
-    expect(setup).toContain('"db", "push", "--accept-data-loss"');
-    expect(setup).toContain("await truncateAllTables()");
+    expect(setup).toContain('"db", "push", "--force-reset"');
+    expect(setup).toContain("collectReplayStatements()");
+    expect(setup).toContain('assertLiveTestDatabase(tx, "nojv_e2e_test")');
+    expect(setup).not.toContain("truncateAllTables");
     expect(setup).toContain('"packages/db/prisma/seed.ts"');
     expect(setup).toContain('SEED_ADMIN_USERNAME: "admin"');
     expect(setup).toContain('SEED_ADMIN_EMAIL: "admin@nojv.local"');

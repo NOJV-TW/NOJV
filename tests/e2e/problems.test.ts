@@ -29,7 +29,7 @@ test.describe("Problems", () => {
       viewport: { width: 390, height: 844 },
     });
     const page = await context.newPage();
-    await page.goto("/problems/problem_warmup-sum", { waitUntil: "networkidle" });
+    await page.goto("/problems/problem_warmup-sum");
 
     const trigger = page.getByRole("button", { name: /view statement/i });
     await trigger.click();

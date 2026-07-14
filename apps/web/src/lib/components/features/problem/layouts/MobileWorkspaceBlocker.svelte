@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Monitor, BookOpen, X } from "@lucide/svelte";
+  import { onMount } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import type { ProblemDetail } from "$lib/types";
   import { buttonVariants } from "$lib/components/primitives/ui/button";
@@ -11,6 +12,11 @@
   }
 
   let { problem }: Props = $props();
+  let hydrated = $state(false);
+
+  onMount(() => {
+    hydrated = true;
+  });
 </script>
 
 <div
@@ -30,7 +36,7 @@
   </p>
   <div class="mt-6">
     <Dialog.Root>
-      <Dialog.Trigger class={buttonVariants({ variant: "outline" })}>
+      <Dialog.Trigger class={buttonVariants({ variant: "outline" })} disabled={!hydrated}>
         <BookOpen class="size-4" aria-hidden="true" />
         {m.mobile_viewStatementFullscreen()}
       </Dialog.Trigger>
