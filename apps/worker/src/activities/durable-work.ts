@@ -4,13 +4,22 @@ import { durableWorkRepo } from "@nojv/db";
 
 import { durableWorkHandlers } from "./durable-work-registry";
 import { recordDurableWorkOutcome } from "./durable-work-metrics";
-import { processDurableWorkBatch, type DurableWorkBatchResult } from "./durable-work-runner";
+import {
+  processDurableWorkBatch,
+  type DurableWorkBatchInput,
+  type DurableWorkBatchResult,
+} from "./durable-work-runner";
 
-export function runDurableWorkBatch(): Promise<DurableWorkBatchResult> {
-  return processDurableWorkBatch({
-    repository: durableWorkRepo,
-    handlers: durableWorkHandlers,
-    ownerFactory: randomUUID,
-    recordOutcome: recordDurableWorkOutcome,
-  });
+export function runDurableWorkBatch(
+  input: DurableWorkBatchInput = {},
+): Promise<DurableWorkBatchResult> {
+  return processDurableWorkBatch(
+    {
+      repository: durableWorkRepo,
+      handlers: durableWorkHandlers,
+      ownerFactory: randomUUID,
+      recordOutcome: recordDurableWorkOutcome,
+    },
+    input,
+  );
 }

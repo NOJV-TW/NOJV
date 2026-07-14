@@ -45,7 +45,13 @@ describe("durable work batch processor", () => {
       clock,
     });
 
-    expect(result).toEqual({ claimed: 0, succeeded: 0, retried: 0, dead: 0 });
+    expect(result).toEqual({
+      claimed: 0,
+      succeeded: 0,
+      retried: 0,
+      dead: 0,
+      processedKind: null,
+    });
     expect(repo.claimBatch).not.toHaveBeenCalled();
     expect(ownerFactory).not.toHaveBeenCalled();
     expect(recordOutcome).not.toHaveBeenCalled();
@@ -92,7 +98,66 @@ describe("durable work batch processor", () => {
       result: { outcome: "delivered" },
     });
     expect(recordOutcome).toHaveBeenCalledWith("notify", "succeeded", new Set(["notify"]));
-    expect(result).toEqual({ claimed: 1, succeeded: 1, retried: 0, dead: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      succeeded: 1,
+      retried: 0,
+      dead: 0,
+      processedKind: "notify",
+    });
+  });
+
+  it("rotates the preferred kind after each item so one backlog cannot starve another", async () => {
+    const repo = repository({
+      claimBatch: vi.fn(({ kinds }: DurableWorkClaimOptions) => {
+        const kind = kinds[0];
+        return Promise.resolve(
+          kind === "rejudge" ? [] : [{ id: `work-${kind}`, kind, payload: {}, attempt: 1 }],
+        );
+      }),
+    });
+    const handlers: DurableWorkHandlerRegistry = {
+      notification: vi.fn().mockResolvedValue(undefined),
+      rejudge: vi.fn().mockResolvedValue(undefined),
+      submission: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const afterNotification = await processDurableWorkBatch(
+      {
+        repository: repo,
+        handlers,
+        ownerFactory: () => "owner-1",
+        recordOutcome: vi.fn(),
+        clock: () => NOW,
+      },
+      { afterKind: "notification" },
+    );
+    if (!afterNotification.processedKind) throw new Error("Expected claimed work kind.");
+    const afterSubmission = await processDurableWorkBatch(
+      {
+        repository: repo,
+        handlers,
+        ownerFactory: () => "owner-2",
+        recordOutcome: vi.fn(),
+        clock: () => NOW,
+      },
+      { afterKind: afterNotification.processedKind },
+    );
+
+    expect(repo.claimBatch).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ kinds: ["rejudge"] }),
+    );
+    expect(repo.claimBatch).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ kinds: ["submission"] }),
+    );
+    expect(repo.claimBatch).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ kinds: ["notification"] }),
+    );
+    expect(afterNotification.processedKind).toBe("submission");
+    expect(afterSubmission.processedKind).toBe("notification");
   });
 
   it("claims only one item so a slow handler cannot expire later unstarted leases", async () => {
@@ -108,7 +173,7 @@ describe("durable work batch processor", () => {
     });
     const handler = vi.fn(() => {
       now = new Date(NOW.getTime() + DURABLE_WORK_LEASE_DURATION_MS - 1);
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     });
 
     const result = await processDurableWorkBatch({
@@ -153,6 +218,12 @@ describe("durable work batch processor", () => {
       error: "delivery failed",
     });
     expect(recordOutcome).toHaveBeenCalledWith("notify", "dead", new Set(["notify"]));
-    expect(result).toEqual({ claimed: 1, succeeded: 0, retried: 0, dead: 1 });
+    expect(result).toEqual({
+      claimed: 1,
+      succeeded: 0,
+      retried: 0,
+      dead: 1,
+      processedKind: "notify",
+    });
   });
 });

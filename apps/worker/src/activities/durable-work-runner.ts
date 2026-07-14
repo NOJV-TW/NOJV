@@ -56,6 +56,11 @@ export interface DurableWorkBatchResult {
   succeeded: number;
   retried: number;
   dead: number;
+  processedKind: string | null;
+}
+
+export interface DurableWorkBatchInput {
+  afterKind?: string;
 }
 
 export interface DurableWorkBatchDependencies {
@@ -78,6 +83,13 @@ const DEFAULT_BASE_RETRY_DELAY_MS = 5_000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 15 * 60_000;
 const MAX_ERROR_LENGTH = 4_096;
 
+function rotateKindsAfter(kinds: readonly string[], afterKind: string | undefined): string[] {
+  if (!afterKind) return [...kinds];
+  const index = kinds.indexOf(afterKind);
+  if (index === -1) return [...kinds];
+  return [...kinds.slice(index + 1), ...kinds.slice(0, index + 1)];
+}
+
 function retryDelayMs(attempt: number, baseDelayMs: number, maxDelayMs: number): number {
   const exponent = Math.max(0, Math.min(attempt - 1, 30));
   return Math.min(maxDelayMs, baseDelayMs * 2 ** exponent);
@@ -90,28 +102,34 @@ function errorMessage(reason: unknown): string {
 
 export async function processDurableWorkBatch(
   dependencies: DurableWorkBatchDependencies,
+  input: DurableWorkBatchInput = {},
 ): Promise<DurableWorkBatchResult> {
-  const kinds = Object.keys(dependencies.handlers).sort();
+  const kinds = rotateKindsAfter(Object.keys(dependencies.handlers).sort(), input.afterKind);
   if (kinds.length === 0) {
-    return { claimed: 0, succeeded: 0, retried: 0, dead: 0 };
+    return { claimed: 0, succeeded: 0, retried: 0, dead: 0, processedKind: null };
   }
 
   const registeredKinds = new Set(kinds);
   const clock = dependencies.clock ?? (() => new Date());
   const claimNow = clock();
   const owner = dependencies.ownerFactory();
-  const claimed = await dependencies.repository.claimBatch({
-    kinds,
-    owner,
-    limit: CLAIM_LIMIT,
-    now: claimNow,
-    leaseDurationMs: dependencies.leaseDurationMs ?? DURABLE_WORK_LEASE_DURATION_MS,
-  });
+  let claimed: readonly ClaimedDurableWork[] = [];
+  for (const kind of kinds) {
+    claimed = await dependencies.repository.claimBatch({
+      kinds: [kind],
+      owner,
+      limit: CLAIM_LIMIT,
+      now: claimNow,
+      leaseDurationMs: dependencies.leaseDurationMs ?? DURABLE_WORK_LEASE_DURATION_MS,
+    });
+    if (claimed.length > 0) break;
+  }
   const result: DurableWorkBatchResult = {
     claimed: claimed.length,
     succeeded: 0,
     retried: 0,
     dead: 0,
+    processedKind: claimed[0]?.kind ?? null,
   };
 
   for (const work of claimed) {
