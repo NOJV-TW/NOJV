@@ -11,6 +11,7 @@ test.describe("Submission Validation", () => {
   test("unauthenticated user cannot submit", async ({ page }) => {
     const res = await page.request.post("/api/submissions", {
       data: {
+        context: { type: "practice" },
         problemId: PROBLEM_ID,
         language: "python",
         sourceCode: "print(1)",
@@ -25,6 +26,7 @@ test.describe("Submission Validation", () => {
     const page = await context.newPage();
     const res = await page.request.post("/api/submissions", {
       data: {
+        context: { type: "practice" },
         problemId: PROBLEM_ID,
         language: "python",
         sourceCode: "",
@@ -40,6 +42,7 @@ test.describe("Submission Validation", () => {
     const page = await context.newPage();
     const res = await page.request.post("/api/submissions", {
       data: {
+        context: { type: "practice" },
         problemId: PROBLEM_ID,
         language: "brainfuck",
         sourceCode: "print(1)",
@@ -55,6 +58,7 @@ test.describe("Submission Validation", () => {
     const page = await context.newPage();
     const res = await page.request.post("/api/submissions", {
       data: {
+        context: { type: "practice" },
         problemId: "nonexistent-problem-xyz",
         language: "python",
         sourceCode: "print(1)",

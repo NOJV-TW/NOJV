@@ -323,6 +323,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
 
     const createRes = await page.request.post("/api/submissions", {
       data: {
+        context: { type: "practice" },
         problemId,
         language: "c",
         sourceCode: MAIN_C,

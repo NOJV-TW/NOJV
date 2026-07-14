@@ -21,7 +21,7 @@ import {
   type Language,
   type ProblemJudgeTestcase,
   type Runtime,
-  type SubmissionDraft,
+  type SubmissionJudgeDraft,
   type SubmissionResult,
 } from "@nojv/core";
 import {
@@ -86,10 +86,7 @@ async function readSubmissionSources(pointer: unknown): Promise<SubmissionSource
 }
 
 async function readVerdictDetail(pointer: unknown): Promise<SubmissionResult> {
-  const raw = await storageGetVerdictDetail(
-    storage(),
-    assertStorageObjectPointer(pointer),
-  );
+  const raw = await storageGetVerdictDetail(storage(), assertStorageObjectPointer(pointer));
   const parsed = submissionResultSchema.safeParse(raw);
   if (!parsed.success) {
     throw new IntegrityError(
@@ -576,7 +573,7 @@ export async function listForRejudge(input: {
   userIds?: string[];
   since?: Date;
   until?: Date;
-}): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
+}): Promise<{ submissionId: string; draft: SubmissionJudgeDraft }[]> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
     sampleOnly: false,
@@ -616,7 +613,7 @@ export async function listForRejudge(input: {
 
 export async function findOneForRejudge(
   submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
+): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
   if ((IN_FLIGHT_SUBMISSION_STATUSES as readonly string[]).includes(submission.status)) {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import type { Language, SubmissionResult } from "@nojv/core";
+  import type { Language, SubmissionContext, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import EditorCore from "./EditorCore.svelte";
   import EditorBottomPanel from "./EditorBottomPanel.svelte";
@@ -26,12 +26,8 @@
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
-    assessment?:
-      | {
-          assessmentId: string;
-          courseId: string;
-        }
-      | undefined;
+    context: SubmissionContext;
+    assessment?: { assessmentId: string; courseId: string } | undefined;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     draftContext?: DraftContext | undefined;
@@ -51,6 +47,7 @@
 
   let {
     allowedLanguages,
+    context,
     assessment,
     contestId,
     virtualContestId,
@@ -165,9 +162,7 @@
     drafts: () => drafts,
     workspaceDrafts: () => workspaceFiles.drafts,
     workspaceFiles: () => workspaceFilesForLanguage,
-    assessment: () => assessment,
-    contestId: () => contestId,
-    participationId: () => virtualContestId,
+    context: () => context,
     onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
     onSubmissionComplete: (id, result, lang, src) =>
       onSubmissionComplete?.(id, result, lang, src),

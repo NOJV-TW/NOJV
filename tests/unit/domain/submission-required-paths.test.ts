@@ -14,6 +14,8 @@ const {
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
   storageRef,
+  durableWorkEnqueue,
+  durableWorkEnqueueMany,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -26,10 +28,16 @@ const {
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
+  durableWorkEnqueue: vi.fn(),
+  durableWorkEnqueueMany: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   return {
+    durableWorkRepo: {
+      enqueueMany: durableWorkEnqueueMany,
+      withTx: () => ({ enqueue: durableWorkEnqueue, cancel: vi.fn(async () => true) }),
+    },
     problemRepo: {
       withTx: () => ({ findById: problemFindById }),
     },
@@ -113,6 +121,8 @@ function setupPracticeDefaults() {
   txAssessmentProblemFindFirst.mockResolvedValue(null);
   txContestProblemFindFirst.mockResolvedValue(null);
   workspaceFindByProblemId.mockResolvedValue([]);
+  durableWorkEnqueue.mockResolvedValue({});
+  durableWorkEnqueueMany.mockResolvedValue([]);
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
@@ -124,6 +134,7 @@ function setupPracticeDefaults() {
 }
 
 const baseDraft = {
+  context: { type: "practice" as const },
   problemId: "prob_special",
   language: "cpp" as const,
   sourceCode: "// advanced-mode upload",

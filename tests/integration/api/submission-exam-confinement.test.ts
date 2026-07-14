@@ -82,19 +82,16 @@ async function createFixture() {
     otherExam: await createTestSubmission({
       userId: owner.id,
       problemId: problem.id,
-      courseId: course.id,
       examId: examB.id,
     }),
     currentExam: await createTestSubmission({
       userId: owner.id,
       problemId: problem.id,
-      courseId: course.id,
       examId: examA.id,
     }),
     otherUser: await createTestSubmission({
       userId: other.id,
       problemId: problem.id,
-      courseId: course.id,
       examId: examA.id,
     }),
   };
@@ -197,7 +194,6 @@ describe("submission reads during an active exam", () => {
         id: `exam_page_${String(index).padStart(2, "0")}`,
         userId: owner.id,
         problemId: problem.id,
-        courseId: course.id,
         examId: examA.id,
         createdAt: new Date(Date.UTC(2026, 6, 1, 0, 0, index)),
       });

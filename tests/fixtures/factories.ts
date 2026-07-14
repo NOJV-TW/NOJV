@@ -163,7 +163,10 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
 }
 
 export async function createTestProblemWorkspaceFile(
-  overrides: Omit<Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput>, "contentStorage"> & {
+  overrides: Omit<
+    Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput>,
+    "contentStorage"
+  > & {
     problemId: string;
     content?: string;
   },
@@ -249,16 +252,59 @@ export async function createTestCourse(
   });
 }
 
+type TestSubmissionContext =
+  | {
+      assessmentId?: never;
+      contestId?: never;
+      courseId?: never;
+      examId?: never;
+      participationId?: never;
+    }
+  | {
+      assessmentId: string;
+      contestId?: never;
+      courseId: string;
+      examId?: never;
+      participationId?: never;
+    }
+  | {
+      assessmentId?: never;
+      contestId?: never;
+      courseId?: never;
+      examId: string;
+      participationId?: never;
+    }
+  | {
+      assessmentId?: never;
+      contestId: string;
+      courseId?: never;
+      examId?: never;
+      participationId?: never;
+    }
+  | {
+      assessmentId?: never;
+      contestId?: never;
+      courseId?: never;
+      examId?: never;
+      participationId: string;
+    };
+
 type CreateTestSubmissionInput = Omit<
   Partial<Prisma.SubmissionUncheckedCreateInput>,
   | "sourceStorage"
   | "verdictDetailStorage"
   | "judgeGeneration"
   | "activeJudgeRunId"
-> & {
-  sourceCode?: string;
-  verdictDetail?: Prisma.InputJsonValue;
-};
+  | "assessmentId"
+  | "contestId"
+  | "courseId"
+  | "examId"
+  | "participationId"
+> &
+  TestSubmissionContext & {
+    sourceCode?: string;
+    verdictDetail?: Prisma.InputJsonValue;
+  };
 
 export async function createTestSubmission(overrides: CreateTestSubmissionInput = {}) {
   const id = uid();

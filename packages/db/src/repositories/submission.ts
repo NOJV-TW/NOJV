@@ -17,6 +17,33 @@ import {
 type TxClient = TransactionClient;
 type SubmissionClient = Pick<TxClient, "submission">;
 
+export type SubmissionCreateContext =
+  | { type: "practice" }
+  | { type: "assignment"; assessmentId: string; courseId: string }
+  | { type: "exam"; examId: string }
+  | { type: "contest"; contestId: string }
+  | { type: "virtual"; participationId: string };
+
+type CanonicalSubmissionCreateInput = Omit<
+  Prisma.SubmissionUncheckedCreateInput,
+  "assessmentId" | "contestId" | "courseId" | "examId" | "participationId"
+> & { context: SubmissionCreateContext };
+
+function submissionContextColumns(
+  context: SubmissionCreateContext,
+): Pick<
+  Prisma.SubmissionUncheckedCreateInput,
+  "assessmentId" | "contestId" | "courseId" | "examId" | "participationId"
+> {
+  return {
+    assessmentId: context.type === "assignment" ? context.assessmentId : null,
+    courseId: context.type === "assignment" ? context.courseId : null,
+    examId: context.type === "exam" ? context.examId : null,
+    contestId: context.type === "contest" ? context.contestId : null,
+    participationId: context.type === "virtual" ? context.participationId : null,
+  };
+}
+
 function userFacingSubmissionWhere(
   userId: string,
   enforceExamConfinement: boolean,
@@ -818,10 +845,6 @@ export const submissionRepo = {
     });
   },
 
-  create(data: Prisma.SubmissionCreateInput) {
-    return prisma.submission.create({ data });
-  },
-
   countForUserAssessmentProblemSince(
     userId: string,
     assessmentId: string,
@@ -890,8 +913,11 @@ export const submissionRepo = {
         });
       },
 
-      create(data: Prisma.SubmissionUncheckedCreateInput) {
-        return tx.submission.create({ data });
+      create(data: CanonicalSubmissionCreateInput) {
+        const { context, ...submission } = data;
+        return tx.submission.create({
+          data: { ...submission, ...submissionContextColumns(context) },
+        });
       },
     };
   },

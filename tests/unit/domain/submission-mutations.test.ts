@@ -21,6 +21,9 @@ const {
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
   txExecuteRaw,
+  durableWorkEnqueue,
+  durableWorkEnqueueMany,
+  proctoringGateInTx,
   storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
@@ -41,6 +44,9 @@ const {
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   txExecuteRaw: vi.fn(),
+  durableWorkEnqueue: vi.fn(),
+  durableWorkEnqueueMany: vi.fn(),
+  proctoringGateInTx: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
@@ -48,6 +54,10 @@ vi.mock("@nojv/db", () => {
   return {
     problemRepo: {
       withTx: () => ({ findById: problemFindById }),
+    },
+    durableWorkRepo: {
+      enqueueMany: durableWorkEnqueueMany,
+      withTx: () => ({ enqueue: durableWorkEnqueue, cancel: vi.fn(async () => true) }),
     },
     userRepo: {
       withTx: () => ({
@@ -99,6 +109,10 @@ vi.mock("@nojv/db", () => {
     ): Promise<T> => fn({ $executeRaw: txExecuteRaw }),
   };
 });
+
+vi.mock("../../../packages/application/src/proctoring/gate", () => ({
+  checkProctoringGateInTx: proctoringGateInTx,
+}));
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
@@ -174,6 +188,8 @@ function setupSubmitPipelineDefaults(
   txAssessmentProblemFindFirst.mockResolvedValue({ id: "cap_1" });
   txContestProblemFindFirst.mockResolvedValue(null);
   workspaceFindByProblemId.mockResolvedValue([]);
+  durableWorkEnqueue.mockResolvedValue({});
+  durableWorkEnqueueMany.mockResolvedValue([]);
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
@@ -185,14 +201,15 @@ function setupSubmitPipelineDefaults(
 }
 
 const baseDraft = {
+  context: {
+    type: "assignment" as const,
+    courseId: fakeCourse.id,
+    assessmentId: fakeAssessmentBase.id,
+  },
   problemId: fakeProblem.id,
   language: "python" as const,
   sourceCode: "print('hi')",
   sampleOnly: false,
-  assessment: {
-    courseId: fakeCourse.id,
-    assessmentId: fakeAssessmentBase.id,
-  },
 };
 
 describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
@@ -414,6 +431,7 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
 
 describe("createQueuedSubmissionRecord — exam time window", () => {
   const examDraft = {
+    context: { type: "exam" as const, examId: "exam_window" },
     problemId: fakeProblem.id,
     language: "python" as const,
     sourceCode: "print('hi')",
@@ -441,10 +459,14 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       endedAt: null,
     });
     examProblemExists.mockResolvedValue(true);
+    proctoringGateInTx.mockResolvedValue({ ok: true });
     examFindById.mockResolvedValue({
       id: "exam_window",
+      status: "published",
+      allowedLanguages: [],
       startsAt: new Date("2026-04-14T09:00:00.000Z"),
       endsAt,
+      submitCooldownSec: 0,
     });
     submissionCreate.mockImplementation(async (data: unknown) => ({
       id: "sub_exam",
@@ -479,14 +501,16 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
     ).resolves.toBeDefined();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
-    const arg = submissionCreate.mock.calls[0][0] as { examId: string | null };
-    expect(arg.examId).toBe("exam_window");
+    const arg = submissionCreate.mock.calls[0][0] as { context: unknown };
+    expect(arg.context).toEqual({ type: "exam", examId: "exam_window" });
   });
 
   it("enforces the exam submit cooldown when a recent submission exists", async () => {
     setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
     examFindById.mockResolvedValue({
       id: "exam_window",
+      status: "published",
+      allowedLanguages: [],
       startsAt: new Date("2026-04-14T09:00:00.000Z"),
       endsAt: new Date("2026-04-14T10:00:00.000Z"),
       submitCooldownSec: 30,
@@ -506,6 +530,8 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
     setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
     examFindById.mockResolvedValue({
       id: "exam_window",
+      status: "published",
+      allowedLanguages: [],
       startsAt: new Date("2026-04-14T09:00:00.000Z"),
       endsAt: new Date("2026-04-14T10:00:00.000Z"),
       submitCooldownSec: 30,

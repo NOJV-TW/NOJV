@@ -67,7 +67,6 @@ async function createActiveExamFixture() {
   const current = await createTestSubmission({
     userId: student.id,
     problemId: problem.id,
-    courseId: course.id,
     examId: currentExam.id,
   });
   const hidden = await createTestSubmission({ userId: student.id, problemId: problem.id });

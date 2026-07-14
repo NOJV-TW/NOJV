@@ -118,7 +118,6 @@ function makeSubmission(args: {
     row.courseId = COURSE_ID;
     row.assessmentId = ctx.assessmentId;
   } else if (ctx.kind === "exam") {
-    row.courseId = COURSE_ID;
     row.examId = ctx.examId;
   } else if (ctx.kind === "contest") {
     row.contestId = ctx.contestId;
@@ -135,11 +134,7 @@ async function persistSeedSubmissions(
   if (subs.length === 0) return;
   const prepared = await Promise.all(
     subs.map(async (submission) => {
-      const sourcePlan = planSubmissionSources(
-        submission.id,
-        randomUUID(),
-        submission.sources,
-      );
+      const sourcePlan = planSubmissionSources(submission.id, randomUUID(), submission.sources);
       const [sourceStorage, verdictDetailStorage] = await Promise.all([
         putSubmissionSourcePlan(storage, sourcePlan),
         putVerdictDetail(storage, submission.id, `seed-${randomUUID()}`, submission.detail),

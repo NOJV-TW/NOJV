@@ -11,6 +11,7 @@
     submissionOperationSchema,
     submissionResultSchema,
     type Language,
+    type SubmissionContext,
     type SubmissionResult,
   } from "@nojv/core";
   import type {
@@ -25,6 +26,7 @@
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
+    context: SubmissionContext;
     assessment?:
       | {
           assessmentId: string;
@@ -46,6 +48,7 @@
 
   let {
     assessment,
+    context,
     backLink,
     canRejudge = false,
     canViewEditorials = false,
@@ -148,9 +151,7 @@
     const placeholderSource = "// advanced-mode upload";
 
     const body = buildSubmissionBody({
-      assessment,
-      contestId,
-      ...(virtualContestId ? { participationId: virtualContestId } : {}),
+      context,
       language: uploadLanguage,
       problemId: problem.id,
       sampleOnly: false,

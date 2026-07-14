@@ -7,7 +7,7 @@ import {
   type Language,
   type RejudgeInput,
   type SandboxRequest,
-  type SubmissionDraft,
+  type SubmissionJudgeDraft,
   type SubmissionResult,
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/application";
@@ -109,7 +109,7 @@ function buildSandboxTestcases(
   options: {
     useSamples: boolean;
     useAdvanced: boolean;
-    runCases: SubmissionDraft["runCases"];
+    runCases: SubmissionJudgeDraft["runCases"];
     hasRunCases: boolean;
   },
 ): SandboxRequest["testcases"] {
@@ -167,7 +167,7 @@ function buildAdvancedPayload(
 
 export async function executeSandbox(
   submissionId: string,
-  draft: SubmissionDraft,
+  draft: SubmissionJudgeDraft,
 ): Promise<{
   result: SubmissionResult;
   advancedJudgeVerificationSnapshot: AdvancedJudgeVerificationSnapshot | null;
@@ -330,7 +330,7 @@ export async function completeSubmission(
 
 export async function fetchSubmissionIdsForRejudge(
   input: BatchRejudgeInput,
-): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
+): Promise<{ submissionId: string; draft: SubmissionJudgeDraft }[]> {
   return submissionDomain.listForRejudge({
     problemId: input.problemId,
     ...(input.contestId ? { contestId: input.contestId } : {}),
@@ -344,7 +344,7 @@ export async function fetchSubmissionIdsForRejudge(
 
 export async function fetchSingleSubmissionForRejudge(
   submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
+): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
   return submissionDomain.findOneForRejudge(submissionId);
 }
 

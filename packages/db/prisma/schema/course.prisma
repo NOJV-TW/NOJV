@@ -95,6 +95,7 @@ model Assessment {
   submissions           Submission[]
   submissionFeedback    SubmissionFeedback[]
 
+  @@unique([id, courseId])
   @@index([courseId, status])
 }
 

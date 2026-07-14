@@ -6,6 +6,8 @@ const MIGRATIONS_DIR = join(process.cwd(), "packages/db/prisma/migrations");
 const CHECK_RE = /ALTER TABLE\s+("?\w+"?)\s+ADD CONSTRAINT\s+("?\w+"?)\s+CHECK/is;
 const GIN_EXPR_RE =
   /CREATE INDEX\s+("?\w+"?)\s+ON\s+("?\w+"?)[\s\S]+?USING GIN\s*\(\s*\w+\s*\(/is;
+const RAW_FOREIGN_KEY_RE =
+  /ALTER TABLE\s+("?\w+"?)\s+ADD CONSTRAINT\s+("?Submission_(?:assessment_course|participation_owner)_fkey"?)\s+FOREIGN KEY/is;
 const DROP_CONSTRAINT_RE = /DROP CONSTRAINT(?:\s+IF EXISTS)?\s+("?\w+"?)/is;
 const DROP_INDEX_RE = /DROP INDEX(?:\s+IF EXISTS)?\s+("?\w+"?)/is;
 const RENAME_COL_RE = /ALTER TABLE\s+("?\w+"?)\s+RENAME COLUMN\s+("?\w+"?)\s+TO\s+("?\w+"?)/is;
@@ -83,6 +85,7 @@ export function splitStatements(sql: string): string[] {
 export function collectReplayStatements(): string[] {
   const checks = new Map<string, Ddl>();
   const indexes = new Map<string, Ddl>();
+  const foreignKeys = new Map<string, Ddl>();
   const functions: string[] = [];
   const triggers: string[] = [];
 
@@ -125,7 +128,7 @@ export function collectReplayStatements(): string[] {
       const validate = VALIDATE_CONSTRAINT_RE.exec(stmt);
       if (validate) {
         const [, table, name] = validate;
-        const ddl = checks.get(name);
+        const ddl = checks.get(name) ?? foreignKeys.get(name);
         if (ddl?.table === table) ddl.validate = stmt;
         continue;
       }
@@ -137,10 +140,22 @@ export function collectReplayStatements(): string[] {
         continue;
       }
 
+      const foreignKey = RAW_FOREIGN_KEY_RE.exec(stmt);
+      if (foreignKey) {
+        const [, table, name] = foreignKey;
+        foreignKeys.set(name, {
+          table,
+          drop: `ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${name}`,
+          create: stmt,
+        });
+        continue;
+      }
+
       if (/ADD CONSTRAINT/i.test(stmt)) continue;
       const dropConstraint = DROP_CONSTRAINT_RE.exec(stmt);
       if (dropConstraint) {
         checks.delete(dropConstraint[1]);
+        foreignKeys.delete(dropConstraint[1]);
         continue;
       }
       const dropIdx = DROP_INDEX_RE.exec(stmt);
@@ -150,11 +165,9 @@ export function collectReplayStatements(): string[] {
 
   return [
     ...functions,
-    ...[...checks.values(), ...indexes.values()].flatMap(({ drop, create, validate }) => [
-      drop,
-      create,
-      ...(validate ? [validate] : []),
-    ]),
+    ...[...checks.values(), ...indexes.values(), ...foreignKeys.values()].flatMap(
+      ({ drop, create, validate }) => [drop, create, ...(validate ? [validate] : [])],
+    ),
     ...triggers,
   ];
 }

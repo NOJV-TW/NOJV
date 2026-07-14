@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Language } from "@nojv/core";
+  import type { Language, SubmissionContext } from "@nojv/core";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { shortcuts } from "$lib/stores/shortcuts.svelte";
@@ -57,7 +57,7 @@
   }
 
   let {
-    mode: _mode,
+    mode,
     problem,
     submissions = [],
     testcaseSets = [],
@@ -72,8 +72,24 @@
     virtualContestId,
     dailyAttempts,
     siblingProblems,
-    examContext: _examContext,
+    examContext,
   }: Props = $props();
+
+  let submissionContext = $derived.by<SubmissionContext>(() => {
+    if (mode === "exam") {
+      if (!examContext) throw new Error("Exam solve view requires an exam context");
+      return { type: "exam", examId: examContext.examId };
+    }
+
+    const configuredContexts = [assessment, contestId, virtualContestId].filter(Boolean);
+    if (configuredContexts.length > 1) {
+      throw new Error("Problem solve view received multiple submission contexts");
+    }
+    if (assessment) return { type: "assignment", ...assessment };
+    if (contestId) return { type: "contest", contestId };
+    if (virtualContestId) return { type: "virtual", participationId: virtualContestId };
+    return { type: "practice" };
+  });
 
   let endedNotice = $derived(
     endedKind === "assignment"
@@ -146,6 +162,7 @@
     <div class="flex min-h-0 min-w-0 flex-1 {hasSiblings ? 'pl-6' : ''}">
       {#if problem.type === "special_env"}
         <AdvancedModeWorkspace
+          context={submissionContext}
           {allowedLanguages}
           {assessment}
           {backLink}
@@ -162,6 +179,7 @@
         />
       {:else}
         <ProblemWorkspace
+          context={submissionContext}
           {allowedLanguages}
           {assessment}
           {backLink}

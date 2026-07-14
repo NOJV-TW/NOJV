@@ -1,4 +1,4 @@
-import type { SandboxExecutor, SubmissionDraft } from "@nojv/core";
+import type { SandboxExecutor, SubmissionJudgeDraft } from "@nojv/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -53,7 +53,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
 
     getSourcesMock.mockResolvedValue([]);
 
-    const draft: SubmissionDraft = {
+    const draft: SubmissionJudgeDraft = {
       problemId: "prob_x",
       language: "python",
       sourceCode: "print(1)",

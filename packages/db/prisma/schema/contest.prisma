@@ -249,6 +249,7 @@ model Participation {
   exam        Exam?        @relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)
   submissions Submission[]
 
+  @@unique([id, userId])
   @@unique([type, contestId, userId])
   @@unique([type, examId, userId])
   @@index([userId])

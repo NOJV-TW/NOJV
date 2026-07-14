@@ -12,6 +12,7 @@ import {
   runTransaction,
   submissionRejudgeLogRepo,
   submissionRepo,
+  type SubmissionCreateContext,
   type TransactionClient,
 } from "@nojv/db";
 import {
@@ -19,6 +20,7 @@ import {
   validateRequiredPaths,
   type AdvancedJudgeVerificationSnapshot,
   type SubmissionDraft,
+  type SubmissionJudgeDraft,
   type SubmissionOperationStatus,
   type SubmissionResult,
   type VerdictSummary,
@@ -62,6 +64,7 @@ type SubmissionUser = Awaited<ReturnType<typeof ensureUser>>;
 type ActiveExamSession = NonNullable<
   Awaited<ReturnType<typeof examSessionRepo.findActiveForUser>>
 >;
+type SubmissionExam = NonNullable<Awaited<ReturnType<typeof examRepo.findById>>>;
 type ContestSubmissionResult = Awaited<ReturnType<typeof ensureContestParticipation>>;
 
 async function assertActiveExamSubmissionAllowed(
@@ -69,21 +72,18 @@ async function assertActiveExamSubmissionAllowed(
   ctx: {
     activeExamSession: ActiveExamSession;
     clientIp: string;
-    courseContext: SubmissionCourseContext | null;
     payload: SubmissionDraft;
     problem: SubmissionProblem;
     user: SubmissionUser;
   },
-): Promise<void> {
-  const { activeExamSession, clientIp, courseContext, payload, problem, user } = ctx;
-  if (courseContext || payload.contestId || payload.participationId) {
-    throw new ForbiddenError(
-      "You are in an active exam — submissions cannot carry an external assignment or contest context.",
-    );
-  }
+): Promise<SubmissionExam> {
+  const { activeExamSession, clientIp, payload, problem, user } = ctx;
 
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
-  if (exam && new Date() >= exam.endsAt) {
+  if (!exam || exam.status !== "published") {
+    throw new NotFoundError("Exam not found.");
+  }
+  if (new Date() >= exam.endsAt) {
     throw new ForbiddenError("Exam has ended.");
   }
 
@@ -104,9 +104,11 @@ async function assertActiveExamSubmissionAllowed(
     );
   }
 
-  if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
+  if (!payload.sampleOnly && exam.submitCooldownSec > 0) {
     await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
   }
+
+  return exam;
 }
 
 async function assertCourseSubmissionAllowed(
@@ -151,6 +153,7 @@ function assertLanguageAllowed(
   problem: SubmissionProblem,
   contestResult: ContestSubmissionResult | null,
   courseContext: SubmissionCourseContext | null,
+  exam: SubmissionExam | null,
 ): void {
   if (problem.type === "special_env") return;
   if (
@@ -167,6 +170,14 @@ function assertLanguageAllowed(
     !courseContext.assignment.allowedLanguages.includes(payload.language)
   ) {
     throw new ForbiddenError("Language not allowed in this assignment");
+  }
+
+  if (
+    exam &&
+    exam.allowedLanguages.length > 0 &&
+    !exam.allowedLanguages.includes(payload.language)
+  ) {
+    throw new ForbiddenError("Language not allowed in this exam");
   }
 }
 
@@ -237,46 +248,65 @@ export async function createQueuedSubmissionRecord(
   const sourceGeneration = randomUUID();
 
   return runTransaction(async (tx) => {
+    const assignmentContext = payload.context.type === "assignment" ? payload.context : null;
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
-      payload.assessment
+      assignmentContext
         ? requireCourseAssignment(
             tx,
-            payload.assessment.courseId,
-            payload.assessment.assessmentId,
+            assignmentContext.courseId,
+            assignmentContext.assessmentId,
           )
         : null,
       ensureUser(tx, actor.userId, actor),
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    if (activeExamSession && actor.platformRole !== "admin") {
-      await assertActiveExamSubmissionAllowed(tx, {
+    if (
+      activeExamSession &&
+      actor.platformRole !== "admin" &&
+      (payload.context.type !== "exam" || payload.context.examId !== activeExamSession.examId)
+    ) {
+      throw new ForbiddenError(
+        "You are in an active exam — submissions must use that exam context.",
+      );
+    }
+
+    let exam: SubmissionExam | null = null;
+    if (payload.context.type === "exam") {
+      if (activeExamSession?.examId !== payload.context.examId) {
+        throw new ForbiddenError("An active session for this exam is required.");
+      }
+      exam = await assertActiveExamSubmissionAllowed(tx, {
         activeExamSession,
         clientIp,
-        courseContext,
         payload,
         problem,
         user,
       });
     }
 
-    if (payload.participationId) {
-      if (courseContext || payload.contestId) {
-        throw new ForbiddenError(
-          "A virtual-contest submission cannot also carry a contest or assignment context.",
-        );
-      }
-      await assertCanSubmitToVirtualContest(payload.participationId, actor.userId, problem.id);
+    if (payload.context.type === "virtual") {
+      await assertCanSubmitToVirtualContest(
+        payload.context.participationId,
+        actor.userId,
+        problem.id,
+      );
     }
 
     if (courseContext) {
       await assertCourseSubmissionAllowed(tx, { actor, courseContext, problem });
     }
 
-    const contestResult = payload.contestId
-      ? await ensureContestParticipation(tx, user.id, payload.contestId, actor.platformRole)
-      : null;
+    const contestResult =
+      payload.context.type === "contest"
+        ? await ensureContestParticipation(
+            tx,
+            user.id,
+            payload.context.contestId,
+            actor.platformRole,
+          )
+        : null;
 
     if (contestResult) {
       const link = await contestProblemRepo
@@ -287,10 +317,10 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
+    const contextIncludesProblem = payload.context.type !== "practice";
     await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
-    assertLanguageAllowed(payload, problem, contestResult, courseContext);
+    assertLanguageAllowed(payload, problem, contestResult, courseContext, exam);
 
     await assertSubmissionFilesValid(payload, problem);
 
@@ -310,16 +340,40 @@ export async function createQueuedSubmissionRecord(
 
     const sources = normalizeSubmissionSources(payload);
 
+    let submissionContext: SubmissionCreateContext;
+    switch (payload.context.type) {
+      case "assignment":
+        if (!courseContext) throw new NotFoundError("Assignment not found.");
+        submissionContext = {
+          type: "assignment",
+          assessmentId: courseContext.assignment.id,
+          courseId: courseContext.course.id,
+        };
+        break;
+      case "exam":
+        if (!exam) throw new NotFoundError("Exam not found.");
+        submissionContext = { type: "exam", examId: exam.id };
+        break;
+      case "contest":
+        if (!contestResult) throw new NotFoundError("Contest not found.");
+        submissionContext = { type: "contest", contestId: contestResult.contest.id };
+        break;
+      case "virtual":
+        submissionContext = {
+          type: "virtual",
+          participationId: payload.context.participationId,
+        };
+        break;
+      default:
+        submissionContext = { type: "practice" };
+    }
+
     const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
     await guardStorageObjectWrites(sourcePlan.pointers);
     await putSubmissionSourcePlan(storage(), sourcePlan);
     const submission = await submissionRepo.withTx(tx).create({
       id: submissionId,
-      contestId: contestResult?.contest.id ?? null,
-      participationId: payload.participationId ?? null,
-      assessmentId: courseContext?.assignment.id ?? null,
-      examId: activeExamSession?.examId ?? null,
-      courseId: courseContext?.course.id ?? null,
+      context: submissionContext,
       ipAddress: clientIp,
       language: payload.language,
       problemId: problem.id,
@@ -328,9 +382,12 @@ export async function createQueuedSubmissionRecord(
       status: "queued",
       userId: user.id,
     });
-    const judgeDraft: SubmissionDraft = { ...payload };
-    delete judgeDraft.sourceCode;
-    delete judgeDraft.sourceFiles;
+    const judgeDraft: SubmissionJudgeDraft = {
+      language: payload.language,
+      problemId: payload.problemId,
+      ...(payload.runCases ? { runCases: payload.runCases } : {}),
+      ...(payload.sampleOnly !== undefined ? { sampleOnly: payload.sampleOnly } : {}),
+    };
     await enqueueSubmissionJudgeDispatch(tx, {
       draft: judgeDraft,
       submissionId: submission.id,
@@ -524,10 +581,7 @@ export async function snapshotForRejudge(
     await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
     const current = await tx.submission.findUnique({ where: { id: submissionId } });
     if (!current) return null;
-    if (
-      current.activeJudgeRunId !== null &&
-      current.activeJudgeRunId !== rejudgeRunId
-    ) {
+    if (current.activeJudgeRunId !== null && current.activeJudgeRunId !== rejudgeRunId) {
       throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
     }
     const row = await tx.submissionRejudgeLog.upsert({
@@ -579,7 +633,6 @@ export async function finalizeRejudgeLog(
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,
-    newResultJson:
-      updated.verdictSummary === null ? null : toJsonValue(updated.verdictSummary),
+    newResultJson: updated.verdictSummary === null ? null : toJsonValue(updated.verdictSummary),
   });
 }

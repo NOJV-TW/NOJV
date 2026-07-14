@@ -11,7 +11,7 @@ describe("collectReplayStatements", () => {
     const names = creates.map((s) => /ADD CONSTRAINT\s+"(\w+)"/i.exec(s)?.[1]).filter(Boolean);
     expect(names).toEqual(
       expect.arrayContaining([
-        "Submission_single_context_chk",
+        "Submission_canonical_context_chk",
         "SubmissionFeedback_single_context_chk",
         "SubmissionFeedbackAuditLog_single_context_chk",
         "Participation_single_context_chk",
@@ -42,6 +42,16 @@ describe("collectReplayStatements", () => {
       expect(createIndex).toBeGreaterThanOrEqual(0);
       expect(validateIndex).toBeGreaterThan(createIndex);
     }
+  });
+
+  it("replays the DB-only Submission composite foreign keys", () => {
+    const joined = stmts.join("\n");
+    expect(joined).toContain('ADD CONSTRAINT "Submission_assessment_course_fkey"');
+    expect(joined).toContain('ADD CONSTRAINT "Submission_participation_owner_fkey"');
+    expect(joined).toContain('DROP CONSTRAINT IF EXISTS "Submission_assessment_course_fkey"');
+    expect(joined).toContain('DROP CONSTRAINT IF EXISTS "Submission_participation_owner_fkey"');
+    expect(joined).toContain('VALIDATE CONSTRAINT "Submission_assessment_course_fkey"');
+    expect(joined).toContain('VALIDATE CONSTRAINT "Submission_participation_owner_fkey"');
   });
 
   it("replays the FTS expression GIN but skips the schema-expressible array GIN", () => {

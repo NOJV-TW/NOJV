@@ -79,7 +79,7 @@ export {
   type ScoreOverrideUpdateData,
   type ScoreOverrideAuditCreateData,
 } from "./score-override";
-export { submissionRepo } from "./submission";
+export { submissionRepo, type SubmissionCreateContext } from "./submission";
 export {
   submissionFeedbackRepo,
   submissionFeedbackAuditLogRepo,

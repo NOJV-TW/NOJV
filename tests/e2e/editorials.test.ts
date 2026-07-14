@@ -38,6 +38,7 @@ async function submitAcAndAwait(
   try {
     res = await request.post("/api/submissions", {
       data: {
+        context: { type: "practice" },
         problemId,
         language: "python",
         sourceCode: WARMUP_SUM_PYTHON_AC,

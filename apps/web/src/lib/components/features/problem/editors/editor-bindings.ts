@@ -1,7 +1,11 @@
-import { entryFileNameFor, type Language, type ProblemType } from "@nojv/core";
+import {
+  entryFileNameFor,
+  type Language,
+  type ProblemType,
+  type SubmissionContext,
+} from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
 import type {
-  SubmissionAssessmentContext,
   SubmissionRequest,
   SubmissionWorkspaceFile,
 } from "$lib/services/submission-service";
@@ -156,17 +160,13 @@ export function buildSubmissionRequest(args: {
   workspaceDrafts: Record<string, string>;
   sampleOnly: boolean;
   runCases?: { input: string; expectedOutput?: string }[] | undefined;
-  assessment?: SubmissionAssessmentContext | undefined;
-  contestId?: string | undefined;
-  participationId?: string | undefined;
+  context: SubmissionContext;
 }): SubmissionRequest {
   const base: Omit<SubmissionRequest, "sourceCode" | "sourceFiles"> = {
     language: args.language,
     problemId: args.problemId,
     sampleOnly: args.sampleOnly,
-    ...(args.assessment ? { assessment: args.assessment } : {}),
-    ...(args.contestId ? { contestId: args.contestId } : {}),
-    ...(args.participationId ? { participationId: args.participationId } : {}),
+    context: args.context,
     ...(args.runCases ? { runCases: args.runCases } : {}),
   };
   if (args.isWorkspaceMode) {

@@ -6,7 +6,7 @@ import {
   isCancellation,
   log,
 } from "@temporalio/workflow";
-import type { RejudgeInput, RejudgeProgress, SubmissionDraft } from "@nojv/core";
+import type { RejudgeInput, RejudgeProgress, SubmissionJudgeDraft } from "@nojv/core";
 import type * as judgeActivities from "../activities/judge";
 import { submissionJudgeWorkflow } from "./submission-judge";
 import { SHORT_ACTIVITY } from "./activity-options";
@@ -20,7 +20,7 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
   let total = 0;
   setHandler(getProgressQuery, () => ({ completed, total }));
 
-  let targets: { submissionId: string; draft: SubmissionDraft }[];
+  let targets: { submissionId: string; draft: SubmissionJudgeDraft }[];
   if (input.mode === "single") {
     const one = await judge.fetchSingleSubmissionForRejudge(input.submissionId);
     targets = one ? [one] : [];

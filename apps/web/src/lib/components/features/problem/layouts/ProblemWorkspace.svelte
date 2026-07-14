@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import { page } from "$app/state";
-  import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
+  import {
+    languageSchema,
+    type Language,
+    type SubmissionContext,
+    type SubmissionResult,
+  } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { inferDraftContext } from "$lib/stores/code-draft";
   import type {
@@ -20,6 +25,7 @@
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
+    context: SubmissionContext;
     assessment?:
       | {
           assessmentId: string;
@@ -40,6 +46,7 @@
 
   let {
     allowedLanguages,
+    context,
     assessment,
     backLink,
     canRejudge = false,
@@ -196,6 +203,7 @@
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">
   <ProblemEditor
     {allowedLanguages}
+    {context}
     {assessment}
     {contestId}
     {virtualContestId}

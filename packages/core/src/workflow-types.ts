@@ -1,8 +1,8 @@
-import type { SubmissionDraft } from "./schemas/submission";
+import type { SubmissionJudgeDraft } from "./schemas/submission";
 
 export interface SubmissionJudgeInput {
   submissionId: string;
-  draft: SubmissionDraft;
+  draft: SubmissionJudgeDraft;
   forRejudge?: { triggeredByUserId: string };
 }
 
