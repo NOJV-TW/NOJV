@@ -15,6 +15,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { formatChartSummary } from "$lib/utils/chart-summary";
   import type { EChartsOption } from "echarts";
 
   interface ThemeColors {
@@ -235,6 +236,12 @@
       <EChart
         option={trendOption}
         ariaLabel={m.dashboard_platformTrend()}
+        summary={formatChartSummary(
+          overview.daily.map((entry) => ({
+            label: entry.label,
+            value: `${m.dashboard_platformTrendSubmissions()} ${entry.total}, ${m.dashboard_platformTrendAccepted()} ${entry.accepted}, ${m.dashboard_platformTrendActiveUsers()} ${entry.activeUsers}`,
+          })),
+        )}
         class="h-72 w-full"
       />
     {:else}
@@ -253,6 +260,12 @@
           <EChart
             option={verdictOption}
             ariaLabel={m.dashboard_verdictDistribution()}
+            summary={formatChartSummary(
+              overview.byVerdict.map((entry) => ({
+                label: formatVerdictLabel(entry.status),
+                value: entry.count,
+              })),
+            )}
             class="h-56 w-full"
           />
           <div
@@ -280,6 +293,12 @@
         <EChart
           option={languageOption}
           ariaLabel={m.dashboard_languageDist()}
+          summary={formatChartSummary(
+            overview.byLanguage.map((entry) => ({
+              label: entry.language,
+              value: entry.count,
+            })),
+          )}
           class="h-56 w-full"
         />
       {:else}

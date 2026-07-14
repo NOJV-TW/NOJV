@@ -220,7 +220,12 @@
             description={m.courseAnalytics_verdictsEmptyDescription()}
           />
         {:else}
-          <EChart option={verdictOption} ariaLabel={verdictAriaLabel} class="h-64 w-full" />
+          <EChart
+            option={verdictOption}
+            ariaLabel={m.courseAnalytics_verdictsTitle()}
+            summary={verdictAriaLabel}
+            class="h-64 w-full"
+          />
         {/if}
       </Card>
     </section>

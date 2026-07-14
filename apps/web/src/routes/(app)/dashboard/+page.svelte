@@ -19,6 +19,7 @@
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { buildActivityModel } from "$lib/utils/activity";
   import { relativeTime } from "$lib/utils/relative-time";
+  import { formatChartSummary } from "$lib/utils/chart-summary";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
@@ -418,7 +419,17 @@
             {m.dashboard_tagProficiency()}
           </h2>
           {#if hasTagData}
-            <EChart option={tagOption} class="h-56 w-full" />
+            <EChart
+              option={tagOption}
+              ariaLabel={m.dashboard_tagProficiency()}
+              summary={formatChartSummary(
+                analytics.byTag.map((entry) => ({
+                  label: entry.tag,
+                  value: entry.acCount,
+                })),
+              )}
+              class="h-56 w-full"
+            />
           {:else}
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
           {/if}
@@ -463,7 +474,17 @@
             {m.dashboard_difficultyDist()}
           </h2>
           {#if hasDifficultyData}
-            <EChart option={difficultyOption} class="h-56 w-full" />
+            <EChart
+              option={difficultyOption}
+              ariaLabel={m.dashboard_difficultyDist()}
+              summary={formatChartSummary(
+                analytics.byDifficulty.map((entry) => ({
+                  label: entry.difficulty,
+                  value: entry.acCount,
+                })),
+              )}
+              class="h-56 w-full"
+            />
           {:else}
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noTagData()} />
           {/if}
@@ -475,7 +496,17 @@
           </h2>
           {#if hasVerdictData}
             <div class="relative">
-              <EChart option={verdictOption} class="h-56 w-full" />
+              <EChart
+                option={verdictOption}
+                ariaLabel={m.dashboard_verdictDistribution()}
+                summary={formatChartSummary(
+                  analytics.byVerdict.map((entry) => ({
+                    label: formatVerdictLabel(entry.status),
+                    value: entry.count,
+                  })),
+                )}
+                class="h-56 w-full"
+              />
               <div
                 class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
               >
@@ -497,7 +528,17 @@
             {m.dashboard_languageDist()}
           </h2>
           {#if hasLanguageData}
-            <EChart option={languageOption} class="h-56 w-full" />
+            <EChart
+              option={languageOption}
+              ariaLabel={m.dashboard_languageDist()}
+              summary={formatChartSummary(
+                analytics.byLanguage.map((entry) => ({
+                  label: entry.language,
+                  value: entry.count,
+                })),
+              )}
+              class="h-56 w-full"
+            />
           {:else}
             <EmptyState variant="minimal" icon={PieChart} title={m.dashboard_noActivity()} />
           {/if}
