@@ -341,6 +341,20 @@ migrator:
       memory: 512Mi
   backoffLimit: 1
 
+maintenance:
+  image: docker.io/alpine/k8s:1.33.3@sha256:47e4ea4c263fb4e14e51d7c5ca841da756673f18e2340f38c0cf1f7219d05e85
+  activeDeadlineSeconds: 360
+  drainTimeoutSeconds: 180
+  readyTimeoutSeconds: 300
+  pollIntervalSeconds: 2
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
 seed:
   enabled: false
   backoffLimit: 1
