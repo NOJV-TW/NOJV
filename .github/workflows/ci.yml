@@ -171,6 +171,9 @@ jobs:
       - name: Setup monorepo
         uses: ./.github/actions/setup
 
+      - name: Build web dependency chain
+        run: pnpm --filter @nojv/web... build
+
       - name: Mark the isolated browser-test database
         run: >-
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
