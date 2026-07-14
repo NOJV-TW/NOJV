@@ -20,6 +20,8 @@
     "integration/db/constraint-replay.test.ts",
     "integration/db/effective-time-window-migration.test.ts",
     "integration/db/effective-time-window-races.test.ts",
+    "integration/db/durable-work-migration.test.ts",
+    "integration/db/durable-work.test.ts",
     "unit/domain/**/*.ts",
     "unit/core/**/*.ts",
     "unit/infra/env-manifest-parity.test.ts",
@@ -31,6 +33,8 @@
     "unit/infra/vitest-project-routing.test.ts",
     "unit/db/replay-constraints.test.ts",
     "unit/temporal/client.test.ts",
+    "unit/worker/durable-work-metrics.test.ts",
+    "unit/worker/durable-work.test.ts",
     "setup/k8s-global-setup.ts",
     "setup/k8s-integration-target.ts"
   ]

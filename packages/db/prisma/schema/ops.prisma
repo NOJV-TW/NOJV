@@ -17,6 +17,35 @@ enum PlagiarismReportStatus {
   failed
 }
 
+enum DurableWorkStatus {
+  pending
+  leased
+  succeeded
+  dead
+}
+
+model DurableWork {
+  id             String            @id @default(cuid())
+  kind           String            @db.VarChar(64)
+  dedupeKey      String            @db.VarChar(256)
+  payload        Json
+  status         DurableWorkStatus @default(pending)
+  availableAt    DateTime          @default(now())
+  leaseOwner     String?           @db.VarChar(128)
+  leaseExpiresAt DateTime?
+  attempt        Int               @default(0)
+  maxAttempts    Int               @default(8)
+  lastError      String?           @db.Text
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([kind, dedupeKey])
+  @@index([status, availableAt, createdAt])
+  @@index([status, leaseExpiresAt])
+  @@index([kind, status, availableAt])
+}
+
 model Announcement {
   id              String                    @id @default(cuid())
   pinned          Boolean                   @default(false)

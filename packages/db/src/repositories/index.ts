@@ -20,6 +20,16 @@ export { courseMembershipAdminRepo } from "./course-membership";
 export { contentReportRepo } from "./content-report";
 export { examRepo, examProblemRepo } from "./exam";
 export { examSessionRepo } from "./exam-session";
+export {
+  DurableWorkLeaseLostError,
+  durableWorkRepo,
+  type DurableWorkClaimInput,
+  type DurableWorkEnqueueInput,
+  type DurableWorkFence,
+  type DurableWorkRetryDisposition,
+  type DurableWorkRetryInput,
+  type DurableWorkRow,
+} from "./durable-work";
 export { ipViolationLogRepo } from "./ip-violation";
 export { notificationRepo, NOTIFICATION_RETENTION_PER_USER } from "./notification";
 export type { NotificationCreateInput } from "./notification";

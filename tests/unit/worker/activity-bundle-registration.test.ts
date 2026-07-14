@@ -22,6 +22,7 @@ const QUEUE_BUNDLES = [
       "workflows/submission-sweeper.ts",
       "workflows/lifecycle-reconciler.ts",
       "workflows/registry-gc.ts",
+      "workflows/durable-work.ts",
     ],
   },
 ];

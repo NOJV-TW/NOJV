@@ -5,6 +5,7 @@ import {
 } from "../setup/destructive-test-database";
 
 export const TABLES = [
+  "DurableWork",
   "AdminAuditLog",
   "Clarification",
   "SubmissionFeedbackAuditLog",

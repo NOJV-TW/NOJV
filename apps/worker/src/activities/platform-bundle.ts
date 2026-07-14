@@ -19,5 +19,6 @@ export {
 export { runPlagiarismCheck } from "./plagiarism";
 
 export { runRegistryGarbageCollect } from "./registry";
+export { runDurableWorkBatch } from "./durable-work";
 
 export { getRedis } from "./utils";
