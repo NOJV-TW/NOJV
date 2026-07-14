@@ -80,7 +80,7 @@ async function assertActiveExamSubmissionAllowed(
   const { activeExamSession, clientIp, payload, problem, user } = ctx;
 
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
-  if (!exam || exam.status !== "published") {
+  if (exam?.status !== "published") {
     throw new NotFoundError("Exam not found.");
   }
   if (new Date() >= exam.endsAt) {

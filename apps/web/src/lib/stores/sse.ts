@@ -160,7 +160,7 @@ export function subscribeClarificationChannel(
   contextType: "contest" | "exam" | "assignment",
   contextId: string,
 ): () => void {
-  if (!browser) return () => {};
+  if (!browser) return () => undefined;
   const key = `${contextType}:${contextId}`;
   const previousCount = clarificationSubs.get(key) ?? 0;
   clarificationSubs.set(key, previousCount + 1);

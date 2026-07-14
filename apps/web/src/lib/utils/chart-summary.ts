@@ -4,5 +4,5 @@ export interface ChartSummaryEntry {
 }
 
 export function formatChartSummary(entries: readonly ChartSummaryEntry[]): string {
-  return entries.map(({ label, value }) => `${label}: ${value}`).join("; ");
+  return entries.map(({ label, value }) => `${label}: ${String(value)}`).join("; ");
 }

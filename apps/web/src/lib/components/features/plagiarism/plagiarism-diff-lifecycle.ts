@@ -49,7 +49,7 @@ function createResources(
       readOnly: true,
       renderSideBySide: true,
       theme: getNojvThemeName(
-        globalThis.document?.documentElement.classList.contains("dark") ?? false,
+        typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
       ),
       fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 13,
