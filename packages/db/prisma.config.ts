@@ -2,7 +2,11 @@ import { defineConfig } from "prisma/config";
 
 try {
   process.loadEnvFile("../../.env");
-} catch (_) {}
+} catch (error) {
+  if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+    throw error;
+  }
+}
 
 export default defineConfig({
   datasource: {
