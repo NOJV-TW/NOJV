@@ -176,9 +176,25 @@ export async function maybeSendEmails(
     });
 
     try {
-      await mailer.sendEmail({ to: user.email, subject: spec.subject(params), html });
+      const delivery = await mailer.sendEmail({
+        to: user.email,
+        subject: spec.subject(params),
+        html,
+      });
+      if (delivery === "suppressed") {
+        console.warn({
+          component: "notification-email",
+          event: "delivery_suppressed",
+          notificationType: input.type,
+        });
+      }
     } catch (err) {
-      console.warn(`[notification-email] send failed for user ${input.userId}:`, err);
+      console.warn({
+        component: "notification-email",
+        event: "delivery_failed",
+        notificationType: input.type,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

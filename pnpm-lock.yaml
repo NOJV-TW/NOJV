@@ -392,6 +392,9 @@ importers:
       '@nojv/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nojv/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       '@nojv/redis':
         specifier: workspace:*
         version: link:../../packages/redis

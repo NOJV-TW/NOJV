@@ -4,6 +4,7 @@ import { getStorageEnv } from "@nojv/storage";
 
 import { parseWorkerEnv } from "./env";
 import { createLogger } from "./logger.js";
+import { validateWorkerMailerStartup } from "./mailer-startup";
 import { WorkerApp } from "./worker-app";
 
 const processLogger = createLogger("process");
@@ -24,6 +25,7 @@ process.on("uncaughtException", (err) => {
 });
 
 const env = parseWorkerEnv(process.env);
+validateWorkerMailerStartup(env.WORKER_MODE);
 getStorageEnv();
 const app = new WorkerApp(env);
 

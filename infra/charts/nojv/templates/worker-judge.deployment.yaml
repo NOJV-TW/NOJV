@@ -47,6 +47,8 @@ spec:
             - name: tmp
               mountPath: /tmp
           env:
+            - name: NODE_ENV
+              value: production
             - name: PORT
               value: "8080"
             - name: WORKER_MODE

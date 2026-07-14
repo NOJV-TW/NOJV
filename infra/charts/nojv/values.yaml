@@ -206,6 +206,9 @@ observability:
 secrets:
   runtimeSecretName: nojv-runtime-secrets
 
+mailer:
+  smtpPort: 465
+
 web:
   replicas: 1
   containerPort: 3000

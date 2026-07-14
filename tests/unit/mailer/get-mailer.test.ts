@@ -1,100 +1,212 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { createTransport, sendMail } = vi.hoisted(() => {
-  const sendMail = vi.fn().mockResolvedValue(undefined);
+  const sendMail = vi.fn();
   return { createTransport: vi.fn(() => ({ sendMail })), sendMail };
 });
 
 vi.mock("nodemailer", () => ({ default: { createTransport } }));
 
-const SMTP_KEYS = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const;
-let saved: Record<string, string | undefined>;
+const MAILER_ENV_KEYS = [
+  "NODE_ENV",
+  "MAILER_MODE",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_USER",
+  "SMTP_PASS",
+  "SMTP_FROM",
+  "SMTP_TYPO",
+  "APP_BASE_URL",
+] as const;
+let saved: Record<(typeof MAILER_ENV_KEYS)[number], string | undefined>;
 
 async function importMailer() {
   vi.resetModules();
   return import("@nojv/mailer");
 }
 
+function useSinkEnv(nodeEnv: "development" | "test" = "test"): void {
+  process.env.NODE_ENV = nodeEnv;
+  process.env.MAILER_MODE = "sink";
+  process.env.APP_BASE_URL = "http://localhost:5173";
+}
+
+function useSmtpEnv(port = "465", nodeEnv: "development" | "test" | "production" = "test") {
+  process.env.NODE_ENV = nodeEnv;
+  process.env.MAILER_MODE = "smtp";
+  process.env.SMTP_HOST = "smtp.example.com";
+  process.env.SMTP_PORT = port;
+  process.env.SMTP_USER = "user@example.com";
+  process.env.SMTP_PASS = "pw";
+  process.env.SMTP_FROM = "NOJV <no-reply@example.com>";
+  process.env.APP_BASE_URL =
+    nodeEnv === "production" ? "https://nojv.tw" : "http://localhost:5173";
+}
+
 beforeEach(() => {
-  saved = Object.fromEntries(SMTP_KEYS.map((k) => [k, process.env[k]]));
-  for (const k of SMTP_KEYS) delete process.env[k];
+  saved = Object.fromEntries(
+    MAILER_ENV_KEYS.map((key) => [key, process.env[key]]),
+  ) as typeof saved;
+  for (const key of MAILER_ENV_KEYS) delete process.env[key];
   createTransport.mockClear();
-  sendMail.mockClear();
+  sendMail.mockReset().mockResolvedValue({ accepted: ["a@b.c"], rejected: [] });
 });
 
 afterEach(() => {
-  for (const k of SMTP_KEYS) {
-    if (saved[k] === undefined) delete process.env[k];
-    else process.env[k] = saved[k];
+  vi.restoreAllMocks();
+  for (const key of MAILER_ENV_KEYS) {
+    if (saved[key] === undefined) delete process.env[key];
+    else process.env[key] = saved[key];
   }
 });
 
+describe("mailer configuration", () => {
+  it("requires an explicit MAILER_MODE", async () => {
+    process.env.NODE_ENV = "test";
+    process.env.APP_BASE_URL = "http://localhost:5173";
+    const { validateMailerConfig } = await importMailer();
+    expect(() => validateMailerConfig()).toThrow();
+  });
+
+  it.each(["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const)(
+    "requires %s in smtp mode",
+    async (key) => {
+      useSmtpEnv();
+      delete process.env[key];
+      const { validateMailerConfig } = await importMailer();
+      expect(() => validateMailerConfig()).toThrow();
+    },
+  );
+
+  it("requires HTTPS APP_BASE_URL for production SMTP", async () => {
+    useSmtpEnv("465", "production");
+    process.env.APP_BASE_URL = "http://nojv.example.com";
+    const { validateMailerConfig } = await importMailer();
+    expect(() => validateMailerConfig()).toThrow(/HTTPS/i);
+  });
+
+  it("allows sink only in development and test", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.MAILER_MODE = "sink";
+    process.env.APP_BASE_URL = "https://nojv.example.com";
+    const { validateMailerConfig } = await importMailer();
+    expect(() => validateMailerConfig()).toThrow();
+  });
+
+  it.each(["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const)(
+    "rejects stray %s in sink mode",
+    async (key) => {
+      useSinkEnv();
+      process.env[key] = key === "SMTP_PORT" ? "465" : "stray";
+      const { validateMailerConfig } = await importMailer();
+      expect(() => validateMailerConfig()).toThrow();
+    },
+  );
+
+  it.each(["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const)(
+    "rejects empty stray %s in sink mode",
+    async (key) => {
+      useSinkEnv();
+      process.env[key] = "";
+      const { validateMailerConfig } = await importMailer();
+      expect(() => validateMailerConfig()).toThrow();
+    },
+  );
+
+  it("rejects unknown SMTP variables in sink mode", async () => {
+    useSinkEnv();
+    process.env.SMTP_TYPO = "stray";
+    const { validateMailerConfig } = await importMailer();
+    expect(() => validateMailerConfig()).toThrow();
+  });
+});
+
 describe("getMailer", () => {
-  it("returns a no-op mailer when SMTP is unconfigured", async () => {
+  it("returns suppressed in sink mode and logs no message content", async () => {
+    useSinkEnv();
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const { getMailer } = await importMailer();
-    const mailer = getMailer();
+
     await expect(
-      mailer.sendEmail({ to: "a@b.c", subject: "s", html: "<p>h</p>" }),
-    ).resolves.toBeUndefined();
+      getMailer().sendEmail({
+        to: "secret-recipient@example.com",
+        subject: "secret subject",
+        html: "<p>OTP 123456</p>",
+      }),
+    ).resolves.toBe("suppressed");
+
     expect(createTransport).not.toHaveBeenCalled();
     expect(sendMail).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith({
+      component: "mailer",
+      event: "email_suppressed",
+      mode: "sink",
+    });
+    const logged = JSON.stringify(info.mock.calls);
+    expect(logged).not.toContain("secret-recipient");
+    expect(logged).not.toContain("secret subject");
+    expect(logged).not.toContain("123456");
   });
 
-  it("returns a no-op mailer when only SMTP_HOST is set", async () => {
-    process.env.SMTP_HOST = "smtp.example.com";
+  it("builds a TLS-required SMTP transport and reports accepted delivery", async () => {
+    useSmtpEnv();
     const { getMailer } = await importMailer();
-    await getMailer().sendEmail({ to: "a@b.c", subject: "s", html: "<p>h</p>" });
-    expect(createTransport).not.toHaveBeenCalled();
-  });
 
-  it("builds a secure nodemailer transport when SMTP is configured", async () => {
-    process.env.SMTP_HOST = "smtp.example.com";
-    process.env.SMTP_PORT = "465";
-    process.env.SMTP_USER = "user@example.com";
-    process.env.SMTP_PASS = "pw";
-    const { getMailer } = await importMailer();
-    await getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" });
+    await expect(
+      getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" }),
+    ).resolves.toBe("accepted");
+
     expect(createTransport).toHaveBeenCalledWith({
       host: "smtp.example.com",
       port: 465,
       secure: true,
+      requireTLS: true,
       auth: { user: "user@example.com", pass: "pw" },
       pool: true,
       maxConnections: 3,
     });
     expect(sendMail).toHaveBeenCalledWith({
-      from: "NOJV <user@example.com>",
+      from: "NOJV <no-reply@example.com>",
       to: "a@b.c",
       subject: "hi",
       html: "<p>h</p>",
     });
   });
 
-  it("uses SMTP_FROM as the sender and a plain transport for port 587", async () => {
-    process.env.SMTP_HOST = "smtp.example.com";
-    process.env.SMTP_PORT = "587";
-    process.env.SMTP_USER = "user@example.com";
-    process.env.SMTP_PASS = "pw";
-    process.env.SMTP_FROM = "NOJV <no-reply@nojv.tw>";
+  it("uses STARTTLS for port 587", async () => {
+    useSmtpEnv("587");
     const { getMailer } = await importMailer();
     await getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" });
     expect(createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({ port: 587, secure: false }),
-    );
-    expect(sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({ from: "NOJV <no-reply@nojv.tw>" }),
+      expect.objectContaining({ port: 587, secure: false, requireTLS: true }),
     );
   });
 
-  it("memoizes the mailer across calls", async () => {
-    process.env.SMTP_HOST = "smtp.example.com";
-    process.env.SMTP_PORT = "465";
-    process.env.SMTP_USER = "user@example.com";
-    process.env.SMTP_PASS = "pw";
+  it("rejects an SMTP response that accepted no recipients", async () => {
+    useSmtpEnv();
+    sendMail.mockResolvedValueOnce({ accepted: [], rejected: ["a@b.c"] });
     const { getMailer } = await importMailer();
-    const first = getMailer();
-    const second = getMailer();
-    expect(first).toBe(second);
+    await expect(
+      getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" }),
+    ).rejects.toThrow(/accepted no recipients/i);
+  });
+
+  it("propagates SMTP runtime errors without falling back to sink", async () => {
+    useSmtpEnv();
+    const smtpError = new Error("smtp down");
+    sendMail.mockRejectedValueOnce(smtpError);
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const { getMailer } = await importMailer();
+    await expect(
+      getMailer().sendEmail({ to: "a@b.c", subject: "hi", html: "<p>h</p>" }),
+    ).rejects.toBe(smtpError);
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it("memoizes the mailer across calls", async () => {
+    useSmtpEnv();
+    const { getMailer } = await importMailer();
+    expect(getMailer()).toBe(getMailer());
     expect(createTransport).toHaveBeenCalledTimes(1);
   });
 });

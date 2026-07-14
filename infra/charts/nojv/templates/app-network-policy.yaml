@@ -66,4 +66,24 @@ spec:
       ports:
         - port: 443
           protocol: TCP
+---
+# SMTP is granted only to platform workers. Destination is unrestricted because
+# provider hostnames may resolve to rotating addresses; the port is constrained.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: platform-smtp-egress
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      nojv-mailer: enabled
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: {{ .Values.mailer.smtpPort }}
+          protocol: TCP
 {{- end }}

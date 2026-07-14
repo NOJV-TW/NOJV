@@ -51,6 +51,8 @@ spec:
           env:
             - name: NODE_ENV
               value: {{ .Values.web.nodeEnv | quote }}
+            - name: MAILER_MODE
+              value: smtp
             - name: PORT
               value: {{ .Values.web.containerPort | quote }}
             {{- if .Values.web.advancedImageAllowedRegistries }}
@@ -116,46 +118,35 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: BETTER_AUTH_URL
-            # Transactional email (school-verification, notifications) via SMTP.
-            # Optional — @nojv/mailer is a no-op until SMTP_HOST and SMTP_USER are
-            # both set; SMTP_PASS is a provider app password, not a login password.
+            # Transactional email is mandatory in production. Runtime startup
+            # rejects missing credentials instead of silently suppressing mail.
             - name: SMTP_HOST
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_HOST
-                  optional: true
             - name: SMTP_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: SMTP_PORT
-                  optional: true
+              value: {{ .Values.mailer.smtpPort | quote }}
             - name: SMTP_USER
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_USER
-                  optional: true
             - name: SMTP_PASS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_PASS
-                  optional: true
             - name: SMTP_FROM
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_FROM
-                  optional: true
-            # APP_BASE_URL intentionally reuses the BETTER_AUTH_URL secret key; an APP_BASE_URL key would be ignored.
             - name: APP_BASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: BETTER_AUTH_URL
-                  optional: true
+                  key: APP_BASE_URL
             - name: GITHUB_CLIENT_ID
               valueFrom:
                 secretKeyRef:

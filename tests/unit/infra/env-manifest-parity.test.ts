@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { workerEnvSchema } from "../../../apps/worker/src/env";
+import { mailerEnvSchema } from "../../../packages/mailer/src/index";
 import { storageEnvSchema } from "../../../packages/storage/src/env";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,13 +21,16 @@ function helmAvailable(): boolean {
   }
 }
 
-let renderedChart: string | undefined;
-function renderChart(): string {
-  renderedChart ??= execSync(
-    "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml",
+const renderedCharts = new Map<string, string>();
+function renderChart(valuesFile = "values-gke.yaml"): string {
+  const cached = renderedCharts.get(valuesFile);
+  if (cached) return cached;
+  const rendered = execSync(
+    `helm template nojv infra/charts/nojv -f infra/charts/nojv/${valuesFile}`,
     { cwd: repoRoot, encoding: "utf8" },
   );
-  return renderedChart;
+  renderedCharts.set(valuesFile, rendered);
+  return rendered;
 }
 
 function isolateDoc(render: string, kind: string, name: string): string {
@@ -75,6 +79,26 @@ const validStorageEnv: Record<string, string> = {
   S3_ACCESS_KEY: "a",
   S3_SECRET_KEY: "s",
 };
+
+const validProductionMailerEnv: Record<string, string> = {
+  NODE_ENV: "production",
+  MAILER_MODE: "smtp",
+  SMTP_HOST: "smtp.example.com",
+  SMTP_PORT: "465",
+  SMTP_USER: "mailer@example.com",
+  SMTP_PASS: "secret",
+  SMTP_FROM: "NOJV <no-reply@example.com>",
+  APP_BASE_URL: "https://nojv.example.com",
+};
+
+function requiredProductionMailerKeys(): string[] {
+  return Object.keys(validProductionMailerEnv).filter((key) => {
+    const without = Object.fromEntries(
+      Object.entries(validProductionMailerEnv).filter(([candidate]) => candidate !== key),
+    );
+    return !mailerEnvSchema.safeParse(without).success;
+  });
+}
 
 function requiredProductionStorageKeys(): string[] {
   const required: string[] = [];
@@ -125,6 +149,38 @@ describe("env schema baseline (no helm required)", () => {
 
   it("the production storage baseline parses (sanity check for the drop-one probe)", () => {
     expect(storageEnvSchema.safeParse(validStorageEnv).success).toBe(true);
+  });
+
+  it("the production mailer baseline parses (sanity check for the drop-one probe)", () => {
+    expect(mailerEnvSchema.safeParse(validProductionMailerEnv).success).toBe(true);
+  });
+
+  it("the local env example is a valid explicit sink without stray SMTP config", () => {
+    const mailerKeys = new Set([
+      "NODE_ENV",
+      "MAILER_MODE",
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "SMTP_USER",
+      "SMTP_PASS",
+      "SMTP_FROM",
+      "APP_BASE_URL",
+    ]);
+    const example = Object.fromEntries(
+      readFileSync(join(repoRoot, ".env.example"), "utf8")
+        .split("\n")
+        .filter((line) => line && !line.startsWith("#") && line.includes("="))
+        .map<[string, string]>((line) => {
+          const separator = line.indexOf("=");
+          return [line.slice(0, separator), line.slice(separator + 1)];
+        })
+        .filter(([key]) => mailerKeys.has(key)),
+    );
+    expect(mailerEnvSchema.parse(example)).toMatchObject({
+      NODE_ENV: "development",
+      MAILER_MODE: "sink",
+      APP_BASE_URL: "http://localhost:5173",
+    });
   });
 });
 
@@ -191,6 +247,76 @@ describeHelm("storage env schema ↔ chart deployment parity", () => {
       ).toEqual([]);
     },
   );
+});
+
+describeHelm("mailer env schema ↔ chart deployment parity", () => {
+  it.each(["values-gke.yaml", "values-single-machine.yaml"])(
+    "%s configures web and platform worker for production SMTP only",
+    (valuesFile) => {
+      const rendered = renderChart(valuesFile);
+      for (const name of ["nojv-web", "nojv-worker-platform"]) {
+        const deployment = isolateDoc(rendered, "Deployment", name);
+        const provided = containerEnvNames(deployment);
+        const missing = requiredProductionMailerKeys().filter((key) => !provided.has(key));
+        expect(
+          missing,
+          `${name} is missing production mailer env: ${missing.join(", ")}`,
+        ).toEqual([]);
+        expect(deployment).toContain("name: MAILER_MODE\n              value: smtp");
+        expect(deployment).toContain('name: SMTP_PORT\n              value: "465"');
+        for (const key of [
+          "SMTP_HOST",
+          "SMTP_USER",
+          "SMTP_PASS",
+          "SMTP_FROM",
+          "APP_BASE_URL",
+        ]) {
+          const start = deployment.indexOf(`- name: ${key}`);
+          const next = deployment.indexOf("\n            - name:", start + 1);
+          const entry = deployment.slice(start, next === -1 ? undefined : next);
+          expect(entry, `${name} ${key} must be a required secret reference`).toContain(
+            `key: ${key}`,
+          );
+          expect(entry).not.toContain("optional: true");
+        }
+      }
+    },
+  );
+
+  it.each(["values-gke.yaml", "values-single-machine.yaml"])(
+    "%s keeps judge-only workers independent from mailer env",
+    (valuesFile) => {
+      const judge = isolateDoc(renderChart(valuesFile), "Deployment", "nojv-worker");
+      const provided = containerEnvNames(judge);
+      expect(provided.has("NODE_ENV")).toBe(true);
+      for (const key of requiredProductionMailerKeys().filter((key) => key !== "NODE_ENV")) {
+        expect(provided.has(key), `judge worker must not receive ${key}`).toBe(false);
+      }
+    },
+  );
+
+  it("documents every required SMTP secret with non-empty production placeholders", () => {
+    const example = readFileSync(
+      join(repoRoot, "infra/charts/nojv/secret.example.yaml"),
+      "utf8",
+    );
+    expect(example).toContain('APP_BASE_URL: "https://nojv.example.com"');
+    expect(example).toMatch(/SMTP_HOST: "[^"]+"/);
+    expect(example).toMatch(/SMTP_USER: "[^"]+"/);
+    expect(example).toMatch(/SMTP_PASS: "[^"]+"/);
+    expect(example).toMatch(/SMTP_FROM: "[^"]+"/);
+    expect(example).not.toMatch(/^\s+SMTP_PORT:/m);
+  });
+
+  it("allows network-policy-constrained platform workers to reach the SMTP port", () => {
+    const policy = isolateDoc(
+      renderChart("values-gke.yaml"),
+      "NetworkPolicy",
+      "platform-smtp-egress",
+    );
+    expect(policy).toContain("nojv-mailer: enabled");
+    expect(policy).toContain("port: 465\n          protocol: TCP");
+  });
 });
 
 describe("Flux release artifact atomicity", () => {

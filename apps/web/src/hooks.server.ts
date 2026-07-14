@@ -1,5 +1,6 @@
 import "$lib/server/otel"; // Must stay first for auto-instrumentation.
 import "$lib/server/domain-orchestration";
+import "$lib/server/mailer-startup";
 
 import { error, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";

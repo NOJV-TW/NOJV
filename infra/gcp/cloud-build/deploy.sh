@@ -78,8 +78,9 @@ gcloud builds submit \
 
 # The chart reads every runtime credential from the nojv-runtime-secrets Secret
 # and provisions the migrator Job + web/worker Deployments in-cluster. Create the
-# Secret from infra/gcp/gke/runtime-secrets.example.yaml BEFORE the first deploy:
-#   kubectl -n nojv apply -f infra/gcp/gke/runtime-secrets.example.yaml  (edited)
+# Secret from the chart's canonical example BEFORE the first deploy:
+#   cp infra/charts/nojv/secret.example.yaml secret.local.yaml
+#   kubectl -n nojv apply -f secret.local.yaml  # after filling every required value
 # kubectl must already be pointed at the target GKE cluster, e.g.:
 #   gcloud container clusters get-credentials <cluster> --region "$REGION"
 

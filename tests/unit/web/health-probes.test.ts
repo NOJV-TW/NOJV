@@ -23,6 +23,7 @@ const {
 
 vi.mock("$lib/server/otel", () => ({}));
 vi.mock("$lib/server/domain-orchestration", () => ({}));
+vi.mock("$lib/server/mailer-startup", () => ({}));
 vi.mock("$lib/auth.server", () => ({ getAuth }));
 vi.mock("$lib/server/env", () => ({
   getWebEnv: () => ({ NODE_ENV: "test" }),

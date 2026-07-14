@@ -28,6 +28,8 @@ const {
   otpConsumeMock,
   stepUpConsumeMock,
   cookiesSetMock,
+  loggerWarnMock,
+  loggerErrorMock,
 } = vi.hoisted(() => ({
   isTwoFactorActivatedMock: vi.fn(),
   setTwoFactorActivatedMock: vi.fn(),
@@ -55,11 +57,22 @@ const {
   otpConsumeMock: vi.fn(),
   stepUpConsumeMock: vi.fn(),
   cookiesSetMock: vi.fn(),
+  loggerWarnMock: vi.fn(),
+  loggerErrorMock: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => new Proxy({}, { get: () => ({}) }));
 
 vi.mock("$lib/server/env", () => ({ getWebEnv: () => ({ NODE_ENV: "test" }) }));
+
+vi.mock("$lib/server/logger", () => ({
+  createLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: loggerWarnMock,
+    error: loggerErrorMock,
+  }),
+}));
 
 vi.mock("@nojv/application", () => ({
   isTwoFactorActivated: isTwoFactorActivatedMock,
@@ -201,7 +214,7 @@ beforeEach(() => {
   markVerifiedSessionMock.mockReset().mockResolvedValue(true);
   grantAdminElevationMock.mockReset().mockResolvedValue(true);
   consumeTotpCodeMock.mockReset().mockResolvedValue(true);
-  sendEmailMock.mockReset().mockResolvedValue(undefined);
+  sendEmailMock.mockReset().mockResolvedValue("accepted");
   enableTwoFactorMock.mockReset();
   verifyTotpMock.mockReset();
   disableTwoFactorMock.mockReset();
@@ -211,6 +224,8 @@ beforeEach(() => {
   otpConsumeMock.mockReset().mockResolvedValue("allowed");
   stepUpConsumeMock.mockReset().mockResolvedValue("allowed");
   cookiesSetMock.mockReset();
+  loggerWarnMock.mockReset();
+  loggerErrorMock.mockReset();
 });
 
 describe("loadTwoFactor", () => {
@@ -269,6 +284,23 @@ describe("sendEmailOtp", () => {
     const result = await actions.sendEmailOtp(makeEvent({ twoFactorEnabled: false }));
     expect(result).toEqual({ sent: true });
     expect(sendEmailMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not report success when delivery is suppressed", async () => {
+    sendEmailMock.mockResolvedValue("suppressed");
+    const result = await actions.sendEmailOtp(makeEvent());
+    expect(result).toMatchObject({ status: 503, data: { error: expect.any(String) } });
+    expect(result).not.toMatchObject({ data: { sent: true } });
+  });
+
+  it("does not report success when SMTP rejects", async () => {
+    sendEmailMock.mockRejectedValue(new Error("smtp down"));
+    const result = await actions.sendEmailOtp(makeEvent());
+    expect(result).toMatchObject({ status: 502, data: { error: expect.any(String) } });
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      "2FA email OTP send failed",
+      expect.objectContaining({ err: "smtp down" }),
+    );
   });
 });
 
@@ -330,6 +362,26 @@ describe("activate", () => {
     expect(sendEmailMock).toHaveBeenCalledOnce();
     expect(result).toEqual({ activated: true });
   });
+
+  it("keeps activation committed and logs when its confirmation is suppressed", async () => {
+    verifyActivationOtpMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockResolvedValue("suppressed");
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", true);
+    expect(result).toEqual({ activated: true });
+    expect(loggerWarnMock).toHaveBeenCalledWith("2FA activated notification email suppressed");
+  });
+
+  it("keeps activation committed and logs when its confirmation fails", async () => {
+    verifyActivationOtpMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockRejectedValue(new Error("smtp down"));
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", true);
+    expect(result).toEqual({ activated: true });
+    expect(loggerErrorMock).toHaveBeenCalledWith("2FA activated notification email failed", {
+      err: "smtp down",
+    });
+  });
 });
 
 describe("deactivate", () => {
@@ -356,6 +408,36 @@ describe("deactivate", () => {
     expect(clearStepUpMock).toHaveBeenCalledWith("sess_1");
     expect(clearChangeGrantMock).toHaveBeenCalledWith("sess_1");
     expect(result).toEqual({ deactivated: true });
+  });
+
+  it("keeps deactivation committed and logs when its confirmation is suppressed", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockResolvedValue("suppressed");
+    const result = await actions.deactivate(
+      makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
+    );
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", false);
+    expect(result).toEqual({ deactivated: true });
+    expect(loggerWarnMock).toHaveBeenCalledWith(
+      "2FA deactivated notification email suppressed",
+    );
+  });
+
+  it("keeps deactivation committed and logs when its confirmation fails", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockRejectedValue(new Error("smtp down"));
+    const result = await actions.deactivate(
+      makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
+    );
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", false);
+    expect(result).toEqual({ deactivated: true });
+    expect(loggerErrorMock).toHaveBeenCalledWith("2FA deactivated notification email failed", {
+      err: "smtp down",
+    });
   });
 
   it("fails 401 on a bad device code", async () => {

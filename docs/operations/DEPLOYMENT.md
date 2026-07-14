@@ -74,20 +74,25 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Email
 
-Optional to boot. `@nojv/mailer` stays a **no-op** until both `SMTP_HOST` and
-`SMTP_USER` are set — email-sending flows (school-email verification,
-passwordless/2FA enrollment, API-token step-up OTP, notifications) silently skip
-delivery rather than throwing. Set these whenever those features are in use.
-Consumed by both the web app and the platform worker.
+`MAILER_MODE` has no default. Production web and platform workers must use
+`smtp`; they validate the complete configuration before serving work. The Helm
+chart sets `MAILER_MODE=smtp`, takes `SMTP_PORT` from `mailer.smtpPort`, and
+requires the remaining values from the runtime Secret. Judge-only workers do
+not receive or validate mailer configuration.
 
-| Variable       | Purpose                                                             |
-| -------------- | ------------------------------------------------------------------- |
-| `SMTP_HOST`    | SMTP host (empty → mailer no-op)                                    |
-| `SMTP_PORT`    | SMTP port; `465` → implicit TLS, otherwise STARTTLS (default `465`) |
-| `SMTP_USER`    | SMTP username (empty → mailer no-op)                                |
-| `SMTP_PASS`    | SMTP password / provider app password (not the login password)      |
-| `SMTP_FROM`    | Sender header; defaults to `NOJV <SMTP_USER>` when empty            |
-| `APP_BASE_URL` | Base URL for email links (default `https://nojv.tw`)                |
+| Variable       | Production requirement                                                  |
+| -------------- | ----------------------------------------------------------------------- |
+| `MAILER_MODE`  | `smtp`                                                                  |
+| `SMTP_HOST`    | Non-empty SMTP host                                                     |
+| `SMTP_PORT`    | Integer port; `465` uses implicit TLS, every other port forces STARTTLS |
+| `SMTP_USER`    | Non-empty SMTP username                                                 |
+| `SMTP_PASS`    | SMTP app password / credential, never a mailbox login password          |
+| `SMTP_FROM`    | Explicit sender header                                                  |
+| `APP_BASE_URL` | Absolute HTTPS base URL for email links                                 |
+
+Local development and tests may explicitly use `MAILER_MODE=sink`. Sink mode
+returns `suppressed`, emits a content-free structured event, and rejects every
+`SMTP_*` variable (including empty values). SMTP errors never fall back to sink.
 
 ### Temporal
 
@@ -347,8 +352,8 @@ helm upgrade --install nojv infra/charts/nojv \
 
 1. **Runtime secret** — an existing `Secret` (default `nojv-runtime-secrets`) in
    the app namespace holding `DATABASE_URL`, `REDIS_URL`, the `S3_*` keys, the
-   web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`),
-   OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
+   web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`), required SMTP
+   credentials plus `APP_BASE_URL`, OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
    `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` the seed hook
    provisions the super admin from (password ≥ 12 chars, single-use). Copy and
    fill

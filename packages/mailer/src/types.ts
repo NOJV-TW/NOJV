@@ -4,6 +4,8 @@ export interface SendEmailInput {
   html: string;
 }
 
+export type SendEmailResult = "accepted" | "suppressed";
+
 export interface Mailer {
-  sendEmail(input: SendEmailInput): Promise<void>;
+  sendEmail(input: SendEmailInput): Promise<SendEmailResult>;
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { sendEmail, findManyByUserIds, listEmailByIds } = vi.hoisted(() => ({
-  sendEmail: vi.fn().mockResolvedValue(undefined),
+  sendEmail: vi.fn().mockResolvedValue("accepted"),
   findManyByUserIds: vi.fn(),
   listEmailByIds: vi.fn(),
 }));
@@ -46,7 +46,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   findManyByUserIds.mockResolvedValue([]);
   listEmailByIds.mockResolvedValue([]);
-  sendEmail.mockResolvedValue(undefined);
+  sendEmail.mockResolvedValue("accepted");
 });
 
 describe("maybeSendEmails", () => {
@@ -167,6 +167,7 @@ describe("maybeSendEmails", () => {
   it("keeps sending when one email throws", async () => {
     listEmailByIds.mockResolvedValue([verifiedUser("u1"), verifiedUser("u2")]);
     sendEmail.mockRejectedValueOnce(new Error("smtp down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     await expect(
       maybeSendEmails(
@@ -181,6 +182,37 @@ describe("maybeSendEmails", () => {
     ).resolves.toBeUndefined();
 
     expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith({
+      component: "notification-email",
+      event: "delivery_failed",
+      notificationType: "role_changed",
+      error: "smtp down",
+    });
+    warn.mockRestore();
+  });
+
+  it("keeps sending and logs explicitly when delivery is suppressed", async () => {
+    listEmailByIds.mockResolvedValue([verifiedUser("u1"), verifiedUser("u2")]);
+    sendEmail.mockResolvedValueOnce("suppressed");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await maybeSendEmails(
+      ["u1", "u2"].map((userId) => ({
+        userId,
+        type: "role_changed" as const,
+        params: { oldRole: "student", newRole: "teacher" },
+        linkUrl: "/account",
+      })),
+      NO_SKIP,
+    );
+
+    expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith({
+      component: "notification-email",
+      event: "delivery_suppressed",
+      notificationType: "role_changed",
+    });
+    warn.mockRestore();
   });
 
   it("assembles subject and absolute action url", async () => {

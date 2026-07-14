@@ -258,11 +258,15 @@ export const twoFactorActions = {
     const otp = generateActivationOtp();
     await storeActivationOtp(actor.userId, otp);
     try {
-      await getMailer().sendEmail({
+      const delivery = await getMailer().sendEmail({
         to: actor.email,
         subject: "NOJV 兩步驟驗證碼",
         html: otpEmailHtml(otp),
       });
+      if (delivery === "suppressed") {
+        logger.error("2FA email OTP delivery suppressed");
+        return fail(503, { error: "Email delivery is unavailable. Please try again later." });
+      }
     } catch (err) {
       logger.error("2FA email OTP send failed", {
         err: err instanceof Error ? err.message : String(err),
@@ -298,11 +302,14 @@ export const twoFactorActions = {
       });
     }
     try {
-      await getMailer().sendEmail({
+      const delivery = await getMailer().sendEmail({
         to: actor.email,
         subject: "NOJV 已開啟兩步驟驗證",
         html: activatedEmailHtml(),
       });
+      if (delivery === "suppressed") {
+        logger.warn("2FA activated notification email suppressed");
+      }
     } catch (err) {
       logger.error("2FA activated notification email failed", {
         err: err instanceof Error ? err.message : String(err),
@@ -333,11 +340,14 @@ export const twoFactorActions = {
       await clearTwoFactorChangeGrant(sessionId);
     }
     try {
-      await getMailer().sendEmail({
+      const delivery = await getMailer().sendEmail({
         to: actor.email,
         subject: "NOJV 已關閉兩步驟驗證",
         html: deactivatedEmailHtml(),
       });
+      if (delivery === "suppressed") {
+        logger.warn("2FA deactivated notification email suppressed");
+      }
     } catch (err) {
       logger.error("2FA deactivated notification email failed", {
         err: err instanceof Error ? err.message : String(err),

@@ -10,7 +10,7 @@
 - Postgres: in-cluster CloudNativePG `Cluster` (chart default), or managed **Cloud SQL** as an optional alternative.
 - Redis: in-cluster (chart default), or managed **Memorystore** as an optional alternative.
 - Artifact Registry: image storage
-- Secret Manager / runtime secret: `DATABASE_URL`, `REDIS_URL`, `S3_*`, auth/OAuth secrets
+- Secret Manager / runtime secret: `DATABASE_URL`, `REDIS_URL`, `S3_*`, auth/OAuth, required SMTP credentials, and `APP_BASE_URL`
 - **Cloud Armor security policy** attached to the GCLB/Ingress backend — source IP allowlist restricted to Cloudflare's official CIDR ranges
 
 > Provisioning + verification steps for the Cloudflare / Ingress / Cloud Armor trust boundary live in [`docs/operations/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup](../../docs/operations/DEPLOYMENT.md#cloudflare--cloud-armor-setup). The rationale (why no XFF fallback) is in [`docs/operations/SECURITY.md` — Client IP Trust Model](../../docs/operations/SECURITY.md#client-ip-trust-model-cloudflare-only).

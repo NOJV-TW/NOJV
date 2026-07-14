@@ -16,7 +16,8 @@ package time):
 
 1. **Runtime secret** — an existing `Secret` (default name `nojv-runtime-secrets`)
    in the app namespace holding `DATABASE_URL`, `REDIS_URL`, `S3_*`, the web
-   auth secrets, OAuth, and optional `OTEL_EXPORTER_OTLP_*` keys. See
+   auth secrets, required SMTP credentials plus `APP_BASE_URL`, OAuth, and
+   optional `OTEL_EXPORTER_OTLP_*` keys. See
    [`secret.example.yaml`](./secret.example.yaml). The chart never templates
    secret values.
 2. **CloudNativePG operator** (only when `postgres.mode=cnpg`) — install
@@ -100,6 +101,7 @@ infra/charts/nojv/
 | `redis.inCluster`                                                               | `true`                                                             | deploy in-cluster Redis, else `REDIS_URL` from secret                                                               |
 | `storage.inCluster`                                                             | `true`                                                             | deploy in-cluster MinIO, else `S3_*` from secret                                                                    |
 | `storage.bucket` / `storage.region`                                             | `nojv` / `auto`                                                    | S3 bucket/region                                                                                                    |
+| `mailer.smtpPort`                                                               | `465`                                                              | SMTP port injected into web/platform and allowed by the worker egress policy                                        |
 | `registry.enabled`                                                              | `false`                                                            | deploy the in-cluster distribution registry for special_env images                                                  |
 | `registry.{image,host,bucket,internalUrl,resources}`                            | `registry:2.8.3` / `""` / `nojv-registry` / `""`                   | registry image, public push host, MinIO blob bucket, in-cluster URL (empty = Service DNS), sizing                   |
 | `registry.token.{realm,issuer}`                                                 | `""` / `nojv`                                                      | token-auth realm (public URL of the web token endpoint) + JWT issuer                                                |

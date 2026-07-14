@@ -75,9 +75,10 @@ manifests here:
 - worker-egress allowlist NetworkPolicy (guarded by `networkPolicy.enabled`) → `templates/app-network-policy.yaml`
 
 The files that remain in `infra/gcp/gke/` are documentation / value-file inputs,
-not applied manifests:
+not applied manifests. Runtime secrets use the chart's single canonical
+[`secret.example.yaml`](../../charts/nojv/secret.example.yaml), so GKE cannot
+drift onto a second key list.
 
-- `runtime-secrets.example.yaml`: placeholder runtime secret manifest
 - `temporal/helm-values.ha.yaml`: HA values file for the official Temporal chart
 - `temporal/secret.example.yaml`: placeholder Temporal store-credentials secret
 - `temporal/HA-PRODUCTION.md`: Temporal production HA options
