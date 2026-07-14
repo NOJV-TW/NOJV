@@ -44,7 +44,9 @@ namespace guardrails are all rendered by the `nojv` Helm chart at
 - `REGION` (Artifact Registry region)
 - `REPOSITORY`
 - `RELEASE_NAME`
-- `IMAGE_TAG` (an explicit release tag; mutable `latest`/`main`/`local` tags are rejected)
+- `RELEASE_SHA` (the lowercase 40-character commit SHA at `HEAD`)
+- `RELEASE_REMOTE` (the Git remote whose release ref is authoritative, usually `origin`)
+- `RELEASE_REF` (a fully qualified remote branch ref, for example `refs/heads/main`)
 - `CLUSTER_NAME`
 - `CLUSTER_LOCATION`
 - `DEPLOY_PRINCIPAL` (must exactly match the active `gcloud` account)
@@ -60,15 +62,17 @@ Secret separately from `infra/charts/nojv/secret.example.yaml` before deploy.
 2. Export the required environment variables.
 3. Run `bash infra/gcp/cloud-build/deploy.sh`.
 4. The script:
+   - requires a clean source tree and proves `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`
+   - archives that verified commit so Cloud Build never uploads mutable working-tree content
    - verifies the active principal, project, Cloud Build identity, GKE resource,
      endpoint, and CA before any cloud or cluster mutation
    - obtains credentials into a temporary isolated kubeconfig and passes its
      verified context explicitly to Helm
    - enables required GCP APIs
    - ensures the Artifact Registry repository exists
-   - submits Cloud Build under the required service account and explicit image tag
+   - submits Cloud Build under the required service account with the commit SHA as the image tag and OCI source revision
    - reads each pushed tag's digest back from Artifact Registry
-   - deploys the four immutable `tag@sha256` references through Helm
+   - deploys the four immutable `tag@sha256` references through Helm with the source SHA in object metadata
 5. Verify the Helm release and rollout reported by the script.
    The migrator runs automatically as the chart's pre-install/pre-upgrade Helm
    hook; `web` is deployed by the chart as an in-cluster Deployment.

@@ -24,6 +24,7 @@ describe("supply-chain policy scanner", () => {
     "valid-images.Dockerfile",
     "valid-docker-runtime.ts",
     "valid-docker-runtime.sh",
+    "valid-remote-modules.json",
   ])("accepts %s", (name) => {
     expect(checkSupplyChainFile(name, fixture(name))).toEqual([]);
   });
@@ -46,6 +47,8 @@ describe("supply-chain policy scanner", () => {
     ["invalid-unversioned-chart.sh", /Helm repositories/],
     ["invalid-unversioned-download.sh", /literal version/],
     ["invalid-unpinned-image.yml", /manifest digest/],
+    ["invalid-latest-remote-module.json", /immutable version or commit/],
+    ["invalid-unpinned-remote-module.json", /immutable version or commit/],
     ["invalid-unpinned-base.Dockerfile", /manifest digest/],
     ["invalid-docker-runtime.ts", /manifest digest/],
     ["invalid-docker-runtime.sh", /manifest digest/],

@@ -387,7 +387,9 @@ export PROJECT_ID=...
 export REGION=asia-east1
 export REPOSITORY=nojv
 export RELEASE_NAME=nojv
-export IMAGE_TAG=release-20260715
+export RELEASE_SHA="$(git rev-parse HEAD)"
+export RELEASE_REMOTE=origin
+export RELEASE_REF=refs/heads/main
 export CLUSTER_NAME=nojv-prod
 export CLUSTER_LOCATION=asia-east1
 export DEPLOY_PRINCIPAL=deployer@example.com
@@ -396,18 +398,13 @@ export K8S_NAMESPACE=nojv
 bash infra/gcp/cloud-build/deploy.sh
 ```
 
-The script has no ambient project, cluster, principal, kube-context, or image-tag
-fallback. It validates all five identities before enabling APIs, creating a
-repository, submitting a build, or running Helm. The tag remains readable
-metadata; the digest is what makes the deployment immutable. To run only the
-build step manually, keep the same explicit project and service account:
-
-```bash
-gcloud builds submit --project "$PROJECT_ID" \
-  --config infra/gcp/cloud-build/cloudbuild.yaml \
-  --service-account "projects/${PROJECT_ID}/serviceAccounts/${CLOUD_BUILD_SERVICE_ACCOUNT}" \
-  --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260715,_SERVICE_ACCOUNT="${CLOUD_BUILD_SERVICE_ACCOUNT}"
-```
+The script has no ambient project, cluster, principal, kube-context, source-ref,
+or release-identity fallback. Before any cloud mutation it requires a clean
+working tree and proves `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`. It
+then uploads a fresh archive of that commit, not the working directory. The
+commit SHA is both the readable image tag and OCI/Helm provenance metadata; the
+registry digest makes the deployed image immutable. Direct manual Cloud Build
+submission is intentionally unsupported because it bypasses these source checks.
 
 ### GKE Rollout
 

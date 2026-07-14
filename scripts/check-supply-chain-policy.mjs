@@ -3,7 +3,7 @@ import { extname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const ACTION_SHA = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*@[a-f0-9]{40}$/u;
-const VERSIONED_URL = /(?:^|[/_.-])v?\d+\.\d+\.\d+(?:[/_.-]|$)|[0-9a-f]{40}/u;
+const VERSIONED_URL = /(?:^|[/_.@-])v?\d+\.\d+\.\d+(?:[/_.-]|$)|[0-9a-f]{40}/u;
 const SHA256 = /[a-f0-9]{64}/u;
 const IMMUTABLE_IMAGE =
   /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
@@ -20,6 +20,20 @@ const SKIPPED_DIRECTORIES = new Set([
   "node_modules",
   "paraglide",
 ]);
+
+function isImmutableRemoteModule(module) {
+  try {
+    const url = new URL(module);
+    return (
+      url.protocol === "https:" &&
+      !module.includes("$") &&
+      !/(?:@|\/)(?:main|master|latest)(?:\/|$)/iu.test(url.pathname) &&
+      VERSIONED_URL.test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
 
 function violation(file, line, message) {
   return { file, line, message };
@@ -83,6 +97,30 @@ function imageReferences(file, line, index, lines) {
 export function checkSupplyChainFile(file, content) {
   const violations = [];
   const lines = content.split("\n");
+
+  if (file.endsWith(".json")) {
+    let document;
+    try {
+      document = JSON.parse(content);
+    } catch {
+      document = undefined;
+    }
+    if (Array.isArray(document?.modules)) {
+      for (const module of document.modules) {
+        if (typeof module !== "string" || !/^https?:\/\//u.test(module)) continue;
+        const line = lines.findIndex((candidate) => candidate.includes(module)) + 1;
+        if (!isImmutableRemoteModule(module)) {
+          violations.push(
+            violation(
+              file,
+              line,
+              "remote executable modules must use HTTPS and an immutable version or commit",
+            ),
+          );
+        }
+      }
+    }
+  }
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -196,7 +234,7 @@ function policyFiles(root) {
           if (
             entry.name.endsWith(".sh") ||
             isDockerfile(relativePath) ||
-            [".yml", ".yaml"].includes(extname(entry.name)) ||
+            [".json", ".yml", ".yaml"].includes(extname(entry.name)) ||
             SOURCE_EXTENSIONS.has(extname(entry.name))
           ) {
             files.add(path);

@@ -20,13 +20,17 @@ require_env() {
 
 require_command gcloud
 require_command helm
+require_command git
 require_command kubectl
+require_command tar
 
 PROJECT_ID="${PROJECT_ID:-}"
 REGION="${REGION:-}"
 REPOSITORY="${REPOSITORY:-}"
 RELEASE_NAME="${RELEASE_NAME:-}"
-IMAGE_TAG="${IMAGE_TAG:-}"
+RELEASE_SHA="${RELEASE_SHA:-}"
+RELEASE_REMOTE="${RELEASE_REMOTE:-}"
+RELEASE_REF="${RELEASE_REF:-}"
 CLUSTER_NAME="${CLUSTER_NAME:-}"
 CLUSTER_LOCATION="${CLUSTER_LOCATION:-}"
 DEPLOY_PRINCIPAL="${DEPLOY_PRINCIPAL:-}"
@@ -37,7 +41,9 @@ require_env PROJECT_ID
 require_env REGION
 require_env REPOSITORY
 require_env RELEASE_NAME
-require_env IMAGE_TAG
+require_env RELEASE_SHA
+require_env RELEASE_REMOTE
+require_env RELEASE_REF
 require_env CLUSTER_NAME
 require_env CLUSTER_LOCATION
 require_env DEPLOY_PRINCIPAL
@@ -48,15 +54,54 @@ if [[ ! "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]; then
   echo "PROJECT_ID is not a valid Google Cloud project ID: $PROJECT_ID" >&2
   exit 1
 fi
-if [[ ! "$IMAGE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] ||
-  [[ "$IMAGE_TAG" =~ ^(latest|main|master|local)$ ]]; then
-  echo "IMAGE_TAG must be an explicit immutable release tag, not a mutable branch tag." >&2
+if [[ ! "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]; then
+  echo "RELEASE_SHA must be a lowercase 40-character commit SHA." >&2
+  exit 1
+fi
+if [[ ! "$RELEASE_REMOTE" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "RELEASE_REMOTE must be an explicit Git remote name." >&2
+  exit 1
+fi
+if [[ "$RELEASE_REF" != refs/heads/* ]] || ! git check-ref-format "$RELEASE_REF"; then
+  echo "RELEASE_REF must be an explicit fully qualified branch ref." >&2
   exit 1
 fi
 if [[ ! "$CLOUD_BUILD_SERVICE_ACCOUNT" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]]; then
   echo "CLOUD_BUILD_SERVICE_ACCOUNT must be a full service-account email." >&2
   exit 1
 fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+HEAD_SHA="$(git rev-parse --verify 'HEAD^{commit}')"
+if [[ "$HEAD_SHA" != "$RELEASE_SHA" ]]; then
+  echo "RELEASE_SHA ${RELEASE_SHA} does not match HEAD ${HEAD_SHA:-none}." >&2
+  exit 1
+fi
+if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+  echo "The working tree must be clean, including untracked files, before deployment." >&2
+  exit 1
+fi
+REMOTE_RELEASE="$(git ls-remote --exit-code "$RELEASE_REMOTE" "$RELEASE_REF")"
+IFS=$'\t' read -r REMOTE_SHA REMOTE_REF EXTRA <<< "$REMOTE_RELEASE"
+if [[ "$REMOTE_RELEASE" == *$'\n'* ]] ||
+  [[ "$REMOTE_REF" != "$RELEASE_REF" ]] ||
+  [[ "$REMOTE_SHA" != "$RELEASE_SHA" ]] ||
+  [[ -n "$EXTRA" ]]; then
+  echo "Remote ref ${RELEASE_REMOTE}:${RELEASE_REF} does not resolve exactly to RELEASE_SHA ${RELEASE_SHA}." >&2
+  exit 1
+fi
+
+TEMP_DIR="$(mktemp -d)"
+SOURCE_DIR="${TEMP_DIR}/source"
+KUBECONFIG_DIR="${TEMP_DIR}/kubeconfig"
+mkdir -p "$SOURCE_DIR" "$KUBECONFIG_DIR"
+cleanup() {
+  rm -rf "$TEMP_DIR"
+}
+trap cleanup EXIT
+git archive --format=tar "$RELEASE_SHA" | tar -xf - -C "$SOURCE_DIR"
+IMAGE_TAG="$RELEASE_SHA"
 
 ACTIVE_ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
 if [[ "$ACTIVE_ACCOUNT" != "$DEPLOY_PRINCIPAL" ]]; then
@@ -99,12 +144,7 @@ if [[ "$ACTUAL_CLUSTER_NAME" != "$CLUSTER_NAME" ]] ||
   exit 1
 fi
 
-KUBECONFIG_DIR="$(mktemp -d)"
 export KUBECONFIG="${KUBECONFIG_DIR}/config"
-cleanup_kubeconfig() {
-  rm -rf "$KUBECONFIG_DIR"
-}
-trap cleanup_kubeconfig EXIT
 
 gcloud container clusters get-credentials "$CLUSTER_NAME" \
   --project "$PROJECT_ID" \
@@ -183,11 +223,11 @@ for component in web worker sandbox migrator; do
   fi
 done
 
-gcloud builds submit \
+gcloud builds submit "$SOURCE_DIR" \
   --project "$PROJECT_ID" \
-  --config infra/gcp/cloud-build/cloudbuild.yaml \
+  --config "$SOURCE_DIR/infra/gcp/cloud-build/cloudbuild.yaml" \
   --service-account "projects/${PROJECT_ID}/serviceAccounts/${CLOUD_BUILD_SERVICE_ACCOUNT}" \
-  --substitutions "_REGION=${REGION},_REPOSITORY=${REPOSITORY},_IMAGE_TAG=${IMAGE_TAG},_SERVICE_ACCOUNT=${CLOUD_BUILD_SERVICE_ACCOUNT}"
+  --substitutions "_REGION=${REGION},_REPOSITORY=${REPOSITORY},_SOURCE_SHA=${RELEASE_SHA},_SERVICE_ACCOUNT=${CLOUD_BUILD_SERVICE_ACCOUNT}"
 
 resolve_digest() {
   local component="$1"
@@ -215,13 +255,14 @@ MIGRATOR_DIGEST="$(resolve_digest migrator)"
 # Secret from the chart's canonical example BEFORE the first deploy:
 #   cp infra/charts/nojv/secret.example.yaml secret.local.yaml
 #   kubectl -n nojv apply -f secret.local.yaml  # after filling every required value
-helm upgrade --install "$RELEASE_NAME" infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml \
+helm upgrade --install "$RELEASE_NAME" "$SOURCE_DIR/infra/charts/nojv" \
+  -f "$SOURCE_DIR/infra/charts/nojv/values-gke.yaml" \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$K8S_NAMESPACE" \
   --set image.registry="${REGION}-docker.pkg.dev" \
   --set image.repositoryPrefix="${PROJECT_ID}/${REPOSITORY}" \
   --set image.tag="${IMAGE_TAG}" \
+  --set-string release.sourceSha="${RELEASE_SHA}" \
   --set-string image.digests.web="${WEB_DIGEST}" \
   --set-string image.digests.worker="${WORKER_DIGEST}" \
   --set-string image.digests.sandbox="${SANDBOX_DIGEST}" \
@@ -233,6 +274,7 @@ echo "  release: ${RELEASE_NAME}"
 echo "  cluster: ${CLUSTER_NAME}@${CLUSTER_LOCATION}"
 echo "  principal: ${DEPLOY_PRINCIPAL}"
 echo "  cloud build service account: ${CLOUD_BUILD_SERVICE_ACCOUNT}"
+echo "  source: ${RELEASE_REMOTE}:${RELEASE_REF}@${RELEASE_SHA}"
 echo "  image tag: ${IMAGE_TAG}"
 echo "  registry: ${IMAGE_REGISTRY}"
 echo "  web digest: ${WEB_DIGEST}"

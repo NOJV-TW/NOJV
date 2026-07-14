@@ -1,6 +1,10 @@
 namespace: nojv
 sandboxNamespace: nojv-sandbox
 
+release:
+  # Verified source commit stamped into Helm object metadata by production deploys.
+  sourceSha: ""
+
 nameOverride: ""
 fullnameOverride: ""
 

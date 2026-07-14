@@ -9,7 +9,9 @@ steps:
       - -f
       - infra/docker/web.Dockerfile
       - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/web:${_IMAGE_TAG}
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/web:${_SOURCE_SHA}
+      - --label=org.opencontainers.image.revision=${_SOURCE_SHA}
+      - --label=org.opencontainers.image.version=${_SOURCE_SHA}
       - .
   - name: gcr.io/cloud-builders/docker:latest@sha256:6c9b879570fe1c63a78af0b575ca5ac52f6c2c7e25f76f91ae1f2d6cb2a872ee
     args:
@@ -17,7 +19,9 @@ steps:
       - -f
       - infra/docker/worker.Dockerfile
       - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/worker:${_IMAGE_TAG}
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/worker:${_SOURCE_SHA}
+      - --label=org.opencontainers.image.revision=${_SOURCE_SHA}
+      - --label=org.opencontainers.image.version=${_SOURCE_SHA}
       - .
   - name: gcr.io/cloud-builders/docker:latest@sha256:6c9b879570fe1c63a78af0b575ca5ac52f6c2c7e25f76f91ae1f2d6cb2a872ee
     args:
@@ -25,7 +29,9 @@ steps:
       - -f
       - infra/docker/sandbox-runner.Dockerfile
       - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/sandbox:${_IMAGE_TAG}
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/sandbox:${_SOURCE_SHA}
+      - --label=org.opencontainers.image.revision=${_SOURCE_SHA}
+      - --label=org.opencontainers.image.version=${_SOURCE_SHA}
       - .
   - name: gcr.io/cloud-builders/docker:latest@sha256:6c9b879570fe1c63a78af0b575ca5ac52f6c2c7e25f76f91ae1f2d6cb2a872ee
     args:
@@ -33,13 +39,15 @@ steps:
       - -f
       - infra/docker/migrator.Dockerfile
       - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/migrator:${_IMAGE_TAG}
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/migrator:${_SOURCE_SHA}
+      - --label=org.opencontainers.image.revision=${_SOURCE_SHA}
+      - --label=org.opencontainers.image.version=${_SOURCE_SHA}
       - .
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/web:${_IMAGE_TAG}
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/worker:${_IMAGE_TAG}
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/sandbox:${_IMAGE_TAG}
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/migrator:${_IMAGE_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/web:${_SOURCE_SHA}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/worker:${_SOURCE_SHA}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/sandbox:${_SOURCE_SHA}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/migrator:${_SOURCE_SHA}
 
 serviceAccount: projects/$PROJECT_ID/serviceAccounts/${_SERVICE_ACCOUNT}
 

@@ -25,6 +25,24 @@ function fakeCommands(root: string): { bin: string; log: string } {
   const bin = join(root, "bin");
   const log = join(root, "commands.log");
   mkdirSync(bin);
+  writeFileSync(log, "", "utf8");
+
+  executable(
+    join(bin, "git"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+printf 'git %s\\n' "$*" >> "$COMMAND_LOG"
+case "$1 $2" in
+  "check-ref-format refs/heads/main") : ;;
+  "rev-parse --show-toplevel") printf '%s\\n' "$FAKE_REPO_ROOT" ;;
+  "rev-parse --verify") printf '%s\\n' "$FAKE_HEAD_SHA" ;;
+  "status --porcelain=v1") printf '%s' "$FAKE_GIT_STATUS" ;;
+  "ls-remote --exit-code") printf '%s\\t%s\\n' "$FAKE_REMOTE_SHA" "$RELEASE_REF" ;;
+  "archive --format=tar") tar -cf - --files-from /dev/null ;;
+  *) printf 'unexpected git command: %s\\n' "$*" >&2; exit 69 ;;
+esac
+`,
+  );
 
   executable(
     join(bin, "gcloud"),
@@ -42,7 +60,7 @@ case "$1 $2 $3" in
   "artifacts repositories describe") printf '%s\t%s\n' "$FAKE_REPOSITORY_FORMAT" "$FAKE_IMMUTABLE_TAGS" ;;
   "artifacts repositories create") : ;;
   "artifacts docker tags") printf '%s\n' "$FAKE_EXISTING_TAG" ;;
-  "builds submit --project") : ;;
+  "builds submit "*) : ;;
   "artifacts docker images") printf '%s\\n' 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' ;;
   *) printf 'unexpected gcloud command: %s\\n' "$*" >&2; exit 70 ;;
 esac
@@ -84,7 +102,9 @@ function runDeploy(overrides: Record<string, string> = {}) {
     REGION: "asia-east1",
     REPOSITORY: "nojv",
     RELEASE_NAME: "nojv",
-    IMAGE_TAG: "release-20260715",
+    RELEASE_SHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    RELEASE_REMOTE: "origin",
+    RELEASE_REF: "refs/heads/main",
     CLUSTER_NAME: "nojv-prod",
     CLUSTER_LOCATION: "asia-east1",
     DEPLOY_PRINCIPAL: "deployer@example.com",
@@ -102,6 +122,10 @@ function runDeploy(overrides: Record<string, string> = {}) {
     FAKE_REPOSITORY_FORMAT: "DOCKER",
     FAKE_IMMUTABLE_TAGS: "True",
     FAKE_EXISTING_TAG: "",
+    FAKE_REPO_ROOT: repoRoot,
+    FAKE_HEAD_SHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    FAKE_GIT_STATUS: "",
+    FAKE_REMOTE_SHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     ...overrides,
   };
   const result = spawnSync("bash", [deployScript], {
@@ -133,11 +157,39 @@ describe("GCP deploy identity preflight", () => {
       "serviceAccount: projects/$PROJECT_ID/serviceAccounts/${_SERVICE_ACCOUNT}",
     );
     expect(config).toContain("logging: CLOUD_LOGGING_ONLY");
-    expect(config).not.toMatch(/_IMAGE_TAG:\s*(latest|main|master)/u);
+    expect(config).not.toContain("_IMAGE_TAG");
+    expect(config.match(/\/(?:web|worker|sandbox|migrator):\$\{_SOURCE_SHA\}/gu)).toHaveLength(
+      8,
+    );
+    expect(
+      config.match(/org\.opencontainers\.image\.revision=\$\{_SOURCE_SHA\}/gu),
+    ).toHaveLength(4);
+    expect(
+      config.match(/org\.opencontainers\.image\.version=\$\{_SOURCE_SHA\}/gu),
+    ).toHaveLength(4);
 
     const deploy = readFileSync(deployScript, "utf8");
     expect(deploy).toContain("--immutable-tags");
     expect(deploy).toContain("value(format,dockerConfig.immutableTags)");
+  });
+
+  it.each([
+    ["non-SHA release identity", { RELEASE_SHA: "release-20260715" }, /40-character/u],
+    ["different checked-out commit", { FAKE_HEAD_SHA: "b".repeat(40) }, /does not match HEAD/u],
+    [
+      "dirty source tree",
+      { FAKE_GIT_STATUS: " M package.json\\n" },
+      /working tree must be clean/u,
+    ],
+    ["different remote ref", { FAKE_REMOTE_SHA: "b".repeat(40) }, /Remote ref/u],
+    ["unsupported tag ref", { RELEASE_REF: "refs/tags/v1.0.0" }, /branch ref/u],
+  ])("rejects %s before any cloud command", (_name, overrides, message) => {
+    const { result, commands } = runDeploy(overrides as Record<string, string>);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(message);
+    expect(commands).not.toContain("gcloud ");
+    expectNoMutation(commands);
   });
 
   it("rejects an unexpected active principal before any mutation", () => {
@@ -189,7 +241,7 @@ describe("GCP deploy identity preflight", () => {
   });
 
   it("rejects a pre-existing component tag before Cloud Build can push", () => {
-    const { result, commands } = runDeploy({ FAKE_EXISTING_TAG: "release-20260715" });
+    const { result, commands } = runDeploy({ FAKE_EXISTING_TAG: "a".repeat(40) });
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Immutable Artifact Registry tag already exists");
@@ -209,11 +261,82 @@ describe("GCP deploy identity preflight", () => {
     expect(commands).toContain(
       "--service-account projects/nojv-prod/serviceAccounts/cloud-build@nojv-prod.iam.gserviceaccount.com",
     );
+    expect(commands).toContain("_SOURCE_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    expect(commands).toContain(
+      "git archive --format=tar aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    expect(commands).toMatch(
+      /gcloud builds submit .*\/source .*--config .*\/source\/infra\/gcp\/cloud-build\/cloudbuild\.yaml/u,
+    );
     expect(commands).toContain("helm upgrade --install nojv");
+    expect(commands).toMatch(/helm upgrade --install nojv .*\/source\/infra\/charts\/nojv/u);
     expect(commands).toContain("--kube-context gke-nojv-prod-asia-east1-nojv-prod");
     expect(commands).toContain("--namespace nojv");
+    expect(commands).toContain(
+      "--set-string release.sourceSha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
     expect(commands.indexOf("artifacts docker tags list")).toBeLessThan(
       commands.indexOf("builds submit"),
     );
+  });
+
+  it("renders the verified source revision into Helm object metadata", () => {
+    const sourceSha = "a".repeat(40);
+    const rendered = spawnSync(
+      "helm",
+      [
+        "template",
+        "nojv",
+        "infra/charts/nojv",
+        "-f",
+        "infra/charts/nojv/values-gke.yaml",
+        "-f",
+        "tests/fixtures/helm/immutable-image-digests.yaml",
+        "--set-string",
+        `release.sourceSha=${sourceSha}`,
+        "--set-string",
+        `image.tag=${sourceSha}`,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    expect(rendered.status, rendered.stderr).toBe(0);
+    expect(rendered.stdout).toContain(`app.kubernetes.io/version: "${sourceSha}"`);
+
+    const invalid = spawnSync(
+      "helm",
+      [
+        "template",
+        "nojv",
+        "infra/charts/nojv",
+        "-f",
+        "infra/charts/nojv/values-gke.yaml",
+        "-f",
+        "tests/fixtures/helm/immutable-image-digests.yaml",
+        "--set-string",
+        "release.sourceSha=latest",
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    expect(invalid.status).not.toBe(0);
+    expect(invalid.stderr).toContain("release.sourceSha must be a lowercase 40-character");
+
+    const mismatched = spawnSync(
+      "helm",
+      [
+        "template",
+        "nojv",
+        "infra/charts/nojv",
+        "-f",
+        "infra/charts/nojv/values-gke.yaml",
+        "-f",
+        "tests/fixtures/helm/immutable-image-digests.yaml",
+        "--set-string",
+        `release.sourceSha=${sourceSha}`,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    expect(mismatched.status).not.toBe(0);
+    expect(mismatched.stderr).toContain("release.sourceSha must equal image.tag");
   });
 });
