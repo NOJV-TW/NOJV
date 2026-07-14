@@ -148,6 +148,7 @@ function problemEditAction<T>(
     const actor = requireAuth(event);
     const problemId = event.params.problemId;
     if (!problemId) error(400, "Missing problem id");
+    await problemDomain.assertProblemEditAccess(actor, problemId);
 
     return handler({ actor, problemId, event });
   });
