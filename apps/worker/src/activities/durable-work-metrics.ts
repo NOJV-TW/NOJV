@@ -4,17 +4,24 @@ import type { DurableWorkOutcome } from "./durable-work-runner";
 
 const meter = metrics.getMeter("@nojv/worker", "0.1.0");
 const outcomeCounter = meter.createCounter("durable_work_outcomes_total", {
-  description: "Durable work handler outcomes grouped by registered kind",
+  description: "Durable work handler outcomes grouped by kind and delivery semantics",
 });
 
 export function durableWorkMetricAttributes(
   kind: string,
   outcome: DurableWorkOutcome,
   registeredKinds: ReadonlySet<string>,
-): { kind: string; outcome: DurableWorkOutcome } {
+): {
+  kind: string;
+  outcome: DurableWorkOutcome;
+  delivery_semantics: "at_least_once" | "not_applicable";
+} {
+  const boundedKind = registeredKinds.has(kind) ? kind : "unregistered";
   return {
-    kind: registeredKinds.has(kind) ? kind : "unregistered",
+    kind: boundedKind,
     outcome,
+    delivery_semantics:
+      boundedKind === "notification.email" ? "at_least_once" : "not_applicable",
   };
 }
 

@@ -1,11 +1,40 @@
 import { getAppBaseUrl, getMailer, renderEmail } from "@nojv/mailer";
-import type { NotificationCreateInput } from "@nojv/db";
-import type { NotificationPreferences } from "@nojv/core";
+import { notificationRepo, type NotificationCreateInput } from "@nojv/db";
+import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferencesSchema } from "@nojv/core";
+import { z } from "zod";
 
 type Params = Record<string, unknown>;
 
+const NOTIFICATION_TYPES = [
+  "assignment_started",
+  "assignment_due_soon",
+  "exam_starting_soon",
+  "contest_starting_soon",
+  "course_enrolled",
+  "announcement_published",
+  "role_changed",
+  "clarification_answered",
+  "editorial_removed",
+  "post_removed",
+  "comment_removed",
+] as const satisfies readonly NotificationCreateInput["type"][];
+
+const EMAIL_PREFERENCE_KEYS = [
+  "emailAssignmentStarted",
+  "emailAssignmentDueSoon",
+  "emailExamStarting",
+  "emailContestStarting",
+  "emailSystemAnnouncement",
+  "emailCourseAnnouncement",
+  "emailCourseEnrolled",
+  "emailRoleChanged",
+  "emailEditorialRemoved",
+] as const;
+
+type NotificationEmailPreferenceKey = (typeof EMAIL_PREFERENCE_KEYS)[number];
+
 interface EmailSpec {
-  prefKey: (params: Params) => keyof NotificationPreferences;
+  prefKey: (params: Params) => NotificationEmailPreferenceKey;
   subject: (params: Params) => string;
   heading: (params: Params) => string;
   intro: (params: Params) => string;
@@ -118,31 +147,55 @@ function isPlaceholderEmail(email: string): boolean {
   return email.endsWith("@placeholder.nojv.local") || email.endsWith("@deleted.nojv.local");
 }
 
-export type NotificationEmailSuppressionReason =
-  | "missing_recipient"
-  | "unverified_recipient"
-  | "placeholder_recipient"
-  | "preference_disabled"
-  | "unsupported_notification_type"
-  | "mailer_suppressed";
+const PRE_DELIVERY_SUPPRESSION_REASONS = [
+  "notification_missing",
+  "missing_recipient",
+  "recipient_disabled",
+  "recipient_inactive",
+  "unverified_recipient",
+  "placeholder_recipient",
+  "preference_disabled",
+  "unsupported_notification_type",
+] as const;
 
-export type NotificationEmailWorkPayload =
-  | {
-      notificationId: string;
-      disposition: "send";
-      messageId: string;
-      to: string;
-      subject: string;
-      html: string;
-    }
-  | {
-      notificationId: string;
-      disposition: "suppress";
-      reason: Exclude<NotificationEmailSuppressionReason, "mailer_suppressed">;
-    };
+export type NotificationEmailSuppressionReason =
+  (typeof PRE_DELIVERY_SUPPRESSION_REASONS)[number] | "mailer_suppressed";
+
+const notificationEmailIdentitySchema = {
+  notificationId: z.string().min(1),
+  userId: z.string().min(1),
+  notificationType: z.enum(NOTIFICATION_TYPES),
+};
+
+export const notificationEmailWorkPayloadSchema = z.discriminatedUnion("disposition", [
+  z
+    .object({
+      ...notificationEmailIdentitySchema,
+      disposition: z.literal("send"),
+      preferenceKey: z.enum(EMAIL_PREFERENCE_KEYS),
+      messageId: z.string().min(1),
+      subject: z.string().min(1),
+      html: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      ...notificationEmailIdentitySchema,
+      disposition: z.literal("suppress"),
+      reason: z.enum(PRE_DELIVERY_SUPPRESSION_REASONS),
+    })
+    .strict(),
+]);
+
+export type NotificationEmailWorkPayload = z.infer<typeof notificationEmailWorkPayloadSchema>;
 
 export type NotificationEmailWorkResult =
-  | { transport: "email"; outcome: "accepted"; messageId: string }
+  | {
+      transport: "email";
+      outcome: "accepted";
+      deliverySemantics: "at_least_once";
+      messageId: string;
+    }
   | {
       transport: "email";
       outcome: "suppressed";
@@ -150,44 +203,36 @@ export type NotificationEmailWorkResult =
       messageId?: string;
     };
 
-interface EmailRecipientSnapshot {
-  email: string;
-  emailVerified: boolean;
-}
-
 function suppressedEmailWork(
   notificationId: string,
+  input: NotificationCreateInput,
   reason: Exclude<NotificationEmailSuppressionReason, "mailer_suppressed">,
 ): NotificationEmailWorkPayload {
-  return { notificationId, disposition: "suppress", reason };
+  return {
+    notificationId,
+    userId: input.userId,
+    notificationType: input.type,
+    disposition: "suppress",
+    reason,
+  };
 }
 
 export function buildNotificationEmailWork(
   notificationId: string,
   input: NotificationCreateInput,
-  recipient: EmailRecipientSnapshot | undefined,
-  preferences: NotificationPreferences,
 ): NotificationEmailWorkPayload {
   const spec = EMAIL_SPECS[input.type];
-  if (!spec) return suppressedEmailWork(notificationId, "unsupported_notification_type");
-  if (!recipient) return suppressedEmailWork(notificationId, "missing_recipient");
-  if (!recipient.emailVerified) {
-    return suppressedEmailWork(notificationId, "unverified_recipient");
-  }
-  if (isPlaceholderEmail(recipient.email)) {
-    return suppressedEmailWork(notificationId, "placeholder_recipient");
-  }
-  if (preferences[spec.prefKey(input.params as Params)] === false) {
-    return suppressedEmailWork(notificationId, "preference_disabled");
-  }
+  if (!spec) return suppressedEmailWork(notificationId, input, "unsupported_notification_type");
 
   const params = input.params as Params;
   const base = getAppBaseUrl();
   return {
     notificationId,
+    userId: input.userId,
+    notificationType: input.type,
     disposition: "send",
+    preferenceKey: spec.prefKey(params),
     messageId: `<notification.${notificationId}@nojv.local>`,
-    to: recipient.email,
     subject: spec.subject(params),
     html: renderEmail({
       heading: spec.heading(params),
@@ -206,8 +251,46 @@ export async function deliverNotificationEmail(
   if (work.disposition === "suppress") {
     return { transport: "email", outcome: "suppressed", reason: work.reason };
   }
+  const context = await notificationRepo.findEmailDeliveryContext(
+    work.notificationId,
+    work.userId,
+  );
+  if (!context.notification) {
+    return {
+      transport: "email",
+      outcome: "suppressed",
+      reason: context.recipientExists ? "notification_missing" : "missing_recipient",
+    };
+  }
+  if (
+    context.notification.userId !== work.userId ||
+    context.notification.type !== work.notificationType
+  ) {
+    throw new Error(`Notification email work identity mismatch: ${work.notificationId}`);
+  }
+
+  const recipient = context.notification.user;
+  if (recipient.disabled) {
+    return { transport: "email", outcome: "suppressed", reason: "recipient_disabled" };
+  }
+  if (recipient.status !== "active") {
+    return { transport: "email", outcome: "suppressed", reason: "recipient_inactive" };
+  }
+  if (!recipient.emailVerified) {
+    return { transport: "email", outcome: "suppressed", reason: "unverified_recipient" };
+  }
+  if (isPlaceholderEmail(recipient.email)) {
+    return { transport: "email", outcome: "suppressed", reason: "placeholder_recipient" };
+  }
+  const preferences = notificationPreferencesSchema.parse(
+    recipient.notificationPreference ?? DEFAULT_NOTIFICATION_PREFERENCES,
+  );
+  if (!preferences[work.preferenceKey]) {
+    return { transport: "email", outcome: "suppressed", reason: "preference_disabled" };
+  }
+
   const delivery = await getMailer().sendEmail({
-    to: work.to,
+    to: recipient.email,
     subject: work.subject,
     html: work.html,
     messageId: work.messageId,
@@ -220,7 +303,12 @@ export async function deliverNotificationEmail(
       messageId: work.messageId,
     };
   }
-  return { transport: "email", outcome: "accepted", messageId: work.messageId };
+  return {
+    transport: "email",
+    outcome: "accepted",
+    deliverySemantics: "at_least_once",
+    messageId: work.messageId,
+  };
 }
 
 function preferenceOutro(base: string): string {

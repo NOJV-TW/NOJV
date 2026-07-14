@@ -22,6 +22,33 @@ export class NotificationDedupeConflictError extends Error {
 }
 
 export const notificationRepo = {
+  async findEmailDeliveryContext(notificationId: string, expectedUserId: string) {
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+      select: {
+        userId: true,
+        type: true,
+        params: true,
+        user: {
+          select: {
+            email: true,
+            emailVerified: true,
+            disabled: true,
+            status: true,
+            notificationPreference: true,
+          },
+        },
+      },
+    });
+    if (notification) return { notification, recipientExists: true } as const;
+
+    const recipient = await prisma.user.findUnique({
+      where: { id: expectedUserId },
+      select: { id: true },
+    });
+    return { notification: null, recipientExists: recipient !== null } as const;
+  },
+
   listRecent(userId: string, limit: number) {
     return prisma.notification.findMany({
       where: { userId },

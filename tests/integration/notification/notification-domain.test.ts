@@ -138,7 +138,7 @@ describe("notificationDomain (real DB + Redis)", () => {
       ).resolves.toMatchObject({
         transport: "email",
         outcome: "suppressed",
-        reason: "mailer_suppressed",
+        reason: "notification_missing",
       });
 
       const deadline = Date.now() + 1000;
@@ -164,6 +164,106 @@ describe("notificationDomain (real DB + Redis)", () => {
     } finally {
       await sub.quit();
     }
+  });
+
+  it("resolves current recipient and preference state after enqueue", async () => {
+    const user = await createTestUser({
+      email: "enqueued@example.com",
+      emailVerified: true,
+    });
+    const notification = await notificationDomain.createNotification({
+      userId: user.id,
+      type: "course_enrolled",
+      params: { courseName: "Algorithms" },
+      linkUrl: "/courses/algorithms",
+    });
+    const emailWork = await testPrisma.durableWork.findUniqueOrThrow({
+      where: {
+        kind_dedupeKey: {
+          kind: notificationDomain.NOTIFICATION_EMAIL_WORK_KIND,
+          dedupeKey: notification.id,
+        },
+      },
+    });
+    const payload =
+      emailWork.payload as unknown as notificationDomain.NotificationEmailWorkPayload;
+    expect(payload).not.toHaveProperty("to");
+
+    await testPrisma.user.update({
+      where: { id: user.id },
+      data: { email: "current@example.com" },
+    });
+    const current = await notificationRepo.findEmailDeliveryContext(notification.id, user.id);
+    expect(current.notification?.user.email).toBe("current@example.com");
+
+    await notificationDomain.updateNotificationPreferences(user.id, {
+      emailCourseEnrolled: false,
+    });
+    await expect(notificationDomain.deliverNotificationEmail(payload)).resolves.toEqual({
+      transport: "email",
+      outcome: "suppressed",
+      reason: "preference_disabled",
+    });
+
+    await notificationDomain.updateNotificationPreferences(user.id, {
+      emailCourseEnrolled: true,
+    });
+    await testPrisma.user.update({ where: { id: user.id }, data: { disabled: true } });
+    await expect(notificationDomain.deliverNotificationEmail(payload)).resolves.toEqual({
+      transport: "email",
+      outcome: "suppressed",
+      reason: "recipient_disabled",
+    });
+  });
+
+  it("distinguishes notification deletion from account deletion at execution", async () => {
+    const notificationOwner = await createTestUser({ emailVerified: true });
+    const deletedNotification = await notificationDomain.createNotification({
+      userId: notificationOwner.id,
+      type: "course_enrolled",
+      params: { courseName: "Algorithms" },
+    });
+    const notificationPayload = (
+      await testPrisma.durableWork.findUniqueOrThrow({
+        where: {
+          kind_dedupeKey: {
+            kind: notificationDomain.NOTIFICATION_EMAIL_WORK_KIND,
+            dedupeKey: deletedNotification.id,
+          },
+        },
+      })
+    ).payload as unknown as notificationDomain.NotificationEmailWorkPayload;
+    await notificationDomain.deleteOne(notificationOwner.id, deletedNotification.id);
+    await expect(
+      notificationDomain.deliverNotificationEmail(notificationPayload),
+    ).resolves.toEqual({
+      transport: "email",
+      outcome: "suppressed",
+      reason: "notification_missing",
+    });
+
+    const deletedAccount = await createTestUser({ emailVerified: true });
+    const accountNotification = await notificationDomain.createNotification({
+      userId: deletedAccount.id,
+      type: "course_enrolled",
+      params: { courseName: "Algorithms" },
+    });
+    const accountPayload = (
+      await testPrisma.durableWork.findUniqueOrThrow({
+        where: {
+          kind_dedupeKey: {
+            kind: notificationDomain.NOTIFICATION_EMAIL_WORK_KIND,
+            dedupeKey: accountNotification.id,
+          },
+        },
+      })
+    ).payload as unknown as notificationDomain.NotificationEmailWorkPayload;
+    await testPrisma.user.delete({ where: { id: deletedAccount.id } });
+    await expect(notificationDomain.deliverNotificationEmail(accountPayload)).resolves.toEqual({
+      transport: "email",
+      outcome: "suppressed",
+      reason: "missing_recipient",
+    });
   });
 
   it("markAsRead is idempotent", async () => {

@@ -25,6 +25,8 @@ vi.mock("@nojv/application", async (importOriginal) => {
       NOTIFICATION_EMAIL_WORK_KIND: "notification.email",
       NOTIFICATION_SSE_WORK_KIND: "notification.sse",
       deliverNotificationEmail: mocks.deliverNotificationEmail,
+      notificationEmailWorkPayloadSchema:
+        original.notificationDomain.notificationEmailWorkPayloadSchema,
       publishNotificationSse: mocks.publishNotificationSse,
     },
     scoreOverrideDomain: { SCORE_CONVERGENCE_WORK_KIND: "score.converge" },
@@ -67,18 +69,37 @@ describe("durable work handlers", () => {
     expect(mocks.publishNotificationSse).toHaveBeenCalledWith(payload);
   });
 
-  it("delivers the immutable email snapshot", async () => {
+  it("delivers immutable email content while deferring recipient policy", async () => {
     const payload = {
       notificationId: "notification-1",
+      userId: "user-1",
+      notificationType: "course_enrolled",
       disposition: "send",
+      preferenceKey: "emailCourseEnrolled",
       messageId: "<notification.notification-1@nojv.local>",
-      to: "student@example.com",
       subject: "Subject",
       html: "<p>Body</p>",
     };
     await durableWorkHandlers["notification.email"](payload);
 
     expect(mocks.deliverNotificationEmail).toHaveBeenCalledWith(payload);
+  });
+
+  it("rejects legacy email payloads that contain a stale recipient snapshot", async () => {
+    await expect(
+      durableWorkHandlers["notification.email"]({
+        notificationId: "notification-1",
+        userId: "user-1",
+        notificationType: "course_enrolled",
+        disposition: "send",
+        preferenceKey: "emailCourseEnrolled",
+        messageId: "<notification.notification-1@nojv.local>",
+        to: "stale@example.com",
+        subject: "Subject",
+        html: "<p>Body</p>",
+      }),
+    ).rejects.toThrow();
+    expect(mocks.deliverNotificationEmail).not.toHaveBeenCalled();
   });
 
   it("converges contest score before publishing the scoreboard signal", async () => {

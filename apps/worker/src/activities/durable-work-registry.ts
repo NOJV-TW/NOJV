@@ -31,31 +31,6 @@ const notificationSsePayload = z
       .strict(),
   })
   .strict();
-const notificationEmailPayload = z.discriminatedUnion("disposition", [
-  z
-    .object({
-      notificationId: z.string().min(1),
-      disposition: z.literal("send"),
-      messageId: z.string().min(1),
-      to: z.email(),
-      subject: z.string().min(1),
-      html: z.string().min(1),
-    })
-    .strict(),
-  z
-    .object({
-      notificationId: z.string().min(1),
-      disposition: z.literal("suppress"),
-      reason: z.enum([
-        "missing_recipient",
-        "unverified_recipient",
-        "placeholder_recipient",
-        "preference_disabled",
-        "unsupported_notification_type",
-      ]),
-    })
-    .strict(),
-]);
 const scoreConvergencePayload = z
   .object({
     context: z.discriminatedUnion("type", [
@@ -72,7 +47,7 @@ export const durableWorkHandlers = Object.freeze({
     return notificationDomain.publishNotificationSse(parsed);
   },
   [notificationDomain.NOTIFICATION_EMAIL_WORK_KIND]: async (payload: unknown) => {
-    const parsed = notificationEmailPayload.parse(payload);
+    const parsed = notificationDomain.notificationEmailWorkPayloadSchema.parse(payload);
     return notificationDomain.deliverNotificationEmail(parsed);
   },
   [scoreOverrideDomain.SCORE_CONVERGENCE_WORK_KIND]: async (payload: unknown) => {

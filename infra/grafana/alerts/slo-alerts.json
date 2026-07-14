@@ -101,5 +101,16 @@
     "for": "30m",
     "severity": "warning",
     "summary": "The most recent CloudNativePG base backup is over 26h old (daily schedule + margin). Harmless while backups are off (metric absent → no data → OK); fires only once postgres.cnpg.backup.enabled is set and the CNPG metrics are scraped. See docs/runbooks/backup-restore.md."
+  },
+  {
+    "uid": "nojv-notification-email-dead",
+    "title": "Notification email exhausted delivery retries",
+    "slo": "No notification email durable work reaches the dead state",
+    "expr": "sum(increase(durable_work_outcomes_total{kind=\"notification.email\",outcome=\"dead\",delivery_semantics=\"at_least_once\"}[10m]))",
+    "threshold": 0,
+    "for": "0m",
+    "severity": "critical",
+    "noDataState": "OK",
+    "summary": "An at-least-once notification email exhausted its database-owned retries. Inspect the DurableWork lastError/result and SMTP health. A stable Message-ID helps recipients deduplicate retries but does not provide exactly-once delivery."
   }
 ]

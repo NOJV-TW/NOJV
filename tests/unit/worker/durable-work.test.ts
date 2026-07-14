@@ -107,6 +107,51 @@ describe("durable work batch processor", () => {
     });
   });
 
+  it("may call SMTP twice when acceptance succeeds before durable completion", async () => {
+    const smtpSend = vi.fn().mockResolvedValue("accepted");
+    const handler = vi.fn(async () => {
+      await smtpSend({ messageId: "<notification.notification-1@nojv.local>" });
+      return { outcome: "accepted", deliverySemantics: "at_least_once" };
+    });
+    const repo = repository({
+      claimBatch: vi
+        .fn()
+        .mockResolvedValueOnce([
+          { id: "work-1", kind: "notification.email", payload: {}, attempt: 1 },
+        ])
+        .mockResolvedValueOnce([
+          { id: "work-1", kind: "notification.email", payload: {}, attempt: 2 },
+        ]),
+      complete: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("completion unavailable after SMTP acceptance"))
+        .mockResolvedValueOnce(undefined),
+    });
+    const dependencies = {
+      repository: repo,
+      handlers: { "notification.email": handler },
+      ownerFactory: vi.fn().mockReturnValueOnce("owner-1").mockReturnValueOnce("owner-2"),
+      recordOutcome: vi.fn(),
+      clock: () => NOW,
+    };
+
+    await expect(processDurableWorkBatch(dependencies)).rejects.toThrow(
+      "completion unavailable after SMTP acceptance",
+    );
+    await expect(processDurableWorkBatch(dependencies)).resolves.toMatchObject({
+      succeeded: 1,
+    });
+
+    expect(smtpSend).toHaveBeenCalledTimes(2);
+    expect(smtpSend).toHaveBeenNthCalledWith(1, {
+      messageId: "<notification.notification-1@nojv.local>",
+    });
+    expect(smtpSend).toHaveBeenNthCalledWith(2, {
+      messageId: "<notification.notification-1@nojv.local>",
+    });
+    expect(repo.retryOrDead).not.toHaveBeenCalled();
+  });
+
   it("rotates the preferred kind after each item so one backlog cannot starve another", async () => {
     const repo = repository({
       claimBatch: vi.fn(({ kinds }: DurableWorkClaimOptions) => {

@@ -4,27 +4,21 @@ import {
   courseMembershipRepo,
   durableWorkRepo,
   examRepo,
-  notificationPreferenceRepo,
   notificationRepo,
   participationRepo,
   runTransaction,
-  userRepo,
   type NotificationCreateInput,
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
 import { pubsub } from "@nojv/redis";
-import {
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  notificationPreferencesSchema,
-  SSE_NOTIFICATION,
-  type NotificationSSEEvent,
-} from "@nojv/core";
+import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
 
 import { listStudentsBelowMaxScore } from "../assignment";
 import {
   buildNotificationEmailWork,
   deliverNotificationEmail,
+  notificationEmailWorkPayloadSchema,
   type NotificationEmailWorkPayload,
 } from "./email";
 import { getEffectiveNotificationPreferences } from "./preferences";
@@ -95,27 +89,11 @@ async function enqueueNotificationDeliveries(
   rows: readonly NotificationDeliveryRow[],
 ): Promise<void> {
   if (rows.length === 0) return;
-  const userIds = [...new Set(rows.map((row) => row.userId))];
-  const [users, preferenceRows] = await Promise.all([
-    userRepo.withTx(tx).listEmailByIds(userIds),
-    notificationPreferenceRepo.withTx(tx).findManyByUserIds(userIds),
-  ]);
-  const usersById = new Map(users.map((user) => [user.id, user]));
-  const preferencesByUserId = new Map(preferenceRows.map((row) => [row.userId, row]));
 
   await durableWorkRepo.withTx(tx).enqueueMany(
     rows.flatMap((row) => {
       const input = toNotificationInput(row);
-      const preferenceRow = preferencesByUserId.get(row.userId);
-      const preferences = preferenceRow
-        ? notificationPreferencesSchema.parse(preferenceRow)
-        : DEFAULT_NOTIFICATION_PREFERENCES;
-      const emailWork = buildNotificationEmailWork(
-        row.id,
-        input,
-        usersById.get(row.userId),
-        preferences,
-      );
+      const emailWork = buildNotificationEmailWork(row.id, input);
       return [
         {
           kind: NOTIFICATION_SSE_WORK_KIND,
@@ -179,7 +157,11 @@ export async function publishNotificationSse(
   return { transport: "sse", outcome: "published", notificationId: work.notificationId };
 }
 
-export { deliverNotificationEmail, type NotificationEmailWorkPayload };
+export {
+  deliverNotificationEmail,
+  notificationEmailWorkPayloadSchema,
+  type NotificationEmailWorkPayload,
+};
 
 export async function listRecent(userId: string, limit: number) {
   const safeLimit = Math.min(Math.max(limit, 1), 50);
