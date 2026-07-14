@@ -64,7 +64,7 @@ function pointer(key: string): string {
 }
 
 describe("versioned storage pointer migration", () => {
-  it("blocks an unbackfilled N-1 database, then contracts only after every pointer is valid", async () => {
+  it("keeps the destructive contract atomic after the external preflight", async () => {
     const schema = `storage_pointer_${randomUUID().replaceAll("-", "")}`;
     await createLegacyTables(schema);
     try {
@@ -94,7 +94,9 @@ describe("versioned storage pointer migration", () => {
         (reason: unknown) => reason,
       );
       expect(blocked).toBeInstanceOf(Error);
-      expect((blocked as Error).message).toContain("Versioned storage pointer cutover blocked");
+      expect((blocked as Error).message).toContain(
+        'column "inputStorage" of relation "Testcase" contains null values',
+      );
 
       await testPrisma.$transaction(async (transaction) => {
         await transaction.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);

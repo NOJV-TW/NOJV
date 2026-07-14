@@ -354,6 +354,8 @@ networkPolicy:
 
 migrator:
   enabled: true
+  activeDeadlineSeconds: 6600
+  statusTimeoutSeconds: 10
   resources:
     requests:
       cpu: 100m
@@ -361,14 +363,16 @@ migrator:
     limits:
       cpu: 500m
       memory: 512Mi
-  backoffLimit: 1
+  backoffLimit: 0
 
 maintenance:
   image: docker.io/alpine/k8s:1.33.3@sha256:47e4ea4c263fb4e14e51d7c5ca841da756673f18e2340f38c0cf1f7219d05e85
-  activeDeadlineSeconds: 360
-  drainTimeoutSeconds: 180
+  activeDeadlineSeconds: 660
+  drainTimeoutSeconds: 300
+  restoreTimeoutSeconds: 300
   readyTimeoutSeconds: 300
   pollIntervalSeconds: 2
+  kubectlRequestTimeoutSeconds: 5
   resources:
     requests:
       cpu: 25m

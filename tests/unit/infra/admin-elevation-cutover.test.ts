@@ -48,28 +48,31 @@ afterEach(() => {
 });
 
 describe("admin-elevation mixed-version deployment cutover", () => {
-  it("renders a fail-closed drain before migration and a readiness wait after deploy", () => {
+  it("makes the migrator own maintenance and waits for the new web revision", () => {
     const render = renderChart("infra/charts/nojv/values-gke.yaml");
-    const drain = renderedResource(render, "Job", "nojv-web-drain");
     const migrator = renderedResource(render, "Job", "nojv-migrator");
-    const ready = renderedResource(render, "Job", "nojv-web-ready");
+    const ready = renderedResource(render, "Job", "nojv-workloads-ready");
 
-    expect(drain).toContain("helm.sh/hook: pre-upgrade");
-    expect(drain).toContain('helm.sh/hook-weight: "-10"');
+    expect(render).not.toContain("name: nojv-web-drain");
+    expect(migrator).toContain("helm.sh/hook: pre-install,pre-upgrade");
     expect(migrator).toContain('helm.sh/hook-weight: "-5"');
+    expect(migrator).toContain("serviceAccountName: nojv-web-maintenance");
+    expect(migrator).toMatch(/name: RELEASE_OPERATION\n\s+value: "install"/);
     expect(ready).toContain("helm.sh/hook: post-upgrade");
-    expect(drain).toMatch(/image: [^\n]+@sha256:[a-f0-9]{64}/);
+    expect(migrator).toMatch(/image: [^\n]+@sha256:[a-f0-9]{64}/);
     expect(ready).toMatch(/image: [^\n]+@sha256:[a-f0-9]{64}/);
 
     const serviceAccount = renderedResource(render, "ServiceAccount", "nojv-web-maintenance");
     const role = renderedResource(render, "Role", "nojv-web-maintenance");
     const roleBinding = renderedResource(render, "RoleBinding", "nojv-web-maintenance");
-    expect(serviceAccount).toContain("helm.sh/hook: pre-upgrade,post-upgrade");
+    expect(serviceAccount).toContain("helm.sh/hook: pre-install,pre-upgrade,post-upgrade");
     expect(serviceAccount).toContain('helm.sh/hook-weight: "-30"');
     expect(role).toContain('helm.sh/hook-weight: "-29"');
     expect(roleBinding).toContain('helm.sh/hook-weight: "-28"');
     expect([serviceAccount, role, roleBinding].join("\n")).not.toContain("hook-succeeded");
-    expect(role).toMatch(/resourceNames:\n\s+- nojv-web/);
+    expect(role).toMatch(
+      /resourceNames:\n\s+- nojv-web\n\s+- nojv-worker\n\s+- nojv-worker-platform/,
+    );
     expect(role).toContain('resources: ["deployments"]');
     expect(role).toContain('resources: ["deployments/scale"]');
     expect(role).toContain('resources: ["horizontalpodautoscalers"]');
@@ -79,12 +82,12 @@ describe("admin-elevation mixed-version deployment cutover", () => {
 
   it("keeps the maintenance cutover valid when the web HPA is disabled", () => {
     const render = renderChart("infra/charts/nojv/values-single-machine.yaml");
-    const drain = renderedResource(render, "Job", "nojv-web-drain");
-    const ready = renderedResource(render, "Job", "nojv-web-ready");
+    const migrator = renderedResource(render, "Job", "nojv-migrator");
+    const ready = renderedResource(render, "Job", "nojv-workloads-ready");
 
     expect(render).not.toMatch(/^kind:\s*HorizontalPodAutoscaler\s*$/m);
-    expect(drain).toContain("WEB_HPA");
-    expect(ready).toMatch(/name: READY_REPLICAS\n\s+value: "1"/);
+    expect(migrator).toMatch(/name: WEB_HPA_ENABLED\n\s+value: "false"/);
+    expect(ready).toMatch(/name: WEB_READY_REPLICAS\n\s+value: "1"/);
   });
 
   it("does not roll back to the vulnerable revision after a failed migration", () => {
@@ -103,26 +106,14 @@ describe("admin-elevation mixed-version deployment cutover", () => {
     ).toThrow(/Production deployments require the migration maintenance gate/);
   });
 
-  it("drains by removing the HPA, scaling web to zero, and observing zero old replicas", () => {
+  it("waits for all new deployment generations and minimum ready replicas", () => {
     const { bin, log } = fakeKubectl(`#!/bin/sh
 set -eu
 printf '%s\\n' "$*" >> "$KUBECTL_LOG"
-case "$*" in
-  *"get deployment"*)
-    printf '0'
-    ;;
-  *"get pods"*)
-    count_file="$KUBECTL_LOG.count"
-    count=0
-    [ ! -f "$count_file" ] || count="$(cat "$count_file")"
-    count=$((count + 1))
-    printf '%s' "$count" > "$count_file"
-    [ "$count" -gt 1 ] || printf 'pod/old-web-pod'
-    ;;
-esac
+printf '2 2 2 2'
 `);
 
-    execFileSync("sh", [join(chartRoot, "files/drain-web.sh")], {
+    execFileSync("sh", [join(chartRoot, "files/release-workloads.sh")], {
       cwd: repoRoot,
       env: {
         ...process.env,
@@ -130,53 +121,21 @@ esac
         KUBECTL_LOG: log,
         NAMESPACE: "nojv",
         WEB_DEPLOYMENT: "nojv-web",
-        WEB_HPA: "nojv-web",
+        WEB_HPA_ENABLED: "false",
+        WEB_READY_REPLICAS: "2",
         WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
-        DRAIN_TIMEOUT_SECONDS: "5",
-        POLL_INTERVAL_SECONDS: "0",
-      },
-    });
-
-    const calls = readFileSync(log, "utf8").trim().split("\n");
-    expect(calls[0]).toContain("delete horizontalpodautoscaler nojv-web");
-    expect(calls[1]).toContain("scale deployment nojv-web --replicas=0");
-    expect(calls.slice(2)).toHaveLength(4);
-    expect(calls[2]).toContain("get deployment nojv-web");
-    expect(calls[3]).toContain(
-      "get pods --selector app.kubernetes.io/name=nojv-web --output name",
-    );
-    expect(calls[4]).toContain("get deployment nojv-web");
-    expect(calls[5]).toContain(
-      "get pods --selector app.kubernetes.io/name=nojv-web --output name",
-    );
-  });
-
-  it("waits for the new deployment generation and minimum ready replicas", () => {
-    const { bin, log } = fakeKubectl(`#!/bin/sh
-set -eu
-printf '%s\\n' "$*" >> "$KUBECTL_LOG"
-count_file="$KUBECTL_LOG.count"
-count=0
-[ ! -f "$count_file" ] || count="$(cat "$count_file")"
-count=$((count + 1))
-printf '%s' "$count" > "$count_file"
-[ "$count" -gt 1 ] && printf '2 2 2 2' || printf '1 2 0 0'
-`);
-
-    execFileSync("sh", [join(chartRoot, "files/wait-web-ready.sh")], {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        PATH: `${bin}:${process.env.PATH ?? ""}`,
-        KUBECTL_LOG: log,
-        NAMESPACE: "nojv",
-        WEB_DEPLOYMENT: "nojv-web",
-        READY_REPLICAS: "2",
+        JUDGE_DEPLOYMENT: "nojv-worker",
+        JUDGE_KEDA_ENABLED: "false",
+        JUDGE_READY_REPLICAS: "2",
+        JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
+        PLATFORM_DEPLOYMENT: "nojv-worker-platform",
+        PLATFORM_READY_REPLICAS: "1",
+        PLATFORM_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker-platform",
         READY_TIMEOUT_SECONDS: "5",
         POLL_INTERVAL_SECONDS: "0",
       },
     });
 
-    expect(readFileSync(log, "utf8").trim().split("\n")).toHaveLength(2);
+    expect(readFileSync(log, "utf8").trim().split("\n")).toHaveLength(3);
   });
 });

@@ -3,9 +3,15 @@
 {{- end }}
 {{- if .Values.migrator.enabled }}
 {{- $webName := printf "%s-web" (include "nojv.fullname" .) -}}
+{{- $judgeName := printf "%s-worker" (include "nojv.fullname" .) -}}
+{{- $platformName := printf "%s-worker-platform" (include "nojv.fullname" .) -}}
 {{- $readyReplicas := .Values.web.replicas -}}
 {{- if .Values.web.hpa.enabled -}}
 {{- $readyReplicas = .Values.web.hpa.min -}}
+{{- end -}}
+{{- $judgeReadyReplicas := .Values.worker.judge.replicas -}}
+{{- if .Values.worker.judge.keda.enabled -}}
+{{- $judgeReadyReplicas = .Values.worker.judge.keda.min -}}
 {{- end -}}
 apiVersion: v1
 kind: ServiceAccount
@@ -16,7 +22,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web-maintenance
   annotations:
-    helm.sh/hook: pre-upgrade,post-upgrade
+    helm.sh/hook: pre-install,pre-upgrade,post-upgrade
     helm.sh/hook-weight: "-30"
     helm.sh/hook-delete-policy: before-hook-creation
 ---
@@ -29,7 +35,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web-maintenance
   annotations:
-    helm.sh/hook: pre-upgrade,post-upgrade
+    helm.sh/hook: pre-install,pre-upgrade,post-upgrade
     helm.sh/hook-weight: "-29"
     helm.sh/hook-delete-policy: before-hook-creation
 rules:
@@ -37,17 +43,28 @@ rules:
     resources: ["deployments"]
     resourceNames:
       - {{ $webName }}
+      - {{ $judgeName }}
+      - {{ $platformName }}
     verbs: ["get"]
   - apiGroups: ["apps"]
     resources: ["deployments/scale"]
     resourceNames:
       - {{ $webName }}
+      - {{ $judgeName }}
+      - {{ $platformName }}
     verbs: ["get", "patch", "update"]
   - apiGroups: ["autoscaling"]
     resources: ["horizontalpodautoscalers"]
     resourceNames:
       - {{ $webName }}
-    verbs: ["get", "delete"]
+    verbs: ["get", "patch"]
+  {{- if .Values.worker.judge.keda.enabled }}
+  - apiGroups: ["keda.sh"]
+    resources: ["scaledobjects"]
+    resourceNames:
+      - {{ $judgeName }}
+    verbs: ["get", "patch"]
+  {{- end }}
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list"]
@@ -61,7 +78,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web-maintenance
   annotations:
-    helm.sh/hook: pre-upgrade,post-upgrade
+    helm.sh/hook: pre-install,pre-upgrade,post-upgrade
     helm.sh/hook-weight: "-28"
     helm.sh/hook-delete-policy: before-hook-creation
 roleRef:
@@ -76,74 +93,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "nojv.fullname" . }}-web-drain
-  namespace: {{ include "nojv.namespace" . }}
-  labels:
-    {{- include "nojv.labels" . | nindent 4 }}
-    app.kubernetes.io/component: web-maintenance
-  annotations:
-    helm.sh/hook: pre-upgrade
-    helm.sh/hook-weight: "-10"
-    helm.sh/hook-delete-policy: before-hook-creation
-spec:
-  backoffLimit: 0
-  activeDeadlineSeconds: {{ .Values.maintenance.activeDeadlineSeconds }}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: nojv-web-maintenance
-    spec:
-      restartPolicy: Never
-      serviceAccountName: {{ include "nojv.fullname" . }}-web-maintenance
-      automountServiceAccountToken: true
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65532
-        runAsGroup: 65532
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: drain-web
-          image: {{ .Values.maintenance.image | quote }}
-          imagePullPolicy: IfNotPresent
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              {{- .Files.Get "files/drain-web.sh" | nindent 14 }}
-          env:
-            - name: HOME
-              value: /tmp
-            - name: NAMESPACE
-              value: {{ include "nojv.namespace" . | quote }}
-            - name: WEB_DEPLOYMENT
-              value: {{ $webName | quote }}
-            - name: WEB_HPA
-              value: {{ $webName | quote }}
-            - name: WEB_POD_SELECTOR
-              value: app.kubernetes.io/name=nojv-web
-            - name: DRAIN_TIMEOUT_SECONDS
-              value: {{ .Values.maintenance.drainTimeoutSeconds | quote }}
-            - name: POLL_INTERVAL_SECONDS
-              value: {{ .Values.maintenance.pollIntervalSeconds | quote }}
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
-          resources:
-            {{- toYaml .Values.maintenance.resources | nindent 12 }}
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-      volumes:
-        - name: tmp
-          emptyDir:
-            sizeLimit: 16Mi
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{ include "nojv.fullname" . }}-web-ready
+  name: {{ include "nojv.fullname" . }}-workloads-ready
   namespace: {{ include "nojv.namespace" . }}
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
@@ -161,6 +111,7 @@ spec:
         app.kubernetes.io/name: nojv-web-maintenance
     spec:
       restartPolicy: Never
+      terminationGracePeriodSeconds: {{ add .Values.maintenance.restoreTimeoutSeconds 90 }}
       serviceAccountName: {{ include "nojv.fullname" . }}-web-maintenance
       automountServiceAccountToken: true
       securityContext:
@@ -170,13 +121,13 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: wait-web-ready
+        - name: release-workloads
           image: {{ .Values.maintenance.image | quote }}
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args:
             - |
-              {{- .Files.Get "files/wait-web-ready.sh" | nindent 14 }}
+              {{- .Files.Get "files/release-workloads.sh" | nindent 14 }}
           env:
             - name: HOME
               value: /tmp
@@ -184,10 +135,34 @@ spec:
               value: {{ include "nojv.namespace" . | quote }}
             - name: WEB_DEPLOYMENT
               value: {{ $webName | quote }}
-            - name: READY_REPLICAS
+            - name: WEB_HPA
+              value: {{ $webName | quote }}
+            - name: WEB_HPA_ENABLED
+              value: {{ .Values.web.hpa.enabled | quote }}
+            - name: WEB_READY_REPLICAS
               value: {{ $readyReplicas | quote }}
+            - name: WEB_POD_SELECTOR
+              value: app.kubernetes.io/name=nojv-web
+            - name: JUDGE_DEPLOYMENT
+              value: {{ $judgeName | quote }}
+            - name: JUDGE_KEDA_SCALED_OBJECT
+              value: {{ $judgeName | quote }}
+            - name: JUDGE_KEDA_ENABLED
+              value: {{ .Values.worker.judge.keda.enabled | quote }}
+            - name: JUDGE_READY_REPLICAS
+              value: {{ $judgeReadyReplicas | quote }}
+            - name: JUDGE_POD_SELECTOR
+              value: app.kubernetes.io/name=nojv-worker
+            - name: PLATFORM_DEPLOYMENT
+              value: {{ $platformName | quote }}
+            - name: PLATFORM_READY_REPLICAS
+              value: {{ .Values.worker.platform.replicas | quote }}
+            - name: PLATFORM_POD_SELECTOR
+              value: app.kubernetes.io/name=nojv-worker-platform
             - name: READY_TIMEOUT_SECONDS
               value: {{ .Values.maintenance.readyTimeoutSeconds | quote }}
+            - name: KUBECTL_REQUEST_TIMEOUT_SECONDS
+              value: {{ .Values.maintenance.kubectlRequestTimeoutSeconds | quote }}
             - name: POLL_INTERVAL_SECONDS
               value: {{ .Values.maintenance.pollIntervalSeconds | quote }}
           securityContext:

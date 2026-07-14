@@ -217,4 +217,10 @@ Prometheus / Cloud Monitoring), so the GKE overlay leaves all three off. See
 - NetworkPolicy is inert unless the cluster CNI enforces it (GKE Dataplane V2).
   The `worker-egress` CIDRs are placeholders — replace them for your cluster.
 - The migrator runs as a `pre-install,pre-upgrade` hook with
-  `before-hook-creation` delete policy so each release re-runs migrations.
+  `before-hook-creation` delete policy. Upgrades stage expand migrations before
+  quiescing web and both Temporal workers; storage backfill, S3 verification,
+  database preflight, and contract migration then run with autoscalers isolated.
+  Pre-contract failures restore the previous workloads, while ambiguous or
+  post-contract failures stay fail-closed until the release is repaired. The
+  `post-upgrade` readiness hook releases the new Deployments only after all three
+  are healthy.

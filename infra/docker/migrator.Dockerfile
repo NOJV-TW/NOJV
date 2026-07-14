@@ -1,3 +1,5 @@
+FROM docker.io/alpine/k8s:1.33.3@sha256:47e4ea4c263fb4e14e51d7c5ca841da756673f18e2340f38c0cf1f7219d05e85 AS kubernetes
+
 FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
 
 ENV PNPM_HOME="/pnpm"
@@ -6,6 +8,8 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN npm install -g pnpm@10.33.0
 
 WORKDIR /app
+
+COPY --from=kubernetes /usr/bin/kubectl /usr/local/bin/kubectl
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches/ patches/
@@ -26,4 +30,4 @@ RUN pnpm --filter @nojv/core build \
   && pnpm --filter @nojv/storage build \
   && pnpm --filter @nojv/db db:generate
 
-CMD ["pnpm", "--filter", "@nojv/db", "db:deploy"]
+CMD ["sh", "packages/db/prisma/scripts/deploy-release.sh"]

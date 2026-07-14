@@ -618,8 +618,14 @@ pnpm db:validate
 ```
 
 In production, migrations run as the chart's **pre-install/pre-upgrade Helm
-hook** (`infra/charts/nojv/templates/migrator.job.yaml`) — every `helm upgrade`
-runs the migrator Job to completion before the new `web`/`worker` Pods roll out.
+hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
+history. Upgrades stage expand migrations first; for the versioned-storage
+contract the hook then disables autoscalers, drains web plus both Temporal
+workers, performs and verifies the S3 backfill, runs a database preflight, and
+only then exposes the atomic contract migration. A failure before the contract
+restores the prior workloads. Once the contract may have committed, ambiguous
+or failed state stays in maintenance; the post-upgrade readiness hook releases
+the new workloads only after all three Deployments are healthy.
 
 ## Backup Automation
 

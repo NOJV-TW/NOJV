@@ -15,6 +15,7 @@
   "scripts": {
     "build": "pnpm db:generate && tsdown",
     "db:deploy": "prisma migrate deploy",
+    "db:deploy:release": "sh prisma/scripts/deploy-release.sh",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -22,8 +23,10 @@
     "db:bootstrap-admin": "node --env-file=../../.env --import tsx prisma/bootstrap-admin.ts",
     "db:seed:prod": "node --env-file=../../.env --import tsx prisma/prod-seed.ts",
     "db:seed:validate": "node --import tsx prisma/seeds/validate.ts",
-    "storage:backfill": "node --env-file=../../.env --import tsx prisma/scripts/storage-pointer-cutover.ts backfill",
-    "storage:verify": "node --env-file=../../.env --import tsx prisma/scripts/storage-pointer-cutover.ts verify",
+    "storage:backfill": "node --import tsx prisma/scripts/storage-pointer-cutover.ts backfill",
+    "storage:verify": "node --import tsx prisma/scripts/storage-pointer-cutover.ts verify",
+    "storage:preflight": "node --import tsx prisma/scripts/storage-pointer-cutover.ts preflight",
+    "storage:status": "node --import tsx prisma/scripts/storage-pointer-cutover.ts status",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc -p tsconfig.json --noEmit"

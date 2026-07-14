@@ -27,9 +27,16 @@ const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required");
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
-const storage = createStorageClient();
+const command = process.argv[2];
+const storage = command === "backfill" || command === "verify" ? createStorageClient() : null;
 const utf8 = new TextDecoder("utf-8", { fatal: true });
 const BOOTSTRAP_VERSION = "bootstrap-v1";
+const CONTRACT_MIGRATION = "20260716000012_versioned_blob_pointers_contract";
+
+function getStorage() {
+  if (!storage) throw new Error(`S3 is not available for the ${command ?? "unknown"} command`);
+  return storage;
+}
 
 interface LegacyTestcase {
   id: string;
@@ -84,15 +91,16 @@ async function copyLegacyObject(
   newKey: string,
   contentType = "text/plain; charset=utf-8",
 ): Promise<StorageObjectPointer> {
-  const body = await getObject(storage, oldKey);
-  const pointer = await putImmutableObject(storage, newKey, body, { contentType });
-  const verified = await getVerifiedObject(storage, pointer);
+  const client = getStorage();
+  const body = await getObject(client, oldKey);
+  const pointer = await putImmutableObject(client, newKey, body, { contentType });
+  const verified = await getVerifiedObject(client, pointer);
   if (!verified.equals(body)) throw new Error(`Copy verification failed for ${oldKey}`);
   return pointer;
 }
 
 async function writeInlineObject(body: string, key: string): Promise<StorageObjectPointer> {
-  return putImmutableObject(storage, key, Buffer.from(body, "utf8"), {
+  return putImmutableObject(getStorage(), key, Buffer.from(body, "utf8"), {
     contentType: "text/plain; charset=utf-8",
   });
 }
@@ -258,29 +266,31 @@ async function backfillSubmissions(): Promise<number> {
         ? null
         : assertStorageObjectPointer(row.verdictDetailStorage);
     if (sourceStorage === null) {
-      const keys = (await listByPrefix(storage, row.sourceStoragePrefix)).sort();
+      const client = getStorage();
+      const keys = (await listByPrefix(client, row.sourceStoragePrefix)).sort();
       if (keys.length === 0) {
         throw new Error(`Submission ${row.id} has no source objects to backfill`);
       }
       const sources = await Promise.all(
         keys.map(async (key) => ({
           path: key.slice(row.sourceStoragePrefix.length),
-          content: decodeUtf8(await getObject(storage, key), key),
+          content: decodeUtf8(await getObject(client, key), key),
         })),
       );
       const plan = planSubmissionSources(row.id, BOOTSTRAP_VERSION, sources);
-      sourceStorage = await putSubmissionSourcePlan(storage, plan);
-      await getSubmissionSources(storage, sourceStorage);
+      sourceStorage = await putSubmissionSourcePlan(client, plan);
+      await getSubmissionSources(client, sourceStorage);
     }
     if (verdictDetailStorage === null && row.verdictDetailStorageKey !== null) {
-      const oldBody = await getObject(storage, row.verdictDetailStorageKey);
+      const client = getStorage();
+      const oldBody = await getObject(client, row.verdictDetailStorageKey);
       let detail: unknown;
       try {
         detail = JSON.parse(decodeUtf8(oldBody, row.verdictDetailStorageKey)) as unknown;
       } catch {
         throw new Error(`Submission ${row.id} has malformed legacy verdict JSON`);
       }
-      verdictDetailStorage = await putVerdictDetail(storage, row.id, BOOTSTRAP_VERSION, detail);
+      verdictDetailStorage = await putVerdictDetail(client, row.id, BOOTSTRAP_VERSION, detail);
     }
     await prisma.submission.update({
       where: { id: row.id },
@@ -307,9 +317,10 @@ async function backfillAvatars(): Promise<number> {
     if (legacyPath !== `/api/storage/avatars/${encodeURIComponent(user.id)}`) {
       throw new Error(`User ${user.id} has an unrecognized internal avatar URL`);
     }
-    const body = await getObject(storage, `avatars/${user.id}.webp`);
+    const client = getStorage();
+    const body = await getObject(client, `avatars/${user.id}.webp`);
     const filename = `${BOOTSTRAP_VERSION}.webp`;
-    await putImmutableObject(storage, `avatars/${user.id}/${filename}`, body, {
+    await putImmutableObject(client, `avatars/${user.id}/${filename}`, body, {
       contentType: "image/webp",
     });
     await prisma.user.update({
@@ -338,6 +349,8 @@ async function refreshProblemAccounting(): Promise<void> {
   const problems = await prisma.problem.findMany({
     select: {
       id: true,
+      storageGeneration: true,
+      activeStorageBytes: true,
       checkerStorage: true,
       interactorStorage: true,
       testcaseSets: {
@@ -371,10 +384,15 @@ async function refreshProblemAccounting(): Promise<void> {
           ),
         0,
       );
-    await prisma.problem.update({
-      where: { id: problem.id },
-      data: { activeStorageBytes: bytes, storageGeneration: { increment: 1 } },
-    });
+    if (problem.activeStorageBytes !== bytes || problem.storageGeneration === 0) {
+      await prisma.problem.update({
+        where: { id: problem.id },
+        data: {
+          activeStorageBytes: bytes,
+          ...(problem.storageGeneration === 0 ? { storageGeneration: 1 } : {}),
+        },
+      });
+    }
   }
 }
 
@@ -385,7 +403,7 @@ async function verify(): Promise<void> {
     if (seen.has(pointer.key))
       throw new Error(`Storage key is shared by multiple pointers: ${pointer.key}`);
     seen.add(pointer.key);
-    await getVerifiedObject(storage, pointer).catch((reason: unknown) => {
+    await getVerifiedObject(getStorage(), pointer).catch((reason: unknown) => {
       throw new Error(`${owner}: ${reason instanceof Error ? reason.message : String(reason)}`);
     });
     return pointer.size;
@@ -477,7 +495,7 @@ async function verify(): Promise<void> {
       `Submission ${submission.id} source manifest`,
     );
     await verifyPointer(manifest, `Submission ${submission.id} source manifest`);
-    for (const pointer of await getSubmissionSourcePointers(storage, manifest)) {
+    for (const pointer of await getSubmissionSourcePointers(getStorage(), manifest)) {
       assertVersionedKey(
         pointer,
         new RegExp(`^submissions/${submission.id}/source-generations/[^/]+/files/`),
@@ -485,7 +503,7 @@ async function verify(): Promise<void> {
       );
       await verifyPointer(pointer, `Submission ${submission.id} source`);
     }
-    await getSubmissionSources(storage, manifest);
+    await getSubmissionSources(getStorage(), manifest);
     if (submission.verdictDetailStorage !== null) {
       const pointer = assertStorageObjectPointer(submission.verdictDetailStorage);
       assertVersionedKey(
@@ -517,15 +535,115 @@ async function backfill(): Promise<void> {
     avatars: await backfillAvatars(),
   };
   await refreshProblemAccounting();
-  await verify();
   console.log(JSON.stringify(result));
 }
 
-const command = process.argv[2];
+async function preflight(): Promise<void> {
+  const rows = await prisma.$queryRaw<
+    {
+      invalidTestcases: bigint;
+      invalidWorkspace: bigint;
+      invalidSubmissions: bigint;
+      invalidProblems: bigint;
+    }[]
+  >`
+    SELECT
+      (
+        SELECT count(*)
+        FROM "Testcase"
+        WHERE NOT "storage_pointer_valid"("inputStorage")
+           OR ("outputKey" IS NOT NULL AND NOT "storage_pointer_valid"("outputStorage"))
+           OR ("outputKey" IS NULL AND "outputStorage" IS NOT NULL)
+           OR (
+             "inputFileKeys" IS NOT NULL
+             AND NOT "storage_pointer_map_valid"("inputFileStorage")
+           )
+           OR ("inputFileKeys" IS NULL AND "inputFileStorage" IS NOT NULL)
+      ) AS "invalidTestcases",
+      (
+        SELECT count(*)
+        FROM "ProblemWorkspaceFile"
+        WHERE NOT "storage_pointer_valid"("contentStorage")
+      ) AS "invalidWorkspace",
+      (
+        SELECT count(*)
+        FROM "Submission"
+        WHERE NOT "storage_pointer_valid"("sourceStorage")
+           OR (
+             "verdictDetailStorageKey" IS NOT NULL
+             AND NOT "storage_pointer_valid"("verdictDetailStorage")
+           )
+           OR (
+             "verdictDetailStorageKey" IS NULL
+             AND "verdictDetailStorage" IS NOT NULL
+           )
+      ) AS "invalidSubmissions",
+      (
+        SELECT count(*)
+        FROM "Problem"
+        WHERE ("checkerStorage" IS NOT NULL AND NOT "storage_pointer_valid"("checkerStorage"))
+           OR (
+             "interactorStorage" IS NOT NULL
+             AND NOT "storage_pointer_valid"("interactorStorage")
+           )
+           OR "judgeConfig" ?| ARRAY[
+             'checkerKey',
+             'interactorKey',
+             'checkerScript',
+             'interactorScript'
+           ]
+      ) AS "invalidProblems"
+  `;
+  const counts = rows[0];
+  if (!counts) throw new Error("Storage pointer database preflight returned no result");
+
+  if (Object.values(counts).some((count) => count > 0n)) {
+    throw new Error(
+      `Versioned storage pointer cutover blocked: testcase=${String(counts.invalidTestcases)}, workspace=${String(counts.invalidWorkspace)}, submission=${String(counts.invalidSubmissions)}, problem=${String(counts.invalidProblems)}.`,
+    );
+  }
+  console.log("Storage pointer database preflight passed.");
+}
+
+async function contractStatus(): Promise<void> {
+  const rows = await prisma.$queryRaw<{ applied: boolean; legacyColumns: bigint }[]>`
+    SELECT
+      EXISTS (
+        SELECT 1
+        FROM "_prisma_migrations"
+        WHERE migration_name = ${CONTRACT_MIGRATION}
+          AND finished_at IS NOT NULL
+          AND rolled_back_at IS NULL
+      ) AS applied,
+      (
+        SELECT count(*)
+        FROM (
+          VALUES
+            ('Testcase', 'inputKey'),
+            ('Testcase', 'outputKey'),
+            ('Testcase', 'inputFileKeys'),
+            ('ProblemWorkspaceFile', 'contentKey'),
+            ('Submission', 'sourceStoragePrefix'),
+            ('Submission', 'verdictDetailStorageKey')
+        ) AS legacy(table_name, column_name)
+        JOIN information_schema.columns AS actual
+          ON actual.table_schema = current_schema()
+         AND actual.table_name = legacy.table_name
+         AND actual.column_name = legacy.column_name
+      ) AS "legacyColumns"
+  `;
+  const status = rows[0];
+  if (status?.applied && status.legacyColumns === 0n) console.log("applied");
+  else if (!status?.applied && status?.legacyColumns === 6n) console.log("pending");
+  else console.log("unsafe");
+}
+
 try {
   if (command === "backfill") await backfill();
   else if (command === "verify") await verify();
-  else throw new Error("Usage: storage-pointer-cutover.ts <backfill|verify>");
+  else if (command === "preflight") await preflight();
+  else if (command === "status") await contractStatus();
+  else throw new Error("Usage: storage-pointer-cutover.ts <backfill|verify|preflight|status>");
 } catch (reason) {
   console.error(reason);
   process.exitCode = 1;

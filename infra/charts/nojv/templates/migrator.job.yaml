@@ -1,8 +1,8 @@
 {{- if .Values.migrator.enabled }}
 {{/*
-DB migration Job — runs as a Helm pre-install/pre-upgrade hook so the schema is
-current before web/workers roll. hook-delete-policy before-hook-creation clears a
-prior Job of the same name so the immutable Job can be recreated on each release.
+Release cutover Job. Installs migrate directly; upgrades stage additive migrations,
+quiesce every DB writer, verify the S3 backfill, then expose the destructive contract.
+The single Job owns pre-contract recovery so a failed check cannot strand workloads.
 */}}
 apiVersion: batch/v1
 kind: Job
@@ -18,7 +18,7 @@ metadata:
     helm.sh/hook-delete-policy: before-hook-creation
 spec:
   backoffLimit: {{ .Values.migrator.backoffLimit }}
-  activeDeadlineSeconds: 600
+  activeDeadlineSeconds: {{ .Values.migrator.activeDeadlineSeconds }}
   template:
     metadata:
       labels:
@@ -28,6 +28,9 @@ spec:
         {{- end }}
     spec:
       restartPolicy: Never
+      terminationGracePeriodSeconds: {{ add .Values.maintenance.restoreTimeoutSeconds 90 }}
+      serviceAccountName: {{ include "nojv.fullname" . }}-web-maintenance
+      automountServiceAccountToken: true
       {{- with .Values.worker.judge.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -47,8 +50,64 @@ spec:
               drop: ["ALL"]
           env:
             {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
+            - name: RELEASE_OPERATION
+              value: {{ ternary "upgrade" "install" .Release.IsUpgrade | quote }}
+            - name: STATUS_TIMEOUT_SECONDS
+              value: {{ .Values.migrator.statusTimeoutSeconds | quote }}
+            - name: KUBECTL_REQUEST_TIMEOUT_SECONDS
+              value: {{ .Values.maintenance.kubectlRequestTimeoutSeconds | quote }}
+            - name: NAMESPACE
+              value: {{ include "nojv.namespace" . | quote }}
+            - name: WEB_DEPLOYMENT
+              value: {{ printf "%s-web" (include "nojv.fullname" .) | quote }}
+            - name: WEB_HPA
+              value: {{ printf "%s-web" (include "nojv.fullname" .) | quote }}
+            - name: WEB_HPA_ENABLED
+              value: {{ .Values.web.hpa.enabled | quote }}
+            - name: WEB_POD_SELECTOR
+              value: app.kubernetes.io/name=nojv-web
+            - name: JUDGE_DEPLOYMENT
+              value: {{ printf "%s-worker" (include "nojv.fullname" .) | quote }}
+            - name: JUDGE_KEDA_SCALED_OBJECT
+              value: {{ printf "%s-worker" (include "nojv.fullname" .) | quote }}
+            - name: JUDGE_KEDA_ENABLED
+              value: {{ .Values.worker.judge.keda.enabled | quote }}
+            - name: JUDGE_POD_SELECTOR
+              value: app.kubernetes.io/name=nojv-worker
+            - name: PLATFORM_DEPLOYMENT
+              value: {{ printf "%s-worker-platform" (include "nojv.fullname" .) | quote }}
+            - name: PLATFORM_POD_SELECTOR
+              value: app.kubernetes.io/name=nojv-worker-platform
+            - name: DRAIN_TIMEOUT_SECONDS
+              value: {{ .Values.maintenance.drainTimeoutSeconds | quote }}
+            - name: RESTORE_TIMEOUT_SECONDS
+              value: {{ .Values.maintenance.restoreTimeoutSeconds | quote }}
+            - name: POLL_INTERVAL_SECONDS
+              value: {{ .Values.maintenance.pollIntervalSeconds | quote }}
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ENDPOINT
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+            - name: S3_REGION
+              value: {{ .Values.storage.region | quote }}
           resources:
             {{- toYaml .Values.migrator.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
         {{- if .Values.cloudsqlProxy.enabled }}
         - name: cloudsql-proxy
           image: {{ .Values.postgres.cloudsql.proxyImage }}
@@ -73,4 +132,8 @@ spec:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: CLOUDSQL_INSTANCE_CONNECTION_NAME
         {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
 {{- end }}
