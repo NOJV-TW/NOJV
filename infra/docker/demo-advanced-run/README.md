@@ -18,8 +18,7 @@ CI (`build-images.yml`) pushes the platform-registry ref on every main push (the
 problem's `advancedConfig` points at it so Kubernetes deployments can pull it.
 
 The demo problem's `advancedConfig.run` in `packages/db/prisma/seeds/problems.ts`
-points at this tag. This pairs a real run/grade demo (replacing the legacy
-single-image `nojv-demo-judge-shell:local` shim) so the seeded problem judges
+points at this tag, paired with the grade image so the seeded problem judges
 correctly under the real run/grade executor.
 
 `nojv_runner.py` is the contract helper (don't edit); `runner.py` is the

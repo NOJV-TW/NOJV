@@ -34,7 +34,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/components/primitives/ui/toast";
+  import { toasts } from "$lib/stores/toast";
   import { formatDate } from "$lib/utils/datetime";
 
   interface Props {

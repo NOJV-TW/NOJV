@@ -67,7 +67,7 @@ export function seedWorkspaceDrafts(files: WorkspaceFile[]): Record<string, stri
   return drafts;
 }
 
-export function projectWorkspaceFilesForSubmit(
+function projectWorkspaceFilesForSubmit(
   files: WorkspaceFile[],
   drafts: Record<string, string>,
 ): SubmissionWorkspaceFile[] {

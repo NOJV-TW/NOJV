@@ -7,7 +7,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/components/primitives/ui/toast";
+  import { toasts } from "$lib/stores/toast";
 
   let { data } = $props();
 
