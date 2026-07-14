@@ -18,7 +18,11 @@ import { judgeConfigSchema } from "@nojv/core";
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 
-import { assertProblemEditAccess, type ProblemActorContext } from "./permissions";
+import {
+  assertProblemEditAccess,
+  assertProblemOwnership,
+  type ProblemActorContext,
+} from "./permissions";
 import { PROBLEM_STORAGE_BUDGET_BYTES } from "./storage-budget";
 import { readZipEntryBounded } from "./zip-utils";
 
@@ -336,6 +340,7 @@ export async function importBundle(
   const result = await runTransaction(async (tx) => {
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
     const [existingSets, existingWorkspace] = await Promise.all([
       testcaseSetRepo.withTx(tx).findByProblemId(problem.id),
       problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id),

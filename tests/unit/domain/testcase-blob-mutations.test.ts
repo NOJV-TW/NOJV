@@ -6,6 +6,7 @@ const {
   problemFindById,
   problemUpdate,
   putImmutableText,
+  runTransaction,
   testcaseCreateMany,
   testcaseDelete,
   testcaseFindById,
@@ -14,6 +15,7 @@ const {
   testcaseSetDelete,
   testcaseSetFindById,
   testcaseSetMaxOrdinal,
+  testcaseSetUpdate,
   testcaseUpdate,
 } = vi.hoisted(() => ({
   commitStoragePointerSwap: vi.fn(),
@@ -21,6 +23,9 @@ const {
   problemFindById: vi.fn(),
   problemUpdate: vi.fn(),
   putImmutableText: vi.fn(),
+  runTransaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn({ testcaseSet: { update: testcaseSetUpdate } }),
+  ),
   testcaseCreateMany: vi.fn(),
   testcaseDelete: vi.fn(),
   testcaseFindById: vi.fn(),
@@ -29,6 +34,7 @@ const {
   testcaseSetDelete: vi.fn(),
   testcaseSetFindById: vi.fn(),
   testcaseSetMaxOrdinal: vi.fn(),
+  testcaseSetUpdate: vi.fn(),
   testcaseUpdate: vi.fn(),
 }));
 
@@ -44,8 +50,9 @@ vi.mock("../../../packages/application/src/shared/storage-object-lifecycle", () 
 
 vi.mock("@nojv/db", () => ({
   Prisma: {},
-  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+  runTransaction,
   problemRepo: {
+    findById: problemFindById,
     withTx: () => ({
       findById: problemFindById,
       lockForUpdate: vi.fn(),
@@ -75,6 +82,7 @@ import {
   createProblemTestcaseSetRecord,
   deleteTestcaseRecord,
   deleteTestcaseSetRecord,
+  updateTestcaseSetRecord,
   updateTestcaseRecord,
 } from "../../../packages/application/src/problem/testcase";
 
@@ -114,9 +122,46 @@ beforeEach(() => {
   );
   guardStorageObjectWrites.mockResolvedValue(undefined);
   commitStoragePointerSwap.mockResolvedValue(undefined);
+  testcaseSetUpdate.mockResolvedValue({ id: "set_1" });
 });
 
+const mutationCalls = [
+  () =>
+    createProblemTestcaseSetRecord(actor, "prob_1", {
+      name: "sample",
+      weight: 1,
+      description: "",
+      cases: [{ input: "1", output: "1" }],
+    }),
+  () => updateTestcaseSetRecord(actor, "prob_1", "set_1", { name: "renamed" }),
+  () => deleteTestcaseSetRecord(actor, "prob_1", "set_1"),
+  () => updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "new" }),
+  () => deleteTestcaseRecord(actor, "prob_1", "tc_1"),
+] as const;
+
+function expectNoMutationSideEffects() {
+  expect(runTransaction).not.toHaveBeenCalled();
+  expect(guardStorageObjectWrites).not.toHaveBeenCalled();
+  expect(putImmutableText).not.toHaveBeenCalled();
+  expect(commitStoragePointerSwap).not.toHaveBeenCalled();
+}
+
 describe("testcase immutable object mutations", () => {
+  it.each([
+    ["a non-owner", { id: "prob_1", authorId: "usr_other" }, /author or an admin/i],
+    ["an absent problem", null, /problem not found/i],
+  ])(
+    "rejects every testcase mutation for %s before storage or transaction side effects",
+    async (_label, problem, error) => {
+      for (const mutate of mutationCalls) {
+        problemFindById.mockResolvedValue(problem);
+        await expect(mutate()).rejects.toThrow(error);
+        expectNoMutationSideEffects();
+        vi.clearAllMocks();
+      }
+    },
+  );
+
   it("stages versioned objects before inserting pointer rows and cancels their guards on commit", async () => {
     await createProblemTestcaseSetRecord(actor, "prob_1", {
       name: "sample",
@@ -139,6 +184,26 @@ describe("testcase immutable object mutations", () => {
       expect.anything(),
       expect.objectContaining({ added: [rows[0]!.inputStorage, rows[0]!.outputStorage] }),
     );
+    expect(problemFindById).toHaveBeenCalledTimes(2);
+  });
+
+  it("rechecks ownership after locking even when the side-effect-free check passed", async () => {
+    problemFindById
+      .mockResolvedValueOnce({ id: "prob_1", authorId: actor.userId })
+      .mockResolvedValueOnce({ id: "prob_1", authorId: "usr_other" });
+
+    await expect(
+      createProblemTestcaseSetRecord(actor, "prob_1", {
+        name: "sample",
+        weight: 1,
+        description: "",
+        cases: [{ input: "1", output: "1" }],
+      }),
+    ).rejects.toThrow(/author or an admin/i);
+
+    expect(putImmutableText).toHaveBeenCalledTimes(2);
+    expect(testcaseSetCreate).not.toHaveBeenCalled();
+    expect(commitStoragePointerSwap).not.toHaveBeenCalled();
   });
 
   it("does not insert DB rows when immutable upload fails", async () => {

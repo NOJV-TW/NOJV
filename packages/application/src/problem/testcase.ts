@@ -17,7 +17,11 @@ import { stripUndefined } from "../shared/strip-undefined";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
 import { writeTestcaseField, writeTestcaseBlobs, type TestcaseBlobPointers } from "./blobs";
-import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
+import {
+  assertProblemEditAccess,
+  assertProblemOwnership,
+  type ProblemActorContext,
+} from "./permissions";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
@@ -50,6 +54,8 @@ export async function createProblemTestcaseSetRecord(
   problemId: string,
   payload: ProblemTestcaseSetCreate,
 ) {
+  await assertProblemEditAccess(actor, problemId);
+
   interface PreparedCase {
     id: string;
     blobPointers: TestcaseBlobPointers;
@@ -132,6 +138,8 @@ export async function updateTestcaseSetRecord(
   setId: string,
   payload: TestcaseSetUpdate,
 ) {
+  await assertProblemEditAccess(actor, problemId);
+
   return runTransaction(async (tx) => {
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
@@ -147,6 +155,8 @@ export async function deleteTestcaseSetRecord(
   problemId: string,
   setId: string,
 ) {
+  await assertProblemEditAccess(actor, problemId);
+
   await runTransaction(async (tx) => {
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
@@ -174,6 +184,8 @@ export async function updateTestcaseRecord(
   testcaseId: string,
   payload: TestcaseUpdate,
 ) {
+  await assertProblemEditAccess(actor, problemId);
+
   const staged: Partial<Record<"input" | "output", StorageObjectPointer>> = {};
   if (payload.input !== undefined) {
     staged.input = await writeTestcaseField(problemId, testcaseId, "input", payload.input);
@@ -227,6 +239,8 @@ export async function deleteTestcaseRecord(
   problemId: string,
   testcaseId: string,
 ) {
+  await assertProblemEditAccess(actor, problemId);
+
   await runTransaction(async (tx) => {
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);

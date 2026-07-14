@@ -22,6 +22,7 @@
     "../apps/web/.svelte-kit/types/**/$types.d.ts",
     "../apps/web/src/app.d.ts",
     "integration/http/submission-exam-confinement.test.ts",
+    "unit/web/problem-testcase-action-auth.test.ts",
     "unit/security/exam-confinement-api-allowlist.test.ts"
   ]
 }
