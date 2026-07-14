@@ -115,6 +115,16 @@ describeHelm("GKE worker NetworkPolicy egress boundary", () => {
     expect(workerEgress()).not.toMatch(/port:\s*80\b/);
   });
 
+  it("selects the Temporal namespace by Kubernetes' immutable namespace-name label", () => {
+    const yaml = workerEgress();
+    expect(yaml).toMatch(
+      /namespaceSelector:\s*\n\s*matchLabels:\s*\n\s*kubernetes\.io\/metadata\.name:\s*nojv-temporal/,
+    );
+    expect(yaml).not.toMatch(
+      /namespaceSelector:\s*\n\s*matchLabels:\s*\n\s*name:\s*nojv-temporal/,
+    );
+  });
+
   it("limits Redis and Cloud SQL private endpoints to exact IPv4 hosts", () => {
     const yaml = workerEgress();
     const redisRule = /cidr:\s*(\d+\.\d+\.\d+\.\d+\/32)[\s\S]*?port:\s*6379\b/.exec(yaml);

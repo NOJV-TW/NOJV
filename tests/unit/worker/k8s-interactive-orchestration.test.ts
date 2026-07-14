@@ -109,6 +109,77 @@ const EXEC_CONFIG = {
 };
 
 describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup", () => {
+  it("retries transient cleanup failures until every Job and ConfigMap is removed", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const request = makeRequest(1);
+      const clients = buildFakeClients(record);
+      clients.batchApi.deleteNamespacedJob
+        .mockRejectedValueOnce({ code: 500 })
+        .mockResolvedValue(undefined);
+      clients.coreApi.deleteNamespacedConfigMap
+        .mockRejectedValueOnce({ code: 429 })
+        .mockRejectedValueOnce({ code: 503 })
+        .mockResolvedValue(undefined);
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+      await vi.runAllTimersAsync();
+      await expect(execution).resolves.toBeDefined();
+
+      expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(2);
+      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries a timed-out delete and accepts an observed 404 as eventual removal", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const request = makeRequest(1);
+      const clients = buildFakeClients(record);
+      const attempts = new Map<string, number>();
+      clients.coreApi.deleteNamespacedConfigMap.mockImplementation(({ name }: any) => {
+        const attempt = (attempts.get(name) ?? 0) + 1;
+        attempts.set(name, attempt);
+        if (String(name).endsWith("-sol") && attempt === 1) return new Promise(() => {});
+        if (String(name).endsWith("-sol")) return Promise.reject({ code: 404 });
+        return Promise.resolve();
+      });
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+      await vi.runAllTimersAsync();
+      await expect(execution).resolves.toBeDefined();
+      expect(attempts.get("judge-sub-int-orch-int-0-sol")).toBe(2);
+      expect(attempts.get("judge-sub-int-orch-int-0-int")).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("propagates exhausted cleanup failures after attempting every resource", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const request = makeRequest(1);
+      const clients = buildFakeClients(record);
+      clients.batchApi.deleteNamespacedJob.mockRejectedValue({ code: 503 });
+      clients.coreApi.deleteNamespacedConfigMap.mockRejectedValue({ code: 429 });
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+      const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
+      await vi.runAllTimersAsync();
+      await rejection;
+
+      expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(3);
+      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(6);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("awaits an in-flight API stage, then cleans resources before cancellation rejects", async () => {
     const record = emptyRecord();
     const request = makeRequest(1);

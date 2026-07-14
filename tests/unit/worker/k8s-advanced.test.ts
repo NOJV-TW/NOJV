@@ -125,8 +125,8 @@ interface FakeOpts {
   serviceClusterIp?: string | null;
   podWaiting?: { reason: string; message?: string };
   jobPendingPolls?: number;
-  jobDeleteError?: Error;
-  podDeleteError?: Error;
+  jobDeleteError?: unknown;
+  podDeleteError?: unknown;
   residualJobPods?: string[];
   residualPods?: string[];
 }
@@ -998,6 +998,27 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.pvcsDeleted.map((p) => p.name)).toEqual(["judge-sub-adv-1-runout"]);
   });
 
+  it("retries transient PVC deletion failures until private run output is removed", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const clients = buildFakeClients(record, {
+        sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+      });
+      clients.coreApi.deleteNamespacedPersistentVolumeClaim
+        .mockRejectedValueOnce({ code: 429 })
+        .mockRejectedValueOnce({ code: 503 })
+        .mockResolvedValue(undefined);
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), makeAdvancedRequest());
+      await vi.runAllTimersAsync();
+      await expect(execution).resolves.toBeDefined();
+      expect(clients.coreApi.deleteNamespacedPersistentVolumeClaim).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("mode=none: run Pod carries NO nojv.egress label and no proxy/service env (deny-all)", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
@@ -1126,7 +1147,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, {
         throwOnJobCreate: true,
-        jobDeleteError: new Error("404 Job not found"),
+        jobDeleteError: { code: 404 },
       }),
     );
 
@@ -1142,6 +1163,32 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       "judge-sub-adv-1-grade-egress",
       "judge-sub-adv-1-grade-egress",
     ]);
+  });
+
+  it("propagates an exhausted Job delete even when its Pod selector is already empty", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const executor = new K8sExecutor(
+        EXEC_CONFIG,
+        buildFakeClients(record, {
+          sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+          jobDeleteError: new Error("API transport unavailable"),
+        }),
+      );
+
+      const execution = execute(executor, makeAdvancedRequest());
+      const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
+      await vi.runAllTimersAsync();
+      await rejection;
+
+      expect(record.cleanupEvents).toContain("confirm-job-pods-gone:judge-sub-adv-1-run");
+      expect(record.jobsDeleted).toHaveLength(6);
+      expect(record.configMapsDeleted).toHaveLength(2);
+      expect(record.pvcsDeleted).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("DELETE errors still poll selectors and retain policies while Job or sidecar Pods remain", async () => {
@@ -1168,8 +1215,9 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
           },
         }),
       );
+      const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
       await vi.runAllTimersAsync();
-      await execution;
+      await rejection;
 
       expect(record.cleanupEvents).toContain("observe-job-pods-present:judge-sub-adv-1-grade");
       expect(record.cleanupEvents).toContain("observe-pod-present:judge-sub-adv-1-sidecar");

@@ -30,7 +30,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: {{ .Values.networkPolicy.temporalNamespace }}
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.temporalNamespace }}
           podSelector:
             matchLabels:
               app.kubernetes.io/name: temporal-server

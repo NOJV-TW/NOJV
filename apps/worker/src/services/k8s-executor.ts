@@ -115,24 +115,97 @@ const POD_SCHEDULE_GRACE_MS = 30_000;
 const POD_CLEANUP_TIMEOUT_MS = 30_000;
 const POD_CLEANUP_POLL_INTERVAL_MS = 250;
 const K8S_CLEANUP_CALL_TIMEOUT_MS = 5_000;
+const K8S_CLEANUP_ATTEMPTS = 3;
+const K8S_CLEANUP_RETRY_DELAY_MS = 100;
 
 const DEFAULT_MAX_PARALLEL_CASES = 4;
 
-function settleCleanupCall<T>(operation: Promise<T>): Promise<T | null> {
-  return new Promise((resolve) => {
+function k8sErrorCode(reason: unknown): number | null {
+  if (reason instanceof Error && reason.cause !== undefined) {
+    const causeCode = k8sErrorCode(reason.cause);
+    if (causeCode !== null) return causeCode;
+  }
+  if (typeof reason !== "object" || reason === null || !("code" in reason)) return null;
+  const code = (reason as { code?: unknown }).code;
+  return typeof code === "number" ? code : null;
+}
+
+function isTransientK8sError(reason: unknown): boolean {
+  const code = k8sErrorCode(reason);
+  return (
+    code === null || code === 408 || code === 409 || code === 425 || code === 429 || code >= 500
+  );
+}
+
+function boundedK8sCall<T>(operation: Promise<T>, resource: string): Promise<T> {
+  return new Promise((resolve, reject) => {
     let settled = false;
-    const settle = (value: T | null) => {
+    const settle = (callback: () => void) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve(value);
+      callback();
     };
-    const timer = setTimeout(() => settle(null), K8S_CLEANUP_CALL_TIMEOUT_MS);
+    const timer = setTimeout(
+      () =>
+        settle(() =>
+          reject(
+            new Error(
+              `Kubernetes cleanup call timed out for ${resource} after ${String(K8S_CLEANUP_CALL_TIMEOUT_MS)}ms.`,
+            ),
+          ),
+        ),
+      K8S_CLEANUP_CALL_TIMEOUT_MS,
+    );
     void operation.then(
-      (value) => settle(value),
-      () => settle(null),
+      (value) => settle(() => resolve(value)),
+      (error: unknown) =>
+        settle(() =>
+          reject(
+            error instanceof Error
+              ? error
+              : new Error(`Kubernetes cleanup call failed for ${resource}.`, { cause: error }),
+          ),
+        ),
     );
   });
+}
+
+async function retryK8sCleanupCall<T>(
+  resource: string,
+  operation: () => Promise<T>,
+  options: { notFoundIsSuccess?: boolean } = {},
+): Promise<T | null> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= K8S_CLEANUP_ATTEMPTS; attempt += 1) {
+    try {
+      return await boundedK8sCall(operation(), resource);
+    } catch (error) {
+      if (options.notFoundIsSuccess === true && k8sErrorCode(error) === 404) return null;
+      lastError = error;
+      if (!isTransientK8sError(error) || attempt === K8S_CLEANUP_ATTEMPTS) break;
+      await new Promise((resolve) => setTimeout(resolve, K8S_CLEANUP_RETRY_DELAY_MS * attempt));
+    }
+  }
+  throw new Error(
+    `Kubernetes cleanup failed for ${resource} after ${String(K8S_CLEANUP_ATTEMPTS)} attempts.`,
+    { cause: lastError },
+  );
+}
+
+function throwCleanupFailures(label: string, results: PromiseSettledResult<unknown>[]): void {
+  const failures = results
+    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+    .map((result): unknown => result.reason);
+  if (failures.length > 0) throw new AggregateError(failures, `${label} cleanup failed.`);
+}
+
+async function runCleanupOperations(
+  label: string,
+  operations: Promise<unknown>[],
+): Promise<void> {
+  const results = await Promise.allSettled(operations);
+  throwCleanupFailures(label, results);
 }
 
 export function chunkCaseIndices(indices: number[], size: number): number[][] {
@@ -455,15 +528,22 @@ export class K8sExecutor implements SandboxExecutor {
       });
       throw err;
     } finally {
-      const runPodsGone = await this.cleanupAdvancedJob(runJobName, ns);
-      const gradePodsGone = await this.cleanupAdvancedJob(gradeJobName, ns);
-      await this.cleanupConfigMap(runConfigMapName, ns);
-      await this.cleanupConfigMap(gradeConfigMapName, ns);
-      await this.cleanupPvc(pvcName, ns);
-      await this.teardownAdvancedNetwork(resourceId, ns, hasSidecar, {
-        runPodsGone,
-        gradePodsGone,
-      });
+      const jobCleanup = await Promise.allSettled([
+        this.cleanupAdvancedJob(runJobName, ns),
+        this.cleanupAdvancedJob(gradeJobName, ns),
+      ]);
+      const runPodsGone = jobCleanup[0].status === "fulfilled";
+      const gradePodsGone = jobCleanup[1].status === "fulfilled";
+      const privateDataCleanup = await Promise.allSettled([
+        this.cleanupConfigMap(runConfigMapName, ns),
+        this.cleanupConfigMap(gradeConfigMapName, ns),
+        this.cleanupPvc(pvcName, ns),
+        this.teardownAdvancedNetwork(resourceId, ns, hasSidecar, {
+          runPodsGone,
+          gradePodsGone,
+        }),
+      ]);
+      throwCleanupFailures("advanced sandbox", [...jobCleanup, ...privateDataCleanup]);
     }
   }
 
@@ -569,30 +649,42 @@ export class K8sExecutor implements SandboxExecutor {
     podsGone: { runPodsGone: boolean; gradePodsGone: boolean },
   ): Promise<void> {
     const networkingApi = this.networkingApi();
-    const deletePolicy = async (name: string) => {
-      await settleCleanupCall(
-        networkingApi.deleteNamespacedNetworkPolicy({ name, namespace: ns }),
+    const deletePolicy = (name: string) =>
+      retryK8sCleanupCall(
+        `NetworkPolicy ${ns}/${name}`,
+        () => networkingApi.deleteNamespacedNetworkPolicy({ name, namespace: ns }),
+        { notFoundIsSuccess: true },
       );
-    };
 
-    if (podsGone.gradePodsGone) {
-      await deletePolicy(gradePolicyName(submissionId));
-    }
+    const cleanupResults: PromiseSettledResult<unknown>[] = [];
+    let sidecarGone = false;
     if (hasSidecar) {
-      await settleCleanupCall(
-        this.coreApi.deleteNamespacedService({
-          name: sidecarServiceName(submissionId),
-          namespace: ns,
-        }),
-      );
-      const sidecarGone = await this.cleanupAdvancedPod(sidecarPodName(submissionId), ns);
-      if (podsGone.runPodsGone) {
-        await deletePolicy(runPolicyName(submissionId));
-      }
-      if (sidecarGone) {
-        await deletePolicy(sidecarPolicyName(submissionId));
-      }
+      const sidecarCleanup = await Promise.allSettled([
+        retryK8sCleanupCall(
+          `Service ${ns}/${sidecarServiceName(submissionId)}`,
+          () =>
+            this.coreApi.deleteNamespacedService({
+              name: sidecarServiceName(submissionId),
+              namespace: ns,
+            }),
+          { notFoundIsSuccess: true },
+        ),
+        this.cleanupAdvancedPod(sidecarPodName(submissionId), ns),
+      ]);
+      sidecarGone = sidecarCleanup[1].status === "fulfilled";
+      cleanupResults.push(...sidecarCleanup);
     }
+
+    const policyCleanup: Promise<unknown>[] = [];
+    if (podsGone.gradePodsGone) {
+      policyCleanup.push(deletePolicy(gradePolicyName(submissionId)));
+    }
+    if (hasSidecar && podsGone.runPodsGone) {
+      policyCleanup.push(deletePolicy(runPolicyName(submissionId)));
+    }
+    if (sidecarGone) policyCleanup.push(deletePolicy(sidecarPolicyName(submissionId)));
+    cleanupResults.push(...(await Promise.allSettled(policyCleanup)));
+    throwCleanupFailures("advanced network", cleanupResults);
   }
 
   private async executeInteractive(
@@ -715,42 +807,67 @@ export class K8sExecutor implements SandboxExecutor {
       });
       return seCase("Interactive sandbox failed to start.");
     } finally {
-      await this.cleanupJob(jobName, namespace);
-      await this.cleanupConfigMap(solConfigMap, namespace);
-      await this.cleanupConfigMap(intConfigMap, namespace);
+      await runCleanupOperations("interactive sandbox", [
+        this.cleanupJob(jobName, namespace),
+        this.cleanupConfigMap(solConfigMap, namespace),
+        this.cleanupConfigMap(intConfigMap, namespace),
+      ]);
     }
   }
 
   private async cleanupJob(name: string, namespace: string): Promise<void> {
-    await settleCleanupCall(
-      this.batchApi.deleteNamespacedJob({
-        name,
-        namespace,
-        propagationPolicy: "Background",
-      }),
+    await retryK8sCleanupCall(
+      `Job ${namespace}/${name}`,
+      () =>
+        this.batchApi.deleteNamespacedJob({
+          name,
+          namespace,
+          propagationPolicy: "Background",
+        }),
+      { notFoundIsSuccess: true },
     );
   }
 
   private async cleanupAdvancedJob(name: string, namespace: string): Promise<boolean> {
-    await settleCleanupCall(
-      this.batchApi.deleteNamespacedJob({
-        name,
-        namespace,
-        propagationPolicy: "Foreground",
-      }),
-    );
-    return this.waitForPodsGone(namespace, { labelSelector: `job-name=${name}` });
+    const deletion = await Promise.allSettled([
+      retryK8sCleanupCall(
+        `Job ${namespace}/${name}`,
+        () =>
+          this.batchApi.deleteNamespacedJob({
+            name,
+            namespace,
+            propagationPolicy: "Foreground",
+          }),
+        { notFoundIsSuccess: true },
+      ),
+    ]);
+    const podsGone = await Promise.allSettled([
+      this.waitForPodsGone(namespace, { labelSelector: `job-name=${name}` }),
+    ]);
+    if (deletion[0].status === "fulfilled" && podsGone[0].status === "fulfilled") return true;
+    throwCleanupFailures(`Job ${namespace}/${name}`, [...deletion, ...podsGone]);
+    return false;
   }
 
   private async cleanupAdvancedPod(name: string, namespace: string): Promise<boolean> {
-    await settleCleanupCall(
-      this.coreApi.deleteNamespacedPod({
-        name,
-        namespace,
-        propagationPolicy: "Foreground",
-      }),
-    );
-    return this.waitForPodsGone(namespace, { fieldSelector: `metadata.name=${name}` });
+    const deletion = await Promise.allSettled([
+      retryK8sCleanupCall(
+        `Pod ${namespace}/${name}`,
+        () =>
+          this.coreApi.deleteNamespacedPod({
+            name,
+            namespace,
+            propagationPolicy: "Foreground",
+          }),
+        { notFoundIsSuccess: true },
+      ),
+    ]);
+    const podGone = await Promise.allSettled([
+      this.waitForPodsGone(namespace, { fieldSelector: `metadata.name=${name}` }),
+    ]);
+    if (deletion[0].status === "fulfilled" && podGone[0].status === "fulfilled") return true;
+    throwCleanupFailures(`Pod ${namespace}/${name}`, [...deletion, ...podGone]);
+    return false;
   }
 
   private async waitForPodsGone(
@@ -759,13 +876,15 @@ export class K8sExecutor implements SandboxExecutor {
   ): Promise<boolean> {
     const deadline = Date.now() + POD_CLEANUP_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      const pods = await settleCleanupCall(
+      const pods = await retryK8sCleanupCall(`Pod list in ${namespace}`, () =>
         this.coreApi.listNamespacedPod({ namespace, ...selector }),
       );
       if (pods?.items.length === 0) return true;
       await new Promise((resolve) => setTimeout(resolve, POD_CLEANUP_POLL_INTERVAL_MS));
     }
-    return false;
+    throw new Error(
+      `Kubernetes cleanup timed out waiting for Pods in ${namespace} to terminate.`,
+    );
   }
 
   private async findPodName(
@@ -822,13 +941,19 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async cleanupPvc(name: string, namespace: string): Promise<void> {
-    await settleCleanupCall(
-      this.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace }),
+    await retryK8sCleanupCall(
+      `PersistentVolumeClaim ${namespace}/${name}`,
+      () => this.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace }),
+      { notFoundIsSuccess: true },
     );
   }
 
   private async cleanupConfigMap(name: string, namespace: string): Promise<void> {
-    await settleCleanupCall(this.coreApi.deleteNamespacedConfigMap({ name, namespace }));
+    await retryK8sCleanupCall(
+      `ConfigMap ${namespace}/${name}`,
+      () => this.coreApi.deleteNamespacedConfigMap({ name, namespace }),
+      { notFoundIsSuccess: true },
+    );
   }
 
   private async runPerCasePod(
@@ -1280,19 +1405,9 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   private async cleanup(jobName: string, namespace: string): Promise<void> {
-    await settleCleanupCall(
-      this.coreApi.deleteNamespacedConfigMap({
-        name: jobName,
-        namespace,
-      }),
-    );
-
-    await settleCleanupCall(
-      this.batchApi.deleteNamespacedJob({
-        name: jobName,
-        namespace,
-        propagationPolicy: "Background",
-      }),
-    );
+    await runCleanupOperations("sandbox", [
+      this.cleanupConfigMap(jobName, namespace),
+      this.cleanupJob(jobName, namespace),
+    ]);
   }
 }
