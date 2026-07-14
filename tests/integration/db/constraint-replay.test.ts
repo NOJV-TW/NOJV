@@ -38,6 +38,24 @@ describe("replayed CHECK constraints are enforced in the test DB", () => {
     ).rejects.toThrow(/Participation_virtual_window_chk|check constraint/i);
   });
 
+  it("rejects a virtual participation whose end is not after its start", async () => {
+    const user = await createTestUser();
+    const contest = await createTestContest();
+
+    await expect(
+      testPrisma.participation.create({
+        data: {
+          type: "virtual",
+          userId: user.id,
+          contestId: contest.id,
+          status: "active",
+          startedAt: new Date("2026-01-01T02:00:00Z"),
+          endsAt: new Date("2026-01-01T02:00:00Z"),
+        },
+      }),
+    ).rejects.toThrow(/Participation_virtual_window_chk|check constraint/i);
+  });
+
   it("rejects IP-proctoring columns on a non-exam participation", async () => {
     const user = await createTestUser();
     const contest = await createTestContest();
@@ -92,6 +110,18 @@ describe("replayed CHECK constraints are enforced in the test DB", () => {
       { conname: "Contest_effective_time_window_chk", convalidated: true },
       { conname: "Exam_effective_time_window_chk", convalidated: true },
     ]);
+  });
+
+  it("has a validated virtual participation window constraint", async () => {
+    const rows = await testPrisma.$queryRawUnsafe<
+      { conname: string; convalidated: boolean }[]
+    >(`
+      SELECT conname, convalidated
+      FROM pg_constraint
+      WHERE conname = 'Participation_virtual_window_chk'
+    `);
+
+    expect(rows).toEqual([{ conname: "Participation_virtual_window_chk", convalidated: true }]);
   });
 
   it("rejects invalid Exam, Contest, and Assessment windows directly", async () => {
