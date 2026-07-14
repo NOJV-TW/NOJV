@@ -3,10 +3,9 @@ import { randomUUID } from "node:crypto";
 import { entryFileNameFor } from "@nojv/core";
 import {
   createStorageClient,
-  putSubmissionSources,
+  planSubmissionSources,
+  putSubmissionSourcePlan,
   putVerdictDetail,
-  submissionSourcePrefix,
-  submissionVerdictDetailKey,
 } from "@nojv/storage";
 
 import type { Prisma, PrismaClient, User } from "../../generated/prisma/client";
@@ -46,28 +45,34 @@ async function ensureAcceptedPractice(
   });
 
   const id = randomUUID();
+  const sources = [
+    { path: entryFileNameFor("cpp"), content: sampleSource("cpp", "accepted") },
+  ];
+  const [sourceStorage, verdictDetailStorage] = await Promise.all([
+    putSubmissionSourcePlan(
+      storage,
+      planSubmissionSources(id, randomUUID(), sources),
+    ),
+    putVerdictDetail(storage, id, `seed-${randomUUID()}`, detail),
+  ]);
   await prisma.submission.create({
     data: {
       id,
       userId: author.id,
       problemId,
       language: "cpp",
-      sourceStoragePrefix: submissionSourcePrefix(id),
+      sourceStorage,
       status: "accepted",
       score,
       runtimeMs,
       memoryKb,
       verdictSummary: deriveSeedVerdictSummary(detail) as unknown as Prisma.InputJsonValue,
-      verdictDetailStorageKey: submissionVerdictDetailKey(id),
+      verdictDetailStorage,
       sampleOnly: false,
       createdAt: when,
     },
   });
 
-  await putSubmissionSources(storage, id, [
-    { path: entryFileNameFor("cpp"), content: sampleSource("cpp", "accepted") },
-  ]);
-  await putVerdictDetail(storage, id, detail);
 }
 
 export async function seedEngagement(

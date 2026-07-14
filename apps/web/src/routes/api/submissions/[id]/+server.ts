@@ -23,7 +23,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const submission = await getSubmissionForActor(actor, id);
 
-  const detail = submission.verdictDetailStorageKey ? await getVerdictDetail(id) : null;
+  const detail = submission.verdictDetailStorage ? await getVerdictDetail(id) : null;
 
   return json({
     result: sanitizeVerdictDetail(detail, submission.sampleOnly),

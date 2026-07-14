@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ForbiddenError, problemDomain } from "@nojv/application";
-import { createStorageClient, getText, interactorKey } from "@nojv/storage";
+import {
+  assertStorageObjectPointer,
+  createStorageClient,
+  getVerifiedText,
+} from "@nojv/storage";
 
 import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
 
@@ -29,20 +33,21 @@ describe("POST /api/problems/[id]/interactor (W3.C)", () => {
       language: "cpp",
     });
 
-    const stored = await getText(createStorageClient(), interactorKey(problem.id));
-    expect(stored).toBe("// interactor\nint main(){return 0;}\n");
-
     const updated = await testPrisma.problem.findUniqueOrThrow({
       where: { id: problem.id },
-      select: { judgeConfig: true },
+      select: { judgeConfig: true, interactorStorage: true },
     });
     const cfg = updated.judgeConfig as {
       type: string;
-      interactorKey?: string;
       interactorLanguage?: string;
     };
+    const stored = await getVerifiedText(
+      createStorageClient(),
+      assertStorageObjectPointer(updated.interactorStorage),
+    );
+    expect(stored).toBe("// interactor\nint main(){return 0;}\n");
     expect(cfg.type).toBe("interactive");
-    expect(cfg.interactorKey).toBe(interactorKey(problem.id));
+    expect(cfg).not.toHaveProperty("interactorKey");
     expect(cfg.interactorLanguage).toBe("cpp");
   });
 
@@ -58,9 +63,11 @@ describe("POST /api/problems/[id]/interactor (W3.C)", () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
-    await expect(getText(createStorageClient(), interactorKey(problem.id))).rejects.toThrow(
-      /No body returned/,
-    );
+    const row = await testPrisma.problem.findUniqueOrThrow({
+      where: { id: problem.id },
+      select: { interactorStorage: true },
+    });
+    expect(row.interactorStorage).toBeNull();
   });
 
   it("oversize uploads are rejected by the per-problem 50 MB budget", async () => {

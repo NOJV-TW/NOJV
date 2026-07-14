@@ -25,12 +25,11 @@ import {
   type SubmissionResult,
 } from "@nojv/core";
 import {
+  assertStorageObjectPointer,
   getSubmissionSources as storageGetSubmissionSources,
   getVerdictDetail as storageGetVerdictDetail,
   type SubmissionSource,
 } from "@nojv/storage";
-import { z } from "zod";
-
 import {
   readTestcaseBlobs,
   readValidatorScriptBlob,
@@ -70,15 +69,36 @@ export async function getSubmissionById(id: string) {
 }
 
 export async function getSubmissionSources(submissionId: string): Promise<SubmissionSource[]> {
-  return storageGetSubmissionSources(storage(), submissionId);
+  const submission = await submissionRepo.findById(submissionId);
+  if (!submission) throw new NotFoundError("Submission not found.");
+  return readSubmissionSources(submission.sourceStorage);
 }
 
-// intentional-nullable: no verdict-detail blob exists until a submission is judged; a malformed or stale blob is treated as absent.
 export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult | null> {
-  const raw = await storageGetVerdictDetail(storage(), submissionId);
-  if (raw === null) return null;
+  const submission = await submissionRepo.findById(submissionId);
+  if (!submission) throw new NotFoundError("Submission not found.");
+  if (submission.verdictDetailStorage === null) return null;
+  return readVerdictDetail(submission.verdictDetailStorage);
+}
+
+async function readSubmissionSources(pointer: unknown): Promise<SubmissionSource[]> {
+  return storageGetSubmissionSources(storage(), assertStorageObjectPointer(pointer));
+}
+
+async function readVerdictDetail(pointer: unknown): Promise<SubmissionResult> {
+  const raw = await storageGetVerdictDetail(
+    storage(),
+    assertStorageObjectPointer(pointer),
+  );
   const parsed = submissionResultSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) {
+    throw new IntegrityError(
+      `Persisted verdict detail is malformed: ${parsed.error.issues
+        .map((issue) => issue.path.join(".") || issue.code)
+        .join(", ")}`,
+    );
+  }
+  return parsed.data;
 }
 
 export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
@@ -114,8 +134,10 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   const language = languageSchema.parse(submission.language);
 
   const [rawResult, sources] = await Promise.all([
-    submission.verdictDetailStorageKey ? getVerdictDetail(submissionId) : Promise.resolve(null),
-    getSubmissionSources(submissionId),
+    submission.verdictDetailStorage
+      ? readVerdictDetail(submission.verdictDetailStorage)
+      : Promise.resolve(null),
+    readSubmissionSources(submission.sourceStorage),
   ]);
   const result =
     rawResult === null || viewerIsStaff
@@ -371,8 +393,6 @@ export function narrowSubmissionRow(row: { status: string; language: string }): 
   };
 }
 
-const inputFileKeysSchema = z.record(z.string(), z.string());
-
 const DEFAULT_JUDGE_CONFIG: JudgeConfig = { type: "standard" };
 
 function parseJudgeConfig(raw: unknown, submissionId: string): JudgeConfig {
@@ -408,17 +428,6 @@ function parseAdvancedConfig(raw: unknown, submissionId: string): AdvancedConfig
   );
 }
 
-function parseInputFileKeys(raw: unknown, testcaseId: string): Record<string, string> | null {
-  if (raw == null) return null;
-  const result = inputFileKeysSchema.safeParse(raw);
-  if (result.success) return result.data;
-  throw new IntegrityError(
-    `Invalid inputFileKeys for testcase ${testcaseId}: ${result.error.issues
-      .map((issue) => issue.path.join(".") || issue.code)
-      .join(", ")}`,
-  );
-}
-
 export function deriveJudgeMode(
   context: Pick<SubmissionJudgeContext, "problemType" | "advanced">,
 ): "standard" | "advanced" {
@@ -440,9 +449,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
       const testcases = await Promise.all(
         ts.testcases.map(async (testcase): Promise<ProblemJudgeTestcase> => {
           const blobs = await readTestcaseBlobs({
-            inputKey: testcase.inputKey,
-            outputKey: testcase.outputKey,
-            inputFileKeys: parseInputFileKeys(testcase.inputFileKeys, testcase.id),
+            inputStorage: testcase.inputStorage,
+            outputStorage: testcase.outputStorage,
+            inputFileStorage: testcase.inputFileStorage,
           });
           return {
             id: testcase.id,
@@ -472,7 +481,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
     problem.workspaceFiles.map(async (f): Promise<WorkspaceFileEntry> => ({
-      content: await readWorkspaceFileBlob(f.contentKey),
+      content: await readWorkspaceFileBlob(f.contentStorage),
       language: f.language,
       path: f.path,
       visibility: f.visibility,
@@ -506,11 +515,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
       : null;
 
   const [checkerScript, interactorScript] = await Promise.all([
-    judgeConfig.checkerKey
-      ? readValidatorScriptBlob(judgeConfig.checkerKey)
+    problem.checkerStorage
+      ? readValidatorScriptBlob(problem.checkerStorage)
       : Promise.resolve(null),
-    judgeConfig.interactorKey
-      ? readValidatorScriptBlob(judgeConfig.interactorKey)
+    problem.interactorStorage
+      ? readValidatorScriptBlob(problem.interactorStorage)
       : Promise.resolve(null),
   ]);
 

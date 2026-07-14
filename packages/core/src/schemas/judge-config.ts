@@ -23,9 +23,7 @@ export type CompareConfig = z.infer<typeof compareOptionsSchema>;
 export const judgeConfigSchema = z.object({
   type: judgeTypeSchema.default("standard"),
 
-  checkerKey: z.string().max(500).nullish(),
   checkerLanguage: judgeScriptLanguageSchema.nullish(),
-  interactorKey: z.string().max(500).nullish(),
   interactorLanguage: judgeScriptLanguageSchema.nullish(),
 
   compare: compareOptionsSchema.nullish(),

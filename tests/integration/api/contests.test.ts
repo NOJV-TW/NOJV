@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createTestContest,
   createTestProblem,
+  createTestSubmission,
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
@@ -209,20 +210,15 @@ describe("contest queries (real DB)", () => {
         participationRepo.withTx(tx).upsertContestActive(contest.id, user.id, new Date()),
       );
 
-      const subId = "sub_problem_count_sb_1";
-      await testPrisma.submission.create({
-        data: {
-          id: subId,
-          contestId: contest.id,
-          language: "python",
-          problemId: problem.id,
-          sampleOnly: false,
-          sourceStoragePrefix: `submissions/${subId}/sources/`,
-          status: "accepted",
-          userId: user.id,
-          createdAt: new Date("2026-01-01T01:00:00Z"),
-          score: 100,
-        },
+      await createTestSubmission({
+        contestId: contest.id,
+        language: "python",
+        problemId: problem.id,
+        sampleOnly: false,
+        status: "accepted",
+        userId: user.id,
+        createdAt: new Date("2026-01-01T01:00:00Z"),
+        score: 100,
       });
 
       const sb = await getScoreboard(contest.id);

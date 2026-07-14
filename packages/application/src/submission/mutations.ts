@@ -24,11 +24,11 @@ import {
   type VerdictSummary,
 } from "@nojv/core";
 import {
-  deleteSubmissionStorage,
-  promoteSubmissionSources,
-  putSubmissionSourcesStaged,
-  putVerdictDetail,
-  submissionSourcePrefix,
+  planSubmissionSources,
+  putImmutableObject,
+  putSubmissionSourcePlan,
+  assertStorageObjectPointer,
+  storagePointerFor,
   submissionVerdictDetailKey,
 } from "@nojv/storage";
 
@@ -36,6 +36,10 @@ import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
+import {
+  commitStoragePointerSwap,
+  guardStorageObjectWrites,
+} from "../shared/storage-object-lifecycle";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { attemptWindowStart, DEFAULT_ATTEMPT_RESET_MINUTE } from "./attempt-window";
@@ -45,7 +49,7 @@ import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
-import { dispatchSubmissionJudge } from "./rejudge-control";
+import { enqueueSubmissionJudgeDispatch } from "./rejudge-control";
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
@@ -230,8 +234,9 @@ export async function createQueuedSubmissionRecord(
   clientIp: string,
 ) {
   const submissionId = randomUUID();
+  const sourceGeneration = randomUUID();
 
-  const { sources } = await runTransaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
       payload.assessment
@@ -303,9 +308,12 @@ export async function createQueuedSubmissionRecord(
       await assertDailyAttemptLimit(tx, courseContext, user, problem.id);
     }
 
-    const sources = normalizeSubmissionSources(payload, submissionId);
+    const sources = normalizeSubmissionSources(payload);
 
-    const created = await submissionRepo.withTx(tx).create({
+    const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
+    await guardStorageObjectWrites(sourcePlan.pointers);
+    await putSubmissionSourcePlan(storage(), sourcePlan);
+    const submission = await submissionRepo.withTx(tx).create({
       id: submissionId,
       contestId: contestResult?.contest.id ?? null,
       participationId: payload.participationId ?? null,
@@ -316,28 +324,19 @@ export async function createQueuedSubmissionRecord(
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
-      sourceStoragePrefix: submissionSourcePrefix(submissionId),
-      status: "pending_upload",
+      sourceStorage: sourcePlan.manifest,
+      status: "queued",
       userId: user.id,
     });
-
-    return { row: created, sources };
-  });
-
-  const storageClient = storage();
-  try {
-    await putSubmissionSourcesStaged(storageClient, submissionId, sources);
-    await promoteSubmissionSources(storageClient, submissionId, sources);
-  } catch (err) {
-    await deleteSubmissionStorage(storageClient, submissionId).catch(() => undefined);
-    await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
-    throw err;
-  }
-
-  return submissionRepo.updateStatus(submissionId, "queued").catch(async (err: unknown) => {
-    await deleteSubmissionStorage(storageClient, submissionId).catch(() => undefined);
-    await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
-    throw err;
+    const judgeDraft: SubmissionDraft = { ...payload };
+    delete judgeDraft.sourceCode;
+    delete judgeDraft.sourceFiles;
+    await enqueueSubmissionJudgeDispatch(tx, {
+      draft: judgeDraft,
+      submissionId: submission.id,
+    });
+    await commitStoragePointerSwap(tx, { added: sourcePlan.pointers });
+    return submission;
   });
 }
 
@@ -348,32 +347,70 @@ export async function submitAndDispatch(
 ) {
   const submission = await createQueuedSubmissionRecord(payload, actor, clientIp);
 
-  const judgeDraft: SubmissionDraft = { ...payload };
-  delete judgeDraft.sourceCode;
-  delete judgeDraft.sourceFiles;
-
-  try {
-    await dispatchSubmissionJudge({ draft: judgeDraft, submissionId: submission.id });
-  } catch (err) {
-    await submissionRepo.updateStatus(submission.id, "system_error").catch(() => undefined);
-    throw err;
-  }
-
   return submission;
 }
 
-export async function updateSubmissionStatus(
+export async function startSubmissionJudgeRun(
   submissionId: string,
-  status: SubmissionStatus,
+  judgeRunId: string,
 ): Promise<void> {
-  await submissionRepo.updateStatus(submissionId, status);
+  await runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+    const submission = await tx.submission.findUnique({ where: { id: submissionId } });
+    if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
+    if (submission.activeJudgeRunId === judgeRunId) return;
+    if (submission.activeJudgeRunId !== null) {
+      throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
+    }
+    await tx.submission.update({
+      where: { id: submissionId },
+      data: {
+        activeJudgeRunId: judgeRunId,
+        judgeGeneration: { increment: 1 },
+        status: "running",
+      },
+    });
+  });
+}
+
+export async function failSubmissionJudgeRun(
+  submissionId: string,
+  judgeRunId: string,
+): Promise<boolean> {
+  return runTransaction(async (tx) => {
+    const { count } = await tx.submission.updateMany({
+      where: {
+        id: submissionId,
+        activeJudgeRunId: judgeRunId,
+        status: { in: ["queued", "compiling", "running"] },
+      },
+      data: {
+        activeJudgeRunId: null,
+        status: "system_error",
+      },
+    });
+    return count === 1;
+  });
 }
 
 export async function restoreSubmissionAfterCancelledRejudge(
   submissionId: string,
+  judgeRunId: string,
   oldStatus: string,
 ): Promise<void> {
-  await submissionRepo.updateStatusIfIn(submissionId, ["queued", "running"], oldStatus);
+  await runTransaction(async (tx) => {
+    await tx.submission.updateMany({
+      where: {
+        id: submissionId,
+        activeJudgeRunId: judgeRunId,
+        status: { in: ["queued", "running"] },
+      },
+      data: {
+        activeJudgeRunId: null,
+        status: oldStatus as SubmissionStatus,
+      },
+    });
+  });
 }
 
 const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
@@ -411,35 +448,58 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
 
 export async function completeJudge(
   submissionId: string,
+  judgeRunId: string,
   result: SubmissionResult,
   advancedConfigSnapshot: AdvancedJudgeVerificationSnapshot | null = null,
 ): Promise<CompletedSubmission | null> {
-  await putVerdictDetail(storage(), submissionId, result);
-
-  const verdictSummary = deriveVerdictSummary(result);
-  const verdictDetailStorageKey = submissionVerdictDetailKey(submissionId);
-
-  const { count } = await submissionRepo.completeIfInProgress(submissionId, {
-    runtimeMs: result.runtimeMs,
-    ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
-    score: result.score,
-    status: result.verdict,
-    verdictSummary: toJsonValue(verdictSummary),
-    verdictDetailStorageKey,
-    advancedConfigSnapshot:
-      advancedConfigSnapshot === null ? Prisma.JsonNull : toJsonValue(advancedConfigSnapshot),
+  const preflight = await submissionRepo.findById(submissionId);
+  if (preflight?.activeJudgeRunId !== judgeRunId) return null;
+  const verdictBody = Buffer.from(JSON.stringify(result), "utf8");
+  const verdictDetailStorage = storagePointerFor(
+    submissionVerdictDetailKey(submissionId, judgeRunId),
+    verdictBody,
+  );
+  await guardStorageObjectWrites([verdictDetailStorage]);
+  await putImmutableObject(storage(), verdictDetailStorage.key, verdictBody, {
+    contentType: "application/json",
   });
 
-  const submission = await submissionRepo.findById(submissionId);
+  const verdictSummary = deriveVerdictSummary(result);
+  const submission = await runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+    const current = await tx.submission.findUnique({ where: { id: submissionId } });
+    if (
+      current?.activeJudgeRunId !== judgeRunId ||
+      !["queued", "compiling", "running"].includes(current.status)
+    ) {
+      return null;
+    }
+    const updated = await tx.submission.update({
+      where: { id: submissionId },
+      data: {
+        activeJudgeRunId: null,
+        runtimeMs: result.runtimeMs,
+        ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
+        score: result.score,
+        status: result.verdict,
+        verdictSummary: toJsonValue(verdictSummary),
+        verdictDetailStorage,
+        advancedConfigSnapshot:
+          advancedConfigSnapshot === null
+            ? Prisma.JsonNull
+            : toJsonValue(advancedConfigSnapshot),
+      },
+    });
+    await commitStoragePointerSwap(tx, {
+      added: [verdictDetailStorage],
+      removed:
+        current.verdictDetailStorage === null
+          ? []
+          : [assertStorageObjectPointer(current.verdictDetailStorage)],
+    });
+    return updated;
+  });
   if (!submission) return null;
-
-  if (count === 0) {
-    const matchesThisRun =
-      submission.status === result.verdict &&
-      submission.score === result.score &&
-      submission.verdictDetailStorageKey === verdictDetailStorageKey;
-    if (!matchesThisRun) return null;
-  }
 
   return {
     contestId: submission.contestId,
@@ -458,36 +518,68 @@ export async function completeJudge(
 export async function snapshotForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
-  rejudgeRunId: string | null,
+  rejudgeRunId: string,
 ): Promise<{ logId: string; oldStatus: string } | null> {
-  const current = await submissionRepo.findById(submissionId);
-  if (!current) return null;
-
-  const row = await submissionRejudgeLogRepo.upsertSnapshot({
-    submissionId,
-    rejudgedByUserId: triggeredByUserId,
-    rejudgeRunId,
-    oldVerdict: current.status,
-    oldScore: current.score,
-    oldResultJson: current.verdictSummary === null ? null : toJsonValue(current.verdictSummary),
+  return runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+    const current = await tx.submission.findUnique({ where: { id: submissionId } });
+    if (!current) return null;
+    if (
+      current.activeJudgeRunId !== null &&
+      current.activeJudgeRunId !== rejudgeRunId
+    ) {
+      throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
+    }
+    const row = await tx.submissionRejudgeLog.upsert({
+      where: {
+        submissionId_rejudgeRunId: { submissionId, rejudgeRunId },
+      },
+      create: {
+        submissionId,
+        rejudgedByUserId: triggeredByUserId,
+        rejudgeRunId,
+        oldVerdict: current.status,
+        oldScore: current.score,
+        oldResultJson:
+          current.verdictSummary === null
+            ? Prisma.JsonNull
+            : toJsonValue(current.verdictSummary),
+      },
+      update: {},
+    });
+    if (current.activeJudgeRunId === null) {
+      await tx.submission.update({
+        where: { id: submissionId },
+        data: {
+          activeJudgeRunId: rejudgeRunId,
+          judgeGeneration: { increment: 1 },
+          status: "running",
+        },
+      });
+    }
+    return { logId: row.id, oldStatus: row.oldVerdict };
   });
-
-  await submissionRepo.updateStatus(submissionId, "running");
-
-  return { logId: row.id, oldStatus: row.oldVerdict };
 }
 
 export async function finalizeRejudgeLog(
   submissionId: string,
   _triggeredByUserId: string | null,
   logId: string,
+  judgeRunId: string,
 ): Promise<void> {
   const updated = await submissionRepo.findById(submissionId);
   if (!updated) return;
-
+  const log = await submissionRejudgeLogRepo.findById(logId);
+  if (log?.submissionId !== submissionId || log.rejudgeRunId !== judgeRunId) return;
+  const verdictPointer =
+    updated.verdictDetailStorage === null
+      ? null
+      : assertStorageObjectPointer(updated.verdictDetailStorage);
+  if (!verdictPointer?.key.includes(`/judge-runs/${judgeRunId}/`)) return;
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,
-    newResultJson: updated.verdictSummary === null ? null : toJsonValue(updated.verdictSummary),
+    newResultJson:
+      updated.verdictSummary === null ? null : toJsonValue(updated.verdictSummary),
   });
 }

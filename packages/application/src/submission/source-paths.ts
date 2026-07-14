@@ -1,5 +1,5 @@
 import { entryFileNameFor, parseRelativePath, type SubmissionDraft } from "@nojv/core";
-import { submissionSourceKey, type SubmissionSource } from "@nojv/storage";
+import type { SubmissionSource } from "@nojv/storage";
 
 import { ConflictError } from "../shared/errors";
 
@@ -7,14 +7,12 @@ const MAX_SUBMISSION_BYTES = 1 * 1024 * 1024;
 
 export function normalizeSubmissionSources(
   payload: SubmissionDraft,
-  submissionId: string,
 ): SubmissionSource[] {
   const sources: SubmissionSource[] = [];
 
   if (payload.sourceFiles && payload.sourceFiles.length > 0) {
     for (const file of payload.sourceFiles) {
       const path = parseRelativePath(file.path);
-      submissionSourceKey(submissionId, path);
       sources.push({ path, content: file.content });
     }
   } else {
@@ -22,7 +20,6 @@ export function normalizeSubmissionSources(
       throw new ConflictError("Submission missing source content.");
     }
     const path = entryFileNameFor(payload.language);
-    submissionSourceKey(submissionId, path);
     sources.push({ path, content: payload.sourceCode });
   }
 

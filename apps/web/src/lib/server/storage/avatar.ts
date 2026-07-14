@@ -21,15 +21,16 @@ export async function uploadAvatar(
   assertImageFormat(file.buffer, ["webp"]);
 
   const client = createStorageClient();
-  await uploadUserAvatar(client, actor.userId, file.buffer);
-  const url = `/api/storage/avatars/${encodeURIComponent(actor.userId)}?v=${String(Date.now())}`;
+  const key = await uploadUserAvatar(client, actor.userId, file.buffer);
+  const filename = key.slice(`avatars/${actor.userId}/`.length);
+  const url = `/api/storage/avatars/${encodeURIComponent(actor.userId)}/${encodeURIComponent(filename)}`;
   return { url };
 }
 
-export async function deleteAvatar(actor: ActorContext): Promise<void> {
+export async function deleteAvatar(actor: ActorContext, filename: string): Promise<void> {
   const client = createStorageClient();
   try {
-    await deleteUserAvatar(client, actor.userId);
+    await deleteUserAvatar(client, actor.userId, filename);
   } catch (err) {
     logger.warn("Avatar storage delete failed", {
       userId: actor.userId,
@@ -38,6 +39,6 @@ export async function deleteAvatar(actor: ActorContext): Promise<void> {
   }
 }
 
-export async function readAvatar(userId: string): Promise<Buffer> {
-  return downloadUserAvatar(createStorageClient(), userId);
+export async function readAvatar(userId: string, filename: string): Promise<Buffer> {
+  return downloadUserAvatar(createStorageClient(), userId, filename);
 }

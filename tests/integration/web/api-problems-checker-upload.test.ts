@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ForbiddenError, problemDomain } from "@nojv/application";
-import { checkerKey, createStorageClient, getText } from "@nojv/storage";
+import {
+  assertStorageObjectPointer,
+  createStorageClient,
+  getVerifiedText,
+} from "@nojv/storage";
 
 import { createTestProblem, createTestUser } from "../../fixtures/factories";
 
@@ -31,18 +35,17 @@ describe("POST /api/problems/[id]/checker (W3.B)", () => {
 
     expect(result.id).toBe(problem.id);
 
-    const stored = await getText(createStorageClient(), checkerKey(problem.id));
-    expect(stored).toBe("#include <iostream>\nint main(){return 0;}\n");
-
     const { problemRepo } = await import("@nojv/db");
     const row = await problemRepo.findById(problem.id);
     const config = row?.judgeConfig as {
       type?: string;
-      checkerKey?: string;
       checkerLanguage?: string;
     };
+    const pointer = assertStorageObjectPointer(row?.checkerStorage);
+    const stored = await getVerifiedText(createStorageClient(), pointer);
+    expect(stored).toBe("#include <iostream>\nint main(){return 0;}\n");
     expect(config?.type).toBe("checker");
-    expect(config?.checkerKey).toBe(checkerKey(problem.id));
+    expect(config).not.toHaveProperty("checkerKey");
     expect(config?.checkerLanguage).toBe("cpp");
   });
 
@@ -58,9 +61,9 @@ describe("POST /api/problems/[id]/checker (W3.B)", () => {
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
-    await expect(getText(createStorageClient(), checkerKey(problem.id))).rejects.toThrow(
-      /No body returned/,
-    );
+    const { problemRepo } = await import("@nojv/db");
+    const row = await problemRepo.findById(problem.id);
+    expect(row?.checkerStorage).toBeNull();
   });
 
   it("oversize uploads are rejected by the per-problem 50 MB budget (HTTP 413)", async () => {

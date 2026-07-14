@@ -174,8 +174,6 @@ export async function executeSandbox(
 }> {
   const executorOwner = getExecutorOwner();
 
-  await submissionDomain.updateSubmissionStatus(submissionId, "running");
-
   const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
   if (studentSources.length === 0) {
@@ -309,11 +307,17 @@ export async function executeSandbox(
 
 export async function completeSubmission(
   submissionId: string,
+  judgeRunId: string,
   result: SubmissionResult,
   mode: "standard" | "advanced",
   advancedConfig: AdvancedJudgeVerificationSnapshot | null = null,
 ): Promise<submissionDomain.CompletedSubmission | null> {
-  const completed = await submissionDomain.completeJudge(submissionId, result, advancedConfig);
+  const completed = await submissionDomain.completeJudge(
+    submissionId,
+    judgeRunId,
+    result,
+    advancedConfig,
+  );
   if (!completed) return null;
   recordJudgeLatency(judgeLatencyHistogram, {
     startedAtMs: completed.createdAt.getTime(),
@@ -347,7 +351,7 @@ export async function fetchSingleSubmissionForRejudge(
 export async function snapshotSubmissionForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
-  rejudgeRunId: string | null,
+  rejudgeRunId: string,
 ): Promise<{ logId: string; oldStatus: string } | null> {
   return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId, rejudgeRunId);
 }
@@ -356,13 +360,38 @@ export async function finalizeRejudgeLog(
   submissionId: string,
   triggeredByUserId: string | null,
   logId: string,
+  judgeRunId: string,
 ): Promise<void> {
-  return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
+  return submissionDomain.finalizeRejudgeLog(
+    submissionId,
+    triggeredByUserId,
+    logId,
+    judgeRunId,
+  );
 }
 
 export async function restoreSubmissionForCancelledRejudge(
   submissionId: string,
+  judgeRunId: string,
   oldStatus: string,
 ): Promise<void> {
-  return submissionDomain.restoreSubmissionAfterCancelledRejudge(submissionId, oldStatus);
+  return submissionDomain.restoreSubmissionAfterCancelledRejudge(
+    submissionId,
+    judgeRunId,
+    oldStatus,
+  );
+}
+
+export async function startSubmissionJudgeRun(
+  submissionId: string,
+  judgeRunId: string,
+): Promise<void> {
+  await submissionDomain.startSubmissionJudgeRun(submissionId, judgeRunId);
+}
+
+export async function failSubmissionJudgeRun(
+  submissionId: string,
+  judgeRunId: string,
+): Promise<boolean> {
+  return submissionDomain.failSubmissionJudgeRun(submissionId, judgeRunId);
 }

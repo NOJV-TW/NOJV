@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { contestDomain, submissionDomain } from "@nojv/application";
 import { submissionRepo } from "@nojv/db";
+import type { SubmissionResult } from "@nojv/core";
 
 import {
   createTestContest,
   createTestProblem,
+  createTestSubmission,
   createTestUser,
   testPrisma,
 } from "../fixtures/factories";
@@ -39,19 +41,23 @@ async function createQueuedContestSubmission(opts: {
   contestId: string;
   language?: string;
 }) {
-  const id = `sub_${Math.random().toString(36).slice(2, 10)}`;
-  return testPrisma.submission.create({
-    data: {
-      id,
+  return createTestSubmission({
       userId: opts.userId,
       problemId: opts.problemId,
       contestId: opts.contestId,
       language: opts.language ?? "python",
-      sourceStoragePrefix: `submissions/${id}/sources/`,
       status: "queued",
       sampleOnly: false,
-    },
   });
+}
+
+async function completeJudge(
+  submissionId: string,
+  result: SubmissionResult,
+  judgeRunId = `judge-${submissionId}`,
+) {
+  await submissionDomain.startSubmissionJudgeRun(submissionId, judgeRunId);
+  return submissionDomain.completeJudge(submissionId, judgeRunId, result);
 }
 
 describe("submit → judge → score-persist end-to-end (real DB)", () => {
@@ -82,7 +88,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
     });
     expect(submission.status).toBe("queued");
 
-    const completed = await submissionDomain.completeJudge(submission.id, {
+    const completed = await completeJudge(submission.id, {
       accepted: true,
       caseResults: [],
       feedback: "All testcases passed",
@@ -125,7 +131,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       contestId: contest.id,
     });
 
-    await submissionDomain.completeJudge(submission.id, {
+    await completeJudge(submission.id, {
       accepted: false,
       caseResults: [],
       feedback: "Failed on testcase 1",
@@ -167,7 +173,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       contestId: contest.id,
     });
 
-    await submissionDomain.completeJudge(subA.id, {
+    await completeJudge(subA.id, {
       accepted: true,
       caseResults: [],
       feedback: "ok",
@@ -175,7 +181,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       score: 100,
       verdict: "accepted",
     });
-    await submissionDomain.completeJudge(subB.id, {
+    await completeJudge(subB.id, {
       accepted: false,
       caseResults: [],
       feedback: "wa",
@@ -213,7 +219,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       contestId: contest.id,
     });
 
-    await submissionDomain.completeJudge(submission.id, {
+    await completeJudge(submission.id, {
       accepted: false,
       caseResults: [],
       feedback: "wa",
@@ -226,15 +232,16 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       (await testPrisma.participation.findUnique({ where: { id: participation.id } }))?.score,
     ).toBe(0);
 
-    await submissionDomain.snapshotForRejudge(submission.id, teacher.id, null);
-    await submissionDomain.completeJudge(submission.id, {
+    const rejudgeRunId = `rejudge-${submission.id}`;
+    await submissionDomain.snapshotForRejudge(submission.id, teacher.id, rejudgeRunId);
+    await completeJudge(submission.id, {
       accepted: true,
       caseResults: [],
       feedback: "ac",
       runtimeMs: 10,
       score: 100,
       verdict: "accepted",
-    });
+    }, rejudgeRunId);
     await contestDomain.updateContestScores(contest.id, student.id);
 
     const updated = await testPrisma.participation.findUnique({

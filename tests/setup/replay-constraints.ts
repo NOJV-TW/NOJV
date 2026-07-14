@@ -83,7 +83,8 @@ export function splitStatements(sql: string): string[] {
 export function collectReplayStatements(): string[] {
   const checks = new Map<string, Ddl>();
   const indexes = new Map<string, Ddl>();
-  const databaseObjects: string[] = [];
+  const functions: string[] = [];
+  const triggers: string[] = [];
 
   const dirs = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -93,11 +94,12 @@ export function collectReplayStatements(): string[] {
   for (const dir of dirs) {
     const sql = readFileSync(join(MIGRATIONS_DIR, dir, "migration.sql"), "utf8");
     for (const stmt of splitStatements(sql)) {
-      if (
-        /^(?:CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+FUNCTION\b/is.test(stmt) ||
-        /^(?:CREATE|DROP)\s+TRIGGER\b/is.test(stmt)
-      ) {
-        databaseObjects.push(stmt);
+      if (/^(?:CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+FUNCTION\b/is.test(stmt)) {
+        functions.push(stmt);
+        continue;
+      }
+      if (/^(?:CREATE|DROP)\s+TRIGGER\b/is.test(stmt)) {
+        triggers.push(stmt);
         continue;
       }
       const rename = RENAME_COL_RE.exec(stmt);
@@ -147,11 +149,12 @@ export function collectReplayStatements(): string[] {
   }
 
   return [
+    ...functions,
     ...[...checks.values(), ...indexes.values()].flatMap(({ drop, create, validate }) => [
       drop,
       create,
       ...(validate ? [validate] : []),
     ]),
-    ...databaseObjects,
+    ...triggers,
   ];
 }

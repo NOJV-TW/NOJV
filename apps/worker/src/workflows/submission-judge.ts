@@ -28,16 +28,19 @@ const platformContest = proxyActivities<typeof lifecycleActivities>({
 });
 
 export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Promise<void> {
+  const judgeRunId = workflowInfo().workflowId;
   let rejudgeLogId: string | null = null;
   let rejudgeOldStatus: string | null = null;
   if (input.forRejudge) {
     const snap = await judge.snapshotSubmissionForRejudge(
       input.submissionId,
       input.forRejudge.triggeredByUserId,
-      workflowInfo().workflowId,
+      judgeRunId,
     );
     rejudgeLogId = snap?.logId ?? null;
     rejudgeOldStatus = snap?.oldStatus ?? null;
+  } else {
+    await judge.startSubmissionJudgeRun(input.submissionId, judgeRunId);
   }
 
   try {
@@ -52,6 +55,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       meta.problemType === "special_env" && meta.advanced !== null ? "advanced" : "standard";
     const submission = await judge.completeSubmission(
       input.submissionId,
+      judgeRunId,
       result,
       mode,
       advancedJudgeVerificationSnapshot,
@@ -63,6 +67,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
           input.submissionId,
           input.forRejudge?.triggeredByUserId ?? null,
           rejudgeLogId,
+          judgeRunId,
         );
       }
       return;
@@ -88,13 +93,22 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
         input.submissionId,
         input.forRejudge?.triggeredByUserId ?? null,
         rejudgeLogId,
+        judgeRunId,
       );
     }
   } catch (err) {
     const restoreTo = rejudgeOldStatus;
     if (restoreTo !== null) {
       await CancellationScope.nonCancellable(() =>
-        judge.restoreSubmissionForCancelledRejudge(input.submissionId, restoreTo),
+        judge.restoreSubmissionForCancelledRejudge(
+          input.submissionId,
+          judgeRunId,
+          restoreTo,
+        ),
+      );
+    } else {
+      await CancellationScope.nonCancellable(() =>
+        judge.failSubmissionJudgeRun(input.submissionId, judgeRunId),
       );
     }
     throw err;

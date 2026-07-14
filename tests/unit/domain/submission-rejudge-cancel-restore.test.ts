@@ -1,23 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { updateStatusIfIn } = vi.hoisted(() => ({
-  updateStatusIfIn: vi.fn().mockResolvedValue({ count: 1 }),
+const { updateMany } = vi.hoisted(() => ({
+  updateMany: vi.fn().mockResolvedValue({ count: 1 }),
 }));
 
 vi.mock("@nojv/db", () => ({
-  submissionRepo: { updateStatusIfIn },
+  submissionRepo: {},
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+    fn({ submission: { updateMany } }),
 }));
 
-import { submissionDomain } from "@nojv/application";
+import { restoreSubmissionAfterCancelledRejudge } from "../../../packages/application/src/submission/mutations";
 
 describe("restoreSubmissionAfterCancelledRejudge", () => {
   it("only restores rows still in an in-flight status so a written verdict is never clobbered", async () => {
-    await submissionDomain.restoreSubmissionAfterCancelledRejudge("sub-1", "accepted");
+    await restoreSubmissionAfterCancelledRejudge("sub-1", "run-1", "accepted");
 
-    expect(updateStatusIfIn).toHaveBeenCalledExactlyOnceWith(
-      "sub-1",
-      ["queued", "running"],
-      "accepted",
-    );
+    expect(updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        id: "sub-1",
+        activeJudgeRunId: "run-1",
+        status: { in: ["queued", "running"] },
+      },
+      data: { activeJudgeRunId: null, status: "accepted" },
+    });
   });
 });

@@ -32,7 +32,7 @@ export async function putText(client: S3Client, key: string, content: string): P
   );
 }
 
-export async function getText(client: S3Client, key: string): Promise<string> {
+export async function getObject(client: S3Client, key: string): Promise<Buffer> {
   const response = await client.send(
     new GetObjectCommand({
       Bucket: BUCKET(),
@@ -47,7 +47,11 @@ export async function getText(client: S3Client, key: string): Promise<string> {
   for await (const chunk of body as AsyncIterable<Uint8Array>) {
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks).toString("utf-8");
+  return Buffer.concat(chunks);
+}
+
+export async function getText(client: S3Client, key: string): Promise<string> {
+  return (await getObject(client, key)).toString("utf-8");
 }
 
 export async function listByPrefix(client: S3Client, prefix: string): Promise<string[]> {

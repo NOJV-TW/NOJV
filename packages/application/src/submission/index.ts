@@ -21,11 +21,12 @@ export {
   completeJudge,
   createQueuedSubmissionRecord,
   deriveVerdictSummary,
+  failSubmissionJudgeRun,
   finalizeRejudgeLog,
   restoreSubmissionAfterCancelledRejudge,
   snapshotForRejudge,
+  startSubmissionJudgeRun,
   submitAndDispatch,
-  updateSubmissionStatus,
   type ActorContext as SubmissionActorContext,
 } from "./mutations";
 export type {
@@ -61,6 +62,10 @@ export {
   cancelRejudge,
   dispatchRejudge,
   dispatchSubmissionJudge,
+  executeRejudgeDispatch,
+  executeSubmissionJudgeDispatch,
   getRejudgeTriggeredBy,
   queryRejudgeProgress,
+  REJUDGE_DISPATCH_WORK_KIND,
+  SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
 } from "./rejudge-control";

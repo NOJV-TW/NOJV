@@ -63,8 +63,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actor = requireAuth(event);
   await problemDomain.assertProblemEditAccess(actor, params.problemId);
 
-  const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
+  const [problem, problemRow, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
     getProblemPageData(params.problemId, { includeAdvancedConfig: true }),
+    problemDomain.getProblemRowById(params.problemId),
     getProblemTestcaseSets(params.problemId),
     listProblemWorkspaceFiles(params.problemId),
   ]);
@@ -73,8 +74,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     hydrateTestcaseSets(rawTestcaseSets),
     hydrateWorkspaceFiles(rawWorkspaceFiles),
     hydrateValidatorScripts({
-      checkerKey: problem.judgeConfig.checkerKey,
-      interactorKey: problem.judgeConfig.interactorKey,
+      checkerStorage: problemRow?.checkerStorage,
+      interactorStorage: problemRow?.interactorStorage,
     }),
   ]);
 

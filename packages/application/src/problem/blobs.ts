@@ -1,18 +1,21 @@
+import { randomUUID } from "node:crypto";
+
 import {
+  assertStorageObjectPointer,
   checkerKey,
-  deleteBlob,
-  deleteBlobsByPrefix,
-  getText,
+  getVerifiedText,
   interactorKey,
-  problemPrefix,
-  putText,
+  putImmutableText,
+  storagePointerFor,
   testcaseInputFileKey,
   testcaseInputKey,
   testcaseOutputKey,
   workspaceFileKey,
+  type StorageObjectPointer,
 } from "@nojv/storage";
 
 import { storage } from "../shared/storage-singleton";
+import { guardStorageObjectWrites } from "../shared/storage-object-lifecycle";
 
 export interface TestcaseBlobInputs {
   problemId: string;
@@ -22,215 +25,171 @@ export interface TestcaseBlobInputs {
   inputFiles?: Record<string, string> | undefined;
 }
 
-export interface TestcaseBlobKeys {
-  inputKey: string;
-  outputKey: string | null;
-  inputFileKeys: Record<string, string> | null;
+export interface TestcaseBlobPointers {
+  inputStorage: StorageObjectPointer;
+  outputStorage: StorageObjectPointer | null;
+  inputFileStorage: Record<string, StorageObjectPointer> | null;
 }
 
-export async function writeTestcaseBlobs(input: TestcaseBlobInputs): Promise<TestcaseBlobKeys> {
+export async function writeTestcaseBlobs(
+  input: TestcaseBlobInputs,
+): Promise<TestcaseBlobPointers> {
   const client = storage();
-  const inputKey = testcaseInputKey(input.problemId, input.testcaseId);
-  const outputKey =
-    input.output === undefined ? null : testcaseOutputKey(input.problemId, input.testcaseId);
-  const inputFileKeys =
-    input.inputFiles && Object.keys(input.inputFiles).length > 0
-      ? Object.fromEntries(
-          Object.keys(input.inputFiles).map((name) => [
-            name,
-            testcaseInputFileKey(input.problemId, input.testcaseId, name),
-          ]),
-        )
-      : null;
-
-  const uploads: Promise<unknown>[] = [putText(client, inputKey, input.input)];
-  if (outputKey !== null && input.output !== undefined) {
-    uploads.push(putText(client, outputKey, input.output));
-  }
-  if (input.inputFiles && inputFileKeys !== null) {
-    for (const [name, content] of Object.entries(input.inputFiles)) {
-      const fileKey = inputFileKeys[name];
-      if (fileKey !== undefined) {
-        uploads.push(putText(client, fileKey, content));
-      }
-    }
-  }
-
-  await Promise.all(uploads);
-  return { inputKey, outputKey, inputFileKeys };
+  const version = randomUUID();
+  const [inputStorage, outputStorage, inputFileEntries] = await Promise.all([
+    putGuardedImmutableText(
+      client,
+      testcaseInputKey(input.problemId, input.testcaseId, version),
+      input.input,
+    ),
+    input.output === undefined
+      ? Promise.resolve(null)
+      : putGuardedImmutableText(
+          client,
+          testcaseOutputKey(input.problemId, input.testcaseId, version),
+          input.output,
+        ),
+    Promise.all(
+      Object.entries(input.inputFiles ?? {}).map(async ([name, content]) => [
+        name,
+        await putGuardedImmutableText(
+          client,
+          testcaseInputFileKey(input.problemId, input.testcaseId, version, name),
+          content,
+        ),
+      ] as const),
+    ),
+  ]);
+  return {
+    inputStorage,
+    outputStorage,
+    inputFileStorage:
+      inputFileEntries.length === 0 ? null : Object.fromEntries(inputFileEntries),
+  };
 }
 
 export async function readTestcaseBlobs(row: {
-  inputKey: string;
-  outputKey: string | null;
-  inputFileKeys: Record<string, string> | null;
+  inputStorage: unknown;
+  outputStorage: unknown;
+  inputFileStorage: unknown;
 }): Promise<{
   input: string;
   output: string | undefined;
   inputFiles: Record<string, string> | undefined;
 }> {
+  const inputStorage = assertStorageObjectPointer(row.inputStorage);
+  const outputStorage =
+    row.outputStorage === null ? null : assertStorageObjectPointer(row.outputStorage);
+  const inputFileStorage = parsePointerMap(row.inputFileStorage);
+  const fileEntries = Object.entries(inputFileStorage ?? {});
   const client = storage();
-  const fileEntries = Object.entries(row.inputFileKeys ?? {});
-
-  const [input, output, fileContents] = await Promise.all([
-    getText(client, row.inputKey),
-    row.outputKey ? getText(client, row.outputKey) : Promise.resolve(undefined),
-    Promise.all(fileEntries.map(([, key]) => getText(client, key))),
+  const [input, output, files] = await Promise.all([
+    getVerifiedText(client, inputStorage),
+    outputStorage ? getVerifiedText(client, outputStorage) : Promise.resolve(undefined),
+    Promise.all(
+      fileEntries.map(async ([name, pointer]) => [
+        name,
+        await getVerifiedText(client, pointer),
+      ] as const),
+    ),
   ]);
-
-  let inputFiles: Record<string, string> | undefined;
-  if (fileEntries.length > 0) {
-    const built: Record<string, string> = {};
-    fileEntries.forEach(([name], i) => {
-      const content = fileContents[i];
-      if (content !== undefined) {
-        built[name] = content;
-      }
-    });
-    inputFiles = built;
-  }
-
-  return { input, output, inputFiles };
+  return {
+    input,
+    output,
+    inputFiles: files.length === 0 ? undefined : Object.fromEntries(files),
+  };
 }
 
-export async function overwriteTestcaseField(
+export async function writeTestcaseField(
   problemId: string,
   testcaseId: string,
   field: "input" | "output",
   content: string,
-): Promise<void> {
+): Promise<StorageObjectPointer> {
+  const version = randomUUID();
   const key =
     field === "input"
-      ? testcaseInputKey(problemId, testcaseId)
-      : testcaseOutputKey(problemId, testcaseId);
-  await putText(storage(), key, content);
-}
-
-export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<void> {
-  try {
-    await deleteBlobsByPrefix(storage(), problemPrefix(problemId));
-  } catch (err) {
-    console.warn(
-      `[problem-blobs] orphan S3 blobs after problem delete: problemId=${problemId}`,
-      err,
-    );
-  }
-}
-
-export async function bestEffortDeleteProblemStandardBlobs(problemId: string): Promise<void> {
-  const client = storage();
-  const prefixes = [`problems/${problemId}/testcases/`, `problems/${problemId}/workspace/`];
-  for (const prefix of prefixes) {
-    try {
-      await deleteBlobsByPrefix(client, prefix);
-    } catch (err) {
-      console.warn(
-        `[problem-blobs] orphan S3 blobs after standard-mode cleanup: problemId=${problemId} prefix=${prefix}`,
-        err,
-      );
-    }
-  }
-}
-
-export async function bestEffortDeleteTestcaseBlobs(
-  problemId: string,
-  testcaseId: string,
-): Promise<void> {
-  try {
-    await deleteBlobsByPrefix(storage(), `problems/${problemId}/testcases/${testcaseId}/`);
-  } catch (err) {
-    console.warn(
-      `[problem-blobs] orphan S3 blobs after testcase delete: problemId=${problemId} testcaseId=${testcaseId}`,
-      err,
-    );
-  }
-}
-
-export async function bestEffortDeleteWorkspaceBlob(
-  problemId: string,
-  fileId: string,
-): Promise<void> {
-  try {
-    await deleteBlob(storage(), workspaceFileKey(problemId, fileId));
-  } catch (err) {
-    console.warn(
-      `[problem-blobs] orphan S3 blob after workspace file delete: problemId=${problemId} fileId=${fileId}`,
-      err,
-    );
-  }
+      ? testcaseInputKey(problemId, testcaseId, version)
+      : testcaseOutputKey(problemId, testcaseId, version);
+  return putGuardedImmutableText(storage(), key, content);
 }
 
 export async function writeWorkspaceFileBlob(
   problemId: string,
   fileId: string,
   content: string,
-): Promise<string> {
-  const key = workspaceFileKey(problemId, fileId);
-  await putText(storage(), key, content);
-  return key;
+): Promise<StorageObjectPointer> {
+  return putGuardedImmutableText(
+    storage(),
+    workspaceFileKey(problemId, fileId, randomUUID()),
+    content,
+  );
 }
 
-export async function readWorkspaceFileBlob(contentKey: string): Promise<string> {
-  return getText(storage(), contentKey);
+export async function readWorkspaceFileBlob(pointer: unknown): Promise<string> {
+  return getVerifiedText(storage(), assertStorageObjectPointer(pointer));
 }
 
-export async function readValidatorScriptBlob(key: string): Promise<string> {
-  return getText(storage(), key);
+export async function readValidatorScriptBlob(pointer: unknown): Promise<string> {
+  return getVerifiedText(storage(), assertStorageObjectPointer(pointer));
 }
 
-export async function writeCheckerScriptBlob(problemId: string, body: string): Promise<string> {
-  const key = checkerKey(problemId);
-  await putText(storage(), key, body);
-  return key;
+export async function writeCheckerScriptBlob(
+  problemId: string,
+  body: string,
+): Promise<StorageObjectPointer> {
+  const version = randomUUID();
+  return putGuardedImmutableText(storage(), checkerKey(problemId, version), body);
 }
 
 export async function writeInteractorScriptBlob(
   problemId: string,
   body: string,
-): Promise<string> {
-  const key = interactorKey(problemId);
-  await putText(storage(), key, body);
-  return key;
+): Promise<StorageObjectPointer> {
+  const version = randomUUID();
+  return putGuardedImmutableText(storage(), interactorKey(problemId, version), body);
 }
 
-export async function bestEffortDeleteCheckerScriptBlob(problemId: string): Promise<void> {
-  try {
-    await deleteBlob(storage(), checkerKey(problemId));
-  } catch (err) {
-    console.warn(`[problem-blobs] orphan checker script blob: problemId=${problemId}`, err);
-  }
+async function putGuardedImmutableText(
+  client: Parameters<typeof putImmutableText>[0],
+  key: string,
+  content: string,
+): Promise<StorageObjectPointer> {
+  const pointer = storagePointerFor(key, Buffer.from(content, "utf8"));
+  await guardStorageObjectWrites([pointer]);
+  await putImmutableText(client, key, content);
+  return pointer;
 }
 
-export async function bestEffortDeleteInteractorScriptBlob(problemId: string): Promise<void> {
-  try {
-    await deleteBlob(storage(), interactorKey(problemId));
-  } catch (err) {
-    console.warn(`[problem-blobs] orphan interactor script blob: problemId=${problemId}`, err);
-  }
-}
-
-export async function hydrateValidatorScripts(keys: {
-  checkerKey?: string | null | undefined;
-  interactorKey?: string | null | undefined;
+export async function hydrateValidatorScripts(pointers: {
+  checkerStorage?: unknown;
+  interactorStorage?: unknown;
 }): Promise<{ checkerScript: string; interactorScript: string }> {
   const client = storage();
   const [checkerScript, interactorScript] = await Promise.all([
-    keys.checkerKey ? getText(client, keys.checkerKey) : Promise.resolve(""),
-    keys.interactorKey ? getText(client, keys.interactorKey) : Promise.resolve(""),
+    pointers.checkerStorage
+      ? getVerifiedText(client, assertStorageObjectPointer(pointers.checkerStorage))
+      : Promise.resolve(""),
+    pointers.interactorStorage
+      ? getVerifiedText(client, assertStorageObjectPointer(pointers.interactorStorage))
+      : Promise.resolve(""),
   ]);
   return { checkerScript, interactorScript };
 }
 
 interface TestcaseRowLike {
-  inputKey: string;
-  outputKey: string | null;
+  inputStorage: unknown;
+  outputStorage: unknown;
 }
 
 interface TestcaseSetRowLike {
   testcases: readonly TestcaseRowLike[];
 }
 
-type HydratedTestcase<T extends TestcaseRowLike> = Omit<T, "inputKey" | "outputKey"> & {
+type HydratedTestcase<T extends TestcaseRowLike> = Omit<
+  T,
+  "inputStorage" | "outputStorage"
+> & {
   input: string;
   output: string | null;
 };
@@ -247,11 +206,16 @@ export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
     sets.map(async (set) => {
       const testcases = await Promise.all(
         set.testcases.map(async (tc) => {
+          const inputPointer = assertStorageObjectPointer(tc.inputStorage);
+          const outputPointer =
+            tc.outputStorage === null ? null : assertStorageObjectPointer(tc.outputStorage);
           const [input, output] = await Promise.all([
-            getText(client, tc.inputKey),
-            tc.outputKey ? getText(client, tc.outputKey) : Promise.resolve(null),
+            getVerifiedText(client, inputPointer),
+            outputPointer ? getVerifiedText(client, outputPointer) : Promise.resolve(null),
           ]);
-          return { ...tc, input, output } as HydratedTestcase<T["testcases"][number]>;
+          return { ...tc, input, output } as HydratedTestcase<
+            T["testcases"][number]
+          >;
         }),
       );
       return { ...set, testcases };
@@ -260,10 +224,13 @@ export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
 }
 
 interface WorkspaceFileRowLike {
-  contentKey: string;
+  contentStorage: unknown;
 }
 
-type HydratedWorkspaceFileOf<T extends WorkspaceFileRowLike> = Omit<T, "contentKey"> & {
+type HydratedWorkspaceFileOf<T extends WorkspaceFileRowLike> = Omit<
+  T,
+  "contentStorage"
+> & {
   content: string;
 };
 
@@ -272,9 +239,25 @@ export async function hydrateWorkspaceFiles<T extends WorkspaceFileRowLike>(
 ): Promise<HydratedWorkspaceFileOf<T>[]> {
   const client = storage();
   return Promise.all(
-    files.map(async (f) => {
-      const content = await getText(client, f.contentKey);
-      return { ...f, content };
-    }),
+    files.map(async (file) => ({
+      ...file,
+      content: await getVerifiedText(
+        client,
+        assertStorageObjectPointer(file.contentStorage),
+      ),
+    })),
+  );
+}
+
+function parsePointerMap(value: unknown): Record<string, StorageObjectPointer> | null {
+  if (value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Persisted input-file storage pointer map is malformed");
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([name, pointer]) => [
+      name,
+      assertStorageObjectPointer(pointer),
+    ]),
   );
 }

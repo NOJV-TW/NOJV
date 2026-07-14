@@ -22,7 +22,8 @@
     "db:bootstrap-admin": "node --env-file=../../.env --import tsx prisma/bootstrap-admin.ts",
     "db:seed:prod": "node --env-file=../../.env --import tsx prisma/prod-seed.ts",
     "db:seed:validate": "node --import tsx prisma/seeds/validate.ts",
-    "migrate:validator-scripts": "node --env-file=../../.env --import tsx prisma/scripts/migrate-validator-scripts-to-storage.ts",
+    "storage:backfill": "node --env-file=../../.env --import tsx prisma/scripts/storage-pointer-cutover.ts backfill",
+    "storage:verify": "node --env-file=../../.env --import tsx prisma/scripts/storage-pointer-cutover.ts verify",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc -p tsconfig.json --noEmit"

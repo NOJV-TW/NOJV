@@ -8,7 +8,7 @@ import {
 } from "../../fixtures/factories";
 
 import { submissionDomain, type ActorContext } from "@nojv/application";
-import { submissionSourcePrefix } from "@nojv/storage";
+import { assertStorageObjectPointer } from "@nojv/storage";
 
 const { getSubmissionForActor, getSubmissionSources, listProblemSubmissions } =
   submissionDomain;
@@ -194,7 +194,9 @@ describe("submission queries (real DB)", () => {
       expect(fetched).not.toBeNull();
       expect(fetched!.language).toBe("cpp");
       expect(fetched!.status).toBe("wrong_answer");
-      expect(fetched!.sourceStoragePrefix).toBe(submissionSourcePrefix(submission.id));
+      expect(assertStorageObjectPointer(fetched!.sourceStorage).key).toMatch(
+        new RegExp(`^submissions/${submission.id}/source-generations/[^/]+/manifest\\.json$`),
+      );
       const sources = await getSubmissionSources(submission.id);
       expect(sources.length).toBeGreaterThan(0);
       expect(sources[0]!.content).toBe("int main() {}");

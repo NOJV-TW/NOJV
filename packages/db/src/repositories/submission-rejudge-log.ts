@@ -17,6 +17,10 @@ export interface SubmissionRejudgeLogUpdateInput {
 }
 
 export const submissionRejudgeLogRepo = {
+  findById(id: string) {
+    return prisma.submissionRejudgeLog.findUnique({ where: { id } });
+  },
+
   create(input: SubmissionRejudgeLogCreateInput) {
     return prisma.submissionRejudgeLog.create({
       data: {

@@ -4,11 +4,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { problemDomain } from "@nojv/application";
 import {
+  assertStorageObjectPointer,
   checkerKey as checkerKeyFor,
-  deleteBlobsByPrefix,
   createStorageClient,
-  getText,
-  putText,
+  deleteBlobsByPrefix,
+  getVerifiedText,
+  putImmutableText,
   testcaseInputKey,
   testcaseOutputKey,
   workspaceFileKey,
@@ -73,17 +74,23 @@ async function seedFixtures(problemId: string): Promise<{
     checker: { language: "python" as const, source: "import sys\nprint('ok')\n" },
   };
 
+  let activeStorageBytes = 0;
+
   for (const [i, w] of fixtures.workspaceFiles.entries()) {
     const id = randomUUID();
-    const contentKey = workspaceFileKey(problemId, id);
-    await putText(storage, contentKey, w.content);
+    const contentStorage = await putImmutableText(
+      storage,
+      workspaceFileKey(problemId, id, randomUUID()),
+      w.content,
+    );
+    activeStorageBytes += contentStorage.size;
     await testPrisma.problemWorkspaceFile.create({
       data: {
         id,
         problemId,
         language: w.language as never,
         path: w.path,
-        contentKey,
+        contentStorage,
         visibility: "editable",
         orderIndex: i,
       },
@@ -92,30 +99,41 @@ async function seedFixtures(problemId: string): Promise<{
 
   for (const [i, tc] of fixtures.testcases.entries()) {
     const id = randomUUID();
-    const inputKey = testcaseInputKey(problemId, id);
-    const outputKey = tc.answer === null ? null : testcaseOutputKey(problemId, id);
-    await putText(storage, inputKey, tc.input);
-    if (outputKey !== null && tc.answer !== null) {
-      await putText(storage, outputKey, tc.answer);
-    }
+    const version = randomUUID();
+    const inputStorage = await putImmutableText(
+      storage,
+      testcaseInputKey(problemId, id, version),
+      tc.input,
+    );
+    const outputStorage =
+      tc.answer === null
+        ? null
+        : await putImmutableText(storage, testcaseOutputKey(problemId, id, version), tc.answer);
+    activeStorageBytes += inputStorage.size + (outputStorage?.size ?? 0);
     await testPrisma.testcase.create({
       data: {
         id,
         testcaseSetId: set.id,
         ordinal: i + 1,
-        inputKey,
-        ...(outputKey !== null ? { outputKey } : {}),
+        inputStorage,
+        ...(outputStorage !== null ? { outputStorage } : {}),
       },
     });
   }
 
-  await putText(storage, checkerKeyFor(problemId), fixtures.checker.source);
+  const checkerStorage = await putImmutableText(
+    storage,
+    checkerKeyFor(problemId, randomUUID()),
+    fixtures.checker.source,
+  );
+  activeStorageBytes += checkerStorage.size;
   await testPrisma.problem.update({
     where: { id: problemId },
     data: {
+      activeStorageBytes,
+      checkerStorage,
       judgeConfig: {
         type: "checker",
-        checkerKey: checkerKeyFor(problemId),
         checkerLanguage: fixtures.checker.language,
       },
     },
@@ -142,7 +160,7 @@ async function snapshot(problemId: string): Promise<Snapshot> {
     workspaceRows.map(async (w) => ({
       language: w.language,
       path: w.path,
-      content: await getText(storage, w.contentKey),
+      content: await getVerifiedText(storage, assertStorageObjectPointer(w.contentStorage)),
     })),
   );
 
@@ -154,8 +172,11 @@ async function snapshot(problemId: string): Promise<Snapshot> {
   const flat: { input: string; answer: string | null }[] = [];
   for (const set of sets) {
     for (const tc of set.testcases) {
-      const input = await getText(storage, tc.inputKey);
-      const answer = tc.outputKey ? await getText(storage, tc.outputKey) : null;
+      const input = await getVerifiedText(storage, assertStorageObjectPointer(tc.inputStorage));
+      const answer =
+        tc.outputStorage === null
+          ? null
+          : await getVerifiedText(storage, assertStorageObjectPointer(tc.outputStorage));
       flat.push({ input, answer });
     }
   }
@@ -163,12 +184,17 @@ async function snapshot(problemId: string): Promise<Snapshot> {
   const problem = await testPrisma.problem.findUniqueOrThrow({ where: { id: problemId } });
   const cfg = problem.judgeConfig as {
     type?: string;
-    checkerKey?: string | null;
     checkerLanguage?: string | null;
   };
   const checker =
-    cfg.checkerKey && cfg.checkerLanguage
-      ? { language: cfg.checkerLanguage, source: await getText(storage, cfg.checkerKey) }
+    problem.checkerStorage && cfg.checkerLanguage
+      ? {
+          language: cfg.checkerLanguage,
+          source: await getVerifiedText(
+            storage,
+            assertStorageObjectPointer(problem.checkerStorage),
+          ),
+        }
       : null;
 
   return {

@@ -2,6 +2,11 @@ import JSZip from "jszip";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { problemDomain } from "@nojv/application";
+import {
+  assertStorageObjectPointer,
+  createStorageClient,
+  getVerifiedText,
+} from "@nojv/storage";
 
 import { createTestProblem, testPrisma } from "../../fixtures/factories";
 import type { ProblemActorContext } from "../../../packages/application/src/problem/permissions";
@@ -75,11 +80,16 @@ describe("importBundle (real Postgres, mocked storage)", () => {
     });
     const judgeConfig = problem.judgeConfig as {
       type: string;
-      checkerKey?: string | null;
       checkerLanguage?: string | null;
     };
+    expect(
+      await getVerifiedText(
+        createStorageClient(),
+        assertStorageObjectPointer(problem.checkerStorage),
+      ),
+    ).toBe("print('ok')\n");
     expect(judgeConfig.type).toBe("checker");
-    expect(judgeConfig.checkerKey).toBe(`problems/${seeded.problemId}/validator/checker`);
+    expect(judgeConfig).not.toHaveProperty("checkerKey");
     expect(judgeConfig.checkerLanguage).toBe("python");
   });
 

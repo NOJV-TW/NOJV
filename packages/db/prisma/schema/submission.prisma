@@ -34,13 +34,15 @@ model Submission {
   assessmentId            String?
   sampleOnly              Boolean           @default(false)
   language                SupportedLanguage
-  sourceStoragePrefix     String
+  sourceStorage           Json
   status                  SubmissionStatus  @default(queued)
   score                   Int               @default(0)
   runtimeMs               Int?
   memoryKb                Int?
   verdictSummary          Json?
-  verdictDetailStorageKey String?
+  verdictDetailStorage    Json?
+  judgeGeneration         Int               @default(0)
+  activeJudgeRunId        String?
   advancedConfigSnapshot  Json?
   ipAddress               String?
 

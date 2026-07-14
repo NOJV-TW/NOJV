@@ -4,8 +4,8 @@ import { PassThrough, Readable } from "node:stream";
 import archiver from "archiver";
 import { Open, type File as ZipFile } from "unzipper";
 
-import type { Prisma } from "@nojv/db";
 import {
+  Prisma,
   problemRepo,
   problemWorkspaceFileRepo,
   runTransaction,
@@ -18,27 +18,28 @@ import { judgeConfigSchema } from "@nojv/core";
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 
-import {
-  bestEffortDeleteCheckerScriptBlob,
-  bestEffortDeleteInteractorScriptBlob,
-} from "./blobs";
 import { assertProblemEditAccess, type ProblemActorContext } from "./permissions";
 import { PROBLEM_STORAGE_BUDGET_BYTES } from "./storage-budget";
 import { readZipEntryBounded } from "./zip-utils";
 
 import {
   checkerKey as checkerKeyFor,
-  deleteBlob,
-  getText,
+  assertStorageObjectPointer,
+  getVerifiedText,
   interactorKey as interactorKeyFor,
-  listByPrefix,
-  putText,
+  putImmutableText,
+  storagePointerFor,
   testcaseInputKey,
   testcaseOutputKey,
   workspaceFileKey,
+  type StorageObjectPointer,
 } from "@nojv/storage";
 
-import { storage, type StorageClient } from "../shared/storage-singleton";
+import { storage } from "../shared/storage-singleton";
+import {
+  commitStoragePointerSwap,
+  guardStorageObjectWrites,
+} from "../shared/storage-object-lifecycle";
 
 const MAX_BUNDLE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
 const MAX_BUNDLE_ENTRIES = 200;
@@ -229,47 +230,61 @@ async function parseBundle(zipBuffer: Buffer): Promise<ParsedBundle> {
 
 interface PreparedTestcase {
   id: string;
-  inputKey: string;
-  outputKey: string | null;
-  input: string;
-  output: string | null;
+  inputStorage: StorageObjectPointer;
+  outputStorage: StorageObjectPointer | null;
 }
 
 interface PreparedWorkspaceFile {
   id: string;
-  contentKey: string;
+  contentStorage: StorageObjectPointer;
   language: Language;
   path: string;
-  content: string;
 }
 
-function prepareTestcases(problemId: string, testcases: BundleTestcase[]): PreparedTestcase[] {
-  return testcases.map((tc) => {
-    const id = randomUUID();
-    return {
-      id,
-      inputKey: testcaseInputKey(problemId, id),
-      outputKey: tc.answer === null ? null : testcaseOutputKey(problemId, id),
-      input: tc.input,
-      output: tc.answer,
-    };
-  });
+async function prepareTestcases(
+  problemId: string,
+  testcases: BundleTestcase[],
+): Promise<PreparedTestcase[]> {
+  const client = storage();
+  return Promise.all(
+    testcases.map(async (testcase) => {
+      const id = randomUUID();
+      const version = randomUUID();
+      const [inputStorage, outputStorage] = await Promise.all([
+        putGuardedText(client, testcaseInputKey(problemId, id, version), testcase.input),
+        testcase.answer === null
+          ? Promise.resolve(null)
+          : putGuardedText(
+              client,
+              testcaseOutputKey(problemId, id, version),
+              testcase.answer,
+            ),
+      ]);
+      return { id, inputStorage, outputStorage };
+    }),
+  );
 }
 
-function prepareWorkspaceFiles(
+async function prepareWorkspaceFiles(
   problemId: string,
   workspace: BundleWorkspaceFile[],
-): PreparedWorkspaceFile[] {
-  return workspace.map((w) => {
-    const id = randomUUID();
-    return {
-      id,
-      contentKey: workspaceFileKey(problemId, id),
-      language: w.language,
-      path: w.path,
-      content: w.content,
-    };
-  });
+): Promise<PreparedWorkspaceFile[]> {
+  const client = storage();
+  return Promise.all(
+    workspace.map(async (file) => {
+      const id = randomUUID();
+      return {
+        id,
+        contentStorage: await putGuardedText(
+          client,
+          workspaceFileKey(problemId, id, randomUUID()),
+          file.content,
+        ),
+        language: file.language,
+        path: file.path,
+      };
+    }),
+  );
 }
 
 function assertNoDuplicateWorkspaceFiles(prepared: PreparedWorkspaceFile[]): void {
@@ -283,47 +298,6 @@ function assertNoDuplicateWorkspaceFiles(prepared: PreparedWorkspaceFile[]): voi
     }
     seenWorkspace.add(key);
   }
-}
-
-function collectNewKeySet(
-  preparedTestcases: PreparedTestcase[],
-  preparedWorkspace: PreparedWorkspaceFile[],
-): Set<string> {
-  const newKeySet = new Set<string>();
-  for (const t of preparedTestcases) {
-    newKeySet.add(t.inputKey);
-    if (t.outputKey !== null) newKeySet.add(t.outputKey);
-  }
-  for (const w of preparedWorkspace) {
-    newKeySet.add(w.contentKey);
-  }
-  return newKeySet;
-}
-
-function stageBundleUploads(
-  client: StorageClient,
-  problemId: string,
-  testcases: PreparedTestcase[],
-  workspace: PreparedWorkspaceFile[],
-  parsed: ParsedBundle,
-): Promise<unknown>[] {
-  const puts: Promise<unknown>[] = [];
-  for (const t of testcases) {
-    puts.push(putText(client, t.inputKey, t.input));
-    if (t.outputKey !== null && t.output !== null) {
-      puts.push(putText(client, t.outputKey, t.output));
-    }
-  }
-  for (const w of workspace) {
-    puts.push(putText(client, w.contentKey, w.content));
-  }
-  if (parsed.checker) {
-    puts.push(putText(client, checkerKeyFor(problemId), parsed.checker.content));
-  }
-  if (parsed.interactor) {
-    puts.push(putText(client, interactorKeyFor(problemId), parsed.interactor.content));
-  }
-  return puts;
 }
 
 export async function importBundle(
@@ -341,33 +315,35 @@ export async function importBundle(
     );
   }
 
-  const preparedTestcases = prepareTestcases(problemId, parsed.testcases);
-  const preparedWorkspace = prepareWorkspaceFiles(problemId, parsed.workspace);
+  const [preparedTestcases, preparedWorkspace, checkerStorage, interactorStorage] =
+    await Promise.all([
+      prepareTestcases(problemId, parsed.testcases),
+      prepareWorkspaceFiles(problemId, parsed.workspace),
+      parsed.checker
+        ? putGuardedText(
+            storage(),
+            checkerKeyFor(problemId, randomUUID()),
+            parsed.checker.content,
+          )
+        : Promise.resolve(null),
+      parsed.interactor
+        ? putGuardedText(
+            storage(),
+            interactorKeyFor(problemId, randomUUID()),
+            parsed.interactor.content,
+          )
+        : Promise.resolve(null),
+    ]);
 
   assertNoDuplicateWorkspaceFiles(preparedWorkspace);
 
-  const client = storage();
-
-  const newKeySet = collectNewKeySet(preparedTestcases, preparedWorkspace);
-  const oldStandardKeys: string[] = [];
-  const [oldTestcaseKeys, oldWorkspaceKeys] = await Promise.all([
-    listByPrefix(client, `problems/${problemId}/testcases/`),
-    listByPrefix(client, `problems/${problemId}/workspace/`),
-  ]);
-  for (const k of oldTestcaseKeys) if (!newKeySet.has(k)) oldStandardKeys.push(k);
-  for (const k of oldWorkspaceKeys) if (!newKeySet.has(k)) oldStandardKeys.push(k);
-
-  const stagedPuts = stageBundleUploads(
-    client,
-    problemId,
-    preparedTestcases,
-    preparedWorkspace,
-    parsed,
-  );
-  await Promise.all(stagedPuts);
-
   const result = await runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
+    const [existingSets, existingWorkspace] = await Promise.all([
+      testcaseSetRepo.withTx(tx).findByProblemId(problem.id),
+      problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id),
+    ]);
 
     await testcaseSetRepo.withTx(tx).deleteByProblemId(problem.id);
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
@@ -385,9 +361,9 @@ export async function importBundle(
           id: t.id,
           ordinal: i + 1,
           testcaseSetId: set.id,
-          inputKey: t.inputKey,
+          inputStorage: t.inputStorage,
         };
-        if (t.outputKey !== null) row.outputKey = t.outputKey;
+        if (t.outputStorage !== null) row.outputStorage = t.outputStorage;
         return row;
       });
       await testcaseRepo.withTx(tx).createMany(rows);
@@ -398,7 +374,7 @@ export async function importBundle(
       const rows: Prisma.ProblemWorkspaceFileCreateManyInput[] = preparedWorkspace.map(
         (w, i) => ({
           id: w.id,
-          contentKey: w.contentKey,
+          contentStorage: w.contentStorage,
           language: w.language,
           orderIndex: i,
           path: w.path,
@@ -418,19 +394,64 @@ export async function importBundle(
     const nextCfg: JudgeConfig = {
       type: parsed.checker ? "checker" : interactorOrCurrentType,
       ...(parsed.checker
-        ? { checkerKey: checkerKeyFor(problem.id), checkerLanguage: parsed.checker.language }
-        : { checkerKey: null, checkerLanguage: null }),
+        ? { checkerLanguage: parsed.checker.language }
+        : { checkerLanguage: null }),
       ...(parsed.interactor
         ? {
-            interactorKey: interactorKeyFor(problem.id),
             interactorLanguage: parsed.interactor.language,
           }
-        : { interactorKey: null, interactorLanguage: null }),
+        : { interactorLanguage: null }),
       ...(currentCfg.runtime ? { runtime: currentCfg.runtime } : {}),
     };
 
     await problemRepo.withTx(tx).update(problem.id, {
       judgeConfig: nextCfg,
+      checkerStorage: checkerStorage ?? Prisma.DbNull,
+      interactorStorage: interactorStorage ?? Prisma.DbNull,
+      activeStorageBytes:
+        preparedTestcases.reduce(
+          (total, testcase) =>
+            total + testcase.inputStorage.size + (testcase.outputStorage?.size ?? 0),
+          0,
+        ) +
+        preparedWorkspace.reduce(
+          (total, file) => total + file.contentStorage.size,
+          0,
+        ) +
+        (checkerStorage?.size ?? 0) +
+        (interactorStorage?.size ?? 0),
+      storageGeneration: { increment: 1 },
+    });
+    await commitStoragePointerSwap(tx, {
+      added: [
+        ...preparedTestcases.flatMap(({ inputStorage, outputStorage }) => [
+          inputStorage,
+          ...(outputStorage ? [outputStorage] : []),
+        ]),
+        ...preparedWorkspace.map(({ contentStorage }) => contentStorage),
+        ...[checkerStorage, interactorStorage].filter(
+          (pointer): pointer is StorageObjectPointer => pointer !== null,
+        ),
+      ],
+      removed: [
+        ...existingSets.flatMap(({ testcases }) =>
+          testcases.flatMap((testcase) => [
+            assertStorageObjectPointer(testcase.inputStorage),
+            ...(testcase.outputStorage === null
+              ? []
+              : [assertStorageObjectPointer(testcase.outputStorage)]),
+            ...Object.values(
+              (testcase.inputFileStorage ?? {}) as Record<string, unknown>,
+            ).map(assertStorageObjectPointer),
+          ]),
+        ),
+        ...existingWorkspace.map(({ contentStorage }) =>
+          assertStorageObjectPointer(contentStorage),
+        ),
+        ...[problem.checkerStorage, problem.interactorStorage]
+          .filter((pointer) => pointer !== null)
+          .map(assertStorageObjectPointer),
+      ],
     });
 
     return {
@@ -440,19 +461,18 @@ export async function importBundle(
     };
   });
 
-  const cleanupDeletes: Promise<unknown>[] = oldStandardKeys.map((key) =>
-    deleteBlob(client, key).catch((err: unknown) => {
-      console.warn(
-        `[problem-bundle] orphan S3 blob after import: problemId=${problemId} key=${key}`,
-        err,
-      );
-    }),
-  );
-  if (!parsed.checker) cleanupDeletes.push(bestEffortDeleteCheckerScriptBlob(problemId));
-  if (!parsed.interactor) cleanupDeletes.push(bestEffortDeleteInteractorScriptBlob(problemId));
-  await Promise.all(cleanupDeletes);
-
   return result;
+}
+
+async function putGuardedText(
+  client: Parameters<typeof putImmutableText>[0],
+  key: string,
+  content: string,
+): Promise<StorageObjectPointer> {
+  const pointer = storagePointerFor(key, Buffer.from(content, "utf8"));
+  await guardStorageObjectWrites([pointer]);
+  await putImmutableText(client, key, content);
+  return pointer;
 }
 
 export async function exportBundle(
@@ -472,13 +492,16 @@ export async function exportBundle(
   ]);
 
   interface FlatTestcase {
-    inputKey: string;
-    outputKey: string | null;
+    inputStorage: unknown;
+    outputStorage: unknown;
   }
   const flatTestcases: FlatTestcase[] = [];
   for (const set of sets) {
     for (const tc of set.testcases) {
-      flatTestcases.push({ inputKey: tc.inputKey, outputKey: tc.outputKey });
+      flatTestcases.push({
+        inputStorage: tc.inputStorage,
+        outputStorage: tc.outputStorage,
+      });
     }
   }
 
@@ -493,24 +516,39 @@ export async function exportBundle(
     try {
       const client = storage();
       for (const [i, tc] of flatTestcases.entries()) {
-        const input = await getText(client, tc.inputKey);
+        const input = await getVerifiedText(
+          client,
+          assertStorageObjectPointer(tc.inputStorage),
+        );
         archive.append(input, { name: `testcases/${String(i)}/input.txt` });
-        if (tc.outputKey) {
-          const answer = await getText(client, tc.outputKey);
+        if (tc.outputStorage) {
+          const answer = await getVerifiedText(
+            client,
+            assertStorageObjectPointer(tc.outputStorage),
+          );
           archive.append(answer, { name: `testcases/${String(i)}/answer.txt` });
         }
       }
       for (const w of workspaceFiles) {
-        const content = await getText(client, w.contentKey);
+        const content = await getVerifiedText(
+          client,
+          assertStorageObjectPointer(w.contentStorage),
+        );
         archive.append(content, { name: `workspace/${w.path}` });
       }
-      if (cfg.checkerKey && cfg.checkerLanguage) {
-        const body = await getText(client, cfg.checkerKey);
+      if (problem.checkerStorage && cfg.checkerLanguage) {
+        const body = await getVerifiedText(
+          client,
+          assertStorageObjectPointer(problem.checkerStorage),
+        );
         const ext = cfg.checkerLanguage === "python" ? "py" : "cpp";
         archive.append(body, { name: `checker.${ext}` });
       }
-      if (cfg.interactorKey && cfg.interactorLanguage) {
-        const body = await getText(client, cfg.interactorKey);
+      if (problem.interactorStorage && cfg.interactorLanguage) {
+        const body = await getVerifiedText(
+          client,
+          assertStorageObjectPointer(problem.interactorStorage),
+        );
         const ext = cfg.interactorLanguage === "python" ? "py" : "cpp";
         archive.append(body, { name: `interactor.${ext}` });
       }
