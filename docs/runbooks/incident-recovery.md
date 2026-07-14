@@ -69,7 +69,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ### Detection
 
-- `/api/readyz` and `/api/healthz` return 503; `/api/admin/healthz` identifies
+- `/api/readyz` returns 503; `/api/admin/healthz` identifies
   Redis as the failing dependency.
 - Web app logs: spike of `Redis ECONNREFUSED`, `MOVED`, or `READONLY` errors.
 - Sign-in, 2FA, form, and write routes return 503 while the limiter is
@@ -115,7 +115,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ### Detection
 
-- `/api/readyz` and `/api/healthz` return 503; `/api/admin/healthz` identifies
+- `/api/readyz` returns 503; `/api/admin/healthz` identifies
   PostgreSQL as the failing dependency.
 - Prisma logs: `connection pool timeout` or `Cannot connect to database`.
 - Cloud SQL console: primary instance in `failover` state, or CPU / IOPS pegged.

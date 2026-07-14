@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as Storage from "@nojv/storage";
 
 const {
   problemCreate,
@@ -9,7 +10,10 @@ const {
   problemLockForUpdate,
   problemUpdate,
   problemDelete,
-  problemHasContextLinks,
+  problemFindLinked,
+  putImmutableText,
+  commitStoragePointerSwap,
+  guardStorageObjectWrites,
   submissionFindMany,
   userFindById,
   PRISMA_JSON_NULL,
@@ -22,30 +26,28 @@ const {
   problemLockForUpdate: vi.fn(),
   problemUpdate: vi.fn(),
   problemDelete: vi.fn(),
-  problemHasContextLinks: vi.fn(),
+  problemFindLinked: vi.fn(),
+  putImmutableText: vi.fn(),
+  commitStoragePointerSwap: vi.fn(),
+  guardStorageObjectWrites: vi.fn(),
   submissionFindMany: vi.fn(),
   userFindById: vi.fn(),
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
 
-vi.mock("@nojv/storage", () => {
+vi.mock("@nojv/storage", async (importOriginal) => {
+  const original = await importOriginal<typeof Storage>();
   return {
+    ...original,
     createStorageClient: vi.fn(() => ({})),
-    putText: vi.fn(() => Promise.resolve()),
-    getText: vi.fn(() => Promise.resolve("")),
-    deleteBlob: vi.fn(() => Promise.resolve()),
-    deleteBlobsByPrefix: vi.fn(() => Promise.resolve()),
-    testcaseInputKey: (problemId: string, testcaseId: string) =>
-      `problems/${problemId}/testcases/${testcaseId}/input`,
-    testcaseOutputKey: (problemId: string, testcaseId: string) =>
-      `problems/${problemId}/testcases/${testcaseId}/output`,
-    testcaseInputFileKey: (problemId: string, testcaseId: string, filename: string) =>
-      `problems/${problemId}/testcases/${testcaseId}/files/${filename}`,
-    workspaceFileKey: (problemId: string, fileId: string) =>
-      `problems/${problemId}/workspace/${fileId}`,
-    problemPrefix: (problemId: string) => `problems/${problemId}/`,
+    putImmutableText,
   };
 });
+
+vi.mock("../../../packages/application/src/shared/storage-object-lifecycle", () => ({
+  commitStoragePointerSwap,
+  guardStorageObjectWrites,
+}));
 
 vi.mock("@nojv/db", () => {
   const withTx = {
@@ -71,20 +73,26 @@ vi.mock("@nojv/db", () => {
       withTx: () => withTx,
       findById: problemFindById,
       delete: problemDelete,
-      hasContextLinks: problemHasContextLinks,
     },
     problemStatementRepo: {
       withTx: () => statementWithTx,
     },
     problemWorkspaceFileRepo: {
-      withTx: () => workspaceWithTx,
+      withTx: () => ({ ...workspaceWithTx, findByProblemId: vi.fn().mockResolvedValue([]) }),
       findByProblemId: vi.fn().mockResolvedValue([]),
     },
     testcaseSetRepo: { withTx: () => ({}) },
     testcaseRepo: { withTx: () => ({}) },
     submissionRepo: { findMany: submissionFindMany },
     userRepo: { findById: userFindById },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+      fn({
+        problem: {
+          findUnique: problemFindById,
+          findFirst: problemFindLinked,
+          delete: problemDelete,
+        },
+      }),
   };
 });
 
@@ -184,6 +192,13 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
     workspaceDeleteByProblemId.mockResolvedValue(undefined);
     workspaceCreateMany.mockResolvedValue(undefined);
     problemUpdate.mockResolvedValue(undefined);
+    putImmutableText.mockImplementation((_client: unknown, key: string, content: string) => ({
+      key,
+      sha256: "a".repeat(64),
+      size: Buffer.byteLength(content),
+    }));
+    guardStorageObjectWrites.mockResolvedValue(undefined);
+    commitStoragePointerSwap.mockResolvedValue(undefined);
   });
 
   it("accepts under-budget content (well below 1 MB)", async () => {
@@ -427,6 +442,10 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
     authorId: "usr_author",
     visibility: "private",
     status: "draft",
+    checkerStorage: null,
+    interactorStorage: null,
+    workspaceFiles: [],
+    testcaseSets: [],
   };
 
   beforeEach(() => {
@@ -436,22 +455,22 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
   });
 
   it("refuses to delete a problem still linked to a contest/exam/assignment", async () => {
-    problemHasContextLinks.mockResolvedValue(true);
+    problemFindLinked.mockResolvedValue({ id: "prob_1" });
 
     await expect(deleteProblemRecord(actor, "prob_1")).rejects.toBeInstanceOf(ConflictError);
     expect(problemDelete).not.toHaveBeenCalled();
   });
 
   it("deletes a problem with no context links", async () => {
-    problemHasContextLinks.mockResolvedValue(false);
+    problemFindLinked.mockResolvedValue(null);
 
     await expect(deleteProblemRecord(actor, "prob_1")).resolves.toBeDefined();
-    expect(problemDelete).toHaveBeenCalledWith("prob_1");
+    expect(problemDelete).toHaveBeenCalledWith({ where: { id: "prob_1" } });
   });
 
   it("refuses to delete a published problem, guarding its submission history", async () => {
     problemFindById.mockResolvedValue({ ...ownedProblem, status: "published" });
-    problemHasContextLinks.mockResolvedValue(false);
+    problemFindLinked.mockResolvedValue(null);
 
     await expect(deleteProblemRecord(actor, "prob_1")).rejects.toBeInstanceOf(ConflictError);
     expect(problemDelete).not.toHaveBeenCalled();

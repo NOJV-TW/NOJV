@@ -1,19 +1,13 @@
 import type { SandboxExecutor, SubmissionJudgeDraft } from "@nojv/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  updateStatusMock,
-  getSourcesMock,
-  getJudgeContextMock,
-  deriveModeMock,
-  cancellationSignalMock,
-} = vi.hoisted(() => ({
-  updateStatusMock: vi.fn(),
-  getSourcesMock: vi.fn(),
-  getJudgeContextMock: vi.fn(),
-  deriveModeMock: vi.fn(() => "standard"),
-  cancellationSignalMock: vi.fn(),
-}));
+const { getSourcesMock, getJudgeContextMock, deriveModeMock, cancellationSignalMock } =
+  vi.hoisted(() => ({
+    getSourcesMock: vi.fn(),
+    getJudgeContextMock: vi.fn(),
+    deriveModeMock: vi.fn(() => "standard"),
+    cancellationSignalMock: vi.fn(),
+  }));
 
 vi.mock("@temporalio/activity", () => ({
   cancellationSignal: cancellationSignalMock,
@@ -22,7 +16,6 @@ vi.mock("@temporalio/activity", () => ({
 
 vi.mock("@nojv/application", () => ({
   submissionDomain: {
-    updateSubmissionStatus: updateStatusMock,
     getSubmissionSources: getSourcesMock,
     getJudgeContext: getJudgeContextMock,
     deriveJudgeMode: deriveModeMock,
@@ -62,8 +55,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
     const result = await executeSandbox("sub_missing", draft);
 
     expect(executor.execute).not.toHaveBeenCalled();
-    expect(updateStatusMock).toHaveBeenCalledTimes(1);
-    expect(updateStatusMock).toHaveBeenNthCalledWith(1, "sub_missing", "running");
+    expect(getJudgeContextMock).not.toHaveBeenCalled();
 
     expect(result.result.verdict).toBe("system_error");
     expect(result.result.score).toBe(0);

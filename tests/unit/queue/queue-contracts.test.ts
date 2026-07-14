@@ -6,7 +6,6 @@ describe("queue contracts", () => {
     const result = submissionJudgeJobSchema.safeParse({
       submissionId: "sub-123",
       draft: {
-        mode: "practice",
         problemId: "two-sum",
         language: "python",
         sourceCode: "print('hello')",

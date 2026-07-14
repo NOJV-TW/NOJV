@@ -69,7 +69,9 @@ describe("resolveRegistryGcConfig", () => {
     );
     const defaults = resolveRegistryGcConfig({});
     expect(defaults.namespace).toBe("nojv");
-    expect(defaults.image).toBe("registry:2.8.3");
+    expect(defaults.image).toBe(
+      "registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373",
+    );
     expect(defaults.configMapName).toBe("nojv-registry-config");
     expect(defaults.runtimeSecretName).toBe("nojv-runtime-secrets");
   });

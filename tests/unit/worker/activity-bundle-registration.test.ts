@@ -45,8 +45,8 @@ function proxiedActivityNames(workflowSource: string): Set<string> {
     (m) => m[1],
   );
   for (const proxy of proxyConsts) {
-    for (const call of workflowSource.matchAll(new RegExp(`\\b${proxy}\\.(\\w+)\\(`, "g"))) {
-      names.add(call[1]);
+    for (const access of workflowSource.matchAll(new RegExp(`\\b${proxy}\\.(\\w+)\\b`, "g"))) {
+      names.add(access[1]);
     }
   }
   return names;

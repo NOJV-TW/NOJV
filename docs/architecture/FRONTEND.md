@@ -78,7 +78,6 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/auth/[...path]`                                         | GET, POST          | better-auth catch-all (session, OAuth, registration). POST sign-in/email/username rate-limited |
 | `/api/livez`                                                  | GET                | Dependency-free process probe. Always returns `{ alive: true }` while HTTP can be served       |
 | `/api/readyz`                                                 | GET                | Traffic-readiness probe. Returns only `{ ready }`; PostgreSQL + Redis gate the status          |
-| `/api/healthz`                                                | GET                | Minimal compatibility health probe. Returns only `{ ok }` with HTTP 200 or 503                 |
 | `/api/admin/healthz`                                          | GET                | Admin-only mirror returning per-subsystem `{ postgres, redis, temporal }` detail               |
 | `/api/openapi.public.json`                                    | GET                | Public OpenAPI 3.1 document (documentation-only; describes existing routes)                    |
 | `/api/openapi.internal.json`                                  | GET                | Internal OpenAPI 3.1 document (broader maintainer surface, not a compatibility contract)       |
