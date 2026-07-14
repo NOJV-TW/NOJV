@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-import { signInWithPassword } from "./_disposable-user";
+import { psql, signInWithPassword } from "./_disposable-user";
 import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
@@ -15,26 +15,6 @@ const TEMP_EMAIL = `${TEMP_USER_ID}@nojv.local`;
 const TEMP_USERNAME = `api-token-${Date.now()}`;
 const steppedUpSessionIds = new Set<string>();
 
-function pg(sql: string): string {
-  return execFileSync(
-    "docker",
-    [
-      "exec",
-      "-i",
-      "nojv-postgres-1",
-      "psql",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-U",
-      "postgres",
-      "-d",
-      "nojv",
-      "-tA",
-    ],
-    { input: sql, encoding: "utf8" },
-  ).trim();
-}
-
 test.describe("API token step-up", () => {
   test.describe.configure({ retries: 0 });
   test.setTimeout(150_000);
@@ -42,7 +22,7 @@ test.describe("API token step-up", () => {
   test.beforeAll(() => {
     // Use a disposable credential account. Enabling TOTP correctly rotates the
     // account's sessions, so a shared fixture would invalidate later tests.
-    pg(`
+    psql(`
       INSERT INTO "User" (id, email, username, name, "emailVerified", "createdAt", "updatedAt")
       VALUES ('${TEMP_USER_ID}', '${TEMP_EMAIL}', '${TEMP_USERNAME}', 'API token E2E', true, NOW(), NOW());
       INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
@@ -54,7 +34,7 @@ test.describe("API token step-up", () => {
   });
 
   test.afterAll(() => {
-    pg(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
+    psql(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
     if (steppedUpSessionIds.size > 0) {
       execFileSync("docker", [
         "exec",

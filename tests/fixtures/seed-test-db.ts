@@ -1,4 +1,8 @@
 import { testPrisma } from "./factories";
+import {
+  assertLiveTestDatabase,
+  resolveConfiguredDestructiveTestDatabase,
+} from "../setup/destructive-test-database";
 
 export const TABLES = [
   "AdminAuditLog",
@@ -50,9 +54,20 @@ export const TABLES = [
   "User",
 ] as const;
 
+type TestTable = (typeof TABLES)[number];
+
+export async function truncateTestTables(tables: readonly TestTable[]) {
+  if (tables.length === 0) throw new Error("At least one test table is required for TRUNCATE.");
+  const { expectedDatabase } = resolveConfiguredDestructiveTestDatabase();
+  const tableNames = tables.map((table) => `"${table}"`).join(", ");
+  await testPrisma.$transaction(async (tx) => {
+    await assertLiveTestDatabase(tx, expectedDatabase);
+    await tx.$executeRawUnsafe(`TRUNCATE TABLE ${tableNames} CASCADE`);
+  });
+}
+
 export async function truncateAllTables() {
-  const tableNames = TABLES.map((t) => `"${t}"`).join(", ");
-  await testPrisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableNames} CASCADE`);
+  await truncateTestTables(TABLES);
 }
 
 export async function disconnectTestDb() {

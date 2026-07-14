@@ -5,10 +5,11 @@ import { notificationDomain } from "@nojv/application";
 import { createSubscriber, keys } from "@nojv/redis";
 
 import { createTestUser, testPrisma } from "../../fixtures/factories";
+import { truncateTestTables } from "../../fixtures/seed-test-db";
 
 describe("notificationDomain (real DB + Redis)", () => {
   beforeEach(async () => {
-    await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+    await truncateTestTables(["Notification"]);
   });
 
   it("writes a notification row", async () => {

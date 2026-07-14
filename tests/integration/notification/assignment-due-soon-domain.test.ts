@@ -10,10 +10,11 @@ import {
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
+import { truncateTestTables } from "../../fixtures/seed-test-db";
 
 describe("notificationDomain.fanoutAssignmentDueSoon", () => {
   beforeEach(async () => {
-    await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+    await truncateTestTables(["Notification"]);
   });
 
   it("notifies only students below max score", async () => {
@@ -234,7 +235,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
     expect(await notificationRepo.listRecent(wantsOne.id, 10)).toHaveLength(0);
     expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(1);
 
-    await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+    await truncateTestTables(["Notification"]);
     await notificationDomain.fanoutAssignmentDueSoon(assessment.id, 1);
 
     expect(await notificationRepo.listRecent(wantsThree.id, 10)).toHaveLength(0);
@@ -245,7 +246,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
 
 describe("notificationDomain.fanoutAssignmentStarted", () => {
   beforeEach(async () => {
-    await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+    await truncateTestTables(["Notification"]);
   });
 
   it("notifies every active student regardless of score, once per student", async () => {

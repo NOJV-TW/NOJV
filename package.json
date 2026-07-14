@@ -21,6 +21,7 @@
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
     "test:coverage": "vitest run --coverage",
+    "test:db:provision": "node --import tsx tests/setup/provision-test-databases.ts",
     "test:all": "pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "typecheck": "turbo typecheck",
     "typecheck:tests": "tsc -p tests/tsconfig.json --noEmit",

@@ -86,7 +86,7 @@ test.describe("Notifications API", () => {
     const page = await context.newPage();
     const res = await page.request.patch(`/api/notifications`, {
       data: { action: "markAllRead" },
-      headers: { origin: "http://localhost:5173" },
+      headers: { origin: "http://127.0.0.1:5174" },
     });
     expect(res.status()).toBe(403);
     await context.close();

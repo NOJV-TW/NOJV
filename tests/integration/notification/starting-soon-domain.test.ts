@@ -10,9 +10,10 @@ import {
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
+import { truncateTestTables } from "../../fixtures/seed-test-db";
 
 beforeEach(async () => {
-  await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+  await truncateTestTables(["Notification"]);
 });
 
 describe("notificationDomain.fanoutExamStartingSoon", () => {

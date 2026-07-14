@@ -16,7 +16,9 @@ permissions:
   contents: read
 
 env:
-  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+  TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+  NOJV_DESTRUCTIVE_TEST_DATABASE: nojv_test
 
 jobs:
   verify:
@@ -55,6 +57,11 @@ jobs:
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
+
+      - name: Mark the destructive test database
+        run: >-
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
+          -c "COMMENT ON DATABASE nojv_test IS 'NOJV_TEST_DATABASE:nojv_test'"
 
       - name: Build @nojv/storage dependency chain for seed validator
         run: pnpm --filter @nojv/storage... build

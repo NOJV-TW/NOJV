@@ -22,7 +22,7 @@ test.describe("Course Lifecycle", () => {
         title: COURSE_TITLE,
         description: "Automated E2E test course for lifecycle verification.",
       },
-      headers: { origin: "http://localhost:5173" },
+      headers: { origin: "http://127.0.0.1:5174" },
     });
 
     const body = (await res.json()) as { type: string; location?: string };

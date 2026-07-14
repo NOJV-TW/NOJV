@@ -10,7 +10,7 @@ async function setLocaleCookie(
     {
       name: "PARAGLIDE_LOCALE",
       value: locale,
-      domain: "localhost",
+      domain: "127.0.0.1",
       path: "/",
       httpOnly: false,
       secure: false,

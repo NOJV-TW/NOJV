@@ -2,23 +2,26 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
 import type { Page } from "@playwright/test";
+import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
 
 export const TEST_PASSWORD = "password123";
 
 export function psql(sql: string): string {
+  resolveDestructiveTestDatabase("nojv_e2e_test");
   return execFileSync(
     "docker",
     [
+      "compose",
       "exec",
-      "-i",
-      "nojv-postgres-1",
+      "-T",
+      "postgres",
       "psql",
       "-v",
       "ON_ERROR_STOP=1",
       "-U",
       "postgres",
       "-d",
-      "nojv",
+      "nojv_e2e_test",
       "-tA",
     ],
     { input: sql, encoding: "utf8" },

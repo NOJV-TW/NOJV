@@ -6,7 +6,7 @@ import { apiWriteHeaders } from "./_shared";
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
-const ORIGIN = "http://localhost:5173";
+const ORIGIN = "http://127.0.0.1:5174";
 const TIMESTAMP = Date.now();
 const PROBLEM_TITLE = `Parallelogram Library E2E ${TIMESTAMP}`;
 

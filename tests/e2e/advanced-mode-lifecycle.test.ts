@@ -7,7 +7,7 @@ import { apiWriteHeaders } from "./_shared";
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
-const ORIGIN = "http://localhost:5173";
+const ORIGIN = "http://127.0.0.1:5174";
 const ADVANCED_EXAM_ID = "exam_demo_advanced_active";
 const SEEDED_ADVANCED_PROBLEM_ID = "problem_shell-scripting-lab";
 

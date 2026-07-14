@@ -1,6 +1,6 @@
 import path from "node:path";
 
-export const ORIGIN = "http://localhost:5173";
+export const ORIGIN = "http://127.0.0.1:5174";
 
 export const adminAuth = path.resolve(
   import.meta.dirname,

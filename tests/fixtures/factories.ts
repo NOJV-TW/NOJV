@@ -13,6 +13,7 @@ import {
   workspaceFileKey,
 } from "@nojv/storage";
 import { PrismaClient, type Prisma } from "../../packages/db/generated/prisma/client";
+import { resolveConfiguredDestructiveTestDatabase } from "../setup/destructive-test-database";
 
 let cachedStorage: ReturnType<typeof createStorageClient> | null = null;
 function storage() {
@@ -36,8 +37,7 @@ function buildDefaultVerdictDetail(status: SubmissionVerdict): Prisma.InputJsonV
   };
 }
 
-const TEST_DB_URL =
-  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/nojv_test";
+const TEST_DB_URL = resolveConfiguredDestructiveTestDatabase().databaseUrl;
 
 const adapter = new PrismaPg({ connectionString: TEST_DB_URL });
 
