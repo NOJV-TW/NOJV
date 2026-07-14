@@ -7,19 +7,28 @@ code. It runs the student's `main.py` against the baked `testcases/` inputs and
 writes per-case stdout into `/workspace/output/`. It holds **no answers** — those
 live only in the sibling `demo-advanced-grade` image.
 
-Built and tagged `nojv-demo-advanced-run:local` +
-`registry.nojv.tw/demo/nojv-demo-advanced-run:main` by:
+Built under the explicit local-only tag `nojv-demo-advanced-run:local` by:
 
 ```sh
 pnpm demo-advanced:build
 ```
 
-CI (`build-images.yml`) pushes the platform-registry ref on every main push (the `demo/` namespace is anonymous-pull); the seeded
-problem's `advancedConfig` points at it so Kubernetes deployments can pull it.
+For production, publish a literal release tag, inspect that exact tag in the
+authenticated registry, and set `SEED_ADVANCED_RUN_IMAGE` to the resulting
+`tag@sha256:<digest>` reference. The production seed has no mutable fallback.
+
+```sh
+DEMO_IMAGE_REGISTRY=registry.nojv.tw/demo \
+  DEMO_IMAGE_TAG=release-2026-07-15 \
+  pnpm demo-advanced:push
+```
+
+The publisher prints the two exact `SEED_ADVANCED_*_IMAGE` values after the
+registry confirms their manifest digests.
 
 The demo problem's `advancedConfig.run` in `packages/db/prisma/seeds/problems.ts`
-points at this tag, paired with the grade image so the seeded problem judges
-correctly under the real run/grade executor.
+receives this reference explicitly, paired with the grade image so the seeded
+problem judges correctly under the real run/grade executor.
 
 `nojv_runner.py` is the contract helper (don't edit); `runner.py` is the
 per-problem run logic. See the container contract in

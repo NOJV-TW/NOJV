@@ -10,10 +10,13 @@ const chartRoot = join(repoRoot, "infra/charts/nojv");
 const tempDirectories: string[] = [];
 
 function renderChart(valuesFile: string): string {
-  return execSync(`helm template nojv infra/charts/nojv -f ${valuesFile}`, {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
+  return execSync(
+    `helm template nojv infra/charts/nojv -f ${valuesFile} -f tests/fixtures/helm/immutable-image-digests.yaml`,
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
 }
 
 function renderedResource(render: string, kind: string, name: string): string {
@@ -94,7 +97,7 @@ describe("admin-elevation mixed-version deployment cutover", () => {
   it("refuses a production render without the maintenance migrator gate", () => {
     expect(() =>
       execSync(
-        "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml --set migrator.enabled=false",
+        "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml --set migrator.enabled=false",
         { cwd: repoRoot, encoding: "utf8", stdio: "pipe" },
       ),
     ).toThrow(/Production deployments require the migration maintenance gate/);

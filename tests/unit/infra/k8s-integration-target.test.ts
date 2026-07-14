@@ -105,6 +105,7 @@ describe("K8s integration wiring", () => {
       "K8S_TEST_NAMESPACE: nojv-sandbox-test-gh-${{ github.run_id }}-${{ github.run_attempt }}",
     );
     expect(workflow).toContain('--set-string sandboxNamespace="$K8S_TEST_NAMESPACE"');
+    expect(workflow).toContain("--set image.allowUnpinnedLocalBuilds=true");
     expect(workflow).toContain(
       'kubectl --context k3d-nojv-judge delete namespace "$K8S_TEST_NAMESPACE"',
     );
@@ -119,12 +120,16 @@ describe("K8s integration wiring", () => {
     const build = packageJson.scripts["demo-advanced:build"] ?? "";
     const push = packageJson.scripts["demo-advanced:push"] ?? "";
     const canonicalService = "apps/web/src/lib/server/advanced-scaffold/files/service";
+    const publisher = readFileSync(join(repoRoot, push), "utf8");
 
     expect(build).toContain("nojv-demo-advanced-service:local");
-    expect(build).toContain("registry.nojv.tw/demo/nojv-demo-advanced-service:main");
     expect(build).toContain(canonicalService);
-    expect(push).toContain("registry.nojv.tw/demo/nojv-demo-advanced-service:main");
-    expect(push).toContain(canonicalService);
+    expect(build).not.toContain(":main");
+    expect(push).toBe("scripts/publish-demo-images.sh");
+    expect(publisher).toContain("${DEMO_IMAGE_REGISTRY%/}/${name}:${DEMO_IMAGE_TAG}");
+    expect(publisher).toContain(canonicalService);
+    expect(publisher).toContain("{{.Manifest.Digest}}");
+    expect(publisher).not.toContain(":main");
   });
 
   it("imports the dedicated service image into the nightly k3d cluster", () => {

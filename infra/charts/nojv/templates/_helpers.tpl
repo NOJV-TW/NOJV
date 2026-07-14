@@ -77,10 +77,27 @@ Looks up .Values.image.repositories.<component> for the path suffix.
 {{- $registry := $img.registry -}}
 {{- $prefix := $img.repositoryPrefix -}}
 {{- $tag := default $root.Chart.AppVersion $img.tag -}}
+{{- $name := $repo -}}
+{{- if $prefix -}}
+{{- $name = printf "%s/%s" $prefix $name -}}
+{{- end -}}
 {{- if $registry -}}
-{{- printf "%s/%s/%s:%s" $registry $prefix $repo $tag -}}
+{{- $name = printf "%s/%s" $registry $name -}}
+{{- end -}}
+{{- if $img.allowUnpinnedLocalBuilds -}}
+{{- if or $registry $prefix -}}
+{{- fail "image.allowUnpinnedLocalBuilds requires empty image.registry and image.repositoryPrefix" -}}
+{{- end -}}
+{{- if ne $tag "local" -}}
+{{- fail "image.allowUnpinnedLocalBuilds requires image.tag=local" -}}
+{{- end -}}
+{{- printf "%s:%s" $name $tag -}}
 {{- else -}}
-{{- printf "%s/%s:%s" $prefix $repo $tag -}}
+{{- $digest := required (printf "image.digests.%s is required and must be registry-verified" $component) (index $img.digests $component) -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" $digest) -}}
+{{- fail (printf "image.digests.%s must be sha256:<64 lowercase hex characters>" $component) -}}
+{{- end -}}
+{{- printf "%s:%s@%s" $name $tag $digest -}}
 {{- end -}}
 {{- end }}
 

@@ -17,7 +17,8 @@ change to main's protection:
 ```
 push to main
   → build-images.yml (GitHub-hosted): build + push images to GHCR,
-    then `git checkout -B deploy`, write the commit tag into
+    then `git checkout -B deploy`, write the commit tag and all four Buildx
+    manifest digests into
     infra/charts/nojv/values-single-machine.yaml, and force-push the deploy
     branch (GITHUB_TOKEN, contents: write — allowed on the unprotected branch)
   → GitRepository/nojv tracks `deploy`
@@ -25,7 +26,7 @@ push to main
     that one revision → HelmRelease performs one upgrade → pods roll. Hands-off.
 ```
 
-`deploy` is always `main` + the built tag in the packaged chart values
+`deploy` is always `main` + the built tag and registry-verified digests in the packaged chart values
 (force-reset each build), so chart/config and image changes cannot reconcile as
 separate Helm upgrades. The HelmRelease itself has no inline image override.
 Each successful publish also retains the exact deploy commit as
@@ -50,7 +51,7 @@ git show nojv-deploy-<image-tag>:infra/charts/nojv/values-single-machine.yaml | 
 git push --force origin refs/tags/nojv-deploy-<image-tag>:refs/heads/deploy
 ```
 
-Verify the selected tag contains the intended image tag before pushing. A later
+Verify the selected release contains the intended tag and four digests before pushing. A later
 main build intentionally advances `deploy` again.
 
 ## Files
@@ -81,7 +82,8 @@ flux diff kustomization nojv --path infra/flux    # dry-run, no drift expected
 
 **Release ownership handoff:** the live release is named `nojv`. `helmrelease.yaml`
 uses the same `releaseName: nojv` so Flux's helm-controller adopts it. Pin
-`image.tag` in `values-single-machine.yaml` to the **currently deployed** sha
+`image.tag` and every `image.digests.*` value in `values-single-machine.yaml` to
+the **currently deployed** immutable references
 before the first reconcile so nothing rolls unexpectedly. **Preserve all PVCs
 — the CNPG Postgres data and MinIO buckets live on them.** If a clean reinstall
 is ever needed, `helm uninstall` must keep PVCs.

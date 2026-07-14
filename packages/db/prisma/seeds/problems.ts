@@ -100,6 +100,29 @@ export type SeedProblemDef = {
   advancedRequiredPaths?: string[];
 };
 
+export type SeedAdvancedDemoImages = {
+  run: string;
+  grade: string;
+};
+
+const PINNED_IMAGE =
+  /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
+const LOCAL_DEMO_IMAGES = {
+  run: "nojv-demo-advanced-run:local",
+  grade: "nojv-demo-advanced-grade:local",
+} as const;
+
+function validateSeedAdvancedDemoImages(images: SeedAdvancedDemoImages): void {
+  for (const phase of ["run", "grade"] as const) {
+    const image = images[phase];
+    if (image !== LOCAL_DEMO_IMAGES[phase] && !PINNED_IMAGE.test(image)) {
+      throw new Error(
+        `Advanced demo ${phase} image must be ${LOCAL_DEMO_IMAGES[phase]} for an explicit local build or a readable tag pinned by sha256 digest`,
+      );
+    }
+  }
+}
+
 const hardenedIds = [
   "problem_stateful-dhcp-parser",
   "problem_memory-leak-forensics",
@@ -198,7 +221,11 @@ async function persistJudgeConfig(
   return rest;
 }
 
-export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
+export function buildSeedProblemDefs(
+  teacherId: string,
+  advancedDemoImages: SeedAdvancedDemoImages,
+): SeedProblemDef[] {
+  validateSeedAdvancedDemoImages(advancedDemoImages);
   return [
     {
       authorId: teacherId,
@@ -1102,11 +1129,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public" as const,
       advancedConfig: {
         run: {
-          imageRef: "registry.nojv.tw/demo/nojv-demo-advanced-run:main",
+          imageRef: advancedDemoImages.run,
           imageSource: "registry",
         },
         grade: {
-          imageRef: "registry.nojv.tw/demo/nojv-demo-advanced-grade:main",
+          imageRef: advancedDemoImages.grade,
           imageSource: "registry",
         },
         network: { mode: "none" },
@@ -4691,13 +4718,16 @@ wrong(f"failed to find {secret} in {max_turns} turns")
 export async function seedProblems(
   prisma: PrismaClient,
   teacherId: string,
-  storageOverride?: SeedStorageClient,
+  options: {
+    advancedDemoImages: SeedAdvancedDemoImages;
+    storage?: SeedStorageClient;
+  },
 ) {
-  const storage = (storageOverride ?? createStorageClient()) as ReturnType<
+  const storage = (options.storage ?? createStorageClient()) as ReturnType<
     typeof createStorageClient
   >;
 
-  const problemDefs = buildSeedProblemDefs(teacherId);
+  const problemDefs = buildSeedProblemDefs(teacherId, options.advancedDemoImages);
 
   validateProblemDefinitions(problemDefs);
 

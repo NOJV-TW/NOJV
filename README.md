@@ -99,15 +99,11 @@ provisions web, the Temporal workers, the sandbox namespace policy, the
 migrator hook, and (optionally) in-cluster Postgres (CloudNativePG), Redis, and
 MinIO.
 
-```bash
-# Single-machine (k3s / kind, one node)
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-single-machine.yaml -n nojv --create-namespace
-
-# GKE (HA on a Dataplane-V2 cluster)
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml -n nojv --create-namespace
-```
+Production application images are always deployed as readable
+`tag@sha256:<manifest-digest>` references. The single-machine Flux pipeline
+records the four Buildx digests on the `deploy` branch; the GKE
+`infra/gcp/cloud-build/deploy.sh` path reads the four digests back from Artifact
+Registry before invoking Helm. The chart rejects a tag-only deployment.
 
 See [Deployment Guide](docs/operations/DEPLOYMENT.md) for the full procedure,
 the CNPG backup posture, and the Temporal prerequisite options.

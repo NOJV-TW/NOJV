@@ -65,14 +65,9 @@ namespace guardrails are all rendered by the `nojv` Helm chart at
    - ensures the Artifact Registry repository exists
    - creates or updates the required secrets
    - submits Cloud Build with an explicit image tag
-   - prints the image references for the Helm release to pin
-5. Deploy (or upgrade) the stack via Helm, pinning the tag the script printed:
-   ```bash
-   helm upgrade --install nojv infra/charts/nojv \
-     -f infra/charts/nojv/values-gke.yaml \
-     -n nojv --create-namespace \
-     --set image.tag=<TAG-from-deploy.sh>
-   ```
+   - reads each pushed tag's digest back from Artifact Registry
+   - deploys the four immutable `tag@sha256` references through Helm
+5. Verify the Helm release and rollout reported by the script.
    The migrator runs automatically as the chart's pre-install/pre-upgrade Helm
    hook; `web` is deployed by the chart as an in-cluster Deployment.
 
@@ -83,14 +78,8 @@ Two one-time prerequisites before the first install:
 - **CloudNativePG operator** (when `postgres.mode=cnpg`) — install cluster-wide so the chart can render the Postgres `Cluster` / `ScheduledBackup`.
 - **Temporal Server** — installed once via the official Helm chart (see [`gke/temporal/HA-PRODUCTION.md`](gke/temporal/HA-PRODUCTION.md)); the chart's workers target `temporal-frontend.nojv-temporal.svc.cluster.local:7233`.
 
-Then deploy with Helm, pinning the tag `deploy.sh` printed:
-
-```bash
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml \
-  -n nojv --create-namespace \
-  --set image.tag=<TAG>
-```
+Then run `infra/gcp/cloud-build/deploy.sh`; it refuses to deploy until Artifact
+Registry returns a valid sha256 digest for every application image.
 
 The chart renders web, both worker Deployments, the sandbox namespace + policy,
 and the migrator hook. The worker uses `EXECUTION_BACKEND=kubernetes` and

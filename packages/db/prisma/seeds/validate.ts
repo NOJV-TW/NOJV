@@ -44,11 +44,18 @@ function createMockPrisma() {
 const stubStorage: SeedStorageClient = {
   send: async () => ({}),
 };
+const validationDigest = `sha256:${"0".repeat(64)}`;
 
 async function main() {
   const prisma = createMockPrisma() as never;
 
-  await seedProblems(prisma, "seed_validation_teacher", stubStorage);
+  await seedProblems(prisma, "seed_validation_teacher", {
+    advancedDemoImages: {
+      run: `registry.invalid/demo/run:validation@${validationDigest}`,
+      grade: `registry.invalid/demo/grade:validation@${validationDigest}`,
+    },
+    storage: stubStorage,
+  });
 
   console.log("Seed dry-run validation succeeded.");
 }

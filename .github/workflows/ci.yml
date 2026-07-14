@@ -28,7 +28,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -42,7 +42,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:8-alpine
+        image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
         ports:
           - 6379:6379
         options: >-
@@ -89,9 +89,9 @@ jobs:
 
       - name: Lint and render the Helm umbrella chart
         run: |
-          helm lint infra/charts/nojv
-          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml >/dev/null
-          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml >/dev/null
+          helm lint infra/charts/nojv -f tests/fixtures/helm/immutable-image-digests.yaml
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml >/dev/null
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -f tests/fixtures/helm/immutable-image-digests.yaml >/dev/null
 
       - name: Verify monorepo (build, lint, typecheck, unit tests)
         run: pnpm ci:verify

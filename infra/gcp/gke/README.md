@@ -172,12 +172,7 @@ options (Temporal Cloud vs self-hosted HA) and
 3. Install **Temporal** via the official Helm chart (see
    [Temporal Server](#temporal-server)).
 4. Create a real `nojv-runtime-secrets` secret with the Cloud SQL / Memorystore connection strings **and the object-storage credentials** (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the worker reads submission sources and writes verdict blobs through `@nojv/storage`, so judging fails without them.
-5. Install the chart, pinning the image tag `deploy.sh` printed:
-   ```bash
-   helm upgrade --install nojv infra/charts/nojv \
-     -f infra/charts/nojv/values-gke.yaml \
-     -n nojv --create-namespace \
-     --set image.tag=<TAG>
-   ```
+5. Run `infra/gcp/cloud-build/deploy.sh`. It resolves the registry digest of
+   every pushed component and passes all four immutable references to Helm.
 
 This keeps the public control plane separate from the execution namespace while avoiding a long-lived sandbox service.

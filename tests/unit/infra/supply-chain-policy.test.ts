@@ -17,8 +17,22 @@ function fixture(name: string): string {
 }
 
 describe("supply-chain policy scanner", () => {
-  it.each(["valid-workflow.yml", "valid-download.sh"])("accepts %s", (name) => {
+  it.each([
+    "valid-workflow.yml",
+    "valid-download.sh",
+    "valid-images.yml",
+    "valid-images.Dockerfile",
+  ])("accepts %s", (name) => {
     expect(checkSupplyChainFile(name, fixture(name))).toEqual([]);
+  });
+
+  it("accepts digest-pinned runtime constants", () => {
+    expect(
+      checkSupplyChainFile(
+        "apps/worker/src/services/k8s-netpol-probe.ts",
+        fixture("valid-runtime-image.ts"),
+      ),
+    ).toEqual([]);
   });
 
   it.each([
@@ -29,10 +43,21 @@ describe("supply-chain policy scanner", () => {
     ["invalid-swallowed-error.sh", /swallow errors/],
     ["invalid-unversioned-chart.sh", /Helm repositories/],
     ["invalid-unversioned-download.sh", /literal version/],
+    ["invalid-unpinned-image.yml", /manifest digest/],
+    ["invalid-unpinned-base.Dockerfile", /manifest digest/],
   ])("rejects %s", (name, message) => {
     expect(checkSupplyChainFile(name, fixture(name)).map(({ message }) => message)).toEqual(
       expect.arrayContaining([expect.stringMatching(message)]),
     );
+  });
+
+  it("rejects mutable runtime constants", () => {
+    expect(
+      checkSupplyChainFile(
+        "apps/worker/src/services/k8s-netpol-probe.ts",
+        fixture("invalid-runtime-image.ts"),
+      ).map(({ message }) => message),
+    ).toEqual(expect.arrayContaining([expect.stringMatching(/manifest digest/u)]));
   });
 
   it("accepts every in-scope repository file", () => {

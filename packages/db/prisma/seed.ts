@@ -24,7 +24,12 @@ async function main() {
   console.log("Seeding database...");
 
   const { admin, teacher, taStudent, student } = await seedUsers(prisma);
-  await seedProblems(prisma, teacher.id);
+  await seedProblems(prisma, teacher.id, {
+    advancedDemoImages: {
+      run: "nojv-demo-advanced-run:local",
+      grade: "nojv-demo-advanced-grade:local",
+    },
+  });
   await seedContests(prisma);
   await seedCourses(prisma, { teacher, taStudent, student });
   const demoStudents = await seedDemoStudents(prisma, teacher);

@@ -26,7 +26,7 @@ function renderChart(valuesFile = "values-gke.yaml"): string {
   const cached = renderedCharts.get(valuesFile);
   if (cached) return cached;
   const rendered = execSync(
-    `helm template nojv infra/charts/nojv -f infra/charts/nojv/${valuesFile}`,
+    `helm template nojv infra/charts/nojv -f infra/charts/nojv/${valuesFile} -f tests/fixtures/helm/immutable-image-digests.yaml`,
     { cwd: repoRoot, encoding: "utf8" },
   );
   renderedCharts.set(valuesFile, rendered);
@@ -334,8 +334,10 @@ describe("Flux release artifact atomicity", () => {
     expect(helmRelease).toContain("reconcileStrategy: Revision");
     expect(helmRelease).not.toContain("\n  values:\n    image:\n");
     expect(gitRepository).toContain("branch: deploy");
-    expect(workflow).toContain("Expected exactly one image.tag");
-    expect(workflow).toContain("in_image && /^  tag: / { print NR }");
+    expect(workflow).toContain(
+      "IMAGE_DIGEST_WEB: ${{ needs.build-publish.outputs.web_digest }}",
+    );
+    expect(workflow).toContain('node scripts/update-deploy-image-values.mjs "$VALUES_FILE"');
     expect(workflow).toContain('git add "$VALUES_FILE"');
     expect(workflow).toContain('DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"');
     expect(workflow).toContain(

@@ -7,10 +7,22 @@ import { describe, expect, it } from "vitest";
 const repoRoot = process.cwd();
 
 function renderChart(valuesFile: string): string {
-  return execFileSync("helm", ["template", "nojv", "infra/charts/nojv", "-f", valuesFile], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
+  return execFileSync(
+    "helm",
+    [
+      "template",
+      "nojv",
+      "infra/charts/nojv",
+      "-f",
+      valuesFile,
+      "-f",
+      "tests/fixtures/helm/immutable-image-digests.yaml",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
 }
 
 function webDeployment(render: string): string {

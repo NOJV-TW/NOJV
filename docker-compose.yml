@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
     restart: unless-stopped
     environment:
       POSTGRES_DB: nojv
@@ -18,7 +18,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:8-alpine
+    image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
     restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
@@ -31,7 +31,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio
+    image: minio/minio:latest@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -49,7 +49,7 @@ services:
       retries: 5
 
   minio-init:
-    image: minio/mc
+    image: minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
     depends_on:
       minio:
         condition: service_healthy
@@ -65,7 +65,7 @@ services:
       "
 
   temporal:
-    image: temporalio/auto-setup:1.29.1
+    image: temporalio/auto-setup:1.29.1@sha256:5b3502a3b685f9eff1b925af90c57c9e3dbeccbef367cc28a2a9712c63379312
     restart: unless-stopped
     depends_on:
       postgres:
@@ -90,7 +90,7 @@ services:
       start_period: 120s
 
   temporal-ui:
-    image: temporalio/ui:2.38.2
+    image: temporalio/ui:2.38.2@sha256:ea070df1a0b8aacae43abfb91b0e70ebdaef825fd15dab32d2a2f64b33946858
     restart: unless-stopped
     depends_on:
       temporal:

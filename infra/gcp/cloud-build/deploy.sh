@@ -76,6 +76,27 @@ gcloud builds submit \
   --config infra/gcp/cloud-build/cloudbuild.yaml \
   --substitutions "_REGION=${REGION},_REPOSITORY=${REPOSITORY},_IMAGE_TAG=${IMAGE_TAG}"
 
+IMAGE_REGISTRY="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
+resolve_digest() {
+  local component="$1"
+  local digest
+  digest="$(
+    gcloud artifacts docker images describe \
+      "${IMAGE_REGISTRY}/${component}:${IMAGE_TAG}" \
+      --format='value(image_summary.digest)'
+  )"
+  if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+    echo "Artifact Registry returned an invalid digest for ${component}: ${digest}" >&2
+    exit 1
+  fi
+  printf '%s\n' "$digest"
+}
+
+WEB_DIGEST="$(resolve_digest web)"
+WORKER_DIGEST="$(resolve_digest worker)"
+SANDBOX_DIGEST="$(resolve_digest sandbox)"
+MIGRATOR_DIGEST="$(resolve_digest migrator)"
+
 # The chart reads every runtime credential from the nojv-runtime-secrets Secret
 # and provisions the migrator Job + web/worker Deployments in-cluster. Create the
 # Secret from the chart's canonical example BEFORE the first deploy:
@@ -90,10 +111,18 @@ helm upgrade --install "$RELEASE_NAME" infra/charts/nojv \
   --set image.registry="${REGION}-docker.pkg.dev" \
   --set image.repositoryPrefix="${PROJECT_ID}/${REPOSITORY}" \
   --set image.tag="${IMAGE_TAG}" \
+  --set-string image.digests.web="${WEB_DIGEST}" \
+  --set-string image.digests.worker="${WORKER_DIGEST}" \
+  --set-string image.digests.sandbox="${SANDBOX_DIGEST}" \
+  --set-string image.digests.migrator="${MIGRATOR_DIGEST}" \
   --wait --timeout 10m
 
 echo "Deployment completed:"
 echo "  release: ${RELEASE_NAME}"
 echo "  image tag: ${IMAGE_TAG}"
-echo "  registry: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
+echo "  registry: ${IMAGE_REGISTRY}"
+echo "  web digest: ${WEB_DIGEST}"
+echo "  worker digest: ${WORKER_DIGEST}"
+echo "  sandbox digest: ${SANDBOX_DIGEST}"
+echo "  migrator digest: ${MIGRATOR_DIGEST}"
 echo "  rollout: helm status ${RELEASE_NAME} -n nojv"

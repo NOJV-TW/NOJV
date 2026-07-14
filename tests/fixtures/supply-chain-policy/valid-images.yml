@@ -1,0 +1,3 @@
+services:
+  database:
+    image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac

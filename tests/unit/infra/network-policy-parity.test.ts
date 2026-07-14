@@ -21,7 +21,7 @@ let renderedChart: string | undefined;
 function renderChart(): string {
   if (renderedChart === undefined) {
     renderedChart = execSync(
-      "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml",
+      "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml",
       { cwd: repoRoot, encoding: "utf8" },
     );
   }

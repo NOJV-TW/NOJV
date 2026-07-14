@@ -11,7 +11,13 @@ const baseEnvSchema = z.object({
   WORKER_MODE: z.enum(["all", "judge", "platform"]).default("all"),
   SANDBOX_MEMORY_HEADROOM_MB: z.coerce.number().int().min(0).max(1024).default(64),
   SANDBOX_MAX_MEMORY_MB: z.coerce.number().int().min(128).max(8192).default(2048),
-  REGISTRY_GC_IMAGE: z.string().trim().min(1).default("registry:2.8.3"),
+  REGISTRY_GC_IMAGE: z
+    .string()
+    .trim()
+    .min(1)
+    .default(
+      "registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373",
+    ),
   REGISTRY_GC_NAMESPACE: z.string().trim().min(1).default("nojv"),
   REGISTRY_GC_CONFIG_CONFIGMAP: z.string().trim().min(1).default("nojv-registry-config"),
   REGISTRY_GC_S3_SECRET: z.string().trim().min(1).default("nojv-runtime-secrets"),

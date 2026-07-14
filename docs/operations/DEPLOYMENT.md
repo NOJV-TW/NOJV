@@ -338,15 +338,10 @@ worker-egress NetworkPolicy, the migrator Helm hook, and (optionally) in-cluster
 Postgres (CloudNativePG), Redis, and MinIO. The full knob reference is in
 [`infra/charts/nojv/README.md`](../../infra/charts/nojv/README.md).
 
-```bash
-# Single-machine (k3s / kind, one node) — see the k3s runbook for the CNI setup
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-single-machine.yaml -n nojv --create-namespace
-
-# GKE (HA on a Dataplane-V2 cluster)
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml -n nojv --create-namespace
-```
+The single-machine Flux release pipeline and the GKE deploy script both supply
+the image tag plus a registry-verified digest for each of web, worker, sandbox,
+and migrator. A direct Helm install must supply the same four
+`image.digests.*` values; tag-only renders fail closed.
 
 ### Prerequisites (one-time, not installed by the chart)
 
@@ -355,7 +350,9 @@ helm upgrade --install nojv infra/charts/nojv \
    web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`), required SMTP
    credentials plus `APP_BASE_URL`, OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
    `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` the seed hook
-   provisions the super admin from (password ≥ 12 chars, single-use). Copy and
+   provisions the super admin from (password ≥ 12 chars, single-use), plus
+   digest-pinned `SEED_ADVANCED_RUN_IMAGE`/`SEED_ADVANCED_GRADE_IMAGE` demo
+   refs. Copy and
    fill
    [`infra/charts/nojv/secret.example.yaml`](../../infra/charts/nojv/secret.example.yaml);
    the chart never templates secret values.
@@ -381,9 +378,9 @@ helm upgrade --install nojv infra/charts/nojv \
 ### Building images (Cloud Build)
 
 `infra/gcp/cloud-build/deploy.sh` builds and pushes the container images
-(`web`, `worker`, `sandbox`, `migrator`) to Artifact Registry
-and prints the canonical image refs. It no longer deploys anything — the chart
-does that.
+(`web`, `worker`, `sandbox`, `migrator`) to Artifact Registry, reads each pushed
+tag's digest back from the registry, and deploys the resulting immutable refs
+through Helm.
 
 ```bash
 export PROJECT_ID=...
@@ -393,8 +390,8 @@ bash infra/gcp/cloud-build/deploy.sh
 
 The image tag defaults to the short git SHA (with a `-dirty-<timestamp>` suffix
 when the worktree is dirty) — override with `IMAGE_TAG=...` for release tags.
-Pass the printed tag to the chart via `--set image.tag=<tag>` (or pin it in your
-values overlay). To run only the build step manually:
+The tag remains readable metadata; the digest is what makes the deployment
+immutable. To run only the build step manually:
 
 ```bash
 gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
@@ -403,19 +400,11 @@ gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
 
 ### GKE Rollout
 
-1. Build + push images (above); note the printed image tag.
+1. Build, resolve, and deploy images with the script above.
 2. Create the runtime secret (prerequisite 1) and ensure the CloudNativePG
    operator + Temporal Server prerequisites are installed (2 and 3).
-3. Install the chart:
-
-   ```bash
-   helm upgrade --install nojv infra/charts/nojv \
-     -f infra/charts/nojv/values-gke.yaml \
-     --set image.tag=<tag-from-deploy.sh> \
-     -n nojv --create-namespace
-   ```
-
-   This renders the namespaces (`nojv`, `nojv-sandbox`), the two worker
+3. Verify the Helm release installed by the script. It renders the namespaces
+   (`nojv`, `nojv-sandbox`), the two worker
    Deployments split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform`
    platform) with worker RBAC + PDBs, web (Deployment + Service + optional
    Ingress), the worker-egress NetworkPolicy (`networkPolicy.enabled`), the
@@ -673,13 +662,8 @@ single-machine and GKE — only the values overlay differs:
 
 1. Build + push images for the target commit and note the tag
    ([Building images](#building-images-cloud-build)).
-2. Apply it with `helm upgrade`:
-
-   ```bash
-   helm upgrade --install nojv infra/charts/nojv \
-     -f infra/charts/nojv/values-gke.yaml \
-     --set image.tag=<tag> -n nojv
-   ```
+2. Apply it through the release workflow, which carries the tag and all four
+   registry-verified digests as one atomic chart revision.
 
    The migrator Helm hook runs Prisma migrations to completion **before** the
    new `web`/`worker` Pods roll out, so the database is migrated first and the

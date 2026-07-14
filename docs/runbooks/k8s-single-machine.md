@@ -204,39 +204,35 @@ namespace, the deny-all NetworkPolicy, the LimitRange, and the ResourceQuota fro
 k3s uses **containerd**, so a `docker build` on the host is invisible to it.
 Build, then import via `k3s ctr images import` from a `docker save` tarball.
 
-**Tag to match the chart's composed image ref.** The single-machine overlay sets
-`image.registry: ""`, `image.repositoryPrefix: nojv`, `image.tag: latest` with
-per-component repos `web` / `worker` / `sandbox` / `migrator`
-(`image.repositories.*`), so the chart references the bare names
-`nojv/web:latest`, `nojv/worker:latest`, `nojv/sandbox:latest`, and
-`nojv/migrator:latest`. Build with exactly those
-tags:
+For this explicit local-build path, use the chart's narrow
+`allowUnpinnedLocalBuilds` escape hatch. It accepts only an empty registry and
+prefix with the exact tag `local`, so build these exact names:
 
 ```bash
 # Sandbox runtime (SANDBOX_IMAGE)
-docker build -t nojv/sandbox:latest -f infra/docker/sandbox-runner.Dockerfile .
+docker build -t sandbox:local -f infra/docker/sandbox-runner.Dockerfile .
 # Worker, web, and migrator app images
-docker build -t nojv/worker:latest   -f infra/docker/worker.Dockerfile .
-docker build -t nojv/web:latest      -f infra/docker/web.Dockerfile .
-docker build -t nojv/migrator:latest -f infra/docker/migrator.Dockerfile .
+docker build -t worker:local   -f infra/docker/worker.Dockerfile .
+docker build -t web:local      -f infra/docker/web.Dockerfile .
+docker build -t migrator:local -f infra/docker/migrator.Dockerfile .
 ```
 
 Import each into k3s's containerd:
 
 ```bash
-for img in nojv/sandbox:latest nojv/worker:latest nojv/web:latest nojv/migrator:latest; do
+for img in sandbox:local worker:local web:local migrator:local; do
   docker save "$img" | sudo k3s ctr images import -
 done
 sudo k3s ctr images ls | grep nojv   # confirm all four are present
 ```
 
-On **kind**, load the same tags with `kind load docker-image nojv/web:latest …`
+On **kind**, load the same tags with `kind load docker-image web:local …`
 instead of `ctr import`. The chart sets each Pod's `imagePullPolicy`, so the
 kubelet uses the imported image rather than trying to pull these
 not-in-a-registry tags.
 
 > **Alternative — a tiny in-cluster registry.** If you'd rather push than
-> `ctr import`, run one: `docker run -d -p 5000:5000 --name registry registry:2`,
+> `ctr import`, run one: `docker run -d -p 5000:5000 --name registry registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373`,
 > tag images `localhost:5000/nojv-*`, `docker push`, and reference them by that
 > ref (add `localhost:5000` to k3s's `/etc/rancher/k3s/registries.yaml`
 > `mirrors` so it pulls insecurely). This also matters for **advanced
@@ -365,6 +361,10 @@ Then install:
 ```bash
 helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-single-machine.yaml \
+  --set image.allowUnpinnedLocalBuilds=true \
+  --set-string image.registry= \
+  --set-string image.repositoryPrefix= \
+  --set-string image.tag=local \
   -n nojv --create-namespace
 ```
 
@@ -464,7 +464,8 @@ Pick the **smaller** of the CPU-bound and memory-bound limits as `pods`. Raise
 `worker.judge.concurrency` (max 64) to at least the Pod ceiling so the
 orchestrator can actually dispatch that many in parallel — but the quota, not
 the worker, is the real cap. Apply changes by editing the overlay and re-running
-`helm upgrade --install nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -n nojv`.
+the same digest-pinned release command (or the explicit local-only command from
+§5).
 
 ### Layer 2 — Worker replicas
 

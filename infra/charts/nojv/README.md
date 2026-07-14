@@ -35,18 +35,34 @@ kubectl -n nojv apply -f secret.local.yaml
 
 # 2a. Single-machine:
 helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-single-machine.yaml
+  -f infra/charts/nojv/values-single-machine.yaml \
+  --set image.tag=<release-tag> \
+  --set-string image.digests.web=<sha256:registry-verified-digest> \
+  --set-string image.digests.worker=<sha256:registry-verified-digest> \
+  --set-string image.digests.sandbox=<sha256:registry-verified-digest> \
+  --set-string image.digests.migrator=<sha256:registry-verified-digest>
 
 # 2b. GKE:
 helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml
+  -f infra/charts/nojv/values-gke.yaml \
+  --set image.tag=<release-tag> \
+  --set-string image.digests.web=<sha256:registry-verified-digest> \
+  --set-string image.digests.worker=<sha256:registry-verified-digest> \
+  --set-string image.digests.sandbox=<sha256:registry-verified-digest> \
+  --set-string image.digests.migrator=<sha256:registry-verified-digest>
 ```
+
+The chart intentionally refuses to render application workloads until all four
+digests are present. `build-images.yml` obtains them from Buildx metadata for
+the Flux deploy branch; `infra/gcp/cloud-build/deploy.sh` reads them back from
+Artifact Registry. Never copy a digest from another tag or architecture.
 
 ## Render (no cluster needed)
 
 ```bash
-helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml
-helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml
+helm template nojv infra/charts/nojv \
+  -f infra/charts/nojv/values-single-machine.yaml \
+  -f <values-file-containing-the-four-verified-image-digests>
 ```
 
 ## File tree
@@ -91,7 +107,9 @@ infra/charts/nojv/
 
 | Knob                                                                            | Default                                                            | Purpose                                                                                                             |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `image.registry` / `image.repositoryPrefix` / `image.tag`                       | `asia-east1-docker.pkg.dev` / `PROJECT_ID/nojv` / chart appVersion | image ref composition                                                                                               |
+| `image.registry` / `image.repositoryPrefix` / `image.tag`                       | `asia-east1-docker.pkg.dev` / `PROJECT_ID/nojv` / chart appVersion | readable image-name and tag composition                                                                             |
+| `image.digests.{web,worker,sandbox,migrator}`                                   | required                                                           | registry-verified manifest digest for every deployed application image                                              |
+| `image.allowUnpinnedLocalBuilds`                                                | `false`                                                            | local-only escape hatch; requires empty registry/prefix and the exact tag `local`                                   |
 | `image.repositories.*`                                                          | web/worker/sandbox/migrator                                        | per-component repo suffix                                                                                           |
 | `postgres.mode`                                                                 | `cnpg`                                                             | `cnpg` \| `cloudsql` \| `external` — drives `DATABASE_URL` derivation                                               |
 | `postgres.cnpg.instances` / `storageSize`                                       | `1` / `10Gi`                                                       | CNPG Cluster size                                                                                                   |

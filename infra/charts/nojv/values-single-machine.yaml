@@ -2,6 +2,13 @@ image:
   registry: ghcr.io
   repositoryPrefix: nojv-tw
   tag: latest
+  # The release workflow replaces these with Buildx's registry-returned digests
+  # on the deploy branch. Empty values intentionally make direct renders fail.
+  digests:
+    web: ""
+    worker: ""
+    sandbox: ""
+    migrator: ""
   repositories:
     web: nojv-web
     worker: nojv-worker

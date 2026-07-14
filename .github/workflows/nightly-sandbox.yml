@@ -23,7 +23,7 @@ jobs:
       NOJV_DESTRUCTIVE_TEST_DATABASE: nojv_test
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -112,7 +112,7 @@ jobs:
       K8S_TEST_NAMESPACE: nojv-sandbox-test-gh-${{ github.run_id }}-${{ github.run_attempt }}
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -180,6 +180,10 @@ jobs:
         run: |
           helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml \
             --set-string sandboxNamespace="$K8S_TEST_NAMESPACE" \
+            --set image.allowUnpinnedLocalBuilds=true \
+            --set-string image.registry= \
+            --set-string image.repositoryPrefix= \
+            --set-string image.tag=local \
             --show-only templates/namespaces.yaml \
             --show-only templates/sandbox-policy.yaml \
             | kubectl apply -f -
