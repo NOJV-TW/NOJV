@@ -23,6 +23,37 @@ test.describe("Problems", () => {
     await context.close();
   });
 
+  test("mobile statement dialog traps and restores keyboard focus", async ({ browser }) => {
+    const context = await browser.newContext({
+      storageState: studentAuth,
+      viewport: { width: 390, height: 844 },
+    });
+    const page = await context.newPage();
+    await page.goto("/problems/problem_warmup-sum", { waitUntil: "networkidle" });
+
+    const trigger = page.getByRole("button", { name: /view statement/i });
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog", { name: "Warmup Sum" });
+    const close = dialog.getByRole("button", { name: /close statement/i });
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await close.click();
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await context.close();
+  });
+
   test("teacher can create a problem via API and access edit page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
