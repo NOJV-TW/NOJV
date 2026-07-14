@@ -2155,6 +2155,7 @@
   "dashboard_heatmapLegendLess": "較少",
   "dashboard_heatmapLegendMore": "較多",
   "editor_loadingEditor": "編輯器載入中…",
+  "editor_loadFailed": "無法載入程式碼編輯器，請重新載入頁面後再試。",
   "editor_resetConfirmTitle": "重置編輯器",
   "editor_samplesOnly": "僅範例測資",
   "editor_submitCooldown": "{seconds} 秒後可提交",

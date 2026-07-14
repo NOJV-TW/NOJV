@@ -10,7 +10,7 @@
   } from "$lib/utils/monaco-themes";
   import { m } from "$lib/paraglide/messages.js";
   import { Skeleton } from "$lib/components/primitives/ui/skeleton";
-  import { registerCompletionProviders } from "../editor-completions";
+  import { acquireCompletionProviders } from "../editor-completions";
 
   interface Props {
     language: Language;
@@ -41,36 +41,56 @@
   let monacoEditor: Monaco.editor.IStandaloneCodeEditor | undefined;
   let monacoModule: typeof Monaco | undefined;
   let isEditorReady = $state(false);
+  let editorLoadFailed = $state(false);
 
   onMount(() => {
+    let active = true;
     let disposeTheme: (() => void) | undefined;
+    let releaseCompletions: (() => void) | undefined;
 
     void (async () => {
-      const { loadMonaco } = await import("$lib/utils/monaco-loader");
-      monacoModule = loadMonaco();
-      registerCompletionProviders(monacoModule);
-      defineNojvThemes(monacoModule);
+      try {
+        const { loadMonaco } = await import("$lib/utils/monaco-loader");
+        if (!active) return;
+        const monaco = loadMonaco();
+        monacoModule = monaco;
+        releaseCompletions = acquireCompletionProviders(monaco);
+        defineNojvThemes(monaco);
 
-      const isDark = document.documentElement.classList.contains("dark");
-      monacoEditor = monacoModule.editor.create(editorContainer, {
-        ...editorOptions,
-        language: languageIdMap[language] ?? language,
-        theme: getNojvThemeName(isDark),
-        value: drafts[language] ?? "",
-      });
+        const isDark = document.documentElement.classList.contains("dark");
+        const editor = monaco.editor.create(editorContainer, {
+          ...editorOptions,
+          language: languageIdMap[language] ?? language,
+          theme: getNojvThemeName(isDark),
+          value: drafts[language] ?? "",
+        });
+        monacoEditor = editor;
 
-      const editor = monacoEditor;
-      editor.onDidChangeModelContent(() => {
-        onchange(editor.getValue());
-      });
-      isEditorReady = true;
+        editor.onDidChangeModelContent(() => {
+          if (active) onchange(editor.getValue());
+        });
+        isEditorReady = true;
 
-      disposeTheme = watchThemeChanges(monacoModule);
+        disposeTheme = watchThemeChanges(monaco);
+      } catch {
+        disposeTheme?.();
+        disposeTheme = undefined;
+        releaseCompletions?.();
+        releaseCompletions = undefined;
+        monacoEditor?.dispose();
+        monacoEditor = undefined;
+        monacoModule = undefined;
+        if (active) editorLoadFailed = true;
+      }
     })();
 
     return () => {
+      active = false;
       disposeTheme?.();
+      releaseCompletions?.();
       monacoEditor?.dispose();
+      monacoEditor = undefined;
+      monacoModule = undefined;
     };
   });
 
@@ -89,7 +109,14 @@
 
 <div class="relative h-full w-full" class:hidden={isHidden}>
   <div bind:this={editorContainer} class="h-full w-full"></div>
-  {#if !isEditorReady}
+  {#if editorLoadFailed}
+    <div
+      class="absolute inset-0 flex items-center justify-center bg-[color:var(--color-panel)] px-4 text-body-sm text-destructive"
+      role="alert"
+    >
+      {m.editor_loadFailed()}
+    </div>
+  {:else if !isEditorReady}
     <div
       class="absolute inset-0 flex flex-col gap-2.5 bg-[color:var(--color-panel)] px-4 py-3.5"
       aria-hidden="true"

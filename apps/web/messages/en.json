@@ -2155,6 +2155,7 @@
   "dashboard_heatmapLegendLess": "Less",
   "dashboard_heatmapLegendMore": "More",
   "editor_loadingEditor": "Loading editor…",
+  "editor_loadFailed": "The code editor could not be loaded. Reload the page to try again.",
   "editor_resetConfirmTitle": "Reset editor",
   "editor_samplesOnly": "Samples only",
   "editor_submitCooldown": "Submit in {seconds}s",
