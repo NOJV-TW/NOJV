@@ -50,6 +50,7 @@ interface CallRecord {
 interface FakeOptions {
   perJob?: Map<string, { solution: string; interactor: string }>;
   outcomes?: Map<string, "succeeded" | "failed">;
+  imagePullMessage?: string;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
@@ -62,7 +63,29 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
     }),
     listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
       const jobName = String(labelSelector).split("=")[1];
-      return { items: [{ metadata: { name: `${jobName}-pod` } }] };
+      return {
+        items: [
+          {
+            metadata: { name: `${jobName}-pod` },
+            ...(opts.imagePullMessage
+              ? {
+                  status: {
+                    containerStatuses: [
+                      {
+                        state: {
+                          waiting: {
+                            reason: "ImagePullBackOff",
+                            message: opts.imagePullMessage,
+                          },
+                        },
+                      },
+                    ],
+                  },
+                }
+              : {}),
+          },
+        ],
+      };
     }),
     readNamespacedPodLog: vi.fn(async ({ name, namespace, container }: any) => {
       record.podLogsRead.push({ name, namespace, container });
@@ -81,6 +104,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
       record.jobsDeleted.push({ name, namespace });
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
+      if (opts.imagePullMessage) return { status: { active: 1 } };
       const status = opts.outcomes?.get(name) ?? "succeeded";
       return { status: { [status]: 1 } };
     }),
@@ -180,6 +204,27 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     }
   });
 
+  it("preserves a terminal image-pull outcome while exposing cleanup resource failures", async () => {
+    const record = emptyRecord();
+    const request = makeRequest(1);
+    const clients = buildFakeClients(record, {
+      imagePullMessage: "registry denied immutable image",
+    });
+    clients.batchApi.deleteNamespacedJob.mockRejectedValue({
+      code: 403,
+      message: "cleanup forbidden",
+    });
+
+    const result = await execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+    const serialized = JSON.stringify(result);
+
+    expect(result.testcaseResults[0]?.verdict).toBe("SE");
+    expect(result.scoringFeedback).toContain("registry denied immutable image");
+    expect(serialized).toContain("interactive sandbox cleanup failed");
+    expect(serialized).toContain("Job nojv-sandbox/judge-sub-int-orch-int-0");
+    expect(serialized).toContain("cleanup forbidden");
+  });
+
   it("awaits an in-flight API stage, then cleans resources before cancellation rejects", async () => {
     const record = emptyRecord();
     const request = makeRequest(1);
@@ -209,6 +254,41 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       "judge-unique-run-int-0-int",
       "judge-unique-run-int-0-sol",
     ]);
+  });
+
+  it("preserves cancellation identity and serializes a simultaneous cleanup failure", async () => {
+    const record = emptyRecord();
+    const request = makeRequest(1);
+    const clients = buildFakeClients(record);
+    let finishRead!: () => void;
+    clients.batchApi.readNamespacedJob.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRead = () => resolve({ status: { succeeded: 1 } });
+        }),
+    );
+    clients.batchApi.deleteNamespacedJob.mockRejectedValue({
+      code: 403,
+      message: "cleanup denied after cancellation",
+    });
+    const controller = new AbortController();
+    const reason = new DOMException("cancelled by Temporal", "AbortError");
+    const operation = new K8sExecutor(EXEC_CONFIG, clients).execute(request, {
+      runId: "cancel-cleanup-run",
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(record.jobsCreated).toHaveLength(1));
+
+    controller.abort(reason);
+    finishRead();
+
+    await expect(operation).rejects.toBe(reason);
+    expect(JSON.stringify({ name: reason.name, message: reason.message })).toContain(
+      "cancelled by Temporal",
+    );
+    expect(reason.message).toContain("interactive sandbox cleanup failed");
+    expect(reason.message).toContain("Job nojv-sandbox/judge-cancel-cleanup-run-int-0");
+    expect(reason.message).toContain("cleanup denied after cancellation");
   });
 
   it("creates two ConfigMaps + one Job per case, sequentially, and cleans all of them up", async () => {
